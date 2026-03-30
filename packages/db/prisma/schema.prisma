@@ -1,0 +1,159 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  owner
+  member
+}
+
+enum JobStatus {
+  queued
+  running
+  succeeded
+  failed
+  dead
+}
+
+enum PreviewStatus {
+  pending
+  ready
+  failed
+}
+
+enum ShareTargetType {
+  file
+  folder
+}
+
+model Instance {
+  id               String   @id @default("singleton")
+  name             String
+  setupCompletedAt DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model User {
+  id                    String          @id @default(cuid())
+  email                 String          @unique
+  displayName           String?
+  passwordHash          String
+  role                  UserRole        @default(member)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  sessions              Session[]
+  invitesIssued         Invite[]        @relation("InviteIssuer")
+  invitesAccepted       Invite[]        @relation("InviteAcceptor")
+  passwordResetsIssued  PasswordReset[] @relation("PasswordResetIssuer")
+  passwordResetsForUser PasswordReset[] @relation("PasswordResetUser")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model Invite {
+  id               String    @id @default(cuid())
+  email            String
+  role             UserRole  @default(member)
+  tokenHash        String    @unique
+  invitedByUserId  String
+  acceptedByUserId String?
+  acceptedAt       DateTime?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  invitedBy        User      @relation("InviteIssuer", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+  acceptedBy       User?     @relation("InviteAcceptor", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([email, revokedAt, expiresAt])
+}
+
+model PasswordReset {
+  id             String   @id @default(cuid())
+  userId         String
+  issuedByUserId String
+  tokenHash      String   @unique
+  expiresAt      DateTime
+  redeemedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation("PasswordResetUser", fields: [userId], references: [id], onDelete: Cascade)
+  issuedBy       User     @relation("PasswordResetIssuer", fields: [issuedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([userId, revokedAt, expiresAt])
+}
+
+model Folder {
+  id             String   @id @default(cuid())
+  ownerUserId    String
+  parentId       String?
+  name           String
+  isLibraryRoot  Boolean  @default(false)
+  deletedAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model File {
+  id               String        @id @default(cuid())
+  ownerUserId      String
+  folderId         String?
+  originalName     String
+  storageKey       String        @unique
+  mimeType         String
+  sizeBytes        BigInt
+  contentChecksum  String?
+  previewStatus    PreviewStatus @default(pending)
+  deletedAt        DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+model ShareLink {
+  id               String          @id @default(cuid())
+  createdByUserId  String
+  targetType       ShareTargetType
+  fileId           String?
+  folderId         String?
+  tokenHash        String          @unique
+  passwordHash     String?
+  downloadDisabled Boolean         @default(false)
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime        @default(now())
+}
+
+model BackgroundJob {
+  id           String    @id @default(cuid())
+  kind         String
+  status       JobStatus @default(queued)
+  payloadJson  Json
+  runAt        DateTime  @default(now())
+  lockedAt     DateTime?
+  lockedBy     String?
+  attemptCount Int       @default(0)
+  maxAttempts  Int       @default(5)
+  lastError    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([status, runAt])
+}

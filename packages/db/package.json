@@ -1,0 +1,35 @@
+{
+  "name": "@staaash/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./health": {
+      "types": "./dist/health.d.ts",
+      "default": "./dist/health.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "db:generate": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.6.0",
+    "@prisma/client": "^7.6.0",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.37",
+    "@types/pg": "^8.15.5",
+    "prisma": "^7.6.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

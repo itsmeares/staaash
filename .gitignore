@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# Build and framework output
+.next/
+dist/
+.turbo/
+coverage/
+.vercel/
+*.tsbuildinfo
+
+# Runtime data
+.data/
+tmp/
+temp/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test and tooling caches
+.cache/
+.eslintcache
+.stylelintcache
+.parcel-cache/
+.vite/
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
