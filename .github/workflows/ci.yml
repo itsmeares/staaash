@@ -33,6 +33,9 @@ jobs:
       - name: Generate Prisma client
         run: pnpm db:generate
 
+      - name: Build @staaash/db
+        run: pnpm --filter @staaash/db build
+
       - name: Check formatting
         run: pnpm format:check
 
