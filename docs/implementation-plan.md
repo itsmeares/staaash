@@ -125,6 +125,10 @@ Create a fresh repo that encodes the core implementation rules before feature wo
 
 ## Phase 1: Auth, Bootstrap, and Instance Setup
 
+### Status
+
+Completed
+
 ### Goal
 
 Implement the owner/member account model and one-time bootstrap flow.
