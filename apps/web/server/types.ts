@@ -8,12 +8,6 @@ export type SearchMatchKind = "exact" | "prefix" | "substring";
 
 export type HealthCheckStatus = "healthy" | "warning" | "error";
 
-export type StoredFileRef = {
-  ownerUserId: string;
-  fileId: string;
-  storageKey: string;
-};
-
 export type UploadSession = {
   id: string;
   tmpPath: string;

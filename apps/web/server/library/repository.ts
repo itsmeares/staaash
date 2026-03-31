@@ -8,6 +8,11 @@ import type {
 const libraryFolderSelect = {
   id: true,
   ownerUserId: true,
+  owner: {
+    select: {
+      username: true,
+    },
+  },
   parentId: true,
   name: true,
   isLibraryRoot: true,
@@ -19,6 +24,11 @@ const libraryFolderSelect = {
 const libraryFileSelect = {
   id: true,
   ownerUserId: true,
+  owner: {
+    select: {
+      username: true,
+    },
+  },
   folderId: true,
   originalName: true,
   storageKey: true,
@@ -76,6 +86,7 @@ type UpdateFileParams = {
   id: string;
   name?: string;
   folderId?: string | null;
+  storageKey?: string;
   mimeType?: string;
   sizeBytes?: number;
   contentChecksum?: string | null;
@@ -126,6 +137,7 @@ const toLibraryFolderSummary = (
     LibraryFolderRecord,
     | "id"
     | "ownerUserId"
+    | "owner"
     | "parentId"
     | "name"
     | "isLibraryRoot"
@@ -136,6 +148,7 @@ const toLibraryFolderSummary = (
 ): LibraryFolderSummary => ({
   id: folder.id,
   ownerUserId: folder.ownerUserId,
+  ownerUsername: folder.owner.username,
   parentId: folder.parentId,
   name: folder.name,
   isLibraryRoot: folder.isLibraryRoot,
@@ -147,6 +160,7 @@ const toLibraryFolderSummary = (
 const toStoredLibraryFile = (file: LibraryFileRecord): StoredLibraryFile => ({
   id: file.id,
   ownerUserId: file.ownerUserId,
+  ownerUsername: file.owner.username,
   folderId: file.folderId,
   name: file.originalName,
   storageKey: file.storageKey,
@@ -463,6 +477,10 @@ export const createPrismaLibraryRepository = (
 
     if ("folderId" in params) {
       data.folderId = params.folderId;
+    }
+
+    if ("storageKey" in params) {
+      data.storageKey = params.storageKey;
     }
 
     if ("mimeType" in params) {

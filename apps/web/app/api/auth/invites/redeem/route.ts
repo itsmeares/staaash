@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
   try {
     const result = await authService.redeemInvite({
       token: body.token,
+      username: body.username,
       displayName: body.displayName,
       password: body.password,
     });

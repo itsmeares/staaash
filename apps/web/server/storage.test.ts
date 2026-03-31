@@ -1,29 +1,58 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  buildStoredFileRef,
-  getOriginalStorageKey,
+  getActiveCommittedStorageKey,
+  getActiveFolderStorageKey,
   getPreviewStorageKey,
+  getTrashedCommittedStorageKey,
+  getTrashedFolderStorageKey,
+  getUserLibraryRootStorageKey,
+  getUserTrashRootStorageKey,
 } from "@/server/storage";
 
 describe("storage layout", () => {
-  it("stores originals by immutable owner and file ID", () => {
-    expect(getOriginalStorageKey("user-1", "file-1")).toBe(
-      "originals/user-1/file-1/source",
-    );
+  it("stores committed originals under the visible library tree", () => {
+    expect(
+      getActiveCommittedStorageKey({
+        username: "johnsmith",
+        folderPathSegments: ["Photos", "Trips", "Paris"],
+        fileName: "my-photo.jpg",
+      }),
+    ).toBe("library/johnsmith/Photos/Trips/Paris/my-photo.jpg");
   });
 
-  it("stores previews under an immutable preview path", () => {
+  it("stores trashed originals under the hidden trash tree", () => {
+    expect(
+      getTrashedCommittedStorageKey({
+        username: "johnsmith",
+        folderPathSegments: ["Photos", "Trips", "Paris"],
+        fileName: "my-photo.jpg",
+      }),
+    ).toBe(".trash/johnsmith/Photos/Trips/Paris/my-photo.jpg");
+  });
+
+  it("builds active and hidden folder roots per username", () => {
+    expect(getUserLibraryRootStorageKey("johnsmith")).toBe(
+      "library/johnsmith",
+    );
+    expect(getUserTrashRootStorageKey("johnsmith")).toBe(".trash/johnsmith");
+    expect(
+      getActiveFolderStorageKey({
+        username: "johnsmith",
+        folderPathSegments: ["Photos", "Trips"],
+      }),
+    ).toBe("library/johnsmith/Photos/Trips");
+    expect(
+      getTrashedFolderStorageKey({
+        username: "johnsmith",
+        folderPathSegments: ["Photos", "Trips"],
+      }),
+    ).toBe(".trash/johnsmith/Photos/Trips");
+  });
+
+  it("keeps previews under the internal preview layout", () => {
     expect(getPreviewStorageKey("user-1", "file-1", "image")).toBe(
       "previews/user-1/file-1/image.preview",
     );
-  });
-
-  it("builds stored file refs that are independent from logical folder path changes", () => {
-    expect(buildStoredFileRef("user-1", "file-1")).toEqual({
-      ownerUserId: "user-1",
-      fileId: "file-1",
-      storageKey: "originals/user-1/file-1/source",
-    });
   });
 });

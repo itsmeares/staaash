@@ -1,8 +1,15 @@
 import { randomUUID } from "node:crypto";
-import { rm } from "node:fs/promises";
+import { access, mkdir, rename, rm } from "node:fs/promises";
+import path from "node:path";
 
 import { canAccessPrivateNamespace } from "@/server/access";
 import { LibraryError } from "@/server/library/errors";
+import {
+  buildFileStorageKey,
+  buildFolderStorageKey,
+  normalizeFileName,
+  normalizeFolderName,
+} from "@/server/library/storage-layout";
 import type {
   FileMutationResult,
   FolderMutationResult,
@@ -19,13 +26,14 @@ import type {
   TrashListing,
 } from "@/server/library/types";
 import {
-  buildStoredFileRef,
+  ensureUserCommittedStorageDirectories,
   getStoragePath,
 } from "@/server/storage";
 import {
   buildSafeRenamedFileName,
   cleanupStagedUpload,
   commitStagedUpload,
+  ensureStorageParentDirectory,
   replaceCommittedUpload,
   stageUpload,
 } from "@/server/uploads";
@@ -108,39 +116,12 @@ const getFolderHref = (
   folder: Pick<LibraryFolderSummary, "id" | "isLibraryRoot">,
 ) => (folder.isLibraryRoot ? "/library" : `/library/f/${folder.id}`);
 
-const normalizeFolderName = (value: string) => {
-  const name = value.trim();
-
-  if (name.length === 0) {
-    throw new LibraryError("FOLDER_NAME_REQUIRED");
-  }
-
-  if (/[\\/]/.test(name)) {
-    throw new LibraryError("FOLDER_NAME_INVALID");
-  }
-
-  return name;
-};
-
-const normalizeFileName = (value: string) => {
-  const name = value.trim();
-
-  if (name.length === 0) {
-    throw new LibraryError("FILE_NAME_REQUIRED");
-  }
-
-  if (/[\\/]/.test(name)) {
-    throw new LibraryError("FILE_NAME_INVALID");
-  }
-
-  return name;
-};
-
 const toLibraryFileSummary = (
   file: Pick<
     StoredLibraryFile,
     | "id"
     | "ownerUserId"
+    | "ownerUsername"
     | "folderId"
     | "name"
     | "mimeType"
@@ -152,6 +133,7 @@ const toLibraryFileSummary = (
 ): LibraryFileSummary => ({
   id: file.id,
   ownerUserId: file.ownerUserId,
+  ownerUsername: file.ownerUsername,
   folderId: file.folderId,
   name: file.name,
   mimeType: file.mimeType,
@@ -280,6 +262,62 @@ const buildFilePathLabel = ({
   return `${folderPath} / ${file.name}`;
 };
 
+const buildFolderMap = (folders: LibraryFolderSummary[]) =>
+  new Map(folders.map((folder) => [folder.id, folder]));
+
+const cloneFolderMap = (folderMap: Map<string, LibraryFolderSummary>) =>
+  new Map(
+    Array.from(folderMap.entries()).map(([id, folder]) => [id, { ...folder }]),
+  );
+
+const buildUpdatedFolderMap = ({
+  folderMap,
+  updatedFolders,
+}: {
+  folderMap: Map<string, LibraryFolderSummary>;
+  updatedFolders: LibraryFolderSummary[];
+}) => {
+  const next = cloneFolderMap(folderMap);
+
+  for (const folder of updatedFolders) {
+    next.set(folder.id, folder);
+  }
+
+  return next;
+};
+
+const ensureCommittedParentDirectory = async (storageKey: string) => {
+  await ensureStorageParentDirectory(getStoragePath(storageKey));
+};
+
+const createFolderDirectory = async (storageKey: string) => {
+  await mkdir(getStoragePath(storageKey), {
+    recursive: true,
+  });
+};
+
+const removeFolderDirectory = async (storageKey: string) => {
+  await rm(getStoragePath(storageKey), {
+    recursive: true,
+    force: true,
+  });
+};
+
+const moveStorageEntry = async ({
+  fromStorageKey,
+  toStorageKey,
+}: {
+  fromStorageKey: string;
+  toStorageKey: string;
+}) => {
+  if (fromStorageKey === toStorageKey) {
+    return;
+  }
+
+  await ensureCommittedParentDirectory(toStorageKey);
+  await rename(getStoragePath(fromStorageKey), getStoragePath(toStorageKey));
+};
+
 export const createLibraryService = ({
   repo,
   now = () => new Date(),
@@ -290,7 +328,18 @@ export const createLibraryService = ({
 
   const ensureLibraryRoot = async (ownerUserId: string) => {
     const activeRepo = await resolveRepo();
-    return activeRepo.ensureLibraryRoot(ownerUserId);
+    const libraryRoot = await activeRepo.ensureLibraryRoot(ownerUserId);
+    await ensureUserCommittedStorageDirectories(libraryRoot.ownerUsername);
+    await createFolderDirectory(
+      buildFolderStorageKey({
+        folder: libraryRoot,
+        folderMap: new Map([[libraryRoot.id, libraryRoot]]),
+        libraryRoot,
+        trashed: false,
+      }),
+    );
+
+    return libraryRoot;
   };
 
   const getOwnedFolder = async ({
@@ -889,18 +938,46 @@ export const createLibraryService = ({
         parentId: parentFolder.id,
         name: normalizedName,
       });
-
-      const folder = await (
-        await resolveRepo()
-      ).createFolder({
+      const activeRepo = await resolveRepo();
+      const folderMap = buildFolderMap(
+        await activeRepo.listFoldersByOwner(parentFolder.ownerUserId, {
+          includeDeleted: true,
+        }),
+      );
+      const virtualFolder: LibraryFolderSummary = {
+        id: `pending-${randomUUID()}`,
         ownerUserId: parentFolder.ownerUserId,
+        ownerUsername: parentFolder.ownerUsername,
         parentId: parentFolder.id,
         name: normalizedName,
+        isLibraryRoot: false,
+        deletedAt: null,
+        createdAt: now(),
+        updatedAt: now(),
+      };
+      const folderStorageKey = buildFolderStorageKey({
+        folder: virtualFolder,
+        folderMap: new Map(folderMap).set(virtualFolder.id, virtualFolder),
+        libraryRoot: await ensureLibraryRoot(parentFolder.ownerUserId),
+        trashed: false,
       });
 
-      return {
-        folder,
-      };
+      await createFolderDirectory(folderStorageKey);
+
+      try {
+        const folder = await activeRepo.createFolder({
+          ownerUserId: parentFolder.ownerUserId,
+          parentId: parentFolder.id,
+          name: normalizedName,
+        });
+
+        return {
+          folder,
+        };
+      } catch (error) {
+        await removeFolderDirectory(folderStorageKey);
+        throw error;
+      }
     },
 
     async renameFolder({
@@ -924,15 +1001,99 @@ export const createLibraryService = ({
         name: normalizedName,
         excludeFolderId: folder.id,
       });
+      const activeRepo = await resolveRepo();
+      const descendants = await collectDescendants({
+        ownerUserId: folder.ownerUserId,
+        folderId: folder.id,
+        includeDeleted: true,
+      });
+      const folderIds = new Set([folder.id, ...descendants.map((item) => item.id)]);
+      const descendantFiles = await collectFilesInFolders({
+        ownerUserId: folder.ownerUserId,
+        folderIds,
+        includeDeleted: true,
+      });
+      const currentFolderMap = buildFolderMap(
+        await activeRepo.listFoldersByOwner(folder.ownerUserId, {
+          includeDeleted: true,
+        }),
+      );
+      const nextFolder = {
+        ...folder,
+        name: normalizedName,
+      };
+      const nextFolderMap = buildUpdatedFolderMap({
+        folderMap: currentFolderMap,
+        updatedFolders: [nextFolder],
+      });
+      const previousFileStates: Array<Pick<StoredLibraryFile, "id" | "storageKey">> = [];
+      const fromStorageKey = buildFolderStorageKey({
+        folder,
+        folderMap: currentFolderMap,
+        libraryRoot,
+        trashed: false,
+      });
+      const toStorageKey = buildFolderStorageKey({
+        folder: nextFolder,
+        folderMap: nextFolderMap,
+        libraryRoot,
+        trashed: false,
+      });
 
-      return {
-        folder: await (
-          await resolveRepo()
-        ).updateFolder({
+      await moveStorageEntry({
+        fromStorageKey,
+        toStorageKey,
+      });
+
+      try {
+        const updatedFolder = await activeRepo.updateFolder({
           id: folder.id,
           name: normalizedName,
-        }),
-      };
+        });
+
+        for (const descendantFile of descendantFiles) {
+          const nextStorageKey = buildFileStorageKey({
+            file: descendantFile,
+            folderMap: nextFolderMap,
+            libraryRoot,
+            trashed: false,
+          });
+
+          if (nextStorageKey === descendantFile.storageKey) {
+            continue;
+          }
+
+          previousFileStates.push({
+            id: descendantFile.id,
+            storageKey: descendantFile.storageKey,
+          });
+          await activeRepo.updateFile({
+            id: descendantFile.id,
+            storageKey: nextStorageKey,
+          });
+        }
+
+        return {
+          folder: updatedFolder,
+        };
+      } catch (error) {
+        for (const previousFileState of previousFileStates.reverse()) {
+          await activeRepo.updateFile({
+            id: previousFileState.id,
+            storageKey: previousFileState.storageKey,
+          });
+        }
+
+        await activeRepo.updateFolder({
+          id: folder.id,
+          name: folder.name,
+        });
+        await moveStorageEntry({
+          fromStorageKey: toStorageKey,
+          toStorageKey: fromStorageKey,
+        });
+        throw error;
+      }
     },
 
     async moveFolder({
@@ -982,15 +1143,95 @@ export const createLibraryService = ({
         name: folder.name,
         excludeFolderId: folder.id,
       });
+      const activeRepo = await resolveRepo();
+      const libraryRoot = await ensureLibraryRoot(folder.ownerUserId);
+      const folderIds = new Set([folder.id, ...descendants.map((item) => item.id)]);
+      const descendantFiles = await collectFilesInFolders({
+        ownerUserId: folder.ownerUserId,
+        folderIds,
+        includeDeleted: true,
+      });
+      const currentFolderMap = buildFolderMap(
+        await activeRepo.listFoldersByOwner(folder.ownerUserId, {
+          includeDeleted: true,
+        }),
+      );
+      const nextFolder = {
+        ...folder,
+        parentId: destinationFolder.id,
+      };
+      const nextFolderMap = buildUpdatedFolderMap({
+        folderMap: currentFolderMap,
+        updatedFolders: [nextFolder],
+      });
+      const previousFileStates: Array<Pick<StoredLibraryFile, "id" | "storageKey">> = [];
+      const fromStorageKey = buildFolderStorageKey({
+        folder,
+        folderMap: currentFolderMap,
+        libraryRoot,
+        trashed: false,
+      });
+      const toStorageKey = buildFolderStorageKey({
+        folder: nextFolder,
+        folderMap: nextFolderMap,
+        libraryRoot,
+        trashed: false,
+      });
 
-      return {
-        folder: await (
-          await resolveRepo()
-        ).updateFolder({
+      await moveStorageEntry({
+        fromStorageKey,
+        toStorageKey,
+      });
+
+      try {
+        const updatedFolder = await activeRepo.updateFolder({
           id: folder.id,
           parentId: destinationFolder.id,
-        }),
-      };
+        });
+
+        for (const descendantFile of descendantFiles) {
+          const nextStorageKey = buildFileStorageKey({
+            file: descendantFile,
+            folderMap: nextFolderMap,
+            libraryRoot,
+            trashed: false,
+          });
+
+          if (nextStorageKey === descendantFile.storageKey) {
+            continue;
+          }
+
+          previousFileStates.push({
+            id: descendantFile.id,
+            storageKey: descendantFile.storageKey,
+          });
+          await activeRepo.updateFile({
+            id: descendantFile.id,
+            storageKey: nextStorageKey,
+          });
+        }
+
+        return {
+          folder: updatedFolder,
+        };
+      } catch (error) {
+        for (const previousFileState of previousFileStates.reverse()) {
+          await activeRepo.updateFile({
+            id: previousFileState.id,
+            storageKey: previousFileState.storageKey,
+          });
+        }
+
+        await activeRepo.updateFolder({
+          id: folder.id,
+          parentId: folder.parentId,
+        });
+        await moveStorageEntry({
+          fromStorageKey: toStorageKey,
+          toStorageKey: fromStorageKey,
+        });
+        throw error;
+      }
     },
 
     async trashFolder({
@@ -1019,25 +1260,86 @@ export const createLibraryService = ({
         folderIds,
       });
       const activeRepo = await resolveRepo();
-
-      await activeRepo.updateFolders({
-        ids: Array.from(folderIds),
-        deletedAt,
+      const libraryRoot = await ensureLibraryRoot(folder.ownerUserId);
+      const folderMap = buildFolderMap(
+        await activeRepo.listFoldersByOwner(folder.ownerUserId, {
+          includeDeleted: true,
+        }),
+      );
+      const previousFileStates: Array<
+        Pick<StoredLibraryFile, "id" | "storageKey" | "deletedAt">
+      > = [];
+      const fromStorageKey = buildFolderStorageKey({
+        folder,
+        folderMap,
+        libraryRoot,
+        trashed: false,
       });
-      await activeRepo.updateFiles({
-        ids: descendantFiles.map((file) => file.id),
-        deletedAt,
+      const toStorageKey = buildFolderStorageKey({
+        folder,
+        folderMap,
+        libraryRoot,
+        trashed: true,
       });
 
-      return {
-        folder: assertFolderAccess(
-          {
-            actorRole,
-            actorUserId,
-          },
-          await activeRepo.findFolderById(folder.id),
-        ),
-      };
+      await moveStorageEntry({
+        fromStorageKey,
+        toStorageKey,
+      });
+
+      try {
+        await activeRepo.updateFolders({
+          ids: Array.from(folderIds),
+          deletedAt,
+        });
+
+        for (const descendantFile of descendantFiles) {
+          const trashedStorageKey = buildFileStorageKey({
+            file: descendantFile,
+            folderMap,
+            libraryRoot,
+            trashed: true,
+          });
+          previousFileStates.push({
+            id: descendantFile.id,
+            storageKey: descendantFile.storageKey,
+            deletedAt: descendantFile.deletedAt,
+          });
+          await activeRepo.updateFile({
+            id: descendantFile.id,
+            deletedAt,
+            storageKey: trashedStorageKey,
+          });
+        }
+
+        return {
+          folder: assertFolderAccess(
+            {
+              actorRole,
+              actorUserId,
+            },
+            await activeRepo.findFolderById(folder.id),
+          ),
+        };
+      } catch (error) {
+        for (const previousFileState of previousFileStates.reverse()) {
+          await activeRepo.updateFile({
+            id: previousFileState.id,
+            deletedAt: previousFileState.deletedAt,
+            storageKey: previousFileState.storageKey,
+          });
+        }
+
+        await activeRepo.updateFolders({
+          ids: Array.from(folderIds),
+          deletedAt: null,
+        });
+        await moveStorageEntry({
+          fromStorageKey: toStorageKey,
+          toStorageKey: fromStorageKey,
+        });
+        throw error;
+      }
     },
 
     async restoreFolder({
@@ -1071,25 +1373,104 @@ export const createLibraryService = ({
         folderIds,
       });
       const activeRepo = await resolveRepo();
-
-      await activeRepo.updateFolders({
-        ids: Array.from(folderIds),
-        deletedAt: null,
-      });
-      await activeRepo.updateFiles({
-        ids: descendantFiles.map((file) => file.id),
-        deletedAt: null,
-      });
-
-      const restoredFolder = await activeRepo.updateFolder({
-        id: folder.id,
+      const currentFolderMap = buildFolderMap(
+        await activeRepo.listFoldersByOwner(folder.ownerUserId, {
+          includeDeleted: true,
+        }),
+      );
+      const nextFolder = {
+        ...folder,
         parentId: restoreLocation.folderId,
+        deletedAt: null,
+      };
+      const nextFolderMap = buildUpdatedFolderMap({
+        folderMap: currentFolderMap,
+        updatedFolders: [nextFolder],
+      });
+      const previousFileStates: Array<
+        Pick<StoredLibraryFile, "id" | "storageKey" | "deletedAt">
+      > = [];
+      const fromStorageKey = buildFolderStorageKey({
+        folder,
+        folderMap: currentFolderMap,
+        libraryRoot,
+        trashed: true,
+      });
+      const toStorageKey = buildFolderStorageKey({
+        folder: nextFolder,
+        folderMap: nextFolderMap,
+        libraryRoot,
+        trashed: false,
       });
 
-      return {
-        folder: restoredFolder,
-        restoredTo: restoreLocation,
-      };
+      await moveStorageEntry({
+        fromStorageKey,
+        toStorageKey,
+      });
+
+      try {
+        await activeRepo.updateFolders({
+          ids: descendants.map((descendant) => descendant.id),
+          deletedAt: null,
+        });
+
+        const restoredFolder = await activeRepo.updateFolder({
+          id: folder.id,
+          parentId: restoreLocation.folderId,
+          deletedAt: null,
+        });
+
+        for (const descendantFile of descendantFiles) {
+          const restoredStorageKey = buildFileStorageKey({
+            file: {
+              ownerUsername: descendantFile.ownerUsername,
+              folderId: descendantFile.folderId,
+              name: descendantFile.name,
+            },
+            folderMap: nextFolderMap,
+            libraryRoot,
+            trashed: false,
+          });
+          previousFileStates.push({
+            id: descendantFile.id,
+            storageKey: descendantFile.storageKey,
+            deletedAt: descendantFile.deletedAt,
+          });
+          await activeRepo.updateFile({
+            id: descendantFile.id,
+            deletedAt: null,
+            storageKey: restoredStorageKey,
+          });
+        }
+
+        return {
+          folder: restoredFolder,
+          restoredTo: restoreLocation,
+        };
+      } catch (error) {
+        for (const previousFileState of previousFileStates.reverse()) {
+          await activeRepo.updateFile({
+            id: previousFileState.id,
+            deletedAt: previousFileState.deletedAt,
+            storageKey: previousFileState.storageKey,
+          });
+        }
+
+        await activeRepo.updateFolders({
+          ids: descendants.map((descendant) => descendant.id),
+          deletedAt: folder.deletedAt,
+        });
+        await activeRepo.updateFolder({
+          id: folder.id,
+          parentId: folder.parentId,
+          deletedAt: folder.deletedAt,
+        });
+        await moveStorageEntry({
+          fromStorageKey: toStorageKey,
+          toStorageKey: fromStorageKey,
+        });
+        throw error;
+      }
     },
 
     async renameFile({
@@ -1113,15 +1494,44 @@ export const createLibraryService = ({
         name: normalizedName,
         excludeFileId: file.id,
       });
-
-      const updated = await (await resolveRepo()).updateFile({
-        id: file.id,
+      const activeRepo = await resolveRepo();
+      const allFolders = await activeRepo.listFoldersByOwner(file.ownerUserId, {
+        includeDeleted: true,
+      });
+      const folderMap = buildFolderMap(allFolders);
+      const nextFile = {
+        ...file,
         name: normalizedName,
+      };
+      const nextStorageKey = buildFileStorageKey({
+        file: nextFile,
+        folderMap,
+        libraryRoot,
+        trashed: false,
       });
 
-      return {
-        file: toLibraryFileSummary(updated),
-      };
+      await moveStorageEntry({
+        fromStorageKey: file.storageKey,
+        toStorageKey: nextStorageKey,
+      });
+
+      try {
+        const updated = await activeRepo.updateFile({
+          id: file.id,
+          name: normalizedName,
+          storageKey: nextStorageKey,
+        });
+
+        return {
+          file: toLibraryFileSummary(updated),
+        };
+      } catch (error) {
+        await moveStorageEntry({
+          fromStorageKey: nextStorageKey,
+          toStorageKey: file.storageKey,
+        });
+        throw error;
+      }
     },
 
     async moveFile({
@@ -1154,15 +1564,45 @@ export const createLibraryService = ({
         name: file.name,
         excludeFileId: file.id,
       });
-
-      const updated = await (await resolveRepo()).updateFile({
-        id: file.id,
-        folderId: destinationFolder.id,
+      const activeRepo = await resolveRepo();
+      const libraryRoot = await ensureLibraryRoot(file.ownerUserId);
+      const folderMap = buildFolderMap(
+        await activeRepo.listFoldersByOwner(file.ownerUserId, {
+          includeDeleted: true,
+        }),
+      );
+      const nextStorageKey = buildFileStorageKey({
+        file: {
+          ...file,
+          folderId: destinationFolder.id,
+        },
+        folderMap,
+        libraryRoot,
+        trashed: false,
       });
 
-      return {
-        file: toLibraryFileSummary(updated),
-      };
+      await moveStorageEntry({
+        fromStorageKey: file.storageKey,
+        toStorageKey: nextStorageKey,
+      });
+
+      try {
+        const updated = await activeRepo.updateFile({
+          id: file.id,
+          folderId: destinationFolder.id,
+          storageKey: nextStorageKey,
+        });
+
+        return {
+          file: toLibraryFileSummary(updated),
+        };
+      } catch (error) {
+        await moveStorageEntry({
+          fromStorageKey: nextStorageKey,
+          toStorageKey: file.storageKey,
+        });
+        throw error;
+      }
     },
 
     async trashFile({
@@ -1175,15 +1615,42 @@ export const createLibraryService = ({
         actorUserId,
         fileId,
       });
-
-      const updated = await (await resolveRepo()).updateFile({
-        id: file.id,
-        deletedAt: now(),
+      const activeRepo = await resolveRepo();
+      const libraryRoot = await ensureLibraryRoot(file.ownerUserId);
+      const folderMap = buildFolderMap(
+        await activeRepo.listFoldersByOwner(file.ownerUserId, {
+          includeDeleted: true,
+        }),
+      );
+      const trashedStorageKey = buildFileStorageKey({
+        file,
+        folderMap,
+        libraryRoot,
+        trashed: true,
       });
 
-      return {
-        file: toLibraryFileSummary(updated),
-      };
+      await moveStorageEntry({
+        fromStorageKey: file.storageKey,
+        toStorageKey: trashedStorageKey,
+      });
+
+      try {
+        const updated = await activeRepo.updateFile({
+          id: file.id,
+          deletedAt: now(),
+          storageKey: trashedStorageKey,
+        });
+
+        return {
+          file: toLibraryFileSummary(updated),
+        };
+      } catch (error) {
+        await moveStorageEntry({
+          fromStorageKey: trashedStorageKey,
+          toStorageKey: file.storageKey,
+        });
+        throw error;
+      }
     },
 
     async restoreFile({
@@ -1210,17 +1677,46 @@ export const createLibraryService = ({
         name: file.name,
         excludeFileId: file.id,
       });
-
-      const updated = await (await resolveRepo()).updateFile({
-        id: file.id,
-        deletedAt: null,
-        folderId: restoreLocation.folderId,
+      const activeRepo = await resolveRepo();
+      const folderMap = buildFolderMap(
+        await activeRepo.listFoldersByOwner(file.ownerUserId, {
+          includeDeleted: true,
+        }),
+      );
+      const restoredStorageKey = buildFileStorageKey({
+        file: {
+          ...file,
+          folderId: restoreLocation.folderId,
+        },
+        folderMap,
+        libraryRoot,
+        trashed: false,
       });
 
-      return {
-        file: toLibraryFileSummary(updated),
-        restoredTo: restoreLocation,
-      };
+      await moveStorageEntry({
+        fromStorageKey: file.storageKey,
+        toStorageKey: restoredStorageKey,
+      });
+
+      try {
+        const updated = await activeRepo.updateFile({
+          id: file.id,
+          deletedAt: null,
+          folderId: restoreLocation.folderId,
+          storageKey: restoredStorageKey,
+        });
+
+        return {
+          file: toLibraryFileSummary(updated),
+          restoredTo: restoreLocation,
+        };
+      } catch (error) {
+        await moveStorageEntry({
+          fromStorageKey: restoredStorageKey,
+          toStorageKey: file.storageKey,
+        });
+        throw error;
+      }
     },
 
     async deleteFile({
@@ -1262,6 +1758,12 @@ export const createLibraryService = ({
           })
         : await ensureLibraryRoot(actorUserId);
       const activeRepo = await resolveRepo();
+      const libraryRoot = await ensureLibraryRoot(targetFolder.ownerUserId);
+      const folderMap = buildFolderMap(
+        await activeRepo.listFoldersByOwner(targetFolder.ownerUserId, {
+          includeDeleted: true,
+        }),
+      );
       const uploadedFiles: LibraryFileSummary[] = [];
       const conflicts: UploadConflictItem[] = [];
       let stagedAnyUpload = false;
@@ -1330,9 +1832,18 @@ export const createLibraryService = ({
           }
         }
 
+        const storageKey = buildFileStorageKey({
+          file: {
+            ownerUsername: targetFolder.ownerUsername,
+            folderId: targetFolder.id,
+            name: finalName,
+          },
+          folderMap,
+          libraryRoot,
+          trashed: false,
+        });
         const fileId = randomUUID();
-        const storedFileRef = buildStoredFileRef(targetFolder.ownerUserId, fileId);
-        const targetPath = getStoragePath(storedFileRef.storageKey);
+        const targetPath = getStoragePath(storageKey);
 
         try {
           await commitStagedUpload(stagedFile, targetPath);
@@ -1347,7 +1858,7 @@ export const createLibraryService = ({
             ownerUserId: targetFolder.ownerUserId,
             folderId: targetFolder.id,
             name: finalName,
-            storageKey: storedFileRef.storageKey,
+            storageKey,
             mimeType: stagedFile.mimeType,
             sizeBytes: stagedFile.sizeBytes,
             contentChecksum: stagedFile.actualChecksum,

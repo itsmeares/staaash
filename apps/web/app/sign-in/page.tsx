@@ -58,12 +58,11 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           <form className="form-grid" action="/api/auth/sign-in" method="post">
             <input type="hidden" name="next" value={next} />
             <div className="field">
-              <label htmlFor="email">Email</label>
+              <label htmlFor="identifier">Email or username</label>
               <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
+                id="identifier"
+                name="identifier"
+                autoComplete="username"
                 required
               />
             </div>

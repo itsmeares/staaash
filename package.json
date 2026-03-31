@@ -23,7 +23,8 @@
     "test": "turbo test",
     "format:check": "prettier --check .",
     "db:generate": "pnpm --filter @staaash/db db:generate",
-    "db:push": "pnpm --filter @staaash/db exec prisma db push"
+    "db:push": "pnpm --filter @staaash/db exec prisma db push",
+    "app:reset-local-data": "node scripts/reset-local-data.mjs"
   },
   "devDependencies": {
     "prettier": "^3.5.3",

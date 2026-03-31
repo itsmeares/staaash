@@ -38,6 +38,9 @@ export default async function SettingsPage({
               Signed in as <strong>{session.user.email}</strong> with the{" "}
               <strong>{session.user.role}</strong> role.
             </p>
+            <p className="muted">
+              Username <strong>@{session.user.username}</strong>
+            </p>
           </div>
           <div className="cluster">
             <Link className="pill" href="/library">

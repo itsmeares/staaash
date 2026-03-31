@@ -92,6 +92,7 @@ export type InstanceScalarFieldEnum = (typeof InstanceScalarFieldEnum)[keyof typ
 export const UserScalarFieldEnum = {
   id: 'id',
   email: 'email',
+  username: 'username',
   displayName: 'displayName',
   passwordHash: 'passwordHash',
   role: 'role',
@@ -150,7 +151,6 @@ export type PasswordResetScalarFieldEnum = (typeof PasswordResetScalarFieldEnum)
 export const FolderScalarFieldEnum = {
   id: 'id',
   ownerUserId: 'ownerUserId',
-  libraryRootKey: 'libraryRootKey',
   parentId: 'parentId',
   name: 'name',
   isLibraryRoot: 'isLibraryRoot',

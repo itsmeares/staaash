@@ -6,6 +6,7 @@ import { FormEvent, useState, useTransition } from "react";
 type AdminUser = {
   id: string;
   email: string;
+  username: string;
   displayName: string | null;
   role: string;
   createdAt: string;
@@ -195,6 +196,7 @@ export function AdminAuthConsole({
             <thead>
               <tr>
                 <th>Email</th>
+                <th>Username</th>
                 <th>Display name</th>
                 <th>Role</th>
                 <th>Created</th>
@@ -205,6 +207,9 @@ export function AdminAuthConsole({
               {initialUsers.map((user) => (
                 <tr key={user.id}>
                   <td>{user.email}</td>
+                  <td>
+                    <code>@{user.username}</code>
+                  </td>
                   <td>{user.displayName ?? "n/a"}</td>
                   <td>
                     <span

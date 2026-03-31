@@ -32,6 +32,7 @@ import type {
 type CreateBootstrapParams = {
   instanceName: string;
   email: string;
+  username: string;
   displayName?: string;
   passwordHash: string;
   createdAt: Date;
@@ -53,6 +54,7 @@ type CreateInviteParams = {
 
 type RedeemInviteParams = {
   inviteId: string;
+  username: string;
   displayName?: string;
   passwordHash: string;
   now: Date;
@@ -81,6 +83,7 @@ export type AuthRepository = {
   getSetupState(): Promise<SetupState>;
   createBootstrap(params: CreateBootstrapParams): Promise<AuthUser>;
   findUserByEmail(email: string): Promise<StoredAuthUser | null>;
+  findUserByUsername(username: string): Promise<StoredAuthUser | null>;
   findUserById(id: string): Promise<AuthUser | null>;
   listUsers(): Promise<AuthUser[]>;
   createSession(params: CreateSessionParams): Promise<AuthSession>;
@@ -111,11 +114,18 @@ export type AuthRepository = {
 const toAuthUser = (
   user: Pick<
     User,
-    "id" | "email" | "displayName" | "role" | "createdAt" | "updatedAt"
+    | "id"
+    | "email"
+    | "username"
+    | "displayName"
+    | "role"
+    | "createdAt"
+    | "updatedAt"
   >,
 ): AuthUser => ({
   id: user.id,
   email: user.email,
+  username: user.username,
   displayName: user.displayName,
   role: user.role,
   createdAt: user.createdAt,
@@ -149,6 +159,24 @@ const isUniqueConstraintError = (error: unknown) => {
   }
 
   return error.code === "P2002";
+};
+
+const getUniqueConstraintTargets = (error: unknown): string[] => {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
+    return [];
+  }
+
+  if (error.code !== "P2002") {
+    return [];
+  }
+
+  const target = error.meta?.target;
+
+  if (Array.isArray(target)) {
+    return target.filter((value): value is string => typeof value === "string");
+  }
+
+  return typeof target === "string" ? [target] : [];
 };
 
 export const prismaAuthRepository: AuthRepository = {
@@ -189,6 +217,7 @@ export const prismaAuthRepository: AuthRepository = {
         const user = await tx.user.create({
           data: {
             email: params.email,
+            username: params.username,
             displayName: params.displayName ?? null,
             passwordHash: params.passwordHash,
             role: "owner",
@@ -221,6 +250,16 @@ export const prismaAuthRepository: AuthRepository = {
     const user = await prisma.user.findUnique({
       where: {
         email,
+      },
+    });
+
+    return user ? toStoredAuthUser(user) : null;
+  },
+
+  async findUserByUsername(username) {
+    const user = await prisma.user.findUnique({
+      where: {
+        username,
       },
     });
 
@@ -383,6 +422,7 @@ export const prismaAuthRepository: AuthRepository = {
         const user = await tx.user.create({
           data: {
             email: invite.email,
+            username: params.username,
             displayName: params.displayName ?? null,
             passwordHash: params.passwordHash,
             role: invite.role,
@@ -414,6 +454,10 @@ export const prismaAuthRepository: AuthRepository = {
       });
     } catch (error) {
       if (isUniqueConstraintError(error)) {
+        if (getUniqueConstraintTargets(error).includes("username")) {
+          throw new AuthError("USERNAME_ALREADY_EXISTS");
+        }
+
         throw new AuthError("USER_ALREADY_EXISTS");
       }
 

@@ -5,6 +5,9 @@ import { createPrismaLibraryRepository } from "@/server/library/repository";
 type MemoryFolderRecord = {
   id: string;
   ownerUserId: string;
+  owner: {
+    username: string;
+  };
   parentId: string | null;
   name: string;
   isLibraryRoot: boolean;
@@ -40,6 +43,9 @@ const createFakePrismaClient = () => {
     const folder: MemoryFolderRecord = {
       id: nextId(),
       ownerUserId,
+      owner: {
+        username: ownerUserId,
+      },
       parentId,
       name,
       isLibraryRoot,
@@ -142,6 +148,7 @@ const createFakePrismaClient = () => {
 
       if ("ownerUserId" in args.data && args.data.ownerUserId !== undefined) {
         folder.ownerUserId = args.data.ownerUserId;
+        folder.owner.username = args.data.ownerUserId;
       }
 
       if ("parentId" in args.data) {

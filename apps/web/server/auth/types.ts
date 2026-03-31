@@ -3,6 +3,7 @@ import type { UserRole } from "@staaash/db/client";
 export type AuthUser = {
   id: string;
   email: string;
+  username: string;
   displayName: string | null;
   role: UserRole;
   createdAt: Date;
@@ -92,12 +93,13 @@ export type PasswordResetState =
 export type BootstrapInput = {
   instanceName: string;
   email: string;
+  username: string;
   displayName?: string;
   password: string;
 };
 
 export type SignInInput = {
-  email: string;
+  identifier: string;
   password: string;
 };
 
@@ -107,6 +109,7 @@ export type CreateInviteInput = {
 
 export type RedeemInviteInput = {
   token: string;
+  username: string;
   displayName?: string;
   password: string;
 };

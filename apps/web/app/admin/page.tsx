@@ -99,6 +99,7 @@ export default async function AdminPage() {
         initialUsers={users.map((user) => ({
           id: user.id,
           email: user.email,
+          username: user.username,
           displayName: user.displayName,
           role: user.role,
           createdAt: user.createdAt.toISOString(),

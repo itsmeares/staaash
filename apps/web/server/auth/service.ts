@@ -4,6 +4,9 @@ import { AuthError } from "@/server/auth/errors";
 import {
   bootstrapInputSchema,
   createInviteInputSchema,
+  isEmailIdentifier,
+  normalizeAuthIdentifier,
+  parseUsernameIdentifier,
   issuePasswordResetInputSchema,
   redeemInviteInputSchema,
   redeemPasswordResetInputSchema,
@@ -268,11 +271,16 @@ export const createAuthService = ({
         throw new AuthError("SETUP_ALREADY_COMPLETED");
       }
 
+      if (await activeRepo.findUserByUsername(parsed.username)) {
+        throw new AuthError("USERNAME_ALREADY_EXISTS");
+      }
+
       const createdAt = now();
       const passwordHash = await crypto.hashPassword(parsed.password);
       const user = await activeRepo.createBootstrap({
         instanceName: parsed.instanceName,
         email: parsed.email,
+        username: parsed.username,
         displayName: parsed.displayName,
         passwordHash,
         createdAt,
@@ -290,7 +298,22 @@ export const createAuthService = ({
         throw new AuthError("SETUP_REQUIRED");
       }
 
-      const user = await activeRepo.findUserByEmail(parsed.email);
+      const normalizedIdentifier = normalizeAuthIdentifier(parsed.identifier);
+      let user = null;
+
+      if (isEmailIdentifier(normalizedIdentifier)) {
+        user = await activeRepo.findUserByEmail(
+          normalizedIdentifier.toLowerCase(),
+        );
+      } else {
+        const parsedUsername = parseUsernameIdentifier(normalizedIdentifier);
+
+        if (!parsedUsername.success) {
+          throw new AuthError("INVALID_IDENTIFIER");
+        }
+
+        user = await activeRepo.findUserByUsername(parsedUsername.data);
+      }
 
       if (
         !user ||
@@ -434,9 +457,14 @@ export const createAuthService = ({
         throw new AuthError("USER_ALREADY_EXISTS");
       }
 
+      if (await activeRepo.findUserByUsername(parsed.username)) {
+        throw new AuthError("USERNAME_ALREADY_EXISTS");
+      }
+
       const passwordHash = await crypto.hashPassword(parsed.password);
       const user = await activeRepo.consumeInvite({
         inviteId: redemptionState.invite.id,
+        username: parsed.username,
         displayName: parsed.displayName,
         passwordHash,
         now: now(),

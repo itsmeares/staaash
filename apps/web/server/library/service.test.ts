@@ -36,6 +36,7 @@ const createMemoryRepository = () => {
   const cloneFolder = (folder: MemoryFolderRecord): LibraryFolderSummary => ({
     id: folder.id,
     ownerUserId: folder.ownerUserId,
+    ownerUsername: folder.ownerUsername,
     parentId: folder.parentId,
     name: folder.name,
     isLibraryRoot: folder.isLibraryRoot,
@@ -71,17 +72,20 @@ const createMemoryRepository = () => {
     name,
     isLibraryRoot = false,
     deletedAt = null,
+    ownerUsername = ownerUserId,
   }: {
     ownerUserId: string;
     parentId: string | null;
     name: string;
     isLibraryRoot?: boolean;
     deletedAt?: Date | null;
+    ownerUsername?: string;
   }) => {
     const now = nextDate();
     const folder: MemoryFolderRecord = {
       id: nextId("folder"),
       ownerUserId,
+      ownerUsername,
       parentId,
       name,
       isLibraryRoot,
@@ -103,6 +107,7 @@ const createMemoryRepository = () => {
     sizeBytes = 5,
     contentChecksum = null,
     deletedAt = null,
+    ownerUsername = ownerUserId,
   }: {
     ownerUserId: string;
     folderId: string | null;
@@ -112,11 +117,13 @@ const createMemoryRepository = () => {
     sizeBytes?: number;
     contentChecksum?: string | null;
     deletedAt?: Date | null;
+    ownerUsername?: string;
   }) => {
     const now = nextDate();
     const file: StoredLibraryFile = {
       id: nextId("file"),
       ownerUserId,
+      ownerUsername,
       folderId,
       name,
       storageKey,
@@ -148,6 +155,7 @@ const createMemoryRepository = () => {
         parentId: null,
         name: "Library",
         isLibraryRoot: true,
+        ownerUsername: ownerUserId,
       });
 
       return cloneFolder(folder);
@@ -221,6 +229,7 @@ const createMemoryRepository = () => {
       const file: StoredLibraryFile = {
         id: params.id ?? nextId("file"),
         ownerUserId: params.ownerUserId,
+        ownerUsername: params.ownerUserId,
         folderId: params.folderId,
         name: params.name,
         storageKey: params.storageKey,
@@ -273,6 +282,10 @@ const createMemoryRepository = () => {
 
       if ("folderId" in params) {
         file.folderId = params.folderId ?? null;
+      }
+
+      if ("storageKey" in params && params.storageKey !== undefined) {
+        file.storageKey = params.storageKey;
       }
 
       if ("mimeType" in params && params.mimeType !== undefined) {
@@ -389,7 +402,7 @@ describe("library service", () => {
       ownerUserId: "member-1",
       folderId: root.id,
       name: "Plans",
-      storageKey: "originals/member-1/file-1/source",
+      storageKey: "library/member-1/Plans",
     });
 
     await expect(
@@ -475,7 +488,7 @@ describe("library service", () => {
 
     expect(deleted.deletedFileId).toBe(file?.id);
     await expect(
-      access(getStoragePath(`originals/member-1/${file?.id}/source`)),
+      access(getStoragePath(".trash/member-1/Archive/notes-renamed.txt")),
     ).rejects.toBeDefined();
   });
 
@@ -563,7 +576,7 @@ describe("library service", () => {
     expect(second.uploadedFiles[0]?.id).toBe(original?.id);
     expect(state.files.filter((file) => file.name === "replace-me.txt")).toHaveLength(1);
     await expect(
-      readFile(getStoragePath(`originals/member-1/${original?.id}/source`), "utf8"),
+      readFile(getStoragePath("library/member-1/replace-me.txt"), "utf8"),
     ).resolves.toBe("after");
   });
 

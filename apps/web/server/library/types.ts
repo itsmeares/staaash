@@ -8,6 +8,7 @@ export type LibraryActor = {
 export type LibraryFolderSummary = {
   id: string;
   ownerUserId: string;
+  ownerUsername: string;
   parentId: string | null;
   name: string;
   isLibraryRoot: boolean;
@@ -19,6 +20,7 @@ export type LibraryFolderSummary = {
 export type LibraryFileSummary = {
   id: string;
   ownerUserId: string;
+  ownerUsername: string;
   folderId: string | null;
   name: string;
   mimeType: string;

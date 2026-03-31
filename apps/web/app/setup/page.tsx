@@ -49,7 +49,7 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
             </div>
             <div className="meta-row">
               <span>Auth model</span>
-              <strong>email + password</strong>
+              <strong>email/username + password</strong>
             </div>
           </div>
         </article>
@@ -69,12 +69,32 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
             </div>
 
             <div className="field">
+              <label htmlFor="username">Owner username</label>
+              <input
+                id="username"
+                name="username"
+                autoComplete="username"
+                placeholder="johnsmith"
+                pattern="^(?!-)(?!.*--)[a-z0-9-]{3,32}(?<!-)$"
+                minLength={3}
+                maxLength={32}
+                required
+              />
+              <span className="field-help">
+                Lowercase letters, numbers, and single hyphens only.
+              </span>
+            </div>
+
+            <div className="field">
               <label htmlFor="displayName">Owner display name</label>
               <input
                 id="displayName"
                 name="displayName"
                 placeholder="Instance owner"
               />
+              <span className="field-help">
+                Presentation only. This does not affect the on-disk path.
+              </span>
             </div>
 
             <div className="field">
