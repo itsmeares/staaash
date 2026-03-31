@@ -106,6 +106,7 @@ model PasswordReset {
 model Folder {
   id             String   @id @default(cuid())
   ownerUserId    String
+  libraryRootKey String?  @unique
   parentId       String?
   name           String
   isLibraryRoot  Boolean  @default(false)

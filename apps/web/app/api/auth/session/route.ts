@@ -5,7 +5,7 @@ import {
   getSessionTokenFromCookieStore,
 } from "@/server/auth/session";
 import { authService } from "@/server/auth/service";
-import { isSameOrigin } from "@/server/auth/http";
+import { isSameOrigin, jsonNotSignedInResponse } from "@/server/auth/http";
 
 export async function GET(request: NextRequest) {
   const session = await authService.getSession(
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   );
 
   if (!session) {
-    return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+    return jsonNotSignedInResponse();
   }
 
   return NextResponse.json(session);

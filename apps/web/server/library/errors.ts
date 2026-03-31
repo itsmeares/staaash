@@ -2,6 +2,7 @@ export type LibraryErrorCode =
   | "ACCESS_DENIED"
   | "FOLDER_ALREADY_ACTIVE"
   | "FOLDER_MOVE_CYCLE"
+  | "FOLDER_MOVE_NOOP"
   | "FOLDER_NAME_INVALID"
   | "FOLDER_NAME_REQUIRED"
   | "FOLDER_NOT_FOUND"
@@ -12,6 +13,7 @@ const libraryErrorMessages: Record<LibraryErrorCode, string> = {
   FOLDER_ALREADY_ACTIVE: "That folder is already active.",
   FOLDER_MOVE_CYCLE:
     "A folder cannot be moved into itself or one of its descendants.",
+  FOLDER_MOVE_NOOP: "That folder is already in that location.",
   FOLDER_NAME_INVALID: "Folder names cannot contain forward or back slashes.",
   FOLDER_NAME_REQUIRED: "Folder name is required.",
   FOLDER_NOT_FOUND: "That folder does not exist.",
@@ -23,6 +25,7 @@ const libraryErrorStatuses: Record<LibraryErrorCode, number> = {
   ACCESS_DENIED: 403,
   FOLDER_ALREADY_ACTIVE: 409,
   FOLDER_MOVE_CYCLE: 409,
+  FOLDER_MOVE_NOOP: 409,
   FOLDER_NAME_INVALID: 400,
   FOLDER_NAME_REQUIRED: 400,
   FOLDER_NOT_FOUND: 404,

@@ -6,6 +6,7 @@ import {
   getSafeRedirectTarget,
   isSameOrigin,
   jsonErrorResponse,
+  notSignedInResponse,
   readRequestBody,
   redirectWithMessage,
   wantsJson,
@@ -17,12 +18,6 @@ type RouteContext = {
     folderId: string;
   }>;
 };
-
-const getSignInRedirect = (request: NextRequest, redirectTo: string) =>
-  NextResponse.redirect(
-    new URL(`/sign-in?next=${encodeURIComponent(redirectTo)}`, request.url),
-    303,
-  );
 
 export async function POST(request: NextRequest, { params }: RouteContext) {
   if (!isSameOrigin(request)) {
@@ -43,9 +38,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   const session = await getRequestSession(request);
 
   if (!session) {
-    return wantsJson(request)
-      ? NextResponse.json({ error: "Not signed in." }, { status: 401 })
-      : getSignInRedirect(request, redirectTo);
+    return notSignedInResponse(request, redirectTo);
   }
 
   try {

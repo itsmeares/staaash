@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { requireSignedInPageSession } from "@/server/auth/guards";
+import { getCurrentSession } from "@/server/auth/session";
 
 import { WorkspaceNav } from "./workspace-nav";
 
@@ -37,8 +37,10 @@ const workspaceItems = [
 export default async function WorkspaceLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const session = await requireSignedInPageSession("/sign-in?next=/library");
-  const userLabel = session.user.displayName ?? session.user.email;
+  const session = await getCurrentSession();
+  const userLabel = session?.user.displayName ?? session?.user.email ?? null;
+  const roleClassName =
+    session?.user.role === "owner" ? "status-owner" : "status-member";
 
   return (
     <div className="workspace-shell">
@@ -56,32 +58,34 @@ export default async function WorkspaceLayout({
 
         <WorkspaceNav items={[...workspaceItems]} />
 
-        <section className="panel stack workspace-user-panel">
-          <div className="stack">
-            <strong>{userLabel}</strong>
-            <span className="muted">{session.user.email}</span>
-            <span className="status-chip status-owner">
-              {session.user.role}
-            </span>
-          </div>
-          <div className="cluster">
-            {session.user.role === "owner" ? (
-              <Link className="pill" href="/admin">
-                Open /admin
-              </Link>
-            ) : null}
-            <form action="/api/auth/sign-out" method="post">
-              <input
-                type="hidden"
-                name="next"
-                value="/sign-in?success=Signed%20out."
-              />
-              <button className="button button-secondary" type="submit">
-                Sign out
-              </button>
-            </form>
-          </div>
-        </section>
+        {session && userLabel ? (
+          <section className="panel stack workspace-user-panel">
+            <div className="stack">
+              <strong>{userLabel}</strong>
+              <span className="muted">{session.user.email}</span>
+              <span className={`status-chip ${roleClassName}`}>
+                {session.user.role}
+              </span>
+            </div>
+            <div className="cluster">
+              {session.user.role === "owner" ? (
+                <Link className="pill" href="/admin">
+                  Open /admin
+                </Link>
+              ) : null}
+              <form action="/api/auth/sign-out" method="post">
+                <input
+                  type="hidden"
+                  name="next"
+                  value="/sign-in?success=Signed%20out."
+                />
+                <button className="button button-secondary" type="submit">
+                  Sign out
+                </button>
+              </form>
+            </div>
+          </section>
+        ) : null}
       </aside>
 
       <div className="workspace-main">

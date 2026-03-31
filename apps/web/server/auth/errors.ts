@@ -6,6 +6,7 @@ export type AuthErrorCode =
   | "INVITE_EXPIRED"
   | "INVITE_INVALID"
   | "INVITE_REVOKED"
+  | "NOT_SIGNED_IN"
   | "RESET_EXPIRED"
   | "RESET_INVALID"
   | "RESET_REDEEMED"
@@ -23,6 +24,7 @@ const authErrorMessages: Record<AuthErrorCode, string> = {
   INVITE_EXPIRED: "That invite has expired.",
   INVITE_INVALID: "That invite is not valid.",
   INVITE_REVOKED: "That invite has been revoked.",
+  NOT_SIGNED_IN: "Not signed in.",
   RESET_EXPIRED: "That password reset link has expired.",
   RESET_INVALID: "That password reset link is not valid.",
   RESET_REDEEMED: "That password reset link has already been used.",
@@ -42,6 +44,7 @@ const authErrorStatuses: Record<AuthErrorCode, number> = {
   INVITE_EXPIRED: 410,
   INVITE_INVALID: 404,
   INVITE_REVOKED: 410,
+  NOT_SIGNED_IN: 401,
   RESET_EXPIRED: 410,
   RESET_INVALID: 404,
   RESET_REDEEMED: 409,

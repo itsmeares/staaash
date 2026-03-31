@@ -150,6 +150,7 @@ export type PasswordResetScalarFieldEnum = (typeof PasswordResetScalarFieldEnum)
 export const FolderScalarFieldEnum = {
   id: 'id',
   ownerUserId: 'ownerUserId',
+  libraryRootKey: 'libraryRootKey',
   parentId: 'parentId',
   name: 'name',
   isLibraryRoot: 'isLibraryRoot',

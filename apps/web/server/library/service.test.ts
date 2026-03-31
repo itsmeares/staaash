@@ -5,8 +5,12 @@ import type { LibraryRepository } from "@/server/library/repository";
 import { createLibraryService } from "@/server/library/service";
 import type { LibraryFolderSummary } from "@/server/library/types";
 
+type MemoryFolderRecord = LibraryFolderSummary & {
+  libraryRootKey: string | null;
+};
+
 type MemoryState = {
-  folders: LibraryFolderSummary[];
+  folders: MemoryFolderRecord[];
   ids: number;
 };
 
@@ -18,42 +22,111 @@ const createMemoryRepository = () => {
 
   const nextId = () => `folder-${++state.ids}`;
 
-  const cloneFolder = (folder: LibraryFolderSummary): LibraryFolderSummary => ({
-    ...folder,
+  const cloneFolder = (folder: MemoryFolderRecord): LibraryFolderSummary => ({
+    id: folder.id,
+    ownerUserId: folder.ownerUserId,
+    parentId: folder.parentId,
+    name: folder.name,
+    isLibraryRoot: folder.isLibraryRoot,
+    deletedAt: folder.deletedAt,
+    createdAt: folder.createdAt,
+    updatedAt: folder.updatedAt,
   });
 
-  const sortByName = (folders: LibraryFolderSummary[]) =>
+  const sortByName = (folders: MemoryFolderRecord[]) =>
     [...folders].sort(
       (left, right) =>
         left.name.localeCompare(right.name) ||
         left.createdAt.getTime() - right.createdAt.getTime(),
     );
 
-  const repo: LibraryRepository = {
-    async findLibraryRootByOwnerUserId(ownerUserId) {
+  const sortLegacyRoots = (folders: MemoryFolderRecord[]) =>
+    [...folders].sort((left, right) => {
+      const leftDeletedRank = left.deletedAt ? 1 : 0;
+      const rightDeletedRank = right.deletedAt ? 1 : 0;
+
       return (
-        state.folders.find(
+        leftDeletedRank - rightDeletedRank ||
+        left.createdAt.getTime() - right.createdAt.getTime() ||
+        left.id.localeCompare(right.id)
+      );
+    });
+
+  const createRecord = ({
+    ownerUserId,
+    parentId,
+    name,
+    isLibraryRoot = false,
+    libraryRootKey = null,
+    deletedAt = null,
+  }: {
+    ownerUserId: string;
+    parentId: string | null;
+    name: string;
+    isLibraryRoot?: boolean;
+    libraryRootKey?: string | null;
+    deletedAt?: Date | null;
+  }) => {
+    const now = new Date(
+      `2026-03-31T12:00:${String(state.ids).padStart(2, "0")}Z`,
+    );
+
+    return {
+      id: nextId(),
+      ownerUserId,
+      parentId,
+      name,
+      isLibraryRoot,
+      libraryRootKey,
+      deletedAt,
+      createdAt: now,
+      updatedAt: now,
+    } satisfies MemoryFolderRecord;
+  };
+
+  const repo: LibraryRepository = {
+    async ensureLibraryRoot(ownerUserId) {
+      const canonicalRoot = state.folders.find(
+        (folder) => folder.libraryRootKey === ownerUserId,
+      );
+
+      if (canonicalRoot) {
+        return cloneFolder(canonicalRoot);
+      }
+
+      const legacyRoots = sortLegacyRoots(
+        state.folders.filter(
           (folder) =>
             folder.ownerUserId === ownerUserId && folder.isLibraryRoot,
-        ) ?? null
+        ),
       );
-    },
 
-    async createLibraryRoot(ownerUserId) {
-      const now = new Date(`2026-03-31T12:00:0${state.ids}Z`);
-      const folder = {
-        id: nextId(),
-        ownerUserId,
-        parentId: null,
-        name: "Library",
-        isLibraryRoot: true,
-        deletedAt: null,
-        createdAt: now,
-        updatedAt: now,
-      };
+      if (legacyRoots.length === 0) {
+        const folder = createRecord({
+          ownerUserId,
+          parentId: null,
+          name: "Library",
+          isLibraryRoot: true,
+          libraryRootKey: ownerUserId,
+        });
 
-      state.folders.push(folder);
-      return cloneFolder(folder);
+        state.folders.push(folder);
+        return cloneFolder(folder);
+      }
+
+      const [canonicalLegacyRoot, ...duplicateRoots] = legacyRoots;
+      canonicalLegacyRoot.libraryRootKey = ownerUserId;
+      canonicalLegacyRoot.isLibraryRoot = true;
+      canonicalLegacyRoot.parentId = null;
+      canonicalLegacyRoot.deletedAt = null;
+
+      for (const duplicateRoot of duplicateRoots) {
+        duplicateRoot.libraryRootKey = null;
+        duplicateRoot.isLibraryRoot = false;
+        duplicateRoot.parentId = canonicalLegacyRoot.id;
+      }
+
+      return cloneFolder(canonicalLegacyRoot);
     },
 
     async findFolderById(folderId) {
@@ -85,17 +158,13 @@ const createMemoryRepository = () => {
     },
 
     async createFolder(params) {
-      const now = new Date(`2026-03-31T12:01:${state.ids}Z`);
-      const folder = {
-        id: nextId(),
+      const folder = createRecord({
         ownerUserId: params.ownerUserId,
         parentId: params.parentId,
         name: params.name,
         isLibraryRoot: params.isLibraryRoot ?? false,
-        deletedAt: null,
-        createdAt: now,
-        updatedAt: now,
-      };
+        libraryRootKey: params.isLibraryRoot ? params.ownerUserId : null,
+      });
 
       state.folders.push(folder);
       return cloneFolder(folder);
@@ -122,7 +191,9 @@ const createMemoryRepository = () => {
         folder.deletedAt = params.deletedAt ?? null;
       }
 
-      folder.updatedAt = new Date(`2026-03-31T12:02:${state.ids}Z`);
+      folder.updatedAt = new Date(
+        `2026-03-31T12:02:${String(state.ids).padStart(2, "0")}Z`,
+      );
       return cloneFolder(folder);
     },
 
@@ -130,7 +201,9 @@ const createMemoryRepository = () => {
       for (const folder of state.folders) {
         if (params.ids.includes(folder.id)) {
           folder.deletedAt = params.deletedAt;
-          folder.updatedAt = new Date(`2026-03-31T12:03:${state.ids}Z`);
+          folder.updatedAt = new Date(
+            `2026-03-31T12:03:${String(state.ids).padStart(2, "0")}Z`,
+          );
         }
       }
     },
@@ -285,6 +358,28 @@ describe("library service", () => {
     expect(moved.folder.name).toBe("Docs");
   });
 
+  it("rejects moving a folder into its current parent", async () => {
+    const { repo } = createMemoryRepository();
+    const service = createLibraryService({ repo });
+    const root = await service.ensureLibraryRoot("member-1");
+    const source = await repo.createFolder({
+      ownerUserId: "member-1",
+      parentId: root.id,
+      name: "Source",
+    });
+
+    await expect(
+      service.moveFolder({
+        actorUserId: "member-1",
+        actorRole: "member",
+        folderId: source.id,
+        destinationFolderId: root.id,
+      }),
+    ).rejects.toMatchObject({
+      code: "FOLDER_MOVE_NOOP",
+    });
+  });
+
   it("rejects moving a folder into its own descendant", async () => {
     const { repo } = createMemoryRepository();
     const service = createLibraryService({ repo });
@@ -312,7 +407,7 @@ describe("library service", () => {
     });
   });
 
-  it("keeps the library root immutable", async () => {
+  it("keeps the library root immutable across rename, move, trash, and restore", async () => {
     const { repo } = createMemoryRepository();
     const service = createLibraryService({ repo });
     const root = await service.ensureLibraryRoot("member-1");
@@ -329,6 +424,17 @@ describe("library service", () => {
     });
 
     await expect(
+      service.moveFolder({
+        actorUserId: "member-1",
+        actorRole: "member",
+        folderId: root.id,
+        destinationFolderId: null,
+      }),
+    ).rejects.toMatchObject({
+      code: "FOLDER_ROOT_IMMUTABLE",
+    });
+
+    await expect(
       service.trashFolder({
         actorUserId: "member-1",
         actorRole: "member",
@@ -336,6 +442,95 @@ describe("library service", () => {
       }),
     ).rejects.toMatchObject({
       code: "FOLDER_ROOT_IMMUTABLE",
+    });
+
+    await expect(
+      service.restoreFolder({
+        actorUserId: "member-1",
+        actorRole: "member",
+        folderId: root.id,
+      }),
+    ).rejects.toMatchObject({
+      code: "FOLDER_ROOT_IMMUTABLE",
+    });
+  });
+
+  it("rejects cross-user folder mutations", async () => {
+    const { repo, state } = createMemoryRepository();
+    const service = createLibraryService({ repo });
+    const otherRoot = await service.ensureLibraryRoot("member-2");
+    const otherFolder = await repo.createFolder({
+      ownerUserId: "member-2",
+      parentId: otherRoot.id,
+      name: "Private",
+    });
+    const otherDeletedFolder = await repo.createFolder({
+      ownerUserId: "member-2",
+      parentId: otherRoot.id,
+      name: "Deleted private",
+    });
+
+    await repo.updateFolders({
+      ids: [otherDeletedFolder.id],
+      deletedAt: new Date("2026-03-31T13:00:00Z"),
+    });
+
+    const deletedRecord = state.folders.find(
+      (folder) => folder.id === otherDeletedFolder.id,
+    );
+    expect(deletedRecord?.deletedAt).not.toBeNull();
+
+    await expect(
+      service.createFolder({
+        actorUserId: "member-1",
+        actorRole: "member",
+        parentId: otherRoot.id,
+        name: "Intrusion",
+      }),
+    ).rejects.toMatchObject({
+      code: "ACCESS_DENIED",
+    });
+
+    await expect(
+      service.renameFolder({
+        actorUserId: "member-1",
+        actorRole: "member",
+        folderId: otherFolder.id,
+        name: "Renamed",
+      }),
+    ).rejects.toMatchObject({
+      code: "ACCESS_DENIED",
+    });
+
+    await expect(
+      service.moveFolder({
+        actorUserId: "member-1",
+        actorRole: "member",
+        folderId: otherFolder.id,
+        destinationFolderId: null,
+      }),
+    ).rejects.toMatchObject({
+      code: "ACCESS_DENIED",
+    });
+
+    await expect(
+      service.trashFolder({
+        actorUserId: "member-1",
+        actorRole: "member",
+        folderId: otherFolder.id,
+      }),
+    ).rejects.toMatchObject({
+      code: "ACCESS_DENIED",
+    });
+
+    await expect(
+      service.restoreFolder({
+        actorUserId: "member-1",
+        actorRole: "member",
+        folderId: otherDeletedFolder.id,
+      }),
+    ).rejects.toMatchObject({
+      code: "ACCESS_DENIED",
     });
   });
 

@@ -19,11 +19,13 @@ export default async function LibraryFolderPage({
   params,
   searchParams,
 }: LibraryFolderPageProps) {
-  const [{ folderId }, resolvedSearchParams, session] = await Promise.all([
+  const [{ folderId }, resolvedSearchParams] = await Promise.all([
     params,
     searchParams,
-    requireSignedInPageSession("/sign-in?next=/library"),
   ]);
+  const session = await requireSignedInPageSession(
+    `/sign-in?next=${encodeURIComponent(`/library/f/${folderId}`)}`,
+  );
 
   try {
     const listing = await libraryService.getLibraryListing({

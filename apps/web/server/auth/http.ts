@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
 import { assertConfiguredAppUrl, env } from "@/lib/env";
+import { AuthError } from "@/server/auth/errors";
 
 type ParsedRequestBody = Record<string, string>;
 
@@ -107,6 +108,26 @@ export const jsonErrorResponse = (error: unknown) => {
     },
   );
 };
+
+export const jsonNotSignedInResponse = () =>
+  jsonErrorResponse(new AuthError("NOT_SIGNED_IN"));
+
+export const signInRedirectResponse = (
+  request: NextRequest,
+  redirectTo: string,
+) =>
+  NextResponse.redirect(
+    new URL(`/sign-in?next=${encodeURIComponent(redirectTo)}`, request.url),
+    303,
+  );
+
+export const notSignedInResponse = (
+  request: NextRequest,
+  redirectTo: string,
+) =>
+  wantsJson(request)
+    ? jsonNotSignedInResponse()
+    : signInRedirectResponse(request, redirectTo);
 
 export const redirectWithMessage = (
   request: NextRequest,

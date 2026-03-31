@@ -264,6 +264,11 @@ p {
   color: #27477a;
 }
 
+.status-member {
+  background: rgba(84, 96, 117, 0.12);
+  color: #39465e;
+}
+
 .inline-form {
   display: inline-flex;
 }

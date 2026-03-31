@@ -27,6 +27,7 @@ export type AggregateFolder = {
 export type FolderMinAggregateOutputType = {
   id: string | null
   ownerUserId: string | null
+  libraryRootKey: string | null
   parentId: string | null
   name: string | null
   isLibraryRoot: boolean | null
@@ -38,6 +39,7 @@ export type FolderMinAggregateOutputType = {
 export type FolderMaxAggregateOutputType = {
   id: string | null
   ownerUserId: string | null
+  libraryRootKey: string | null
   parentId: string | null
   name: string | null
   isLibraryRoot: boolean | null
@@ -49,6 +51,7 @@ export type FolderMaxAggregateOutputType = {
 export type FolderCountAggregateOutputType = {
   id: number
   ownerUserId: number
+  libraryRootKey: number
   parentId: number
   name: number
   isLibraryRoot: number
@@ -62,6 +65,7 @@ export type FolderCountAggregateOutputType = {
 export type FolderMinAggregateInputType = {
   id?: true
   ownerUserId?: true
+  libraryRootKey?: true
   parentId?: true
   name?: true
   isLibraryRoot?: true
@@ -73,6 +77,7 @@ export type FolderMinAggregateInputType = {
 export type FolderMaxAggregateInputType = {
   id?: true
   ownerUserId?: true
+  libraryRootKey?: true
   parentId?: true
   name?: true
   isLibraryRoot?: true
@@ -84,6 +89,7 @@ export type FolderMaxAggregateInputType = {
 export type FolderCountAggregateInputType = {
   id?: true
   ownerUserId?: true
+  libraryRootKey?: true
   parentId?: true
   name?: true
   isLibraryRoot?: true
@@ -168,6 +174,7 @@ export type FolderGroupByArgs<ExtArgs extends runtime.Types.Extensions.InternalA
 export type FolderGroupByOutputType = {
   id: string
   ownerUserId: string
+  libraryRootKey: string | null
   parentId: string | null
   name: string
   isLibraryRoot: boolean
@@ -200,6 +207,7 @@ export type FolderWhereInput = {
   NOT?: Prisma.FolderWhereInput | Prisma.FolderWhereInput[]
   id?: Prisma.StringFilter<"Folder"> | string
   ownerUserId?: Prisma.StringFilter<"Folder"> | string
+  libraryRootKey?: Prisma.StringNullableFilter<"Folder"> | string | null
   parentId?: Prisma.StringNullableFilter<"Folder"> | string | null
   name?: Prisma.StringFilter<"Folder"> | string
   isLibraryRoot?: Prisma.BoolFilter<"Folder"> | boolean
@@ -215,6 +223,7 @@ export type FolderWhereInput = {
 export type FolderOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   ownerUserId?: Prisma.SortOrder
+  libraryRootKey?: Prisma.SortOrderInput | Prisma.SortOrder
   parentId?: Prisma.SortOrderInput | Prisma.SortOrder
   name?: Prisma.SortOrder
   isLibraryRoot?: Prisma.SortOrder
@@ -229,6 +238,7 @@ export type FolderOrderByWithRelationInput = {
 
 export type FolderWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  libraryRootKey?: string
   AND?: Prisma.FolderWhereInput | Prisma.FolderWhereInput[]
   OR?: Prisma.FolderWhereInput[]
   NOT?: Prisma.FolderWhereInput | Prisma.FolderWhereInput[]
@@ -243,11 +253,12 @@ export type FolderWhereUniqueInput = Prisma.AtLeast<{
   parent?: Prisma.XOR<Prisma.FolderNullableScalarRelationFilter, Prisma.FolderWhereInput> | null
   children?: Prisma.FolderListRelationFilter
   files?: Prisma.FileListRelationFilter
-}, "id">
+}, "id" | "libraryRootKey">
 
 export type FolderOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   ownerUserId?: Prisma.SortOrder
+  libraryRootKey?: Prisma.SortOrderInput | Prisma.SortOrder
   parentId?: Prisma.SortOrderInput | Prisma.SortOrder
   name?: Prisma.SortOrder
   isLibraryRoot?: Prisma.SortOrder
@@ -265,6 +276,7 @@ export type FolderScalarWhereWithAggregatesInput = {
   NOT?: Prisma.FolderScalarWhereWithAggregatesInput | Prisma.FolderScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"Folder"> | string
   ownerUserId?: Prisma.StringWithAggregatesFilter<"Folder"> | string
+  libraryRootKey?: Prisma.StringNullableWithAggregatesFilter<"Folder"> | string | null
   parentId?: Prisma.StringNullableWithAggregatesFilter<"Folder"> | string | null
   name?: Prisma.StringWithAggregatesFilter<"Folder"> | string
   isLibraryRoot?: Prisma.BoolWithAggregatesFilter<"Folder"> | boolean
@@ -275,6 +287,7 @@ export type FolderScalarWhereWithAggregatesInput = {
 
 export type FolderCreateInput = {
   id?: string
+  libraryRootKey?: string | null
   name: string
   isLibraryRoot?: boolean
   deletedAt?: Date | string | null
@@ -289,6 +302,7 @@ export type FolderCreateInput = {
 export type FolderUncheckedCreateInput = {
   id?: string
   ownerUserId: string
+  libraryRootKey?: string | null
   parentId?: string | null
   name: string
   isLibraryRoot?: boolean
@@ -301,6 +315,7 @@ export type FolderUncheckedCreateInput = {
 
 export type FolderUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  libraryRootKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isLibraryRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -315,6 +330,7 @@ export type FolderUpdateInput = {
 export type FolderUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  libraryRootKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isLibraryRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -328,6 +344,7 @@ export type FolderUncheckedUpdateInput = {
 export type FolderCreateManyInput = {
   id?: string
   ownerUserId: string
+  libraryRootKey?: string | null
   parentId?: string | null
   name: string
   isLibraryRoot?: boolean
@@ -338,6 +355,7 @@ export type FolderCreateManyInput = {
 
 export type FolderUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  libraryRootKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isLibraryRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -348,6 +366,7 @@ export type FolderUpdateManyMutationInput = {
 export type FolderUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  libraryRootKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isLibraryRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -374,6 +393,7 @@ export type FolderNullableScalarRelationFilter = {
 export type FolderCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   ownerUserId?: Prisma.SortOrder
+  libraryRootKey?: Prisma.SortOrder
   parentId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   isLibraryRoot?: Prisma.SortOrder
@@ -385,6 +405,7 @@ export type FolderCountOrderByAggregateInput = {
 export type FolderMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   ownerUserId?: Prisma.SortOrder
+  libraryRootKey?: Prisma.SortOrder
   parentId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   isLibraryRoot?: Prisma.SortOrder
@@ -396,6 +417,7 @@ export type FolderMaxOrderByAggregateInput = {
 export type FolderMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   ownerUserId?: Prisma.SortOrder
+  libraryRootKey?: Prisma.SortOrder
   parentId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   isLibraryRoot?: Prisma.SortOrder
@@ -526,6 +548,7 @@ export type FolderUpdateOneWithoutFilesNestedInput = {
 
 export type FolderCreateWithoutOwnerInput = {
   id?: string
+  libraryRootKey?: string | null
   name: string
   isLibraryRoot?: boolean
   deletedAt?: Date | string | null
@@ -538,6 +561,7 @@ export type FolderCreateWithoutOwnerInput = {
 
 export type FolderUncheckedCreateWithoutOwnerInput = {
   id?: string
+  libraryRootKey?: string | null
   parentId?: string | null
   name: string
   isLibraryRoot?: boolean
@@ -580,6 +604,7 @@ export type FolderScalarWhereInput = {
   NOT?: Prisma.FolderScalarWhereInput | Prisma.FolderScalarWhereInput[]
   id?: Prisma.StringFilter<"Folder"> | string
   ownerUserId?: Prisma.StringFilter<"Folder"> | string
+  libraryRootKey?: Prisma.StringNullableFilter<"Folder"> | string | null
   parentId?: Prisma.StringNullableFilter<"Folder"> | string | null
   name?: Prisma.StringFilter<"Folder"> | string
   isLibraryRoot?: Prisma.BoolFilter<"Folder"> | boolean
@@ -590,6 +615,7 @@ export type FolderScalarWhereInput = {
 
 export type FolderCreateWithoutChildrenInput = {
   id?: string
+  libraryRootKey?: string | null
   name: string
   isLibraryRoot?: boolean
   deletedAt?: Date | string | null
@@ -603,6 +629,7 @@ export type FolderCreateWithoutChildrenInput = {
 export type FolderUncheckedCreateWithoutChildrenInput = {
   id?: string
   ownerUserId: string
+  libraryRootKey?: string | null
   parentId?: string | null
   name: string
   isLibraryRoot?: boolean
@@ -619,6 +646,7 @@ export type FolderCreateOrConnectWithoutChildrenInput = {
 
 export type FolderCreateWithoutParentInput = {
   id?: string
+  libraryRootKey?: string | null
   name: string
   isLibraryRoot?: boolean
   deletedAt?: Date | string | null
@@ -632,6 +660,7 @@ export type FolderCreateWithoutParentInput = {
 export type FolderUncheckedCreateWithoutParentInput = {
   id?: string
   ownerUserId: string
+  libraryRootKey?: string | null
   name: string
   isLibraryRoot?: boolean
   deletedAt?: Date | string | null
@@ -664,6 +693,7 @@ export type FolderUpdateToOneWithWhereWithoutChildrenInput = {
 
 export type FolderUpdateWithoutChildrenInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  libraryRootKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isLibraryRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -677,6 +707,7 @@ export type FolderUpdateWithoutChildrenInput = {
 export type FolderUncheckedUpdateWithoutChildrenInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  libraryRootKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isLibraryRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -704,6 +735,7 @@ export type FolderUpdateManyWithWhereWithoutParentInput = {
 
 export type FolderCreateWithoutFilesInput = {
   id?: string
+  libraryRootKey?: string | null
   name: string
   isLibraryRoot?: boolean
   deletedAt?: Date | string | null
@@ -717,6 +749,7 @@ export type FolderCreateWithoutFilesInput = {
 export type FolderUncheckedCreateWithoutFilesInput = {
   id?: string
   ownerUserId: string
+  libraryRootKey?: string | null
   parentId?: string | null
   name: string
   isLibraryRoot?: boolean
@@ -744,6 +777,7 @@ export type FolderUpdateToOneWithWhereWithoutFilesInput = {
 
 export type FolderUpdateWithoutFilesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  libraryRootKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isLibraryRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -757,6 +791,7 @@ export type FolderUpdateWithoutFilesInput = {
 export type FolderUncheckedUpdateWithoutFilesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  libraryRootKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isLibraryRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -768,6 +803,7 @@ export type FolderUncheckedUpdateWithoutFilesInput = {
 
 export type FolderCreateManyOwnerInput = {
   id?: string
+  libraryRootKey?: string | null
   parentId?: string | null
   name: string
   isLibraryRoot?: boolean
@@ -778,6 +814,7 @@ export type FolderCreateManyOwnerInput = {
 
 export type FolderUpdateWithoutOwnerInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  libraryRootKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isLibraryRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -790,6 +827,7 @@ export type FolderUpdateWithoutOwnerInput = {
 
 export type FolderUncheckedUpdateWithoutOwnerInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  libraryRootKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isLibraryRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -802,6 +840,7 @@ export type FolderUncheckedUpdateWithoutOwnerInput = {
 
 export type FolderUncheckedUpdateManyWithoutOwnerInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  libraryRootKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isLibraryRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
@@ -813,6 +852,7 @@ export type FolderUncheckedUpdateManyWithoutOwnerInput = {
 export type FolderCreateManyParentInput = {
   id?: string
   ownerUserId: string
+  libraryRootKey?: string | null
   name: string
   isLibraryRoot?: boolean
   deletedAt?: Date | string | null
@@ -822,6 +862,7 @@ export type FolderCreateManyParentInput = {
 
 export type FolderUpdateWithoutParentInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
+  libraryRootKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isLibraryRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -835,6 +876,7 @@ export type FolderUpdateWithoutParentInput = {
 export type FolderUncheckedUpdateWithoutParentInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  libraryRootKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isLibraryRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -847,6 +889,7 @@ export type FolderUncheckedUpdateWithoutParentInput = {
 export type FolderUncheckedUpdateManyWithoutParentInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  libraryRootKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isLibraryRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -897,6 +940,7 @@ export type FolderCountOutputTypeCountFilesArgs<ExtArgs extends runtime.Types.Ex
 export type FolderSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   ownerUserId?: boolean
+  libraryRootKey?: boolean
   parentId?: boolean
   name?: boolean
   isLibraryRoot?: boolean
@@ -913,6 +957,7 @@ export type FolderSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
 export type FolderSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   ownerUserId?: boolean
+  libraryRootKey?: boolean
   parentId?: boolean
   name?: boolean
   isLibraryRoot?: boolean
@@ -926,6 +971,7 @@ export type FolderSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extens
 export type FolderSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   ownerUserId?: boolean
+  libraryRootKey?: boolean
   parentId?: boolean
   name?: boolean
   isLibraryRoot?: boolean
@@ -939,6 +985,7 @@ export type FolderSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extens
 export type FolderSelectScalar = {
   id?: boolean
   ownerUserId?: boolean
+  libraryRootKey?: boolean
   parentId?: boolean
   name?: boolean
   isLibraryRoot?: boolean
@@ -947,7 +994,7 @@ export type FolderSelectScalar = {
   updatedAt?: boolean
 }
 
-export type FolderOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerUserId" | "parentId" | "name" | "isLibraryRoot" | "deletedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["folder"]>
+export type FolderOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerUserId" | "libraryRootKey" | "parentId" | "name" | "isLibraryRoot" | "deletedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["folder"]>
 export type FolderInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   parent?: boolean | Prisma.Folder$parentArgs<ExtArgs>
@@ -975,6 +1022,7 @@ export type $FolderPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     ownerUserId: string
+    libraryRootKey: string | null
     parentId: string | null
     name: string
     isLibraryRoot: boolean
@@ -1410,6 +1458,7 @@ export interface Prisma__FolderClient<T, Null = never, ExtArgs extends runtime.T
 export interface FolderFieldRefs {
   readonly id: Prisma.FieldRef<"Folder", 'String'>
   readonly ownerUserId: Prisma.FieldRef<"Folder", 'String'>
+  readonly libraryRootKey: Prisma.FieldRef<"Folder", 'String'>
   readonly parentId: Prisma.FieldRef<"Folder", 'String'>
   readonly name: Prisma.FieldRef<"Folder", 'String'>
   readonly isLibraryRoot: Prisma.FieldRef<"Folder", 'Boolean'>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { canAccessAdminSurface } from "@/server/access";
 import { getRequestSession } from "@/server/auth/guards";
+import { jsonNotSignedInResponse } from "@/server/auth/http";
 import {
   getAdminHealthSummary,
   toJsonInstanceHealthSummary,
@@ -15,7 +16,7 @@ export async function GET(
   const session = await getRequestSession(request);
 
   if (!session) {
-    return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+    return jsonNotSignedInResponse();
   }
 
   if (!canAccessAdminSurface(session.user.role)) {

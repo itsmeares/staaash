@@ -4,6 +4,7 @@ import { canAccessAdminSurface } from "@/server/access";
 import { getRequestSession } from "@/server/auth/guards";
 import {
   isSameOrigin,
+  jsonNotSignedInResponse,
   jsonErrorResponse,
   readRequestBody,
 } from "@/server/auth/http";
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
   const session = await getRequestSession(request);
 
   if (!session) {
-    return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+    return jsonNotSignedInResponse();
   }
 
   if (!canAccessAdminSurface(session.user.role)) {

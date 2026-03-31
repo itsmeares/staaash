@@ -26,6 +26,7 @@ export function WorkspaceNav({ items }: { items: WorkspaceNavItem[] }) {
         return (
           <Link
             key={item.href}
+            aria-current={active ? "page" : undefined}
             className={`workspace-nav-link${active ? " workspace-nav-link-active" : ""}`}
             href={item.href}
           >

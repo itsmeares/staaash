@@ -133,10 +133,7 @@ export const createLibraryService = ({
 
   const ensureLibraryRoot = async (ownerUserId: string) => {
     const activeRepo = await resolveRepo();
-    return (
-      (await activeRepo.findLibraryRootByOwnerUserId(ownerUserId)) ??
-      activeRepo.createLibraryRoot(ownerUserId)
-    );
+    return activeRepo.ensureLibraryRoot(ownerUserId);
   };
 
   const getOwnedFolder = async ({
@@ -546,6 +543,10 @@ export const createLibraryService = ({
 
       if (destinationFolder.id === folder.id) {
         throw new LibraryError("FOLDER_MOVE_CYCLE");
+      }
+
+      if (destinationFolder.id === folder.parentId) {
+        throw new LibraryError("FOLDER_MOVE_NOOP");
       }
 
       const descendants = await collectDescendants({
