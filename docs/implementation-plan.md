@@ -168,6 +168,10 @@ Implement the owner/member account model and one-time bootstrap flow.
 
 ## Phase 2: App Shell and Library Core
 
+### Status
+
+Completed
+
 ### Goal
 
 Ship the real signed-in application shell and the first complete private-drive navigation model.
@@ -203,6 +207,13 @@ Ship the real signed-in application shell and the first complete private-drive n
 - members see only their own private namespace
 - move and rename operations preserve internal identity
 - owner still cannot browse member private content by default
+
+### Completion notes
+
+- shipped the signed-in workspace shell with stable routes for `Library`, `Recent`, `Favorites`, `Shared`, `Trash`, and `Settings`
+- kept `/admin` outside the normal workspace shell
+- implemented per-user library roots, nested folder navigation, breadcrumbs, create/rename/move/trash/restore flows, and route guards
+- hardened Phase 2 with canonical root enforcement, deep-link-preserving sign-in redirects, normalized unauthenticated JSON errors, and additional library-domain coverage
 
 ## Phase 3: Upload Pipeline and File Operations
 

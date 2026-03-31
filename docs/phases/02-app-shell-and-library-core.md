@@ -1,5 +1,9 @@
 # Phase 02: App Shell and Library Core
 
+## Status
+
+Completed
+
 ## Approach
 
 Build the signed-in app shell and private drive navigation before file ingestion so the user’s core mental model is stable.
@@ -24,19 +28,22 @@ Build the signed-in app shell and private drive navigation before file ingestion
 
 ## Action Items
 
-- [ ] Implement the signed-in shell layout with persistent sidebar and top-bar search slot.
-- [ ] Add the route structure for the primary signed-in sections and separate `/admin`.
-- [ ] Create the per-user library root model and folder hierarchy server logic.
-- [ ] Implement folder listing, breadcrumb navigation, rename, move, trash, and restore metadata flows.
-- [ ] Make list view the default explorer presentation and reserve grid view as an option.
-- [ ] Ensure members see only their own namespace and owner still cannot browse member private content.
-- [ ] Add tests for route guards, folder navigation, and move/rename identity behavior.
+- [x] Implement the signed-in shell layout with persistent sidebar and top-bar search slot.
+- [x] Add the route structure for the primary signed-in sections and separate `/admin`.
+- [x] Create the per-user library root model and folder hierarchy server logic.
+- [x] Implement folder listing, breadcrumb navigation, rename, move, trash, and restore metadata flows.
+- [x] Make list view the default explorer presentation and reserve grid view as an option.
+- [x] Ensure members see only their own namespace and owner still cannot browse member private content.
+- [x] Add tests for route guards, folder navigation, move/rename identity behavior, root canonicalization, and access control edge cases.
 
 ## Validation
 
-- Verify shell navigation matches the locked information architecture.
-- Verify folder rename/move updates metadata without changing physical file identity.
-- Run `pnpm test`, `pnpm lint`, and `pnpm build`.
+- Verified shell navigation matches the locked information architecture across `Library`, `Recent`, `Favorites`, `Shared`, `Trash`, and `Settings`.
+- Verified folder rename/move updates metadata without changing logical identity.
+- Verified signed-in deep links preserve their exact return target through the sign-in flow.
+- Verified the per-user library root is canonicalized and duplicate legacy roots auto-heal safely.
+- Verified members only see their own namespace and owners still cannot browse member private folders by default.
+- Ran `pnpm format:check`, `pnpm lint`, `pnpm test`, and `pnpm build`.
 
 ## Done Criteria
 

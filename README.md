@@ -6,14 +6,15 @@ The idea is simple: I want a storage app with predictable behavior around upload
 
 ## Current status
 
-This is an early-stage project, not a finished product yet.
+This is still an early-stage project, not a finished product yet.
 
 What is already here:
 
 - a Next.js App Router web app
 - a small worker runtime
 - a Prisma/PostgreSQL metadata layer
-- tested server-side modules for uploads, sharing, search, restore logic, auth flows, and health checks
+- completed Phase 2 signed-in workspace shell and private library navigation
+- tested server-side modules for uploads, sharing, search, restore logic, auth flows, health checks, and library-folder behavior
 
 What is not true yet:
 
@@ -23,10 +24,16 @@ What is not true yet:
 
 I’m okay with that. The goal of this repo is to show real progress, not pretend it is further along than it is.
 
-## What I’m focusing on
+## What I’m focusing on now
+
+- upload pipeline and file operations
+- checksum verification and staging lifecycle
+- keeping metadata operations safe while file ingest becomes real
+
+## What is already locked in
 
 - immutable ID-based storage paths
-- upload policy and checksum verification
+- upload policy and checksum verification rules
 - sharing boundaries
 - search normalization and ranking rules
 - owner-facing health and operational visibility
