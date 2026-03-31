@@ -35,6 +35,7 @@ export type LibraryListing = {
   breadcrumbs: LibraryBreadcrumb[];
   childFolders: LibraryFolderSummary[];
   moveTargets: LibraryMoveTarget[];
+  availableMoveTargetIdsByFolderId: Record<string, string[]>;
 };
 
 export type FolderRestoreLocation = {

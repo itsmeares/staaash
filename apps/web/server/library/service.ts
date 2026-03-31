@@ -242,9 +242,7 @@ export const createLibraryService = ({
     }));
   };
 
-  const buildMoveTargets = async (
-    libraryRoot: LibraryFolderSummary,
-  ): Promise<LibraryMoveTarget[]> => {
+  const buildMoveTargets = async (libraryRoot: LibraryFolderSummary) => {
     const folders = await (
       await resolveRepo()
     ).listFoldersByOwner(libraryRoot.ownerUserId, {
@@ -294,7 +292,10 @@ export const createLibraryService = ({
       }
     }
 
-    return ordered;
+    return {
+      childrenByParent,
+      moveTargets: ordered,
+    };
   };
 
   const getRestoreLocation = async (
@@ -366,13 +367,48 @@ export const createLibraryService = ({
           includeDeleted: false,
         },
       );
+      const moveData = await buildMoveTargets(libraryRoot);
+      const descendantIdsByFolderId = new Map<string, string[]>();
+      const collectVisibleDescendantIds = (folderId: string): string[] => {
+        const cached = descendantIdsByFolderId.get(folderId);
+
+        if (cached) {
+          return cached;
+        }
+
+        const children = moveData.childrenByParent.get(folderId) ?? [];
+        const descendants = children.flatMap((child) => [
+          child.id,
+          ...collectVisibleDescendantIds(child.id),
+        ]);
+        descendantIdsByFolderId.set(folderId, descendants);
+
+        return descendants;
+      };
+      const availableMoveTargetIdsByFolderId = Object.fromEntries(
+        childFolders.map((folder) => {
+          const blockedTargetIds = new Set([
+            currentFolder.id,
+            folder.id,
+            ...collectVisibleDescendantIds(folder.id),
+          ]);
+
+          return [
+            folder.id,
+            moveData.moveTargets
+              .filter((target) => !blockedTargetIds.has(target.id))
+              .map((target) => target.id),
+          ];
+        }),
+      );
 
       return {
         ownerUserId: currentFolder.ownerUserId,
         currentFolder,
         breadcrumbs: await buildBreadcrumbs(currentFolder, libraryRoot),
         childFolders,
-        moveTargets: await buildMoveTargets(libraryRoot),
+        moveTargets: moveData.moveTargets,
+        availableMoveTargetIdsByFolderId,
       };
     },
 

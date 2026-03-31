@@ -100,103 +100,121 @@ export function LibraryExplorer({
           </div>
         ) : (
           <div className="folder-list">
-            {listing.childFolders.map((folder) => (
-              <article className="folder-row" key={folder.id}>
-                <div className="folder-row-head">
-                  <div className="stack">
-                    <Link className="folder-link" href={getFolderHref(folder)}>
-                      {folder.name}
-                    </Link>
-                    <p className="folder-meta">
-                      Updated {formatDateTime(folder.updatedAt)}
-                    </p>
-                  </div>
-                  <span className="pill">Folder</span>
-                </div>
+            {listing.childFolders.map((folder) => {
+              const availableMoveTargetIds = new Set(
+                listing.availableMoveTargetIdsByFolderId[folder.id] ?? [],
+              );
+              const availableMoveTargets = listing.moveTargets.filter(
+                (target) => availableMoveTargetIds.has(target.id),
+              );
 
-                <details className="folder-disclosure">
-                  <summary>Manage folder</summary>
-                  <div className="folder-disclosure-grid">
-                    <form
-                      action={`/api/library/folders/${folder.id}/rename`}
-                      className="field"
-                      method="post"
-                    >
-                      <input
-                        name="redirectTo"
-                        type="hidden"
-                        value={currentPath}
-                      />
-                      <label htmlFor={`rename-${folder.id}`}>Rename</label>
-                      <div className="workspace-inline-fields">
+              return (
+                <article className="folder-row" key={folder.id}>
+                  <div className="folder-row-head">
+                    <div className="stack">
+                      <Link
+                        className="folder-link"
+                        href={getFolderHref(folder)}
+                      >
+                        {folder.name}
+                      </Link>
+                      <p className="folder-meta">
+                        Updated {formatDateTime(folder.updatedAt)}
+                      </p>
+                    </div>
+                    <span className="pill">Folder</span>
+                  </div>
+
+                  <details className="folder-disclosure">
+                    <summary>Manage folder</summary>
+                    <div className="folder-disclosure-grid">
+                      <form
+                        action={`/api/library/folders/${folder.id}/rename`}
+                        className="field"
+                        method="post"
+                      >
                         <input
-                          defaultValue={folder.name}
-                          id={`rename-${folder.id}`}
-                          name="name"
-                          required
+                          name="redirectTo"
+                          type="hidden"
+                          value={currentPath}
                         />
-                        <button
-                          className="button button-secondary"
-                          type="submit"
-                        >
-                          Save
-                        </button>
-                      </div>
-                    </form>
+                        <label htmlFor={`rename-${folder.id}`}>Rename</label>
+                        <div className="workspace-inline-fields">
+                          <input
+                            defaultValue={folder.name}
+                            id={`rename-${folder.id}`}
+                            name="name"
+                            required
+                          />
+                          <button
+                            className="button button-secondary"
+                            type="submit"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </form>
 
-                    <form
-                      action={`/api/library/folders/${folder.id}/move`}
-                      className="field"
-                      method="post"
-                    >
-                      <input
-                        name="redirectTo"
-                        type="hidden"
-                        value={currentPath}
-                      />
-                      <label htmlFor={`move-${folder.id}`}>Move</label>
-                      <div className="workspace-inline-fields">
-                        <select
-                          defaultValue={folder.parentId ?? ""}
-                          id={`move-${folder.id}`}
-                          name="destinationFolderId"
+                      {availableMoveTargets.length > 0 ? (
+                        <form
+                          action={`/api/library/folders/${folder.id}/move`}
+                          className="field"
+                          method="post"
                         >
-                          {listing.moveTargets
-                            .filter((target) => target.id !== folder.id)
-                            .map((target) => (
-                              <option key={target.id} value={target.id}>
-                                {target.pathLabel}
-                              </option>
-                            ))}
-                        </select>
-                        <button
-                          className="button button-secondary"
-                          type="submit"
-                        >
-                          Move
-                        </button>
-                      </div>
-                    </form>
+                          <input
+                            name="redirectTo"
+                            type="hidden"
+                            value={currentPath}
+                          />
+                          <label htmlFor={`move-${folder.id}`}>Move</label>
+                          <div className="workspace-inline-fields">
+                            <select
+                              id={`move-${folder.id}`}
+                              name="destinationFolderId"
+                            >
+                              {availableMoveTargets.map((target) => (
+                                <option key={target.id} value={target.id}>
+                                  {target.pathLabel}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              className="button button-secondary"
+                              type="submit"
+                            >
+                              Move
+                            </button>
+                          </div>
+                        </form>
+                      ) : (
+                        <div className="field">
+                          <label>Move</label>
+                          <span className="field-help">
+                            No other valid destinations yet.
+                          </span>
+                        </div>
+                      )}
 
-                    <form
-                      action={`/api/library/folders/${folder.id}/trash`}
-                      className="field"
-                      method="post"
-                    >
-                      <input
-                        name="redirectTo"
-                        type="hidden"
-                        value={currentPath}
-                      />
-                      <label>Trash</label>
-                      <button className="button button-danger" type="submit">
-                        Move subtree to trash
-                      </button>
-                    </form>
-                  </div>
-                </details>
-              </article>
-            ))}
+                      <form
+                        action={`/api/library/folders/${folder.id}/trash`}
+                        className="field"
+                        method="post"
+                      >
+                        <input
+                          name="redirectTo"
+                          type="hidden"
+                          value={currentPath}
+                        />
+                        <label>Trash</label>
+                        <button className="button button-danger" type="submit">
+                          Move subtree to trash
+                        </button>
+                      </form>
+                    </div>
+                  </details>
+                </article>
+              );
+            })}
           </div>
         )}
       </section>

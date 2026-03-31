@@ -212,6 +212,45 @@ describe("library service", () => {
     ]);
   });
 
+  it("excludes the current parent, the folder itself, and descendants from move targets", async () => {
+    const { repo } = createMemoryRepository();
+    const service = createLibraryService({ repo });
+    const root = await service.ensureLibraryRoot("member-1");
+    const source = await repo.createFolder({
+      ownerUserId: "member-1",
+      parentId: root.id,
+      name: "Source",
+    });
+    const sourceChild = await repo.createFolder({
+      ownerUserId: "member-1",
+      parentId: source.id,
+      name: "Source Child",
+    });
+    const archive = await repo.createFolder({
+      ownerUserId: "member-1",
+      parentId: root.id,
+      name: "Archive",
+    });
+
+    const listing = await service.getLibraryListing({
+      actorUserId: "member-1",
+      actorRole: "member",
+    });
+
+    expect(listing.availableMoveTargetIdsByFolderId[source.id]).toEqual([
+      archive.id,
+    ]);
+    expect(listing.availableMoveTargetIdsByFolderId[source.id]).not.toContain(
+      root.id,
+    );
+    expect(listing.availableMoveTargetIdsByFolderId[source.id]).not.toContain(
+      source.id,
+    );
+    expect(listing.availableMoveTargetIdsByFolderId[source.id]).not.toContain(
+      sourceChild.id,
+    );
+  });
+
   it("preserves folder identity across rename and move operations", async () => {
     const { repo } = createMemoryRepository();
     const service = createLibraryService({ repo });
