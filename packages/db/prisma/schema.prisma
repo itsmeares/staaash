@@ -52,6 +52,8 @@ model User {
   invitesAccepted       Invite[]        @relation("InviteAcceptor")
   passwordResetsIssued  PasswordReset[] @relation("PasswordResetIssuer")
   passwordResetsForUser PasswordReset[] @relation("PasswordResetUser")
+  folders               Folder[]        @relation("FolderOwner")
+  files                 File[]          @relation("FileOwner")
 }
 
 model Session {
@@ -110,6 +112,14 @@ model Folder {
   deletedAt      DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  owner          User     @relation("FolderOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  parent         Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children       Folder[] @relation("FolderHierarchy")
+  files          File[]
+
+  @@index([ownerUserId, isLibraryRoot])
+  @@index([ownerUserId, parentId, deletedAt])
+  @@index([ownerUserId, deletedAt, updatedAt])
 }
 
 model File {
@@ -125,6 +135,10 @@ model File {
   deletedAt        DateTime?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
+  owner            User          @relation("FileOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  folder           Folder?       @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
+  @@index([ownerUserId, folderId, deletedAt])
 }
 
 model ShareLink {

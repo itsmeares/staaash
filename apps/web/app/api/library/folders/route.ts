@@ -1,0 +1,66 @@
+import { NextRequest, NextResponse } from "next/server";
+
+import { getRequestSession } from "@/server/auth/guards";
+import {
+  formErrorResponse,
+  getSafeRedirectTarget,
+  isSameOrigin,
+  jsonErrorResponse,
+  readRequestBody,
+  redirectWithMessage,
+  wantsJson,
+} from "@/server/auth/http";
+import { libraryService } from "@/server/library/service";
+
+const getSignInRedirect = (request: NextRequest, redirectTo: string) =>
+  NextResponse.redirect(
+    new URL(`/sign-in?next=${encodeURIComponent(redirectTo)}`, request.url),
+    303,
+  );
+
+export async function POST(request: NextRequest) {
+  if (!isSameOrigin(request)) {
+    return wantsJson(request)
+      ? NextResponse.json(
+          { error: "Cross-origin requests are not allowed." },
+          { status: 403 },
+        )
+      : formErrorResponse(
+          request,
+          "/library",
+          new Error("Cross-origin requests are not allowed."),
+        );
+  }
+
+  const body = await readRequestBody(request);
+  const redirectTo = getSafeRedirectTarget(body.redirectTo, "/library");
+  const session = await getRequestSession(request);
+
+  if (!session) {
+    return wantsJson(request)
+      ? NextResponse.json({ error: "Not signed in." }, { status: 401 })
+      : getSignInRedirect(request, redirectTo);
+  }
+
+  try {
+    const result = await libraryService.createFolder({
+      actorUserId: session.user.id,
+      actorRole: session.user.role,
+      parentId: body.parentId || null,
+      name: body.name,
+    });
+
+    return wantsJson(request)
+      ? NextResponse.json(result, { status: 201 })
+      : redirectWithMessage(
+          request,
+          redirectTo,
+          "success",
+          `Created folder ${result.folder.name}.`,
+        );
+  } catch (error) {
+    return wantsJson(request)
+      ? jsonErrorResponse(error)
+      : formErrorResponse(request, redirectTo, error);
+  }
+}

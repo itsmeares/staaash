@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
           { status: 201 },
         )
       : NextResponse.redirect(
-          new URL("/account?success=Password%20updated.", request.url),
+          new URL("/settings?success=Password%20updated.", request.url),
           303,
         );
 

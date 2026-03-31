@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     return wantsJson(request)
       ? jsonErrorResponse(error)
       : NextResponse.redirect(
-          new URL("/account?error=Unable%20to%20sign%20out.", request.url),
+          new URL("/settings?error=Unable%20to%20sign%20out.", request.url),
           303,
         );
   }

@@ -28,7 +28,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
 
   const next = getSafeLocalPath(
     getSingleSearchParam(resolvedSearchParams, "next"),
-    "/account",
+    "/library",
   );
   const error = getSingleSearchParam(resolvedSearchParams, "error");
   const success = getSingleSearchParam(resolvedSearchParams, "success");

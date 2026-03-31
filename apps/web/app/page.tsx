@@ -30,8 +30,11 @@ export default async function HomePage() {
             </Link>
           ) : session ? (
             <>
-              <Link className="pill" href="/account">
-                Open account
+              <Link className="pill" href="/settings">
+                Open settings
+              </Link>
+              <Link className="pill" href="/library">
+                Open library
               </Link>
               {session.user.role === "owner" ? (
                 <Link className="pill" href="/admin">

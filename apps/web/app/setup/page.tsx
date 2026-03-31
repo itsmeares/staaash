@@ -19,7 +19,7 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
   ]);
 
   if (setupState.isBootstrapped) {
-    redirect(session ? "/account" : "/sign-in");
+    redirect(session ? "/library" : "/sign-in");
   }
 
   const error = getSingleSearchParam(resolvedSearchParams, "error");

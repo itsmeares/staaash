@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
-import { AuthError, isAuthError } from "@/server/auth/errors";
 import { assertConfiguredAppUrl, env } from "@/lib/env";
 
 type ParsedRequestBody = Record<string, string>;
@@ -63,11 +62,20 @@ export const isSameOrigin = (request: NextRequest) => {
 };
 
 const normalizeError = (error: unknown) => {
-  if (isAuthError(error)) {
+  if (
+    error instanceof Error &&
+    typeof (error as { status?: unknown }).status === "number" &&
+    typeof (error as { code?: unknown }).code === "string"
+  ) {
+    const httpError = error as Error & {
+      status: number;
+      code: string;
+    };
+
     return {
-      status: error.status,
-      message: error.message,
-      code: error.code,
+      status: httpError.status,
+      message: httpError.message,
+      code: httpError.code,
     };
   }
 

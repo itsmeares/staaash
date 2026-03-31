@@ -26,6 +26,8 @@ if (process.env.NODE_ENV !== "production") {
 
 export { Prisma };
 export type {
+  File,
+  Folder,
   Invite,
   PasswordReset,
   Session,

@@ -21,7 +21,7 @@ export const requireOwnerPageSession = async () => {
   const session = await requireSignedInPageSession("/sign-in?next=/admin");
 
   if (!canAccessAdminSurface(session.user.role)) {
-    redirect("/account?error=admin");
+    redirect("/settings?error=admin");
   }
 
   return session;
