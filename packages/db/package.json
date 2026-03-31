@@ -8,6 +8,10 @@
       "types": "./dist/client.d.ts",
       "default": "./dist/client.js"
     },
+    "./jobs": {
+      "types": "./dist/jobs.d.ts",
+      "default": "./dist/jobs.js"
+    },
     "./health": {
       "types": "./dist/health.d.ts",
       "default": "./dist/health.js"

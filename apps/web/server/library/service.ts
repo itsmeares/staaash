@@ -1,26 +1,53 @@
+import { randomUUID } from "node:crypto";
+import { rm } from "node:fs/promises";
+
 import { canAccessPrivateNamespace } from "@/server/access";
 import { LibraryError } from "@/server/library/errors";
 import type {
+  FileMutationResult,
   FolderMutationResult,
   FolderRestoreLocation,
   LibraryActor,
   LibraryBreadcrumb,
+  LibraryFileSummary,
   LibraryFolderSummary,
   LibraryListing,
   LibraryMoveTarget,
-  TrashListing,
+  StoredLibraryFile,
+  TrashFileSummary,
   TrashFolderSummary,
+  TrashListing,
 } from "@/server/library/types";
+import {
+  buildStoredFileRef,
+  getStoragePath,
+} from "@/server/storage";
+import {
+  buildSafeRenamedFileName,
+  cleanupStagedUpload,
+  commitStagedUpload,
+  replaceCommittedUpload,
+  stageUpload,
+} from "@/server/uploads";
+import type {
+  UploadConflictStrategy,
+  UploadRequestItem,
+} from "@/server/uploads";
 
 import type { LibraryRepository } from "./repository";
 
 type CreateLibraryServiceOptions = {
   repo?: LibraryRepository;
   now?: () => Date;
+  scheduleStagingCleanupJob?: (runAt: Date) => Promise<void>;
 };
 
 type FolderLookupInput = LibraryActor & {
   folderId: string;
+};
+
+type FileLookupInput = LibraryActor & {
+  fileId: string;
 };
 
 type CreateFolderInput = LibraryActor & {
@@ -36,6 +63,45 @@ type RenameFolderInput = LibraryActor & {
 type MoveFolderInput = LibraryActor & {
   folderId: string;
   destinationFolderId?: string | null;
+};
+
+type RenameFileInput = LibraryActor & {
+  fileId: string;
+  name: string;
+};
+
+type MoveFileInput = LibraryActor & {
+  fileId: string;
+  destinationFolderId?: string | null;
+};
+
+type UploadFilesInput = LibraryActor & {
+  folderId?: string | null;
+  items: UploadRequestItem[];
+};
+
+type ActiveNameConflict =
+  | {
+      kind: "file";
+      item: StoredLibraryFile;
+    }
+  | {
+      kind: "folder";
+      item: LibraryFolderSummary;
+    };
+
+type UploadConflictItem = {
+  clientKey: string;
+  originalName: string;
+  conflictStrategy: UploadConflictStrategy;
+  existingKind: "file" | "folder";
+  existingId: string;
+  existingName: string;
+};
+
+type UploadFilesResult = {
+  uploadedFiles: LibraryFileSummary[];
+  conflicts: UploadConflictItem[];
 };
 
 const getFolderHref = (
@@ -55,6 +121,45 @@ const normalizeFolderName = (value: string) => {
 
   return name;
 };
+
+const normalizeFileName = (value: string) => {
+  const name = value.trim();
+
+  if (name.length === 0) {
+    throw new LibraryError("FILE_NAME_REQUIRED");
+  }
+
+  if (/[\\/]/.test(name)) {
+    throw new LibraryError("FILE_NAME_INVALID");
+  }
+
+  return name;
+};
+
+const toLibraryFileSummary = (
+  file: Pick<
+    StoredLibraryFile,
+    | "id"
+    | "ownerUserId"
+    | "folderId"
+    | "name"
+    | "mimeType"
+    | "sizeBytes"
+    | "deletedAt"
+    | "createdAt"
+    | "updatedAt"
+  >,
+): LibraryFileSummary => ({
+  id: file.id,
+  ownerUserId: file.ownerUserId,
+  folderId: file.folderId,
+  name: file.name,
+  mimeType: file.mimeType,
+  sizeBytes: file.sizeBytes,
+  deletedAt: file.deletedAt,
+  createdAt: file.createdAt,
+  updatedAt: file.updatedAt,
+});
 
 const assertFolderAccess = (
   actor: LibraryActor,
@@ -77,12 +182,38 @@ const assertFolderAccess = (
   return folder;
 };
 
+const assertFileAccess = (actor: LibraryActor, file: StoredLibraryFile | null) => {
+  if (!file) {
+    throw new LibraryError("FILE_NOT_FOUND");
+  }
+
+  if (
+    !canAccessPrivateNamespace({
+      actorRole: actor.actorRole,
+      actorUserId: actor.actorUserId,
+      namespaceOwnerUserId: file.ownerUserId,
+    })
+  ) {
+    throw new LibraryError("ACCESS_DENIED");
+  }
+
+  return file;
+};
+
 const assertActiveFolder = (folder: LibraryFolderSummary) => {
   if (folder.deletedAt) {
     throw new LibraryError("FOLDER_NOT_FOUND");
   }
 
   return folder;
+};
+
+const assertActiveFile = (file: StoredLibraryFile) => {
+  if (file.deletedAt) {
+    throw new LibraryError("FILE_NOT_FOUND");
+  }
+
+  return file;
 };
 
 const assertMutableFolder = (folder: LibraryFolderSummary) => {
@@ -124,9 +255,35 @@ const buildFolderPathLabel = ({
   return names.join(" / ");
 };
 
+const buildFilePathLabel = ({
+  file,
+  folderMap,
+  libraryRoot,
+}: {
+  file: LibraryFileSummary;
+  folderMap: Map<string, LibraryFolderSummary>;
+  libraryRoot: LibraryFolderSummary;
+}) => {
+  const parent =
+    file.folderId && folderMap.has(file.folderId)
+      ? folderMap.get(file.folderId)
+      : libraryRoot;
+
+  const folderPath = parent
+    ? buildFolderPathLabel({
+        folder: parent,
+        folderMap,
+        libraryRoot,
+      })
+    : libraryRoot.name;
+
+  return `${folderPath} / ${file.name}`;
+};
+
 export const createLibraryService = ({
   repo,
   now = () => new Date(),
+  scheduleStagingCleanupJob,
 }: CreateLibraryServiceOptions = {}) => {
   const resolveRepo = async (): Promise<LibraryRepository> =>
     repo ?? (await import("./repository")).prismaLibraryRepository;
@@ -140,8 +297,8 @@ export const createLibraryService = ({
     actorRole,
     actorUserId,
     folderId,
-  }: FolderLookupInput) => {
-    const folder = assertFolderAccess(
+  }: FolderLookupInput) =>
+    assertFolderAccess(
       {
         actorRole,
         actorUserId,
@@ -149,11 +306,24 @@ export const createLibraryService = ({
       await (await resolveRepo()).findFolderById(folderId),
     );
 
-    return folder;
-  };
+  const getOwnedFile = async ({
+    actorRole,
+    actorUserId,
+    fileId,
+  }: FileLookupInput) =>
+    assertFileAccess(
+      {
+        actorRole,
+        actorUserId,
+      },
+      await (await resolveRepo()).findFileById(fileId),
+    );
 
   const getActiveOwnedFolder = async (input: FolderLookupInput) =>
     assertActiveFolder(await getOwnedFolder(input));
+
+  const getActiveOwnedFile = async (input: FileLookupInput) =>
+    assertActiveFile(await getOwnedFile(input));
 
   const collectDescendants = async ({
     ownerUserId,
@@ -188,6 +358,22 @@ export const createLibraryService = ({
     }
 
     return descendants;
+  };
+
+  const collectFilesInFolders = async ({
+    ownerUserId,
+    folderIds,
+    includeDeleted = true,
+  }: {
+    ownerUserId: string;
+    folderIds: Set<string>;
+    includeDeleted?: boolean;
+  }) => {
+    const files = await (await resolveRepo()).listFilesByOwner(ownerUserId, {
+      includeDeleted,
+    });
+
+    return files.filter((file) => file.folderId && folderIds.has(file.folderId));
   };
 
   const buildBreadcrumbs = async (
@@ -338,6 +524,163 @@ export const createLibraryService = ({
     };
   };
 
+  const getFileRestoreLocation = async (
+    file: StoredLibraryFile,
+    libraryRoot: LibraryFolderSummary,
+  ): Promise<FolderRestoreLocation> => {
+    const activeRepo = await resolveRepo();
+
+    if (file.folderId) {
+      const parent = await activeRepo.findFolderById(file.folderId);
+
+      if (
+        parent &&
+        parent.ownerUserId === file.ownerUserId &&
+        parent.deletedAt === null
+      ) {
+        return {
+          kind: "original-parent",
+          folderId: parent.id,
+          folderName: parent.name,
+          pathLabel: parent.isLibraryRoot
+            ? libraryRoot.name
+            : buildFolderPathLabel({
+                folder: parent,
+                folderMap: new Map(
+                  (
+                    await activeRepo.listFoldersByOwner(file.ownerUserId, {
+                      includeDeleted: true,
+                    })
+                  ).map((candidate) => [candidate.id, candidate]),
+                ),
+                libraryRoot,
+              }),
+        };
+      }
+    }
+
+    return {
+      kind: "library-root",
+      folderId: libraryRoot.id,
+      folderName: libraryRoot.name,
+      pathLabel: libraryRoot.name,
+    };
+  };
+
+  const findActiveNameConflict = async ({
+    ownerUserId,
+    parentId,
+    name,
+    excludeFolderId,
+    excludeFileId,
+  }: {
+    ownerUserId: string;
+    parentId: string;
+    name: string;
+    excludeFolderId?: string;
+    excludeFileId?: string;
+  }): Promise<ActiveNameConflict | null> => {
+    const activeRepo = await resolveRepo();
+    const [folders, files] = await Promise.all([
+      activeRepo.listChildFolders(ownerUserId, parentId, {
+        includeDeleted: false,
+      }),
+      activeRepo.listChildFiles(ownerUserId, parentId, {
+        includeDeleted: false,
+      }),
+    ]);
+
+    const conflictingFolder = folders.find(
+      (folder) => folder.name === name && folder.id !== excludeFolderId,
+    );
+
+    if (conflictingFolder) {
+      return {
+        kind: "folder",
+        item: conflictingFolder,
+      };
+    }
+
+    const conflictingFile = files.find(
+      (file) => file.name === name && file.id !== excludeFileId,
+    );
+
+    if (conflictingFile) {
+      return {
+        kind: "file",
+        item: conflictingFile,
+      };
+    }
+
+    return null;
+  };
+
+  const assertNoFolderNameConflict = async ({
+    ownerUserId,
+    parentId,
+    name,
+    excludeFolderId,
+  }: {
+    ownerUserId: string;
+    parentId: string;
+    name: string;
+    excludeFolderId?: string;
+  }) => {
+    const conflict = await findActiveNameConflict({
+      ownerUserId,
+      parentId,
+      name,
+      excludeFolderId,
+    });
+
+    if (conflict) {
+      throw new LibraryError("FOLDER_NAME_CONFLICT");
+    }
+  };
+
+  const assertNoFileNameConflict = async ({
+    ownerUserId,
+    parentId,
+    name,
+    excludeFileId,
+  }: {
+    ownerUserId: string;
+    parentId: string;
+    name: string;
+    excludeFileId?: string;
+  }) => {
+    const conflict = await findActiveNameConflict({
+      ownerUserId,
+      parentId,
+      name,
+      excludeFileId,
+    });
+
+    if (conflict) {
+      throw new LibraryError("FILE_NAME_CONFLICT");
+    }
+  };
+
+  const scheduleStagingCleanup = async (runAt = now()) => {
+    if (scheduleStagingCleanupJob) {
+      await scheduleStagingCleanupJob(runAt);
+      return;
+    }
+
+    const {
+      ensureBackgroundJobScheduled,
+      STAGING_CLEANUP_JOB_KIND,
+      STAGING_CLEANUP_SCHEDULE_WINDOW_MS,
+    } = await import("@staaash/db/jobs");
+
+    await ensureBackgroundJobScheduled({
+      kind: STAGING_CLEANUP_JOB_KIND,
+      runAt: new Date(runAt.getTime() + STAGING_CLEANUP_SCHEDULE_WINDOW_MS),
+      payloadJson: {},
+      windowEnd: new Date(runAt.getTime() + STAGING_CLEANUP_SCHEDULE_WINDOW_MS),
+    });
+  };
+
   return {
     async ensureLibraryRoot(ownerUserId: string) {
       return ensureLibraryRoot(ownerUserId);
@@ -357,13 +700,14 @@ export const createLibraryService = ({
           })
         : libraryRoot;
       const activeRepo = await resolveRepo();
-      const childFolders = await activeRepo.listChildFolders(
-        currentFolder.ownerUserId,
-        currentFolder.id,
-        {
+      const [childFolders, files] = await Promise.all([
+        activeRepo.listChildFolders(currentFolder.ownerUserId, currentFolder.id, {
           includeDeleted: false,
-        },
-      );
+        }),
+        activeRepo.listChildFiles(currentFolder.ownerUserId, currentFolder.id, {
+          includeDeleted: false,
+        }),
+      ]);
       const moveData = await buildMoveTargets(libraryRoot);
       const descendantIdsByFolderId = new Map<string, string[]>();
       const collectVisibleDescendantIds = (folderId: string): string[] => {
@@ -404,6 +748,7 @@ export const createLibraryService = ({
         currentFolder,
         breadcrumbs: await buildBreadcrumbs(currentFolder, libraryRoot),
         childFolders,
+        files: files.map(toLibraryFileSummary),
         moveTargets: moveData.moveTargets,
         availableMoveTargetIdsByFolderId,
       };
@@ -414,15 +759,20 @@ export const createLibraryService = ({
       actorUserId,
     }: LibraryActor): Promise<TrashListing> {
       const libraryRoot = await ensureLibraryRoot(actorUserId);
-      const allFolders = await (
-        await resolveRepo()
-      ).listFoldersByOwner(libraryRoot.ownerUserId, {
-        includeDeleted: true,
-      });
+      const activeRepo = await resolveRepo();
+      const [allFolders, allFiles] = await Promise.all([
+        activeRepo.listFoldersByOwner(libraryRoot.ownerUserId, {
+          includeDeleted: true,
+        }),
+        activeRepo.listFilesByOwner(libraryRoot.ownerUserId, {
+          includeDeleted: true,
+        }),
+      ]);
       const folderMap = new Map(
         allFolders.map((folder) => [folder.id, folder]),
       );
       const items: TrashFolderSummary[] = [];
+      const files: TrashFileSummary[] = [];
 
       for (const folder of allFolders) {
         if (!folder.deletedAt || folder.isLibraryRoot) {
@@ -454,6 +804,47 @@ export const createLibraryService = ({
         });
       }
 
+      for (const file of allFiles) {
+        if (!file.deletedAt) {
+          continue;
+        }
+
+        assertFileAccess(
+          {
+            actorRole,
+            actorUserId,
+          },
+          file,
+        );
+
+        const fileSummary = toLibraryFileSummary(file);
+        let ancestor = file.folderId ? folderMap.get(file.folderId) : null;
+        let hasDeletedAncestor = false;
+
+        while (ancestor) {
+          if (ancestor.deletedAt) {
+            hasDeletedAncestor = true;
+            break;
+          }
+
+          ancestor = ancestor.parentId ? folderMap.get(ancestor.parentId) : null;
+        }
+
+        if (hasDeletedAncestor) {
+          continue;
+        }
+
+        files.push({
+          file: fileSummary,
+          originalPathLabel: buildFilePathLabel({
+            file: fileSummary,
+            folderMap,
+            libraryRoot,
+          }),
+          restoreLocation: await getFileRestoreLocation(file, libraryRoot),
+        });
+      }
+
       items.sort((left, right) => {
         const rightTime = right.folder.deletedAt?.getTime() ?? 0;
         const leftTime = left.folder.deletedAt?.getTime() ?? 0;
@@ -464,9 +855,17 @@ export const createLibraryService = ({
         );
       });
 
+      files.sort((left, right) => {
+        const rightTime = right.file.deletedAt?.getTime() ?? 0;
+        const leftTime = left.file.deletedAt?.getTime() ?? 0;
+
+        return rightTime - leftTime || left.file.name.localeCompare(right.file.name);
+      });
+
       return {
         libraryRoot,
         items,
+        files,
       };
     },
 
@@ -484,6 +883,13 @@ export const createLibraryService = ({
             folderId: parentId,
           })
         : await ensureLibraryRoot(actorUserId);
+
+      await assertNoFolderNameConflict({
+        ownerUserId: parentFolder.ownerUserId,
+        parentId: parentFolder.id,
+        name: normalizedName,
+      });
+
       const folder = await (
         await resolveRepo()
       ).createFolder({
@@ -509,13 +915,22 @@ export const createLibraryService = ({
         folderId,
       });
       assertMutableFolder(folder);
+      const normalizedName = normalizeFolderName(name);
+      const libraryRoot = await ensureLibraryRoot(folder.ownerUserId);
+
+      await assertNoFolderNameConflict({
+        ownerUserId: folder.ownerUserId,
+        parentId: folder.parentId ?? libraryRoot.id,
+        name: normalizedName,
+        excludeFolderId: folder.id,
+      });
 
       return {
         folder: await (
           await resolveRepo()
         ).updateFolder({
           id: folder.id,
-          name: normalizeFolderName(name),
+          name: normalizedName,
         }),
       };
     },
@@ -561,6 +976,13 @@ export const createLibraryService = ({
         throw new LibraryError("FOLDER_MOVE_CYCLE");
       }
 
+      await assertNoFolderNameConflict({
+        ownerUserId: folder.ownerUserId,
+        parentId: destinationFolder.id,
+        name: folder.name,
+        excludeFolderId: folder.id,
+      });
+
       return {
         folder: await (
           await resolveRepo()
@@ -588,10 +1010,22 @@ export const createLibraryService = ({
         ownerUserId: folder.ownerUserId,
         folderId: folder.id,
       });
+      const folderIds = new Set([
+        folder.id,
+        ...descendants.map((descendant) => descendant.id),
+      ]);
+      const descendantFiles = await collectFilesInFolders({
+        ownerUserId: folder.ownerUserId,
+        folderIds,
+      });
       const activeRepo = await resolveRepo();
 
       await activeRepo.updateFolders({
-        ids: [folder.id, ...descendants.map((descendant) => descendant.id)],
+        ids: Array.from(folderIds),
+        deletedAt,
+      });
+      await activeRepo.updateFiles({
+        ids: descendantFiles.map((file) => file.id),
         deletedAt,
       });
 
@@ -628,10 +1062,22 @@ export const createLibraryService = ({
         ownerUserId: folder.ownerUserId,
         folderId: folder.id,
       });
+      const folderIds = new Set([
+        folder.id,
+        ...descendants.map((descendant) => descendant.id),
+      ]);
+      const descendantFiles = await collectFilesInFolders({
+        ownerUserId: folder.ownerUserId,
+        folderIds,
+      });
       const activeRepo = await resolveRepo();
 
       await activeRepo.updateFolders({
-        ids: [folder.id, ...descendants.map((descendant) => descendant.id)],
+        ids: Array.from(folderIds),
+        deletedAt: null,
+      });
+      await activeRepo.updateFiles({
+        ids: descendantFiles.map((file) => file.id),
         deletedAt: null,
       });
 
@@ -643,6 +1089,286 @@ export const createLibraryService = ({
       return {
         folder: restoredFolder,
         restoredTo: restoreLocation,
+      };
+    },
+
+    async renameFile({
+      actorRole,
+      actorUserId,
+      fileId,
+      name,
+    }: RenameFileInput): Promise<FileMutationResult> {
+      const file = await getActiveOwnedFile({
+        actorRole,
+        actorUserId,
+        fileId,
+      });
+      const normalizedName = normalizeFileName(name);
+      const libraryRoot = await ensureLibraryRoot(file.ownerUserId);
+      const parentId = file.folderId ?? libraryRoot.id;
+
+      await assertNoFileNameConflict({
+        ownerUserId: file.ownerUserId,
+        parentId,
+        name: normalizedName,
+        excludeFileId: file.id,
+      });
+
+      const updated = await (await resolveRepo()).updateFile({
+        id: file.id,
+        name: normalizedName,
+      });
+
+      return {
+        file: toLibraryFileSummary(updated),
+      };
+    },
+
+    async moveFile({
+      actorRole,
+      actorUserId,
+      fileId,
+      destinationFolderId,
+    }: MoveFileInput): Promise<FileMutationResult> {
+      const file = await getActiveOwnedFile({
+        actorRole,
+        actorUserId,
+        fileId,
+      });
+
+      const destinationFolder = destinationFolderId
+        ? await getActiveOwnedFolder({
+            actorRole,
+            actorUserId,
+            folderId: destinationFolderId,
+          })
+        : await ensureLibraryRoot(actorUserId);
+
+      if (destinationFolder.id === file.folderId) {
+        throw new LibraryError("FILE_MOVE_NOOP");
+      }
+
+      await assertNoFileNameConflict({
+        ownerUserId: file.ownerUserId,
+        parentId: destinationFolder.id,
+        name: file.name,
+        excludeFileId: file.id,
+      });
+
+      const updated = await (await resolveRepo()).updateFile({
+        id: file.id,
+        folderId: destinationFolder.id,
+      });
+
+      return {
+        file: toLibraryFileSummary(updated),
+      };
+    },
+
+    async trashFile({
+      actorRole,
+      actorUserId,
+      fileId,
+    }: FileLookupInput): Promise<FileMutationResult> {
+      const file = await getActiveOwnedFile({
+        actorRole,
+        actorUserId,
+        fileId,
+      });
+
+      const updated = await (await resolveRepo()).updateFile({
+        id: file.id,
+        deletedAt: now(),
+      });
+
+      return {
+        file: toLibraryFileSummary(updated),
+      };
+    },
+
+    async restoreFile({
+      actorRole,
+      actorUserId,
+      fileId,
+    }: FileLookupInput): Promise<FileMutationResult> {
+      const file = await getOwnedFile({
+        actorRole,
+        actorUserId,
+        fileId,
+      });
+
+      if (!file.deletedAt) {
+        throw new LibraryError("FILE_ALREADY_ACTIVE");
+      }
+
+      const libraryRoot = await ensureLibraryRoot(file.ownerUserId);
+      const restoreLocation = await getFileRestoreLocation(file, libraryRoot);
+
+      await assertNoFileNameConflict({
+        ownerUserId: file.ownerUserId,
+        parentId: restoreLocation.folderId,
+        name: file.name,
+        excludeFileId: file.id,
+      });
+
+      const updated = await (await resolveRepo()).updateFile({
+        id: file.id,
+        deletedAt: null,
+        folderId: restoreLocation.folderId,
+      });
+
+      return {
+        file: toLibraryFileSummary(updated),
+        restoredTo: restoreLocation,
+      };
+    },
+
+    async deleteFile({
+      actorRole,
+      actorUserId,
+      fileId,
+    }: FileLookupInput): Promise<FileMutationResult> {
+      const file = await getOwnedFile({
+        actorRole,
+        actorUserId,
+        fileId,
+      });
+
+      if (!file.deletedAt) {
+        throw new LibraryError("FILE_DELETE_REQUIRES_TRASH");
+      }
+
+      await rm(getStoragePath(file.storageKey), {
+        force: true,
+      });
+      await (await resolveRepo()).deleteFile(file.id);
+
+      return {
+        deletedFileId: file.id,
+      };
+    },
+
+    async uploadFiles({
+      actorRole,
+      actorUserId,
+      folderId,
+      items,
+    }: UploadFilesInput): Promise<UploadFilesResult> {
+      const targetFolder = folderId
+        ? await getActiveOwnedFolder({
+            actorRole,
+            actorUserId,
+            folderId,
+          })
+        : await ensureLibraryRoot(actorUserId);
+      const activeRepo = await resolveRepo();
+      const uploadedFiles: LibraryFileSummary[] = [];
+      const conflicts: UploadConflictItem[] = [];
+      let stagedAnyUpload = false;
+
+      for (const item of items) {
+        const normalizedName = normalizeFileName(item.originalName || item.file.name);
+        const stagedFile = await stageUpload({
+          ...item,
+          originalName: normalizedName,
+        });
+        stagedAnyUpload = true;
+
+        const activeConflict = await findActiveNameConflict({
+          ownerUserId: targetFolder.ownerUserId,
+          parentId: targetFolder.id,
+          name: normalizedName,
+        });
+
+        let finalName = normalizedName;
+
+        if (activeConflict) {
+          if (item.conflictStrategy === "replace" && activeConflict.kind === "file") {
+            const updated = await replaceCommittedUpload({
+              stagedFile,
+              targetPath: getStoragePath(activeConflict.item.storageKey),
+              applyMetadataUpdate: () =>
+                activeRepo.updateFile({
+                  id: activeConflict.item.id,
+                  name: activeConflict.item.name,
+                  mimeType: stagedFile.mimeType,
+                  sizeBytes: stagedFile.sizeBytes,
+                  contentChecksum: stagedFile.actualChecksum,
+                  deletedAt: null,
+                  folderId: targetFolder.id,
+                }),
+            });
+
+            uploadedFiles.push(toLibraryFileSummary(updated));
+            continue;
+          }
+
+          if (item.conflictStrategy === "safeRename") {
+            const siblings = await Promise.all([
+              activeRepo.listChildFolders(targetFolder.ownerUserId, targetFolder.id, {
+                includeDeleted: false,
+              }),
+              activeRepo.listChildFiles(targetFolder.ownerUserId, targetFolder.id, {
+                includeDeleted: false,
+              }),
+            ]);
+            finalName = buildSafeRenamedFileName(normalizedName, [
+              ...siblings[0].map((folder) => folder.name),
+              ...siblings[1].map((file) => file.name),
+            ]);
+          } else {
+            conflicts.push({
+              clientKey: item.clientKey,
+              originalName: normalizedName,
+              conflictStrategy: item.conflictStrategy,
+              existingKind: activeConflict.kind,
+              existingId: activeConflict.item.id,
+              existingName: activeConflict.item.name,
+            });
+            await cleanupStagedUpload(stagedFile.tmpPath);
+            continue;
+          }
+        }
+
+        const fileId = randomUUID();
+        const storedFileRef = buildStoredFileRef(targetFolder.ownerUserId, fileId);
+        const targetPath = getStoragePath(storedFileRef.storageKey);
+
+        try {
+          await commitStagedUpload(stagedFile, targetPath);
+        } catch (error) {
+          await cleanupStagedUpload(stagedFile.tmpPath);
+          throw error;
+        }
+
+        try {
+          const createdFile = await activeRepo.createFile({
+            id: fileId,
+            ownerUserId: targetFolder.ownerUserId,
+            folderId: targetFolder.id,
+            name: finalName,
+            storageKey: storedFileRef.storageKey,
+            mimeType: stagedFile.mimeType,
+            sizeBytes: stagedFile.sizeBytes,
+            contentChecksum: stagedFile.actualChecksum,
+          });
+
+          uploadedFiles.push(toLibraryFileSummary(createdFile));
+        } catch (error) {
+          await rm(targetPath, {
+            force: true,
+          });
+          throw error;
+        }
+      }
+
+      if (stagedAnyUpload) {
+        await scheduleStagingCleanup();
+      }
+
+      return {
+        uploadedFiles,
+        conflicts,
       };
     },
   };

@@ -16,6 +16,24 @@ export type LibraryFolderSummary = {
   updatedAt: Date;
 };
 
+export type LibraryFileSummary = {
+  id: string;
+  ownerUserId: string;
+  folderId: string | null;
+  name: string;
+  mimeType: string;
+  sizeBytes: number;
+  deletedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type StoredLibraryFile = LibraryFileSummary & {
+  storageKey: string;
+  contentChecksum: string | null;
+  previewStatus: "pending" | "ready" | "failed";
+};
+
 export type LibraryBreadcrumb = {
   id: string;
   name: string;
@@ -34,6 +52,7 @@ export type LibraryListing = {
   currentFolder: LibraryFolderSummary;
   breadcrumbs: LibraryBreadcrumb[];
   childFolders: LibraryFolderSummary[];
+  files: LibraryFileSummary[];
   moveTargets: LibraryMoveTarget[];
   availableMoveTargetIdsByFolderId: Record<string, string[]>;
 };
@@ -50,8 +69,20 @@ export type FolderMutationResult = {
   restoredTo?: FolderRestoreLocation;
 };
 
+export type FileMutationResult = {
+  file?: LibraryFileSummary;
+  deletedFileId?: string;
+  restoredTo?: FolderRestoreLocation;
+};
+
 export type TrashFolderSummary = {
   folder: LibraryFolderSummary;
+  originalPathLabel: string;
+  restoreLocation: FolderRestoreLocation;
+};
+
+export type TrashFileSummary = {
+  file: LibraryFileSummary;
   originalPathLabel: string;
   restoreLocation: FolderRestoreLocation;
 };
@@ -59,4 +90,5 @@ export type TrashFolderSummary = {
 export type TrashListing = {
   libraryRoot: LibraryFolderSummary;
   items: TrashFolderSummary[];
+  files: TrashFileSummary[];
 };

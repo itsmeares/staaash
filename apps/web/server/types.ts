@@ -1,6 +1,6 @@
 export type UserRole = "owner" | "member";
 
-export type ConflictResolution = "prompt" | "safeRename";
+export type UploadConflictStrategy = "fail" | "safeRename" | "replace";
 
 export type UploadCommitStatus = "staged" | "verified" | "committed" | "failed";
 
@@ -17,7 +17,7 @@ export type StoredFileRef = {
 export type UploadSession = {
   id: string;
   tmpPath: string;
-  conflictResolution: ConflictResolution;
+  conflictStrategy: UploadConflictStrategy;
   status: UploadCommitStatus;
   expectedChecksum?: string;
 };

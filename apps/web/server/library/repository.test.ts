@@ -228,12 +228,40 @@ const createFakePrismaClient = () => {
     },
   };
 
+  const fileDelegate = {
+    async findUnique() {
+      return null;
+    },
+
+    async findMany() {
+      return [];
+    },
+
+    async create() {
+      throw new Error("Not implemented in this test harness.");
+    },
+
+    async update() {
+      throw new Error("Not implemented in this test harness.");
+    },
+
+    async updateMany() {
+      return { count: 0 };
+    },
+
+    async delete() {
+      return null;
+    },
+  };
+
   const transactionClient = {
     folder: folderDelegate,
+    file: fileDelegate,
   };
 
   const client = {
     folder: folderDelegate,
+    file: fileDelegate,
     async $transaction<T>(
       callback: (tx: typeof transactionClient) => Promise<T>,
     ) {

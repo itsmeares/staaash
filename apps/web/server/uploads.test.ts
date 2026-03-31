@@ -6,8 +6,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   assertUploadSizeAllowed,
+  buildSafeRenamedFileName,
   createUploadSession,
-  getDefaultConflictResolution,
+  getDefaultUploadConflictStrategy,
   getUploadStagingTtlMs,
   getUploadTimeoutBudgetMs,
   shouldCleanupStagedUpload,
@@ -15,13 +16,13 @@ import {
 } from "@/server/uploads";
 
 describe("upload guardrails", () => {
-  it("uses prompt for interactive uploads", () => {
-    expect(getDefaultConflictResolution("interactiveWeb")).toBe("prompt");
+  it("uses fail for interactive uploads until the UI chooses explicitly", () => {
+    expect(getDefaultUploadConflictStrategy("interactiveWeb")).toBe("fail");
   });
 
   it("uses safe rename for bulk and api-like uploads", () => {
-    expect(getDefaultConflictResolution("bulk")).toBe("safeRename");
-    expect(getDefaultConflictResolution("api")).toBe("safeRename");
+    expect(getDefaultUploadConflictStrategy("bulk")).toBe("safeRename");
+    expect(getDefaultUploadConflictStrategy("api")).toBe("safeRename");
   });
 
   it("creates staged upload sessions", () => {
@@ -29,6 +30,7 @@ describe("upload guardrails", () => {
 
     expect(session.status).toBe("staged");
     expect(session.expectedChecksum).toBe("abc");
+    expect(session.conflictStrategy).toBe("fail");
   });
 
   it("verifies file checksums", async () => {
@@ -57,7 +59,13 @@ describe("upload guardrails", () => {
 
   it("rejects oversized uploads", () => {
     expect(() => assertUploadSizeAllowed(Number.MAX_SAFE_INTEGER)).toThrow(
-      RangeError,
+      "configured maximum size",
     );
+  });
+
+  it("generates keep-both filenames with numeric suffixes", () => {
+    expect(
+      buildSafeRenamedFileName("photo.jpg", ["photo.jpg", "photo (1).jpg"]),
+    ).toBe("photo (2).jpg");
   });
 });
