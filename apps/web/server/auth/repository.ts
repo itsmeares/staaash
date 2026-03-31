@@ -198,9 +198,11 @@ export const prismaAuthRepository: AuthRepository = {
         await tx.folder.create({
           data: {
             ownerUserId: user.id,
-            libraryRootKey: user.id,
             name: "Library",
             isLibraryRoot: true,
+          },
+          select: {
+            id: true,
           },
         });
 
@@ -390,9 +392,11 @@ export const prismaAuthRepository: AuthRepository = {
         await tx.folder.create({
           data: {
             ownerUserId: user.id,
-            libraryRootKey: user.id,
             name: "Library",
             isLibraryRoot: true,
+          },
+          select: {
+            id: true,
           },
         });
 

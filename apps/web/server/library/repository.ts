@@ -16,11 +16,6 @@ const libraryFolderSelect = {
   updatedAt: true,
 } satisfies Prisma.FolderSelect;
 
-const rootRepairSelect = {
-  ...libraryFolderSelect,
-  libraryRootKey: true,
-} satisfies Prisma.FolderSelect;
-
 const libraryFileSelect = {
   id: true,
   ownerUserId: true,
@@ -38,10 +33,6 @@ const libraryFileSelect = {
 
 type LibraryFolderRecord = Prisma.FolderGetPayload<{
   select: typeof libraryFolderSelect;
-}>;
-
-type RootRepairRecord = Prisma.FolderGetPayload<{
-  select: typeof rootRepairSelect;
 }>;
 
 type LibraryFileRecord = Prisma.FileGetPayload<{
@@ -102,11 +93,11 @@ type UpdateFilesParams = {
 };
 
 type FolderDelegate = {
-  findFirst(args: Prisma.FolderFindFirstArgs): Promise<RootRepairRecord | null>;
+  findFirst(args: Prisma.FolderFindFirstArgs): Promise<LibraryFolderRecord | null>;
   findUnique(
     args: Prisma.FolderFindUniqueArgs,
   ): Promise<LibraryFolderRecord | null>;
-  findMany(args: Prisma.FolderFindManyArgs): Promise<RootRepairRecord[]>;
+  findMany(args: Prisma.FolderFindManyArgs): Promise<LibraryFolderRecord[]>;
   create(args: Prisma.FolderCreateArgs): Promise<LibraryFolderRecord>;
   update(args: Prisma.FolderUpdateArgs): Promise<LibraryFolderRecord>;
   updateMany(args: Prisma.FolderUpdateManyArgs): Promise<unknown>;
@@ -132,7 +123,7 @@ type LibraryPrismaClient = LibraryTransactionClient & {
 
 const toLibraryFolderSummary = (
   folder: Pick<
-    RootRepairRecord,
+    LibraryFolderRecord,
     | "id"
     | "ownerUserId"
     | "parentId"
@@ -168,15 +159,7 @@ const toStoredLibraryFile = (file: LibraryFileRecord): StoredLibraryFile => ({
   updatedAt: file.updatedAt,
 });
 
-const isUniqueConstraintError = (error: unknown) => {
-  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
-    return false;
-  }
-
-  return error.code === "P2002";
-};
-
-const sortLegacyRoots = (folders: RootRepairRecord[]) =>
+const sortLegacyRoots = (folders: LibraryFolderRecord[]) =>
   [...folders].sort((left, right) => {
     const leftDeletedRank = left.deletedAt ? 1 : 0;
     const rightDeletedRank = right.deletedAt ? 1 : 0;
@@ -194,12 +177,13 @@ const findCanonicalRoot = async (
 ) => {
   const folder = await client.folder.findFirst({
     where: {
-      libraryRootKey: ownerUserId,
+      ownerUserId,
+      isLibraryRoot: true,
     },
     orderBy: {
       createdAt: "asc",
     },
-    select: rootRepairSelect,
+    select: libraryFolderSelect,
   });
 
   return folder ? toLibraryFolderSummary(folder) : null;
@@ -217,7 +201,7 @@ const listLegacyRoots = (
     orderBy: {
       createdAt: "asc",
     },
-    select: rootRepairSelect,
+    select: libraryFolderSelect,
   });
 
 const createCanonicalRoot = async (
@@ -227,7 +211,6 @@ const createCanonicalRoot = async (
   const folder = await client.folder.create({
     data: {
       ownerUserId,
-      libraryRootKey: ownerUserId,
       parentId: null,
       name: "Library",
       isLibraryRoot: true,
@@ -273,20 +256,16 @@ export const createPrismaLibraryRepository = (
   client: LibraryPrismaClient = prisma as unknown as LibraryPrismaClient,
 ): LibraryRepository => ({
   async ensureLibraryRoot(ownerUserId) {
-    const existingRoot = await findCanonicalRoot(client, ownerUserId);
+    const existingRoots = sortLegacyRoots(
+      await listLegacyRoots(client, ownerUserId),
+    );
 
-    if (existingRoot) {
-      return existingRoot;
+    if (existingRoots.length === 1) {
+      return toLibraryFolderSummary(existingRoots[0]);
     }
 
     try {
       return await client.$transaction(async (tx) => {
-        const canonicalRoot = await findCanonicalRoot(tx, ownerUserId);
-
-        if (canonicalRoot) {
-          return canonicalRoot;
-        }
-
         const legacyRoots = sortLegacyRoots(
           await listLegacyRoots(tx, ownerUserId),
         );
@@ -295,13 +274,16 @@ export const createPrismaLibraryRepository = (
           return createCanonicalRoot(tx, ownerUserId);
         }
 
+        if (legacyRoots.length === 1) {
+          return toLibraryFolderSummary(legacyRoots[0]);
+        }
+
         const [legacyCanonicalRoot, ...duplicateRoots] = legacyRoots;
         const repairedCanonicalRoot = await tx.folder.update({
           where: {
             id: legacyCanonicalRoot.id,
           },
           data: {
-            libraryRootKey: ownerUserId,
             isLibraryRoot: true,
             parentId: null,
             deletedAt: null,
@@ -315,7 +297,6 @@ export const createPrismaLibraryRepository = (
               id: duplicateRoot.id,
             },
             data: {
-              libraryRootKey: null,
               isLibraryRoot: false,
               parentId: repairedCanonicalRoot.id,
             },
@@ -326,14 +307,6 @@ export const createPrismaLibraryRepository = (
         return toLibraryFolderSummary(repairedCanonicalRoot);
       });
     } catch (error) {
-      if (isUniqueConstraintError(error)) {
-        const canonicalRoot = await findCanonicalRoot(client, ownerUserId);
-
-        if (canonicalRoot) {
-          return canonicalRoot;
-        }
-      }
-
       throw error;
     }
   },
@@ -368,7 +341,7 @@ export const createPrismaLibraryRepository = (
         ...(options.includeDeleted ? {} : { deletedAt: null }),
       },
       orderBy: [{ name: "asc" }, { createdAt: "asc" }],
-      select: rootRepairSelect,
+      select: libraryFolderSelect,
     });
 
     return folders.map(toLibraryFolderSummary);
@@ -400,7 +373,7 @@ export const createPrismaLibraryRepository = (
         { name: "asc" },
         { createdAt: "asc" },
       ],
-      select: rootRepairSelect,
+      select: libraryFolderSelect,
     });
 
     return folders.map(toLibraryFolderSummary);

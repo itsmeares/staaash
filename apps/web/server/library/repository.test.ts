@@ -1,4 +1,3 @@
-import { Prisma } from "@staaash/db/client";
 import { describe, expect, it } from "vitest";
 
 import { createPrismaLibraryRepository } from "@/server/library/repository";
@@ -6,7 +5,6 @@ import { createPrismaLibraryRepository } from "@/server/library/repository";
 type MemoryFolderRecord = {
   id: string;
   ownerUserId: string;
-  libraryRootKey: string | null;
   parentId: string | null;
   name: string;
   isLibraryRoot: boolean;
@@ -15,34 +13,22 @@ type MemoryFolderRecord = {
   updatedAt: Date;
 };
 
-const createKnownRequestError = () => {
-  const error = Object.assign(new Error("Unique constraint failed."), {
-    code: "P2002",
-  });
-
-  Object.setPrototypeOf(error, Prisma.PrismaClientKnownRequestError.prototype);
-  return error as Prisma.PrismaClientKnownRequestError;
-};
-
 const createFakePrismaClient = () => {
   const state = {
     folders: [] as MemoryFolderRecord[],
     ids: 0,
-    failNextCanonicalCreateForOwner: null as string | null,
   };
 
   const nextId = () => `folder-${++state.ids}`;
 
   const addFolder = ({
     ownerUserId,
-    libraryRootKey = null,
     parentId = null,
     name = "Library",
     isLibraryRoot = false,
     deletedAt = null,
   }: {
     ownerUserId: string;
-    libraryRootKey?: string | null;
     parentId?: string | null;
     name?: string;
     isLibraryRoot?: boolean;
@@ -54,7 +40,6 @@ const createFakePrismaClient = () => {
     const folder: MemoryFolderRecord = {
       id: nextId(),
       ownerUserId,
-      libraryRootKey,
       parentId,
       name,
       isLibraryRoot,
@@ -78,7 +63,6 @@ const createFakePrismaClient = () => {
     async findFirst(args: {
       where?: {
         ownerUserId?: string;
-        libraryRootKey?: string | null;
         isLibraryRoot?: boolean;
       };
       orderBy?: { createdAt?: "asc" | "desc" };
@@ -88,12 +72,6 @@ const createFakePrismaClient = () => {
       if (args.where?.ownerUserId !== undefined) {
         folders = folders.filter(
           (folder) => folder.ownerUserId === args.where?.ownerUserId,
-        );
-      }
-
-      if (args.where?.libraryRootKey !== undefined) {
-        folders = folders.filter(
-          (folder) => folder.libraryRootKey === args.where?.libraryRootKey,
         );
       }
 
@@ -116,7 +94,6 @@ const createFakePrismaClient = () => {
     async findMany(args: {
       where?: {
         ownerUserId?: string;
-        libraryRootKey?: string | null;
         isLibraryRoot?: boolean;
       };
     }) {
@@ -125,12 +102,6 @@ const createFakePrismaClient = () => {
       if (args.where?.ownerUserId !== undefined) {
         folders = folders.filter(
           (folder) => folder.ownerUserId === args.where?.ownerUserId,
-        );
-      }
-
-      if (args.where?.libraryRootKey !== undefined) {
-        folders = folders.filter(
-          (folder) => folder.libraryRootKey === args.where?.libraryRootKey,
         );
       }
 
@@ -146,30 +117,13 @@ const createFakePrismaClient = () => {
     async create(args: {
       data: {
         ownerUserId: string;
-        libraryRootKey?: string | null;
         parentId?: string | null;
         name: string;
         isLibraryRoot?: boolean;
       };
     }) {
-      if (
-        args.data.libraryRootKey &&
-        state.failNextCanonicalCreateForOwner === args.data.ownerUserId
-      ) {
-        state.failNextCanonicalCreateForOwner = null;
-        addFolder({
-          ownerUserId: args.data.ownerUserId,
-          libraryRootKey: args.data.libraryRootKey,
-          parentId: args.data.parentId ?? null,
-          name: args.data.name,
-          isLibraryRoot: args.data.isLibraryRoot ?? false,
-        });
-        throw createKnownRequestError();
-      }
-
       return addFolder({
         ownerUserId: args.data.ownerUserId,
-        libraryRootKey: args.data.libraryRootKey ?? null,
         parentId: args.data.parentId ?? null,
         name: args.data.name,
         isLibraryRoot: args.data.isLibraryRoot ?? false,
@@ -188,13 +142,6 @@ const createFakePrismaClient = () => {
 
       if ("ownerUserId" in args.data && args.data.ownerUserId !== undefined) {
         folder.ownerUserId = args.data.ownerUserId;
-      }
-
-      if (
-        "libraryRootKey" in args.data &&
-        args.data.libraryRootKey !== undefined
-      ) {
-        folder.libraryRootKey = args.data.libraryRootKey;
       }
 
       if ("parentId" in args.data) {
@@ -286,7 +233,7 @@ describe("prisma library repository", () => {
     expect(root.name).toBe("Library");
     expect(root.isLibraryRoot).toBe(true);
     expect(state.folders).toHaveLength(1);
-    expect(state.folders[0]?.libraryRootKey).toBe("member-1");
+    expect(state.folders[0]?.isLibraryRoot).toBe(true);
   });
 
   it("stamps and reuses a single legacy root", async () => {
@@ -300,7 +247,6 @@ describe("prisma library repository", () => {
     const root = await repo.ensureLibraryRoot("member-1");
 
     expect(root.id).toBe(legacyRoot.id);
-    expect(state.folders[0]?.libraryRootKey).toBe("member-1");
     expect(state.folders[0]?.isLibraryRoot).toBe(true);
   });
 
@@ -326,14 +272,9 @@ describe("prisma library repository", () => {
 
     expect(root.id).toBe(canonicalCandidate.id);
     expect(
-      state.folders.find((folder) => folder.id === canonicalCandidate.id)
-        ?.libraryRootKey,
-    ).toBe("member-1");
-    expect(
       state.folders.find((folder) => folder.id === duplicateRoot.id),
     ).toMatchObject({
       isLibraryRoot: false,
-      libraryRootKey: null,
       parentId: canonicalCandidate.id,
     });
     expect(
@@ -341,16 +282,14 @@ describe("prisma library repository", () => {
     ).toBe(duplicateRoot.id);
   });
 
-  it("re-reads and returns the canonical root after a unique-conflict race", async () => {
+  it("creates a new canonical root when no root exists", async () => {
     const { client, state } = createFakePrismaClient();
-    state.failNextCanonicalCreateForOwner = "member-1";
     const repo = createPrismaLibraryRepository(client as never);
 
     const root = await repo.ensureLibraryRoot("member-1");
 
     expect(root.isLibraryRoot).toBe(true);
     expect(root.id).toBe(state.folders[0]?.id);
-    expect(state.folders[0]?.libraryRootKey).toBe("member-1");
     expect(state.folders).toHaveLength(1);
   });
 });

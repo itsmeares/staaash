@@ -14,7 +14,6 @@ import type {
 } from "@/server/library/types";
 
 type MemoryFolderRecord = LibraryFolderSummary & {
-  libraryRootKey: string | null;
 };
 
 type MemoryState = {
@@ -71,14 +70,12 @@ const createMemoryRepository = () => {
     parentId,
     name,
     isLibraryRoot = false,
-    libraryRootKey = null,
     deletedAt = null,
   }: {
     ownerUserId: string;
     parentId: string | null;
     name: string;
     isLibraryRoot?: boolean;
-    libraryRootKey?: string | null;
     deletedAt?: Date | null;
   }) => {
     const now = nextDate();
@@ -88,7 +85,6 @@ const createMemoryRepository = () => {
       parentId,
       name,
       isLibraryRoot,
-      libraryRootKey,
       deletedAt,
       createdAt: now,
       updatedAt: now,
@@ -140,7 +136,7 @@ const createMemoryRepository = () => {
   const repo: LibraryRepository = {
     async ensureLibraryRoot(ownerUserId) {
       const existing = state.folders.find(
-        (folder) => folder.libraryRootKey === ownerUserId,
+        (folder) => folder.ownerUserId === ownerUserId && folder.isLibraryRoot,
       );
 
       if (existing) {
@@ -152,7 +148,6 @@ const createMemoryRepository = () => {
         parentId: null,
         name: "Library",
         isLibraryRoot: true,
-        libraryRootKey: ownerUserId,
       });
 
       return cloneFolder(folder);
@@ -216,7 +211,6 @@ const createMemoryRepository = () => {
         parentId: params.parentId,
         name: params.name,
         isLibraryRoot: params.isLibraryRoot ?? false,
-        libraryRootKey: params.isLibraryRoot ? params.ownerUserId : null,
       });
 
       return cloneFolder(folder);
