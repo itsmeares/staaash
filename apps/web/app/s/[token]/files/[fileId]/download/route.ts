@@ -1,6 +1,9 @@
 import { cookies } from "next/headers";
 
-import { createFileDownloadResponse, createShareErrorResponse } from "@/app/s/share-response";
+import {
+  createFileDownloadResponse,
+  createShareErrorResponse,
+} from "@/app/s/share-response";
 import { SHARE_ACCESS_COOKIE_NAME } from "@/server/sharing/access-cookie";
 import { sharingService } from "@/server/sharing/service";
 

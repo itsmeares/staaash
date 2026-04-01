@@ -34,7 +34,10 @@ export async function POST(
   }
 
   const body = updateSharePasswordSchema.parse(await readRequestBody(request));
-  const redirectTo = getSafeRedirectTarget(body.redirectTo, `/shared#${shareId}`);
+  const redirectTo = getSafeRedirectTarget(
+    body.redirectTo,
+    `/shared#${shareId}`,
+  );
   const session = await getRequestSession(request);
 
   if (!session) {

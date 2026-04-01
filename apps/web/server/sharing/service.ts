@@ -54,8 +54,10 @@ export const buildShareToken = (tokenLookupKey: string) =>
   `${tokenLookupKey}.${signShareLookupKey(tokenLookupKey)}`;
 
 export const buildShareUrl = (tokenLookupKey: string) =>
-  new URL(`/s/${encodeURIComponent(buildShareToken(tokenLookupKey))}`, env.APP_URL)
-    .toString();
+  new URL(
+    `/s/${encodeURIComponent(buildShareToken(tokenLookupKey))}`,
+    env.APP_URL,
+  ).toString();
 
 const buildFolderMap = (folders: LibraryFolderSummary[]) =>
   new Map(folders.map((folder) => [folder.id, folder]));
@@ -374,7 +376,8 @@ export const createSharingService = ({
           : "Unavailable folder",
         deletedAt: folder?.deletedAt ?? now(),
       },
-      targetUnavailable: !folder || isFolderDeletedInTree({ folder, folderMap }),
+      targetUnavailable:
+        !folder || isFolderDeletedInTree({ folder, folderMap }),
     };
   };
 
@@ -434,9 +437,9 @@ export const createSharingService = ({
       throw new ShareError("SHARE_INVALID");
     }
 
-    const share = await (await resolveRepo()).findShareByTokenLookupKey(
-      tokenLookupKey,
-    );
+    const share = await (
+      await resolveRepo()
+    ).findShareByTokenLookupKey(tokenLookupKey);
 
     if (!share) {
       throw new ShareError("SHARE_NOT_FOUND");
@@ -502,7 +505,10 @@ export const createSharingService = ({
         );
 
       if (effectiveExpiresAt.getTime() <= now().getTime()) {
-        throw new ShareError("SHARE_INVALID", "Share expiry must be in the future.");
+        throw new ShareError(
+          "SHARE_INVALID",
+          "Share expiry must be in the future.",
+        );
       }
 
       const { folderMap } = await resolveLibraryState(actorUserId);
@@ -528,7 +534,9 @@ export const createSharingService = ({
         ? await crypto.hashPassword(password)
         : null;
 
-      const savedShare = await (await resolveRepo()).saveShareForTarget({
+      const savedShare = await (
+        await resolveRepo()
+      ).saveShareForTarget({
         createdByUserId: actorUserId,
         targetType,
         fileId: fileId ?? null,
@@ -630,7 +638,10 @@ export const createSharingService = ({
       downloadDisabled: boolean;
     }) {
       if (expiresAt.getTime() <= now().getTime()) {
-        throw new ShareError("SHARE_INVALID", "Share expiry must be in the future.");
+        throw new ShareError(
+          "SHARE_INVALID",
+          "Share expiry must be in the future.",
+        );
       }
 
       const share = await getManagedShare({
@@ -704,7 +715,9 @@ export const createSharingService = ({
       });
 
       const issued = issueTokenPair();
-      const reissuedShare = await (await resolveRepo()).updateShare({
+      const reissuedShare = await (
+        await resolveRepo()
+      ).updateShare({
         id: share.id,
         tokenLookupKey: issued.tokenLookupKey,
         tokenHash: issued.tokenHash,
@@ -941,9 +954,9 @@ export const createSharingService = ({
         throw new ShareError("SHARE_DOWNLOAD_DISABLED");
       }
 
-      const file = (await (await resolveLibraryRepo()).findFileById(
-        resolved.file.id,
-      ))!;
+      const file = (await (
+        await resolveLibraryRepo()
+      ).findFileById(resolved.file.id))!;
 
       return {
         file,

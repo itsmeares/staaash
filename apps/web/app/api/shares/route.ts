@@ -63,7 +63,12 @@ export async function POST(request: NextRequest) {
           },
           { status: body.mode === "reissue" ? 200 : 201 },
         )
-      : redirectWithMessage(request, redirectTo, "success", "Public link ready.");
+      : redirectWithMessage(
+          request,
+          redirectTo,
+          "success",
+          "Public link ready.",
+        );
   } catch (error) {
     return wantsJson(request)
       ? jsonErrorResponse(error)

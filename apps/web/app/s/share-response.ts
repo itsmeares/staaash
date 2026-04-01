@@ -14,7 +14,9 @@ export const createFileDownloadResponse = ({
   contentLength,
 }: ShareDownloadResult) =>
   new Response(
-    Readable.toWeb(createReadStream(getStoragePath(file.storageKey))) as ReadableStream,
+    Readable.toWeb(
+      createReadStream(getStoragePath(file.storageKey)),
+    ) as ReadableStream,
     {
       headers: {
         "content-disposition": buildAttachmentDisposition(file.name),

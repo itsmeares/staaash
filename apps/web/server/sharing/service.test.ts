@@ -174,7 +174,10 @@ const createFakeSharingRepository = () => {
         share.passwordHash = params.passwordHash ?? null;
       }
 
-      if ("downloadDisabled" in params && params.downloadDisabled !== undefined) {
+      if (
+        "downloadDisabled" in params &&
+        params.downloadDisabled !== undefined
+      ) {
         share.downloadDisabled = params.downloadDisabled;
       }
 
@@ -209,9 +212,11 @@ const fakeLibraryRepo = {
     return libraryRoot;
   },
   async findFolderById(folderId: string) {
-    return [libraryRoot, sharedFolder, childFolder, siblingFolder].find(
-      (folder) => folder.id === folderId,
-    ) ?? null;
+    return (
+      [libraryRoot, sharedFolder, childFolder, siblingFolder].find(
+        (folder) => folder.id === folderId,
+      ) ?? null
+    );
   },
   async findFileById(fileId: string) {
     return [sharedFile, childFile].find((file) => file.id === fileId) ?? null;

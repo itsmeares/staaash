@@ -76,11 +76,7 @@ type ShareViewProps = {
   searchParams: Record<string, string | string[] | undefined>;
 };
 
-export function ShareView({
-  resolution,
-  token,
-  searchParams,
-}: ShareViewProps) {
+export function ShareView({ resolution, token, searchParams }: ShareViewProps) {
   const error = getSingleSearchParam(searchParams, "error");
   const success = getSingleSearchParam(searchParams, "success");
   const isLocked =
@@ -100,7 +96,9 @@ export function ShareView({
           <h1>This share is password protected</h1>
           <p className="muted">Enter the password to continue.</p>
           {error ? <FlashMessage>{error}</FlashMessage> : null}
-          {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
+          {success ? (
+            <FlashMessage tone="success">{success}</FlashMessage>
+          ) : null}
         </section>
 
         <section className="panel stack">
@@ -110,11 +108,7 @@ export function ShareView({
             className="form-grid"
             method="post"
           >
-            <input
-              name="redirectTo"
-              type="hidden"
-              value={lockedRedirectPath}
-            />
+            <input name="redirectTo" type="hidden" value={lockedRedirectPath} />
             <div className="field">
               <label htmlFor="share-password">Password</label>
               <input
@@ -137,7 +131,9 @@ export function ShareView({
   return (
     <main className="stack">
       <section className="panel stack">
-        <div className="pill">{resolution.kind === "file" ? "Shared file" : "Shared folder"}</div>
+        <div className="pill">
+          {resolution.kind === "file" ? "Shared file" : "Shared folder"}
+        </div>
         <h1>
           {resolution.kind === "file"
             ? resolution.file.name
@@ -156,8 +152,9 @@ export function ShareView({
         <section className="panel stack">
           <h2>File details</h2>
           <p className="muted">
-            {resolution.file.mimeType} • {formatBytes(resolution.file.sizeBytes)} •
-            Updated {formatDateTime(resolution.file.updatedAt)}
+            {resolution.file.mimeType} •{" "}
+            {formatBytes(resolution.file.sizeBytes)} • Updated{" "}
+            {formatDateTime(resolution.file.updatedAt)}
           </p>
           {!isLocked && !resolution.share.downloadDisabled ? (
             <a
@@ -206,7 +203,9 @@ export function ShareView({
                 <div className="split">
                   <div className="stack">
                     <h2>Folders</h2>
-                    <p className="muted">This share exposes the full linked subtree.</p>
+                    <p className="muted">
+                      This share exposes the full linked subtree.
+                    </p>
                   </div>
                   <span className="pill">
                     {resolution.listing.childFolders.length} folder
@@ -217,7 +216,9 @@ export function ShareView({
                 {resolution.listing.childFolders.length === 0 ? (
                   <div className="workspace-empty-state">
                     <h3>No child folders here</h3>
-                    <p className="muted">This folder has no visible child folders.</p>
+                    <p className="muted">
+                      This folder has no visible child folders.
+                    </p>
                   </div>
                 ) : (
                   <div className="folder-list">
@@ -247,7 +248,9 @@ export function ShareView({
                 <div className="split">
                   <div className="stack">
                     <h2>Files</h2>
-                    <p className="muted">Files stay inside the linked subtree only.</p>
+                    <p className="muted">
+                      Files stay inside the linked subtree only.
+                    </p>
                   </div>
                   <span className="pill">
                     {resolution.listing.files.length} file
@@ -268,8 +271,8 @@ export function ShareView({
                           <div className="stack">
                             <h3 className="folder-link">{file.name}</h3>
                             <p className="folder-meta">
-                              {file.mimeType} • {formatBytes(file.sizeBytes)} • Updated{" "}
-                              {formatDateTime(file.updatedAt)}
+                              {file.mimeType} • {formatBytes(file.sizeBytes)} •
+                              Updated {formatDateTime(file.updatedAt)}
                             </p>
                           </div>
                           <span className="pill">File</span>

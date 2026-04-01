@@ -34,7 +34,10 @@ export async function POST(
   }
 
   const body = updateShareSchema.parse(await readRequestBody(request));
-  const redirectTo = getSafeRedirectTarget(body.redirectTo, `/shared#${shareId}`);
+  const redirectTo = getSafeRedirectTarget(
+    body.redirectTo,
+    `/shared#${shareId}`,
+  );
   const session = await getRequestSession(request);
 
   if (!session) {
@@ -52,7 +55,12 @@ export async function POST(
 
     return wantsJson(request)
       ? NextResponse.json({ share })
-      : redirectWithMessage(request, redirectTo, "success", "Share policy updated.");
+      : redirectWithMessage(
+          request,
+          redirectTo,
+          "success",
+          "Share policy updated.",
+        );
   } catch (error) {
     return wantsJson(request)
       ? jsonErrorResponse(error)

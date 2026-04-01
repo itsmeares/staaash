@@ -71,7 +71,8 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
                 </p>
               </div>
               <span className="pill">
-                {shares.active.length} link{shares.active.length === 1 ? "" : "s"}
+                {shares.active.length} link
+                {shares.active.length === 1 ? "" : "s"}
               </span>
             </div>
 
@@ -94,14 +95,18 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
                           Expires {formatDateTime(share.expiresAt)}
                         </p>
                       </div>
-                      <span className="pill">{shareStatusLabel[share.status]}</span>
+                      <span className="pill">
+                        {shareStatusLabel[share.status]}
+                      </span>
                     </div>
 
                     <details className="folder-disclosure" open>
                       <summary>Manage public link</summary>
                       <div className="folder-disclosure-grid">
                         <div className="field">
-                          <label htmlFor={`share-url-${share.id}`}>Share URL</label>
+                          <label htmlFor={`share-url-${share.id}`}>
+                            Share URL
+                          </label>
                           <div className="workspace-inline-fields">
                             <input
                               id={`share-url-${share.id}`}
@@ -124,11 +129,19 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
                           className="field"
                           method="post"
                         >
-                          <input name="redirectTo" type="hidden" value={`/shared#${share.id}`} />
-                          <label htmlFor={`share-expiry-${share.id}`}>Policy</label>
+                          <input
+                            name="redirectTo"
+                            type="hidden"
+                            value={`/shared#${share.id}`}
+                          />
+                          <label htmlFor={`share-expiry-${share.id}`}>
+                            Policy
+                          </label>
                           <div className="stack">
                             <input
-                              defaultValue={formatDateTimeLocalValue(share.expiresAt)}
+                              defaultValue={formatDateTimeLocalValue(
+                                share.expiresAt,
+                              )}
                               id={`share-expiry-${share.id}`}
                               name="expiresAt"
                               type="datetime-local"
@@ -143,7 +156,10 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
                               />{" "}
                               Disable downloads
                             </label>
-                            <button className="button button-secondary" type="submit">
+                            <button
+                              className="button button-secondary"
+                              type="submit"
+                            >
                               Save policy
                             </button>
                           </div>
@@ -154,9 +170,15 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
                           className="field"
                           method="post"
                         >
-                          <input name="redirectTo" type="hidden" value={`/shared#${share.id}`} />
+                          <input
+                            name="redirectTo"
+                            type="hidden"
+                            value={`/shared#${share.id}`}
+                          />
                           <label htmlFor={`share-password-${share.id}`}>
-                            {share.hasPassword ? "Rotate password" : "Set password"}
+                            {share.hasPassword
+                              ? "Rotate password"
+                              : "Set password"}
                           </label>
                           <div className="workspace-inline-fields">
                             <input
@@ -165,7 +187,10 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
                               name="password"
                               type="password"
                             />
-                            <button className="button button-secondary" type="submit">
+                            <button
+                              className="button button-secondary"
+                              type="submit"
+                            >
                               {share.hasPassword ? "Rotate" : "Protect"}
                             </button>
                           </div>
@@ -177,10 +202,17 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
                             className="field"
                             method="post"
                           >
-                            <input name="redirectTo" type="hidden" value={`/shared#${share.id}`} />
+                            <input
+                              name="redirectTo"
+                              type="hidden"
+                              value={`/shared#${share.id}`}
+                            />
                             <input name="clear" type="hidden" value="true" />
                             <label>Password</label>
-                            <button className="button button-secondary" type="submit">
+                            <button
+                              className="button button-secondary"
+                              type="submit"
+                            >
                               Remove password
                             </button>
                           </form>
@@ -191,9 +223,16 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
                           className="field"
                           method="post"
                         >
-                          <input name="redirectTo" type="hidden" value={`/shared#${share.id}`} />
+                          <input
+                            name="redirectTo"
+                            type="hidden"
+                            value={`/shared#${share.id}`}
+                          />
                           <label>Revoke</label>
-                          <button className="button button-danger" type="submit">
+                          <button
+                            className="button button-danger"
+                            type="submit"
+                          >
                             Revoke link
                           </button>
                         </form>
@@ -203,9 +242,16 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
                           className="field"
                           method="post"
                         >
-                          <input name="redirectTo" type="hidden" value="/shared" />
+                          <input
+                            name="redirectTo"
+                            type="hidden"
+                            value="/shared"
+                          />
                           <label>Delete</label>
-                          <button className="button button-danger" type="submit">
+                          <button
+                            className="button button-danger"
+                            type="submit"
+                          >
                             Delete record
                           </button>
                         </form>
@@ -227,7 +273,8 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
                 </p>
               </div>
               <span className="pill">
-                {shares.inactive.length} link{shares.inactive.length === 1 ? "" : "s"}
+                {shares.inactive.length} link
+                {shares.inactive.length === 1 ? "" : "s"}
               </span>
             </div>
 
@@ -247,17 +294,31 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
                           {share.target.pathLabel} • {share.target.targetType}
                         </p>
                       </div>
-                      <span className="pill">{shareStatusLabel[share.status]}</span>
+                      <span className="pill">
+                        {shareStatusLabel[share.status]}
+                      </span>
                     </div>
 
                     <details className="folder-disclosure">
                       <summary>Manage inactive link</summary>
                       <div className="folder-disclosure-grid">
                         {share.status !== "target-unavailable" ? (
-                          <form action="/api/shares" className="field" method="post">
+                          <form
+                            action="/api/shares"
+                            className="field"
+                            method="post"
+                          >
                             <input name="mode" type="hidden" value="reissue" />
-                            <input name="shareId" type="hidden" value={share.id} />
-                            <input name="redirectTo" type="hidden" value={`/shared#${share.id}`} />
+                            <input
+                              name="shareId"
+                              type="hidden"
+                              value={share.id}
+                            />
+                            <input
+                              name="redirectTo"
+                              type="hidden"
+                              value={`/shared#${share.id}`}
+                            />
                             <label>Reissue</label>
                             <button className="button" type="submit">
                               Reissue public link
@@ -267,7 +328,8 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
                           <div className="field">
                             <label>Target</label>
                             <span className="field-help">
-                              Restore the item in the library before reissuing this link.
+                              Restore the item in the library before reissuing
+                              this link.
                             </span>
                           </div>
                         )}
@@ -277,9 +339,16 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
                           className="field"
                           method="post"
                         >
-                          <input name="redirectTo" type="hidden" value="/shared" />
+                          <input
+                            name="redirectTo"
+                            type="hidden"
+                            value="/shared"
+                          />
                           <label>Delete</label>
-                          <button className="button button-danger" type="submit">
+                          <button
+                            className="button button-danger"
+                            type="submit"
+                          >
                             Delete record
                           </button>
                         </form>

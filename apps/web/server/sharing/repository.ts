@@ -67,9 +67,13 @@ export type SharingRepository = {
   findShareById(shareId: string): Promise<StoredShareLink | null>;
   findShareByFileId(fileId: string): Promise<StoredShareLink | null>;
   findShareByFolderId(folderId: string): Promise<StoredShareLink | null>;
-  findShareByTokenLookupKey(tokenLookupKey: string): Promise<StoredShareLink | null>;
+  findShareByTokenLookupKey(
+    tokenLookupKey: string,
+  ): Promise<StoredShareLink | null>;
   listSharesByCreator(createdByUserId: string): Promise<StoredShareLink[]>;
-  saveShareForTarget(params: SaveShareForTargetParams): Promise<StoredShareLink>;
+  saveShareForTarget(
+    params: SaveShareForTargetParams,
+  ): Promise<StoredShareLink>;
   createShare(params: CreateShareParams): Promise<StoredShareLink>;
   updateShare(params: UpdateShareParams): Promise<StoredShareLink>;
   deleteShare(shareId: string): Promise<void>;

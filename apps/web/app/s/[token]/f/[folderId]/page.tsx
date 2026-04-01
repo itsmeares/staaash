@@ -19,11 +19,8 @@ export default async function SharedFolderPage({
   params,
   searchParams,
 }: SharedFolderPageProps) {
-  const [{ token, folderId }, resolvedSearchParams, cookieStore] = await Promise.all([
-    params,
-    searchParams,
-    cookies(),
-  ]);
+  const [{ token, folderId }, resolvedSearchParams, cookieStore] =
+    await Promise.all([params, searchParams, cookies()]);
 
   try {
     const resolution = await sharingService.resolvePublicShare({

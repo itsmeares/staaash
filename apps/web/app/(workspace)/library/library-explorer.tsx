@@ -46,7 +46,10 @@ function ShareShortcut({
         <div className="stack">
           <span className="field-help">{shareStatusLabel[share.status]}</span>
           <div className="workspace-inline-fields">
-            <Link className="button button-secondary" href={`/shared#${share.id}`}>
+            <Link
+              className="button button-secondary"
+              href={`/shared#${share.id}`}
+            >
               Manage public link
             </Link>
             {share.status === "active" ? (
@@ -62,7 +65,11 @@ function ShareShortcut({
           </div>
         </div>
       ) : (
-        <form action="/api/shares" className="workspace-inline-form" method="post">
+        <form
+          action="/api/shares"
+          className="workspace-inline-form"
+          method="post"
+        >
           <input name="redirectTo" type="hidden" value={currentPath} />
           <input name="targetType" type="hidden" value={targetType} />
           <input
