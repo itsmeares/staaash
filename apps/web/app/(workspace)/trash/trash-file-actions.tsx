@@ -5,10 +5,7 @@ type TrashFileActionsProps = {
   fileName: string;
 };
 
-export function TrashFileActions({
-  fileId,
-  fileName,
-}: TrashFileActionsProps) {
+export function TrashFileActions({ fileId, fileName }: TrashFileActionsProps) {
   return (
     <div className="workspace-inline-fields">
       <form action={`/api/library/files/${fileId}/restore`} method="post">

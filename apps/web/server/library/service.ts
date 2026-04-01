@@ -172,7 +172,10 @@ const assertFolderAccess = (
   return folder;
 };
 
-const assertFileAccess = (actor: LibraryActor, file: StoredLibraryFile | null) => {
+const assertFileAccess = (
+  actor: LibraryActor,
+  file: StoredLibraryFile | null,
+) => {
   if (!file) {
     throw new LibraryError("FILE_NOT_FOUND");
   }
@@ -432,11 +435,15 @@ export const createLibraryService = ({
     folderIds: Set<string>;
     includeDeleted?: boolean;
   }) => {
-    const files = await (await resolveRepo()).listFilesByOwner(ownerUserId, {
+    const files = await (
+      await resolveRepo()
+    ).listFilesByOwner(ownerUserId, {
       includeDeleted,
     });
 
-    return files.filter((file) => file.folderId && folderIds.has(file.folderId));
+    return files.filter(
+      (file) => file.folderId && folderIds.has(file.folderId),
+    );
   };
 
   const buildBreadcrumbs = async (
@@ -764,9 +771,13 @@ export const createLibraryService = ({
         : libraryRoot;
       const activeRepo = await resolveRepo();
       const [childFolders, files] = await Promise.all([
-        activeRepo.listChildFolders(currentFolder.ownerUserId, currentFolder.id, {
-          includeDeleted: false,
-        }),
+        activeRepo.listChildFolders(
+          currentFolder.ownerUserId,
+          currentFolder.id,
+          {
+            includeDeleted: false,
+          },
+        ),
         activeRepo.listChildFiles(currentFolder.ownerUserId, currentFolder.id, {
           includeDeleted: false,
         }),
@@ -890,7 +901,9 @@ export const createLibraryService = ({
             break;
           }
 
-          ancestor = ancestor.parentId ? folderMap.get(ancestor.parentId) : null;
+          ancestor = ancestor.parentId
+            ? folderMap.get(ancestor.parentId)
+            : null;
         }
 
         if (hasDeletedAncestor) {
@@ -922,7 +935,9 @@ export const createLibraryService = ({
         const rightTime = right.file.deletedAt?.getTime() ?? 0;
         const leftTime = left.file.deletedAt?.getTime() ?? 0;
 
-        return rightTime - leftTime || left.file.name.localeCompare(right.file.name);
+        return (
+          rightTime - leftTime || left.file.name.localeCompare(right.file.name)
+        );
       });
 
       return {
@@ -1021,7 +1036,10 @@ export const createLibraryService = ({
         folderId: folder.id,
         includeDeleted: true,
       });
-      const folderIds = new Set([folder.id, ...descendants.map((item) => item.id)]);
+      const folderIds = new Set([
+        folder.id,
+        ...descendants.map((item) => item.id),
+      ]);
       const descendantFiles = await collectFilesInFolders({
         ownerUserId: folder.ownerUserId,
         folderIds,
@@ -1040,7 +1058,9 @@ export const createLibraryService = ({
         folderMap: currentFolderMap,
         updatedFolders: [nextFolder],
       });
-      const previousFileStates: Array<Pick<StoredLibraryFile, "id" | "storageKey">> = [];
+      const previousFileStates: Array<
+        Pick<StoredLibraryFile, "id" | "storageKey">
+      > = [];
       const fromStorageKey = buildFolderStorageKey({
         folder,
         folderMap: currentFolderMap,
@@ -1159,7 +1179,10 @@ export const createLibraryService = ({
       });
       const activeRepo = await resolveRepo();
       const libraryRoot = await ensureLibraryRoot(folder.ownerUserId);
-      const folderIds = new Set([folder.id, ...descendants.map((item) => item.id)]);
+      const folderIds = new Set([
+        folder.id,
+        ...descendants.map((item) => item.id),
+      ]);
       const descendantFiles = await collectFilesInFolders({
         ownerUserId: folder.ownerUserId,
         folderIds,
@@ -1178,7 +1201,9 @@ export const createLibraryService = ({
         folderMap: currentFolderMap,
         updatedFolders: [nextFolder],
       });
-      const previousFileStates: Array<Pick<StoredLibraryFile, "id" | "storageKey">> = [];
+      const previousFileStates: Array<
+        Pick<StoredLibraryFile, "id" | "storageKey">
+      > = [];
       const fromStorageKey = buildFolderStorageKey({
         folder,
         folderMap: currentFolderMap,
@@ -1830,11 +1855,16 @@ export const createLibraryService = ({
       let stagedAnyUpload = false;
 
       for (const item of items) {
-        const normalizedName = normalizeFileName(item.originalName || item.file.name);
-        const stagedFile = await stageUpload({
-          ...item,
-          originalName: normalizedName,
-        }, uploadDeadline);
+        const normalizedName = normalizeFileName(
+          item.originalName || item.file.name,
+        );
+        const stagedFile = await stageUpload(
+          {
+            ...item,
+            originalName: normalizedName,
+          },
+          uploadDeadline,
+        );
         stagedAnyUpload = true;
 
         try {

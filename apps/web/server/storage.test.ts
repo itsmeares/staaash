@@ -38,9 +38,7 @@ describe("storage layout", () => {
   });
 
   it("builds active and hidden folder roots per username", () => {
-    expect(getUserLibraryRootStorageKey("johnsmith")).toBe(
-      "library/johnsmith",
-    );
+    expect(getUserLibraryRootStorageKey("johnsmith")).toBe("library/johnsmith");
     expect(getUserTrashRootStorageKey("johnsmith")).toBe(".trash/johnsmith");
     expect(
       getActiveFolderStorageKey({
@@ -72,7 +70,9 @@ describe("storage layout", () => {
   });
 
   it("builds internal lock and pending-delete paths under tmp", () => {
-    expect(getStorageLockPath("abc123")).toContain(`${path.sep}tmp${path.sep}locks${path.sep}`);
+    expect(getStorageLockPath("abc123")).toContain(
+      `${path.sep}tmp${path.sep}locks${path.sep}`,
+    );
     expect(getPendingDeleteBlobPath("op-1")).toContain(
       `${path.sep}tmp${path.sep}pending-delete${path.sep}op-1.bin`,
     );

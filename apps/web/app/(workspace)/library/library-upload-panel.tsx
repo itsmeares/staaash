@@ -160,9 +160,9 @@ export function LibraryUploadPanel({
       },
       body: formData,
     });
-    const payload = (await response.json().catch(() => null)) as
-      | UploadResponsePayload
-      | null;
+    const payload = (await response
+      .json()
+      .catch(() => null)) as UploadResponsePayload | null;
 
     return {
       response,
@@ -208,7 +208,10 @@ export function LibraryUploadPanel({
           return;
         }
 
-        if (result.response.status !== 409 || !result.payload?.conflicts?.length) {
+        if (
+          result.response.status !== 409 ||
+          !result.payload?.conflicts?.length
+        ) {
           setErrorMessage(result.payload?.error ?? "Upload failed.");
           return;
         }
@@ -222,8 +225,10 @@ export function LibraryUploadPanel({
         const conflictedKeys = new Set(
           result.payload.conflicts.map((conflict) => conflict.clientKey),
         );
-        const retryStrategies: Record<string, "fail" | "safeRename" | "replace"> =
-          {};
+        const retryStrategies: Record<
+          string,
+          "fail" | "safeRename" | "replace"
+        > = {};
         const retryEntries: SelectedUploadEntry[] = [];
 
         for (const conflict of result.payload.conflicts) {
@@ -319,7 +324,8 @@ export function LibraryUploadPanel({
           </p>
         </div>
         <span className="pill">
-          Up to {formatFileSize(maxUploadBytes)} / {timeoutMinutes} minute budget
+          Up to {formatFileSize(maxUploadBytes)} / {timeoutMinutes} minute
+          budget
         </span>
       </div>
 

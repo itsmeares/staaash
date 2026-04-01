@@ -1,6 +1,13 @@
 import os from "node:os";
 import path from "node:path";
-import { access, mkdir, readFile, rm, utimes, writeFile } from "node:fs/promises";
+import {
+  access,
+  mkdir,
+  readFile,
+  rm,
+  utimes,
+  writeFile,
+} from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
 
@@ -45,10 +52,18 @@ describe("worker storage maintenance", () => {
     );
 
     expect(
-      shouldCleanupStagedUpload(new Date(now.getTime() - ttlMs - 1), ttlMs, now),
+      shouldCleanupStagedUpload(
+        new Date(now.getTime() - ttlMs - 1),
+        ttlMs,
+        now,
+      ),
     ).toBe(true);
     expect(
-      shouldCleanupStagedUpload(new Date(now.getTime() - ttlMs + 1), ttlMs, now),
+      shouldCleanupStagedUpload(
+        new Date(now.getTime() - ttlMs + 1),
+        ttlMs,
+        now,
+      ),
     ).toBe(false);
 
     await cleanupExpiredStagingFiles({
@@ -63,7 +78,8 @@ describe("worker storage maintenance", () => {
   });
 
   it("restores quarantined deletes when the db row still exists", async () => {
-    const { root, pendingDeleteRoot, originalPath } = createPendingDeleteFixture();
+    const { root, pendingDeleteRoot, originalPath } =
+      createPendingDeleteFixture();
     const quarantineBlobPath = path.join(pendingDeleteRoot, "op-1.bin");
     const quarantineManifestPath = path.join(pendingDeleteRoot, "op-1.json");
     await mkdir(path.dirname(originalPath), { recursive: true });
@@ -103,7 +119,8 @@ describe("worker storage maintenance", () => {
   });
 
   it("finalizes quarantined deletes when the db row is gone", async () => {
-    const { root, pendingDeleteRoot, originalPath } = createPendingDeleteFixture();
+    const { root, pendingDeleteRoot, originalPath } =
+      createPendingDeleteFixture();
     const quarantineBlobPath = path.join(pendingDeleteRoot, "op-2.bin");
     const quarantineManifestPath = path.join(pendingDeleteRoot, "op-2.json");
     await mkdir(pendingDeleteRoot, { recursive: true });

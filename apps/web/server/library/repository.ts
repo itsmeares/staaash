@@ -104,7 +104,9 @@ type UpdateFilesParams = {
 };
 
 type FolderDelegate = {
-  findFirst(args: Prisma.FolderFindFirstArgs): Promise<LibraryFolderRecord | null>;
+  findFirst(
+    args: Prisma.FolderFindFirstArgs,
+  ): Promise<LibraryFolderRecord | null>;
   findUnique(
     args: Prisma.FolderFindUniqueArgs,
   ): Promise<LibraryFolderRecord | null>;
@@ -115,7 +117,9 @@ type FolderDelegate = {
 };
 
 type FileDelegate = {
-  findUnique(args: Prisma.FileFindUniqueArgs): Promise<LibraryFileRecord | null>;
+  findUnique(
+    args: Prisma.FileFindUniqueArgs,
+  ): Promise<LibraryFileRecord | null>;
   findMany(args: Prisma.FileFindManyArgs): Promise<LibraryFileRecord[]>;
   create(args: Prisma.FileCreateArgs): Promise<LibraryFileRecord>;
   update(args: Prisma.FileUpdateArgs): Promise<LibraryFileRecord>;

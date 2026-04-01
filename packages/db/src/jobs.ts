@@ -30,7 +30,9 @@ type BackgroundJobClient = {
     update(args: object): Promise<BackgroundJobRecord>;
     updateMany(args: object): Promise<{ count: number }>;
   };
-  $transaction<T>(callback: (tx: BackgroundJobClient) => Promise<T>): Promise<T>;
+  $transaction<T>(
+    callback: (tx: BackgroundJobClient) => Promise<T>,
+  ): Promise<T>;
 };
 
 const buildActiveStatusFilter = (now: Date) => ({

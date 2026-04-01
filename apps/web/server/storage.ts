@@ -100,7 +100,10 @@ export const getActiveFolderStorageKey = ({
   username: string;
   folderPathSegments: string[];
 }) =>
-  path.posix.join(getUserLibraryRootStorageKey(username), ...folderPathSegments);
+  path.posix.join(
+    getUserLibraryRootStorageKey(username),
+    ...folderPathSegments,
+  );
 
 export const getTrashedFolderStorageKey = ({
   username,
@@ -138,7 +141,9 @@ export const getPendingDeleteManifestPath = (operationId: string) =>
 export const getWorkerHeartbeatPath = () =>
   resolveWithinRoot(STORAGE_DIRECTORIES.tmp, "worker-heartbeat.json");
 
-export const ensureUserCommittedStorageDirectories = async (username: string) => {
+export const ensureUserCommittedStorageDirectories = async (
+  username: string,
+) => {
   await Promise.all([
     mkdir(resolveWithinRoot(getUserLibraryRootStorageKey(username)), {
       recursive: true,

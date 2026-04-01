@@ -46,11 +46,17 @@ const createClient = (jobs: MemoryJob[]) => {
             : null;
 
         if (dateFilter) {
-          if ("lte" in dateFilter && !(job[key] && job[key]! <= dateFilter.lte!)) {
+          if (
+            "lte" in dateFilter &&
+            !(job[key] && job[key]! <= dateFilter.lte!)
+          ) {
             return false;
           }
 
-          if ("gte" in dateFilter && !(job[key] && job[key]! >= dateFilter.gte!)) {
+          if (
+            "gte" in dateFilter &&
+            !(job[key] && job[key]! >= dateFilter.gte!)
+          ) {
             return false;
           }
 
@@ -81,7 +87,9 @@ const createClient = (jobs: MemoryJob[]) => {
 
   const backgroundJob = {
     async findFirst(args: any) {
-      const [job] = sortJobs(jobs.filter((candidate) => matchesWhere(candidate, args.where)));
+      const [job] = sortJobs(
+        jobs.filter((candidate) => matchesWhere(candidate, args.where)),
+      );
       return job ?? null;
     },
     async findUnique(args: any) {

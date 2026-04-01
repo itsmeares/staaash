@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { buildFileStorageKey, buildFolderStorageKey, normalizeFileName, normalizeFolderName } from "@/server/library/storage-layout";
+import {
+  buildFileStorageKey,
+  buildFolderStorageKey,
+  normalizeFileName,
+  normalizeFolderName,
+} from "@/server/library/storage-layout";
 
 import type { LibraryFolderSummary } from "./types";
 
@@ -46,10 +51,7 @@ const folderMap = new Map([
   [tripsFolder.id, tripsFolder],
 ]);
 
-const expectLibraryError = (
-  callback: () => unknown,
-  code: string,
-) => {
+const expectLibraryError = (callback: () => unknown, code: string) => {
   try {
     callback();
   } catch (error) {
@@ -78,7 +80,10 @@ describe("library storage layout", () => {
   });
 
   it("rejects reserved Windows device names and trailing dots", () => {
-    expectLibraryError(() => normalizeFolderName("CON"), "FOLDER_NAME_RESERVED");
+    expectLibraryError(
+      () => normalizeFolderName("CON"),
+      "FOLDER_NAME_RESERVED",
+    );
     expectLibraryError(
       () => normalizeFileName("photo.jpg."),
       "FILE_NAME_TRAILING_SPACE_OR_DOT",

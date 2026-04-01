@@ -1,12 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import {
-  copyFile,
-  mkdir,
-  opendir,
-  rm,
-  stat,
-} from "node:fs/promises";
+import { copyFile, mkdir, opendir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { createWriteStream } from "node:fs";
 import { pipeline } from "node:stream/promises";
@@ -82,14 +76,14 @@ const uploadErrorStatuses: Record<UploadErrorCode, number> = {
 };
 
 const uploadErrorMessages: Record<UploadErrorCode, string> = {
-  CHECKSUM_MISMATCH: "The uploaded file checksum did not match the expected SHA-256 value.",
+  CHECKSUM_MISMATCH:
+    "The uploaded file checksum did not match the expected SHA-256 value.",
   INVALID_UPLOAD_MANIFEST: "The upload manifest is invalid.",
   UPLOAD_FILE_COUNT_MISMATCH:
     "The upload manifest does not match the submitted file count.",
   UPLOAD_SIZE_LIMIT_EXCEEDED:
     "The uploaded file exceeds the configured maximum size.",
-  UPLOAD_TIMEOUT_EXCEEDED:
-    "The upload exceeded the configured time budget.",
+  UPLOAD_TIMEOUT_EXCEEDED: "The upload exceeded the configured time budget.",
 };
 
 export class UploadError extends Error {
@@ -241,14 +235,16 @@ export const cleanupStagedUpload = async (tmpPath: string) => {
   });
 };
 
-export const stageUpload = async ({
-  clientKey,
-  originalName,
-  expectedChecksum,
-  conflictStrategy,
-  file,
-}: UploadRequestItem,
-deadline?: Date | number | null): Promise<StagedUploadFile> => {
+export const stageUpload = async (
+  {
+    clientKey,
+    originalName,
+    expectedChecksum,
+    conflictStrategy,
+    file,
+  }: UploadRequestItem,
+  deadline?: Date | number | null,
+): Promise<StagedUploadFile> => {
   const uploadId = randomUUID();
   const tmpPath = getTmpUploadPath(uploadId);
   const hash = createHash("sha256");

@@ -12,8 +12,7 @@ import type {
   StoredLibraryFile,
 } from "@/server/library/types";
 
-type MemoryFolderRecord = LibraryFolderSummary & {
-};
+type MemoryFolderRecord = LibraryFolderSummary & {};
 
 type MemoryState = {
   folders: MemoryFolderRecord[];
@@ -165,7 +164,9 @@ const createMemoryRepository = () => {
     },
 
     async findFolderById(folderId) {
-      const folder = state.folders.find((candidate) => candidate.id === folderId);
+      const folder = state.folders.find(
+        (candidate) => candidate.id === folderId,
+      );
       return folder ? cloneFolder(folder) : null;
     },
 
@@ -250,7 +251,9 @@ const createMemoryRepository = () => {
     },
 
     async updateFolder(params) {
-      const folder = state.folders.find((candidate) => candidate.id === params.id);
+      const folder = state.folders.find(
+        (candidate) => candidate.id === params.id,
+      );
 
       if (!folder) {
         throw new LibraryError("FOLDER_NOT_FOUND");
@@ -595,7 +598,9 @@ describe("library service", () => {
     });
 
     expect(second.uploadedFiles[0]?.id).toBe(original?.id);
-    expect(state.files.filter((file) => file.name === "replace-me.txt")).toHaveLength(1);
+    expect(
+      state.files.filter((file) => file.name === "replace-me.txt"),
+    ).toHaveLength(1);
     await expect(
       readFile(getStoragePath("library/member-1/replace-me.txt"), "utf8"),
     ).resolves.toBe("after");
@@ -691,9 +696,7 @@ describe("library service", () => {
     expect(first.conflicts.length + second.conflicts.length).toBe(1);
     await expect(
       readFile(getStoragePath("library/member-1/race.txt"), "utf8"),
-    ).resolves.toBe(
-      first.uploadedFiles.length === 1 ? "first" : "second",
-    );
+    ).resolves.toBe(first.uploadedFiles.length === 1 ? "first" : "second");
   });
 
   it("returns explicit conflict details when fail is selected", async () => {

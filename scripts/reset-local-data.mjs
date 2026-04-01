@@ -40,10 +40,7 @@ const parseDotEnv = async (filePath) => {
 const ensurePathWithinRepo = (targetPath) => {
   const relativePath = path.relative(repoRoot, targetPath);
 
-  if (
-    relativePath.startsWith("..") ||
-    path.isAbsolute(relativePath)
-  ) {
+  if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
     throw new Error(
       `Refusing to delete a path outside the repository: ${targetPath}`,
     );
@@ -100,7 +97,15 @@ if (process.platform === "win32") {
 } else {
   execFileSync(
     "pnpm",
-    ["--filter", "@staaash/db", "exec", "prisma", "db", "push", "--force-reset"],
+    [
+      "--filter",
+      "@staaash/db",
+      "exec",
+      "prisma",
+      "db",
+      "push",
+      "--force-reset",
+    ],
     {
       cwd: repoRoot,
       stdio: "inherit",

@@ -37,10 +37,7 @@ const reservedWindowsNames = new Set([
 
 const invalidSegmentCharacters = /[\\/<>\:"|?*]/;
 
-const validateSegment = (
-  rawValue: string,
-  kind: "file" | "folder",
-) => {
+const validateSegment = (rawValue: string, kind: "file" | "folder") => {
   const value = rawValue.trim();
 
   if (value.length === 0) {
@@ -149,7 +146,7 @@ export const buildFileStorageKey = ({
   trashed: boolean;
 }) => {
   const parentFolder = file.folderId
-    ? folderMap.get(file.folderId) ?? libraryRoot
+    ? (folderMap.get(file.folderId) ?? libraryRoot)
     : libraryRoot;
   const folderPathSegments = buildFolderPathSegments({
     folder: parentFolder,

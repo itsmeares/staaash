@@ -13,7 +13,11 @@ import { resolveWorkspacePath } from "@staaash/config";
 
 const workerEnvSchema = z.object({
   FILES_ROOT: z.string().trim().min(1),
-  UPLOAD_STAGING_RETENTION_HOURS: z.coerce.number().int().positive().default(24),
+  UPLOAD_STAGING_RETENTION_HOURS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(24),
 });
 
 export type WorkerStoragePaths = {
@@ -56,8 +60,7 @@ export const getWorkerStoragePaths = (
     tmpRoot,
     heartbeatPath: path.resolve(tmpRoot, "worker-heartbeat.json"),
     pendingDeleteRoot: path.resolve(tmpRoot, "pending-delete"),
-    uploadStagingTtlMs:
-      parsed.UPLOAD_STAGING_RETENTION_HOURS * 60 * 60 * 1000,
+    uploadStagingTtlMs: parsed.UPLOAD_STAGING_RETENTION_HOURS * 60 * 60 * 1000,
   };
 };
 
@@ -112,9 +115,7 @@ export const cleanupExpiredStagingFiles = async ({
 };
 
 const readPendingDeleteRecord = async (manifestPath: string) =>
-  JSON.parse(
-    await readFile(manifestPath, "utf8"),
-  ) as WorkerPendingDeleteRecord;
+  JSON.parse(await readFile(manifestPath, "utf8")) as WorkerPendingDeleteRecord;
 
 const restorePendingDeleteRecord = async (
   record: WorkerPendingDeleteRecord,
