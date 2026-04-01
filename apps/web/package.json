@@ -5,14 +5,14 @@
   "scripts": {
     "predev": "pnpm --filter @staaash/config build",
     "prebuild": "pnpm --filter @staaash/config build",
-    "prelint": "pnpm --filter @staaash/config build",
+    "prelint": "pnpm --filter @staaash/config build && next typegen",
     "pretest": "pnpm --filter @staaash/config build",
-    "pretypecheck": "pnpm --filter @staaash/config build",
+    "pretypecheck": "pnpm --filter @staaash/config build && next typegen",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "tsc --noEmit -p tsconfig.json",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "tsc --noEmit --incremental false -p tsconfig.json",
+    "typecheck": "tsc --noEmit --incremental false -p tsconfig.json",
     "test": "vitest run"
   },
   "dependencies": {

@@ -81,8 +81,12 @@ describe("upload guardrails", () => {
         new ReadableStream({
           start(controller) {
             setTimeout(() => {
-              controller.enqueue(encoder.encode("delayed upload body"));
-              controller.close();
+              try {
+                controller.enqueue(encoder.encode("delayed upload body"));
+                controller.close();
+              } catch {
+                // The stream may already be closed when the timeout test aborts it.
+              }
             }, 50);
           },
         }),
@@ -103,6 +107,7 @@ describe("upload guardrails", () => {
       status: 408,
     });
 
+    await new Promise((resolve) => setTimeout(resolve, 75));
     const afterEntries = await readdir(tmpRoot).catch(() => []);
     expect(afterEntries.sort()).toEqual(beforeEntries.sort());
   });

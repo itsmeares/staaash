@@ -2,8 +2,8 @@ import { createReadStream } from "node:fs";
 import { Readable } from "node:stream";
 
 import { getStoragePath } from "@/server/storage";
-import type { ShareDownloadResult } from "@/server/sharing";
-import { ShareError, isShareError } from "@/server/sharing";
+import { ShareError, isShareError } from "@/server/sharing/errors";
+import type { ShareDownloadResult } from "@/server/sharing/types";
 
 const buildAttachmentDisposition = (fileName: string) =>
   `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`;

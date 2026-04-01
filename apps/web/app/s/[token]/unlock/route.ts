@@ -8,10 +8,8 @@ import {
   readRequestBody,
   wantsJson,
 } from "@/server/auth/http";
-import {
-  buildShareAccessCookie,
-  sharingService,
-} from "@/server/sharing";
+import { buildShareAccessCookie } from "@/server/sharing/access-cookie";
+import { sharingService } from "@/server/sharing/service";
 
 export async function POST(
   request: NextRequest,

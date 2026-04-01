@@ -5,7 +5,8 @@ import {
   formatDateTime,
   getSingleSearchParam,
 } from "@/app/auth-ui";
-import { ShareError, type PublicShareResolution } from "@/server/sharing";
+import { ShareError } from "@/server/sharing/errors";
+import type { PublicShareResolution } from "@/server/sharing/types";
 
 const formatBytes = (value: number) =>
   new Intl.NumberFormat("en-GB", {

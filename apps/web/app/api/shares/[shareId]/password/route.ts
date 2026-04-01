@@ -11,7 +11,7 @@ import {
   wantsJson,
 } from "@/server/auth/http";
 import { getRequestSession } from "@/server/auth/guards";
-import { updateSharePasswordSchema } from "@/server/sharing";
+import { updateSharePasswordSchema } from "@/server/sharing/schema";
 import { sharingService } from "@/server/sharing/service";
 
 export async function POST(

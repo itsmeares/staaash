@@ -1,12 +1,9 @@
 import { cookies } from "next/headers";
 
 import { ShareErrorView, ShareView } from "@/app/s/share-view";
-import {
-  SHARE_ACCESS_COOKIE_NAME,
-  ShareError,
-  isShareError,
-  sharingService,
-} from "@/server/sharing";
+import { SHARE_ACCESS_COOKIE_NAME } from "@/server/sharing/access-cookie";
+import { ShareError, isShareError } from "@/server/sharing/errors";
+import { sharingService } from "@/server/sharing/service";
 
 export const dynamic = "force-dynamic";
 
