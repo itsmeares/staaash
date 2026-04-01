@@ -37,16 +37,23 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await sharingService.createOrReissueShare({
-      actorUserId: session.user.id,
-      actorRole: session.user.role,
-      targetType: body.targetType,
-      fileId: body.fileId,
-      folderId: body.folderId,
-      expiresAt: body.expiresAt,
-      downloadDisabled: body.downloadDisabled,
-      password: body.password,
-    });
+    const result =
+      body.mode === "reissue"
+        ? await sharingService.reissueShare({
+            actorUserId: session.user.id,
+            actorRole: session.user.role,
+            shareId: body.shareId!,
+          })
+        : await sharingService.createOrReissueShare({
+            actorUserId: session.user.id,
+            actorRole: session.user.role,
+            targetType: body.targetType!,
+            fileId: body.fileId,
+            folderId: body.folderId,
+            expiresAt: body.expiresAt,
+            downloadDisabled: body.downloadDisabled,
+            password: body.password,
+          });
 
     return wantsJson(request)
       ? NextResponse.json(
@@ -54,7 +61,7 @@ export async function POST(request: NextRequest) {
             share: result.share,
             shareUrl: result.shareUrl,
           },
-          { status: 201 },
+          { status: body.mode === "reissue" ? 200 : 201 },
         )
       : redirectWithMessage(request, redirectTo, "success", "Public link ready.");
   } catch (error) {

@@ -45,6 +45,8 @@ type UpdateShareParams = {
   revokedAt?: Date | null;
 };
 
+type SaveShareForTargetParams = CreateShareParams;
+
 const toStoredShareLink = (shareLink: ShareLinkRecord): StoredShareLink => ({
   id: shareLink.id,
   createdByUserId: shareLink.createdByUserId,
@@ -67,6 +69,7 @@ export type SharingRepository = {
   findShareByFolderId(folderId: string): Promise<StoredShareLink | null>;
   findShareByTokenLookupKey(tokenLookupKey: string): Promise<StoredShareLink | null>;
   listSharesByCreator(createdByUserId: string): Promise<StoredShareLink[]>;
+  saveShareForTarget(params: SaveShareForTargetParams): Promise<StoredShareLink>;
   createShare(params: CreateShareParams): Promise<StoredShareLink>;
   updateShare(params: UpdateShareParams): Promise<StoredShareLink>;
   deleteShare(shareId: string): Promise<void>;
@@ -136,6 +139,62 @@ export const createPrismaSharingRepository = (
     });
 
     return shareLinks.map(toStoredShareLink);
+  },
+
+  async saveShareForTarget(params) {
+    return client.$transaction(async (tx) => {
+      const existing =
+        params.targetType === "file"
+          ? params.fileId
+            ? await tx.shareLink.findUnique({
+                where: {
+                  fileId: params.fileId,
+                },
+                select: shareLinkSelect,
+              })
+            : null
+          : params.folderId
+            ? await tx.shareLink.findUnique({
+                where: {
+                  folderId: params.folderId,
+                },
+                select: shareLinkSelect,
+              })
+            : null;
+
+      const shareLink = existing
+        ? await tx.shareLink.update({
+            where: {
+              id: existing.id,
+            },
+            data: {
+              tokenLookupKey: params.tokenLookupKey,
+              tokenHash: params.tokenHash,
+              passwordHash: params.passwordHash,
+              downloadDisabled: params.downloadDisabled,
+              expiresAt: params.expiresAt,
+              revokedAt: params.revokedAt ?? null,
+            },
+            select: shareLinkSelect,
+          })
+        : await tx.shareLink.create({
+            data: {
+              createdByUserId: params.createdByUserId,
+              targetType: params.targetType,
+              fileId: params.fileId ?? null,
+              folderId: params.folderId ?? null,
+              tokenLookupKey: params.tokenLookupKey,
+              tokenHash: params.tokenHash,
+              passwordHash: params.passwordHash,
+              downloadDisabled: params.downloadDisabled,
+              expiresAt: params.expiresAt,
+              revokedAt: params.revokedAt ?? null,
+            },
+            select: shareLinkSelect,
+          });
+
+      return toStoredShareLink(shareLink);
+    });
   },
 
   async createShare(params) {

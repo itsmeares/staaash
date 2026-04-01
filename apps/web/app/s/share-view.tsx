@@ -1,3 +1,4 @@
+import React from "react";
 import Link from "next/link";
 
 import {
@@ -84,6 +85,54 @@ export function ShareView({
   const success = getSingleSearchParam(searchParams, "success");
   const isLocked =
     resolution.access.requiresPassword && !resolution.access.isUnlocked;
+  const lockedRedirectPath =
+    resolution.kind === "file"
+      ? `/s/${encodeURIComponent(token)}`
+      : resolution.listing.currentFolder.id === resolution.listing.rootFolder.id
+        ? `/s/${encodeURIComponent(token)}`
+        : `/s/${encodeURIComponent(token)}/f/${resolution.listing.currentFolder.id}`;
+
+  if (isLocked) {
+    return (
+      <main className="stack">
+        <section className="panel stack">
+          <div className="pill">Protected share</div>
+          <h1>This share is password protected</h1>
+          <p className="muted">Enter the password to continue.</p>
+          {error ? <FlashMessage>{error}</FlashMessage> : null}
+          {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
+        </section>
+
+        <section className="panel stack">
+          <h2>Unlock shared access</h2>
+          <form
+            action={`/s/${encodeURIComponent(token)}/unlock`}
+            className="form-grid"
+            method="post"
+          >
+            <input
+              name="redirectTo"
+              type="hidden"
+              value={lockedRedirectPath}
+            />
+            <div className="field">
+              <label htmlFor="share-password">Password</label>
+              <input
+                id="share-password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+              />
+            </div>
+            <button className="button" type="submit">
+              Unlock
+            </button>
+          </form>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="stack">
@@ -102,43 +151,6 @@ export function ShareView({
         {error ? <FlashMessage>{error}</FlashMessage> : null}
         {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
       </section>
-
-      {isLocked ? (
-        <section className="panel stack">
-          <h2>Unlock shared access</h2>
-          <form
-            action={`/s/${encodeURIComponent(token)}/unlock`}
-            className="form-grid"
-            method="post"
-          >
-            <input
-              name="redirectTo"
-              type="hidden"
-              value={
-                resolution.kind === "file"
-                  ? `/s/${encodeURIComponent(token)}`
-                  : resolution.listing.currentFolder.id ===
-                      resolution.listing.rootFolder.id
-                    ? `/s/${encodeURIComponent(token)}`
-                    : `/s/${encodeURIComponent(token)}/f/${resolution.listing.currentFolder.id}`
-              }
-            />
-            <div className="field">
-              <label htmlFor="share-password">Password</label>
-              <input
-                id="share-password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-              />
-            </div>
-            <button className="button" type="submit">
-              Unlock
-            </button>
-          </form>
-        </section>
-      ) : null}
 
       {resolution.kind === "file" ? (
         <section className="panel stack">

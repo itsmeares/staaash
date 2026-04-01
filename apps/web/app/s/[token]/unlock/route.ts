@@ -9,6 +9,7 @@ import {
   wantsJson,
 } from "@/server/auth/http";
 import { buildShareAccessCookie } from "@/server/sharing/access-cookie";
+import { unlockShareSchema } from "@/server/sharing/schema";
 import { sharingService } from "@/server/sharing/service";
 
 export async function POST(
@@ -31,7 +32,7 @@ export async function POST(
         );
   }
 
-  const body = await readRequestBody(request);
+  const body = unlockShareSchema.parse(await readRequestBody(request));
   const redirectTo = getSafeLocalPath(body.redirectTo, fallbackPath);
 
   try {
@@ -47,7 +48,7 @@ export async function POST(
       buildShareAccessCookie({
         shareId: result.share.id,
         tokenLookupKey: result.share.tokenLookupKey,
-        passwordHash: result.share.passwordHash!,
+        accessFingerprint: result.accessFingerprint,
         token,
       }),
     );

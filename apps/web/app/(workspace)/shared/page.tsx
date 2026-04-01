@@ -6,12 +6,10 @@ import {
   getSingleSearchParam,
 } from "@/app/auth-ui";
 import { requireSignedInPageSession } from "@/server/auth/guards";
+import { formatDateTimeLocalValue } from "@/server/sharing/schema";
 import { sharingService } from "@/server/sharing/service";
 
 export const dynamic = "force-dynamic";
-
-const toDateTimeInputValue = (value: Date) =>
-  new Date(value).toISOString().slice(0, 16);
 
 const shareStatusLabel = {
   active: "Active",
@@ -130,7 +128,7 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
                           <label htmlFor={`share-expiry-${share.id}`}>Policy</label>
                           <div className="stack">
                             <input
-                              defaultValue={toDateTimeInputValue(share.expiresAt)}
+                              defaultValue={formatDateTimeLocalValue(share.expiresAt)}
                               id={`share-expiry-${share.id}`}
                               name="expiresAt"
                               type="datetime-local"
@@ -257,19 +255,9 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
                       <div className="folder-disclosure-grid">
                         {share.status !== "target-unavailable" ? (
                           <form action="/api/shares" className="field" method="post">
+                            <input name="mode" type="hidden" value="reissue" />
+                            <input name="shareId" type="hidden" value={share.id} />
                             <input name="redirectTo" type="hidden" value={`/shared#${share.id}`} />
-                            <input name="targetType" type="hidden" value={share.targetType} />
-                            {share.fileId ? (
-                              <input name="fileId" type="hidden" value={share.fileId} />
-                            ) : null}
-                            {share.folderId ? (
-                              <input name="folderId" type="hidden" value={share.folderId} />
-                            ) : null}
-                            <input
-                              name="downloadDisabled"
-                              type="hidden"
-                              value={share.downloadDisabled ? "true" : "false"}
-                            />
                             <label>Reissue</label>
                             <button className="button" type="submit">
                               Reissue public link

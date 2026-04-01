@@ -14,7 +14,10 @@ import type {
 } from "@/server/library/types";
 
 import { createSharedFolderArchive } from "./archive";
-import { verifyShareAccessCookie } from "./access-cookie";
+import {
+  buildShareAccessFingerprint,
+  verifyShareAccessCookie,
+} from "./access-cookie";
 import { ShareError } from "./errors";
 import type { SharingRepository } from "./repository";
 import type {
@@ -520,39 +523,26 @@ export const createSharingService = ({
         folderMap,
       });
 
-      const existing =
-        targetType === "file"
-          ? await (await resolveRepo()).findShareByFileId(fileId!)
-          : await (await resolveRepo()).findShareByFolderId(folderId!);
       const issued = issueTokenPair();
       const passwordHash = password
         ? await crypto.hashPassword(password)
         : null;
 
-      const share = existing
-        ? await (await resolveRepo()).updateShare({
-            id: existing.id,
-            tokenLookupKey: issued.tokenLookupKey,
-            tokenHash: issued.tokenHash,
-            passwordHash,
-            downloadDisabled,
-            expiresAt: effectiveExpiresAt,
-            revokedAt: null,
-          })
-        : await (await resolveRepo()).createShare({
-            createdByUserId: actorUserId,
-            targetType,
-            fileId: fileId ?? null,
-            folderId: folderId ?? null,
-            tokenLookupKey: issued.tokenLookupKey,
-            tokenHash: issued.tokenHash,
-            passwordHash,
-            downloadDisabled,
-            expiresAt: effectiveExpiresAt,
-          });
+      const savedShare = await (await resolveRepo()).saveShareForTarget({
+        createdByUserId: actorUserId,
+        targetType,
+        fileId: fileId ?? null,
+        folderId: folderId ?? null,
+        tokenLookupKey: issued.tokenLookupKey,
+        tokenHash: issued.tokenHash,
+        passwordHash,
+        downloadDisabled,
+        expiresAt: effectiveExpiresAt,
+        revokedAt: null,
+      });
 
       return {
-        share,
+        share: savedShare,
         shareUrl: issued.shareUrl,
         token: issued.token,
       };
@@ -681,6 +671,53 @@ export const createSharingService = ({
       });
     },
 
+    async reissueShare({
+      actorUserId,
+      actorRole,
+      shareId,
+    }: LibraryActor & {
+      shareId: string;
+    }) {
+      const share = await getManagedShare({
+        actor: {
+          actorUserId,
+          actorRole,
+        },
+        shareId,
+      });
+      const { folderMap } = await resolveLibraryState(actorUserId);
+      const libraryRepo = await resolveLibraryRepo();
+      const file =
+        share.targetType === "file" && share.fileId
+          ? await libraryRepo.findFileById(share.fileId)
+          : null;
+      const folder =
+        share.targetType === "folder" && share.folderId
+          ? await libraryRepo.findFolderById(share.folderId)
+          : null;
+
+      assertActiveTarget({
+        targetType: share.targetType,
+        file,
+        folder,
+        folderMap,
+      });
+
+      const issued = issueTokenPair();
+      const reissuedShare = await (await resolveRepo()).updateShare({
+        id: share.id,
+        tokenLookupKey: issued.tokenLookupKey,
+        tokenHash: issued.tokenHash,
+        revokedAt: null,
+      });
+
+      return {
+        share: reissuedShare,
+        shareUrl: issued.shareUrl,
+        token: issued.token,
+      };
+    },
+
     async revokeShare({
       actorUserId,
       actorRole,
@@ -740,6 +777,11 @@ export const createSharingService = ({
 
       return {
         share,
+        accessFingerprint: buildShareAccessFingerprint({
+          shareId: share.id,
+          tokenLookupKey: share.tokenLookupKey,
+          passwordHash: share.passwordHash,
+        }),
       };
     },
 

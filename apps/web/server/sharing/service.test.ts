@@ -117,6 +117,25 @@ const createFakeSharingRepository = () => {
     async listSharesByCreator(createdByUserId) {
       return state.filter((share) => share.createdByUserId === createdByUserId);
     },
+    async saveShareForTarget(params) {
+      const existing =
+        params.targetType === "file"
+          ? state.find((share) => share.fileId === params.fileId)
+          : state.find((share) => share.folderId === params.folderId);
+
+      if (existing) {
+        existing.tokenLookupKey = params.tokenLookupKey;
+        existing.tokenHash = params.tokenHash;
+        existing.passwordHash = params.passwordHash;
+        existing.downloadDisabled = params.downloadDisabled;
+        existing.expiresAt = params.expiresAt;
+        existing.revokedAt = params.revokedAt ?? null;
+        existing.updatedAt = fixedNow;
+        return existing;
+      }
+
+      return repo.createShare(params);
+    },
     async createShare(params) {
       const share: StoredShareLink = {
         id: `share-${state.length + 1}`,
@@ -267,7 +286,7 @@ describe("sharing service", () => {
     const cookie = buildShareAccessCookie({
       shareId: unlocked.share.id,
       tokenLookupKey: unlocked.share.tokenLookupKey,
-      passwordHash: unlocked.share.passwordHash!,
+      accessFingerprint: unlocked.accessFingerprint,
       token: created.token,
     });
     const resolvedAfterUnlock = await service.resolvePublicShare({
@@ -290,6 +309,46 @@ describe("sharing service", () => {
     });
 
     expect(resolvedAfterRotation.access.isUnlocked).toBe(false);
+  });
+
+  it("reissues inactive shares without dropping password or expiry policy", async () => {
+    const sharingRepo = createFakeSharingRepository();
+    const service = createSharingService({
+      repo: sharingRepo.repo,
+      libraryRepo: fakeLibraryRepo,
+      now: () => fixedNow,
+    });
+    const created = await service.createOrReissueShare({
+      actorUserId: "user-1",
+      actorRole: "member",
+      targetType: "folder",
+      folderId: sharedFolder.id,
+      expiresAt: addDays(5),
+      downloadDisabled: true,
+      password: "secret-pass",
+    });
+
+    await service.revokeShare({
+      actorUserId: "user-1",
+      actorRole: "member",
+      shareId: created.share.id,
+    });
+    const originalTokenLookupKey = created.share.tokenLookupKey;
+
+    const reissued = await service.reissueShare({
+      actorUserId: "user-1",
+      actorRole: "member",
+      shareId: created.share.id,
+    });
+
+    expect(reissued.share.id).toBe(created.share.id);
+    expect(reissued.share.tokenLookupKey).not.toBe(originalTokenLookupKey);
+    expect(reissued.share.passwordHash).toBe(created.share.passwordHash);
+    expect(reissued.share.downloadDisabled).toBe(true);
+    expect(reissued.share.expiresAt.toISOString()).toBe(
+      created.share.expiresAt.toISOString(),
+    );
+    expect(reissued.share.revokedAt).toBeNull();
   });
 
   it("blocks browsing outside the shared subtree", async () => {

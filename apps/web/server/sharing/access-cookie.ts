@@ -1,14 +1,31 @@
-import { createHash } from "node:crypto";
+import { createHmac } from "node:crypto";
 
 import { env } from "@/lib/env";
 
 export const SHARE_ACCESS_COOKIE_NAME = "staaash_share_access";
 
 const signValue = (value: string) =>
-  createHash("sha256")
-    .update(env.AUTH_SECRET)
+  createHmac("sha256", env.AUTH_SECRET)
     .update(":share-access:")
     .update(value)
+    .digest("base64url");
+
+export const buildShareAccessFingerprint = ({
+  shareId,
+  tokenLookupKey,
+  passwordHash,
+}: {
+  shareId: string;
+  tokenLookupKey: string;
+  passwordHash: string;
+}) =>
+  createHmac("sha256", env.AUTH_SECRET)
+    .update(":share-access-fingerprint:")
+    .update(shareId)
+    .update(":")
+    .update(tokenLookupKey)
+    .update(":")
+    .update(passwordHash)
     .digest("base64url");
 
 const baseCookie = {
@@ -21,7 +38,7 @@ const baseCookie = {
 type ShareCookiePayload = {
   shareId: string;
   tokenLookupKey: string;
-  passwordHash: string;
+  accessFingerprint: string;
 };
 
 const serializePayload = (payload: ShareCookiePayload) =>
@@ -36,7 +53,7 @@ const deserializePayload = (value: string): ShareCookiePayload | null => {
     if (
       typeof parsed.shareId !== "string" ||
       typeof parsed.tokenLookupKey !== "string" ||
-      typeof parsed.passwordHash !== "string"
+      typeof parsed.accessFingerprint !== "string"
     ) {
       return null;
     }
@@ -44,7 +61,7 @@ const deserializePayload = (value: string): ShareCookiePayload | null => {
     return {
       shareId: parsed.shareId,
       tokenLookupKey: parsed.tokenLookupKey,
-      passwordHash: parsed.passwordHash,
+      accessFingerprint: parsed.accessFingerprint,
     };
   } catch {
     return null;
@@ -54,7 +71,7 @@ const deserializePayload = (value: string): ShareCookiePayload | null => {
 export const buildShareAccessCookie = ({
   shareId,
   tokenLookupKey,
-  passwordHash,
+  accessFingerprint,
   token,
 }: ShareCookiePayload & {
   token: string;
@@ -62,7 +79,7 @@ export const buildShareAccessCookie = ({
   const payload = serializePayload({
     shareId,
     tokenLookupKey,
-    passwordHash,
+    accessFingerprint,
   });
 
   return {
@@ -113,6 +130,11 @@ export const verifyShareAccessCookie = ({
   return (
     payload?.shareId === shareId &&
     payload.tokenLookupKey === tokenLookupKey &&
-    payload.passwordHash === passwordHash
+    payload.accessFingerprint ===
+      buildShareAccessFingerprint({
+        shareId,
+        tokenLookupKey,
+        passwordHash,
+      })
   );
 };
