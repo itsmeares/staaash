@@ -2,6 +2,8 @@ import { prisma } from "./client";
 
 export const STAGING_CLEANUP_JOB_KIND = "staging.cleanup";
 export const STAGING_CLEANUP_SCHEDULE_WINDOW_MS = 15 * 60 * 1000;
+export const BACKGROUND_JOB_LEASE_MS = 60_000;
+export const BACKGROUND_JOB_RETRY_DELAY_MS = 30_000;
 
 export type SupportedBackgroundJobKind = typeof STAGING_CLEANUP_JOB_KIND;
 
@@ -23,13 +25,27 @@ export type BackgroundJobRecord = {
 type BackgroundJobClient = {
   backgroundJob: {
     findFirst(args: object): Promise<BackgroundJobRecord | null>;
+    findUnique(args: object): Promise<BackgroundJobRecord | null>;
     create(args: object): Promise<BackgroundJobRecord>;
     update(args: object): Promise<BackgroundJobRecord>;
+    updateMany(args: object): Promise<{ count: number }>;
   };
   $transaction<T>(callback: (tx: BackgroundJobClient) => Promise<T>): Promise<T>;
 };
 
-const activeStatuses = ["queued", "running"] as const;
+const buildActiveStatusFilter = (now: Date) => ({
+  OR: [
+    {
+      status: "queued",
+    },
+    {
+      status: "running",
+      lockedAt: {
+        gte: new Date(now.getTime() - BACKGROUND_JOB_LEASE_MS),
+      },
+    },
+  ],
+});
 
 export const ensureBackgroundJobScheduled = async ({
   kind,
@@ -37,6 +53,7 @@ export const ensureBackgroundJobScheduled = async ({
   payloadJson = {},
   maxAttempts = 5,
   windowEnd = new Date(runAt.getTime() + STAGING_CLEANUP_SCHEDULE_WINDOW_MS),
+  now = new Date(),
   client = prisma as unknown as BackgroundJobClient,
 }: {
   kind: SupportedBackgroundJobKind;
@@ -44,14 +61,13 @@ export const ensureBackgroundJobScheduled = async ({
   payloadJson?: Record<string, unknown>;
   maxAttempts?: number;
   windowEnd?: Date;
+  now?: Date;
   client?: BackgroundJobClient;
 }) => {
   const existing = await client.backgroundJob.findFirst({
     where: {
       kind,
-      status: {
-        in: activeStatuses,
-      },
+      ...buildActiveStatusFilter(now),
       runAt: {
         lte: windowEnd,
       },
@@ -96,13 +112,24 @@ export const claimDueBackgroundJob = async ({
   client?: BackgroundJobClient;
 }) =>
   client.$transaction(async (tx) => {
+    const staleLeaseCutoff = new Date(now.getTime() - BACKGROUND_JOB_LEASE_MS);
     const job = await tx.backgroundJob.findFirst({
       where: {
         kind,
-        status: "queued",
-        runAt: {
-          lte: now,
-        },
+        OR: [
+          {
+            status: "queued",
+            runAt: {
+              lte: now,
+            },
+          },
+          {
+            status: "running",
+            lockedAt: {
+              lte: staleLeaseCutoff,
+            },
+          },
+        ],
       },
       orderBy: {
         runAt: "asc",
@@ -113,9 +140,23 @@ export const claimDueBackgroundJob = async ({
       return null;
     }
 
-    return tx.backgroundJob.update({
+    const claimResult = await tx.backgroundJob.updateMany({
       where: {
         id: job.id,
+        OR: [
+          {
+            status: "queued",
+            runAt: {
+              lte: now,
+            },
+          },
+          {
+            status: "running",
+            lockedAt: {
+              lte: staleLeaseCutoff,
+            },
+          },
+        ],
       },
       data: {
         status: "running",
@@ -124,6 +165,16 @@ export const claimDueBackgroundJob = async ({
         attemptCount: {
           increment: 1,
         },
+      },
+    });
+
+    if (claimResult.count !== 1) {
+      return null;
+    }
+
+    return tx.backgroundJob.findUnique({
+      where: {
+        id: job.id,
       },
     });
   });
@@ -150,20 +201,39 @@ export const markBackgroundJobSucceeded = async ({
 export const markBackgroundJobFailed = async ({
   jobId,
   errorMessage,
+  now = new Date(),
   client = prisma as unknown as BackgroundJobClient,
 }: {
   jobId: string;
   errorMessage: string;
+  now?: Date;
   client?: BackgroundJobClient;
 }) =>
-  client.backgroundJob.update({
-    where: {
-      id: jobId,
-    },
-    data: {
-      status: "failed",
-      lockedAt: null,
-      lockedBy: null,
-      lastError: errorMessage,
-    },
+  client.$transaction(async (tx) => {
+    const job = await tx.backgroundJob.findUnique({
+      where: {
+        id: jobId,
+      },
+    });
+
+    if (!job) {
+      throw new Error(`Background job ${jobId} not found.`);
+    }
+
+    const shouldDeadLetter = job.attemptCount >= job.maxAttempts;
+
+    return tx.backgroundJob.update({
+      where: {
+        id: jobId,
+      },
+      data: {
+        status: shouldDeadLetter ? "dead" : "queued",
+        runAt: shouldDeadLetter
+          ? job.runAt
+          : new Date(now.getTime() + BACKGROUND_JOB_RETRY_DELAY_MS),
+        lockedAt: null,
+        lockedBy: null,
+        lastError: errorMessage,
+      },
+    });
   });

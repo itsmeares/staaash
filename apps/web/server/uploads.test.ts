@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { readdir, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -11,9 +11,11 @@ import {
   getDefaultUploadConflictStrategy,
   getUploadStagingTtlMs,
   getUploadTimeoutBudgetMs,
+  stageUpload,
   shouldCleanupStagedUpload,
   verifyUploadChecksum,
 } from "@/server/uploads";
+import { getStorageRoot } from "@/server/storage";
 
 describe("upload guardrails", () => {
   it("uses fail for interactive uploads until the UI chooses explicitly", () => {
@@ -67,5 +69,41 @@ describe("upload guardrails", () => {
     expect(
       buildSafeRenamedFileName("photo.jpg", ["photo.jpg", "photo (1).jpg"]),
     ).toBe("photo (2).jpg");
+  });
+
+  it("times out staged uploads and removes temp files", async () => {
+    const tmpRoot = path.join(getStorageRoot(), "tmp");
+    const beforeEntries = await readdir(tmpRoot).catch(() => []);
+    const encoder = new TextEncoder();
+    const slowFile = {
+      type: "text/plain",
+      stream: () =>
+        new ReadableStream({
+          start(controller) {
+            setTimeout(() => {
+              controller.enqueue(encoder.encode("delayed upload body"));
+              controller.close();
+            }, 50);
+          },
+        }),
+    } as File;
+
+    await expect(
+      stageUpload(
+        {
+          clientKey: "slow-upload",
+          originalName: "slow.txt",
+          conflictStrategy: "fail",
+          file: slowFile,
+        },
+        Date.now() + 5,
+      ),
+    ).rejects.toMatchObject({
+      code: "UPLOAD_TIMEOUT_EXCEEDED",
+      status: 408,
+    });
+
+    const afterEntries = await readdir(tmpRoot).catch(() => []);
+    expect(afterEntries.sort()).toEqual(beforeEntries.sort());
   });
 });

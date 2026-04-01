@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "pnpm --filter @staaash/config build",
+    "prebuild": "pnpm --filter @staaash/config build",
+    "prelint": "pnpm --filter @staaash/config build",
+    "pretest": "pnpm --filter @staaash/config build",
+    "pretypecheck": "pnpm --filter @staaash/config build",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -11,6 +16,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@staaash/config": "workspace:*",
     "@staaash/db": "workspace:*",
     "next": "16.2.1",
     "react": "19.2.4",

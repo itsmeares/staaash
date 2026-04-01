@@ -8,6 +8,8 @@ export const STORAGE_DIRECTORIES = {
   trash: ".trash",
   previews: "previews",
   tmp: "tmp",
+  locks: "tmp/locks",
+  pendingDelete: "tmp/pending-delete",
 } as const;
 
 const resolveWithinRoot = (...segments: string[]) => {
@@ -25,6 +27,14 @@ export const getStorageRoot = () => path.resolve(env.FILES_ROOT);
 
 export const getStoragePath = (storageKey: string) =>
   resolveWithinRoot(storageKey);
+
+export const getTmpRootPath = () => resolveWithinRoot(STORAGE_DIRECTORIES.tmp);
+
+export const getStorageLockDirectoryPath = () =>
+  resolveWithinRoot(STORAGE_DIRECTORIES.locks);
+
+export const getPendingDeleteDirectoryPath = () =>
+  resolveWithinRoot(STORAGE_DIRECTORIES.pendingDelete);
 
 export const getUserLibraryRootStorageKey = (username: string) =>
   path.posix.join(STORAGE_DIRECTORIES.library, username);
@@ -115,6 +125,15 @@ export const getPreviewStorageKey = (
 
 export const getTmpUploadPath = (uploadId: string) =>
   resolveWithinRoot(STORAGE_DIRECTORIES.tmp, `${uploadId}.upload`);
+
+export const getStorageLockPath = (lockId: string) =>
+  resolveWithinRoot(STORAGE_DIRECTORIES.locks, `${lockId}.lock`);
+
+export const getPendingDeleteBlobPath = (operationId: string) =>
+  resolveWithinRoot(STORAGE_DIRECTORIES.pendingDelete, `${operationId}.bin`);
+
+export const getPendingDeleteManifestPath = (operationId: string) =>
+  resolveWithinRoot(STORAGE_DIRECTORIES.pendingDelete, `${operationId}.json`);
 
 export const getWorkerHeartbeatPath = () =>
   resolveWithinRoot(STORAGE_DIRECTORIES.tmp, "worker-heartbeat.json");

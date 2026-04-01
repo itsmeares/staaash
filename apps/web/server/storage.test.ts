@@ -1,9 +1,15 @@
+import path from "node:path";
+
 import { describe, expect, it } from "vitest";
+import { resolveWorkspacePath } from "@staaash/config";
 
 import {
   getActiveCommittedStorageKey,
   getActiveFolderStorageKey,
+  getPendingDeleteBlobPath,
+  getPendingDeleteManifestPath,
   getPreviewStorageKey,
+  getStorageLockPath,
   getTrashedCommittedStorageKey,
   getTrashedFolderStorageKey,
   getUserLibraryRootStorageKey,
@@ -53,6 +59,25 @@ describe("storage layout", () => {
   it("keeps previews under the internal preview layout", () => {
     expect(getPreviewStorageKey("user-1", "file-1", "image")).toBe(
       "previews/user-1/file-1/image.preview",
+    );
+  });
+
+  it("resolves the same default files root from web and worker package directories", () => {
+    const webStartDir = process.cwd();
+    const workerStartDir = path.resolve(process.cwd(), "..", "worker");
+
+    expect(resolveWorkspacePath("./.data/files", webStartDir)).toBe(
+      resolveWorkspacePath("./.data/files", workerStartDir),
+    );
+  });
+
+  it("builds internal lock and pending-delete paths under tmp", () => {
+    expect(getStorageLockPath("abc123")).toContain(`${path.sep}tmp${path.sep}locks${path.sep}`);
+    expect(getPendingDeleteBlobPath("op-1")).toContain(
+      `${path.sep}tmp${path.sep}pending-delete${path.sep}op-1.bin`,
+    );
+    expect(getPendingDeleteManifestPath("op-1")).toContain(
+      `${path.sep}tmp${path.sep}pending-delete${path.sep}op-1.json`,
     );
   });
 });

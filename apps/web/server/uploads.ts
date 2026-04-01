@@ -1,22 +1,24 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import {
-  access,
   copyFile,
   mkdir,
   opendir,
-  rename,
   rm,
   stat,
 } from "node:fs/promises";
 import path from "node:path";
-import { constants, createWriteStream } from "node:fs";
+import { createWriteStream } from "node:fs";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { z } from "zod";
 
 import { env } from "@/lib/env";
 import { getStorageRoot, getTmpUploadPath } from "@/server/storage";
+import {
+  commitStagedUploadWithLock,
+  replaceCommittedUploadWithLock,
+} from "@/server/storage-mutations";
 
 export type UploadSurface = "interactiveWeb" | "bulk" | "api";
 
@@ -68,13 +70,15 @@ export type UploadErrorCode =
   | "CHECKSUM_MISMATCH"
   | "INVALID_UPLOAD_MANIFEST"
   | "UPLOAD_FILE_COUNT_MISMATCH"
-  | "UPLOAD_SIZE_LIMIT_EXCEEDED";
+  | "UPLOAD_SIZE_LIMIT_EXCEEDED"
+  | "UPLOAD_TIMEOUT_EXCEEDED";
 
 const uploadErrorStatuses: Record<UploadErrorCode, number> = {
   CHECKSUM_MISMATCH: 400,
   INVALID_UPLOAD_MANIFEST: 400,
   UPLOAD_FILE_COUNT_MISMATCH: 400,
   UPLOAD_SIZE_LIMIT_EXCEEDED: 413,
+  UPLOAD_TIMEOUT_EXCEEDED: 408,
 };
 
 const uploadErrorMessages: Record<UploadErrorCode, string> = {
@@ -84,6 +88,8 @@ const uploadErrorMessages: Record<UploadErrorCode, string> = {
     "The upload manifest does not match the submitted file count.",
   UPLOAD_SIZE_LIMIT_EXCEEDED:
     "The uploaded file exceeds the configured maximum size.",
+  UPLOAD_TIMEOUT_EXCEEDED:
+    "The upload exceeded the configured time budget.",
 };
 
 export class UploadError extends Error {
@@ -124,6 +130,20 @@ export const getDefaultUploadConflictStrategy = (
 
 export const getUploadTimeoutBudgetMs = () =>
   uploadPolicy.timeoutMinutes * 60 * 1000;
+
+export const createUploadDeadline = (startTime = Date.now()) =>
+  startTime + getUploadTimeoutBudgetMs();
+
+export const getRemainingUploadBudgetMs = (
+  deadline: Date | number | null | undefined,
+) => {
+  if (deadline === null || deadline === undefined) {
+    return getUploadTimeoutBudgetMs();
+  }
+
+  const deadlineMs = deadline instanceof Date ? deadline.getTime() : deadline;
+  return Math.max(0, deadlineMs - Date.now());
+};
 
 export const getUploadStagingTtlMs = () =>
   uploadPolicy.stagingRetentionHours * 60 * 60 * 1000;
@@ -227,18 +247,29 @@ export const stageUpload = async ({
   expectedChecksum,
   conflictStrategy,
   file,
-}: UploadRequestItem): Promise<StagedUploadFile> => {
+}: UploadRequestItem,
+deadline?: Date | number | null): Promise<StagedUploadFile> => {
   const uploadId = randomUUID();
   const tmpPath = getTmpUploadPath(uploadId);
   const hash = createHash("sha256");
   let sizeBytes = 0;
+  const remainingBudgetMs = getRemainingUploadBudgetMs(deadline);
 
   await ensureTmpRoot();
+
+  if (remainingBudgetMs <= 0) {
+    throw new UploadError("UPLOAD_TIMEOUT_EXCEEDED");
+  }
 
   const input = Readable.fromWeb(file.stream() as never);
   const output = createWriteStream(tmpPath, {
     flags: "wx",
   });
+  const timeoutError = new UploadError("UPLOAD_TIMEOUT_EXCEEDED");
+  const timeoutHandle = setTimeout(() => {
+    input.destroy(timeoutError);
+    output.destroy(timeoutError);
+  }, remainingBudgetMs);
 
   input.on("data", (chunk) => {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
@@ -259,6 +290,8 @@ export const stageUpload = async ({
   } catch (error) {
     await cleanupStagedUpload(tmpPath);
     throw error;
+  } finally {
+    clearTimeout(timeoutHandle);
   }
 
   const actualChecksum = hash.digest("hex");
@@ -281,64 +314,43 @@ export const stageUpload = async ({
   };
 };
 
-export const ensureStorageParentDirectory = async (absolutePath: string) => {
-  await mkdir(path.dirname(absolutePath), {
-    recursive: true,
-  });
-};
-
 export const commitStagedUpload = async (
   stagedFile: Pick<StagedUploadFile, "tmpPath">,
   targetPath: string,
+  options?: {
+    lockKeys?: string[];
+    deadline?: Date | number | null;
+  },
 ) => {
-  await ensureStorageParentDirectory(targetPath);
-  await rename(stagedFile.tmpPath, targetPath);
+  await commitStagedUploadWithLock({
+    stagedPath: stagedFile.tmpPath,
+    targetPath,
+    lockKeys: options?.lockKeys ?? [],
+    deadline: options?.deadline,
+  });
 };
 
 export const replaceCommittedUpload = async <T>({
   stagedFile,
   targetPath,
   applyMetadataUpdate,
+  lockKeys = [],
+  deadline,
 }: {
   stagedFile: Pick<StagedUploadFile, "tmpPath" | "uploadId">;
   targetPath: string;
   applyMetadataUpdate: () => Promise<T>;
+  lockKeys?: string[];
+  deadline?: Date | number | null;
 }) => {
-  const backupPath = `${targetPath}.backup-${stagedFile.uploadId}`;
-
-  await ensureStorageParentDirectory(targetPath);
-  await access(targetPath, constants.F_OK);
-
-  try {
-    await rename(targetPath, backupPath);
-    await rename(stagedFile.tmpPath, targetPath);
-  } catch (error) {
-    await rm(stagedFile.tmpPath, { force: true });
-
-    try {
-      await rename(backupPath, targetPath);
-    } catch {
-      // Keep the original error. If rollback also fails, admin health and restore
-      // coverage are the correct later-phase recovery surface.
-    }
-
-    throw error;
-  }
-
-  try {
-    const result = await applyMetadataUpdate();
-    await rm(backupPath, { force: true });
-    return result;
-  } catch (error) {
-    try {
-      await rm(targetPath, { force: true });
-      await rename(backupPath, targetPath);
-    } catch {
-      // Preserve the original application error.
-    }
-
-    throw error;
-  }
+  return replaceCommittedUploadWithLock({
+    stagedPath: stagedFile.tmpPath,
+    targetPath,
+    uploadId: stagedFile.uploadId,
+    lockKeys,
+    deadline,
+    applyMetadataUpdate,
+  });
 };
 
 const splitFileName = (name: string) => {
@@ -377,7 +389,9 @@ export const copyCommittedUpload = async (
   sourcePath: string,
   destinationPath: string,
 ) => {
-  await ensureStorageParentDirectory(destinationPath);
+  await mkdir(path.dirname(destinationPath), {
+    recursive: true,
+  });
   await copyFile(sourcePath, destinationPath);
 };
 

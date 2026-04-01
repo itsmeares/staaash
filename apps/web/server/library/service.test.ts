@@ -1,5 +1,4 @@
 import { access, readFile, rm } from "node:fs/promises";
-import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -20,6 +19,8 @@ type MemoryState = {
   folders: MemoryFolderRecord[];
   files: StoredLibraryFile[];
   ids: number;
+  deleteFileError: Error | null;
+  updateFileError: Error | null;
 };
 
 const createMemoryRepository = () => {
@@ -27,6 +28,8 @@ const createMemoryRepository = () => {
     folders: [],
     files: [],
     ids: 0,
+    deleteFileError: null,
+    updateFileError: null,
   };
 
   const nextId = (prefix: string) => `${prefix}-${++state.ids}`;
@@ -270,6 +273,12 @@ const createMemoryRepository = () => {
     },
 
     async updateFile(params) {
+      if (state.updateFileError) {
+        const error = state.updateFileError;
+        state.updateFileError = null;
+        throw error;
+      }
+
       const file = state.files.find((candidate) => candidate.id === params.id);
 
       if (!file) {
@@ -331,6 +340,12 @@ const createMemoryRepository = () => {
     },
 
     async deleteFile(fileId) {
+      if (state.deleteFileError) {
+        const error = state.deleteFileError;
+        state.deleteFileError = null;
+        throw error;
+      }
+
       state.files = state.files.filter((file) => file.id !== fileId);
     },
   };
@@ -340,6 +355,12 @@ const createMemoryRepository = () => {
     state,
     addFolder,
     addFile,
+    failNextDeleteFile: (error: Error) => {
+      state.deleteFileError = error;
+    },
+    failNextUpdateFile: (error: Error) => {
+      state.updateFileError = error;
+    },
   };
 };
 
@@ -350,7 +371,7 @@ const createService = (repo: LibraryRepository) =>
   });
 
 const cleanDataRoot = () =>
-  rm(path.join(process.cwd(), ".data"), {
+  rm(getStoragePath(""), {
     recursive: true,
     force: true,
   });
@@ -580,6 +601,101 @@ describe("library service", () => {
     ).resolves.toBe("after");
   });
 
+  it("restores the original file when replace metadata update fails", async () => {
+    await cleanDataRoot();
+    const { repo, failNextUpdateFile } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureLibraryRoot("member-1");
+
+    await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: root.id,
+      items: [
+        {
+          clientKey: "upload-1",
+          originalName: "replace-me.txt",
+          conflictStrategy: "fail",
+          file: new File(["before"], "replace-me.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+
+    failNextUpdateFile(new Error("metadata write failed"));
+
+    await expect(
+      service.uploadFiles({
+        actorUserId: "member-1",
+        actorRole: "member",
+        folderId: root.id,
+        items: [
+          {
+            clientKey: "upload-2",
+            originalName: "replace-me.txt",
+            conflictStrategy: "replace",
+            file: new File(["after"], "replace-me.txt", {
+              type: "text/plain",
+            }),
+          },
+        ],
+      }),
+    ).rejects.toThrow("metadata write failed");
+
+    await expect(
+      readFile(getStoragePath("library/member-1/replace-me.txt"), "utf8"),
+    ).resolves.toBe("before");
+  });
+
+  it("serializes concurrent same-name uploads without silent overwrite", async () => {
+    await cleanDataRoot();
+    const { repo } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureLibraryRoot("member-1");
+
+    const [first, second] = await Promise.all([
+      service.uploadFiles({
+        actorUserId: "member-1",
+        actorRole: "member",
+        folderId: root.id,
+        items: [
+          {
+            clientKey: "upload-1",
+            originalName: "race.txt",
+            conflictStrategy: "fail",
+            file: new File(["first"], "race.txt", {
+              type: "text/plain",
+            }),
+          },
+        ],
+      }),
+      service.uploadFiles({
+        actorUserId: "member-1",
+        actorRole: "member",
+        folderId: root.id,
+        items: [
+          {
+            clientKey: "upload-2",
+            originalName: "race.txt",
+            conflictStrategy: "fail",
+            file: new File(["second"], "race.txt", {
+              type: "text/plain",
+            }),
+          },
+        ],
+      }),
+    ]);
+
+    expect(first.uploadedFiles.length + second.uploadedFiles.length).toBe(1);
+    expect(first.conflicts.length + second.conflicts.length).toBe(1);
+    await expect(
+      readFile(getStoragePath("library/member-1/race.txt"), "utf8"),
+    ).resolves.toBe(
+      first.uploadedFiles.length === 1 ? "first" : "second",
+    );
+  });
+
   it("returns explicit conflict details when fail is selected", async () => {
     await cleanDataRoot();
     const { repo } = createMemoryRepository();
@@ -611,9 +727,52 @@ describe("library service", () => {
 
     expect(result.uploadedFiles).toEqual([]);
     expect(result.conflicts[0]).toMatchObject({
+      clientKey: "upload-1",
       existingKind: "folder",
       existingName: "Receipts",
     });
+  });
+
+  it("restores the quarantined file when permanent delete metadata removal fails", async () => {
+    await cleanDataRoot();
+    const { repo, failNextDeleteFile } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureLibraryRoot("member-1");
+
+    const upload = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: root.id,
+      items: [
+        {
+          clientKey: "upload-1",
+          originalName: "trash-me.txt",
+          conflictStrategy: "fail",
+          file: new File(["restore me"], "trash-me.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+
+    await service.trashFile({
+      actorUserId: "member-1",
+      actorRole: "member",
+      fileId: upload.uploadedFiles[0]!.id,
+    });
+    failNextDeleteFile(new Error("db delete failed"));
+
+    await expect(
+      service.deleteFile({
+        actorUserId: "member-1",
+        actorRole: "member",
+        fileId: upload.uploadedFiles[0]!.id,
+      }),
+    ).rejects.toThrow("db delete failed");
+
+    await expect(
+      access(getStoragePath(".trash/member-1/trash-me.txt")),
+    ).resolves.toBeUndefined();
   });
 
   it("trashing a folder also trashes descendant files and hides them from separate trash entries", async () => {

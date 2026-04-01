@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { access, mkdir, rename, rm } from "node:fs/promises";
-import path from "node:path";
+import { mkdir, rm } from "node:fs/promises";
 
 import { canAccessPrivateNamespace } from "@/server/access";
 import { LibraryError } from "@/server/library/errors";
@@ -30,10 +29,19 @@ import {
   getStoragePath,
 } from "@/server/storage";
 import {
+  finalizePendingDelete,
+  getDirectoryMutationLockKey,
+  getEntryMutationLockKey,
+  moveStorageEntryWithLock,
+  quarantineDeleteWithLock,
+  rollbackPendingDelete,
+  withStorageLocks,
+} from "@/server/storage-mutations";
+import {
   buildSafeRenamedFileName,
+  createUploadDeadline,
   cleanupStagedUpload,
   commitStagedUpload,
-  ensureStorageParentDirectory,
   replaceCommittedUpload,
   stageUpload,
 } from "@/server/uploads";
@@ -286,10 +294,6 @@ const buildUpdatedFolderMap = ({
   return next;
 };
 
-const ensureCommittedParentDirectory = async (storageKey: string) => {
-  await ensureStorageParentDirectory(getStoragePath(storageKey));
-};
-
 const createFolderDirectory = async (storageKey: string) => {
   await mkdir(getStoragePath(storageKey), {
     recursive: true,
@@ -314,8 +318,18 @@ const moveStorageEntry = async ({
     return;
   }
 
-  await ensureCommittedParentDirectory(toStorageKey);
-  await rename(getStoragePath(fromStorageKey), getStoragePath(toStorageKey));
+  const fromPath = getStoragePath(fromStorageKey);
+  const toPath = getStoragePath(toStorageKey);
+
+  await moveStorageEntryWithLock({
+    fromPath,
+    toPath,
+    lockKeys: [
+      getEntryMutationLockKey(fromPath),
+      getDirectoryMutationLockKey(fromPath),
+      getDirectoryMutationLockKey(toPath),
+    ],
+  });
 };
 
 export const createLibraryService = ({
@@ -1734,10 +1748,44 @@ export const createLibraryService = ({
         throw new LibraryError("FILE_DELETE_REQUIRES_TRASH");
       }
 
-      await rm(getStoragePath(file.storageKey), {
-        force: true,
+      const activeRepo = await resolveRepo();
+      const filePath = getStoragePath(file.storageKey);
+      const lockKeys = [
+        getEntryMutationLockKey(filePath),
+        getDirectoryMutationLockKey(filePath),
+      ];
+
+      await withStorageLocks({
+        lockKeys,
+        callback: async () => {
+          const pendingDelete = await quarantineDeleteWithLock({
+            fileId: file.id,
+            originalStorageKey: file.storageKey,
+            originalPath: filePath,
+            lockKeys: [],
+          });
+
+          try {
+            await activeRepo.deleteFile(file.id);
+          } catch (error) {
+            try {
+              await rollbackPendingDelete(pendingDelete);
+            } catch {
+              // Preserve the original repository failure. Pending delete
+              // recovery will reconcile any leftover quarantine state.
+            }
+
+            throw error;
+          }
+
+          try {
+            await finalizePendingDelete(pendingDelete);
+          } catch {
+            // The delete is logically complete once the database row is gone.
+            // Worker recovery handles any leftover quarantine files.
+          }
+        },
       });
-      await (await resolveRepo()).deleteFile(file.id);
 
       return {
         deletedFileId: file.id,
@@ -1764,6 +1812,19 @@ export const createLibraryService = ({
           includeDeleted: true,
         }),
       );
+      const uploadDeadline = createUploadDeadline(now().getTime());
+      const targetFolderPath = getStoragePath(
+        buildFolderStorageKey({
+          folder: targetFolder,
+          folderMap,
+          libraryRoot,
+          trashed: false,
+        }),
+      );
+      const targetFolderLockKeys = [
+        getEntryMutationLockKey(targetFolderPath),
+        getDirectoryMutationLockKey(targetFolderPath),
+      ];
       const uploadedFiles: LibraryFileSummary[] = [];
       const conflicts: UploadConflictItem[] = [];
       let stagedAnyUpload = false;
@@ -1773,102 +1834,128 @@ export const createLibraryService = ({
         const stagedFile = await stageUpload({
           ...item,
           originalName: normalizedName,
-        });
+        }, uploadDeadline);
         stagedAnyUpload = true;
 
-        const activeConflict = await findActiveNameConflict({
-          ownerUserId: targetFolder.ownerUserId,
-          parentId: targetFolder.id,
-          name: normalizedName,
-        });
+        try {
+          await withStorageLocks({
+            lockKeys: targetFolderLockKeys,
+            deadline: uploadDeadline,
+            callback: async () => {
+              const activeConflict = await findActiveNameConflict({
+                ownerUserId: targetFolder.ownerUserId,
+                parentId: targetFolder.id,
+                name: normalizedName,
+              });
 
-        let finalName = normalizedName;
+              let finalName = normalizedName;
 
-        if (activeConflict) {
-          if (item.conflictStrategy === "replace" && activeConflict.kind === "file") {
-            const updated = await replaceCommittedUpload({
-              stagedFile,
-              targetPath: getStoragePath(activeConflict.item.storageKey),
-              applyMetadataUpdate: () =>
-                activeRepo.updateFile({
-                  id: activeConflict.item.id,
-                  name: activeConflict.item.name,
+              if (activeConflict) {
+                if (
+                  item.conflictStrategy === "replace" &&
+                  activeConflict.kind === "file"
+                ) {
+                  const updated = await replaceCommittedUpload({
+                    stagedFile,
+                    targetPath: getStoragePath(activeConflict.item.storageKey),
+                    deadline: uploadDeadline,
+                    applyMetadataUpdate: () =>
+                      activeRepo.updateFile({
+                        id: activeConflict.item.id,
+                        name: activeConflict.item.name,
+                        mimeType: stagedFile.mimeType,
+                        sizeBytes: stagedFile.sizeBytes,
+                        contentChecksum: stagedFile.actualChecksum,
+                        deletedAt: null,
+                        folderId: targetFolder.id,
+                      }),
+                  });
+
+                  uploadedFiles.push(toLibraryFileSummary(updated));
+                  return;
+                }
+
+                if (item.conflictStrategy === "safeRename") {
+                  const siblings = await Promise.all([
+                    activeRepo.listChildFolders(
+                      targetFolder.ownerUserId,
+                      targetFolder.id,
+                      {
+                        includeDeleted: false,
+                      },
+                    ),
+                    activeRepo.listChildFiles(
+                      targetFolder.ownerUserId,
+                      targetFolder.id,
+                      {
+                        includeDeleted: false,
+                      },
+                    ),
+                  ]);
+                  finalName = buildSafeRenamedFileName(normalizedName, [
+                    ...siblings[0].map((folder) => folder.name),
+                    ...siblings[1].map((file) => file.name),
+                  ]);
+                } else {
+                  conflicts.push({
+                    clientKey: item.clientKey,
+                    originalName: normalizedName,
+                    conflictStrategy: item.conflictStrategy,
+                    existingKind: activeConflict.kind,
+                    existingId: activeConflict.item.id,
+                    existingName: activeConflict.item.name,
+                  });
+                  await cleanupStagedUpload(stagedFile.tmpPath);
+                  return;
+                }
+              }
+
+              const storageKey = buildFileStorageKey({
+                file: {
+                  ownerUsername: targetFolder.ownerUsername,
+                  folderId: targetFolder.id,
+                  name: finalName,
+                },
+                folderMap,
+                libraryRoot,
+                trashed: false,
+              });
+              const fileId = randomUUID();
+              const targetPath = getStoragePath(storageKey);
+
+              try {
+                await commitStagedUpload(stagedFile, targetPath, {
+                  deadline: uploadDeadline,
+                });
+              } catch (error) {
+                await cleanupStagedUpload(stagedFile.tmpPath);
+                throw error;
+              }
+
+              try {
+                const createdFile = await activeRepo.createFile({
+                  id: fileId,
+                  ownerUserId: targetFolder.ownerUserId,
+                  folderId: targetFolder.id,
+                  name: finalName,
+                  storageKey,
                   mimeType: stagedFile.mimeType,
                   sizeBytes: stagedFile.sizeBytes,
                   contentChecksum: stagedFile.actualChecksum,
-                  deletedAt: null,
-                  folderId: targetFolder.id,
-                }),
-            });
+                });
 
-            uploadedFiles.push(toLibraryFileSummary(updated));
-            continue;
-          }
-
-          if (item.conflictStrategy === "safeRename") {
-            const siblings = await Promise.all([
-              activeRepo.listChildFolders(targetFolder.ownerUserId, targetFolder.id, {
-                includeDeleted: false,
-              }),
-              activeRepo.listChildFiles(targetFolder.ownerUserId, targetFolder.id, {
-                includeDeleted: false,
-              }),
-            ]);
-            finalName = buildSafeRenamedFileName(normalizedName, [
-              ...siblings[0].map((folder) => folder.name),
-              ...siblings[1].map((file) => file.name),
-            ]);
-          } else {
-            conflicts.push({
-              clientKey: item.clientKey,
-              originalName: normalizedName,
-              conflictStrategy: item.conflictStrategy,
-              existingKind: activeConflict.kind,
-              existingId: activeConflict.item.id,
-              existingName: activeConflict.item.name,
-            });
-            await cleanupStagedUpload(stagedFile.tmpPath);
-            continue;
-          }
-        }
-
-        const storageKey = buildFileStorageKey({
-          file: {
-            ownerUsername: targetFolder.ownerUsername,
-            folderId: targetFolder.id,
-            name: finalName,
-          },
-          folderMap,
-          libraryRoot,
-          trashed: false,
-        });
-        const fileId = randomUUID();
-        const targetPath = getStoragePath(storageKey);
-
-        try {
-          await commitStagedUpload(stagedFile, targetPath);
+                uploadedFiles.push(toLibraryFileSummary(createdFile));
+              } catch (error) {
+                await rm(targetPath, {
+                  force: true,
+                });
+                throw error;
+              }
+            },
+          });
         } catch (error) {
           await cleanupStagedUpload(stagedFile.tmpPath);
-          throw error;
-        }
 
-        try {
-          const createdFile = await activeRepo.createFile({
-            id: fileId,
-            ownerUserId: targetFolder.ownerUserId,
-            folderId: targetFolder.id,
-            name: finalName,
-            storageKey,
-            mimeType: stagedFile.mimeType,
-            sizeBytes: stagedFile.sizeBytes,
-            contentChecksum: stagedFile.actualChecksum,
-          });
-
-          uploadedFiles.push(toLibraryFileSummary(createdFile));
-        } catch (error) {
-          await rm(targetPath, {
-            force: true,
-          });
           throw error;
         }
       }

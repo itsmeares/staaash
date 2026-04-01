@@ -1,6 +1,5 @@
 import os from "node:os";
-import path from "node:path";
-import { mkdir, opendir, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 
 import {
   claimDueBackgroundJob,
@@ -10,57 +9,17 @@ import {
   STAGING_CLEANUP_JOB_KIND,
   STAGING_CLEANUP_SCHEDULE_WINDOW_MS,
 } from "@staaash/db/jobs";
-import { z } from "zod";
+import {
+  cleanupExpiredStagingFiles,
+  getWorkerStoragePaths,
+  recoverPendingDeletes,
+  writeHeartbeat,
+} from "./storage-maintenance";
 
-const envSchema = z.object({
-  FILES_ROOT: z.string().trim().min(1),
-  UPLOAD_STAGING_RETENTION_HOURS: z.coerce.number().int().positive().default(24),
-});
-
-const env = envSchema.parse(process.env);
-const filesRoot = path.resolve(process.cwd(), env.FILES_ROOT);
-const tmpRoot = path.resolve(filesRoot, "tmp");
-const heartbeatPath = path.resolve(tmpRoot, "worker-heartbeat.json");
+const storagePaths = getWorkerStoragePaths();
 const workerId = `${os.hostname()}-${process.pid}`;
 const workerHeartbeatMs = 30_000;
 const jobPollMs = 10_000;
-const uploadStagingTtlMs = env.UPLOAD_STAGING_RETENTION_HOURS * 60 * 60 * 1000;
-
-const writeHeartbeat = async () => {
-  await mkdir(tmpRoot, { recursive: true });
-  await writeFile(
-    heartbeatPath,
-    JSON.stringify({
-      timestamp: new Date().toISOString(),
-    }),
-    "utf8",
-  );
-};
-
-const shouldCleanupStagedUpload = (createdAt: Date, now = new Date()) =>
-  now.getTime() - createdAt.getTime() >= uploadStagingTtlMs;
-
-const cleanupExpiredStagingFiles = async (now = new Date()) => {
-  await mkdir(tmpRoot, { recursive: true });
-  const directory = await opendir(tmpRoot);
-
-  for await (const entry of directory) {
-    if (!entry.isFile() || !entry.name.endsWith(".upload")) {
-      continue;
-    }
-
-    const absolutePath = path.join(tmpRoot, entry.name);
-    const stats = await stat(absolutePath);
-
-    if (!shouldCleanupStagedUpload(stats.mtime, now)) {
-      continue;
-    }
-
-    await rm(absolutePath, {
-      force: true,
-    });
-  }
-};
 
 const ensureCleanupJobDue = async () => {
   await ensureBackgroundJobScheduled({
@@ -71,7 +30,13 @@ const ensureCleanupJobDue = async () => {
   });
 };
 
-const runOnce = async () => {
+const runMaintenance = async () => {
+  await recoverPendingDeletes({
+    pendingDeleteRoot: storagePaths.pendingDeleteRoot,
+  });
+};
+
+const runCleanupJobOnce = async () => {
   const job = await claimDueBackgroundJob({
     kind: STAGING_CLEANUP_JOB_KIND,
     workerId,
@@ -82,7 +47,10 @@ const runOnce = async () => {
   }
 
   try {
-    await cleanupExpiredStagingFiles();
+    await cleanupExpiredStagingFiles({
+      tmpRoot: storagePaths.tmpRoot,
+      ttlMs: storagePaths.uploadStagingTtlMs,
+    });
     await markBackgroundJobSucceeded({
       jobId: job.id,
     });
@@ -96,14 +64,14 @@ const runOnce = async () => {
 };
 
 const main = async () => {
-  await mkdir(tmpRoot, { recursive: true });
-  await writeHeartbeat();
+  await mkdir(storagePaths.tmpRoot, { recursive: true });
+  await writeHeartbeat(storagePaths.heartbeatPath);
   await ensureCleanupJobDue();
 
   let polling = false;
 
   setInterval(() => {
-    void writeHeartbeat();
+    void writeHeartbeat(storagePaths.heartbeatPath);
   }, workerHeartbeatMs);
 
   setInterval(() => {
@@ -113,12 +81,15 @@ const main = async () => {
 
     polling = true;
 
-    void runOnce().finally(() => {
-      polling = false;
-    });
+    void runMaintenance()
+      .then(() => runCleanupJobOnce())
+      .finally(() => {
+        polling = false;
+      });
   }, jobPollMs);
 
-  await runOnce();
+  await runMaintenance();
+  await runCleanupJobOnce();
 };
 
 void main();
