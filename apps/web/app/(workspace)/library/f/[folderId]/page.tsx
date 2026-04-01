@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { isLibraryError } from "@/server/library/errors";
 import { libraryService } from "@/server/library/service";
+import { sharingService } from "@/server/sharing/service";
 
 import { LibraryExplorer } from "../../library-explorer";
 
@@ -33,6 +34,13 @@ export default async function LibraryFolderPage({
       actorRole: session.user.role,
       folderId,
     });
+    const shareLookup = await sharingService.getLibraryShareLookup({
+      actorUserId: session.user.id,
+      actorRole: session.user.role,
+      currentFolderId: listing.currentFolder.id,
+      childFolderIds: listing.childFolders.map((folder) => folder.id),
+      fileIds: listing.files.map((file) => file.id),
+    });
 
     if (listing.currentFolder.isLibraryRoot) {
       redirect("/library");
@@ -43,6 +51,7 @@ export default async function LibraryFolderPage({
         currentPath={`/library/f/${folderId}`}
         listing={listing}
         searchParams={resolvedSearchParams}
+        shareLookup={shareLookup}
       />
     );
   } catch (error) {
