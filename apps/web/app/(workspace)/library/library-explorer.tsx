@@ -5,7 +5,10 @@ import {
   formatDateTime,
   getSingleSearchParam,
 } from "@/app/auth-ui";
+import { env } from "@/lib/env";
 import type { LibraryListing } from "@/server/library/types";
+
+import { LibraryUploadPanel } from "./library-upload-panel";
 
 const getFolderHref = (folder: { id: string; isLibraryRoot: boolean }) =>
   folder.isLibraryRoot ? "/library" : `/library/f/${folder.id}`;
@@ -72,6 +75,17 @@ export function LibraryExplorer({
         </div>
       </section>
 
+      <LibraryUploadPanel
+        currentFolderId={listing.currentFolder.id}
+        currentPath={currentPath}
+        existingNames={[
+          ...listing.childFolders.map((folder) => folder.name),
+          ...listing.files.map((file) => file.name),
+        ]}
+        maxUploadBytes={env.MAX_UPLOAD_BYTES}
+        timeoutMinutes={env.UPLOAD_TIMEOUT_MINUTES}
+      />
+
       {error ? <FlashMessage>{error}</FlashMessage> : null}
       {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
 
@@ -80,8 +94,8 @@ export function LibraryExplorer({
           <div className="stack">
             <h2>Folders</h2>
             <p className="muted">
-              List view is canonical in Phase 2. Files and previews arrive in
-              later phases.
+              Folders remain metadata-only paths. Physical originals stay pinned
+              to immutable storage keys even when the logical tree changes.
             </p>
           </div>
           <span className="pill">
@@ -94,8 +108,8 @@ export function LibraryExplorer({
           <div className="workspace-empty-state">
             <h3>Nothing here yet</h3>
             <p className="muted">
-              Create the first child folder here. Uploads and file rows arrive
-              in Phase 3.
+              Create the first child folder here or upload files into this
+              location.
             </p>
           </div>
         ) : (
@@ -208,6 +222,142 @@ export function LibraryExplorer({
                         <label>Trash</label>
                         <button className="button button-danger" type="submit">
                           Move subtree to trash
+                        </button>
+                      </form>
+                    </div>
+                  </details>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <section className="panel stack">
+        <div className="split">
+          <div className="stack">
+            <h2>Files</h2>
+            <p className="muted">
+              Uploads stage under temporary storage, verify with SHA-256, then
+              commit by immutable file ID.
+            </p>
+          </div>
+          <span className="pill">
+            {listing.files.length} file{listing.files.length === 1 ? "" : "s"}
+          </span>
+        </div>
+
+        {listing.files.length === 0 ? (
+          <div className="workspace-empty-state">
+            <h3>No files in this folder yet</h3>
+            <p className="muted">
+              Use the upload panel to add files here. Replace and keep-both
+              behavior is explicit when names collide.
+            </p>
+          </div>
+        ) : (
+          <div className="folder-list">
+            {listing.files.map((file) => {
+              const availableMoveTargets = listing.moveTargets.filter(
+                (target) => target.id !== listing.currentFolder.id,
+              );
+
+              return (
+                <article className="folder-row" key={file.id}>
+                  <div className="folder-row-head">
+                    <div className="stack">
+                      <h3 className="folder-link">{file.name}</h3>
+                      <p className="folder-meta">
+                        {file.mimeType} • {Math.round(file.sizeBytes / 1024)} KB
+                        • Updated {formatDateTime(file.updatedAt)}
+                      </p>
+                    </div>
+                    <span className="pill">File</span>
+                  </div>
+
+                  <details className="folder-disclosure">
+                    <summary>Manage file</summary>
+                    <div className="folder-disclosure-grid">
+                      <form
+                        action={`/api/library/files/${file.id}/rename`}
+                        className="field"
+                        method="post"
+                      >
+                        <input
+                          name="redirectTo"
+                          type="hidden"
+                          value={currentPath}
+                        />
+                        <label htmlFor={`rename-file-${file.id}`}>Rename</label>
+                        <div className="workspace-inline-fields">
+                          <input
+                            defaultValue={file.name}
+                            id={`rename-file-${file.id}`}
+                            name="name"
+                            required
+                          />
+                          <button
+                            className="button button-secondary"
+                            type="submit"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </form>
+
+                      {availableMoveTargets.length > 0 ? (
+                        <form
+                          action={`/api/library/files/${file.id}/move`}
+                          className="field"
+                          method="post"
+                        >
+                          <input
+                            name="redirectTo"
+                            type="hidden"
+                            value={currentPath}
+                          />
+                          <label htmlFor={`move-file-${file.id}`}>Move</label>
+                          <div className="workspace-inline-fields">
+                            <select
+                              id={`move-file-${file.id}`}
+                              name="destinationFolderId"
+                            >
+                              {availableMoveTargets.map((target) => (
+                                <option key={target.id} value={target.id}>
+                                  {target.pathLabel}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              className="button button-secondary"
+                              type="submit"
+                            >
+                              Move
+                            </button>
+                          </div>
+                        </form>
+                      ) : (
+                        <div className="field">
+                          <label>Move</label>
+                          <span className="field-help">
+                            No other valid destinations yet.
+                          </span>
+                        </div>
+                      )}
+
+                      <form
+                        action={`/api/library/files/${file.id}/trash`}
+                        className="field"
+                        method="post"
+                      >
+                        <input
+                          name="redirectTo"
+                          type="hidden"
+                          value={currentPath}
+                        />
+                        <label>Trash</label>
+                        <button className="button button-danger" type="submit">
+                          Move file to trash
                         </button>
                       </form>
                     </div>

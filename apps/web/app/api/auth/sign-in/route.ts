@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const result = await authService.signIn({
-      email: body.email,
+      identifier: body.identifier,
       password: body.password,
     });
     const response = wantsJson(request)

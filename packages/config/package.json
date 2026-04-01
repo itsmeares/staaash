@@ -1,5 +1,28 @@
 {
   "name": "@staaash/config",
   "version": "0.1.0",
-  "private": true
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./runtime-paths": {
+      "types": "./dist/runtime-paths.d.ts",
+      "default": "./dist/runtime-paths.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.37",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
 }

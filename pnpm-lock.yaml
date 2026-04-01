@@ -19,6 +19,9 @@ importers:
 
   apps/web:
     dependencies:
+      "@staaash/config":
+        specifier: workspace:*
+        version: link:../../packages/config
       "@staaash/db":
         specifier: workspace:*
         version: link:../../packages/db
@@ -53,6 +56,12 @@ importers:
 
   apps/worker:
     dependencies:
+      "@staaash/config":
+        specifier: workspace:*
+        version: link:../../packages/config
+      "@staaash/db":
+        specifier: workspace:*
+        version: link:../../packages/db
       tsx:
         specifier: ^4.20.6
         version: 4.21.0
@@ -70,7 +79,17 @@ importers:
         specifier: ^3.2.4
         version: 3.2.4(@types/node@20.19.37)(jiti@2.6.1)(tsx@4.21.0)
 
-  packages/config: {}
+  packages/config:
+    devDependencies:
+      "@types/node":
+        specifier: ^20.19.37
+        version: 20.19.37
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/node@20.19.37)(jiti@2.6.1)(tsx@4.21.0)
 
   packages/db:
     dependencies:

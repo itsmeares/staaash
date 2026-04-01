@@ -45,6 +45,7 @@ const createMemoryRepository = (): AuthRepository => {
   const toUser = (user: StoredAuthUser): AuthUser => ({
     id: user.id,
     email: user.email,
+    username: user.username,
     displayName: user.displayName,
     role: user.role,
     createdAt: user.createdAt,
@@ -85,6 +86,7 @@ const createMemoryRepository = (): AuthRepository => {
       const user: StoredAuthUser = {
         id: nextId("user"),
         email: params.email,
+        username: params.username,
         displayName: params.displayName ?? null,
         passwordHash: params.passwordHash,
         role: "owner",
@@ -100,6 +102,10 @@ const createMemoryRepository = (): AuthRepository => {
 
     async findUserByEmail(email) {
       return state.users.find((user) => user.email === email) ?? null;
+    },
+
+    async findUserByUsername(username) {
+      return state.users.find((user) => user.username === username) ?? null;
     },
 
     async findUserById(id) {
@@ -227,6 +233,7 @@ const createMemoryRepository = (): AuthRepository => {
       const user: StoredAuthUser = {
         id: nextId("user"),
         email: invite.email,
+        username: params.username,
         displayName: params.displayName ?? null,
         passwordHash: params.passwordHash,
         role: invite.role,
@@ -366,6 +373,7 @@ describe("auth service", () => {
     const firstBootstrap = await service.bootstrap({
       instanceName: "Home Drive",
       email: "owner@example.com",
+      username: "owner",
       displayName: "Owner",
       password: "super-secure-password",
     });
@@ -377,6 +385,7 @@ describe("auth service", () => {
       service.bootstrap({
         instanceName: "Second Attempt",
         email: "other@example.com",
+        username: "other",
         displayName: "Other",
         password: "another-super-secure-password",
       }),
@@ -395,12 +404,13 @@ describe("auth service", () => {
     await service.bootstrap({
       instanceName: "Home Drive",
       email: "owner@example.com",
+      username: "owner",
       password: "super-secure-password",
     });
 
     await expect(
       service.signIn({
-        email: "owner@example.com",
+        identifier: "owner@example.com",
         password: "wrong-password",
       }),
     ).rejects.toMatchObject({
@@ -408,7 +418,7 @@ describe("auth service", () => {
     });
 
     const signIn = await service.signIn({
-      email: "owner@example.com",
+      identifier: "owner",
       password: "super-secure-password",
     });
 
@@ -430,6 +440,7 @@ describe("auth service", () => {
     const bootstrap = await service.bootstrap({
       instanceName: "Home Drive",
       email: "owner@example.com",
+      username: "owner",
       password: "super-secure-password",
     });
 
@@ -441,6 +452,7 @@ describe("auth service", () => {
 
     const redeemed = await service.redeemInvite({
       token: invite.token,
+      username: "member",
       displayName: "Member",
       password: "member-secure-password",
     });

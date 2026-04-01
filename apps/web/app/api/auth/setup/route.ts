@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
     const result = await authService.bootstrap({
       instanceName: body.instanceName,
       email: body.email,
+      username: body.username,
       displayName: body.displayName,
       password: body.password,
     });

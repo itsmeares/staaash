@@ -3,7 +3,10 @@ import Link from "next/link";
 import { getCurrentSession } from "@/server/auth/session";
 import { authService } from "@/server/auth/service";
 import { env } from "@/lib/env";
-import { conflictResolutionPolicy, uploadPolicy } from "@/server/uploads";
+import {
+  getDefaultUploadConflictStrategy,
+  uploadPolicy,
+} from "@/server/uploads";
 
 export const dynamic = "force-dynamic";
 
@@ -73,10 +76,10 @@ export default async function HomePage() {
           <h2>Conflict defaults</h2>
           <p className="muted">
             Interactive UI:{" "}
-            <code>{conflictResolutionPolicy.interactiveWeb}</code>
+            <code>{getDefaultUploadConflictStrategy("interactiveWeb")}</code>
           </p>
           <p className="muted">
-            Bulk/API: <code>{conflictResolutionPolicy.nonInteractive}</code>
+            Bulk/API: <code>{getDefaultUploadConflictStrategy("bulk")}</code>
           </p>
           <p className="muted">
             Silent overwrite: <strong>never</strong>

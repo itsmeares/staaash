@@ -1,5 +1,5 @@
-import path from "node:path";
 import { z } from "zod";
+import { resolveWorkspacePath } from "@staaash/config";
 
 const DEFAULT_APP_URL = "http://localhost:3000";
 const DEFAULT_DATABASE_URL =
@@ -55,9 +55,8 @@ export const env = (() => {
 
   return {
     ...parsed,
-    FILES_ROOT: path.resolve(
-      /* turbopackIgnore: true */ process.cwd(),
-      parsed.FILES_ROOT,
+    FILES_ROOT: resolveWorkspacePath(
+      /* turbopackIgnore: true */ parsed.FILES_ROOT,
     ),
   };
 })();

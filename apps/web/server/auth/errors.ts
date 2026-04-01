@@ -1,6 +1,7 @@
 export type AuthErrorCode =
   | "ACCESS_DENIED"
   | "ACTIVE_INVITE_EXISTS"
+  | "INVALID_IDENTIFIER"
   | "INVALID_CREDENTIALS"
   | "INVITE_ACCEPTED"
   | "INVITE_EXPIRED"
@@ -14,11 +15,15 @@ export type AuthErrorCode =
   | "SETUP_ALREADY_COMPLETED"
   | "SETUP_REQUIRED"
   | "USER_ALREADY_EXISTS"
-  | "USER_NOT_FOUND";
+  | "USER_NOT_FOUND"
+  | "USERNAME_ALREADY_EXISTS"
+  | "USERNAME_INVALID"
+  | "USERNAME_REQUIRED";
 
 const authErrorMessages: Record<AuthErrorCode, string> = {
   ACCESS_DENIED: "You do not have access to that surface.",
   ACTIVE_INVITE_EXISTS: "That email already has an active invite.",
+  INVALID_IDENTIFIER: "Enter a valid email address or username.",
   INVALID_CREDENTIALS: "Email or password is incorrect.",
   INVITE_ACCEPTED: "That invite has already been used.",
   INVITE_EXPIRED: "That invite has expired.",
@@ -34,11 +39,16 @@ const authErrorMessages: Record<AuthErrorCode, string> = {
     "Initial setup must be completed before sign-in is available.",
   USER_ALREADY_EXISTS: "A user with that email already exists.",
   USER_NOT_FOUND: "That user does not exist.",
+  USERNAME_ALREADY_EXISTS: "That username is already taken.",
+  USERNAME_INVALID:
+    "Username must be 3-32 characters using lowercase letters, numbers, and single hyphens.",
+  USERNAME_REQUIRED: "Username is required.",
 };
 
 const authErrorStatuses: Record<AuthErrorCode, number> = {
   ACCESS_DENIED: 403,
   ACTIVE_INVITE_EXISTS: 409,
+  INVALID_IDENTIFIER: 400,
   INVALID_CREDENTIALS: 401,
   INVITE_ACCEPTED: 409,
   INVITE_EXPIRED: 410,
@@ -53,6 +63,9 @@ const authErrorStatuses: Record<AuthErrorCode, number> = {
   SETUP_REQUIRED: 409,
   USER_ALREADY_EXISTS: 409,
   USER_NOT_FOUND: 404,
+  USERNAME_ALREADY_EXISTS: 409,
+  USERNAME_INVALID: 400,
+  USERNAME_REQUIRED: 400,
 };
 
 export class AuthError extends Error {

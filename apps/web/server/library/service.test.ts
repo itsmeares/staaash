@@ -1,30 +1,44 @@
+import { access, readFile, rm } from "node:fs/promises";
+
 import { describe, expect, it } from "vitest";
 
 import { LibraryError } from "@/server/library/errors";
 import type { LibraryRepository } from "@/server/library/repository";
 import { createLibraryService } from "@/server/library/service";
-import type { LibraryFolderSummary } from "@/server/library/types";
+import { getStoragePath } from "@/server/storage";
+import type {
+  LibraryFileSummary,
+  LibraryFolderSummary,
+  StoredLibraryFile,
+} from "@/server/library/types";
 
-type MemoryFolderRecord = LibraryFolderSummary & {
-  libraryRootKey: string | null;
-};
+type MemoryFolderRecord = LibraryFolderSummary & {};
 
 type MemoryState = {
   folders: MemoryFolderRecord[];
+  files: StoredLibraryFile[];
   ids: number;
+  deleteFileError: Error | null;
+  updateFileError: Error | null;
 };
 
 const createMemoryRepository = () => {
   const state: MemoryState = {
     folders: [],
+    files: [],
     ids: 0,
+    deleteFileError: null,
+    updateFileError: null,
   };
 
-  const nextId = () => `folder-${++state.ids}`;
+  const nextId = (prefix: string) => `${prefix}-${++state.ids}`;
+  const nextDate = () =>
+    new Date(`2026-03-31T12:${String(state.ids).padStart(2, "0")}:00Z`);
 
   const cloneFolder = (folder: MemoryFolderRecord): LibraryFolderSummary => ({
     id: folder.id,
     ownerUserId: folder.ownerUserId,
+    ownerUsername: folder.ownerUsername,
     parentId: folder.parentId,
     name: folder.name,
     isLibraryRoot: folder.isLibraryRoot,
@@ -33,100 +47,120 @@ const createMemoryRepository = () => {
     updatedAt: folder.updatedAt,
   });
 
-  const sortByName = (folders: MemoryFolderRecord[]) =>
+  const cloneFile = (file: StoredLibraryFile): StoredLibraryFile => ({
+    ...file,
+    deletedAt: file.deletedAt,
+    createdAt: file.createdAt,
+    updatedAt: file.updatedAt,
+  });
+
+  const sortFolders = (folders: MemoryFolderRecord[]) =>
     [...folders].sort(
       (left, right) =>
         left.name.localeCompare(right.name) ||
         left.createdAt.getTime() - right.createdAt.getTime(),
     );
 
-  const sortLegacyRoots = (folders: MemoryFolderRecord[]) =>
-    [...folders].sort((left, right) => {
-      const leftDeletedRank = left.deletedAt ? 1 : 0;
-      const rightDeletedRank = right.deletedAt ? 1 : 0;
+  const sortFiles = (files: StoredLibraryFile[]) =>
+    [...files].sort(
+      (left, right) =>
+        left.name.localeCompare(right.name) ||
+        left.createdAt.getTime() - right.createdAt.getTime(),
+    );
 
-      return (
-        leftDeletedRank - rightDeletedRank ||
-        left.createdAt.getTime() - right.createdAt.getTime() ||
-        left.id.localeCompare(right.id)
-      );
-    });
-
-  const createRecord = ({
+  const addFolder = ({
     ownerUserId,
     parentId,
     name,
     isLibraryRoot = false,
-    libraryRootKey = null,
     deletedAt = null,
+    ownerUsername = ownerUserId,
   }: {
     ownerUserId: string;
     parentId: string | null;
     name: string;
     isLibraryRoot?: boolean;
-    libraryRootKey?: string | null;
     deletedAt?: Date | null;
+    ownerUsername?: string;
   }) => {
-    const now = new Date(
-      `2026-03-31T12:00:${String(state.ids).padStart(2, "0")}Z`,
-    );
-
-    return {
-      id: nextId(),
+    const now = nextDate();
+    const folder: MemoryFolderRecord = {
+      id: nextId("folder"),
       ownerUserId,
+      ownerUsername,
       parentId,
       name,
       isLibraryRoot,
-      libraryRootKey,
       deletedAt,
       createdAt: now,
       updatedAt: now,
-    } satisfies MemoryFolderRecord;
+    };
+
+    state.folders.push(folder);
+    return folder;
+  };
+
+  const addFile = ({
+    ownerUserId,
+    folderId,
+    name,
+    storageKey,
+    mimeType = "text/plain",
+    sizeBytes = 5,
+    contentChecksum = null,
+    deletedAt = null,
+    ownerUsername = ownerUserId,
+  }: {
+    ownerUserId: string;
+    folderId: string | null;
+    name: string;
+    storageKey: string;
+    mimeType?: string;
+    sizeBytes?: number;
+    contentChecksum?: string | null;
+    deletedAt?: Date | null;
+    ownerUsername?: string;
+  }) => {
+    const now = nextDate();
+    const file: StoredLibraryFile = {
+      id: nextId("file"),
+      ownerUserId,
+      ownerUsername,
+      folderId,
+      name,
+      storageKey,
+      mimeType,
+      sizeBytes,
+      contentChecksum,
+      previewStatus: "pending",
+      deletedAt,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    state.files.push(file);
+    return file;
   };
 
   const repo: LibraryRepository = {
     async ensureLibraryRoot(ownerUserId) {
-      const canonicalRoot = state.folders.find(
-        (folder) => folder.libraryRootKey === ownerUserId,
+      const existing = state.folders.find(
+        (folder) => folder.ownerUserId === ownerUserId && folder.isLibraryRoot,
       );
 
-      if (canonicalRoot) {
-        return cloneFolder(canonicalRoot);
+      if (existing) {
+        return cloneFolder(existing);
       }
 
-      const legacyRoots = sortLegacyRoots(
-        state.folders.filter(
-          (folder) =>
-            folder.ownerUserId === ownerUserId && folder.isLibraryRoot,
-        ),
-      );
+      const folder = addFolder({
+        ownerUserId,
+        parentId: null,
+        name: "Library",
+        isLibraryRoot: true,
+        ownerUsername: ownerUserId,
+      });
 
-      if (legacyRoots.length === 0) {
-        const folder = createRecord({
-          ownerUserId,
-          parentId: null,
-          name: "Library",
-          isLibraryRoot: true,
-          libraryRootKey: ownerUserId,
-        });
-
-        state.folders.push(folder);
-        return cloneFolder(folder);
-      }
-
-      const [canonicalLegacyRoot, ...duplicateRoots] = legacyRoots;
-      canonicalLegacyRoot.libraryRootKey = ownerUserId;
-      canonicalLegacyRoot.isLibraryRoot = true;
-      canonicalLegacyRoot.parentId = null;
-      canonicalLegacyRoot.deletedAt = null;
-
-      for (const duplicateRoot of duplicateRoots) {
-        duplicateRoot.libraryRootKey = null;
-        duplicateRoot.isLibraryRoot = false;
-        duplicateRoot.parentId = canonicalLegacyRoot.id;
-      }
-
-      return cloneFolder(canonicalLegacyRoot);
+      return cloneFolder(folder);
     },
 
     async findFolderById(folderId) {
@@ -136,38 +170,84 @@ const createMemoryRepository = () => {
       return folder ? cloneFolder(folder) : null;
     },
 
-    async listChildFolders(ownerUserId, parentId, options = {}) {
-      const folders = state.folders.filter(
-        (folder) =>
-          folder.ownerUserId === ownerUserId &&
-          folder.parentId === parentId &&
-          (options.includeDeleted ? true : folder.deletedAt === null),
-      );
+    async findFileById(fileId) {
+      const file = state.files.find((candidate) => candidate.id === fileId);
+      return file ? cloneFile(file) : null;
+    },
 
-      return sortByName(folders).map(cloneFolder);
+    async listChildFolders(ownerUserId, parentId, options = {}) {
+      return sortFolders(
+        state.folders.filter(
+          (folder) =>
+            folder.ownerUserId === ownerUserId &&
+            folder.parentId === parentId &&
+            (options.includeDeleted ? true : folder.deletedAt === null),
+        ),
+      ).map(cloneFolder);
+    },
+
+    async listChildFiles(ownerUserId, folderId, options = {}) {
+      return sortFiles(
+        state.files.filter(
+          (file) =>
+            file.ownerUserId === ownerUserId &&
+            file.folderId === folderId &&
+            (options.includeDeleted ? true : file.deletedAt === null),
+        ),
+      ).map(cloneFile);
     },
 
     async listFoldersByOwner(ownerUserId, options = {}) {
-      const folders = state.folders.filter(
-        (folder) =>
-          folder.ownerUserId === ownerUserId &&
-          (options.includeDeleted ? true : folder.deletedAt === null),
-      );
+      return sortFolders(
+        state.folders.filter(
+          (folder) =>
+            folder.ownerUserId === ownerUserId &&
+            (options.includeDeleted ? true : folder.deletedAt === null),
+        ),
+      ).map(cloneFolder);
+    },
 
-      return sortByName(folders).map(cloneFolder);
+    async listFilesByOwner(ownerUserId, options = {}) {
+      return sortFiles(
+        state.files.filter(
+          (file) =>
+            file.ownerUserId === ownerUserId &&
+            (options.includeDeleted ? true : file.deletedAt === null),
+        ),
+      ).map(cloneFile);
     },
 
     async createFolder(params) {
-      const folder = createRecord({
+      const folder = addFolder({
         ownerUserId: params.ownerUserId,
         parentId: params.parentId,
         name: params.name,
         isLibraryRoot: params.isLibraryRoot ?? false,
-        libraryRootKey: params.isLibraryRoot ? params.ownerUserId : null,
       });
 
-      state.folders.push(folder);
       return cloneFolder(folder);
+    },
+
+    async createFile(params) {
+      const now = nextDate();
+      const file: StoredLibraryFile = {
+        id: params.id ?? nextId("file"),
+        ownerUserId: params.ownerUserId,
+        ownerUsername: params.ownerUserId,
+        folderId: params.folderId,
+        name: params.name,
+        storageKey: params.storageKey,
+        mimeType: params.mimeType,
+        sizeBytes: params.sizeBytes,
+        contentChecksum: params.contentChecksum,
+        previewStatus: "pending",
+        deletedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      state.files.push(file);
+      return cloneFile(file);
     },
 
     async updateFolder(params) {
@@ -191,34 +271,118 @@ const createMemoryRepository = () => {
         folder.deletedAt = params.deletedAt ?? null;
       }
 
-      folder.updatedAt = new Date(
-        `2026-03-31T12:02:${String(state.ids).padStart(2, "0")}Z`,
-      );
+      folder.updatedAt = nextDate();
       return cloneFolder(folder);
     },
 
+    async updateFile(params) {
+      if (state.updateFileError) {
+        const error = state.updateFileError;
+        state.updateFileError = null;
+        throw error;
+      }
+
+      const file = state.files.find((candidate) => candidate.id === params.id);
+
+      if (!file) {
+        throw new LibraryError("FILE_NOT_FOUND");
+      }
+
+      if ("name" in params && params.name !== undefined) {
+        file.name = params.name;
+      }
+
+      if ("folderId" in params) {
+        file.folderId = params.folderId ?? null;
+      }
+
+      if ("storageKey" in params && params.storageKey !== undefined) {
+        file.storageKey = params.storageKey;
+      }
+
+      if ("mimeType" in params && params.mimeType !== undefined) {
+        file.mimeType = params.mimeType;
+      }
+
+      if ("sizeBytes" in params && params.sizeBytes !== undefined) {
+        file.sizeBytes = params.sizeBytes;
+      }
+
+      if ("contentChecksum" in params) {
+        file.contentChecksum = params.contentChecksum ?? null;
+      }
+
+      if ("deletedAt" in params) {
+        file.deletedAt = params.deletedAt ?? null;
+      }
+
+      file.updatedAt = nextDate();
+      return cloneFile(file);
+    },
+
     async updateFolders(params) {
+      const updatedAt = nextDate();
+
       for (const folder of state.folders) {
         if (params.ids.includes(folder.id)) {
           folder.deletedAt = params.deletedAt;
-          folder.updatedAt = new Date(
-            `2026-03-31T12:03:${String(state.ids).padStart(2, "0")}Z`,
-          );
+          folder.updatedAt = updatedAt;
         }
       }
+    },
+
+    async updateFiles(params) {
+      const updatedAt = nextDate();
+
+      for (const file of state.files) {
+        if (params.ids.includes(file.id)) {
+          file.deletedAt = params.deletedAt;
+          file.updatedAt = updatedAt;
+        }
+      }
+    },
+
+    async deleteFile(fileId) {
+      if (state.deleteFileError) {
+        const error = state.deleteFileError;
+        state.deleteFileError = null;
+        throw error;
+      }
+
+      state.files = state.files.filter((file) => file.id !== fileId);
     },
   };
 
   return {
     repo,
     state,
+    addFolder,
+    addFile,
+    failNextDeleteFile: (error: Error) => {
+      state.deleteFileError = error;
+    },
+    failNextUpdateFile: (error: Error) => {
+      state.updateFileError = error;
+    },
   };
 };
 
+const createService = (repo: LibraryRepository) =>
+  createLibraryService({
+    repo,
+    scheduleStagingCleanupJob: async () => undefined,
+  });
+
+const cleanDataRoot = () =>
+  rm(getStoragePath(""), {
+    recursive: true,
+    force: true,
+  });
+
 describe("library service", () => {
-  it("creates a library root on first listing and returns it for /library", async () => {
+  it("creates a library root on first listing and includes an empty file list", async () => {
     const { repo } = createMemoryRepository();
-    const service = createLibraryService({ repo });
+    const service = createService(repo);
 
     const listing = await service.getLibraryListing({
       actorUserId: "member-1",
@@ -226,440 +390,453 @@ describe("library service", () => {
     });
 
     expect(listing.currentFolder.isLibraryRoot).toBe(true);
-    expect(listing.currentFolder.name).toBe("Library");
-    expect(listing.breadcrumbs).toEqual([
-      {
-        id: listing.currentFolder.id,
-        name: "Library",
-        href: "/library",
-      },
-    ]);
+    expect(listing.files).toEqual([]);
+    expect(listing.breadcrumbs[0]?.name).toBe("Library");
   });
 
-  it("does not allow an owner to browse another user's private folder", async () => {
+  it("rejects duplicate active sibling folder names", async () => {
     const { repo } = createMemoryRepository();
-    const service = createLibraryService({ repo });
-    const otherRoot = await service.ensureLibraryRoot("member-2");
-    const otherFolder = await repo.createFolder({
-      ownerUserId: "member-2",
-      parentId: otherRoot.id,
-      name: "Private",
-    });
-
-    await expect(
-      service.getLibraryListing({
-        actorUserId: "owner-1",
-        actorRole: "owner",
-        folderId: otherFolder.id,
-      }),
-    ).rejects.toMatchObject({
-      code: "ACCESS_DENIED",
-    });
-  });
-
-  it("builds breadcrumbs for nested folder navigation", async () => {
-    const { repo } = createMemoryRepository();
-    const service = createLibraryService({ repo });
+    const service = createService(repo);
     const root = await service.ensureLibraryRoot("member-1");
-    const projects = await repo.createFolder({
-      ownerUserId: "member-1",
-      parentId: root.id,
-      name: "Projects",
-    });
-    const contracts = await repo.createFolder({
-      ownerUserId: "member-1",
-      parentId: projects.id,
-      name: "Contracts",
-    });
 
-    const listing = await service.getLibraryListing({
+    await service.createFolder({
       actorUserId: "member-1",
       actorRole: "member",
-      folderId: contracts.id,
-    });
-
-    expect(listing.breadcrumbs.map((crumb) => crumb.name)).toEqual([
-      "Library",
-      "Projects",
-      "Contracts",
-    ]);
-  });
-
-  it("excludes the current parent, the folder itself, and descendants from move targets", async () => {
-    const { repo } = createMemoryRepository();
-    const service = createLibraryService({ repo });
-    const root = await service.ensureLibraryRoot("member-1");
-    const source = await repo.createFolder({
-      ownerUserId: "member-1",
       parentId: root.id,
-      name: "Source",
+      name: "Photos",
     });
-    const sourceChild = await repo.createFolder({
-      ownerUserId: "member-1",
-      parentId: source.id,
-      name: "Source Child",
-    });
-    const archive = await repo.createFolder({
-      ownerUserId: "member-1",
-      parentId: root.id,
-      name: "Archive",
-    });
-
-    const listing = await service.getLibraryListing({
-      actorUserId: "member-1",
-      actorRole: "member",
-    });
-
-    expect(listing.availableMoveTargetIdsByFolderId[source.id]).toEqual([
-      archive.id,
-    ]);
-    expect(listing.availableMoveTargetIdsByFolderId[source.id]).not.toContain(
-      root.id,
-    );
-    expect(listing.availableMoveTargetIdsByFolderId[source.id]).not.toContain(
-      source.id,
-    );
-    expect(listing.availableMoveTargetIdsByFolderId[source.id]).not.toContain(
-      sourceChild.id,
-    );
-  });
-
-  it("preserves folder identity across rename and move operations", async () => {
-    const { repo } = createMemoryRepository();
-    const service = createLibraryService({ repo });
-    const root = await service.ensureLibraryRoot("member-1");
-    const source = await repo.createFolder({
-      ownerUserId: "member-1",
-      parentId: root.id,
-      name: "Source",
-    });
-    const destination = await repo.createFolder({
-      ownerUserId: "member-1",
-      parentId: root.id,
-      name: "Destination",
-    });
-
-    const renamed = await service.renameFolder({
-      actorUserId: "member-1",
-      actorRole: "member",
-      folderId: source.id,
-      name: "Docs",
-    });
-    const moved = await service.moveFolder({
-      actorUserId: "member-1",
-      actorRole: "member",
-      folderId: source.id,
-      destinationFolderId: destination.id,
-    });
-
-    expect(renamed.folder.id).toBe(source.id);
-    expect(moved.folder.id).toBe(source.id);
-    expect(moved.folder.parentId).toBe(destination.id);
-    expect(moved.folder.name).toBe("Docs");
-  });
-
-  it("rejects moving a folder into its current parent", async () => {
-    const { repo } = createMemoryRepository();
-    const service = createLibraryService({ repo });
-    const root = await service.ensureLibraryRoot("member-1");
-    const source = await repo.createFolder({
-      ownerUserId: "member-1",
-      parentId: root.id,
-      name: "Source",
-    });
-
-    await expect(
-      service.moveFolder({
-        actorUserId: "member-1",
-        actorRole: "member",
-        folderId: source.id,
-        destinationFolderId: root.id,
-      }),
-    ).rejects.toMatchObject({
-      code: "FOLDER_MOVE_NOOP",
-    });
-  });
-
-  it("rejects moving a folder into its own descendant", async () => {
-    const { repo } = createMemoryRepository();
-    const service = createLibraryService({ repo });
-    const root = await service.ensureLibraryRoot("member-1");
-    const parent = await repo.createFolder({
-      ownerUserId: "member-1",
-      parentId: root.id,
-      name: "Parent",
-    });
-    const child = await repo.createFolder({
-      ownerUserId: "member-1",
-      parentId: parent.id,
-      name: "Child",
-    });
-
-    await expect(
-      service.moveFolder({
-        actorUserId: "member-1",
-        actorRole: "member",
-        folderId: parent.id,
-        destinationFolderId: child.id,
-      }),
-    ).rejects.toMatchObject({
-      code: "FOLDER_MOVE_CYCLE",
-    });
-  });
-
-  it("keeps the library root immutable across rename, move, trash, and restore", async () => {
-    const { repo } = createMemoryRepository();
-    const service = createLibraryService({ repo });
-    const root = await service.ensureLibraryRoot("member-1");
-
-    await expect(
-      service.renameFolder({
-        actorUserId: "member-1",
-        actorRole: "member",
-        folderId: root.id,
-        name: "Renamed root",
-      }),
-    ).rejects.toMatchObject({
-      code: "FOLDER_ROOT_IMMUTABLE",
-    });
-
-    await expect(
-      service.moveFolder({
-        actorUserId: "member-1",
-        actorRole: "member",
-        folderId: root.id,
-        destinationFolderId: null,
-      }),
-    ).rejects.toMatchObject({
-      code: "FOLDER_ROOT_IMMUTABLE",
-    });
-
-    await expect(
-      service.trashFolder({
-        actorUserId: "member-1",
-        actorRole: "member",
-        folderId: root.id,
-      }),
-    ).rejects.toMatchObject({
-      code: "FOLDER_ROOT_IMMUTABLE",
-    });
-
-    await expect(
-      service.restoreFolder({
-        actorUserId: "member-1",
-        actorRole: "member",
-        folderId: root.id,
-      }),
-    ).rejects.toMatchObject({
-      code: "FOLDER_ROOT_IMMUTABLE",
-    });
-  });
-
-  it("rejects cross-user folder mutations", async () => {
-    const { repo, state } = createMemoryRepository();
-    const service = createLibraryService({ repo });
-    const otherRoot = await service.ensureLibraryRoot("member-2");
-    const otherFolder = await repo.createFolder({
-      ownerUserId: "member-2",
-      parentId: otherRoot.id,
-      name: "Private",
-    });
-    const otherDeletedFolder = await repo.createFolder({
-      ownerUserId: "member-2",
-      parentId: otherRoot.id,
-      name: "Deleted private",
-    });
-
-    await repo.updateFolders({
-      ids: [otherDeletedFolder.id],
-      deletedAt: new Date("2026-03-31T13:00:00Z"),
-    });
-
-    const deletedRecord = state.folders.find(
-      (folder) => folder.id === otherDeletedFolder.id,
-    );
-    expect(deletedRecord?.deletedAt).not.toBeNull();
 
     await expect(
       service.createFolder({
         actorUserId: "member-1",
         actorRole: "member",
-        parentId: otherRoot.id,
-        name: "Intrusion",
+        parentId: root.id,
+        name: "Photos",
       }),
     ).rejects.toMatchObject({
-      code: "ACCESS_DENIED",
-    });
-
-    await expect(
-      service.renameFolder({
-        actorUserId: "member-1",
-        actorRole: "member",
-        folderId: otherFolder.id,
-        name: "Renamed",
-      }),
-    ).rejects.toMatchObject({
-      code: "ACCESS_DENIED",
-    });
-
-    await expect(
-      service.moveFolder({
-        actorUserId: "member-1",
-        actorRole: "member",
-        folderId: otherFolder.id,
-        destinationFolderId: null,
-      }),
-    ).rejects.toMatchObject({
-      code: "ACCESS_DENIED",
-    });
-
-    await expect(
-      service.trashFolder({
-        actorUserId: "member-1",
-        actorRole: "member",
-        folderId: otherFolder.id,
-      }),
-    ).rejects.toMatchObject({
-      code: "ACCESS_DENIED",
-    });
-
-    await expect(
-      service.restoreFolder({
-        actorUserId: "member-1",
-        actorRole: "member",
-        folderId: otherDeletedFolder.id,
-      }),
-    ).rejects.toMatchObject({
-      code: "ACCESS_DENIED",
+      code: "FOLDER_NAME_CONFLICT",
     });
   });
 
-  it("allows duplicate sibling folder names", async () => {
-    const { repo } = createMemoryRepository();
-    const service = createLibraryService({ repo });
+  it("rejects creating a folder when a file already owns the sibling name", async () => {
+    const { repo, addFile } = createMemoryRepository();
+    const service = createService(repo);
     const root = await service.ensureLibraryRoot("member-1");
-
-    const first = await service.createFolder({
-      actorUserId: "member-1",
-      actorRole: "member",
-      parentId: root.id,
-      name: "Photos",
-    });
-    const second = await service.createFolder({
-      actorUserId: "member-1",
-      actorRole: "member",
-      parentId: root.id,
-      name: "Photos",
-    });
-
-    expect(first.folder.id).not.toBe(second.folder.id);
-    expect(first.folder.name).toBe("Photos");
-    expect(second.folder.name).toBe("Photos");
-  });
-
-  it("hides trashed subtrees from active library navigation", async () => {
-    const { repo } = createMemoryRepository();
-    const service = createLibraryService({ repo });
-    const root = await service.ensureLibraryRoot("member-1");
-    const parent = await repo.createFolder({
+    addFile({
       ownerUserId: "member-1",
-      parentId: root.id,
-      name: "Parent",
-    });
-    const child = await repo.createFolder({
-      ownerUserId: "member-1",
-      parentId: parent.id,
-      name: "Child",
-    });
-
-    await service.trashFolder({
-      actorUserId: "member-1",
-      actorRole: "member",
-      folderId: parent.id,
-    });
-
-    const rootListing = await service.getLibraryListing({
-      actorUserId: "member-1",
-      actorRole: "member",
-    });
-
-    expect(rootListing.childFolders).toHaveLength(0);
-    await expect(
-      service.getLibraryListing({
-        actorUserId: "member-1",
-        actorRole: "member",
-        folderId: child.id,
-      }),
-    ).rejects.toMatchObject({
-      code: "FOLDER_NOT_FOUND",
-    });
-  });
-
-  it("restores a folder to its original parent when that parent is active", async () => {
-    const { repo } = createMemoryRepository();
-    const service = createLibraryService({ repo });
-    const root = await service.ensureLibraryRoot("member-1");
-    const parent = await repo.createFolder({
-      ownerUserId: "member-1",
-      parentId: root.id,
-      name: "Parent",
-    });
-    const child = await repo.createFolder({
-      ownerUserId: "member-1",
-      parentId: parent.id,
-      name: "Child",
-    });
-
-    await service.trashFolder({
-      actorUserId: "member-1",
-      actorRole: "member",
-      folderId: child.id,
-    });
-
-    const restored = await service.restoreFolder({
-      actorUserId: "member-1",
-      actorRole: "member",
-      folderId: child.id,
-    });
-
-    expect(restored.folder.parentId).toBe(parent.id);
-    expect(restored.restoredTo).toMatchObject({
-      kind: "original-parent",
-      folderId: parent.id,
-    });
-  });
-
-  it("restores a folder to the library root when the original parent is still trashed", async () => {
-    const { repo } = createMemoryRepository();
-    const service = createLibraryService({ repo });
-    const root = await service.ensureLibraryRoot("member-1");
-    const parent = await repo.createFolder({
-      ownerUserId: "member-1",
-      parentId: root.id,
-      name: "Parent",
-    });
-    const child = await repo.createFolder({
-      ownerUserId: "member-1",
-      parentId: parent.id,
-      name: "Child",
-    });
-
-    await service.trashFolder({
-      actorUserId: "member-1",
-      actorRole: "member",
-      folderId: parent.id,
-    });
-
-    const restored = await service.restoreFolder({
-      actorUserId: "member-1",
-      actorRole: "member",
-      folderId: child.id,
-    });
-
-    expect(restored.folder.parentId).toBe(root.id);
-    expect(restored.restoredTo).toMatchObject({
-      kind: "library-root",
       folderId: root.id,
+      name: "Plans",
+      storageKey: "library/member-1/Plans",
     });
+
+    await expect(
+      service.createFolder({
+        actorUserId: "member-1",
+        actorRole: "member",
+        parentId: root.id,
+        name: "Plans",
+      }),
+    ).rejects.toMatchObject({
+      code: "FOLDER_NAME_CONFLICT",
+    });
+  });
+
+  it("moves, trashes, restores, and permanently deletes files", async () => {
+    await cleanDataRoot();
+    const { repo, addFolder } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureLibraryRoot("member-1");
+    const archive = addFolder({
+      ownerUserId: "member-1",
+      parentId: root.id,
+      name: "Archive",
+    });
+
+    const upload = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: root.id,
+      items: [
+        {
+          clientKey: "upload-1",
+          originalName: "notes.txt",
+          conflictStrategy: "fail",
+          file: new File(["hello world"], "notes.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+    const file = upload.uploadedFiles[0];
+
+    expect(file?.name).toBe("notes.txt");
+
+    const renamed = await service.renameFile({
+      actorUserId: "member-1",
+      actorRole: "member",
+      fileId: file!.id,
+      name: "notes-renamed.txt",
+    });
+    const moved = await service.moveFile({
+      actorUserId: "member-1",
+      actorRole: "member",
+      fileId: file!.id,
+      destinationFolderId: archive.id,
+    });
+    const trashed = await service.trashFile({
+      actorUserId: "member-1",
+      actorRole: "member",
+      fileId: file!.id,
+    });
+    const restored = await service.restoreFile({
+      actorUserId: "member-1",
+      actorRole: "member",
+      fileId: file!.id,
+    });
+
+    expect(renamed.file?.name).toBe("notes-renamed.txt");
+    expect(moved.file?.folderId).toBe(archive.id);
+    expect(trashed.file?.deletedAt).not.toBeNull();
+    expect(restored.file?.folderId).toBe(archive.id);
+
+    await service.trashFile({
+      actorUserId: "member-1",
+      actorRole: "member",
+      fileId: file!.id,
+    });
+    const deleted = await service.deleteFile({
+      actorUserId: "member-1",
+      actorRole: "member",
+      fileId: file!.id,
+    });
+
+    expect(deleted.deletedFileId).toBe(file?.id);
+    await expect(
+      access(getStoragePath(".trash/member-1/Archive/notes-renamed.txt")),
+    ).rejects.toBeDefined();
+  });
+
+  it("safe-renames uploads when interactive keep-both is selected", async () => {
+    await cleanDataRoot();
+    const { repo } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureLibraryRoot("member-1");
+
+    await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: root.id,
+      items: [
+        {
+          clientKey: "existing",
+          originalName: "photo.jpg",
+          conflictStrategy: "fail",
+          file: new File(["one"], "photo.jpg", {
+            type: "image/jpeg",
+          }),
+        },
+      ],
+    });
+
+    const result = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: root.id,
+      items: [
+        {
+          clientKey: "upload-2",
+          originalName: "photo.jpg",
+          conflictStrategy: "safeRename",
+          file: new File(["two"], "photo.jpg", {
+            type: "image/jpeg",
+          }),
+        },
+      ],
+    });
+
+    expect(result.conflicts).toEqual([]);
+    expect(result.uploadedFiles[0]?.name).toBe("photo (1).jpg");
+  });
+
+  it("replaces file content in place when replace is selected", async () => {
+    await cleanDataRoot();
+    const { repo, state } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureLibraryRoot("member-1");
+
+    const first = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: root.id,
+      items: [
+        {
+          clientKey: "upload-1",
+          originalName: "replace-me.txt",
+          conflictStrategy: "fail",
+          file: new File(["before"], "replace-me.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+    const original = first.uploadedFiles[0];
+
+    const second = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: root.id,
+      items: [
+        {
+          clientKey: "upload-2",
+          originalName: "replace-me.txt",
+          conflictStrategy: "replace",
+          file: new File(["after"], "replace-me.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+
+    expect(second.uploadedFiles[0]?.id).toBe(original?.id);
+    expect(
+      state.files.filter((file) => file.name === "replace-me.txt"),
+    ).toHaveLength(1);
+    await expect(
+      readFile(getStoragePath("library/member-1/replace-me.txt"), "utf8"),
+    ).resolves.toBe("after");
+  });
+
+  it("restores the original file when replace metadata update fails", async () => {
+    await cleanDataRoot();
+    const { repo, failNextUpdateFile } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureLibraryRoot("member-1");
+
+    await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: root.id,
+      items: [
+        {
+          clientKey: "upload-1",
+          originalName: "replace-me.txt",
+          conflictStrategy: "fail",
+          file: new File(["before"], "replace-me.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+
+    failNextUpdateFile(new Error("metadata write failed"));
+
+    await expect(
+      service.uploadFiles({
+        actorUserId: "member-1",
+        actorRole: "member",
+        folderId: root.id,
+        items: [
+          {
+            clientKey: "upload-2",
+            originalName: "replace-me.txt",
+            conflictStrategy: "replace",
+            file: new File(["after"], "replace-me.txt", {
+              type: "text/plain",
+            }),
+          },
+        ],
+      }),
+    ).rejects.toThrow("metadata write failed");
+
+    await expect(
+      readFile(getStoragePath("library/member-1/replace-me.txt"), "utf8"),
+    ).resolves.toBe("before");
+  });
+
+  it("serializes concurrent same-name uploads without silent overwrite", async () => {
+    await cleanDataRoot();
+    const { repo } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureLibraryRoot("member-1");
+
+    const [first, second] = await Promise.all([
+      service.uploadFiles({
+        actorUserId: "member-1",
+        actorRole: "member",
+        folderId: root.id,
+        items: [
+          {
+            clientKey: "upload-1",
+            originalName: "race.txt",
+            conflictStrategy: "fail",
+            file: new File(["first"], "race.txt", {
+              type: "text/plain",
+            }),
+          },
+        ],
+      }),
+      service.uploadFiles({
+        actorUserId: "member-1",
+        actorRole: "member",
+        folderId: root.id,
+        items: [
+          {
+            clientKey: "upload-2",
+            originalName: "race.txt",
+            conflictStrategy: "fail",
+            file: new File(["second"], "race.txt", {
+              type: "text/plain",
+            }),
+          },
+        ],
+      }),
+    ]);
+
+    expect(first.uploadedFiles.length + second.uploadedFiles.length).toBe(1);
+    expect(first.conflicts.length + second.conflicts.length).toBe(1);
+    await expect(
+      readFile(getStoragePath("library/member-1/race.txt"), "utf8"),
+    ).resolves.toBe(first.uploadedFiles.length === 1 ? "first" : "second");
+  });
+
+  it("returns explicit conflict details when fail is selected", async () => {
+    await cleanDataRoot();
+    const { repo } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureLibraryRoot("member-1");
+
+    await service.createFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: root.id,
+      name: "Receipts",
+    });
+
+    const result = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: root.id,
+      items: [
+        {
+          clientKey: "upload-1",
+          originalName: "Receipts",
+          conflictStrategy: "fail",
+          file: new File(["contents"], "Receipts", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+
+    expect(result.uploadedFiles).toEqual([]);
+    expect(result.conflicts[0]).toMatchObject({
+      clientKey: "upload-1",
+      existingKind: "folder",
+      existingName: "Receipts",
+    });
+  });
+
+  it("restores the quarantined file when permanent delete metadata removal fails", async () => {
+    await cleanDataRoot();
+    const { repo, failNextDeleteFile } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureLibraryRoot("member-1");
+
+    const upload = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: root.id,
+      items: [
+        {
+          clientKey: "upload-1",
+          originalName: "trash-me.txt",
+          conflictStrategy: "fail",
+          file: new File(["restore me"], "trash-me.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+
+    await service.trashFile({
+      actorUserId: "member-1",
+      actorRole: "member",
+      fileId: upload.uploadedFiles[0]!.id,
+    });
+    failNextDeleteFile(new Error("db delete failed"));
+
+    await expect(
+      service.deleteFile({
+        actorUserId: "member-1",
+        actorRole: "member",
+        fileId: upload.uploadedFiles[0]!.id,
+      }),
+    ).rejects.toThrow("db delete failed");
+
+    await expect(
+      access(getStoragePath(".trash/member-1/trash-me.txt")),
+    ).resolves.toBeUndefined();
+  });
+
+  it("trashing a folder also trashes descendant files and hides them from separate trash entries", async () => {
+    await cleanDataRoot();
+    const { repo } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureLibraryRoot("member-1");
+    const parent = await service.createFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: root.id,
+      name: "Parent",
+    });
+
+    const upload = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: parent.folder.id,
+      items: [
+        {
+          clientKey: "upload-1",
+          originalName: "inside.txt",
+          conflictStrategy: "fail",
+          file: new File(["hello"], "inside.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+
+    await service.trashFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: parent.folder.id,
+    });
+
+    const listing = await service.getLibraryListing({
+      actorUserId: "member-1",
+      actorRole: "member",
+    });
+    const trash = await service.listTrashFolders({
+      actorUserId: "member-1",
+      actorRole: "member",
+    });
+
+    expect(listing.files).toEqual([]);
+    expect(trash.items).toHaveLength(1);
+    expect(trash.files).toEqual([]);
+
+    const restored = await service.restoreFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: parent.folder.id,
+    });
+
+    expect(restored.restoredTo?.folderId).toBe(root.id);
+    const refreshed = await service.getLibraryListing({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: parent.folder.id,
+    });
+    expect(refreshed.files[0]?.id).toBe(upload.uploadedFiles[0]?.id);
   });
 });

@@ -62,6 +62,7 @@ export default async function WorkspaceLayout({
           <section className="panel stack workspace-user-panel">
             <div className="stack">
               <strong>{userLabel}</strong>
+              <span className="muted">@{session.user.username}</span>
               <span className="muted">{session.user.email}</span>
               <span className={`status-chip ${roleClassName}`}>
                 {session.user.role}

@@ -1,10 +1,18 @@
 import { Prisma, prisma } from "@staaash/db/client";
 
-import type { LibraryFolderSummary } from "@/server/library/types";
+import type {
+  LibraryFolderSummary,
+  StoredLibraryFile,
+} from "@/server/library/types";
 
 const libraryFolderSelect = {
   id: true,
   ownerUserId: true,
+  owner: {
+    select: {
+      username: true,
+    },
+  },
   parentId: true,
   name: true,
   isLibraryRoot: true,
@@ -13,20 +21,39 @@ const libraryFolderSelect = {
   updatedAt: true,
 } satisfies Prisma.FolderSelect;
 
-const rootRepairSelect = {
-  ...libraryFolderSelect,
-  libraryRootKey: true,
-} satisfies Prisma.FolderSelect;
+const libraryFileSelect = {
+  id: true,
+  ownerUserId: true,
+  owner: {
+    select: {
+      username: true,
+    },
+  },
+  folderId: true,
+  originalName: true,
+  storageKey: true,
+  mimeType: true,
+  sizeBytes: true,
+  contentChecksum: true,
+  previewStatus: true,
+  deletedAt: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.FileSelect;
 
 type LibraryFolderRecord = Prisma.FolderGetPayload<{
   select: typeof libraryFolderSelect;
 }>;
 
-type RootRepairRecord = Prisma.FolderGetPayload<{
-  select: typeof rootRepairSelect;
+type LibraryFileRecord = Prisma.FileGetPayload<{
+  select: typeof libraryFileSelect;
 }>;
 
 type ListFoldersOptions = {
+  includeDeleted?: boolean;
+};
+
+type ListFilesOptions = {
   includeDeleted?: boolean;
 };
 
@@ -37,10 +64,32 @@ type CreateFolderParams = {
   isLibraryRoot?: boolean;
 };
 
+type CreateFileParams = {
+  id?: string;
+  ownerUserId: string;
+  folderId: string | null;
+  name: string;
+  storageKey: string;
+  mimeType: string;
+  sizeBytes: number;
+  contentChecksum: string | null;
+};
+
 type UpdateFolderParams = {
   id: string;
   name?: string;
   parentId?: string | null;
+  deletedAt?: Date | null;
+};
+
+type UpdateFileParams = {
+  id: string;
+  name?: string;
+  folderId?: string | null;
+  storageKey?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  contentChecksum?: string | null;
   deletedAt?: Date | null;
 };
 
@@ -49,19 +98,38 @@ type UpdateFoldersParams = {
   deletedAt: Date | null;
 };
 
+type UpdateFilesParams = {
+  ids: string[];
+  deletedAt: Date | null;
+};
+
 type FolderDelegate = {
-  findFirst(args: Prisma.FolderFindFirstArgs): Promise<RootRepairRecord | null>;
+  findFirst(
+    args: Prisma.FolderFindFirstArgs,
+  ): Promise<LibraryFolderRecord | null>;
   findUnique(
     args: Prisma.FolderFindUniqueArgs,
   ): Promise<LibraryFolderRecord | null>;
-  findMany(args: Prisma.FolderFindManyArgs): Promise<RootRepairRecord[]>;
+  findMany(args: Prisma.FolderFindManyArgs): Promise<LibraryFolderRecord[]>;
   create(args: Prisma.FolderCreateArgs): Promise<LibraryFolderRecord>;
   update(args: Prisma.FolderUpdateArgs): Promise<LibraryFolderRecord>;
   updateMany(args: Prisma.FolderUpdateManyArgs): Promise<unknown>;
 };
 
+type FileDelegate = {
+  findUnique(
+    args: Prisma.FileFindUniqueArgs,
+  ): Promise<LibraryFileRecord | null>;
+  findMany(args: Prisma.FileFindManyArgs): Promise<LibraryFileRecord[]>;
+  create(args: Prisma.FileCreateArgs): Promise<LibraryFileRecord>;
+  update(args: Prisma.FileUpdateArgs): Promise<LibraryFileRecord>;
+  updateMany(args: Prisma.FileUpdateManyArgs): Promise<unknown>;
+  delete(args: Prisma.FileDeleteArgs): Promise<unknown>;
+};
+
 type LibraryTransactionClient = {
   folder: FolderDelegate;
+  file: FileDelegate;
 };
 
 type LibraryPrismaClient = LibraryTransactionClient & {
@@ -70,9 +138,10 @@ type LibraryPrismaClient = LibraryTransactionClient & {
 
 const toLibraryFolderSummary = (
   folder: Pick<
-    RootRepairRecord,
+    LibraryFolderRecord,
     | "id"
     | "ownerUserId"
+    | "owner"
     | "parentId"
     | "name"
     | "isLibraryRoot"
@@ -83,6 +152,7 @@ const toLibraryFolderSummary = (
 ): LibraryFolderSummary => ({
   id: folder.id,
   ownerUserId: folder.ownerUserId,
+  ownerUsername: folder.owner.username,
   parentId: folder.parentId,
   name: folder.name,
   isLibraryRoot: folder.isLibraryRoot,
@@ -91,15 +161,23 @@ const toLibraryFolderSummary = (
   updatedAt: folder.updatedAt,
 });
 
-const isUniqueConstraintError = (error: unknown) => {
-  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
-    return false;
-  }
+const toStoredLibraryFile = (file: LibraryFileRecord): StoredLibraryFile => ({
+  id: file.id,
+  ownerUserId: file.ownerUserId,
+  ownerUsername: file.owner.username,
+  folderId: file.folderId,
+  name: file.originalName,
+  storageKey: file.storageKey,
+  mimeType: file.mimeType,
+  sizeBytes: Number(file.sizeBytes),
+  contentChecksum: file.contentChecksum,
+  previewStatus: file.previewStatus,
+  deletedAt: file.deletedAt,
+  createdAt: file.createdAt,
+  updatedAt: file.updatedAt,
+});
 
-  return error.code === "P2002";
-};
-
-const sortLegacyRoots = (folders: RootRepairRecord[]) =>
+const sortLegacyRoots = (folders: LibraryFolderRecord[]) =>
   [...folders].sort((left, right) => {
     const leftDeletedRank = left.deletedAt ? 1 : 0;
     const rightDeletedRank = right.deletedAt ? 1 : 0;
@@ -117,12 +195,13 @@ const findCanonicalRoot = async (
 ) => {
   const folder = await client.folder.findFirst({
     where: {
-      libraryRootKey: ownerUserId,
+      ownerUserId,
+      isLibraryRoot: true,
     },
     orderBy: {
       createdAt: "asc",
     },
-    select: rootRepairSelect,
+    select: libraryFolderSelect,
   });
 
   return folder ? toLibraryFolderSummary(folder) : null;
@@ -140,7 +219,7 @@ const listLegacyRoots = (
     orderBy: {
       createdAt: "asc",
     },
-    select: rootRepairSelect,
+    select: libraryFolderSelect,
   });
 
 const createCanonicalRoot = async (
@@ -150,7 +229,6 @@ const createCanonicalRoot = async (
   const folder = await client.folder.create({
     data: {
       ownerUserId,
-      libraryRootKey: ownerUserId,
       parentId: null,
       name: "Library",
       isLibraryRoot: true,
@@ -164,38 +242,48 @@ const createCanonicalRoot = async (
 export type LibraryRepository = {
   ensureLibraryRoot(ownerUserId: string): Promise<LibraryFolderSummary>;
   findFolderById(folderId: string): Promise<LibraryFolderSummary | null>;
+  findFileById(fileId: string): Promise<StoredLibraryFile | null>;
   listChildFolders(
     ownerUserId: string,
     parentId: string,
     options?: ListFoldersOptions,
   ): Promise<LibraryFolderSummary[]>;
+  listChildFiles(
+    ownerUserId: string,
+    folderId: string | null,
+    options?: ListFilesOptions,
+  ): Promise<StoredLibraryFile[]>;
   listFoldersByOwner(
     ownerUserId: string,
     options?: ListFoldersOptions,
   ): Promise<LibraryFolderSummary[]>;
+  listFilesByOwner(
+    ownerUserId: string,
+    options?: ListFilesOptions,
+  ): Promise<StoredLibraryFile[]>;
   createFolder(params: CreateFolderParams): Promise<LibraryFolderSummary>;
+  createFile(params: CreateFileParams): Promise<StoredLibraryFile>;
   updateFolder(params: UpdateFolderParams): Promise<LibraryFolderSummary>;
+  updateFile(params: UpdateFileParams): Promise<StoredLibraryFile>;
   updateFolders(params: UpdateFoldersParams): Promise<void>;
+  updateFiles(params: UpdateFilesParams): Promise<void>;
+  deleteFile(fileId: string): Promise<void>;
 };
 
 export const createPrismaLibraryRepository = (
   client: LibraryPrismaClient = prisma as unknown as LibraryPrismaClient,
 ): LibraryRepository => ({
   async ensureLibraryRoot(ownerUserId) {
-    const existingRoot = await findCanonicalRoot(client, ownerUserId);
+    const existingRoots = sortLegacyRoots(
+      await listLegacyRoots(client, ownerUserId),
+    );
 
-    if (existingRoot) {
-      return existingRoot;
+    if (existingRoots.length === 1) {
+      return toLibraryFolderSummary(existingRoots[0]);
     }
 
     try {
       return await client.$transaction(async (tx) => {
-        const canonicalRoot = await findCanonicalRoot(tx, ownerUserId);
-
-        if (canonicalRoot) {
-          return canonicalRoot;
-        }
-
         const legacyRoots = sortLegacyRoots(
           await listLegacyRoots(tx, ownerUserId),
         );
@@ -204,13 +292,16 @@ export const createPrismaLibraryRepository = (
           return createCanonicalRoot(tx, ownerUserId);
         }
 
+        if (legacyRoots.length === 1) {
+          return toLibraryFolderSummary(legacyRoots[0]);
+        }
+
         const [legacyCanonicalRoot, ...duplicateRoots] = legacyRoots;
         const repairedCanonicalRoot = await tx.folder.update({
           where: {
             id: legacyCanonicalRoot.id,
           },
           data: {
-            libraryRootKey: ownerUserId,
             isLibraryRoot: true,
             parentId: null,
             deletedAt: null,
@@ -224,7 +315,6 @@ export const createPrismaLibraryRepository = (
               id: duplicateRoot.id,
             },
             data: {
-              libraryRootKey: null,
               isLibraryRoot: false,
               parentId: repairedCanonicalRoot.id,
             },
@@ -235,14 +325,6 @@ export const createPrismaLibraryRepository = (
         return toLibraryFolderSummary(repairedCanonicalRoot);
       });
     } catch (error) {
-      if (isUniqueConstraintError(error)) {
-        const canonicalRoot = await findCanonicalRoot(client, ownerUserId);
-
-        if (canonicalRoot) {
-          return canonicalRoot;
-        }
-      }
-
       throw error;
     }
   },
@@ -258,6 +340,17 @@ export const createPrismaLibraryRepository = (
     return folder ? toLibraryFolderSummary(folder) : null;
   },
 
+  async findFileById(fileId) {
+    const file = await client.file.findUnique({
+      where: {
+        id: fileId,
+      },
+      select: libraryFileSelect,
+    });
+
+    return file ? toStoredLibraryFile(file) : null;
+  },
+
   async listChildFolders(ownerUserId, parentId, options = {}) {
     const folders = await client.folder.findMany({
       where: {
@@ -266,10 +359,24 @@ export const createPrismaLibraryRepository = (
         ...(options.includeDeleted ? {} : { deletedAt: null }),
       },
       orderBy: [{ name: "asc" }, { createdAt: "asc" }],
-      select: rootRepairSelect,
+      select: libraryFolderSelect,
     });
 
     return folders.map(toLibraryFolderSummary);
+  },
+
+  async listChildFiles(ownerUserId, folderId, options = {}) {
+    const files = await client.file.findMany({
+      where: {
+        ownerUserId,
+        folderId,
+        ...(options.includeDeleted ? {} : { deletedAt: null }),
+      },
+      orderBy: [{ originalName: "asc" }, { createdAt: "asc" }],
+      select: libraryFileSelect,
+    });
+
+    return files.map(toStoredLibraryFile);
   },
 
   async listFoldersByOwner(ownerUserId, options = {}) {
@@ -284,10 +391,27 @@ export const createPrismaLibraryRepository = (
         { name: "asc" },
         { createdAt: "asc" },
       ],
-      select: rootRepairSelect,
+      select: libraryFolderSelect,
     });
 
     return folders.map(toLibraryFolderSummary);
+  },
+
+  async listFilesByOwner(ownerUserId, options = {}) {
+    const files = await client.file.findMany({
+      where: {
+        ownerUserId,
+        ...(options.includeDeleted ? {} : { deletedAt: null }),
+      },
+      orderBy: [
+        { folderId: "asc" },
+        { originalName: "asc" },
+        { createdAt: "asc" },
+      ],
+      select: libraryFileSelect,
+    });
+
+    return files.map(toStoredLibraryFile);
   },
 
   async createFolder(params) {
@@ -302,6 +426,24 @@ export const createPrismaLibraryRepository = (
     });
 
     return toLibraryFolderSummary(folder);
+  },
+
+  async createFile(params) {
+    const file = await client.file.create({
+      data: {
+        id: params.id,
+        ownerUserId: params.ownerUserId,
+        folderId: params.folderId,
+        originalName: params.name,
+        storageKey: params.storageKey,
+        mimeType: params.mimeType,
+        sizeBytes: BigInt(params.sizeBytes),
+        contentChecksum: params.contentChecksum,
+      },
+      select: libraryFileSelect,
+    });
+
+    return toStoredLibraryFile(file);
   },
 
   async updateFolder(params) {
@@ -330,6 +472,48 @@ export const createPrismaLibraryRepository = (
     return toLibraryFolderSummary(folder);
   },
 
+  async updateFile(params) {
+    const data: Prisma.FileUncheckedUpdateInput = {};
+
+    if ("name" in params) {
+      data.originalName = params.name;
+    }
+
+    if ("folderId" in params) {
+      data.folderId = params.folderId;
+    }
+
+    if ("storageKey" in params) {
+      data.storageKey = params.storageKey;
+    }
+
+    if ("mimeType" in params) {
+      data.mimeType = params.mimeType;
+    }
+
+    if ("sizeBytes" in params && params.sizeBytes !== undefined) {
+      data.sizeBytes = BigInt(params.sizeBytes);
+    }
+
+    if ("contentChecksum" in params) {
+      data.contentChecksum = params.contentChecksum;
+    }
+
+    if ("deletedAt" in params) {
+      data.deletedAt = params.deletedAt;
+    }
+
+    const file = await client.file.update({
+      where: {
+        id: params.id,
+      },
+      data,
+      select: libraryFileSelect,
+    });
+
+    return toStoredLibraryFile(file);
+  },
+
   async updateFolders(params) {
     if (params.ids.length === 0) {
       return;
@@ -343,6 +527,31 @@ export const createPrismaLibraryRepository = (
       },
       data: {
         deletedAt: params.deletedAt,
+      },
+    });
+  },
+
+  async updateFiles(params) {
+    if (params.ids.length === 0) {
+      return;
+    }
+
+    await client.file.updateMany({
+      where: {
+        id: {
+          in: params.ids,
+        },
+      },
+      data: {
+        deletedAt: params.deletedAt,
+      },
+    });
+  },
+
+  async deleteFile(fileId) {
+    await client.file.delete({
+      where: {
+        id: fileId,
       },
     });
   },
