@@ -1,1 +1,5 @@
 packages/db/src/generated/prisma/
+.data/
+.next/
+coverage/
+dist/

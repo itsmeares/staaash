@@ -80,7 +80,9 @@ That means this repo is intentionally heavy on core behavior and documentation f
 
 ## Quality checks
 
+- Staged files are auto-formatted on commit.
 - `pnpm format:check`
+- `pnpm format` for repo-wide formatting or one-time normalization
 - `pnpm lint`
 - `pnpm test`
 - `pnpm build`
