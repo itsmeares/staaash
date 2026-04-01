@@ -213,6 +213,7 @@ export type UserWhereInput = {
   passwordResetsForUser?: Prisma.PasswordResetListRelationFilter
   folders?: Prisma.FolderListRelationFilter
   files?: Prisma.FileListRelationFilter
+  shareLinks?: Prisma.ShareLinkListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -231,6 +232,7 @@ export type UserOrderByWithRelationInput = {
   passwordResetsForUser?: Prisma.PasswordResetOrderByRelationAggregateInput
   folders?: Prisma.FolderOrderByRelationAggregateInput
   files?: Prisma.FileOrderByRelationAggregateInput
+  shareLinks?: Prisma.ShareLinkOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -252,6 +254,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   passwordResetsForUser?: Prisma.PasswordResetListRelationFilter
   folders?: Prisma.FolderListRelationFilter
   files?: Prisma.FileListRelationFilter
+  shareLinks?: Prisma.ShareLinkListRelationFilter
 }, "id" | "email" | "username">
 
 export type UserOrderByWithAggregationInput = {
@@ -298,6 +301,7 @@ export type UserCreateInput = {
   passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
+  shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -316,6 +320,7 @@ export type UserUncheckedCreateInput = {
   passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
+  shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUpdateInput = {
@@ -334,6 +339,7 @@ export type UserUpdateInput = {
   passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
+  shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -352,6 +358,7 @@ export type UserUncheckedUpdateInput = {
   passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
+  shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -538,6 +545,20 @@ export type UserUpdateOneRequiredWithoutFilesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutFilesInput, Prisma.UserUpdateWithoutFilesInput>, Prisma.UserUncheckedUpdateWithoutFilesInput>
 }
 
+export type UserCreateNestedOneWithoutShareLinksInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutShareLinksInput, Prisma.UserUncheckedCreateWithoutShareLinksInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutShareLinksInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutShareLinksNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutShareLinksInput, Prisma.UserUncheckedCreateWithoutShareLinksInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutShareLinksInput
+  upsert?: Prisma.UserUpsertWithoutShareLinksInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutShareLinksInput, Prisma.UserUpdateWithoutShareLinksInput>, Prisma.UserUncheckedUpdateWithoutShareLinksInput>
+}
+
 export type UserCreateWithoutSessionsInput = {
   id?: string
   email: string
@@ -553,6 +574,7 @@ export type UserCreateWithoutSessionsInput = {
   passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
+  shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutSessionsInput = {
@@ -570,6 +592,7 @@ export type UserUncheckedCreateWithoutSessionsInput = {
   passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
+  shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutSessionsInput = {
@@ -603,6 +626,7 @@ export type UserUpdateWithoutSessionsInput = {
   passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
+  shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSessionsInput = {
@@ -620,6 +644,7 @@ export type UserUncheckedUpdateWithoutSessionsInput = {
   passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
+  shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateWithoutInvitesIssuedInput = {
@@ -637,6 +662,7 @@ export type UserCreateWithoutInvitesIssuedInput = {
   passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
+  shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutInvitesIssuedInput = {
@@ -654,6 +680,7 @@ export type UserUncheckedCreateWithoutInvitesIssuedInput = {
   passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
+  shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutInvitesIssuedInput = {
@@ -676,6 +703,7 @@ export type UserCreateWithoutInvitesAcceptedInput = {
   passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
+  shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutInvitesAcceptedInput = {
@@ -693,6 +721,7 @@ export type UserUncheckedCreateWithoutInvitesAcceptedInput = {
   passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
+  shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutInvitesAcceptedInput = {
@@ -726,6 +755,7 @@ export type UserUpdateWithoutInvitesIssuedInput = {
   passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
+  shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutInvitesIssuedInput = {
@@ -743,6 +773,7 @@ export type UserUncheckedUpdateWithoutInvitesIssuedInput = {
   passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
+  shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUpsertWithoutInvitesAcceptedInput = {
@@ -771,6 +802,7 @@ export type UserUpdateWithoutInvitesAcceptedInput = {
   passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
+  shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutInvitesAcceptedInput = {
@@ -788,6 +820,7 @@ export type UserUncheckedUpdateWithoutInvitesAcceptedInput = {
   passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
+  shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateWithoutPasswordResetsForUserInput = {
@@ -805,6 +838,7 @@ export type UserCreateWithoutPasswordResetsForUserInput = {
   passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
+  shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutPasswordResetsForUserInput = {
@@ -822,6 +856,7 @@ export type UserUncheckedCreateWithoutPasswordResetsForUserInput = {
   passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
+  shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutPasswordResetsForUserInput = {
@@ -844,6 +879,7 @@ export type UserCreateWithoutPasswordResetsIssuedInput = {
   passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
+  shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutPasswordResetsIssuedInput = {
@@ -861,6 +897,7 @@ export type UserUncheckedCreateWithoutPasswordResetsIssuedInput = {
   passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
+  shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutPasswordResetsIssuedInput = {
@@ -894,6 +931,7 @@ export type UserUpdateWithoutPasswordResetsForUserInput = {
   passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
+  shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutPasswordResetsForUserInput = {
@@ -911,6 +949,7 @@ export type UserUncheckedUpdateWithoutPasswordResetsForUserInput = {
   passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
+  shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUpsertWithoutPasswordResetsIssuedInput = {
@@ -939,6 +978,7 @@ export type UserUpdateWithoutPasswordResetsIssuedInput = {
   passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
+  shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutPasswordResetsIssuedInput = {
@@ -956,6 +996,7 @@ export type UserUncheckedUpdateWithoutPasswordResetsIssuedInput = {
   passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
+  shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateWithoutFoldersInput = {
@@ -973,6 +1014,7 @@ export type UserCreateWithoutFoldersInput = {
   passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
   passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
+  shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutFoldersInput = {
@@ -990,6 +1032,7 @@ export type UserUncheckedCreateWithoutFoldersInput = {
   passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
   passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
+  shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutFoldersInput = {
@@ -1023,6 +1066,7 @@ export type UserUpdateWithoutFoldersInput = {
   passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
   passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
+  shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutFoldersInput = {
@@ -1040,6 +1084,7 @@ export type UserUncheckedUpdateWithoutFoldersInput = {
   passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
   passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
+  shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserCreateWithoutFilesInput = {
@@ -1057,6 +1102,7 @@ export type UserCreateWithoutFilesInput = {
   passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
   passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
+  shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserUncheckedCreateWithoutFilesInput = {
@@ -1074,6 +1120,7 @@ export type UserUncheckedCreateWithoutFilesInput = {
   passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
   passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
+  shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
 export type UserCreateOrConnectWithoutFilesInput = {
@@ -1107,6 +1154,7 @@ export type UserUpdateWithoutFilesInput = {
   passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
   passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
+  shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutFilesInput = {
@@ -1124,6 +1172,95 @@ export type UserUncheckedUpdateWithoutFilesInput = {
   passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
   passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
+  shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
+}
+
+export type UserCreateWithoutShareLinksInput = {
+  id?: string
+  email: string
+  username: string
+  displayName?: string | null
+  passwordHash: string
+  role?: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
+  invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
+  passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
+  passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
+  folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
+  files?: Prisma.FileCreateNestedManyWithoutOwnerInput
+}
+
+export type UserUncheckedCreateWithoutShareLinksInput = {
+  id?: string
+  email: string
+  username: string
+  displayName?: string | null
+  passwordHash: string
+  role?: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
+  invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
+  passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
+  passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
+  folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
+  files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
+}
+
+export type UserCreateOrConnectWithoutShareLinksInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutShareLinksInput, Prisma.UserUncheckedCreateWithoutShareLinksInput>
+}
+
+export type UserUpsertWithoutShareLinksInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutShareLinksInput, Prisma.UserUncheckedUpdateWithoutShareLinksInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutShareLinksInput, Prisma.UserUncheckedCreateWithoutShareLinksInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutShareLinksInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutShareLinksInput, Prisma.UserUncheckedUpdateWithoutShareLinksInput>
+}
+
+export type UserUpdateWithoutShareLinksInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
+  invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
+  passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
+  passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
+  folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
+  files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
+}
+
+export type UserUncheckedUpdateWithoutShareLinksInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
+  invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
+  passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
+  passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
+  folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
+  files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
 }
 
 
@@ -1139,6 +1276,7 @@ export type UserCountOutputType = {
   passwordResetsForUser: number
   folders: number
   files: number
+  shareLinks: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1149,6 +1287,7 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   passwordResetsForUser?: boolean | UserCountOutputTypeCountPasswordResetsForUserArgs
   folders?: boolean | UserCountOutputTypeCountFoldersArgs
   files?: boolean | UserCountOutputTypeCountFilesArgs
+  shareLinks?: boolean | UserCountOutputTypeCountShareLinksArgs
 }
 
 /**
@@ -1210,6 +1349,13 @@ export type UserCountOutputTypeCountFilesArgs<ExtArgs extends runtime.Types.Exte
   where?: Prisma.FileWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountShareLinksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ShareLinkWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1227,6 +1373,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   passwordResetsForUser?: boolean | Prisma.User$passwordResetsForUserArgs<ExtArgs>
   folders?: boolean | Prisma.User$foldersArgs<ExtArgs>
   files?: boolean | Prisma.User$filesArgs<ExtArgs>
+  shareLinks?: boolean | Prisma.User$shareLinksArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -1272,6 +1419,7 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   passwordResetsForUser?: boolean | Prisma.User$passwordResetsForUserArgs<ExtArgs>
   folders?: boolean | Prisma.User$foldersArgs<ExtArgs>
   files?: boolean | Prisma.User$filesArgs<ExtArgs>
+  shareLinks?: boolean | Prisma.User$shareLinksArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -1287,6 +1435,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     passwordResetsForUser: Prisma.$PasswordResetPayload<ExtArgs>[]
     folders: Prisma.$FolderPayload<ExtArgs>[]
     files: Prisma.$FilePayload<ExtArgs>[]
+    shareLinks: Prisma.$ShareLinkPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1698,6 +1847,7 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   passwordResetsForUser<T extends Prisma.User$passwordResetsForUserArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$passwordResetsForUserArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PasswordResetPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   folders<T extends Prisma.User$foldersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$foldersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FolderPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   files<T extends Prisma.User$filesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$filesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FilePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  shareLinks<T extends Prisma.User$shareLinksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$shareLinksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ShareLinkPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2293,6 +2443,30 @@ export type User$filesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs
   take?: number
   skip?: number
   distinct?: Prisma.FileScalarFieldEnum | Prisma.FileScalarFieldEnum[]
+}
+
+/**
+ * User.shareLinks
+ */
+export type User$shareLinksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ShareLink
+   */
+  select?: Prisma.ShareLinkSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ShareLink
+   */
+  omit?: Prisma.ShareLinkOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ShareLinkInclude<ExtArgs> | null
+  where?: Prisma.ShareLinkWhereInput
+  orderBy?: Prisma.ShareLinkOrderByWithRelationInput | Prisma.ShareLinkOrderByWithRelationInput[]
+  cursor?: Prisma.ShareLinkWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ShareLinkScalarFieldEnum | Prisma.ShareLinkScalarFieldEnum[]
 }
 
 /**

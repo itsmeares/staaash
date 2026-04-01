@@ -31,6 +31,8 @@ export type {
   Invite,
   PasswordReset,
   Session,
+  ShareLink,
+  ShareTargetType,
   User,
   UserRole,
 } from "./generated/prisma/client";

@@ -55,6 +55,7 @@ model User {
   passwordResetsForUser PasswordReset[] @relation("PasswordResetUser")
   folders               Folder[]        @relation("FolderOwner")
   files                 File[]          @relation("FileOwner")
+  shareLinks            ShareLink[]     @relation("ShareLinkCreator")
 }
 
 model Session {
@@ -117,6 +118,7 @@ model Folder {
   parent         Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children       Folder[] @relation("FolderHierarchy")
   files          File[]
+  shareLink      ShareLink? @relation("ShareLinkFolder")
 
   @@index([ownerUserId, isLibraryRoot])
   @@index([ownerUserId, parentId, deletedAt])
@@ -138,6 +140,7 @@ model File {
   updatedAt        DateTime      @updatedAt
   owner            User          @relation("FileOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
   folder           Folder?       @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  shareLink        ShareLink?    @relation("ShareLinkFile")
 
   @@index([ownerUserId, folderId, deletedAt])
 }
@@ -148,12 +151,21 @@ model ShareLink {
   targetType       ShareTargetType
   fileId           String?
   folderId         String?
+  tokenLookupKey   String          @unique
   tokenHash        String          @unique
   passwordHash     String?
   downloadDisabled Boolean         @default(false)
   expiresAt        DateTime
   revokedAt        DateTime?
   createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  createdBy        User            @relation("ShareLinkCreator", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  file             File?           @relation("ShareLinkFile", fields: [fileId], references: [id], onDelete: Cascade)
+  folder           Folder?         @relation("ShareLinkFolder", fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@unique([fileId])
+  @@unique([folderId])
+  @@index([createdByUserId, revokedAt, expiresAt])
 }
 
 model BackgroundJob {
