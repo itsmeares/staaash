@@ -34,6 +34,9 @@ importers:
       react-dom:
         specifier: 19.2.4
         version: 19.2.4(react@19.2.4)
+      yazl:
+        specifier: ^3.3.1
+        version: 3.3.1
       zod:
         specifier: ^4.1.12
         version: 4.3.6
@@ -47,6 +50,9 @@ importers:
       "@types/react-dom":
         specifier: ^19.2.3
         version: 19.2.3(@types/react@19.2.14)
+      "@types/yazl":
+        specifier: ^3.3.0
+        version: 3.3.0
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -1252,6 +1258,12 @@ packages:
         integrity: sha512-ilcTH/UniCkMdtexkoCN0bI7pMcJDvmQFPvuPvmEaYA/NSfFTAgdUSLAoVjaRJm7+6PvcM+q1zYOwS4wTYMF9w==,
       }
 
+  "@types/yazl@3.3.0":
+    resolution:
+      {
+        integrity: sha512-mFL6lGkk2N5u5nIxpNV/K5LW3qVSbxhJrMxYGOOxZndWxMgCamr/iCsq/1t9kd8pEwhuNP91LC5qZm/qS9pOEw==,
+      }
+
   "@vitest/expect@3.2.4":
     resolution:
       {
@@ -1336,6 +1348,13 @@ packages:
         integrity: sha512-7zrmXjAK8u8Z6SOe4R65XObOR5X+Y2I/VVku3t5cPOGQ8/WsBcfFmfnIPiEl5EBMDOzPHRwbiPbMtQBKYdw7RA==,
       }
     hasBin: true
+
+  buffer-crc32@1.0.0:
+    resolution:
+      {
+        integrity: sha512-Db1SbgBS/fg/392AblrMJk97KggmvYhr4pB5ZIMTWtaivCPMWLkmb7m21cJvpvgK+J3nsU2CmmixNBZx4vFj/w==,
+      }
+    engines: { node: ">=8.0.0" }
 
   c12@3.1.0:
     resolution:
@@ -2364,6 +2383,12 @@ packages:
       }
     engines: { node: ">=0.4" }
 
+  yazl@3.3.1:
+    resolution:
+      {
+        integrity: sha512-BbETDVWG+VcMUle37k5Fqp//7SDOK2/1+T7X8TD96M3D9G8jK5VLUdQVdVjGi8im7FGkazX7kk5hkU8X4L5Bng==,
+      }
+
   zeptomatch@2.1.0:
     resolution:
       {
@@ -2893,6 +2918,10 @@ snapshots:
     dependencies:
       csstype: 3.2.3
 
+  "@types/yazl@3.3.0":
+    dependencies:
+      "@types/node": 20.19.37
+
   "@vitest/expect@3.2.4":
     dependencies:
       "@types/chai": 5.2.3
@@ -2951,6 +2980,8 @@ snapshots:
   better-result@2.7.0:
     dependencies:
       "@clack/prompts": 0.11.0
+
+  buffer-crc32@1.0.0: {}
 
   c12@3.1.0:
     dependencies:
@@ -3565,6 +3596,10 @@ snapshots:
       stackback: 0.0.2
 
   xtend@4.0.2: {}
+
+  yazl@3.3.1:
+    dependencies:
+      buffer-crc32: 1.0.0
 
   zeptomatch@2.1.0:
     dependencies:

@@ -30,12 +30,14 @@ export type ShareLinkMinAggregateOutputType = {
   targetType: $Enums.ShareTargetType | null
   fileId: string | null
   folderId: string | null
+  tokenLookupKey: string | null
   tokenHash: string | null
   passwordHash: string | null
   downloadDisabled: boolean | null
   expiresAt: Date | null
   revokedAt: Date | null
   createdAt: Date | null
+  updatedAt: Date | null
 }
 
 export type ShareLinkMaxAggregateOutputType = {
@@ -44,12 +46,14 @@ export type ShareLinkMaxAggregateOutputType = {
   targetType: $Enums.ShareTargetType | null
   fileId: string | null
   folderId: string | null
+  tokenLookupKey: string | null
   tokenHash: string | null
   passwordHash: string | null
   downloadDisabled: boolean | null
   expiresAt: Date | null
   revokedAt: Date | null
   createdAt: Date | null
+  updatedAt: Date | null
 }
 
 export type ShareLinkCountAggregateOutputType = {
@@ -58,12 +62,14 @@ export type ShareLinkCountAggregateOutputType = {
   targetType: number
   fileId: number
   folderId: number
+  tokenLookupKey: number
   tokenHash: number
   passwordHash: number
   downloadDisabled: number
   expiresAt: number
   revokedAt: number
   createdAt: number
+  updatedAt: number
   _all: number
 }
 
@@ -74,12 +80,14 @@ export type ShareLinkMinAggregateInputType = {
   targetType?: true
   fileId?: true
   folderId?: true
+  tokenLookupKey?: true
   tokenHash?: true
   passwordHash?: true
   downloadDisabled?: true
   expiresAt?: true
   revokedAt?: true
   createdAt?: true
+  updatedAt?: true
 }
 
 export type ShareLinkMaxAggregateInputType = {
@@ -88,12 +96,14 @@ export type ShareLinkMaxAggregateInputType = {
   targetType?: true
   fileId?: true
   folderId?: true
+  tokenLookupKey?: true
   tokenHash?: true
   passwordHash?: true
   downloadDisabled?: true
   expiresAt?: true
   revokedAt?: true
   createdAt?: true
+  updatedAt?: true
 }
 
 export type ShareLinkCountAggregateInputType = {
@@ -102,12 +112,14 @@ export type ShareLinkCountAggregateInputType = {
   targetType?: true
   fileId?: true
   folderId?: true
+  tokenLookupKey?: true
   tokenHash?: true
   passwordHash?: true
   downloadDisabled?: true
   expiresAt?: true
   revokedAt?: true
   createdAt?: true
+  updatedAt?: true
   _all?: true
 }
 
@@ -189,12 +201,14 @@ export type ShareLinkGroupByOutputType = {
   targetType: $Enums.ShareTargetType
   fileId: string | null
   folderId: string | null
+  tokenLookupKey: string
   tokenHash: string
   passwordHash: string | null
   downloadDisabled: boolean
   expiresAt: Date
   revokedAt: Date | null
   createdAt: Date
+  updatedAt: Date
   _count: ShareLinkCountAggregateOutputType | null
   _min: ShareLinkMinAggregateOutputType | null
   _max: ShareLinkMaxAggregateOutputType | null
@@ -224,12 +238,17 @@ export type ShareLinkWhereInput = {
   targetType?: Prisma.EnumShareTargetTypeFilter<"ShareLink"> | $Enums.ShareTargetType
   fileId?: Prisma.StringNullableFilter<"ShareLink"> | string | null
   folderId?: Prisma.StringNullableFilter<"ShareLink"> | string | null
+  tokenLookupKey?: Prisma.StringFilter<"ShareLink"> | string
   tokenHash?: Prisma.StringFilter<"ShareLink"> | string
   passwordHash?: Prisma.StringNullableFilter<"ShareLink"> | string | null
   downloadDisabled?: Prisma.BoolFilter<"ShareLink"> | boolean
   expiresAt?: Prisma.DateTimeFilter<"ShareLink"> | Date | string
   revokedAt?: Prisma.DateTimeNullableFilter<"ShareLink"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"ShareLink"> | Date | string
+  updatedAt?: Prisma.DateTimeFilter<"ShareLink"> | Date | string
+  createdBy?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
+  file?: Prisma.XOR<Prisma.FileNullableScalarRelationFilter, Prisma.FileWhereInput> | null
+  folder?: Prisma.XOR<Prisma.FolderNullableScalarRelationFilter, Prisma.FolderWhereInput> | null
 }
 
 export type ShareLinkOrderByWithRelationInput = {
@@ -238,30 +257,40 @@ export type ShareLinkOrderByWithRelationInput = {
   targetType?: Prisma.SortOrder
   fileId?: Prisma.SortOrderInput | Prisma.SortOrder
   folderId?: Prisma.SortOrderInput | Prisma.SortOrder
+  tokenLookupKey?: Prisma.SortOrder
   tokenHash?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrderInput | Prisma.SortOrder
   downloadDisabled?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   revokedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
+  createdBy?: Prisma.UserOrderByWithRelationInput
+  file?: Prisma.FileOrderByWithRelationInput
+  folder?: Prisma.FolderOrderByWithRelationInput
 }
 
 export type ShareLinkWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  fileId?: string
+  folderId?: string
+  tokenLookupKey?: string
   tokenHash?: string
   AND?: Prisma.ShareLinkWhereInput | Prisma.ShareLinkWhereInput[]
   OR?: Prisma.ShareLinkWhereInput[]
   NOT?: Prisma.ShareLinkWhereInput | Prisma.ShareLinkWhereInput[]
   createdByUserId?: Prisma.StringFilter<"ShareLink"> | string
   targetType?: Prisma.EnumShareTargetTypeFilter<"ShareLink"> | $Enums.ShareTargetType
-  fileId?: Prisma.StringNullableFilter<"ShareLink"> | string | null
-  folderId?: Prisma.StringNullableFilter<"ShareLink"> | string | null
   passwordHash?: Prisma.StringNullableFilter<"ShareLink"> | string | null
   downloadDisabled?: Prisma.BoolFilter<"ShareLink"> | boolean
   expiresAt?: Prisma.DateTimeFilter<"ShareLink"> | Date | string
   revokedAt?: Prisma.DateTimeNullableFilter<"ShareLink"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"ShareLink"> | Date | string
-}, "id" | "tokenHash">
+  updatedAt?: Prisma.DateTimeFilter<"ShareLink"> | Date | string
+  createdBy?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
+  file?: Prisma.XOR<Prisma.FileNullableScalarRelationFilter, Prisma.FileWhereInput> | null
+  folder?: Prisma.XOR<Prisma.FolderNullableScalarRelationFilter, Prisma.FolderWhereInput> | null
+}, "id" | "tokenLookupKey" | "tokenHash" | "fileId" | "folderId">
 
 export type ShareLinkOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -269,12 +298,14 @@ export type ShareLinkOrderByWithAggregationInput = {
   targetType?: Prisma.SortOrder
   fileId?: Prisma.SortOrderInput | Prisma.SortOrder
   folderId?: Prisma.SortOrderInput | Prisma.SortOrder
+  tokenLookupKey?: Prisma.SortOrder
   tokenHash?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrderInput | Prisma.SortOrder
   downloadDisabled?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   revokedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
   _count?: Prisma.ShareLinkCountOrderByAggregateInput
   _max?: Prisma.ShareLinkMaxOrderByAggregateInput
   _min?: Prisma.ShareLinkMinOrderByAggregateInput
@@ -289,26 +320,30 @@ export type ShareLinkScalarWhereWithAggregatesInput = {
   targetType?: Prisma.EnumShareTargetTypeWithAggregatesFilter<"ShareLink"> | $Enums.ShareTargetType
   fileId?: Prisma.StringNullableWithAggregatesFilter<"ShareLink"> | string | null
   folderId?: Prisma.StringNullableWithAggregatesFilter<"ShareLink"> | string | null
+  tokenLookupKey?: Prisma.StringWithAggregatesFilter<"ShareLink"> | string
   tokenHash?: Prisma.StringWithAggregatesFilter<"ShareLink"> | string
   passwordHash?: Prisma.StringNullableWithAggregatesFilter<"ShareLink"> | string | null
   downloadDisabled?: Prisma.BoolWithAggregatesFilter<"ShareLink"> | boolean
   expiresAt?: Prisma.DateTimeWithAggregatesFilter<"ShareLink"> | Date | string
   revokedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"ShareLink"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"ShareLink"> | Date | string
+  updatedAt?: Prisma.DateTimeWithAggregatesFilter<"ShareLink"> | Date | string
 }
 
 export type ShareLinkCreateInput = {
   id?: string
-  createdByUserId: string
   targetType: $Enums.ShareTargetType
-  fileId?: string | null
-  folderId?: string | null
+  tokenLookupKey: string
   tokenHash: string
   passwordHash?: string | null
   downloadDisabled?: boolean
   expiresAt: Date | string
   revokedAt?: Date | string | null
   createdAt?: Date | string
+  updatedAt?: Date | string
+  createdBy: Prisma.UserCreateNestedOneWithoutShareLinksInput
+  file?: Prisma.FileCreateNestedOneWithoutShareLinkInput
+  folder?: Prisma.FolderCreateNestedOneWithoutShareLinkInput
 }
 
 export type ShareLinkUncheckedCreateInput = {
@@ -317,26 +352,30 @@ export type ShareLinkUncheckedCreateInput = {
   targetType: $Enums.ShareTargetType
   fileId?: string | null
   folderId?: string | null
+  tokenLookupKey: string
   tokenHash: string
   passwordHash?: string | null
   downloadDisabled?: boolean
   expiresAt: Date | string
   revokedAt?: Date | string | null
   createdAt?: Date | string
+  updatedAt?: Date | string
 }
 
 export type ShareLinkUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
   targetType?: Prisma.EnumShareTargetTypeFieldUpdateOperationsInput | $Enums.ShareTargetType
-  fileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  folderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tokenLookupKey?: Prisma.StringFieldUpdateOperationsInput | string
   tokenHash?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   downloadDisabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutShareLinksNestedInput
+  file?: Prisma.FileUpdateOneWithoutShareLinkNestedInput
+  folder?: Prisma.FolderUpdateOneWithoutShareLinkNestedInput
 }
 
 export type ShareLinkUncheckedUpdateInput = {
@@ -345,12 +384,14 @@ export type ShareLinkUncheckedUpdateInput = {
   targetType?: Prisma.EnumShareTargetTypeFieldUpdateOperationsInput | $Enums.ShareTargetType
   fileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   folderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tokenLookupKey?: Prisma.StringFieldUpdateOperationsInput | string
   tokenHash?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   downloadDisabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type ShareLinkCreateManyInput = {
@@ -359,26 +400,27 @@ export type ShareLinkCreateManyInput = {
   targetType: $Enums.ShareTargetType
   fileId?: string | null
   folderId?: string | null
+  tokenLookupKey: string
   tokenHash: string
   passwordHash?: string | null
   downloadDisabled?: boolean
   expiresAt: Date | string
   revokedAt?: Date | string | null
   createdAt?: Date | string
+  updatedAt?: Date | string
 }
 
 export type ShareLinkUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
-  createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
   targetType?: Prisma.EnumShareTargetTypeFieldUpdateOperationsInput | $Enums.ShareTargetType
-  fileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  folderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tokenLookupKey?: Prisma.StringFieldUpdateOperationsInput | string
   tokenHash?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   downloadDisabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type ShareLinkUncheckedUpdateManyInput = {
@@ -387,12 +429,29 @@ export type ShareLinkUncheckedUpdateManyInput = {
   targetType?: Prisma.EnumShareTargetTypeFieldUpdateOperationsInput | $Enums.ShareTargetType
   fileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   folderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tokenLookupKey?: Prisma.StringFieldUpdateOperationsInput | string
   tokenHash?: Prisma.StringFieldUpdateOperationsInput | string
   passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   downloadDisabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type ShareLinkListRelationFilter = {
+  every?: Prisma.ShareLinkWhereInput
+  some?: Prisma.ShareLinkWhereInput
+  none?: Prisma.ShareLinkWhereInput
+}
+
+export type ShareLinkOrderByRelationAggregateInput = {
+  _count?: Prisma.SortOrder
+}
+
+export type ShareLinkNullableScalarRelationFilter = {
+  is?: Prisma.ShareLinkWhereInput | null
+  isNot?: Prisma.ShareLinkWhereInput | null
 }
 
 export type ShareLinkCountOrderByAggregateInput = {
@@ -401,12 +460,14 @@ export type ShareLinkCountOrderByAggregateInput = {
   targetType?: Prisma.SortOrder
   fileId?: Prisma.SortOrder
   folderId?: Prisma.SortOrder
+  tokenLookupKey?: Prisma.SortOrder
   tokenHash?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   downloadDisabled?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   revokedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
 }
 
 export type ShareLinkMaxOrderByAggregateInput = {
@@ -415,12 +476,14 @@ export type ShareLinkMaxOrderByAggregateInput = {
   targetType?: Prisma.SortOrder
   fileId?: Prisma.SortOrder
   folderId?: Prisma.SortOrder
+  tokenLookupKey?: Prisma.SortOrder
   tokenHash?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   downloadDisabled?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   revokedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
 }
 
 export type ShareLinkMinOrderByAggregateInput = {
@@ -429,16 +492,411 @@ export type ShareLinkMinOrderByAggregateInput = {
   targetType?: Prisma.SortOrder
   fileId?: Prisma.SortOrder
   folderId?: Prisma.SortOrder
+  tokenLookupKey?: Prisma.SortOrder
   tokenHash?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   downloadDisabled?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   revokedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  updatedAt?: Prisma.SortOrder
+}
+
+export type ShareLinkCreateNestedManyWithoutCreatedByInput = {
+  create?: Prisma.XOR<Prisma.ShareLinkCreateWithoutCreatedByInput, Prisma.ShareLinkUncheckedCreateWithoutCreatedByInput> | Prisma.ShareLinkCreateWithoutCreatedByInput[] | Prisma.ShareLinkUncheckedCreateWithoutCreatedByInput[]
+  connectOrCreate?: Prisma.ShareLinkCreateOrConnectWithoutCreatedByInput | Prisma.ShareLinkCreateOrConnectWithoutCreatedByInput[]
+  createMany?: Prisma.ShareLinkCreateManyCreatedByInputEnvelope
+  connect?: Prisma.ShareLinkWhereUniqueInput | Prisma.ShareLinkWhereUniqueInput[]
+}
+
+export type ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput = {
+  create?: Prisma.XOR<Prisma.ShareLinkCreateWithoutCreatedByInput, Prisma.ShareLinkUncheckedCreateWithoutCreatedByInput> | Prisma.ShareLinkCreateWithoutCreatedByInput[] | Prisma.ShareLinkUncheckedCreateWithoutCreatedByInput[]
+  connectOrCreate?: Prisma.ShareLinkCreateOrConnectWithoutCreatedByInput | Prisma.ShareLinkCreateOrConnectWithoutCreatedByInput[]
+  createMany?: Prisma.ShareLinkCreateManyCreatedByInputEnvelope
+  connect?: Prisma.ShareLinkWhereUniqueInput | Prisma.ShareLinkWhereUniqueInput[]
+}
+
+export type ShareLinkUpdateManyWithoutCreatedByNestedInput = {
+  create?: Prisma.XOR<Prisma.ShareLinkCreateWithoutCreatedByInput, Prisma.ShareLinkUncheckedCreateWithoutCreatedByInput> | Prisma.ShareLinkCreateWithoutCreatedByInput[] | Prisma.ShareLinkUncheckedCreateWithoutCreatedByInput[]
+  connectOrCreate?: Prisma.ShareLinkCreateOrConnectWithoutCreatedByInput | Prisma.ShareLinkCreateOrConnectWithoutCreatedByInput[]
+  upsert?: Prisma.ShareLinkUpsertWithWhereUniqueWithoutCreatedByInput | Prisma.ShareLinkUpsertWithWhereUniqueWithoutCreatedByInput[]
+  createMany?: Prisma.ShareLinkCreateManyCreatedByInputEnvelope
+  set?: Prisma.ShareLinkWhereUniqueInput | Prisma.ShareLinkWhereUniqueInput[]
+  disconnect?: Prisma.ShareLinkWhereUniqueInput | Prisma.ShareLinkWhereUniqueInput[]
+  delete?: Prisma.ShareLinkWhereUniqueInput | Prisma.ShareLinkWhereUniqueInput[]
+  connect?: Prisma.ShareLinkWhereUniqueInput | Prisma.ShareLinkWhereUniqueInput[]
+  update?: Prisma.ShareLinkUpdateWithWhereUniqueWithoutCreatedByInput | Prisma.ShareLinkUpdateWithWhereUniqueWithoutCreatedByInput[]
+  updateMany?: Prisma.ShareLinkUpdateManyWithWhereWithoutCreatedByInput | Prisma.ShareLinkUpdateManyWithWhereWithoutCreatedByInput[]
+  deleteMany?: Prisma.ShareLinkScalarWhereInput | Prisma.ShareLinkScalarWhereInput[]
+}
+
+export type ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput = {
+  create?: Prisma.XOR<Prisma.ShareLinkCreateWithoutCreatedByInput, Prisma.ShareLinkUncheckedCreateWithoutCreatedByInput> | Prisma.ShareLinkCreateWithoutCreatedByInput[] | Prisma.ShareLinkUncheckedCreateWithoutCreatedByInput[]
+  connectOrCreate?: Prisma.ShareLinkCreateOrConnectWithoutCreatedByInput | Prisma.ShareLinkCreateOrConnectWithoutCreatedByInput[]
+  upsert?: Prisma.ShareLinkUpsertWithWhereUniqueWithoutCreatedByInput | Prisma.ShareLinkUpsertWithWhereUniqueWithoutCreatedByInput[]
+  createMany?: Prisma.ShareLinkCreateManyCreatedByInputEnvelope
+  set?: Prisma.ShareLinkWhereUniqueInput | Prisma.ShareLinkWhereUniqueInput[]
+  disconnect?: Prisma.ShareLinkWhereUniqueInput | Prisma.ShareLinkWhereUniqueInput[]
+  delete?: Prisma.ShareLinkWhereUniqueInput | Prisma.ShareLinkWhereUniqueInput[]
+  connect?: Prisma.ShareLinkWhereUniqueInput | Prisma.ShareLinkWhereUniqueInput[]
+  update?: Prisma.ShareLinkUpdateWithWhereUniqueWithoutCreatedByInput | Prisma.ShareLinkUpdateWithWhereUniqueWithoutCreatedByInput[]
+  updateMany?: Prisma.ShareLinkUpdateManyWithWhereWithoutCreatedByInput | Prisma.ShareLinkUpdateManyWithWhereWithoutCreatedByInput[]
+  deleteMany?: Prisma.ShareLinkScalarWhereInput | Prisma.ShareLinkScalarWhereInput[]
+}
+
+export type ShareLinkCreateNestedOneWithoutFolderInput = {
+  create?: Prisma.XOR<Prisma.ShareLinkCreateWithoutFolderInput, Prisma.ShareLinkUncheckedCreateWithoutFolderInput>
+  connectOrCreate?: Prisma.ShareLinkCreateOrConnectWithoutFolderInput
+  connect?: Prisma.ShareLinkWhereUniqueInput
+}
+
+export type ShareLinkUncheckedCreateNestedOneWithoutFolderInput = {
+  create?: Prisma.XOR<Prisma.ShareLinkCreateWithoutFolderInput, Prisma.ShareLinkUncheckedCreateWithoutFolderInput>
+  connectOrCreate?: Prisma.ShareLinkCreateOrConnectWithoutFolderInput
+  connect?: Prisma.ShareLinkWhereUniqueInput
+}
+
+export type ShareLinkUpdateOneWithoutFolderNestedInput = {
+  create?: Prisma.XOR<Prisma.ShareLinkCreateWithoutFolderInput, Prisma.ShareLinkUncheckedCreateWithoutFolderInput>
+  connectOrCreate?: Prisma.ShareLinkCreateOrConnectWithoutFolderInput
+  upsert?: Prisma.ShareLinkUpsertWithoutFolderInput
+  disconnect?: Prisma.ShareLinkWhereInput | boolean
+  delete?: Prisma.ShareLinkWhereInput | boolean
+  connect?: Prisma.ShareLinkWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ShareLinkUpdateToOneWithWhereWithoutFolderInput, Prisma.ShareLinkUpdateWithoutFolderInput>, Prisma.ShareLinkUncheckedUpdateWithoutFolderInput>
+}
+
+export type ShareLinkUncheckedUpdateOneWithoutFolderNestedInput = {
+  create?: Prisma.XOR<Prisma.ShareLinkCreateWithoutFolderInput, Prisma.ShareLinkUncheckedCreateWithoutFolderInput>
+  connectOrCreate?: Prisma.ShareLinkCreateOrConnectWithoutFolderInput
+  upsert?: Prisma.ShareLinkUpsertWithoutFolderInput
+  disconnect?: Prisma.ShareLinkWhereInput | boolean
+  delete?: Prisma.ShareLinkWhereInput | boolean
+  connect?: Prisma.ShareLinkWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ShareLinkUpdateToOneWithWhereWithoutFolderInput, Prisma.ShareLinkUpdateWithoutFolderInput>, Prisma.ShareLinkUncheckedUpdateWithoutFolderInput>
+}
+
+export type ShareLinkCreateNestedOneWithoutFileInput = {
+  create?: Prisma.XOR<Prisma.ShareLinkCreateWithoutFileInput, Prisma.ShareLinkUncheckedCreateWithoutFileInput>
+  connectOrCreate?: Prisma.ShareLinkCreateOrConnectWithoutFileInput
+  connect?: Prisma.ShareLinkWhereUniqueInput
+}
+
+export type ShareLinkUncheckedCreateNestedOneWithoutFileInput = {
+  create?: Prisma.XOR<Prisma.ShareLinkCreateWithoutFileInput, Prisma.ShareLinkUncheckedCreateWithoutFileInput>
+  connectOrCreate?: Prisma.ShareLinkCreateOrConnectWithoutFileInput
+  connect?: Prisma.ShareLinkWhereUniqueInput
+}
+
+export type ShareLinkUpdateOneWithoutFileNestedInput = {
+  create?: Prisma.XOR<Prisma.ShareLinkCreateWithoutFileInput, Prisma.ShareLinkUncheckedCreateWithoutFileInput>
+  connectOrCreate?: Prisma.ShareLinkCreateOrConnectWithoutFileInput
+  upsert?: Prisma.ShareLinkUpsertWithoutFileInput
+  disconnect?: Prisma.ShareLinkWhereInput | boolean
+  delete?: Prisma.ShareLinkWhereInput | boolean
+  connect?: Prisma.ShareLinkWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ShareLinkUpdateToOneWithWhereWithoutFileInput, Prisma.ShareLinkUpdateWithoutFileInput>, Prisma.ShareLinkUncheckedUpdateWithoutFileInput>
+}
+
+export type ShareLinkUncheckedUpdateOneWithoutFileNestedInput = {
+  create?: Prisma.XOR<Prisma.ShareLinkCreateWithoutFileInput, Prisma.ShareLinkUncheckedCreateWithoutFileInput>
+  connectOrCreate?: Prisma.ShareLinkCreateOrConnectWithoutFileInput
+  upsert?: Prisma.ShareLinkUpsertWithoutFileInput
+  disconnect?: Prisma.ShareLinkWhereInput | boolean
+  delete?: Prisma.ShareLinkWhereInput | boolean
+  connect?: Prisma.ShareLinkWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ShareLinkUpdateToOneWithWhereWithoutFileInput, Prisma.ShareLinkUpdateWithoutFileInput>, Prisma.ShareLinkUncheckedUpdateWithoutFileInput>
 }
 
 export type EnumShareTargetTypeFieldUpdateOperationsInput = {
   set?: $Enums.ShareTargetType
+}
+
+export type ShareLinkCreateWithoutCreatedByInput = {
+  id?: string
+  targetType: $Enums.ShareTargetType
+  tokenLookupKey: string
+  tokenHash: string
+  passwordHash?: string | null
+  downloadDisabled?: boolean
+  expiresAt: Date | string
+  revokedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  file?: Prisma.FileCreateNestedOneWithoutShareLinkInput
+  folder?: Prisma.FolderCreateNestedOneWithoutShareLinkInput
+}
+
+export type ShareLinkUncheckedCreateWithoutCreatedByInput = {
+  id?: string
+  targetType: $Enums.ShareTargetType
+  fileId?: string | null
+  folderId?: string | null
+  tokenLookupKey: string
+  tokenHash: string
+  passwordHash?: string | null
+  downloadDisabled?: boolean
+  expiresAt: Date | string
+  revokedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type ShareLinkCreateOrConnectWithoutCreatedByInput = {
+  where: Prisma.ShareLinkWhereUniqueInput
+  create: Prisma.XOR<Prisma.ShareLinkCreateWithoutCreatedByInput, Prisma.ShareLinkUncheckedCreateWithoutCreatedByInput>
+}
+
+export type ShareLinkCreateManyCreatedByInputEnvelope = {
+  data: Prisma.ShareLinkCreateManyCreatedByInput | Prisma.ShareLinkCreateManyCreatedByInput[]
+  skipDuplicates?: boolean
+}
+
+export type ShareLinkUpsertWithWhereUniqueWithoutCreatedByInput = {
+  where: Prisma.ShareLinkWhereUniqueInput
+  update: Prisma.XOR<Prisma.ShareLinkUpdateWithoutCreatedByInput, Prisma.ShareLinkUncheckedUpdateWithoutCreatedByInput>
+  create: Prisma.XOR<Prisma.ShareLinkCreateWithoutCreatedByInput, Prisma.ShareLinkUncheckedCreateWithoutCreatedByInput>
+}
+
+export type ShareLinkUpdateWithWhereUniqueWithoutCreatedByInput = {
+  where: Prisma.ShareLinkWhereUniqueInput
+  data: Prisma.XOR<Prisma.ShareLinkUpdateWithoutCreatedByInput, Prisma.ShareLinkUncheckedUpdateWithoutCreatedByInput>
+}
+
+export type ShareLinkUpdateManyWithWhereWithoutCreatedByInput = {
+  where: Prisma.ShareLinkScalarWhereInput
+  data: Prisma.XOR<Prisma.ShareLinkUpdateManyMutationInput, Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByInput>
+}
+
+export type ShareLinkScalarWhereInput = {
+  AND?: Prisma.ShareLinkScalarWhereInput | Prisma.ShareLinkScalarWhereInput[]
+  OR?: Prisma.ShareLinkScalarWhereInput[]
+  NOT?: Prisma.ShareLinkScalarWhereInput | Prisma.ShareLinkScalarWhereInput[]
+  id?: Prisma.StringFilter<"ShareLink"> | string
+  createdByUserId?: Prisma.StringFilter<"ShareLink"> | string
+  targetType?: Prisma.EnumShareTargetTypeFilter<"ShareLink"> | $Enums.ShareTargetType
+  fileId?: Prisma.StringNullableFilter<"ShareLink"> | string | null
+  folderId?: Prisma.StringNullableFilter<"ShareLink"> | string | null
+  tokenLookupKey?: Prisma.StringFilter<"ShareLink"> | string
+  tokenHash?: Prisma.StringFilter<"ShareLink"> | string
+  passwordHash?: Prisma.StringNullableFilter<"ShareLink"> | string | null
+  downloadDisabled?: Prisma.BoolFilter<"ShareLink"> | boolean
+  expiresAt?: Prisma.DateTimeFilter<"ShareLink"> | Date | string
+  revokedAt?: Prisma.DateTimeNullableFilter<"ShareLink"> | Date | string | null
+  createdAt?: Prisma.DateTimeFilter<"ShareLink"> | Date | string
+  updatedAt?: Prisma.DateTimeFilter<"ShareLink"> | Date | string
+}
+
+export type ShareLinkCreateWithoutFolderInput = {
+  id?: string
+  targetType: $Enums.ShareTargetType
+  tokenLookupKey: string
+  tokenHash: string
+  passwordHash?: string | null
+  downloadDisabled?: boolean
+  expiresAt: Date | string
+  revokedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  createdBy: Prisma.UserCreateNestedOneWithoutShareLinksInput
+  file?: Prisma.FileCreateNestedOneWithoutShareLinkInput
+}
+
+export type ShareLinkUncheckedCreateWithoutFolderInput = {
+  id?: string
+  createdByUserId: string
+  targetType: $Enums.ShareTargetType
+  fileId?: string | null
+  tokenLookupKey: string
+  tokenHash: string
+  passwordHash?: string | null
+  downloadDisabled?: boolean
+  expiresAt: Date | string
+  revokedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type ShareLinkCreateOrConnectWithoutFolderInput = {
+  where: Prisma.ShareLinkWhereUniqueInput
+  create: Prisma.XOR<Prisma.ShareLinkCreateWithoutFolderInput, Prisma.ShareLinkUncheckedCreateWithoutFolderInput>
+}
+
+export type ShareLinkUpsertWithoutFolderInput = {
+  update: Prisma.XOR<Prisma.ShareLinkUpdateWithoutFolderInput, Prisma.ShareLinkUncheckedUpdateWithoutFolderInput>
+  create: Prisma.XOR<Prisma.ShareLinkCreateWithoutFolderInput, Prisma.ShareLinkUncheckedCreateWithoutFolderInput>
+  where?: Prisma.ShareLinkWhereInput
+}
+
+export type ShareLinkUpdateToOneWithWhereWithoutFolderInput = {
+  where?: Prisma.ShareLinkWhereInput
+  data: Prisma.XOR<Prisma.ShareLinkUpdateWithoutFolderInput, Prisma.ShareLinkUncheckedUpdateWithoutFolderInput>
+}
+
+export type ShareLinkUpdateWithoutFolderInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  targetType?: Prisma.EnumShareTargetTypeFieldUpdateOperationsInput | $Enums.ShareTargetType
+  tokenLookupKey?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  downloadDisabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutShareLinksNestedInput
+  file?: Prisma.FileUpdateOneWithoutShareLinkNestedInput
+}
+
+export type ShareLinkUncheckedUpdateWithoutFolderInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  targetType?: Prisma.EnumShareTargetTypeFieldUpdateOperationsInput | $Enums.ShareTargetType
+  fileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tokenLookupKey?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  downloadDisabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type ShareLinkCreateWithoutFileInput = {
+  id?: string
+  targetType: $Enums.ShareTargetType
+  tokenLookupKey: string
+  tokenHash: string
+  passwordHash?: string | null
+  downloadDisabled?: boolean
+  expiresAt: Date | string
+  revokedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  createdBy: Prisma.UserCreateNestedOneWithoutShareLinksInput
+  folder?: Prisma.FolderCreateNestedOneWithoutShareLinkInput
+}
+
+export type ShareLinkUncheckedCreateWithoutFileInput = {
+  id?: string
+  createdByUserId: string
+  targetType: $Enums.ShareTargetType
+  folderId?: string | null
+  tokenLookupKey: string
+  tokenHash: string
+  passwordHash?: string | null
+  downloadDisabled?: boolean
+  expiresAt: Date | string
+  revokedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type ShareLinkCreateOrConnectWithoutFileInput = {
+  where: Prisma.ShareLinkWhereUniqueInput
+  create: Prisma.XOR<Prisma.ShareLinkCreateWithoutFileInput, Prisma.ShareLinkUncheckedCreateWithoutFileInput>
+}
+
+export type ShareLinkUpsertWithoutFileInput = {
+  update: Prisma.XOR<Prisma.ShareLinkUpdateWithoutFileInput, Prisma.ShareLinkUncheckedUpdateWithoutFileInput>
+  create: Prisma.XOR<Prisma.ShareLinkCreateWithoutFileInput, Prisma.ShareLinkUncheckedCreateWithoutFileInput>
+  where?: Prisma.ShareLinkWhereInput
+}
+
+export type ShareLinkUpdateToOneWithWhereWithoutFileInput = {
+  where?: Prisma.ShareLinkWhereInput
+  data: Prisma.XOR<Prisma.ShareLinkUpdateWithoutFileInput, Prisma.ShareLinkUncheckedUpdateWithoutFileInput>
+}
+
+export type ShareLinkUpdateWithoutFileInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  targetType?: Prisma.EnumShareTargetTypeFieldUpdateOperationsInput | $Enums.ShareTargetType
+  tokenLookupKey?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  downloadDisabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  createdBy?: Prisma.UserUpdateOneRequiredWithoutShareLinksNestedInput
+  folder?: Prisma.FolderUpdateOneWithoutShareLinkNestedInput
+}
+
+export type ShareLinkUncheckedUpdateWithoutFileInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  createdByUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  targetType?: Prisma.EnumShareTargetTypeFieldUpdateOperationsInput | $Enums.ShareTargetType
+  folderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tokenLookupKey?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  downloadDisabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type ShareLinkCreateManyCreatedByInput = {
+  id?: string
+  targetType: $Enums.ShareTargetType
+  fileId?: string | null
+  folderId?: string | null
+  tokenLookupKey: string
+  tokenHash: string
+  passwordHash?: string | null
+  downloadDisabled?: boolean
+  expiresAt: Date | string
+  revokedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}
+
+export type ShareLinkUpdateWithoutCreatedByInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  targetType?: Prisma.EnumShareTargetTypeFieldUpdateOperationsInput | $Enums.ShareTargetType
+  tokenLookupKey?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  downloadDisabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  file?: Prisma.FileUpdateOneWithoutShareLinkNestedInput
+  folder?: Prisma.FolderUpdateOneWithoutShareLinkNestedInput
+}
+
+export type ShareLinkUncheckedUpdateWithoutCreatedByInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  targetType?: Prisma.EnumShareTargetTypeFieldUpdateOperationsInput | $Enums.ShareTargetType
+  fileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  folderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tokenLookupKey?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  downloadDisabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type ShareLinkUncheckedUpdateManyWithoutCreatedByInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  targetType?: Prisma.EnumShareTargetTypeFieldUpdateOperationsInput | $Enums.ShareTargetType
+  fileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  folderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tokenLookupKey?: Prisma.StringFieldUpdateOperationsInput | string
+  tokenHash?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  downloadDisabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  revokedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 
@@ -449,12 +907,17 @@ export type ShareLinkSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   targetType?: boolean
   fileId?: boolean
   folderId?: boolean
+  tokenLookupKey?: boolean
   tokenHash?: boolean
   passwordHash?: boolean
   downloadDisabled?: boolean
   expiresAt?: boolean
   revokedAt?: boolean
   createdAt?: boolean
+  updatedAt?: boolean
+  createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  file?: boolean | Prisma.ShareLink$fileArgs<ExtArgs>
+  folder?: boolean | Prisma.ShareLink$folderArgs<ExtArgs>
 }, ExtArgs["result"]["shareLink"]>
 
 export type ShareLinkSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -463,12 +926,17 @@ export type ShareLinkSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
   targetType?: boolean
   fileId?: boolean
   folderId?: boolean
+  tokenLookupKey?: boolean
   tokenHash?: boolean
   passwordHash?: boolean
   downloadDisabled?: boolean
   expiresAt?: boolean
   revokedAt?: boolean
   createdAt?: boolean
+  updatedAt?: boolean
+  createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  file?: boolean | Prisma.ShareLink$fileArgs<ExtArgs>
+  folder?: boolean | Prisma.ShareLink$folderArgs<ExtArgs>
 }, ExtArgs["result"]["shareLink"]>
 
 export type ShareLinkSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -477,12 +945,17 @@ export type ShareLinkSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
   targetType?: boolean
   fileId?: boolean
   folderId?: boolean
+  tokenLookupKey?: boolean
   tokenHash?: boolean
   passwordHash?: boolean
   downloadDisabled?: boolean
   expiresAt?: boolean
   revokedAt?: boolean
   createdAt?: boolean
+  updatedAt?: boolean
+  createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  file?: boolean | Prisma.ShareLink$fileArgs<ExtArgs>
+  folder?: boolean | Prisma.ShareLink$folderArgs<ExtArgs>
 }, ExtArgs["result"]["shareLink"]>
 
 export type ShareLinkSelectScalar = {
@@ -491,31 +964,54 @@ export type ShareLinkSelectScalar = {
   targetType?: boolean
   fileId?: boolean
   folderId?: boolean
+  tokenLookupKey?: boolean
   tokenHash?: boolean
   passwordHash?: boolean
   downloadDisabled?: boolean
   expiresAt?: boolean
   revokedAt?: boolean
   createdAt?: boolean
+  updatedAt?: boolean
 }
 
-export type ShareLinkOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "createdByUserId" | "targetType" | "fileId" | "folderId" | "tokenHash" | "passwordHash" | "downloadDisabled" | "expiresAt" | "revokedAt" | "createdAt", ExtArgs["result"]["shareLink"]>
+export type ShareLinkOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "createdByUserId" | "targetType" | "fileId" | "folderId" | "tokenLookupKey" | "tokenHash" | "passwordHash" | "downloadDisabled" | "expiresAt" | "revokedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["shareLink"]>
+export type ShareLinkInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  file?: boolean | Prisma.ShareLink$fileArgs<ExtArgs>
+  folder?: boolean | Prisma.ShareLink$folderArgs<ExtArgs>
+}
+export type ShareLinkIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  file?: boolean | Prisma.ShareLink$fileArgs<ExtArgs>
+  folder?: boolean | Prisma.ShareLink$folderArgs<ExtArgs>
+}
+export type ShareLinkIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  createdBy?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  file?: boolean | Prisma.ShareLink$fileArgs<ExtArgs>
+  folder?: boolean | Prisma.ShareLink$folderArgs<ExtArgs>
+}
 
 export type $ShareLinkPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "ShareLink"
-  objects: {}
+  objects: {
+    createdBy: Prisma.$UserPayload<ExtArgs>
+    file: Prisma.$FilePayload<ExtArgs> | null
+    folder: Prisma.$FolderPayload<ExtArgs> | null
+  }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     createdByUserId: string
     targetType: $Enums.ShareTargetType
     fileId: string | null
     folderId: string | null
+    tokenLookupKey: string
     tokenHash: string
     passwordHash: string | null
     downloadDisabled: boolean
     expiresAt: Date
     revokedAt: Date | null
     createdAt: Date
+    updatedAt: Date
   }, ExtArgs["result"]["shareLink"]>
   composites: {}
 }
@@ -910,6 +1406,9 @@ readonly fields: ShareLinkFieldRefs;
  */
 export interface Prisma__ShareLinkClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
+  createdBy<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  file<T extends Prisma.ShareLink$fileArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ShareLink$fileArgs<ExtArgs>>): Prisma.Prisma__FileClient<runtime.Types.Result.GetResult<Prisma.$FilePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  folder<T extends Prisma.ShareLink$folderArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ShareLink$folderArgs<ExtArgs>>): Prisma.Prisma__FolderClient<runtime.Types.Result.GetResult<Prisma.$FolderPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -944,12 +1443,14 @@ export interface ShareLinkFieldRefs {
   readonly targetType: Prisma.FieldRef<"ShareLink", 'ShareTargetType'>
   readonly fileId: Prisma.FieldRef<"ShareLink", 'String'>
   readonly folderId: Prisma.FieldRef<"ShareLink", 'String'>
+  readonly tokenLookupKey: Prisma.FieldRef<"ShareLink", 'String'>
   readonly tokenHash: Prisma.FieldRef<"ShareLink", 'String'>
   readonly passwordHash: Prisma.FieldRef<"ShareLink", 'String'>
   readonly downloadDisabled: Prisma.FieldRef<"ShareLink", 'Boolean'>
   readonly expiresAt: Prisma.FieldRef<"ShareLink", 'DateTime'>
   readonly revokedAt: Prisma.FieldRef<"ShareLink", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"ShareLink", 'DateTime'>
+  readonly updatedAt: Prisma.FieldRef<"ShareLink", 'DateTime'>
 }
     
 
@@ -966,6 +1467,10 @@ export type ShareLinkFindUniqueArgs<ExtArgs extends runtime.Types.Extensions.Int
    * Omit specific fields from the ShareLink
    */
   omit?: Prisma.ShareLinkOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ShareLinkInclude<ExtArgs> | null
   /**
    * Filter, which ShareLink to fetch.
    */
@@ -985,6 +1490,10 @@ export type ShareLinkFindUniqueOrThrowArgs<ExtArgs extends runtime.Types.Extensi
    */
   omit?: Prisma.ShareLinkOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ShareLinkInclude<ExtArgs> | null
+  /**
    * Filter, which ShareLink to fetch.
    */
   where: Prisma.ShareLinkWhereUniqueInput
@@ -1002,6 +1511,10 @@ export type ShareLinkFindFirstArgs<ExtArgs extends runtime.Types.Extensions.Inte
    * Omit specific fields from the ShareLink
    */
   omit?: Prisma.ShareLinkOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ShareLinkInclude<ExtArgs> | null
   /**
    * Filter, which ShareLink to fetch.
    */
@@ -1051,6 +1564,10 @@ export type ShareLinkFindFirstOrThrowArgs<ExtArgs extends runtime.Types.Extensio
    */
   omit?: Prisma.ShareLinkOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ShareLinkInclude<ExtArgs> | null
+  /**
    * Filter, which ShareLink to fetch.
    */
   where?: Prisma.ShareLinkWhereInput
@@ -1098,6 +1615,10 @@ export type ShareLinkFindManyArgs<ExtArgs extends runtime.Types.Extensions.Inter
    * Omit specific fields from the ShareLink
    */
   omit?: Prisma.ShareLinkOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ShareLinkInclude<ExtArgs> | null
   /**
    * Filter, which ShareLinks to fetch.
    */
@@ -1147,6 +1668,10 @@ export type ShareLinkCreateArgs<ExtArgs extends runtime.Types.Extensions.Interna
    */
   omit?: Prisma.ShareLinkOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ShareLinkInclude<ExtArgs> | null
+  /**
    * The data needed to create a ShareLink.
    */
   data: Prisma.XOR<Prisma.ShareLinkCreateInput, Prisma.ShareLinkUncheckedCreateInput>
@@ -1180,6 +1705,10 @@ export type ShareLinkCreateManyAndReturnArgs<ExtArgs extends runtime.Types.Exten
    */
   data: Prisma.ShareLinkCreateManyInput | Prisma.ShareLinkCreateManyInput[]
   skipDuplicates?: boolean
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ShareLinkIncludeCreateManyAndReturn<ExtArgs> | null
 }
 
 /**
@@ -1194,6 +1723,10 @@ export type ShareLinkUpdateArgs<ExtArgs extends runtime.Types.Extensions.Interna
    * Omit specific fields from the ShareLink
    */
   omit?: Prisma.ShareLinkOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ShareLinkInclude<ExtArgs> | null
   /**
    * The data needed to update a ShareLink.
    */
@@ -1246,6 +1779,10 @@ export type ShareLinkUpdateManyAndReturnArgs<ExtArgs extends runtime.Types.Exten
    * Limit how many ShareLinks to update.
    */
   limit?: number
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ShareLinkIncludeUpdateManyAndReturn<ExtArgs> | null
 }
 
 /**
@@ -1260,6 +1797,10 @@ export type ShareLinkUpsertArgs<ExtArgs extends runtime.Types.Extensions.Interna
    * Omit specific fields from the ShareLink
    */
   omit?: Prisma.ShareLinkOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ShareLinkInclude<ExtArgs> | null
   /**
    * The filter to search for the ShareLink to update in case it exists.
    */
@@ -1287,6 +1828,10 @@ export type ShareLinkDeleteArgs<ExtArgs extends runtime.Types.Extensions.Interna
    */
   omit?: Prisma.ShareLinkOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ShareLinkInclude<ExtArgs> | null
+  /**
    * Filter which ShareLink to delete.
    */
   where: Prisma.ShareLinkWhereUniqueInput
@@ -1307,6 +1852,44 @@ export type ShareLinkDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Int
 }
 
 /**
+ * ShareLink.file
+ */
+export type ShareLink$fileArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the File
+   */
+  select?: Prisma.FileSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the File
+   */
+  omit?: Prisma.FileOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FileInclude<ExtArgs> | null
+  where?: Prisma.FileWhereInput
+}
+
+/**
+ * ShareLink.folder
+ */
+export type ShareLink$folderArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Folder
+   */
+  select?: Prisma.FolderSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Folder
+   */
+  omit?: Prisma.FolderOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FolderInclude<ExtArgs> | null
+  where?: Prisma.FolderWhereInput
+}
+
+/**
  * ShareLink without action
  */
 export type ShareLinkDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1318,4 +1901,8 @@ export type ShareLinkDefaultArgs<ExtArgs extends runtime.Types.Extensions.Intern
    * Omit specific fields from the ShareLink
    */
   omit?: Prisma.ShareLinkOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ShareLinkInclude<ExtArgs> | null
 }

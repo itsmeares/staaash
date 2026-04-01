@@ -186,12 +186,14 @@ export const ShareLinkScalarFieldEnum = {
   targetType: 'targetType',
   fileId: 'fileId',
   folderId: 'folderId',
+  tokenLookupKey: 'tokenLookupKey',
   tokenHash: 'tokenHash',
   passwordHash: 'passwordHash',
   downloadDisabled: 'downloadDisabled',
   expiresAt: 'expiresAt',
   revokedAt: 'revokedAt',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
 } as const
 
 export type ShareLinkScalarFieldEnum = (typeof ShareLinkScalarFieldEnum)[keyof typeof ShareLinkScalarFieldEnum]

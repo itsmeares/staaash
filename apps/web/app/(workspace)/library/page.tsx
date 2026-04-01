@@ -1,5 +1,6 @@
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { libraryService } from "@/server/library/service";
+import { sharingService } from "@/server/sharing/service";
 
 import { LibraryExplorer } from "./library-explorer";
 
@@ -18,12 +19,20 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
     actorUserId: session.user.id,
     actorRole: session.user.role,
   });
+  const shareLookup = await sharingService.getLibraryShareLookup({
+    actorUserId: session.user.id,
+    actorRole: session.user.role,
+    currentFolderId: listing.currentFolder.id,
+    childFolderIds: listing.childFolders.map((folder) => folder.id),
+    fileIds: listing.files.map((file) => file.id),
+  });
 
   return (
     <LibraryExplorer
       currentPath="/library"
       listing={listing}
       searchParams={resolvedSearchParams}
+      shareLookup={shareLookup}
     />
   );
 }

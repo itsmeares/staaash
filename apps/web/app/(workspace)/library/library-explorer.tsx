@@ -7,6 +7,7 @@ import {
 } from "@/app/auth-ui";
 import { env } from "@/lib/env";
 import type { LibraryListing } from "@/server/library/types";
+import type { ShareLibraryLookup, ShareLinkSummary } from "@/server/sharing";
 
 import { LibraryUploadPanel } from "./library-upload-panel";
 
@@ -17,12 +18,79 @@ type LibraryExplorerProps = {
   listing: LibraryListing;
   currentPath: string;
   searchParams: Record<string, string | string[] | undefined>;
+  shareLookup: ShareLibraryLookup;
 };
+
+const shareStatusLabel: Record<ShareLinkSummary["status"], string> = {
+  active: "Public link active",
+  expired: "Public link expired",
+  revoked: "Public link revoked",
+  "target-unavailable": "Public link paused",
+};
+
+function ShareShortcut({
+  currentPath,
+  targetType,
+  share,
+  targetId,
+}: {
+  currentPath: string;
+  targetType: "file" | "folder";
+  share: ShareLinkSummary | null;
+  targetId: string;
+}) {
+  return (
+    <div className="field">
+      <label>Public link</label>
+      {share ? (
+        <div className="stack">
+          <span className="field-help">{shareStatusLabel[share.status]}</span>
+          <div className="workspace-inline-fields">
+            <Link
+              className="button button-secondary"
+              href={`/shared#${share.id}`}
+            >
+              Manage public link
+            </Link>
+            {share.status === "active" ? (
+              <a
+                className="button button-secondary"
+                href={share.shareUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Open
+              </a>
+            ) : null}
+          </div>
+        </div>
+      ) : (
+        <form
+          action="/api/shares"
+          className="workspace-inline-form"
+          method="post"
+        >
+          <input name="redirectTo" type="hidden" value={currentPath} />
+          <input name="targetType" type="hidden" value={targetType} />
+          <input
+            name={targetType === "file" ? "fileId" : "folderId"}
+            type="hidden"
+            value={targetId}
+          />
+          <button className="button button-secondary" type="submit">
+            Create public link
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
 
 export function LibraryExplorer({
   listing,
   currentPath,
   searchParams,
+  shareLookup,
 }: LibraryExplorerProps) {
   const error = getSingleSearchParam(searchParams, "error");
   const success = getSingleSearchParam(searchParams, "success");
@@ -73,6 +141,12 @@ export function LibraryExplorer({
             </Link>
           ))}
         </div>
+        <ShareShortcut
+          currentPath={currentPath}
+          share={shareLookup.currentFolderShare}
+          targetId={listing.currentFolder.id}
+          targetType="folder"
+        />
       </section>
 
       <LibraryUploadPanel
@@ -224,6 +298,13 @@ export function LibraryExplorer({
                           Move subtree to trash
                         </button>
                       </form>
+
+                      <ShareShortcut
+                        currentPath={currentPath}
+                        share={shareLookup.sharesByFolderId[folder.id] ?? null}
+                        targetId={folder.id}
+                        targetType="folder"
+                      />
                     </div>
                   </details>
                 </article>
@@ -360,6 +441,13 @@ export function LibraryExplorer({
                           Move file to trash
                         </button>
                       </form>
+
+                      <ShareShortcut
+                        currentPath={currentPath}
+                        share={shareLookup.sharesByFileId[file.id] ?? null}
+                        targetId={file.id}
+                        targetType="file"
+                      />
                     </div>
                   </details>
                 </article>
