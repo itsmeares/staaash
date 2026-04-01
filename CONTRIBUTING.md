@@ -8,7 +8,10 @@ This is my first public repo, so I’m trying to keep the bar simple: clear chan
 
 - Keep changes focused and reviewable.
 - Add or update tests for behavior changes.
-- Run `pnpm format:check`, `pnpm lint`, `pnpm test`, and `pnpm build` before opening a PR.
+- Staged files are auto-formatted on commit.
+- CI still verifies formatting repo-wide with `pnpm format:check`.
+- Use `pnpm format` for one-off repo-wide formatting or intentional normalization.
+- Run `pnpm lint`, `pnpm test`, and `pnpm build` before opening a PR.
 - Do not commit secrets, runtime data, or generated local storage contents.
 
 ## Development

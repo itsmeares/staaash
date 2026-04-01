@@ -21,13 +21,20 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
+    "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "prepare": "husky",
     "db:generate": "pnpm --filter @staaash/db db:generate",
     "db:push": "pnpm --filter @staaash/db exec prisma db push",
     "app:reset-local-data": "node scripts/reset-local-data.mjs"
   },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,mjs,cjs,json,md,yml,yaml,css}": "prettier --write --ignore-unknown"
+  },
   "devDependencies": {
-    "prettier": "^3.5.3",
+    "husky": "9.1.7",
+    "lint-staged": "16.4.0",
+    "prettier": "3.8.1",
     "turbo": "^2.5.4",
     "typescript": "^5.9.3"
   }
