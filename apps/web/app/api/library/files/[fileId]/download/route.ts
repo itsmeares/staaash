@@ -1,4 +1,4 @@
-import { createReadStream } from "node:fs";
+import { open } from "node:fs/promises";
 import { Readable } from "node:stream";
 
 import { NextRequest } from "next/server";
@@ -8,7 +8,7 @@ import { getRequestSession } from "@/server/auth/guards";
 import { notSignedInResponse, wantsJson } from "@/server/auth/http";
 import { LibraryError } from "@/server/library/errors";
 import { prismaLibraryRepository } from "@/server/library/repository";
-import { retrievalService } from "@/server/retrieval/service";
+import { recordFileAccessBestEffort } from "@/server/retrieval/recent-tracking";
 import { getStoragePath } from "@/server/storage";
 
 type RouteContext = {
@@ -44,6 +44,11 @@ const normalizeDownloadError = (error: unknown) => {
     message:
       error instanceof Error ? error.message : "Unable to download that file.",
   };
+};
+
+const isFileUnreadable = (error: unknown) => {
+  const code = (error as NodeJS.ErrnoException | null)?.code;
+  return code === "ENOENT" || code === "EACCES" || code === "EISDIR";
 };
 
 const createDownloadErrorResponse = (error: unknown, request: NextRequest) => {
@@ -95,25 +100,45 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       throw new LibraryError("ACCESS_DENIED");
     }
 
-    await retrievalService.recordFileAccess({
+    const storagePath = getStoragePath(file.storageKey);
+
+    // Open explicitly so the file is proven readable before recording recents.
+    let fileHandle;
+
+    try {
+      fileHandle = await open(storagePath, "r");
+    } catch (openError) {
+      if (isFileUnreadable(openError)) {
+        throw new LibraryError("FILE_NOT_FOUND");
+      }
+      throw openError;
+    }
+
+    // File is readable — record recents best-effort before streaming.
+    await recordFileAccessBestEffort({
       actorUserId: session.user.id,
       actorRole: session.user.role,
       fileId: file.id,
+      source: "download-file-route",
     });
 
-    return new Response(
-      Readable.toWeb(
-        createReadStream(getStoragePath(file.storageKey)),
-      ) as ReadableStream,
-      {
-        headers: {
-          "content-disposition": buildAttachmentDisposition(file.name),
-          "content-length": String(file.sizeBytes),
-          "content-type": file.mimeType || "application/octet-stream",
-          "x-content-type-options": "nosniff",
-        },
+    const nodeStream = fileHandle.createReadStream();
+
+    nodeStream.on("error", (streamError) => {
+      console.error("download-route: stream error after response started", {
+        fileId: file.id,
+        error: streamError,
+      });
+    });
+
+    return new Response(Readable.toWeb(nodeStream) as ReadableStream, {
+      headers: {
+        "content-disposition": buildAttachmentDisposition(file.name),
+        "content-length": String(file.sizeBytes),
+        "content-type": file.mimeType || "application/octet-stream",
+        "x-content-type-options": "nosniff",
       },
-    );
+    });
   } catch (error) {
     return createDownloadErrorResponse(error, request);
   }

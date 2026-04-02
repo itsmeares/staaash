@@ -10,7 +10,7 @@ import {
   wantsJson,
 } from "@/server/auth/http";
 import { libraryService } from "@/server/library/service";
-import { retrievalService } from "@/server/retrieval/service";
+import { recordFileAccessBestEffort } from "@/server/retrieval/recent-tracking";
 import { pairUploadRequestItems, parseUploadManifest } from "@/server/uploads";
 
 export async function POST(request: NextRequest) {
@@ -53,10 +53,11 @@ export async function POST(request: NextRequest) {
     });
     await Promise.all(
       result.uploadedFiles.map((file) =>
-        retrievalService.recordFileAccess({
+        recordFileAccessBestEffort({
           actorUserId: session.user.id,
           actorRole: session.user.role,
           fileId: file.id,
+          source: "upload-files-route",
         }),
       ),
     );

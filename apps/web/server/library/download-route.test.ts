@@ -15,7 +15,7 @@ import {
 
 const getRequestSession = vi.fn();
 const findFileById = vi.fn();
-const recordFileAccess = vi.fn();
+const recordFileAccessBestEffort = vi.fn();
 const getStoragePath = vi.fn();
 
 vi.mock("@/server/auth/guards", () => ({
@@ -28,15 +28,37 @@ vi.mock("@/server/library/repository", () => ({
   },
 }));
 
-vi.mock("@/server/retrieval/service", () => ({
-  retrievalService: {
-    recordFileAccess,
-  },
+vi.mock("@/server/retrieval/recent-tracking", () => ({
+  recordFileAccessBestEffort,
 }));
 
 vi.mock("@/server/storage", () => ({
   getStoragePath,
 }));
+
+const makeFile = (
+  overrides: Partial<{
+    id: string;
+    ownerUserId: string;
+    deletedAt: Date | null;
+    storageKey: string;
+  }> = {},
+) => ({
+  id: "file-1",
+  ownerUserId: "alice",
+  ownerUsername: "alice",
+  folderId: null,
+  name: "notes.txt",
+  mimeType: "text/plain",
+  sizeBytes: 11,
+  deletedAt: null,
+  createdAt: new Date("2026-04-02T12:00:00.000Z"),
+  updatedAt: new Date("2026-04-02T12:00:00.000Z"),
+  storageKey: "library/alice/notes.txt",
+  contentChecksum: null,
+  previewStatus: "pending",
+  ...overrides,
+});
 
 describe("private file download route", () => {
   let tempDir = "";
@@ -79,7 +101,7 @@ describe("private file download route", () => {
     expect(response.headers.get("location")).toContain(
       "/sign-in?next=%2Fapi%2Flibrary%2Ffiles%2Ffile-1%2Fdownload",
     );
-    expect(recordFileAccess).not.toHaveBeenCalled();
+    expect(recordFileAccessBestEffort).not.toHaveBeenCalled();
   });
 
   it("denies unauthorized access without recording recents", async () => {
@@ -91,21 +113,7 @@ describe("private file download route", () => {
         role: "member",
       },
     });
-    findFileById.mockResolvedValueOnce({
-      id: "file-1",
-      ownerUserId: "alice",
-      ownerUsername: "alice",
-      folderId: null,
-      name: "notes.txt",
-      mimeType: "text/plain",
-      sizeBytes: 11,
-      deletedAt: null,
-      createdAt: new Date("2026-04-02T12:00:00.000Z"),
-      updatedAt: new Date("2026-04-02T12:00:00.000Z"),
-      storageKey: "library/alice/notes.txt",
-      contentChecksum: null,
-      previewStatus: "pending",
-    });
+    findFileById.mockResolvedValueOnce(makeFile({ ownerUserId: "alice" }));
 
     const response = await GET(
       new NextRequest("http://localhost/api/library/files/file-1/download"),
@@ -120,7 +128,7 @@ describe("private file download route", () => {
     await expect(response.text()).resolves.toBe(
       "You do not have access to that folder.",
     );
-    expect(recordFileAccess).not.toHaveBeenCalled();
+    expect(recordFileAccessBestEffort).not.toHaveBeenCalled();
   });
 
   it("returns attachment headers and records access after authorization", async () => {
@@ -132,22 +140,9 @@ describe("private file download route", () => {
         role: "member",
       },
     });
-    findFileById.mockResolvedValueOnce({
-      id: "file-1",
-      ownerUserId: "alice",
-      ownerUsername: "alice",
-      folderId: null,
-      name: "notes.txt",
-      mimeType: "text/plain",
-      sizeBytes: 11,
-      deletedAt: null,
-      createdAt: new Date("2026-04-02T12:00:00.000Z"),
-      updatedAt: new Date("2026-04-02T12:00:00.000Z"),
-      storageKey: "library/alice/notes.txt",
-      contentChecksum: null,
-      previewStatus: "pending",
-    });
+    findFileById.mockResolvedValueOnce(makeFile());
     getStoragePath.mockReturnValueOnce(tempFilePath);
+    recordFileAccessBestEffort.mockResolvedValueOnce(undefined);
 
     const response = await GET(
       new NextRequest("http://localhost/api/library/files/file-1/download"),
@@ -166,10 +161,55 @@ describe("private file download route", () => {
     expect(response.headers.get("content-length")).toBe("11");
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(await response.text()).toBe("hello world");
-    expect(recordFileAccess).toHaveBeenCalledWith({
+    expect(recordFileAccessBestEffort).toHaveBeenCalledWith({
       actorUserId: "alice",
       actorRole: "member",
       fileId: "file-1",
+      source: "download-file-route",
     });
+  });
+
+  it("returns success even if best-effort recent logging resolves (helper absorbs errors internally)", async () => {
+    const { GET } =
+      await import("@/app/api/library/files/[fileId]/download/route");
+    getRequestSession.mockResolvedValueOnce({
+      user: { id: "alice", role: "member" },
+    });
+    findFileById.mockResolvedValueOnce(makeFile());
+    getStoragePath.mockReturnValueOnce(tempFilePath);
+    recordFileAccessBestEffort.mockResolvedValueOnce(undefined);
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/library/files/file-1/download"),
+      {
+        params: Promise.resolve({ fileId: "file-1" }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("hello world");
+  });
+
+  it("does not record a recent row when the storage object cannot be opened", async () => {
+    const { GET } =
+      await import("@/app/api/library/files/[fileId]/download/route");
+    getRequestSession.mockResolvedValueOnce({
+      user: { id: "alice", role: "member" },
+    });
+    findFileById.mockResolvedValueOnce(makeFile());
+    // Return a path that definitely does not exist.
+    getStoragePath.mockReturnValueOnce(
+      path.join(os.tmpdir(), "staaash-nonexistent-file-xyz.txt"),
+    );
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/library/files/file-1/download"),
+      {
+        params: Promise.resolve({ fileId: "file-1" }),
+      },
+    );
+
+    expect(response.status).toBe(404);
+    expect(recordFileAccessBestEffort).not.toHaveBeenCalled();
   });
 });

@@ -12,7 +12,7 @@ import {
   wantsJson,
 } from "@/server/auth/http";
 import { libraryService } from "@/server/library/service";
-import { retrievalService } from "@/server/retrieval/service";
+import { recordFolderAccessBestEffort } from "@/server/retrieval/recent-tracking";
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
@@ -43,10 +43,11 @@ export async function POST(request: NextRequest) {
       parentId: body.parentId || null,
       name: body.name,
     });
-    await retrievalService.recordFolderAccess({
+    await recordFolderAccessBestEffort({
       actorUserId: session.user.id,
       actorRole: session.user.role,
       folderId: result.folder.id,
+      source: "create-folder-route",
     });
 
     return wantsJson(request)
