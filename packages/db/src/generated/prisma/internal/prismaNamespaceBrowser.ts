@@ -58,6 +58,10 @@ export const ModelName = {
   PasswordReset: 'PasswordReset',
   Folder: 'Folder',
   File: 'File',
+  FavoriteFile: 'FavoriteFile',
+  FavoriteFolder: 'FavoriteFolder',
+  RecentFile: 'RecentFile',
+  RecentFolder: 'RecentFolder',
   ShareLink: 'ShareLink',
   BackgroundJob: 'BackgroundJob'
 } as const
@@ -178,6 +182,46 @@ export const FileScalarFieldEnum = {
 } as const
 
 export type FileScalarFieldEnum = (typeof FileScalarFieldEnum)[keyof typeof FileScalarFieldEnum]
+
+
+export const FavoriteFileScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  fileId: 'fileId',
+  createdAt: 'createdAt'
+} as const
+
+export type FavoriteFileScalarFieldEnum = (typeof FavoriteFileScalarFieldEnum)[keyof typeof FavoriteFileScalarFieldEnum]
+
+
+export const FavoriteFolderScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  folderId: 'folderId',
+  createdAt: 'createdAt'
+} as const
+
+export type FavoriteFolderScalarFieldEnum = (typeof FavoriteFolderScalarFieldEnum)[keyof typeof FavoriteFolderScalarFieldEnum]
+
+
+export const RecentFileScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  fileId: 'fileId',
+  lastInteractedAt: 'lastInteractedAt'
+} as const
+
+export type RecentFileScalarFieldEnum = (typeof RecentFileScalarFieldEnum)[keyof typeof RecentFileScalarFieldEnum]
+
+
+export const RecentFolderScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  folderId: 'folderId',
+  lastInteractedAt: 'lastInteractedAt'
+} as const
+
+export type RecentFolderScalarFieldEnum = (typeof RecentFolderScalarFieldEnum)[keyof typeof RecentFolderScalarFieldEnum]
 
 
 export const ShareLinkScalarFieldEnum = {

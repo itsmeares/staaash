@@ -87,5 +87,27 @@ export const compareSearchResults = (
     return rankDelta;
   }
 
-  return right.updatedAt.getTime() - left.updatedAt.getTime();
+  const updatedAtDelta = right.updatedAt.getTime() - left.updatedAt.getTime();
+
+  if (updatedAtDelta !== 0) {
+    return updatedAtDelta;
+  }
+
+  const pathDelta = normalizeSearchText(left.path).localeCompare(
+    normalizeSearchText(right.path),
+  );
+
+  if (pathDelta !== 0) {
+    return pathDelta;
+  }
+
+  const nameDelta = normalizeSearchText(left.name).localeCompare(
+    normalizeSearchText(right.name),
+  );
+
+  if (nameDelta !== 0) {
+    return nameDelta;
+  }
+
+  return left.id.localeCompare(right.id);
 };

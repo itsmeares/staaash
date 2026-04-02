@@ -114,6 +114,7 @@ type FolderDelegate = {
   create(args: Prisma.FolderCreateArgs): Promise<LibraryFolderRecord>;
   update(args: Prisma.FolderUpdateArgs): Promise<LibraryFolderRecord>;
   updateMany(args: Prisma.FolderUpdateManyArgs): Promise<unknown>;
+  deleteMany(args: Prisma.FolderDeleteManyArgs): Promise<unknown>;
 };
 
 type FileDelegate = {
@@ -125,6 +126,11 @@ type FileDelegate = {
   update(args: Prisma.FileUpdateArgs): Promise<LibraryFileRecord>;
   updateMany(args: Prisma.FileUpdateManyArgs): Promise<unknown>;
   delete(args: Prisma.FileDeleteArgs): Promise<unknown>;
+  deleteMany(args: Prisma.FileDeleteManyArgs): Promise<unknown>;
+};
+
+type DeleteManyResult = {
+  count: number;
 };
 
 type LibraryTransactionClient = {
@@ -268,6 +274,8 @@ export type LibraryRepository = {
   updateFolders(params: UpdateFoldersParams): Promise<void>;
   updateFiles(params: UpdateFilesParams): Promise<void>;
   deleteFile(fileId: string): Promise<void>;
+  deleteFiles(fileIds: string[]): Promise<number>;
+  deleteFolders(folderIds: string[]): Promise<number>;
 };
 
 export const createPrismaLibraryRepository = (
@@ -554,6 +562,38 @@ export const createPrismaLibraryRepository = (
         id: fileId,
       },
     });
+  },
+
+  async deleteFiles(fileIds) {
+    if (fileIds.length === 0) {
+      return 0;
+    }
+
+    const result = (await client.file.deleteMany({
+      where: {
+        id: {
+          in: fileIds,
+        },
+      },
+    })) as DeleteManyResult;
+
+    return result.count;
+  },
+
+  async deleteFolders(folderIds) {
+    if (folderIds.length === 0) {
+      return 0;
+    }
+
+    const result = (await client.folder.deleteMany({
+      where: {
+        id: {
+          in: folderIds,
+        },
+      },
+    })) as DeleteManyResult;
+
+    return result.count;
   },
 });
 

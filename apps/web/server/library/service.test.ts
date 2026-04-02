@@ -351,6 +351,20 @@ const createMemoryRepository = () => {
 
       state.files = state.files.filter((file) => file.id !== fileId);
     },
+
+    async deleteFiles(fileIds) {
+      const before = state.files.length;
+      state.files = state.files.filter((file) => !fileIds.includes(file.id));
+      return before - state.files.length;
+    },
+
+    async deleteFolders(folderIds) {
+      const before = state.folders.length;
+      state.folders = state.folders.filter(
+        (folder) => !folderIds.includes(folder.id),
+      );
+      return before - state.folders.length;
+    },
   };
 
   return {
@@ -838,5 +852,111 @@ describe("library service", () => {
       folderId: parent.folder.id,
     });
     expect(refreshed.files[0]?.id).toBe(upload.uploadedFiles[0]?.id);
+  });
+
+  it("bulk clear removes standalone trashed files and top-level trashed folder trees without touching active items", async () => {
+    await cleanDataRoot();
+    const { repo } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureLibraryRoot("member-1");
+    const archive = await service.createFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: root.id,
+      name: "Archive",
+    });
+    const keep = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: root.id,
+      items: [
+        {
+          clientKey: "keep",
+          originalName: "keep.txt",
+          conflictStrategy: "fail",
+          file: new File(["keep"], "keep.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+    const standalone = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: root.id,
+      items: [
+        {
+          clientKey: "standalone",
+          originalName: "standalone.txt",
+          conflictStrategy: "fail",
+          file: new File(["standalone"], "standalone.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+    const nested = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: archive.folder.id,
+      items: [
+        {
+          clientKey: "nested",
+          originalName: "nested.txt",
+          conflictStrategy: "fail",
+          file: new File(["nested"], "nested.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+
+    await service.trashFile({
+      actorUserId: "member-1",
+      actorRole: "member",
+      fileId: standalone.uploadedFiles[0]!.id,
+    });
+    await service.trashFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: archive.folder.id,
+    });
+
+    const result = await service.clearTrash({
+      actorUserId: "member-1",
+      actorRole: "member",
+    });
+
+    expect(result).toEqual({
+      deletedFolderCount: 1,
+      deletedFileCount: 1,
+    });
+
+    const listing = await service.getLibraryListing({
+      actorUserId: "member-1",
+      actorRole: "member",
+    });
+    const trash = await service.listTrashFolders({
+      actorUserId: "member-1",
+      actorRole: "member",
+    });
+
+    expect(listing.files.map((file) => file.id)).toEqual([
+      keep.uploadedFiles[0]!.id,
+    ]);
+    expect(listing.childFolders).toEqual([]);
+    expect(trash.items).toEqual([]);
+    expect(trash.files).toEqual([]);
+    await expect(
+      access(getStoragePath(".trash/member-1/Archive/nested.txt")),
+    ).rejects.toBeDefined();
+    await expect(
+      access(getStoragePath(".trash/member-1/standalone.txt")),
+    ).rejects.toBeDefined();
+    await expect(
+      access(getStoragePath("library/member-1/keep.txt")),
+    ).resolves.toBeUndefined();
+
+    expect(nested.uploadedFiles[0]).toBeDefined();
   });
 });

@@ -55,6 +55,10 @@ model User {
   passwordResetsForUser PasswordReset[] @relation("PasswordResetUser")
   folders               Folder[]        @relation("FolderOwner")
   files                 File[]          @relation("FileOwner")
+  favoriteFiles         FavoriteFile[]
+  favoriteFolders       FavoriteFolder[]
+  recentFiles           RecentFile[]
+  recentFolders         RecentFolder[]
   shareLinks            ShareLink[]     @relation("ShareLinkCreator")
 }
 
@@ -118,6 +122,8 @@ model Folder {
   parent         Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children       Folder[] @relation("FolderHierarchy")
   files          File[]
+  favorites      FavoriteFolder[]
+  recents        RecentFolder[]
   shareLink      ShareLink? @relation("ShareLinkFolder")
 
   @@index([ownerUserId, isLibraryRoot])
@@ -140,9 +146,59 @@ model File {
   updatedAt        DateTime      @updatedAt
   owner            User          @relation("FileOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
   folder           Folder?       @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  favorites        FavoriteFile[]
+  recents          RecentFile[]
   shareLink        ShareLink?    @relation("ShareLinkFile")
 
   @@index([ownerUserId, folderId, deletedAt])
+}
+
+model FavoriteFile {
+  id        String   @id @default(cuid())
+  userId    String
+  fileId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  file      File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, fileId])
+  @@index([userId, createdAt])
+}
+
+model FavoriteFolder {
+  id        String   @id @default(cuid())
+  userId    String
+  folderId  String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder    Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, folderId])
+  @@index([userId, createdAt])
+}
+
+model RecentFile {
+  id                String   @id @default(cuid())
+  userId            String
+  fileId            String
+  lastInteractedAt  DateTime
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  file              File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, fileId])
+  @@index([userId, lastInteractedAt])
+}
+
+model RecentFolder {
+  id                String   @id @default(cuid())
+  userId            String
+  folderId          String
+  lastInteractedAt  DateTime
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder            Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, folderId])
+  @@index([userId, lastInteractedAt])
 }
 
 model ShareLink {

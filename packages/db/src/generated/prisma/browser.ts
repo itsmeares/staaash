@@ -53,6 +53,26 @@ export type Folder = Prisma.FolderModel
  */
 export type File = Prisma.FileModel
 /**
+ * Model FavoriteFile
+ * 
+ */
+export type FavoriteFile = Prisma.FavoriteFileModel
+/**
+ * Model FavoriteFolder
+ * 
+ */
+export type FavoriteFolder = Prisma.FavoriteFolderModel
+/**
+ * Model RecentFile
+ * 
+ */
+export type RecentFile = Prisma.RecentFileModel
+/**
+ * Model RecentFolder
+ * 
+ */
+export type RecentFolder = Prisma.RecentFolderModel
+/**
  * Model ShareLink
  * 
  */

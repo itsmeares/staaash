@@ -20,6 +20,7 @@ import type {
   LibraryListing,
   LibraryMoveTarget,
   StoredLibraryFile,
+  TrashClearResult,
   TrashFileSummary,
   TrashFolderSummary,
   TrashListing,
@@ -751,6 +752,50 @@ export const createLibraryService = ({
     });
   };
 
+  const deleteTrashedFolderTree = async ({
+    folder,
+    libraryRoot,
+  }: {
+    folder: LibraryFolderSummary;
+    libraryRoot: LibraryFolderSummary;
+  }) => {
+    const activeRepo = await resolveRepo();
+    const descendants = await collectDescendants({
+      ownerUserId: folder.ownerUserId,
+      folderId: folder.id,
+    });
+    const folderIds = new Set([
+      folder.id,
+      ...descendants.map((item) => item.id),
+    ]);
+    const descendantFiles = await collectFilesInFolders({
+      ownerUserId: folder.ownerUserId,
+      folderIds,
+    });
+    const folderMap = buildFolderMap(
+      await activeRepo.listFoldersByOwner(folder.ownerUserId, {
+        includeDeleted: true,
+      }),
+    );
+    const folderStorageKey = buildFolderStorageKey({
+      folder,
+      folderMap,
+      libraryRoot,
+      trashed: true,
+    });
+
+    await activeRepo.deleteFiles(descendantFiles.map((file) => file.id));
+    await activeRepo.deleteFolders(descendants.map((item) => item.id));
+    await activeRepo.deleteFolders([folder.id]);
+
+    try {
+      await removeFolderDirectory(folderStorageKey);
+    } catch {
+      // Once the tree rows are gone, leftover trash storage is operational
+      // residue. Best-effort cleanup avoids reintroducing deleted records.
+    }
+  };
+
   return {
     async ensureLibraryRoot(ownerUserId: string) {
       return ensureLibraryRoot(ownerUserId);
@@ -944,6 +989,36 @@ export const createLibraryService = ({
         libraryRoot,
         items,
         files,
+      };
+    },
+
+    async clearTrash({
+      actorRole,
+      actorUserId,
+    }: LibraryActor): Promise<TrashClearResult> {
+      const listing = await this.listTrashFolders({
+        actorRole,
+        actorUserId,
+      });
+
+      for (const item of listing.files) {
+        await this.deleteFile({
+          actorRole,
+          actorUserId,
+          fileId: item.file.id,
+        });
+      }
+
+      for (const item of listing.items) {
+        await deleteTrashedFolderTree({
+          folder: item.folder,
+          libraryRoot: listing.libraryRoot,
+        });
+      }
+
+      return {
+        deletedFolderCount: listing.items.length,
+        deletedFileCount: listing.files.length,
       };
     },
 

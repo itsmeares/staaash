@@ -213,6 +213,10 @@ export type UserWhereInput = {
   passwordResetsForUser?: Prisma.PasswordResetListRelationFilter
   folders?: Prisma.FolderListRelationFilter
   files?: Prisma.FileListRelationFilter
+  favoriteFiles?: Prisma.FavoriteFileListRelationFilter
+  favoriteFolders?: Prisma.FavoriteFolderListRelationFilter
+  recentFiles?: Prisma.RecentFileListRelationFilter
+  recentFolders?: Prisma.RecentFolderListRelationFilter
   shareLinks?: Prisma.ShareLinkListRelationFilter
 }
 
@@ -232,6 +236,10 @@ export type UserOrderByWithRelationInput = {
   passwordResetsForUser?: Prisma.PasswordResetOrderByRelationAggregateInput
   folders?: Prisma.FolderOrderByRelationAggregateInput
   files?: Prisma.FileOrderByRelationAggregateInput
+  favoriteFiles?: Prisma.FavoriteFileOrderByRelationAggregateInput
+  favoriteFolders?: Prisma.FavoriteFolderOrderByRelationAggregateInput
+  recentFiles?: Prisma.RecentFileOrderByRelationAggregateInput
+  recentFolders?: Prisma.RecentFolderOrderByRelationAggregateInput
   shareLinks?: Prisma.ShareLinkOrderByRelationAggregateInput
 }
 
@@ -254,6 +262,10 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   passwordResetsForUser?: Prisma.PasswordResetListRelationFilter
   folders?: Prisma.FolderListRelationFilter
   files?: Prisma.FileListRelationFilter
+  favoriteFiles?: Prisma.FavoriteFileListRelationFilter
+  favoriteFolders?: Prisma.FavoriteFolderListRelationFilter
+  recentFiles?: Prisma.RecentFileListRelationFilter
+  recentFolders?: Prisma.RecentFolderListRelationFilter
   shareLinks?: Prisma.ShareLinkListRelationFilter
 }, "id" | "email" | "username">
 
@@ -301,6 +313,10 @@ export type UserCreateInput = {
   passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
 }
 
@@ -320,6 +336,10 @@ export type UserUncheckedCreateInput = {
   passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileUncheckedCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
@@ -339,6 +359,10 @@ export type UserUpdateInput = {
   passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
 }
 
@@ -358,6 +382,10 @@ export type UserUncheckedUpdateInput = {
   passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUncheckedUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
@@ -545,6 +573,62 @@ export type UserUpdateOneRequiredWithoutFilesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutFilesInput, Prisma.UserUpdateWithoutFilesInput>, Prisma.UserUncheckedUpdateWithoutFilesInput>
 }
 
+export type UserCreateNestedOneWithoutFavoriteFilesInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutFavoriteFilesInput, Prisma.UserUncheckedCreateWithoutFavoriteFilesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutFavoriteFilesInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutFavoriteFilesNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutFavoriteFilesInput, Prisma.UserUncheckedCreateWithoutFavoriteFilesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutFavoriteFilesInput
+  upsert?: Prisma.UserUpsertWithoutFavoriteFilesInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutFavoriteFilesInput, Prisma.UserUpdateWithoutFavoriteFilesInput>, Prisma.UserUncheckedUpdateWithoutFavoriteFilesInput>
+}
+
+export type UserCreateNestedOneWithoutFavoriteFoldersInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutFavoriteFoldersInput, Prisma.UserUncheckedCreateWithoutFavoriteFoldersInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutFavoriteFoldersInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutFavoriteFoldersNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutFavoriteFoldersInput, Prisma.UserUncheckedCreateWithoutFavoriteFoldersInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutFavoriteFoldersInput
+  upsert?: Prisma.UserUpsertWithoutFavoriteFoldersInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutFavoriteFoldersInput, Prisma.UserUpdateWithoutFavoriteFoldersInput>, Prisma.UserUncheckedUpdateWithoutFavoriteFoldersInput>
+}
+
+export type UserCreateNestedOneWithoutRecentFilesInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutRecentFilesInput, Prisma.UserUncheckedCreateWithoutRecentFilesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutRecentFilesInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutRecentFilesNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutRecentFilesInput, Prisma.UserUncheckedCreateWithoutRecentFilesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutRecentFilesInput
+  upsert?: Prisma.UserUpsertWithoutRecentFilesInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutRecentFilesInput, Prisma.UserUpdateWithoutRecentFilesInput>, Prisma.UserUncheckedUpdateWithoutRecentFilesInput>
+}
+
+export type UserCreateNestedOneWithoutRecentFoldersInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutRecentFoldersInput, Prisma.UserUncheckedCreateWithoutRecentFoldersInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutRecentFoldersInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutRecentFoldersNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutRecentFoldersInput, Prisma.UserUncheckedCreateWithoutRecentFoldersInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutRecentFoldersInput
+  upsert?: Prisma.UserUpsertWithoutRecentFoldersInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutRecentFoldersInput, Prisma.UserUpdateWithoutRecentFoldersInput>, Prisma.UserUncheckedUpdateWithoutRecentFoldersInput>
+}
+
 export type UserCreateNestedOneWithoutShareLinksInput = {
   create?: Prisma.XOR<Prisma.UserCreateWithoutShareLinksInput, Prisma.UserUncheckedCreateWithoutShareLinksInput>
   connectOrCreate?: Prisma.UserCreateOrConnectWithoutShareLinksInput
@@ -574,6 +658,10 @@ export type UserCreateWithoutSessionsInput = {
   passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
 }
 
@@ -592,6 +680,10 @@ export type UserUncheckedCreateWithoutSessionsInput = {
   passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileUncheckedCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
@@ -626,6 +718,10 @@ export type UserUpdateWithoutSessionsInput = {
   passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
 }
 
@@ -644,6 +740,10 @@ export type UserUncheckedUpdateWithoutSessionsInput = {
   passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUncheckedUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
@@ -662,6 +762,10 @@ export type UserCreateWithoutInvitesIssuedInput = {
   passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
 }
 
@@ -680,6 +784,10 @@ export type UserUncheckedCreateWithoutInvitesIssuedInput = {
   passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileUncheckedCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
@@ -703,6 +811,10 @@ export type UserCreateWithoutInvitesAcceptedInput = {
   passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
 }
 
@@ -721,6 +833,10 @@ export type UserUncheckedCreateWithoutInvitesAcceptedInput = {
   passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileUncheckedCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
@@ -755,6 +871,10 @@ export type UserUpdateWithoutInvitesIssuedInput = {
   passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
 }
 
@@ -773,6 +893,10 @@ export type UserUncheckedUpdateWithoutInvitesIssuedInput = {
   passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUncheckedUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
@@ -802,6 +926,10 @@ export type UserUpdateWithoutInvitesAcceptedInput = {
   passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
 }
 
@@ -820,6 +948,10 @@ export type UserUncheckedUpdateWithoutInvitesAcceptedInput = {
   passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUncheckedUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
@@ -838,6 +970,10 @@ export type UserCreateWithoutPasswordResetsForUserInput = {
   passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
 }
 
@@ -856,6 +992,10 @@ export type UserUncheckedCreateWithoutPasswordResetsForUserInput = {
   passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileUncheckedCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
@@ -879,6 +1019,10 @@ export type UserCreateWithoutPasswordResetsIssuedInput = {
   passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
 }
 
@@ -897,6 +1041,10 @@ export type UserUncheckedCreateWithoutPasswordResetsIssuedInput = {
   passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileUncheckedCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
@@ -931,6 +1079,10 @@ export type UserUpdateWithoutPasswordResetsForUserInput = {
   passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
 }
 
@@ -949,6 +1101,10 @@ export type UserUncheckedUpdateWithoutPasswordResetsForUserInput = {
   passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUncheckedUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
@@ -978,6 +1134,10 @@ export type UserUpdateWithoutPasswordResetsIssuedInput = {
   passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
 }
 
@@ -996,6 +1156,10 @@ export type UserUncheckedUpdateWithoutPasswordResetsIssuedInput = {
   passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUncheckedUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
@@ -1014,6 +1178,10 @@ export type UserCreateWithoutFoldersInput = {
   passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
   passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
 }
 
@@ -1032,6 +1200,10 @@ export type UserUncheckedCreateWithoutFoldersInput = {
   passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
   passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileUncheckedCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
@@ -1066,6 +1238,10 @@ export type UserUpdateWithoutFoldersInput = {
   passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
   passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
 }
 
@@ -1084,6 +1260,10 @@ export type UserUncheckedUpdateWithoutFoldersInput = {
   passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
   passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUncheckedUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
@@ -1102,6 +1282,10 @@ export type UserCreateWithoutFilesInput = {
   passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
   passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
 }
 
@@ -1120,6 +1304,10 @@ export type UserUncheckedCreateWithoutFilesInput = {
   passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
   passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileUncheckedCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
 }
 
@@ -1154,6 +1342,10 @@ export type UserUpdateWithoutFilesInput = {
   passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
   passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
 }
 
@@ -1172,6 +1364,426 @@ export type UserUncheckedUpdateWithoutFilesInput = {
   passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
   passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUncheckedUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
+  shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
+}
+
+export type UserCreateWithoutFavoriteFilesInput = {
+  id?: string
+  email: string
+  username: string
+  displayName?: string | null
+  passwordHash: string
+  role?: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
+  invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
+  passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
+  passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
+  folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
+  files?: Prisma.FileCreateNestedManyWithoutOwnerInput
+  favoriteFolders?: Prisma.FavoriteFolderCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
+  shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
+}
+
+export type UserUncheckedCreateWithoutFavoriteFilesInput = {
+  id?: string
+  email: string
+  username: string
+  displayName?: string | null
+  passwordHash: string
+  role?: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
+  invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
+  passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
+  passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
+  folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
+  files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileUncheckedCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
+  shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
+}
+
+export type UserCreateOrConnectWithoutFavoriteFilesInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutFavoriteFilesInput, Prisma.UserUncheckedCreateWithoutFavoriteFilesInput>
+}
+
+export type UserUpsertWithoutFavoriteFilesInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutFavoriteFilesInput, Prisma.UserUncheckedUpdateWithoutFavoriteFilesInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutFavoriteFilesInput, Prisma.UserUncheckedCreateWithoutFavoriteFilesInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutFavoriteFilesInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutFavoriteFilesInput, Prisma.UserUncheckedUpdateWithoutFavoriteFilesInput>
+}
+
+export type UserUpdateWithoutFavoriteFilesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
+  invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
+  passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
+  passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
+  folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
+  files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
+  shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
+}
+
+export type UserUncheckedUpdateWithoutFavoriteFilesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
+  invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
+  passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
+  passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
+  folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
+  files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUncheckedUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
+  shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
+}
+
+export type UserCreateWithoutFavoriteFoldersInput = {
+  id?: string
+  email: string
+  username: string
+  displayName?: string | null
+  passwordHash: string
+  role?: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
+  invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
+  passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
+  passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
+  folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
+  files?: Prisma.FileCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
+  shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
+}
+
+export type UserUncheckedCreateWithoutFavoriteFoldersInput = {
+  id?: string
+  email: string
+  username: string
+  displayName?: string | null
+  passwordHash: string
+  role?: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
+  invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
+  passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
+  passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
+  folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
+  files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileUncheckedCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
+  shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
+}
+
+export type UserCreateOrConnectWithoutFavoriteFoldersInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutFavoriteFoldersInput, Prisma.UserUncheckedCreateWithoutFavoriteFoldersInput>
+}
+
+export type UserUpsertWithoutFavoriteFoldersInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutFavoriteFoldersInput, Prisma.UserUncheckedUpdateWithoutFavoriteFoldersInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutFavoriteFoldersInput, Prisma.UserUncheckedCreateWithoutFavoriteFoldersInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutFavoriteFoldersInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutFavoriteFoldersInput, Prisma.UserUncheckedUpdateWithoutFavoriteFoldersInput>
+}
+
+export type UserUpdateWithoutFavoriteFoldersInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
+  invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
+  passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
+  passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
+  folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
+  files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
+  shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
+}
+
+export type UserUncheckedUpdateWithoutFavoriteFoldersInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
+  invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
+  passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
+  passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
+  folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
+  files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUncheckedUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
+  shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
+}
+
+export type UserCreateWithoutRecentFilesInput = {
+  id?: string
+  email: string
+  username: string
+  displayName?: string | null
+  passwordHash: string
+  role?: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
+  invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
+  passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
+  passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
+  folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
+  files?: Prisma.FileCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
+  shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
+}
+
+export type UserUncheckedCreateWithoutRecentFilesInput = {
+  id?: string
+  email: string
+  username: string
+  displayName?: string | null
+  passwordHash: string
+  role?: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
+  invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
+  passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
+  passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
+  folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
+  files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
+  shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
+}
+
+export type UserCreateOrConnectWithoutRecentFilesInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutRecentFilesInput, Prisma.UserUncheckedCreateWithoutRecentFilesInput>
+}
+
+export type UserUpsertWithoutRecentFilesInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutRecentFilesInput, Prisma.UserUncheckedUpdateWithoutRecentFilesInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutRecentFilesInput, Prisma.UserUncheckedCreateWithoutRecentFilesInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutRecentFilesInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutRecentFilesInput, Prisma.UserUncheckedUpdateWithoutRecentFilesInput>
+}
+
+export type UserUpdateWithoutRecentFilesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
+  invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
+  passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
+  passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
+  folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
+  files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
+  shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
+}
+
+export type UserUncheckedUpdateWithoutRecentFilesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
+  invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
+  passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
+  passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
+  folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
+  files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
+  shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
+}
+
+export type UserCreateWithoutRecentFoldersInput = {
+  id?: string
+  email: string
+  username: string
+  displayName?: string | null
+  passwordHash: string
+  role?: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
+  invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
+  passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
+  passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
+  folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
+  files?: Prisma.FileCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileCreateNestedManyWithoutUserInput
+  shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
+}
+
+export type UserUncheckedCreateWithoutRecentFoldersInput = {
+  id?: string
+  email: string
+  username: string
+  displayName?: string | null
+  passwordHash: string
+  role?: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
+  invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
+  passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
+  passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
+  folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
+  files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileUncheckedCreateNestedManyWithoutUserInput
+  shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
+}
+
+export type UserCreateOrConnectWithoutRecentFoldersInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutRecentFoldersInput, Prisma.UserUncheckedCreateWithoutRecentFoldersInput>
+}
+
+export type UserUpsertWithoutRecentFoldersInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutRecentFoldersInput, Prisma.UserUncheckedUpdateWithoutRecentFoldersInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutRecentFoldersInput, Prisma.UserUncheckedCreateWithoutRecentFoldersInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutRecentFoldersInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutRecentFoldersInput, Prisma.UserUncheckedUpdateWithoutRecentFoldersInput>
+}
+
+export type UserUpdateWithoutRecentFoldersInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
+  invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
+  passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
+  passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
+  folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
+  files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUpdateManyWithoutUserNestedInput
+  shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
+}
+
+export type UserUncheckedUpdateWithoutRecentFoldersInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
+  invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
+  passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
+  passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
+  folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
+  files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUncheckedUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
 }
 
@@ -1191,6 +1803,10 @@ export type UserCreateWithoutShareLinksInput = {
   passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutShareLinksInput = {
@@ -1209,6 +1825,10 @@ export type UserUncheckedCreateWithoutShareLinksInput = {
   passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileUncheckedCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutShareLinksInput = {
@@ -1243,6 +1863,10 @@ export type UserUpdateWithoutShareLinksInput = {
   passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutShareLinksInput = {
@@ -1261,6 +1885,10 @@ export type UserUncheckedUpdateWithoutShareLinksInput = {
   passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUncheckedUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
 }
 
 
@@ -1276,6 +1904,10 @@ export type UserCountOutputType = {
   passwordResetsForUser: number
   folders: number
   files: number
+  favoriteFiles: number
+  favoriteFolders: number
+  recentFiles: number
+  recentFolders: number
   shareLinks: number
 }
 
@@ -1287,6 +1919,10 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   passwordResetsForUser?: boolean | UserCountOutputTypeCountPasswordResetsForUserArgs
   folders?: boolean | UserCountOutputTypeCountFoldersArgs
   files?: boolean | UserCountOutputTypeCountFilesArgs
+  favoriteFiles?: boolean | UserCountOutputTypeCountFavoriteFilesArgs
+  favoriteFolders?: boolean | UserCountOutputTypeCountFavoriteFoldersArgs
+  recentFiles?: boolean | UserCountOutputTypeCountRecentFilesArgs
+  recentFolders?: boolean | UserCountOutputTypeCountRecentFoldersArgs
   shareLinks?: boolean | UserCountOutputTypeCountShareLinksArgs
 }
 
@@ -1352,6 +1988,34 @@ export type UserCountOutputTypeCountFilesArgs<ExtArgs extends runtime.Types.Exte
 /**
  * UserCountOutputType without action
  */
+export type UserCountOutputTypeCountFavoriteFilesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FavoriteFileWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountFavoriteFoldersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FavoriteFolderWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountRecentFilesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.RecentFileWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountRecentFoldersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.RecentFolderWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
 export type UserCountOutputTypeCountShareLinksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.ShareLinkWhereInput
 }
@@ -1373,6 +2037,10 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   passwordResetsForUser?: boolean | Prisma.User$passwordResetsForUserArgs<ExtArgs>
   folders?: boolean | Prisma.User$foldersArgs<ExtArgs>
   files?: boolean | Prisma.User$filesArgs<ExtArgs>
+  favoriteFiles?: boolean | Prisma.User$favoriteFilesArgs<ExtArgs>
+  favoriteFolders?: boolean | Prisma.User$favoriteFoldersArgs<ExtArgs>
+  recentFiles?: boolean | Prisma.User$recentFilesArgs<ExtArgs>
+  recentFolders?: boolean | Prisma.User$recentFoldersArgs<ExtArgs>
   shareLinks?: boolean | Prisma.User$shareLinksArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
@@ -1419,6 +2087,10 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   passwordResetsForUser?: boolean | Prisma.User$passwordResetsForUserArgs<ExtArgs>
   folders?: boolean | Prisma.User$foldersArgs<ExtArgs>
   files?: boolean | Prisma.User$filesArgs<ExtArgs>
+  favoriteFiles?: boolean | Prisma.User$favoriteFilesArgs<ExtArgs>
+  favoriteFolders?: boolean | Prisma.User$favoriteFoldersArgs<ExtArgs>
+  recentFiles?: boolean | Prisma.User$recentFilesArgs<ExtArgs>
+  recentFolders?: boolean | Prisma.User$recentFoldersArgs<ExtArgs>
   shareLinks?: boolean | Prisma.User$shareLinksArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
@@ -1435,6 +2107,10 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     passwordResetsForUser: Prisma.$PasswordResetPayload<ExtArgs>[]
     folders: Prisma.$FolderPayload<ExtArgs>[]
     files: Prisma.$FilePayload<ExtArgs>[]
+    favoriteFiles: Prisma.$FavoriteFilePayload<ExtArgs>[]
+    favoriteFolders: Prisma.$FavoriteFolderPayload<ExtArgs>[]
+    recentFiles: Prisma.$RecentFilePayload<ExtArgs>[]
+    recentFolders: Prisma.$RecentFolderPayload<ExtArgs>[]
     shareLinks: Prisma.$ShareLinkPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
@@ -1847,6 +2523,10 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   passwordResetsForUser<T extends Prisma.User$passwordResetsForUserArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$passwordResetsForUserArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PasswordResetPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   folders<T extends Prisma.User$foldersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$foldersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FolderPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   files<T extends Prisma.User$filesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$filesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FilePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  favoriteFiles<T extends Prisma.User$favoriteFilesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$favoriteFilesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FavoriteFilePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  favoriteFolders<T extends Prisma.User$favoriteFoldersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$favoriteFoldersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FavoriteFolderPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  recentFiles<T extends Prisma.User$recentFilesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$recentFilesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RecentFilePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  recentFolders<T extends Prisma.User$recentFoldersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$recentFoldersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RecentFolderPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   shareLinks<T extends Prisma.User$shareLinksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$shareLinksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ShareLinkPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -2443,6 +3123,102 @@ export type User$filesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs
   take?: number
   skip?: number
   distinct?: Prisma.FileScalarFieldEnum | Prisma.FileScalarFieldEnum[]
+}
+
+/**
+ * User.favoriteFiles
+ */
+export type User$favoriteFilesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FavoriteFile
+   */
+  select?: Prisma.FavoriteFileSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FavoriteFile
+   */
+  omit?: Prisma.FavoriteFileOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FavoriteFileInclude<ExtArgs> | null
+  where?: Prisma.FavoriteFileWhereInput
+  orderBy?: Prisma.FavoriteFileOrderByWithRelationInput | Prisma.FavoriteFileOrderByWithRelationInput[]
+  cursor?: Prisma.FavoriteFileWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FavoriteFileScalarFieldEnum | Prisma.FavoriteFileScalarFieldEnum[]
+}
+
+/**
+ * User.favoriteFolders
+ */
+export type User$favoriteFoldersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FavoriteFolder
+   */
+  select?: Prisma.FavoriteFolderSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FavoriteFolder
+   */
+  omit?: Prisma.FavoriteFolderOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FavoriteFolderInclude<ExtArgs> | null
+  where?: Prisma.FavoriteFolderWhereInput
+  orderBy?: Prisma.FavoriteFolderOrderByWithRelationInput | Prisma.FavoriteFolderOrderByWithRelationInput[]
+  cursor?: Prisma.FavoriteFolderWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FavoriteFolderScalarFieldEnum | Prisma.FavoriteFolderScalarFieldEnum[]
+}
+
+/**
+ * User.recentFiles
+ */
+export type User$recentFilesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the RecentFile
+   */
+  select?: Prisma.RecentFileSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the RecentFile
+   */
+  omit?: Prisma.RecentFileOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.RecentFileInclude<ExtArgs> | null
+  where?: Prisma.RecentFileWhereInput
+  orderBy?: Prisma.RecentFileOrderByWithRelationInput | Prisma.RecentFileOrderByWithRelationInput[]
+  cursor?: Prisma.RecentFileWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.RecentFileScalarFieldEnum | Prisma.RecentFileScalarFieldEnum[]
+}
+
+/**
+ * User.recentFolders
+ */
+export type User$recentFoldersArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the RecentFolder
+   */
+  select?: Prisma.RecentFolderSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the RecentFolder
+   */
+  omit?: Prisma.RecentFolderOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.RecentFolderInclude<ExtArgs> | null
+  where?: Prisma.RecentFolderWhereInput
+  orderBy?: Prisma.RecentFolderOrderByWithRelationInput | Prisma.RecentFolderOrderByWithRelationInput[]
+  cursor?: Prisma.RecentFolderWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.RecentFolderScalarFieldEnum | Prisma.RecentFolderScalarFieldEnum[]
 }
 
 /**
