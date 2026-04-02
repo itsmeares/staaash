@@ -5,24 +5,37 @@ const globalForPrisma = globalThis as typeof globalThis & {
   __staaashPrisma?: PrismaClient;
 };
 
-const connectionString = process.env.DATABASE_URL;
+function getPrismaClient(): PrismaClient {
+  if (globalForPrisma.__staaashPrisma) {
+    return globalForPrisma.__staaashPrisma;
+  }
 
-if (!connectionString) {
-  throw new Error(
-    "DATABASE_URL is required before importing @staaash/db/client.",
-  );
+  const connectionString = process.env.DATABASE_URL;
+
+  if (!connectionString) {
+    throw new Error(
+      "DATABASE_URL is required before importing @staaash/db/client.",
+    );
+  }
+
+  const adapter = new PrismaPg({ connectionString });
+  const client = new PrismaClient({ adapter });
+
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.__staaashPrisma = client;
+  }
+
+  return client;
 }
 
-const adapter = new PrismaPg({
-  connectionString,
+// Lazy proxy: defers client construction (and the DATABASE_URL guard) until the
+// first property access. This allows the module to be imported at Next.js build
+// time without a live DATABASE_URL in the environment.
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    return getPrismaClient()[prop as keyof PrismaClient];
+  },
 });
-
-export const prisma =
-  globalForPrisma.__staaashPrisma ?? new PrismaClient({ adapter });
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.__staaashPrisma = prisma;
-}
 
 export { Prisma };
 export type {
