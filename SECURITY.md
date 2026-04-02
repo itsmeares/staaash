@@ -4,7 +4,7 @@
 
 If you find a security problem, please do not open a public issue for it.
 
-Use GitHub Security Advisories if that feature is enabled for the repository. If not, contact the maintainers privately and include:
+Use GitHub Security Advisories and include:
 
 - affected component or route
 - reproduction steps

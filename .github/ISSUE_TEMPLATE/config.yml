@@ -1,8 +1,5 @@
 blank_issues_enabled: true
 contact_links:
-  - name: Security report
-    url: https://github.com/itsmeares/staaash/security/policy
-    about: Do not open public issues for vulnerabilities. Follow the private reporting instructions in the security policy.
   - name: Contribution guide
     url: https://github.com/itsmeares/staaash/blob/main/CONTRIBUTING.md
     about: Review the repo's contribution expectations, local setup, and PR checklist before opening work.
