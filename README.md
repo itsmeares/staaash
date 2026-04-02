@@ -80,10 +80,11 @@ That work is centered on:
    After that first run, you can restart it later with `docker start staaash-postgres`.
    If you already have PostgreSQL running another way, just make sure `DATABASE_URL` in `.env` matches it.
 
-3. Run `pnpm install`.
+3. Run `pnpm i`.
 4. Run `pnpm db:generate`.
-5. Start the web app with `pnpm --filter web dev`.
-6. Start the worker with `pnpm --filter worker dev`.
+5. Run `pnpm db:push`.
+6. Start the web app with `pnpm web:dev`.
+7. Start the worker with `pnpm worker:dev`.
 
 ## Quality Checks
 
