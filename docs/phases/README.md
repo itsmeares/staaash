@@ -18,8 +18,8 @@ Use [`../implementation-plan.md`](../implementation-plan.md) when you want the f
 
 ## Current Status
 
-- completed phases: 00, 01, and 02
-- next active phase: 03 Upload Pipeline and File Operations
+- completed phases: 00, 01, 02, 03, and 04
+- next active phase: 05 Search, Favorites, Recents, and Trash
 
 ## How To Use These Files
 

@@ -1,5 +1,9 @@
 # Phase 03: Upload Pipeline and File Operations
 
+## Status
+
+Completed
+
 ## Approach
 
 Implement the upload path as a trustworthy pipeline: staged first, verified second, committed last.
@@ -25,13 +29,13 @@ Implement the upload path as a trustworthy pipeline: staged first, verified seco
 
 ## Action Items
 
-- [ ] Implement the upload route and server flow using staging under `FILES_ROOT/tmp/`.
-- [ ] Enforce the upload size limit and timeout contract from env/config.
-- [ ] Verify uploads with checksum before commit and persist committed checksum metadata.
-- [ ] Implement conflict behavior by surface: prompt for interactive UI, safe-rename for non-interactive flows.
-- [ ] Implement file move, rename, trash, restore, and permanent delete behavior.
-- [ ] Add worker-enqueued cleanup for abandoned staging files older than TTL.
-- [ ] Add tests for checksum mismatch, atomic commit, conflict behavior, and staging cleanup eligibility.
+- [x] Implement the upload route and server flow using staging under `FILES_ROOT/tmp/`.
+- [x] Enforce the upload size limit and timeout contract from env/config.
+- [x] Verify uploads with checksum before commit and persist committed checksum metadata.
+- [x] Implement conflict behavior by surface: prompt for interactive UI, safe-rename for non-interactive flows.
+- [x] Implement file move, rename, trash, restore, and permanent delete behavior.
+- [x] Add worker-enqueued cleanup for abandoned staging files older than TTL.
+- [x] Add tests for checksum mismatch, atomic commit, conflict behavior, and staging cleanup eligibility.
 
 ## Validation
 
@@ -43,3 +47,7 @@ Implement the upload path as a trustworthy pipeline: staged first, verified seco
 
 - Uploading files is reliable enough to be a serious product workflow.
 - File operations preserve the immutable physical storage model.
+
+## Follow-up
+
+- Timed-out uploads can still leave orphaned staging files under `FILES_ROOT/tmp/*.upload` until worker cleanup runs. Track that separately as a post-phase hardening bug.

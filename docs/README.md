@@ -28,7 +28,7 @@ Use these docs to understand what Staaash is trying to build, which decisions ar
 
 ## Current Build Focus
 
-- completed phases: 00, 01, and 02
-- next active phase: 03 Upload Pipeline and File Operations
+- completed phases: 00, 01, 02, 03, and 04
+- next active phase: 05 Search, Favorites, Recents, and Trash
 
-If you only need to understand what the repo is actively building next, start with [`implementation-plan.md`](./implementation-plan.md) and then open [`phases/03-upload-pipeline-and-file-operations.md`](./phases/03-upload-pipeline-and-file-operations.md).
+If you only need to understand what the repo is actively building next, start with [`implementation-plan.md`](./implementation-plan.md) and then open [`phases/05-search-favorites-recents-and-trash.md`](./phases/05-search-favorites-recents-and-trash.md).

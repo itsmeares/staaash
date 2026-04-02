@@ -1,5 +1,9 @@
 # Phase 04: Public Sharing
 
+## Status
+
+Completed
+
 ## Approach
 
 Add secure public sharing without introducing collaboration permissions or ownership ambiguity.
@@ -25,12 +29,12 @@ Add secure public sharing without introducing collaboration permissions or owner
 
 ## Action Items
 
-- [ ] Extend the share-link data model with download policy and token/password controls.
-- [ ] Implement share-link create, revoke, delete, and password-rotation flows.
-- [ ] Implement public file views and folder subtree browsing routes.
-- [ ] Enforce inherited share-link controls on nested folder items.
-- [ ] Disable file download and folder archive download when the link policy disables download.
-- [ ] Add tests for expiry, revoke, password access, subtree traversal, and download-disabled behavior.
+- [x] Extend the share-link data model with download policy and token/password controls.
+- [x] Implement share-link create, revoke, delete, and password-rotation flows.
+- [x] Implement public file views and folder subtree browsing routes.
+- [x] Enforce inherited share-link controls on nested folder items.
+- [x] Disable file download and folder archive download when the link policy disables download.
+- [x] Add tests for expiry, revoke, password access, subtree traversal, and download-disabled behavior.
 
 ## Validation
 
