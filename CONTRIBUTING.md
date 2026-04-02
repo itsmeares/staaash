@@ -2,35 +2,60 @@
 
 Thanks for taking a look at the project.
 
-This is my first public repo, so I’m trying to keep the bar simple: clear changes, honest docs, and working code. If you want to contribute, that’s welcome.
+This repo is intentionally straightforward: focused changes, honest docs, and working code. If you want to contribute, that is welcome.
 
-## Ground rules
+## Before You Start
 
-- Keep changes focused and reviewable.
-- Add or update tests for behavior changes.
-- Staged files are auto-formatted on commit.
-- CI still verifies formatting repo-wide with `pnpm format:check`.
-- Use `pnpm format` for one-off repo-wide formatting or intentional normalization.
-- Run `pnpm lint`, `pnpm test`, and `pnpm build` before opening a PR.
-- Do not commit secrets, runtime data, or generated local storage contents.
+- keep changes focused and reviewable
+- add or update tests for behavior changes
+- do not commit secrets, runtime data, or generated local storage contents
+- prefer small follow-up PRs over unrelated bundle changes
+- AI-assisted changes are fine, but you are still responsible for reviewing, testing, and accurately describing them
 
-## Development
+## Local Setup
 
 1. Copy `.env.example` to `.env`.
-2. Start PostgreSQL and set `DATABASE_URL`.
+2. Start PostgreSQL.
+   The default `.env.example` expects `postgresql://staaash:staaash@localhost:5432/staaash`.
+   If you want to run PostgreSQL in Docker locally, use:
+
+   ```console
+   docker run --name staaash-postgres -e POSTGRES_USER=staaash -e POSTGRES_PASSWORD=staaash -e POSTGRES_DB=staaash -p 5432:5432 -v staaash-postgres-data:/var/lib/postgresql/data -d postgres:18
+   ```
+
+   After that first run, you can restart it later with `docker start staaash-postgres`.
+   If you already have PostgreSQL running another way, update `DATABASE_URL` to match your setup.
+
 3. Run `pnpm install`.
 4. Run `pnpm db:generate`.
-5. Start the app with `pnpm --filter web dev`.
+5. Start the web app with `pnpm --filter web dev`.
 6. Start the worker with `pnpm --filter worker dev`.
 
-## Pull requests
+## Checks Before Opening A PR
 
-- Explain the user-visible or operational impact.
-- Call out schema, auth, storage, or restore behavior changes explicitly.
-- Prefer small follow-up PRs over unrelated bundle changes.
+- staged files are auto-formatted on commit
+- CI still verifies formatting repo-wide with `pnpm format:check`
+- run `pnpm lint`
+- run `pnpm test`
+- run `pnpm build`
 
-## Feedback
+## Pull Requests
 
-Issues and PRs are both useful.
+- explain the user-visible or operational impact
+- call out schema, auth, storage, or restore behavior changes when they apply
+- complete the pull request template, including the validation checklist
 
-If something feels unclear, under-documented, or over-engineered, say so directly. That kind of feedback is genuinely helpful.
+## Issues And Security
+
+- use the GitHub issue forms for bug reports and feature requests
+- use a blank issue for feedback that does not fit the forms
+- do not open public issues for security problems
+- follow [`SECURITY.md`](./SECURITY.md) for private reporting guidance
+
+## Project Context
+
+If you are new to the repo, start with:
+
+- [`README.md`](./README.md)
+- [`docs/README.md`](./docs/README.md)
+- [`docs/implementation-plan.md`](./docs/implementation-plan.md)

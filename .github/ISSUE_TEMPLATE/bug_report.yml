@@ -1,0 +1,124 @@
+name: Bug report
+description: Report a defect with enough detail to reproduce it.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking a close look. Keep this concrete and do not include secrets, private files, tokens, or local runtime data.
+
+  - type: input
+    id: summary
+    attributes:
+      label: Short summary
+      description: One line on what is broken.
+      placeholder: Upload finishes, but the file never appears in the library
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_behavior
+    attributes:
+      label: Current behavior
+      description: Describe what you are seeing now.
+      placeholder: The request returns 200, but the file record is missing after refresh.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected behavior
+      description: Describe the behavior you expected instead.
+      placeholder: The uploaded file should appear in the current folder immediately after the request completes.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction_steps
+    attributes:
+      label: Reproduction steps
+      description: List the smallest set of steps needed to reproduce the problem.
+      placeholder: |
+        1. Start the web app and worker locally
+        2. Sign in as a regular user
+        3. Open a library folder
+        4. Upload a file larger than 10 MB
+        5. Refresh the page
+        6. Observe the missing file entry
+    validations:
+      required: true
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact
+      description: How bad is this in practice?
+      options:
+        - Critical - data loss, security exposure, or a broken core flow
+        - High - a major feature is unreliable or blocked
+        - Medium - a workflow is degraded but has a workaround
+        - Low - minor bug, typo, or rough edge
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      description: Pick the closest area. Use extra context below if more than one applies.
+      options:
+        - web
+        - worker
+        - database / prisma
+        - docs
+        - ci / tooling
+        - operations / storage
+        - other
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment and details
+      description: Include the environment, branch or commit if relevant, and anything else needed to reason about the issue.
+      value: |
+        - Environment:
+        - OS:
+        - Browser:
+        - Node.js:
+        - pnpm:
+        - Branch or commit:
+        - Extra details:
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Screenshots or log output
+      description: Paste logs or describe any screenshots you are attaching. Drag files into the issue after the form opens if needed.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra_context
+    attributes:
+      label: Extra context
+      description: Add any related links, prior investigation, or constraints.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      description: Confirm these before submitting.
+      options:
+        - label: I searched the existing issues first.
+          required: true
+        - label: I removed secrets, private data, and local runtime contents from this report.
+          required: true

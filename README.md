@@ -1,19 +1,19 @@
 # Staaash
 
-Staaash is a self-hosted personal cloud drive I’m building in public.
+Staaash is a self-hosted personal cloud drive I am building in public.
 
-The idea is simple: I want a storage app with predictable behavior around uploads, file layout, sharing, search, and recovery. This repo is the new foundation for that work.
+The goal is not to clone a larger product feature-for-feature. The goal is to build a storage app with predictable behavior around uploads, file layout, sharing, search, and recovery, then make those rules explicit in the code and docs.
 
-## Current status
+## Current Status
 
-This is still an early-stage project, not a finished product yet.
+This repository is still early-stage. It is real software, but it is not a finished product.
 
 What is already here:
 
 - a Next.js App Router web app
-- a small worker runtime
-- a Prisma/PostgreSQL metadata layer
-- completed Phase 2 signed-in workspace shell and private library navigation
+- a worker runtime for background behavior
+- a Prisma and PostgreSQL metadata layer
+- completed Phase 2 signed-in app shell and private library navigation
 - tested server-side modules for uploads, sharing, search, restore logic, auth flows, health checks, and library-folder behavior
 
 What is not true yet:
@@ -22,79 +22,102 @@ What is not true yet:
 - it is not packaged for one-command deployment
 - it is not ready to replace something like Google Drive or Dropbox
 
-I’m okay with that. The goal of this repo is to show real progress, not pretend it is further along than it is.
+That is intentional. This repo is meant to show honest progress, not imply more maturity than it has earned.
 
-## What I’m focusing on now
+## What Exists Today
 
-- upload pipeline and file operations
-- checksum verification and staging lifecycle
-- keeping metadata operations safe while file ingest becomes real
+The current foundation already locks in several important behaviors:
 
-## What is already locked in
-
-- immutable ID-based storage paths
-- upload policy and checksum verification rules
-- sharing boundaries
-- search normalization and ranking rules
+- immutable ID-based physical storage paths
+- PostgreSQL-backed metadata
+- staged uploads with checksum verification rules
+- explicit sharing boundaries
+- deterministic search normalization and ranking rules
 - owner-facing health and operational visibility
-- restore and reconciliation behavior
+- restore behavior that requires reconciliation instead of silent best effort
 
-## Why this repo exists
+## Current Focus
 
-I wanted the project to start from clear storage and operational rules instead of bolting them on later.
+The next major slice is Phase 03: upload pipeline and file operations.
 
-That means this repo is intentionally heavy on core behavior and documentation first:
+That work is centered on:
 
-- how files are stored
-- how uploads are validated
-- what sharing is allowed to do
-- what the admin surface should report
-- how restore should behave when reality and metadata drift apart
+- staged file ingest
+- checksum verification and commit safety
+- file operations that preserve internal identity
+- keeping metadata and storage behavior predictable while ingest becomes real
 
-## Tech stack
+## Tech Stack
 
 - Next.js
 - React
 - TypeScript
-- PNPM workspaces + Turborepo
+- PNPM workspaces
+- Turborepo
 - Prisma
 - PostgreSQL
 - Vitest
 
-## Project layout
+## Repository Layout
 
 - `apps/web` - web app and server routes
 - `apps/worker` - background worker runtime
 - `packages/config` - shared TypeScript config
 - `packages/db` - Prisma schema and DB helpers
-- `docs` - architecture notes, implementation plan, phase docs, and operational notes
+- `docs` - architecture notes, roadmap, phase docs, and operational notes
 
-## Running it locally
+## Local Development
 
 1. Copy `.env.example` to `.env`.
-2. Start PostgreSQL and set `DATABASE_URL` in `.env`.
+2. Start PostgreSQL.
+   The default `.env.example` expects `postgresql://staaash:staaash@localhost:5432/staaash`.
+   If you want a local Docker container that matches those values, run:
+
+   ```console
+   docker run --name staaash-postgres -e POSTGRES_USER=staaash -e POSTGRES_PASSWORD=staaash -e POSTGRES_DB=staaash -p 5432:5432 -v staaash-postgres-data:/var/lib/postgresql/data -d postgres:18
+   ```
+
+   After that first run, you can restart it later with `docker start staaash-postgres`.
+   If you already have PostgreSQL running another way, just make sure `DATABASE_URL` in `.env` matches it.
+
 3. Run `pnpm install`.
 4. Run `pnpm db:generate`.
 5. Start the web app with `pnpm --filter web dev`.
 6. Start the worker with `pnpm --filter worker dev`.
 
-## Quality checks
+## Quality Checks
 
-- Staged files are auto-formatted on commit.
+- staged files are auto-formatted on commit
 - `pnpm format:check`
-- `pnpm format` for repo-wide formatting or one-time normalization
+- `pnpm format` for one-off repo-wide formatting or intentional normalization
 - `pnpm lint`
 - `pnpm test`
 - `pnpm build`
 
-## Docs
+## Documentation Map
 
-- `docs/implementation-plan.md`
-- `docs/phases/README.md`
-- `docs/architecture.md`
-- `docs/decision-log.md`
-- `docs/operations/backup-restore.md`
+Start here if you want the short version of how the repo is organized:
+
+- [`docs/README.md`](./docs/README.md) - documentation index and reading order
+- [`docs/architecture.md`](./docs/architecture.md) - high-level system shape and storage model
+- [`docs/implementation-plan.md`](./docs/implementation-plan.md) - phased roadmap for the rewrite
+- [`docs/decision-log.md`](./docs/decision-log.md) - stable decisions that are intentionally not being re-litigated
+- [`docs/phases/README.md`](./docs/phases/README.md) - execution index for the phase documents
+- [`docs/operations/backup-restore.md`](./docs/operations/backup-restore.md) - backup baseline and restore expectations
+
+## AI Use
+
+AI is being used in this project as part of the development and documentation workflow.
+
+That does not change the quality bar. Generated code or generated docs still need to be reviewed, tested, and kept consistent with the repo's actual behavior.
+
+## Contributing And Feedback
+
+- read [`CONTRIBUTING.md`](./CONTRIBUTING.md) before opening work
+- use the GitHub issue forms for bug reports and feature requests
+- use the PR template when opening changes
+- report security problems privately as described in [`SECURITY.md`](./SECURITY.md)
 
 ## Notes
 
-This is my first public repo, so I’m trying to keep it honest, readable, and technically clean. If you take a look and have feedback, that’s useful.
+This is my first public repo. I want it to stay readable, technically honest, and useful to people following along. Direct feedback is welcome if something feels unclear or under-documented.

@@ -40,3 +40,11 @@ Thumbs.db
 Desktop.ini
 .idea/
 .vscode/
+
+# Local agent and AI tooling files
+AGENTS.md
+.agents/
+.codex/
+.claude/
+.cursor/
+.github/copilot-instructions.md

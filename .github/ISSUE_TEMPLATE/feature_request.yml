@@ -1,0 +1,67 @@
+name: Feature request
+description: Propose a change with the problem and expected payoff spelled out.
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Keep this grounded in a real workflow gap or product need. If this is a security problem, do not file it here; use the security reporting path instead.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or workflow gap
+      description: What is missing, confusing, or hard to do right now?
+      placeholder: Restoring a deleted file is safe, but there is no clear way to inspect related storage state before doing it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the change you want at a high level.
+      placeholder: Add a restore preview that shows the target path, conflicts, and any missing metadata before the action runs.
+    validations:
+      required: true
+
+  - type: textarea
+    id: benefit
+    attributes:
+      label: Expected benefit or user impact
+      description: Why is this worth doing? Who benefits and how?
+      placeholder: This reduces risky restores, makes the behavior easier to trust, and cuts down on manual checks.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      description: Pick the closest area for the request.
+      options:
+        - web
+        - worker
+        - database / prisma
+        - docs
+        - ci / tooling
+        - operations / storage
+        - other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Optional. Note any smaller workaround, rejected approach, or competing idea.
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra_context
+    attributes:
+      label: Extra context or mockups
+      description: Optional. Add links, sketches, screenshots, or related issues.
+    validations:
+      required: false

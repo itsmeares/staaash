@@ -1,16 +1,16 @@
 # Staaash Implementation Plan
 
-## Purpose
+## Summary
 
-This document turns the agreed rebuild direction into a durable phased roadmap for the new `staaash` repo.
+This document is the authoritative phased roadmap for the current `staaash` rewrite.
 
-It is the authoritative implementation plan for the current rewrite. The old codebase lives in `staaash-old` and is not the implementation target.
+Use it to understand what the repo is building, which decisions are already locked in, which phases are complete, and what still needs to be delivered. For the numbered execution docs, use [`docs/phases/README.md`](./phases/README.md).
 
 ## Product Summary
 
 Staaash is a self-hosted, Docker-first, web-first personal cloud drive for self-hosters who want a polished and trustworthy alternative to heavier self-hosted file products.
 
-The product benchmark is:
+The benchmark is:
 
 - Google Drive for information architecture and file-management ergonomics
 - Immich for self-hosted product quality and operator experience
@@ -19,15 +19,15 @@ The product promise is:
 
 - calm, professional UX
 - safe-by-default behavior
-- owner-operated self-hosting with first-class admin experience
+- owner-operated self-hosting with a first-class admin experience
 - strong upload, organization, and retrieval flows
 
-## Locked Product and Architecture Decisions
+## Locked Product And Architecture Decisions
 
 ### Product scope
 
 - web app only in v1
-- Docker/self-hosted only in v1
+- Docker and self-hosted only in v1
 - personal-first model
 - folders-first information architecture
 - public links only for sharing in v1
@@ -39,7 +39,7 @@ The product promise is:
 ### Roles and trust
 
 - roles are `owner` and `member`
-- owner manages system/admin concerns
+- owner manages system and admin concerns
 - owner does not browse member private files through the normal app
 - members operate only within their own private namespace
 
@@ -63,11 +63,11 @@ The product promise is:
 - recipients cannot re-share
 - folder shares expose the full linked subtree
 - images, PDF, text, audio, and basic video get preview support
-- Office docs are metadata/icon only in v1
+- Office docs are metadata or icon only in v1
 
 ### Search and restore
 
-- search is filename/path only
+- search is filename and path only
 - matching is case-insensitive and accent-insensitive
 - path segments and extensions contribute to matching
 - ranking is exact, then prefix, then substring, then recency tie-breaker
@@ -77,19 +77,24 @@ The product promise is:
 
 ## Current State
 
-### Phase 0 status
+The repo already has the foundation scaffold plus completed Phase 1 and Phase 2 work.
 
-The repo already has a foundation scaffold:
+### Completed so far
 
-- fresh Turborepo + pnpm workspace
+- fresh Turborepo and pnpm workspace
 - Next.js web app shell
 - worker heartbeat runtime
 - Prisma schema baseline
 - storage, upload, search, sharing, ownership, restore, and health behavior modules
-- health/admin routes
+- health and admin routes
 - test coverage for the locked implementation behavior
+- signed-in workspace shell with stable routes for `Library`, `Recent`, `Favorites`, `Shared`, `Trash`, and `Settings`
+- per-user library roots, nested folder navigation, breadcrumbs, create, rename, move, trash, and restore flows
+- route guards, canonical root enforcement, deep-link-preserving sign-in redirects, and normalized unauthenticated JSON errors
 
-This foundation is the starting point for the remaining phases below.
+### Current active phase
+
+- next focus: Phase 03 Upload Pipeline and File Operations
 
 ## Phase Roadmap
 
@@ -115,7 +120,7 @@ Create a fresh repo that encodes the core implementation rules before feature wo
 - sharing policy helpers
 - ownership boundary helpers
 - admin health summary
-- backup/restore documentation
+- backup and restore documentation
 
 ### Exit criteria
 
@@ -131,14 +136,14 @@ Completed
 
 ### Goal
 
-Implement the owner/member account model and one-time bootstrap flow.
+Implement the owner and member account model plus the one-time bootstrap flow.
 
 ### Scope
 
 - one-time `/setup` flow
 - create `Instance`
 - create first owner account
-- local email/password auth
+- local email and password auth
 - opaque database-backed sessions
 - sign-in and sign-out
 - invite issuance and redemption
@@ -181,11 +186,11 @@ Ship the real signed-in application shell and the first complete private-drive n
 - persistent left sidebar
 - top-bar search slot
 - separate `/admin` area
-- `Library`, `Recent`, `Favorites`, `Shared`, `Trash`, `Settings`
+- `Library`, `Recent`, `Favorites`, `Shared`, `Trash`, and `Settings`
 - folder-first explorer layout
 - per-user library root
 - nested folders
-- rename, move, delete, restore metadata flows
+- rename, move, delete, and restore metadata flows
 
 ### Important rules
 
@@ -198,7 +203,7 @@ Ship the real signed-in application shell and the first complete private-drive n
 
 - signed-in shell layout
 - breadcrumb navigation
-- folder tree/listing pages
+- folder tree and listing pages
 - folder CRUD server logic
 - library pages and route guards
 
@@ -212,7 +217,7 @@ Ship the real signed-in application shell and the first complete private-drive n
 
 - shipped the signed-in workspace shell with stable routes for `Library`, `Recent`, `Favorites`, `Shared`, `Trash`, and `Settings`
 - kept `/admin` outside the normal workspace shell
-- implemented per-user library roots, nested folder navigation, breadcrumbs, create/rename/move/trash/restore flows, and route guards
+- implemented per-user library roots, nested folder navigation, breadcrumbs, create, rename, move, trash, and restore flows, plus route guards
 - hardened Phase 2 with canonical root enforcement, deep-link-preserving sign-in redirects, normalized unauthenticated JSON errors, and additional library-domain coverage
 
 ## Phase 3: Upload Pipeline and File Operations
@@ -227,16 +232,16 @@ Make file ingest feel reliable and product-grade.
 - checksum verification
 - atomic commit
 - file-size limit enforcement
-- timeout guidance surfaced in docs/config
+- timeout guidance surfaced in docs and config
 - conflict policy by surface
-- file rename, move, trash, restore, permanent delete
+- file rename, move, trash, restore, and permanent delete
 
 ### Important rules
 
 - interactive web upload conflicts prompt the user
-- bulk/non-interactive/API-like uploads safe-rename
+- bulk, non-interactive, or API-like uploads safe-rename
 - silent overwrite is never the default
-- no resumable/chunked upload protocol in v1
+- no resumable or chunked upload protocol in v1
 - no deduplication in v1
 - no quotas in v1
 
@@ -252,7 +257,7 @@ Make file ingest feel reliable and product-grade.
 - checksum mismatch prevents commit
 - no committed file appears until verification succeeds
 - staging files older than TTL are cleaned by worker job
-- move/rename still do not move binaries on disk
+- move and rename still do not move binaries on disk
 
 ## Phase 4: Public Sharing
 
@@ -266,7 +271,7 @@ Add secure public-link sharing without drifting into collaboration complexity.
 - folder share links
 - password-protected links
 - expiry
-- revoke/delete
+- revoke and delete
 - optional download disable
 - shared file view
 - shared folder subtree browsing
@@ -301,7 +306,7 @@ Complete the everyday retrieval layer that makes the drive feel polished.
 
 ### Scope
 
-- filename/path search
+- filename and path search
 - favorites
 - recents
 - trash listing
@@ -347,7 +352,7 @@ Use the worker runtime for real product jobs and practical previews.
 - web app creates jobs, worker executes jobs
 - worker is the only background executor
 - jobs are durable and restart-safe
-- Office docs remain metadata/icon only
+- Office docs remain metadata or icon only
 - preview failure never blocks access to the original file
 
 ### Deliverables
@@ -355,7 +360,7 @@ Use the worker runtime for real product jobs and practical previews.
 - real worker job loop
 - job status tracking
 - preview generation pipeline
-- failure/retry handling
+- failure and retry handling
 
 ### Acceptance criteria
 
@@ -381,13 +386,13 @@ Make the instance owner experience feel like part of the product, not an afterth
 
 ### Important rules
 
-- admin health includes DB, storage, worker heartbeat, queue backlog, disk warnings, and version/update status
+- admin health includes DB, storage, worker heartbeat, queue backlog, disk warnings, and version or update status
 - admin remains separate from the everyday member workspace
 - owner authority is operational, not content-browsing superuser authority
 
 ### Deliverables
 
-- `/admin` sections for users, invites, health, jobs, storage summary, updates
+- `/admin` sections for users, invites, health, jobs, storage summary, and updates
 - readiness and health wiring
 - operator-facing warning states
 
@@ -422,13 +427,13 @@ Raise the product from feature-complete to serious-release quality.
 ### Deliverables
 
 - restore reconciliation pipeline
-- recovery/integrity reporting
+- recovery and integrity reporting
 - integration and E2E coverage for core flows
 - updated install, backup, and upgrade docs
 
 ### Acceptance criteria
 
-- known backup/restore scenario can be validated end-to-end
+- known backup and restore scenario can be validated end-to-end
 - missing originals and preview gaps are surfaced correctly
 - core auth, upload, library, share, search, and admin flows have automated coverage
 
@@ -440,9 +445,9 @@ The implementation should not be considered serious-release ready unless all of 
 - route boundaries remain explicit
 - business logic stays out of React components
 - storage and trust guarantees remain intact
-- owner/member boundaries are enforced everywhere
+- owner and member boundaries are enforced everywhere
 - tests cover the critical product promises
-- backup/restore behavior is documented and observable
+- backup and restore behavior is documented and observable
 
 ## Explicit Non-Goals
 
@@ -450,7 +455,7 @@ The implementation should not be considered serious-release ready unless all of 
 - native mobile apps
 - S3-compatible storage in v1
 - internal user-to-user sharing in v1
-- shared workspaces/tenancy in v1
+- shared workspaces or tenancy in v1
 - full-text indexing in v1
 - version history in v1
 - owner superuser file browsing in v1
@@ -461,4 +466,4 @@ The implementation should not be considered serious-release ready unless all of 
 2. Complete Phase 2 and Phase 3 as the first true product vertical slice.
 3. Add Phase 4 and Phase 5 to make the product genuinely useful.
 4. Use Phase 6 and Phase 7 to make the product operationally credible.
-5. Use Phase 8 to enforce release quality instead of rushing to “done.”
+5. Use Phase 8 to enforce release quality instead of rushing to "done".

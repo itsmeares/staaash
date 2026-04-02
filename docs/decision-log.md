@@ -1,15 +1,42 @@
 # Decision Log
 
-This is the short version of the choices I do not want to keep re-deciding while building.
+This is the short reference for choices that are intentionally stable during the current rewrite.
 
-- Fresh repo initialized as `staaash`; previous implementation preserved as `staaash-old`
-- Local disk only in v1
+Use it when you need to check whether something is already decided before reopening the discussion in code, docs, or planning work.
+
+## Repository Direction
+
+- fresh repo initialized as `staaash`
+- previous implementation preserved as `staaash-old`
+- this repo is the active implementation target
+
+## Product Scope
+
+- local disk only in v1
+- web app only in v1
+- Docker and self-hosted only in v1
+- public links only for sharing in v1
+- no desktop sync client in v1
+- no native mobile app in v1
+- no internal collaboration permissions in v1
+- no multi-tenant workspace model in v1
+
+## Roles And Trust
+
+- roles are `owner` and `member`
+- owner manages system and admin concerns
+- owner cannot browse member private content through the normal app
+
+## Storage And Search
+
 - PostgreSQL metadata plus app-managed file storage
-- Immutable ID-based storage layout
-- No resumable or chunked upload protocol in v1
-- 10 GB practical per-file target with 60 minute timeout budget
-- Public links only in v1
-- Owner/member role model
-- Owner cannot browse member private content through the normal app
-- Search is filename/path only with normalization and deterministic ranking
-- Admin health is a first-class surface
+- immutable ID-based storage layout
+- no resumable or chunked upload protocol in v1
+- practical per-file target is 10 GB with a 60 minute timeout budget
+- search is filename and path only, with normalization and deterministic ranking
+
+## Operational Direction
+
+- admin health is a first-class surface
+- backup baseline is crash-consistent backup
+- restore requires reconciliation instead of silent best effort
