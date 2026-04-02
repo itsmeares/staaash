@@ -10,6 +10,7 @@ import {
   wantsJson,
 } from "@/server/auth/http";
 import { libraryService } from "@/server/library/service";
+import { retrievalService } from "@/server/retrieval/service";
 import { pairUploadRequestItems, parseUploadManifest } from "@/server/uploads";
 
 export async function POST(request: NextRequest) {
@@ -50,6 +51,15 @@ export async function POST(request: NextRequest) {
       folderId: formData.get("folderId")?.toString() ?? null,
       items: pairUploadRequestItems(manifest, files),
     });
+    await Promise.all(
+      result.uploadedFiles.map((file) =>
+        retrievalService.recordFileAccess({
+          actorUserId: session.user.id,
+          actorRole: session.user.role,
+          fileId: file.id,
+        }),
+      ),
+    );
 
     if (result.conflicts.length > 0) {
       return NextResponse.json(

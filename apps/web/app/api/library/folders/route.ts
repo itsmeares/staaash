@@ -12,6 +12,7 @@ import {
   wantsJson,
 } from "@/server/auth/http";
 import { libraryService } from "@/server/library/service";
+import { retrievalService } from "@/server/retrieval/service";
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
@@ -41,6 +42,11 @@ export async function POST(request: NextRequest) {
       actorRole: session.user.role,
       parentId: body.parentId || null,
       name: body.name,
+    });
+    await retrievalService.recordFolderAccess({
+      actorUserId: session.user.id,
+      actorRole: session.user.role,
+      folderId: result.folder.id,
     });
 
     return wantsJson(request)

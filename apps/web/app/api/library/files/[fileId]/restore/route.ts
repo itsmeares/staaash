@@ -12,6 +12,7 @@ import {
   wantsJson,
 } from "@/server/auth/http";
 import { libraryService } from "@/server/library/service";
+import { retrievalService } from "@/server/retrieval/service";
 
 type RouteContext = {
   params: Promise<{
@@ -44,6 +45,11 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   try {
     const { fileId } = await params;
     const result = await libraryService.restoreFile({
+      actorUserId: session.user.id,
+      actorRole: session.user.role,
+      fileId,
+    });
+    await retrievalService.recordFileAccess({
       actorUserId: session.user.id,
       actorRole: session.user.role,
       fileId,

@@ -12,15 +12,8 @@ import {
   wantsJson,
 } from "@/server/auth/http";
 import { libraryService } from "@/server/library/service";
-import { retrievalService } from "@/server/retrieval/service";
 
-type RouteContext = {
-  params: Promise<{
-    fileId: string;
-  }>;
-};
-
-export async function POST(request: NextRequest, { params }: RouteContext) {
+export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
     return wantsJson(request)
       ? NextResponse.json(
@@ -29,13 +22,13 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         )
       : formErrorResponse(
           request,
-          "/library",
+          "/trash",
           new Error("Cross-origin requests are not allowed."),
         );
   }
 
   const body = await readRequestBody(request);
-  const redirectTo = getSafeRedirectTarget(body.redirectTo, "/library");
+  const redirectTo = getSafeRedirectTarget(body.redirectTo, "/trash");
   const session = await getRequestSession(request);
 
   if (!session) {
@@ -43,18 +36,16 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   }
 
   try {
-    const { fileId } = await params;
-    const result = await libraryService.moveFile({
+    const result = await libraryService.clearTrash({
       actorUserId: session.user.id,
       actorRole: session.user.role,
-      fileId,
-      destinationFolderId: body.destinationFolderId || null,
     });
-    await retrievalService.recordFileAccess({
-      actorUserId: session.user.id,
-      actorRole: session.user.role,
-      fileId,
-    });
+    const folderLabel = `${result.deletedFolderCount} folder tree${
+      result.deletedFolderCount === 1 ? "" : "s"
+    }`;
+    const fileLabel = `${result.deletedFileCount} file${
+      result.deletedFileCount === 1 ? "" : "s"
+    }`;
 
     return wantsJson(request)
       ? NextResponse.json(result)
@@ -62,7 +53,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
           request,
           redirectTo,
           "success",
-          `Moved file ${result.file?.name}.`,
+          `Emptied trash. Removed ${folderLabel} and ${fileLabel}.`,
         );
   } catch (error) {
     return wantsJson(request)

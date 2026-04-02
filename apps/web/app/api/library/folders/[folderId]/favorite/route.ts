@@ -11,14 +11,16 @@ import {
   redirectWithMessage,
   wantsJson,
 } from "@/server/auth/http";
-import { libraryService } from "@/server/library/service";
 import { retrievalService } from "@/server/retrieval/service";
 
 type RouteContext = {
   params: Promise<{
-    fileId: string;
+    folderId: string;
   }>;
 };
+
+const parseBoolean = (value: string | undefined, fallback: boolean) =>
+  value === undefined ? fallback : value === "true";
 
 export async function POST(request: NextRequest, { params }: RouteContext) {
   if (!isSameOrigin(request)) {
@@ -43,17 +45,12 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   }
 
   try {
-    const { fileId } = await params;
-    const result = await libraryService.moveFile({
+    const { folderId } = await params;
+    const result = await retrievalService.setFolderFavorite({
       actorUserId: session.user.id,
       actorRole: session.user.role,
-      fileId,
-      destinationFolderId: body.destinationFolderId || null,
-    });
-    await retrievalService.recordFileAccess({
-      actorUserId: session.user.id,
-      actorRole: session.user.role,
-      fileId,
+      folderId,
+      isFavorite: parseBoolean(body.isFavorite, true),
     });
 
     return wantsJson(request)
@@ -62,7 +59,9 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
           request,
           redirectTo,
           "success",
-          `Moved file ${result.file?.name}.`,
+          result.isFavorite
+            ? "Added folder to favorites."
+            : "Removed folder from favorites.",
         );
   } catch (error) {
     return wantsJson(request)

@@ -449,6 +449,14 @@ p {
   flex: 1 1 220px;
 }
 
+.retrieval-inline-actions {
+  justify-content: flex-end;
+}
+
+.retrieval-inline-actions > *:first-child {
+  flex: 0 0 auto;
+}
+
 .workspace-empty-state {
   display: grid;
   gap: 10px;
