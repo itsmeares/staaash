@@ -90,11 +90,12 @@ The repo already has the foundation scaffold plus completed Phase 1 and Phase 2 
 - test coverage for the locked implementation behavior
 - signed-in workspace shell with stable routes for `Library`, `Recent`, `Favorites`, `Shared`, `Trash`, and `Settings`
 - per-user library roots, nested folder navigation, breadcrumbs, create, rename, move, trash, and restore flows
+- authenticated private download, private search, favorites, recents, and bulk trash clear
 - route guards, canonical root enforcement, deep-link-preserving sign-in redirects, and normalized unauthenticated JSON errors
 
 ### Current active phase
 
-- next focus: Phase 03 Upload Pipeline and File Operations
+- next focus: Phase 06 Previews and Worker Jobs
 
 ## Phase Roadmap
 
@@ -300,6 +301,10 @@ Add secure public-link sharing without drifting into collaboration complexity.
 
 ## Phase 5: Search, Favorites, Recents, and Trash
 
+### Status
+
+Completed
+
 ### Goal
 
 Complete the everyday retrieval layer that makes the drive feel polished.
@@ -310,12 +315,16 @@ Complete the everyday retrieval layer that makes the drive feel polished.
 - favorites
 - recents
 - trash listing
+- authenticated private file download or open
 - restore and clear-trash behavior
 
 ### Important rules
 
 - search is case-insensitive and accent-insensitive
 - exact beats prefix, prefix beats substring, recency breaks ties
+- recents are deduped current-state rows, not an audit log
+- private file open is authenticated attachment download in v1
+- trash keeps per-file hard delete and one explicit bulk empty-trash action
 - full-text search is out of scope
 - metadata-advanced search is out of scope
 
@@ -324,6 +333,7 @@ Complete the everyday retrieval layer that makes the drive feel polished.
 - search routes and UI
 - favorites toggle flows
 - recents tracking
+- authenticated private file download flow
 - trash views and cleanup integration
 
 ### Acceptance criteria
@@ -331,6 +341,13 @@ Complete the everyday retrieval layer that makes the drive feel polished.
 - path segments and extensions contribute to search relevance
 - search results are deterministic and stable
 - trash restore and permanent deletion behave predictably
+
+### Completion notes
+
+- shipped the dedicated retrieval layer for mixed-item search, favorites, and recents
+- replaced the disabled search slot with a real `/search` flow and real `/favorites` and `/recent` pages
+- added authenticated private file download so recents reflect real file access
+- added bulk `Empty trash` while preserving existing per-file permanent delete behavior
 
 ## Phase 6: Previews and Worker Jobs
 
