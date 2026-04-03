@@ -149,8 +149,9 @@ export const recoverPendingDeletes = async ({
 }) => {
   const activeClient =
     client ??
-    ((await import("@staaash/db/client"))
-      .prisma as unknown as PendingDeleteClient);
+    ((
+      await import("@staaash/db/client")
+    ).getPrisma() as unknown as PendingDeleteClient);
   await mkdir(pendingDeleteRoot, { recursive: true });
   const directory = await opendir(pendingDeleteRoot);
 

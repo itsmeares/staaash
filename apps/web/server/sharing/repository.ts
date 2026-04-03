@@ -1,4 +1,4 @@
-import { Prisma, prisma } from "@staaash/db/client";
+import { Prisma, getPrisma } from "@staaash/db/client";
 
 import type { StoredShareLink } from "./types";
 
@@ -47,6 +47,11 @@ type UpdateShareParams = {
 
 type SaveShareForTargetParams = CreateShareParams;
 
+type SharingPrismaClient = Pick<
+  ReturnType<typeof getPrisma>,
+  "shareLink" | "$transaction"
+>;
+
 const toStoredShareLink = (shareLink: ShareLinkRecord): StoredShareLink => ({
   id: shareLink.id,
   createdByUserId: shareLink.createdByUserId,
@@ -80,192 +85,211 @@ export type SharingRepository = {
 };
 
 export const createPrismaSharingRepository = (
-  client = prisma,
-): SharingRepository => ({
-  async findShareById(shareId) {
-    const shareLink = await client.shareLink.findUnique({
-      where: {
-        id: shareId,
-      },
-      select: shareLinkSelect,
-    });
+  client?: SharingPrismaClient,
+): SharingRepository => {
+  const getClient = () =>
+    client ?? (getPrisma() as unknown as SharingPrismaClient);
 
-    return shareLink ? toStoredShareLink(shareLink) : null;
-  },
-
-  async findShareByFileId(fileId) {
-    const shareLink = await client.shareLink.findUnique({
-      where: {
-        fileId,
-      },
-      select: shareLinkSelect,
-    });
-
-    return shareLink ? toStoredShareLink(shareLink) : null;
-  },
-
-  async findShareByFolderId(folderId) {
-    const shareLink = await client.shareLink.findUnique({
-      where: {
-        folderId,
-      },
-      select: shareLinkSelect,
-    });
-
-    return shareLink ? toStoredShareLink(shareLink) : null;
-  },
-
-  async findShareByTokenLookupKey(tokenLookupKey) {
-    const shareLink = await client.shareLink.findUnique({
-      where: {
-        tokenLookupKey,
-      },
-      select: shareLinkSelect,
-    });
-
-    return shareLink ? toStoredShareLink(shareLink) : null;
-  },
-
-  async listSharesByCreator(createdByUserId) {
-    const shareLinks = await client.shareLink.findMany({
-      where: {
-        createdByUserId,
-      },
-      orderBy: [
-        {
-          revokedAt: "asc",
+  return {
+    async findShareById(shareId) {
+      const client = getClient();
+      const shareLink = await client.shareLink.findUnique({
+        where: {
+          id: shareId,
         },
-        {
-          updatedAt: "desc",
+        select: shareLinkSelect,
+      });
+
+      return shareLink ? toStoredShareLink(shareLink) : null;
+    },
+
+    async findShareByFileId(fileId) {
+      const client = getClient();
+      const shareLink = await client.shareLink.findUnique({
+        where: {
+          fileId,
         },
-      ],
-      select: shareLinkSelect,
-    });
+        select: shareLinkSelect,
+      });
 
-    return shareLinks.map(toStoredShareLink);
-  },
+      return shareLink ? toStoredShareLink(shareLink) : null;
+    },
 
-  async saveShareForTarget(params) {
-    return client.$transaction(async (tx) => {
-      const existing =
-        params.targetType === "file"
-          ? params.fileId
-            ? await tx.shareLink.findUnique({
-                where: {
-                  fileId: params.fileId,
-                },
-                select: shareLinkSelect,
-              })
-            : null
-          : params.folderId
-            ? await tx.shareLink.findUnique({
-                where: {
-                  folderId: params.folderId,
-                },
-                select: shareLinkSelect,
-              })
-            : null;
+    async findShareByFolderId(folderId) {
+      const client = getClient();
+      const shareLink = await client.shareLink.findUnique({
+        where: {
+          folderId,
+        },
+        select: shareLinkSelect,
+      });
 
-      const shareLink = existing
-        ? await tx.shareLink.update({
-            where: {
-              id: existing.id,
-            },
-            data: {
-              tokenLookupKey: params.tokenLookupKey,
-              tokenHash: params.tokenHash,
-              passwordHash: params.passwordHash,
-              downloadDisabled: params.downloadDisabled,
-              expiresAt: params.expiresAt,
-              revokedAt: params.revokedAt ?? null,
-            },
-            select: shareLinkSelect,
-          })
-        : await tx.shareLink.create({
-            data: {
-              createdByUserId: params.createdByUserId,
-              targetType: params.targetType,
-              fileId: params.fileId ?? null,
-              folderId: params.folderId ?? null,
-              tokenLookupKey: params.tokenLookupKey,
-              tokenHash: params.tokenHash,
-              passwordHash: params.passwordHash,
-              downloadDisabled: params.downloadDisabled,
-              expiresAt: params.expiresAt,
-              revokedAt: params.revokedAt ?? null,
-            },
-            select: shareLinkSelect,
-          });
+      return shareLink ? toStoredShareLink(shareLink) : null;
+    },
+
+    async findShareByTokenLookupKey(tokenLookupKey) {
+      const client = getClient();
+      const shareLink = await client.shareLink.findUnique({
+        where: {
+          tokenLookupKey,
+        },
+        select: shareLinkSelect,
+      });
+
+      return shareLink ? toStoredShareLink(shareLink) : null;
+    },
+
+    async listSharesByCreator(createdByUserId) {
+      const client = getClient();
+      const shareLinks = await client.shareLink.findMany({
+        where: {
+          createdByUserId,
+        },
+        orderBy: [
+          {
+            revokedAt: "asc",
+          },
+          {
+            updatedAt: "desc",
+          },
+        ],
+        select: shareLinkSelect,
+      });
+
+      return shareLinks.map(toStoredShareLink);
+    },
+
+    async saveShareForTarget(params) {
+      const client = getClient();
+
+      return client.$transaction(async (tx) => {
+        const existing =
+          params.targetType === "file"
+            ? params.fileId
+              ? await tx.shareLink.findUnique({
+                  where: {
+                    fileId: params.fileId,
+                  },
+                  select: shareLinkSelect,
+                })
+              : null
+            : params.folderId
+              ? await tx.shareLink.findUnique({
+                  where: {
+                    folderId: params.folderId,
+                  },
+                  select: shareLinkSelect,
+                })
+              : null;
+
+        const shareLink = existing
+          ? await tx.shareLink.update({
+              where: {
+                id: existing.id,
+              },
+              data: {
+                tokenLookupKey: params.tokenLookupKey,
+                tokenHash: params.tokenHash,
+                passwordHash: params.passwordHash,
+                downloadDisabled: params.downloadDisabled,
+                expiresAt: params.expiresAt,
+                revokedAt: params.revokedAt ?? null,
+              },
+              select: shareLinkSelect,
+            })
+          : await tx.shareLink.create({
+              data: {
+                createdByUserId: params.createdByUserId,
+                targetType: params.targetType,
+                fileId: params.fileId ?? null,
+                folderId: params.folderId ?? null,
+                tokenLookupKey: params.tokenLookupKey,
+                tokenHash: params.tokenHash,
+                passwordHash: params.passwordHash,
+                downloadDisabled: params.downloadDisabled,
+                expiresAt: params.expiresAt,
+                revokedAt: params.revokedAt ?? null,
+              },
+              select: shareLinkSelect,
+            });
+
+        return toStoredShareLink(shareLink);
+      });
+    },
+
+    async createShare(params) {
+      const client = getClient();
+      const shareLink = await client.shareLink.create({
+        data: {
+          createdByUserId: params.createdByUserId,
+          targetType: params.targetType,
+          fileId: params.fileId ?? null,
+          folderId: params.folderId ?? null,
+          tokenLookupKey: params.tokenLookupKey,
+          tokenHash: params.tokenHash,
+          passwordHash: params.passwordHash,
+          downloadDisabled: params.downloadDisabled,
+          expiresAt: params.expiresAt,
+          revokedAt: params.revokedAt ?? null,
+        },
+        select: shareLinkSelect,
+      });
 
       return toStoredShareLink(shareLink);
-    });
-  },
+    },
 
-  async createShare(params) {
-    const shareLink = await client.shareLink.create({
-      data: {
-        createdByUserId: params.createdByUserId,
-        targetType: params.targetType,
-        fileId: params.fileId ?? null,
-        folderId: params.folderId ?? null,
-        tokenLookupKey: params.tokenLookupKey,
-        tokenHash: params.tokenHash,
-        passwordHash: params.passwordHash,
-        downloadDisabled: params.downloadDisabled,
-        expiresAt: params.expiresAt,
-        revokedAt: params.revokedAt ?? null,
-      },
-      select: shareLinkSelect,
-    });
+    async updateShare(params) {
+      const client = getClient();
+      const data: Prisma.ShareLinkUpdateInput = {};
 
-    return toStoredShareLink(shareLink);
-  },
+      if ("tokenLookupKey" in params && params.tokenLookupKey !== undefined) {
+        data.tokenLookupKey = params.tokenLookupKey;
+      }
 
-  async updateShare(params) {
-    const data: Prisma.ShareLinkUpdateInput = {};
+      if ("tokenHash" in params && params.tokenHash !== undefined) {
+        data.tokenHash = params.tokenHash;
+      }
 
-    if ("tokenLookupKey" in params && params.tokenLookupKey !== undefined) {
-      data.tokenLookupKey = params.tokenLookupKey;
-    }
+      if ("passwordHash" in params) {
+        data.passwordHash = params.passwordHash;
+      }
 
-    if ("tokenHash" in params && params.tokenHash !== undefined) {
-      data.tokenHash = params.tokenHash;
-    }
+      if (
+        "downloadDisabled" in params &&
+        params.downloadDisabled !== undefined
+      ) {
+        data.downloadDisabled = params.downloadDisabled;
+      }
 
-    if ("passwordHash" in params) {
-      data.passwordHash = params.passwordHash;
-    }
+      if ("expiresAt" in params && params.expiresAt !== undefined) {
+        data.expiresAt = params.expiresAt;
+      }
 
-    if ("downloadDisabled" in params && params.downloadDisabled !== undefined) {
-      data.downloadDisabled = params.downloadDisabled;
-    }
+      if ("revokedAt" in params) {
+        data.revokedAt = params.revokedAt;
+      }
 
-    if ("expiresAt" in params && params.expiresAt !== undefined) {
-      data.expiresAt = params.expiresAt;
-    }
+      const shareLink = await client.shareLink.update({
+        where: {
+          id: params.id,
+        },
+        data,
+        select: shareLinkSelect,
+      });
 
-    if ("revokedAt" in params) {
-      data.revokedAt = params.revokedAt;
-    }
+      return toStoredShareLink(shareLink);
+    },
 
-    const shareLink = await client.shareLink.update({
-      where: {
-        id: params.id,
-      },
-      data,
-      select: shareLinkSelect,
-    });
+    async deleteShare(shareId) {
+      const client = getClient();
 
-    return toStoredShareLink(shareLink);
-  },
-
-  async deleteShare(shareId) {
-    await client.shareLink.delete({
-      where: {
-        id: shareId,
-      },
-    });
-  },
-});
+      await client.shareLink.delete({
+        where: {
+          id: shareId,
+        },
+      });
+    },
+  };
+};
 
 export const prismaSharingRepository = createPrismaSharingRepository();
