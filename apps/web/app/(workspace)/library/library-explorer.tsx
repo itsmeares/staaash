@@ -387,7 +387,11 @@ export function LibraryExplorer({
                     <div className="stack">
                       <a
                         className="folder-link"
-                        href={`/api/library/files/${file.id}/download`}
+                        href={
+                          file.viewerKind
+                            ? `/library/files/${file.id}`
+                            : `/api/library/files/${file.id}/download`
+                        }
                       >
                         {file.name}
                       </a>
@@ -401,21 +405,13 @@ export function LibraryExplorer({
                       {favoriteFileIdSet.has(file.id) ? (
                         <span className="pill">Favorite</span>
                       ) : null}
-                      {file.previewKind ? (
-                        file.previewStatus === "ready" ? (
-                          <a
-                            className="button button-secondary"
-                            href={`/api/library/files/${file.id}/preview`}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Preview
-                          </a>
-                        ) : file.previewStatus === "pending" ? (
-                          <span className="pill">Generating preview</span>
-                        ) : (
-                          <span className="pill">Preview unavailable</span>
-                        )
+                      {file.viewerKind ? (
+                        <a
+                          className="button button-secondary"
+                          href={`/library/files/${file.id}`}
+                        >
+                          Open
+                        </a>
                       ) : null}
                       <a
                         className="button button-secondary"

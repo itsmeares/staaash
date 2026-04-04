@@ -56,7 +56,7 @@ const makeFile = (
   updatedAt: new Date("2026-04-02T12:00:00.000Z"),
   storageKey: "library/alice/notes.txt",
   contentChecksum: null,
-  previewStatus: "pending",
+  viewerKind: null,
   ...overrides,
 });
 

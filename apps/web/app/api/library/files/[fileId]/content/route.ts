@@ -4,6 +4,11 @@ import { getRequestSession } from "@/server/auth/guards";
 import { notSignedInResponse } from "@/server/auth/http";
 import { LibraryError } from "@/server/library/errors";
 import { getAccessiblePrivateFile } from "@/server/library/viewer";
+import {
+  createInlineOriginalContentResponse,
+  createMediaErrorResponse,
+  MediaContentError,
+} from "@/server/media/content-response";
 
 type RouteContext = {
   params: Promise<{
@@ -14,10 +19,9 @@ type RouteContext = {
 export async function GET(request: NextRequest, { params }: RouteContext) {
   const { fileId } = await params;
   const session = await getRequestSession(request);
-  const redirectTarget = `/api/library/files/${fileId}/content`;
 
   if (!session) {
-    return notSignedInResponse(request, redirectTarget);
+    return notSignedInResponse(request, `/api/library/files/${fileId}/content`);
   }
 
   try {
@@ -27,17 +31,10 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       fileId,
     });
 
-    if (!file.viewerKind) {
-      return Response.json(
-        {
-          error: "Preview not supported for this file type.",
-          code: "PREVIEW_UNSUPPORTED",
-        },
-        { status: 404 },
-      );
-    }
-
-    return Response.redirect(new URL(redirectTarget, request.url), 307);
+    return await createInlineOriginalContentResponse({
+      request,
+      file,
+    });
   } catch (error) {
     if (error instanceof LibraryError) {
       return Response.json(
@@ -46,6 +43,10 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       );
     }
 
-    return Response.json({ error: "Preview unavailable." }, { status: 404 });
+    if (error instanceof MediaContentError) {
+      return createMediaErrorResponse(error);
+    }
+
+    return Response.json({ error: "Content unavailable." }, { status: 404 });
   }
 }

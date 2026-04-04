@@ -1,4 +1,5 @@
 import type { UserRole } from "@/server/types";
+import type { ViewerKind } from "@staaash/db/viewer-contract";
 
 export type LibraryActor = {
   actorUserId: string;
@@ -17,8 +18,6 @@ export type LibraryFolderSummary = {
   updatedAt: Date;
 };
 
-export type PreviewKind = "image" | "pdf" | "text" | "audio" | "video";
-
 export type LibraryFileSummary = {
   id: string;
   ownerUserId: string;
@@ -27,8 +26,7 @@ export type LibraryFileSummary = {
   name: string;
   mimeType: string;
   sizeBytes: number;
-  previewStatus: "pending" | "ready" | "failed";
-  previewKind: PreviewKind | null;
+  viewerKind: ViewerKind | null;
   deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;

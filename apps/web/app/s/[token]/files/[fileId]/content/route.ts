@@ -3,6 +3,11 @@ import { cookies } from "next/headers";
 import { createShareErrorResponse } from "@/app/s/share-response";
 import { SHARE_ACCESS_COOKIE_NAME } from "@/server/sharing/access-cookie";
 import { sharingService } from "@/server/sharing/service";
+import {
+  createInlineOriginalContentResponse,
+  createMediaErrorResponse,
+  MediaContentError,
+} from "@/server/media/content-response";
 
 export async function GET(
   request: Request,
@@ -19,23 +24,15 @@ export async function GET(
         cookieStore.get(SHARE_ACCESS_COOKIE_NAME)?.value ?? null,
     });
 
-    if (!file.viewerKind) {
-      return new Response("Preview not supported for this file type.", {
-        status: 404,
-        headers: {
-          "content-type": "text/plain; charset=utf-8",
-        },
-      });
+    return await createInlineOriginalContentResponse({
+      request,
+      file,
+    });
+  } catch (error) {
+    if (error instanceof MediaContentError) {
+      return createMediaErrorResponse(error);
     }
 
-    return Response.redirect(
-      new URL(
-        `/s/${encodeURIComponent(token)}/files/${fileId}/content`,
-        request.url,
-      ),
-      307,
-    );
-  } catch (error) {
     return createShareErrorResponse(error);
   }
 }

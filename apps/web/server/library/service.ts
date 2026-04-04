@@ -57,10 +57,6 @@ type CreateLibraryServiceOptions = {
   repo?: LibraryRepository;
   now?: () => Date;
   scheduleStagingCleanupJob?: (runAt: Date) => Promise<void>;
-  schedulePreviewGenerateJob?: (
-    fileId: string,
-    ownerUserId: string,
-  ) => Promise<void>;
 };
 
 type FolderLookupInput = LibraryActor & {
@@ -139,8 +135,7 @@ const toLibraryFileSummary = (
     | "name"
     | "mimeType"
     | "sizeBytes"
-    | "previewStatus"
-    | "previewKind"
+    | "viewerKind"
     | "deletedAt"
     | "createdAt"
     | "updatedAt"
@@ -153,8 +148,7 @@ const toLibraryFileSummary = (
   name: file.name,
   mimeType: file.mimeType,
   sizeBytes: file.sizeBytes,
-  previewStatus: file.previewStatus,
-  previewKind: file.previewKind,
+  viewerKind: file.viewerKind,
   deletedAt: file.deletedAt,
   createdAt: file.createdAt,
   updatedAt: file.updatedAt,
@@ -348,7 +342,6 @@ export const createLibraryService = ({
   repo,
   now = () => new Date(),
   scheduleStagingCleanupJob,
-  schedulePreviewGenerateJob,
 }: CreateLibraryServiceOptions = {}) => {
   const resolveRepo = async (): Promise<LibraryRepository> =>
     repo ?? (await import("./repository")).prismaLibraryRepository;
@@ -758,26 +751,6 @@ export const createLibraryService = ({
       runAt: new Date(runAt.getTime() + STAGING_CLEANUP_SCHEDULE_WINDOW_MS),
       payloadJson: {},
       windowEnd: new Date(runAt.getTime() + STAGING_CLEANUP_SCHEDULE_WINDOW_MS),
-    });
-  };
-
-  const schedulePreviewGenerate = async (
-    fileId: string,
-    ownerUserId: string,
-  ) => {
-    if (schedulePreviewGenerateJob) {
-      await schedulePreviewGenerateJob(fileId, ownerUserId);
-      return;
-    }
-
-    const { ensureBackgroundJobScheduled, PREVIEW_GENERATE_JOB_KIND } =
-      await import("@staaash/db/jobs");
-
-    await ensureBackgroundJobScheduled({
-      kind: PREVIEW_GENERATE_JOB_KIND,
-      runAt: now(),
-      payloadJson: { fileId },
-      dedupeKey: `preview:${fileId}`,
     });
   };
 
@@ -2044,13 +2017,6 @@ export const createLibraryService = ({
                   });
 
                   uploadedFiles.push(toLibraryFileSummary(updated));
-                  // Best-effort: re-enqueue preview for replaced file
-                  void schedulePreviewGenerate(
-                    updated.id,
-                    updated.ownerUserId,
-                  ).catch(() => {
-                    // Preview scheduling is non-critical — failure must not roll back the upload
-                  });
                   return;
                 }
 
@@ -2124,13 +2090,6 @@ export const createLibraryService = ({
                 });
 
                 uploadedFiles.push(toLibraryFileSummary(createdFile));
-                // Best-effort: enqueue preview generation for new file
-                void schedulePreviewGenerate(
-                  createdFile.id,
-                  createdFile.ownerUserId,
-                ).catch(() => {
-                  // Preview scheduling is non-critical — failure must not roll back the upload
-                });
               } catch (error) {
                 await rm(targetPath, {
                   force: true,

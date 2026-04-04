@@ -132,8 +132,7 @@ const createMemoryRepository = () => {
       mimeType,
       sizeBytes,
       contentChecksum,
-      previewStatus: "pending",
-      previewKind: null,
+      viewerKind: null,
       deletedAt,
       createdAt: now,
       updatedAt: now,
@@ -241,8 +240,7 @@ const createMemoryRepository = () => {
         mimeType: params.mimeType,
         sizeBytes: params.sizeBytes,
         contentChecksum: params.contentChecksum,
-        previewStatus: "pending",
-        previewKind: null,
+        viewerKind: null,
         deletedAt: null,
         createdAt: now,
         updatedAt: now,
@@ -387,7 +385,6 @@ const createService = (repo: LibraryRepository) =>
   createLibraryService({
     repo,
     scheduleStagingCleanupJob: async () => undefined,
-    schedulePreviewGenerateJob: async () => undefined,
   });
 
 const cleanDataRoot = () =>

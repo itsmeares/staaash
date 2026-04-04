@@ -199,8 +199,7 @@ const toLibraryFileSummary = (file: StoredLibraryFile): LibraryFileSummary => ({
   name: file.name,
   mimeType: file.mimeType,
   sizeBytes: file.sizeBytes,
-  previewStatus: file.previewStatus,
-  previewKind: file.previewKind,
+  viewerKind: file.viewerKind,
   deletedAt: file.deletedAt,
   createdAt: file.createdAt,
   updatedAt: file.updatedAt,
@@ -1078,7 +1077,7 @@ export const createSharingService = ({
         files,
       });
     },
-    async getSharedFilePreview({
+    async getSharedFileContent({
       token,
       shareAccessCookieValue,
     }: {
@@ -1098,7 +1097,7 @@ export const createSharingService = ({
         throw new ShareError("SHARE_PASSWORD_REQUIRED");
       }
 
-      // downloadDisabled does NOT block previews — intentional policy
+      // downloadDisabled does NOT block inline viewing — intentional policy
 
       const file = (await (
         await resolveLibraryRepo()
@@ -1107,7 +1106,7 @@ export const createSharingService = ({
       return { file };
     },
 
-    async getSharedNestedFilePreview({
+    async getSharedNestedFileContent({
       token,
       fileId,
       shareAccessCookieValue,
@@ -1129,7 +1128,7 @@ export const createSharingService = ({
         throw new ShareError("SHARE_PASSWORD_REQUIRED");
       }
 
-      // downloadDisabled does NOT block previews — intentional policy
+      // downloadDisabled does NOT block inline viewing — intentional policy
 
       const libraryRepo = await resolveLibraryRepo();
       const file = await libraryRepo.findFileById(fileId);
