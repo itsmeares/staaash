@@ -40,3 +40,11 @@ Use it when you need to check whether something is already decided before reopen
 - admin health is a first-class surface
 - backup baseline is crash-consistent backup
 - restore requires reconciliation instead of silent best effort
+
+## Phase 6: Preview System (2026-04-04)
+
+- `downloadDisabled` does **not** block previews — only blocks downloads
+- preview scheduling is **best-effort**: failures do not roll back successful uploads
+- preview jobs use `dedupeKey: "preview:<fileId>"` to prevent pile-up
+- preview asset path is `previews/<ownerUserId>/<fileId>/<kind>.<ext>` (via `preview-contract`)
+- admin health `/version` block now reads live update-check state from the `Instance` singleton (`readInstanceUpdateCheck`), replacing the old static placeholder

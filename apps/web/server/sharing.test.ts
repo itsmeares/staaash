@@ -60,6 +60,8 @@ const lockedFileResolution: PublicShareResolution = {
     name: "plan.txt",
     mimeType: "text/plain",
     sizeBytes: 120,
+    previewStatus: "pending",
+    previewKind: null,
     deletedAt: null,
     createdAt: fixedNow,
     updatedAt: fixedNow,
