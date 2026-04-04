@@ -391,6 +391,10 @@ export const ModelName = {
   PasswordReset: 'PasswordReset',
   Folder: 'Folder',
   File: 'File',
+  FavoriteFile: 'FavoriteFile',
+  FavoriteFolder: 'FavoriteFolder',
+  RecentFile: 'RecentFile',
+  RecentFolder: 'RecentFolder',
   ShareLink: 'ShareLink',
   BackgroundJob: 'BackgroundJob'
 } as const
@@ -408,7 +412,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "instance" | "user" | "session" | "invite" | "passwordReset" | "folder" | "file" | "shareLink" | "backgroundJob"
+    modelProps: "instance" | "user" | "session" | "invite" | "passwordReset" | "folder" | "file" | "favoriteFile" | "favoriteFolder" | "recentFile" | "recentFolder" | "shareLink" | "backgroundJob"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -930,6 +934,302 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    FavoriteFile: {
+      payload: Prisma.$FavoriteFilePayload<ExtArgs>
+      fields: Prisma.FavoriteFileFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.FavoriteFileFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FavoriteFilePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.FavoriteFileFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FavoriteFilePayload>
+        }
+        findFirst: {
+          args: Prisma.FavoriteFileFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FavoriteFilePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.FavoriteFileFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FavoriteFilePayload>
+        }
+        findMany: {
+          args: Prisma.FavoriteFileFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FavoriteFilePayload>[]
+        }
+        create: {
+          args: Prisma.FavoriteFileCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FavoriteFilePayload>
+        }
+        createMany: {
+          args: Prisma.FavoriteFileCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.FavoriteFileCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FavoriteFilePayload>[]
+        }
+        delete: {
+          args: Prisma.FavoriteFileDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FavoriteFilePayload>
+        }
+        update: {
+          args: Prisma.FavoriteFileUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FavoriteFilePayload>
+        }
+        deleteMany: {
+          args: Prisma.FavoriteFileDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.FavoriteFileUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.FavoriteFileUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FavoriteFilePayload>[]
+        }
+        upsert: {
+          args: Prisma.FavoriteFileUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FavoriteFilePayload>
+        }
+        aggregate: {
+          args: Prisma.FavoriteFileAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateFavoriteFile>
+        }
+        groupBy: {
+          args: Prisma.FavoriteFileGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FavoriteFileGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.FavoriteFileCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FavoriteFileCountAggregateOutputType> | number
+        }
+      }
+    }
+    FavoriteFolder: {
+      payload: Prisma.$FavoriteFolderPayload<ExtArgs>
+      fields: Prisma.FavoriteFolderFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.FavoriteFolderFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FavoriteFolderPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.FavoriteFolderFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FavoriteFolderPayload>
+        }
+        findFirst: {
+          args: Prisma.FavoriteFolderFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FavoriteFolderPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.FavoriteFolderFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FavoriteFolderPayload>
+        }
+        findMany: {
+          args: Prisma.FavoriteFolderFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FavoriteFolderPayload>[]
+        }
+        create: {
+          args: Prisma.FavoriteFolderCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FavoriteFolderPayload>
+        }
+        createMany: {
+          args: Prisma.FavoriteFolderCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.FavoriteFolderCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FavoriteFolderPayload>[]
+        }
+        delete: {
+          args: Prisma.FavoriteFolderDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FavoriteFolderPayload>
+        }
+        update: {
+          args: Prisma.FavoriteFolderUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FavoriteFolderPayload>
+        }
+        deleteMany: {
+          args: Prisma.FavoriteFolderDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.FavoriteFolderUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.FavoriteFolderUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FavoriteFolderPayload>[]
+        }
+        upsert: {
+          args: Prisma.FavoriteFolderUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FavoriteFolderPayload>
+        }
+        aggregate: {
+          args: Prisma.FavoriteFolderAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateFavoriteFolder>
+        }
+        groupBy: {
+          args: Prisma.FavoriteFolderGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FavoriteFolderGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.FavoriteFolderCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FavoriteFolderCountAggregateOutputType> | number
+        }
+      }
+    }
+    RecentFile: {
+      payload: Prisma.$RecentFilePayload<ExtArgs>
+      fields: Prisma.RecentFileFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.RecentFileFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RecentFilePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.RecentFileFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RecentFilePayload>
+        }
+        findFirst: {
+          args: Prisma.RecentFileFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RecentFilePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.RecentFileFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RecentFilePayload>
+        }
+        findMany: {
+          args: Prisma.RecentFileFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RecentFilePayload>[]
+        }
+        create: {
+          args: Prisma.RecentFileCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RecentFilePayload>
+        }
+        createMany: {
+          args: Prisma.RecentFileCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.RecentFileCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RecentFilePayload>[]
+        }
+        delete: {
+          args: Prisma.RecentFileDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RecentFilePayload>
+        }
+        update: {
+          args: Prisma.RecentFileUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RecentFilePayload>
+        }
+        deleteMany: {
+          args: Prisma.RecentFileDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.RecentFileUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.RecentFileUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RecentFilePayload>[]
+        }
+        upsert: {
+          args: Prisma.RecentFileUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RecentFilePayload>
+        }
+        aggregate: {
+          args: Prisma.RecentFileAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateRecentFile>
+        }
+        groupBy: {
+          args: Prisma.RecentFileGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.RecentFileGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.RecentFileCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.RecentFileCountAggregateOutputType> | number
+        }
+      }
+    }
+    RecentFolder: {
+      payload: Prisma.$RecentFolderPayload<ExtArgs>
+      fields: Prisma.RecentFolderFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.RecentFolderFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RecentFolderPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.RecentFolderFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RecentFolderPayload>
+        }
+        findFirst: {
+          args: Prisma.RecentFolderFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RecentFolderPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.RecentFolderFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RecentFolderPayload>
+        }
+        findMany: {
+          args: Prisma.RecentFolderFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RecentFolderPayload>[]
+        }
+        create: {
+          args: Prisma.RecentFolderCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RecentFolderPayload>
+        }
+        createMany: {
+          args: Prisma.RecentFolderCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.RecentFolderCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RecentFolderPayload>[]
+        }
+        delete: {
+          args: Prisma.RecentFolderDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RecentFolderPayload>
+        }
+        update: {
+          args: Prisma.RecentFolderUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RecentFolderPayload>
+        }
+        deleteMany: {
+          args: Prisma.RecentFolderDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.RecentFolderUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.RecentFolderUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RecentFolderPayload>[]
+        }
+        upsert: {
+          args: Prisma.RecentFolderUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RecentFolderPayload>
+        }
+        aggregate: {
+          args: Prisma.RecentFolderAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateRecentFolder>
+        }
+        groupBy: {
+          args: Prisma.RecentFolderGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.RecentFolderGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.RecentFolderCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.RecentFolderCountAggregateOutputType> | number
+        }
+      }
+    }
     ShareLink: {
       payload: Prisma.$ShareLinkPayload<ExtArgs>
       fields: Prisma.ShareLinkFieldRefs
@@ -1217,6 +1517,46 @@ export const FileScalarFieldEnum = {
 } as const
 
 export type FileScalarFieldEnum = (typeof FileScalarFieldEnum)[keyof typeof FileScalarFieldEnum]
+
+
+export const FavoriteFileScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  fileId: 'fileId',
+  createdAt: 'createdAt'
+} as const
+
+export type FavoriteFileScalarFieldEnum = (typeof FavoriteFileScalarFieldEnum)[keyof typeof FavoriteFileScalarFieldEnum]
+
+
+export const FavoriteFolderScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  folderId: 'folderId',
+  createdAt: 'createdAt'
+} as const
+
+export type FavoriteFolderScalarFieldEnum = (typeof FavoriteFolderScalarFieldEnum)[keyof typeof FavoriteFolderScalarFieldEnum]
+
+
+export const RecentFileScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  fileId: 'fileId',
+  lastInteractedAt: 'lastInteractedAt'
+} as const
+
+export type RecentFileScalarFieldEnum = (typeof RecentFileScalarFieldEnum)[keyof typeof RecentFileScalarFieldEnum]
+
+
+export const RecentFolderScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  folderId: 'folderId',
+  lastInteractedAt: 'lastInteractedAt'
+} as const
+
+export type RecentFolderScalarFieldEnum = (typeof RecentFolderScalarFieldEnum)[keyof typeof RecentFolderScalarFieldEnum]
 
 
 export const ShareLinkScalarFieldEnum = {
@@ -1550,6 +1890,10 @@ export type GlobalOmitConfig = {
   passwordReset?: Prisma.PasswordResetOmit
   folder?: Prisma.FolderOmit
   file?: Prisma.FileOmit
+  favoriteFile?: Prisma.FavoriteFileOmit
+  favoriteFolder?: Prisma.FavoriteFolderOmit
+  recentFile?: Prisma.RecentFileOmit
+  recentFolder?: Prisma.RecentFolderOmit
   shareLink?: Prisma.ShareLinkOmit
   backgroundJob?: Prisma.BackgroundJobOmit
 }

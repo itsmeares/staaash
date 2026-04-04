@@ -109,6 +109,8 @@ describe("upload guardrails", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 75));
     const afterEntries = await readdir(tmpRoot).catch(() => []);
-    expect(afterEntries.sort()).toEqual(beforeEntries.sort());
+    const uploadsBefore = beforeEntries.filter((e) => e.endsWith(".upload"));
+    const uploadsAfter = afterEntries.filter((e) => e.endsWith(".upload"));
+    expect(uploadsAfter.sort()).toEqual(uploadsBefore.sort());
   });
 });

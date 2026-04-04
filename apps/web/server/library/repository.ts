@@ -1,4 +1,4 @@
-import { Prisma, prisma } from "@staaash/db/client";
+import { Prisma, getPrisma } from "@staaash/db/client";
 
 import type {
   LibraryFolderSummary,
@@ -114,6 +114,7 @@ type FolderDelegate = {
   create(args: Prisma.FolderCreateArgs): Promise<LibraryFolderRecord>;
   update(args: Prisma.FolderUpdateArgs): Promise<LibraryFolderRecord>;
   updateMany(args: Prisma.FolderUpdateManyArgs): Promise<unknown>;
+  deleteMany(args: Prisma.FolderDeleteManyArgs): Promise<unknown>;
 };
 
 type FileDelegate = {
@@ -125,6 +126,11 @@ type FileDelegate = {
   update(args: Prisma.FileUpdateArgs): Promise<LibraryFileRecord>;
   updateMany(args: Prisma.FileUpdateManyArgs): Promise<unknown>;
   delete(args: Prisma.FileDeleteArgs): Promise<unknown>;
+  deleteMany(args: Prisma.FileDeleteManyArgs): Promise<unknown>;
+};
+
+type DeleteManyResult = {
+  count: number;
 };
 
 type LibraryTransactionClient = {
@@ -268,293 +274,351 @@ export type LibraryRepository = {
   updateFolders(params: UpdateFoldersParams): Promise<void>;
   updateFiles(params: UpdateFilesParams): Promise<void>;
   deleteFile(fileId: string): Promise<void>;
+  deleteFiles(fileIds: string[]): Promise<number>;
+  deleteFolders(folderIds: string[]): Promise<number>;
 };
 
 export const createPrismaLibraryRepository = (
-  client: LibraryPrismaClient = prisma as unknown as LibraryPrismaClient,
-): LibraryRepository => ({
-  async ensureLibraryRoot(ownerUserId) {
-    const existingRoots = sortLegacyRoots(
-      await listLegacyRoots(client, ownerUserId),
-    );
+  client?: LibraryPrismaClient,
+): LibraryRepository => {
+  const getClient = () =>
+    client ?? (getPrisma() as unknown as LibraryPrismaClient);
 
-    if (existingRoots.length === 1) {
-      return toLibraryFolderSummary(existingRoots[0]);
-    }
+  return {
+    async ensureLibraryRoot(ownerUserId) {
+      const client = getClient();
+      const existingRoots = sortLegacyRoots(
+        await listLegacyRoots(client, ownerUserId),
+      );
 
-    try {
-      return await client.$transaction(async (tx) => {
-        const legacyRoots = sortLegacyRoots(
-          await listLegacyRoots(tx, ownerUserId),
-        );
+      if (existingRoots.length === 1) {
+        return toLibraryFolderSummary(existingRoots[0]);
+      }
 
-        if (legacyRoots.length === 0) {
-          return createCanonicalRoot(tx, ownerUserId);
-        }
+      try {
+        return await client.$transaction(async (tx) => {
+          const legacyRoots = sortLegacyRoots(
+            await listLegacyRoots(tx, ownerUserId),
+          );
 
-        if (legacyRoots.length === 1) {
-          return toLibraryFolderSummary(legacyRoots[0]);
-        }
+          if (legacyRoots.length === 0) {
+            return createCanonicalRoot(tx, ownerUserId);
+          }
 
-        const [legacyCanonicalRoot, ...duplicateRoots] = legacyRoots;
-        const repairedCanonicalRoot = await tx.folder.update({
-          where: {
-            id: legacyCanonicalRoot.id,
-          },
-          data: {
-            isLibraryRoot: true,
-            parentId: null,
-            deletedAt: null,
-          },
-          select: libraryFolderSelect,
-        });
+          if (legacyRoots.length === 1) {
+            return toLibraryFolderSummary(legacyRoots[0]);
+          }
 
-        for (const duplicateRoot of duplicateRoots) {
-          await tx.folder.update({
+          const [legacyCanonicalRoot, ...duplicateRoots] = legacyRoots;
+          const repairedCanonicalRoot = await tx.folder.update({
             where: {
-              id: duplicateRoot.id,
+              id: legacyCanonicalRoot.id,
             },
             data: {
-              isLibraryRoot: false,
-              parentId: repairedCanonicalRoot.id,
+              isLibraryRoot: true,
+              parentId: null,
+              deletedAt: null,
             },
             select: libraryFolderSelect,
           });
-        }
 
-        return toLibraryFolderSummary(repairedCanonicalRoot);
+          for (const duplicateRoot of duplicateRoots) {
+            await tx.folder.update({
+              where: {
+                id: duplicateRoot.id,
+              },
+              data: {
+                isLibraryRoot: false,
+                parentId: repairedCanonicalRoot.id,
+              },
+              select: libraryFolderSelect,
+            });
+          }
+
+          return toLibraryFolderSummary(repairedCanonicalRoot);
+        });
+      } catch (error) {
+        throw error;
+      }
+    },
+
+    async findFolderById(folderId) {
+      const client = getClient();
+      const folder = await client.folder.findUnique({
+        where: {
+          id: folderId,
+        },
+        select: libraryFolderSelect,
       });
-    } catch (error) {
-      throw error;
-    }
-  },
 
-  async findFolderById(folderId) {
-    const folder = await client.folder.findUnique({
-      where: {
-        id: folderId,
-      },
-      select: libraryFolderSelect,
-    });
+      return folder ? toLibraryFolderSummary(folder) : null;
+    },
 
-    return folder ? toLibraryFolderSummary(folder) : null;
-  },
-
-  async findFileById(fileId) {
-    const file = await client.file.findUnique({
-      where: {
-        id: fileId,
-      },
-      select: libraryFileSelect,
-    });
-
-    return file ? toStoredLibraryFile(file) : null;
-  },
-
-  async listChildFolders(ownerUserId, parentId, options = {}) {
-    const folders = await client.folder.findMany({
-      where: {
-        ownerUserId,
-        parentId,
-        ...(options.includeDeleted ? {} : { deletedAt: null }),
-      },
-      orderBy: [{ name: "asc" }, { createdAt: "asc" }],
-      select: libraryFolderSelect,
-    });
-
-    return folders.map(toLibraryFolderSummary);
-  },
-
-  async listChildFiles(ownerUserId, folderId, options = {}) {
-    const files = await client.file.findMany({
-      where: {
-        ownerUserId,
-        folderId,
-        ...(options.includeDeleted ? {} : { deletedAt: null }),
-      },
-      orderBy: [{ originalName: "asc" }, { createdAt: "asc" }],
-      select: libraryFileSelect,
-    });
-
-    return files.map(toStoredLibraryFile);
-  },
-
-  async listFoldersByOwner(ownerUserId, options = {}) {
-    const folders = await client.folder.findMany({
-      where: {
-        ownerUserId,
-        ...(options.includeDeleted ? {} : { deletedAt: null }),
-      },
-      orderBy: [
-        { isLibraryRoot: "desc" },
-        { parentId: "asc" },
-        { name: "asc" },
-        { createdAt: "asc" },
-      ],
-      select: libraryFolderSelect,
-    });
-
-    return folders.map(toLibraryFolderSummary);
-  },
-
-  async listFilesByOwner(ownerUserId, options = {}) {
-    const files = await client.file.findMany({
-      where: {
-        ownerUserId,
-        ...(options.includeDeleted ? {} : { deletedAt: null }),
-      },
-      orderBy: [
-        { folderId: "asc" },
-        { originalName: "asc" },
-        { createdAt: "asc" },
-      ],
-      select: libraryFileSelect,
-    });
-
-    return files.map(toStoredLibraryFile);
-  },
-
-  async createFolder(params) {
-    const folder = await client.folder.create({
-      data: {
-        ownerUserId: params.ownerUserId,
-        parentId: params.parentId,
-        name: params.name,
-        isLibraryRoot: params.isLibraryRoot ?? false,
-      },
-      select: libraryFolderSelect,
-    });
-
-    return toLibraryFolderSummary(folder);
-  },
-
-  async createFile(params) {
-    const file = await client.file.create({
-      data: {
-        id: params.id,
-        ownerUserId: params.ownerUserId,
-        folderId: params.folderId,
-        originalName: params.name,
-        storageKey: params.storageKey,
-        mimeType: params.mimeType,
-        sizeBytes: BigInt(params.sizeBytes),
-        contentChecksum: params.contentChecksum,
-      },
-      select: libraryFileSelect,
-    });
-
-    return toStoredLibraryFile(file);
-  },
-
-  async updateFolder(params) {
-    const data: Prisma.FolderUncheckedUpdateInput = {};
-
-    if ("name" in params) {
-      data.name = params.name;
-    }
-
-    if ("parentId" in params) {
-      data.parentId = params.parentId;
-    }
-
-    if ("deletedAt" in params) {
-      data.deletedAt = params.deletedAt;
-    }
-
-    const folder = await client.folder.update({
-      where: {
-        id: params.id,
-      },
-      data,
-      select: libraryFolderSelect,
-    });
-
-    return toLibraryFolderSummary(folder);
-  },
-
-  async updateFile(params) {
-    const data: Prisma.FileUncheckedUpdateInput = {};
-
-    if ("name" in params) {
-      data.originalName = params.name;
-    }
-
-    if ("folderId" in params) {
-      data.folderId = params.folderId;
-    }
-
-    if ("storageKey" in params) {
-      data.storageKey = params.storageKey;
-    }
-
-    if ("mimeType" in params) {
-      data.mimeType = params.mimeType;
-    }
-
-    if ("sizeBytes" in params && params.sizeBytes !== undefined) {
-      data.sizeBytes = BigInt(params.sizeBytes);
-    }
-
-    if ("contentChecksum" in params) {
-      data.contentChecksum = params.contentChecksum;
-    }
-
-    if ("deletedAt" in params) {
-      data.deletedAt = params.deletedAt;
-    }
-
-    const file = await client.file.update({
-      where: {
-        id: params.id,
-      },
-      data,
-      select: libraryFileSelect,
-    });
-
-    return toStoredLibraryFile(file);
-  },
-
-  async updateFolders(params) {
-    if (params.ids.length === 0) {
-      return;
-    }
-
-    await client.folder.updateMany({
-      where: {
-        id: {
-          in: params.ids,
+    async findFileById(fileId) {
+      const client = getClient();
+      const file = await client.file.findUnique({
+        where: {
+          id: fileId,
         },
-      },
-      data: {
-        deletedAt: params.deletedAt,
-      },
-    });
-  },
+        select: libraryFileSelect,
+      });
 
-  async updateFiles(params) {
-    if (params.ids.length === 0) {
-      return;
-    }
+      return file ? toStoredLibraryFile(file) : null;
+    },
 
-    await client.file.updateMany({
-      where: {
-        id: {
-          in: params.ids,
+    async listChildFolders(ownerUserId, parentId, options = {}) {
+      const client = getClient();
+      const folders = await client.folder.findMany({
+        where: {
+          ownerUserId,
+          parentId,
+          ...(options.includeDeleted ? {} : { deletedAt: null }),
         },
-      },
-      data: {
-        deletedAt: params.deletedAt,
-      },
-    });
-  },
+        orderBy: [{ name: "asc" }, { createdAt: "asc" }],
+        select: libraryFolderSelect,
+      });
 
-  async deleteFile(fileId) {
-    await client.file.delete({
-      where: {
-        id: fileId,
-      },
-    });
-  },
-});
+      return folders.map(toLibraryFolderSummary);
+    },
+
+    async listChildFiles(ownerUserId, folderId, options = {}) {
+      const client = getClient();
+      const files = await client.file.findMany({
+        where: {
+          ownerUserId,
+          folderId,
+          ...(options.includeDeleted ? {} : { deletedAt: null }),
+        },
+        orderBy: [{ originalName: "asc" }, { createdAt: "asc" }],
+        select: libraryFileSelect,
+      });
+
+      return files.map(toStoredLibraryFile);
+    },
+
+    async listFoldersByOwner(ownerUserId, options = {}) {
+      const client = getClient();
+      const folders = await client.folder.findMany({
+        where: {
+          ownerUserId,
+          ...(options.includeDeleted ? {} : { deletedAt: null }),
+        },
+        orderBy: [
+          { isLibraryRoot: "desc" },
+          { parentId: "asc" },
+          { name: "asc" },
+          { createdAt: "asc" },
+        ],
+        select: libraryFolderSelect,
+      });
+
+      return folders.map(toLibraryFolderSummary);
+    },
+
+    async listFilesByOwner(ownerUserId, options = {}) {
+      const client = getClient();
+      const files = await client.file.findMany({
+        where: {
+          ownerUserId,
+          ...(options.includeDeleted ? {} : { deletedAt: null }),
+        },
+        orderBy: [
+          { folderId: "asc" },
+          { originalName: "asc" },
+          { createdAt: "asc" },
+        ],
+        select: libraryFileSelect,
+      });
+
+      return files.map(toStoredLibraryFile);
+    },
+
+    async createFolder(params) {
+      const client = getClient();
+      const folder = await client.folder.create({
+        data: {
+          ownerUserId: params.ownerUserId,
+          parentId: params.parentId,
+          name: params.name,
+          isLibraryRoot: params.isLibraryRoot ?? false,
+        },
+        select: libraryFolderSelect,
+      });
+
+      return toLibraryFolderSummary(folder);
+    },
+
+    async createFile(params) {
+      const client = getClient();
+      const file = await client.file.create({
+        data: {
+          id: params.id,
+          ownerUserId: params.ownerUserId,
+          folderId: params.folderId,
+          originalName: params.name,
+          storageKey: params.storageKey,
+          mimeType: params.mimeType,
+          sizeBytes: BigInt(params.sizeBytes),
+          contentChecksum: params.contentChecksum,
+        },
+        select: libraryFileSelect,
+      });
+
+      return toStoredLibraryFile(file);
+    },
+
+    async updateFolder(params) {
+      const client = getClient();
+      const data: Prisma.FolderUncheckedUpdateInput = {};
+
+      if ("name" in params) {
+        data.name = params.name;
+      }
+
+      if ("parentId" in params) {
+        data.parentId = params.parentId;
+      }
+
+      if ("deletedAt" in params) {
+        data.deletedAt = params.deletedAt;
+      }
+
+      const folder = await client.folder.update({
+        where: {
+          id: params.id,
+        },
+        data,
+        select: libraryFolderSelect,
+      });
+
+      return toLibraryFolderSummary(folder);
+    },
+
+    async updateFile(params) {
+      const client = getClient();
+      const data: Prisma.FileUncheckedUpdateInput = {};
+
+      if ("name" in params) {
+        data.originalName = params.name;
+      }
+
+      if ("folderId" in params) {
+        data.folderId = params.folderId;
+      }
+
+      if ("storageKey" in params) {
+        data.storageKey = params.storageKey;
+      }
+
+      if ("mimeType" in params) {
+        data.mimeType = params.mimeType;
+      }
+
+      if ("sizeBytes" in params && params.sizeBytes !== undefined) {
+        data.sizeBytes = BigInt(params.sizeBytes);
+      }
+
+      if ("contentChecksum" in params) {
+        data.contentChecksum = params.contentChecksum;
+      }
+
+      if ("deletedAt" in params) {
+        data.deletedAt = params.deletedAt;
+      }
+
+      const file = await client.file.update({
+        where: {
+          id: params.id,
+        },
+        data,
+        select: libraryFileSelect,
+      });
+
+      return toStoredLibraryFile(file);
+    },
+
+    async updateFolders(params) {
+      if (params.ids.length === 0) {
+        return;
+      }
+
+      const client = getClient();
+
+      await client.folder.updateMany({
+        where: {
+          id: {
+            in: params.ids,
+          },
+        },
+        data: {
+          deletedAt: params.deletedAt,
+        },
+      });
+    },
+
+    async updateFiles(params) {
+      if (params.ids.length === 0) {
+        return;
+      }
+
+      const client = getClient();
+
+      await client.file.updateMany({
+        where: {
+          id: {
+            in: params.ids,
+          },
+        },
+        data: {
+          deletedAt: params.deletedAt,
+        },
+      });
+    },
+
+    async deleteFile(fileId) {
+      const client = getClient();
+
+      await client.file.delete({
+        where: {
+          id: fileId,
+        },
+      });
+    },
+
+    async deleteFiles(fileIds) {
+      if (fileIds.length === 0) {
+        return 0;
+      }
+
+      const client = getClient();
+      const result = (await client.file.deleteMany({
+        where: {
+          id: {
+            in: fileIds,
+          },
+        },
+      })) as DeleteManyResult;
+
+      return result.count;
+    },
+
+    async deleteFolders(folderIds) {
+      if (folderIds.length === 0) {
+        return 0;
+      }
+
+      const client = getClient();
+      const result = (await client.folder.deleteMany({
+        where: {
+          id: {
+            in: folderIds,
+          },
+        },
+      })) as DeleteManyResult;
+
+      return result.count;
+    },
+  };
+};
 
 export const prismaLibraryRepository = createPrismaLibraryRepository();

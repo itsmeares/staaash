@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-process.env.DATABASE_URL ??=
-  "postgresql://staaash:staaash@localhost:5432/staaash";
-
 const {
   BACKGROUND_JOB_LEASE_MS,
   BACKGROUND_JOB_RETRY_DELAY_MS,

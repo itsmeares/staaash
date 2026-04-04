@@ -5,23 +5,27 @@ const globalForPrisma = globalThis as typeof globalThis & {
   __staaashPrisma?: PrismaClient;
 };
 
-const connectionString = process.env.DATABASE_URL;
+let productionPrisma: PrismaClient | undefined;
 
-if (!connectionString) {
-  throw new Error(
-    "DATABASE_URL is required before importing @staaash/db/client.",
-  );
+function createPrismaClient(): PrismaClient {
+  const connectionString = process.env.DATABASE_URL;
+
+  if (!connectionString) {
+    throw new Error("DATABASE_URL is required before calling getPrisma().");
+  }
+
+  const adapter = new PrismaPg({ connectionString });
+  return new PrismaClient({ adapter });
 }
 
-const adapter = new PrismaPg({
-  connectionString,
-});
+export function getPrisma(): PrismaClient {
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.__staaashPrisma ??= createPrismaClient();
+    return globalForPrisma.__staaashPrisma;
+  }
 
-export const prisma =
-  globalForPrisma.__staaashPrisma ?? new PrismaClient({ adapter });
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.__staaashPrisma = prisma;
+  productionPrisma ??= createPrismaClient();
+  return productionPrisma;
 }
 
 export { Prisma };
@@ -30,6 +34,7 @@ export type {
   Folder,
   Invite,
   PasswordReset,
+  PrismaClient,
   Session,
   ShareLink,
   ShareTargetType,

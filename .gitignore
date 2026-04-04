@@ -3,6 +3,7 @@ node_modules/
 
 # Build and framework output
 .next/
+next-env.d.ts
 dist/
 .turbo/
 coverage/

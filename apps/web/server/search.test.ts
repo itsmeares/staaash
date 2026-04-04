@@ -82,4 +82,33 @@ describe("search normalization", () => {
 
     expect(ranked.map((item) => item.id)).toEqual(["1", "2", "3"]);
   });
+
+  it("breaks equal-timestamp ties by normalized path, name, then id", () => {
+    const sharedUpdatedAt = new Date("2026-03-03T00:00:00.000Z");
+    const ranked = [
+      {
+        id: "b",
+        name: "Report.txt",
+        path: "Library / Beta / report.txt",
+        updatedAt: sharedUpdatedAt,
+        matchKind: "exact" as const,
+      },
+      {
+        id: "a",
+        name: "report.txt",
+        path: "Library / Alpha / report.txt",
+        updatedAt: sharedUpdatedAt,
+        matchKind: "exact" as const,
+      },
+      {
+        id: "c",
+        name: "z-report.txt",
+        path: "Library / Alpha / z-report.txt",
+        updatedAt: sharedUpdatedAt,
+        matchKind: "exact" as const,
+      },
+    ].sort(compareSearchResults);
+
+    expect(ranked.map((item) => item.id)).toEqual(["a", "c", "b"]);
+  });
 });

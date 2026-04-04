@@ -12,6 +12,7 @@ import {
   wantsJson,
 } from "@/server/auth/http";
 import { libraryService } from "@/server/library/service";
+import { recordFolderAccessBestEffort } from "@/server/retrieval/recent-tracking";
 
 type RouteContext = {
   params: Promise<{
@@ -47,6 +48,12 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       actorUserId: session.user.id,
       actorRole: session.user.role,
       folderId,
+    });
+    await recordFolderAccessBestEffort({
+      actorUserId: session.user.id,
+      actorRole: session.user.role,
+      folderId,
+      source: "restore-folder-route",
     });
     const location = result.restoredTo?.pathLabel ?? "Library";
 

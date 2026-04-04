@@ -12,6 +12,7 @@ import {
   wantsJson,
 } from "@/server/auth/http";
 import { libraryService } from "@/server/library/service";
+import { recordFileAccessBestEffort } from "@/server/retrieval/recent-tracking";
 
 type RouteContext = {
   params: Promise<{
@@ -47,6 +48,12 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       actorUserId: session.user.id,
       actorRole: session.user.role,
       fileId,
+    });
+    await recordFileAccessBestEffort({
+      actorUserId: session.user.id,
+      actorRole: session.user.role,
+      fileId,
+      source: "trash-file-route",
     });
 
     return wantsJson(request)

@@ -1,4 +1,4 @@
-import { prisma } from "./client";
+import { getPrisma } from "./client";
 
 export const STAGING_CLEANUP_JOB_KIND = "staging.cleanup";
 export const STAGING_CLEANUP_SCHEDULE_WINDOW_MS = 15 * 60 * 1000;
@@ -56,7 +56,7 @@ export const ensureBackgroundJobScheduled = async ({
   maxAttempts = 5,
   windowEnd = new Date(runAt.getTime() + STAGING_CLEANUP_SCHEDULE_WINDOW_MS),
   now = new Date(),
-  client = prisma as unknown as BackgroundJobClient,
+  client,
 }: {
   kind: SupportedBackgroundJobKind;
   runAt: Date;
@@ -66,7 +66,9 @@ export const ensureBackgroundJobScheduled = async ({
   now?: Date;
   client?: BackgroundJobClient;
 }) => {
-  const existing = await client.backgroundJob.findFirst({
+  const activeClient =
+    client ?? (getPrisma() as unknown as BackgroundJobClient);
+  const existing = await activeClient.backgroundJob.findFirst({
     where: {
       kind,
       ...buildActiveStatusFilter(now),
@@ -86,7 +88,7 @@ export const ensureBackgroundJobScheduled = async ({
     };
   }
 
-  const job = await client.backgroundJob.create({
+  const job = await activeClient.backgroundJob.create({
     data: {
       kind,
       status: "queued",
@@ -106,14 +108,17 @@ export const claimDueBackgroundJob = async ({
   kind,
   workerId,
   now = new Date(),
-  client = prisma as unknown as BackgroundJobClient,
+  client,
 }: {
   kind: SupportedBackgroundJobKind;
   workerId: string;
   now?: Date;
   client?: BackgroundJobClient;
-}) =>
-  client.$transaction(async (tx) => {
+}) => {
+  const activeClient =
+    client ?? (getPrisma() as unknown as BackgroundJobClient);
+
+  return activeClient.$transaction(async (tx) => {
     const staleLeaseCutoff = new Date(now.getTime() - BACKGROUND_JOB_LEASE_MS);
     const job = await tx.backgroundJob.findFirst({
       where: {
@@ -180,15 +185,19 @@ export const claimDueBackgroundJob = async ({
       },
     });
   });
+};
 
 export const markBackgroundJobSucceeded = async ({
   jobId,
-  client = prisma as unknown as BackgroundJobClient,
+  client,
 }: {
   jobId: string;
   client?: BackgroundJobClient;
-}) =>
-  client.backgroundJob.update({
+}) => {
+  const activeClient =
+    client ?? (getPrisma() as unknown as BackgroundJobClient);
+
+  return activeClient.backgroundJob.update({
     where: {
       id: jobId,
     },
@@ -199,19 +208,23 @@ export const markBackgroundJobSucceeded = async ({
       lastError: null,
     },
   });
+};
 
 export const markBackgroundJobFailed = async ({
   jobId,
   errorMessage,
   now = new Date(),
-  client = prisma as unknown as BackgroundJobClient,
+  client,
 }: {
   jobId: string;
   errorMessage: string;
   now?: Date;
   client?: BackgroundJobClient;
-}) =>
-  client.$transaction(async (tx) => {
+}) => {
+  const activeClient =
+    client ?? (getPrisma() as unknown as BackgroundJobClient);
+
+  return activeClient.$transaction(async (tx) => {
     const job = await tx.backgroundJob.findUnique({
       where: {
         id: jobId,
@@ -239,3 +252,4 @@ export const markBackgroundJobFailed = async ({
       },
     });
   });
+};

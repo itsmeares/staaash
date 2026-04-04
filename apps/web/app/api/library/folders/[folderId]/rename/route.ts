@@ -12,6 +12,7 @@ import {
   wantsJson,
 } from "@/server/auth/http";
 import { libraryService } from "@/server/library/service";
+import { recordFolderAccessBestEffort } from "@/server/retrieval/recent-tracking";
 
 type RouteContext = {
   params: Promise<{
@@ -48,6 +49,12 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       actorRole: session.user.role,
       folderId,
       name: body.name,
+    });
+    await recordFolderAccessBestEffort({
+      actorUserId: session.user.id,
+      actorRole: session.user.role,
+      folderId,
+      source: "rename-folder-route",
     });
 
     return wantsJson(request)

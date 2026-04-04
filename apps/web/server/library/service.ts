@@ -20,6 +20,7 @@ import type {
   LibraryListing,
   LibraryMoveTarget,
   StoredLibraryFile,
+  TrashClearResult,
   TrashFileSummary,
   TrashFolderSummary,
   TrashListing,
@@ -751,6 +752,82 @@ export const createLibraryService = ({
     });
   };
 
+  const deleteTrashedFolderTree = async ({
+    folder,
+    libraryRoot,
+  }: {
+    folder: LibraryFolderSummary;
+    libraryRoot: LibraryFolderSummary;
+  }): Promise<{ deletedFolderCount: number; deletedFileCount: number }> => {
+    const activeRepo = await resolveRepo();
+    const allFoldersForKey = buildFolderMap(
+      await activeRepo.listFoldersByOwner(folder.ownerUserId, {
+        includeDeleted: true,
+      }),
+    );
+    const trashedStorageKey = buildFolderStorageKey({
+      folder,
+      folderMap: allFoldersForKey,
+      libraryRoot,
+      trashed: true,
+    });
+    const trashedStoragePath = getStoragePath(trashedStorageKey);
+    const lockKeys = [
+      getEntryMutationLockKey(trashedStoragePath),
+      getDirectoryMutationLockKey(trashedStoragePath),
+    ];
+
+    return withStorageLocks({
+      lockKeys,
+      callback: async () => {
+        // Re-fetch to verify the root is still trashed after acquiring locks.
+        const currentFolder = await activeRepo.findFolderById(folder.id);
+
+        if (!currentFolder || currentFolder.deletedAt === null) {
+          // Concurrently restored — skip.
+          return { deletedFolderCount: 0, deletedFileCount: 0 };
+        }
+
+        // Re-collect from live state after revalidation.
+        const descendants = await collectDescendants({
+          ownerUserId: currentFolder.ownerUserId,
+          folderId: currentFolder.id,
+        });
+        const folderIds = new Set([
+          currentFolder.id,
+          ...descendants.map((item) => item.id),
+        ]);
+        const descendantFiles = await collectFilesInFolders({
+          ownerUserId: currentFolder.ownerUserId,
+          folderIds,
+        });
+
+        // Delete only rows that are still present/trashed.
+        const trashedDescendantIds = descendants
+          .filter((d) => d.deletedAt !== null)
+          .map((d) => d.id);
+        const deletedFileCount = await activeRepo.deleteFiles(
+          descendantFiles.map((file) => file.id),
+        );
+        await activeRepo.deleteFolders(trashedDescendantIds);
+        await activeRepo.deleteFolders([currentFolder.id]);
+
+        // Best-effort remove the trashed directory after DB deletion.
+        try {
+          await removeFolderDirectory(trashedStorageKey);
+        } catch {
+          // Once the tree rows are gone, leftover trash storage is operational
+          // residue. Best-effort cleanup avoids reintroducing deleted records.
+        }
+
+        return {
+          deletedFolderCount: 1 + trashedDescendantIds.length,
+          deletedFileCount,
+        };
+      },
+    });
+  };
+
   return {
     async ensureLibraryRoot(ownerUserId: string) {
       return ensureLibraryRoot(ownerUserId);
@@ -944,6 +1021,42 @@ export const createLibraryService = ({
         libraryRoot,
         items,
         files,
+      };
+    },
+
+    async clearTrash({
+      actorRole,
+      actorUserId,
+    }: LibraryActor): Promise<TrashClearResult> {
+      const listing = await this.listTrashFolders({
+        actorRole,
+        actorUserId,
+      });
+
+      let deletedFolderCount = 0;
+      let deletedFileCount = 0;
+
+      for (const item of listing.files) {
+        await this.deleteFile({
+          actorRole,
+          actorUserId,
+          fileId: item.file.id,
+        });
+        deletedFileCount += 1;
+      }
+
+      for (const item of listing.items) {
+        const counts = await deleteTrashedFolderTree({
+          folder: item.folder,
+          libraryRoot: listing.libraryRoot,
+        });
+        deletedFolderCount += counts.deletedFolderCount;
+        deletedFileCount += counts.deletedFileCount;
+      }
+
+      return {
+        deletedFolderCount,
+        deletedFileCount,
       };
     },
 

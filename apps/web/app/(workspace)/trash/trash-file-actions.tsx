@@ -5,6 +5,10 @@ type TrashFileActionsProps = {
   fileName: string;
 };
 
+type EmptyTrashActionProps = {
+  disabled: boolean;
+};
+
 export function TrashFileActions({ fileId, fileName }: TrashFileActionsProps) {
   return (
     <div className="workspace-inline-fields">
@@ -34,5 +38,32 @@ export function TrashFileActions({ fileId, fileName }: TrashFileActionsProps) {
         </button>
       </form>
     </div>
+  );
+}
+
+export function EmptyTrashAction({ disabled }: EmptyTrashActionProps) {
+  return (
+    <form
+      action="/api/library/trash/clear"
+      method="post"
+      onSubmit={(event) => {
+        if (
+          !window.confirm(
+            "Empty trash? This permanently deletes all trashed folder trees and standalone files.",
+          )
+        ) {
+          event.preventDefault();
+        }
+      }}
+    >
+      <input name="redirectTo" type="hidden" value="/trash" />
+      <button
+        className="button button-danger"
+        disabled={disabled}
+        type="submit"
+      >
+        Empty trash
+      </button>
+    </form>
   );
 }

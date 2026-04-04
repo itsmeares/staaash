@@ -351,6 +351,20 @@ const createMemoryRepository = () => {
 
       state.files = state.files.filter((file) => file.id !== fileId);
     },
+
+    async deleteFiles(fileIds) {
+      const before = state.files.length;
+      state.files = state.files.filter((file) => !fileIds.includes(file.id));
+      return before - state.files.length;
+    },
+
+    async deleteFolders(folderIds) {
+      const before = state.folders.length;
+      state.folders = state.folders.filter(
+        (folder) => !folderIds.includes(folder.id),
+      );
+      return before - state.folders.length;
+    },
   };
 
   return {
@@ -838,5 +852,201 @@ describe("library service", () => {
       folderId: parent.folder.id,
     });
     expect(refreshed.files[0]?.id).toBe(upload.uploadedFiles[0]?.id);
+  });
+
+  it("clearTrash skips a folder tree that becomes active again before the locked delete phase", async () => {
+    await cleanDataRoot();
+    const { repo, addFolder, addFile } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureLibraryRoot("member-1");
+
+    // Build a trashed folder tree.
+    const trashed = addFolder({
+      ownerUserId: "member-1",
+      parentId: root.id,
+      name: "TrashedFolder",
+      deletedAt: new Date("2026-01-01T00:00:00Z"),
+    });
+    addFile({
+      ownerUserId: "member-1",
+      folderId: trashed.id,
+      name: "inside.txt",
+      storageKey: `.trash/member-1/TrashedFolder/inside.txt`,
+      deletedAt: new Date("2026-01-01T00:00:00Z"),
+    });
+
+    // Intercept findFolderById so that when clearTrash re-fetches inside the
+    // locked phase it sees the folder as active (restored by a concurrent op).
+    const originalFindFolderById = repo.findFolderById.bind(repo);
+    let revalidationCalled = false;
+
+    repo.findFolderById = async (folderId) => {
+      const result = await originalFindFolderById(folderId);
+      if (result && result.id === trashed.id && !revalidationCalled) {
+        revalidationCalled = true;
+        // Simulate the folder being restored between snapshot and lock.
+        return { ...result, deletedAt: null };
+      }
+      return result;
+    };
+
+    const result = await service.clearTrash({
+      actorUserId: "member-1",
+      actorRole: "member",
+    });
+
+    // The concurrently-restored tree must not be counted.
+    expect(result.deletedFolderCount).toBe(0);
+    expect(result.deletedFileCount).toBe(0);
+  });
+
+  it("clearTrash reports counts based on actual deletions not stale snapshot entries", async () => {
+    await cleanDataRoot();
+    const { repo } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureLibraryRoot("member-1");
+
+    // Trash a folder with one child.
+    const parent = await service.createFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: root.id,
+      name: "ToDelete",
+    });
+    await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: parent.folder.id,
+      items: [
+        {
+          clientKey: "f1",
+          originalName: "child.txt",
+          conflictStrategy: "fail",
+          file: new File(["x"], "child.txt", { type: "text/plain" }),
+        },
+      ],
+    });
+    await service.trashFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: parent.folder.id,
+    });
+
+    const result = await service.clearTrash({
+      actorUserId: "member-1",
+      actorRole: "member",
+    });
+
+    // 1 root folder deleted, 0 standalone files (the child file counts through
+    // the folder tree path, not the top-level file path).
+    expect(result.deletedFolderCount).toBe(1);
+    // deletedFileCount from the folder tree path (the child.txt inside the tree).
+    expect(result.deletedFileCount).toBeGreaterThanOrEqual(1);
+  });
+
+  it("bulk clear removes standalone trashed files and top-level trashed folder trees without touching active items", async () => {
+    await cleanDataRoot();
+    const { repo } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureLibraryRoot("member-1");
+    const archive = await service.createFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: root.id,
+      name: "Archive",
+    });
+    const keep = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: root.id,
+      items: [
+        {
+          clientKey: "keep",
+          originalName: "keep.txt",
+          conflictStrategy: "fail",
+          file: new File(["keep"], "keep.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+    const standalone = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: root.id,
+      items: [
+        {
+          clientKey: "standalone",
+          originalName: "standalone.txt",
+          conflictStrategy: "fail",
+          file: new File(["standalone"], "standalone.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+    const nested = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: archive.folder.id,
+      items: [
+        {
+          clientKey: "nested",
+          originalName: "nested.txt",
+          conflictStrategy: "fail",
+          file: new File(["nested"], "nested.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+
+    await service.trashFile({
+      actorUserId: "member-1",
+      actorRole: "member",
+      fileId: standalone.uploadedFiles[0]!.id,
+    });
+    await service.trashFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: archive.folder.id,
+    });
+
+    const result = await service.clearTrash({
+      actorUserId: "member-1",
+      actorRole: "member",
+    });
+
+    expect(result).toEqual({
+      deletedFolderCount: 1,
+      deletedFileCount: 2,
+    });
+
+    const listing = await service.getLibraryListing({
+      actorUserId: "member-1",
+      actorRole: "member",
+    });
+    const trash = await service.listTrashFolders({
+      actorUserId: "member-1",
+      actorRole: "member",
+    });
+
+    expect(listing.files.map((file) => file.id)).toEqual([
+      keep.uploadedFiles[0]!.id,
+    ]);
+    expect(listing.childFolders).toEqual([]);
+    expect(trash.items).toEqual([]);
+    expect(trash.files).toEqual([]);
+    await expect(
+      access(getStoragePath(".trash/member-1/Archive/nested.txt")),
+    ).rejects.toBeDefined();
+    await expect(
+      access(getStoragePath(".trash/member-1/standalone.txt")),
+    ).rejects.toBeDefined();
+    await expect(
+      access(getStoragePath("library/member-1/keep.txt")),
+    ).resolves.toBeUndefined();
+
+    expect(nested.uploadedFiles[0]).toBeDefined();
   });
 });

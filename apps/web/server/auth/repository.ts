@@ -1,6 +1,6 @@
 import {
   Prisma,
-  prisma,
+  getPrisma,
   type Invite,
   type PasswordReset,
   type Session,
@@ -78,6 +78,17 @@ type StoredPasswordResetLookup = {
   reset: StoredPasswordReset;
   user: AuthUser;
 };
+
+type AuthPrismaClient = Pick<
+  ReturnType<typeof getPrisma>,
+  | "folder"
+  | "instance"
+  | "invite"
+  | "passwordReset"
+  | "session"
+  | "user"
+  | "$transaction"
+>;
 
 export type AuthRepository = {
   getSetupState(): Promise<SetupState>;
@@ -179,353 +190,361 @@ const getUniqueConstraintTargets = (error: unknown): string[] => {
   return typeof target === "string" ? [target] : [];
 };
 
-export const prismaAuthRepository: AuthRepository = {
-  async getSetupState() {
-    const [instance, owner] = await Promise.all([
-      prisma.instance.findUnique({
-        where: {
-          id: "singleton",
-        },
-      }),
-      prisma.user.findFirst({
-        where: {
-          role: "owner",
-        },
-        select: {
-          id: true,
-        },
-      }),
-    ]);
+export const createPrismaAuthRepository = (
+  client?: AuthPrismaClient,
+): AuthRepository => {
+  const getClient = () =>
+    client ?? (getPrisma() as unknown as AuthPrismaClient);
 
-    return {
-      isBootstrapped: instance !== null || owner !== null,
-      instanceName: instance?.name ?? null,
-    };
-  },
-
-  async createBootstrap(params) {
-    try {
-      return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        await tx.instance.create({
-          data: {
+  return {
+    async getSetupState() {
+      const client = getClient();
+      const [instance, owner] = await Promise.all([
+        client.instance.findUnique({
+          where: {
             id: "singleton",
-            name: params.instanceName,
-            setupCompletedAt: params.createdAt,
           },
-        });
-
-        const user = await tx.user.create({
-          data: {
-            email: params.email,
-            username: params.username,
-            displayName: params.displayName ?? null,
-            passwordHash: params.passwordHash,
+        }),
+        client.user.findFirst({
+          where: {
             role: "owner",
           },
-        });
-
-        await tx.folder.create({
-          data: {
-            ownerUserId: user.id,
-            name: "Library",
-            isLibraryRoot: true,
-          },
           select: {
             id: true,
           },
-        });
+        }),
+      ]);
 
-        return toAuthUser(user);
-      });
-    } catch (error) {
-      if (isUniqueConstraintError(error)) {
-        throw new AuthError("SETUP_ALREADY_COMPLETED");
-      }
+      return {
+        isBootstrapped: instance !== null || owner !== null,
+        instanceName: instance?.name ?? null,
+      };
+    },
 
-      throw error;
-    }
-  },
+    async createBootstrap(params) {
+      const client = getClient();
 
-  async findUserByEmail(email) {
-    const user = await prisma.user.findUnique({
-      where: {
-        email,
-      },
-    });
+      try {
+        return await client.$transaction(
+          async (tx: Prisma.TransactionClient) => {
+            await tx.instance.create({
+              data: {
+                id: "singleton",
+                name: params.instanceName,
+                setupCompletedAt: params.createdAt,
+              },
+            });
 
-    return user ? toStoredAuthUser(user) : null;
-  },
+            const user = await tx.user.create({
+              data: {
+                email: params.email,
+                username: params.username,
+                displayName: params.displayName ?? null,
+                passwordHash: params.passwordHash,
+                role: "owner",
+              },
+            });
 
-  async findUserByUsername(username) {
-    const user = await prisma.user.findUnique({
-      where: {
-        username,
-      },
-    });
+            await tx.folder.create({
+              data: {
+                ownerUserId: user.id,
+                name: "Library",
+                isLibraryRoot: true,
+              },
+              select: {
+                id: true,
+              },
+            });
 
-    return user ? toStoredAuthUser(user) : null;
-  },
-
-  async findUserById(id) {
-    const user = await prisma.user.findUnique({
-      where: {
-        id,
-      },
-    });
-
-    return user ? toAuthUser(user) : null;
-  },
-
-  async listUsers() {
-    const users = await prisma.user.findMany({
-      orderBy: {
-        createdAt: "asc",
-      },
-    });
-
-    return users.map(toAuthUser);
-  },
-
-  async createSession(params) {
-    const session = await prisma.session.create({
-      data: {
-        userId: params.userId,
-        tokenHash: params.tokenHash,
-        expiresAt: params.expiresAt,
-      },
-      include: {
-        user: true,
-      },
-    });
-
-    return toAuthSession(session);
-  },
-
-  async findSessionByTokenHash(tokenHash) {
-    const session = await prisma.session.findUnique({
-      where: {
-        tokenHash,
-      },
-      include: {
-        user: true,
-      },
-    });
-
-    return session ? toStoredAuthSession(session) : null;
-  },
-
-  async revokeSessionById(id, revokedAt) {
-    await prisma.session.updateMany({
-      where: {
-        id,
-        revokedAt: null,
-      },
-      data: {
-        revokedAt,
-      },
-    });
-  },
-
-  async findActiveInviteByEmail(email, now) {
-    const invite = await prisma.invite.findFirst({
-      where: {
-        email,
-        acceptedAt: null,
-        revokedAt: null,
-        expiresAt: {
-          gt: now,
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    return invite ? toInviteSummary(invite, now) : null;
-  },
-
-  async listInvites(now) {
-    const invites = await prisma.invite.findMany({
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    return invites.map((invite: Invite) => toInviteSummary(invite, now));
-  },
-
-  async findInviteById(id) {
-    const invite = await prisma.invite.findUnique({
-      where: {
-        id,
-      },
-    });
-
-    return invite ? toStoredInvite(invite) : null;
-  },
-
-  async findInviteByTokenHash(tokenHash) {
-    const invite = await prisma.invite.findUnique({
-      where: {
-        tokenHash,
-      },
-    });
-
-    return invite ? toStoredInvite(invite) : null;
-  },
-
-  async createInvite(params, now) {
-    const invite = await prisma.invite.create({
-      data: {
-        email: params.email,
-        role: params.role,
-        tokenHash: params.tokenHash,
-        invitedByUserId: params.invitedByUserId,
-        expiresAt: params.expiresAt,
-      },
-    });
-
-    return toInviteSummary(invite, now);
-  },
-
-  async revokeInvite(id, revokedAt, now) {
-    const invite = await prisma.invite.update({
-      where: {
-        id,
-      },
-      data: {
-        revokedAt,
-      },
-    });
-
-    return toInviteSummary(invite, now);
-  },
-
-  async consumeInvite(params) {
-    try {
-      return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        const invite = await tx.invite.findFirst({
-          where: {
-            id: params.inviteId,
-            acceptedAt: null,
-            revokedAt: null,
-            expiresAt: {
-              gt: params.now,
-            },
+            return toAuthUser(user);
           },
-        });
-
-        if (!invite) {
-          return null;
+        );
+      } catch (error) {
+        if (isUniqueConstraintError(error)) {
+          throw new AuthError("SETUP_ALREADY_COMPLETED");
         }
 
-        const user = await tx.user.create({
-          data: {
-            email: invite.email,
-            username: params.username,
-            displayName: params.displayName ?? null,
-            passwordHash: params.passwordHash,
-            role: invite.role,
-          },
-        });
-
-        await tx.folder.create({
-          data: {
-            ownerUserId: user.id,
-            name: "Library",
-            isLibraryRoot: true,
-          },
-          select: {
-            id: true,
-          },
-        });
-
-        await tx.invite.update({
-          where: {
-            id: invite.id,
-          },
-          data: {
-            acceptedAt: params.now,
-            acceptedByUserId: user.id,
-          },
-        });
-
-        return toAuthUser(user);
-      });
-    } catch (error) {
-      if (isUniqueConstraintError(error)) {
-        if (getUniqueConstraintTargets(error).includes("username")) {
-          throw new AuthError("USERNAME_ALREADY_EXISTS");
-        }
-
-        throw new AuthError("USER_ALREADY_EXISTS");
+        throw error;
       }
+    },
 
-      throw error;
-    }
-  },
-
-  async createPasswordReset(params, now) {
-    const reset = await prisma.$transaction(
-      async (tx: Prisma.TransactionClient) => {
-        await tx.passwordReset.updateMany({
-          where: {
-            userId: params.userId,
-            redeemedAt: null,
-            revokedAt: null,
-            expiresAt: {
-              gt: params.now,
-            },
-          },
-          data: {
-            revokedAt: params.now,
-          },
-        });
-
-        return tx.passwordReset.create({
-          data: {
-            userId: params.userId,
-            issuedByUserId: params.issuedByUserId,
-            tokenHash: params.tokenHash,
-            expiresAt: params.expiresAt,
-          },
-        });
-      },
-    );
-
-    return toPasswordResetSummary(reset, now);
-  },
-
-  async findPasswordResetByTokenHash(tokenHash) {
-    const reset = await prisma.passwordReset.findUnique({
-      where: {
-        tokenHash,
-      },
-      include: {
-        user: true,
-      },
-    });
-
-    if (!reset) {
-      return null;
-    }
-
-    return {
-      reset: toStoredPasswordReset(reset),
-      user: toAuthUser(reset.user),
-    };
-  },
-
-  async consumePasswordReset(params) {
-    return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const reset = await tx.passwordReset.findFirst({
+    async findUserByEmail(email) {
+      const client = getClient();
+      const user = await client.user.findUnique({
         where: {
-          id: params.resetId,
-          redeemedAt: null,
+          email,
+        },
+      });
+
+      return user ? toStoredAuthUser(user) : null;
+    },
+
+    async findUserByUsername(username) {
+      const client = getClient();
+      const user = await client.user.findUnique({
+        where: {
+          username,
+        },
+      });
+
+      return user ? toStoredAuthUser(user) : null;
+    },
+
+    async findUserById(id) {
+      const client = getClient();
+      const user = await client.user.findUnique({
+        where: {
+          id,
+        },
+      });
+
+      return user ? toAuthUser(user) : null;
+    },
+
+    async listUsers() {
+      const client = getClient();
+      const users = await client.user.findMany({
+        orderBy: {
+          createdAt: "asc",
+        },
+      });
+
+      return users.map(toAuthUser);
+    },
+
+    async createSession(params) {
+      const client = getClient();
+      const session = await client.session.create({
+        data: {
+          userId: params.userId,
+          tokenHash: params.tokenHash,
+          expiresAt: params.expiresAt,
+        },
+        include: {
+          user: true,
+        },
+      });
+
+      return toAuthSession(session);
+    },
+
+    async findSessionByTokenHash(tokenHash) {
+      const client = getClient();
+      const session = await client.session.findUnique({
+        where: {
+          tokenHash,
+        },
+        include: {
+          user: true,
+        },
+      });
+
+      return session ? toStoredAuthSession(session) : null;
+    },
+
+    async revokeSessionById(id, revokedAt) {
+      const client = getClient();
+
+      await client.session.updateMany({
+        where: {
+          id,
+          revokedAt: null,
+        },
+        data: {
+          revokedAt,
+        },
+      });
+    },
+
+    async findActiveInviteByEmail(email, now) {
+      const client = getClient();
+      const invite = await client.invite.findFirst({
+        where: {
+          email,
+          acceptedAt: null,
           revokedAt: null,
           expiresAt: {
-            gt: params.now,
+            gt: now,
           },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      return invite ? toInviteSummary(invite, now) : null;
+    },
+
+    async listInvites(now) {
+      const client = getClient();
+      const invites = await client.invite.findMany({
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      return invites.map((invite: Invite) => toInviteSummary(invite, now));
+    },
+
+    async findInviteById(id) {
+      const client = getClient();
+      const invite = await client.invite.findUnique({
+        where: {
+          id,
+        },
+      });
+
+      return invite ? toStoredInvite(invite) : null;
+    },
+
+    async findInviteByTokenHash(tokenHash) {
+      const client = getClient();
+      const invite = await client.invite.findUnique({
+        where: {
+          tokenHash,
+        },
+      });
+
+      return invite ? toStoredInvite(invite) : null;
+    },
+
+    async createInvite(params, now) {
+      const client = getClient();
+      const invite = await client.invite.create({
+        data: {
+          email: params.email,
+          role: params.role,
+          tokenHash: params.tokenHash,
+          invitedByUserId: params.invitedByUserId,
+          expiresAt: params.expiresAt,
+        },
+      });
+
+      return toInviteSummary(invite, now);
+    },
+
+    async revokeInvite(id, revokedAt, now) {
+      const client = getClient();
+      const invite = await client.invite.update({
+        where: {
+          id,
+        },
+        data: {
+          revokedAt,
+        },
+      });
+
+      return toInviteSummary(invite, now);
+    },
+
+    async consumeInvite(params) {
+      const client = getClient();
+
+      try {
+        return await client.$transaction(
+          async (tx: Prisma.TransactionClient) => {
+            const invite = await tx.invite.findFirst({
+              where: {
+                id: params.inviteId,
+                acceptedAt: null,
+                revokedAt: null,
+                expiresAt: {
+                  gt: params.now,
+                },
+              },
+            });
+
+            if (!invite) {
+              return null;
+            }
+
+            const user = await tx.user.create({
+              data: {
+                email: invite.email,
+                username: params.username,
+                displayName: params.displayName ?? null,
+                passwordHash: params.passwordHash,
+                role: invite.role,
+              },
+            });
+
+            await tx.folder.create({
+              data: {
+                ownerUserId: user.id,
+                name: "Library",
+                isLibraryRoot: true,
+              },
+              select: {
+                id: true,
+              },
+            });
+
+            await tx.invite.update({
+              where: {
+                id: invite.id,
+              },
+              data: {
+                acceptedAt: params.now,
+                acceptedByUserId: user.id,
+              },
+            });
+
+            return toAuthUser(user);
+          },
+        );
+      } catch (error) {
+        if (isUniqueConstraintError(error)) {
+          if (getUniqueConstraintTargets(error).includes("username")) {
+            throw new AuthError("USERNAME_ALREADY_EXISTS");
+          }
+
+          throw new AuthError("USER_ALREADY_EXISTS");
+        }
+
+        throw error;
+      }
+    },
+
+    async createPasswordReset(params, now) {
+      const client = getClient();
+      const reset = await client.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          await tx.passwordReset.updateMany({
+            where: {
+              userId: params.userId,
+              redeemedAt: null,
+              revokedAt: null,
+              expiresAt: {
+                gt: params.now,
+              },
+            },
+            data: {
+              revokedAt: params.now,
+            },
+          });
+
+          return tx.passwordReset.create({
+            data: {
+              userId: params.userId,
+              issuedByUserId: params.issuedByUserId,
+              tokenHash: params.tokenHash,
+              expiresAt: params.expiresAt,
+            },
+          });
+        },
+      );
+
+      return toPasswordResetSummary(reset, now);
+    },
+
+    async findPasswordResetByTokenHash(tokenHash) {
+      const client = getClient();
+      const reset = await client.passwordReset.findUnique({
+        where: {
+          tokenHash,
+        },
+        include: {
+          user: true,
         },
       });
 
@@ -533,35 +552,63 @@ export const prismaAuthRepository: AuthRepository = {
         return null;
       }
 
-      const user = await tx.user.update({
-        where: {
-          id: reset.userId,
-        },
-        data: {
-          passwordHash: params.passwordHash,
-        },
-      });
+      return {
+        reset: toStoredPasswordReset(reset),
+        user: toAuthUser(reset.user),
+      };
+    },
 
-      await tx.session.updateMany({
-        where: {
-          userId: reset.userId,
-          revokedAt: null,
-        },
-        data: {
-          revokedAt: params.now,
-        },
-      });
+    async consumePasswordReset(params) {
+      const client = getClient();
 
-      await tx.passwordReset.update({
-        where: {
-          id: reset.id,
-        },
-        data: {
-          redeemedAt: params.now,
-        },
-      });
+      return client.$transaction(async (tx: Prisma.TransactionClient) => {
+        const reset = await tx.passwordReset.findFirst({
+          where: {
+            id: params.resetId,
+            redeemedAt: null,
+            revokedAt: null,
+            expiresAt: {
+              gt: params.now,
+            },
+          },
+        });
 
-      return toAuthUser(user);
-    });
-  },
+        if (!reset) {
+          return null;
+        }
+
+        const user = await tx.user.update({
+          where: {
+            id: reset.userId,
+          },
+          data: {
+            passwordHash: params.passwordHash,
+          },
+        });
+
+        await tx.session.updateMany({
+          where: {
+            userId: reset.userId,
+            revokedAt: null,
+          },
+          data: {
+            revokedAt: params.now,
+          },
+        });
+
+        await tx.passwordReset.update({
+          where: {
+            id: reset.id,
+          },
+          data: {
+            redeemedAt: params.now,
+          },
+        });
+
+        return toAuthUser(user);
+      });
+    },
+  };
 };
+
+export const prismaAuthRepository = createPrismaAuthRepository();

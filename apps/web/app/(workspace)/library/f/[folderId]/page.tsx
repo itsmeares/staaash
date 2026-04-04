@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { isLibraryError } from "@/server/library/errors";
 import { libraryService } from "@/server/library/service";
+import { recordFolderAccessBestEffort } from "@/server/retrieval/recent-tracking";
+import { retrievalService } from "@/server/retrieval/service";
 import { sharingService } from "@/server/sharing/service";
 
 import { LibraryExplorer } from "../../library-explorer";
@@ -34,21 +36,40 @@ export default async function LibraryFolderPage({
       actorRole: session.user.role,
       folderId,
     });
-    const shareLookup = await sharingService.getLibraryShareLookup({
-      actorUserId: session.user.id,
-      actorRole: session.user.role,
-      currentFolderId: listing.currentFolder.id,
-      childFolderIds: listing.childFolders.map((folder) => folder.id),
-      fileIds: listing.files.map((file) => file.id),
-    });
 
     if (listing.currentFolder.isLibraryRoot) {
       redirect("/library");
     }
 
+    await recordFolderAccessBestEffort({
+      actorUserId: session.user.id,
+      actorRole: session.user.role,
+      folderId: listing.currentFolder.id,
+      source: "library-folder-page",
+    });
+    const [shareLookup, favorites] = await Promise.all([
+      sharingService.getLibraryShareLookup({
+        actorUserId: session.user.id,
+        actorRole: session.user.role,
+        currentFolderId: listing.currentFolder.id,
+        childFolderIds: listing.childFolders.map((folder) => folder.id),
+        fileIds: listing.files.map((file) => file.id),
+      }),
+      retrievalService.listFavorites({
+        actorUserId: session.user.id,
+        actorRole: session.user.role,
+      }),
+    ]);
+
     return (
       <LibraryExplorer
         currentPath={`/library/f/${folderId}`}
+        favoriteFileIds={favorites
+          .filter((item) => item.kind === "file")
+          .map((item) => item.id)}
+        favoriteFolderIds={favorites
+          .filter((item) => item.kind === "folder")
+          .map((item) => item.id)}
         listing={listing}
         searchParams={resolvedSearchParams}
         shareLookup={shareLookup}

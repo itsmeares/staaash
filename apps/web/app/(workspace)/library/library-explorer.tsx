@@ -19,6 +19,8 @@ type LibraryExplorerProps = {
   currentPath: string;
   searchParams: Record<string, string | string[] | undefined>;
   shareLookup: ShareLibraryLookup;
+  favoriteFileIds: string[];
+  favoriteFolderIds: string[];
 };
 
 const shareStatusLabel: Record<ShareLinkSummary["status"], string> = {
@@ -91,9 +93,13 @@ export function LibraryExplorer({
   currentPath,
   searchParams,
   shareLookup,
+  favoriteFileIds,
+  favoriteFolderIds,
 }: LibraryExplorerProps) {
   const error = getSingleSearchParam(searchParams, "error");
   const success = getSingleSearchParam(searchParams, "success");
+  const favoriteFileIdSet = new Set(favoriteFileIds);
+  const favoriteFolderIdSet = new Set(favoriteFolderIds);
 
   return (
     <div className="workspace-page">
@@ -210,7 +216,39 @@ export function LibraryExplorer({
                         Updated {formatDateTime(folder.updatedAt)}
                       </p>
                     </div>
-                    <span className="pill">Folder</span>
+                    <div className="workspace-inline-fields retrieval-inline-actions">
+                      <span className="pill">Folder</span>
+                      {favoriteFolderIdSet.has(folder.id) ? (
+                        <span className="pill">Favorite</span>
+                      ) : null}
+                      <form
+                        action={`/api/library/folders/${folder.id}/favorite`}
+                        method="post"
+                      >
+                        <input
+                          name="redirectTo"
+                          type="hidden"
+                          value={currentPath}
+                        />
+                        <input
+                          name="isFavorite"
+                          type="hidden"
+                          value={
+                            favoriteFolderIdSet.has(folder.id)
+                              ? "false"
+                              : "true"
+                          }
+                        />
+                        <button
+                          className="button button-secondary"
+                          type="submit"
+                        >
+                          {favoriteFolderIdSet.has(folder.id)
+                            ? "Remove favorite"
+                            : "Add favorite"}
+                        </button>
+                      </form>
+                    </div>
                   </div>
 
                   <details className="folder-disclosure">
@@ -347,13 +385,54 @@ export function LibraryExplorer({
                 <article className="folder-row" key={file.id}>
                   <div className="folder-row-head">
                     <div className="stack">
-                      <h3 className="folder-link">{file.name}</h3>
+                      <a
+                        className="folder-link"
+                        href={`/api/library/files/${file.id}/download`}
+                      >
+                        {file.name}
+                      </a>
                       <p className="folder-meta">
                         {file.mimeType} • {Math.round(file.sizeBytes / 1024)} KB
                         • Updated {formatDateTime(file.updatedAt)}
                       </p>
                     </div>
-                    <span className="pill">File</span>
+                    <div className="workspace-inline-fields retrieval-inline-actions">
+                      <span className="pill">File</span>
+                      {favoriteFileIdSet.has(file.id) ? (
+                        <span className="pill">Favorite</span>
+                      ) : null}
+                      <a
+                        className="button button-secondary"
+                        href={`/api/library/files/${file.id}/download`}
+                      >
+                        Download
+                      </a>
+                      <form
+                        action={`/api/library/files/${file.id}/favorite`}
+                        method="post"
+                      >
+                        <input
+                          name="redirectTo"
+                          type="hidden"
+                          value={currentPath}
+                        />
+                        <input
+                          name="isFavorite"
+                          type="hidden"
+                          value={
+                            favoriteFileIdSet.has(file.id) ? "false" : "true"
+                          }
+                        />
+                        <button
+                          className="button button-secondary"
+                          type="submit"
+                        >
+                          {favoriteFileIdSet.has(file.id)
+                            ? "Remove favorite"
+                            : "Add favorite"}
+                        </button>
+                      </form>
+                    </div>
                   </div>
 
                   <details className="folder-disclosure">

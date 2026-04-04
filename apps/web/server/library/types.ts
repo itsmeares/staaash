@@ -94,3 +94,8 @@ export type TrashListing = {
   items: TrashFolderSummary[];
   files: TrashFileSummary[];
 };
+
+export type TrashClearResult = {
+  deletedFolderCount: number;
+  deletedFileCount: number;
+};

@@ -10,6 +10,7 @@ import {
   wantsJson,
 } from "@/server/auth/http";
 import { libraryService } from "@/server/library/service";
+import { recordFileAccessBestEffort } from "@/server/retrieval/recent-tracking";
 import { pairUploadRequestItems, parseUploadManifest } from "@/server/uploads";
 
 export async function POST(request: NextRequest) {
@@ -50,6 +51,16 @@ export async function POST(request: NextRequest) {
       folderId: formData.get("folderId")?.toString() ?? null,
       items: pairUploadRequestItems(manifest, files),
     });
+    await Promise.all(
+      result.uploadedFiles.map((file) =>
+        recordFileAccessBestEffort({
+          actorUserId: session.user.id,
+          actorRole: session.user.role,
+          fileId: file.id,
+          source: "upload-files-route",
+        }),
+      ),
+    );
 
     if (result.conflicts.length > 0) {
       return NextResponse.json(

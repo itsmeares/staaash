@@ -6,7 +6,7 @@ import {
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { libraryService } from "@/server/library/service";
 
-import { TrashFileActions } from "./trash-file-actions";
+import { EmptyTrashAction, TrashFileActions } from "./trash-file-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -29,12 +29,19 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
   return (
     <div className="workspace-page">
       <section className="panel stack">
-        <div className="pill">Trash</div>
-        <h1>Deleted items</h1>
-        <p className="muted">
-          Trash is the only place permanent file deletion is allowed. Folder
-          restore can bring its descendant files back with it.
-        </p>
+        <div className="split">
+          <div className="stack">
+            <div className="pill">Trash</div>
+            <h1>Deleted items</h1>
+            <p className="muted">
+              Trash is the only place permanent file deletion is allowed. Folder
+              restore can bring its descendant files back with it.
+            </p>
+          </div>
+          <EmptyTrashAction
+            disabled={listing.items.length === 0 && listing.files.length === 0}
+          />
+        </div>
       </section>
 
       {error ? <FlashMessage>{error}</FlashMessage> : null}

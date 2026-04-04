@@ -180,6 +180,17 @@ const createFakePrismaClient = () => {
     async updateMany() {
       return { count: 0 };
     },
+
+    async deleteMany(args: { where: { id: { in: string[] } } }) {
+      const before = state.folders.length;
+      state.folders = state.folders.filter(
+        (folder) => !args.where.id.in.includes(folder.id),
+      );
+
+      return {
+        count: before - state.folders.length,
+      };
+    },
   };
 
   const fileDelegate = {
@@ -205,6 +216,10 @@ const createFakePrismaClient = () => {
 
     async delete() {
       return null;
+    },
+
+    async deleteMany() {
+      return { count: 0 };
     },
   };
 

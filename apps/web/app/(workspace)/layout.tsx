@@ -91,15 +91,15 @@ export default async function WorkspaceLayout({
 
       <div className="workspace-main">
         <header className="workspace-topbar">
-          <label className="workspace-search" htmlFor="workspace-search">
+          <form action="/search" className="workspace-search" method="get">
             <span className="pill">Search</span>
             <input
               id="workspace-search"
-              disabled
-              placeholder="Search arrives in Phase 5"
+              name="q"
+              placeholder="Search files and folders"
               type="search"
             />
-          </label>
+          </form>
 
           <div className="workspace-topbar-tools">
             <div className="view-toggle" role="group" aria-label="View mode">
