@@ -387,7 +387,11 @@ export function LibraryExplorer({
                     <div className="stack">
                       <a
                         className="folder-link"
-                        href={`/api/library/files/${file.id}/download`}
+                        href={
+                          file.viewerKind
+                            ? `/library/files/${file.id}`
+                            : `/api/library/files/${file.id}/download`
+                        }
                       >
                         {file.name}
                       </a>
@@ -400,6 +404,14 @@ export function LibraryExplorer({
                       <span className="pill">File</span>
                       {favoriteFileIdSet.has(file.id) ? (
                         <span className="pill">Favorite</span>
+                      ) : null}
+                      {file.viewerKind ? (
+                        <a
+                          className="button button-secondary"
+                          href={`/library/files/${file.id}`}
+                        >
+                          Open
+                        </a>
                       ) : null}
                       <a
                         className="button button-secondary"

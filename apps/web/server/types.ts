@@ -52,7 +52,6 @@ export type StorageWarningSummary = {
 
 export type RestoreReconciliationReport = {
   missingOriginalIds: string[];
-  previewRegenerationIds: string[];
   orphanedStorageKeys: string[];
 };
 
@@ -85,7 +84,10 @@ export type InstanceHealthSummary = {
   storageWarnings: StorageWarningSummary;
   version: {
     currentVersion: string;
-    updateMessage: string;
+    lastUpdateCheckAt: string | null;
+    updateCheckStatus: string | null;
+    updateCheckMessage: string | null;
+    latestAvailableVersion: string | null;
   };
 };
 

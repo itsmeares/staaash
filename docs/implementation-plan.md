@@ -95,7 +95,7 @@ The repo already has the foundation scaffold plus completed Phase 1 and Phase 2 
 
 ### Current active phase
 
-- next focus: Phase 06 Previews and Worker Jobs
+- next focus: Phase 07 Admin and Operational Surface
 
 ## Phase Roadmap
 
@@ -351,15 +351,19 @@ Complete the everyday retrieval layer that makes the drive feel polished.
 
 ## Phase 6: Previews and Worker Jobs
 
+### Status
+
+Completed
+
 ### Goal
 
-Use the worker runtime for real product jobs and practical previews.
+Use the worker runtime for real product jobs and simplify media access around original-file viewing.
 
 ### Scope
 
 - Postgres-backed job execution
 - queue claiming and retry behavior
-- preview generation jobs
+- original-file image and video viewer routes
 - trash retention job
 - staging-upload cleanup job
 - update-check job
@@ -369,22 +373,34 @@ Use the worker runtime for real product jobs and practical previews.
 - web app creates jobs, worker executes jobs
 - worker is the only background executor
 - jobs are durable and restart-safe
-- Office docs remain metadata or icon only
-- preview failure never blocks access to the original file
+- images and videos are viewed from original files, not generated derivatives
+- PDF, text, and audio remain download-only in this phase
 
 ### Deliverables
 
 - real worker job loop
 - job status tracking
-- preview generation pipeline
+- original-content media routes with range support for video
 - failure and retry handling
 
 ### Acceptance criteria
 
 - worker heartbeat and queue backlog are visible in admin health
 - queued jobs survive restarts
-- supported preview kinds are generated asynchronously
-- failed previews degrade gracefully
+- image and video viewing works for both private library and public shares
+- legacy preview routes degrade cleanly to compatibility redirects or `404`
+
+### Completion notes
+
+- removed preview state from Prisma and deleted legacy `preview.generate` jobs
+- replaced preview-derived typing with MIME-derived `viewerKind`
+- added dedicated viewer pages and original-content routes for image and video files
+- removed FFmpeg, preview generation, preview replay tooling, and preview-specific admin surfaces
+- documented that legacy `FILES_ROOT/previews` data can be deleted manually by operators
+
+### Follow-up
+
+- add dedicated viewer models for PDF, text, and audio files
 
 ## Phase 7: Admin and Operational Surface
 

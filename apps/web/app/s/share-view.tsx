@@ -6,13 +6,17 @@ import {
   formatDateTime,
   getSingleSearchParam,
 } from "@/app/auth-ui";
+import type { LibraryFileSummary } from "@/server/library/types";
 import { ShareError } from "@/server/sharing/errors";
-import type { PublicShareResolution } from "@/server/sharing/types";
+import type {
+  PublicShareResolution,
+  ShareLinkSummary,
+} from "@/server/sharing/types";
 
 const formatBytes = (value: number) =>
   new Intl.NumberFormat("en-GB", {
     maximumFractionDigits: 1,
-    notation: value >= 1024 * 1024 * 1024 ? "standard" : "standard",
+    notation: "standard",
   }).format(value / (1024 * 1024)) + " MB";
 
 const shareErrorCopy: Record<
@@ -70,6 +74,159 @@ export function ShareErrorView({ error }: { error: ShareError }) {
   );
 }
 
+export function ShareLockedView({
+  error,
+  redirectPath,
+  success,
+  token,
+}: {
+  error: string | null;
+  redirectPath: string;
+  success: string | null;
+  token: string;
+}) {
+  return (
+    <main className="stack">
+      <section className="panel stack">
+        <div className="pill">Protected share</div>
+        <h1>This share is password protected</h1>
+        <p className="muted">Enter the password to continue.</p>
+        {error ? <FlashMessage>{error}</FlashMessage> : null}
+        {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
+      </section>
+
+      <section className="panel stack">
+        <h2>Unlock shared access</h2>
+        <form
+          action={`/s/${encodeURIComponent(token)}/unlock`}
+          className="form-grid"
+          method="post"
+        >
+          <input name="redirectTo" type="hidden" value={redirectPath} />
+          <div className="field">
+            <label htmlFor="share-password">Password</label>
+            <input
+              id="share-password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+            />
+          </div>
+          <button className="button" type="submit">
+            Unlock
+          </button>
+        </form>
+      </section>
+    </main>
+  );
+}
+
+export function ShareFilePage({
+  backHref,
+  backLabel = "Back",
+  contentHref,
+  downloadHref,
+  file,
+  headerLabel,
+  searchParams,
+  share,
+}: {
+  backHref?: string;
+  backLabel?: string;
+  contentHref: string;
+  downloadHref?: string;
+  file: LibraryFileSummary;
+  headerLabel: string;
+  searchParams: Record<string, string | string[] | undefined>;
+  share: Pick<ShareLinkSummary, "downloadDisabled" | "expiresAt">;
+}) {
+  const error = getSingleSearchParam(searchParams, "error");
+  const success = getSingleSearchParam(searchParams, "success");
+
+  return (
+    <main className="stack">
+      <section className="panel stack">
+        <div className="pill">{headerLabel}</div>
+        <div className="split">
+          <div className="stack">
+            <h1>{file.name}</h1>
+            <p className="muted">
+              Link expires {formatDateTime(share.expiresAt)}.
+            </p>
+          </div>
+          {backHref ? (
+            <Link className="button button-secondary" href={backHref}>
+              {backLabel}
+            </Link>
+          ) : null}
+        </div>
+        {error ? <FlashMessage>{error}</FlashMessage> : null}
+        {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
+      </section>
+
+      {file.viewerKind ? (
+        <section
+          className="panel stack"
+          style={{
+            overflow: "hidden",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "var(--color-surface-hover, #f3f4f6)",
+            minHeight: "60vh",
+          }}
+        >
+          {file.viewerKind === "image" ? (
+            <img
+              alt={file.name}
+              src={contentHref}
+              style={{
+                display: "block",
+                maxWidth: "100%",
+                maxHeight: "75vh",
+                objectFit: "contain",
+              }}
+            />
+          ) : (
+            <video
+              controls
+              playsInline
+              preload="metadata"
+              src={contentHref}
+              style={{
+                display: "block",
+                maxWidth: "100%",
+                maxHeight: "75vh",
+              }}
+            >
+              Your browser could not play this video inline.
+            </video>
+          )}
+        </section>
+      ) : null}
+
+      <section className="panel stack">
+        <h2>File details</h2>
+        <p className="muted">
+          {file.mimeType} • {formatBytes(file.sizeBytes)} • Updated{" "}
+          {formatDateTime(file.updatedAt)}
+        </p>
+        {share.downloadDisabled ? (
+          <span className="field-help">
+            Downloads are disabled for this link. Inline image and video viewing
+            remains available.
+          </span>
+        ) : downloadHref ? (
+          <a className="button" href={downloadHref}>
+            Download file
+          </a>
+        ) : null}
+      </section>
+    </main>
+  );
+}
+
 type ShareViewProps = {
   resolution: PublicShareResolution;
   token: string;
@@ -90,214 +247,159 @@ export function ShareView({ resolution, token, searchParams }: ShareViewProps) {
 
   if (isLocked) {
     return (
-      <main className="stack">
-        <section className="panel stack">
-          <div className="pill">Protected share</div>
-          <h1>This share is password protected</h1>
-          <p className="muted">Enter the password to continue.</p>
-          {error ? <FlashMessage>{error}</FlashMessage> : null}
-          {success ? (
-            <FlashMessage tone="success">{success}</FlashMessage>
-          ) : null}
-        </section>
+      <ShareLockedView
+        error={error ?? null}
+        redirectPath={lockedRedirectPath}
+        success={success ?? null}
+        token={token}
+      />
+    );
+  }
 
-        <section className="panel stack">
-          <h2>Unlock shared access</h2>
-          <form
-            action={`/s/${encodeURIComponent(token)}/unlock`}
-            className="form-grid"
-            method="post"
-          >
-            <input name="redirectTo" type="hidden" value={lockedRedirectPath} />
-            <div className="field">
-              <label htmlFor="share-password">Password</label>
-              <input
-                id="share-password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-              />
-            </div>
-            <button className="button" type="submit">
-              Unlock
-            </button>
-          </form>
-        </section>
-      </main>
+  if (resolution.kind === "file") {
+    return (
+      <ShareFilePage
+        contentHref={`/s/${encodeURIComponent(token)}/content`}
+        downloadHref={`/s/${encodeURIComponent(token)}/download`}
+        file={resolution.file}
+        headerLabel="Shared file"
+        searchParams={searchParams}
+        share={resolution.share}
+      />
     );
   }
 
   return (
     <main className="stack">
       <section className="panel stack">
-        <div className="pill">
-          {resolution.kind === "file" ? "Shared file" : "Shared folder"}
-        </div>
-        <h1>
-          {resolution.kind === "file"
-            ? resolution.file.name
-            : resolution.listing.currentFolder.name}
-        </h1>
+        <div className="pill">Shared folder</div>
+        <h1>{resolution.listing.currentFolder.name}</h1>
         <p className="muted">
-          {isLocked
-            ? "This link is password-protected."
-            : `Link expires ${formatDateTime(resolution.share.expiresAt)}.`}
+          Link expires {formatDateTime(resolution.share.expiresAt)}.
         </p>
         {error ? <FlashMessage>{error}</FlashMessage> : null}
         {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
       </section>
 
-      {resolution.kind === "file" ? (
-        <section className="panel stack">
-          <h2>File details</h2>
-          <p className="muted">
-            {resolution.file.mimeType} •{" "}
-            {formatBytes(resolution.file.sizeBytes)} • Updated{" "}
-            {formatDateTime(resolution.file.updatedAt)}
-          </p>
-          {!isLocked && !resolution.share.downloadDisabled ? (
-            <a
-              className="button"
-              href={`/s/${encodeURIComponent(token)}/download`}
-            >
-              Download file
-            </a>
-          ) : (
-            <span className="field-help">
-              {resolution.share.downloadDisabled
-                ? "Downloads are disabled for this link."
-                : "Unlock the link to access the file."}
-            </span>
-          )}
-        </section>
-      ) : (
-        <>
-          <section className="panel stack">
-            <div className="workspace-breadcrumbs" aria-label="Breadcrumb">
-              {resolution.listing.breadcrumbs.map((crumb) => (
-                <Link key={crumb.id} href={crumb.href}>
-                  {crumb.name}
-                </Link>
-              ))}
-            </div>
-            {!isLocked && !resolution.share.downloadDisabled ? (
-              <a
-                className="button"
-                href={`/s/${encodeURIComponent(token)}/archive`}
-              >
-                Download folder archive
-              </a>
-            ) : (
-              <span className="field-help">
-                {resolution.share.downloadDisabled
-                  ? "Archive download is disabled for this link."
-                  : "Unlock the link to browse this folder."}
-              </span>
-            )}
-          </section>
+      <section className="panel stack">
+        <div className="workspace-breadcrumbs" aria-label="Breadcrumb">
+          {resolution.listing.breadcrumbs.map((crumb) => (
+            <Link key={crumb.id} href={crumb.href}>
+              {crumb.name}
+            </Link>
+          ))}
+        </div>
+        {!resolution.share.downloadDisabled ? (
+          <a
+            className="button"
+            href={`/s/${encodeURIComponent(token)}/archive`}
+          >
+            Download folder archive
+          </a>
+        ) : (
+          <span className="field-help">
+            Archive download is disabled for this link.
+          </span>
+        )}
+      </section>
 
-          {!isLocked ? (
-            <>
-              <section className="panel stack">
-                <div className="split">
+      <section className="panel stack">
+        <div className="split">
+          <div className="stack">
+            <h2>Folders</h2>
+            <p className="muted">This share exposes the full linked subtree.</p>
+          </div>
+          <span className="pill">
+            {resolution.listing.childFolders.length} folder
+            {resolution.listing.childFolders.length === 1 ? "" : "s"}
+          </span>
+        </div>
+
+        {resolution.listing.childFolders.length === 0 ? (
+          <div className="workspace-empty-state">
+            <h3>No child folders here</h3>
+            <p className="muted">This folder has no visible child folders.</p>
+          </div>
+        ) : (
+          <div className="folder-list">
+            {resolution.listing.childFolders.map((folder) => (
+              <article className="folder-row" key={folder.id}>
+                <div className="folder-row-head">
                   <div className="stack">
-                    <h2>Folders</h2>
-                    <p className="muted">
-                      This share exposes the full linked subtree.
+                    <Link
+                      className="folder-link"
+                      href={`/s/${encodeURIComponent(token)}/f/${folder.id}`}
+                    >
+                      {folder.name}
+                    </Link>
+                    <p className="folder-meta">
+                      Updated {formatDateTime(folder.updatedAt)}
                     </p>
                   </div>
-                  <span className="pill">
-                    {resolution.listing.childFolders.length} folder
-                    {resolution.listing.childFolders.length === 1 ? "" : "s"}
-                  </span>
+                  <span className="pill">Folder</span>
                 </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
 
-                {resolution.listing.childFolders.length === 0 ? (
-                  <div className="workspace-empty-state">
-                    <h3>No child folders here</h3>
-                    <p className="muted">
-                      This folder has no visible child folders.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="folder-list">
-                    {resolution.listing.childFolders.map((folder) => (
-                      <article className="folder-row" key={folder.id}>
-                        <div className="folder-row-head">
-                          <div className="stack">
-                            <Link
-                              className="folder-link"
-                              href={`/s/${encodeURIComponent(token)}/f/${folder.id}`}
-                            >
-                              {folder.name}
-                            </Link>
-                            <p className="folder-meta">
-                              Updated {formatDateTime(folder.updatedAt)}
-                            </p>
-                          </div>
-                          <span className="pill">Folder</span>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                )}
-              </section>
+      <section className="panel stack">
+        <div className="split">
+          <div className="stack">
+            <h2>Files</h2>
+            <p className="muted">Files stay inside the linked subtree only.</p>
+          </div>
+          <span className="pill">
+            {resolution.listing.files.length} file
+            {resolution.listing.files.length === 1 ? "" : "s"}
+          </span>
+        </div>
 
-              <section className="panel stack">
-                <div className="split">
+        {resolution.listing.files.length === 0 ? (
+          <div className="workspace-empty-state">
+            <h3>No files here</h3>
+            <p className="muted">This folder has no visible files.</p>
+          </div>
+        ) : (
+          <div className="folder-list">
+            {resolution.listing.files.map((file) => (
+              <article className="folder-row" key={file.id}>
+                <div className="folder-row-head">
                   <div className="stack">
-                    <h2>Files</h2>
-                    <p className="muted">
-                      Files stay inside the linked subtree only.
+                    <h3 className="folder-link">{file.name}</h3>
+                    <p className="folder-meta">
+                      {file.mimeType} • {formatBytes(file.sizeBytes)} • Updated{" "}
+                      {formatDateTime(file.updatedAt)}
                     </p>
                   </div>
-                  <span className="pill">
-                    {resolution.listing.files.length} file
-                    {resolution.listing.files.length === 1 ? "" : "s"}
-                  </span>
+                  <div className="workspace-inline-fields retrieval-inline-actions">
+                    <span className="pill">File</span>
+                    {file.viewerKind ? (
+                      <Link
+                        className="button button-secondary"
+                        href={`/s/${encodeURIComponent(token)}/files/${file.id}`}
+                      >
+                        Open
+                      </Link>
+                    ) : null}
+                    {!resolution.share.downloadDisabled ? (
+                      <a
+                        className="button button-secondary"
+                        href={`/s/${encodeURIComponent(token)}/files/${file.id}/download`}
+                      >
+                        Download
+                      </a>
+                    ) : (
+                      <span className="field-help">Downloads disabled</span>
+                    )}
+                  </div>
                 </div>
-
-                {resolution.listing.files.length === 0 ? (
-                  <div className="workspace-empty-state">
-                    <h3>No files here</h3>
-                    <p className="muted">This folder has no visible files.</p>
-                  </div>
-                ) : (
-                  <div className="folder-list">
-                    {resolution.listing.files.map((file) => (
-                      <article className="folder-row" key={file.id}>
-                        <div className="folder-row-head">
-                          <div className="stack">
-                            <h3 className="folder-link">{file.name}</h3>
-                            <p className="folder-meta">
-                              {file.mimeType} • {formatBytes(file.sizeBytes)} •
-                              Updated {formatDateTime(file.updatedAt)}
-                            </p>
-                          </div>
-                          <span className="pill">File</span>
-                        </div>
-                        {!resolution.share.downloadDisabled ? (
-                          <a
-                            className="button button-secondary"
-                            href={`/s/${encodeURIComponent(token)}/files/${file.id}/download`}
-                          >
-                            Download
-                          </a>
-                        ) : (
-                          <span className="field-help">
-                            Downloads are disabled for this link.
-                          </span>
-                        )}
-                      </article>
-                    ))}
-                  </div>
-                )}
-              </section>
-            </>
-          ) : null}
-        </>
-      )}
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
     </main>
   );
 }

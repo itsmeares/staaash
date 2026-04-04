@@ -15,6 +15,14 @@
     "./health": {
       "types": "./dist/health.d.ts",
       "default": "./dist/health.js"
+    },
+    "./instance": {
+      "types": "./dist/instance.d.ts",
+      "default": "./dist/instance.js"
+    },
+    "./viewer-contract": {
+      "types": "./dist/viewer-contract.d.ts",
+      "default": "./dist/viewer-contract.js"
     }
   },
   "scripts": {

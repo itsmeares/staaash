@@ -28,7 +28,7 @@ Use these docs to understand what Staaash is trying to build, which decisions ar
 
 ## Current Build Focus
 
-- completed phases: 00, 01, 02, 03, and 04
-- next active phase: 05 Search, Favorites, Recents, and Trash
+- completed phases: 00, 01, 02, 03, 04, 05, and 06
+- next active phase: 07 Admin and Operational Surface
 
-If you only need to understand what the repo is actively building next, start with [`implementation-plan.md`](./implementation-plan.md) and then open [`phases/05-search-favorites-recents-and-trash.md`](./phases/05-search-favorites-recents-and-trash.md).
+If you only need to understand what the repo is actively building next, start with [`implementation-plan.md`](./implementation-plan.md) and then open [`phases/07-admin-and-operational-surface.md`](./phases/07-admin-and-operational-surface.md).

@@ -135,6 +135,7 @@ const toLibraryFileSummary = (
     | "name"
     | "mimeType"
     | "sizeBytes"
+    | "viewerKind"
     | "deletedAt"
     | "createdAt"
     | "updatedAt"
@@ -147,6 +148,7 @@ const toLibraryFileSummary = (
   name: file.name,
   mimeType: file.mimeType,
   sizeBytes: file.sizeBytes,
+  viewerKind: file.viewerKind,
   deletedAt: file.deletedAt,
   createdAt: file.createdAt,
   updatedAt: file.updatedAt,

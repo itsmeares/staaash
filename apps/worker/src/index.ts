@@ -2,32 +2,155 @@ import os from "node:os";
 import { mkdir } from "node:fs/promises";
 
 import {
+  STAGING_CLEANUP_JOB_KIND,
+  STAGING_CLEANUP_SCHEDULE_WINDOW_MS,
+  TRASH_RETENTION_JOB_KIND,
+  UPDATE_CHECK_JOB_KIND,
   claimDueBackgroundJob,
   ensureBackgroundJobScheduled,
   markBackgroundJobFailed,
   markBackgroundJobSucceeded,
-  STAGING_CLEANUP_JOB_KIND,
-  STAGING_CLEANUP_SCHEDULE_WINDOW_MS,
 } from "@staaash/db/jobs";
+
 import {
-  cleanupExpiredStagingFiles,
   getWorkerStoragePaths,
   recoverPendingDeletes,
   writeHeartbeat,
 } from "./storage-maintenance";
+import { handleStagingCleanup } from "./handlers/staging-cleanup";
+import { handleTrashRetention } from "./handlers/trash-retention";
+import { handleUpdateCheck } from "./handlers/update-check";
 
 const storagePaths = getWorkerStoragePaths();
 const workerId = `${os.hostname()}-${process.pid}`;
 const workerHeartbeatMs = 30_000;
 const jobPollMs = 10_000;
 
-const ensureCleanupJobDue = async () => {
+const TRASH_RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const UPDATE_CHECK_INTERVAL_MS =
+  Number(process.env.UPDATE_CHECK_INTERVAL_HOURS ?? 24) * 60 * 60 * 1000;
+
+const schedulePeriodicJobs = async (now = new Date()) => {
   await ensureBackgroundJobScheduled({
     kind: STAGING_CLEANUP_JOB_KIND,
-    runAt: new Date(),
+    runAt: now,
     payloadJson: {},
-    windowEnd: new Date(Date.now() + STAGING_CLEANUP_SCHEDULE_WINDOW_MS),
+    windowEnd: new Date(now.getTime() + STAGING_CLEANUP_SCHEDULE_WINDOW_MS),
+    now,
   });
+
+  await ensureBackgroundJobScheduled({
+    kind: TRASH_RETENTION_JOB_KIND,
+    runAt: now,
+    payloadJson: {},
+    windowEnd: new Date(now.getTime() + TRASH_RETENTION_INTERVAL_MS),
+    now,
+  });
+
+  await ensureBackgroundJobScheduled({
+    kind: UPDATE_CHECK_JOB_KIND,
+    runAt: now,
+    payloadJson: {},
+    windowEnd: new Date(now.getTime() + UPDATE_CHECK_INTERVAL_MS),
+    now,
+  });
+};
+
+const reschedulePeriodicJob = async (kind: string, intervalMs: number) => {
+  const nextRunAt = new Date(Date.now() + intervalMs);
+
+  switch (kind) {
+    case STAGING_CLEANUP_JOB_KIND:
+      await ensureBackgroundJobScheduled({
+        kind: STAGING_CLEANUP_JOB_KIND,
+        runAt: nextRunAt,
+        payloadJson: {},
+        windowEnd: new Date(
+          nextRunAt.getTime() + STAGING_CLEANUP_SCHEDULE_WINDOW_MS,
+        ),
+      });
+      break;
+    case TRASH_RETENTION_JOB_KIND:
+      await ensureBackgroundJobScheduled({
+        kind: TRASH_RETENTION_JOB_KIND,
+        runAt: nextRunAt,
+        payloadJson: {},
+        windowEnd: new Date(nextRunAt.getTime() + TRASH_RETENTION_INTERVAL_MS),
+      });
+      break;
+    case UPDATE_CHECK_JOB_KIND:
+      await ensureBackgroundJobScheduled({
+        kind: UPDATE_CHECK_JOB_KIND,
+        runAt: nextRunAt,
+        payloadJson: {},
+        windowEnd: new Date(nextRunAt.getTime() + UPDATE_CHECK_INTERVAL_MS),
+      });
+      break;
+  }
+};
+
+const processNextJob = async (): Promise<boolean> => {
+  const job = await claimDueBackgroundJob({ workerId });
+
+  if (!job) {
+    return false;
+  }
+
+  try {
+    switch (job.kind) {
+      case STAGING_CLEANUP_JOB_KIND:
+        await handleStagingCleanup(job, storagePaths);
+        await reschedulePeriodicJob(
+          STAGING_CLEANUP_JOB_KIND,
+          STAGING_CLEANUP_SCHEDULE_WINDOW_MS,
+        );
+        break;
+
+      case TRASH_RETENTION_JOB_KIND:
+        await handleTrashRetention(job);
+        await reschedulePeriodicJob(
+          TRASH_RETENTION_JOB_KIND,
+          TRASH_RETENTION_INTERVAL_MS,
+        );
+        break;
+
+      case UPDATE_CHECK_JOB_KIND:
+        await handleUpdateCheck(job);
+        await reschedulePeriodicJob(
+          UPDATE_CHECK_JOB_KIND,
+          UPDATE_CHECK_INTERVAL_MS,
+        );
+        break;
+
+      default:
+        console.warn(`[worker] Unknown job kind: ${job.kind} — skipping.`);
+    }
+
+    await markBackgroundJobSucceeded({ jobId: job.id });
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown worker error.";
+    const updatedJob = await markBackgroundJobFailed({
+      jobId: job.id,
+      errorMessage,
+    });
+
+    if (updatedJob.status === "dead") {
+      console.error("[worker] Background job dead-lettered after retries.", {
+        jobId: job.id,
+        kind: job.kind,
+        error: errorMessage,
+      });
+    } else {
+      console.warn("[worker] Background job retried.", {
+        jobId: job.id,
+        kind: job.kind,
+        error: errorMessage,
+      });
+    }
+  }
+
+  return true;
 };
 
 const runMaintenance = async () => {
@@ -36,37 +159,11 @@ const runMaintenance = async () => {
   });
 };
 
-const runCleanupJobOnce = async () => {
-  const job = await claimDueBackgroundJob({
-    kind: STAGING_CLEANUP_JOB_KIND,
-    workerId,
-  });
-
-  if (!job) {
-    return;
-  }
-
-  try {
-    await cleanupExpiredStagingFiles({
-      tmpRoot: storagePaths.tmpRoot,
-      ttlMs: storagePaths.uploadStagingTtlMs,
-    });
-    await markBackgroundJobSucceeded({
-      jobId: job.id,
-    });
-  } catch (error) {
-    await markBackgroundJobFailed({
-      jobId: job.id,
-      errorMessage:
-        error instanceof Error ? error.message : "Unknown worker error.",
-    });
-  }
-};
-
 const main = async () => {
   await mkdir(storagePaths.tmpRoot, { recursive: true });
   await writeHeartbeat(storagePaths.heartbeatPath);
-  await ensureCleanupJobDue();
+  await schedulePeriodicJobs();
+  await runMaintenance();
 
   let polling = false;
 
@@ -82,14 +179,13 @@ const main = async () => {
     polling = true;
 
     void runMaintenance()
-      .then(() => runCleanupJobOnce())
+      .then(() => processNextJob())
       .finally(() => {
         polling = false;
       });
   }, jobPollMs);
 
-  await runMaintenance();
-  await runCleanupJobOnce();
+  await processNextJob();
 };
 
 void main();

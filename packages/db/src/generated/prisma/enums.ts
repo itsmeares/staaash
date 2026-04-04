@@ -28,15 +28,6 @@ export const JobStatus = {
 export type JobStatus = (typeof JobStatus)[keyof typeof JobStatus]
 
 
-export const PreviewStatus = {
-  pending: 'pending',
-  ready: 'ready',
-  failed: 'failed'
-} as const
-
-export type PreviewStatus = (typeof PreviewStatus)[keyof typeof PreviewStatus]
-
-
 export const ShareTargetType = {
   file: 'file',
   folder: 'folder'

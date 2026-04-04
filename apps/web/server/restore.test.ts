@@ -9,7 +9,6 @@ describe("restore reconciliation", () => {
   it("creates empty reconciliation reports by default", () => {
     expect(createRestoreReconciliationReport()).toEqual({
       missingOriginalIds: [],
-      previewRegenerationIds: [],
       orphanedStorageKeys: [],
     });
   });
