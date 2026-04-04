@@ -133,6 +133,7 @@ const createMemoryRepository = () => {
       sizeBytes,
       contentChecksum,
       previewStatus: "pending",
+      previewKind: null,
       deletedAt,
       createdAt: now,
       updatedAt: now,
@@ -241,6 +242,7 @@ const createMemoryRepository = () => {
         sizeBytes: params.sizeBytes,
         contentChecksum: params.contentChecksum,
         previewStatus: "pending",
+        previewKind: null,
         deletedAt: null,
         createdAt: now,
         updatedAt: now,
@@ -385,6 +387,7 @@ const createService = (repo: LibraryRepository) =>
   createLibraryService({
     repo,
     scheduleStagingCleanupJob: async () => undefined,
+    schedulePreviewGenerateJob: async () => undefined,
   });
 
 const cleanDataRoot = () =>

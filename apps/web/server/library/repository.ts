@@ -1,4 +1,5 @@
 import { Prisma, getPrisma } from "@staaash/db/client";
+import { resolvePreviewKind } from "@staaash/db/preview-contract";
 
 import type {
   LibraryFolderSummary,
@@ -178,6 +179,7 @@ const toStoredLibraryFile = (file: LibraryFileRecord): StoredLibraryFile => ({
   sizeBytes: Number(file.sizeBytes),
   contentChecksum: file.contentChecksum,
   previewStatus: file.previewStatus,
+  previewKind: resolvePreviewKind(file.mimeType),
   deletedAt: file.deletedAt,
   createdAt: file.createdAt,
   updatedAt: file.updatedAt,

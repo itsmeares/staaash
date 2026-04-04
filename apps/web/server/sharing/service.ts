@@ -199,6 +199,8 @@ const toLibraryFileSummary = (file: StoredLibraryFile): LibraryFileSummary => ({
   name: file.name,
   mimeType: file.mimeType,
   sizeBytes: file.sizeBytes,
+  previewStatus: file.previewStatus,
+  previewKind: file.previewKind,
   deletedAt: file.deletedAt,
   createdAt: file.createdAt,
   updatedAt: file.updatedAt,
@@ -1075,6 +1077,83 @@ export const createSharingService = ({
         folders,
         files,
       });
+    },
+    async getSharedFilePreview({
+      token,
+      shareAccessCookieValue,
+    }: {
+      token: string;
+      shareAccessCookieValue?: string | null;
+    }): Promise<{ file: StoredLibraryFile }> {
+      const resolved = await this.resolvePublicShare({
+        token,
+        shareAccessCookieValue,
+      });
+
+      if (resolved.kind !== "file") {
+        throw new ShareError("SHARE_ACCESS_DENIED");
+      }
+
+      if (!resolved.access.isUnlocked) {
+        throw new ShareError("SHARE_PASSWORD_REQUIRED");
+      }
+
+      // downloadDisabled does NOT block previews — intentional policy
+
+      const file = (await (
+        await resolveLibraryRepo()
+      ).findFileById(resolved.file.id))!;
+
+      return { file };
+    },
+
+    async getSharedNestedFilePreview({
+      token,
+      fileId,
+      shareAccessCookieValue,
+    }: {
+      token: string;
+      fileId: string;
+      shareAccessCookieValue?: string | null;
+    }): Promise<{ file: StoredLibraryFile }> {
+      const resolved = await this.resolvePublicShare({
+        token,
+        shareAccessCookieValue,
+      });
+
+      if (resolved.kind !== "folder") {
+        throw new ShareError("SHARE_ACCESS_DENIED");
+      }
+
+      if (!resolved.access.isUnlocked) {
+        throw new ShareError("SHARE_PASSWORD_REQUIRED");
+      }
+
+      // downloadDisabled does NOT block previews — intentional policy
+
+      const libraryRepo = await resolveLibraryRepo();
+      const file = await libraryRepo.findFileById(fileId);
+      const libraryState = await resolveLibraryState(
+        resolved.listing.rootFolder.ownerUserId,
+      );
+
+      if (
+        !file ||
+        isFileDeletedInTree({
+          file,
+          folderMap: libraryState.folderMap,
+        }) ||
+        !file.folderId ||
+        !isFolderWithinRoot({
+          folderId: file.folderId,
+          rootFolderId: resolved.listing.rootFolder.id,
+          folderMap: libraryState.folderMap,
+        })
+      ) {
+        throw new ShareError("SHARE_ACCESS_DENIED");
+      }
+
+      return { file };
     },
   };
 };

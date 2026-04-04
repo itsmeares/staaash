@@ -17,6 +17,8 @@ export type LibraryFolderSummary = {
   updatedAt: Date;
 };
 
+export type PreviewKind = "image" | "pdf" | "text" | "audio" | "video";
+
 export type LibraryFileSummary = {
   id: string;
   ownerUserId: string;
@@ -25,6 +27,8 @@ export type LibraryFileSummary = {
   name: string;
   mimeType: string;
   sizeBytes: number;
+  previewStatus: "pending" | "ready" | "failed";
+  previewKind: PreviewKind | null;
   deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -33,7 +37,6 @@ export type LibraryFileSummary = {
 export type StoredLibraryFile = LibraryFileSummary & {
   storageKey: string;
   contentChecksum: string | null;
-  previewStatus: "pending" | "ready" | "failed";
 };
 
 export type LibraryBreadcrumb = {
