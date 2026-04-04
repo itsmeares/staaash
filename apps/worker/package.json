@@ -17,6 +17,10 @@
   "dependencies": {
     "@staaash/config": "workspace:*",
     "@staaash/db": "workspace:*",
+    "@types/fluent-ffmpeg": "^2.1.28",
+    "fluent-ffmpeg": "^2.1.3",
+    "music-metadata": "^11.12.3",
+    "sharp": "^0.34.5",
     "tsx": "^4.20.6",
     "zod": "^4.1.12"
   },
