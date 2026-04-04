@@ -6,7 +6,6 @@ import { env } from "@/lib/env";
 export const STORAGE_DIRECTORIES = {
   library: "library",
   trash: ".trash",
-  previews: "previews",
   tmp: "tmp",
   locks: "tmp/locks",
   pendingDelete: "tmp/pending-delete",
@@ -113,18 +112,6 @@ export const getTrashedFolderStorageKey = ({
   folderPathSegments: string[];
 }) =>
   path.posix.join(getUserTrashRootStorageKey(username), ...folderPathSegments);
-
-export const getPreviewStorageKey = (
-  ownerUserId: string,
-  fileId: string,
-  previewKind: string,
-) =>
-  path.posix.join(
-    STORAGE_DIRECTORIES.previews,
-    ownerUserId,
-    fileId,
-    `${previewKind}.preview`,
-  );
 
 export const getTmpUploadPath = (uploadId: string) =>
   resolveWithinRoot(STORAGE_DIRECTORIES.tmp, `${uploadId}.upload`);

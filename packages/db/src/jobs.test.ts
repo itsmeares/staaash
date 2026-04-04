@@ -3,13 +3,13 @@ import { describe, expect, it } from "vitest";
 const {
   BACKGROUND_JOB_LEASE_MS,
   BACKGROUND_JOB_RETRY_DELAY_MS,
-  PREVIEW_GENERATE_JOB_KIND,
   STAGING_CLEANUP_JOB_KIND,
   TRASH_RETENTION_JOB_KIND,
   UPDATE_CHECK_JOB_KIND,
   claimDueBackgroundJob,
   ensureBackgroundJobScheduled,
   markBackgroundJobFailed,
+  markBackgroundJobTerminal,
 } = await import("./jobs");
 
 type DateComparisonFilter = {
@@ -315,28 +315,28 @@ describe("background jobs", () => {
     });
   });
 
-  it("deduplicates preview.generate jobs by dedupeKey", async () => {
+  it("deduplicates keyed jobs by dedupeKey", async () => {
     const now = new Date("2026-04-01T12:00:00.000Z");
     const jobs: MemoryJob[] = [];
     const client = createClient(jobs);
-    const dedupeKey = "preview:file-abc";
+    const dedupeKey = "staging:tenant-1";
 
     // First enqueue — should create
     const first = await ensureBackgroundJobScheduled({
-      kind: PREVIEW_GENERATE_JOB_KIND,
+      kind: STAGING_CLEANUP_JOB_KIND,
       runAt: now,
       dedupeKey,
-      payloadJson: { fileId: "file-abc" },
+      payloadJson: { tenantId: "tenant-1" },
       client,
       now,
     });
 
     // Second enqueue with same key — should deduplicate
     const second = await ensureBackgroundJobScheduled({
-      kind: PREVIEW_GENERATE_JOB_KIND,
+      kind: STAGING_CLEANUP_JOB_KIND,
       runAt: now,
       dedupeKey,
-      payloadJson: { fileId: "file-abc" },
+      payloadJson: { tenantId: "tenant-1" },
       client,
       now,
     });
@@ -358,8 +358,8 @@ describe("background jobs", () => {
         runAt: now,
       }),
       createJob({
-        id: "preview-job",
-        kind: PREVIEW_GENERATE_JOB_KIND,
+        id: "update-job",
+        kind: UPDATE_CHECK_JOB_KIND,
         status: "queued",
         runAt: earlier,
       }),
@@ -372,9 +372,8 @@ describe("background jobs", () => {
       client,
     });
 
-    // Should claim the earlier preview job
-    expect(claimed?.id).toBe("preview-job");
-    expect(claimed?.kind).toBe(PREVIEW_GENERATE_JOB_KIND);
+    expect(claimed?.id).toBe("update-job");
+    expect(claimed?.kind).toBe(UPDATE_CHECK_JOB_KIND);
   });
 
   it("singleton periodic jobs do not duplicate within their kind", async () => {
@@ -446,5 +445,31 @@ describe("background jobs", () => {
       status: "queued",
       lastError: "transient error",
     });
+  });
+
+  it("marks terminal jobs failed without requeueing them", async () => {
+    const jobs = [
+      createJob({
+        id: "terminal-job",
+        status: "running",
+        attemptCount: 1,
+        maxAttempts: 5,
+      }),
+    ];
+    const client = createClient(jobs);
+
+    const updated = await markBackgroundJobTerminal({
+      jobId: "terminal-job",
+      errorMessage: "non-retryable failure",
+      client,
+    });
+
+    expect(updated).toMatchObject({
+      status: "failed",
+      lockedAt: null,
+      lockedBy: null,
+      lastError: "non-retryable failure",
+    });
+    expect(jobs[0]?.runAt).toEqual(new Date("2026-04-01T12:00:00.000Z"));
   });
 });

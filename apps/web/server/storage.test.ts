@@ -8,7 +8,6 @@ import {
   getActiveFolderStorageKey,
   getPendingDeleteBlobPath,
   getPendingDeleteManifestPath,
-  getPreviewStorageKey,
   getStorageLockPath,
   getTrashedCommittedStorageKey,
   getTrashedFolderStorageKey,
@@ -52,12 +51,6 @@ describe("storage layout", () => {
         folderPathSegments: ["Photos", "Trips"],
       }),
     ).toBe(".trash/johnsmith/Photos/Trips");
-  });
-
-  it("keeps previews under the internal preview layout", () => {
-    expect(getPreviewStorageKey("user-1", "file-1", "image")).toBe(
-      "previews/user-1/file-1/image.preview",
-    );
   });
 
   it("resolves the same default files root from web and worker package directories", () => {

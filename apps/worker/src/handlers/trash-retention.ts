@@ -3,7 +3,6 @@ import { mkdir, rm } from "node:fs/promises";
 import { z } from "zod";
 import { getPrisma } from "@staaash/db/client";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
-import { getPreviewAssetDirectoryKey } from "@staaash/db/preview-contract";
 import { resolveWorkspacePath } from "@staaash/config";
 
 const trashEnvSchema = z.object({
@@ -41,19 +40,6 @@ type PrismaClient = {
 
 const resolveStoragePath = (filesRoot: string, storageKey: string) =>
   path.resolve(filesRoot, storageKey);
-
-const removePreviewAssetsForFiles = async (
-  fileIds: Array<{ id: string; ownerUserId: string }>,
-  filesRoot: string,
-) => {
-  await Promise.all(
-    fileIds.map(({ id, ownerUserId }) => {
-      const dirKey = getPreviewAssetDirectoryKey(ownerUserId, id);
-      const dirPath = resolveStoragePath(filesRoot, dirKey);
-      return rm(dirPath, { recursive: true, force: true });
-    }),
-  );
-};
 
 /**
  * Collects all descendant folder IDs for a given root folder (BFS).
@@ -132,7 +118,6 @@ export const handleTrashRetention = async (
 
     const filePath = resolveStoragePath(filesRoot, current.storageKey);
     await rm(filePath, { force: true });
-    await removePreviewAssetsForFiles([current], filesRoot);
     await prisma.file.deleteMany({
       where: { id: current.id },
     } as object);
@@ -188,9 +173,6 @@ export const handleTrashRetention = async (
         const filePath = resolveStoragePath(filesRoot, f.storageKey);
         await rm(filePath, { force: true });
       }
-
-      // Remove preview assets for all files
-      await removePreviewAssetsForFiles(filesInTree, filesRoot);
 
       // Delete files from DB
       if (filesInTree.length > 0) {

@@ -1,7 +1,6 @@
 import { getPrisma } from "./client";
 
 export const STAGING_CLEANUP_JOB_KIND = "staging.cleanup";
-export const PREVIEW_GENERATE_JOB_KIND = "preview.generate";
 export const TRASH_RETENTION_JOB_KIND = "trash.retention";
 export const UPDATE_CHECK_JOB_KIND = "update.check";
 
@@ -11,13 +10,11 @@ export const BACKGROUND_JOB_RETRY_DELAY_MS = 30_000;
 
 export type SupportedBackgroundJobKind =
   | typeof STAGING_CLEANUP_JOB_KIND
-  | typeof PREVIEW_GENERATE_JOB_KIND
   | typeof TRASH_RETENTION_JOB_KIND
   | typeof UPDATE_CHECK_JOB_KIND;
 
 export const ALL_SUPPORTED_JOB_KINDS: SupportedBackgroundJobKind[] = [
   STAGING_CLEANUP_JOB_KIND,
-  PREVIEW_GENERATE_JOB_KIND,
   TRASH_RETENTION_JOB_KIND,
   UPDATE_CHECK_JOB_KIND,
 ];
@@ -68,8 +65,8 @@ const buildActiveStatusFilter = (now: Date) => ({
 /**
  * Ensures a background job of the given kind is scheduled within the window.
  *
- * For preview jobs (and any kind with a unique dedupeKey), pass `dedupeKey`
- * to match an existing active job by key instead of by kind+window only.
+ * For jobs with a unique dedupeKey, pass `dedupeKey` to match an existing
+ * active job by key instead of by kind+window only.
  */
 export const ensureBackgroundJobScheduled = async ({
   kind,
@@ -94,7 +91,7 @@ export const ensureBackgroundJobScheduled = async ({
     client ?? (getPrisma() as unknown as BackgroundJobClient);
 
   // Build the where clause — if a dedupeKey is provided, match by key+kind
-  // rather than by time window, so preview jobs per file are always singular.
+  // rather than by time window.
   const dedupeFilter = dedupeKey
     ? {
         kind,
@@ -247,6 +244,31 @@ export const markBackgroundJobSucceeded = async ({
       lockedAt: null,
       lockedBy: null,
       lastError: null,
+    },
+  });
+};
+
+export const markBackgroundJobTerminal = async ({
+  jobId,
+  errorMessage,
+  client,
+}: {
+  jobId: string;
+  errorMessage: string;
+  client?: BackgroundJobClient;
+}) => {
+  const activeClient =
+    client ?? (getPrisma() as unknown as BackgroundJobClient);
+
+  return activeClient.backgroundJob.update({
+    where: {
+      id: jobId,
+    },
+    data: {
+      status: "failed",
+      lockedAt: null,
+      lockedBy: null,
+      lastError: errorMessage,
     },
   });
 };

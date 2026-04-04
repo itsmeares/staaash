@@ -52,7 +52,6 @@ export type StorageWarningSummary = {
 
 export type RestoreReconciliationReport = {
   missingOriginalIds: string[];
-  previewRegenerationIds: string[];
   orphanedStorageKeys: string[];
 };
 

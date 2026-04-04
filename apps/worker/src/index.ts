@@ -2,7 +2,6 @@ import os from "node:os";
 import { mkdir } from "node:fs/promises";
 
 import {
-  PREVIEW_GENERATE_JOB_KIND,
   STAGING_CLEANUP_JOB_KIND,
   STAGING_CLEANUP_SCHEDULE_WINDOW_MS,
   TRASH_RETENTION_JOB_KIND,
@@ -12,31 +11,25 @@ import {
   markBackgroundJobFailed,
   markBackgroundJobSucceeded,
 } from "@staaash/db/jobs";
+
 import {
   getWorkerStoragePaths,
   recoverPendingDeletes,
   writeHeartbeat,
 } from "./storage-maintenance";
 import { handleStagingCleanup } from "./handlers/staging-cleanup";
-import { handleUpdateCheck } from "./handlers/update-check";
-import { handlePreviewGenerate } from "./handlers/preview-generate";
 import { handleTrashRetention } from "./handlers/trash-retention";
+import { handleUpdateCheck } from "./handlers/update-check";
 
 const storagePaths = getWorkerStoragePaths();
 const workerId = `${os.hostname()}-${process.pid}`;
 const workerHeartbeatMs = 30_000;
 const jobPollMs = 10_000;
 
-// How often each periodic job should run (in ms)
-const TRASH_RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1000; // daily
+const TRASH_RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const UPDATE_CHECK_INTERVAL_MS =
   Number(process.env.UPDATE_CHECK_INTERVAL_HOURS ?? 24) * 60 * 60 * 1000;
 
-/**
- * Ensures all periodic jobs have at least one upcoming entry in the queue.
- * Called once on startup and after each successful execution so the queue
- * remains durable across worker restarts.
- */
 const schedulePeriodicJobs = async (now = new Date()) => {
   await ensureBackgroundJobScheduled({
     kind: STAGING_CLEANUP_JOB_KIND,
@@ -63,10 +56,6 @@ const schedulePeriodicJobs = async (now = new Date()) => {
   });
 };
 
-/**
- * Re-schedules a periodic job for its next run after a successful execution.
- * This keeps the queue populated across restarts instead of relying on a clock.
- */
 const reschedulePeriodicJob = async (kind: string, intervalMs: number) => {
   const nextRunAt = new Date(Date.now() + intervalMs);
 
@@ -100,10 +89,6 @@ const reschedulePeriodicJob = async (kind: string, intervalMs: number) => {
   }
 };
 
-/**
- * Claims and dispatches exactly one due background job across all supported
- * kinds. Returns true if a job was processed, false if the queue was empty.
- */
 const processNextJob = async (): Promise<boolean> => {
   const job = await claimDueBackgroundJob({ workerId });
 
@@ -137,12 +122,7 @@ const processNextJob = async (): Promise<boolean> => {
         );
         break;
 
-      case PREVIEW_GENERATE_JOB_KIND:
-        await handlePreviewGenerate(job, storagePaths.filesRoot);
-        break;
-
       default:
-        // Unknown kind — mark as succeeded to avoid accumulation
         console.warn(`[worker] Unknown job kind: ${job.kind} — skipping.`);
     }
 
@@ -150,22 +130,23 @@ const processNextJob = async (): Promise<boolean> => {
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown worker error.";
-
     const updatedJob = await markBackgroundJobFailed({
       jobId: job.id,
       errorMessage,
     });
 
-    // If a preview job just dead-lettered, flip the file status to failed
-    if (
-      job.kind === PREVIEW_GENERATE_JOB_KIND &&
-      updatedJob.status === "dead"
-    ) {
-      try {
-        await handlePreviewGenerate(job, storagePaths.filesRoot, true);
-      } catch {
-        // Best-effort — don't crash the worker if status update fails
-      }
+    if (updatedJob.status === "dead") {
+      console.error("[worker] Background job dead-lettered after retries.", {
+        jobId: job.id,
+        kind: job.kind,
+        error: errorMessage,
+      });
+    } else {
+      console.warn("[worker] Background job retried.", {
+        jobId: job.id,
+        kind: job.kind,
+        error: errorMessage,
+      });
     }
   }
 
@@ -204,7 +185,6 @@ const main = async () => {
       });
   }, jobPollMs);
 
-  // Process any immediately due jobs on startup
   await processNextJob();
 };
 
