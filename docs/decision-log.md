@@ -41,10 +41,11 @@ Use it when you need to check whether something is already decided before reopen
 - backup baseline is crash-consistent backup
 - restore requires reconciliation instead of silent best effort
 
-## Phase 6: Preview System (2026-04-04)
+## Phase 6: Viewer Model Simplification (2026-04-04)
 
-- `downloadDisabled` does **not** block previews — only blocks downloads
-- preview scheduling is **best-effort**: failures do not roll back successful uploads
-- preview jobs use `dedupeKey: "preview:<fileId>"` to prevent pile-up
-- preview asset path is `previews/<ownerUserId>/<fileId>/<kind>.<ext>` (via `preview-contract`)
-- admin health `/version` block now reads live update-check state from the `Instance` singleton (`readInstanceUpdateCheck`), replacing the old static placeholder
+- generated previews were removed in favor of original-file viewing for supported media
+- only images and videos are inline-viewable in this iteration
+- `downloadDisabled` does **not** block image or video viewing on public shares; it only removes explicit download actions
+- videos stream original bytes through inline routes with HTTP range support
+- PDF, text, and audio remain download-only for now - Follow-up will be made.
+- legacy preview endpoints remain temporary compatibility redirects for image and video files only
