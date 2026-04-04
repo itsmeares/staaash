@@ -1421,6 +1421,10 @@ export const InstanceScalarFieldEnum = {
   id: 'id',
   name: 'name',
   setupCompletedAt: 'setupCompletedAt',
+  lastUpdateCheckAt: 'lastUpdateCheckAt',
+  updateCheckStatus: 'updateCheckStatus',
+  updateCheckMessage: 'updateCheckMessage',
+  latestAvailableVersion: 'latestAvailableVersion',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -1583,6 +1587,7 @@ export const BackgroundJobScalarFieldEnum = {
   kind: 'kind',
   status: 'status',
   payloadJson: 'payloadJson',
+  dedupeKey: 'dedupeKey',
   runAt: 'runAt',
   lockedAt: 'lockedAt',
   lockedBy: 'lockedBy',
