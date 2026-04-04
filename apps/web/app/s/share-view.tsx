@@ -149,28 +149,86 @@ export function ShareView({ resolution, token, searchParams }: ShareViewProps) {
       </section>
 
       {resolution.kind === "file" ? (
-        <section className="panel stack">
-          <h2>File details</h2>
-          <p className="muted">
-            {resolution.file.mimeType} •{" "}
-            {formatBytes(resolution.file.sizeBytes)} • Updated{" "}
-            {formatDateTime(resolution.file.updatedAt)}
-          </p>
-          {!isLocked && !resolution.share.downloadDisabled ? (
-            <a
-              className="button"
-              href={`/s/${encodeURIComponent(token)}/download`}
+        <>
+          {resolution.file.previewKind &&
+          resolution.file.previewStatus !== "failed" ? (
+            <section
+              className="panel stack"
+              style={{
+                overflow: "hidden",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: "var(--color-surface-hover, #f3f4f6)",
+                padding: 0,
+              }}
             >
-              Download file
-            </a>
-          ) : (
-            <span className="field-help">
-              {resolution.share.downloadDisabled
-                ? "Downloads are disabled for this link."
-                : "Unlock the link to access the file."}
-            </span>
-          )}
-        </section>
+              {resolution.file.previewStatus === "pending" ? (
+                <div style={{ padding: "3rem" }}>
+                  <p className="muted">Generating preview...</p>
+                </div>
+              ) : resolution.file.previewKind === "image" ? (
+                <img
+                  src={`/s/${encodeURIComponent(token)}/preview`}
+                  alt={`Preview of ${resolution.file.name}`}
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: "70vh",
+                    objectFit: "contain",
+                  }}
+                />
+              ) : resolution.file.previewKind === "video" ? (
+                <video
+                  src={`/s/${encodeURIComponent(token)}/preview`}
+                  controls
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: "70vh",
+                    outline: "none",
+                  }}
+                />
+              ) : resolution.file.previewKind === "audio" ? (
+                <audio
+                  src={`/s/${encodeURIComponent(token)}/preview`}
+                  controls
+                  style={{ width: "100%", margin: "3rem" }}
+                />
+              ) : (
+                <iframe
+                  src={`/s/${encodeURIComponent(token)}/preview`}
+                  title={`Preview of ${resolution.file.name}`}
+                  style={{ width: "100%", height: "70vh", border: "none" }}
+                />
+              )}
+            </section>
+          ) : resolution.file.previewStatus === "failed" ? (
+            <section className="panel stack">
+              <p className="muted">Preview unavailable</p>
+            </section>
+          ) : null}
+          <section className="panel stack">
+            <h2>File details</h2>
+            <p className="muted">
+              {resolution.file.mimeType} •{" "}
+              {formatBytes(resolution.file.sizeBytes)} • Updated{" "}
+              {formatDateTime(resolution.file.updatedAt)}
+            </p>
+            {!isLocked && !resolution.share.downloadDisabled ? (
+              <a
+                className="button"
+                href={`/s/${encodeURIComponent(token)}/download`}
+              >
+                Download file
+              </a>
+            ) : (
+              <span className="field-help">
+                {resolution.share.downloadDisabled
+                  ? "Downloads are disabled for this link."
+                  : "Unlock the link to access the file."}
+              </span>
+            )}
+          </section>
+        </>
       ) : (
         <>
           <section className="panel stack">
@@ -275,20 +333,40 @@ export function ShareView({ resolution, token, searchParams }: ShareViewProps) {
                               Updated {formatDateTime(file.updatedAt)}
                             </p>
                           </div>
-                          <span className="pill">File</span>
+                          <div className="workspace-inline-fields retrieval-inline-actions">
+                            <span className="pill">File</span>
+                            {file.previewKind ? (
+                              file.previewStatus === "ready" ? (
+                                <a
+                                  className="button button-secondary"
+                                  href={`/s/${encodeURIComponent(token)}/files/${file.id}/preview`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  Preview
+                                </a>
+                              ) : file.previewStatus === "pending" ? (
+                                <span className="pill">Generating preview</span>
+                              ) : (
+                                <span className="pill">
+                                  Preview unavailable
+                                </span>
+                              )
+                            ) : null}
+                            {!resolution.share.downloadDisabled ? (
+                              <a
+                                className="button button-secondary"
+                                href={`/s/${encodeURIComponent(token)}/files/${file.id}/download`}
+                              >
+                                Download
+                              </a>
+                            ) : (
+                              <span className="field-help">
+                                Downloads disabled
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        {!resolution.share.downloadDisabled ? (
-                          <a
-                            className="button button-secondary"
-                            href={`/s/${encodeURIComponent(token)}/files/${file.id}/download`}
-                          >
-                            Download
-                          </a>
-                        ) : (
-                          <span className="field-help">
-                            Downloads are disabled for this link.
-                          </span>
-                        )}
                       </article>
                     ))}
                   </div>

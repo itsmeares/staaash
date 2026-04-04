@@ -1,4 +1,5 @@
 import { AdminAuthConsole } from "@/app/admin/auth-admin-console";
+import { formatDateTime } from "@/app/auth-ui";
 import { env } from "@/lib/env";
 import { requireOwnerPageSession } from "@/server/auth/guards";
 import { authService } from "@/server/auth/service";
@@ -83,15 +84,23 @@ export default async function AdminPage() {
           <h2>Version</h2>
           <p className="muted">{summary.version.currentVersion}</p>
           {summary.version.updateCheckStatus ? (
-            <p className="muted">
-              Update check:{" "}
-              {summary.version.updateCheckStatus === "update-available"
-                ? `Update available — ${summary.version.latestAvailableVersion ?? "unknown version"}`
-                : summary.version.updateCheckStatus}
-              {summary.version.updateCheckMessage
-                ? ` (${summary.version.updateCheckMessage})`
-                : null}
-            </p>
+            <>
+              <p className="muted">
+                Update check:{" "}
+                {summary.version.updateCheckStatus === "update-available"
+                  ? `Update available — ${summary.version.latestAvailableVersion ?? "unknown version"}`
+                  : summary.version.updateCheckStatus}
+                {summary.version.updateCheckMessage
+                  ? ` (${summary.version.updateCheckMessage})`
+                  : null}
+              </p>
+              {summary.version.lastUpdateCheckAt ? (
+                <p className="muted">
+                  Last checked:{" "}
+                  {formatDateTime(summary.version.lastUpdateCheckAt)}
+                </p>
+              ) : null}
+            </>
           ) : (
             <p className="muted">Update check not yet run.</p>
           )}
