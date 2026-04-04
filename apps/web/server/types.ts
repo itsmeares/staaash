@@ -85,7 +85,10 @@ export type InstanceHealthSummary = {
   storageWarnings: StorageWarningSummary;
   version: {
     currentVersion: string;
-    updateMessage: string;
+    lastUpdateCheckAt: string | null;
+    updateCheckStatus: string | null;
+    updateCheckMessage: string | null;
+    latestAvailableVersion: string | null;
   };
 };
 

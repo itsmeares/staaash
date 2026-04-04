@@ -6,6 +6,14 @@ import {
   toJsonInstanceHealthSummary,
 } from "@/server/health";
 
+const baseVersionInfo = {
+  currentVersion: "0.1.0",
+  lastUpdateCheckAt: null,
+  updateCheckStatus: null,
+  updateCheckMessage: null,
+  latestAvailableVersion: null,
+};
+
 describe("health summaries", () => {
   it("marks missing heartbeat as a warning", () => {
     expect(getWorkerHeartbeatStatus(null).status).toBe("warning");
@@ -39,10 +47,12 @@ describe("health summaries", () => {
         totalBytes: 20n,
         message: "Disk capacity is healthy.",
       },
+      versionInfo: baseVersionInfo,
     });
 
     expect(summary.ok).toBe(true);
     expect(summary.version.currentVersion).toBe("0.1.0");
+    expect(summary.version.lastUpdateCheckAt).toBeNull();
   });
 
   it("serializes bigint storage warnings for JSON routes", () => {
@@ -67,6 +77,7 @@ describe("health summaries", () => {
         totalBytes: 20n,
         message: "Disk capacity is healthy.",
       },
+      versionInfo: baseVersionInfo,
     });
 
     const jsonSummary = toJsonInstanceHealthSummary(summary);

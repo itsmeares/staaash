@@ -82,7 +82,19 @@ export default async function AdminPage() {
         <article className="panel stack">
           <h2>Version</h2>
           <p className="muted">{summary.version.currentVersion}</p>
-          <p className="muted">{summary.version.updateMessage}</p>
+          {summary.version.updateCheckStatus ? (
+            <p className="muted">
+              Update check:{" "}
+              {summary.version.updateCheckStatus === "update-available"
+                ? `Update available — ${summary.version.latestAvailableVersion ?? "unknown version"}`
+                : summary.version.updateCheckStatus}
+              {summary.version.updateCheckMessage
+                ? ` (${summary.version.updateCheckMessage})`
+                : null}
+            </p>
+          ) : (
+            <p className="muted">Update check not yet run.</p>
+          )}
         </article>
       </section>
 
