@@ -20,9 +20,9 @@
       "types": "./dist/instance.d.ts",
       "default": "./dist/instance.js"
     },
-    "./preview-contract": {
-      "types": "./dist/preview-contract.d.ts",
-      "default": "./dist/preview-contract.js"
+    "./viewer-contract": {
+      "types": "./dist/viewer-contract.d.ts",
+      "default": "./dist/viewer-contract.js"
     }
   },
   "scripts": {

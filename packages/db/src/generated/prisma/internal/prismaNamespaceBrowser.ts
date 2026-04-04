@@ -179,7 +179,6 @@ export const FileScalarFieldEnum = {
   mimeType: 'mimeType',
   sizeBytes: 'sizeBytes',
   contentChecksum: 'contentChecksum',
-  previewStatus: 'previewStatus',
   deletedAt: 'deletedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'

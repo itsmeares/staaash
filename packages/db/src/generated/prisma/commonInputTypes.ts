@@ -176,13 +176,6 @@ export type BigIntFilter<$PrismaModel = never> = {
   not?: Prisma.NestedBigIntFilter<$PrismaModel> | bigint | number
 }
 
-export type EnumPreviewStatusFilter<$PrismaModel = never> = {
-  equals?: $Enums.PreviewStatus | Prisma.EnumPreviewStatusFieldRefInput<$PrismaModel>
-  in?: $Enums.PreviewStatus[] | Prisma.ListEnumPreviewStatusFieldRefInput<$PrismaModel>
-  notIn?: $Enums.PreviewStatus[] | Prisma.ListEnumPreviewStatusFieldRefInput<$PrismaModel>
-  not?: Prisma.NestedEnumPreviewStatusFilter<$PrismaModel> | $Enums.PreviewStatus
-}
-
 export type BigIntWithAggregatesFilter<$PrismaModel = never> = {
   equals?: bigint | number | Prisma.BigIntFieldRefInput<$PrismaModel>
   in?: bigint[] | number[] | Prisma.ListBigIntFieldRefInput<$PrismaModel>
@@ -197,16 +190,6 @@ export type BigIntWithAggregatesFilter<$PrismaModel = never> = {
   _sum?: Prisma.NestedBigIntFilter<$PrismaModel>
   _min?: Prisma.NestedBigIntFilter<$PrismaModel>
   _max?: Prisma.NestedBigIntFilter<$PrismaModel>
-}
-
-export type EnumPreviewStatusWithAggregatesFilter<$PrismaModel = never> = {
-  equals?: $Enums.PreviewStatus | Prisma.EnumPreviewStatusFieldRefInput<$PrismaModel>
-  in?: $Enums.PreviewStatus[] | Prisma.ListEnumPreviewStatusFieldRefInput<$PrismaModel>
-  notIn?: $Enums.PreviewStatus[] | Prisma.ListEnumPreviewStatusFieldRefInput<$PrismaModel>
-  not?: Prisma.NestedEnumPreviewStatusWithAggregatesFilter<$PrismaModel> | $Enums.PreviewStatus
-  _count?: Prisma.NestedIntFilter<$PrismaModel>
-  _min?: Prisma.NestedEnumPreviewStatusFilter<$PrismaModel>
-  _max?: Prisma.NestedEnumPreviewStatusFilter<$PrismaModel>
 }
 
 export type EnumShareTargetTypeFilter<$PrismaModel = never> = {
@@ -496,13 +479,6 @@ export type NestedBigIntFilter<$PrismaModel = never> = {
   not?: Prisma.NestedBigIntFilter<$PrismaModel> | bigint | number
 }
 
-export type NestedEnumPreviewStatusFilter<$PrismaModel = never> = {
-  equals?: $Enums.PreviewStatus | Prisma.EnumPreviewStatusFieldRefInput<$PrismaModel>
-  in?: $Enums.PreviewStatus[] | Prisma.ListEnumPreviewStatusFieldRefInput<$PrismaModel>
-  notIn?: $Enums.PreviewStatus[] | Prisma.ListEnumPreviewStatusFieldRefInput<$PrismaModel>
-  not?: Prisma.NestedEnumPreviewStatusFilter<$PrismaModel> | $Enums.PreviewStatus
-}
-
 export type NestedBigIntWithAggregatesFilter<$PrismaModel = never> = {
   equals?: bigint | number | Prisma.BigIntFieldRefInput<$PrismaModel>
   in?: bigint[] | number[] | Prisma.ListBigIntFieldRefInput<$PrismaModel>
@@ -528,16 +504,6 @@ export type NestedFloatFilter<$PrismaModel = never> = {
   gt?: number | Prisma.FloatFieldRefInput<$PrismaModel>
   gte?: number | Prisma.FloatFieldRefInput<$PrismaModel>
   not?: Prisma.NestedFloatFilter<$PrismaModel> | number
-}
-
-export type NestedEnumPreviewStatusWithAggregatesFilter<$PrismaModel = never> = {
-  equals?: $Enums.PreviewStatus | Prisma.EnumPreviewStatusFieldRefInput<$PrismaModel>
-  in?: $Enums.PreviewStatus[] | Prisma.ListEnumPreviewStatusFieldRefInput<$PrismaModel>
-  notIn?: $Enums.PreviewStatus[] | Prisma.ListEnumPreviewStatusFieldRefInput<$PrismaModel>
-  not?: Prisma.NestedEnumPreviewStatusWithAggregatesFilter<$PrismaModel> | $Enums.PreviewStatus
-  _count?: Prisma.NestedIntFilter<$PrismaModel>
-  _min?: Prisma.NestedEnumPreviewStatusFilter<$PrismaModel>
-  _max?: Prisma.NestedEnumPreviewStatusFilter<$PrismaModel>
 }
 
 export type NestedEnumShareTargetTypeFilter<$PrismaModel = never> = {
