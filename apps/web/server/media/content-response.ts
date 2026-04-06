@@ -154,51 +154,68 @@ export const createInlineOriginalContentResponse = async ({
     throw new MediaContentError(404, "File content is unavailable.");
   }
 
-  const stat = await fileHandle.stat();
+  let streamCreated = false;
 
-  if (file.viewerKind === "image") {
-    const nodeStream = fileHandle.createReadStream();
+  try {
+    const stat = await fileHandle.stat();
 
-    return new Response(Readable.toWeb(nodeStream) as ReadableStream, {
-      status: 200,
-      headers: {
-        ...createBaseHeaders(file),
-        "content-length": String(stat.size),
-      },
+    if (file.viewerKind === "image") {
+      const nodeStream = fileHandle.createReadStream();
+      streamCreated = true;
+
+      return new Response(Readable.toWeb(nodeStream) as ReadableStream, {
+        status: 200,
+        headers: {
+          ...createBaseHeaders(file),
+          "content-length": String(stat.size),
+        },
+      });
+    }
+
+    const rangeHeader = request.headers.get("range");
+    const baseHeaders = {
+      ...createBaseHeaders(file),
+      "accept-ranges": "bytes",
+    };
+
+    if (!rangeHeader) {
+      const nodeStream = fileHandle.createReadStream();
+      streamCreated = true;
+
+      return new Response(Readable.toWeb(nodeStream) as ReadableStream, {
+        status: 200,
+        headers: {
+          ...baseHeaders,
+          "content-length": String(stat.size),
+        },
+      });
+    }
+
+    const { start, end } = parseSingleRange(rangeHeader, stat.size);
+    const nodeStream = fileHandle.createReadStream({
+      start,
+      end,
     });
-  }
-
-  const rangeHeader = request.headers.get("range");
-  const baseHeaders = {
-    ...createBaseHeaders(file),
-    "accept-ranges": "bytes",
-  };
-
-  if (!rangeHeader) {
-    const nodeStream = fileHandle.createReadStream();
+    const contentLength = end - start + 1;
+    streamCreated = true;
 
     return new Response(Readable.toWeb(nodeStream) as ReadableStream, {
-      status: 200,
+      status: 206,
       headers: {
         ...baseHeaders,
-        "content-length": String(stat.size),
+        "content-length": String(contentLength),
+        "content-range": `bytes ${start}-${end}/${stat.size}`,
       },
     });
+  } catch (error) {
+    if (!streamCreated) {
+      try {
+        await fileHandle.close();
+      } catch {
+        // Ignore secondary close failures and preserve the original error.
+      }
+    }
+
+    throw error;
   }
-
-  const { start, end } = parseSingleRange(rangeHeader, stat.size);
-  const nodeStream = fileHandle.createReadStream({
-    start,
-    end,
-  });
-  const contentLength = end - start + 1;
-
-  return new Response(Readable.toWeb(nodeStream) as ReadableStream, {
-    status: 206,
-    headers: {
-      ...baseHeaders,
-      "content-length": String(contentLength),
-      "content-range": `bytes ${start}-${end}/${stat.size}`,
-    },
-  });
 };

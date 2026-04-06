@@ -13,6 +13,7 @@ const trashEnvSchema = z.object({
 type FileRecord = {
   id: string;
   ownerUserId: string;
+  folderId: string | null;
   storageKey: string;
   deletedAt: Date | null;
 };
@@ -40,6 +41,19 @@ type PrismaClient = {
 
 const resolveStoragePath = (filesRoot: string, storageKey: string) =>
   path.resolve(filesRoot, storageKey);
+
+const isRetentionRootFolder = (
+  folder: FolderRecord,
+  parentFolderById: Map<string, FolderRecord>,
+) => {
+  if (folder.parentId === null) {
+    return true;
+  }
+
+  const parent = parentFolderById.get(folder.parentId);
+
+  return !parent || parent.deletedAt === null;
+};
 
 /**
  * Collects all descendant folder IDs for a given root folder (BFS).
@@ -97,15 +111,44 @@ export const handleTrashRetention = async (
     where: {
       deletedAt: { lte: cutoff },
     },
-    select: { id: true, ownerUserId: true, storageKey: true, deletedAt: true },
+    select: {
+      id: true,
+      ownerUserId: true,
+      folderId: true,
+      storageKey: true,
+      deletedAt: true,
+    },
   } as object)) as FileRecord[];
+  const expiredFileFolderIds = Array.from(
+    new Set(
+      expiredFiles.flatMap((file) => (file.folderId ? [file.folderId] : [])),
+    ),
+  );
+  const expiredFileParentFolders = (await prisma.folder.findMany({
+    where: {
+      id: { in: expiredFileFolderIds },
+    },
+    select: { id: true, ownerUserId: true, parentId: true, deletedAt: true },
+  } as object)) as FolderRecord[];
+  const expiredFileParentFolderById = new Map(
+    expiredFileParentFolders.map((folder) => [folder.id, folder]),
+  );
 
   for (const file of expiredFiles) {
+    if (file.folderId) {
+      const parentFolder = expiredFileParentFolderById.get(file.folderId);
+
+      if (parentFolder?.deletedAt) {
+        continue;
+      }
+    }
+
     // Revalidate: skip if already restored
     const current = (await prisma.file.findUnique({
       where: { id: file.id },
       select: {
         id: true,
+        folderId: true,
         deletedAt: true,
         storageKey: true,
         ownerUserId: true,
@@ -124,13 +167,31 @@ export const handleTrashRetention = async (
   }
 
   // --- Step 2: Expire trashed folder trees ---
-  const expiredFolderRoots = (await prisma.folder.findMany({
+  const expiredFolders = (await prisma.folder.findMany({
     where: {
       deletedAt: { lte: cutoff },
-      parentId: null, // Only top-level trashed roots
     },
     select: { id: true, ownerUserId: true, parentId: true, deletedAt: true },
   } as object)) as FolderRecord[];
+  const expiredFolderParentIds = Array.from(
+    new Set(
+      expiredFolders.flatMap((folder) =>
+        folder.parentId ? [folder.parentId] : [],
+      ),
+    ),
+  );
+  const parentFolders = (await prisma.folder.findMany({
+    where: {
+      id: { in: expiredFolderParentIds },
+    },
+    select: { id: true, ownerUserId: true, parentId: true, deletedAt: true },
+  } as object)) as FolderRecord[];
+  const parentFolderById = new Map(
+    parentFolders.map((folder) => [folder.id, folder]),
+  );
+  const expiredFolderRoots = expiredFolders.filter((folder) =>
+    isRetentionRootFolder(folder, parentFolderById),
+  );
 
   for (const folderRoot of expiredFolderRoots) {
     // Revalidate inside a transaction to check it's still trashed
