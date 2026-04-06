@@ -40,3 +40,12 @@ Use it when you need to check whether something is already decided before reopen
 - admin health is a first-class surface
 - backup baseline is crash-consistent backup
 - restore requires reconciliation instead of silent best effort
+
+## Phase 6: Viewer Model Simplification (2026-04-04)
+
+- generated previews were removed in favor of original-file viewing for supported media
+- only images and videos are inline-viewable in this iteration
+- `downloadDisabled` does **not** block image or video viewing on public shares; it only removes explicit download actions
+- videos stream original bytes through inline routes with HTTP range support
+- PDF, text, and audio remain download-only for now - Follow-up will be made.
+- legacy preview endpoints remain temporary compatibility redirects for image and video files only

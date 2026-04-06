@@ -43,7 +43,6 @@ export type FileMinAggregateOutputType = {
   mimeType: string | null
   sizeBytes: bigint | null
   contentChecksum: string | null
-  previewStatus: $Enums.PreviewStatus | null
   deletedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -58,7 +57,6 @@ export type FileMaxAggregateOutputType = {
   mimeType: string | null
   sizeBytes: bigint | null
   contentChecksum: string | null
-  previewStatus: $Enums.PreviewStatus | null
   deletedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -73,7 +71,6 @@ export type FileCountAggregateOutputType = {
   mimeType: number
   sizeBytes: number
   contentChecksum: number
-  previewStatus: number
   deletedAt: number
   createdAt: number
   updatedAt: number
@@ -98,7 +95,6 @@ export type FileMinAggregateInputType = {
   mimeType?: true
   sizeBytes?: true
   contentChecksum?: true
-  previewStatus?: true
   deletedAt?: true
   createdAt?: true
   updatedAt?: true
@@ -113,7 +109,6 @@ export type FileMaxAggregateInputType = {
   mimeType?: true
   sizeBytes?: true
   contentChecksum?: true
-  previewStatus?: true
   deletedAt?: true
   createdAt?: true
   updatedAt?: true
@@ -128,7 +123,6 @@ export type FileCountAggregateInputType = {
   mimeType?: true
   sizeBytes?: true
   contentChecksum?: true
-  previewStatus?: true
   deletedAt?: true
   createdAt?: true
   updatedAt?: true
@@ -230,7 +224,6 @@ export type FileGroupByOutputType = {
   mimeType: string
   sizeBytes: bigint
   contentChecksum: string | null
-  previewStatus: $Enums.PreviewStatus
   deletedAt: Date | null
   createdAt: Date
   updatedAt: Date
@@ -268,7 +261,6 @@ export type FileWhereInput = {
   mimeType?: Prisma.StringFilter<"File"> | string
   sizeBytes?: Prisma.BigIntFilter<"File"> | bigint | number
   contentChecksum?: Prisma.StringNullableFilter<"File"> | string | null
-  previewStatus?: Prisma.EnumPreviewStatusFilter<"File"> | $Enums.PreviewStatus
   deletedAt?: Prisma.DateTimeNullableFilter<"File"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"File"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"File"> | Date | string
@@ -288,7 +280,6 @@ export type FileOrderByWithRelationInput = {
   mimeType?: Prisma.SortOrder
   sizeBytes?: Prisma.SortOrder
   contentChecksum?: Prisma.SortOrderInput | Prisma.SortOrder
-  previewStatus?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -311,7 +302,6 @@ export type FileWhereUniqueInput = Prisma.AtLeast<{
   mimeType?: Prisma.StringFilter<"File"> | string
   sizeBytes?: Prisma.BigIntFilter<"File"> | bigint | number
   contentChecksum?: Prisma.StringNullableFilter<"File"> | string | null
-  previewStatus?: Prisma.EnumPreviewStatusFilter<"File"> | $Enums.PreviewStatus
   deletedAt?: Prisma.DateTimeNullableFilter<"File"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"File"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"File"> | Date | string
@@ -331,7 +321,6 @@ export type FileOrderByWithAggregationInput = {
   mimeType?: Prisma.SortOrder
   sizeBytes?: Prisma.SortOrder
   contentChecksum?: Prisma.SortOrderInput | Prisma.SortOrder
-  previewStatus?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -354,7 +343,6 @@ export type FileScalarWhereWithAggregatesInput = {
   mimeType?: Prisma.StringWithAggregatesFilter<"File"> | string
   sizeBytes?: Prisma.BigIntWithAggregatesFilter<"File"> | bigint | number
   contentChecksum?: Prisma.StringNullableWithAggregatesFilter<"File"> | string | null
-  previewStatus?: Prisma.EnumPreviewStatusWithAggregatesFilter<"File"> | $Enums.PreviewStatus
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"File"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"File"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"File"> | Date | string
@@ -367,7 +355,6 @@ export type FileCreateInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
-  previewStatus?: $Enums.PreviewStatus
   deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -387,7 +374,6 @@ export type FileUncheckedCreateInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
-  previewStatus?: $Enums.PreviewStatus
   deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -403,7 +389,6 @@ export type FileUpdateInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  previewStatus?: Prisma.EnumPreviewStatusFieldUpdateOperationsInput | $Enums.PreviewStatus
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -423,7 +408,6 @@ export type FileUncheckedUpdateInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  previewStatus?: Prisma.EnumPreviewStatusFieldUpdateOperationsInput | $Enums.PreviewStatus
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -441,7 +425,6 @@ export type FileCreateManyInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
-  previewStatus?: $Enums.PreviewStatus
   deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -454,7 +437,6 @@ export type FileUpdateManyMutationInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  previewStatus?: Prisma.EnumPreviewStatusFieldUpdateOperationsInput | $Enums.PreviewStatus
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -469,7 +451,6 @@ export type FileUncheckedUpdateManyInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  previewStatus?: Prisma.EnumPreviewStatusFieldUpdateOperationsInput | $Enums.PreviewStatus
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -494,7 +475,6 @@ export type FileCountOrderByAggregateInput = {
   mimeType?: Prisma.SortOrder
   sizeBytes?: Prisma.SortOrder
   contentChecksum?: Prisma.SortOrder
-  previewStatus?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -513,7 +493,6 @@ export type FileMaxOrderByAggregateInput = {
   mimeType?: Prisma.SortOrder
   sizeBytes?: Prisma.SortOrder
   contentChecksum?: Prisma.SortOrder
-  previewStatus?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -528,7 +507,6 @@ export type FileMinOrderByAggregateInput = {
   mimeType?: Prisma.SortOrder
   sizeBytes?: Prisma.SortOrder
   contentChecksum?: Prisma.SortOrder
-  previewStatus?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -640,10 +618,6 @@ export type BigIntFieldUpdateOperationsInput = {
   divide?: bigint | number
 }
 
-export type EnumPreviewStatusFieldUpdateOperationsInput = {
-  set?: $Enums.PreviewStatus
-}
-
 export type FileCreateNestedOneWithoutFavoritesInput = {
   create?: Prisma.XOR<Prisma.FileCreateWithoutFavoritesInput, Prisma.FileUncheckedCreateWithoutFavoritesInput>
   connectOrCreate?: Prisma.FileCreateOrConnectWithoutFavoritesInput
@@ -695,7 +669,6 @@ export type FileCreateWithoutOwnerInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
-  previewStatus?: $Enums.PreviewStatus
   deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -713,7 +686,6 @@ export type FileUncheckedCreateWithoutOwnerInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
-  previewStatus?: $Enums.PreviewStatus
   deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -760,7 +732,6 @@ export type FileScalarWhereInput = {
   mimeType?: Prisma.StringFilter<"File"> | string
   sizeBytes?: Prisma.BigIntFilter<"File"> | bigint | number
   contentChecksum?: Prisma.StringNullableFilter<"File"> | string | null
-  previewStatus?: Prisma.EnumPreviewStatusFilter<"File"> | $Enums.PreviewStatus
   deletedAt?: Prisma.DateTimeNullableFilter<"File"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"File"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"File"> | Date | string
@@ -773,7 +744,6 @@ export type FileCreateWithoutFolderInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
-  previewStatus?: $Enums.PreviewStatus
   deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -791,7 +761,6 @@ export type FileUncheckedCreateWithoutFolderInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
-  previewStatus?: $Enums.PreviewStatus
   deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -833,7 +802,6 @@ export type FileCreateWithoutFavoritesInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
-  previewStatus?: $Enums.PreviewStatus
   deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -852,7 +820,6 @@ export type FileUncheckedCreateWithoutFavoritesInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
-  previewStatus?: $Enums.PreviewStatus
   deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -883,7 +850,6 @@ export type FileUpdateWithoutFavoritesInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  previewStatus?: Prisma.EnumPreviewStatusFieldUpdateOperationsInput | $Enums.PreviewStatus
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -902,7 +868,6 @@ export type FileUncheckedUpdateWithoutFavoritesInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  previewStatus?: Prisma.EnumPreviewStatusFieldUpdateOperationsInput | $Enums.PreviewStatus
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -917,7 +882,6 @@ export type FileCreateWithoutRecentsInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
-  previewStatus?: $Enums.PreviewStatus
   deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -936,7 +900,6 @@ export type FileUncheckedCreateWithoutRecentsInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
-  previewStatus?: $Enums.PreviewStatus
   deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -967,7 +930,6 @@ export type FileUpdateWithoutRecentsInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  previewStatus?: Prisma.EnumPreviewStatusFieldUpdateOperationsInput | $Enums.PreviewStatus
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -986,7 +948,6 @@ export type FileUncheckedUpdateWithoutRecentsInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  previewStatus?: Prisma.EnumPreviewStatusFieldUpdateOperationsInput | $Enums.PreviewStatus
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1001,7 +962,6 @@ export type FileCreateWithoutShareLinkInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
-  previewStatus?: $Enums.PreviewStatus
   deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1020,7 +980,6 @@ export type FileUncheckedCreateWithoutShareLinkInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
-  previewStatus?: $Enums.PreviewStatus
   deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1051,7 +1010,6 @@ export type FileUpdateWithoutShareLinkInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  previewStatus?: Prisma.EnumPreviewStatusFieldUpdateOperationsInput | $Enums.PreviewStatus
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1070,7 +1028,6 @@ export type FileUncheckedUpdateWithoutShareLinkInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  previewStatus?: Prisma.EnumPreviewStatusFieldUpdateOperationsInput | $Enums.PreviewStatus
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1086,7 +1043,6 @@ export type FileCreateManyOwnerInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
-  previewStatus?: $Enums.PreviewStatus
   deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1099,7 +1055,6 @@ export type FileUpdateWithoutOwnerInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  previewStatus?: Prisma.EnumPreviewStatusFieldUpdateOperationsInput | $Enums.PreviewStatus
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1117,7 +1072,6 @@ export type FileUncheckedUpdateWithoutOwnerInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  previewStatus?: Prisma.EnumPreviewStatusFieldUpdateOperationsInput | $Enums.PreviewStatus
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1134,7 +1088,6 @@ export type FileUncheckedUpdateManyWithoutOwnerInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  previewStatus?: Prisma.EnumPreviewStatusFieldUpdateOperationsInput | $Enums.PreviewStatus
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1148,7 +1101,6 @@ export type FileCreateManyFolderInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
-  previewStatus?: $Enums.PreviewStatus
   deletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -1161,7 +1113,6 @@ export type FileUpdateWithoutFolderInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  previewStatus?: Prisma.EnumPreviewStatusFieldUpdateOperationsInput | $Enums.PreviewStatus
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1179,7 +1130,6 @@ export type FileUncheckedUpdateWithoutFolderInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  previewStatus?: Prisma.EnumPreviewStatusFieldUpdateOperationsInput | $Enums.PreviewStatus
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1196,7 +1146,6 @@ export type FileUncheckedUpdateManyWithoutFolderInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  previewStatus?: Prisma.EnumPreviewStatusFieldUpdateOperationsInput | $Enums.PreviewStatus
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1251,7 +1200,6 @@ export type FileSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   mimeType?: boolean
   sizeBytes?: boolean
   contentChecksum?: boolean
-  previewStatus?: boolean
   deletedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -1272,7 +1220,6 @@ export type FileSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   mimeType?: boolean
   sizeBytes?: boolean
   contentChecksum?: boolean
-  previewStatus?: boolean
   deletedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -1289,7 +1236,6 @@ export type FileSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   mimeType?: boolean
   sizeBytes?: boolean
   contentChecksum?: boolean
-  previewStatus?: boolean
   deletedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -1306,13 +1252,12 @@ export type FileSelectScalar = {
   mimeType?: boolean
   sizeBytes?: boolean
   contentChecksum?: boolean
-  previewStatus?: boolean
   deletedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type FileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerUserId" | "folderId" | "originalName" | "storageKey" | "mimeType" | "sizeBytes" | "contentChecksum" | "previewStatus" | "deletedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["file"]>
+export type FileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerUserId" | "folderId" | "originalName" | "storageKey" | "mimeType" | "sizeBytes" | "contentChecksum" | "deletedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["file"]>
 export type FileInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   folder?: boolean | Prisma.File$folderArgs<ExtArgs>
@@ -1348,7 +1293,6 @@ export type $FilePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     mimeType: string
     sizeBytes: bigint
     contentChecksum: string | null
-    previewStatus: $Enums.PreviewStatus
     deletedAt: Date | null
     createdAt: Date
     updatedAt: Date
@@ -1788,7 +1732,6 @@ export interface FileFieldRefs {
   readonly mimeType: Prisma.FieldRef<"File", 'String'>
   readonly sizeBytes: Prisma.FieldRef<"File", 'BigInt'>
   readonly contentChecksum: Prisma.FieldRef<"File", 'String'>
-  readonly previewStatus: Prisma.FieldRef<"File", 'PreviewStatus'>
   readonly deletedAt: Prisma.FieldRef<"File", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"File", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"File", 'DateTime'>

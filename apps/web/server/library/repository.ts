@@ -1,4 +1,5 @@
 import { Prisma, getPrisma } from "@staaash/db/client";
+import { resolveViewerKind } from "@staaash/db/viewer-contract";
 
 import type {
   LibraryFolderSummary,
@@ -35,7 +36,6 @@ const libraryFileSelect = {
   mimeType: true,
   sizeBytes: true,
   contentChecksum: true,
-  previewStatus: true,
   deletedAt: true,
   createdAt: true,
   updatedAt: true,
@@ -177,7 +177,7 @@ const toStoredLibraryFile = (file: LibraryFileRecord): StoredLibraryFile => ({
   mimeType: file.mimeType,
   sizeBytes: Number(file.sizeBytes),
   contentChecksum: file.contentChecksum,
-  previewStatus: file.previewStatus,
+  viewerKind: resolveViewerKind(file.mimeType),
   deletedAt: file.deletedAt,
   createdAt: file.createdAt,
   updatedAt: file.updatedAt,

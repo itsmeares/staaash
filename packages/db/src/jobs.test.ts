@@ -3,9 +3,13 @@ import { describe, expect, it } from "vitest";
 const {
   BACKGROUND_JOB_LEASE_MS,
   BACKGROUND_JOB_RETRY_DELAY_MS,
+  STAGING_CLEANUP_JOB_KIND,
+  TRASH_RETENTION_JOB_KIND,
+  UPDATE_CHECK_JOB_KIND,
   claimDueBackgroundJob,
   ensureBackgroundJobScheduled,
   markBackgroundJobFailed,
+  markBackgroundJobTerminal,
 } = await import("./jobs");
 
 type DateComparisonFilter = {
@@ -13,11 +17,16 @@ type DateComparisonFilter = {
   gte?: Date;
 };
 
+type InFilter = {
+  in: string[];
+};
+
 type MemoryJob = {
   id: string;
   kind: string;
   status: "queued" | "running" | "succeeded" | "failed" | "dead";
   payloadJson: unknown;
+  dedupeKey: string | null;
   runAt: Date;
   lockedAt: Date | null;
   lockedBy: string | null;
@@ -29,7 +38,25 @@ type MemoryJob = {
 };
 
 const createClient = (jobs: MemoryJob[]) => {
-  const matchesWhere = (job: MemoryJob, where: any): boolean => {
+  const matchesDateFilter = (
+    fieldValue: Date | null,
+    filter: DateComparisonFilter,
+  ): boolean => {
+    if ("lte" in filter && !(fieldValue && fieldValue <= filter.lte!)) {
+      return false;
+    }
+
+    if ("gte" in filter && !(fieldValue && fieldValue >= filter.gte!)) {
+      return false;
+    }
+
+    return true;
+  };
+
+  const matchesWhere = (
+    job: MemoryJob,
+    where: Record<string, unknown>,
+  ): boolean => {
     if (!where) {
       return true;
     }
@@ -43,22 +70,19 @@ const createClient = (jobs: MemoryJob[]) => {
             : null;
 
         if (dateFilter) {
-          if (
-            "lte" in dateFilter &&
-            !(job[key] && job[key]! <= dateFilter.lte!)
-          ) {
-            return false;
-          }
-
-          if (
-            "gte" in dateFilter &&
-            !(job[key] && job[key]! >= dateFilter.gte!)
-          ) {
-            return false;
-          }
-
-          return true;
+          return matchesDateFilter(
+            (job as unknown as Record<string, Date | null>)[key],
+            dateFilter,
+          );
         }
+      }
+
+      // Handle { in: [...] } for kind filtering
+      if (value && typeof value === "object" && "in" in (value as object)) {
+        const inFilter = value as InFilter;
+        return inFilter.in.includes(
+          (job as unknown as Record<string, string>)[key],
+        );
       }
 
       return (job as Record<string, unknown>)[key] === value;
@@ -69,7 +93,9 @@ const createClient = (jobs: MemoryJob[]) => {
     }
 
     if (where.OR) {
-      return where.OR.some((condition: any) => matchesWhere(job, condition));
+      return (where.OR as Record<string, unknown>[]).some((condition) =>
+        matchesWhere(job, condition),
+      );
     }
 
     return true;
@@ -83,27 +109,31 @@ const createClient = (jobs: MemoryJob[]) => {
     );
 
   const backgroundJob = {
-    async findFirst(args: any) {
+    async findFirst(args: {
+      where: Record<string, unknown>;
+      orderBy?: Record<string, unknown>;
+    }) {
       const [job] = sortJobs(
         jobs.filter((candidate) => matchesWhere(candidate, args.where)),
       );
       return job ?? null;
     },
-    async findUnique(args: any) {
+    async findUnique(args: { where: { id: string } }) {
       return jobs.find((job) => job.id === args.where.id) ?? null;
     },
-    async create(args: any) {
+    async create(args: { data: Partial<MemoryJob> }) {
       const now = new Date("2026-04-01T12:00:00.000Z");
       const job: MemoryJob = {
         id: `job-${jobs.length + 1}`,
-        kind: args.data.kind,
-        status: args.data.status,
-        payloadJson: args.data.payloadJson,
-        runAt: args.data.runAt,
+        kind: args.data.kind!,
+        status: args.data.status as MemoryJob["status"],
+        payloadJson: args.data.payloadJson ?? {},
+        dedupeKey: args.data.dedupeKey ?? null,
+        runAt: args.data.runAt!,
         lockedAt: null,
         lockedBy: null,
         attemptCount: 0,
-        maxAttempts: args.data.maxAttempts,
+        maxAttempts: args.data.maxAttempts!,
         lastError: null,
         createdAt: now,
         updatedAt: now,
@@ -111,28 +141,31 @@ const createClient = (jobs: MemoryJob[]) => {
       jobs.push(job);
       return job;
     },
-    async updateMany(args: any) {
+    async updateMany(args: {
+      where: Record<string, unknown>;
+      data: Partial<MemoryJob> & { attemptCount?: { increment: number } };
+    }) {
       const matched = jobs.filter((job) => matchesWhere(job, args.where));
 
       for (const job of matched) {
         if ("status" in args.data) {
-          job.status = args.data.status;
+          job.status = args.data.status as MemoryJob["status"];
         }
 
         if ("lockedAt" in args.data) {
-          job.lockedAt = args.data.lockedAt;
+          job.lockedAt = args.data.lockedAt ?? null;
         }
 
         if ("lockedBy" in args.data) {
-          job.lockedBy = args.data.lockedBy;
+          job.lockedBy = args.data.lockedBy ?? null;
         }
 
         if ("runAt" in args.data) {
-          job.runAt = args.data.runAt;
+          job.runAt = args.data.runAt!;
         }
 
         if ("lastError" in args.data) {
-          job.lastError = args.data.lastError;
+          job.lastError = args.data.lastError ?? null;
         }
 
         if (args.data.attemptCount?.increment) {
@@ -142,7 +175,10 @@ const createClient = (jobs: MemoryJob[]) => {
 
       return { count: matched.length };
     },
-    async update(args: any) {
+    async update(args: {
+      where: { id: string };
+      data: Partial<MemoryJob> & { attemptCount?: { increment: number } };
+    }) {
       const job = jobs.find((candidate) => candidate.id === args.where.id);
 
       if (!job) {
@@ -160,10 +196,12 @@ const createClient = (jobs: MemoryJob[]) => {
 
   return {
     backgroundJob,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async $transaction<T>(callback: (tx: any) => Promise<T>) {
       return callback({ backgroundJob });
     },
-  };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any;
 };
 
 const createJob = (overrides: Partial<MemoryJob>): MemoryJob => ({
@@ -171,6 +209,7 @@ const createJob = (overrides: Partial<MemoryJob>): MemoryJob => ({
   kind: overrides.kind ?? "staging.cleanup",
   status: overrides.status ?? "queued",
   payloadJson: overrides.payloadJson ?? {},
+  dedupeKey: overrides.dedupeKey ?? null,
   runAt: overrides.runAt ?? new Date("2026-04-01T12:00:00.000Z"),
   lockedAt: overrides.lockedAt ?? null,
   lockedBy: overrides.lockedBy ?? null,
@@ -216,13 +255,11 @@ describe("background jobs", () => {
 
     const [first, second] = await Promise.all([
       claimDueBackgroundJob({
-        kind: "staging.cleanup",
         workerId: "worker-a",
         now,
         client,
       }),
       claimDueBackgroundJob({
-        kind: "staging.cleanup",
         workerId: "worker-b",
         now,
         client,
@@ -276,5 +313,163 @@ describe("background jobs", () => {
       status: "dead",
       lastError: "done retrying",
     });
+  });
+
+  it("deduplicates keyed jobs by dedupeKey", async () => {
+    const now = new Date("2026-04-01T12:00:00.000Z");
+    const jobs: MemoryJob[] = [];
+    const client = createClient(jobs);
+    const dedupeKey = "staging:tenant-1";
+
+    // First enqueue — should create
+    const first = await ensureBackgroundJobScheduled({
+      kind: STAGING_CLEANUP_JOB_KIND,
+      runAt: now,
+      dedupeKey,
+      payloadJson: { tenantId: "tenant-1" },
+      client,
+      now,
+    });
+
+    // Second enqueue with same key — should deduplicate
+    const second = await ensureBackgroundJobScheduled({
+      kind: STAGING_CLEANUP_JOB_KIND,
+      runAt: now,
+      dedupeKey,
+      payloadJson: { tenantId: "tenant-1" },
+      client,
+      now,
+    });
+
+    expect(first.created).toBe(true);
+    expect(second.created).toBe(false);
+    expect(second.job.id).toBe(first.job.id);
+    expect(jobs).toHaveLength(1);
+  });
+
+  it("multi-kind dispatcher claims the earliest due job across kinds", async () => {
+    const now = new Date("2026-04-01T12:00:00.000Z");
+    const earlier = new Date(now.getTime() - 1000);
+    const jobs = [
+      createJob({
+        id: "cleanup-job",
+        kind: STAGING_CLEANUP_JOB_KIND,
+        status: "queued",
+        runAt: now,
+      }),
+      createJob({
+        id: "update-job",
+        kind: UPDATE_CHECK_JOB_KIND,
+        status: "queued",
+        runAt: earlier,
+      }),
+    ];
+    const client = createClient(jobs);
+
+    const claimed = await claimDueBackgroundJob({
+      workerId: "worker-a",
+      now,
+      client,
+    });
+
+    expect(claimed?.id).toBe("update-job");
+    expect(claimed?.kind).toBe(UPDATE_CHECK_JOB_KIND);
+  });
+
+  it("singleton periodic jobs do not duplicate within their kind", async () => {
+    const now = new Date("2026-04-01T12:00:00.000Z");
+    const jobs: MemoryJob[] = [];
+    const client = createClient(jobs);
+
+    await ensureBackgroundJobScheduled({
+      kind: TRASH_RETENTION_JOB_KIND,
+      runAt: now,
+      payloadJson: {},
+      client,
+      now,
+    });
+
+    await ensureBackgroundJobScheduled({
+      kind: TRASH_RETENTION_JOB_KIND,
+      runAt: now,
+      payloadJson: {},
+      client,
+      now,
+    });
+
+    expect(jobs).toHaveLength(1);
+  });
+
+  it("update.check job can be scheduled as a singleton", async () => {
+    const now = new Date("2026-04-01T12:00:00.000Z");
+    const jobs: MemoryJob[] = [];
+    const client = createClient(jobs);
+
+    await ensureBackgroundJobScheduled({
+      kind: UPDATE_CHECK_JOB_KIND,
+      runAt: now,
+      client,
+      now,
+    });
+
+    await ensureBackgroundJobScheduled({
+      kind: UPDATE_CHECK_JOB_KIND,
+      runAt: now,
+      client,
+      now,
+    });
+
+    expect(jobs).toHaveLength(1);
+  });
+
+  it("markBackgroundJobFailed returns the updated job record", async () => {
+    const now = new Date("2026-04-01T12:00:00.000Z");
+    const jobs = [
+      createJob({
+        id: "check-return",
+        status: "running",
+        attemptCount: 1,
+        maxAttempts: 5,
+      }),
+    ];
+    const client = createClient(jobs);
+
+    const updated = await markBackgroundJobFailed({
+      jobId: "check-return",
+      errorMessage: "transient error",
+      now,
+      client,
+    });
+
+    expect(updated).toMatchObject({
+      status: "queued",
+      lastError: "transient error",
+    });
+  });
+
+  it("marks terminal jobs failed without requeueing them", async () => {
+    const jobs = [
+      createJob({
+        id: "terminal-job",
+        status: "running",
+        attemptCount: 1,
+        maxAttempts: 5,
+      }),
+    ];
+    const client = createClient(jobs);
+
+    const updated = await markBackgroundJobTerminal({
+      jobId: "terminal-job",
+      errorMessage: "non-retryable failure",
+      client,
+    });
+
+    expect(updated).toMatchObject({
+      status: "failed",
+      lockedAt: null,
+      lockedBy: null,
+      lastError: "non-retryable failure",
+    });
+    expect(jobs[0]?.runAt).toEqual(new Date("2026-04-01T12:00:00.000Z"));
   });
 });

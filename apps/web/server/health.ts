@@ -5,6 +5,7 @@ import {
   getQueueBacklogSummary,
   probeDatabaseReachability,
 } from "@staaash/db/health";
+import { readInstanceUpdateCheck } from "@staaash/db/instance";
 
 import { env } from "@/lib/env";
 import {
@@ -146,6 +147,7 @@ export const buildInstanceHealthSummary = ({
   worker,
   queue,
   storageWarnings,
+  versionInfo,
 }: {
   databaseStatus: HealthCheckStatus;
   databaseMessage?: string;
@@ -154,6 +156,7 @@ export const buildInstanceHealthSummary = ({
   worker: WorkerHeartbeatStatus;
   queue: InstanceHealthSummary["queue"];
   storageWarnings: StorageWarningSummary;
+  versionInfo: InstanceHealthSummary["version"];
 }): InstanceHealthSummary => {
   const ok =
     databaseStatus === "healthy" &&
@@ -179,21 +182,19 @@ export const buildInstanceHealthSummary = ({
     worker,
     queue,
     storageWarnings,
-    version: {
-      currentVersion: env.APP_VERSION,
-      updateMessage: "Update checks will be layered in on top of this surface.",
-    },
+    version: versionInfo,
   };
 };
 
 export const getReadiness = async () => {
-  const [database, storage, heartbeat, queue, storageWarnings] =
+  const [database, storage, heartbeat, queue, storageWarnings, instanceState] =
     await Promise.all([
       probeDatabaseReachability(env.DATABASE_URL),
       probeStorage(),
       readWorkerHeartbeat(),
       getQueueBacklogSummary(env.DATABASE_URL),
       getStorageWarnings(),
+      readInstanceUpdateCheck().catch(() => null),
     ]);
 
   return buildInstanceHealthSummary({
@@ -204,6 +205,14 @@ export const getReadiness = async () => {
     worker: getWorkerHeartbeatStatus(heartbeat),
     queue,
     storageWarnings,
+    versionInfo: {
+      currentVersion: env.APP_VERSION,
+      lastUpdateCheckAt:
+        instanceState?.lastUpdateCheckAt?.toISOString() ?? null,
+      updateCheckStatus: instanceState?.updateCheckStatus ?? null,
+      updateCheckMessage: instanceState?.updateCheckMessage ?? null,
+      latestAvailableVersion: instanceState?.latestAvailableVersion ?? null,
+    },
   });
 };
 

@@ -4,7 +4,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./*"],
-      "@staaash/db/*": ["../../packages/db/dist/*"]
+      "@staaash/db/*": ["../../packages/db/src/*"]
     },
     "plugins": [
       {

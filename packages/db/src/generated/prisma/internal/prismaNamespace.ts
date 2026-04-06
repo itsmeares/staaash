@@ -1421,6 +1421,10 @@ export const InstanceScalarFieldEnum = {
   id: 'id',
   name: 'name',
   setupCompletedAt: 'setupCompletedAt',
+  lastUpdateCheckAt: 'lastUpdateCheckAt',
+  updateCheckStatus: 'updateCheckStatus',
+  updateCheckMessage: 'updateCheckMessage',
+  latestAvailableVersion: 'latestAvailableVersion',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -1510,7 +1514,6 @@ export const FileScalarFieldEnum = {
   mimeType: 'mimeType',
   sizeBytes: 'sizeBytes',
   contentChecksum: 'contentChecksum',
-  previewStatus: 'previewStatus',
   deletedAt: 'deletedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -1583,6 +1586,7 @@ export const BackgroundJobScalarFieldEnum = {
   kind: 'kind',
   status: 'status',
   payloadJson: 'payloadJson',
+  dedupeKey: 'dedupeKey',
   runAt: 'runAt',
   lockedAt: 'lockedAt',
   lockedBy: 'lockedBy',
@@ -1702,20 +1706,6 @@ export type BigIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 
  * Reference to a field of type 'BigInt[]'
  */
 export type ListBigIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BigInt[]'>
-    
-
-
-/**
- * Reference to a field of type 'PreviewStatus'
- */
-export type EnumPreviewStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PreviewStatus'>
-    
-
-
-/**
- * Reference to a field of type 'PreviewStatus[]'
- */
-export type ListEnumPreviewStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'PreviewStatus[]'>
     
 
 

@@ -9,7 +9,7 @@ import {
   formatDateTimeLocalValue,
   getFolderArchiveDownloadAllowed,
   getSharedDownloadAllowed,
-  getSharedPreviewAllowed,
+  getSharedViewerAllowed,
   getSharedTreeExposureMode,
   getSharingBoundary,
   unlockShareSchema,
@@ -60,6 +60,7 @@ const lockedFileResolution: PublicShareResolution = {
     name: "plan.txt",
     mimeType: "text/plain",
     sizeBytes: 120,
+    viewerKind: null,
     deletedAt: null,
     createdAt: fixedNow,
     updatedAt: fixedNow,
@@ -148,8 +149,8 @@ describe("folder public link behavior", () => {
     );
   });
 
-  it("allows previews even when downloads are disabled", () => {
-    expect(getSharedPreviewAllowed({ downloadDisabled: true })).toBe(true);
+  it("allows inline viewers even when downloads are disabled", () => {
+    expect(getSharedViewerAllowed({ downloadDisabled: true })).toBe(true);
   });
 
   it("exposes the full subtree with no hidden child filtering", () => {

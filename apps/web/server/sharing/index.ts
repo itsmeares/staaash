@@ -19,7 +19,7 @@ export const canBrowseSharedFolder = ({
 export const getSharedDownloadAllowed = (policy: ShareLinkPolicy) =>
   !policy.downloadDisabled;
 
-export const getSharedPreviewAllowed = (_policy: ShareLinkPolicy) => true;
+export const getSharedViewerAllowed = (_policy: ShareLinkPolicy) => true;
 
 export const getFolderArchiveDownloadAllowed = (policy: ShareLinkPolicy) =>
   !policy.downloadDisabled;

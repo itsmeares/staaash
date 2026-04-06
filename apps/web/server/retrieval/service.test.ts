@@ -108,6 +108,7 @@ const createMemoryRepository = () => {
       name,
       mimeType,
       sizeBytes,
+      viewerKind: null,
       deletedAt,
       createdAt: timestamp,
       updatedAt: timestamp,

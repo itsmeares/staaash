@@ -18,8 +18,8 @@ Use [`../implementation-plan.md`](../implementation-plan.md) when you want the f
 
 ## Current Status
 
-- completed phases: 00, 01, 02, 03, 04, and 05
-- next active phase: 06 Previews and Worker Jobs
+- completed phases: 00, 01, 02, 03, 04, 05, and 06
+- next active phase: 07 Admin and Operational Surface
 
 ## How To Use These Files
 

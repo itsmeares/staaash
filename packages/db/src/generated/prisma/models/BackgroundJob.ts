@@ -40,6 +40,7 @@ export type BackgroundJobMinAggregateOutputType = {
   id: string | null
   kind: string | null
   status: $Enums.JobStatus | null
+  dedupeKey: string | null
   runAt: Date | null
   lockedAt: Date | null
   lockedBy: string | null
@@ -54,6 +55,7 @@ export type BackgroundJobMaxAggregateOutputType = {
   id: string | null
   kind: string | null
   status: $Enums.JobStatus | null
+  dedupeKey: string | null
   runAt: Date | null
   lockedAt: Date | null
   lockedBy: string | null
@@ -69,6 +71,7 @@ export type BackgroundJobCountAggregateOutputType = {
   kind: number
   status: number
   payloadJson: number
+  dedupeKey: number
   runAt: number
   lockedAt: number
   lockedBy: number
@@ -95,6 +98,7 @@ export type BackgroundJobMinAggregateInputType = {
   id?: true
   kind?: true
   status?: true
+  dedupeKey?: true
   runAt?: true
   lockedAt?: true
   lockedBy?: true
@@ -109,6 +113,7 @@ export type BackgroundJobMaxAggregateInputType = {
   id?: true
   kind?: true
   status?: true
+  dedupeKey?: true
   runAt?: true
   lockedAt?: true
   lockedBy?: true
@@ -124,6 +129,7 @@ export type BackgroundJobCountAggregateInputType = {
   kind?: true
   status?: true
   payloadJson?: true
+  dedupeKey?: true
   runAt?: true
   lockedAt?: true
   lockedBy?: true
@@ -226,6 +232,7 @@ export type BackgroundJobGroupByOutputType = {
   kind: string
   status: $Enums.JobStatus
   payloadJson: runtime.JsonValue
+  dedupeKey: string | null
   runAt: Date
   lockedAt: Date | null
   lockedBy: string | null
@@ -264,6 +271,7 @@ export type BackgroundJobWhereInput = {
   kind?: Prisma.StringFilter<"BackgroundJob"> | string
   status?: Prisma.EnumJobStatusFilter<"BackgroundJob"> | $Enums.JobStatus
   payloadJson?: Prisma.JsonFilter<"BackgroundJob">
+  dedupeKey?: Prisma.StringNullableFilter<"BackgroundJob"> | string | null
   runAt?: Prisma.DateTimeFilter<"BackgroundJob"> | Date | string
   lockedAt?: Prisma.DateTimeNullableFilter<"BackgroundJob"> | Date | string | null
   lockedBy?: Prisma.StringNullableFilter<"BackgroundJob"> | string | null
@@ -279,6 +287,7 @@ export type BackgroundJobOrderByWithRelationInput = {
   kind?: Prisma.SortOrder
   status?: Prisma.SortOrder
   payloadJson?: Prisma.SortOrder
+  dedupeKey?: Prisma.SortOrderInput | Prisma.SortOrder
   runAt?: Prisma.SortOrder
   lockedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   lockedBy?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -297,6 +306,7 @@ export type BackgroundJobWhereUniqueInput = Prisma.AtLeast<{
   kind?: Prisma.StringFilter<"BackgroundJob"> | string
   status?: Prisma.EnumJobStatusFilter<"BackgroundJob"> | $Enums.JobStatus
   payloadJson?: Prisma.JsonFilter<"BackgroundJob">
+  dedupeKey?: Prisma.StringNullableFilter<"BackgroundJob"> | string | null
   runAt?: Prisma.DateTimeFilter<"BackgroundJob"> | Date | string
   lockedAt?: Prisma.DateTimeNullableFilter<"BackgroundJob"> | Date | string | null
   lockedBy?: Prisma.StringNullableFilter<"BackgroundJob"> | string | null
@@ -312,6 +322,7 @@ export type BackgroundJobOrderByWithAggregationInput = {
   kind?: Prisma.SortOrder
   status?: Prisma.SortOrder
   payloadJson?: Prisma.SortOrder
+  dedupeKey?: Prisma.SortOrderInput | Prisma.SortOrder
   runAt?: Prisma.SortOrder
   lockedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   lockedBy?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -335,6 +346,7 @@ export type BackgroundJobScalarWhereWithAggregatesInput = {
   kind?: Prisma.StringWithAggregatesFilter<"BackgroundJob"> | string
   status?: Prisma.EnumJobStatusWithAggregatesFilter<"BackgroundJob"> | $Enums.JobStatus
   payloadJson?: Prisma.JsonWithAggregatesFilter<"BackgroundJob">
+  dedupeKey?: Prisma.StringNullableWithAggregatesFilter<"BackgroundJob"> | string | null
   runAt?: Prisma.DateTimeWithAggregatesFilter<"BackgroundJob"> | Date | string
   lockedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"BackgroundJob"> | Date | string | null
   lockedBy?: Prisma.StringNullableWithAggregatesFilter<"BackgroundJob"> | string | null
@@ -350,6 +362,7 @@ export type BackgroundJobCreateInput = {
   kind: string
   status?: $Enums.JobStatus
   payloadJson: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  dedupeKey?: string | null
   runAt?: Date | string
   lockedAt?: Date | string | null
   lockedBy?: string | null
@@ -365,6 +378,7 @@ export type BackgroundJobUncheckedCreateInput = {
   kind: string
   status?: $Enums.JobStatus
   payloadJson: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  dedupeKey?: string | null
   runAt?: Date | string
   lockedAt?: Date | string | null
   lockedBy?: string | null
@@ -380,6 +394,7 @@ export type BackgroundJobUpdateInput = {
   kind?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumJobStatusFieldUpdateOperationsInput | $Enums.JobStatus
   payloadJson?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  dedupeKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   runAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -395,6 +410,7 @@ export type BackgroundJobUncheckedUpdateInput = {
   kind?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumJobStatusFieldUpdateOperationsInput | $Enums.JobStatus
   payloadJson?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  dedupeKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   runAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -410,6 +426,7 @@ export type BackgroundJobCreateManyInput = {
   kind: string
   status?: $Enums.JobStatus
   payloadJson: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  dedupeKey?: string | null
   runAt?: Date | string
   lockedAt?: Date | string | null
   lockedBy?: string | null
@@ -425,6 +442,7 @@ export type BackgroundJobUpdateManyMutationInput = {
   kind?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumJobStatusFieldUpdateOperationsInput | $Enums.JobStatus
   payloadJson?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  dedupeKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   runAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -440,6 +458,7 @@ export type BackgroundJobUncheckedUpdateManyInput = {
   kind?: Prisma.StringFieldUpdateOperationsInput | string
   status?: Prisma.EnumJobStatusFieldUpdateOperationsInput | $Enums.JobStatus
   payloadJson?: Prisma.JsonNullValueInput | runtime.InputJsonValue
+  dedupeKey?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   runAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lockedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lockedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -455,6 +474,7 @@ export type BackgroundJobCountOrderByAggregateInput = {
   kind?: Prisma.SortOrder
   status?: Prisma.SortOrder
   payloadJson?: Prisma.SortOrder
+  dedupeKey?: Prisma.SortOrder
   runAt?: Prisma.SortOrder
   lockedAt?: Prisma.SortOrder
   lockedBy?: Prisma.SortOrder
@@ -474,6 +494,7 @@ export type BackgroundJobMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   kind?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  dedupeKey?: Prisma.SortOrder
   runAt?: Prisma.SortOrder
   lockedAt?: Prisma.SortOrder
   lockedBy?: Prisma.SortOrder
@@ -488,6 +509,7 @@ export type BackgroundJobMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   kind?: Prisma.SortOrder
   status?: Prisma.SortOrder
+  dedupeKey?: Prisma.SortOrder
   runAt?: Prisma.SortOrder
   lockedAt?: Prisma.SortOrder
   lockedBy?: Prisma.SortOrder
@@ -522,6 +544,7 @@ export type BackgroundJobSelect<ExtArgs extends runtime.Types.Extensions.Interna
   kind?: boolean
   status?: boolean
   payloadJson?: boolean
+  dedupeKey?: boolean
   runAt?: boolean
   lockedAt?: boolean
   lockedBy?: boolean
@@ -537,6 +560,7 @@ export type BackgroundJobSelectCreateManyAndReturn<ExtArgs extends runtime.Types
   kind?: boolean
   status?: boolean
   payloadJson?: boolean
+  dedupeKey?: boolean
   runAt?: boolean
   lockedAt?: boolean
   lockedBy?: boolean
@@ -552,6 +576,7 @@ export type BackgroundJobSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
   kind?: boolean
   status?: boolean
   payloadJson?: boolean
+  dedupeKey?: boolean
   runAt?: boolean
   lockedAt?: boolean
   lockedBy?: boolean
@@ -567,6 +592,7 @@ export type BackgroundJobSelectScalar = {
   kind?: boolean
   status?: boolean
   payloadJson?: boolean
+  dedupeKey?: boolean
   runAt?: boolean
   lockedAt?: boolean
   lockedBy?: boolean
@@ -577,7 +603,7 @@ export type BackgroundJobSelectScalar = {
   updatedAt?: boolean
 }
 
-export type BackgroundJobOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "kind" | "status" | "payloadJson" | "runAt" | "lockedAt" | "lockedBy" | "attemptCount" | "maxAttempts" | "lastError" | "createdAt" | "updatedAt", ExtArgs["result"]["backgroundJob"]>
+export type BackgroundJobOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "kind" | "status" | "payloadJson" | "dedupeKey" | "runAt" | "lockedAt" | "lockedBy" | "attemptCount" | "maxAttempts" | "lastError" | "createdAt" | "updatedAt", ExtArgs["result"]["backgroundJob"]>
 
 export type $BackgroundJobPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "BackgroundJob"
@@ -587,6 +613,7 @@ export type $BackgroundJobPayload<ExtArgs extends runtime.Types.Extensions.Inter
     kind: string
     status: $Enums.JobStatus
     payloadJson: runtime.JsonValue
+    dedupeKey: string | null
     runAt: Date
     lockedAt: Date | null
     lockedBy: string | null
@@ -1022,6 +1049,7 @@ export interface BackgroundJobFieldRefs {
   readonly kind: Prisma.FieldRef<"BackgroundJob", 'String'>
   readonly status: Prisma.FieldRef<"BackgroundJob", 'JobStatus'>
   readonly payloadJson: Prisma.FieldRef<"BackgroundJob", 'Json'>
+  readonly dedupeKey: Prisma.FieldRef<"BackgroundJob", 'String'>
   readonly runAt: Prisma.FieldRef<"BackgroundJob", 'DateTime'>
   readonly lockedAt: Prisma.FieldRef<"BackgroundJob", 'DateTime'>
   readonly lockedBy: Prisma.FieldRef<"BackgroundJob", 'String'>
