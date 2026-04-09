@@ -2,6 +2,7 @@ import os from "node:os";
 import { mkdir } from "node:fs/promises";
 
 import {
+  RESTORE_RECONCILE_JOB_KIND,
   STAGING_CLEANUP_JOB_KIND,
   STAGING_CLEANUP_SCHEDULE_WINDOW_MS,
   TRASH_RETENTION_JOB_KIND,
@@ -11,6 +12,10 @@ import {
   markBackgroundJobFailed,
   markBackgroundJobSucceeded,
 } from "@staaash/db/jobs";
+import {
+  failRestoreReconciliationRun,
+  markRestoreReconciliationRunQueued,
+} from "@staaash/db/reconciliation";
 
 import {
   getWorkerStoragePaths,
@@ -18,6 +23,7 @@ import {
   writeHeartbeat,
 } from "./storage-maintenance";
 import { handleStagingCleanup } from "./handlers/staging-cleanup";
+import { handleRestoreReconciliation } from "./handlers/restore-reconciliation";
 import { handleTrashRetention } from "./handlers/trash-retention";
 import { handleUpdateCheck } from "./handlers/update-check";
 
@@ -122,6 +128,10 @@ const processNextJob = async (): Promise<boolean> => {
         );
         break;
 
+      case RESTORE_RECONCILE_JOB_KIND:
+        await handleRestoreReconciliation(job, storagePaths);
+        break;
+
       default:
         console.warn(`[worker] Unknown job kind: ${job.kind} — skipping.`);
     }
@@ -134,6 +144,20 @@ const processNextJob = async (): Promise<boolean> => {
       jobId: job.id,
       errorMessage,
     });
+
+    if (job.kind === RESTORE_RECONCILE_JOB_KIND) {
+      if (updatedJob.status === "queued") {
+        await markRestoreReconciliationRunQueued({
+          backgroundJobId: job.id,
+          errorMessage,
+        });
+      } else if (updatedJob.status === "dead") {
+        await failRestoreReconciliationRun({
+          backgroundJobId: job.id,
+          errorMessage,
+        });
+      }
+    }
 
     if (updatedJob.status === "dead") {
       console.error("[worker] Background job dead-lettered after retries.", {

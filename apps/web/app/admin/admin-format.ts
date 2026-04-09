@@ -27,12 +27,17 @@ export const formatAdminBytes = (value: bigint | number) => {
 
 export const getAdminStatusClassName = (status: string) =>
   `status-chip ${
-    status === "healthy" || status === "active" || status === "up-to-date"
+    status === "healthy" ||
+    status === "active" ||
+    status === "up-to-date" ||
+    status === "succeeded"
       ? "status-healthy"
       : status === "warning" ||
           status === "accepted" ||
           status === "update-available" ||
-          status === "unavailable"
+          status === "unavailable" ||
+          status === "queued" ||
+          status === "running"
         ? "status-warning"
         : status === "owner"
           ? "status-owner"

@@ -13,7 +13,7 @@ What is already here:
 - a Next.js App Router web app
 - a worker runtime for background behavior
 - a Prisma and PostgreSQL metadata layer
-- completed Phases 2 through 7 for signed-in workspace navigation, uploads, sharing, retrieval, worker jobs, and the owner admin surface
+- completed Phases 2 through 8 for signed-in workspace navigation, uploads, sharing, retrieval, worker jobs, the owner admin surface, and restore reconciliation
 - tested server-side modules for uploads, sharing, search, restore logic, auth flows, health checks, background jobs, admin storage reporting, and library-folder behavior
 
 What is not true yet:
@@ -35,17 +35,18 @@ The current foundation already locks in several important behaviors:
 - deterministic search normalization and ranking rules
 - owner-facing health and operational visibility
 - restore behavior that requires reconciliation instead of silent best effort
+- owner-visible restore integrity reporting and manual reconciliation
 
 ## Current Focus
 
-The current major slice is the owner-facing operational surface in Phase 07, followed by Phase 08 release hardening.
+The current major slice is release-quality hardening in Phase 08.
 
 That work is centered on:
 
-- multi-page `/admin` operations
-- storage usage visibility without content-browsing superuser access
-- read-only job visibility and worker-backed update checks
-- finishing the release-quality and restore-reconciliation pass next
+- manual owner-triggered restore reconciliation
+- integrity visibility for missing originals and orphaned storage
+- release-quality verification across admin, library, sharing, and recovery paths
+- a thin browser smoke harness for the highest-risk journeys
 
 ## Tech Stack
 

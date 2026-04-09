@@ -3,6 +3,7 @@ import { Prisma, getPrisma } from "./client";
 export const STAGING_CLEANUP_JOB_KIND = "staging.cleanup";
 export const TRASH_RETENTION_JOB_KIND = "trash.retention";
 export const UPDATE_CHECK_JOB_KIND = "update.check";
+export const RESTORE_RECONCILE_JOB_KIND = "restore.reconcile";
 
 export const STAGING_CLEANUP_SCHEDULE_WINDOW_MS = 15 * 60 * 1000;
 export const BACKGROUND_JOB_LEASE_MS = 60_000;
@@ -11,12 +12,14 @@ export const BACKGROUND_JOB_RETRY_DELAY_MS = 30_000;
 export type SupportedBackgroundJobKind =
   | typeof STAGING_CLEANUP_JOB_KIND
   | typeof TRASH_RETENTION_JOB_KIND
-  | typeof UPDATE_CHECK_JOB_KIND;
+  | typeof UPDATE_CHECK_JOB_KIND
+  | typeof RESTORE_RECONCILE_JOB_KIND;
 
 export const ALL_SUPPORTED_JOB_KINDS: SupportedBackgroundJobKind[] = [
   STAGING_CLEANUP_JOB_KIND,
   TRASH_RETENTION_JOB_KIND,
   UPDATE_CHECK_JOB_KIND,
+  RESTORE_RECONCILE_JOB_KIND,
 ];
 
 export type BackgroundJobRecord = {

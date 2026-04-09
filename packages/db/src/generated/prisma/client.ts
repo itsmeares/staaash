@@ -106,3 +106,8 @@ export type ShareLink = Prisma.ShareLinkModel
  * 
  */
 export type BackgroundJob = Prisma.BackgroundJobModel
+/**
+ * Model RestoreReconciliationRun
+ * 
+ */
+export type RestoreReconciliationRun = Prisma.RestoreReconciliationRunModel

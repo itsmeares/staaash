@@ -14,6 +14,15 @@ const baseVersionInfo = {
   latestAvailableVersion: null,
 };
 
+const baseReconciliation = {
+  status: "healthy" as const,
+  runStatus: "succeeded" as const,
+  lastCompletedAt: "2026-04-09T10:00:00.000Z",
+  missingOriginalCount: 0,
+  orphanedStorageCount: 0,
+  message: "Latest reconciliation completed without integrity issues.",
+};
+
 describe("health summaries", () => {
   it("marks missing heartbeat as a warning", () => {
     expect(getWorkerHeartbeatStatus(null).status).toBe("warning");
@@ -41,6 +50,7 @@ describe("health summaries", () => {
         dead: 0,
         status: "healthy",
       },
+      reconciliation: baseReconciliation,
       storageWarnings: {
         status: "healthy",
         freeBytes: 10n,
@@ -71,6 +81,7 @@ describe("health summaries", () => {
         dead: 0,
         status: "healthy",
       },
+      reconciliation: baseReconciliation,
       storageWarnings: {
         status: "healthy",
         freeBytes: 10n,

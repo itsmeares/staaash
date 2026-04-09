@@ -95,7 +95,7 @@ The repo already has the foundation scaffold plus completed Phase 1 and Phase 2 
 
 ### Current active phase
 
-- next focus: Phase 07 Admin and Operational Surface
+- current focus: Phase 08 Restore, Hardening, and Release Quality
 
 ## Phase Roadmap
 
@@ -404,6 +404,10 @@ Use the worker runtime for real product jobs and simplify media access around or
 
 ## Phase 7: Admin and Operational Surface
 
+### Status
+
+Completed
+
 ### Goal
 
 Make the instance owner experience feel like part of the product, not an afterthought.
@@ -436,6 +440,44 @@ Make the instance owner experience feel like part of the product, not an afterth
 - operator warnings are clear and actionable
 
 ## Phase 8: Restore, Hardening, and Release Quality
+
+### Status
+
+In progress
+
+### Goal
+
+Finish the trust story with visible restore reconciliation and release-quality verification.
+
+### Scope
+
+- owner-triggered restore reconciliation
+- missing-original and orphaned-storage reporting
+- reconciliation health visibility across `/admin`
+- integration and smoke-test hardening
+- backup and restore documentation refresh
+
+### Important rules
+
+- restore is not complete until reconciliation has run
+- reconciliation reports issues instead of attempting silent repair
+- generated preview pipelines do not return in this phase
+- preview-capable media remains valid when the original file exists
+
+### Deliverables
+
+- persisted reconciliation runs
+- `restore.reconcile` worker job
+- `/admin/integrity` page and API
+- expanded release-quality test coverage
+- updated install, backup, restore, and roadmap documentation
+
+### Acceptance criteria
+
+- owners can queue reconciliation manually after restore
+- missing originals and orphaned storage files are visible in admin and health
+- queue retries and dead-letter behavior remain observable through `/admin/jobs`
+- test, lint, typecheck, and build all pass with the Phase 8 changes
 
 ### Goal
 

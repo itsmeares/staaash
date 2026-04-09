@@ -11,6 +11,9 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["server/**/*.test.ts"],
+    // Storage-backed integration tests share the same FILES_ROOT fixture tree.
+    // Run files serially to avoid cross-file races on Windows filesystem ops.
+    fileParallelism: false,
   },
   resolve: {
     alias: {

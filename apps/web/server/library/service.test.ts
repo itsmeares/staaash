@@ -1,4 +1,5 @@
 import { access, readFile, rm } from "node:fs/promises";
+import { setTimeout as delay } from "node:timers/promises";
 
 import { describe, expect, it } from "vitest";
 
@@ -387,13 +388,27 @@ const createService = (repo: LibraryRepository) =>
     scheduleStagingCleanupJob: async () => undefined,
   });
 
-const cleanDataRoot = () =>
-  rm(getStoragePath(""), {
-    recursive: true,
-    force: true,
-  });
+const cleanDataRoot = async () => {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      await rm(getStoragePath(""), {
+        recursive: true,
+        force: true,
+      });
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
 
-describe("library service", () => {
+      if (attempt === 4 || (code !== "ENOTEMPTY" && code !== "EPERM")) {
+        throw error;
+      }
+
+      await delay(50);
+    }
+  }
+};
+
+describe.sequential("library service", () => {
   it("creates a library root on first listing and includes an empty file list", async () => {
     const { repo } = createMemoryRepository();
     const service = createService(repo);

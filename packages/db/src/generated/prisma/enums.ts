@@ -28,6 +28,16 @@ export const JobStatus = {
 export type JobStatus = (typeof JobStatus)[keyof typeof JobStatus]
 
 
+export const RestoreReconciliationStatus = {
+  queued: 'queued',
+  running: 'running',
+  succeeded: 'succeeded',
+  failed: 'failed'
+} as const
+
+export type RestoreReconciliationStatus = (typeof RestoreReconciliationStatus)[keyof typeof RestoreReconciliationStatus]
+
+
 export const ShareTargetType = {
   file: 'file',
   folder: 'folder'

@@ -6,8 +6,10 @@ import {
   probeDatabaseReachability,
 } from "@staaash/db/health";
 import { readInstanceUpdateCheck } from "@staaash/db/instance";
+import { readLatestRestoreReconciliationRun } from "@staaash/db/reconciliation";
 
 import { env } from "@/lib/env";
+import { buildRestoreReconciliationHealthSummary } from "@/server/restore";
 import {
   ensureStorageDirectories,
   getStorageRoot,
@@ -18,6 +20,7 @@ import type {
   InstanceHealthSummary,
   JsonInstanceHealthSummary,
   StorageWarningSummary,
+  RestoreReconciliationHealthSummary,
   WorkerHeartbeatStatus,
 } from "@/server/types";
 
@@ -146,6 +149,7 @@ export const buildInstanceHealthSummary = ({
   storageMessage,
   worker,
   queue,
+  reconciliation,
   storageWarnings,
   versionInfo,
 }: {
@@ -155,6 +159,7 @@ export const buildInstanceHealthSummary = ({
   storageMessage?: string;
   worker: WorkerHeartbeatStatus;
   queue: InstanceHealthSummary["queue"];
+  reconciliation: RestoreReconciliationHealthSummary;
   storageWarnings: StorageWarningSummary;
   versionInfo: InstanceHealthSummary["version"];
 }): InstanceHealthSummary => {
@@ -162,7 +167,8 @@ export const buildInstanceHealthSummary = ({
     databaseStatus === "healthy" &&
     storageStatus === "healthy" &&
     worker.status !== "error" &&
-    queue.status !== "error";
+    queue.status !== "error" &&
+    reconciliation.status !== "error";
 
   return {
     ok,
@@ -181,21 +187,30 @@ export const buildInstanceHealthSummary = ({
     },
     worker,
     queue,
+    reconciliation,
     storageWarnings,
     version: versionInfo,
   };
 };
 
 export const getReadiness = async () => {
-  const [database, storage, heartbeat, queue, storageWarnings, instanceState] =
-    await Promise.all([
-      probeDatabaseReachability(env.DATABASE_URL),
-      probeStorage(),
-      readWorkerHeartbeat(),
-      getQueueBacklogSummary(env.DATABASE_URL),
-      getStorageWarnings(),
-      readInstanceUpdateCheck().catch(() => null),
-    ]);
+  const [
+    database,
+    storage,
+    heartbeat,
+    queue,
+    storageWarnings,
+    instanceState,
+    latestReconciliationRun,
+  ] = await Promise.all([
+    probeDatabaseReachability(env.DATABASE_URL),
+    probeStorage(),
+    readWorkerHeartbeat(),
+    getQueueBacklogSummary(env.DATABASE_URL),
+    getStorageWarnings(),
+    readInstanceUpdateCheck().catch(() => null),
+    readLatestRestoreReconciliationRun().catch(() => null),
+  ]);
 
   return buildInstanceHealthSummary({
     databaseStatus: database.status,
@@ -204,6 +219,9 @@ export const getReadiness = async () => {
     storageMessage: storage.message,
     worker: getWorkerHeartbeatStatus(heartbeat),
     queue,
+    reconciliation: buildRestoreReconciliationHealthSummary(
+      latestReconciliationRun,
+    ),
     storageWarnings,
     versionInfo: {
       currentVersion: env.APP_VERSION,

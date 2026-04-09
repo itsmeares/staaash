@@ -8,7 +8,12 @@ import type { UpdateCheckStatus } from "@staaash/db/instance";
 import type {
   InstanceHealthSummary,
   QueueBacklogSummary,
+  RestoreReconciliationHealthSummary,
 } from "@/server/types";
+import type {
+  RestoreReconciliationIssueDetails,
+  RestoreReconciliationRunRecord as DbRestoreReconciliationRunRecord,
+} from "@staaash/db/reconciliation";
 
 export type AdminUserStorageRow = DbAdminUserStorageRow;
 
@@ -23,6 +28,15 @@ export type AdminUpdateStatus = {
   updateCheckStatus: UpdateCheckStatus | null;
   updateCheckMessage: string | null;
   latestAvailableVersion: string | null;
+};
+
+export type AdminRestoreReconciliationRun = DbRestoreReconciliationRunRecord;
+
+export type AdminIntegritySummary = {
+  health: RestoreReconciliationHealthSummary;
+  latestRun: AdminRestoreReconciliationRun | null;
+  recentRuns: AdminRestoreReconciliationRun[];
+  hasActiveRun: boolean;
 };
 
 export type AdminOverviewSummary = {
@@ -79,4 +93,26 @@ export type JsonAdminUpdateStatus = Omit<
   "lastUpdateCheckAt"
 > & {
   lastUpdateCheckAt: string | null;
+};
+
+export type JsonRestoreReconciliationIssueDetails =
+  RestoreReconciliationIssueDetails;
+
+export type JsonAdminRestoreReconciliationRun = Omit<
+  AdminRestoreReconciliationRun,
+  "startedAt" | "completedAt" | "createdAt" | "updatedAt" | "details"
+> & {
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  details: JsonRestoreReconciliationIssueDetails;
+};
+
+export type JsonAdminIntegritySummary = Omit<
+  AdminIntegritySummary,
+  "latestRun" | "recentRuns"
+> & {
+  latestRun: JsonAdminRestoreReconciliationRun | null;
+  recentRuns: JsonAdminRestoreReconciliationRun[];
 };

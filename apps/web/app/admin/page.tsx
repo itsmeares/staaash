@@ -90,6 +90,22 @@ export default async function AdminOverviewPage() {
               : ""}
           </p>
         </article>
+
+        <article className="panel stack">
+          <div className="split">
+            <h2>Integrity</h2>
+            <Link className="pill" href="/admin/integrity">
+              Open
+            </Link>
+          </div>
+          <p className="muted">
+            {renderStatusCopy(summary.health.reconciliation.status)}
+          </p>
+          <p className="muted">
+            {summary.health.reconciliation.missingOriginalCount} missing /{" "}
+            {summary.health.reconciliation.orphanedStorageCount} orphaned
+          </p>
+        </article>
       </section>
 
       <section className="grid">
@@ -168,6 +184,16 @@ export default async function AdminOverviewPage() {
             {summary.updates.updateCheckMessage ??
               "No update check has run yet."}
           </p>
+        </article>
+
+        <article className="panel stack">
+          <h2>Restore reconciliation</h2>
+          <span
+            className={`status-chip status-${summary.health.reconciliation.status}`}
+          >
+            {summary.health.reconciliation.runStatus ?? "not run"}
+          </span>
+          <p className="muted">{summary.health.reconciliation.message}</p>
         </article>
       </section>
     </main>

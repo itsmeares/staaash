@@ -19,7 +19,7 @@ This is intentionally a small, explicit architecture. The repo is trying to make
 ### Worker
 
 - separate runtime for background behavior
-- intended home for cleanup, previews, reconciliation, and other queued work
+- intended home for cleanup, reconciliation, and other queued work
 - operationally visible through admin health surfaces
 
 ### PostgreSQL
@@ -51,6 +51,7 @@ This separation is one of the main architectural choices in the repo. It keeps l
 - search is case-insensitive, accent-insensitive, and path-token aware
 - `/admin` health includes DB reachability, storage writability, worker heartbeat, queue backlog, disk warnings, and version or update status
 - restore requires reconciliation instead of silent best effort
+- preview-capable media is viewed from original bytes; restore does not regenerate derivative previews
 
 ## Boundaries And Non-Goals
 

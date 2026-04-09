@@ -55,6 +55,21 @@ export type RestoreReconciliationReport = {
   orphanedStorageKeys: string[];
 };
 
+export type RestoreReconciliationRunStatus =
+  | "queued"
+  | "running"
+  | "succeeded"
+  | "failed";
+
+export type RestoreReconciliationHealthSummary = {
+  status: HealthCheckStatus;
+  runStatus: RestoreReconciliationRunStatus | null;
+  lastCompletedAt: string | null;
+  missingOriginalCount: number;
+  orphanedStorageCount: number;
+  message: string;
+};
+
 export type QueueBacklogSummary = {
   queued: number;
   running: number;
@@ -81,6 +96,7 @@ export type InstanceHealthSummary = {
   };
   worker: WorkerHeartbeatStatus;
   queue: QueueBacklogSummary;
+  reconciliation: RestoreReconciliationHealthSummary;
   storageWarnings: StorageWarningSummary;
   version: {
     currentVersion: string;
