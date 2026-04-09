@@ -1,7 +1,7 @@
 import { getPrisma } from "./client";
 
 export type UpdateCheckStatus =
-  | "placeholder"
+  | "unavailable"
   | "up-to-date"
   | "update-available"
   | "error";
