@@ -13,8 +13,8 @@ What is already here:
 - a Next.js App Router web app
 - a worker runtime for background behavior
 - a Prisma and PostgreSQL metadata layer
-- completed Phases 2 through 7 for signed-in workspace navigation, uploads, sharing, retrieval, worker jobs, and the owner admin surface
-- tested server-side modules for uploads, sharing, search, restore logic, auth flows, health checks, background jobs, admin storage reporting, and library-folder behavior
+- completed Phase 2 signed-in app shell and private library navigation
+- tested server-side modules for uploads, sharing, search, restore logic, auth flows, health checks, and library-folder behavior
 
 What is not true yet:
 
@@ -38,14 +38,14 @@ The current foundation already locks in several important behaviors:
 
 ## Current Focus
 
-The current major slice is the owner-facing operational surface in Phase 07, followed by Phase 08 release hardening.
+The next major slice is Phase 03: upload pipeline and file operations.
 
 That work is centered on:
 
-- multi-page `/admin` operations
-- storage usage visibility without content-browsing superuser access
-- read-only job visibility and worker-backed update checks
-- finishing the release-quality and restore-reconciliation pass next
+- staged file ingest
+- checksum verification and commit safety
+- file operations that preserve internal identity
+- keeping metadata and storage behavior predictable while ingest becomes real
 
 ## Tech Stack
 

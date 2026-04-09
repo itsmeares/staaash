@@ -99,9 +99,9 @@ export default async function HomePage() {
       <section className="panel stack">
         <h2>Operator surface</h2>
         <p className="muted">
-          The owner control plane is now split into dedicated overview, users,
-          invites, storage, jobs, and updates sections, with matching
-          `/api/admin/*` operational endpoints.
+          The admin surface is intentionally small but real. Start with the
+          health route and summary page, then layer auth, users, invites, and
+          storage reporting on top.
         </p>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <Link className="pill" href="/admin">

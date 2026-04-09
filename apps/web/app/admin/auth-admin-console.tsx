@@ -3,7 +3,14 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useState, useTransition } from "react";
 
-import { formatAdminDateTime, getAdminStatusClassName } from "./admin-format";
+type AdminUser = {
+  id: string;
+  email: string;
+  username: string;
+  displayName: string | null;
+  role: string;
+  createdAt: string;
+};
 
 type AdminInvite = {
   id: string;
@@ -14,19 +21,30 @@ type AdminInvite = {
   acceptedAt: string | null;
 };
 
-type InvitesAdminConsoleProps = {
+type AdminAuthConsoleProps = {
+  initialUsers: AdminUser[];
   initialInvites: AdminInvite[];
   appUrl: string;
 };
 
-export function InvitesAdminConsole({
+const formatDate = (value: string | null) =>
+  value
+    ? new Intl.DateTimeFormat("en-GB", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(new Date(value))
+    : "n/a";
+
+export function AdminAuthConsole({
+  initialUsers,
   initialInvites,
   appUrl,
-}: InvitesAdminConsoleProps) {
+}: AdminAuthConsoleProps) {
   const router = useRouter();
   const [isRefreshing, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [issuedInviteUrl, setIssuedInviteUrl] = useState<string | null>(null);
+  const [issuedResetUrl, setIssuedResetUrl] = useState<string | null>(null);
 
   const refresh = () => {
     startTransition(() => {
@@ -49,7 +67,7 @@ export function InvitesAdminConsole({
     setIssuedInviteUrl(null);
 
     const form = event.currentTarget;
-    const response = await fetch("/api/admin/invites", {
+    const response = await fetch("/api/auth/invites", {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -91,6 +109,30 @@ export function InvitesAdminConsole({
     refresh();
   };
 
+  const handleIssueReset = async (userId: string) => {
+    setError(null);
+    setIssuedResetUrl(null);
+
+    const formData = new FormData();
+    formData.set("userId", userId);
+
+    const response = await fetch("/api/auth/password-resets", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      setError(await parseError(response));
+      return;
+    }
+
+    const body = (await response.json()) as { resetUrl: string };
+    setIssuedResetUrl(body.resetUrl);
+  };
+
   return (
     <div className="stack">
       {error ? <div className="banner banner-error">{error}</div> : null}
@@ -121,21 +163,86 @@ export function InvitesAdminConsole({
               <br />
               <code>{issuedInviteUrl.replace(appUrl, "")}</code>
             </div>
-          ) : (
-            <p className="muted">
-              Invites stay member-scoped in v1. Owner promotion is out of scope.
-            </p>
-          )}
+          ) : null}
+        </article>
+
+        <article className="panel stack">
+          <h2>Issue password reset</h2>
+          <p className="muted">
+            Owner-issued reset links replace any still-active reset for the same
+            user.
+          </p>
+          {issuedResetUrl ? (
+            <div className="banner banner-success">
+              Reset link issued:
+              <br />
+              <code>{issuedResetUrl.replace(appUrl, "")}</code>
+            </div>
+          ) : null}
         </article>
       </section>
 
       <section className="panel stack">
         <div className="split">
           <div className="stack">
-            <h2>Issued invites</h2>
+            <h2>Users</h2>
             <p className="muted">
-              Active invites can be revoked or reissued. Accepted invites stay
-              visible for operator context.
+              Owner and member accounts currently provisioned on the instance.
+            </p>
+          </div>
+        </div>
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Username</th>
+                <th>Display name</th>
+                <th>Role</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {initialUsers.map((user) => (
+                <tr key={user.id}>
+                  <td>{user.email}</td>
+                  <td>
+                    <code>@{user.username}</code>
+                  </td>
+                  <td>{user.displayName ?? "n/a"}</td>
+                  <td>
+                    <span
+                      className={`status-chip ${user.role === "owner" ? "status-owner" : "status-active"}`}
+                    >
+                      {user.role}
+                    </span>
+                  </td>
+                  <td>{formatDate(user.createdAt)}</td>
+                  <td>
+                    <button
+                      className="button button-secondary"
+                      disabled={isRefreshing}
+                      onClick={() => handleIssueReset(user.id)}
+                      type="button"
+                    >
+                      Issue reset
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="panel stack">
+        <div className="split">
+          <div className="stack">
+            <h2>Invites</h2>
+            <p className="muted">
+              Active invites can be revoked or reissued. Accepted invites are
+              kept for audit context.
             </p>
           </div>
         </div>
@@ -154,7 +261,7 @@ export function InvitesAdminConsole({
             <tbody>
               {initialInvites.length === 0 ? (
                 <tr>
-                  <td className="muted" colSpan={6}>
+                  <td colSpan={6} className="muted">
                     No invites issued yet.
                   </td>
                 </tr>
@@ -163,13 +270,13 @@ export function InvitesAdminConsole({
                   <tr key={invite.id}>
                     <td>{invite.email}</td>
                     <td>
-                      <span className={getAdminStatusClassName(invite.status)}>
+                      <span className={`status-chip status-${invite.status}`}>
                         {invite.status}
                       </span>
                     </td>
-                    <td>{formatAdminDateTime(invite.createdAt)}</td>
-                    <td>{formatAdminDateTime(invite.expiresAt)}</td>
-                    <td>{formatAdminDateTime(invite.acceptedAt)}</td>
+                    <td>{formatDate(invite.createdAt)}</td>
+                    <td>{formatDate(invite.expiresAt)}</td>
+                    <td>{formatDate(invite.acceptedAt)}</td>
                     <td>
                       <div className="cluster">
                         {invite.status === "active" ? (
@@ -178,7 +285,7 @@ export function InvitesAdminConsole({
                             disabled={isRefreshing}
                             onClick={() =>
                               postInviteAction(
-                                `/api/admin/invites/${invite.id}/revoke`,
+                                `/api/auth/invites/${invite.id}/revoke`,
                               )
                             }
                             type="button"
@@ -192,7 +299,7 @@ export function InvitesAdminConsole({
                             disabled={isRefreshing}
                             onClick={() =>
                               postInviteAction(
-                                `/api/admin/invites/${invite.id}/reissue`,
+                                `/api/auth/invites/${invite.id}/reissue`,
                                 (body) => {
                                   if (body.redeemUrl) {
                                     setIssuedInviteUrl(body.redeemUrl);

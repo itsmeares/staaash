@@ -85,12 +85,7 @@ export type InstanceHealthSummary = {
   version: {
     currentVersion: string;
     lastUpdateCheckAt: string | null;
-    updateCheckStatus:
-      | "up-to-date"
-      | "update-available"
-      | "unavailable"
-      | "error"
-      | null;
+    updateCheckStatus: string | null;
     updateCheckMessage: string | null;
     latestAvailableVersion: string | null;
   };

@@ -347,40 +347,6 @@ describe("background jobs", () => {
     expect(jobs).toHaveLength(1);
   });
 
-  it("retries scheduling when a serializable transaction is rolled back", async () => {
-    const now = new Date("2026-04-01T12:00:00.000Z");
-    const jobs: MemoryJob[] = [];
-    const baseClient = createClient(jobs);
-    let attempts = 0;
-    const client = {
-      ...baseClient,
-      async $transaction<T>(callback: (tx: typeof baseClient) => Promise<T>) {
-        attempts += 1;
-
-        if (attempts === 1) {
-          const error = new Error("serialization failure") as Error & {
-            code?: string;
-          };
-          error.code = "P2034";
-          throw error;
-        }
-
-        return baseClient.$transaction(callback);
-      },
-    };
-
-    const result = await ensureBackgroundJobScheduled({
-      kind: UPDATE_CHECK_JOB_KIND,
-      runAt: now,
-      client,
-      now,
-    });
-
-    expect(result.created).toBe(true);
-    expect(attempts).toBe(2);
-    expect(jobs).toHaveLength(1);
-  });
-
   it("multi-kind dispatcher claims the earliest due job across kinds", async () => {
     const now = new Date("2026-04-01T12:00:00.000Z");
     const earlier = new Date(now.getTime() - 1000);
