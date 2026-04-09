@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { enforceSameOrigin, requireOwnerApiSession } from "@/server/admin/http";
-import { jsonErrorResponse, readRequestBody } from "@/server/auth/http";
+import { jsonErrorResponse } from "@/server/auth/http";
 import { authService } from "@/server/auth/service";
 
-export async function POST(request: NextRequest) {
+type RouteContext = {
+  params: Promise<{
+    inviteId: string;
+  }>;
+};
+
+export async function POST(request: NextRequest, { params }: RouteContext) {
   const sameOriginError = enforceSameOrigin(request);
 
   if (sameOriginError) {
@@ -18,19 +24,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await readRequestBody(request);
-    const result = await authService.issuePasswordReset(
+    const { inviteId } = await params;
+    const invite = await authService.revokeInvite(
       auth.session.user.id,
-      body.userId,
+      inviteId,
     );
-    return NextResponse.json({
-      reset: result.reset,
-      user: result.user,
-      resetUrl: new URL(
-        `/reset/${result.token}`,
-        request.nextUrl.origin,
-      ).toString(),
-    });
+    return NextResponse.json({ invite });
   } catch (error) {
     return jsonErrorResponse(error);
   }

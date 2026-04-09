@@ -19,18 +19,20 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await readRequestBody(request);
-    const result = await authService.issuePasswordReset(
-      auth.session.user.id,
-      body.userId,
-    );
-    return NextResponse.json({
-      reset: result.reset,
-      user: result.user,
-      resetUrl: new URL(
-        `/reset/${result.token}`,
-        request.nextUrl.origin,
-      ).toString(),
+    const result = await authService.createInvite(auth.session.user.id, {
+      email: body.email,
     });
+
+    return NextResponse.json(
+      {
+        invite: result.invite,
+        redeemUrl: new URL(
+          `/invite/${result.token}`,
+          request.nextUrl.origin,
+        ).toString(),
+      },
+      { status: 201 },
+    );
   } catch (error) {
     return jsonErrorResponse(error);
   }

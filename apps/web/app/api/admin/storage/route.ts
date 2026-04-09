@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { requireOwnerApiSession } from "@/server/admin/http";
 import {
-  getAdminHealthSummary,
-  toJsonInstanceHealthSummary,
-} from "@/server/health";
+  getAdminStorageSummary,
+  toJsonAdminStorageSummary,
+} from "@/server/admin/storage";
 
 export async function GET(request: NextRequest) {
   const auth = await requireOwnerApiSession(request);
@@ -14,6 +14,6 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json(
-    toJsonInstanceHealthSummary(await getAdminHealthSummary()),
+    toJsonAdminStorageSummary(await getAdminStorageSummary()),
   );
 }
