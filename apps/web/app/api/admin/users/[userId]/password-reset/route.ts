@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { enforceSameOrigin, requireOwnerApiSession } from "@/server/admin/http";
-import { jsonErrorResponse, readRequestBody } from "@/server/auth/http";
+import { jsonErrorResponse } from "@/server/auth/http";
 import { authService } from "@/server/auth/service";
 
-export async function POST(request: NextRequest) {
+type RouteContext = {
+  params: Promise<{
+    userId: string;
+  }>;
+};
+
+export async function POST(request: NextRequest, { params }: RouteContext) {
   const sameOriginError = enforceSameOrigin(request);
 
   if (sameOriginError) {
@@ -18,10 +24,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await readRequestBody(request);
+    const { userId } = await params;
     const result = await authService.issuePasswordReset(
       auth.session.user.id,
-      body.userId,
+      userId,
     );
     return NextResponse.json({
       reset: result.reset,
