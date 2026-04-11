@@ -1,29 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-import { canAccessAdminSurface } from "@/server/access";
-import { getRequestSession } from "@/server/auth/guards";
-import { jsonNotSignedInResponse } from "@/server/auth/http";
+import { requireOwnerApiSession } from "@/server/admin/http";
 import {
   getAdminHealthSummary,
   toJsonInstanceHealthSummary,
 } from "@/server/health";
 
-export async function GET(
-  request: Request & {
-    cookies: { get(name: string): { value: string } | undefined };
-  },
-) {
-  const session = await getRequestSession(request);
+export async function GET(request: NextRequest) {
+  const auth = await requireOwnerApiSession(request);
 
-  if (!session) {
-    return jsonNotSignedInResponse();
-  }
-
-  if (!canAccessAdminSurface(session.user.role)) {
-    return NextResponse.json(
-      { error: "Owner access required." },
-      { status: 403 },
-    );
+  if (!auth.ok) {
+    return auth.response;
   }
 
   return NextResponse.json(

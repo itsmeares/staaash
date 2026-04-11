@@ -73,7 +73,7 @@ describe("upload guardrails", () => {
 
   it("times out staged uploads and removes temp files", async () => {
     const tmpRoot = path.join(getStorageRoot(), "tmp");
-    const beforeEntries = await readdir(tmpRoot).catch(() => []);
+    const beforeEntries = new Set(await readdir(tmpRoot).catch(() => []));
     const encoder = new TextEncoder();
     const slowFile = {
       type: "text/plain",
@@ -107,10 +107,19 @@ describe("upload guardrails", () => {
       status: 408,
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 75));
-    const afterEntries = await readdir(tmpRoot).catch(() => []);
-    const uploadsBefore = beforeEntries.filter((e) => e.endsWith(".upload"));
-    const uploadsAfter = afterEntries.filter((e) => e.endsWith(".upload"));
-    expect(uploadsAfter.sort()).toEqual(uploadsBefore.sort());
+    await expect
+      .poll(
+        async () => {
+          const afterEntries = await readdir(tmpRoot).catch(() => []);
+          return afterEntries.filter(
+            (entry) => entry.endsWith(".upload") && !beforeEntries.has(entry),
+          );
+        },
+        {
+          timeout: 1_000,
+          interval: 50,
+        },
+      )
+      .toEqual([]);
   });
 });

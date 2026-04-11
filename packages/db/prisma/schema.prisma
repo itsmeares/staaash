@@ -20,6 +20,13 @@ enum JobStatus {
   dead
 }
 
+enum RestoreReconciliationStatus {
+  queued
+  running
+  succeeded
+  failed
+}
+
 enum ShareTargetType {
   file
   folder
@@ -58,6 +65,7 @@ model User {
   recentFiles           RecentFile[]
   recentFolders         RecentFolder[]
   shareLinks            ShareLink[]     @relation("ShareLinkCreator")
+  restoreReconciliationRuns RestoreReconciliationRun[] @relation("RestoreReconciliationTrigger")
 }
 
 model Session {
@@ -238,4 +246,23 @@ model BackgroundJob {
 
   @@index([status, runAt])
   @@index([kind, dedupeKey, status])
+}
+
+model RestoreReconciliationRun {
+  id                   String                      @id @default(cuid())
+  status               RestoreReconciliationStatus @default(queued)
+  triggeredByUserId    String?
+  backgroundJobId      String?                     @unique
+  startedAt            DateTime?
+  completedAt          DateTime?
+  missingOriginalCount Int                         @default(0)
+  orphanedStorageCount Int                         @default(0)
+  detailsJson          Json?
+  lastError            String?
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
+  triggeredBy          User?                       @relation("RestoreReconciliationTrigger", fields: [triggeredByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([createdAt])
 }

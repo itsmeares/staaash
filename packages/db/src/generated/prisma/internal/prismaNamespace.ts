@@ -396,7 +396,8 @@ export const ModelName = {
   RecentFile: 'RecentFile',
   RecentFolder: 'RecentFolder',
   ShareLink: 'ShareLink',
-  BackgroundJob: 'BackgroundJob'
+  BackgroundJob: 'BackgroundJob',
+  RestoreReconciliationRun: 'RestoreReconciliationRun'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -412,7 +413,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "instance" | "user" | "session" | "invite" | "passwordReset" | "folder" | "file" | "favoriteFile" | "favoriteFolder" | "recentFile" | "recentFolder" | "shareLink" | "backgroundJob"
+    modelProps: "instance" | "user" | "session" | "invite" | "passwordReset" | "folder" | "file" | "favoriteFile" | "favoriteFolder" | "recentFile" | "recentFolder" | "shareLink" | "backgroundJob" | "restoreReconciliationRun"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1378,6 +1379,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    RestoreReconciliationRun: {
+      payload: Prisma.$RestoreReconciliationRunPayload<ExtArgs>
+      fields: Prisma.RestoreReconciliationRunFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.RestoreReconciliationRunFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RestoreReconciliationRunPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.RestoreReconciliationRunFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RestoreReconciliationRunPayload>
+        }
+        findFirst: {
+          args: Prisma.RestoreReconciliationRunFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RestoreReconciliationRunPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.RestoreReconciliationRunFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RestoreReconciliationRunPayload>
+        }
+        findMany: {
+          args: Prisma.RestoreReconciliationRunFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RestoreReconciliationRunPayload>[]
+        }
+        create: {
+          args: Prisma.RestoreReconciliationRunCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RestoreReconciliationRunPayload>
+        }
+        createMany: {
+          args: Prisma.RestoreReconciliationRunCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.RestoreReconciliationRunCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RestoreReconciliationRunPayload>[]
+        }
+        delete: {
+          args: Prisma.RestoreReconciliationRunDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RestoreReconciliationRunPayload>
+        }
+        update: {
+          args: Prisma.RestoreReconciliationRunUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RestoreReconciliationRunPayload>
+        }
+        deleteMany: {
+          args: Prisma.RestoreReconciliationRunDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.RestoreReconciliationRunUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.RestoreReconciliationRunUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RestoreReconciliationRunPayload>[]
+        }
+        upsert: {
+          args: Prisma.RestoreReconciliationRunUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$RestoreReconciliationRunPayload>
+        }
+        aggregate: {
+          args: Prisma.RestoreReconciliationRunAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateRestoreReconciliationRun>
+        }
+        groupBy: {
+          args: Prisma.RestoreReconciliationRunGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.RestoreReconciliationRunGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.RestoreReconciliationRunCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.RestoreReconciliationRunCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -1600,6 +1675,24 @@ export const BackgroundJobScalarFieldEnum = {
 export type BackgroundJobScalarFieldEnum = (typeof BackgroundJobScalarFieldEnum)[keyof typeof BackgroundJobScalarFieldEnum]
 
 
+export const RestoreReconciliationRunScalarFieldEnum = {
+  id: 'id',
+  status: 'status',
+  triggeredByUserId: 'triggeredByUserId',
+  backgroundJobId: 'backgroundJobId',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  missingOriginalCount: 'missingOriginalCount',
+  orphanedStorageCount: 'orphanedStorageCount',
+  detailsJson: 'detailsJson',
+  lastError: 'lastError',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type RestoreReconciliationRunScalarFieldEnum = (typeof RestoreReconciliationRunScalarFieldEnum)[keyof typeof RestoreReconciliationRunScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -1613,6 +1706,14 @@ export const JsonNullValueInput = {
 } as const
 
 export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
+
+
+export const NullableJsonNullValueInput = {
+  DbNull: DbNull,
+  JsonNull: JsonNull
+} as const
+
+export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
 
 
 export const QueryMode = {
@@ -1766,6 +1867,20 @@ export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel,
 
 
 /**
+ * Reference to a field of type 'RestoreReconciliationStatus'
+ */
+export type EnumRestoreReconciliationStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'RestoreReconciliationStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'RestoreReconciliationStatus[]'
+ */
+export type ListEnumRestoreReconciliationStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'RestoreReconciliationStatus[]'>
+    
+
+
+/**
  * Reference to a field of type 'Float'
  */
 export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
@@ -1886,6 +2001,7 @@ export type GlobalOmitConfig = {
   recentFolder?: Prisma.RecentFolderOmit
   shareLink?: Prisma.ShareLinkOmit
   backgroundJob?: Prisma.BackgroundJobOmit
+  restoreReconciliationRun?: Prisma.RestoreReconciliationRunOmit
 }
 
 /* Types for Logging */

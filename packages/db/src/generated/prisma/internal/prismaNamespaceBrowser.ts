@@ -63,7 +63,8 @@ export const ModelName = {
   RecentFile: 'RecentFile',
   RecentFolder: 'RecentFolder',
   ShareLink: 'ShareLink',
-  BackgroundJob: 'BackgroundJob'
+  BackgroundJob: 'BackgroundJob',
+  RestoreReconciliationRun: 'RestoreReconciliationRun'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -265,6 +266,24 @@ export const BackgroundJobScalarFieldEnum = {
 export type BackgroundJobScalarFieldEnum = (typeof BackgroundJobScalarFieldEnum)[keyof typeof BackgroundJobScalarFieldEnum]
 
 
+export const RestoreReconciliationRunScalarFieldEnum = {
+  id: 'id',
+  status: 'status',
+  triggeredByUserId: 'triggeredByUserId',
+  backgroundJobId: 'backgroundJobId',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  missingOriginalCount: 'missingOriginalCount',
+  orphanedStorageCount: 'orphanedStorageCount',
+  detailsJson: 'detailsJson',
+  lastError: 'lastError',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type RestoreReconciliationRunScalarFieldEnum = (typeof RestoreReconciliationRunScalarFieldEnum)[keyof typeof RestoreReconciliationRunScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -278,6 +297,14 @@ export const JsonNullValueInput = {
 } as const
 
 export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
+
+
+export const NullableJsonNullValueInput = {
+  DbNull: DbNull,
+  JsonNull: JsonNull
+} as const
+
+export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
 
 
 export const QueryMode = {

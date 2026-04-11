@@ -28,7 +28,7 @@ Use these docs to understand what Staaash is trying to build, which decisions ar
 
 ## Current Build Focus
 
-- completed phases: 00, 01, 02, 03, 04, 05, and 06
-- next active phase: 07 Admin and Operational Surface
+- completed phases: 00, 01, 02, 03, 04, 05, 06, and 07
+- current active phase: 08 Restore, Hardening, and Release Quality
 
-If you only need to understand what the repo is actively building next, start with [`implementation-plan.md`](./implementation-plan.md) and then open [`phases/07-admin-and-operational-surface.md`](./phases/07-admin-and-operational-surface.md).
+If you only need to understand what the repo is actively building now, start with [`implementation-plan.md`](./implementation-plan.md) and then open [`phases/08-restore-hardening-and-release-quality.md`](./phases/08-restore-hardening-and-release-quality.md).

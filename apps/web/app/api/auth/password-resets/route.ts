@@ -1,40 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { canAccessAdminSurface } from "@/server/access";
-import { getRequestSession } from "@/server/auth/guards";
-import {
-  isSameOrigin,
-  jsonNotSignedInResponse,
-  jsonErrorResponse,
-  readRequestBody,
-} from "@/server/auth/http";
+import { enforceSameOrigin, requireOwnerApiSession } from "@/server/admin/http";
+import { jsonErrorResponse, readRequestBody } from "@/server/auth/http";
 import { authService } from "@/server/auth/service";
 
 export async function POST(request: NextRequest) {
-  if (!isSameOrigin(request)) {
-    return NextResponse.json(
-      { error: "Cross-origin requests are not allowed." },
-      { status: 403 },
-    );
+  const sameOriginError = enforceSameOrigin(request);
+
+  if (sameOriginError) {
+    return sameOriginError;
   }
 
-  const session = await getRequestSession(request);
+  const auth = await requireOwnerApiSession(request);
 
-  if (!session) {
-    return jsonNotSignedInResponse();
-  }
-
-  if (!canAccessAdminSurface(session.user.role)) {
-    return NextResponse.json(
-      { error: "Owner access required." },
-      { status: 403 },
-    );
+  if (!auth.ok) {
+    return auth.response;
   }
 
   try {
     const body = await readRequestBody(request);
     const result = await authService.issuePasswordReset(
-      session.user.id,
+      auth.session.user.id,
       body.userId,
     );
     return NextResponse.json({

@@ -279,6 +279,51 @@ p {
   grid-template-columns: 280px minmax(0, 1fr);
 }
 
+.admin-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  background:
+    radial-gradient(
+      circle at top right,
+      rgba(255, 176, 90, 0.12),
+      transparent 28%
+    ),
+    linear-gradient(180deg, #fffaf2 0%, #f5f0e6 100%);
+}
+
+.admin-sidebar {
+  display: grid;
+  align-content: start;
+  gap: 24px;
+  padding: 28px 22px;
+  background: rgba(255, 248, 237, 0.88);
+  border-right: 1px solid rgba(98, 73, 22, 0.12);
+  backdrop-filter: blur(18px);
+}
+
+.admin-main {
+  min-width: 0;
+  padding: 24px 28px 40px;
+}
+
+.admin-content {
+  width: min(1180px, calc(100vw - 96px));
+  margin: 0 auto;
+}
+
+.admin-pill {
+  background: rgba(190, 124, 17, 0.12);
+  color: #7b540d;
+}
+
+.admin-filter-form {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, max-content));
+  align-items: end;
+}
+
 .workspace-sidebar {
   display: grid;
   align-content: start;

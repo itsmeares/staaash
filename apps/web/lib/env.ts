@@ -48,6 +48,8 @@ const envSchema = z.object({
     .positive()
     .default(120),
   UPDATE_CHECK_INTERVAL_HOURS: z.coerce.number().int().positive().default(24),
+  UPDATE_CHECK_REPOSITORY: z.string().trim().default("itsmeares/staaash"),
+  UPDATE_CHECK_TOKEN: z.string().trim().optional().default(""),
 });
 
 export const env = (() => {

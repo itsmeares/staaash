@@ -1,8 +1,9 @@
-import { getPrisma } from "./client";
+import { Prisma, getPrisma } from "./client";
 
 export const STAGING_CLEANUP_JOB_KIND = "staging.cleanup";
 export const TRASH_RETENTION_JOB_KIND = "trash.retention";
 export const UPDATE_CHECK_JOB_KIND = "update.check";
+export const RESTORE_RECONCILE_JOB_KIND = "restore.reconcile";
 
 export const STAGING_CLEANUP_SCHEDULE_WINDOW_MS = 15 * 60 * 1000;
 export const BACKGROUND_JOB_LEASE_MS = 60_000;
@@ -11,12 +12,14 @@ export const BACKGROUND_JOB_RETRY_DELAY_MS = 30_000;
 export type SupportedBackgroundJobKind =
   | typeof STAGING_CLEANUP_JOB_KIND
   | typeof TRASH_RETENTION_JOB_KIND
-  | typeof UPDATE_CHECK_JOB_KIND;
+  | typeof UPDATE_CHECK_JOB_KIND
+  | typeof RESTORE_RECONCILE_JOB_KIND;
 
 export const ALL_SUPPORTED_JOB_KINDS: SupportedBackgroundJobKind[] = [
   STAGING_CLEANUP_JOB_KIND,
   TRASH_RETENTION_JOB_KIND,
   UPDATE_CHECK_JOB_KIND,
+  RESTORE_RECONCILE_JOB_KIND,
 ];
 
 export type BackgroundJobRecord = {
@@ -45,8 +48,13 @@ type BackgroundJobClient = {
   };
   $transaction<T>(
     callback: (tx: BackgroundJobClient) => Promise<T>,
+    options?: {
+      isolationLevel?: Prisma.TransactionIsolationLevel;
+    },
   ): Promise<T>;
 };
+
+const BACKGROUND_JOB_SCHEDULE_MAX_RETRIES = 3;
 
 const buildActiveStatusFilter = (now: Date) => ({
   OR: [
@@ -106,35 +114,59 @@ export const ensureBackgroundJobScheduled = async ({
         },
       };
 
-  const existing = await activeClient.backgroundJob.findFirst({
-    where: dedupeFilter,
-    orderBy: {
-      runAt: "asc",
-    },
-  });
+  for (
+    let attempt = 0;
+    attempt < BACKGROUND_JOB_SCHEDULE_MAX_RETRIES;
+    attempt += 1
+  ) {
+    try {
+      return await activeClient.$transaction(
+        async (tx) => {
+          const existing = await tx.backgroundJob.findFirst({
+            where: dedupeFilter,
+            orderBy: {
+              runAt: "asc",
+            },
+          });
 
-  if (existing) {
-    return {
-      created: false,
-      job: existing,
-    };
+          if (existing) {
+            return {
+              created: false,
+              job: existing,
+            };
+          }
+
+          const job = await tx.backgroundJob.create({
+            data: {
+              kind,
+              status: "queued",
+              payloadJson,
+              dedupeKey,
+              runAt,
+              maxAttempts,
+            },
+          });
+
+          return {
+            created: true,
+            job,
+          };
+        },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        },
+      );
+    } catch (error) {
+      if (
+        attempt === BACKGROUND_JOB_SCHEDULE_MAX_RETRIES - 1 ||
+        (error as { code?: string }).code !== "P2034"
+      ) {
+        throw error;
+      }
+    }
   }
 
-  const job = await activeClient.backgroundJob.create({
-    data: {
-      kind,
-      status: "queued",
-      payloadJson,
-      dedupeKey,
-      runAt,
-      maxAttempts,
-    },
-  });
-
-  return {
-    created: true,
-    job,
-  };
+  throw new Error("Failed to schedule background job.");
 };
 
 /**

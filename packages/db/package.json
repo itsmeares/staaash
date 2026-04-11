@@ -20,6 +20,14 @@
       "types": "./dist/instance.d.ts",
       "default": "./dist/instance.js"
     },
+    "./admin": {
+      "types": "./dist/admin.d.ts",
+      "default": "./dist/admin.js"
+    },
+    "./reconciliation": {
+      "types": "./dist/reconciliation.d.ts",
+      "default": "./dist/reconciliation.js"
+    },
     "./viewer-contract": {
       "types": "./dist/viewer-contract.d.ts",
       "default": "./dist/viewer-contract.js"

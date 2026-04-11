@@ -11,6 +11,7 @@
     "web:build": "pnpm --filter web build",
     "worker:build": "pnpm --filter worker build",
     "web:test": "pnpm --filter web test",
+    "web:e2e": "pnpm --filter web e2e",
     "worker:test": "pnpm --filter worker test",
     "web:lint": "pnpm --filter web lint",
     "worker:lint": "pnpm --filter worker lint",
@@ -35,7 +36,7 @@
     "husky": "9.1.7",
     "lint-staged": "16.4.0",
     "prettier": "3.8.1",
-    "turbo": "^2.5.4",
+    "turbo": "^2.9.5",
     "typescript": "^5.9.3"
   }
 }

@@ -9,7 +9,7 @@ Use the final phase to enforce the product’s trust promises through reconcilia
 - In:
   - restore reconciliation
   - integrity checks between DB metadata and originals
-  - preview regeneration scheduling
+  - original-byte preview compatibility verification
   - orphan reporting
   - integration tests
   - selective E2E tests
@@ -24,18 +24,19 @@ Use the final phase to enforce the product’s trust promises through reconcilia
 
 ## Action Items
 
-- [ ] Implement the restore reconciliation job and reporting model.
-- [ ] Detect missing originals and orphaned storage keys.
-- [ ] Schedule preview regeneration after restore when needed.
-- [ ] Add integration coverage for auth, uploads, library, sharing, search, and admin.
-- [ ] Add selective E2E coverage for the highest-risk user journeys.
-- [ ] Refresh install, backup, restore, and upgrade documentation for the finished v1 behavior.
+- [x] Implement the restore reconciliation job and reporting model.
+- [x] Detect missing originals and orphaned storage keys.
+- [x] Keep preview behavior on original-byte viewing and verify compatibility routes after restore.
+- [x] Add integration coverage for auth, uploads, library, sharing, search, admin, and restore health wiring.
+- [x] Add a selective Playwright smoke harness for the highest-risk user journeys.
+- [x] Refresh install, backup, restore, and upgrade documentation for the finished v1 behavior.
 
 ## Validation
 
 - Verify a known restore scenario end-to-end.
 - Verify orphan and missing-file issues are visible to the owner.
-- Run `pnpm test`, `pnpm lint`, and `pnpm build`.
+- Verify preview-capable private and public routes still render from original bytes.
+- Run `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm build`, and `pnpm web:e2e`.
 
 ## Done Criteria
 

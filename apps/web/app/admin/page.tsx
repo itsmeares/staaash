@@ -1,131 +1,201 @@
-import { AdminAuthConsole } from "@/app/admin/auth-admin-console";
-import { formatDateTime } from "@/app/auth-ui";
-import { env } from "@/lib/env";
+import Link from "next/link";
+
+import { formatAdminBytes } from "@/app/admin/admin-format";
 import { requireOwnerPageSession } from "@/server/auth/guards";
-import { authService } from "@/server/auth/service";
-import { getAdminHealthSummary } from "@/server/health";
+import { getAdminOverviewSummary } from "@/server/admin/overview";
 
 export const dynamic = "force-dynamic";
 
-const renderStatus = (status: string) => {
-  if (status === "healthy") {
-    return "healthy";
-  }
+const renderStatusCopy = (status: string) =>
+  status === "healthy" ? "Healthy" : status === "warning" ? "Warning" : "Error";
 
-  if (status === "warning") {
-    return "warning";
-  }
-
-  return "error";
-};
-
-export default async function AdminPage() {
+export default async function AdminOverviewPage() {
   const session = await requireOwnerPageSession();
-  const [summary, users, invites] = await Promise.all([
-    getAdminHealthSummary(),
-    authService.listUsers(session.user.id),
-    authService.listInvites(session.user.id),
-  ]);
+  const summary = await getAdminOverviewSummary(session.user.id);
 
   return (
     <main className="stack">
       <section className="panel stack">
-        <div className="pill">/admin</div>
-        <h1>Instance Health</h1>
+        <div className="pill admin-pill">/admin</div>
+        <h1>Owner overview</h1>
         <p className="muted">
-          The owner-facing health summary combines dependency checks and
-          operator-facing warning signals.
+          Admin health, storage usage, background jobs, and update state are
+          split into dedicated sections now. This overview keeps the instance
+          readable at a glance.
         </p>
       </section>
 
       <section className="grid">
         <article className="panel stack">
-          <h2>Database</h2>
+          <div className="split">
+            <h2>Users</h2>
+            <Link className="pill" href="/admin/users">
+              Open
+            </Link>
+          </div>
           <p className="muted">
-            {renderStatus(summary.checks.database.status)}
+            {summary.users.total} total · {summary.users.owners} owner ·{" "}
+            {summary.users.members} members
           </p>
-          {summary.checks.database.message ? (
-            <p className="muted">{summary.checks.database.message}</p>
-          ) : null}
+          <p className="muted">
+            {summary.users.activeInvites} active invite
+            {summary.users.activeInvites === 1 ? "" : "s"}
+          </p>
+        </article>
+
+        <article className="panel stack">
+          <div className="split">
+            <h2>Storage</h2>
+            <Link className="pill" href="/admin/storage">
+              Open
+            </Link>
+          </div>
+          <p className="muted">
+            {formatAdminBytes(summary.storage.retainedBytes)}
+          </p>
+          <p className="muted">
+            {summary.storage.retainedFileCount} retained files ·{" "}
+            {summary.storage.retainedFolderCount} retained folders
+          </p>
+        </article>
+
+        <article className="panel stack">
+          <div className="split">
+            <h2>Jobs</h2>
+            <Link className="pill" href="/admin/jobs">
+              Open
+            </Link>
+          </div>
+          <p className="muted">{renderStatusCopy(summary.jobs.status)}</p>
+          <p className="muted">
+            queued {summary.jobs.queued} / running {summary.jobs.running} /
+            failed {summary.jobs.failed} / dead {summary.jobs.dead}
+          </p>
+        </article>
+
+        <article className="panel stack">
+          <div className="split">
+            <h2>Updates</h2>
+            <Link className="pill" href="/admin/updates">
+              Open
+            </Link>
+          </div>
+          <p className="muted">
+            {summary.updates.updateCheckStatus ?? "not checked yet"}
+          </p>
+          <p className="muted">
+            Current {summary.updates.currentVersion}
+            {summary.updates.latestAvailableVersion
+              ? ` · Latest ${summary.updates.latestAvailableVersion}`
+              : ""}
+          </p>
+        </article>
+
+        <article className="panel stack">
+          <div className="split">
+            <h2>Integrity</h2>
+            <Link className="pill" href="/admin/integrity">
+              Open
+            </Link>
+          </div>
+          <p className="muted">
+            {renderStatusCopy(summary.health.reconciliation.status)}
+          </p>
+          <p className="muted">
+            {summary.health.reconciliation.missingOriginalCount} missing /{" "}
+            {summary.health.reconciliation.orphanedStorageCount} orphaned
+          </p>
+        </article>
+      </section>
+
+      <section className="grid">
+        <article className="panel stack">
+          <h2>Database</h2>
+          <span
+            className={`status-chip status-${summary.health.checks.database.status}`}
+          >
+            {summary.health.checks.database.status}
+          </span>
+          <p className="muted">
+            {summary.health.checks.database.message ?? "Database reachable."}
+          </p>
         </article>
 
         <article className="panel stack">
           <h2>Files volume</h2>
-          <p className="muted">{renderStatus(summary.checks.storage.status)}</p>
-          {summary.checks.storage.message ? (
-            <p className="muted">{summary.checks.storage.message}</p>
-          ) : null}
+          <span
+            className={`status-chip status-${summary.health.checks.storage.status}`}
+          >
+            {summary.health.checks.storage.status}
+          </span>
+          <p className="muted">
+            {summary.health.checks.storage.message ?? "Storage root writable."}
+          </p>
         </article>
 
         <article className="panel stack">
           <h2>Worker heartbeat</h2>
-          <p className="muted">{renderStatus(summary.worker.status)}</p>
-          <p className="muted">{summary.worker.message}</p>
+          <span
+            className={`status-chip status-${summary.health.worker.status}`}
+          >
+            {summary.health.worker.status}
+          </span>
+          <p className="muted">{summary.health.worker.message}</p>
         </article>
 
         <article className="panel stack">
           <h2>Queue backlog</h2>
-          <p className="muted">{renderStatus(summary.queue.status)}</p>
+          <span className={`status-chip status-${summary.health.queue.status}`}>
+            {summary.health.queue.status}
+          </span>
           <p className="muted">
-            queued {summary.queue.queued} / running {summary.queue.running} /
-            failed {summary.queue.failed} / dead {summary.queue.dead}
+            queued {summary.health.queue.queued} / running{" "}
+            {summary.health.queue.running}
+            {" / "}failed {summary.health.queue.failed} / dead{" "}
+            {summary.health.queue.dead}
           </p>
         </article>
 
         <article className="panel stack">
           <h2>Disk warnings</h2>
-          <p className="muted">
-            {renderStatus(summary.storageWarnings.status)}
-          </p>
-          <p className="muted">{summary.storageWarnings.message}</p>
+          <span
+            className={`status-chip status-${summary.health.storageWarnings.status}`}
+          >
+            {summary.health.storageWarnings.status}
+          </span>
+          <p className="muted">{summary.health.storageWarnings.message}</p>
         </article>
 
         <article className="panel stack">
-          <h2>Version</h2>
-          <p className="muted">{summary.version.currentVersion}</p>
-          {summary.version.updateCheckStatus ? (
-            <>
-              <p className="muted">
-                Update check:{" "}
-                {summary.version.updateCheckStatus === "update-available"
-                  ? `Update available — ${summary.version.latestAvailableVersion ?? "unknown version"}`
-                  : summary.version.updateCheckStatus}
-                {summary.version.updateCheckMessage
-                  ? ` (${summary.version.updateCheckMessage})`
-                  : null}
-              </p>
-              {summary.version.lastUpdateCheckAt ? (
-                <p className="muted">
-                  Last checked:{" "}
-                  {formatDateTime(summary.version.lastUpdateCheckAt)}
-                </p>
-              ) : null}
-            </>
-          ) : (
-            <p className="muted">Update check not yet run.</p>
-          )}
+          <h2>Version status</h2>
+          <span
+            className={`status-chip status-${
+              summary.updates.updateCheckStatus === "error"
+                ? "error"
+                : summary.updates.updateCheckStatus === "update-available" ||
+                    summary.updates.updateCheckStatus === "unavailable"
+                  ? "warning"
+                  : "healthy"
+            }`}
+          >
+            {summary.updates.updateCheckStatus ?? "not checked"}
+          </span>
+          <p className="muted">
+            {summary.updates.updateCheckMessage ??
+              "No update check has run yet."}
+          </p>
+        </article>
+
+        <article className="panel stack">
+          <h2>Restore reconciliation</h2>
+          <span
+            className={`status-chip status-${summary.health.reconciliation.status}`}
+          >
+            {summary.health.reconciliation.runStatus ?? "not run"}
+          </span>
+          <p className="muted">{summary.health.reconciliation.message}</p>
         </article>
       </section>
-
-      <AdminAuthConsole
-        appUrl={env.APP_URL}
-        initialInvites={invites.map((invite) => ({
-          id: invite.id,
-          email: invite.email,
-          status: invite.status,
-          createdAt: invite.createdAt.toISOString(),
-          expiresAt: invite.expiresAt.toISOString(),
-          acceptedAt: invite.acceptedAt?.toISOString() ?? null,
-        }))}
-        initialUsers={users.map((user) => ({
-          id: user.id,
-          email: user.email,
-          username: user.username,
-          displayName: user.displayName,
-          role: user.role,
-          createdAt: user.createdAt.toISOString(),
-        }))}
-      />
     </main>
   );
 }
