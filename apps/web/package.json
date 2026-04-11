@@ -10,6 +10,7 @@
     "pretest": "pnpm run build:deps",
     "pretypecheck": "pnpm run build:deps && next typegen",
     "dev": "next dev",
+    "e2e:prepare": "node scripts/e2e-bootstrap.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "tsc --noEmit --incremental false -p tsconfig.json",

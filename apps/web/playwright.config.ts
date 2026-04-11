@@ -17,7 +17,7 @@ export default defineConfig({
   webServer: process.env.STAAASH_E2E_BASE_URL
     ? undefined
     : {
-        command: `pnpm dev --hostname 127.0.0.1 --port ${port}`,
+        command: `pnpm e2e:prepare && pnpm dev --hostname 127.0.0.1 --port ${port}`,
         cwd: __dirname,
         url: baseURL,
         reuseExistingServer: !process.env.CI,

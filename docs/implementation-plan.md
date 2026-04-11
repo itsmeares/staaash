@@ -95,7 +95,8 @@ The repo already has the foundation scaffold plus completed Phase 1 and Phase 2 
 
 ### Current active phase
 
-- current focus: Phase 08 Restore, Hardening, and Release Quality
+- current scope: Phases 00 through 08 are implemented
+- current focus: final Phase 08 release-quality verification, especially `pnpm web:e2e`
 
 ## Phase Roadmap
 
