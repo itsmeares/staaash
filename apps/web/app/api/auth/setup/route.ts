@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
         )
       : formErrorResponse(
           request,
-          "/setup",
+          "/",
           new Error("Cross-origin requests are not allowed."),
         );
   }
@@ -48,6 +48,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return wantsJson(request)
       ? jsonErrorResponse(error)
-      : formErrorResponse(request, "/setup", error);
+      : formErrorResponse(request, "/", error);
   }
 }

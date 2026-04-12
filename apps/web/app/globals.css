@@ -707,6 +707,136 @@ h3 {
     );
 }
 
+.entry-surface__scrim--setup {
+  background:
+    /* bottom grounding — heavier so the stage has weight */
+    linear-gradient(
+      to top,
+      rgba(3, 10, 14, 0.84) 0%,
+      rgba(3, 10, 14, 0.22) 30%,
+      transparent 52%
+    ),
+    /* top edge */
+    linear-gradient(to bottom, rgba(3, 10, 14, 0.2) 0%, transparent 18%),
+    /* four-corner vignette — open center, dark frame */
+    radial-gradient(
+        ellipse 70% 80% at 0% 0%,
+        rgba(3, 10, 14, 0.42),
+        transparent 55%
+      ),
+    radial-gradient(
+      ellipse 70% 80% at 100% 0%,
+      rgba(3, 10, 14, 0.42),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 70% 80% at 0% 100%,
+      rgba(3, 10, 14, 0.56),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 70% 80% at 100% 100%,
+      rgba(3, 10, 14, 0.56),
+      transparent 55%
+    );
+}
+
+@keyframes setup-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes setup-fade-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+}
+
+@keyframes setup-hint-pulse {
+  0%,
+  100% {
+    opacity: 0.42;
+  }
+  50% {
+    opacity: 0.78;
+  }
+}
+
+.setup-gateway {
+  display: grid;
+  gap: clamp(1.25rem, 2.5vw, 1.75rem);
+  text-align: center;
+  max-width: clamp(36rem, 70vw, 64rem);
+  outline: none;
+  cursor: default;
+  user-select: none;
+}
+
+.setup-gateway__title {
+  animation: setup-fade-up 1s cubic-bezier(0.16, 1, 0.3, 1) 1.2s both;
+}
+
+.setup-gateway__description {
+  max-width: clamp(28rem, 44vw, 40rem);
+  margin-inline: auto;
+  animation: setup-fade-up 0.9s cubic-bezier(0.16, 1, 0.3, 1) 1.65s both;
+}
+
+.setup-gateway__hint {
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: oklch(86% 0.018 78 / 0.82);
+  animation:
+    setup-fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) 2.1s both,
+    setup-hint-pulse 3s ease-in-out 2.9s infinite;
+}
+
+.setup-gateway--exiting {
+  animation: setup-fade-out 0.38s cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
+  cursor: default;
+}
+
+.setup-form {
+  width: min(100%, 440px);
+}
+
+.setup-form--entering {
+  animation: setup-fade-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.setup-form__error {
+  padding: 12px 14px;
+  border-radius: calc(var(--radius) * 1.4);
+  background: color-mix(in oklab, var(--destructive) 14%, var(--card));
+  color: color-mix(in oklab, var(--destructive) 72%, var(--foreground));
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .setup-gateway__title,
+  .setup-gateway__description,
+  .setup-gateway__hint,
+  .setup-gateway--exiting,
+  .setup-form--entering {
+    animation: none;
+  }
+}
+
 .entry-surface__scrim--focused {
   background:
     linear-gradient(
@@ -800,6 +930,19 @@ h3 {
   position: absolute;
   inset: 0;
   overflow: hidden;
+}
+
+.entry-silk-canvas {
+  animation: silk-fade-in 1.4s ease-out both;
+}
+
+@keyframes silk-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .entry-silk canvas,
@@ -984,5 +1127,6 @@ h3 {
   }
   html {
     @apply font-sans;
+    background: oklch(8% 0.008 70);
   }
 }
