@@ -39,21 +39,23 @@ export default async function HomePage() {
       }
       topNote="Your drive, your privacy."
     >
-      <section className="relative w-full">
-        <div className="max-w-4xl">
-          <div className="flex flex-col gap-5">
-            <h1 className="font-heading text-balance text-[clamp(3.6rem,10vw,7.8rem)] leading-[0.9] tracking-[-0.065em] text-foreground">
-              {content.title}
-            </h1>
-            <p className="max-w-2xl text-base leading-7 text-muted-foreground md:text-lg md:leading-8">
-              {content.description}
-            </p>
-          </div>
+      <section className="entry-gateway">
+        <div className="entry-gateway__copy">
+          {content.heroLabel ? (
+            <p className="entry-kicker">{content.heroLabel}</p>
+          ) : null}
+          <h1 className="entry-gateway__title font-heading text-balance text-[clamp(3.6rem,10vw,7.8rem)] leading-[0.9] tracking-[-0.065em] text-foreground">
+            {content.title}
+          </h1>
+          <p className="entry-gateway__description text-base leading-7 text-muted-foreground md:text-lg md:leading-8">
+            {content.description}
+          </p>
 
-          <div className="mt-10 flex flex-col items-start gap-4 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="entry-gateway__actions">
             <Link
               className={buttonVariants({
                 size: "lg",
+                className: "entry-gateway__primary-action",
               })}
               href={content.primaryAction.href}
             >
@@ -65,6 +67,7 @@ export default async function HomePage() {
                 className={buttonVariants({
                   size: "lg",
                   variant: "link",
+                  className: "entry-gateway__secondary-action",
                 })}
                 href={content.secondaryAction.href}
               >
@@ -74,7 +77,7 @@ export default async function HomePage() {
           </div>
 
           {content.supportNote ? (
-            <p className="mt-8 max-w-xl text-sm leading-6 text-[color:var(--entry-muted-soft)] sm:text-[0.95rem]">
+            <p className="entry-gateway__support text-sm leading-6 text-[color:var(--entry-muted-soft)] sm:text-[0.95rem]">
               {content.supportNote}
             </p>
           ) : null}

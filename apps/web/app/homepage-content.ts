@@ -30,12 +30,11 @@ export function getHomePageContent({
     return {
       primaryAction: {
         href: "/setup",
-        label: "Setup your Staaash",
+        label: "Set up Staaash",
       },
-      heroLabel: "First-run access",
-      title: "Bring this Staaash instance online.",
+      title: "Set up this Staaash.",
       description:
-        "Create the first owner account once. After that, access stays private and invite-only.",
+        "Create the first owner account once. After that, access is private and invite-only.",
     };
   }
 
@@ -43,11 +42,11 @@ export function getHomePageContent({
     return {
       primaryAction: {
         href: "/sign-in",
-        label: "Open sign-in",
+        label: "Sign in",
       },
-      title: "Private storage, right where you left it.",
-      description:
-        "This Staaash instance is already running. Sign in to continue.",
+      heroLabel: "Sign in",
+      title: "Sign in to this Staaash.",
+      description: "This Staaash is already set up. Sign in to continue.",
     };
   }
 
@@ -56,9 +55,8 @@ export function getHomePageContent({
       href: "/library",
       label: "Open library",
     },
+    heroLabel: "Signed in",
     title: "Your library is ready.",
-    description: "Continue directly into this Staaash instance.",
-    supportNote:
-      "The root route should redirect signed-in sessions before this fallback is shown.",
+    description: "Open your library.",
   };
 }
