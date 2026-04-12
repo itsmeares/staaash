@@ -14,9 +14,9 @@ describe("getHomePageContent", () => {
         href: "/setup",
         label: "Set up Staaash",
       },
-      title: "Set up this Staaash.",
+      title: "Bring this Staaash instance online.",
       description:
-        "Create the first owner account once. After that, access is private and invite-only.",
+        "Create the first owner account once. After that, this Staaash stays private and invite-only.",
     });
   });
 
@@ -31,8 +31,8 @@ describe("getHomePageContent", () => {
         href: "/sign-in",
         label: "Sign in",
       },
-      title: "Sign in to this Staaash.",
-      description: "This Staaash is already set up. Sign in to continue.",
+      title: "Private storage, right where you left it.",
+      description: "Sign in to open your files, folders, and shared items.",
     });
   });
 

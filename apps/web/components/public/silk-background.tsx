@@ -1,8 +1,10 @@
 "use client";
 
+import React from "react";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 
+import { STAAASH_BRONZE_HEX } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 type SilkCanvasProps = {
@@ -33,10 +35,35 @@ const supportsWebGl = () => {
   }
 };
 
+const canUseAnimatedSilk = () => {
+  if (!supportsWebGl()) {
+    return false;
+  }
+
+  const connection = (
+    navigator as Navigator & {
+      connection?: {
+        effectiveType?: string;
+        saveData?: boolean;
+      };
+    }
+  ).connection;
+  const lowPowerConnection =
+    connection?.saveData ||
+    connection?.effectiveType === "slow-2g" ||
+    connection?.effectiveType === "2g" ||
+    connection?.effectiveType === "3g";
+  const constrainedCpu =
+    typeof navigator.hardwareConcurrency === "number" &&
+    navigator.hardwareConcurrency <= 4;
+
+  return !lowPowerConnection && !constrainedCpu;
+};
+
 export function SilkBackground({
   className,
   opacity = 0.62,
-  color = "#78c8c6",
+  color = STAAASH_BRONZE_HEX,
   speed = 4.4,
   scale = 1.08,
   noiseIntensity = 1.15,
@@ -52,7 +79,7 @@ export function SilkBackground({
       setCanAnimate(
         document.visibilityState === "visible" &&
           desktopQuery.matches &&
-          supportsWebGl() &&
+          canUseAnimatedSilk() &&
           !motionQuery.matches,
       );
     };

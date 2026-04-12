@@ -1,3 +1,4 @@
+import React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -5,6 +6,7 @@ import { EntryShell } from "@/components/public/entry-shell";
 import { SilkBackground } from "@/components/public/silk-background";
 import { buttonVariants } from "@/components/ui/button";
 import { getHomePageContent } from "@/app/homepage-content";
+import { STAAASH_BRONZE_HEX } from "@/lib/brand";
 import { getCurrentSession } from "@/server/auth/session";
 import { authService } from "@/server/auth/service";
 
@@ -29,7 +31,7 @@ export default async function HomePage() {
     <EntryShell
       background={
         <SilkBackground
-          color="#c8ab72"
+          color={STAAASH_BRONZE_HEX}
           noiseIntensity={1.1}
           opacity={0.56}
           rotation={0.1}
