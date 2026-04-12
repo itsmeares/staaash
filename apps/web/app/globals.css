@@ -1,4 +1,5 @@
 @import url("https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@300,400,500,700,800&f[]=switzer@300,400,500,600,700&display=swap");
+@import "tailwindcss";
 
 :root {
   color-scheme: light;
