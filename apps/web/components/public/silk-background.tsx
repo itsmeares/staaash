@@ -104,7 +104,7 @@ export function SilkBackground({
     >
       <div className="entry-silk-fallback" />
       {canAnimate ? (
-        <div className="absolute inset-0">
+        <div className="entry-silk-canvas absolute inset-0">
           <SilkCanvas
             color={color}
             noiseIntensity={noiseIntensity}

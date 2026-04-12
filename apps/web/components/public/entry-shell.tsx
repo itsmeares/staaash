@@ -10,6 +10,7 @@ type EntryShellProps = {
   topNote?: string;
   className?: string;
   contentClassName?: string;
+  scrimVariant?: "gateway" | "setup";
 };
 
 export function EntryShell({
@@ -18,6 +19,7 @@ export function EntryShell({
   topNote,
   className,
   contentClassName,
+  scrimVariant = "gateway",
 }: EntryShellProps) {
   return (
     <main
@@ -38,7 +40,7 @@ export function EntryShell({
         className={cn(
           "entry-surface__scrim",
           background
-            ? "entry-surface__scrim--gateway"
+            ? `entry-surface__scrim--${scrimVariant}`
             : "entry-surface__scrim--focused",
         )}
       />
