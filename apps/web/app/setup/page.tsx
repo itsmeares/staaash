@@ -2,6 +2,24 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { FlashMessage, getSingleSearchParam } from "@/app/auth-ui";
+import { EntryMetaList } from "@/components/public/entry-meta-list";
+import { EntryShell } from "@/components/public/entry-shell";
+import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { getCurrentSession } from "@/server/auth/session";
 import { authService } from "@/server/auth/service";
 
@@ -25,121 +43,146 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
   const error = getSingleSearchParam(resolvedSearchParams, "error");
 
   return (
-    <main className="stack">
-      <section className="panel stack">
-        <div className="pill">Phase 1 bootstrap</div>
-        <h1>Initialize this Staaash instance</h1>
-        <p className="muted">
-          Setup runs exactly once. It creates the instance record, the first
-          owner account, and the initial signed-in session.
-        </p>
-      </section>
-
-      <section className="grid">
-        <article className="panel stack">
-          <h2>Setup rules</h2>
-          <div className="meta-list muted">
-            <div className="meta-row">
-              <span>Open signup</span>
-              <strong>disabled</strong>
-            </div>
-            <div className="meta-row">
-              <span>First account</span>
-              <strong>owner</strong>
-            </div>
-            <div className="meta-row">
-              <span>Auth model</span>
-              <strong>email/username + password</strong>
-            </div>
+    <EntryShell topNote="One-time bootstrap">
+      <div className="grid w-full gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(420px,0.96fr)] lg:gap-14">
+        <section className="max-w-xl">
+          <p className="entry-kicker">Initialize once</p>
+          <div className="mt-5 flex flex-col gap-4">
+            <h1 className="font-heading text-balance text-[clamp(3rem,7vw,5.25rem)] leading-[0.95] tracking-[-0.055em] text-foreground">
+              Create the first owner and open the instance.
+            </h1>
+            <p className="max-w-lg text-base leading-7 text-muted-foreground md:text-lg">
+              Bootstrap runs exactly once. It creates the instance record, the
+              first owner account, and the initial signed-in session.
+            </p>
           </div>
-        </article>
 
-        <article className="panel stack">
-          <h2>Bootstrap owner</h2>
-          {error ? <FlashMessage>{error}</FlashMessage> : null}
-          <form className="form-grid" action="/api/auth/setup" method="post">
-            <div className="field">
-              <label htmlFor="instanceName">Instance name</label>
-              <input
-                id="instanceName"
-                name="instanceName"
-                placeholder="Staaash Home Drive"
-                required
-              />
+          <EntryMetaList
+            className="mt-8 max-w-lg"
+            items={[
+              {
+                label: "Open signup",
+                value: "Disabled after bootstrap.",
+              },
+              {
+                label: "First account",
+                value: "Created as the owner.",
+              },
+              {
+                label: "Auth model",
+                value:
+                  "Email or username with a password managed by this instance.",
+              },
+            ]}
+          />
+        </section>
+
+        <Card className="border border-border/70 bg-card/88 shadow-[0_26px_80px_rgba(3,11,16,0.22)]">
+          <CardHeader>
+            <CardTitle>Bootstrap owner</CardTitle>
+            <CardDescription>
+              Fill this out once. The setup route closes immediately after the
+              first owner account is created.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-5">
+              {error ? <FlashMessage>{error}</FlashMessage> : null}
+
+              <form
+                action="/api/auth/setup"
+                className="flex flex-col gap-5"
+                method="post"
+              >
+                <FieldGroup className="gap-5">
+                  <Field>
+                    <FieldLabel htmlFor="instanceName">
+                      Instance name
+                    </FieldLabel>
+                    <Input
+                      id="instanceName"
+                      name="instanceName"
+                      placeholder="Staaash Home Drive"
+                      required
+                    />
+                  </Field>
+
+                  <Field>
+                    <FieldLabel htmlFor="username">Owner username</FieldLabel>
+                    <Input
+                      autoComplete="username"
+                      id="username"
+                      maxLength={32}
+                      minLength={3}
+                      name="username"
+                      pattern="^(?!-)(?!.*--)[a-z0-9-]{3,32}(?<!-)$"
+                      placeholder="johnsmith"
+                      required
+                    />
+                    <FieldDescription>
+                      Lowercase letters, numbers, and single hyphens only.
+                    </FieldDescription>
+                  </Field>
+
+                  <Field>
+                    <FieldLabel htmlFor="displayName">
+                      Owner display name
+                    </FieldLabel>
+                    <Input
+                      id="displayName"
+                      name="displayName"
+                      placeholder="Instance owner"
+                    />
+                    <FieldDescription>
+                      Presentation only. This does not affect the on-disk path.
+                    </FieldDescription>
+                  </Field>
+
+                  <Field>
+                    <FieldLabel htmlFor="email">Owner email</FieldLabel>
+                    <Input
+                      autoComplete="email"
+                      id="email"
+                      name="email"
+                      required
+                      type="email"
+                    />
+                  </Field>
+
+                  <Field>
+                    <FieldLabel htmlFor="password">Password</FieldLabel>
+                    <Input
+                      autoComplete="new-password"
+                      id="password"
+                      minLength={12}
+                      name="password"
+                      required
+                      type="password"
+                    />
+                    <FieldDescription>
+                      Use at least 12 characters. Sessions stay server-side.
+                    </FieldDescription>
+                  </Field>
+                </FieldGroup>
+
+                <Button className="w-full" size="lg" type="submit">
+                  Create owner and continue
+                </Button>
+              </form>
             </div>
-
-            <div className="field">
-              <label htmlFor="username">Owner username</label>
-              <input
-                id="username"
-                name="username"
-                autoComplete="username"
-                placeholder="johnsmith"
-                pattern="^(?!-)(?!.*--)[a-z0-9-]{3,32}(?<!-)$"
-                minLength={3}
-                maxLength={32}
-                required
-              />
-              <span className="field-help">
-                Lowercase letters, numbers, and single hyphens only.
-              </span>
-            </div>
-
-            <div className="field">
-              <label htmlFor="displayName">Owner display name</label>
-              <input
-                id="displayName"
-                name="displayName"
-                placeholder="Instance owner"
-              />
-              <span className="field-help">
-                Presentation only. This does not affect the on-disk path.
-              </span>
-            </div>
-
-            <div className="field">
-              <label htmlFor="email">Owner email</label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-              />
-            </div>
-
-            <div className="field">
-              <label htmlFor="password">Password</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                minLength={12}
-                required
-              />
-              <span className="field-help">
-                Use at least 12 characters. Sessions are stored server-side.
-              </span>
-            </div>
-
-            <button className="button" type="submit">
-              Create owner and continue
-            </button>
-          </form>
-        </article>
-      </section>
-
-      <section className="panel stack">
-        <h2>After setup</h2>
-        <p className="muted">
-          New members can only join through owner-issued invites. The setup
-          route is disabled immediately after the first owner is created.
-        </p>
-        <Link className="pill" href="/">
-          Back to home
-        </Link>
-      </section>
-    </main>
+          </CardContent>
+          <CardFooter className="border-t border-border/65 pt-6">
+            <Link
+              className={buttonVariants({
+                variant: "link",
+              })}
+              href="/"
+            >
+              Back to entry
+            </Link>
+          </CardFooter>
+        </Card>
+      </div>
+    </EntryShell>
   );
 }

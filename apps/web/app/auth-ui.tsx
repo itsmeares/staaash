@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
 export const getSingleSearchParam = (
   params: Record<string, string | string[] | undefined>,
   key: string,
@@ -33,5 +35,30 @@ export function FlashMessage({
   children: ReactNode;
   tone?: "error" | "info" | "success";
 }) {
-  return <div className={`banner banner-${tone}`}>{children}</div>;
+  const config = {
+    error: {
+      title: "There was a problem",
+      variant: "destructive" as const,
+      className: "border-destructive/30 bg-destructive/10",
+    },
+    info: {
+      title: "Heads up",
+      variant: "default" as const,
+      className:
+        "border-primary/20 bg-primary/10 text-card-foreground [&_[data-slot=alert-description]]:text-muted-foreground",
+    },
+    success: {
+      title: "Success",
+      variant: "default" as const,
+      className:
+        "border-emerald-500/20 bg-emerald-500/10 text-card-foreground [&_[data-slot=alert-description]]:text-muted-foreground",
+    },
+  }[tone];
+
+  return (
+    <Alert className={config.className} variant={config.variant}>
+      <AlertTitle>{config.title}</AlertTitle>
+      <AlertDescription>{children}</AlertDescription>
+    </Alert>
+  );
 }

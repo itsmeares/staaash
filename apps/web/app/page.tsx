@@ -1,12 +1,14 @@
+import React from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
+import { EntryShell } from "@/components/public/entry-shell";
+import { SilkBackground } from "@/components/public/silk-background";
+import { buttonVariants } from "@/components/ui/button";
+import { getHomePageContent } from "@/app/homepage-content";
+import { STAAASH_BRONZE_HEX } from "@/lib/brand";
 import { getCurrentSession } from "@/server/auth/session";
 import { authService } from "@/server/auth/service";
-import { env } from "@/lib/env";
-import {
-  getDefaultUploadConflictStrategy,
-  uploadPolicy,
-} from "@/server/uploads";
 
 export const dynamic = "force-dynamic";
 
@@ -16,108 +18,70 @@ export default async function HomePage() {
     getCurrentSession(),
   ]);
 
+  if (session) {
+    redirect("/library");
+  }
+
+  const content = getHomePageContent({
+    isBootstrapped: setupState.isBootstrapped,
+    role: null,
+  });
+
   return (
-    <main className="stack">
-      <section className="panel stack">
-        <div className="pill">Self-hosted storage foundation</div>
-        <h1>Staaash</h1>
-        <p className="muted">
-          Staaash is a self-hosted personal cloud drive with a typed web
-          surface, a worker runtime, and explicit contracts for storage layout,
-          uploads, sharing, search, ownership boundaries, and admin health.
-        </p>
-        <div className="cluster">
-          {!setupState.isBootstrapped ? (
-            <Link className="pill" href="/setup">
-              Run /setup
+    <EntryShell
+      background={
+        <SilkBackground
+          color={STAAASH_BRONZE_HEX}
+          noiseIntensity={1.1}
+          opacity={0.56}
+          rotation={0.1}
+          scale={1.08}
+          speed={4.2}
+        />
+      }
+    >
+      <section className="entry-gateway">
+        <div className="entry-gateway__copy">
+          <h1 className="entry-gateway__title font-heading text-[clamp(3.5rem,7.6vw,6.6rem)] leading-[0.94] tracking-[-0.06em] text-foreground">
+            {content.title}
+          </h1>
+          <p className="entry-gateway__description text-base leading-7 text-muted-foreground md:text-lg md:leading-8">
+            {content.description}
+          </p>
+
+          <div className="entry-gateway__actions">
+            <Link
+              className={buttonVariants({
+                size: "lg",
+                className:
+                  "entry-gateway__primary-action h-12 px-6 text-[0.95rem] font-semibold",
+              })}
+              href={content.primaryAction.href}
+            >
+              {content.primaryAction.label}
             </Link>
-          ) : session ? (
-            <>
-              <Link className="pill" href="/settings">
-                Open settings
+
+            {content.secondaryAction ? (
+              <Link
+                className={buttonVariants({
+                  size: "lg",
+                  variant: "link",
+                  className: "entry-gateway__secondary-action",
+                })}
+                href={content.secondaryAction.href}
+              >
+                {content.secondaryAction.label}
               </Link>
-              <Link className="pill" href="/library">
-                Open library
-              </Link>
-              {session.user.role === "owner" ? (
-                <Link className="pill" href="/admin">
-                  Open /admin
-                </Link>
-              ) : null}
-            </>
-          ) : (
-            <Link className="pill" href="/sign-in">
-              Open sign-in
-            </Link>
-          )}
+            ) : null}
+          </div>
+
+          {content.supportNote ? (
+            <p className="entry-gateway__support text-sm leading-6 text-[color:var(--entry-muted-soft)] sm:text-[0.95rem]">
+              {content.supportNote}
+            </p>
+          ) : null}
         </div>
       </section>
-
-      <section className="grid">
-        <article className="panel stack">
-          <h2>Uploads</h2>
-          <p className="muted">
-            Max upload:{" "}
-            <strong>
-              {Math.round(uploadPolicy.maxUploadBytes / 1024 / 1024 / 1024)} GB
-            </strong>
-          </p>
-          <p className="muted">
-            Timeout budget:{" "}
-            <strong>{uploadPolicy.timeoutMinutes} minutes</strong>
-          </p>
-          <p className="muted">
-            Staging TTL:{" "}
-            <strong>{uploadPolicy.stagingRetentionHours} hours</strong>
-          </p>
-        </article>
-
-        <article className="panel stack">
-          <h2>Conflict defaults</h2>
-          <p className="muted">
-            Interactive UI:{" "}
-            <code>{getDefaultUploadConflictStrategy("interactiveWeb")}</code>
-          </p>
-          <p className="muted">
-            Bulk/API: <code>{getDefaultUploadConflictStrategy("bulk")}</code>
-          </p>
-          <p className="muted">
-            Silent overwrite: <strong>never</strong>
-          </p>
-        </article>
-
-        <article className="panel stack">
-          <h2>Storage</h2>
-          <p className="muted">
-            Files live under <code>{env.FILES_ROOT}</code> using immutable IDs
-            and app-managed storage keys.
-          </p>
-          <p className="muted">Logical paths remain metadata only.</p>
-        </article>
-      </section>
-
-      <section className="panel stack">
-        <h2>Operator surface</h2>
-        <p className="muted">
-          The owner control plane is now split into dedicated overview, users,
-          invites, storage, jobs, and updates sections, with matching
-          `/api/admin/*` operational endpoints.
-        </p>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <Link className="pill" href="/admin">
-            Open /admin
-          </Link>
-          <Link className="pill" href="/api/health/live">
-            Open live health
-          </Link>
-          <Link className="pill" href="/api/health/ready">
-            Open readiness
-          </Link>
-          <Link className="pill" href="/api/admin/health">
-            Open admin health JSON
-          </Link>
-        </div>
-      </section>
-    </main>
+    </EntryShell>
   );
 }
