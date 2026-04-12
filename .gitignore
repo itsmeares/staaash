@@ -9,6 +9,7 @@ dist/
 coverage/
 .vercel/
 *.tsbuildinfo
+test-results/
 
 # Runtime data
 .data/
