@@ -3,7 +3,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Staaash",
-  description: "Fresh Staaash initialization scaffold",
+  description:
+    "A self-hosted personal cloud drive with a calm web surface, deliberate sharing, and owned storage boundaries.",
 };
 
 export default function RootLayout({
