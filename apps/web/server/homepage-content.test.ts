@@ -10,9 +10,14 @@ describe("getHomePageContent", () => {
         role: null,
       }),
     ).toMatchObject({
+      heroLabel: "First-run access",
       primaryAction: {
         href: "/setup",
-        label: "Initialize this instance",
+        label: "Initialize instance",
+      },
+      secondaryAction: {
+        href: "/setup",
+        label: "Review the one-time setup",
       },
     });
   });
@@ -31,7 +36,7 @@ describe("getHomePageContent", () => {
     });
   });
 
-  it("routes members to the library without admin access", () => {
+  it("keeps signed-in members pointed at the library", () => {
     const content = getHomePageContent({
       isBootstrapped: true,
       role: "member",
@@ -41,29 +46,18 @@ describe("getHomePageContent", () => {
       href: "/library",
       label: "Open library",
     });
-    expect(content.secondaryLinks).toEqual([
-      {
-        href: "/settings",
-        label: "Settings",
-      },
-    ]);
+    expect(content.secondaryAction).toBeUndefined();
   });
 
-  it("adds the admin link for owners", () => {
+  it("uses the library fallback for owners too", () => {
     const content = getHomePageContent({
       isBootstrapped: true,
       role: "owner",
     });
 
-    expect(content.secondaryLinks).toEqual([
-      {
-        href: "/settings",
-        label: "Settings",
-      },
-      {
-        href: "/admin",
-        label: "Admin",
-      },
-    ]);
+    expect(content.primaryAction).toMatchObject({
+      href: "/library",
+      label: "Open library",
+    });
   });
 });

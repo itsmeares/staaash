@@ -12,8 +12,11 @@ export type HomePageLink = {
 
 export type HomePageContent = {
   primaryAction: HomePageAction;
-  secondaryLinks: HomePageLink[];
-  heroLabel: string;
+  secondaryAction?: HomePageLink;
+  heroLabel?: string;
+  title: string;
+  description: string;
+  supportNote?: string;
 };
 
 export function getHomePageContent({
@@ -27,15 +30,12 @@ export function getHomePageContent({
     return {
       primaryAction: {
         href: "/setup",
-        label: "Initialize this instance",
+        label: "Setup your Staaash",
       },
-      secondaryLinks: [
-        {
-          href: "/api/health/ready",
-          label: "Readiness",
-        },
-      ],
-      heroLabel: "Self-hosted cloud drive",
+      heroLabel: "First-run access",
+      title: "Bring this Staaash instance online.",
+      description:
+        "Create the first owner account once. After that, access stays private and invite-only.",
     };
   }
 
@@ -45,13 +45,9 @@ export function getHomePageContent({
         href: "/sign-in",
         label: "Open sign-in",
       },
-      secondaryLinks: [
-        {
-          href: "/setup",
-          label: "Setup is already complete",
-        },
-      ],
-      heroLabel: "Private storage, on your terms",
+      title: "Private storage, right where you left it.",
+      description:
+        "This Staaash instance is already running. Sign in to continue.",
     };
   }
 
@@ -60,20 +56,9 @@ export function getHomePageContent({
       href: "/library",
       label: "Open library",
     },
-    secondaryLinks: [
-      {
-        href: "/settings",
-        label: "Settings",
-      },
-      ...(role === "owner"
-        ? [
-            {
-              href: "/admin",
-              label: "Admin",
-            },
-          ]
-        : []),
-    ],
-    heroLabel: "Your files, already within reach",
+    title: "Your library is ready.",
+    description: "Continue directly into this Staaash instance.",
+    supportNote:
+      "The root route should redirect signed-in sessions before this fallback is shown.",
   };
 }
