@@ -37,14 +37,10 @@ export default async function HomePage() {
           speed={4.2}
         />
       }
-      topNote="Your drive, your privacy."
     >
       <section className="entry-gateway">
         <div className="entry-gateway__copy">
-          {content.heroLabel ? (
-            <p className="entry-kicker">{content.heroLabel}</p>
-          ) : null}
-          <h1 className="entry-gateway__title font-heading text-balance text-[clamp(3.6rem,10vw,7.8rem)] leading-[0.9] tracking-[-0.065em] text-foreground">
+          <h1 className="entry-gateway__title font-heading text-[clamp(3.5rem,7.6vw,6.6rem)] leading-[0.94] tracking-[-0.06em] text-foreground">
             {content.title}
           </h1>
           <p className="entry-gateway__description text-base leading-7 text-muted-foreground md:text-lg md:leading-8">
@@ -55,7 +51,8 @@ export default async function HomePage() {
             <Link
               className={buttonVariants({
                 size: "lg",
-                className: "entry-gateway__primary-action",
+                className:
+                  "entry-gateway__primary-action h-12 px-6 text-[0.95rem] font-semibold",
               })}
               href={content.primaryAction.href}
             >

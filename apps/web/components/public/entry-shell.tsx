@@ -8,6 +8,7 @@ type EntryShellProps = {
   background?: ReactNode;
   topNote?: string;
   className?: string;
+  contentClassName?: string;
 };
 
 export function EntryShell({
@@ -15,6 +16,7 @@ export function EntryShell({
   background,
   topNote,
   className,
+  contentClassName,
 }: EntryShellProps) {
   return (
     <main
@@ -48,7 +50,12 @@ export function EntryShell({
           {topNote ? <p className="entry-top-note">{topNote}</p> : null}
         </header>
 
-        <div className="flex flex-1 items-center py-8 sm:py-10 lg:py-12">
+        <div
+          className={cn(
+            "flex flex-1 items-center py-8 sm:py-10 lg:py-12",
+            contentClassName,
+          )}
+        >
           {children}
         </div>
       </div>

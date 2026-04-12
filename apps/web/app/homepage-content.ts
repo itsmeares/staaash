@@ -13,7 +13,6 @@ export type HomePageLink = {
 export type HomePageContent = {
   primaryAction: HomePageAction;
   secondaryAction?: HomePageLink;
-  heroLabel?: string;
   title: string;
   description: string;
   supportNote?: string;
@@ -44,7 +43,6 @@ export function getHomePageContent({
         href: "/sign-in",
         label: "Sign in",
       },
-      heroLabel: "Sign in",
       title: "Sign in to this Staaash.",
       description: "This Staaash is already set up. Sign in to continue.",
     };
@@ -55,7 +53,6 @@ export function getHomePageContent({
       href: "/library",
       label: "Open library",
     },
-    heroLabel: "Signed in",
     title: "Your library is ready.",
     description: "Open your library.",
   };

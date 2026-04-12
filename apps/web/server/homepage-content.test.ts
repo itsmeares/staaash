@@ -9,16 +9,14 @@ describe("getHomePageContent", () => {
         isBootstrapped: false,
         role: null,
       }),
-    ).toMatchObject({
-      heroLabel: "First-run access",
+    ).toEqual({
       primaryAction: {
         href: "/setup",
-        label: "Initialize instance",
+        label: "Set up Staaash",
       },
-      secondaryAction: {
-        href: "/setup",
-        label: "Review the one-time setup",
-      },
+      title: "Set up this Staaash.",
+      description:
+        "Create the first owner account once. After that, access is private and invite-only.",
     });
   });
 
@@ -28,11 +26,13 @@ describe("getHomePageContent", () => {
         isBootstrapped: true,
         role: null,
       }),
-    ).toMatchObject({
+    ).toEqual({
       primaryAction: {
         href: "/sign-in",
-        label: "Open sign-in",
+        label: "Sign in",
       },
+      title: "Sign in to this Staaash.",
+      description: "This Staaash is already set up. Sign in to continue.",
     });
   });
 

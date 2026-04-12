@@ -45,17 +45,27 @@ export function SilkBackground({
   const [canAnimate, setCanAnimate] = useState(false);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const desktopQuery = window.matchMedia("(min-width: 960px)");
 
     const update = () => {
-      setCanAnimate(supportsWebGl() && !mediaQuery.matches);
+      setCanAnimate(
+        document.visibilityState === "visible" &&
+          desktopQuery.matches &&
+          supportsWebGl() &&
+          !motionQuery.matches,
+      );
     };
 
     update();
-    mediaQuery.addEventListener("change", update);
+    motionQuery.addEventListener("change", update);
+    desktopQuery.addEventListener("change", update);
+    document.addEventListener("visibilitychange", update);
 
     return () => {
-      mediaQuery.removeEventListener("change", update);
+      motionQuery.removeEventListener("change", update);
+      desktopQuery.removeEventListener("change", update);
+      document.removeEventListener("visibilitychange", update);
     };
   }, []);
 
