@@ -30,6 +30,8 @@ yarn-debug.log*
 yarn-error.log*
 
 # Test and tooling caches
+test-results/
+playwright-report/
 .cache/
 .eslintcache
 .stylelintcache
