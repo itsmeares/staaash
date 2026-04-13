@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 
 import { STAAASH_BRONZE_HEX } from "@/lib/brand";
 
