@@ -30,10 +30,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await readRequestBody(request);
-  const next = getSafeRedirectTarget(
-    body.next,
-    "/sign-in?success=Signed%20out.",
-  );
+  const next = getSafeRedirectTarget(body.next, "/");
 
   try {
     await authService.revokeSession(

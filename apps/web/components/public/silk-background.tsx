@@ -55,7 +55,7 @@ const canUseAnimatedSilk = () => {
     connection?.effectiveType === "3g";
   const constrainedCpu =
     typeof navigator.hardwareConcurrency === "number" &&
-    navigator.hardwareConcurrency <= 4;
+    navigator.hardwareConcurrency <= 2;
 
   return !lowPowerConnection && !constrainedCpu;
 };
@@ -73,12 +73,10 @@ export function SilkBackground({
 
   useEffect(() => {
     const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const desktopQuery = window.matchMedia("(min-width: 960px)");
 
     const update = () => {
       setCanAnimate(
         document.visibilityState === "visible" &&
-          desktopQuery.matches &&
           canUseAnimatedSilk() &&
           !motionQuery.matches,
       );
@@ -86,12 +84,10 @@ export function SilkBackground({
 
     update();
     motionQuery.addEventListener("change", update);
-    desktopQuery.addEventListener("change", update);
     document.addEventListener("visibilitychange", update);
 
     return () => {
       motionQuery.removeEventListener("change", update);
-      desktopQuery.removeEventListener("change", update);
       document.removeEventListener("visibilitychange", update);
     };
   }, []);

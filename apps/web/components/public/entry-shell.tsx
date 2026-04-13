@@ -11,6 +11,7 @@ type EntryShellProps = {
   className?: string;
   contentClassName?: string;
   scrimVariant?: "gateway" | "setup";
+  onBrandClick?: () => void;
 };
 
 export function EntryShell({
@@ -20,6 +21,7 @@ export function EntryShell({
   className,
   contentClassName,
   scrimVariant = "gateway",
+  onBrandClick,
 }: EntryShellProps) {
   return (
     <main
@@ -47,9 +49,19 @@ export function EntryShell({
 
       <div className="relative mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-6 py-6 sm:px-8 lg:px-10">
         <header className="flex items-center justify-between gap-4">
-          <Link href="/" className="entry-brand">
-            Staaash
-          </Link>
+          {onBrandClick ? (
+            <button
+              className="entry-brand"
+              onClick={onBrandClick}
+              aria-label="Back to start"
+            >
+              Staaash
+            </button>
+          ) : (
+            <Link href="/" className="entry-brand">
+              Staaash
+            </Link>
+          )}
           {topNote ? <p className="entry-top-note">{topNote}</p> : null}
         </header>
 
