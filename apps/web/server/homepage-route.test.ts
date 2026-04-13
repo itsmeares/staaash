@@ -1,13 +1,12 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { STAAASH_BRONZE_HEX } from "@/lib/brand";
-
 const getCurrentSession = vi.fn();
 const getSetupState = vi.fn();
 const redirect = vi.fn((path: string) => {
   throw new Error(`redirect:${path}`);
 });
+const pushMock = vi.fn();
 
 vi.mock("@/server/auth/session", () => ({
   getCurrentSession,
@@ -21,6 +20,7 @@ vi.mock("@/server/auth/service", () => ({
 
 vi.mock("next/navigation", () => ({
   redirect,
+  useRouter: () => ({ push: pushMock }),
 }));
 
 describe("HomePage route", () => {
@@ -30,18 +30,19 @@ describe("HomePage route", () => {
 
   it("renders the setup entry state for an unbootstrapped instance", async () => {
     getCurrentSession.mockResolvedValue(null);
-    getSetupState.mockResolvedValue({ isBootstrapped: false });
+    getSetupState.mockResolvedValue({
+      isBootstrapped: false,
+      instanceName: null,
+    });
 
     const { default: HomePage } = await import("@/app/page");
     const page = await HomePage();
     const markup = renderToStaticMarkup(page);
 
-    expect(markup).toContain("Bring this Staaash instance online.");
-    expect(markup).toContain("Set up Staaash");
+    expect(markup).toContain("Bring your Staaash online.");
     expect(markup).toContain(
-      "Create the first owner account once. After that, this Staaash stays private and invite-only.",
+      "Create the first owner account. After this, your instance is private and invite-only.",
     );
-    expect(page.props.background.props.color).toBe(STAAASH_BRONZE_HEX);
   });
 
   it("redirects signed-in visitors to the library", async () => {
