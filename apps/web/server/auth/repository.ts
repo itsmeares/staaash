@@ -97,6 +97,10 @@ export type AuthRepository = {
   findUserByUsername(username: string): Promise<StoredAuthUser | null>;
   findUserById(id: string): Promise<AuthUser | null>;
   listUsers(): Promise<AuthUser[]>;
+  setUserStorageLimit(
+    userId: string,
+    limitBytes: bigint | null,
+  ): Promise<AuthUser | null>;
   createSession(params: CreateSessionParams): Promise<AuthSession>;
   findSessionByTokenHash(tokenHash: string): Promise<StoredAuthSession | null>;
   revokeSessionById(id: string, revokedAt: Date): Promise<void>;
@@ -130,6 +134,7 @@ const toAuthUser = (
     | "username"
     | "displayName"
     | "role"
+    | "storageLimitBytes"
     | "createdAt"
     | "updatedAt"
   >,
@@ -139,6 +144,7 @@ const toAuthUser = (
   username: user.username,
   displayName: user.displayName,
   role: user.role,
+  storageLimitBytes: user.storageLimitBytes,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
 });
@@ -310,6 +316,16 @@ export const createPrismaAuthRepository = (
       });
 
       return users.map(toAuthUser);
+    },
+
+    async setUserStorageLimit(userId, limitBytes) {
+      const client = getClient();
+      const user = await client.user.update({
+        where: { id: userId },
+        data: { storageLimitBytes: limitBytes },
+      });
+
+      return user ? toAuthUser(user) : null;
     },
 
     async createSession(params) {

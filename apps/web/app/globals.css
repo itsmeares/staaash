@@ -332,7 +332,7 @@ h3 {
 .workspace-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 196px minmax(0, 1fr);
+  grid-template-columns: 216px minmax(0, 1fr);
 }
 
 .admin-shell {
@@ -383,14 +383,14 @@ h3 {
 .workspace-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  padding: 20px 10px 16px;
-  background: color-mix(in oklab, var(--background) 94%, var(--foreground) 6%);
-  border-right: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  padding: 18px 10px 14px;
+  background: color-mix(in oklab, var(--background) 92%, var(--foreground) 8%);
+  border-right: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent);
+  overflow-y: auto;
 }
 
 .workspace-brand-area {
-  padding: 2px 8px 16px;
+  padding: 0 8px 14px;
 }
 
 .workspace-brand-link {
@@ -400,26 +400,35 @@ h3 {
 .workspace-brand {
   display: block;
   font-family: var(--font-cabinet), "Arial Narrow", sans-serif;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.02em;
   color: color-mix(in oklab, var(--foreground) 90%, var(--primary) 10%);
 }
 
+/* Nav groups */
 .workspace-nav {
   display: flex;
   flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.workspace-nav-group {
+  display: flex;
+  flex-direction: column;
   gap: 1px;
+  margin-bottom: 4px;
 }
 
 .workspace-nav-label {
-  padding: 14px 10px 4px;
-  font-size: 11px;
+  padding: 10px 10px 3px;
+  font-size: 10.5px;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: var(--muted-foreground);
+  color: color-mix(in oklab, var(--muted-foreground) 70%, transparent);
 }
 
 .workspace-nav-link {
@@ -428,9 +437,9 @@ h3 {
   gap: 8px;
   padding: 6px 10px;
   border-radius: 8px;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
-  color: color-mix(in oklab, var(--foreground) 72%, transparent);
+  color: color-mix(in oklab, var(--foreground) 66%, transparent);
   background: transparent;
   transition:
     background 80ms ease,
@@ -443,45 +452,184 @@ h3 {
 }
 
 .workspace-nav-link-active {
-  background: color-mix(in oklab, var(--primary) 13%, transparent);
-  color: color-mix(in oklab, var(--primary) 80%, var(--foreground) 20%);
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
+  color: color-mix(in oklab, var(--primary) 82%, var(--foreground) 18%);
   font-weight: 600;
 }
 
 .workspace-nav-link-active:hover {
-  background: color-mix(in oklab, var(--primary) 17%, transparent);
+  background: color-mix(in oklab, var(--primary) 16%, transparent);
 }
 
+.workspace-nav-icon {
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
+.workspace-nav-link-active .workspace-nav-icon {
+  opacity: 1;
+}
+
+/* User panel */
 .workspace-user-panel {
   margin-top: auto;
-  padding: 12px 10px 0;
-  border-top: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
-  display: grid;
-  gap: 2px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.workspace-user-name {
-  font-size: 13px;
+/* Storage */
+.workspace-storage {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 2px;
+}
+
+.workspace-storage-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.workspace-storage-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.workspace-storage-sizes {
+  font-size: 11.5px;
   font-weight: 600;
   color: var(--foreground);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.workspace-storage-used-label {
+  font-size: 10.5px;
+  color: var(--muted-foreground);
+  line-height: 1.3;
+}
+
+.workspace-storage-track {
+  height: 4px;
+  border-radius: 99px;
+  background: color-mix(in oklab, var(--foreground) 10%, transparent);
+  overflow: hidden;
+  position: relative;
+}
+
+.workspace-storage-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition:
+    width 400ms ease,
+    background 600ms ease;
+  min-width: 2px;
+}
+
+/* Full-drive bar (smaller, subtler) */
+.workspace-storage-drive-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  width: 100%;
+}
+
+.workspace-storage-drive-track {
+  flex: 1;
+  height: 2px;
+  border-radius: 99px;
+  background: color-mix(in oklab, var(--foreground) 8%, transparent);
+  overflow: hidden;
+  cursor: help;
+  position: relative;
+}
+
+.workspace-storage-drive-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: color-mix(in oklab, var(--foreground) 24%, transparent);
+}
+
+.workspace-storage-drive-hint {
+  font-size: 10px;
+  color: color-mix(in oklab, var(--muted-foreground) 55%, transparent);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Avatar + identity row */
+.workspace-user-identity {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 2px;
+}
+
+.workspace-avatar {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--primary) 22%, var(--background));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in oklab, var(--primary) 18%, transparent);
+}
+
+.workspace-avatar-initials {
+  font-size: 11px;
+  font-weight: 700;
+  color: color-mix(in oklab, var(--primary) 90%, var(--foreground) 10%);
+  letter-spacing: 0.01em;
+  line-height: 1;
+  font-family: var(--font-cabinet), sans-serif;
+}
+
+.workspace-user-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.workspace-user-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
 }
 
 .workspace-user-meta {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
 }
 
 .workspace-user-actions {
   display: flex;
-  gap: 10px;
-  margin-top: 6px;
+  gap: 8px;
+  padding: 0 4px 2px;
 }
 
 .workspace-user-action-link {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 500;
   color: color-mix(in oklab, var(--primary) 80%, var(--foreground) 20%);
   background: none;

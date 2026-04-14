@@ -30,6 +30,7 @@ export default async function AdminUsersPage() {
           displayName: user.displayName,
           role: user.role,
           createdAt: user.createdAt.toISOString(),
+          storageLimitBytes: user.storageLimitBytes?.toString() ?? null,
         }))}
       />
     </main>

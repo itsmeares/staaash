@@ -6,6 +6,7 @@ export type AuthUser = {
   username: string;
   displayName: string | null;
   role: UserRole;
+  storageLimitBytes: bigint | null;
   createdAt: Date;
   updatedAt: Date;
 };
