@@ -46,40 +46,27 @@ export default async function LibraryFileViewerPage({
     const downloadHref = `/api/library/files/${file.id}/download`;
 
     return (
-      <main className="stack">
-        <section className="panel stack">
-          <div className="pill">
-            {file.viewerKind === "image" ? "Photo viewer" : "Video viewer"}
+      <main className="workspace-page">
+        <div className="viewer-header">
+          <div className="viewer-header-identity">
+            <h1>{file.name}</h1>
+            <p className="muted" style={{ marginTop: 6, fontSize: 13 }}>
+              {file.mimeType}
+              {" · "}
+              Updated {formatDateTime(file.updatedAt)}
+            </p>
           </div>
-          <div className="split">
-            <div className="stack">
-              <h1>{file.name}</h1>
-              <p className="muted">
-                {file.mimeType} • Updated {formatDateTime(file.updatedAt)}
-              </p>
-            </div>
-            <div className="workspace-inline-fields">
-              <Link className="button button-secondary" href={backHref}>
-                Back
-              </Link>
-              <a className="button" href={downloadHref}>
-                Download
-              </a>
-            </div>
+          <div className="workspace-inline-fields">
+            <Link className="button button-secondary button-sm" href={backHref}>
+              Back
+            </Link>
+            <a className="button button-sm" href={downloadHref}>
+              Download
+            </a>
           </div>
-        </section>
+        </div>
 
-        <section
-          className="panel stack"
-          style={{
-            overflow: "hidden",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: "var(--color-surface-hover, #f3f4f6)",
-            minHeight: "60vh",
-          }}
-        >
+        <div className="viewer-media">
           {file.viewerKind === "image" ? (
             <img
               alt={file.name}
@@ -106,7 +93,7 @@ export default async function LibraryFileViewerPage({
               Your browser could not play this video inline.
             </video>
           )}
-        </section>
+        </div>
       </main>
     );
   } catch (error) {

@@ -45,33 +45,24 @@ export default async function WorkspaceLayout({
   return (
     <div className="workspace-shell">
       <aside className="workspace-sidebar">
-        <div className="stack">
-          <div className="pill">Phase 2 shell</div>
-          <div className="stack">
-            <h1 className="workspace-brand">Staaash</h1>
-            <p className="muted">
-              Private-drive navigation is real now. Search, favorites, recents,
-              and shared management stay honest about later-phase scope.
-            </p>
-          </div>
+        <div className="workspace-brand-area">
+          <Link className="workspace-brand-link" href="/library">
+            <span className="workspace-brand">Staaash</span>
+          </Link>
         </div>
 
         <WorkspaceNav items={[...workspaceItems]} />
 
         {session && userLabel ? (
-          <section className="panel stack workspace-user-panel">
-            <div className="stack">
-              <strong>{userLabel}</strong>
-              <span className="muted">@{session.user.username}</span>
-              <span className="muted">{session.user.email}</span>
-              <span className={`status-chip ${roleClassName}`}>
-                {session.user.role}
-              </span>
-            </div>
-            <div className="cluster">
+          <section className="workspace-user-panel">
+            <span className="workspace-user-name">{userLabel}</span>
+            <span className="workspace-user-meta">
+              @{session.user.username}
+            </span>
+            <div className="workspace-user-actions">
               {session.user.role === "owner" ? (
-                <Link className="pill" href="/admin">
-                  Open /admin
+                <Link className="workspace-user-action-link" href="/admin">
+                  Admin
                 </Link>
               ) : null}
               <form action="/api/auth/sign-out" method="post">
@@ -80,7 +71,7 @@ export default async function WorkspaceLayout({
                   name="next"
                   value="/sign-in?success=Signed%20out."
                 />
-                <button className="button button-secondary" type="submit">
+                <button className="workspace-user-action-link" type="submit">
                   Sign out
                 </button>
               </form>
@@ -100,17 +91,6 @@ export default async function WorkspaceLayout({
               type="search"
             />
           </form>
-
-          <div className="workspace-topbar-tools">
-            <div className="view-toggle" role="group" aria-label="View mode">
-              <button className="is-active" type="button">
-                List
-              </button>
-              <button disabled type="button">
-                Grid
-              </button>
-            </div>
-          </div>
         </header>
 
         <div className="workspace-content">{children}</div>

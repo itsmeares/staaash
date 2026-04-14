@@ -314,18 +314,11 @@ export function LibraryUploadPanel({
   };
 
   return (
-    <div className="panel stack">
-      <div className="split">
-        <div className="stack">
-          <h2>Upload files</h2>
-          <p className="muted">
-            Files stage first, verify before commit, and never overwrite
-            silently.
-          </p>
-        </div>
-        <span className="pill">
-          Up to {formatFileSize(maxUploadBytes)} / {timeoutMinutes} minute
-          budget
+    <div className="upload-zone">
+      <div className="upload-zone-header">
+        <p className="upload-zone-title">Upload files</p>
+        <span className="pill pill-sm">
+          Max {formatFileSize(maxUploadBytes)}
         </span>
       </div>
 
@@ -334,7 +327,7 @@ export function LibraryUploadPanel({
         <FlashMessage tone="success">{successMessage}</FlashMessage>
       ) : null}
 
-      <form className="stack" onSubmit={handleUpload}>
+      <form className="stack" onSubmit={handleUpload} style={{ gap: 12 }}>
         <div className="field">
           <label htmlFor={inputId}>Choose files</label>
           <input
@@ -345,10 +338,6 @@ export function LibraryUploadPanel({
             ref={fileInputRef}
             type="file"
           />
-          <span className="field-help">
-            Browser folder upload is out of scope for Phase 3. Multi-file upload
-            is supported.
-          </span>
         </div>
 
         {selectedEntries.length > 0 ? (
@@ -363,8 +352,12 @@ export function LibraryUploadPanel({
         ) : null}
 
         <div className="workspace-inline-fields">
-          <button className="button" disabled={isSubmitting} type="submit">
-            {isSubmitting ? "Uploading..." : "Upload"}
+          <button
+            className="button button-sm"
+            disabled={isSubmitting}
+            type="submit"
+          >
+            {isSubmitting ? "Uploading…" : "Upload"}
           </button>
         </div>
       </form>
