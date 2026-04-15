@@ -76,6 +76,7 @@ type UploadingFile = {
   progress: number;
   speed: number; // bytes per second
   error?: string;
+  fileRef?: File; // retained for retry
 };
 
 function formatSpeed(bytesPerSec: number): string {
@@ -152,6 +153,9 @@ export function LibraryView({
 
   // ---- Paste animation ----
   const [justMovedIds, setJustMovedIds] = useState<Set<string>>(new Set());
+
+  // ---- Shortcut legend ----
+  const [showShortcutLegend, setShowShortcutLegend] = useState(false);
 
   // ---- New folder popover ----
   const [newFolderOpen, setNewFolderOpen] = useState(false);
@@ -270,8 +274,26 @@ export function LibraryView({
         return;
       }
 
-      // Escape — deselect / cancel cut / cancel rename
+      // Ctrl+Shift+N — new folder
+      if (ctrl && e.shiftKey && e.key === "N") {
+        e.preventDefault();
+        setNewFolderOpen(true);
+        return;
+      }
+
+      // ? — toggle shortcut legend
+      if (e.key === "?" && !ctrl) {
+        e.preventDefault();
+        setShowShortcutLegend((v) => !v);
+        return;
+      }
+
+      // Escape — close legend first, then deselect / cancel cut / cancel rename
       if (e.key === "Escape") {
+        if (showShortcutLegend) {
+          setShowShortcutLegend(false);
+          return;
+        }
         setSelectedIds(new Set());
         setRenamingId(null);
         setCutItems([]);
@@ -323,7 +345,7 @@ export function LibraryView({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allItems, selectedIds, cutItems, lastSelectedId]);
+  }, [allItems, selectedIds, cutItems, lastSelectedId, showShortcutLegend]);
 
   // ---------------------------------------------------------------------------
   // Item actions
@@ -511,6 +533,7 @@ export function LibraryView({
           status: "uploading",
           progress: 0,
           speed: 0,
+          fileRef: file,
         },
       ]);
       uploadSingleFile(clientKey, file);
@@ -791,6 +814,15 @@ export function LibraryView({
             }
           }}
         >
+          {/* Column headers */}
+          {(listing.childFolders.length > 0 || listing.files.length > 0) && (
+            <div className="explorer-col-header" aria-hidden>
+              <span />
+              <span>Name</span>
+              <span>Size</span>
+              <span>Modified</span>
+            </div>
+          )}
           {/* Rubber-band rect */}
           {rubberBand && (
             <div
@@ -892,6 +924,26 @@ export function LibraryView({
                     prev.filter((u) => u.clientKey !== f.clientKey),
                   )
                 }
+                onRetry={
+                  f.fileRef
+                    ? () => {
+                        setUploadingFiles((prev) =>
+                          prev.map((u) =>
+                            u.clientKey === f.clientKey
+                              ? {
+                                  ...u,
+                                  status: "uploading",
+                                  progress: 0,
+                                  speed: 0,
+                                  error: undefined,
+                                }
+                              : u,
+                          ),
+                        );
+                        uploadSingleFile(f.clientKey, f.fileRef!);
+                      }
+                    : undefined
+                }
               />
             ))}
 
@@ -981,6 +1033,11 @@ export function LibraryView({
         onSetFolderIcon={setFolderIcon}
         onClose={() => setPropertiesId(null)}
       />
+
+      {/* ---- Keyboard shortcut legend ---- */}
+      {showShortcutLegend && (
+        <ShortcutLegend onClose={() => setShowShortcutLegend(false)} />
+      )}
     </div>
   );
 }
@@ -992,9 +1049,11 @@ export function LibraryView({
 function UploadingRow({
   file,
   onDismiss,
+  onRetry,
 }: {
   file: UploadingFile;
   onDismiss: () => void;
+  onRetry?: () => void;
 }) {
   const { File: FileIcon } = { File: require("lucide-react").File };
 
@@ -1016,18 +1075,20 @@ function UploadingRow({
           className={`uploading-row-status${file.status === "error" ? " is-error" : ""}`}
         >
           {statusText}
+          {file.status === "error" && onRetry && (
+            <button
+              type="button"
+              className="uploading-row-retry"
+              onClick={onRetry}
+            >
+              Retry
+            </button>
+          )}
           {file.status !== "uploading" && (
             <button
               type="button"
+              className="uploading-row-dismiss"
               onClick={onDismiss}
-              style={{
-                marginLeft: 8,
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                color: "var(--muted-foreground)",
-                fontSize: 12,
-              }}
               aria-label="Dismiss"
             >
               ✕
@@ -1043,6 +1104,146 @@ function UploadingRow({
           />
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Keyboard shortcut legend
+// ---------------------------------------------------------------------------
+
+function ShortcutLegend({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      className="shortcut-legend-overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Keyboard shortcuts"
+    >
+      <div className="shortcut-legend">
+        <div className="shortcut-legend-title">
+          Keyboard shortcuts
+          <button
+            className="shortcut-legend-close"
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="shortcut-legend-group">
+          <div className="shortcut-legend-group-label">Navigation</div>
+          <div className="shortcut-legend-row">
+            <span className="shortcut-legend-action">Move up / down</span>
+            <span className="shortcut-legend-keys">
+              <kbd className="shortcut-key">↑</kbd>
+              <kbd className="shortcut-key">↓</kbd>
+            </span>
+          </div>
+          <div className="shortcut-legend-row">
+            <span className="shortcut-legend-action">Open selected</span>
+            <span className="shortcut-legend-keys">
+              <kbd className="shortcut-key">↵</kbd>
+            </span>
+          </div>
+        </div>
+
+        <div className="shortcut-legend-group">
+          <div className="shortcut-legend-group-label">Selection</div>
+          <div className="shortcut-legend-row">
+            <span className="shortcut-legend-action">Select all</span>
+            <span className="shortcut-legend-keys">
+              <kbd className="shortcut-key">⌘</kbd>
+              <kbd className="shortcut-key">A</kbd>
+            </span>
+          </div>
+          <div className="shortcut-legend-row">
+            <span className="shortcut-legend-action">Add to selection</span>
+            <span className="shortcut-legend-keys">
+              <kbd className="shortcut-key">⌘</kbd>
+              <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                click
+              </span>
+            </span>
+          </div>
+          <div className="shortcut-legend-row">
+            <span className="shortcut-legend-action">Range select</span>
+            <span className="shortcut-legend-keys">
+              <kbd className="shortcut-key">⇧</kbd>
+              <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                click
+              </span>
+            </span>
+          </div>
+          <div className="shortcut-legend-row">
+            <span className="shortcut-legend-action">Rubber-band select</span>
+            <span className="shortcut-legend-keys">
+              <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
+                drag empty space
+              </span>
+            </span>
+          </div>
+          <div className="shortcut-legend-row">
+            <span className="shortcut-legend-action">Deselect all</span>
+            <span className="shortcut-legend-keys">
+              <kbd className="shortcut-key">Esc</kbd>
+            </span>
+          </div>
+        </div>
+
+        <div className="shortcut-legend-group">
+          <div className="shortcut-legend-group-label">File actions</div>
+          <div className="shortcut-legend-row">
+            <span className="shortcut-legend-action">Rename</span>
+            <span className="shortcut-legend-keys">
+              <kbd className="shortcut-key">F2</kbd>
+            </span>
+          </div>
+          <div className="shortcut-legend-row">
+            <span className="shortcut-legend-action">Cut</span>
+            <span className="shortcut-legend-keys">
+              <kbd className="shortcut-key">⌘</kbd>
+              <kbd className="shortcut-key">X</kbd>
+            </span>
+          </div>
+          <div className="shortcut-legend-row">
+            <span className="shortcut-legend-action">Paste here</span>
+            <span className="shortcut-legend-keys">
+              <kbd className="shortcut-key">⌘</kbd>
+              <kbd className="shortcut-key">V</kbd>
+            </span>
+          </div>
+          <div className="shortcut-legend-row">
+            <span className="shortcut-legend-action">Move to trash</span>
+            <span className="shortcut-legend-keys">
+              <kbd className="shortcut-key">⌫</kbd>
+            </span>
+          </div>
+        </div>
+
+        <div className="shortcut-legend-group">
+          <div className="shortcut-legend-group-label">Interface</div>
+          <div className="shortcut-legend-row">
+            <span className="shortcut-legend-action">New folder</span>
+            <span className="shortcut-legend-keys">
+              <kbd className="shortcut-key">⌘</kbd>
+              <kbd className="shortcut-key">⇧</kbd>
+              <kbd className="shortcut-key">N</kbd>
+            </span>
+          </div>
+          <div className="shortcut-legend-row">
+            <span className="shortcut-legend-action">Show shortcuts</span>
+            <span className="shortcut-legend-keys">
+              <kbd className="shortcut-key">?</kbd>
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -271,7 +271,7 @@ export function LibraryRow(props: LibraryRowProps) {
 
       {/* ---- Context menu ---- */}
       <ContextMenuContent>
-        {/* Open / Download */}
+        {/* Group 1 — primary action */}
         <ContextMenuItem onClick={onOpen}>
           {props.kind === "folder"
             ? "Open"
@@ -281,20 +281,18 @@ export function LibraryRow(props: LibraryRowProps) {
           <ContextMenuShortcut>↵</ContextMenuShortcut>
         </ContextMenuItem>
 
-        {/* Rename */}
+        <ContextMenuSeparator />
+
+        {/* Group 2 — item management */}
         <ContextMenuItem onClick={onStartRename}>
           Rename
           <ContextMenuShortcut>F2</ContextMenuShortcut>
         </ContextMenuItem>
 
-        <ContextMenuSeparator />
-
-        {/* Favourite */}
         <ContextMenuItem onClick={onFavorite}>
           {isFavorite ? "Remove from favourites" : "Add to favourites"}
         </ContextMenuItem>
 
-        {/* Share */}
         {shareLabel ? (
           <ContextMenuItem
             onClick={() => {
@@ -330,20 +328,20 @@ export function LibraryRow(props: LibraryRowProps) {
           </ContextMenuItem>
         )}
 
-        {/* Folder icon */}
         {props.kind === "folder" && (
           <ContextMenuItem onClick={onProperties}>Change icon…</ContextMenuItem>
         )}
 
+        <ContextMenuItem onClick={onProperties}>Properties</ContextMenuItem>
+
         <ContextMenuSeparator />
 
-        {/* Cut */}
+        {/* Group 3 — clipboard and destructive */}
         <ContextMenuItem onClick={onCut}>
           Cut
           <ContextMenuShortcut>⌘X</ContextMenuShortcut>
         </ContextMenuItem>
 
-        {/* Move to */}
         {availableMoveTargets.length > 0 ? (
           <ContextMenuSub>
             <ContextMenuSubTrigger>Move to…</ContextMenuSubTrigger>
@@ -364,15 +362,9 @@ export function LibraryRow(props: LibraryRowProps) {
 
         <ContextMenuSeparator />
 
-        {/* Properties */}
-        <ContextMenuItem onClick={onProperties}>Properties</ContextMenuItem>
-
-        <ContextMenuSeparator />
-
-        {/* Trash */}
         <ContextMenuItem variant="destructive" onClick={onTrash}>
           Move to trash
-          <ContextMenuShortcut>⌫</ContextMenuShortcut>
+          <ContextMenuShortcut>Del</ContextMenuShortcut>
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

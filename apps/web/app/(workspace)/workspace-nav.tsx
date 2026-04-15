@@ -35,7 +35,7 @@ export const workspaceNavGroups: WorkspaceNavGroup[] = [
       },
       {
         href: "/library",
-        label: "Drive",
+        label: "Files",
         icon: FolderOpen,
         matchPrefix: "/library",
       },

@@ -85,37 +85,21 @@ export function WorkspaceStorage({
   return (
     <TooltipProvider>
       <div className="workspace-storage">
-        {/* Arc + text */}
+        {/* Arc + quota text */}
         <div className="workspace-storage-main">
           <ArcProgress pct={pct ?? 0} color={color} />
           <div className="workspace-storage-text">
             <span className="workspace-storage-sizes">
-              {fmt(used)} of {limit !== null ? fmt(limit) : "Unlimited"}
+              {fmt(used)}
+              {limit !== null ? ` of ${fmt(limit)}` : ""}
             </span>
             <span className="workspace-storage-used-label">
-              {pct !== null ? `${pct}% used` : "No limit set"}
+              {pct !== null ? `Your quota · ${pct}% used` : "No quota set"}
             </span>
           </div>
         </div>
 
-        {/* User allocation bar */}
-        {limit !== null && (
-          <div
-            className="workspace-storage-track"
-            role="meter"
-            aria-valuenow={pct ?? 0}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label="Your allocated storage"
-          >
-            <div
-              className="workspace-storage-fill"
-              style={{ width: `${pct ?? 0}%`, background: color }}
-            />
-          </div>
-        )}
-
-        {/* Instance drive bar — tooltip explains the difference */}
+        {/* Server total — subtle hint with tooltip for context */}
         <Tooltip>
           <TooltipTrigger
             render={function (props) {
@@ -123,17 +107,30 @@ export function WorkspaceStorage({
             }}
             className="workspace-storage-drive-row"
           >
-            <div className="workspace-storage-drive-track">
-              <div className="workspace-storage-drive-fill" />
+            <div
+              className="workspace-storage-drive-track"
+              role="meter"
+              aria-valuenow={pct ?? 0}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Your storage quota"
+            >
+              <div
+                className="workspace-storage-drive-fill"
+                style={{
+                  background: color,
+                  width: `${pct ?? 0}%`,
+                  opacity: 0.5,
+                }}
+              />
             </div>
             <span className="workspace-storage-drive-hint">
-              {fmt(instanceUsed)} total
+              Server: {fmt(instanceUsed)}
             </span>
           </TooltipTrigger>
           <TooltipContent side="right" sideOffset={8}>
-            {limit !== null
-              ? `Instance-wide usage across all users. Your personal bar above shows your ${fmt(limit)} allocation.`
-              : "Total storage used across all users on this instance."}
+            {fmt(instanceUsed)} used across all users on this instance.
+            {limit !== null ? ` Your personal quota is ${fmt(limit)}.` : ""}
           </TooltipContent>
         </Tooltip>
       </div>

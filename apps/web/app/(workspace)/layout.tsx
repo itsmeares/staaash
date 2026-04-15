@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Search } from "lucide-react";
 
 import { getCurrentSession } from "@/server/auth/session";
 import {
@@ -51,7 +52,9 @@ export default async function WorkspaceLayout({
       <aside className="workspace-sidebar">
         <div className="workspace-brand-area">
           <Link className="workspace-brand-link" href="/library">
-            <span className="workspace-brand">Staaash</span>
+            <span className="workspace-brand">
+              St<span className="workspace-brand-accent">aaa</span>sh
+            </span>
           </Link>
         </div>
 
@@ -81,24 +84,24 @@ export default async function WorkspaceLayout({
                   @{session.user.username}
                 </span>
               </div>
+            </div>
 
-              <div className="workspace-user-actions">
-                {session.user.role === "owner" ? (
-                  <Link className="workspace-user-action-link" href="/admin">
-                    Admin
-                  </Link>
-                ) : null}
-                <form action="/api/auth/sign-out" method="post">
-                  <input
-                    type="hidden"
-                    name="next"
-                    value="/sign-in?success=Signed%20out."
-                  />
-                  <button className="workspace-user-action-link" type="submit">
-                    Sign out
-                  </button>
-                </form>
-              </div>
+            <div className="workspace-user-actions">
+              {session.user.role === "owner" ? (
+                <Link className="workspace-user-action-link" href="/admin">
+                  Admin
+                </Link>
+              ) : null}
+              <form action="/api/auth/sign-out" method="post">
+                <input
+                  type="hidden"
+                  name="next"
+                  value="/sign-in?success=Signed%20out."
+                />
+                <button className="workspace-user-action-link" type="submit">
+                  Sign out
+                </button>
+              </form>
             </div>
           </section>
         ) : null}
@@ -107,7 +110,12 @@ export default async function WorkspaceLayout({
       <div className="workspace-main">
         <header className="workspace-topbar">
           <form action="/search" className="workspace-search" method="get">
-            <span className="pill">Search</span>
+            <Search
+              className="workspace-search-icon"
+              size={14}
+              strokeWidth={2}
+              aria-hidden
+            />
             <input
               id="workspace-search"
               name="q"
