@@ -383,7 +383,7 @@ h3 {
 .workspace-sidebar {
   display: flex;
   flex-direction: column;
-  padding: 18px 10px 14px;
+  padding: 20px 12px 16px;
   background: color-mix(in oklab, var(--background) 92%, var(--foreground) 8%);
   border-right: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent);
   overflow-y: auto;
@@ -393,7 +393,7 @@ h3 {
 }
 
 .workspace-brand-area {
-  padding: 0 8px 16px;
+  padding: 0 8px 22px;
 }
 
 .workspace-brand-link {
@@ -427,16 +427,16 @@ h3 {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  margin-bottom: 4px;
+  margin-bottom: 12px;
 }
 
 .workspace-nav-label {
-  padding: 10px 10px 4px;
+  padding: 4px 10px 6px;
   font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-weight: 500;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: color-mix(in oklab, var(--muted-foreground) 70%, transparent);
+  color: color-mix(in oklab, var(--muted-foreground) 60%, transparent);
 }
 
 .workspace-nav-link {
@@ -447,26 +447,26 @@ h3 {
   border-radius: 8px;
   font-size: 13.5px;
   font-weight: 500;
-  color: color-mix(in oklab, var(--foreground) 68%, transparent);
+  color: color-mix(in oklab, var(--foreground) 62%, transparent);
   background: transparent;
   transition:
-    background 80ms ease,
-    color 80ms ease;
+    background 140ms ease,
+    color 140ms ease;
 }
 
 .workspace-nav-link:hover {
-  background: color-mix(in oklab, var(--foreground) 7%, transparent);
-  color: var(--foreground);
+  background: color-mix(in oklab, var(--foreground) 6%, transparent);
+  color: color-mix(in oklab, var(--foreground) 88%, transparent);
 }
 
 .workspace-nav-link-active {
-  background: color-mix(in oklab, var(--primary) 14%, transparent);
-  color: color-mix(in oklab, var(--primary) 88%, var(--foreground) 12%);
+  background: color-mix(in oklab, var(--primary) 9%, transparent);
+  color: color-mix(in oklab, var(--primary) 80%, var(--foreground) 20%);
   font-weight: 600;
 }
 
 .workspace-nav-link-active:hover {
-  background: color-mix(in oklab, var(--primary) 18%, transparent);
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
 }
 
 .workspace-nav-icon {
@@ -481,11 +481,11 @@ h3 {
 /* User panel */
 .workspace-user-panel {
   margin-top: auto;
-  padding-top: 12px;
+  padding-top: 16px;
   border-top: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
 }
 
 /* Storage */
@@ -587,17 +587,17 @@ h3 {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: color-mix(in oklab, var(--primary) 22%, var(--background));
+  background: color-mix(in oklab, var(--primary) 12%, var(--background));
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid color-mix(in oklab, var(--primary) 22%, transparent);
+  border: 1px solid color-mix(in oklab, var(--primary) 14%, transparent);
 }
 
 .workspace-avatar-initials {
   font-size: 12.5px;
-  font-weight: 700;
-  color: color-mix(in oklab, var(--primary) 90%, var(--foreground) 10%);
+  font-weight: 600;
+  color: color-mix(in oklab, var(--primary) 72%, var(--foreground) 28%);
   letter-spacing: 0.02em;
   line-height: 1;
   font-family: var(--font-cabinet), sans-serif;
@@ -650,17 +650,17 @@ h3 {
   justify-content: center;
   font-size: 11.5px;
   font-weight: 500;
-  color: color-mix(in oklab, var(--foreground) 55%, transparent);
+  color: color-mix(in oklab, var(--foreground) 50%, transparent);
   background: none;
-  border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
+  border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
   border-radius: 6px;
   padding: 5px 0;
   cursor: pointer;
   font-family: inherit;
   transition:
-    background 80ms ease,
-    color 80ms ease,
-    border-color 80ms ease;
+    background 140ms ease,
+    color 140ms ease,
+    border-color 140ms ease;
 }
 
 .workspace-user-action-link:hover {
@@ -682,7 +682,7 @@ h3 {
   gap: 12px;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 20px;
+  padding: 10px 28px;
   border-bottom: 1px solid
     color-mix(in oklab, var(--foreground) 8%, transparent);
 }
@@ -763,30 +763,52 @@ h3 {
 .workspace-content {
   flex: 1;
   min-width: 0;
-  padding: 20px 24px 40px;
+  padding: 24px 32px 56px;
 }
 
 .workspace-page {
   display: grid;
-  gap: 18px;
+  gap: 22px;
 }
 
 .workspace-breadcrumbs {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  font-size: 14px;
-  color: var(--muted-foreground);
+  align-items: baseline;
+  gap: 0;
 }
 
 .workspace-breadcrumbs a {
-  position: relative;
+  font-size: 13px;
+  color: color-mix(in oklab, var(--muted-foreground) 65%, transparent);
+  font-weight: 400;
+  transition: color 140ms ease;
 }
 
-.workspace-breadcrumbs a:not(:last-child)::after {
+.workspace-breadcrumbs a:hover {
+  color: var(--muted-foreground);
+  text-decoration: none;
+}
+
+.workspace-breadcrumbs a::after {
   content: "/";
-  margin-left: 10px;
-  color: color-mix(in oklab, var(--muted-foreground) 75%, transparent);
+  padding: 0 7px;
+  color: color-mix(in oklab, var(--muted-foreground) 30%, transparent);
+  font-weight: 300;
+}
+
+.workspace-breadcrumb-active {
+  font-family: var(--font-cabinet), sans-serif;
+  font-size: 1.45rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--foreground);
+}
+
+.explorer-badges {
+  display: flex;
+  gap: 8px;
 }
 
 .workspace-inline-form {
@@ -816,9 +838,9 @@ h3 {
   display: grid;
   gap: 10px;
   padding: 20px;
-  border-radius: 18px;
-  border: 1px dashed color-mix(in oklab, var(--primary) 18%, transparent);
-  background: color-mix(in oklab, var(--primary) 4%, var(--card));
+  border-radius: 14px;
+  border: 1px dashed color-mix(in oklab, var(--foreground) 10%, transparent);
+  background: color-mix(in oklab, var(--foreground) 2%, var(--card));
 }
 
 .folder-list {
@@ -839,8 +861,8 @@ h3 {
 }
 
 .folder-row:hover {
-  background: color-mix(in oklab, var(--primary) 4%, var(--card));
-  border-color: color-mix(in oklab, var(--foreground) 8%, transparent);
+  background: color-mix(in oklab, var(--foreground) 4%, var(--card));
+  border-color: color-mix(in oklab, var(--foreground) 7%, transparent);
 }
 
 .folder-row-head {
@@ -860,7 +882,7 @@ h3 {
 }
 
 .folder-link:hover {
-  color: var(--primary);
+  color: var(--foreground);
 }
 
 .folder-meta {
@@ -870,7 +892,7 @@ h3 {
 
 .folder-disclosure {
   border-top: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent);
-  background: color-mix(in oklab, var(--primary) 3%, var(--card));
+  background: color-mix(in oklab, var(--foreground) 2%, var(--card));
 }
 
 .folder-disclosure summary {
@@ -903,7 +925,7 @@ h3 {
 }
 
 .folder-disclosure summary:hover {
-  color: color-mix(in oklab, var(--foreground) 76%, var(--primary) 24%);
+  color: var(--foreground);
 }
 
 .folder-disclosure-grid {
@@ -1503,11 +1525,11 @@ h3 {
 }
 
 .library-section-header h2 {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--muted-foreground);
+  color: color-mix(in oklab, var(--muted-foreground) 80%, transparent);
   flex: 1;
 }
 
@@ -1523,10 +1545,10 @@ h3 {
 /* ---- Upload zone ---- */
 
 .upload-zone {
-  border: 1.5px dashed color-mix(in oklab, var(--primary) 32%, transparent);
-  border-radius: 18px;
+  border: 1px dashed color-mix(in oklab, var(--foreground) 14%, transparent);
+  border-radius: 14px;
   padding: 20px 24px;
-  background: color-mix(in oklab, var(--primary) 3%, var(--card));
+  background: color-mix(in oklab, var(--foreground) 2%, var(--card));
   display: grid;
   gap: 16px;
 }
@@ -1542,7 +1564,7 @@ h3 {
 .upload-zone-title {
   font-family: var(--font-cabinet), sans-serif;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.01em;
   margin: 0;
 }
@@ -1788,7 +1810,7 @@ h3 {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding-bottom: 20px;
+  padding-bottom: 28px;
   border-bottom: 1px solid
     color-mix(in oklab, var(--foreground) 7%, transparent);
   flex-wrap: wrap;
@@ -1823,9 +1845,9 @@ h3 {
 
 .selection-badge {
   font-size: 12px;
-  font-weight: 600;
-  color: color-mix(in oklab, var(--primary) 90%, var(--foreground) 10%);
-  background: color-mix(in oklab, var(--primary) 12%, var(--card));
+  font-weight: 500;
+  color: color-mix(in oklab, var(--primary) 76%, var(--foreground) 24%);
+  background: color-mix(in oklab, var(--primary) 8%, var(--card));
   border-radius: 999px;
   padding: 3px 10px;
   white-space: nowrap;
@@ -1846,7 +1868,7 @@ h3 {
 
 .explorer-list {
   position: relative;
-  padding-top: 8px;
+  padding-top: 14px;
   user-select: none;
   /* Don't select text during rubber-band */
 }
@@ -1854,7 +1876,7 @@ h3 {
 /* ---- Section label ---- */
 
 .explorer-section {
-  margin-bottom: 28px;
+  margin-bottom: 36px;
 }
 
 .explorer-section:last-child {
@@ -1863,14 +1885,14 @@ h3 {
 
 .explorer-section-label {
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  font-weight: 500;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted-foreground);
-  padding: 0 4px 8px;
+  color: color-mix(in oklab, var(--muted-foreground) 80%, transparent);
+  padding: 0 4px 10px;
   border-bottom: 1px solid
     color-mix(in oklab, var(--foreground) 6%, transparent);
-  margin-bottom: 2px;
+  margin-bottom: 6px;
 }
 
 /* ---- File/folder row ---- */
@@ -1884,20 +1906,20 @@ h3 {
   padding: 0 8px 0 4px;
   border-radius: 8px;
   cursor: default;
-  transition: background 80ms ease;
+  transition: background 140ms ease;
   position: relative;
 }
 
 .explorer-row:hover {
-  background: color-mix(in oklab, var(--primary) 5%, var(--card));
+  background: color-mix(in oklab, var(--foreground) 5%, var(--card));
 }
 
 .explorer-row.is-selected {
-  background: color-mix(in oklab, var(--primary) 12%, var(--card));
+  background: color-mix(in oklab, var(--primary) 8%, var(--card));
 }
 
 .explorer-row.is-selected:hover {
-  background: color-mix(in oklab, var(--primary) 15%, var(--card));
+  background: color-mix(in oklab, var(--primary) 10%, var(--card));
 }
 
 .explorer-row.is-cut {
@@ -1906,7 +1928,7 @@ h3 {
 
 @keyframes paste-highlight {
   0% {
-    background: color-mix(in oklab, var(--primary) 22%, var(--card));
+    background: color-mix(in oklab, var(--primary) 13%, var(--card));
   }
   100% {
     background: transparent;
@@ -1938,7 +1960,7 @@ h3 {
 .explorer-row-name {
   font-size: 14px;
   font-weight: 500;
-  color: color-mix(in oklab, var(--foreground) 92%, var(--primary) 8%);
+  color: color-mix(in oklab, var(--foreground) 88%, transparent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1978,11 +2000,11 @@ h3 {
   display: grid;
   grid-template-columns: 28px 1fr 76px 132px;
   gap: 0 10px;
-  padding: 0 8px 6px 4px;
+  padding: 2px 8px 9px 4px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.04em;
-  color: var(--muted-foreground);
+  color: color-mix(in oklab, var(--muted-foreground) 80%, transparent);
 }
 
 .explorer-col-header span:last-child,
@@ -1996,8 +2018,8 @@ h3 {
   position: absolute;
   pointer-events: none;
   z-index: 20;
-  border: 1px solid color-mix(in oklab, var(--primary) 60%, transparent);
-  background: color-mix(in oklab, var(--primary) 10%, transparent);
+  border: 1px solid color-mix(in oklab, var(--primary) 38%, transparent);
+  background: color-mix(in oklab, var(--primary) 6%, transparent);
   border-radius: 4px;
 }
 
@@ -2054,7 +2076,7 @@ h3 {
   gap: 6px;
   padding: 8px 12px 8px 4px;
   border-radius: 8px;
-  background: color-mix(in oklab, var(--primary) 4%, var(--card));
+  background: color-mix(in oklab, var(--foreground) 3%, var(--card));
   margin-bottom: 2px;
 }
 
@@ -2147,7 +2169,7 @@ h3 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 18px 14px;
+  padding: 20px 20px 16px;
   border-bottom: 1px solid
     color-mix(in oklab, var(--foreground) 7%, transparent);
   position: sticky;
@@ -2157,11 +2179,11 @@ h3 {
 }
 
 .properties-panel-title {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--muted-foreground);
+  color: color-mix(in oklab, var(--muted-foreground) 80%, transparent);
 }
 
 .properties-panel-body {
@@ -2170,11 +2192,11 @@ h3 {
 }
 
 .properties-section {
-  padding: 16px 18px;
+  padding: 18px 20px;
   border-bottom: 1px solid
     color-mix(in oklab, var(--foreground) 6%, transparent);
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .properties-section:last-child {
@@ -2183,10 +2205,10 @@ h3 {
 
 .properties-section-title {
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-weight: 500;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--muted-foreground);
+  color: color-mix(in oklab, var(--muted-foreground) 78%, transparent);
 }
 
 .properties-row {
@@ -2223,25 +2245,25 @@ h3 {
   justify-content: center;
   width: 100%;
   aspect-ratio: 1;
-  border-radius: 10px;
-  border: 1.5px solid transparent;
+  border-radius: 8px;
+  border: 1px solid transparent;
   background: transparent;
   cursor: pointer;
   transition:
-    background 80ms ease,
-    border-color 80ms ease;
+    background 140ms ease,
+    border-color 140ms ease;
   color: var(--muted-foreground);
 }
 
 .icon-picker-option:hover {
-  background: color-mix(in oklab, var(--primary) 10%, var(--card));
+  background: color-mix(in oklab, var(--foreground) 7%, var(--card));
   color: var(--foreground);
 }
 
 .icon-picker-option.is-active {
-  background: color-mix(in oklab, var(--primary) 14%, var(--card));
-  border-color: color-mix(in oklab, var(--primary) 40%, transparent);
-  color: color-mix(in oklab, var(--primary) 80%, var(--foreground) 20%);
+  background: color-mix(in oklab, var(--primary) 9%, var(--card));
+  border-color: color-mix(in oklab, var(--primary) 26%, transparent);
+  color: color-mix(in oklab, var(--primary) 72%, var(--foreground) 28%);
 }
 
 /* ---- New folder popover ---- */
@@ -2276,7 +2298,7 @@ h3 {
 }
 
 .move-picker-item:hover {
-  background: color-mix(in oklab, var(--primary) 8%, var(--card));
+  background: color-mix(in oklab, var(--foreground) 5%, var(--card));
 }
 
 .move-picker-item.is-current {
@@ -2353,8 +2375,8 @@ h3 {
   padding: 28px 32px;
   min-width: 340px;
   max-width: 420px;
-  box-shadow: 0 24px 64px
-    color-mix(in oklab, var(--foreground) 22%, transparent);
+  box-shadow: 0 16px 40px
+    color-mix(in oklab, var(--foreground) 12%, transparent);
   animation: legend-in 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 

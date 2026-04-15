@@ -77,6 +77,7 @@ type UploadingFile = {
   speed: number; // bytes per second
   error?: string;
   fileRef?: File; // retained for retry
+  fileId?: string; // server-assigned ID, set on successful upload
 };
 
 function formatSpeed(bytesPerSec: number): string {
@@ -568,10 +569,16 @@ export function LibraryView({
 
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
+        let fileId: string | undefined;
+        try {
+          fileId = JSON.parse(xhr.responseText)?.uploadedFiles?.[0]?.id;
+        } catch {
+          /* ignore */
+        }
         setUploadingFiles((prev) =>
           prev.map((f) =>
             f.clientKey === clientKey
-              ? { ...f, status: "done", progress: 100 }
+              ? { ...f, status: "done", progress: 100, fileId }
               : f,
           ),
         );
@@ -699,6 +706,31 @@ export function LibraryView({
   })();
 
   // ---------------------------------------------------------------------------
+  // Merged file list (files + active uploads sorted alphabetically)
+  // ---------------------------------------------------------------------------
+
+  type MergedFileEntry =
+    | { kind: "file"; file: (typeof listing.files)[0] }
+    | { kind: "upload"; upload: UploadingFile };
+
+  const activeUploads = uploadingFiles.filter(
+    (f) =>
+      f.status !== "done" ||
+      !f.fileId ||
+      !listing.files.some((lf) => lf.id === f.fileId),
+  );
+
+  const mergedFileEntries: MergedFileEntry[] = [
+    ...listing.files.map((f) => ({ kind: "file" as const, file: f })),
+    ...activeUploads.map((u) => ({ kind: "upload" as const, upload: u })),
+  ];
+  mergedFileEntries.sort((a, b) => {
+    const na = a.kind === "file" ? a.file.name : a.upload.name;
+    const nb = b.kind === "file" ? b.file.name : b.upload.name;
+    return na.localeCompare(nb, undefined, { sensitivity: "base" });
+  });
+
+  // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
 
@@ -718,34 +750,47 @@ export function LibraryView({
         {/* ---- Header ---- */}
         <div className="explorer-header">
           <div className="explorer-header-left">
-            {listing.breadcrumbs.length > 0 && (
-              <nav aria-label="Breadcrumb" className="workspace-breadcrumbs">
-                {listing.breadcrumbs.map((crumb) => (
+            <nav aria-label="Breadcrumb" className="workspace-breadcrumbs">
+              {listing.breadcrumbs.map((crumb, index) => {
+                const label = index === 0 ? "Files" : crumb.name;
+                const isActive = index === listing.breadcrumbs.length - 1;
+                if (isActive) {
+                  return (
+                    <span
+                      key={crumb.id}
+                      className="workspace-breadcrumb-active"
+                    >
+                      {label}
+                    </span>
+                  );
+                }
+                return (
                   <Link key={crumb.id} href={crumb.href}>
-                    {crumb.name}
+                    {label}
                   </Link>
-                ))}
-              </nav>
+                );
+              })}
+            </nav>
+            {(selectedIds.size > 0 || cutItems.length > 0) && (
+              <div className="explorer-badges">
+                {selectedIds.size > 0 && (
+                  <span className="selection-badge">
+                    {selectedIds.size} selected
+                  </span>
+                )}
+                {cutItems.length > 0 && selectedIds.size === 0 && (
+                  <button
+                    className="cut-badge"
+                    type="button"
+                    onClick={handlePaste}
+                    title="Paste here (Ctrl+V)"
+                  >
+                    {cutItems.length} item{cutItems.length !== 1 ? "s" : ""} cut
+                    — paste here
+                  </button>
+                )}
+              </div>
             )}
-            <div className="explorer-title-row">
-              <h1>{listing.currentFolder.name}</h1>
-              {selectedIds.size > 0 && (
-                <span className="selection-badge">
-                  {selectedIds.size} selected
-                </span>
-              )}
-              {cutItems.length > 0 && selectedIds.size === 0 && (
-                <button
-                  className="cut-badge"
-                  type="button"
-                  onClick={handlePaste}
-                  title="Paste here (Ctrl+V)"
-                >
-                  {cutItems.length} item{cutItems.length !== 1 ? "s" : ""} cut —
-                  paste here
-                </button>
-              )}
-            </div>
           </div>
 
           <div className="explorer-header-actions">
@@ -837,182 +882,185 @@ export function LibraryView({
             />
           )}
 
-          {/* ---- Folders section ---- */}
-          {listing.childFolders.length > 0 && (
-            <div className="explorer-section">
-              <p className="explorer-section-label">
-                Folders ({listing.childFolders.length})
-              </p>
-              {listing.childFolders.map((folder) => {
-                const availableMoveTargetIds = new Set(
-                  listing.availableMoveTargetIdsByFolderId[folder.id] ?? [],
-                );
-                const availableMoveTargets = listing.moveTargets.filter((t) =>
-                  availableMoveTargetIds.has(t.id),
-                );
-                return (
-                  <LibraryRow
-                    key={folder.id}
-                    kind="folder"
-                    data={folder}
-                    isSelected={selectedIds.has(folder.id)}
-                    isCut={cutItems.some((c) => c.id === folder.id)}
-                    isJustMoved={justMovedIds.has(folder.id)}
-                    isRenaming={renamingId === folder.id}
-                    renameValue={renameValue}
-                    isFavorite={favoriteFolderSet.has(folder.id)}
-                    folderIconName={folderIcons[folder.id] ?? "Folder"}
-                    availableMoveTargets={availableMoveTargets}
-                    shareProps={{
-                      share: shareLookup.sharesByFolderId[folder.id] ?? null,
-                      targetId: folder.id,
-                      targetType: "folder",
-                      currentPath,
-                    }}
-                    onRenameChange={setRenameValue}
-                    onRenameSubmit={() => submitRename(folder.id, "folder")}
-                    onRenameCancel={cancelRename}
-                    onClick={(e) => handleRowClick(folder.id, e)}
-                    onOpen={() => openItem(folder.id)}
-                    onStartRename={() => beginRename(folder.id, folder.name)}
-                    onFavorite={() =>
-                      toggleFavorite(
-                        folder.id,
-                        "folder",
-                        favoriteFolderSet.has(folder.id),
-                      )
-                    }
-                    onTrash={() => trashItem(folder.id, "folder")}
-                    onProperties={() => setPropertiesId(folder.id)}
-                    onCut={() => {
-                      const item: CutItem = {
-                        id: folder.id,
-                        kind: "folder",
-                        name: folder.name,
-                      };
-                      setCutItems([item]);
-                      persistCutItems([item]);
-                    }}
-                    onMoveTo={(dest) => {
-                      moveItem(folder.id, "folder", dest).then(() =>
-                        startTransition(() => router.refresh()),
-                      );
-                    }}
-                    rowRef={(el) => {
-                      if (el) rowRefs.current.set(folder.id, el);
-                      else rowRefs.current.delete(folder.id);
-                    }}
-                  />
-                );
-              })}
-            </div>
-          )}
-
-          {/* ---- Files section ---- */}
-          <div className="explorer-section">
-            <p className="explorer-section-label">
-              Files ({listing.files.length + uploadingFiles.length})
-            </p>
-
-            {/* Uploading rows */}
-            {uploadingFiles.map((f) => (
-              <UploadingRow
-                key={f.clientKey}
-                file={f}
-                onDismiss={() =>
-                  setUploadingFiles((prev) =>
-                    prev.filter((u) => u.clientKey !== f.clientKey),
+          {/* ---- Folders ---- */}
+          {listing.childFolders.map((folder) => {
+            const availableMoveTargetIds = new Set(
+              listing.availableMoveTargetIdsByFolderId[folder.id] ?? [],
+            );
+            const availableMoveTargets = listing.moveTargets.filter((t) =>
+              availableMoveTargetIds.has(t.id),
+            );
+            return (
+              <LibraryRow
+                key={folder.id}
+                kind="folder"
+                data={folder}
+                isSelected={selectedIds.has(folder.id)}
+                isCut={cutItems.some((c) => c.id === folder.id)}
+                isJustMoved={justMovedIds.has(folder.id)}
+                isRenaming={renamingId === folder.id}
+                renameValue={renameValue}
+                isFavorite={favoriteFolderSet.has(folder.id)}
+                folderIconName={folderIcons[folder.id] ?? "Folder"}
+                availableMoveTargets={availableMoveTargets}
+                shareProps={{
+                  share: shareLookup.sharesByFolderId[folder.id] ?? null,
+                  targetId: folder.id,
+                  targetType: "folder",
+                  currentPath,
+                }}
+                onRenameChange={setRenameValue}
+                onRenameSubmit={() => submitRename(folder.id, "folder")}
+                onRenameCancel={cancelRename}
+                onClick={(e) => handleRowClick(folder.id, e)}
+                onOpen={() => openItem(folder.id)}
+                onStartRename={() => beginRename(folder.id, folder.name)}
+                onFavorite={() =>
+                  toggleFavorite(
+                    folder.id,
+                    "folder",
+                    favoriteFolderSet.has(folder.id),
                   )
                 }
-                onRetry={
-                  f.fileRef
-                    ? () => {
-                        setUploadingFiles((prev) =>
-                          prev.map((u) =>
-                            u.clientKey === f.clientKey
-                              ? {
-                                  ...u,
-                                  status: "uploading",
-                                  progress: 0,
-                                  speed: 0,
-                                  error: undefined,
-                                }
-                              : u,
-                          ),
-                        );
-                        uploadSingleFile(f.clientKey, f.fileRef!);
-                      }
-                    : undefined
-                }
+                onTrash={() => trashItem(folder.id, "folder")}
+                onProperties={() => setPropertiesId(folder.id)}
+                onCut={() => {
+                  const item: CutItem = {
+                    id: folder.id,
+                    kind: "folder",
+                    name: folder.name,
+                  };
+                  setCutItems([item]);
+                  persistCutItems([item]);
+                }}
+                onMoveTo={(dest) => {
+                  moveItem(folder.id, "folder", dest).then(() =>
+                    startTransition(() => router.refresh()),
+                  );
+                }}
+                rowRef={(el) => {
+                  if (el) rowRefs.current.set(folder.id, el);
+                  else rowRefs.current.delete(folder.id);
+                }}
               />
-            ))}
+            );
+          })}
 
-            {/* Empty state */}
-            {listing.files.length === 0 && uploadingFiles.length === 0 && (
+          {/* ---- Empty state ---- */}
+          {mergedFileEntries.length === 0 &&
+            listing.childFolders.length === 0 && (
               <div className="explorer-empty">
                 This folder is empty. Drop files here or use the Upload button.
               </div>
             )}
 
-            {listing.files.map((file) => {
-              const availableMoveTargets = listing.moveTargets.filter(
-                (t) => t.id !== listing.currentFolder.id,
-              );
+          {/* ---- Files + uploading rows merged, sorted alphabetically ---- */}
+          {mergedFileEntries.map((entry) => {
+            if (entry.kind === "upload") {
+              const f = entry.upload;
               return (
-                <LibraryRow
-                  key={file.id}
-                  kind="file"
-                  data={file}
-                  isSelected={selectedIds.has(file.id)}
-                  isCut={cutItems.some((c) => c.id === file.id)}
-                  isJustMoved={justMovedIds.has(file.id)}
-                  isRenaming={renamingId === file.id}
-                  renameValue={renameValue}
-                  isFavorite={favoriteFileSet.has(file.id)}
-                  availableMoveTargets={availableMoveTargets}
-                  shareProps={{
-                    share: shareLookup.sharesByFileId[file.id] ?? null,
-                    targetId: file.id,
-                    targetType: "file",
-                    currentPath,
-                  }}
-                  onRenameChange={setRenameValue}
-                  onRenameSubmit={() => submitRename(file.id, "file")}
-                  onRenameCancel={cancelRename}
-                  onClick={(e) => handleRowClick(file.id, e)}
-                  onOpen={() => openItem(file.id)}
-                  onStartRename={() => beginRename(file.id, file.name)}
-                  onFavorite={() =>
-                    toggleFavorite(
-                      file.id,
-                      "file",
-                      favoriteFileSet.has(file.id),
+                <UploadingRow
+                  key={f.clientKey}
+                  file={f}
+                  onDismiss={() =>
+                    setUploadingFiles((prev) =>
+                      prev.filter((u) => u.clientKey !== f.clientKey),
                     )
                   }
-                  onTrash={() => trashItem(file.id, "file")}
-                  onProperties={() => setPropertiesId(file.id)}
-                  onCut={() => {
-                    const item: CutItem = {
-                      id: file.id,
-                      kind: "file",
-                      name: file.name,
-                    };
-                    setCutItems([item]);
-                    persistCutItems([item]);
-                  }}
-                  onMoveTo={(dest) => {
-                    moveItem(file.id, "file", dest).then(() =>
-                      startTransition(() => router.refresh()),
-                    );
-                  }}
-                  rowRef={(el) => {
-                    if (el) rowRefs.current.set(file.id, el);
-                    else rowRefs.current.delete(file.id);
-                  }}
+                  onRetry={
+                    f.fileRef
+                      ? () => {
+                          setUploadingFiles((prev) =>
+                            prev.map((u) =>
+                              u.clientKey === f.clientKey
+                                ? {
+                                    ...u,
+                                    status: "uploading",
+                                    progress: 0,
+                                    speed: 0,
+                                    error: undefined,
+                                  }
+                                : u,
+                            ),
+                          );
+                          uploadSingleFile(f.clientKey, f.fileRef!);
+                        }
+                      : undefined
+                  }
                 />
               );
-            })}
-          </div>
+            }
+            const file = entry.file;
+            const doneUpload = uploadingFiles.find(
+              (f) => f.fileId === file.id && f.status === "done",
+            );
+            if (doneUpload) {
+              return (
+                <UploadingRow
+                  key={doneUpload.clientKey}
+                  file={doneUpload}
+                  onDismiss={() =>
+                    setUploadingFiles((prev) =>
+                      prev.filter((u) => u.clientKey !== doneUpload.clientKey),
+                    )
+                  }
+                  onRetry={undefined}
+                />
+              );
+            }
+            const availableMoveTargets = listing.moveTargets.filter(
+              (t) => t.id !== listing.currentFolder.id,
+            );
+            return (
+              <LibraryRow
+                key={file.id}
+                kind="file"
+                data={file}
+                isSelected={selectedIds.has(file.id)}
+                isCut={cutItems.some((c) => c.id === file.id)}
+                isJustMoved={justMovedIds.has(file.id)}
+                isRenaming={renamingId === file.id}
+                renameValue={renameValue}
+                isFavorite={favoriteFileSet.has(file.id)}
+                availableMoveTargets={availableMoveTargets}
+                shareProps={{
+                  share: shareLookup.sharesByFileId[file.id] ?? null,
+                  targetId: file.id,
+                  targetType: "file",
+                  currentPath,
+                }}
+                onRenameChange={setRenameValue}
+                onRenameSubmit={() => submitRename(file.id, "file")}
+                onRenameCancel={cancelRename}
+                onClick={(e) => handleRowClick(file.id, e)}
+                onOpen={() => openItem(file.id)}
+                onStartRename={() => beginRename(file.id, file.name)}
+                onFavorite={() =>
+                  toggleFavorite(file.id, "file", favoriteFileSet.has(file.id))
+                }
+                onTrash={() => trashItem(file.id, "file")}
+                onProperties={() => setPropertiesId(file.id)}
+                onCut={() => {
+                  const item: CutItem = {
+                    id: file.id,
+                    kind: "file",
+                    name: file.name,
+                  };
+                  setCutItems([item]);
+                  persistCutItems([item]);
+                }}
+                onMoveTo={(dest) => {
+                  moveItem(file.id, "file", dest).then(() =>
+                    startTransition(() => router.refresh()),
+                  );
+                }}
+                rowRef={(el) => {
+                  if (el) rowRefs.current.set(file.id, el);
+                  else rowRefs.current.delete(file.id);
+                }}
+              />
+            );
+          })}
         </div>
 
         {/* ---- Drag-to-upload overlay ---- */}
