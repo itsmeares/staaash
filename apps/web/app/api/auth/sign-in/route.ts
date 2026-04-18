@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await readRequestBody(request);
-  const next = getSafeRedirectTarget(body.next, "/library");
+  const next = getSafeRedirectTarget(body.next, "/files");
 
   try {
     const result = await authService.signIn({
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     const errorPath =
-      next === "/library"
+      next === "/files"
         ? "/sign-in"
         : `/sign-in?next=${encodeURIComponent(next)}`;
     return wantsJson(request)

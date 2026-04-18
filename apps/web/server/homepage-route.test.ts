@@ -52,6 +52,6 @@ describe("HomePage route", () => {
     const { default: HomePage } = await import("@/app/page");
 
     await expect(HomePage()).rejects.toThrow("redirect:/library");
-    expect(redirect).toHaveBeenCalledWith("/library");
+    expect(redirect).toHaveBeenCalledWith("/files");
   });
 });

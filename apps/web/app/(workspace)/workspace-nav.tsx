@@ -34,10 +34,10 @@ export const workspaceNavGroups: WorkspaceNavGroup[] = [
         icon: Home,
       },
       {
-        href: "/library",
+        href: "/files",
         label: "Files",
         icon: FolderOpen,
-        matchPrefix: "/library",
+        matchPrefix: "/files",
       },
     ],
   },

@@ -72,7 +72,7 @@ export const signIn = async (
   {
     identifier,
     password,
-    next = "/library",
+    next = "/files",
   }: {
     identifier: string;
     password: string;

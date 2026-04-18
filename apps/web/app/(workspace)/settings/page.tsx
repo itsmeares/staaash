@@ -43,7 +43,7 @@ export default async function SettingsPage({
             </p>
           </div>
           <div className="cluster">
-            <Link className="pill" href="/library">
+            <Link className="pill" href="/files">
               Open library
             </Link>
             {session.user.role === "owner" ? (

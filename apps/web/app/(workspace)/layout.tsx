@@ -51,7 +51,7 @@ export default async function WorkspaceLayout({
     <div className="workspace-shell">
       <aside className="workspace-sidebar">
         <div className="workspace-brand-area">
-          <Link className="workspace-brand-link" href="/library">
+          <Link className="workspace-brand-link" href="/files">
             <span className="workspace-brand">
               St<span className="workspace-brand-accent">aaa</span>sh
             </span>

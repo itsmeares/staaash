@@ -92,7 +92,7 @@ export function RetrievalItemList({
             )}
 
             <form
-              action={`/api/library/${item.kind === "folder" ? "folders" : "files"}/${item.id}/favorite`}
+              action={`/api/files/${item.kind === "folder" ? "folders" : "files"}/${item.id}/favorite`}
               method="post"
             >
               <input name="redirectTo" type="hidden" value={currentPath} />

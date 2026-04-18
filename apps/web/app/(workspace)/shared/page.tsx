@@ -55,7 +55,7 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
           <p className="muted">
             Create the first link from the library explorer on a file or folder.
           </p>
-          <Link className="pill" href="/library">
+          <Link className="pill" href="/files">
             Open library
           </Link>
         </section>
