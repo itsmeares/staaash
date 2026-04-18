@@ -85,11 +85,11 @@ describe("private file download route", () => {
 
   it("requires authentication", async () => {
     const { GET } =
-      await import("@/app/api/library/files/[fileId]/download/route");
+      await import("@/app/api/files/files/[fileId]/download/route");
     getRequestSession.mockResolvedValueOnce(null);
 
     const response = await GET(
-      new NextRequest("http://localhost/api/library/files/file-1/download"),
+      new NextRequest("http://localhost/api/files/files/file-1/download"),
       {
         params: Promise.resolve({
           fileId: "file-1",
@@ -99,14 +99,14 @@ describe("private file download route", () => {
 
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toContain(
-      "/sign-in?next=%2Fapi%2Flibrary%2Ffiles%2Ffile-1%2Fdownload",
+      "/sign-in?next=%2Fapi%2Ffiles%2Ffiles%2Ffile-1%2Fdownload",
     );
     expect(recordFileAccessBestEffort).not.toHaveBeenCalled();
   });
 
   it("denies unauthorized access without recording recents", async () => {
     const { GET } =
-      await import("@/app/api/library/files/[fileId]/download/route");
+      await import("@/app/api/files/files/[fileId]/download/route");
     getRequestSession.mockResolvedValueOnce({
       user: {
         id: "bob",
@@ -116,7 +116,7 @@ describe("private file download route", () => {
     findFileById.mockResolvedValueOnce(makeFile({ ownerUserId: "alice" }));
 
     const response = await GET(
-      new NextRequest("http://localhost/api/library/files/file-1/download"),
+      new NextRequest("http://localhost/api/files/files/file-1/download"),
       {
         params: Promise.resolve({
           fileId: "file-1",
@@ -133,7 +133,7 @@ describe("private file download route", () => {
 
   it("returns attachment headers and records access after authorization", async () => {
     const { GET } =
-      await import("@/app/api/library/files/[fileId]/download/route");
+      await import("@/app/api/files/files/[fileId]/download/route");
     getRequestSession.mockResolvedValueOnce({
       user: {
         id: "alice",
@@ -145,7 +145,7 @@ describe("private file download route", () => {
     recordFileAccessBestEffort.mockResolvedValueOnce(undefined);
 
     const response = await GET(
-      new NextRequest("http://localhost/api/library/files/file-1/download"),
+      new NextRequest("http://localhost/api/files/files/file-1/download"),
       {
         params: Promise.resolve({
           fileId: "file-1",
@@ -171,7 +171,7 @@ describe("private file download route", () => {
 
   it("returns success even if best-effort recent logging resolves (helper absorbs errors internally)", async () => {
     const { GET } =
-      await import("@/app/api/library/files/[fileId]/download/route");
+      await import("@/app/api/files/files/[fileId]/download/route");
     getRequestSession.mockResolvedValueOnce({
       user: { id: "alice", role: "member" },
     });
@@ -180,7 +180,7 @@ describe("private file download route", () => {
     recordFileAccessBestEffort.mockResolvedValueOnce(undefined);
 
     const response = await GET(
-      new NextRequest("http://localhost/api/library/files/file-1/download"),
+      new NextRequest("http://localhost/api/files/files/file-1/download"),
       {
         params: Promise.resolve({ fileId: "file-1" }),
       },
@@ -192,7 +192,7 @@ describe("private file download route", () => {
 
   it("does not record a recent row when the storage object cannot be opened", async () => {
     const { GET } =
-      await import("@/app/api/library/files/[fileId]/download/route");
+      await import("@/app/api/files/files/[fileId]/download/route");
     getRequestSession.mockResolvedValueOnce({
       user: { id: "alice", role: "member" },
     });
@@ -203,7 +203,7 @@ describe("private file download route", () => {
     );
 
     const response = await GET(
-      new NextRequest("http://localhost/api/library/files/file-1/download"),
+      new NextRequest("http://localhost/api/files/files/file-1/download"),
       {
         params: Promise.resolve({ fileId: "file-1" }),
       },

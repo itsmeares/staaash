@@ -38,7 +38,7 @@ export default async function AdminLayout({
             </span>
           </div>
           <div className="cluster">
-            <Link className="pill" href="/library">
+            <Link className="pill" href="/files">
               Back to library
             </Link>
             <form action="/api/auth/sign-out" method="post">

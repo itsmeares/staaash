@@ -374,6 +374,23 @@ export const createAuthService = ({
       return (await resolveRepo()).listUsers();
     },
 
+    async setStorageLimit(
+      actorUserId: string,
+      targetUserId: string,
+      limitBytes: bigint | null,
+    ) {
+      await requireOwner(actorUserId);
+      const activeRepo = await resolveRepo();
+      const user = await activeRepo.setUserStorageLimit(
+        targetUserId,
+        limitBytes,
+      );
+      if (!user) {
+        throw new AuthError("USER_NOT_FOUND");
+      }
+      return user;
+    },
+
     async listInvites(actorUserId: string) {
       await requireOwner(actorUserId);
       return (await resolveRepo()).listInvites(now());

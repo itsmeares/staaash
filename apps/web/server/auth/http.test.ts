@@ -24,11 +24,11 @@ describe("auth http helpers", () => {
       },
     });
 
-    const response = notSignedInResponse(request, "/library/f/folder-1");
+    const response = notSignedInResponse(request, "/files/f/folder-1");
 
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe(
-      "http://localhost:3000/sign-in?next=%2Flibrary%2Ff%2Ffolder-1",
+      "http://localhost:3000/sign-in?next=%2Ffiles%2Ff%2Ffolder-1",
     );
   });
 });

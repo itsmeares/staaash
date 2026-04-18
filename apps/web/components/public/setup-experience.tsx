@@ -75,7 +75,7 @@ export function SetupExperience({ title, description }: SetupExperienceProps) {
       const json = await res.json();
 
       if (res.ok) {
-        router.push("/library");
+        router.push("/files");
       } else {
         setError(json.error ?? "Something went wrong. Please try again.");
         setPending(false);

@@ -50,7 +50,7 @@ export function getHomePageContent({
 
   return {
     primaryAction: {
-      href: "/library",
+      href: "/files",
       label: "Open library",
     },
     title: "Your library is ready.",

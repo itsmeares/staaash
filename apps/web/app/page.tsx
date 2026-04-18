@@ -14,7 +14,7 @@ export default async function HomePage() {
   ]);
 
   if (session) {
-    redirect("/library");
+    redirect("/files");
   }
 
   return (

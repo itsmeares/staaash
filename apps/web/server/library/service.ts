@@ -123,7 +123,7 @@ type UploadFilesResult = {
 
 const getFolderHref = (
   folder: Pick<LibraryFolderSummary, "id" | "isLibraryRoot">,
-) => (folder.isLibraryRoot ? "/library" : `/library/f/${folder.id}`);
+) => (folder.isLibraryRoot ? "/files" : `/files/f/${folder.id}`);
 
 const toLibraryFileSummary = (
   file: Pick<
@@ -458,7 +458,7 @@ export const createLibraryService = ({
         {
           id: libraryRoot.id,
           name: libraryRoot.name,
-          href: "/library",
+          href: "/files",
         },
       ];
     }
