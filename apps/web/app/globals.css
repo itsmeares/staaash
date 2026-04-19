@@ -935,6 +935,137 @@ h3 {
   padding: 14px 16px 16px;
 }
 
+/* ---- Recent date groups ---- */
+
+.recent-groups {
+  display: grid;
+  gap: 28px;
+}
+
+.recent-group {
+  display: grid;
+  gap: 6px;
+}
+
+.recent-group-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  padding: 0 4px 6px;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 8%, transparent);
+}
+
+/* ---- Retrieval list (Recent / Favorites / Search) ---- */
+
+.retrieval-list {
+  display: grid;
+  gap: 2px;
+}
+
+.retrieval-row {
+  display: grid;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 7%, transparent);
+  background: transparent;
+  transition: background 120ms ease;
+}
+
+.retrieval-row:last-child {
+  border-bottom: none;
+}
+
+.retrieval-row:hover {
+  background: color-mix(in oklab, var(--foreground) 5%, var(--card));
+}
+
+.retrieval-row-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px 3px;
+}
+
+.retrieval-row-name-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.retrieval-row-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: color-mix(in oklab, var(--foreground) 88%, var(--primary) 12%);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  transition: color 100ms ease;
+}
+
+.retrieval-row-name:hover {
+  color: var(--foreground);
+}
+
+.retrieval-row-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.retrieval-row-favorite-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  opacity: 0.72;
+  flex-shrink: 0;
+}
+
+.retrieval-row-sub {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 14px 9px;
+  min-height: 32px;
+}
+
+.retrieval-row-meta {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.retrieval-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.retrieval-row:hover .retrieval-row-actions,
+.retrieval-row:focus-within .retrieval-row-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (max-width: 640px) {
+  .retrieval-row-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
 .entry-surface {
   --entry-accent: oklch(74% 0.08 78);
   --entry-accent-ink: oklch(85% 0.045 82);
@@ -1442,6 +1573,9 @@ h3 {
   .button,
   .folder-row,
   .folder-link,
+  .retrieval-row,
+  .retrieval-row-name,
+  .retrieval-row-actions,
   .entry-gateway__primary-action {
     transition: none;
   }
@@ -1465,6 +1599,7 @@ h3 {
 .pill-sm {
   font-size: 12px;
   padding: 4px 8px;
+  font-weight: 500;
 }
 
 /* ---- Library layout ---- */

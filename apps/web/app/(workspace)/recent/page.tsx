@@ -1,6 +1,7 @@
 import { FlashMessage, getSingleSearchParam } from "@/app/auth-ui";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { retrievalService } from "@/server/retrieval/service";
+import type { RetrievalItem } from "@/server/retrieval/types";
 
 import { RetrievalItemList } from "../retrieval-item-list";
 
@@ -9,6 +10,33 @@ export const dynamic = "force-dynamic";
 type RecentPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
+
+function getDateLabel(date: Date, now: Date): string {
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return "This week";
+  if (diffDays < 30) return "This month";
+  return "Older";
+}
+
+function groupByDate(
+  items: RetrievalItem[],
+  now: Date,
+): { label: string; items: RetrievalItem[] }[] {
+  const order = ["Today", "Yesterday", "This week", "This month", "Older"];
+  const map = new Map<string, RetrievalItem[]>();
+  for (const item of items) {
+    const label = getDateLabel(new Date(item.updatedAt), now);
+    if (!map.has(label)) map.set(label, []);
+    map.get(label)!.push(item);
+  }
+  return order.flatMap((label) => {
+    const group = map.get(label);
+    return group ? [{ label, items: group }] : [];
+  });
+}
 
 export default async function RecentPage({ searchParams }: RecentPageProps) {
   const [resolvedSearchParams, session] = await Promise.all([
@@ -22,41 +50,44 @@ export default async function RecentPage({ searchParams }: RecentPageProps) {
   const error = getSingleSearchParam(resolvedSearchParams, "error");
   const success = getSingleSearchParam(resolvedSearchParams, "success");
 
+  const groups = groupByDate(items, new Date());
+
   return (
     <div className="workspace-page">
-      <section className="panel stack">
-        <div className="pill">Recent</div>
-        <h1>Latest private interactions</h1>
-        <p className="muted">
-          Recents are a deduped revisit list for active private files and
-          folders, not an audit log.
-        </p>
-      </section>
-
-      {error ? <FlashMessage>{error}</FlashMessage> : null}
-      {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
-
-      <section className="panel stack">
+      <div className="stack">
         <div className="split">
-          <div className="stack">
-            <h2>Recent items</h2>
-            <p className="muted">
-              Folder navigation and authenticated file downloads refresh entries
-              here along with create, move, rename, trash, and restore actions.
-            </p>
-          </div>
-          <span className="pill">
-            {items.length} item{items.length === 1 ? "" : "s"}
-          </span>
+          <h1>Recent</h1>
+          {items.length > 0 && (
+            <span className="section-count">{items.length}</span>
+          )}
         </div>
 
-        <RetrievalItemList
-          currentPath="/recent"
-          emptyDescription="Recent items will appear here after you open folders, download files, or change private library items."
-          emptyTitle="Nothing recent yet"
-          items={items}
-        />
-      </section>
+        {error ? <FlashMessage>{error}</FlashMessage> : null}
+        {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
+
+        {groups.length === 0 ? (
+          <RetrievalItemList
+            currentPath="/recent"
+            emptyDescription="Open folders, download files, or make changes to build your recents list."
+            emptyTitle="Nothing recent yet"
+            items={[]}
+          />
+        ) : (
+          <div className="recent-groups">
+            {groups.map((group) => (
+              <div className="recent-group" key={group.label}>
+                <p className="recent-group-label">{group.label}</p>
+                <RetrievalItemList
+                  currentPath="/recent"
+                  emptyDescription=""
+                  emptyTitle=""
+                  items={group.items}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
