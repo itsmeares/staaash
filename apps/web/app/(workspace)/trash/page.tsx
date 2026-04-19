@@ -96,7 +96,7 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
                       </div>
 
                       <form
-                        action={`/api/library/folders/${item.folder.id}/restore`}
+                        action={`/api/files/folders/${item.folder.id}/restore`}
                         method="post"
                       >
                         <input name="redirectTo" type="hidden" value="/trash" />

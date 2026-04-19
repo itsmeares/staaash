@@ -37,166 +37,126 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
 
   return (
     <div className="workspace-page">
-      <section className="panel stack">
-        <div className="pill">Shared</div>
-        <h1>Public links</h1>
-        <p className="muted">
-          Phase 4 keeps sharing explicit: one public link per target, password
-          gating when needed, and no collaboration state.
-        </p>
-      </section>
+      <div className="stack">
+        <div className="split">
+          <h1>Shared</h1>
+          {allShares.length > 0 && (
+            <span className="section-count">{allShares.length}</span>
+          )}
+        </div>
 
-      {error ? <FlashMessage>{error}</FlashMessage> : null}
-      {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
+        {error ? <FlashMessage>{error}</FlashMessage> : null}
+        {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
 
-      {allShares.length === 0 ? (
-        <section className="panel stack workspace-empty-state">
-          <h2>No public links yet</h2>
-          <p className="muted">
-            Create the first link from the library explorer on a file or folder.
-          </p>
-          <Link className="pill" href="/library">
-            Open library
-          </Link>
-        </section>
-      ) : (
-        <>
-          <section className="panel stack">
-            <div className="split">
-              <div className="stack">
-                <h2>Active links</h2>
-                <p className="muted">
-                  Active links are live now and can be opened or copied again
-                  from here.
-                </p>
-              </div>
-              <span className="pill">
-                {shares.active.length} link
-                {shares.active.length === 1 ? "" : "s"}
-              </span>
-            </div>
+        {allShares.length === 0 ? (
+          <div className="workspace-empty-state">
+            <h2>No public links yet</h2>
+            <p className="muted">
+              Create the first link from the library explorer on a file or
+              folder.
+            </p>
+            <Link className="pill" href="/files">
+              Open library
+            </Link>
+          </div>
+        ) : (
+          <div className="recent-groups">
+            <div className="recent-group">
+              <p className="recent-group-label">Active links</p>
 
-            {shares.active.length === 0 ? (
-              <div className="workspace-empty-state">
-                <h3>No active links</h3>
-                <p className="muted">
-                  Revoked or expired links move into the inactive section.
-                </p>
-              </div>
-            ) : (
-              <div className="folder-list">
-                {shares.active.map((share) => (
-                  <article className="folder-row" id={share.id} key={share.id}>
-                    <div className="folder-row-head">
-                      <div className="stack">
-                        <strong>{share.target.name}</strong>
-                        <p className="folder-meta">
-                          {share.target.pathLabel} • {share.target.targetType} •
-                          Expires {formatDateTime(share.expiresAt)}
-                        </p>
-                      </div>
-                      <span className="pill">
-                        {shareStatusLabel[share.status]}
-                      </span>
-                    </div>
-
-                    <details className="folder-disclosure" open>
-                      <summary>Manage public link</summary>
-                      <div className="folder-disclosure-grid">
-                        <div className="field">
-                          <label htmlFor={`share-url-${share.id}`}>
-                            Share URL
-                          </label>
-                          <div className="workspace-inline-fields">
-                            <input
-                              id={`share-url-${share.id}`}
-                              readOnly
-                              value={share.shareUrl}
-                            />
-                            <a
-                              className="button button-secondary"
-                              href={share.shareUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              Open
-                            </a>
-                          </div>
+              {shares.active.length === 0 ? (
+                <div className="workspace-empty-state">
+                  <h3>No active links</h3>
+                  <p className="muted">
+                    Revoked or expired links move into the inactive section.
+                  </p>
+                </div>
+              ) : (
+                <div className="folder-list">
+                  {shares.active.map((share) => (
+                    <article
+                      className="folder-row"
+                      id={share.id}
+                      key={share.id}
+                    >
+                      <div className="folder-row-head">
+                        <div className="stack">
+                          <strong>{share.target.name}</strong>
+                          <p className="folder-meta">
+                            {share.target.pathLabel} • {share.target.targetType}{" "}
+                            • Expires {formatDateTime(share.expiresAt)}
+                          </p>
                         </div>
+                        <span className="pill">
+                          {shareStatusLabel[share.status]}
+                        </span>
+                      </div>
 
-                        <form
-                          action={`/api/shares/${share.id}/update`}
-                          className="field"
-                          method="post"
-                        >
-                          <input
-                            name="redirectTo"
-                            type="hidden"
-                            value={`/shared#${share.id}`}
-                          />
-                          <label htmlFor={`share-expiry-${share.id}`}>
-                            Policy
-                          </label>
-                          <div className="stack">
-                            <input
-                              defaultValue={formatDateTimeLocalValue(
-                                share.expiresAt,
-                              )}
-                              id={`share-expiry-${share.id}`}
-                              name="expiresAt"
-                              type="datetime-local"
-                              required
-                            />
-                            <label className="field-help">
-                              <input
-                                defaultChecked={share.downloadDisabled}
-                                name="downloadDisabled"
-                                type="checkbox"
-                                value="true"
-                              />{" "}
-                              Disable downloads
+                      <details className="folder-disclosure" open>
+                        <summary>Manage public link</summary>
+                        <div className="folder-disclosure-grid">
+                          <div className="field">
+                            <label htmlFor={`share-url-${share.id}`}>
+                              Share URL
                             </label>
-                            <button
-                              className="button button-secondary"
-                              type="submit"
-                            >
-                              Save policy
-                            </button>
+                            <div className="workspace-inline-fields">
+                              <input
+                                id={`share-url-${share.id}`}
+                                readOnly
+                                value={share.shareUrl}
+                              />
+                              <a
+                                className="button button-secondary"
+                                href={share.shareUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                Open
+                              </a>
+                            </div>
                           </div>
-                        </form>
 
-                        <form
-                          action={`/api/shares/${share.id}/password`}
-                          className="field"
-                          method="post"
-                        >
-                          <input
-                            name="redirectTo"
-                            type="hidden"
-                            value={`/shared#${share.id}`}
-                          />
-                          <label htmlFor={`share-password-${share.id}`}>
-                            {share.hasPassword
-                              ? "Rotate password"
-                              : "Set password"}
-                          </label>
-                          <div className="workspace-inline-fields">
+                          <form
+                            action={`/api/shares/${share.id}/update`}
+                            className="field"
+                            method="post"
+                          >
                             <input
-                              id={`share-password-${share.id}`}
-                              minLength={8}
-                              name="password"
-                              type="password"
+                              name="redirectTo"
+                              type="hidden"
+                              value={`/shared#${share.id}`}
                             />
-                            <button
-                              className="button button-secondary"
-                              type="submit"
-                            >
-                              {share.hasPassword ? "Rotate" : "Protect"}
-                            </button>
-                          </div>
-                        </form>
+                            <label htmlFor={`share-expiry-${share.id}`}>
+                              Policy
+                            </label>
+                            <div className="stack">
+                              <input
+                                defaultValue={formatDateTimeLocalValue(
+                                  share.expiresAt,
+                                )}
+                                id={`share-expiry-${share.id}`}
+                                name="expiresAt"
+                                type="datetime-local"
+                                required
+                              />
+                              <label className="field-help">
+                                <input
+                                  defaultChecked={share.downloadDisabled}
+                                  name="downloadDisabled"
+                                  type="checkbox"
+                                  value="true"
+                                />{" "}
+                                Disable downloads
+                              </label>
+                              <button
+                                className="button button-secondary"
+                                type="submit"
+                              >
+                                Save policy
+                              </button>
+                            </div>
+                          </form>
 
-                        {share.hasPassword ? (
                           <form
                             action={`/api/shares/${share.id}/password`}
                             className="field"
@@ -207,160 +167,189 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
                               type="hidden"
                               value={`/shared#${share.id}`}
                             />
-                            <input name="clear" type="hidden" value="true" />
-                            <label>Password</label>
-                            <button
-                              className="button button-secondary"
-                              type="submit"
-                            >
-                              Remove password
-                            </button>
+                            <label htmlFor={`share-password-${share.id}`}>
+                              {share.hasPassword
+                                ? "Rotate password"
+                                : "Set password"}
+                            </label>
+                            <div className="workspace-inline-fields">
+                              <input
+                                id={`share-password-${share.id}`}
+                                minLength={8}
+                                name="password"
+                                type="password"
+                              />
+                              <button
+                                className="button button-secondary"
+                                type="submit"
+                              >
+                                {share.hasPassword ? "Rotate" : "Protect"}
+                              </button>
+                            </div>
                           </form>
-                        ) : null}
 
-                        <form
-                          action={`/api/shares/${share.id}/revoke`}
-                          className="field"
-                          method="post"
-                        >
-                          <input
-                            name="redirectTo"
-                            type="hidden"
-                            value={`/shared#${share.id}`}
-                          />
-                          <label>Revoke</label>
-                          <button
-                            className="button button-danger"
-                            type="submit"
-                          >
-                            Revoke link
-                          </button>
-                        </form>
+                          {share.hasPassword ? (
+                            <form
+                              action={`/api/shares/${share.id}/password`}
+                              className="field"
+                              method="post"
+                            >
+                              <input
+                                name="redirectTo"
+                                type="hidden"
+                                value={`/shared#${share.id}`}
+                              />
+                              <input name="clear" type="hidden" value="true" />
+                              <label>Password</label>
+                              <button
+                                className="button button-secondary"
+                                type="submit"
+                              >
+                                Remove password
+                              </button>
+                            </form>
+                          ) : null}
 
-                        <form
-                          action={`/api/shares/${share.id}/delete`}
-                          className="field"
-                          method="post"
-                        >
-                          <input
-                            name="redirectTo"
-                            type="hidden"
-                            value="/shared"
-                          />
-                          <label>Delete</label>
-                          <button
-                            className="button button-danger"
-                            type="submit"
-                          >
-                            Delete record
-                          </button>
-                        </form>
-                      </div>
-                    </details>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="panel stack">
-            <div className="split">
-              <div className="stack">
-                <h2>Inactive links</h2>
-                <p className="muted">
-                  Inactive links are revoked, expired, or paused because the
-                  target is unavailable.
-                </p>
-              </div>
-              <span className="pill">
-                {shares.inactive.length} link
-                {shares.inactive.length === 1 ? "" : "s"}
-              </span>
-            </div>
-
-            {shares.inactive.length === 0 ? (
-              <div className="workspace-empty-state">
-                <h3>No inactive links</h3>
-                <p className="muted">Everything here is currently live.</p>
-              </div>
-            ) : (
-              <div className="folder-list">
-                {shares.inactive.map((share) => (
-                  <article className="folder-row" id={share.id} key={share.id}>
-                    <div className="folder-row-head">
-                      <div className="stack">
-                        <strong>{share.target.name}</strong>
-                        <p className="folder-meta">
-                          {share.target.pathLabel} • {share.target.targetType}
-                        </p>
-                      </div>
-                      <span className="pill">
-                        {shareStatusLabel[share.status]}
-                      </span>
-                    </div>
-
-                    <details className="folder-disclosure">
-                      <summary>Manage inactive link</summary>
-                      <div className="folder-disclosure-grid">
-                        {share.status !== "target-unavailable" ? (
                           <form
-                            action="/api/shares"
+                            action={`/api/shares/${share.id}/revoke`}
                             className="field"
                             method="post"
                           >
-                            <input name="mode" type="hidden" value="reissue" />
-                            <input
-                              name="shareId"
-                              type="hidden"
-                              value={share.id}
-                            />
                             <input
                               name="redirectTo"
                               type="hidden"
                               value={`/shared#${share.id}`}
                             />
-                            <label>Reissue</label>
-                            <button className="button" type="submit">
-                              Reissue public link
+                            <label>Revoke</label>
+                            <button
+                              className="button button-danger"
+                              type="submit"
+                            >
+                              Revoke link
                             </button>
                           </form>
-                        ) : (
-                          <div className="field">
-                            <label>Target</label>
-                            <span className="field-help">
-                              Restore the item in the library before reissuing
-                              this link.
-                            </span>
-                          </div>
-                        )}
 
-                        <form
-                          action={`/api/shares/${share.id}/delete`}
-                          className="field"
-                          method="post"
-                        >
-                          <input
-                            name="redirectTo"
-                            type="hidden"
-                            value="/shared"
-                          />
-                          <label>Delete</label>
-                          <button
-                            className="button button-danger"
-                            type="submit"
+                          <form
+                            action={`/api/shares/${share.id}/delete`}
+                            className="field"
+                            method="post"
                           >
-                            Delete record
-                          </button>
-                        </form>
+                            <input
+                              name="redirectTo"
+                              type="hidden"
+                              value="/shared"
+                            />
+                            <label>Delete</label>
+                            <button
+                              className="button button-danger"
+                              type="submit"
+                            >
+                              Delete record
+                            </button>
+                          </form>
+                        </div>
+                      </details>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="recent-group">
+              <p className="recent-group-label">Inactive links</p>
+
+              {shares.inactive.length === 0 ? (
+                <div className="workspace-empty-state">
+                  <h3>No inactive links</h3>
+                  <p className="muted">Everything here is currently live.</p>
+                </div>
+              ) : (
+                <div className="folder-list">
+                  {shares.inactive.map((share) => (
+                    <article
+                      className="folder-row"
+                      id={share.id}
+                      key={share.id}
+                    >
+                      <div className="folder-row-head">
+                        <div className="stack">
+                          <strong>{share.target.name}</strong>
+                          <p className="folder-meta">
+                            {share.target.pathLabel} • {share.target.targetType}
+                          </p>
+                        </div>
+                        <span className="pill">
+                          {shareStatusLabel[share.status]}
+                        </span>
                       </div>
-                    </details>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-        </>
-      )}
+
+                      <details className="folder-disclosure">
+                        <summary>Manage inactive link</summary>
+                        <div className="folder-disclosure-grid">
+                          {share.status !== "target-unavailable" ? (
+                            <form
+                              action="/api/shares"
+                              className="field"
+                              method="post"
+                            >
+                              <input
+                                name="mode"
+                                type="hidden"
+                                value="reissue"
+                              />
+                              <input
+                                name="shareId"
+                                type="hidden"
+                                value={share.id}
+                              />
+                              <input
+                                name="redirectTo"
+                                type="hidden"
+                                value={`/shared#${share.id}`}
+                              />
+                              <label>Reissue</label>
+                              <button className="button" type="submit">
+                                Reissue public link
+                              </button>
+                            </form>
+                          ) : (
+                            <div className="field">
+                              <label>Target</label>
+                              <span className="field-help">
+                                Restore the item in the library before reissuing
+                                this link.
+                              </span>
+                            </div>
+                          )}
+
+                          <form
+                            action={`/api/shares/${share.id}/delete`}
+                            className="field"
+                            method="post"
+                          >
+                            <input
+                              name="redirectTo"
+                              type="hidden"
+                              value="/shared"
+                            />
+                            <label>Delete</label>
+                            <button
+                              className="button button-danger"
+                              type="submit"
+                            >
+                              Delete record
+                            </button>
+                          </form>
+                        </div>
+                      </details>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

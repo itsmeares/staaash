@@ -42,12 +42,12 @@ type FolderAccessInput = LibraryActor & {
 
 const getFolderHref = (
   folder: Pick<LibraryFolderSummary, "id" | "isLibraryRoot">,
-) => (folder.isLibraryRoot ? "/library" : `/library/f/${folder.id}`);
+) => (folder.isLibraryRoot ? "/files" : `/files/f/${folder.id}`);
 
 const getFileHref = (file: Pick<LibraryFileSummary, "id" | "viewerKind">) =>
   file.viewerKind
-    ? `/library/files/${file.id}`
-    : `/api/library/files/${file.id}/download`;
+    ? `/files/view/${file.id}`
+    : `/api/files/view/${file.id}/download`;
 
 const buildFolderMap = (folders: LibraryFolderSummary[]) =>
   new Map(folders.map((folder) => [folder.id, folder]));

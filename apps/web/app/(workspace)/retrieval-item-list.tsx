@@ -14,6 +14,13 @@ type RetrievalItemListProps = {
 const getFavoriteActionLabel = (item: RetrievalItem) =>
   item.isFavorite ? "Remove favorite" : "Add favorite";
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
 export function RetrievalItemList({
   items,
   currentPath,
@@ -24,87 +31,92 @@ export function RetrievalItemList({
   if (items.length === 0) {
     return (
       <div className="workspace-empty-state">
-        <h2>{emptyTitle}</h2>
-        <p className="muted">{emptyDescription}</p>
+        <p className="muted">{emptyTitle}</p>
+        <p className="muted" style={{ fontSize: "13px" }}>
+          {emptyDescription}
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="folder-list">
+    <div className="retrieval-list">
       {items.map((item) => (
-        <article className="folder-row" key={`${item.kind}-${item.id}`}>
-          <div className="folder-row-head">
-            <div className="stack">
+        <article className="retrieval-row" key={`${item.kind}-${item.id}`}>
+          <div className="retrieval-row-main">
+            <div className="retrieval-row-name-wrap">
               {item.kind === "folder" ? (
-                <Link className="folder-link" href={item.href}>
+                <Link className="retrieval-row-name" href={item.href}>
                   {item.name}
                 </Link>
               ) : (
-                <a className="folder-link" href={item.href}>
+                <a className="retrieval-row-name" href={item.href}>
                   {item.name}
                 </a>
               )}
-              <p className="folder-meta">{item.pathLabel}</p>
             </div>
 
-            <div className="workspace-inline-fields retrieval-inline-actions">
+            <div className="retrieval-row-badges">
               {showMatchKind && item.matchKind ? (
-                <span className="pill">{item.matchKind} match</span>
+                <span className="pill pill-sm">{item.matchKind}</span>
               ) : null}
-              <span className="pill">
+              <span className="pill pill-sm">
                 {item.kind === "folder" ? "Folder" : "File"}
               </span>
-              {item.isFavorite ? <span className="pill">Favorite</span> : null}
+              {item.isFavorite ? (
+                <span
+                  className="retrieval-row-favorite-dot"
+                  role="img"
+                  aria-label="Favorited"
+                />
+              ) : null}
             </div>
           </div>
 
-          <div className="meta-list muted">
-            <div className="meta-row">
-              <span>Updated</span>
-              <strong>{formatDateTime(item.updatedAt)}</strong>
+          <div className="retrieval-row-sub">
+            <span className="retrieval-row-meta">
+              {formatDateTime(item.updatedAt)}
+              {item.kind === "file"
+                ? ` · ${formatFileSize(item.sizeBytes)}`
+                : ` · ${item.pathLabel}`}
+            </span>
+
+            <div className="retrieval-row-actions">
+              {item.kind === "folder" ? (
+                <Link
+                  className="button button-secondary button-sm"
+                  href={item.href}
+                >
+                  Open
+                </Link>
+              ) : (
+                <a
+                  className="button button-secondary button-sm"
+                  href={item.href}
+                >
+                  Download
+                </a>
+              )}
+
+              <form
+                action={`/api/files/${item.kind === "folder" ? "folders" : "files"}/${item.id}/favorite`}
+                method="post"
+                className="inline-form"
+              >
+                <input name="redirectTo" type="hidden" value={currentPath} />
+                <input
+                  name="isFavorite"
+                  type="hidden"
+                  value={item.isFavorite ? "false" : "true"}
+                />
+                <button
+                  className="button button-secondary button-sm"
+                  type="submit"
+                >
+                  {getFavoriteActionLabel(item)}
+                </button>
+              </form>
             </div>
-            {item.kind === "file" ? (
-              <div className="meta-row">
-                <span>Details</span>
-                <strong>
-                  {item.mimeType} •{" "}
-                  {Math.max(1, Math.round(item.sizeBytes / 1024))} KB
-                </strong>
-              </div>
-            ) : (
-              <div className="meta-row">
-                <span>Path</span>
-                <strong>{item.pathLabel}</strong>
-              </div>
-            )}
-          </div>
-
-          <div className="workspace-inline-fields">
-            {item.kind === "folder" ? (
-              <Link className="button button-secondary" href={item.href}>
-                Open folder
-              </Link>
-            ) : (
-              <a className="button button-secondary" href={item.href}>
-                Download file
-              </a>
-            )}
-
-            <form
-              action={`/api/library/${item.kind === "folder" ? "folders" : "files"}/${item.id}/favorite`}
-              method="post"
-            >
-              <input name="redirectTo" type="hidden" value={currentPath} />
-              <input
-                name="isFavorite"
-                type="hidden"
-                value={item.isFavorite ? "false" : "true"}
-              />
-              <button className="button button-secondary" type="submit">
-                {getFavoriteActionLabel(item)}
-              </button>
-            </form>
           </div>
         </article>
       ))}

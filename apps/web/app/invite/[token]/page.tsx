@@ -35,7 +35,7 @@ export default async function InviteRedeemPage({
   ]);
 
   if (session) {
-    redirect("/library");
+    redirect("/files");
   }
 
   const error = getSingleSearchParam(resolvedSearchParams, "error");

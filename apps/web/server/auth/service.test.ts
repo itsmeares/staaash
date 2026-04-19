@@ -48,6 +48,7 @@ const createMemoryRepository = (): AuthRepository => {
     username: user.username,
     displayName: user.displayName,
     role: user.role,
+    storageLimitBytes: user.storageLimitBytes,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   });
@@ -90,6 +91,7 @@ const createMemoryRepository = (): AuthRepository => {
         displayName: params.displayName ?? null,
         passwordHash: params.passwordHash,
         role: "owner",
+        storageLimitBytes: null,
         createdAt: params.createdAt,
         updatedAt: params.createdAt,
       };
@@ -115,6 +117,13 @@ const createMemoryRepository = (): AuthRepository => {
 
     async listUsers() {
       return state.users.map(toUser);
+    },
+
+    async setUserStorageLimit(userId, limitBytes) {
+      const user = state.users.find((u) => u.id === userId);
+      if (!user) return null;
+      user.storageLimitBytes = limitBytes;
+      return toUser(user);
     },
 
     async createSession(params) {
@@ -237,6 +246,7 @@ const createMemoryRepository = (): AuthRepository => {
         displayName: params.displayName ?? null,
         passwordHash: params.passwordHash,
         role: invite.role,
+        storageLimitBytes: null,
         createdAt: params.now,
         updatedAt: params.now,
       };

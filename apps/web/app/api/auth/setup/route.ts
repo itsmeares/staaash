@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
           { user: result.user, session: result.session },
           { status: 201 },
         )
-      : NextResponse.redirect(new URL("/library", request.url), 303);
+      : NextResponse.redirect(new URL("/files", request.url), 303);
 
     response.cookies.set(
       buildSessionCookie(result.sessionToken, result.session.expiresAt),

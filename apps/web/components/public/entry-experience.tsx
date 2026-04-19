@@ -91,7 +91,7 @@ export function EntryExperience({
 
       if (res.ok) {
         setPhase("success");
-        setTimeout(() => router.push("/library"), 1600);
+        setTimeout(() => router.push("/files"), 1600);
       } else {
         setError(json.error ?? "Something went wrong. Please try again.");
         setPending(false);

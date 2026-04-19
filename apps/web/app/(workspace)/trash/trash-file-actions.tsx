@@ -12,7 +12,7 @@ type EmptyTrashActionProps = {
 export function TrashFileActions({ fileId, fileName }: TrashFileActionsProps) {
   return (
     <div className="workspace-inline-fields">
-      <form action={`/api/library/files/${fileId}/restore`} method="post">
+      <form action={`/api/files/files/${fileId}/restore`} method="post">
         <input name="redirectTo" type="hidden" value="/trash" />
         <button className="button" type="submit">
           Restore file
@@ -20,7 +20,7 @@ export function TrashFileActions({ fileId, fileName }: TrashFileActionsProps) {
       </form>
 
       <form
-        action={`/api/library/files/${fileId}/delete`}
+        action={`/api/files/files/${fileId}/delete`}
         method="post"
         onSubmit={(event) => {
           if (
@@ -44,7 +44,7 @@ export function TrashFileActions({ fileId, fileName }: TrashFileActionsProps) {
 export function EmptyTrashAction({ disabled }: EmptyTrashActionProps) {
   return (
     <form
-      action="/api/library/trash/clear"
+      action="/api/files/trash/clear"
       method="post"
       onSubmit={(event) => {
         if (
