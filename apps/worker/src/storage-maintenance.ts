@@ -13,11 +13,7 @@ import { resolveWorkspacePath } from "@staaash/config";
 
 const workerEnvSchema = z.object({
   FILES_ROOT: z.string().trim().min(1),
-  UPLOAD_STAGING_RETENTION_HOURS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(24),
+  UPLOAD_STAGING_RETENTION_HOURS: z.coerce.number().int().positive().default(2),
 });
 
 export type WorkerStoragePaths = {
