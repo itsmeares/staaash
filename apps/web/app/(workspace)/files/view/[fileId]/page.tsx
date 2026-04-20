@@ -99,7 +99,7 @@ export default async function LibraryFileViewerPage({
               ? { minHeight: "auto", padding: "2rem" }
               : file.viewerKind === "pdf"
                 ? { flex: 1, minHeight: 0 }
-                : undefined
+                : { minHeight: "auto" }
           }
         >
           {file.viewerKind === "image" ? (
