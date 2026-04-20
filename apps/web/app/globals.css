@@ -198,7 +198,7 @@ h3 {
   font: inherit;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 12px 24px color-mix(in oklab, var(--primary) 22%, transparent);
+  box-shadow: 0 8px 20px color-mix(in oklab, var(--primary) 6%, transparent);
 }
 
 .button:disabled {
@@ -209,6 +209,7 @@ h3 {
 .button-secondary {
   background: color-mix(in oklab, var(--primary) 10%, var(--card));
   color: color-mix(in oklab, var(--foreground) 78%, var(--primary) 22%);
+  box-shadow: none;
 }
 
 .button-danger {
@@ -330,7 +331,8 @@ h3 {
 }
 
 .workspace-shell {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   display: grid;
   grid-template-columns: 216px minmax(0, 1fr);
 }
@@ -764,6 +766,8 @@ h3 {
   flex: 1;
   min-width: 0;
   padding: 24px 32px 56px;
+  overflow-y: auto;
+  height: 100%;
 }
 
 .workspace-page {
@@ -1936,6 +1940,9 @@ h3 {
   position: relative;
   /* ensure the drag overlay fills this */
   isolation: isolate;
+  /* Extend so rubber-band can start anywhere in the visible explorer area */
+  min-height: calc(100vh - 100px);
+  align-content: start;
 }
 
 /* ---- Header ---- */
@@ -2004,8 +2011,10 @@ h3 {
 .explorer-list {
   position: relative;
   padding-top: 14px;
+  padding-bottom: 40px;
   user-select: none;
   /* Don't select text during rubber-band */
+  min-height: 200px;
 }
 
 /* ---- Section label ---- */
@@ -2156,6 +2165,62 @@ h3 {
   border: 1px solid color-mix(in oklab, var(--primary) 38%, transparent);
   background: color-mix(in oklab, var(--primary) 6%, transparent);
   border-radius: 4px;
+}
+
+/* ---- Background context menu (right-click on empty space) ---- */
+
+.bg-ctx-menu {
+  position: fixed;
+  z-index: 9999;
+  min-width: 200px;
+  background: var(--card);
+  border: 1px solid color-mix(in oklab, var(--foreground) 12%, transparent);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.bg-ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 5px;
+  font-size: 13px;
+  color: var(--foreground);
+  background: transparent;
+  border: none;
+  cursor: default;
+  text-align: left;
+  user-select: none;
+}
+
+.bg-ctx-item:hover {
+  background: color-mix(in oklab, var(--foreground) 8%, transparent);
+}
+
+.bg-ctx-item--danger {
+  color: var(--destructive);
+}
+
+.bg-ctx-item--danger:hover {
+  background: color-mix(in oklab, var(--destructive) 10%, transparent);
+}
+
+.bg-ctx-sep {
+  height: 1px;
+  background: color-mix(in oklab, var(--foreground) 10%, transparent);
+  margin: 4px 0;
+}
+
+.bg-ctx-shortcut {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  pointer-events: none;
 }
 
 /* ---- Drag-to-upload overlay ---- */

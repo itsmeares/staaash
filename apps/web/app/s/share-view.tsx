@@ -1,6 +1,8 @@
 import React from "react";
 import Link from "next/link";
 
+import { TextFileViewer } from "@/app/text-file-viewer";
+
 import {
   FlashMessage,
   formatDateTime,
@@ -165,7 +167,22 @@ export function ShareFilePage({
         {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
       </section>
 
-      {file.viewerKind ? (
+      {file.viewerKind === "audio" ? (
+        <audio
+          controls
+          preload="metadata"
+          src={contentHref}
+          style={{ width: "100%" }}
+        />
+      ) : file.viewerKind === "pdf" ? (
+        <embed
+          src={contentHref}
+          type="application/pdf"
+          style={{ width: "100%", height: "75vh" }}
+        />
+      ) : file.viewerKind === "text" ? (
+        <TextFileViewer contentHref={contentHref} />
+      ) : file.viewerKind === "image" || file.viewerKind === "video" ? (
         <section
           className="panel stack"
           style={{
@@ -214,8 +231,8 @@ export function ShareFilePage({
         </p>
         {share.downloadDisabled ? (
           <span className="field-help">
-            Downloads are disabled for this link. Inline image and video viewing
-            remains available.
+            Downloads are disabled for this link. Inline viewing of images,
+            videos, audio, and PDFs remains available.
           </span>
         ) : downloadHref ? (
           <a className="button" href={downloadHref}>

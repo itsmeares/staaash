@@ -1,8 +1,11 @@
-export type ViewerKind = "image" | "video";
+export type ViewerKind = "image" | "video" | "audio" | "pdf" | "text";
 
 const MIME_TO_VIEWER_KIND: Array<[prefix: string, kind: ViewerKind]> = [
   ["image/", "image"],
   ["video/", "video"],
+  ["audio/", "audio"],
+  ["application/pdf", "pdf"],
+  ["text/", "text"],
 ];
 
 export const resolveViewerKind = (mimeType: string): ViewerKind | null => {

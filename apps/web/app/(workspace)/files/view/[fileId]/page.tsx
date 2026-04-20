@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { TextFileViewer } from "@/app/text-file-viewer";
+
 import { formatDateTime } from "@/app/auth-ui";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { isLibraryError } from "@/server/library/errors";
@@ -42,11 +44,18 @@ export default async function LibraryFileViewerPage({
     });
 
     const backHref = file.folderId ? `/files/f/${file.folderId}` : "/files";
-    const contentHref = `/api/files/view/${file.id}/content`;
-    const downloadHref = `/api/files/view/${file.id}/download`;
+    const contentHref = `/api/files/files/${file.id}/content`;
+    const downloadHref = `/api/files/files/${file.id}/download`;
 
     return (
-      <main className="workspace-page">
+      <main
+        className="workspace-page"
+        style={
+          file.viewerKind === "pdf"
+            ? { display: "flex", flexDirection: "column", height: "100%" }
+            : undefined
+        }
+      >
         <div className="viewer-header">
           <div className="viewer-header-identity">
             <h1>{file.name}</h1>
@@ -56,17 +65,48 @@ export default async function LibraryFileViewerPage({
               Updated {formatDateTime(file.updatedAt)}
             </p>
           </div>
-          <div className="workspace-inline-fields">
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              alignItems: "center",
+              flexShrink: 0,
+            }}
+          >
             <Link className="button button-secondary button-sm" href={backHref}>
               Back
             </Link>
+            {file.viewerKind === "pdf" ? (
+              <a
+                className="button button-secondary button-sm"
+                href={contentHref}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open in new tab
+              </a>
+            ) : null}
             <a className="button button-sm" href={downloadHref}>
               Download
             </a>
           </div>
         </div>
 
-        <div className="viewer-media">
+        <div
+          className="viewer-media"
+          style={
+            file.viewerKind === "audio" || file.viewerKind === "text"
+              ? { minHeight: "auto", padding: "2rem" }
+              : file.viewerKind === "pdf"
+                ? { flex: 1, minHeight: 0 }
+                : {
+                    minHeight: "auto",
+                    background: "none",
+                    border: "none",
+                    borderRadius: 0,
+                  }
+          }
+        >
           {file.viewerKind === "image" ? (
             <img
               alt={file.name}
@@ -78,6 +118,21 @@ export default async function LibraryFileViewerPage({
                 objectFit: "contain",
               }}
             />
+          ) : file.viewerKind === "audio" ? (
+            <audio
+              controls
+              preload="metadata"
+              src={contentHref}
+              style={{ width: "100%" }}
+            />
+          ) : file.viewerKind === "pdf" ? (
+            <embed
+              src={contentHref}
+              type="application/pdf"
+              style={{ width: "100%", height: "100%" }}
+            />
+          ) : file.viewerKind === "text" ? (
+            <TextFileViewer contentHref={contentHref} />
           ) : (
             <video
               controls

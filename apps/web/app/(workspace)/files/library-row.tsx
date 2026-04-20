@@ -281,6 +281,16 @@ export function LibraryRow(props: LibraryRowProps) {
           <ContextMenuShortcut>↵</ContextMenuShortcut>
         </ContextMenuItem>
 
+        {props.kind === "file" && props.data.viewerKind ? (
+          <ContextMenuItem
+            onClick={() => {
+              window.location.href = `/api/files/files/${props.data.id}/download`;
+            }}
+          >
+            Download
+          </ContextMenuItem>
+        ) : null}
+
         <ContextMenuSeparator />
 
         {/* Group 2 — item management */}
