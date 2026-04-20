@@ -167,7 +167,14 @@ export function ShareFilePage({
         {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
       </section>
 
-      {file.viewerKind ? (
+      {file.viewerKind === "audio" ? (
+        <audio
+          controls
+          preload="metadata"
+          src={contentHref}
+          style={{ width: "100%" }}
+        />
+      ) : file.viewerKind ? (
         <section
           className="panel stack"
           style={{
@@ -176,7 +183,7 @@ export function ShareFilePage({
             alignItems: "center",
             justifyContent: "center",
             backgroundColor: "var(--color-surface-hover, #f3f4f6)",
-            ...(file.viewerKind === "audio" || file.viewerKind === "text"
+            ...(file.viewerKind === "text"
               ? { padding: "2rem" }
               : { minHeight: "60vh" }),
           }}
@@ -191,13 +198,6 @@ export function ShareFilePage({
                 maxHeight: "75vh",
                 objectFit: "contain",
               }}
-            />
-          ) : file.viewerKind === "audio" ? (
-            <audio
-              controls
-              preload="metadata"
-              src={contentHref}
-              style={{ width: "100%" }}
             />
           ) : file.viewerKind === "pdf" ? (
             <embed
