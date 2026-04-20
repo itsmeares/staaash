@@ -198,7 +198,7 @@ h3 {
   font: inherit;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 12px 24px color-mix(in oklab, var(--primary) 10%, transparent);
+  box-shadow: 0 8px 20px color-mix(in oklab, var(--primary) 6%, transparent);
 }
 
 .button:disabled {
@@ -209,6 +209,7 @@ h3 {
 .button-secondary {
   background: color-mix(in oklab, var(--primary) 10%, var(--card));
   color: color-mix(in oklab, var(--foreground) 78%, var(--primary) 22%);
+  box-shadow: none;
 }
 
 .button-danger {
