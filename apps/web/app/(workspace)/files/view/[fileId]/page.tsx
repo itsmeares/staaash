@@ -62,6 +62,16 @@ export default async function LibraryFileViewerPage({
             <Link className="button button-secondary button-sm" href={backHref}>
               Back
             </Link>
+            {file.viewerKind === "pdf" ? (
+              <a
+                className="button button-secondary button-sm"
+                href={contentHref}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open in new tab
+              </a>
+            ) : null}
             <a className="button button-sm" href={downloadHref}>
               Download
             </a>
@@ -95,10 +105,10 @@ export default async function LibraryFileViewerPage({
               style={{ width: "100%" }}
             />
           ) : file.viewerKind === "pdf" ? (
-            <iframe
+            <embed
               src={contentHref}
-              title={file.name}
-              style={{ width: "100%", height: "75vh", border: "none" }}
+              type="application/pdf"
+              style={{ width: "100%", height: "75vh" }}
             />
           ) : file.viewerKind === "text" ? (
             <TextFileViewer contentHref={contentHref} />

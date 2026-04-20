@@ -200,10 +200,10 @@ export function ShareFilePage({
               style={{ width: "100%" }}
             />
           ) : file.viewerKind === "pdf" ? (
-            <iframe
+            <embed
               src={contentHref}
-              title={file.name}
-              style={{ width: "100%", height: "75vh", border: "none" }}
+              type="application/pdf"
+              style={{ width: "100%", height: "75vh" }}
             />
           ) : file.viewerKind === "text" ? (
             <TextFileViewer contentHref={contentHref} />
