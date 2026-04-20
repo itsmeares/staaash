@@ -361,7 +361,7 @@ export function LibraryView({
     const file = listing.files.find((f) => f.id === id);
     if (file) {
       if (file.viewerKind) router.push(`/files/view/${file.id}`);
-      else window.location.href = `/api/files/view/${file.id}/download`;
+      else window.location.href = `/api/files/files/${file.id}/download`;
     }
   };
 
