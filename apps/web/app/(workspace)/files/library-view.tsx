@@ -748,47 +748,49 @@ export function LibraryView({
         {/* ---- Header ---- */}
         <div className="explorer-header">
           <div className="explorer-header-left">
-            <nav aria-label="Breadcrumb" className="workspace-breadcrumbs">
-              {listing.breadcrumbs.map((crumb, index) => {
-                const label = index === 0 ? "Files" : crumb.name;
-                const isActive = index === listing.breadcrumbs.length - 1;
-                if (isActive) {
+            <div className="explorer-title-row">
+              <nav aria-label="Breadcrumb" className="workspace-breadcrumbs">
+                {listing.breadcrumbs.map((crumb, index) => {
+                  const label = index === 0 ? "Files" : crumb.name;
+                  const isActive = index === listing.breadcrumbs.length - 1;
+                  if (isActive) {
+                    return (
+                      <span
+                        key={crumb.id}
+                        className="workspace-breadcrumb-active"
+                      >
+                        {label}
+                      </span>
+                    );
+                  }
                   return (
-                    <span
-                      key={crumb.id}
-                      className="workspace-breadcrumb-active"
-                    >
+                    <Link key={crumb.id} href={crumb.href}>
                       {label}
-                    </span>
+                    </Link>
                   );
-                }
-                return (
-                  <Link key={crumb.id} href={crumb.href}>
-                    {label}
-                  </Link>
-                );
-              })}
-            </nav>
-            {(selectedIds.size > 0 || cutItems.length > 0) && (
-              <div className="explorer-badges">
-                {selectedIds.size > 0 && (
-                  <span className="selection-badge">
-                    {selectedIds.size} selected
-                  </span>
-                )}
-                {cutItems.length > 0 && selectedIds.size === 0 && (
-                  <button
-                    className="cut-badge"
-                    type="button"
-                    onClick={handlePaste}
-                    title="Paste here (Ctrl+V)"
-                  >
-                    {cutItems.length} item{cutItems.length !== 1 ? "s" : ""} cut
-                    — paste here
-                  </button>
-                )}
-              </div>
-            )}
+                })}
+              </nav>
+              {(selectedIds.size > 0 || cutItems.length > 0) && (
+                <div className="explorer-badges">
+                  {selectedIds.size > 0 && (
+                    <span className="selection-badge">
+                      {selectedIds.size} selected
+                    </span>
+                  )}
+                  {cutItems.length > 0 && selectedIds.size === 0 && (
+                    <button
+                      className="cut-badge"
+                      type="button"
+                      onClick={handlePaste}
+                      title="Paste here (Ctrl+V)"
+                    >
+                      {cutItems.length} item{cutItems.length !== 1 ? "s" : ""}{" "}
+                      cut — paste here
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="explorer-header-actions">
