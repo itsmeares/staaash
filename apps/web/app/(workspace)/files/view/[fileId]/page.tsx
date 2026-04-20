@@ -65,7 +65,14 @@ export default async function LibraryFileViewerPage({
               Updated {formatDateTime(file.updatedAt)}
             </p>
           </div>
-          <div className="workspace-inline-fields">
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              alignItems: "center",
+              flexShrink: 0,
+            }}
+          >
             <Link className="button button-secondary button-sm" href={backHref}>
               Back
             </Link>
