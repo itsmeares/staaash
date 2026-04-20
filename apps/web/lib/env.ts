@@ -23,11 +23,7 @@ const envSchema = z.object({
     .positive()
     .default(10 * 1024 * 1024 * 1024),
   UPLOAD_TIMEOUT_MINUTES: z.coerce.number().int().positive().default(60),
-  UPLOAD_STAGING_RETENTION_HOURS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(24),
+  UPLOAD_STAGING_RETENTION_HOURS: z.coerce.number().int().positive().default(2),
   SESSION_MAX_AGE_DAYS: z.coerce.number().int().positive().default(30),
   INVITE_MAX_AGE_DAYS: z.coerce.number().int().positive().default(7),
   PASSWORD_RESET_MAX_AGE_HOURS: z.coerce.number().int().positive().default(4),
