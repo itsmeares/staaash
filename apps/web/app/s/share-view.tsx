@@ -174,7 +174,15 @@ export function ShareFilePage({
           src={contentHref}
           style={{ width: "100%" }}
         />
-      ) : file.viewerKind ? (
+      ) : file.viewerKind === "pdf" ? (
+        <embed
+          src={contentHref}
+          type="application/pdf"
+          style={{ width: "100%", height: "75vh" }}
+        />
+      ) : file.viewerKind === "text" ? (
+        <TextFileViewer contentHref={contentHref} />
+      ) : file.viewerKind === "image" || file.viewerKind === "video" ? (
         <section
           className="panel stack"
           style={{
@@ -183,9 +191,7 @@ export function ShareFilePage({
             alignItems: "center",
             justifyContent: "center",
             backgroundColor: "var(--color-surface-hover, #f3f4f6)",
-            ...(file.viewerKind === "text"
-              ? { padding: "2rem" }
-              : { minHeight: "60vh" }),
+            minHeight: "60vh",
           }}
         >
           {file.viewerKind === "image" ? (
@@ -199,14 +205,6 @@ export function ShareFilePage({
                 objectFit: "contain",
               }}
             />
-          ) : file.viewerKind === "pdf" ? (
-            <embed
-              src={contentHref}
-              type="application/pdf"
-              style={{ width: "100%", height: "75vh" }}
-            />
-          ) : file.viewerKind === "text" ? (
-            <TextFileViewer contentHref={contentHref} />
           ) : (
             <video
               controls
