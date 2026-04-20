@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { TextFileViewer } from "@/app/text-file-viewer";
+
 import { formatDateTime } from "@/app/auth-ui";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { isLibraryError } from "@/server/library/errors";
@@ -78,6 +80,21 @@ export default async function LibraryFileViewerPage({
                 objectFit: "contain",
               }}
             />
+          ) : file.viewerKind === "audio" ? (
+            <audio
+              controls
+              preload="metadata"
+              src={contentHref}
+              style={{ width: "100%" }}
+            />
+          ) : file.viewerKind === "pdf" ? (
+            <iframe
+              src={contentHref}
+              title={file.name}
+              style={{ width: "100%", height: "75vh", border: "none" }}
+            />
+          ) : file.viewerKind === "text" ? (
+            <TextFileViewer contentHref={contentHref} />
           ) : (
             <video
               controls
