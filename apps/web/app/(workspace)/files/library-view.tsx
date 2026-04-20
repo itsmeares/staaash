@@ -4,9 +4,11 @@ import {
   startTransition,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FolderPlus, Upload } from "lucide-react";
@@ -149,6 +151,19 @@ export function LibraryView({
   // ---- Rubber-band ----
   const [rubberBand, setRubberBand] = useState<RubberBand | null>(null);
   const isRubberBanding = useRef(false);
+  const rubberBandStart = useRef<{ startX: number; startY: number } | null>(
+    null,
+  );
+  // Tracks where a mousedown originated so we can convert to rubber-band
+  // after the drag threshold when the drag started on a row.
+  const dragOrigin = useRef<{
+    x: number;
+    y: number;
+    onRow: boolean;
+  } | null>(null);
+  // True from the moment rubber-band is committed until after the next click
+  // event fires, so we can suppress spurious row-click / deselect callbacks.
+  const didRubberBand = useRef(false);
   const listRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -161,6 +176,12 @@ export function LibraryView({
   // ---- New folder popover ----
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+
+  // ---- Background context menu (right-click on empty space) ----
+  const [bgCtxMenu, setBgCtxMenu] = useState<{ x: number; y: number } | null>(
+    null,
+  );
+  const bgCtxMenuRef = useRef<HTMLDivElement>(null);
 
   // ---- Flash messages ----
   const error =
@@ -194,6 +215,9 @@ export function LibraryView({
   const handleRowClick = useCallback(
     (id: string, e: React.MouseEvent) => {
       e.preventDefault();
+      // A rubber-band drag just ended — the click event is a ghost from
+      // the mouseup; ignore it so we don't clobber the band selection.
+      if (didRubberBand.current) return;
 
       if (e.ctrlKey || e.metaKey) {
         setSelectedIds((prev) => {
@@ -347,6 +371,38 @@ export function LibraryView({
     return () => document.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allItems, selectedIds, cutItems, lastSelectedId, showShortcutLegend]);
+
+  // Close background context menu on any pointer-down outside it, or Escape.
+  useEffect(() => {
+    if (!bgCtxMenu) return;
+    const close = () => setBgCtxMenu(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    window.addEventListener("pointerdown", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [bgCtxMenu]);
+
+  // Clamp background context menu to the viewport.
+  // useLayoutEffect fires before paint so there is no visible flicker —
+  // the user only ever sees the corrected position.
+  useLayoutEffect(() => {
+    if (!bgCtxMenu || !bgCtxMenuRef.current) return;
+    const el = bgCtxMenuRef.current;
+    const { width, height } = el.getBoundingClientRect();
+    const pad = 8;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const x = Math.max(pad, Math.min(bgCtxMenu.x, vw - width - pad));
+    const y = Math.max(pad, Math.min(bgCtxMenu.y, vh - height - pad));
+    if (x !== bgCtxMenu.x || y !== bgCtxMenu.y) {
+      setBgCtxMenu({ x, y });
+    }
+  }, [bgCtxMenu]);
 
   // ---------------------------------------------------------------------------
   // Item actions
@@ -622,72 +678,128 @@ export function LibraryView({
   // Rubber-band
   // ---------------------------------------------------------------------------
 
+  // px of movement required before a row-origin drag becomes a rubber-band
+  const DRAG_THRESHOLD = 5;
+
   const handleListMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      // Only start rubber-band on empty space
-      const target = e.target as HTMLElement;
-      if (target.closest("[data-file-row]")) return;
       if (e.button !== 0) return;
+      const target = e.target as HTMLElement;
+      // Let rename inputs and buttons handle their own events
+      if (target.closest("input, button")) return;
+      // Never start rubber-band from the header toolbar
+      if (target.closest(".explorer-header")) return;
 
-      e.preventDefault();
-      isRubberBanding.current = true;
-
+      const onRow = !!target.closest("[data-file-row]");
       const container = listRef.current!;
       const rect = container.getBoundingClientRect();
-      const startX = e.clientX - rect.left;
-      const startY = e.clientY - rect.top + container.scrollTop;
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
 
-      setRubberBand({ startX, startY, currentX: startX, currentY: startY });
-      if (!e.shiftKey && !e.ctrlKey && !e.metaKey) setSelectedIds(new Set());
+      dragOrigin.current = { x, y, onRow };
+
+      if (!onRow) {
+        // Empty-space click: activate rubber-band immediately
+        e.preventDefault(); // also suppresses the upcoming click event
+        rubberBandStart.current = { startX: x, startY: y };
+        isRubberBanding.current = true;
+        setRubberBand({ startX: x, startY: y, currentX: x, currentY: y });
+        if (!e.shiftKey && !e.ctrlKey && !e.metaKey) setSelectedIds(new Set());
+      }
+      // Row click: wait for drag threshold in the window mousemove handler
     },
     [],
   );
 
-  const handleListMouseMove = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!isRubberBanding.current) return;
+  // Attach rubber-band move/end handlers to window so they fire even when the
+  // mouse escapes the list element. All state is accessed via refs so there
+  // are no stale closures and the effect never needs to re-run.
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
       const container = listRef.current;
       if (!container) return;
 
       const rect = container.getBoundingClientRect();
       const currentX = e.clientX - rect.left;
-      const currentY = e.clientY - rect.top + container.scrollTop;
+      const currentY = e.clientY - rect.top;
 
-      setRubberBand((prev) => (prev ? { ...prev, currentX, currentY } : null));
+      // If not yet rubber-banding, check whether a row-origin drag has
+      // exceeded the threshold and should be promoted to rubber-band mode.
+      if (!isRubberBanding.current) {
+        const origin = dragOrigin.current;
+        if (!origin || !origin.onRow) return;
+        const dist = Math.hypot(currentX - origin.x, currentY - origin.y);
+        if (dist < DRAG_THRESHOLD) return;
+        // Promote to rubber-band
+        isRubberBanding.current = true;
+        didRubberBand.current = true;
+        rubberBandStart.current = { startX: origin.x, startY: origin.y };
+        setRubberBand({
+          startX: origin.x,
+          startY: origin.y,
+          currentX,
+          currentY,
+        });
+        setSelectedIds(new Set());
+        return;
+      }
 
-      // Determine which rows intersect
-      const selLeft = Math.min(rubberBand?.startX ?? currentX, currentX);
-      const selTop = Math.min(rubberBand?.startY ?? currentY, currentY);
-      const selRight = Math.max(rubberBand?.startX ?? currentX, currentX);
-      const selBottom = Math.max(rubberBand?.startY ?? currentY, currentY);
+      const start = rubberBandStart.current;
+      if (!start) return;
+
+      setRubberBand({
+        startX: start.startX,
+        startY: start.startY,
+        currentX,
+        currentY,
+      });
+
+      const selLeft = Math.min(start.startX, currentX);
+      const selTop = Math.min(start.startY, currentY);
+      const selRight = Math.max(start.startX, currentX);
+      const selBottom = Math.max(start.startY, currentY);
 
       const next = new Set<string>();
       rowRefs.current.forEach((el, id) => {
         const r = el.getBoundingClientRect();
-        const cRect = container.getBoundingClientRect();
-        const top = r.top - cRect.top + container.scrollTop;
-        const bottom = r.bottom - cRect.top + container.scrollTop;
-        const left = r.left - cRect.left;
-        const right = r.right - cRect.left;
+        const rowTop = r.top - rect.top;
+        const rowBottom = r.bottom - rect.top;
+        const rowLeft = r.left - rect.left;
+        const rowRight = r.right - rect.left;
         if (
           !(
-            right < selLeft ||
-            left > selRight ||
-            bottom < selTop ||
-            top > selBottom
+            rowRight < selLeft ||
+            rowLeft > selRight ||
+            rowBottom < selTop ||
+            rowTop > selBottom
           )
         ) {
           next.add(id);
         }
       });
       setSelectedIds(next);
-    },
-    [rubberBand],
-  );
+    };
 
-  const stopRubberBand = useCallback(() => {
-    isRubberBanding.current = false;
-    setRubberBand(null);
+    const onUp = () => {
+      dragOrigin.current = null;
+      if (!isRubberBanding.current) return;
+      isRubberBanding.current = false;
+      rubberBandStart.current = null;
+      setRubberBand(null);
+      // didRubberBand stays true until after the click event fires (which
+      // happens synchronously after mouseup, before any setTimeout callback).
+      setTimeout(() => {
+        didRubberBand.current = false;
+      }, 0);
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ---------------------------------------------------------------------------
@@ -733,360 +845,467 @@ export function LibraryView({
   // ---------------------------------------------------------------------------
 
   return (
-    <div className="workspace-page">
-      {/* Flash messages */}
-      {error ? <FlashMessage>{error}</FlashMessage> : null}
-      {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
+    <>
+      <div className="workspace-page">
+        {/* Flash messages */}
+        {error ? <FlashMessage>{error}</FlashMessage> : null}
+        {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
 
-      <div
-        className="explorer-root"
-        onDragEnter={handleDragEnter}
-        onDragLeave={handleDragLeave}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
-      >
-        {/* ---- Header ---- */}
-        <div className="explorer-header">
-          <div className="explorer-header-left">
-            <div className="explorer-title-row">
-              <nav aria-label="Breadcrumb" className="workspace-breadcrumbs">
-                {listing.breadcrumbs.map((crumb, index) => {
-                  const label = index === 0 ? "Files" : crumb.name;
-                  const isActive = index === listing.breadcrumbs.length - 1;
-                  if (isActive) {
-                    return (
-                      <span
-                        key={crumb.id}
-                        className="workspace-breadcrumb-active"
-                      >
-                        {label}
-                      </span>
-                    );
-                  }
-                  return (
-                    <Link key={crumb.id} href={crumb.href}>
-                      {label}
-                    </Link>
-                  );
-                })}
-              </nav>
-              {(selectedIds.size > 0 || cutItems.length > 0) && (
-                <div className="explorer-badges">
-                  {selectedIds.size > 0 && (
-                    <span className="selection-badge">
-                      {selectedIds.size} selected
-                    </span>
-                  )}
-                  {cutItems.length > 0 && selectedIds.size === 0 && (
-                    <button
-                      className="cut-badge"
-                      type="button"
-                      onClick={handlePaste}
-                      title="Paste here (Ctrl+V)"
-                    >
-                      {cutItems.length} item{cutItems.length !== 1 ? "s" : ""}{" "}
-                      cut — paste here
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="explorer-header-actions">
-            {/* New folder */}
-            <Popover open={newFolderOpen} onOpenChange={setNewFolderOpen}>
-              <PopoverTrigger
-                className={buttonVariants({ variant: "outline", size: "sm" })}
-              >
-                <FolderPlus />
-                New folder
-              </PopoverTrigger>
-              <PopoverContent side="bottom" align="end" className="w-64">
-                <form
-                  className="new-folder-form"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleCreateFolder();
-                  }}
-                >
-                  <Input
-                    autoFocus
-                    placeholder="Folder name"
-                    value={newFolderName}
-                    onChange={(e) => setNewFolderName(e.target.value)}
-                  />
-                  <Button
-                    type="submit"
-                    size="sm"
-                    disabled={!newFolderName.trim()}
-                  >
-                    Create
-                  </Button>
-                </form>
-              </PopoverContent>
-            </Popover>
-
-            {/* Upload */}
-            <Button size="sm" onClick={() => fileInputRef.current?.click()}>
-              <Upload />
-              Upload
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              hidden
-              onChange={handleFileInputChange}
-              aria-hidden
-            />
-          </div>
-        </div>
-
-        {/* ---- List ---- */}
         <div
-          ref={listRef}
-          className="explorer-list"
+          className="explorer-root"
           onMouseDown={handleListMouseDown}
-          onMouseMove={handleListMouseMove}
-          onMouseUp={stopRubberBand}
-          onMouseLeave={stopRubberBand}
-          onClick={(e) => {
-            // Clicking on empty space deselects
-            const target = e.target as HTMLElement;
-            if (!target.closest("[data-file-row]")) {
-              setSelectedIds(new Set());
-            }
+          onContextMenu={(e) => {
+            // Radix's ContextMenuTrigger calls e.preventDefault() synchronously,
+            // so if a row context menu already handled this event, skip.
+            if (e.defaultPrevented) return;
+            // Don't capture right-clicks on the header toolbar
+            if ((e.target as HTMLElement).closest(".explorer-header")) return;
+            e.preventDefault();
+            setBgCtxMenu({ x: e.clientX, y: e.clientY });
           }}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
         >
-          {/* Column headers */}
-          {(listing.childFolders.length > 0 || listing.files.length > 0) && (
-            <div className="explorer-col-header" aria-hidden>
-              <span />
-              <span>Name</span>
-              <span>Size</span>
-              <span>Modified</span>
+          {/* ---- Header ---- */}
+          <div className="explorer-header">
+            <div className="explorer-header-left">
+              <div className="explorer-title-row">
+                <nav aria-label="Breadcrumb" className="workspace-breadcrumbs">
+                  {listing.breadcrumbs.map((crumb, index) => {
+                    const label = index === 0 ? "Files" : crumb.name;
+                    const isActive = index === listing.breadcrumbs.length - 1;
+                    if (isActive) {
+                      return (
+                        <span
+                          key={crumb.id}
+                          className="workspace-breadcrumb-active"
+                        >
+                          {label}
+                        </span>
+                      );
+                    }
+                    return (
+                      <Link key={crumb.id} href={crumb.href}>
+                        {label}
+                      </Link>
+                    );
+                  })}
+                </nav>
+                {(selectedIds.size > 0 || cutItems.length > 0) && (
+                  <div className="explorer-badges">
+                    {selectedIds.size > 0 && (
+                      <span className="selection-badge">
+                        {selectedIds.size} selected
+                      </span>
+                    )}
+                    {cutItems.length > 0 && selectedIds.size === 0 && (
+                      <button
+                        className="cut-badge"
+                        type="button"
+                        onClick={handlePaste}
+                        title="Paste here (Ctrl+V)"
+                      >
+                        {cutItems.length} item{cutItems.length !== 1 ? "s" : ""}{" "}
+                        cut — paste here
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          )}
-          {/* Rubber-band rect */}
-          {rubberBand && (
-            <div
-              className="rubber-band-rect"
-              style={{
-                left: Math.min(rubberBand.startX, rubberBand.currentX),
-                top: Math.min(rubberBand.startY, rubberBand.currentY),
-                width: Math.abs(rubberBand.currentX - rubberBand.startX),
-                height: Math.abs(rubberBand.currentY - rubberBand.startY),
-              }}
-              aria-hidden
-            />
-          )}
 
-          {/* ---- Folders ---- */}
-          {listing.childFolders.map((folder) => {
-            const availableMoveTargetIds = new Set(
-              listing.availableMoveTargetIdsByFolderId[folder.id] ?? [],
-            );
-            const availableMoveTargets = listing.moveTargets.filter((t) =>
-              availableMoveTargetIds.has(t.id),
-            );
-            return (
-              <LibraryRow
-                key={folder.id}
-                kind="folder"
-                data={folder}
-                isSelected={selectedIds.has(folder.id)}
-                isCut={cutItems.some((c) => c.id === folder.id)}
-                isJustMoved={justMovedIds.has(folder.id)}
-                isRenaming={renamingId === folder.id}
-                renameValue={renameValue}
-                isFavorite={favoriteFolderSet.has(folder.id)}
-                folderIconName={folderIcons[folder.id] ?? "Folder"}
-                availableMoveTargets={availableMoveTargets}
-                shareProps={{
-                  share: shareLookup.sharesByFolderId[folder.id] ?? null,
-                  targetId: folder.id,
-                  targetType: "folder",
-                  currentPath,
-                }}
-                onRenameChange={setRenameValue}
-                onRenameSubmit={() => submitRename(folder.id, "folder")}
-                onRenameCancel={cancelRename}
-                onClick={(e) => handleRowClick(folder.id, e)}
-                onOpen={() => openItem(folder.id)}
-                onStartRename={() => beginRename(folder.id, folder.name)}
-                onFavorite={() =>
-                  toggleFavorite(
-                    folder.id,
-                    "folder",
-                    favoriteFolderSet.has(folder.id),
-                  )
-                }
-                onTrash={() => trashItem(folder.id, "folder")}
-                onProperties={() => setPropertiesId(folder.id)}
-                onCut={() => {
-                  const item: CutItem = {
-                    id: folder.id,
-                    kind: "folder",
-                    name: folder.name,
-                  };
-                  setCutItems([item]);
-                  persistCutItems([item]);
-                }}
-                onMoveTo={(dest) => {
-                  moveItem(folder.id, "folder", dest).then(() =>
-                    startTransition(() => router.refresh()),
-                  );
-                }}
-                rowRef={(el) => {
-                  if (el) rowRefs.current.set(folder.id, el);
-                  else rowRefs.current.delete(folder.id);
-                }}
+            <div className="explorer-header-actions">
+              {/* New folder */}
+              <Popover open={newFolderOpen} onOpenChange={setNewFolderOpen}>
+                <PopoverTrigger
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                >
+                  <FolderPlus />
+                  New folder
+                </PopoverTrigger>
+                <PopoverContent side="bottom" align="end" className="w-64">
+                  <form
+                    className="new-folder-form"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleCreateFolder();
+                    }}
+                  >
+                    <Input
+                      autoFocus
+                      placeholder="Folder name"
+                      value={newFolderName}
+                      onChange={(e) => setNewFolderName(e.target.value)}
+                    />
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={!newFolderName.trim()}
+                    >
+                      Create
+                    </Button>
+                  </form>
+                </PopoverContent>
+              </Popover>
+
+              {/* Upload */}
+              <Button size="sm" onClick={() => fileInputRef.current?.click()}>
+                <Upload />
+                Upload
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                hidden
+                onChange={handleFileInputChange}
+                aria-hidden
               />
-            );
-          })}
+            </div>
+          </div>
 
-          {/* ---- Empty state ---- */}
-          {mergedFileEntries.length === 0 &&
-            listing.childFolders.length === 0 && (
-              <div className="explorer-empty">
-                This folder is empty. Drop files here or use the Upload button.
+          {/* ---- List ---- */}
+          <div
+            ref={listRef}
+            className="explorer-list"
+            onClick={(e) => {
+              // A rubber-band drag just ended — skip this ghost click entirely
+              if (didRubberBand.current) return;
+              // Plain click on empty space deselects
+              const target = e.target as HTMLElement;
+              if (!target.closest("[data-file-row]")) {
+                setSelectedIds(new Set());
+              }
+            }}
+          >
+            {/* Column headers */}
+            {(listing.childFolders.length > 0 || listing.files.length > 0) && (
+              <div className="explorer-col-header" aria-hidden>
+                <span />
+                <span>Name</span>
+                <span>Size</span>
+                <span>Modified</span>
               </div>
             )}
-
-          {/* ---- Files + uploading rows merged, sorted alphabetically ---- */}
-          {mergedFileEntries.map((entry) => {
-            if (entry.kind === "upload") {
-              const f = entry.upload;
-              return (
-                <UploadingRow
-                  key={f.clientKey}
-                  file={f}
-                  onDismiss={() =>
-                    setUploadingFiles((prev) =>
-                      prev.filter((u) => u.clientKey !== f.clientKey),
-                    )
-                  }
-                  onRetry={
-                    f.fileRef
-                      ? () => {
-                          setUploadingFiles((prev) =>
-                            prev.map((u) =>
-                              u.clientKey === f.clientKey
-                                ? {
-                                    ...u,
-                                    status: "uploading",
-                                    progress: 0,
-                                    speed: 0,
-                                    error: undefined,
-                                  }
-                                : u,
-                            ),
-                          );
-                          uploadSingleFile(f.clientKey, f.fileRef!);
-                        }
-                      : undefined
-                  }
-                />
-              );
-            }
-            const file = entry.file;
-            const doneUpload = uploadingFiles.find(
-              (f) => f.fileId === file.id && f.status === "done",
-            );
-            if (doneUpload) {
-              return (
-                <UploadingRow
-                  key={doneUpload.clientKey}
-                  file={doneUpload}
-                  onDismiss={() =>
-                    setUploadingFiles((prev) =>
-                      prev.filter((u) => u.clientKey !== doneUpload.clientKey),
-                    )
-                  }
-                  onRetry={undefined}
-                />
-              );
-            }
-            const availableMoveTargets = listing.moveTargets.filter(
-              (t) => t.id !== listing.currentFolder.id,
-            );
-            return (
-              <LibraryRow
-                key={file.id}
-                kind="file"
-                data={file}
-                isSelected={selectedIds.has(file.id)}
-                isCut={cutItems.some((c) => c.id === file.id)}
-                isJustMoved={justMovedIds.has(file.id)}
-                isRenaming={renamingId === file.id}
-                renameValue={renameValue}
-                isFavorite={favoriteFileSet.has(file.id)}
-                availableMoveTargets={availableMoveTargets}
-                shareProps={{
-                  share: shareLookup.sharesByFileId[file.id] ?? null,
-                  targetId: file.id,
-                  targetType: "file",
-                  currentPath,
+            {/* Rubber-band rect */}
+            {rubberBand && (
+              <div
+                className="rubber-band-rect"
+                style={{
+                  left: Math.min(rubberBand.startX, rubberBand.currentX),
+                  top: Math.min(rubberBand.startY, rubberBand.currentY),
+                  width: Math.abs(rubberBand.currentX - rubberBand.startX),
+                  height: Math.abs(rubberBand.currentY - rubberBand.startY),
                 }}
-                onRenameChange={setRenameValue}
-                onRenameSubmit={() => submitRename(file.id, "file")}
-                onRenameCancel={cancelRename}
-                onClick={(e) => handleRowClick(file.id, e)}
-                onOpen={() => openItem(file.id)}
-                onStartRename={() => beginRename(file.id, file.name)}
-                onFavorite={() =>
-                  toggleFavorite(file.id, "file", favoriteFileSet.has(file.id))
-                }
-                onTrash={() => trashItem(file.id, "file")}
-                onProperties={() => setPropertiesId(file.id)}
-                onCut={() => {
-                  const item: CutItem = {
-                    id: file.id,
-                    kind: "file",
-                    name: file.name,
-                  };
-                  setCutItems([item]);
-                  persistCutItems([item]);
-                }}
-                onMoveTo={(dest) => {
-                  moveItem(file.id, "file", dest).then(() =>
-                    startTransition(() => router.refresh()),
-                  );
-                }}
-                rowRef={(el) => {
-                  if (el) rowRefs.current.set(file.id, el);
-                  else rowRefs.current.delete(file.id);
-                }}
+                aria-hidden
               />
-            );
-          })}
+            )}
+
+            {/* ---- Folders ---- */}
+            {listing.childFolders.map((folder) => {
+              const availableMoveTargetIds = new Set(
+                listing.availableMoveTargetIdsByFolderId[folder.id] ?? [],
+              );
+              const availableMoveTargets = listing.moveTargets.filter((t) =>
+                availableMoveTargetIds.has(t.id),
+              );
+              return (
+                <LibraryRow
+                  key={folder.id}
+                  kind="folder"
+                  data={folder}
+                  isSelected={selectedIds.has(folder.id)}
+                  isCut={cutItems.some((c) => c.id === folder.id)}
+                  isJustMoved={justMovedIds.has(folder.id)}
+                  isRenaming={renamingId === folder.id}
+                  renameValue={renameValue}
+                  isFavorite={favoriteFolderSet.has(folder.id)}
+                  folderIconName={folderIcons[folder.id] ?? "Folder"}
+                  availableMoveTargets={availableMoveTargets}
+                  shareProps={{
+                    share: shareLookup.sharesByFolderId[folder.id] ?? null,
+                    targetId: folder.id,
+                    targetType: "folder",
+                    currentPath,
+                  }}
+                  onRenameChange={setRenameValue}
+                  onRenameSubmit={() => submitRename(folder.id, "folder")}
+                  onRenameCancel={cancelRename}
+                  onClick={(e) => handleRowClick(folder.id, e)}
+                  onOpen={() => openItem(folder.id)}
+                  onStartRename={() => beginRename(folder.id, folder.name)}
+                  onFavorite={() =>
+                    toggleFavorite(
+                      folder.id,
+                      "folder",
+                      favoriteFolderSet.has(folder.id),
+                    )
+                  }
+                  onTrash={() => trashItem(folder.id, "folder")}
+                  onProperties={() => setPropertiesId(folder.id)}
+                  onCut={() => {
+                    const item: CutItem = {
+                      id: folder.id,
+                      kind: "folder",
+                      name: folder.name,
+                    };
+                    setCutItems([item]);
+                    persistCutItems([item]);
+                  }}
+                  onMoveTo={(dest) => {
+                    moveItem(folder.id, "folder", dest).then(() =>
+                      startTransition(() => router.refresh()),
+                    );
+                  }}
+                  rowRef={(el) => {
+                    if (el) rowRefs.current.set(folder.id, el);
+                    else rowRefs.current.delete(folder.id);
+                  }}
+                />
+              );
+            })}
+
+            {/* ---- Empty state ---- */}
+            {mergedFileEntries.length === 0 &&
+              listing.childFolders.length === 0 && (
+                <div className="explorer-empty">
+                  This folder is empty. Drop files here or use the Upload
+                  button.
+                </div>
+              )}
+
+            {/* ---- Files + uploading rows merged, sorted alphabetically ---- */}
+            {mergedFileEntries.map((entry) => {
+              if (entry.kind === "upload") {
+                const f = entry.upload;
+                return (
+                  <UploadingRow
+                    key={f.clientKey}
+                    file={f}
+                    onDismiss={() =>
+                      setUploadingFiles((prev) =>
+                        prev.filter((u) => u.clientKey !== f.clientKey),
+                      )
+                    }
+                    onRetry={
+                      f.fileRef
+                        ? () => {
+                            setUploadingFiles((prev) =>
+                              prev.map((u) =>
+                                u.clientKey === f.clientKey
+                                  ? {
+                                      ...u,
+                                      status: "uploading",
+                                      progress: 0,
+                                      speed: 0,
+                                      error: undefined,
+                                    }
+                                  : u,
+                              ),
+                            );
+                            uploadSingleFile(f.clientKey, f.fileRef!);
+                          }
+                        : undefined
+                    }
+                  />
+                );
+              }
+              const file = entry.file;
+              const doneUpload = uploadingFiles.find(
+                (f) => f.fileId === file.id && f.status === "done",
+              );
+              if (doneUpload) {
+                return (
+                  <UploadingRow
+                    key={doneUpload.clientKey}
+                    file={doneUpload}
+                    onDismiss={() =>
+                      setUploadingFiles((prev) =>
+                        prev.filter(
+                          (u) => u.clientKey !== doneUpload.clientKey,
+                        ),
+                      )
+                    }
+                    onRetry={undefined}
+                  />
+                );
+              }
+              const availableMoveTargets = listing.moveTargets.filter(
+                (t) => t.id !== listing.currentFolder.id,
+              );
+              return (
+                <LibraryRow
+                  key={file.id}
+                  kind="file"
+                  data={file}
+                  isSelected={selectedIds.has(file.id)}
+                  isCut={cutItems.some((c) => c.id === file.id)}
+                  isJustMoved={justMovedIds.has(file.id)}
+                  isRenaming={renamingId === file.id}
+                  renameValue={renameValue}
+                  isFavorite={favoriteFileSet.has(file.id)}
+                  availableMoveTargets={availableMoveTargets}
+                  shareProps={{
+                    share: shareLookup.sharesByFileId[file.id] ?? null,
+                    targetId: file.id,
+                    targetType: "file",
+                    currentPath,
+                  }}
+                  onRenameChange={setRenameValue}
+                  onRenameSubmit={() => submitRename(file.id, "file")}
+                  onRenameCancel={cancelRename}
+                  onClick={(e) => handleRowClick(file.id, e)}
+                  onOpen={() => openItem(file.id)}
+                  onStartRename={() => beginRename(file.id, file.name)}
+                  onFavorite={() =>
+                    toggleFavorite(
+                      file.id,
+                      "file",
+                      favoriteFileSet.has(file.id),
+                    )
+                  }
+                  onTrash={() => trashItem(file.id, "file")}
+                  onProperties={() => setPropertiesId(file.id)}
+                  onCut={() => {
+                    const item: CutItem = {
+                      id: file.id,
+                      kind: "file",
+                      name: file.name,
+                    };
+                    setCutItems([item]);
+                    persistCutItems([item]);
+                  }}
+                  onMoveTo={(dest) => {
+                    moveItem(file.id, "file", dest).then(() =>
+                      startTransition(() => router.refresh()),
+                    );
+                  }}
+                  rowRef={(el) => {
+                    if (el) rowRefs.current.set(file.id, el);
+                    else rowRefs.current.delete(file.id);
+                  }}
+                />
+              );
+            })}
+          </div>
+
+          {/* ---- Drag-to-upload overlay ---- */}
+          {isDragOver && (
+            <div className="upload-drag-overlay" aria-hidden>
+              <div className="upload-drag-overlay-inner">
+                <Upload size={32} />
+                <p>Drop to upload into "{listing.currentFolder.name}"</p>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* ---- Drag-to-upload overlay ---- */}
-        {isDragOver && (
-          <div className="upload-drag-overlay" aria-hidden>
-            <div className="upload-drag-overlay-inner">
-              <Upload size={32} />
-              <p>Drop to upload into "{listing.currentFolder.name}"</p>
-            </div>
-          </div>
+        {/* ---- Properties panel ---- */}
+        <LibraryPropertiesPanel
+          item={propertiesItem}
+          folderIcons={folderIcons}
+          onSetFolderIcon={setFolderIcon}
+          onClose={() => setPropertiesId(null)}
+        />
+
+        {/* ---- Keyboard shortcut legend ---- */}
+        {showShortcutLegend && (
+          <ShortcutLegend onClose={() => setShowShortcutLegend(false)} />
         )}
       </div>
 
-      {/* ---- Properties panel ---- */}
-      <LibraryPropertiesPanel
-        item={propertiesItem}
-        folderIcons={folderIcons}
-        onSetFolderIcon={setFolderIcon}
-        onClose={() => setPropertiesId(null)}
-      />
-
-      {/* ---- Keyboard shortcut legend ---- */}
-      {showShortcutLegend && (
-        <ShortcutLegend onClose={() => setShowShortcutLegend(false)} />
-      )}
-    </div>
+      {/* ---- Background context menu (right-click on empty space) ---- */}
+      {bgCtxMenu &&
+        createPortal(
+          <div
+            ref={bgCtxMenuRef}
+            className="bg-ctx-menu"
+            style={{ top: bgCtxMenu.y, left: bgCtxMenu.x }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <button
+              className="bg-ctx-item"
+              onClick={() => {
+                setNewFolderOpen(true);
+                setBgCtxMenu(null);
+              }}
+            >
+              <FolderPlus size={13} />
+              New folder
+            </button>
+            <button
+              className="bg-ctx-item"
+              onClick={() => {
+                fileInputRef.current?.click();
+                setBgCtxMenu(null);
+              }}
+            >
+              <Upload size={13} />
+              Upload files
+            </button>
+            <div className="bg-ctx-sep" />
+            {cutItems.length > 0 && (
+              <button
+                className="bg-ctx-item"
+                onClick={() => {
+                  handlePaste();
+                  setBgCtxMenu(null);
+                }}
+              >
+                Paste {cutItems.length} item{cutItems.length !== 1 ? "s" : ""}
+                <span className="bg-ctx-shortcut">⌘V</span>
+              </button>
+            )}
+            <button
+              className="bg-ctx-item"
+              onClick={() => {
+                setSelectedIds(new Set(allItems.map((i) => i.id)));
+                setBgCtxMenu(null);
+              }}
+            >
+              Select all
+              <span className="bg-ctx-shortcut">⌘A</span>
+            </button>
+            {selectedIds.size > 0 && (
+              <>
+                <div className="bg-ctx-sep" />
+                <button
+                  className="bg-ctx-item"
+                  onClick={() => {
+                    const items = allItems.filter((i) => selectedIds.has(i.id));
+                    const cut = items.map((i) => {
+                      const data =
+                        i.kind === "folder"
+                          ? listing.childFolders.find((f) => f.id === i.id)
+                          : listing.files.find((f) => f.id === i.id);
+                      return { id: i.id, kind: i.kind, name: data?.name ?? "" };
+                    });
+                    setCutItems(cut);
+                    persistCutItems(cut);
+                    setBgCtxMenu(null);
+                  }}
+                >
+                  Cut {selectedIds.size} item{selectedIds.size !== 1 ? "s" : ""}
+                  <span className="bg-ctx-shortcut">⌘X</span>
+                </button>
+                <button
+                  className="bg-ctx-item bg-ctx-item--danger"
+                  onClick={() => {
+                    handleTrashSelected();
+                    setBgCtxMenu(null);
+                  }}
+                >
+                  Move to trash
+                  <span className="bg-ctx-shortcut">Del</span>
+                </button>
+              </>
+            )}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 
