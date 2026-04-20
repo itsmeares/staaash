@@ -83,7 +83,9 @@ export default async function LibraryFileViewerPage({
           style={
             file.viewerKind === "audio" || file.viewerKind === "text"
               ? { minHeight: "auto", padding: "2rem" }
-              : undefined
+              : file.viewerKind === "pdf"
+                ? { minHeight: "auto", height: "calc(100vh - 170px)" }
+                : undefined
           }
         >
           {file.viewerKind === "image" ? (
@@ -108,7 +110,7 @@ export default async function LibraryFileViewerPage({
             <embed
               src={contentHref}
               type="application/pdf"
-              style={{ width: "100%", height: "75vh" }}
+              style={{ width: "100%", height: "100%" }}
             />
           ) : file.viewerKind === "text" ? (
             <TextFileViewer contentHref={contentHref} />
