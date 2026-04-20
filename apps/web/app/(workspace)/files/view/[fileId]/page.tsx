@@ -48,7 +48,14 @@ export default async function LibraryFileViewerPage({
     const downloadHref = `/api/files/files/${file.id}/download`;
 
     return (
-      <main className="workspace-page">
+      <main
+        className="workspace-page"
+        style={
+          file.viewerKind === "pdf"
+            ? { display: "flex", flexDirection: "column", height: "100%" }
+            : undefined
+        }
+      >
         <div className="viewer-header">
           <div className="viewer-header-identity">
             <h1>{file.name}</h1>
@@ -84,7 +91,7 @@ export default async function LibraryFileViewerPage({
             file.viewerKind === "audio" || file.viewerKind === "text"
               ? { minHeight: "auto", padding: "2rem" }
               : file.viewerKind === "pdf"
-                ? { minHeight: "auto", height: "calc(100vh - 170px)" }
+                ? { flex: 1, minHeight: 0 }
                 : undefined
           }
         >
