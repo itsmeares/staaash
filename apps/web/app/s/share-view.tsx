@@ -176,7 +176,9 @@ export function ShareFilePage({
             alignItems: "center",
             justifyContent: "center",
             backgroundColor: "var(--color-surface-hover, #f3f4f6)",
-            minHeight: "60vh",
+            ...(file.viewerKind === "audio" || file.viewerKind === "text"
+              ? { padding: "2rem" }
+              : { minHeight: "60vh" }),
           }}
         >
           {file.viewerKind === "image" ? (

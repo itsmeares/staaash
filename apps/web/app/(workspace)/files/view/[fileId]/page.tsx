@@ -44,8 +44,8 @@ export default async function LibraryFileViewerPage({
     });
 
     const backHref = file.folderId ? `/files/f/${file.folderId}` : "/files";
-    const contentHref = `/api/files/view/${file.id}/content`;
-    const downloadHref = `/api/files/view/${file.id}/download`;
+    const contentHref = `/api/files/files/${file.id}/content`;
+    const downloadHref = `/api/files/files/${file.id}/download`;
 
     return (
       <main className="workspace-page">
@@ -68,7 +68,14 @@ export default async function LibraryFileViewerPage({
           </div>
         </div>
 
-        <div className="viewer-media">
+        <div
+          className="viewer-media"
+          style={
+            file.viewerKind === "audio" || file.viewerKind === "text"
+              ? { minHeight: "auto", padding: "2rem" }
+              : undefined
+          }
+        >
           {file.viewerKind === "image" ? (
             <img
               alt={file.name}
