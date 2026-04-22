@@ -1,3 +1,11 @@
+import { getSingleSearchParam } from "@/app/auth-ui";
+import {
+  PAGE_SIZE,
+  PaginationControls,
+  buildPageHref,
+  parsePage,
+} from "@/app/pagination-controls";
+import { redirect } from "next/navigation";
 import { env } from "@/lib/env";
 import { requireOwnerPageSession } from "@/server/auth/guards";
 import { authService } from "@/server/auth/service";
@@ -6,9 +14,25 @@ import { UsersAdminConsole } from "../users-admin-console";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminUsersPage() {
-  const session = await requireOwnerPageSession();
-  const users = await authService.listUsers(session.user.id);
+type AdminUsersPageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function AdminUsersPage({
+  searchParams,
+}: AdminUsersPageProps) {
+  const [resolvedSearchParams, session] = await Promise.all([
+    searchParams,
+    requireOwnerPageSession(),
+  ]);
+  const allUsers = await authService.listUsers(session.user.id);
+  const page = parsePage(getSingleSearchParam(resolvedSearchParams, "page"));
+  const totalPages = Math.ceil(allUsers.length / PAGE_SIZE);
+  const buildHref = buildPageHref("/admin/users");
+
+  if (totalPages > 0 && page > totalPages) redirect(buildHref(1));
+
+  const users = allUsers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <main className="stack">
@@ -32,6 +56,12 @@ export default async function AdminUsersPage() {
           createdAt: user.createdAt.toISOString(),
           storageLimitBytes: user.storageLimitBytes?.toString() ?? null,
         }))}
+      />
+
+      <PaginationControls
+        buildHref={buildHref}
+        page={page}
+        totalPages={totalPages}
       />
     </main>
   );

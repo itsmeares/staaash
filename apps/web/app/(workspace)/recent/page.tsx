@@ -16,7 +16,12 @@ function getDateLabel(date: Date, now: Date): string {
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   if (diffDays === 0) return "Today";
   if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return "This week";
+  const dayOfWeek = now.getDay();
+  const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const startOfWeek = new Date(now);
+  startOfWeek.setHours(0, 0, 0, 0);
+  startOfWeek.setDate(startOfWeek.getDate() - daysToMonday);
+  if (date >= startOfWeek) return "This week";
   if (diffDays < 30) return "This month";
   return "Older";
 }
@@ -43,22 +48,21 @@ export default async function RecentPage({ searchParams }: RecentPageProps) {
     searchParams,
     requireSignedInPageSession("/sign-in?next=/recent"),
   ]);
-  const items = await retrievalService.listRecent({
+  const allItems = await retrievalService.listRecent({
     actorUserId: session.user.id,
     actorRole: session.user.role,
   });
   const error = getSingleSearchParam(resolvedSearchParams, "error");
   const success = getSingleSearchParam(resolvedSearchParams, "success");
-
-  const groups = groupByDate(items, new Date());
+  const groups = groupByDate(allItems, new Date());
 
   return (
     <div className="workspace-page">
       <div className="stack">
         <div className="split">
           <h1>Recent</h1>
-          {items.length > 0 && (
-            <span className="section-count">{items.length}</span>
+          {allItems.length > 0 && (
+            <span className="section-count">{allItems.length}</span>
           )}
         </div>
 

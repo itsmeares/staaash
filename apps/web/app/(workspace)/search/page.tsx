@@ -2,6 +2,12 @@ import { FlashMessage, getSingleSearchParam } from "@/app/auth-ui";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { retrievalService } from "@/server/retrieval/service";
 
+import {
+  PAGE_SIZE,
+  PaginationControls,
+  parsePage,
+} from "@/app/pagination-controls";
+import { redirect } from "next/navigation";
 import { RetrievalItemList } from "../retrieval-item-list";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +22,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     requireSignedInPageSession("/sign-in?next=/search"),
   ]);
   const query = getSingleSearchParam(resolvedSearchParams, "q")?.trim() ?? "";
-  const items =
+  const page = parsePage(getSingleSearchParam(resolvedSearchParams, "page"));
+  const allItems =
     query.length > 0
       ? await retrievalService.search({
           actorUserId: session.user.id,
@@ -24,6 +31,19 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           query,
         })
       : [];
+  const totalPages = Math.ceil(allItems.length / PAGE_SIZE);
+
+  const buildHref = (p: number) => {
+    const params = new URLSearchParams();
+    if (query.length > 0) params.set("q", query);
+    if (p > 1) params.set("page", String(p));
+    const qs = params.toString();
+    return qs ? `/search?${qs}` : "/search";
+  };
+
+  if (totalPages > 0 && page > totalPages) redirect(buildHref(1));
+
+  const items = allItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const currentPath =
     query.length > 0 ? `/search?q=${encodeURIComponent(query)}` : "/search";
   const error = getSingleSearchParam(resolvedSearchParams, "error");
@@ -58,7 +78,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           </div>
           {query.length > 0 ? (
             <span className="pill">
-              {items.length} match{items.length === 1 ? "" : "es"}
+              {allItems.length} match{allItems.length === 1 ? "" : "es"}
             </span>
           ) : null}
         </div>
@@ -72,13 +92,20 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             </p>
           </div>
         ) : (
-          <RetrievalItemList
-            currentPath={currentPath}
-            emptyDescription="No private files or folders matched that query."
-            emptyTitle="No results"
-            items={items}
-            showMatchKind
-          />
+          <>
+            <RetrievalItemList
+              currentPath={currentPath}
+              emptyDescription="No private files or folders matched that query."
+              emptyTitle="No results"
+              items={items}
+              showMatchKind
+            />
+            <PaginationControls
+              buildHref={buildHref}
+              page={page}
+              totalPages={totalPages}
+            />
+          </>
         )}
       </section>
     </div>

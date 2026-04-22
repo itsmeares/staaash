@@ -335,6 +335,7 @@ h3 {
   overflow: hidden;
   display: grid;
   grid-template-columns: 216px minmax(0, 1fr);
+  grid-template-rows: 100vh;
 }
 
 .admin-shell {
@@ -767,7 +768,26 @@ h3 {
   min-width: 0;
   padding: 24px 32px 56px;
   overflow-y: auto;
-  height: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--foreground) 14%, transparent)
+    transparent;
+}
+
+.workspace-content::-webkit-scrollbar {
+  width: 5px;
+}
+
+.workspace-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.workspace-content::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--foreground) 14%, transparent);
+  border-radius: 99px;
+}
+
+.workspace-content::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--foreground) 26%, transparent);
 }
 
 .workspace-page {
