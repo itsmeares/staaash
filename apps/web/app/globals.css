@@ -768,7 +768,6 @@ h3 {
   min-width: 0;
   padding: 24px 32px 56px;
   overflow-y: auto;
-  height: 100%;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in oklab, var(--foreground) 14%, transparent)
     transparent;
