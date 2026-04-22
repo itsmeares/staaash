@@ -5,8 +5,10 @@ import { retrievalService } from "@/server/retrieval/service";
 import {
   PAGE_SIZE,
   PaginationControls,
+  buildPageHref,
   parsePage,
 } from "@/app/pagination-controls";
+import { redirect } from "next/navigation";
 import { RetrievalItemList } from "../retrieval-item-list";
 
 export const dynamic = "force-dynamic";
@@ -30,10 +32,11 @@ export default async function FavoritesPage({
   const success = getSingleSearchParam(resolvedSearchParams, "success");
   const page = parsePage(getSingleSearchParam(resolvedSearchParams, "page"));
   const totalPages = Math.ceil(allItems.length / PAGE_SIZE);
-  const items = allItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const buildHref = buildPageHref("/favorites");
 
-  const buildHref = (p: number) =>
-    p === 1 ? "/favorites" : `/favorites?page=${p}`;
+  if (totalPages > 0 && page > totalPages) redirect(buildHref(1));
+
+  const items = allItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="workspace-page">

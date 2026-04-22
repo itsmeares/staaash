@@ -10,6 +10,7 @@ import {
   PaginationControls,
   parsePage,
 } from "@/app/pagination-controls";
+import { redirect } from "next/navigation";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { formatDateTimeLocalValue } from "@/server/sharing/schema";
 import { sharingService } from "@/server/sharing/service";
@@ -48,16 +49,6 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
 
   const activeTotalPages = Math.ceil(shares.active.length / PAGE_SIZE);
   const inactiveTotalPages = Math.ceil(shares.inactive.length / PAGE_SIZE);
-  const activeItems = shares.active.slice(
-    (activePage - 1) * PAGE_SIZE,
-    activePage * PAGE_SIZE,
-  );
-  const inactiveItems = shares.inactive.slice(
-    (inactivePage - 1) * PAGE_SIZE,
-    inactivePage * PAGE_SIZE,
-  );
-
-  const allShares = [...shares.active, ...shares.inactive];
 
   const buildActiveHref = (p: number) => {
     const params = new URLSearchParams();
@@ -74,6 +65,22 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
     const qs = params.toString();
     return qs ? `/shared?${qs}` : "/shared";
   };
+
+  if (activeTotalPages > 0 && activePage > activeTotalPages)
+    redirect(buildActiveHref(1));
+  if (inactiveTotalPages > 0 && inactivePage > inactiveTotalPages)
+    redirect(buildInactiveHref(1));
+
+  const activeItems = shares.active.slice(
+    (activePage - 1) * PAGE_SIZE,
+    activePage * PAGE_SIZE,
+  );
+  const inactiveItems = shares.inactive.slice(
+    (inactivePage - 1) * PAGE_SIZE,
+    inactivePage * PAGE_SIZE,
+  );
+
+  const allShares = [...shares.active, ...shares.inactive];
 
   return (
     <div className="workspace-page">

@@ -7,6 +7,7 @@ import {
   PaginationControls,
   parsePage,
 } from "@/app/pagination-controls";
+import { redirect } from "next/navigation";
 import { RetrievalItemList } from "../retrieval-item-list";
 
 export const dynamic = "force-dynamic";
@@ -31,11 +32,6 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         })
       : [];
   const totalPages = Math.ceil(allItems.length / PAGE_SIZE);
-  const items = allItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const currentPath =
-    query.length > 0 ? `/search?q=${encodeURIComponent(query)}` : "/search";
-  const error = getSingleSearchParam(resolvedSearchParams, "error");
-  const success = getSingleSearchParam(resolvedSearchParams, "success");
 
   const buildHref = (p: number) => {
     const params = new URLSearchParams();
@@ -44,6 +40,14 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     const qs = params.toString();
     return qs ? `/search?${qs}` : "/search";
   };
+
+  if (totalPages > 0 && page > totalPages) redirect(buildHref(1));
+
+  const items = allItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const currentPath =
+    query.length > 0 ? `/search?q=${encodeURIComponent(query)}` : "/search";
+  const error = getSingleSearchParam(resolvedSearchParams, "error");
+  const success = getSingleSearchParam(resolvedSearchParams, "success");
 
   return (
     <div className="workspace-page">

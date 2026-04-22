@@ -13,8 +13,10 @@ import type {
 import {
   PAGE_SIZE,
   PaginationControls,
+  buildPageHref,
   parsePage,
 } from "@/app/pagination-controls";
+import { redirect } from "next/navigation";
 import { EmptyTrashAction, TrashFileActions } from "./trash-file-actions";
 
 export const dynamic = "force-dynamic";
@@ -61,6 +63,10 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
   ].sort((a, b) => b.deletedAt.getTime() - a.deletedAt.getTime());
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const buildHref = buildPageHref("/trash");
+
+  if (totalPages > 0 && page > totalPages) redirect(buildHref(1));
+
   const pageItems = combined.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const folders = pageItems.flatMap((i) =>
     i.type === "folder" ? [i.data as TrashFolderSummary] : [],
@@ -68,8 +74,6 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
   const files = pageItems.flatMap((i) =>
     i.type === "file" ? [i.data as TrashFileSummary] : [],
   );
-
-  const buildHref = (p: number) => (p === 1 ? "/trash" : `/trash?page=${p}`);
 
   return (
     <div className="workspace-page">

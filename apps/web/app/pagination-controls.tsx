@@ -20,9 +20,9 @@ export function PaginationControls({
           Previous
         </Link>
       ) : (
-        <span className="button button-secondary" aria-disabled="true">
+        <button className="button button-secondary" disabled type="button">
           Previous
-        </span>
+        </button>
       )}
 
       <span className="muted">
@@ -34,9 +34,9 @@ export function PaginationControls({
           Next
         </Link>
       ) : (
-        <span className="button button-secondary" aria-disabled="true">
+        <button className="button button-secondary" disabled type="button">
           Next
-        </span>
+        </button>
       )}
     </div>
   );
@@ -45,6 +45,10 @@ export function PaginationControls({
 export const PAGE_SIZE = 50;
 
 export function parsePage(raw: string | null | undefined): number {
-  const n = parseInt(raw ?? "1", 10);
-  return Number.isFinite(n) && n >= 1 ? n : 1;
+  const n = Number(raw ?? "1");
+  return Number.isInteger(n) && n >= 1 ? n : 1;
+}
+
+export function buildPageHref(basePath: string) {
+  return (page: number) => (page === 1 ? basePath : `${basePath}?page=${page}`);
 }

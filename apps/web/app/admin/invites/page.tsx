@@ -2,8 +2,10 @@ import { getSingleSearchParam } from "@/app/auth-ui";
 import {
   PAGE_SIZE,
   PaginationControls,
+  buildPageHref,
   parsePage,
 } from "@/app/pagination-controls";
+import { redirect } from "next/navigation";
 import { env } from "@/lib/env";
 import { requireOwnerPageSession } from "@/server/auth/guards";
 import { authService } from "@/server/auth/service";
@@ -26,10 +28,11 @@ export default async function AdminInvitesPage({
   const allInvites = await authService.listInvites(session.user.id);
   const page = parsePage(getSingleSearchParam(resolvedSearchParams, "page"));
   const totalPages = Math.ceil(allInvites.length / PAGE_SIZE);
-  const invites = allInvites.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const buildHref = buildPageHref("/admin/invites");
 
-  const buildHref = (p: number) =>
-    p === 1 ? "/admin/invites" : `/admin/invites?page=${p}`;
+  if (totalPages > 0 && page > totalPages) redirect(buildHref(1));
+
+  const invites = allInvites.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <main className="stack">
