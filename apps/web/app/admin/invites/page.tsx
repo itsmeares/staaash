@@ -1,3 +1,9 @@
+import { getSingleSearchParam } from "@/app/auth-ui";
+import {
+  PAGE_SIZE,
+  PaginationControls,
+  parsePage,
+} from "@/app/pagination-controls";
 import { env } from "@/lib/env";
 import { requireOwnerPageSession } from "@/server/auth/guards";
 import { authService } from "@/server/auth/service";
@@ -6,9 +12,24 @@ import { InvitesAdminConsole } from "../invites-admin-console";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminInvitesPage() {
-  const session = await requireOwnerPageSession();
-  const invites = await authService.listInvites(session.user.id);
+type AdminInvitesPageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function AdminInvitesPage({
+  searchParams,
+}: AdminInvitesPageProps) {
+  const [resolvedSearchParams, session] = await Promise.all([
+    searchParams,
+    requireOwnerPageSession(),
+  ]);
+  const allInvites = await authService.listInvites(session.user.id);
+  const page = parsePage(getSingleSearchParam(resolvedSearchParams, "page"));
+  const totalPages = Math.ceil(allInvites.length / PAGE_SIZE);
+  const invites = allInvites.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const buildHref = (p: number) =>
+    p === 1 ? "/admin/invites" : `/admin/invites?page=${p}`;
 
   return (
     <main className="stack">
@@ -31,6 +52,12 @@ export default async function AdminInvitesPage() {
           expiresAt: invite.expiresAt.toISOString(),
           acceptedAt: invite.acceptedAt?.toISOString() ?? null,
         }))}
+      />
+
+      <PaginationControls
+        buildHref={buildHref}
+        page={page}
+        totalPages={totalPages}
       />
     </main>
   );

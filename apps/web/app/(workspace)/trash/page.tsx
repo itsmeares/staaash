@@ -5,7 +5,16 @@ import {
 } from "@/app/auth-ui";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { libraryService } from "@/server/library/service";
+import type {
+  TrashFileSummary,
+  TrashFolderSummary,
+} from "@/server/library/types";
 
+import {
+  PAGE_SIZE,
+  PaginationControls,
+  parsePage,
+} from "@/app/pagination-controls";
 import { EmptyTrashAction, TrashFileActions } from "./trash-file-actions";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +22,10 @@ export const dynamic = "force-dynamic";
 type TrashPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
+
+type CombinedTrashItem =
+  | { type: "folder"; deletedAt: Date; data: TrashFolderSummary }
+  | { type: "file"; deletedAt: Date; data: TrashFileSummary };
 
 export default async function TrashPage({ searchParams }: TrashPageProps) {
   const [resolvedSearchParams, session] = await Promise.all([
@@ -25,6 +38,38 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
   });
   const error = getSingleSearchParam(resolvedSearchParams, "error");
   const success = getSingleSearchParam(resolvedSearchParams, "success");
+  const page = parsePage(getSingleSearchParam(resolvedSearchParams, "page"));
+
+  const totalCount = listing.items.length + listing.files.length;
+  const isEmpty = totalCount === 0;
+
+  const combined: CombinedTrashItem[] = [
+    ...listing.items.map(
+      (item): CombinedTrashItem => ({
+        type: "folder",
+        deletedAt: item.folder.deletedAt ?? item.folder.updatedAt,
+        data: item,
+      }),
+    ),
+    ...listing.files.map(
+      (item): CombinedTrashItem => ({
+        type: "file",
+        deletedAt: item.file.deletedAt ?? item.file.updatedAt,
+        data: item,
+      }),
+    ),
+  ].sort((a, b) => b.deletedAt.getTime() - a.deletedAt.getTime());
+
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const pageItems = combined.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const folders = pageItems.flatMap((i) =>
+    i.type === "folder" ? [i.data as TrashFolderSummary] : [],
+  );
+  const files = pageItems.flatMap((i) =>
+    i.type === "file" ? [i.data as TrashFileSummary] : [],
+  );
+
+  const buildHref = (p: number) => (p === 1 ? "/trash" : `/trash?page=${p}`);
 
   return (
     <div className="workspace-page">
@@ -38,9 +83,7 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
               restore can bring its descendant files back with it.
             </p>
           </div>
-          <EmptyTrashAction
-            disabled={listing.items.length === 0 && listing.files.length === 0}
-          />
+          <EmptyTrashAction disabled={isEmpty} />
         </div>
       </section>
 
@@ -48,7 +91,7 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
       {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
 
       <section className="panel stack">
-        {listing.items.length === 0 && listing.files.length === 0 ? (
+        {isEmpty ? (
           <div className="workspace-empty-state">
             <h2>Trash is empty</h2>
             <p className="muted">
@@ -58,7 +101,7 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
           </div>
         ) : (
           <>
-            {listing.items.length > 0 ? (
+            {folders.length > 0 ? (
               <div className="stack">
                 <div className="split">
                   <h2>Folders</h2>
@@ -69,7 +112,7 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
                 </div>
 
                 <div className="folder-list">
-                  {listing.items.map((item) => (
+                  {folders.map((item) => (
                     <article className="folder-row" key={item.folder.id}>
                       <div className="folder-row-head">
                         <div className="stack">
@@ -110,7 +153,7 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
               </div>
             ) : null}
 
-            {listing.files.length > 0 ? (
+            {files.length > 0 ? (
               <div className="stack">
                 <div className="split">
                   <h2>Files</h2>
@@ -121,7 +164,7 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
                 </div>
 
                 <div className="folder-list">
-                  {listing.files.map((item) => (
+                  {files.map((item) => (
                     <article className="folder-row" key={item.file.id}>
                       <div className="folder-row-head">
                         <div className="stack">
@@ -156,6 +199,12 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
                 </div>
               </div>
             ) : null}
+
+            <PaginationControls
+              buildHref={buildHref}
+              page={page}
+              totalPages={totalPages}
+            />
           </>
         )}
       </section>

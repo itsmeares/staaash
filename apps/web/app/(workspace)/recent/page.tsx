@@ -3,6 +3,11 @@ import { requireSignedInPageSession } from "@/server/auth/guards";
 import { retrievalService } from "@/server/retrieval/service";
 import type { RetrievalItem } from "@/server/retrieval/types";
 
+import {
+  PAGE_SIZE,
+  PaginationControls,
+  parsePage,
+} from "@/app/pagination-controls";
 import { RetrievalItemList } from "../retrieval-item-list";
 
 export const dynamic = "force-dynamic";
@@ -43,22 +48,27 @@ export default async function RecentPage({ searchParams }: RecentPageProps) {
     searchParams,
     requireSignedInPageSession("/sign-in?next=/recent"),
   ]);
-  const items = await retrievalService.listRecent({
+  const allItems = await retrievalService.listRecent({
     actorUserId: session.user.id,
     actorRole: session.user.role,
   });
   const error = getSingleSearchParam(resolvedSearchParams, "error");
   const success = getSingleSearchParam(resolvedSearchParams, "success");
+  const page = parsePage(getSingleSearchParam(resolvedSearchParams, "page"));
+  const totalPages = Math.ceil(allItems.length / PAGE_SIZE);
+  const items = allItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const groups = groupByDate(items, new Date());
+
+  const buildHref = (p: number) => (p === 1 ? "/recent" : `/recent?page=${p}`);
 
   return (
     <div className="workspace-page">
       <div className="stack">
         <div className="split">
           <h1>Recent</h1>
-          {items.length > 0 && (
-            <span className="section-count">{items.length}</span>
+          {allItems.length > 0 && (
+            <span className="section-count">{allItems.length}</span>
           )}
         </div>
 
@@ -87,6 +97,12 @@ export default async function RecentPage({ searchParams }: RecentPageProps) {
             ))}
           </div>
         )}
+
+        <PaginationControls
+          buildHref={buildHref}
+          page={page}
+          totalPages={totalPages}
+        />
       </div>
     </div>
   );
