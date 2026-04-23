@@ -267,6 +267,11 @@ export type LibraryRepository = {
     ownerUserId: string,
     options?: ListFilesOptions,
   ): Promise<StoredLibraryFile[]>;
+  searchFilesByOwner(
+    ownerUserId: string,
+    nameQuery: string,
+    folderIds: string[],
+  ): Promise<StoredLibraryFile[]>;
   createFolder(params: CreateFolderParams): Promise<LibraryFolderSummary>;
   createFile(params: CreateFileParams): Promise<StoredLibraryFile>;
   updateFolder(params: UpdateFolderParams): Promise<LibraryFolderSummary>;
@@ -427,6 +432,34 @@ export const createPrismaLibraryRepository = (
           { originalName: "asc" },
           { createdAt: "asc" },
         ],
+        select: libraryFileSelect,
+      });
+
+      return files.map(toStoredLibraryFile);
+    },
+
+    async searchFilesByOwner(ownerUserId, nameQuery, folderIds) {
+      const client = getClient();
+      const trimmed = nameQuery.trim();
+
+      if (trimmed.length === 0 && folderIds.length === 0) {
+        return [];
+      }
+
+      const orClauses: Prisma.FileWhereInput[] = [];
+
+      if (trimmed.length > 0) {
+        orClauses.push({
+          originalName: { contains: trimmed, mode: "insensitive" },
+        });
+      }
+
+      if (folderIds.length > 0) {
+        orClauses.push({ folderId: { in: folderIds } });
+      }
+
+      const files = await client.file.findMany({
+        where: { ownerUserId, deletedAt: null, OR: orClauses },
         select: libraryFileSelect,
       });
 

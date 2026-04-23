@@ -110,6 +110,37 @@ const buildFilePathLabel = ({
   return `${folderPath} / ${file.name}`;
 };
 
+const computeMatchingFolderAndDescendantIds = (
+  folders: LibraryFolderSummary[],
+  normalizedQuery: string,
+): string[] => {
+  const childrenMap = new Map<string | null, string[]>();
+  for (const folder of folders) {
+    const list = childrenMap.get(folder.parentId) ?? [];
+    list.push(folder.id);
+    childrenMap.set(folder.parentId, list);
+  }
+
+  const seeds = folders
+    .filter(
+      (f) =>
+        !f.isLibraryRoot &&
+        getSearchMatchKind(normalizedQuery, f.name, "") !== null,
+    )
+    .map((f) => f.id);
+
+  const result = new Set<string>();
+  const queue = [...seeds];
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    result.add(id);
+    for (const child of childrenMap.get(id) ?? []) {
+      if (!result.has(child)) queue.push(child);
+    }
+  }
+  return [...result];
+};
+
 const compareRetrievalItems = (left: RetrievalItem, right: RetrievalItem) => {
   const pathDelta = normalizeSearchText(left.pathLabel).localeCompare(
     normalizeSearchText(right.pathLabel),
@@ -278,12 +309,22 @@ export const createRetrievalService = ({
       }
 
       const activeRepo = await resolveRepo();
-      const [libraryRoot, folders, files, favoriteState] = await Promise.all([
+      const [libraryRoot, folders, favoriteState] = await Promise.all([
         activeRepo.ensureLibraryRoot(actorUserId),
         activeRepo.listFoldersByOwner(actorUserId),
-        activeRepo.listFilesByOwner(actorUserId),
         getFavoriteState(actorUserId),
       ]);
+
+      const normalizedQuery = normalizeSearchText(trimmedQuery);
+      const matchingFolderIds = computeMatchingFolderAndDescendantIds(
+        folders,
+        normalizedQuery,
+      );
+      const files = await activeRepo.searchFilesByOwner(
+        actorUserId,
+        trimmedQuery,
+        matchingFolderIds,
+      );
       const folderMap = buildFolderMap(folders);
       const baseItems = [
         ...folders

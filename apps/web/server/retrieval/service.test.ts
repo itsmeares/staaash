@@ -4,6 +4,7 @@ import type {
   LibraryFileSummary,
   LibraryFolderSummary,
 } from "@/server/library/types";
+import { normalizeSearchText } from "@/server/search";
 import { createRetrievalService } from "@/server/retrieval/service";
 import type {
   FavoriteFileRecord,
@@ -165,6 +166,20 @@ const createMemoryRepository = () => {
       return state.files
         .filter(
           (file) => file.ownerUserId === ownerUserId && file.deletedAt === null,
+        )
+        .map(cloneFile);
+    },
+
+    async searchFilesByOwner(ownerUserId, nameQuery, folderIds) {
+      const normalized = normalizeSearchText(nameQuery);
+      return state.files
+        .filter(
+          (file) =>
+            file.ownerUserId === ownerUserId &&
+            file.deletedAt === null &&
+            ((normalized.length > 0 &&
+              normalizeSearchText(file.name).includes(normalized)) ||
+              folderIds.includes(file.folderId ?? "")),
         )
         .map(cloneFile);
     },

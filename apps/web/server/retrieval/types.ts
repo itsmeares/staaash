@@ -66,6 +66,11 @@ export type RetrievalRepository = {
   findFileById(fileId: string): Promise<LibraryFileSummary | null>;
   listFoldersByOwner(ownerUserId: string): Promise<LibraryFolderSummary[]>;
   listFilesByOwner(ownerUserId: string): Promise<LibraryFileSummary[]>;
+  searchFilesByOwner(
+    ownerUserId: string,
+    nameQuery: string,
+    folderIds: string[],
+  ): Promise<LibraryFileSummary[]>;
   listFavoriteFiles(userId: string): Promise<FavoriteFileRecord[]>;
   listFavoriteFolders(userId: string): Promise<FavoriteFolderRecord[]>;
   listRecentFiles(userId: string): Promise<RecentFileRecord[]>;

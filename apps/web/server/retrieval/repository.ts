@@ -56,6 +56,14 @@ export const createPrismaRetrievalRepository = ({
       });
     },
 
+    searchFilesByOwner(ownerUserId, nameQuery, folderIds) {
+      return getLibraryRepo().searchFilesByOwner(
+        ownerUserId,
+        nameQuery,
+        folderIds,
+      );
+    },
+
     async listFavoriteFiles(userId) {
       const client = getClient();
       const favorites = await client.favoriteFile.findMany({
