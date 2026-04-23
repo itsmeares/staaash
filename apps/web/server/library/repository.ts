@@ -236,7 +236,7 @@ const createCanonicalRoot = async (
     data: {
       ownerUserId,
       parentId: null,
-      name: "Library",
+      name: "Files",
       isLibraryRoot: true,
     },
     select: libraryFolderSelect,
