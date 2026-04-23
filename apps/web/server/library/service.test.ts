@@ -218,6 +218,20 @@ const createMemoryRepository = () => {
       ).map(cloneFile);
     },
 
+    async searchFilesByOwner(ownerUserId, nameQuery, folderIds) {
+      const normalized = nameQuery.trim().toLowerCase();
+      return state.files
+        .filter(
+          (file) =>
+            file.ownerUserId === ownerUserId &&
+            file.deletedAt === null &&
+            ((normalized.length > 0 &&
+              file.name.toLowerCase().includes(normalized)) ||
+              folderIds.includes(file.folderId ?? "")),
+        )
+        .map(cloneFile);
+    },
+
     async createFolder(params) {
       const folder = addFolder({
         ownerUserId: params.ownerUserId,

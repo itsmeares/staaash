@@ -439,27 +439,48 @@ export const createPrismaLibraryRepository = (
     },
 
     async searchFilesByOwner(ownerUserId, nameQuery, folderIds) {
-      const client = getClient();
       const trimmed = nameQuery.trim();
 
       if (trimmed.length === 0 && folderIds.length === 0) {
         return [];
       }
 
-      const orClauses: Prisma.FileWhereInput[] = [];
+      const prisma = getPrisma();
+      const matchingIds = new Set<string>();
 
-      if (trimmed.length > 0) {
-        orClauses.push({
-          originalName: { contains: trimmed, mode: "insensitive" },
-        });
+      await Promise.all([
+        trimmed.length > 0
+          ? prisma.$queryRaw<{ id: string }[]>`
+                SELECT id FROM "File"
+                WHERE "ownerUserId" = ${ownerUserId}
+                  AND "deletedAt" IS NULL
+                  AND unaccent(lower("originalName")) LIKE '%' || unaccent(lower(${trimmed})) || '%'
+              `.then((rows) => {
+              for (const r of rows) matchingIds.add(r.id);
+            })
+          : Promise.resolve(),
+        folderIds.length > 0
+          ? prisma.file
+              .findMany({
+                where: {
+                  ownerUserId,
+                  deletedAt: null,
+                  folderId: { in: folderIds },
+                },
+                select: { id: true },
+              })
+              .then((rows) => {
+                for (const r of rows) matchingIds.add(r.id);
+              })
+          : Promise.resolve(),
+      ]);
+
+      if (matchingIds.size === 0) {
+        return [];
       }
 
-      if (folderIds.length > 0) {
-        orClauses.push({ folderId: { in: folderIds } });
-      }
-
-      const files = await client.file.findMany({
-        where: { ownerUserId, deletedAt: null, OR: orClauses },
+      const files = await prisma.file.findMany({
+        where: { id: { in: [...matchingIds] } },
         select: libraryFileSelect,
       });
 
