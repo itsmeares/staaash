@@ -26,6 +26,7 @@ import type {
   LibraryFileSummary,
   LibraryFolderSummary,
 } from "@/server/library/types";
+import type { ShareLinkSummary } from "@/server/sharing";
 
 // ---------------------------------------------------------------------------
 // Icon catalog for folder customisation
@@ -77,6 +78,8 @@ type LibraryPropertiesPanelProps = {
   folderIcons: Record<string, string>;
   onSetFolderIcon: (folderId: string, iconName: string) => void;
   onClose: () => void;
+  share?: ShareLinkSummary | null;
+  onShare?: () => void;
 };
 
 export function LibraryPropertiesPanel({
@@ -84,6 +87,8 @@ export function LibraryPropertiesPanel({
   folderIcons,
   onSetFolderIcon,
   onClose,
+  share,
+  onShare,
 }: LibraryPropertiesPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const isOpen = item !== null;
@@ -178,6 +183,41 @@ export function LibraryPropertiesPanel({
                 </span>
               </div>
             </div>
+
+            {/* Sharing section */}
+            {onShare && (
+              <div className="properties-section">
+                <p className="properties-section-title">Sharing</p>
+                {share?.status === "active" ? (
+                  <>
+                    <div className="properties-row">
+                      <span className="properties-row-label">Status</span>
+                      <span className="properties-row-value">Active</span>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={onShare}>
+                      Manage link
+                    </Button>
+                  </>
+                ) : share ? (
+                  <>
+                    <div className="properties-row">
+                      <span className="properties-row-label">Status</span>
+                      <span className="properties-row-value">
+                        {share.status.charAt(0).toUpperCase() +
+                          share.status.slice(1)}
+                      </span>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={onShare}>
+                      Manage link
+                    </Button>
+                  </>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={onShare}>
+                    Create public link
+                  </Button>
+                )}
+              </div>
+            )}
 
             {/* Icon picker — folders only */}
             {item.kind === "folder" && (

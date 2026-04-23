@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Search } from "lucide-react";
+import { Toaster } from "sonner";
 
 import { getCurrentSession } from "@/server/auth/session";
 import {
@@ -106,6 +107,8 @@ export default async function WorkspaceLayout({
           </section>
         ) : null}
       </aside>
+
+      <Toaster position="bottom-right" richColors />
 
       <div className="workspace-main">
         <header className="workspace-topbar">

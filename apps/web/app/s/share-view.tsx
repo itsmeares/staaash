@@ -66,7 +66,7 @@ export function ShareErrorView({ error }: { error: ShareError }) {
   const copy = shareErrorCopy[error.code];
 
   return (
-    <main className="stack">
+    <main className="share-page stack">
       <section className="panel stack">
         <div className="pill">Public share</div>
         <h1>{copy.title}</h1>
@@ -88,7 +88,7 @@ export function ShareLockedView({
   token: string;
 }) {
   return (
-    <main className="stack">
+    <main className="share-page stack">
       <section className="panel stack">
         <div className="pill">Protected share</div>
         <h1>This share is password protected</h1>
@@ -147,7 +147,7 @@ export function ShareFilePage({
   const success = getSingleSearchParam(searchParams, "success");
 
   return (
-    <main className="stack">
+    <main className="share-page stack">
       <section className="panel stack">
         <div className="pill">{headerLabel}</div>
         <div className="split">
@@ -287,7 +287,7 @@ export function ShareView({ resolution, token, searchParams }: ShareViewProps) {
   }
 
   return (
-    <main className="stack">
+    <main className="share-page stack">
       <section className="panel stack">
         <div className="pill">Shared folder</div>
         <h1>{resolution.listing.currentFolder.name}</h1>

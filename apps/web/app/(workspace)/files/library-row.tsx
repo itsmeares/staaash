@@ -16,6 +16,7 @@ import {
   Briefcase,
   Download,
   FolderOpen,
+  Share2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -81,6 +82,7 @@ type RowShareProps = {
   targetId: string;
   targetType: "file" | "folder";
   currentPath: string;
+  onShare: () => void;
 };
 
 type BaseFolderRowProps = {
@@ -255,9 +257,18 @@ export function LibraryRow(props: LibraryRowProps) {
                 onClick={(e) => e.stopPropagation()}
               />
             ) : (
-              <span className="explorer-row-name" title={name}>
-                {name}
-              </span>
+              <>
+                <span className="explorer-row-name" title={name}>
+                  {name}
+                </span>
+                {shareProps.share?.status === "active" && (
+                  <Share2
+                    size={10}
+                    className="explorer-row-share-badge"
+                    aria-label="Shared"
+                  />
+                )}
+              </>
             )}
           </div>
 
@@ -304,38 +315,11 @@ export function LibraryRow(props: LibraryRowProps) {
         </ContextMenuItem>
 
         {shareLabel ? (
-          <ContextMenuItem
-            onClick={() => {
-              window.location.href = `/shared#${shareProps.share!.id}`;
-            }}
-          >
-            {shareLabel} — manage link
+          <ContextMenuItem onClick={shareProps.onShare}>
+            Share — manage link
           </ContextMenuItem>
         ) : (
-          <ContextMenuItem
-            onClick={() => {
-              const form = document.createElement("form");
-              form.method = "POST";
-              form.action = "/api/shares";
-              const fields: Record<string, string> = {
-                targetType: shareProps.targetType,
-                redirectTo: shareProps.currentPath,
-                [shareProps.targetType === "file" ? "fileId" : "folderId"]:
-                  shareProps.targetId,
-              };
-              for (const [k, v] of Object.entries(fields)) {
-                const input = document.createElement("input");
-                input.type = "hidden";
-                input.name = k;
-                input.value = v;
-                form.appendChild(input);
-              }
-              document.body.appendChild(form);
-              form.submit();
-            }}
-          >
-            Create public link
-          </ContextMenuItem>
+          <ContextMenuItem onClick={shareProps.onShare}>Share</ContextMenuItem>
         )}
 
         {props.kind === "folder" && (
