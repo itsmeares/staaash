@@ -1,6 +1,6 @@
 # Staaash
 
-[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![AGPL-3.0 License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](./LICENSE)
 
 Staaash is a self-hosted personal cloud drive I am building in public.
 
@@ -128,4 +128,4 @@ That does not change the quality bar. Generated code or generated docs still nee
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+AGPL-3.0 — see [LICENSE](./LICENSE).
