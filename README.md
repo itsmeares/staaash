@@ -4,49 +4,41 @@ Staaash is a self-hosted personal cloud drive I am building in public.
 
 The goal is not to clone a larger product feature-for-feature. The goal is to build a storage app with predictable behavior around uploads, file layout, sharing, search, and recovery, then make those rules explicit in the code and docs.
 
+Inspired by [Immich](https://github.com/immich-app/immich) — not in what it does, but in how it approaches self-hosted product quality and operator experience.
+
 ## Current Status
 
-This repository is still early-stage. It is real software, but it is not a finished product.
+v1 is feature-complete.
 
-What is already here:
+What is shipped:
 
-- a Next.js App Router web app
-- a worker runtime for background behavior
-- a Prisma and PostgreSQL metadata layer
-- completed Phases 2 through 8 for signed-in workspace navigation, uploads, sharing, retrieval, worker jobs, the owner admin surface, and restore reconciliation
-- tested server-side modules for uploads, sharing, search, restore logic, auth flows, health checks, background jobs, admin storage reporting, and library-folder behavior
+- signed-in workspace with Files, Recent, Favorites, Shared, Trash, and Settings
+- nested folder navigation with breadcrumbs, create, rename, move, trash, and restore
+- staged upload pipeline with checksum verification and atomic commit
+- public share links with expiry, optional password, download-disable, and folder subtree browsing
+- inline viewers for image, video, PDF, text, and audio files
+- private search, favorites, and recents
+- worker job loop for trash retention, staging cleanup, and update checks
+- owner admin surface for users, invites, storage, jobs, health, and update status
+- restore reconciliation with missing-original and orphaned-storage reporting
+- integration tests and Playwright E2E smoke harness
 
 What is not true yet:
 
-- it is not feature-complete
 - it is not packaged for one-command deployment
-- it is not ready to replace something like Google Drive or Dropbox
+- there is no Docker Compose or installation guide yet
+- it is not ready to hand to someone who just wants to run it
 
-That is intentional. This repo is meant to show honest progress, not imply more maturity than it has earned.
+That is the next honest milestone.
 
-## What Exists Today
+## Core Behavior
 
-The current foundation already locks in several important behaviors:
-
-- immutable ID-based physical storage paths
-- PostgreSQL-backed metadata
-- staged uploads with checksum verification rules
-- explicit sharing boundaries
-- deterministic search normalization and ranking rules
-- owner-facing health and operational visibility
-- restore behavior that requires reconciliation instead of silent best effort
-- owner-visible restore integrity reporting and manual reconciliation
-
-## Current Focus
-
-The current major slice is release-quality hardening in Phase 08.
-
-That work is centered on:
-
-- manual owner-triggered restore reconciliation
-- integrity visibility for missing originals and orphaned storage
-- release-quality verification across admin, library, sharing, and recovery paths
-- a thin browser smoke harness for the highest-risk journeys
+- immutable ID-based physical storage — rename and move never touch the binary on disk
+- staged uploads with checksum verification before commit
+- explicit sharing boundaries — no silent re-share, no hidden subtree filtering
+- deterministic search: case-insensitive, accent-insensitive, path-token aware
+- owner health and operational visibility as a first-class surface
+- restore requires reconciliation instead of silent best effort
 
 ## Tech Stack
 
@@ -58,6 +50,7 @@ That work is centered on:
 - Prisma
 - PostgreSQL
 - Vitest
+- Playwright
 
 ## Repository Layout
 
@@ -65,7 +58,7 @@ That work is centered on:
 - `apps/worker` - background worker runtime
 - `packages/config` - shared TypeScript config
 - `packages/db` - Prisma schema and DB helpers
-- `docs` - architecture notes, roadmap, phase docs, and operational notes
+- `docs` - architecture reference
 
 ## Local Development
 
@@ -111,16 +104,9 @@ This will:
 - `pnpm test`
 - `pnpm build`
 
-## Documentation Map
+## Documentation
 
-Start here if you want the short version of how the repo is organized:
-
-- [`docs/README.md`](./docs/README.md) - documentation index and reading order
-- [`docs/architecture.md`](./docs/architecture.md) - high-level system shape and storage model
-- [`docs/implementation-plan.md`](./docs/implementation-plan.md) - phased roadmap for the rewrite
-- [`docs/decision-log.md`](./docs/decision-log.md) - stable decisions that are intentionally not being re-litigated
-- [`docs/phases/README.md`](./docs/phases/README.md) - execution index for the phase documents
-- [`docs/operations/backup-restore.md`](./docs/operations/backup-restore.md) - backup baseline and restore expectations
+- [`docs/architecture.md`](./docs/architecture.md) - system shape, storage model, and design boundaries
 
 ## AI Use
 
