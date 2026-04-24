@@ -14,7 +14,7 @@ This is intentionally a small, explicit architecture. The repo is trying to make
 
 - Next.js App Router application
 - signed-in workspace shell and server routes
-- auth, library, sharing, search, restore, and admin-facing request flows
+- auth, files, sharing, search, restore, and admin-facing request flows
 
 ### Worker
 
@@ -67,4 +67,3 @@ This separation is one of the main architectural choices in the repo. It keeps l
 - [`implementation-plan.md`](./implementation-plan.md) for the phased roadmap
 - [`decision-log.md`](./decision-log.md) for stable product and architecture choices
 - [`operations/backup-restore.md`](./operations/backup-restore.md) for backup and restore expectations
-- [`phases/README.md`](./phases/README.md) for the execution index into the phase docs
