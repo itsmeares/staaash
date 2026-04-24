@@ -1,5 +1,7 @@
 # Staaash
 
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+
 Staaash is a self-hosted personal cloud drive I am building in public.
 
 The goal is not to clone a larger product feature-for-feature. The goal is to build a storage app with predictable behavior around uploads, file layout, sharing, search, and recovery, then make those rules explicit in the code and docs.
@@ -23,13 +25,12 @@ What is shipped:
 - restore reconciliation with missing-original and orphaned-storage reporting
 - integration tests and Playwright E2E smoke harness
 
-What is not true yet:
+Not yet:
 
-- it is not packaged for one-command deployment
-- there is no Docker Compose or installation guide yet
-- it is not ready to hand to someone who just wants to run it
+- no Docker Compose or one-command deployment
+- no installation guide for non-developers
 
-That is the next honest milestone.
+Self-hosting readiness is tracked in [#21](https://github.com/itsmeares/staaash/issues/21).
 
 ## Core Behavior
 
@@ -125,6 +126,6 @@ That does not change the quality bar. Generated code or generated docs still nee
 
 [![Star History Chart](https://api.star-history.com/svg?repos=itsmeares/staaash&type=Date)](https://star-history.com/#itsmeares/staaash&Date)
 
-## Notes
+## License
 
-This is my first public repo. I want it to stay readable, technically honest, and useful to people following along. Direct feedback is welcome if something feels unclear or under-documented.
+MIT — see [LICENSE](./LICENSE).
