@@ -252,7 +252,7 @@ describe("prisma library repository", () => {
 
     const root = await repo.ensureLibraryRoot("member-1");
 
-    expect(root.name).toBe("Library");
+    expect(root.name).toBe("Files");
     expect(root.isLibraryRoot).toBe(true);
     expect(state.folders).toHaveLength(1);
     expect(state.folders[0]?.isLibraryRoot).toBe(true);

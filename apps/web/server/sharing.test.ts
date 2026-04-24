@@ -1,6 +1,18 @@
 import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { renderToReadableStream } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/server/auth/service", () => ({
+  authService: {
+    getSetupState: vi.fn().mockResolvedValue({ instanceName: "Staaash" }),
+  },
+}));
+
+async function renderMarkup(element: React.ReactElement): Promise<string> {
+  const stream = await renderToReadableStream(element);
+  await stream.allReady;
+  return new Response(stream).text();
+}
 
 import { ShareView } from "@/app/s/share-view";
 import {
@@ -184,8 +196,8 @@ describe("folder public link behavior", () => {
     expect(() => unlockShareSchema.parse({})).toThrow();
   });
 
-  it("hides locked file metadata before unlock", () => {
-    const markup = renderToStaticMarkup(
+  it("hides locked file metadata before unlock", async () => {
+    const markup = await renderMarkup(
       createElement(ShareView, {
         resolution: lockedFileResolution,
         searchParams: {},
@@ -193,13 +205,13 @@ describe("folder public link behavior", () => {
       }),
     );
 
-    expect(markup).toContain("This share is password protected");
+    expect(markup).toContain("Password required");
     expect(markup).not.toContain("plan.txt");
     expect(markup).not.toContain("text/plain");
   });
 
-  it("hides locked folder metadata before unlock", () => {
-    const markup = renderToStaticMarkup(
+  it("hides locked folder metadata before unlock", async () => {
+    const markup = await renderMarkup(
       createElement(ShareView, {
         resolution: lockedFolderResolution,
         searchParams: {},
@@ -207,7 +219,7 @@ describe("folder public link behavior", () => {
       }),
     );
 
-    expect(markup).toContain("This share is password protected");
+    expect(markup).toContain("Password required");
     expect(markup).not.toContain("Projects");
     expect(markup).not.toContain("2026");
     expect(markup).not.toContain("Breadcrumb");
