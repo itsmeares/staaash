@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Search } from "lucide-react";
-import { Toaster } from "sonner";
 
+import { Toaster } from "@/components/ui/sonner";
 import { getCurrentSession } from "@/server/auth/session";
 import {
   getInstanceStorageUsed,
@@ -54,9 +54,7 @@ export default async function WorkspaceLayout({
         <aside className="workspace-sidebar">
           <div className="workspace-brand-area">
             <Link className="workspace-brand-link" href="/files">
-              <span className="workspace-brand">
-                St<span className="workspace-brand-accent">aaa</span>sh
-              </span>
+              <span className="workspace-brand">Staaash</span>
             </Link>
           </div>
 
@@ -129,8 +127,7 @@ export default async function WorkspaceLayout({
         </div>
       </div>
 
-      {/* Toaster is outside the workspace-shell grid to avoid disrupting the
-          2-column grid layout (fixed-position grid items still consume a cell). */}
+      {/* Toaster outside workspace-shell grid — fixed elements still consume a grid cell. */}
       <Toaster position="bottom-right" richColors />
     </>
   );

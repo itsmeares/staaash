@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, Copy, Link2Off } from "lucide-react";
+import { Check, Copy, Link2Off, Lock, LockOpen, Download } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,6 @@ function computeStatus(
   return "active";
 }
 
-// Convert the server-rendered ShareLinkSummary (from shareLookup) to DialogShare
 function fromSummary(s: ShareLinkSummary): DialogShare {
   return {
     id: s.id,
@@ -44,13 +43,11 @@ function fromSummary(s: ShareLinkSummary): DialogShare {
   };
 }
 
-// Convert a raw StoredShareLink from API mutations — compute missing fields locally
 function fromRaw(raw: any, fallbackShareUrl: string): DialogShare {
   const expiresAt = new Date(raw.expiresAt);
   const revokedAt = raw.revokedAt ? new Date(raw.revokedAt) : null;
   return {
     id: raw.id,
-    // shareUrl comes at top level for create/reissue; StoredShareLink lacks it
     shareUrl: raw.shareUrl ?? fallbackShareUrl,
     hasPassword: raw.hasPassword ?? Boolean(raw.passwordHash),
     downloadDisabled: Boolean(raw.downloadDisabled),
@@ -65,6 +62,16 @@ function formatExpiry(date: Date): string {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+}
+
+function toLocalDateString(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function toLocalTimeString(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -90,6 +97,18 @@ export function ShareDialog({
   const [passwordValue, setPasswordValue] = useState("");
   const [showPasswordField, setShowPasswordField] = useState(false);
 
+  // Custom expiry state — kept in sync with dialogShare.expiresAt
+  const [customDate, setCustomDate] = useState("");
+  const [customTime, setCustomTime] = useState("");
+
+  // Sync custom date/time when share changes
+  useEffect(() => {
+    if (dialogShare?.expiresAt) {
+      setCustomDate(toLocalDateString(dialogShare.expiresAt));
+      setCustomTime(toLocalTimeString(dialogShare.expiresAt));
+    }
+  }, [dialogShare?.id, dialogShare?.expiresAt.getTime()]);
+
   // Close on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -100,7 +119,7 @@ export function ShareDialog({
   }, [onClose]);
 
   // ---------------------------------------------------------------------------
-  // API helper — returns raw response data
+  // API helper
   // ---------------------------------------------------------------------------
 
   const callApi = async (
@@ -128,7 +147,6 @@ export function ShareDialog({
     }
   };
 
-  // Apply a raw API response to local state, preserving the existing shareUrl
   const applyResult = (
     result: { rawShare: any; shareUrl?: string },
     successMsg?: string,
@@ -163,14 +181,26 @@ export function ShareDialog({
     if (result?.rawShare) applyResult(result, "Link reissued");
   };
 
-  const extendExpiry = async (days: number) => {
+  // Set expiry to N days from now
+  const setExpiryPreset = async (days: number) => {
     if (!dialogShare) return;
-    const base = new Date(
-      Math.max(dialogShare.expiresAt.getTime(), Date.now()),
-    );
-    const newExpiry = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
+    const newExpiry = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
     const result = await callApi(`/api/shares/${dialogShare.id}/update`, {
       expiresAt: newExpiry.toISOString(),
+      downloadDisabled: String(dialogShare.downloadDisabled),
+    });
+    if (result?.rawShare) applyResult(result, "Expiry updated");
+  };
+
+  const saveCustomExpiry = async () => {
+    if (!dialogShare || !customDate) return;
+    const combined = new Date(`${customDate}T${customTime || "00:00"}`);
+    if (isNaN(combined.getTime()) || combined <= new Date()) {
+      toast.error("Choose a future date and time");
+      return;
+    }
+    const result = await callApi(`/api/shares/${dialogShare.id}/update`, {
+      expiresAt: combined.toISOString(),
       downloadDisabled: String(dialogShare.downloadDisabled),
     });
     if (result?.rawShare) applyResult(result, "Expiry updated");
@@ -183,8 +213,12 @@ export function ShareDialog({
       expiresAt: dialogShare.expiresAt.toISOString(),
       downloadDisabled: String(newVal),
     });
-    if (result?.rawShare)
-      applyResult(result, newVal ? "Downloads disabled" : "Downloads enabled");
+    if (result?.rawShare) {
+      applyResult(result);
+      newVal
+        ? toast.error("Downloads disabled")
+        : toast.success("Downloads enabled");
+    }
   };
 
   const handleSetPassword = async () => {
@@ -205,7 +239,8 @@ export function ShareDialog({
       clear: "true",
     });
     if (result?.rawShare) {
-      applyResult(result, "Password removed");
+      applyResult(result);
+      toast.error("Password removed");
       setShowPasswordField(false);
     }
   };
@@ -213,7 +248,10 @@ export function ShareDialog({
   const revokeLink = async () => {
     if (!dialogShare) return;
     const result = await callApi(`/api/shares/${dialogShare.id}/revoke`, {});
-    if (result?.rawShare) applyResult(result, "Link revoked");
+    if (result?.rawShare) {
+      applyResult(result);
+      toast.error("Link revoked");
+    }
   };
 
   const copyUrl = async () => {
@@ -256,15 +294,13 @@ export function ShareDialog({
         <div className="share-dialog-body">
           {/* ── No share yet ── */}
           {!dialogShare && (
-            <div className="share-dialog-section">
+            <div className="share-dialog-section share-dialog-empty">
               <p className="share-dialog-hint">
-                No public link for this {targetType}. Create one to share it.
+                No public link for this {targetType}.
               </p>
-              <div>
-                <Button size="sm" onClick={createLink} disabled={isBusy}>
-                  {isBusy ? "Creating…" : "Share"}
-                </Button>
-              </div>
+              <Button size="sm" onClick={createLink} disabled={isBusy}>
+                {isBusy ? "Creating…" : "Create share link"}
+              </Button>
             </div>
           )}
 
@@ -280,51 +316,72 @@ export function ShareDialog({
                     readOnly
                     aria-label="Share URL"
                   />
-                  <Button size="sm" variant="outline" onClick={copyUrl}>
-                    {copied ? <Check size={14} /> : <Copy size={14} />}
+                  <button
+                    type="button"
+                    className="share-copy-btn"
+                    onClick={copyUrl}
+                    aria-label="Copy link"
+                  >
+                    {copied ? <Check size={13} /> : <Copy size={13} />}
                     {copied ? "Copied" : "Copy"}
-                  </Button>
+                  </button>
                 </div>
               </div>
 
               {/* Expiry */}
               <div className="share-dialog-section">
-                <p className="share-dialog-section-label">Expires</p>
-                <p className="share-expiry-value">
-                  {formatExpiry(dialogShare.expiresAt)}
-                </p>
-                <div className="share-extend-row">
-                  <button
-                    className="share-extend-btn"
-                    onClick={() => extendExpiry(7)}
+                <div className="share-expiry-header">
+                  <p className="share-dialog-section-label">Expires</p>
+                  <span className="share-expiry-value">
+                    {formatExpiry(dialogShare.expiresAt)}
+                  </span>
+                </div>
+
+                {/* Presets */}
+                <div className="share-preset-row">
+                  {[
+                    { label: "7 days", days: 7 },
+                    { label: "30 days", days: 30 },
+                    { label: "90 days", days: 90 },
+                    { label: "1 year", days: 365 },
+                  ].map(({ label, days }) => (
+                    <button
+                      key={days}
+                      type="button"
+                      className="share-preset-btn"
+                      onClick={() => setExpiryPreset(days)}
+                      disabled={isBusy}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom date + time */}
+                <div className="share-expiry-custom">
+                  <input
+                    type="date"
+                    className="share-date-input"
+                    value={customDate}
+                    onChange={(e) => setCustomDate(e.target.value)}
                     disabled={isBusy}
-                    type="button"
-                  >
-                    +7d
-                  </button>
-                  <button
-                    className="share-extend-btn"
-                    onClick={() => extendExpiry(30)}
+                    aria-label="Expiry date"
+                  />
+                  <input
+                    type="time"
+                    className="share-time-input"
+                    value={customTime}
+                    onChange={(e) => setCustomTime(e.target.value)}
                     disabled={isBusy}
-                    type="button"
-                  >
-                    +30d
-                  </button>
+                    aria-label="Expiry time"
+                  />
                   <button
-                    className="share-extend-btn"
-                    onClick={() => extendExpiry(90)}
-                    disabled={isBusy}
                     type="button"
+                    className="share-expiry-save-btn"
+                    onClick={saveCustomExpiry}
+                    disabled={isBusy || !customDate}
                   >
-                    +90d
-                  </button>
-                  <button
-                    className="share-extend-btn"
-                    onClick={() => extendExpiry(365)}
-                    disabled={isBusy}
-                    type="button"
-                  >
-                    +1y
+                    Save
                   </button>
                 </div>
               </div>
@@ -333,30 +390,42 @@ export function ShareDialog({
               <div className="share-dialog-section">
                 <p className="share-dialog-section-label">Settings</p>
 
-                <label className="share-toggle-row">
+                {/* Downloads toggle */}
+                <label className="share-toggle-label">
                   <input
                     type="checkbox"
+                    className="share-toggle-check"
                     checked={!dialogShare.downloadDisabled}
                     onChange={toggleDownloads}
                     disabled={isBusy}
-                    className="share-toggle-check"
+                  />
+                  <span className="share-toggle-slider" aria-hidden />
+                  <Download
+                    size={13}
+                    className="share-setting-icon"
+                    aria-hidden
                   />
                   <span className="share-toggle-text">Allow downloads</span>
                 </label>
 
                 {/* Password */}
                 <div className="share-password-block">
-                  <div className="share-password-header">
+                  <div className="share-password-row">
+                    <Lock
+                      size={13}
+                      className="share-setting-icon"
+                      aria-hidden
+                    />
                     <span className="share-setting-label">
                       {dialogShare.hasPassword
                         ? "Password protected"
                         : "No password"}
                     </span>
-                    <div className="share-password-header-actions">
+                    <div className="share-password-actions">
                       {dialogShare.hasPassword && (
                         <button
                           type="button"
-                          className="share-text-btn share-text-btn--danger"
+                          className="share-action-btn share-action-btn--danger"
                           onClick={handleClearPassword}
                           disabled={isBusy}
                         >
@@ -365,7 +434,7 @@ export function ShareDialog({
                       )}
                       <button
                         type="button"
-                        className="share-text-btn"
+                        className="share-action-btn"
                         onClick={() => setShowPasswordField((v) => !v)}
                       >
                         {showPasswordField
@@ -381,7 +450,7 @@ export function ShareDialog({
                       <input
                         type="password"
                         className="share-password-input"
-                        placeholder="Min 8 characters…"
+                        placeholder="Min 8 characters"
                         value={passwordValue}
                         onChange={(e) => setPasswordValue(e.target.value)}
                         onKeyDown={(e) => {
@@ -391,14 +460,14 @@ export function ShareDialog({
                         autoComplete="new-password"
                         autoFocus
                       />
-                      <Button
-                        size="sm"
-                        variant="outline"
+                      <button
+                        type="button"
+                        className="share-action-btn share-action-btn--primary"
                         onClick={handleSetPassword}
                         disabled={isBusy || passwordValue.trim().length < 8}
                       >
                         {dialogShare.hasPassword ? "Update" : "Set"}
-                      </Button>
+                      </button>
                     </div>
                   )}
                 </div>
@@ -408,11 +477,11 @@ export function ShareDialog({
               <div className="share-dialog-section share-dialog-footer">
                 <button
                   type="button"
-                  className="share-text-btn share-text-btn--danger"
+                  className="share-revoke-btn"
                   onClick={revokeLink}
                   disabled={isBusy}
                 >
-                  <Link2Off size={12} />
+                  <Link2Off size={14} aria-hidden />
                   Revoke link
                 </button>
               </div>
@@ -421,7 +490,7 @@ export function ShareDialog({
 
           {/* ── Inactive share ── */}
           {isInactive && dialogShare && (
-            <div className="share-dialog-section">
+            <div className="share-dialog-section share-dialog-empty">
               <p className="share-dialog-hint">
                 This link is{" "}
                 <strong>
@@ -429,16 +498,14 @@ export function ShareDialog({
                 </strong>
                 .
               </p>
-              <div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={reissueLink}
-                  disabled={isBusy}
-                >
-                  {isBusy ? "Reissuing…" : "Reissue link"}
-                </Button>
-              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={reissueLink}
+                disabled={isBusy}
+              >
+                {isBusy ? "Reissuing…" : "Reissue link"}
+              </Button>
             </div>
           )}
         </div>
