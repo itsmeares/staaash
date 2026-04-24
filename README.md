@@ -121,6 +121,10 @@ That does not change the quality bar. Generated code or generated docs still nee
 - use the PR template when opening changes
 - report security problems privately as described in [`SECURITY.md`](./SECURITY.md)
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=itsmeares/staaash&type=Date)](https://star-history.com/#itsmeares/staaash&Date)
+
 ## Notes
 
 This is my first public repo. I want it to stay readable, technically honest, and useful to people following along. Direct feedback is welcome if something feels unclear or under-documented.
