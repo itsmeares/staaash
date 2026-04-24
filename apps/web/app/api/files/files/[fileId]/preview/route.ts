@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 
 import { getRequestSession } from "@/server/auth/guards";
 import { notSignedInResponse } from "@/server/auth/http";
-import { LibraryError } from "@/server/library/errors";
-import { getAccessiblePrivateFile } from "@/server/library/viewer";
+import { FilesError } from "@/server/files/errors";
+import { getAccessiblePrivateFile } from "@/server/files/viewer";
 
 type RouteContext = {
   params: Promise<{
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
 
     return Response.redirect(new URL(redirectTarget, request.url), 307);
   } catch (error) {
-    if (error instanceof LibraryError) {
+    if (error instanceof FilesError) {
       return Response.json(
         { error: error.message, code: error.code },
         { status: error.status },

@@ -10,7 +10,7 @@ import {
 } from "@/app/auth-ui";
 import { authService } from "@/server/auth/service";
 import { ShareAudioPlayer } from "./share-audio-player";
-import type { LibraryFileSummary } from "@/server/library/types";
+import type { FileSummary } from "@/server/files/types";
 import { ShareError } from "@/server/sharing/errors";
 import type {
   PublicShareResolution,
@@ -161,7 +161,7 @@ export function ShareFilePage({
   backLabel?: string;
   contentHref: string;
   downloadHref?: string;
-  file: LibraryFileSummary;
+  file: FileSummary;
   headerLabel: string;
   searchParams: Record<string, string | string[] | undefined>;
   share: Pick<ShareLinkSummary, "downloadDisabled" | "expiresAt">;

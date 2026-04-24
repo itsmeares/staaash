@@ -11,7 +11,7 @@ import {
   redirectWithMessage,
   wantsJson,
 } from "@/server/auth/http";
-import { libraryService } from "@/server/library/service";
+import { filesService } from "@/server/files/service";
 import { recordFileAccessBestEffort } from "@/server/retrieval/recent-tracking";
 
 type RouteContext = {
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
 
   try {
     const { fileId } = await params;
-    const result = await libraryService.moveFile({
+    const result = await filesService.moveFile({
       actorUserId: session.user.id,
       actorRole: session.user.role,
       fileId,

@@ -1,27 +1,27 @@
 import { requireSignedInPageSession } from "@/server/auth/guards";
-import { libraryService } from "@/server/library/service";
+import { filesService } from "@/server/files/service";
 import { retrievalService } from "@/server/retrieval/service";
 import { sharingService } from "@/server/sharing/service";
 
-import { LibraryExplorer } from "./library-explorer";
+import { FilesExplorer } from "./files-explorer";
 
 export const dynamic = "force-dynamic";
 
-type LibraryPageProps = {
+type FilesPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function LibraryPage({ searchParams }: LibraryPageProps) {
+export default async function FilesPage({ searchParams }: FilesPageProps) {
   const [resolvedSearchParams, session] = await Promise.all([
     searchParams,
     requireSignedInPageSession("/sign-in?next=/files"),
   ]);
-  const listing = await libraryService.getLibraryListing({
+  const listing = await filesService.getFilesListing({
     actorUserId: session.user.id,
     actorRole: session.user.role,
   });
   const [shareLookup, favorites] = await Promise.all([
-    sharingService.getLibraryShareLookup({
+    sharingService.getFilesShareLookup({
       actorUserId: session.user.id,
       actorRole: session.user.role,
       currentFolderId: listing.currentFolder.id,
@@ -35,7 +35,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   ]);
 
   return (
-    <LibraryExplorer
+    <FilesExplorer
       currentPath="/files"
       favoriteFileIds={favorites
         .filter((item) => item.kind === "file")

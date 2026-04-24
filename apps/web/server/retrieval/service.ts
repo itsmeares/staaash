@@ -1,10 +1,10 @@
 import { canAccessPrivateNamespace } from "@/server/access";
-import { LibraryError } from "@/server/library/errors";
+import { FilesError } from "@/server/files/errors";
 import type {
-  LibraryActor,
-  LibraryFileSummary,
-  LibraryFolderSummary,
-} from "@/server/library/types";
+  FilesActor,
+  FileSummary,
+  FolderSummary,
+} from "@/server/files/types";
 import {
   compareSearchResults,
   getSearchMatchKind,
@@ -22,55 +22,54 @@ type CreateRetrievalServiceOptions = {
   now?: () => Date;
 };
 
-type FileFavoriteInput = LibraryActor & {
+type FileFavoriteInput = FilesActor & {
   fileId: string;
   isFavorite: boolean;
 };
 
-type FolderFavoriteInput = LibraryActor & {
+type FolderFavoriteInput = FilesActor & {
   folderId: string;
   isFavorite: boolean;
 };
 
-type FileAccessInput = LibraryActor & {
+type FileAccessInput = FilesActor & {
   fileId: string;
 };
 
-type FolderAccessInput = LibraryActor & {
+type FolderAccessInput = FilesActor & {
   folderId: string;
 };
 
-const getFolderHref = (
-  folder: Pick<LibraryFolderSummary, "id" | "isLibraryRoot">,
-) => (folder.isLibraryRoot ? "/files" : `/files/f/${folder.id}`);
+const getFolderHref = (folder: Pick<FolderSummary, "id" | "isFilesRoot">) =>
+  folder.isFilesRoot ? "/files" : `/files/f/${folder.id}`;
 
-const getFileHref = (file: Pick<LibraryFileSummary, "id" | "viewerKind">) =>
+const getFileHref = (file: Pick<FileSummary, "id" | "viewerKind">) =>
   file.viewerKind
     ? `/files/view/${file.id}`
     : `/api/files/view/${file.id}/download`;
 
-const buildFolderMap = (folders: LibraryFolderSummary[]) =>
+const buildFolderMap = (folders: FolderSummary[]) =>
   new Map(folders.map((folder) => [folder.id, folder]));
 
 const buildFolderPathLabel = ({
   folder,
   folderMap,
-  libraryRoot,
+  filesRoot,
 }: {
-  folder: LibraryFolderSummary;
-  folderMap: Map<string, LibraryFolderSummary>;
-  libraryRoot: LibraryFolderSummary;
+  folder: FolderSummary;
+  folderMap: Map<string, FolderSummary>;
+  filesRoot: FolderSummary;
 }) => {
   const names: string[] = [];
   const seen = new Set<string>();
-  let current: LibraryFolderSummary | undefined = folder;
+  let current: FolderSummary | undefined = folder;
   let reachedRoot = false;
 
   while (current && !seen.has(current.id)) {
     seen.add(current.id);
     names.unshift(current.name);
 
-    if (current.id === libraryRoot.id) {
+    if (current.id === filesRoot.id) {
       reachedRoot = true;
       break;
     }
@@ -79,7 +78,7 @@ const buildFolderPathLabel = ({
   }
 
   if (!reachedRoot) {
-    names.unshift(libraryRoot.name);
+    names.unshift(filesRoot.name);
   }
 
   return names.join(" / ");
@@ -88,30 +87,30 @@ const buildFolderPathLabel = ({
 const buildFilePathLabel = ({
   file,
   folderMap,
-  libraryRoot,
+  filesRoot,
 }: {
-  file: LibraryFileSummary;
-  folderMap: Map<string, LibraryFolderSummary>;
-  libraryRoot: LibraryFolderSummary;
+  file: FileSummary;
+  folderMap: Map<string, FolderSummary>;
+  filesRoot: FolderSummary;
 }) => {
   const parent =
     file.folderId && folderMap.has(file.folderId)
       ? folderMap.get(file.folderId)
-      : libraryRoot;
+      : filesRoot;
 
   const folderPath = parent
     ? buildFolderPathLabel({
         folder: parent,
         folderMap,
-        libraryRoot,
+        filesRoot,
       })
-    : libraryRoot.name;
+    : filesRoot.name;
 
   return `${folderPath} / ${file.name}`;
 };
 
 const computeMatchingFolderAndDescendantIds = (
-  folders: LibraryFolderSummary[],
+  folders: FolderSummary[],
   normalizedQuery: string,
 ): string[] => {
   const childrenMap = new Map<string | null, string[]>();
@@ -124,7 +123,7 @@ const computeMatchingFolderAndDescendantIds = (
   const seeds = folders
     .filter(
       (f) =>
-        !f.isLibraryRoot &&
+        !f.isFilesRoot &&
         getSearchMatchKind(normalizedQuery, f.name, "") !== null,
     )
     .map((f) => f.id);
@@ -164,12 +163,12 @@ const compareRetrievalItems = (left: RetrievalItem, right: RetrievalItem) => {
 const toFolderItem = ({
   folder,
   folderMap,
-  libraryRoot,
+  filesRoot,
   favoriteFolderIds,
 }: {
-  folder: LibraryFolderSummary;
-  folderMap: Map<string, LibraryFolderSummary>;
-  libraryRoot: LibraryFolderSummary;
+  folder: FolderSummary;
+  folderMap: Map<string, FolderSummary>;
+  filesRoot: FolderSummary;
   favoriteFolderIds: Set<string>;
 }): RetrievalItem => ({
   kind: "folder",
@@ -178,7 +177,7 @@ const toFolderItem = ({
   pathLabel: buildFolderPathLabel({
     folder,
     folderMap,
-    libraryRoot,
+    filesRoot,
   }),
   href: getFolderHref(folder),
   updatedAt: folder.updatedAt,
@@ -189,12 +188,12 @@ const toFolderItem = ({
 const toFileItem = ({
   file,
   folderMap,
-  libraryRoot,
+  filesRoot,
   favoriteFileIds,
 }: {
-  file: LibraryFileSummary;
-  folderMap: Map<string, LibraryFolderSummary>;
-  libraryRoot: LibraryFolderSummary;
+  file: FileSummary;
+  folderMap: Map<string, FolderSummary>;
+  filesRoot: FolderSummary;
   favoriteFileIds: Set<string>;
 }): RetrievalItem => ({
   kind: "file",
@@ -203,7 +202,7 @@ const toFileItem = ({
   pathLabel: buildFilePathLabel({
     file,
     folderMap,
-    libraryRoot,
+    filesRoot,
   }),
   href: getFileHref(file),
   updatedAt: file.updatedAt,
@@ -214,11 +213,11 @@ const toFileItem = ({
 });
 
 const assertFolderAccess = (
-  actor: LibraryActor,
-  folder: LibraryFolderSummary | null,
+  actor: FilesActor,
+  folder: FolderSummary | null,
 ) => {
   if (!folder) {
-    throw new LibraryError("FOLDER_NOT_FOUND");
+    throw new FilesError("FOLDER_NOT_FOUND");
   }
 
   if (
@@ -228,18 +227,15 @@ const assertFolderAccess = (
       namespaceOwnerUserId: folder.ownerUserId,
     })
   ) {
-    throw new LibraryError("ACCESS_DENIED");
+    throw new FilesError("ACCESS_DENIED");
   }
 
   return folder;
 };
 
-const assertFileAccess = (
-  actor: LibraryActor,
-  file: LibraryFileSummary | null,
-) => {
+const assertFileAccess = (actor: FilesActor, file: FileSummary | null) => {
   if (!file) {
-    throw new LibraryError("FILE_NOT_FOUND");
+    throw new FilesError("FILE_NOT_FOUND");
   }
 
   if (
@@ -249,23 +245,23 @@ const assertFileAccess = (
       namespaceOwnerUserId: file.ownerUserId,
     })
   ) {
-    throw new LibraryError("ACCESS_DENIED");
+    throw new FilesError("ACCESS_DENIED");
   }
 
   return file;
 };
 
-const assertActiveFolder = (folder: LibraryFolderSummary) => {
+const assertActiveFolder = (folder: FolderSummary) => {
   if (folder.deletedAt) {
-    throw new LibraryError("FOLDER_NOT_FOUND");
+    throw new FilesError("FOLDER_NOT_FOUND");
   }
 
   return folder;
 };
 
-const assertActiveFile = (file: LibraryFileSummary) => {
+const assertActiveFile = (file: FileSummary) => {
   if (file.deletedAt) {
-    throw new LibraryError("FILE_NOT_FOUND");
+    throw new FilesError("FILE_NOT_FOUND");
   }
 
   return file;
@@ -301,7 +297,7 @@ export const createRetrievalService = ({
     async search({
       actorUserId,
       query,
-    }: LibraryActor & { query: string }): Promise<RetrievalItem[]> {
+    }: FilesActor & { query: string }): Promise<RetrievalItem[]> {
       const trimmedQuery = query.trim();
 
       if (trimmedQuery.length === 0) {
@@ -309,8 +305,8 @@ export const createRetrievalService = ({
       }
 
       const activeRepo = await resolveRepo();
-      const [libraryRoot, folders, favoriteState] = await Promise.all([
-        activeRepo.ensureLibraryRoot(actorUserId),
+      const [filesRoot, folders, favoriteState] = await Promise.all([
+        activeRepo.ensureFilesRoot(actorUserId),
         activeRepo.listFoldersByOwner(actorUserId),
         getFavoriteState(actorUserId),
       ]);
@@ -328,12 +324,12 @@ export const createRetrievalService = ({
       const folderMap = buildFolderMap(folders);
       const baseItems = [
         ...folders
-          .filter((folder) => !folder.isLibraryRoot)
+          .filter((folder) => !folder.isFilesRoot)
           .map((folder) =>
             toFolderItem({
               folder,
               folderMap,
-              libraryRoot,
+              filesRoot,
               favoriteFolderIds: favoriteState.favoriteFolderIds,
             }),
           ),
@@ -341,7 +337,7 @@ export const createRetrievalService = ({
           toFileItem({
             file,
             folderMap,
-            libraryRoot,
+            filesRoot,
             favoriteFileIds: favoriteState.favoriteFileIds,
           }),
         ),
@@ -377,19 +373,17 @@ export const createRetrievalService = ({
         );
     },
 
-    async listFavorites({
-      actorUserId,
-    }: LibraryActor): Promise<RetrievalItem[]> {
+    async listFavorites({ actorUserId }: FilesActor): Promise<RetrievalItem[]> {
       const activeRepo = await resolveRepo();
       const [
-        libraryRoot,
+        filesRoot,
         folders,
         files,
         favoriteFiles,
         favoriteFolders,
         favoriteState,
       ] = await Promise.all([
-        activeRepo.ensureLibraryRoot(actorUserId),
+        activeRepo.ensureFilesRoot(actorUserId),
         activeRepo.listFoldersByOwner(actorUserId),
         activeRepo.listFilesByOwner(actorUserId),
         activeRepo.listFavoriteFiles(actorUserId),
@@ -418,17 +412,17 @@ export const createRetrievalService = ({
             | {
                 kind: "folder";
                 createdAt: Date;
-                item: LibraryFolderSummary;
+                item: FolderSummary;
               }
             | {
                 kind: "file";
                 createdAt: Date;
-                item: LibraryFileSummary;
+                item: FileSummary;
               } =>
             entry.item != null &&
             !(
               entry.kind === "folder" &&
-              (entry.item as LibraryFolderSummary).isLibraryRoot
+              (entry.item as FolderSummary).isFilesRoot
             ),
         )
         .sort(
@@ -437,28 +431,28 @@ export const createRetrievalService = ({
             compareRetrievalItems(
               left.kind === "folder"
                 ? toFolderItem({
-                    folder: left.item as LibraryFolderSummary,
+                    folder: left.item as FolderSummary,
                     folderMap,
-                    libraryRoot,
+                    filesRoot,
                     favoriteFolderIds: favoriteState.favoriteFolderIds,
                   })
                 : toFileItem({
-                    file: left.item as LibraryFileSummary,
+                    file: left.item as FileSummary,
                     folderMap,
-                    libraryRoot,
+                    filesRoot,
                     favoriteFileIds: favoriteState.favoriteFileIds,
                   }),
               right.kind === "folder"
                 ? toFolderItem({
-                    folder: right.item as LibraryFolderSummary,
+                    folder: right.item as FolderSummary,
                     folderMap,
-                    libraryRoot,
+                    filesRoot,
                     favoriteFolderIds: favoriteState.favoriteFolderIds,
                   })
                 : toFileItem({
-                    file: right.item as LibraryFileSummary,
+                    file: right.item as FileSummary,
                     folderMap,
-                    libraryRoot,
+                    filesRoot,
                     favoriteFileIds: favoriteState.favoriteFileIds,
                   }),
             ),
@@ -467,31 +461,31 @@ export const createRetrievalService = ({
       return items.map((entry) =>
         entry.kind === "folder"
           ? toFolderItem({
-              folder: entry.item as LibraryFolderSummary,
+              folder: entry.item as FolderSummary,
               folderMap,
-              libraryRoot,
+              filesRoot,
               favoriteFolderIds: favoriteState.favoriteFolderIds,
             })
           : toFileItem({
-              file: entry.item as LibraryFileSummary,
+              file: entry.item as FileSummary,
               folderMap,
-              libraryRoot,
+              filesRoot,
               favoriteFileIds: favoriteState.favoriteFileIds,
             }),
       );
     },
 
-    async listRecent({ actorUserId }: LibraryActor): Promise<RetrievalItem[]> {
+    async listRecent({ actorUserId }: FilesActor): Promise<RetrievalItem[]> {
       const activeRepo = await resolveRepo();
       const [
-        libraryRoot,
+        filesRoot,
         folders,
         files,
         recentFiles,
         recentFolders,
         favoriteState,
       ] = await Promise.all([
-        activeRepo.ensureLibraryRoot(actorUserId),
+        activeRepo.ensureFilesRoot(actorUserId),
         activeRepo.listFoldersByOwner(actorUserId),
         activeRepo.listFilesByOwner(actorUserId),
         activeRepo.listRecentFiles(actorUserId),
@@ -520,17 +514,17 @@ export const createRetrievalService = ({
             | {
                 kind: "folder";
                 lastInteractedAt: Date;
-                item: LibraryFolderSummary;
+                item: FolderSummary;
               }
             | {
                 kind: "file";
                 lastInteractedAt: Date;
-                item: LibraryFileSummary;
+                item: FileSummary;
               } =>
             entry.item != null &&
             !(
               entry.kind === "folder" &&
-              (entry.item as LibraryFolderSummary).isLibraryRoot
+              (entry.item as FolderSummary).isFilesRoot
             ),
         )
         .sort(
@@ -540,28 +534,28 @@ export const createRetrievalService = ({
             compareRetrievalItems(
               left.kind === "folder"
                 ? toFolderItem({
-                    folder: left.item as LibraryFolderSummary,
+                    folder: left.item as FolderSummary,
                     folderMap,
-                    libraryRoot,
+                    filesRoot,
                     favoriteFolderIds: favoriteState.favoriteFolderIds,
                   })
                 : toFileItem({
-                    file: left.item as LibraryFileSummary,
+                    file: left.item as FileSummary,
                     folderMap,
-                    libraryRoot,
+                    filesRoot,
                     favoriteFileIds: favoriteState.favoriteFileIds,
                   }),
               right.kind === "folder"
                 ? toFolderItem({
-                    folder: right.item as LibraryFolderSummary,
+                    folder: right.item as FolderSummary,
                     folderMap,
-                    libraryRoot,
+                    filesRoot,
                     favoriteFolderIds: favoriteState.favoriteFolderIds,
                   })
                 : toFileItem({
-                    file: right.item as LibraryFileSummary,
+                    file: right.item as FileSummary,
                     folderMap,
-                    libraryRoot,
+                    filesRoot,
                     favoriteFileIds: favoriteState.favoriteFileIds,
                   }),
             ),
@@ -570,15 +564,15 @@ export const createRetrievalService = ({
       return items.map((entry) =>
         entry.kind === "folder"
           ? toFolderItem({
-              folder: entry.item as LibraryFolderSummary,
+              folder: entry.item as FolderSummary,
               folderMap,
-              libraryRoot,
+              filesRoot,
               favoriteFolderIds: favoriteState.favoriteFolderIds,
             })
           : toFileItem({
-              file: entry.item as LibraryFileSummary,
+              file: entry.item as FileSummary,
               folderMap,
-              libraryRoot,
+              filesRoot,
               favoriteFileIds: favoriteState.favoriteFileIds,
             }),
       );
@@ -638,8 +632,8 @@ export const createRetrievalService = ({
         ),
       );
 
-      if (folder.isLibraryRoot) {
-        throw new LibraryError("FOLDER_ROOT_IMMUTABLE");
+      if (folder.isFilesRoot) {
+        throw new FilesError("FOLDER_ROOT_IMMUTABLE");
       }
 
       if (isFavorite) {
@@ -697,7 +691,7 @@ export const createRetrievalService = ({
         await activeRepo.findFolderById(folderId),
       );
 
-      if (folder.isLibraryRoot) {
+      if (folder.isFilesRoot) {
         return;
       }
 

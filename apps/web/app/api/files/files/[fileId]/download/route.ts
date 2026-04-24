@@ -6,8 +6,8 @@ import { NextRequest } from "next/server";
 import { canAccessPrivateNamespace } from "@/server/access";
 import { getRequestSession } from "@/server/auth/guards";
 import { notSignedInResponse, wantsJson } from "@/server/auth/http";
-import { LibraryError } from "@/server/library/errors";
-import { prismaLibraryRepository } from "@/server/library/repository";
+import { FilesError } from "@/server/files/errors";
+import { prismaFilesRepository } from "@/server/files/repository";
 import { recordFileAccessBestEffort } from "@/server/retrieval/recent-tracking";
 import { getStoragePath } from "@/server/storage";
 
@@ -84,10 +84,10 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   }
 
   try {
-    const file = await prismaLibraryRepository.findFileById(fileId);
+    const file = await prismaFilesRepository.findFileById(fileId);
 
     if (!file || file.deletedAt) {
-      throw new LibraryError("FILE_NOT_FOUND");
+      throw new FilesError("FILE_NOT_FOUND");
     }
 
     if (
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         namespaceOwnerUserId: file.ownerUserId,
       })
     ) {
-      throw new LibraryError("ACCESS_DENIED");
+      throw new FilesError("ACCESS_DENIED");
     }
 
     const storagePath = getStoragePath(file.storageKey);
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       fileHandle = await open(storagePath, "r");
     } catch (openError) {
       if (isFileUnreadable(openError)) {
-        throw new LibraryError("FILE_NOT_FOUND");
+        throw new FilesError("FILE_NOT_FOUND");
       }
       throw openError;
     }

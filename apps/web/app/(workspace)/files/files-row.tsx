@@ -32,12 +32,9 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { formatDateTime } from "@/app/auth-ui";
-import type {
-  LibraryFileSummary,
-  LibraryFolderSummary,
-} from "@/server/library/types";
+import type { FileSummary, FolderSummary } from "@/server/files/types";
 import type { ShareLinkSummary } from "@/server/sharing";
-import { FOLDER_ICON_MAP } from "./library-properties-panel";
+import { FOLDER_ICON_MAP } from "./files-properties-panel";
 
 // ---------------------------------------------------------------------------
 // File icon mapping
@@ -87,7 +84,7 @@ type RowShareProps = {
 
 type BaseFolderRowProps = {
   kind: "folder";
-  data: LibraryFolderSummary;
+  data: FolderSummary;
   isSelected: boolean;
   isCut: boolean;
   isJustMoved: boolean;
@@ -113,7 +110,7 @@ type BaseFolderRowProps = {
 
 type BaseFileRowProps = {
   kind: "file";
-  data: LibraryFileSummary;
+  data: FileSummary;
   isSelected: boolean;
   isCut: boolean;
   isJustMoved: boolean;
@@ -136,11 +133,11 @@ type BaseFileRowProps = {
   rowRef: (el: HTMLDivElement | null) => void;
 };
 
-type LibraryRowProps = BaseFolderRowProps | BaseFileRowProps;
+type FilesRowProps = BaseFolderRowProps | BaseFileRowProps;
 
 // ---------------------------------------------------------------------------
 
-export function LibraryRow(props: LibraryRowProps) {
+export function FilesRow(props: FilesRowProps) {
   const {
     isSelected,
     isCut,
@@ -200,7 +197,7 @@ export function LibraryRow(props: LibraryRowProps) {
   // ---- Href ----
   const href =
     props.kind === "folder"
-      ? props.data.isLibraryRoot
+      ? props.data.isFilesRoot
         ? "/files"
         : `/files/f/${props.data.id}`
       : props.data.viewerKind

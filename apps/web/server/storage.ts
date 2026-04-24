@@ -4,7 +4,7 @@ import { mkdir } from "node:fs/promises";
 import { env } from "@/lib/env";
 
 export const STORAGE_DIRECTORIES = {
-  library: "library",
+  files: "files",
   trash: ".trash",
   tmp: "tmp",
   locks: "tmp/locks",
@@ -35,8 +35,8 @@ export const getStorageLockDirectoryPath = () =>
 export const getPendingDeleteDirectoryPath = () =>
   resolveWithinRoot(STORAGE_DIRECTORIES.pendingDelete);
 
-export const getUserLibraryRootStorageKey = (username: string) =>
-  path.posix.join(STORAGE_DIRECTORIES.library, username);
+export const getUserFilesRootStorageKey = (username: string) =>
+  path.posix.join(STORAGE_DIRECTORIES.files, username);
 
 export const getUserTrashRootStorageKey = (username: string) =>
   path.posix.join(STORAGE_DIRECTORIES.trash, username);
@@ -55,7 +55,7 @@ const buildCommittedStorageKey = ({
   path.posix.join(
     trashed
       ? getUserTrashRootStorageKey(username)
-      : getUserLibraryRootStorageKey(username),
+      : getUserFilesRootStorageKey(username),
     ...folderPathSegments,
     fileName,
   );
@@ -99,10 +99,7 @@ export const getActiveFolderStorageKey = ({
   username: string;
   folderPathSegments: string[];
 }) =>
-  path.posix.join(
-    getUserLibraryRootStorageKey(username),
-    ...folderPathSegments,
-  );
+  path.posix.join(getUserFilesRootStorageKey(username), ...folderPathSegments);
 
 export const getTrashedFolderStorageKey = ({
   username,
@@ -132,7 +129,7 @@ export const ensureUserCommittedStorageDirectories = async (
   username: string,
 ) => {
   await Promise.all([
-    mkdir(resolveWithinRoot(getUserLibraryRootStorageKey(username)), {
+    mkdir(resolveWithinRoot(getUserFilesRootStorageKey(username)), {
       recursive: true,
     }),
     mkdir(resolveWithinRoot(getUserTrashRootStorageKey(username)), {

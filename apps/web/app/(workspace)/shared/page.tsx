@@ -114,10 +114,10 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
           <div className="workspace-empty-state">
             <h2>No public links yet</h2>
             <p className="muted">
-              Create the first link from the library on a file or folder.
+              Create the first link from files on a file or folder.
             </p>
             <Link className="pill" href="/files">
-              Open library
+              Open files
             </Link>
           </div>
         ) : (

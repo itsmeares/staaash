@@ -5,21 +5,21 @@ import { TextFileViewer } from "@/app/text-file-viewer";
 
 import { formatDateTime } from "@/app/auth-ui";
 import { requireSignedInPageSession } from "@/server/auth/guards";
-import { isLibraryError } from "@/server/library/errors";
-import { getAccessiblePrivateFile } from "@/server/library/viewer";
+import { isFilesError } from "@/server/files/errors";
+import { getAccessiblePrivateFile } from "@/server/files/viewer";
 import { recordFileAccessBestEffort } from "@/server/retrieval/recent-tracking";
 
 export const dynamic = "force-dynamic";
 
-type LibraryFileViewerPageProps = {
+type FilesFileViewerPageProps = {
   params: Promise<{
     fileId: string;
   }>;
 };
 
-export default async function LibraryFileViewerPage({
+export default async function FilesFileViewerPage({
   params,
-}: LibraryFileViewerPageProps) {
+}: FilesFileViewerPageProps) {
   const { fileId } = await params;
   const session = await requireSignedInPageSession(
     `/sign-in?next=${encodeURIComponent(`/files/view/${fileId}`)}`,
@@ -40,7 +40,7 @@ export default async function LibraryFileViewerPage({
       actorUserId: session.user.id,
       actorRole: session.user.role,
       fileId: file.id,
-      source: "library-file-viewer-page",
+      source: "files-file-viewer-page",
     });
 
     const backHref = file.folderId ? `/files/f/${file.folderId}` : "/files";
@@ -152,7 +152,7 @@ export default async function LibraryFileViewerPage({
       </main>
     );
   } catch (error) {
-    if (isLibraryError(error)) {
+    if (isFilesError(error)) {
       notFound();
     }
 

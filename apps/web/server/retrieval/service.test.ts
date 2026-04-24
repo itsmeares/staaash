@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  LibraryFileSummary,
-  LibraryFolderSummary,
-} from "@/server/library/types";
+import type { FileSummary, FolderSummary } from "@/server/files/types";
 import { normalizeSearchText } from "@/server/search";
 import { createRetrievalService } from "@/server/retrieval/service";
 import type {
@@ -15,8 +12,8 @@ import type {
 } from "@/server/retrieval/types";
 
 type MemoryState = {
-  folders: LibraryFolderSummary[];
-  files: LibraryFileSummary[];
+  folders: FolderSummary[];
+  files: FileSummary[];
   favoriteFiles: FavoriteFileRecord[];
   favoriteFolders: FavoriteFolderRecord[];
   recentFiles: RecentFileRecord[];
@@ -39,11 +36,11 @@ const createMemoryRepository = () => {
   const nextDate = () =>
     new Date(`2026-04-02T10:${String(state.ids).padStart(2, "0")}:00.000Z`);
 
-  const cloneFolder = (folder: LibraryFolderSummary): LibraryFolderSummary => ({
+  const cloneFolder = (folder: FolderSummary): FolderSummary => ({
     ...folder,
   });
 
-  const cloneFile = (file: LibraryFileSummary): LibraryFileSummary => ({
+  const cloneFile = (file: FileSummary): FileSummary => ({
     ...file,
   });
 
@@ -51,7 +48,7 @@ const createMemoryRepository = () => {
     ownerUserId,
     parentId,
     name,
-    isLibraryRoot = false,
+    isFilesRoot = false,
     deletedAt = null,
     updatedAt,
     ownerUsername = ownerUserId,
@@ -59,19 +56,19 @@ const createMemoryRepository = () => {
     ownerUserId: string;
     parentId: string | null;
     name: string;
-    isLibraryRoot?: boolean;
+    isFilesRoot?: boolean;
     deletedAt?: Date | null;
     updatedAt?: Date;
     ownerUsername?: string;
   }) => {
     const timestamp = updatedAt ?? nextDate();
-    const folder: LibraryFolderSummary = {
+    const folder: FolderSummary = {
       id: nextId("folder"),
       ownerUserId,
       ownerUsername,
       parentId,
       name,
-      isLibraryRoot,
+      isFilesRoot,
       deletedAt,
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -101,7 +98,7 @@ const createMemoryRepository = () => {
     ownerUsername?: string;
   }) => {
     const timestamp = updatedAt ?? nextDate();
-    const file: LibraryFileSummary = {
+    const file: FileSummary = {
       id: nextId("file"),
       ownerUserId,
       ownerUsername,
@@ -119,9 +116,9 @@ const createMemoryRepository = () => {
     return file;
   };
 
-  const ensureLibraryRootRecord = (ownerUserId: string) => {
+  const ensureFilesRootRecord = (ownerUserId: string) => {
     const existing = state.folders.find(
-      (folder) => folder.ownerUserId === ownerUserId && folder.isLibraryRoot,
+      (folder) => folder.ownerUserId === ownerUserId && folder.isFilesRoot,
     );
 
     if (existing) {
@@ -131,14 +128,14 @@ const createMemoryRepository = () => {
     return addFolder({
       ownerUserId,
       parentId: null,
-      name: "Library",
-      isLibraryRoot: true,
+      name: "Files",
+      isFilesRoot: true,
     });
   };
 
   const repo: RetrievalRepository = {
-    async ensureLibraryRoot(ownerUserId) {
-      return cloneFolder(ensureLibraryRootRecord(ownerUserId));
+    async ensureFilesRoot(ownerUserId) {
+      return cloneFolder(ensureFilesRootRecord(ownerUserId));
     },
 
     async findFolderById(folderId) {
@@ -291,14 +288,14 @@ const createMemoryRepository = () => {
     state,
     addFolder,
     addFile,
-    ensureLibraryRootRecord,
+    ensureFilesRootRecord,
   };
 };
 
 describe("retrieval service", () => {
   it("searches case-insensitively and accent-insensitively", async () => {
-    const { repo, ensureLibraryRootRecord, addFile } = createMemoryRepository();
-    const root = ensureLibraryRootRecord("alice");
+    const { repo, ensureFilesRootRecord, addFile } = createMemoryRepository();
+    const root = ensureFilesRootRecord("alice");
     addFile({
       ownerUserId: "alice",
       folderId: root.id,
@@ -317,9 +314,9 @@ describe("retrieval service", () => {
   });
 
   it("matches extensions and path tokens as exact search hits", async () => {
-    const { repo, ensureLibraryRootRecord, addFolder, addFile } =
+    const { repo, ensureFilesRootRecord, addFolder, addFile } =
       createMemoryRepository();
-    const root = ensureLibraryRootRecord("alice");
+    const root = ensureFilesRootRecord("alice");
     const finance = addFolder({
       ownerUserId: "alice",
       parentId: root.id,
@@ -348,8 +345,8 @@ describe("retrieval service", () => {
   });
 
   it("orders exact matches before prefix and substring matches", async () => {
-    const { repo, ensureLibraryRootRecord, addFile } = createMemoryRepository();
-    const root = ensureLibraryRootRecord("alice");
+    const { repo, ensureFilesRootRecord, addFile } = createMemoryRepository();
+    const root = ensureFilesRootRecord("alice");
     addFile({
       ownerUserId: "alice",
       folderId: root.id,
@@ -384,9 +381,9 @@ describe("retrieval service", () => {
   });
 
   it("breaks search ties deterministically when timestamps match", async () => {
-    const { repo, ensureLibraryRootRecord, addFolder, addFile } =
+    const { repo, ensureFilesRootRecord, addFolder, addFile } =
       createMemoryRepository();
-    const root = ensureLibraryRootRecord("alice");
+    const root = ensureFilesRootRecord("alice");
     const sharedTimestamp = new Date("2026-04-02T12:00:00.000Z");
     const alpha = addFolder({
       ownerUserId: "alice",
@@ -421,15 +418,15 @@ describe("retrieval service", () => {
     });
 
     expect(results.map((item) => item.pathLabel)).toEqual([
-      "Library / Alpha / report.txt",
-      "Library / Beta / report.txt",
+      "Files / Alpha / report.txt",
+      "Files / Beta / report.txt",
     ]);
   });
 
   it("excludes trashed items and the library root from search", async () => {
-    const { repo, ensureLibraryRootRecord, addFolder, addFile } =
+    const { repo, ensureFilesRootRecord, addFolder, addFile } =
       createMemoryRepository();
-    const root = ensureLibraryRootRecord("alice");
+    const root = ensureFilesRootRecord("alice");
     addFolder({
       ownerUserId: "alice",
       parentId: root.id,
@@ -454,9 +451,9 @@ describe("retrieval service", () => {
   });
 
   it("adds and removes favorites for files and folders idempotently", async () => {
-    const { repo, ensureLibraryRootRecord, addFolder, addFile, state } =
+    const { repo, ensureFilesRootRecord, addFolder, addFile, state } =
       createMemoryRepository();
-    const root = ensureLibraryRootRecord("alice");
+    const root = ensureFilesRootRecord("alice");
     const folder = addFolder({
       ownerUserId: "alice",
       parentId: root.id,
@@ -520,8 +517,8 @@ describe("retrieval service", () => {
   });
 
   it("keeps favorites owner-scoped", async () => {
-    const { repo, ensureLibraryRootRecord, addFile } = createMemoryRepository();
-    const root = ensureLibraryRootRecord("alice");
+    const { repo, ensureFilesRootRecord, addFile } = createMemoryRepository();
+    const root = ensureFilesRootRecord("alice");
     const file = addFile({
       ownerUserId: "alice",
       folderId: root.id,
@@ -542,9 +539,9 @@ describe("retrieval service", () => {
   });
 
   it("lists favorites as mixed active items ordered by favorite time", async () => {
-    const { repo, ensureLibraryRootRecord, addFolder, addFile } =
+    const { repo, ensureFilesRootRecord, addFolder, addFile } =
       createMemoryRepository();
-    const root = ensureLibraryRootRecord("alice");
+    const root = ensureFilesRootRecord("alice");
     const folder = addFolder({
       ownerUserId: "alice",
       parentId: root.id,
@@ -589,9 +586,9 @@ describe("retrieval service", () => {
   });
 
   it("records recent folder and file interactions as one row per item", async () => {
-    const { repo, ensureLibraryRootRecord, addFolder, addFile, state } =
+    const { repo, ensureFilesRootRecord, addFolder, addFile, state } =
       createMemoryRepository();
-    const root = ensureLibraryRootRecord("alice");
+    const root = ensureFilesRootRecord("alice");
     const folder = addFolder({
       ownerUserId: "alice",
       parentId: root.id,

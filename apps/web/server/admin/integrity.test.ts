@@ -32,7 +32,7 @@ describe("admin integrity helpers", () => {
           missingOriginals: [
             {
               fileId: "file-1",
-              storageKey: "library/member/file-1.txt",
+              storageKey: "files/member/file-1.txt",
             },
           ],
           orphanedStorageKeys: [],

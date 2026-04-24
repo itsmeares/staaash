@@ -53,7 +53,7 @@ export default async function FavoritesPage({
 
         <RetrievalItemList
           currentPath="/favorites"
-          emptyDescription="Add favorites from the library, search, or recent views to pin quick access here."
+          emptyDescription="Add favorites from files, search, or recent views to pin quick access here."
           emptyTitle="No favorites yet"
           items={items}
         />

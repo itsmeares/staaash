@@ -1,7 +1,4 @@
-import type {
-  LibraryFileSummary,
-  LibraryFolderSummary,
-} from "@/server/library/types";
+import type { FileSummary, FolderSummary } from "@/server/files/types";
 import type { SearchMatchKind } from "@/server/types";
 
 export type RetrievalItem =
@@ -61,16 +58,16 @@ export type RecentFolderRecord = {
 };
 
 export type RetrievalRepository = {
-  ensureLibraryRoot(ownerUserId: string): Promise<LibraryFolderSummary>;
-  findFolderById(folderId: string): Promise<LibraryFolderSummary | null>;
-  findFileById(fileId: string): Promise<LibraryFileSummary | null>;
-  listFoldersByOwner(ownerUserId: string): Promise<LibraryFolderSummary[]>;
-  listFilesByOwner(ownerUserId: string): Promise<LibraryFileSummary[]>;
+  ensureFilesRoot(ownerUserId: string): Promise<FolderSummary>;
+  findFolderById(folderId: string): Promise<FolderSummary | null>;
+  findFileById(fileId: string): Promise<FileSummary | null>;
+  listFoldersByOwner(ownerUserId: string): Promise<FolderSummary[]>;
+  listFilesByOwner(ownerUserId: string): Promise<FileSummary[]>;
   searchFilesByOwner(
     ownerUserId: string,
     nameQuery: string,
     folderIds: string[],
-  ): Promise<LibraryFileSummary[]>;
+  ): Promise<FileSummary[]>;
   listFavoriteFiles(userId: string): Promise<FavoriteFileRecord[]>;
   listFavoriteFolders(userId: string): Promise<FavoriteFolderRecord[]>;
   listRecentFiles(userId: string): Promise<RecentFileRecord[]>;

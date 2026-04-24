@@ -41,7 +41,7 @@ const makeFile = (
   deletedAt: null,
   createdAt: new Date("2026-04-06T12:00:00.000Z"),
   updatedAt: new Date("2026-04-06T12:00:00.000Z"),
-  storageKey: "library/member-1/clip.mp4",
+  storageKey: "files/member-1/clip.mp4",
   contentChecksum: null,
   ...overrides,
 });

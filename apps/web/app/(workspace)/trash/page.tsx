@@ -4,11 +4,11 @@ import {
   getSingleSearchParam,
 } from "@/app/auth-ui";
 import { requireSignedInPageSession } from "@/server/auth/guards";
-import { libraryService } from "@/server/library/service";
+import { filesService } from "@/server/files/service";
 import type {
   TrashFileSummary,
   TrashFolderSummary,
-} from "@/server/library/types";
+} from "@/server/files/types";
 
 import {
   PAGE_SIZE,
@@ -34,7 +34,7 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
     searchParams,
     requireSignedInPageSession("/sign-in?next=/trash"),
   ]);
-  const listing = await libraryService.listTrashFolders({
+  const listing = await filesService.listTrashFolders({
     actorUserId: session.user.id,
     actorRole: session.user.role,
   });

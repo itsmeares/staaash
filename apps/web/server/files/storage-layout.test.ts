@@ -5,53 +5,53 @@ import {
   buildFolderStorageKey,
   normalizeFileName,
   normalizeFolderName,
-} from "@/server/library/storage-layout";
+} from "@/server/files/storage-layout";
 
-import type { LibraryFolderSummary } from "./types";
+import type { FolderSummary } from "./types";
 
-const libraryRoot: LibraryFolderSummary = {
+const filesRoot: FolderSummary = {
   id: "root",
   ownerUserId: "user-1",
   ownerUsername: "johnsmith",
   parentId: null,
-  name: "Library",
-  isLibraryRoot: true,
+  name: "Files",
+  isFilesRoot: true,
   deletedAt: null,
   createdAt: new Date("2026-03-31T12:00:00.000Z"),
   updatedAt: new Date("2026-03-31T12:00:00.000Z"),
 };
 
-const photosFolder: LibraryFolderSummary = {
+const photosFolder: FolderSummary = {
   id: "photos",
   ownerUserId: "user-1",
   ownerUsername: "johnsmith",
   parentId: "root",
   name: "Photos",
-  isLibraryRoot: false,
+  isFilesRoot: false,
   deletedAt: null,
   createdAt: new Date("2026-03-31T12:00:00.000Z"),
   updatedAt: new Date("2026-03-31T12:00:00.000Z"),
 };
 
-const tripsFolder: LibraryFolderSummary = {
+const tripsFolder: FolderSummary = {
   id: "trips",
   ownerUserId: "user-1",
   ownerUsername: "johnsmith",
   parentId: "photos",
   name: "Trips",
-  isLibraryRoot: false,
+  isFilesRoot: false,
   deletedAt: null,
   createdAt: new Date("2026-03-31T12:00:00.000Z"),
   updatedAt: new Date("2026-03-31T12:00:00.000Z"),
 };
 
 const folderMap = new Map([
-  [libraryRoot.id, libraryRoot],
+  [filesRoot.id, filesRoot],
   [photosFolder.id, photosFolder],
   [tripsFolder.id, tripsFolder],
 ]);
 
-const expectLibraryError = (callback: () => unknown, code: string) => {
+const expectFilesError = (callback: () => unknown, code: string) => {
   try {
     callback();
   } catch (error) {
@@ -59,32 +59,29 @@ const expectLibraryError = (callback: () => unknown, code: string) => {
     return;
   }
 
-  throw new Error(`Expected LibraryError ${code} to be thrown.`);
+  throw new Error(`Expected FilesError ${code} to be thrown.`);
 };
 
-describe("library storage layout", () => {
+describe("files storage layout", () => {
   it("preserves exact valid file and folder names", () => {
     expect(normalizeFolderName("Photos")).toBe("Photos");
     expect(normalizeFileName("my-photo.jpg")).toBe("my-photo.jpg");
   });
 
   it("rejects invalid Windows path characters", () => {
-    expectLibraryError(
+    expectFilesError(
       () => normalizeFolderName("Trips:Paris"),
       "FOLDER_NAME_INVALID_CHARACTER",
     );
-    expectLibraryError(
+    expectFilesError(
       () => normalizeFileName("my?photo.jpg"),
       "FILE_NAME_INVALID_CHARACTER",
     );
   });
 
   it("rejects reserved Windows device names and trailing dots", () => {
-    expectLibraryError(
-      () => normalizeFolderName("CON"),
-      "FOLDER_NAME_RESERVED",
-    );
-    expectLibraryError(
+    expectFilesError(() => normalizeFolderName("CON"), "FOLDER_NAME_RESERVED");
+    expectFilesError(
       () => normalizeFileName("photo.jpg."),
       "FILE_NAME_TRAILING_SPACE_OR_DOT",
     );
@@ -95,10 +92,10 @@ describe("library storage layout", () => {
       buildFolderStorageKey({
         folder: tripsFolder,
         folderMap,
-        libraryRoot,
+        filesRoot,
         trashed: false,
       }),
-    ).toBe("library/johnsmith/Photos/Trips");
+    ).toBe("files/johnsmith/Photos/Trips");
 
     expect(
       buildFileStorageKey({
@@ -108,10 +105,10 @@ describe("library storage layout", () => {
           name: "my-photo.jpg",
         },
         folderMap,
-        libraryRoot,
+        filesRoot,
         trashed: false,
       }),
-    ).toBe("library/johnsmith/Photos/Trips/my-photo.jpg");
+    ).toBe("files/johnsmith/Photos/Trips/my-photo.jpg");
 
     expect(
       buildFileStorageKey({
@@ -121,7 +118,7 @@ describe("library storage layout", () => {
           name: "my-photo.jpg",
         },
         folderMap,
-        libraryRoot,
+        filesRoot,
         trashed: true,
       }),
     ).toBe(".trash/johnsmith/Photos/Trips/my-photo.jpg");

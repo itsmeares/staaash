@@ -135,7 +135,7 @@ export default async function InviteRedeemPage({
           <h2>What happens next</h2>
           <p className="muted">
             Successful redemption creates your account, provisions a private
-            library root, and starts a local server-side session.
+            files root, and starts a local server-side session.
           </p>
           <Link className="pill" href="/sign-in">
             Already have an account?

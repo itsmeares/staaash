@@ -9,7 +9,7 @@ import {
   redirectWithMessage,
   wantsJson,
 } from "@/server/auth/http";
-import { libraryService } from "@/server/library/service";
+import { filesService } from "@/server/files/service";
 import { recordFileAccessBestEffort } from "@/server/retrieval/recent-tracking";
 import { pairUploadRequestItems, parseUploadManifest } from "@/server/uploads";
 
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     const manifest = parseUploadManifest(
       formData.get("manifest")?.toString() ?? null,
     );
-    const result = await libraryService.uploadFiles({
+    const result = await filesService.uploadFiles({
       actorUserId: session.user.id,
       actorRole: session.user.role,
       folderId: formData.get("folderId")?.toString() ?? null,

@@ -22,10 +22,7 @@ import {
 
 import { formatDateTime } from "@/app/auth-ui";
 import { Button } from "@/components/ui/button";
-import type {
-  LibraryFileSummary,
-  LibraryFolderSummary,
-} from "@/server/library/types";
+import type { FileSummary, FolderSummary } from "@/server/files/types";
 import type { ShareLinkSummary } from "@/server/sharing";
 
 // ---------------------------------------------------------------------------
@@ -70,10 +67,10 @@ function formatBytes(bytes: number): string {
 // ---------------------------------------------------------------------------
 
 type PropertiesItem =
-  | { kind: "folder"; data: LibraryFolderSummary }
-  | { kind: "file"; data: LibraryFileSummary };
+  | { kind: "folder"; data: FolderSummary }
+  | { kind: "file"; data: FileSummary };
 
-type LibraryPropertiesPanelProps = {
+type FilesPropertiesPanelProps = {
   item: PropertiesItem | null;
   folderIcons: Record<string, string>;
   onSetFolderIcon: (folderId: string, iconName: string) => void;
@@ -82,14 +79,14 @@ type LibraryPropertiesPanelProps = {
   onShare?: () => void;
 };
 
-export function LibraryPropertiesPanel({
+export function FilesPropertiesPanel({
   item,
   folderIcons,
   onSetFolderIcon,
   onClose,
   share,
   onShare,
-}: LibraryPropertiesPanelProps) {
+}: FilesPropertiesPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const isOpen = item !== null;
 

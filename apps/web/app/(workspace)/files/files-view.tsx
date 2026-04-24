@@ -21,11 +21,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { FlashMessage } from "@/app/auth-ui";
-import type { LibraryListing } from "@/server/library/types";
-import type { ShareLibraryLookup } from "@/server/sharing";
+import type { FilesListing } from "@/server/files/types";
+import type { ShareFilesLookup } from "@/server/sharing";
 
-import { LibraryRow } from "./library-row";
-import { LibraryPropertiesPanel } from "./library-properties-panel";
+import { FilesRow } from "./files-row";
+import { FilesPropertiesPanel } from "./files-properties-panel";
 import { ShareDialog } from "./share-dialog";
 import type { ShareLinkSummary } from "@/server/sharing";
 
@@ -106,25 +106,25 @@ type RubberBand = {
 // Props
 // ---------------------------------------------------------------------------
 
-type LibraryViewProps = {
-  listing: LibraryListing;
+type FilesViewProps = {
+  listing: FilesListing;
   currentPath: string;
   searchParams: Record<string, string | string[] | undefined>;
-  shareLookup: ShareLibraryLookup;
+  shareLookup: ShareFilesLookup;
   favoriteFileIds: string[];
   favoriteFolderIds: string[];
 };
 
 // ---------------------------------------------------------------------------
 
-export function LibraryView({
+export function FilesView({
   listing,
   currentPath,
   searchParams,
   shareLookup,
   favoriteFileIds,
   favoriteFolderIds,
-}: LibraryViewProps) {
+}: FilesViewProps) {
   const router = useRouter();
 
   // ---- Selection ----
@@ -420,7 +420,7 @@ export function LibraryView({
   const openItem = (id: string) => {
     const folder = listing.childFolders.find((f) => f.id === id);
     if (folder) {
-      router.push(folder.isLibraryRoot ? "/files" : `/files/f/${folder.id}`);
+      router.push(folder.isFilesRoot ? "/files" : `/files/f/${folder.id}`);
       return;
     }
     const file = listing.files.find((f) => f.id === id);
@@ -1029,7 +1029,7 @@ export function LibraryView({
                 availableMoveTargetIds.has(t.id),
               );
               return (
-                <LibraryRow
+                <FilesRow
                   key={folder.id}
                   kind="folder"
                   data={folder}
@@ -1154,7 +1154,7 @@ export function LibraryView({
                 (t) => t.id !== listing.currentFolder.id,
               );
               return (
-                <LibraryRow
+                <FilesRow
                   key={file.id}
                   kind="file"
                   data={file}
@@ -1222,7 +1222,7 @@ export function LibraryView({
         </div>
 
         {/* ---- Properties panel ---- */}
-        <LibraryPropertiesPanel
+        <FilesPropertiesPanel
           item={propertiesItem}
           folderIcons={folderIcons}
           onSetFolderIcon={setFolderIcon}

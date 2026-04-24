@@ -1,27 +1,27 @@
 import { redirect } from "next/navigation";
 
 import { requireSignedInPageSession } from "@/server/auth/guards";
-import { isLibraryError } from "@/server/library/errors";
-import { libraryService } from "@/server/library/service";
+import { isFilesError } from "@/server/files/errors";
+import { filesService } from "@/server/files/service";
 import { recordFolderAccessBestEffort } from "@/server/retrieval/recent-tracking";
 import { retrievalService } from "@/server/retrieval/service";
 import { sharingService } from "@/server/sharing/service";
 
-import { LibraryExplorer } from "../../library-explorer";
+import { FilesExplorer } from "../../files-explorer";
 
 export const dynamic = "force-dynamic";
 
-type LibraryFolderPageProps = {
+type FilesFolderPageProps = {
   params: Promise<{
     folderId: string;
   }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function LibraryFolderPage({
+export default async function FilesFolderPage({
   params,
   searchParams,
-}: LibraryFolderPageProps) {
+}: FilesFolderPageProps) {
   const [{ folderId }, resolvedSearchParams] = await Promise.all([
     params,
     searchParams,
@@ -31,13 +31,13 @@ export default async function LibraryFolderPage({
   );
 
   try {
-    const listing = await libraryService.getLibraryListing({
+    const listing = await filesService.getFilesListing({
       actorUserId: session.user.id,
       actorRole: session.user.role,
       folderId,
     });
 
-    if (listing.currentFolder.isLibraryRoot) {
+    if (listing.currentFolder.isFilesRoot) {
       redirect("/files");
     }
 
@@ -45,10 +45,10 @@ export default async function LibraryFolderPage({
       actorUserId: session.user.id,
       actorRole: session.user.role,
       folderId: listing.currentFolder.id,
-      source: "library-folder-page",
+      source: "files-folder-page",
     });
     const [shareLookup, favorites] = await Promise.all([
-      sharingService.getLibraryShareLookup({
+      sharingService.getFilesShareLookup({
         actorUserId: session.user.id,
         actorRole: session.user.role,
         currentFolderId: listing.currentFolder.id,
@@ -62,7 +62,7 @@ export default async function LibraryFolderPage({
     ]);
 
     return (
-      <LibraryExplorer
+      <FilesExplorer
         currentPath={`/files/f/${folderId}`}
         favoriteFileIds={favorites
           .filter((item) => item.kind === "file")
@@ -76,7 +76,7 @@ export default async function LibraryFolderPage({
       />
     );
   } catch (error) {
-    if (isLibraryError(error)) {
+    if (isFilesError(error)) {
       redirect(`/files?error=${encodeURIComponent(error.message)}`);
     }
 

@@ -254,8 +254,8 @@ export const createPrismaAuthRepository = (
             await tx.folder.create({
               data: {
                 ownerUserId: user.id,
-                name: "Library",
-                isLibraryRoot: true,
+                name: "Files",
+                isFilesRoot: true,
               },
               select: {
                 id: true,
@@ -487,8 +487,8 @@ export const createPrismaAuthRepository = (
             await tx.folder.create({
               data: {
                 ownerUserId: user.id,
-                name: "Library",
-                isLibraryRoot: true,
+                name: "Files",
+                isFilesRoot: true,
               },
               select: {
                 id: true,

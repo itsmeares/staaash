@@ -11,7 +11,7 @@ import {
   redirectWithMessage,
   wantsJson,
 } from "@/server/auth/http";
-import { libraryService } from "@/server/library/service";
+import { filesService } from "@/server/files/service";
 import { recordFolderAccessBestEffort } from "@/server/retrieval/recent-tracking";
 
 type RouteContext = {
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
 
   try {
     const { folderId } = await params;
-    const result = await libraryService.restoreFolder({
+    const result = await filesService.restoreFolder({
       actorUserId: session.user.id,
       actorRole: session.user.role,
       folderId,
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       folderId,
       source: "restore-folder-route",
     });
-    const location = result.restoredTo?.pathLabel ?? "Library";
+    const location = result.restoredTo?.pathLabel ?? "Files";
 
     return wantsJson(request)
       ? NextResponse.json(result)

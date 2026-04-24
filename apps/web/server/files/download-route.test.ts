@@ -22,8 +22,8 @@ vi.mock("@/server/auth/guards", () => ({
   getRequestSession,
 }));
 
-vi.mock("@/server/library/repository", () => ({
-  prismaLibraryRepository: {
+vi.mock("@/server/files/repository", () => ({
+  prismaFilesRepository: {
     findFileById,
   },
 }));
@@ -54,7 +54,7 @@ const makeFile = (
   deletedAt: null,
   createdAt: new Date("2026-04-02T12:00:00.000Z"),
   updatedAt: new Date("2026-04-02T12:00:00.000Z"),
-  storageKey: "library/alice/notes.txt",
+  storageKey: "files/alice/notes.txt",
   contentChecksum: null,
   viewerKind: null,
   ...overrides,

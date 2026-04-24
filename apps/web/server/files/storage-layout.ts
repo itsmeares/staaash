@@ -5,8 +5,8 @@ import {
   getTrashedFolderStorageKey,
 } from "@/server/storage";
 
-import { LibraryError } from "./errors";
-import type { LibraryFolderSummary, StoredLibraryFile } from "./types";
+import { FilesError } from "./errors";
+import type { FolderSummary, StoredFile } from "./types";
 
 const reservedWindowsNames = new Set([
   "CON",
@@ -41,13 +41,13 @@ const validateSegment = (rawValue: string, kind: "file" | "folder") => {
   const value = rawValue.trim();
 
   if (value.length === 0) {
-    throw new LibraryError(
+    throw new FilesError(
       kind === "file" ? "FILE_NAME_REQUIRED" : "FOLDER_NAME_REQUIRED",
     );
   }
 
   if (invalidSegmentCharacters.test(value)) {
-    throw new LibraryError(
+    throw new FilesError(
       kind === "file"
         ? "FILE_NAME_INVALID_CHARACTER"
         : "FOLDER_NAME_INVALID_CHARACTER",
@@ -55,7 +55,7 @@ const validateSegment = (rawValue: string, kind: "file" | "folder") => {
   }
 
   if (/[ .]$/.test(rawValue)) {
-    throw new LibraryError(
+    throw new FilesError(
       kind === "file"
         ? "FILE_NAME_TRAILING_SPACE_OR_DOT"
         : "FOLDER_NAME_TRAILING_SPACE_OR_DOT",
@@ -66,7 +66,7 @@ const validateSegment = (rawValue: string, kind: "file" | "folder") => {
     value.split(".")[0]?.toUpperCase() ?? value.toUpperCase();
 
   if (reservedWindowsNames.has(reservedCandidate)) {
-    throw new LibraryError(
+    throw new FilesError(
       kind === "file" ? "FILE_NAME_RESERVED" : "FOLDER_NAME_RESERVED",
     );
   }
@@ -83,21 +83,21 @@ export const normalizeFileName = (value: string) =>
 export const buildFolderPathSegments = ({
   folder,
   folderMap,
-  libraryRoot,
+  filesRoot,
 }: {
-  folder: LibraryFolderSummary;
-  folderMap: Map<string, LibraryFolderSummary>;
-  libraryRoot: LibraryFolderSummary;
+  folder: FolderSummary;
+  folderMap: Map<string, FolderSummary>;
+  filesRoot: FolderSummary;
 }) => {
-  if (folder.id === libraryRoot.id) {
+  if (folder.id === filesRoot.id) {
     return [];
   }
 
   const segments: string[] = [];
   const visited = new Set<string>();
-  let current: LibraryFolderSummary | undefined = folder;
+  let current: FolderSummary | undefined = folder;
 
-  while (current && !visited.has(current.id) && current.id !== libraryRoot.id) {
+  while (current && !visited.has(current.id) && current.id !== filesRoot.id) {
     visited.add(current.id);
     segments.unshift(current.name);
     current = current.parentId ? folderMap.get(current.parentId) : undefined;
@@ -109,18 +109,18 @@ export const buildFolderPathSegments = ({
 export const buildFolderStorageKey = ({
   folder,
   folderMap,
-  libraryRoot,
+  filesRoot,
   trashed,
 }: {
-  folder: LibraryFolderSummary;
-  folderMap: Map<string, LibraryFolderSummary>;
-  libraryRoot: LibraryFolderSummary;
+  folder: FolderSummary;
+  folderMap: Map<string, FolderSummary>;
+  filesRoot: FolderSummary;
   trashed: boolean;
 }) => {
   const folderPathSegments = buildFolderPathSegments({
     folder,
     folderMap,
-    libraryRoot,
+    filesRoot,
   });
 
   return trashed
@@ -137,21 +137,21 @@ export const buildFolderStorageKey = ({
 export const buildFileStorageKey = ({
   file,
   folderMap,
-  libraryRoot,
+  filesRoot,
   trashed,
 }: {
-  file: Pick<StoredLibraryFile, "ownerUsername" | "folderId" | "name">;
-  folderMap: Map<string, LibraryFolderSummary>;
-  libraryRoot: LibraryFolderSummary;
+  file: Pick<StoredFile, "ownerUsername" | "folderId" | "name">;
+  folderMap: Map<string, FolderSummary>;
+  filesRoot: FolderSummary;
   trashed: boolean;
 }) => {
   const parentFolder = file.folderId
-    ? (folderMap.get(file.folderId) ?? libraryRoot)
-    : libraryRoot;
+    ? (folderMap.get(file.folderId) ?? filesRoot)
+    : filesRoot;
   const folderPathSegments = buildFolderPathSegments({
     folder: parentFolder,
     folderMap,
-    libraryRoot,
+    filesRoot,
   });
 
   return trashed
