@@ -4,7 +4,7 @@ Staaash is a self-hosted personal cloud drive I am building in public.
 
 The goal is not to clone a larger product feature-for-feature. The goal is to build a storage app with predictable behavior around uploads, file layout, sharing, search, and recovery, then make those rules explicit in the code and docs.
 
-Inspired by [Immich](https://github.com/immich-app/immich) — not in what it does, but in how it approaches self-hosted product quality and operator experience.
+Think of it as the [Immich](https://github.com/immich-app/immich) for files.
 
 ## Current Status
 
