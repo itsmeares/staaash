@@ -5,22 +5,22 @@ import yazl from "yazl";
 
 import { getStoragePath } from "@/server/storage";
 import type {
-  LibraryFileSummary,
-  LibraryFolderSummary,
-  StoredLibraryFile,
-} from "@/server/library/types";
+  FileSummary,
+  FolderSummary,
+  StoredFile,
+} from "@/server/files/types";
 
 const buildFolderSegments = ({
   folder,
   folderMap,
   rootFolderId,
 }: {
-  folder: LibraryFolderSummary;
-  folderMap: Map<string, LibraryFolderSummary>;
+  folder: FolderSummary;
+  folderMap: Map<string, FolderSummary>;
   rootFolderId: string;
 }) => {
   const names: string[] = [];
-  let current: LibraryFolderSummary | undefined = folder;
+  let current: FolderSummary | undefined = folder;
 
   while (current && current.id !== rootFolderId) {
     names.unshift(current.name);
@@ -35,9 +35,9 @@ const buildFileArchivePath = ({
   folderMap,
   rootFolder,
 }: {
-  file: LibraryFileSummary;
-  folderMap: Map<string, LibraryFolderSummary>;
-  rootFolder: LibraryFolderSummary;
+  file: FileSummary;
+  folderMap: Map<string, FolderSummary>;
+  rootFolder: FolderSummary;
 }) => {
   const parent =
     file.folderId && folderMap.has(file.folderId)
@@ -59,9 +59,9 @@ export const createSharedFolderArchive = ({
   folders,
   files,
 }: {
-  rootFolder: LibraryFolderSummary;
-  folders: LibraryFolderSummary[];
-  files: StoredLibraryFile[];
+  rootFolder: FolderSummary;
+  folders: FolderSummary[];
+  files: StoredFile[];
 }) => {
   const zipFile = new yazl.ZipFile();
   const folderMap = new Map(folders.map((folder) => [folder.id, folder]));

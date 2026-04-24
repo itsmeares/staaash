@@ -1,13 +1,13 @@
-import type { LibraryActor } from "@/server/library/types";
+import type { FilesActor } from "@/server/files/types";
 
 import { retrievalService } from "./service";
 
-type FileAccessInput = LibraryActor & {
+type FileAccessInput = FilesActor & {
   fileId: string;
   source: string;
 };
 
-type FolderAccessInput = LibraryActor & {
+type FolderAccessInput = FilesActor & {
   folderId: string;
   source: string;
 };

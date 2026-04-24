@@ -121,7 +121,7 @@ model Folder {
   ownerUserId    String
   parentId       String?
   name           String
-  isLibraryRoot  Boolean  @default(false)
+  isFilesRoot    Boolean  @default(false)
   deletedAt      DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -133,7 +133,7 @@ model Folder {
   recents        RecentFolder[]
   shareLink      ShareLink? @relation("ShareLinkFolder")
 
-  @@index([ownerUserId, isLibraryRoot])
+  @@index([ownerUserId, isFilesRoot])
   @@index([ownerUserId, parentId, deletedAt])
   @@index([ownerUserId, deletedAt, updatedAt])
 }

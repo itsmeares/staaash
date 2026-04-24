@@ -80,7 +80,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
               {
                 label: "Next step",
                 value:
-                  "Sign-in returns you to the library unless a safe local path is provided.",
+                  "Sign-in returns you to files unless a safe local path is provided.",
               },
             ]}
           />

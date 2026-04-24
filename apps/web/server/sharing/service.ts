@@ -5,13 +5,13 @@ import type { ShareTargetType } from "@staaash/db/client";
 import { env } from "@/lib/env";
 import { canAccessPrivateNamespace } from "@/server/access";
 import { authCrypto } from "@/server/auth/crypto";
-import type { LibraryRepository } from "@/server/library/repository";
-import type { LibraryActor } from "@/server/library/types";
+import type { FilesRepository } from "@/server/files/repository";
+import type { FilesActor } from "@/server/files/types";
 import type {
-  LibraryFileSummary,
-  LibraryFolderSummary,
-  StoredLibraryFile,
-} from "@/server/library/types";
+  FileSummary,
+  FolderSummary,
+  StoredFile,
+} from "@/server/files/types";
 
 import { createSharedFolderArchive } from "./archive";
 import {
@@ -23,7 +23,7 @@ import type { SharingRepository } from "./repository";
 import type {
   PublicShareResolution,
   ShareDownloadResult,
-  ShareLibraryLookup,
+  ShareFilesLookup,
   ShareLinkStatus,
   ShareLinkSummary,
   ShareTargetSummary,
@@ -32,7 +32,7 @@ import type {
 
 type CreateSharingServiceOptions = {
   repo?: SharingRepository;
-  libraryRepo?: LibraryRepository;
+  filesRepo?: FilesRepository;
   now?: () => Date;
   crypto?: typeof authCrypto;
 };
@@ -59,28 +59,28 @@ export const buildShareUrl = (tokenLookupKey: string) =>
     env.APP_URL,
   ).toString();
 
-const buildFolderMap = (folders: LibraryFolderSummary[]) =>
+const buildFolderMap = (folders: FolderSummary[]) =>
   new Map(folders.map((folder) => [folder.id, folder]));
 
 const buildFolderPathLabel = ({
   folder,
   folderMap,
-  libraryRoot,
+  filesRoot,
 }: {
-  folder: LibraryFolderSummary;
-  folderMap: Map<string, LibraryFolderSummary>;
-  libraryRoot: LibraryFolderSummary;
+  folder: FolderSummary;
+  folderMap: Map<string, FolderSummary>;
+  filesRoot: FolderSummary;
 }) => {
   const names: string[] = [];
   const seen = new Set<string>();
-  let current: LibraryFolderSummary | undefined = folder;
+  let current: FolderSummary | undefined = folder;
   let reachedRoot = false;
 
   while (current && !seen.has(current.id)) {
     seen.add(current.id);
     names.unshift(current.name);
 
-    if (current.id === libraryRoot.id) {
+    if (current.id === filesRoot.id) {
       reachedRoot = true;
       break;
     }
@@ -89,7 +89,7 @@ const buildFolderPathLabel = ({
   }
 
   if (!reachedRoot) {
-    names.unshift(libraryRoot.name);
+    names.unshift(filesRoot.name);
   }
 
   return names.join(" / ");
@@ -98,23 +98,23 @@ const buildFolderPathLabel = ({
 const buildFilePathLabel = ({
   file,
   folderMap,
-  libraryRoot,
+  filesRoot,
 }: {
-  file: LibraryFileSummary;
-  folderMap: Map<string, LibraryFolderSummary>;
-  libraryRoot: LibraryFolderSummary;
+  file: FileSummary;
+  folderMap: Map<string, FolderSummary>;
+  filesRoot: FolderSummary;
 }) => {
   const parent =
     file.folderId && folderMap.has(file.folderId)
       ? folderMap.get(file.folderId)
-      : libraryRoot;
+      : filesRoot;
   const folderPath = parent
     ? buildFolderPathLabel({
         folder: parent,
         folderMap,
-        libraryRoot,
+        filesRoot,
       })
-    : libraryRoot.name;
+    : filesRoot.name;
 
   return `${folderPath} / ${file.name}`;
 };
@@ -123,10 +123,10 @@ const isFolderDeletedInTree = ({
   folder,
   folderMap,
 }: {
-  folder: LibraryFolderSummary;
-  folderMap: Map<string, LibraryFolderSummary>;
+  folder: FolderSummary;
+  folderMap: Map<string, FolderSummary>;
 }) => {
-  let current: LibraryFolderSummary | undefined = folder;
+  let current: FolderSummary | undefined = folder;
   const seen = new Set<string>();
 
   while (current && !seen.has(current.id)) {
@@ -145,8 +145,8 @@ const isFileDeletedInTree = ({
   file,
   folderMap,
 }: {
-  file: StoredLibraryFile;
-  folderMap: Map<string, LibraryFolderSummary>;
+  file: StoredFile;
+  folderMap: Map<string, FolderSummary>;
 }) => {
   if (file.deletedAt) {
     return true;
@@ -174,7 +174,7 @@ const isFolderWithinRoot = ({
 }: {
   folderId: string;
   rootFolderId: string;
-  folderMap: Map<string, LibraryFolderSummary>;
+  folderMap: Map<string, FolderSummary>;
 }) => {
   let current = folderMap.get(folderId);
   const seen = new Set<string>();
@@ -191,7 +191,7 @@ const isFolderWithinRoot = ({
   return false;
 };
 
-const toLibraryFileSummary = (file: StoredLibraryFile): LibraryFileSummary => ({
+const toFileSummary = (file: StoredFile): FileSummary => ({
   id: file.id,
   ownerUserId: file.ownerUserId,
   ownerUsername: file.ownerUsername,
@@ -231,30 +231,30 @@ const getShareStatus = ({
 
 export const createSharingService = ({
   repo,
-  libraryRepo,
+  filesRepo,
   now = () => new Date(),
   crypto = authCrypto,
 }: CreateSharingServiceOptions = {}) => {
   const resolveRepo = async (): Promise<SharingRepository> =>
     repo ?? (await import("./repository")).prismaSharingRepository;
-  const resolveLibraryRepo = async () =>
-    libraryRepo ??
-    (await import("@/server/library/repository")).prismaLibraryRepository;
+  const resolveFilesRepo = async () =>
+    filesRepo ??
+    (await import("@/server/files/repository")).prismaFilesRepository;
 
-  const resolveLibraryState = async (ownerUserId: string) => {
-    const libraryRepo = await resolveLibraryRepo();
-    const [libraryRoot, folders, files] = await Promise.all([
-      libraryRepo.ensureLibraryRoot(ownerUserId),
-      libraryRepo.listFoldersByOwner(ownerUserId, {
+  const resolveFilesState = async (ownerUserId: string) => {
+    const filesRepo = await resolveFilesRepo();
+    const [filesRoot, folders, files] = await Promise.all([
+      filesRepo.ensureFilesRoot(ownerUserId),
+      filesRepo.listFoldersByOwner(ownerUserId, {
         includeDeleted: true,
       }),
-      libraryRepo.listFilesByOwner(ownerUserId, {
+      filesRepo.listFilesByOwner(ownerUserId, {
         includeDeleted: true,
       }),
     ]);
 
     return {
-      libraryRoot,
+      filesRoot,
       folders,
       files,
       folderMap: buildFolderMap(folders),
@@ -263,7 +263,7 @@ export const createSharingService = ({
   };
 
   const assertCanManageTarget = (
-    actor: LibraryActor,
+    actor: FilesActor,
     target: { ownerUserId: string } | null,
   ) => {
     if (!target) {
@@ -289,9 +289,9 @@ export const createSharingService = ({
     folderMap,
   }: {
     targetType: ShareTargetType;
-    file?: StoredLibraryFile | null;
-    folder?: LibraryFolderSummary | null;
-    folderMap?: Map<string, LibraryFolderSummary>;
+    file?: StoredFile | null;
+    folder?: FolderSummary | null;
+    folderMap?: Map<string, FolderSummary>;
   }) => {
     if (
       targetType === "file" &&
@@ -324,12 +324,12 @@ export const createSharingService = ({
     share,
     fileMap,
     folderMap,
-    libraryRoot,
+    filesRoot,
   }: {
     share: StoredShareLink;
-    fileMap: Map<string, StoredLibraryFile>;
-    folderMap: Map<string, LibraryFolderSummary>;
-    libraryRoot: LibraryFolderSummary;
+    fileMap: Map<string, StoredFile>;
+    folderMap: Map<string, FolderSummary>;
+    filesRoot: FolderSummary;
   }): { summary: ShareTargetSummary; targetUnavailable: boolean } => {
     if (share.targetType === "file") {
       const file = share.fileId ? fileMap.get(share.fileId) : null;
@@ -346,9 +346,9 @@ export const createSharingService = ({
           sizeBytes: file?.sizeBytes ?? 0,
           pathLabel: file
             ? buildFilePathLabel({
-                file: toLibraryFileSummary(file),
+                file: toFileSummary(file),
                 folderMap,
-                libraryRoot,
+                filesRoot,
               })
             : "Unavailable file",
           deletedAt: file?.deletedAt ?? now(),
@@ -367,12 +367,12 @@ export const createSharingService = ({
         ownerUsername: folder?.ownerUsername ?? "unknown",
         name: folder?.name ?? "Unavailable folder",
         parentId: folder?.parentId ?? null,
-        isLibraryRoot: folder?.isLibraryRoot ?? false,
+        isFilesRoot: folder?.isFilesRoot ?? false,
         pathLabel: folder
           ? buildFolderPathLabel({
               folder,
               folderMap,
-              libraryRoot,
+              filesRoot,
             })
           : "Unavailable folder",
         deletedAt: folder?.deletedAt ?? now(),
@@ -415,7 +415,7 @@ export const createSharingService = ({
     actor,
     shareId,
   }: {
-    actor: LibraryActor;
+    actor: FilesActor;
     shareId: string;
   }) => {
     const share = await (await resolveRepo()).findShareById(shareId);
@@ -489,7 +489,7 @@ export const createSharingService = ({
       expiresAt,
       downloadDisabled = false,
       password,
-    }: LibraryActor & {
+    }: FilesActor & {
       targetType: ShareTargetType;
       fileId?: string | null;
       folderId?: string | null;
@@ -497,7 +497,7 @@ export const createSharingService = ({
       downloadDisabled?: boolean;
       password?: string | null;
     }) {
-      const libraryRepo = await resolveLibraryRepo();
+      const filesRepo = await resolveFilesRepo();
       const actor = { actorUserId, actorRole };
       const effectiveExpiresAt =
         expiresAt ??
@@ -512,14 +512,14 @@ export const createSharingService = ({
         );
       }
 
-      const { folderMap } = await resolveLibraryState(actorUserId);
+      const { folderMap } = await resolveFilesState(actorUserId);
       const file =
         targetType === "file" && fileId
-          ? await libraryRepo.findFileById(fileId)
+          ? await filesRepo.findFileById(fileId)
           : null;
       const folder =
         targetType === "folder" && folderId
-          ? await libraryRepo.findFolderById(folderId)
+          ? await filesRepo.findFolderById(folderId)
           : null;
 
       assertCanManageTarget(actor, file ?? folder);
@@ -557,10 +557,10 @@ export const createSharingService = ({
       };
     },
 
-    async listOwnedShares({ actorUserId }: LibraryActor) {
-      const [shares, { libraryRoot, folderMap, fileMap }] = await Promise.all([
+    async listOwnedShares({ actorUserId }: FilesActor) {
+      const [shares, { filesRoot, folderMap, fileMap }] = await Promise.all([
         (await resolveRepo()).listSharesByCreator(actorUserId),
-        resolveLibraryState(actorUserId),
+        resolveFilesState(actorUserId),
       ]);
 
       const summaries = shares.map((share) => {
@@ -568,7 +568,7 @@ export const createSharingService = ({
           share,
           fileMap,
           folderMap,
-          libraryRoot,
+          filesRoot,
         });
 
         return toShareSummary({
@@ -584,17 +584,17 @@ export const createSharingService = ({
       };
     },
 
-    async getLibraryShareLookup({
+    async getFilesShareLookup({
       actorUserId,
       actorRole,
       currentFolderId,
       childFolderIds,
       fileIds,
-    }: LibraryActor & {
+    }: FilesActor & {
       currentFolderId: string;
       childFolderIds: string[];
       fileIds: string[];
-    }): Promise<ShareLibraryLookup> {
+    }): Promise<ShareFilesLookup> {
       const grouped = await this.listOwnedShares({
         actorUserId,
         actorRole,
@@ -633,7 +633,7 @@ export const createSharingService = ({
       shareId,
       expiresAt,
       downloadDisabled,
-    }: LibraryActor & {
+    }: FilesActor & {
       shareId: string;
       expiresAt: Date;
       downloadDisabled: boolean;
@@ -665,7 +665,7 @@ export const createSharingService = ({
       actorRole,
       shareId,
       password,
-    }: LibraryActor & {
+    }: FilesActor & {
       shareId: string;
       password: string | null;
     }) {
@@ -687,7 +687,7 @@ export const createSharingService = ({
       actorUserId,
       actorRole,
       shareId,
-    }: LibraryActor & {
+    }: FilesActor & {
       shareId: string;
     }) {
       const share = await getManagedShare({
@@ -697,15 +697,15 @@ export const createSharingService = ({
         },
         shareId,
       });
-      const { folderMap } = await resolveLibraryState(actorUserId);
-      const libraryRepo = await resolveLibraryRepo();
+      const { folderMap } = await resolveFilesState(actorUserId);
+      const filesRepo = await resolveFilesRepo();
       const file =
         share.targetType === "file" && share.fileId
-          ? await libraryRepo.findFileById(share.fileId)
+          ? await filesRepo.findFileById(share.fileId)
           : null;
       const folder =
         share.targetType === "folder" && share.folderId
-          ? await libraryRepo.findFolderById(share.folderId)
+          ? await filesRepo.findFolderById(share.folderId)
           : null;
 
       assertActiveTarget({
@@ -736,7 +736,7 @@ export const createSharingService = ({
       actorUserId,
       actorRole,
       shareId,
-    }: LibraryActor & {
+    }: FilesActor & {
       shareId: string;
     }) {
       const share = await getManagedShare({
@@ -757,7 +757,7 @@ export const createSharingService = ({
       actorUserId,
       actorRole,
       shareId,
-    }: LibraryActor & {
+    }: FilesActor & {
       shareId: string;
     }) {
       await getManagedShare({
@@ -809,8 +809,8 @@ export const createSharingService = ({
       shareAccessCookieValue?: string | null;
     }): Promise<PublicShareResolution> {
       const share = await getValidatedPublicShare(token);
-      const libraryRepo = await resolveLibraryRepo();
-      const rootState = await resolveLibraryState(share.createdByUserId);
+      const filesRepo = await resolveFilesRepo();
+      const rootState = await resolveFilesState(share.createdByUserId);
       const access = getAccessState({
         share,
         shareAccessCookieValue,
@@ -819,7 +819,7 @@ export const createSharingService = ({
         share,
         fileMap: rootState.fileMap,
         folderMap: rootState.folderMap,
-        libraryRoot: rootState.libraryRoot,
+        filesRoot: rootState.filesRoot,
       });
       const shareSummary = toShareSummary({
         share,
@@ -832,7 +832,7 @@ export const createSharingService = ({
       }
 
       if (share.targetType === "file") {
-        const file = await libraryRepo.findFileById(share.fileId!);
+        const file = await filesRepo.findFileById(share.fileId!);
 
         assertActiveTarget({
           targetType: "file",
@@ -844,11 +844,11 @@ export const createSharingService = ({
           kind: "file",
           share: shareSummary,
           access,
-          file: toLibraryFileSummary(file!),
+          file: toFileSummary(file!),
         };
       }
 
-      const rootFolder = await libraryRepo.findFolderById(share.folderId!);
+      const rootFolder = await filesRepo.findFolderById(share.folderId!);
 
       assertActiveTarget({
         targetType: "folder",
@@ -857,7 +857,7 @@ export const createSharingService = ({
       });
 
       const currentFolder = requestedFolderId
-        ? await libraryRepo.findFolderById(requestedFolderId)
+        ? await filesRepo.findFolderById(requestedFolderId)
         : rootFolder;
 
       if (
@@ -873,8 +873,8 @@ export const createSharingService = ({
       }
 
       const breadcrumbs: Array<{ id: string; name: string; href: string }> = [];
-      const trail: LibraryFolderSummary[] = [];
-      let pointer: LibraryFolderSummary | undefined = currentFolder;
+      const trail: FolderSummary[] = [];
+      let pointer: FolderSummary | undefined = currentFolder;
       const seen = new Set<string>();
 
       while (pointer && !seen.has(pointer.id)) {
@@ -925,7 +925,7 @@ export const createSharingService = ({
                       folderMap: rootState.folderMap,
                     }),
                 )
-                .map(toLibraryFileSummary)
+                .map(toFileSummary)
             : [],
         },
       };
@@ -956,7 +956,7 @@ export const createSharingService = ({
       }
 
       const file = (await (
-        await resolveLibraryRepo()
+        await resolveFilesRepo()
       ).findFileById(resolved.file.id))!;
 
       return {
@@ -992,9 +992,9 @@ export const createSharingService = ({
         throw new ShareError("SHARE_DOWNLOAD_DISABLED");
       }
 
-      const libraryRepo = await resolveLibraryRepo();
-      const file = await libraryRepo.findFileById(fileId);
-      const libraryState = await resolveLibraryState(
+      const filesRepo = await resolveFilesRepo();
+      const file = await filesRepo.findFileById(fileId);
+      const libraryState = await resolveFilesState(
         resolved.listing.rootFolder.ownerUserId,
       );
 
@@ -1045,7 +1045,7 @@ export const createSharingService = ({
         throw new ShareError("SHARE_DOWNLOAD_DISABLED");
       }
 
-      const libraryState = await resolveLibraryState(
+      const libraryState = await resolveFilesState(
         resolved.listing.rootFolder.ownerUserId,
       );
       const folders = libraryState.folders.filter(
@@ -1083,7 +1083,7 @@ export const createSharingService = ({
     }: {
       token: string;
       shareAccessCookieValue?: string | null;
-    }): Promise<{ file: StoredLibraryFile }> {
+    }): Promise<{ file: StoredFile }> {
       const resolved = await this.resolvePublicShare({
         token,
         shareAccessCookieValue,
@@ -1100,7 +1100,7 @@ export const createSharingService = ({
       // downloadDisabled does NOT block inline viewing — intentional policy
 
       const file = (await (
-        await resolveLibraryRepo()
+        await resolveFilesRepo()
       ).findFileById(resolved.file.id))!;
 
       return { file };
@@ -1114,7 +1114,7 @@ export const createSharingService = ({
       token: string;
       fileId: string;
       shareAccessCookieValue?: string | null;
-    }): Promise<{ file: StoredLibraryFile }> {
+    }): Promise<{ file: StoredFile }> {
       const resolved = await this.resolvePublicShare({
         token,
         shareAccessCookieValue,
@@ -1130,9 +1130,9 @@ export const createSharingService = ({
 
       // downloadDisabled does NOT block inline viewing — intentional policy
 
-      const libraryRepo = await resolveLibraryRepo();
-      const file = await libraryRepo.findFileById(fileId);
-      const libraryState = await resolveLibraryState(
+      const filesRepo = await resolveFilesRepo();
+      const file = await filesRepo.findFileById(fileId);
+      const libraryState = await resolveFilesState(
         resolved.listing.rootFolder.ownerUserId,
       );
 

@@ -1,4 +1,4 @@
-export type LibraryErrorCode =
+export type FilesErrorCode =
   | "ACCESS_DENIED"
   | "FILE_ALREADY_ACTIVE"
   | "FILE_DELETE_REQUIRES_TRASH"
@@ -22,7 +22,7 @@ export type LibraryErrorCode =
   | "FOLDER_NOT_FOUND"
   | "FOLDER_ROOT_IMMUTABLE";
 
-const libraryErrorMessages: Record<LibraryErrorCode, string> = {
+const filesErrorMessages: Record<FilesErrorCode, string> = {
   ACCESS_DENIED: "You do not have access to that folder.",
   FILE_ALREADY_ACTIVE: "That file is already active.",
   FILE_DELETE_REQUIRES_TRASH:
@@ -55,10 +55,10 @@ const libraryErrorMessages: Record<LibraryErrorCode, string> = {
     "Folder names cannot end with a space or a dot.",
   FOLDER_NOT_FOUND: "That folder does not exist.",
   FOLDER_ROOT_IMMUTABLE:
-    "The library root cannot be renamed, moved, trashed, or restored.",
+    "The files root cannot be renamed, moved, trashed, or restored.",
 };
 
-const libraryErrorStatuses: Record<LibraryErrorCode, number> = {
+const filesErrorStatuses: Record<FilesErrorCode, number> = {
   ACCESS_DENIED: 403,
   FILE_ALREADY_ACTIVE: 409,
   FILE_DELETE_REQUIRES_TRASH: 409,
@@ -83,17 +83,17 @@ const libraryErrorStatuses: Record<LibraryErrorCode, number> = {
   FOLDER_ROOT_IMMUTABLE: 409,
 };
 
-export class LibraryError extends Error {
-  readonly code: LibraryErrorCode;
+export class FilesError extends Error {
+  readonly code: FilesErrorCode;
   readonly status: number;
 
-  constructor(code: LibraryErrorCode, message = libraryErrorMessages[code]) {
+  constructor(code: FilesErrorCode, message = filesErrorMessages[code]) {
     super(message);
-    this.name = "LibraryError";
+    this.name = "FilesError";
     this.code = code;
-    this.status = libraryErrorStatuses[code];
+    this.status = filesErrorStatuses[code];
   }
 }
 
-export const isLibraryError = (error: unknown): error is LibraryError =>
-  error instanceof LibraryError;
+export const isFilesError = (error: unknown): error is FilesError =>
+  error instanceof FilesError;

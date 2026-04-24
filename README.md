@@ -87,6 +87,21 @@ That work is centered on:
 6. Start the web app with `pnpm web:dev`.
 7. Start the worker with `pnpm worker:dev`.
 
+## Resetting Local Data
+
+If you need to reset your local database and file uploads during development:
+
+```console
+pnpm app:reset-local-data
+```
+
+This will:
+
+- Delete all local file uploads (`.data/files`)
+- Reset the Prisma database schema with `prisma db push --force-reset`
+
+**Note:** Use this script to reset your database please, you may have data remain if you do it manually.
+
 ## Quality Checks
 
 - staged files are auto-formatted on commit

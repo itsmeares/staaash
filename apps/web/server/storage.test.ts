@@ -11,7 +11,7 @@ import {
   getStorageLockPath,
   getTrashedCommittedStorageKey,
   getTrashedFolderStorageKey,
-  getUserLibraryRootStorageKey,
+  getUserFilesRootStorageKey,
   getUserTrashRootStorageKey,
 } from "@/server/storage";
 
@@ -23,7 +23,7 @@ describe("storage layout", () => {
         folderPathSegments: ["Photos", "Trips", "Paris"],
         fileName: "my-photo.jpg",
       }),
-    ).toBe("library/johnsmith/Photos/Trips/Paris/my-photo.jpg");
+    ).toBe("files/johnsmith/Photos/Trips/Paris/my-photo.jpg");
   });
 
   it("stores trashed originals under the hidden trash tree", () => {
@@ -37,14 +37,14 @@ describe("storage layout", () => {
   });
 
   it("builds active and hidden folder roots per username", () => {
-    expect(getUserLibraryRootStorageKey("johnsmith")).toBe("library/johnsmith");
+    expect(getUserFilesRootStorageKey("johnsmith")).toBe("files/johnsmith");
     expect(getUserTrashRootStorageKey("johnsmith")).toBe(".trash/johnsmith");
     expect(
       getActiveFolderStorageKey({
         username: "johnsmith",
         folderPathSegments: ["Photos", "Trips"],
       }),
-    ).toBe("library/johnsmith/Photos/Trips");
+    ).toBe("files/johnsmith/Photos/Trips");
     expect(
       getTrashedFolderStorageKey({
         username: "johnsmith",

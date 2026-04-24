@@ -163,7 +163,7 @@ export const FolderScalarFieldEnum = {
   ownerUserId: 'ownerUserId',
   parentId: 'parentId',
   name: 'name',
-  isLibraryRoot: 'isLibraryRoot',
+  isFilesRoot: 'isFilesRoot',
   deletedAt: 'deletedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'

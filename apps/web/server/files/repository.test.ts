@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createPrismaLibraryRepository } from "@/server/library/repository";
+import { createPrismaFilesRepository } from "@/server/files/repository";
 
 type MemoryFolderRecord = {
   id: string;
@@ -10,7 +10,7 @@ type MemoryFolderRecord = {
   };
   parentId: string | null;
   name: string;
-  isLibraryRoot: boolean;
+  isFilesRoot: boolean;
   deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -27,14 +27,14 @@ const createFakePrismaClient = () => {
   const addFolder = ({
     ownerUserId,
     parentId = null,
-    name = "Library",
-    isLibraryRoot = false,
+    name = "Files",
+    isFilesRoot = false,
     deletedAt = null,
   }: {
     ownerUserId: string;
     parentId?: string | null;
     name?: string;
-    isLibraryRoot?: boolean;
+    isFilesRoot?: boolean;
     deletedAt?: Date | null;
   }) => {
     const createdAt = new Date(
@@ -48,7 +48,7 @@ const createFakePrismaClient = () => {
       },
       parentId,
       name,
-      isLibraryRoot,
+      isFilesRoot,
       deletedAt,
       createdAt,
       updatedAt: createdAt,
@@ -69,7 +69,7 @@ const createFakePrismaClient = () => {
     async findFirst(args: {
       where?: {
         ownerUserId?: string;
-        isLibraryRoot?: boolean;
+        isFilesRoot?: boolean;
       };
       orderBy?: { createdAt?: "asc" | "desc" };
     }) {
@@ -81,9 +81,9 @@ const createFakePrismaClient = () => {
         );
       }
 
-      if (args.where?.isLibraryRoot !== undefined) {
+      if (args.where?.isFilesRoot !== undefined) {
         folders = folders.filter(
-          (folder) => folder.isLibraryRoot === args.where?.isLibraryRoot,
+          (folder) => folder.isFilesRoot === args.where?.isFilesRoot,
         );
       }
 
@@ -100,7 +100,7 @@ const createFakePrismaClient = () => {
     async findMany(args: {
       where?: {
         ownerUserId?: string;
-        isLibraryRoot?: boolean;
+        isFilesRoot?: boolean;
       };
     }) {
       let folders = [...state.folders];
@@ -111,9 +111,9 @@ const createFakePrismaClient = () => {
         );
       }
 
-      if (args.where?.isLibraryRoot !== undefined) {
+      if (args.where?.isFilesRoot !== undefined) {
         folders = folders.filter(
-          (folder) => folder.isLibraryRoot === args.where?.isLibraryRoot,
+          (folder) => folder.isFilesRoot === args.where?.isFilesRoot,
         );
       }
 
@@ -125,14 +125,14 @@ const createFakePrismaClient = () => {
         ownerUserId: string;
         parentId?: string | null;
         name: string;
-        isLibraryRoot?: boolean;
+        isFilesRoot?: boolean;
       };
     }) {
       return addFolder({
         ownerUserId: args.data.ownerUserId,
         parentId: args.data.parentId ?? null,
         name: args.data.name,
-        isLibraryRoot: args.data.isLibraryRoot ?? false,
+        isFilesRoot: args.data.isFilesRoot ?? false,
       });
     },
 
@@ -159,11 +159,8 @@ const createFakePrismaClient = () => {
         folder.name = args.data.name;
       }
 
-      if (
-        "isLibraryRoot" in args.data &&
-        args.data.isLibraryRoot !== undefined
-      ) {
-        folder.isLibraryRoot = args.data.isLibraryRoot;
+      if ("isFilesRoot" in args.data && args.data.isFilesRoot !== undefined) {
+        folder.isFilesRoot = args.data.isFilesRoot;
       }
 
       if ("deletedAt" in args.data) {
@@ -245,42 +242,42 @@ const createFakePrismaClient = () => {
   };
 };
 
-describe("prisma library repository", () => {
+describe("prisma files repository", () => {
   it("creates exactly one canonical root when none exists", async () => {
     const { client, state } = createFakePrismaClient();
-    const repo = createPrismaLibraryRepository(client as never);
+    const repo = createPrismaFilesRepository(client as never);
 
-    const root = await repo.ensureLibraryRoot("member-1");
+    const root = await repo.ensureFilesRoot("member-1");
 
-    expect(root.name).toBe("Library");
-    expect(root.isLibraryRoot).toBe(true);
+    expect(root.name).toBe("Files");
+    expect(root.isFilesRoot).toBe(true);
     expect(state.folders).toHaveLength(1);
-    expect(state.folders[0]?.isLibraryRoot).toBe(true);
+    expect(state.folders[0]?.isFilesRoot).toBe(true);
   });
 
   it("stamps and reuses a single legacy root", async () => {
     const { client, state, addFolder } = createFakePrismaClient();
     const legacyRoot = addFolder({
       ownerUserId: "member-1",
-      isLibraryRoot: true,
+      isFilesRoot: true,
     });
-    const repo = createPrismaLibraryRepository(client as never);
+    const repo = createPrismaFilesRepository(client as never);
 
-    const root = await repo.ensureLibraryRoot("member-1");
+    const root = await repo.ensureFilesRoot("member-1");
 
     expect(root.id).toBe(legacyRoot.id);
-    expect(state.folders[0]?.isLibraryRoot).toBe(true);
+    expect(state.folders[0]?.isFilesRoot).toBe(true);
   });
 
   it("auto-heals duplicate legacy roots under one canonical root", async () => {
     const { client, state, addFolder } = createFakePrismaClient();
     const canonicalCandidate = addFolder({
       ownerUserId: "member-1",
-      isLibraryRoot: true,
+      isFilesRoot: true,
     });
     const duplicateRoot = addFolder({
       ownerUserId: "member-1",
-      isLibraryRoot: true,
+      isFilesRoot: true,
       name: "Library Copy",
     });
     const nestedChild = addFolder({
@@ -288,15 +285,15 @@ describe("prisma library repository", () => {
       parentId: duplicateRoot.id,
       name: "Nested child",
     });
-    const repo = createPrismaLibraryRepository(client as never);
+    const repo = createPrismaFilesRepository(client as never);
 
-    const root = await repo.ensureLibraryRoot("member-1");
+    const root = await repo.ensureFilesRoot("member-1");
 
     expect(root.id).toBe(canonicalCandidate.id);
     expect(
       state.folders.find((folder) => folder.id === duplicateRoot.id),
     ).toMatchObject({
-      isLibraryRoot: false,
+      isFilesRoot: false,
       parentId: canonicalCandidate.id,
     });
     expect(
@@ -306,11 +303,11 @@ describe("prisma library repository", () => {
 
   it("creates a new canonical root when no root exists", async () => {
     const { client, state } = createFakePrismaClient();
-    const repo = createPrismaLibraryRepository(client as never);
+    const repo = createPrismaFilesRepository(client as never);
 
-    const root = await repo.ensureLibraryRoot("member-1");
+    const root = await repo.ensureFilesRoot("member-1");
 
-    expect(root.isLibraryRoot).toBe(true);
+    expect(root.isFilesRoot).toBe(true);
     expect(root.id).toBe(state.folders[0]?.id);
     expect(state.folders).toHaveLength(1);
   });

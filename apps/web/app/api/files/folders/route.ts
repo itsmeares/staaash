@@ -11,7 +11,7 @@ import {
   redirectWithMessage,
   wantsJson,
 } from "@/server/auth/http";
-import { libraryService } from "@/server/library/service";
+import { filesService } from "@/server/files/service";
 import { recordFolderAccessBestEffort } from "@/server/retrieval/recent-tracking";
 
 export async function POST(request: NextRequest) {
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await libraryService.createFolder({
+    const result = await filesService.createFolder({
       actorUserId: session.user.id,
       actorRole: session.user.role,
       parentId: body.parentId || null,

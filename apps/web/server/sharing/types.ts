@@ -1,9 +1,6 @@
 import type { ShareTargetType } from "@staaash/db/client";
 
-import type {
-  LibraryFileSummary,
-  LibraryFolderSummary,
-} from "@/server/library/types";
+import type { FileSummary, FolderSummary } from "@/server/files/types";
 
 export type ShareLinkStatus =
   | "active"
@@ -47,7 +44,7 @@ export type ShareTargetSummary =
       ownerUsername: string;
       name: string;
       parentId: string | null;
-      isLibraryRoot: boolean;
+      isFilesRoot: boolean;
       pathLabel: string;
       deletedAt: Date | null;
     };
@@ -81,15 +78,15 @@ export type ShareAccessState = {
 };
 
 export type SharedFolderListing = {
-  rootFolder: LibraryFolderSummary;
-  currentFolder: LibraryFolderSummary;
+  rootFolder: FolderSummary;
+  currentFolder: FolderSummary;
   breadcrumbs: Array<{
     id: string;
     name: string;
     href: string;
   }>;
-  childFolders: LibraryFolderSummary[];
-  files: LibraryFileSummary[];
+  childFolders: FolderSummary[];
+  files: FileSummary[];
 };
 
 export type PublicShareResolution =
@@ -97,7 +94,7 @@ export type PublicShareResolution =
       kind: "file";
       share: ShareLinkSummary;
       access: ShareAccessState;
-      file: LibraryFileSummary;
+      file: FileSummary;
     }
   | {
       kind: "folder";
@@ -106,14 +103,14 @@ export type PublicShareResolution =
       listing: SharedFolderListing;
     };
 
-export type ShareLibraryLookup = {
+export type ShareFilesLookup = {
   currentFolderShare: ShareLinkSummary | null;
   sharesByFolderId: Record<string, ShareLinkSummary>;
   sharesByFileId: Record<string, ShareLinkSummary>;
 };
 
 export type ShareDownloadResult = {
-  file: LibraryFileSummary & {
+  file: FileSummary & {
     storageKey: string;
   };
   contentType: string;

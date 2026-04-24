@@ -1,12 +1,9 @@
 import { Prisma, getPrisma } from "@staaash/db/client";
 import { resolveViewerKind } from "@staaash/db/viewer-contract";
 
-import type {
-  LibraryFolderSummary,
-  StoredLibraryFile,
-} from "@/server/library/types";
+import type { FolderSummary, StoredFile } from "@/server/files/types";
 
-const libraryFolderSelect = {
+const folderSelect = {
   id: true,
   ownerUserId: true,
   owner: {
@@ -16,13 +13,13 @@ const libraryFolderSelect = {
   },
   parentId: true,
   name: true,
-  isLibraryRoot: true,
+  isFilesRoot: true,
   deletedAt: true,
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.FolderSelect;
 
-const libraryFileSelect = {
+const fileSelect = {
   id: true,
   ownerUserId: true,
   owner: {
@@ -41,12 +38,12 @@ const libraryFileSelect = {
   updatedAt: true,
 } satisfies Prisma.FileSelect;
 
-type LibraryFolderRecord = Prisma.FolderGetPayload<{
-  select: typeof libraryFolderSelect;
+type FolderRecord = Prisma.FolderGetPayload<{
+  select: typeof folderSelect;
 }>;
 
-type LibraryFileRecord = Prisma.FileGetPayload<{
-  select: typeof libraryFileSelect;
+type FileRecord = Prisma.FileGetPayload<{
+  select: typeof fileSelect;
 }>;
 
 type ListFoldersOptions = {
@@ -61,7 +58,7 @@ type CreateFolderParams = {
   ownerUserId: string;
   parentId: string | null;
   name: string;
-  isLibraryRoot?: boolean;
+  isFilesRoot?: boolean;
 };
 
 type CreateFileParams = {
@@ -104,26 +101,20 @@ type UpdateFilesParams = {
 };
 
 type FolderDelegate = {
-  findFirst(
-    args: Prisma.FolderFindFirstArgs,
-  ): Promise<LibraryFolderRecord | null>;
-  findUnique(
-    args: Prisma.FolderFindUniqueArgs,
-  ): Promise<LibraryFolderRecord | null>;
-  findMany(args: Prisma.FolderFindManyArgs): Promise<LibraryFolderRecord[]>;
-  create(args: Prisma.FolderCreateArgs): Promise<LibraryFolderRecord>;
-  update(args: Prisma.FolderUpdateArgs): Promise<LibraryFolderRecord>;
+  findFirst(args: Prisma.FolderFindFirstArgs): Promise<FolderRecord | null>;
+  findUnique(args: Prisma.FolderFindUniqueArgs): Promise<FolderRecord | null>;
+  findMany(args: Prisma.FolderFindManyArgs): Promise<FolderRecord[]>;
+  create(args: Prisma.FolderCreateArgs): Promise<FolderRecord>;
+  update(args: Prisma.FolderUpdateArgs): Promise<FolderRecord>;
   updateMany(args: Prisma.FolderUpdateManyArgs): Promise<unknown>;
   deleteMany(args: Prisma.FolderDeleteManyArgs): Promise<unknown>;
 };
 
 type FileDelegate = {
-  findUnique(
-    args: Prisma.FileFindUniqueArgs,
-  ): Promise<LibraryFileRecord | null>;
-  findMany(args: Prisma.FileFindManyArgs): Promise<LibraryFileRecord[]>;
-  create(args: Prisma.FileCreateArgs): Promise<LibraryFileRecord>;
-  update(args: Prisma.FileUpdateArgs): Promise<LibraryFileRecord>;
+  findUnique(args: Prisma.FileFindUniqueArgs): Promise<FileRecord | null>;
+  findMany(args: Prisma.FileFindManyArgs): Promise<FileRecord[]>;
+  create(args: Prisma.FileCreateArgs): Promise<FileRecord>;
+  update(args: Prisma.FileUpdateArgs): Promise<FileRecord>;
   updateMany(args: Prisma.FileUpdateManyArgs): Promise<unknown>;
   delete(args: Prisma.FileDeleteArgs): Promise<unknown>;
   deleteMany(args: Prisma.FileDeleteManyArgs): Promise<unknown>;
@@ -133,41 +124,41 @@ type DeleteManyResult = {
   count: number;
 };
 
-type LibraryTransactionClient = {
+type FilesTransactionClient = {
   folder: FolderDelegate;
   file: FileDelegate;
 };
 
-type LibraryPrismaClient = LibraryTransactionClient & {
-  $transaction<T>(fn: (tx: LibraryTransactionClient) => Promise<T>): Promise<T>;
+type FilesPrismaClient = FilesTransactionClient & {
+  $transaction<T>(fn: (tx: FilesTransactionClient) => Promise<T>): Promise<T>;
 };
 
-const toLibraryFolderSummary = (
+const toFolderSummary = (
   folder: Pick<
-    LibraryFolderRecord,
+    FolderRecord,
     | "id"
     | "ownerUserId"
     | "owner"
     | "parentId"
     | "name"
-    | "isLibraryRoot"
+    | "isFilesRoot"
     | "deletedAt"
     | "createdAt"
     | "updatedAt"
   >,
-): LibraryFolderSummary => ({
+): FolderSummary => ({
   id: folder.id,
   ownerUserId: folder.ownerUserId,
   ownerUsername: folder.owner.username,
   parentId: folder.parentId,
   name: folder.name,
-  isLibraryRoot: folder.isLibraryRoot,
+  isFilesRoot: folder.isFilesRoot,
   deletedAt: folder.deletedAt,
   createdAt: folder.createdAt,
   updatedAt: folder.updatedAt,
 });
 
-const toStoredLibraryFile = (file: LibraryFileRecord): StoredLibraryFile => ({
+const toStoredFile = (file: FileRecord): StoredFile => ({
   id: file.id,
   ownerUserId: file.ownerUserId,
   ownerUsername: file.owner.username,
@@ -183,7 +174,7 @@ const toStoredLibraryFile = (file: LibraryFileRecord): StoredLibraryFile => ({
   updatedAt: file.updatedAt,
 });
 
-const sortLegacyRoots = (folders: LibraryFolderRecord[]) =>
+const sortLegacyRoots = (folders: FolderRecord[]) =>
   [...folders].sort((left, right) => {
     const leftDeletedRank = left.deletedAt ? 1 : 0;
     const rightDeletedRank = right.deletedAt ? 1 : 0;
@@ -196,81 +187,83 @@ const sortLegacyRoots = (folders: LibraryFolderRecord[]) =>
   });
 
 const findCanonicalRoot = async (
-  client: LibraryTransactionClient,
+  client: FilesTransactionClient,
   ownerUserId: string,
 ) => {
   const folder = await client.folder.findFirst({
     where: {
       ownerUserId,
-      isLibraryRoot: true,
+      isFilesRoot: true,
     },
     orderBy: {
       createdAt: "asc",
     },
-    select: libraryFolderSelect,
+    select: folderSelect,
   });
 
-  return folder ? toLibraryFolderSummary(folder) : null;
+  return folder ? toFolderSummary(folder) : null;
 };
 
-const listLegacyRoots = (
-  client: LibraryTransactionClient,
-  ownerUserId: string,
-) =>
+const listLegacyRoots = (client: FilesTransactionClient, ownerUserId: string) =>
   client.folder.findMany({
     where: {
       ownerUserId,
-      isLibraryRoot: true,
+      isFilesRoot: true,
     },
     orderBy: {
       createdAt: "asc",
     },
-    select: libraryFolderSelect,
+    select: folderSelect,
   });
 
 const createCanonicalRoot = async (
-  client: LibraryTransactionClient,
+  client: FilesTransactionClient,
   ownerUserId: string,
 ) => {
   const folder = await client.folder.create({
     data: {
       ownerUserId,
       parentId: null,
-      name: "Library",
-      isLibraryRoot: true,
+      name: "Files",
+      isFilesRoot: true,
     },
-    select: libraryFolderSelect,
+    select: folderSelect,
   });
 
-  return toLibraryFolderSummary(folder);
+  return toFolderSummary(folder);
 };
 
-export type LibraryRepository = {
-  ensureLibraryRoot(ownerUserId: string): Promise<LibraryFolderSummary>;
-  findFolderById(folderId: string): Promise<LibraryFolderSummary | null>;
-  findFileById(fileId: string): Promise<StoredLibraryFile | null>;
+export type FilesRepository = {
+  ensureFilesRoot(ownerUserId: string): Promise<FolderSummary>;
+  findFolderById(folderId: string): Promise<FolderSummary | null>;
+  findFileById(fileId: string): Promise<StoredFile | null>;
   listChildFolders(
     ownerUserId: string,
     parentId: string,
     options?: ListFoldersOptions,
-  ): Promise<LibraryFolderSummary[]>;
+  ): Promise<FolderSummary[]>;
   listChildFiles(
     ownerUserId: string,
     folderId: string | null,
     options?: ListFilesOptions,
-  ): Promise<StoredLibraryFile[]>;
+  ): Promise<StoredFile[]>;
   listFoldersByOwner(
     ownerUserId: string,
     options?: ListFoldersOptions,
-  ): Promise<LibraryFolderSummary[]>;
+  ): Promise<FolderSummary[]>;
   listFilesByOwner(
     ownerUserId: string,
     options?: ListFilesOptions,
-  ): Promise<StoredLibraryFile[]>;
-  createFolder(params: CreateFolderParams): Promise<LibraryFolderSummary>;
-  createFile(params: CreateFileParams): Promise<StoredLibraryFile>;
-  updateFolder(params: UpdateFolderParams): Promise<LibraryFolderSummary>;
-  updateFile(params: UpdateFileParams): Promise<StoredLibraryFile>;
+  ): Promise<StoredFile[]>;
+  searchFilesByOwner(
+    ownerUserId: string,
+    nameQuery: string,
+    folderIds: string[],
+  ): Promise<StoredFile[]>;
+  createFolder(params: CreateFolderParams): Promise<FolderSummary>;
+  createFile(params: CreateFileParams): Promise<StoredFile>;
+  updateFolder(params: UpdateFolderParams): Promise<FolderSummary>;
+  updateFile(params: UpdateFileParams): Promise<StoredFile>;
   updateFolders(params: UpdateFoldersParams): Promise<void>;
   updateFiles(params: UpdateFilesParams): Promise<void>;
   deleteFile(fileId: string): Promise<void>;
@@ -278,21 +271,21 @@ export type LibraryRepository = {
   deleteFolders(folderIds: string[]): Promise<number>;
 };
 
-export const createPrismaLibraryRepository = (
-  client?: LibraryPrismaClient,
-): LibraryRepository => {
+export const createPrismaFilesRepository = (
+  client?: FilesPrismaClient,
+): FilesRepository => {
   const getClient = () =>
-    client ?? (getPrisma() as unknown as LibraryPrismaClient);
+    client ?? (getPrisma() as unknown as FilesPrismaClient);
 
   return {
-    async ensureLibraryRoot(ownerUserId) {
+    async ensureFilesRoot(ownerUserId) {
       const client = getClient();
       const existingRoots = sortLegacyRoots(
         await listLegacyRoots(client, ownerUserId),
       );
 
       if (existingRoots.length === 1) {
-        return toLibraryFolderSummary(existingRoots[0]);
+        return toFolderSummary(existingRoots[0]);
       }
 
       try {
@@ -306,7 +299,7 @@ export const createPrismaLibraryRepository = (
           }
 
           if (legacyRoots.length === 1) {
-            return toLibraryFolderSummary(legacyRoots[0]);
+            return toFolderSummary(legacyRoots[0]);
           }
 
           const [legacyCanonicalRoot, ...duplicateRoots] = legacyRoots;
@@ -315,11 +308,11 @@ export const createPrismaLibraryRepository = (
               id: legacyCanonicalRoot.id,
             },
             data: {
-              isLibraryRoot: true,
+              isFilesRoot: true,
               parentId: null,
               deletedAt: null,
             },
-            select: libraryFolderSelect,
+            select: folderSelect,
           });
 
           for (const duplicateRoot of duplicateRoots) {
@@ -328,14 +321,14 @@ export const createPrismaLibraryRepository = (
                 id: duplicateRoot.id,
               },
               data: {
-                isLibraryRoot: false,
+                isFilesRoot: false,
                 parentId: repairedCanonicalRoot.id,
               },
-              select: libraryFolderSelect,
+              select: folderSelect,
             });
           }
 
-          return toLibraryFolderSummary(repairedCanonicalRoot);
+          return toFolderSummary(repairedCanonicalRoot);
         });
       } catch (error) {
         throw error;
@@ -348,10 +341,10 @@ export const createPrismaLibraryRepository = (
         where: {
           id: folderId,
         },
-        select: libraryFolderSelect,
+        select: folderSelect,
       });
 
-      return folder ? toLibraryFolderSummary(folder) : null;
+      return folder ? toFolderSummary(folder) : null;
     },
 
     async findFileById(fileId) {
@@ -360,10 +353,10 @@ export const createPrismaLibraryRepository = (
         where: {
           id: fileId,
         },
-        select: libraryFileSelect,
+        select: fileSelect,
       });
 
-      return file ? toStoredLibraryFile(file) : null;
+      return file ? toStoredFile(file) : null;
     },
 
     async listChildFolders(ownerUserId, parentId, options = {}) {
@@ -375,10 +368,10 @@ export const createPrismaLibraryRepository = (
           ...(options.includeDeleted ? {} : { deletedAt: null }),
         },
         orderBy: [{ name: "asc" }, { createdAt: "asc" }],
-        select: libraryFolderSelect,
+        select: folderSelect,
       });
 
-      return folders.map(toLibraryFolderSummary);
+      return folders.map(toFolderSummary);
     },
 
     async listChildFiles(ownerUserId, folderId, options = {}) {
@@ -390,10 +383,10 @@ export const createPrismaLibraryRepository = (
           ...(options.includeDeleted ? {} : { deletedAt: null }),
         },
         orderBy: [{ originalName: "asc" }, { createdAt: "asc" }],
-        select: libraryFileSelect,
+        select: fileSelect,
       });
 
-      return files.map(toStoredLibraryFile);
+      return files.map(toStoredFile);
     },
 
     async listFoldersByOwner(ownerUserId, options = {}) {
@@ -404,15 +397,15 @@ export const createPrismaLibraryRepository = (
           ...(options.includeDeleted ? {} : { deletedAt: null }),
         },
         orderBy: [
-          { isLibraryRoot: "desc" },
+          { isFilesRoot: "desc" },
           { parentId: "asc" },
           { name: "asc" },
           { createdAt: "asc" },
         ],
-        select: libraryFolderSelect,
+        select: folderSelect,
       });
 
-      return folders.map(toLibraryFolderSummary);
+      return folders.map(toFolderSummary);
     },
 
     async listFilesByOwner(ownerUserId, options = {}) {
@@ -427,10 +420,59 @@ export const createPrismaLibraryRepository = (
           { originalName: "asc" },
           { createdAt: "asc" },
         ],
-        select: libraryFileSelect,
+        select: fileSelect,
       });
 
-      return files.map(toStoredLibraryFile);
+      return files.map(toStoredFile);
+    },
+
+    async searchFilesByOwner(ownerUserId, nameQuery, folderIds) {
+      const trimmed = nameQuery.trim();
+
+      if (trimmed.length === 0 && folderIds.length === 0) {
+        return [];
+      }
+
+      const prisma = getPrisma();
+      const matchingIds = new Set<string>();
+
+      await Promise.all([
+        trimmed.length > 0
+          ? prisma.$queryRaw<{ id: string }[]>`
+                SELECT id FROM "File"
+                WHERE "ownerUserId" = ${ownerUserId}
+                  AND "deletedAt" IS NULL
+                  AND unaccent(lower("originalName")) LIKE '%' || unaccent(lower(${trimmed})) || '%'
+              `.then((rows) => {
+              for (const r of rows) matchingIds.add(r.id);
+            })
+          : Promise.resolve(),
+        folderIds.length > 0
+          ? prisma.file
+              .findMany({
+                where: {
+                  ownerUserId,
+                  deletedAt: null,
+                  folderId: { in: folderIds },
+                },
+                select: { id: true },
+              })
+              .then((rows) => {
+                for (const r of rows) matchingIds.add(r.id);
+              })
+          : Promise.resolve(),
+      ]);
+
+      if (matchingIds.size === 0) {
+        return [];
+      }
+
+      const files = await prisma.file.findMany({
+        where: { id: { in: [...matchingIds] } },
+        select: fileSelect,
+      });
+
+      return files.map(toStoredFile);
     },
 
     async createFolder(params) {
@@ -440,12 +482,12 @@ export const createPrismaLibraryRepository = (
           ownerUserId: params.ownerUserId,
           parentId: params.parentId,
           name: params.name,
-          isLibraryRoot: params.isLibraryRoot ?? false,
+          isFilesRoot: params.isFilesRoot ?? false,
         },
-        select: libraryFolderSelect,
+        select: folderSelect,
       });
 
-      return toLibraryFolderSummary(folder);
+      return toFolderSummary(folder);
     },
 
     async createFile(params) {
@@ -461,10 +503,10 @@ export const createPrismaLibraryRepository = (
           sizeBytes: BigInt(params.sizeBytes),
           contentChecksum: params.contentChecksum,
         },
-        select: libraryFileSelect,
+        select: fileSelect,
       });
 
-      return toStoredLibraryFile(file);
+      return toStoredFile(file);
     },
 
     async updateFolder(params) {
@@ -488,10 +530,10 @@ export const createPrismaLibraryRepository = (
           id: params.id,
         },
         data,
-        select: libraryFolderSelect,
+        select: folderSelect,
       });
 
-      return toLibraryFolderSummary(folder);
+      return toFolderSummary(folder);
     },
 
     async updateFile(params) {
@@ -531,10 +573,10 @@ export const createPrismaLibraryRepository = (
           id: params.id,
         },
         data,
-        select: libraryFileSelect,
+        select: fileSelect,
       });
 
-      return toStoredLibraryFile(file);
+      return toStoredFile(file);
     },
 
     async updateFolders(params) {
@@ -621,4 +663,4 @@ export const createPrismaLibraryRepository = (
   };
 };
 
-export const prismaLibraryRepository = createPrismaLibraryRepository();
+export const prismaFilesRepository = createPrismaFilesRepository();

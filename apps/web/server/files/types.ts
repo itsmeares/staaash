@@ -1,24 +1,24 @@
 import type { UserRole } from "@/server/types";
 import type { ViewerKind } from "@staaash/db/viewer-contract";
 
-export type LibraryActor = {
+export type FilesActor = {
   actorUserId: string;
   actorRole: UserRole;
 };
 
-export type LibraryFolderSummary = {
+export type FolderSummary = {
   id: string;
   ownerUserId: string;
   ownerUsername: string;
   parentId: string | null;
   name: string;
-  isLibraryRoot: boolean;
+  isFilesRoot: boolean;
   deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
 
-export type LibraryFileSummary = {
+export type FileSummary = {
   id: string;
   ownerUserId: string;
   ownerUsername: string;
@@ -32,66 +32,66 @@ export type LibraryFileSummary = {
   updatedAt: Date;
 };
 
-export type StoredLibraryFile = LibraryFileSummary & {
+export type StoredFile = FileSummary & {
   storageKey: string;
   contentChecksum: string | null;
 };
 
-export type LibraryBreadcrumb = {
+export type FilesBreadcrumb = {
   id: string;
   name: string;
   href: string;
 };
 
-export type LibraryMoveTarget = {
+export type MoveTarget = {
   id: string;
   name: string;
   pathLabel: string;
-  isLibraryRoot: boolean;
+  isFilesRoot: boolean;
 };
 
-export type LibraryListing = {
+export type FilesListing = {
   ownerUserId: string;
-  currentFolder: LibraryFolderSummary;
-  breadcrumbs: LibraryBreadcrumb[];
-  childFolders: LibraryFolderSummary[];
-  files: LibraryFileSummary[];
-  moveTargets: LibraryMoveTarget[];
+  currentFolder: FolderSummary;
+  breadcrumbs: FilesBreadcrumb[];
+  childFolders: FolderSummary[];
+  files: FileSummary[];
+  moveTargets: MoveTarget[];
   availableMoveTargetIdsByFolderId: Record<string, string[]>;
 };
 
 export type FolderRestoreLocation = {
-  kind: "original-parent" | "library-root";
+  kind: "original-parent" | "files-root";
   folderId: string;
   folderName: string;
   pathLabel: string;
 };
 
 export type FolderMutationResult = {
-  folder: LibraryFolderSummary;
+  folder: FolderSummary;
   restoredTo?: FolderRestoreLocation;
 };
 
 export type FileMutationResult = {
-  file?: LibraryFileSummary;
+  file?: FileSummary;
   deletedFileId?: string;
   restoredTo?: FolderRestoreLocation;
 };
 
 export type TrashFolderSummary = {
-  folder: LibraryFolderSummary;
+  folder: FolderSummary;
   originalPathLabel: string;
   restoreLocation: FolderRestoreLocation;
 };
 
 export type TrashFileSummary = {
-  file: LibraryFileSummary;
+  file: FileSummary;
   originalPathLabel: string;
   restoreLocation: FolderRestoreLocation;
 };
 
 export type TrashListing = {
-  libraryRoot: LibraryFolderSummary;
+  filesRoot: FolderSummary;
   items: TrashFolderSummary[];
   files: TrashFileSummary[];
 };

@@ -21,11 +21,13 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { FlashMessage } from "@/app/auth-ui";
-import type { LibraryListing } from "@/server/library/types";
-import type { ShareLibraryLookup } from "@/server/sharing";
+import type { FilesListing } from "@/server/files/types";
+import type { ShareFilesLookup } from "@/server/sharing";
 
-import { LibraryRow } from "./library-row";
-import { LibraryPropertiesPanel } from "./library-properties-panel";
+import { FilesRow } from "./files-row";
+import { FilesPropertiesPanel } from "./files-properties-panel";
+import { ShareDialog } from "./share-dialog";
+import type { ShareLinkSummary } from "@/server/sharing";
 
 // ---------------------------------------------------------------------------
 // Persistence helpers
@@ -104,25 +106,25 @@ type RubberBand = {
 // Props
 // ---------------------------------------------------------------------------
 
-type LibraryViewProps = {
-  listing: LibraryListing;
+type FilesViewProps = {
+  listing: FilesListing;
   currentPath: string;
   searchParams: Record<string, string | string[] | undefined>;
-  shareLookup: ShareLibraryLookup;
+  shareLookup: ShareFilesLookup;
   favoriteFileIds: string[];
   favoriteFolderIds: string[];
 };
 
 // ---------------------------------------------------------------------------
 
-export function LibraryView({
+export function FilesView({
   listing,
   currentPath,
   searchParams,
   shareLookup,
   favoriteFileIds,
   favoriteFolderIds,
-}: LibraryViewProps) {
+}: FilesViewProps) {
   const router = useRouter();
 
   // ---- Selection ----
@@ -172,6 +174,13 @@ export function LibraryView({
 
   // ---- Shortcut legend ----
   const [showShortcutLegend, setShowShortcutLegend] = useState(false);
+
+  // ---- Share dialog ----
+  const [shareDialogTarget, setShareDialogTarget] = useState<{
+    targetType: "file" | "folder";
+    targetId: string;
+    share: ShareLinkSummary | null;
+  } | null>(null);
 
   // ---- New folder popover ----
   const [newFolderOpen, setNewFolderOpen] = useState(false);
@@ -411,7 +420,7 @@ export function LibraryView({
   const openItem = (id: string) => {
     const folder = listing.childFolders.find((f) => f.id === id);
     if (folder) {
-      router.push(folder.isLibraryRoot ? "/files" : `/files/f/${folder.id}`);
+      router.push(folder.isFilesRoot ? "/files" : `/files/f/${folder.id}`);
       return;
     }
     const file = listing.files.find((f) => f.id === id);
@@ -540,6 +549,14 @@ export function LibraryView({
   const setFolderIcon = (folderId: string, iconName: string) => {
     setFolderIcons((prev) => ({ ...prev, [folderId]: iconName }));
     persistFolderIcon(folderId, iconName);
+  };
+
+  const handleShare = (targetType: "file" | "folder", targetId: string) => {
+    const share =
+      targetType === "file"
+        ? (shareLookup.sharesByFileId[targetId] ?? null)
+        : (shareLookup.sharesByFolderId[targetId] ?? null);
+    setShareDialogTarget({ targetType, targetId, share });
   };
 
   // ---------------------------------------------------------------------------
@@ -1012,7 +1029,7 @@ export function LibraryView({
                 availableMoveTargetIds.has(t.id),
               );
               return (
-                <LibraryRow
+                <FilesRow
                   key={folder.id}
                   kind="folder"
                   data={folder}
@@ -1029,6 +1046,7 @@ export function LibraryView({
                     targetId: folder.id,
                     targetType: "folder",
                     currentPath,
+                    onShare: () => handleShare("folder", folder.id),
                   }}
                   onRenameChange={setRenameValue}
                   onRenameSubmit={() => submitRename(folder.id, "folder")}
@@ -1136,7 +1154,7 @@ export function LibraryView({
                 (t) => t.id !== listing.currentFolder.id,
               );
               return (
-                <LibraryRow
+                <FilesRow
                   key={file.id}
                   kind="file"
                   data={file}
@@ -1152,6 +1170,7 @@ export function LibraryView({
                     targetId: file.id,
                     targetType: "file",
                     currentPath,
+                    onShare: () => handleShare("file", file.id),
                   }}
                   onRenameChange={setRenameValue}
                   onRenameSubmit={() => submitRename(file.id, "file")}
@@ -1203,12 +1222,37 @@ export function LibraryView({
         </div>
 
         {/* ---- Properties panel ---- */}
-        <LibraryPropertiesPanel
+        <FilesPropertiesPanel
           item={propertiesItem}
           folderIcons={folderIcons}
           onSetFolderIcon={setFolderIcon}
           onClose={() => setPropertiesId(null)}
+          share={
+            propertiesItem
+              ? propertiesItem.kind === "file"
+                ? (shareLookup.sharesByFileId[propertiesItem.data.id] ?? null)
+                : (shareLookup.sharesByFolderId[propertiesItem.data.id] ?? null)
+              : null
+          }
+          onShare={
+            propertiesItem
+              ? () => handleShare(propertiesItem.kind, propertiesItem.data.id)
+              : undefined
+          }
         />
+
+        {/* ---- Share dialog ---- */}
+        {shareDialogTarget && (
+          <ShareDialog
+            targetType={shareDialogTarget.targetType}
+            targetId={shareDialogTarget.targetId}
+            initialShare={shareDialogTarget.share}
+            onClose={() => {
+              setShareDialogTarget(null);
+              startTransition(() => router.refresh());
+            }}
+          />
+        )}
 
         {/* ---- Keyboard shortcut legend ---- */}
         {showShortcutLegend && (

@@ -11,7 +11,7 @@ import {
   redirectWithMessage,
   wantsJson,
 } from "@/server/auth/http";
-import { libraryService } from "@/server/library/service";
+import { filesService } from "@/server/files/service";
 
 type RouteContext = {
   params: Promise<{
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
 
   try {
     const { fileId } = await params;
-    const result = await libraryService.deleteFile({
+    const result = await filesService.deleteFile({
       actorUserId: session.user.id,
       actorRole: session.user.role,
       fileId,

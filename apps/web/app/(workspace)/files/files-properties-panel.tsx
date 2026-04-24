@@ -22,10 +22,8 @@ import {
 
 import { formatDateTime } from "@/app/auth-ui";
 import { Button } from "@/components/ui/button";
-import type {
-  LibraryFileSummary,
-  LibraryFolderSummary,
-} from "@/server/library/types";
+import type { FileSummary, FolderSummary } from "@/server/files/types";
+import type { ShareLinkSummary } from "@/server/sharing";
 
 // ---------------------------------------------------------------------------
 // Icon catalog for folder customisation
@@ -69,22 +67,26 @@ function formatBytes(bytes: number): string {
 // ---------------------------------------------------------------------------
 
 type PropertiesItem =
-  | { kind: "folder"; data: LibraryFolderSummary }
-  | { kind: "file"; data: LibraryFileSummary };
+  | { kind: "folder"; data: FolderSummary }
+  | { kind: "file"; data: FileSummary };
 
-type LibraryPropertiesPanelProps = {
+type FilesPropertiesPanelProps = {
   item: PropertiesItem | null;
   folderIcons: Record<string, string>;
   onSetFolderIcon: (folderId: string, iconName: string) => void;
   onClose: () => void;
+  share?: ShareLinkSummary | null;
+  onShare?: () => void;
 };
 
-export function LibraryPropertiesPanel({
+export function FilesPropertiesPanel({
   item,
   folderIcons,
   onSetFolderIcon,
   onClose,
-}: LibraryPropertiesPanelProps) {
+  share,
+  onShare,
+}: FilesPropertiesPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const isOpen = item !== null;
 
@@ -178,6 +180,41 @@ export function LibraryPropertiesPanel({
                 </span>
               </div>
             </div>
+
+            {/* Sharing section */}
+            {onShare && (
+              <div className="properties-section">
+                <p className="properties-section-title">Sharing</p>
+                {share?.status === "active" ? (
+                  <>
+                    <div className="properties-row">
+                      <span className="properties-row-label">Status</span>
+                      <span className="properties-row-value">Active</span>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={onShare}>
+                      Manage link
+                    </Button>
+                  </>
+                ) : share ? (
+                  <>
+                    <div className="properties-row">
+                      <span className="properties-row-label">Status</span>
+                      <span className="properties-row-value">
+                        {share.status.charAt(0).toUpperCase() +
+                          share.status.slice(1)}
+                      </span>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={onShare}>
+                      Manage link
+                    </Button>
+                  </>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={onShare}>
+                    Create public link
+                  </Button>
+                )}
+              </div>
+            )}
 
             {/* Icon picker — folders only */}
             {item.kind === "folder" && (

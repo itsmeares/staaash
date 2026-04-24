@@ -44,7 +44,7 @@ describe("getHomePageContent", () => {
 
     expect(content.primaryAction).toMatchObject({
       href: "/files",
-      label: "Open library",
+      label: "Open files",
     });
     expect(content.secondaryAction).toBeUndefined();
   });
@@ -57,7 +57,7 @@ describe("getHomePageContent", () => {
 
     expect(content.primaryAction).toMatchObject({
       href: "/files",
-      label: "Open library",
+      label: "Open files",
     });
   });
 });

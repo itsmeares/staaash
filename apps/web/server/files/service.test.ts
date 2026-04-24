@@ -3,21 +3,21 @@ import { setTimeout as delay } from "node:timers/promises";
 
 import { describe, expect, it } from "vitest";
 
-import { LibraryError } from "@/server/library/errors";
-import type { LibraryRepository } from "@/server/library/repository";
-import { createLibraryService } from "@/server/library/service";
+import { FilesError } from "@/server/files/errors";
+import type { FilesRepository } from "@/server/files/repository";
+import { createFilesService } from "@/server/files/service";
 import { getStoragePath } from "@/server/storage";
 import type {
-  LibraryFileSummary,
-  LibraryFolderSummary,
-  StoredLibraryFile,
-} from "@/server/library/types";
+  FileSummary,
+  FolderSummary,
+  StoredFile,
+} from "@/server/files/types";
 
-type MemoryFolderRecord = LibraryFolderSummary & {};
+type MemoryFolderRecord = FolderSummary & {};
 
 type MemoryState = {
   folders: MemoryFolderRecord[];
-  files: StoredLibraryFile[];
+  files: StoredFile[];
   ids: number;
   deleteFileError: Error | null;
   updateFileError: Error | null;
@@ -36,19 +36,19 @@ const createMemoryRepository = () => {
   const nextDate = () =>
     new Date(`2026-03-31T12:${String(state.ids).padStart(2, "0")}:00Z`);
 
-  const cloneFolder = (folder: MemoryFolderRecord): LibraryFolderSummary => ({
+  const cloneFolder = (folder: MemoryFolderRecord): FolderSummary => ({
     id: folder.id,
     ownerUserId: folder.ownerUserId,
     ownerUsername: folder.ownerUsername,
     parentId: folder.parentId,
     name: folder.name,
-    isLibraryRoot: folder.isLibraryRoot,
+    isFilesRoot: folder.isFilesRoot,
     deletedAt: folder.deletedAt,
     createdAt: folder.createdAt,
     updatedAt: folder.updatedAt,
   });
 
-  const cloneFile = (file: StoredLibraryFile): StoredLibraryFile => ({
+  const cloneFile = (file: StoredFile): StoredFile => ({
     ...file,
     deletedAt: file.deletedAt,
     createdAt: file.createdAt,
@@ -62,7 +62,7 @@ const createMemoryRepository = () => {
         left.createdAt.getTime() - right.createdAt.getTime(),
     );
 
-  const sortFiles = (files: StoredLibraryFile[]) =>
+  const sortFiles = (files: StoredFile[]) =>
     [...files].sort(
       (left, right) =>
         left.name.localeCompare(right.name) ||
@@ -73,14 +73,14 @@ const createMemoryRepository = () => {
     ownerUserId,
     parentId,
     name,
-    isLibraryRoot = false,
+    isFilesRoot = false,
     deletedAt = null,
     ownerUsername = ownerUserId,
   }: {
     ownerUserId: string;
     parentId: string | null;
     name: string;
-    isLibraryRoot?: boolean;
+    isFilesRoot?: boolean;
     deletedAt?: Date | null;
     ownerUsername?: string;
   }) => {
@@ -91,7 +91,7 @@ const createMemoryRepository = () => {
       ownerUsername,
       parentId,
       name,
-      isLibraryRoot,
+      isFilesRoot,
       deletedAt,
       createdAt: now,
       updatedAt: now,
@@ -123,7 +123,7 @@ const createMemoryRepository = () => {
     ownerUsername?: string;
   }) => {
     const now = nextDate();
-    const file: StoredLibraryFile = {
+    const file: StoredFile = {
       id: nextId("file"),
       ownerUserId,
       ownerUsername,
@@ -143,10 +143,10 @@ const createMemoryRepository = () => {
     return file;
   };
 
-  const repo: LibraryRepository = {
-    async ensureLibraryRoot(ownerUserId) {
+  const repo: FilesRepository = {
+    async ensureFilesRoot(ownerUserId) {
       const existing = state.folders.find(
-        (folder) => folder.ownerUserId === ownerUserId && folder.isLibraryRoot,
+        (folder) => folder.ownerUserId === ownerUserId && folder.isFilesRoot,
       );
 
       if (existing) {
@@ -156,8 +156,8 @@ const createMemoryRepository = () => {
       const folder = addFolder({
         ownerUserId,
         parentId: null,
-        name: "Library",
-        isLibraryRoot: true,
+        name: "Files",
+        isFilesRoot: true,
         ownerUsername: ownerUserId,
       });
 
@@ -218,12 +218,26 @@ const createMemoryRepository = () => {
       ).map(cloneFile);
     },
 
+    async searchFilesByOwner(ownerUserId, nameQuery, folderIds) {
+      const normalized = nameQuery.trim().toLowerCase();
+      return state.files
+        .filter(
+          (file) =>
+            file.ownerUserId === ownerUserId &&
+            file.deletedAt === null &&
+            ((normalized.length > 0 &&
+              file.name.toLowerCase().includes(normalized)) ||
+              folderIds.includes(file.folderId ?? "")),
+        )
+        .map(cloneFile);
+    },
+
     async createFolder(params) {
       const folder = addFolder({
         ownerUserId: params.ownerUserId,
         parentId: params.parentId,
         name: params.name,
-        isLibraryRoot: params.isLibraryRoot ?? false,
+        isFilesRoot: params.isFilesRoot ?? false,
       });
 
       return cloneFolder(folder);
@@ -231,7 +245,7 @@ const createMemoryRepository = () => {
 
     async createFile(params) {
       const now = nextDate();
-      const file: StoredLibraryFile = {
+      const file: StoredFile = {
         id: params.id ?? nextId("file"),
         ownerUserId: params.ownerUserId,
         ownerUsername: params.ownerUserId,
@@ -257,7 +271,7 @@ const createMemoryRepository = () => {
       );
 
       if (!folder) {
-        throw new LibraryError("FOLDER_NOT_FOUND");
+        throw new FilesError("FOLDER_NOT_FOUND");
       }
 
       if ("name" in params && params.name !== undefined) {
@@ -286,7 +300,7 @@ const createMemoryRepository = () => {
       const file = state.files.find((candidate) => candidate.id === params.id);
 
       if (!file) {
-        throw new LibraryError("FILE_NOT_FOUND");
+        throw new FilesError("FILE_NOT_FOUND");
       }
 
       if ("name" in params && params.name !== undefined) {
@@ -382,8 +396,8 @@ const createMemoryRepository = () => {
   };
 };
 
-const createService = (repo: LibraryRepository) =>
-  createLibraryService({
+const createService = (repo: FilesRepository) =>
+  createFilesService({
     repo,
     scheduleStagingCleanupJob: async () => undefined,
   });
@@ -408,25 +422,25 @@ const cleanDataRoot = async () => {
   }
 };
 
-describe.sequential("library service", () => {
-  it("creates a library root on first listing and includes an empty file list", async () => {
+describe.sequential("files service", () => {
+  it("creates a files root on first listing and includes an empty file list", async () => {
     const { repo } = createMemoryRepository();
     const service = createService(repo);
 
-    const listing = await service.getLibraryListing({
+    const listing = await service.getFilesListing({
       actorUserId: "member-1",
       actorRole: "member",
     });
 
-    expect(listing.currentFolder.isLibraryRoot).toBe(true);
+    expect(listing.currentFolder.isFilesRoot).toBe(true);
     expect(listing.files).toEqual([]);
-    expect(listing.breadcrumbs[0]?.name).toBe("Library");
+    expect(listing.breadcrumbs[0]?.name).toBe("Files");
   });
 
   it("rejects duplicate active sibling folder names", async () => {
     const { repo } = createMemoryRepository();
     const service = createService(repo);
-    const root = await service.ensureLibraryRoot("member-1");
+    const root = await service.ensureFilesRoot("member-1");
 
     await service.createFolder({
       actorUserId: "member-1",
@@ -450,12 +464,12 @@ describe.sequential("library service", () => {
   it("rejects creating a folder when a file already owns the sibling name", async () => {
     const { repo, addFile } = createMemoryRepository();
     const service = createService(repo);
-    const root = await service.ensureLibraryRoot("member-1");
+    const root = await service.ensureFilesRoot("member-1");
     addFile({
       ownerUserId: "member-1",
       folderId: root.id,
       name: "Plans",
-      storageKey: "library/member-1/Plans",
+      storageKey: "files/member-1/Plans",
     });
 
     await expect(
@@ -474,7 +488,7 @@ describe.sequential("library service", () => {
     await cleanDataRoot();
     const { repo, addFolder } = createMemoryRepository();
     const service = createService(repo);
-    const root = await service.ensureLibraryRoot("member-1");
+    const root = await service.ensureFilesRoot("member-1");
     const archive = addFolder({
       ownerUserId: "member-1",
       parentId: root.id,
@@ -549,7 +563,7 @@ describe.sequential("library service", () => {
     await cleanDataRoot();
     const { repo } = createMemoryRepository();
     const service = createService(repo);
-    const root = await service.ensureLibraryRoot("member-1");
+    const root = await service.ensureFilesRoot("member-1");
 
     await service.uploadFiles({
       actorUserId: "member-1",
@@ -591,7 +605,7 @@ describe.sequential("library service", () => {
     await cleanDataRoot();
     const { repo, state } = createMemoryRepository();
     const service = createService(repo);
-    const root = await service.ensureLibraryRoot("member-1");
+    const root = await service.ensureFilesRoot("member-1");
 
     const first = await service.uploadFiles({
       actorUserId: "member-1",
@@ -631,7 +645,7 @@ describe.sequential("library service", () => {
       state.files.filter((file) => file.name === "replace-me.txt"),
     ).toHaveLength(1);
     await expect(
-      readFile(getStoragePath("library/member-1/replace-me.txt"), "utf8"),
+      readFile(getStoragePath("files/member-1/replace-me.txt"), "utf8"),
     ).resolves.toBe("after");
   });
 
@@ -639,7 +653,7 @@ describe.sequential("library service", () => {
     await cleanDataRoot();
     const { repo, failNextUpdateFile } = createMemoryRepository();
     const service = createService(repo);
-    const root = await service.ensureLibraryRoot("member-1");
+    const root = await service.ensureFilesRoot("member-1");
 
     await service.uploadFiles({
       actorUserId: "member-1",
@@ -678,7 +692,7 @@ describe.sequential("library service", () => {
     ).rejects.toThrow("metadata write failed");
 
     await expect(
-      readFile(getStoragePath("library/member-1/replace-me.txt"), "utf8"),
+      readFile(getStoragePath("files/member-1/replace-me.txt"), "utf8"),
     ).resolves.toBe("before");
   });
 
@@ -686,7 +700,7 @@ describe.sequential("library service", () => {
     await cleanDataRoot();
     const { repo } = createMemoryRepository();
     const service = createService(repo);
-    const root = await service.ensureLibraryRoot("member-1");
+    const root = await service.ensureFilesRoot("member-1");
 
     const [first, second] = await Promise.all([
       service.uploadFiles({
@@ -724,7 +738,7 @@ describe.sequential("library service", () => {
     expect(first.uploadedFiles.length + second.uploadedFiles.length).toBe(1);
     expect(first.conflicts.length + second.conflicts.length).toBe(1);
     await expect(
-      readFile(getStoragePath("library/member-1/race.txt"), "utf8"),
+      readFile(getStoragePath("files/member-1/race.txt"), "utf8"),
     ).resolves.toBe(first.uploadedFiles.length === 1 ? "first" : "second");
   });
 
@@ -732,7 +746,7 @@ describe.sequential("library service", () => {
     await cleanDataRoot();
     const { repo } = createMemoryRepository();
     const service = createService(repo);
-    const root = await service.ensureLibraryRoot("member-1");
+    const root = await service.ensureFilesRoot("member-1");
 
     await service.createFolder({
       actorUserId: "member-1",
@@ -769,7 +783,7 @@ describe.sequential("library service", () => {
     await cleanDataRoot();
     const { repo, failNextDeleteFile } = createMemoryRepository();
     const service = createService(repo);
-    const root = await service.ensureLibraryRoot("member-1");
+    const root = await service.ensureFilesRoot("member-1");
 
     const upload = await service.uploadFiles({
       actorUserId: "member-1",
@@ -811,7 +825,7 @@ describe.sequential("library service", () => {
     await cleanDataRoot();
     const { repo } = createMemoryRepository();
     const service = createService(repo);
-    const root = await service.ensureLibraryRoot("member-1");
+    const root = await service.ensureFilesRoot("member-1");
     const parent = await service.createFolder({
       actorUserId: "member-1",
       actorRole: "member",
@@ -841,7 +855,7 @@ describe.sequential("library service", () => {
       folderId: parent.folder.id,
     });
 
-    const listing = await service.getLibraryListing({
+    const listing = await service.getFilesListing({
       actorUserId: "member-1",
       actorRole: "member",
     });
@@ -861,7 +875,7 @@ describe.sequential("library service", () => {
     });
 
     expect(restored.restoredTo?.folderId).toBe(root.id);
-    const refreshed = await service.getLibraryListing({
+    const refreshed = await service.getFilesListing({
       actorUserId: "member-1",
       actorRole: "member",
       folderId: parent.folder.id,
@@ -873,7 +887,7 @@ describe.sequential("library service", () => {
     await cleanDataRoot();
     const { repo, addFolder, addFile } = createMemoryRepository();
     const service = createService(repo);
-    const root = await service.ensureLibraryRoot("member-1");
+    const root = await service.ensureFilesRoot("member-1");
 
     // Build a trashed folder tree.
     const trashed = addFolder({
@@ -919,7 +933,7 @@ describe.sequential("library service", () => {
     await cleanDataRoot();
     const { repo } = createMemoryRepository();
     const service = createService(repo);
-    const root = await service.ensureLibraryRoot("member-1");
+    const root = await service.ensureFilesRoot("member-1");
 
     // Trash a folder with one child.
     const parent = await service.createFolder({
@@ -963,7 +977,7 @@ describe.sequential("library service", () => {
     await cleanDataRoot();
     const { repo } = createMemoryRepository();
     const service = createService(repo);
-    const root = await service.ensureLibraryRoot("member-1");
+    const root = await service.ensureFilesRoot("member-1");
     const archive = await service.createFolder({
       actorUserId: "member-1",
       actorRole: "member",
@@ -1037,7 +1051,7 @@ describe.sequential("library service", () => {
       deletedFileCount: 2,
     });
 
-    const listing = await service.getLibraryListing({
+    const listing = await service.getFilesListing({
       actorUserId: "member-1",
       actorRole: "member",
     });
@@ -1059,7 +1073,7 @@ describe.sequential("library service", () => {
       access(getStoragePath(".trash/member-1/standalone.txt")),
     ).rejects.toBeDefined();
     await expect(
-      access(getStoragePath("library/member-1/keep.txt")),
+      access(getStoragePath("files/member-1/keep.txt")),
     ).resolves.toBeUndefined();
 
     expect(nested.uploadedFiles[0]).toBeDefined();

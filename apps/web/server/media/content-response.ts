@@ -2,7 +2,7 @@ import { open } from "node:fs/promises";
 import { Readable } from "node:stream";
 
 import { getStoragePath } from "@/server/storage";
-import type { StoredLibraryFile } from "@/server/library/types";
+import type { StoredFile } from "@/server/files/types";
 
 const buildInlineDisposition = (fileName: string) =>
   `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`;
@@ -114,7 +114,7 @@ const parseSingleRange = (
   };
 };
 
-const createBaseHeaders = (file: StoredLibraryFile): HeadersInit => ({
+const createBaseHeaders = (file: StoredFile): HeadersInit => ({
   "cache-control": "private, max-age=0, must-revalidate",
   "content-disposition": buildInlineDisposition(file.name),
   "content-type": file.mimeType || "application/octet-stream",
@@ -135,7 +135,7 @@ export const createInlineOriginalContentResponse = async ({
   file,
 }: {
   request: Request;
-  file: StoredLibraryFile;
+  file: StoredFile;
 }): Promise<Response> => {
   if (!file.viewerKind) {
     throw new MediaContentError(

@@ -5,72 +5,69 @@ import { ShareError } from "@/server/sharing/errors";
 import { createSharingService } from "@/server/sharing/service";
 import type { SharingRepository } from "@/server/sharing/repository";
 import type { StoredShareLink } from "@/server/sharing/types";
-import type { LibraryRepository } from "@/server/library/repository";
-import type {
-  LibraryFolderSummary,
-  StoredLibraryFile,
-} from "@/server/library/types";
+import type { FilesRepository } from "@/server/files/repository";
+import type { FolderSummary, StoredFile } from "@/server/files/types";
 
 const fixedNow = new Date("2026-04-01T12:00:00.000Z");
 
 const addDays = (days: number) =>
   new Date(fixedNow.getTime() + days * 24 * 60 * 60 * 1000);
 
-const libraryRoot: LibraryFolderSummary = {
+const filesRoot: FolderSummary = {
   id: "root",
   ownerUserId: "user-1",
   ownerUsername: "alice",
   parentId: null,
-  name: "Library",
-  isLibraryRoot: true,
+  name: "Files",
+  isFilesRoot: true,
   deletedAt: null,
   createdAt: fixedNow,
   updatedAt: fixedNow,
 };
 
-const sharedFolder: LibraryFolderSummary = {
+const sharedFolder: FolderSummary = {
   id: "folder-shared",
   ownerUserId: "user-1",
   ownerUsername: "alice",
   parentId: "root",
   name: "Projects",
-  isLibraryRoot: false,
+  isFilesRoot: false,
   deletedAt: null,
   createdAt: fixedNow,
   updatedAt: fixedNow,
 };
 
-const childFolder: LibraryFolderSummary = {
+const childFolder: FolderSummary = {
   id: "folder-child",
   ownerUserId: "user-1",
   ownerUsername: "alice",
   parentId: "folder-shared",
   name: "2026",
-  isLibraryRoot: false,
+  isFilesRoot: false,
   deletedAt: null,
   createdAt: fixedNow,
   updatedAt: fixedNow,
 };
 
-const siblingFolder: LibraryFolderSummary = {
+const siblingFolder: FolderSummary = {
   id: "folder-sibling",
   ownerUserId: "user-1",
   ownerUsername: "alice",
   parentId: "root",
   name: "Private",
-  isLibraryRoot: false,
+  isFilesRoot: false,
   deletedAt: null,
   createdAt: fixedNow,
   updatedAt: fixedNow,
 };
 
-const sharedFile: StoredLibraryFile = {
+const sharedFile: StoredFile = {
   id: "file-shared",
   ownerUserId: "user-1",
   ownerUsername: "alice",
   folderId: "folder-shared",
   name: "plan.txt",
-  storageKey: "library/alice/Projects/plan.txt",
+  storageKey: "files/alice/Projects/plan.txt",
   mimeType: "text/plain",
   sizeBytes: 120,
   contentChecksum: "abc",
@@ -80,13 +77,13 @@ const sharedFile: StoredLibraryFile = {
   updatedAt: fixedNow,
 };
 
-const childFile: StoredLibraryFile = {
+const childFile: StoredFile = {
   id: "file-child",
   ownerUserId: "user-1",
   ownerUsername: "alice",
   folderId: "folder-child",
   name: "notes.txt",
-  storageKey: "library/alice/Projects/2026/notes.txt",
+  storageKey: "files/alice/Projects/2026/notes.txt",
   mimeType: "text/plain",
   sizeBytes: 220,
   contentChecksum: "def",
@@ -207,13 +204,13 @@ const createFakeSharingRepository = () => {
   };
 };
 
-const fakeLibraryRepo = {
-  async ensureLibraryRoot() {
-    return libraryRoot;
+const fakeFilesRepo = {
+  async ensureFilesRoot() {
+    return filesRoot;
   },
   async findFolderById(folderId: string) {
     return (
-      [libraryRoot, sharedFolder, childFolder, siblingFolder].find(
+      [filesRoot, sharedFolder, childFolder, siblingFolder].find(
         (folder) => folder.id === folderId,
       ) ?? null
     );
@@ -222,19 +219,19 @@ const fakeLibraryRepo = {
     return [sharedFile, childFile].find((file) => file.id === fileId) ?? null;
   },
   async listFoldersByOwner() {
-    return [libraryRoot, sharedFolder, childFolder, siblingFolder];
+    return [filesRoot, sharedFolder, childFolder, siblingFolder];
   },
   async listFilesByOwner() {
     return [sharedFile, childFile];
   },
-} as unknown as LibraryRepository;
+} as unknown as FilesRepository;
 
 describe("sharing service", () => {
   it("creates and reissues singleton links for the same target", async () => {
     const sharingRepo = createFakeSharingRepository();
     const service = createSharingService({
       repo: sharingRepo.repo,
-      libraryRepo: fakeLibraryRepo,
+      filesRepo: fakeFilesRepo,
       now: () => fixedNow,
     });
 
@@ -265,7 +262,7 @@ describe("sharing service", () => {
     const sharingRepo = createFakeSharingRepository();
     const service = createSharingService({
       repo: sharingRepo.repo,
-      libraryRepo: fakeLibraryRepo,
+      filesRepo: fakeFilesRepo,
       now: () => fixedNow,
     });
 
@@ -320,7 +317,7 @@ describe("sharing service", () => {
     const sharingRepo = createFakeSharingRepository();
     const service = createSharingService({
       repo: sharingRepo.repo,
-      libraryRepo: fakeLibraryRepo,
+      filesRepo: fakeFilesRepo,
       now: () => fixedNow,
     });
     const created = await service.createOrReissueShare({
@@ -360,7 +357,7 @@ describe("sharing service", () => {
     const sharingRepo = createFakeSharingRepository();
     const service = createSharingService({
       repo: sharingRepo.repo,
-      libraryRepo: fakeLibraryRepo,
+      filesRepo: fakeFilesRepo,
       now: () => fixedNow,
     });
     const created = await service.createOrReissueShare({

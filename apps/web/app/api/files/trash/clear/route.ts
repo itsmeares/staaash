@@ -11,7 +11,7 @@ import {
   redirectWithMessage,
   wantsJson,
 } from "@/server/auth/http";
-import { libraryService } from "@/server/library/service";
+import { filesService } from "@/server/files/service";
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await libraryService.clearTrash({
+    const result = await filesService.clearTrash({
       actorUserId: session.user.id,
       actorRole: session.user.role,
     });

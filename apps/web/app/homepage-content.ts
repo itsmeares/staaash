@@ -51,9 +51,9 @@ export function getHomePageContent({
   return {
     primaryAction: {
       href: "/files",
-      label: "Open library",
+      label: "Open files",
     },
-    title: "Your library is ready.",
-    description: "Open your library.",
+    title: "Your files are ready.",
+    description: "Open your files.",
   };
 }

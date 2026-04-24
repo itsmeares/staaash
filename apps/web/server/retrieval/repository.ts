@@ -1,9 +1,9 @@
 import { getPrisma } from "@staaash/db/client";
 
 import {
-  prismaLibraryRepository,
-  type LibraryRepository,
-} from "@/server/library/repository";
+  prismaFilesRepository,
+  type FilesRepository,
+} from "@/server/files/repository";
 
 import type {
   FavoriteFileRecord,
@@ -20,40 +20,48 @@ type RetrievalPrismaClient = Pick<
 
 type CreatePrismaRetrievalRepositoryOptions = {
   client?: RetrievalPrismaClient;
-  libraryRepo?: LibraryRepository;
+  filesRepo?: FilesRepository;
 };
 
 export const createPrismaRetrievalRepository = ({
   client,
-  libraryRepo,
+  filesRepo,
 }: CreatePrismaRetrievalRepositoryOptions = {}): RetrievalRepository => {
   const getClient = () =>
     client ?? (getPrisma() as unknown as RetrievalPrismaClient);
-  const getLibraryRepo = () => libraryRepo ?? prismaLibraryRepository;
+  const getFilesRepo = () => filesRepo ?? prismaFilesRepository;
 
   return {
-    ensureLibraryRoot(ownerUserId) {
-      return getLibraryRepo().ensureLibraryRoot(ownerUserId);
+    ensureFilesRoot(ownerUserId) {
+      return getFilesRepo().ensureFilesRoot(ownerUserId);
     },
 
     findFolderById(folderId) {
-      return getLibraryRepo().findFolderById(folderId);
+      return getFilesRepo().findFolderById(folderId);
     },
 
     findFileById(fileId) {
-      return getLibraryRepo().findFileById(fileId);
+      return getFilesRepo().findFileById(fileId);
     },
 
     listFoldersByOwner(ownerUserId) {
-      return getLibraryRepo().listFoldersByOwner(ownerUserId, {
+      return getFilesRepo().listFoldersByOwner(ownerUserId, {
         includeDeleted: false,
       });
     },
 
     listFilesByOwner(ownerUserId) {
-      return getLibraryRepo().listFilesByOwner(ownerUserId, {
+      return getFilesRepo().listFilesByOwner(ownerUserId, {
         includeDeleted: false,
       });
+    },
+
+    searchFilesByOwner(ownerUserId, nameQuery, folderIds) {
+      return getFilesRepo().searchFilesByOwner(
+        ownerUserId,
+        nameQuery,
+        folderIds,
+      );
     },
 
     async listFavoriteFiles(userId) {

@@ -53,7 +53,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     <div className="workspace-page">
       <section className="panel stack">
         <div className="pill">Search</div>
-        <h1>Private library search</h1>
+        <h1>Files search</h1>
         <p className="muted">
           Search scans active private files and folders with one mixed ranking
           across names, extensions, and logical path tokens.
@@ -85,7 +85,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
         {query.length === 0 ? (
           <div className="workspace-empty-state">
-            <h2>Search the private library</h2>
+            <h2>Search your files</h2>
             <p className="muted">
               Use the top-bar search field to find active files and folders by
               name, extension, or path segment.

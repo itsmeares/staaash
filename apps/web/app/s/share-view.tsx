@@ -8,7 +8,9 @@ import {
   formatDateTime,
   getSingleSearchParam,
 } from "@/app/auth-ui";
-import type { LibraryFileSummary } from "@/server/library/types";
+import { authService } from "@/server/auth/service";
+import { ShareAudioPlayer } from "./share-audio-player";
+import type { FileSummary } from "@/server/files/types";
 import { ShareError } from "@/server/sharing/errors";
 import type {
   PublicShareResolution,
@@ -20,6 +22,29 @@ const formatBytes = (value: number) =>
     maximumFractionDigits: 1,
     notation: "standard",
   }).format(value / (1024 * 1024)) + " MB";
+
+function getRelativeExpiry(expiresAt: Date | string): string {
+  const d = new Date(expiresAt);
+  const diffMs = d.getTime() - Date.now();
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays <= 0) return "expired";
+  if (diffDays === 1) return "expires tomorrow";
+  if (diffDays < 7) return `expires in ${diffDays} days`;
+  if (diffDays < 60)
+    return `expires in ${Math.ceil(diffDays / 7)} week${Math.ceil(diffDays / 7) === 1 ? "" : "s"}`;
+  return `expires in ${Math.floor(diffDays / 30)} months`;
+}
+
+async function ShareBrand() {
+  const setupState = await authService.getSetupState();
+  const name = setupState.instanceName ?? "Staaash";
+  return (
+    <div className="share-brand">
+      <span className="share-brand-wordmark">{name}</span>
+      <span className="share-brand-sub">shared with you</span>
+    </div>
+  );
+}
 
 const shareErrorCopy: Record<
   ShareError["code"],
@@ -66,7 +91,8 @@ export function ShareErrorView({ error }: { error: ShareError }) {
   const copy = shareErrorCopy[error.code];
 
   return (
-    <main className="stack">
+    <main className="share-page stack">
+      <ShareBrand />
       <section className="panel stack">
         <div className="pill">Public share</div>
         <h1>{copy.title}</h1>
@@ -88,17 +114,14 @@ export function ShareLockedView({
   token: string;
 }) {
   return (
-    <main className="stack">
+    <main className="share-page stack">
+      <ShareBrand />
       <section className="panel stack">
         <div className="pill">Protected share</div>
-        <h1>This share is password protected</h1>
-        <p className="muted">Enter the password to continue.</p>
+        <h1>Password required</h1>
+        <p className="muted">Enter the password to access this shared item.</p>
         {error ? <FlashMessage>{error}</FlashMessage> : null}
         {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
-      </section>
-
-      <section className="panel stack">
-        <h2>Unlock shared access</h2>
         <form
           action={`/s/${encodeURIComponent(token)}/unlock`}
           className="form-grid"
@@ -138,42 +161,40 @@ export function ShareFilePage({
   backLabel?: string;
   contentHref: string;
   downloadHref?: string;
-  file: LibraryFileSummary;
+  file: FileSummary;
   headerLabel: string;
   searchParams: Record<string, string | string[] | undefined>;
   share: Pick<ShareLinkSummary, "downloadDisabled" | "expiresAt">;
 }) {
   const error = getSingleSearchParam(searchParams, "error");
   const success = getSingleSearchParam(searchParams, "success");
+  const relativeExpiry = getRelativeExpiry(share.expiresAt);
+  const ext = file.name.includes(".")
+    ? file.name.split(".").pop()?.toLowerCase()
+    : null;
+  const formatLabel = ext ?? file.mimeType;
 
   return (
-    <main className="stack">
-      <section className="panel stack">
-        <div className="pill">{headerLabel}</div>
-        <div className="split">
-          <div className="stack">
-            <h1>{file.name}</h1>
-            <p className="muted">
-              Link expires {formatDateTime(share.expiresAt)}.
-            </p>
-          </div>
-          {backHref ? (
-            <Link className="button button-secondary" href={backHref}>
-              {backLabel}
-            </Link>
-          ) : null}
-        </div>
-        {error ? <FlashMessage>{error}</FlashMessage> : null}
-        {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
-      </section>
+    <main className="share-page stack">
+      {error ? <FlashMessage>{error}</FlashMessage> : null}
+      {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
 
+      {/* Top bar: file title left, instance brand right */}
+      <div className="sp-topbar">
+        <div className="sp-hero">
+          <h1 className="sp-file-title">{file.name}</h1>
+          <p className="share-expiry-meta">
+            <span className="share-expiry-highlight">{relativeExpiry}</span>
+            {" · "}
+            {formatDateTime(share.expiresAt)}
+          </p>
+        </div>
+        <ShareBrand />
+      </div>
+
+      {/* Content */}
       {file.viewerKind === "audio" ? (
-        <audio
-          controls
-          preload="metadata"
-          src={contentHref}
-          style={{ width: "100%" }}
-        />
+        <ShareAudioPlayer src={contentHref} fileName={file.name} />
       ) : file.viewerKind === "pdf" ? (
         <embed
           src={contentHref}
@@ -190,7 +211,8 @@ export function ShareFilePage({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: "var(--color-surface-hover, #f3f4f6)",
+            backgroundColor:
+              "color-mix(in oklab, var(--foreground) 4%, var(--background))",
             minHeight: "60vh",
           }}
         >
@@ -223,23 +245,33 @@ export function ShareFilePage({
         </section>
       ) : null}
 
-      <section className="panel stack">
-        <h2>File details</h2>
-        <p className="muted">
-          {file.mimeType} • {formatBytes(file.sizeBytes)} • Updated{" "}
-          {formatDateTime(file.updatedAt)}
+      {/* Actions row — meta left, download + back right */}
+      <div className="sp-actions">
+        <p className="sp-actions-meta">
+          {formatLabel} · {formatBytes(file.sizeBytes)}
         </p>
-        {share.downloadDisabled ? (
-          <span className="field-help">
-            Downloads are disabled for this link. Inline viewing of images,
-            videos, audio, and PDFs remains available.
-          </span>
-        ) : downloadHref ? (
-          <a className="button" href={downloadHref}>
-            Download file
-          </a>
-        ) : null}
-      </section>
+        <div className="sp-actions-right">
+          {backHref ? (
+            <Link className="button button-secondary" href={backHref}>
+              {backLabel}
+            </Link>
+          ) : null}
+          {!share.downloadDisabled && downloadHref ? (
+            <a className="button" href={downloadHref}>
+              Download
+            </a>
+          ) : share.downloadDisabled ? (
+            <span className="sp-dl-disabled">Downloads off</span>
+          ) : null}
+        </div>
+      </div>
+
+      <p className="share-page-footer">
+        Shared via{" "}
+        <a href="/" rel="noopener noreferrer">
+          Staaash
+        </a>
+      </p>
     </main>
   );
 }
@@ -286,19 +318,42 @@ export function ShareView({ resolution, token, searchParams }: ShareViewProps) {
     );
   }
 
+  const relativeExpiry = getRelativeExpiry(resolution.share.expiresAt);
+
   return (
-    <main className="stack">
-      <section className="panel stack">
-        <div className="pill">Shared folder</div>
-        <h1>{resolution.listing.currentFolder.name}</h1>
-        <p className="muted">
-          Link expires {formatDateTime(resolution.share.expiresAt)}.
-        </p>
-        {error ? <FlashMessage>{error}</FlashMessage> : null}
-        {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
-      </section>
+    <main className="share-page stack">
+      <ShareBrand />
 
       <section className="panel stack">
+        <div className="split">
+          <div className="stack">
+            <div className="pill">Shared folder</div>
+            <h1>{resolution.listing.currentFolder.name}</h1>
+            <p className="share-expiry-meta">
+              <span className="share-expiry-highlight">{relativeExpiry}</span>
+              {" · "}
+              {formatDateTime(resolution.share.expiresAt)}
+            </p>
+          </div>
+          {!resolution.share.downloadDisabled ? (
+            <a
+              className="button button-secondary"
+              href={`/s/${encodeURIComponent(token)}/archive`}
+            >
+              Download all
+            </a>
+          ) : null}
+        </div>
+        {error ? <FlashMessage>{error}</FlashMessage> : null}
+        {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
+        {resolution.share.downloadDisabled ? (
+          <span className="field-help">
+            Archive download is disabled for this link.
+          </span>
+        ) : null}
+      </section>
+
+      {resolution.listing.breadcrumbs.length > 1 ? (
         <div className="workspace-breadcrumbs" aria-label="Breadcrumb">
           {resolution.listing.breadcrumbs.map((crumb) => (
             <Link key={crumb.id} href={crumb.href}>
@@ -306,37 +361,18 @@ export function ShareView({ resolution, token, searchParams }: ShareViewProps) {
             </Link>
           ))}
         </div>
-        {!resolution.share.downloadDisabled ? (
-          <a
-            className="button"
-            href={`/s/${encodeURIComponent(token)}/archive`}
-          >
-            Download folder archive
-          </a>
-        ) : (
-          <span className="field-help">
-            Archive download is disabled for this link.
-          </span>
-        )}
-      </section>
+      ) : null}
 
       <section className="panel stack">
         <div className="split">
-          <div className="stack">
-            <h2>Folders</h2>
-            <p className="muted">This share exposes the full linked subtree.</p>
-          </div>
-          <span className="pill">
-            {resolution.listing.childFolders.length} folder
-            {resolution.listing.childFolders.length === 1 ? "" : "s"}
-          </span>
+          <h2>Folders</h2>
+          <span className="pill">{resolution.listing.childFolders.length}</span>
         </div>
 
         {resolution.listing.childFolders.length === 0 ? (
-          <div className="workspace-empty-state">
-            <h3>No child folders here</h3>
-            <p className="muted">This folder has no visible child folders.</p>
-          </div>
+          <p className="muted" style={{ fontSize: "13px" }}>
+            No folders here.
+          </p>
         ) : (
           <div className="folder-list">
             {resolution.listing.childFolders.map((folder) => (
@@ -349,7 +385,7 @@ export function ShareView({ resolution, token, searchParams }: ShareViewProps) {
                     >
                       {folder.name}
                     </Link>
-                    <p className="folder-meta">
+                    <p className="share-file-meta">
                       Updated {formatDateTime(folder.updatedAt)}
                     </p>
                   </div>
@@ -363,21 +399,14 @@ export function ShareView({ resolution, token, searchParams }: ShareViewProps) {
 
       <section className="panel stack">
         <div className="split">
-          <div className="stack">
-            <h2>Files</h2>
-            <p className="muted">Files stay inside the linked subtree only.</p>
-          </div>
-          <span className="pill">
-            {resolution.listing.files.length} file
-            {resolution.listing.files.length === 1 ? "" : "s"}
-          </span>
+          <h2>Files</h2>
+          <span className="pill">{resolution.listing.files.length}</span>
         </div>
 
         {resolution.listing.files.length === 0 ? (
-          <div className="workspace-empty-state">
-            <h3>No files here</h3>
-            <p className="muted">This folder has no visible files.</p>
-          </div>
+          <p className="muted" style={{ fontSize: "13px" }}>
+            No files here.
+          </p>
         ) : (
           <div className="folder-list">
             {resolution.listing.files.map((file) => (
@@ -385,13 +414,12 @@ export function ShareView({ resolution, token, searchParams }: ShareViewProps) {
                 <div className="folder-row-head">
                   <div className="stack">
                     <h3 className="folder-link">{file.name}</h3>
-                    <p className="folder-meta">
-                      {file.mimeType} • {formatBytes(file.sizeBytes)} • Updated{" "}
+                    <p className="share-file-meta">
+                      {file.mimeType} · {formatBytes(file.sizeBytes)} · updated{" "}
                       {formatDateTime(file.updatedAt)}
                     </p>
                   </div>
                   <div className="workspace-inline-fields retrieval-inline-actions">
-                    <span className="pill">File</span>
                     {file.viewerKind ? (
                       <Link
                         className="button button-secondary"
@@ -407,9 +435,7 @@ export function ShareView({ resolution, token, searchParams }: ShareViewProps) {
                       >
                         Download
                       </a>
-                    ) : (
-                      <span className="field-help">Downloads disabled</span>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               </article>
@@ -417,6 +443,13 @@ export function ShareView({ resolution, token, searchParams }: ShareViewProps) {
           </div>
         )}
       </section>
+
+      <p className="share-page-footer">
+        Shared via{" "}
+        <a href="/" rel="noopener noreferrer">
+          Staaash
+        </a>
+      </p>
     </main>
   );
 }

@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 
 import { FlashMessage } from "@/app/auth-ui";
 
-type LibraryUploadPanelProps = {
+type FilesUploadPanelProps = {
   currentFolderId: string;
   currentPath: string;
   existingNames: string[];
@@ -78,13 +78,13 @@ const promptConflictStrategy = (fileName: string) => {
   }
 };
 
-export function LibraryUploadPanel({
+export function FilesUploadPanel({
   currentFolderId,
   currentPath,
   existingNames,
   maxUploadBytes,
   timeoutMinutes,
-}: LibraryUploadPanelProps) {
+}: FilesUploadPanelProps) {
   const router = useRouter();
   const inputId = useId();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
