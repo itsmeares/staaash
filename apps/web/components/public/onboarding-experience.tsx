@@ -21,7 +21,11 @@ function applyThemePreview(theme: Theme) {
   else if (theme === "light") html.classList.add("light");
 }
 
-export function OnboardingExperience() {
+export function OnboardingExperience({
+  instanceName,
+}: {
+  instanceName?: string;
+}) {
   const [step, setStep] = useState<OnboardingStep>("welcome");
   const [animating, setAnimating] = useState(false);
   const [prefs, setPrefs] = useState<Prefs>({
@@ -88,7 +92,9 @@ export function OnboardingExperience() {
     <div
       className={`onboarding${animating ? " onboarding--exiting" : " onboarding--entering"}`}
     >
-      {step === "welcome" && <WelcomeStep onContinue={advance} />}
+      {step === "welcome" && (
+        <WelcomeStep instanceName={instanceName} onContinue={advance} />
+      )}
       {step === "theme" && (
         <ThemeStep
           theme={prefs.theme}
@@ -109,7 +115,13 @@ export function OnboardingExperience() {
   );
 }
 
-function WelcomeStep({ onContinue }: { onContinue: () => void }) {
+function WelcomeStep({
+  instanceName,
+  onContinue,
+}: {
+  instanceName?: string;
+  onContinue: () => void;
+}) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Enter" || e.key === " ") {
@@ -128,7 +140,9 @@ function WelcomeStep({ onContinue }: { onContinue: () => void }) {
       onClick={onContinue}
       aria-label="Welcome — click anywhere to begin setup"
     >
-      <h1 className="onboarding-welcome__title">Make it yours.</h1>
+      <h1 className="onboarding-welcome__title">
+        Welcome to {instanceName ?? "Staaash"}.
+      </h1>
       <p className="onboarding-welcome__hint" aria-hidden="true">
         Click anywhere to continue
       </p>

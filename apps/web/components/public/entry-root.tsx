@@ -39,7 +39,7 @@ export function EntryRoot({ mode, instanceName, next }: EntryRootProps) {
         contentClassName="justify-center"
         scrimVariant="setup"
       >
-        <OnboardingExperience />
+        <OnboardingExperience instanceName={instanceName} />
       </EntryShell>
     );
   }
