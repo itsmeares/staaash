@@ -4211,9 +4211,9 @@ h3 {
 
 .onboarding-welcome {
   display: grid;
-  gap: clamp(0.9rem, 2vw, 1.3rem);
+  gap: clamp(1.2rem, 2.4vw, 1.8rem);
   text-align: center;
-  max-width: clamp(22rem, 50vw, 44rem);
+  max-width: clamp(32rem, 72vw, 58rem);
   outline: none;
   cursor: default;
   user-select: none;
@@ -4221,20 +4221,11 @@ h3 {
 
 .onboarding-welcome__title {
   font-family: var(--font-cabinet), sans-serif;
-  font-size: clamp(2.4rem, 4.8vw, 4.2rem);
-  line-height: 1.04;
+  font-size: clamp(3.2rem, 7vw, 6rem);
+  line-height: 1.02;
   letter-spacing: -0.04em;
   color: var(--foreground);
   animation: setup-fade-up 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
-}
-
-.onboarding-welcome__description {
-  font-size: 1rem;
-  line-height: 1.7;
-  color: var(--muted-foreground);
-  max-width: 28rem;
-  margin-inline: auto;
-  animation: setup-fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both;
 }
 
 .onboarding-welcome__hint {
@@ -4243,8 +4234,8 @@ h3 {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: oklch(86% 0.018 78 / 0.42);
-  margin-top: 0.2rem;
-  animation: setup-fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.8s both;
+  margin-top: 0.4rem;
+  animation: setup-fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both;
 }
 
 .onboarding-step {
@@ -4539,7 +4530,6 @@ h3 {
   .onboarding--entering,
   .onboarding--exiting,
   .onboarding-welcome__title,
-  .onboarding-welcome__description,
   .onboarding-welcome__hint,
   .onboarding-done__message {
     animation: none;

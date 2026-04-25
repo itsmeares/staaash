@@ -128,12 +128,7 @@ function WelcomeStep({ onContinue }: { onContinue: () => void }) {
       onClick={onContinue}
       aria-label="Welcome — click anywhere to begin setup"
     >
-      <h1 className="onboarding-welcome__title">
-        A few things before you begin.
-      </h1>
-      <p className="onboarding-welcome__description">
-        Takes thirty seconds. You can change any of this later in settings.
-      </p>
+      <h1 className="onboarding-welcome__title">Make it yours.</h1>
       <p className="onboarding-welcome__hint" aria-hidden="true">
         Click anywhere to continue
       </p>
