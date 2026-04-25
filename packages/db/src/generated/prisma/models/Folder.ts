@@ -492,10 +492,6 @@ export type FolderUncheckedCreateNestedManyWithoutParentInput = {
   connect?: Prisma.FolderWhereUniqueInput | Prisma.FolderWhereUniqueInput[]
 }
 
-export type BoolFieldUpdateOperationsInput = {
-  set?: boolean
-}
-
 export type FolderUpdateOneWithoutChildrenNestedInput = {
   create?: Prisma.XOR<Prisma.FolderCreateWithoutChildrenInput, Prisma.FolderUncheckedCreateWithoutChildrenInput>
   connectOrCreate?: Prisma.FolderCreateOrConnectWithoutChildrenInput

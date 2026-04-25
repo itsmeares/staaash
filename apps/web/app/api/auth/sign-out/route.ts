@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import {
+  buildClearedOnboardedCookie,
   buildClearedSessionCookie,
   getSessionTokenFromCookieStore,
 } from "@/server/auth/session";
@@ -20,13 +21,7 @@ export async function POST(request: NextRequest) {
           { error: "Cross-origin requests are not allowed." },
           { status: 403 },
         )
-      : NextResponse.redirect(
-          new URL(
-            "/sign-in?error=Cross-origin%20requests%20are%20not%20allowed.",
-            request.url,
-          ),
-          303,
-        );
+      : NextResponse.redirect(new URL("/", request.url), 303);
   }
 
   const body = await readRequestBody(request);
@@ -41,6 +36,7 @@ export async function POST(request: NextRequest) {
       : NextResponse.redirect(new URL(next, request.url), 303);
 
     response.cookies.set(buildClearedSessionCookie());
+    response.cookies.set(buildClearedOnboardedCookie());
 
     return response;
   } catch (error) {

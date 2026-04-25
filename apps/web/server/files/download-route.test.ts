@@ -99,7 +99,7 @@ describe("private file download route", () => {
 
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toContain(
-      "/sign-in?next=%2Fapi%2Ffiles%2Ffiles%2Ffile-1%2Fdownload",
+      "/?next=%2Fapi%2Ffiles%2Ffiles%2Ffile-1%2Fdownload",
     );
     expect(recordFileAccessBestEffort).not.toHaveBeenCalled();
   });

@@ -79,8 +79,10 @@ export const signIn = async (
     next?: string;
   },
 ) => {
-  await page.goto(`/sign-in?next=${encodeURIComponent(next)}`);
-  await page.getByLabel("Email or username").fill(identifier);
+  await page.goto(`/?next=${encodeURIComponent(next)}`);
+  await page.click("body");
+  await page.waitForSelector(".entry-form");
+  await page.getByLabel("Username or email").fill(identifier);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
 };

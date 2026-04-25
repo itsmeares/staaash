@@ -1,0 +1,293 @@
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+type Theme = "light" | "dark" | "system";
+type OnboardingStep = "welcome" | "theme" | "privacy" | "done";
+
+type Prefs = {
+  theme: Theme;
+  showUpdateNotifications: boolean;
+  enableVersionChecks: boolean;
+};
+
+const STEP_ORDER: OnboardingStep[] = ["welcome", "theme", "privacy", "done"];
+
+function applyThemePreview(theme: Theme) {
+  const html = document.documentElement;
+  html.classList.remove("dark", "light");
+  if (theme === "dark") html.classList.add("dark");
+  else if (theme === "light") html.classList.add("light");
+}
+
+export function OnboardingExperience() {
+  const [step, setStep] = useState<OnboardingStep>("welcome");
+  const [animating, setAnimating] = useState(false);
+  const [prefs, setPrefs] = useState<Prefs>({
+    theme: "system",
+    showUpdateNotifications: true,
+    enableVersionChecks: true,
+  });
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  function advance() {
+    if (animating) return;
+    const idx = STEP_ORDER.indexOf(step);
+    if (idx < STEP_ORDER.length - 1) {
+      setAnimating(true);
+      setTimeout(() => {
+        setStep(STEP_ORDER[idx + 1]);
+        setAnimating(false);
+      }, 260);
+    }
+  }
+
+  function setTheme(t: Theme) {
+    setPrefs((p) => ({ ...p, theme: t }));
+    applyThemePreview(t);
+  }
+
+  async function handleComplete() {
+    setPending(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/user/preferences", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(prefs),
+      });
+      if (res.ok) {
+        setStep("done");
+        setTimeout(() => router.push("/files"), 1600);
+      } else {
+        const json = await res.json().catch(() => ({}));
+        setError(json.error ?? "Something went wrong.");
+        setPending(false);
+      }
+    } catch {
+      setError("Network error. Please try again.");
+      setPending(false);
+    }
+  }
+
+  if (step === "done") {
+    return (
+      <div className="onboarding-done">
+        <p className="onboarding-done__message">You're all set.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`onboarding${animating ? " onboarding--exiting" : " onboarding--entering"}`}
+    >
+      {step === "welcome" && <WelcomeStep onContinue={advance} />}
+      {step === "theme" && (
+        <ThemeStep
+          theme={prefs.theme}
+          onSelect={setTheme}
+          onContinue={advance}
+        />
+      )}
+      {step === "privacy" && (
+        <PrivacyStep
+          prefs={prefs}
+          onChange={(key, val) => setPrefs((p) => ({ ...p, [key]: val }))}
+          onComplete={handleComplete}
+          pending={pending}
+          error={error}
+        />
+      )}
+    </div>
+  );
+}
+
+function WelcomeStep({ onContinue }: { onContinue: () => void }) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onContinue();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onContinue]);
+
+  return (
+    <section
+      className="onboarding-welcome"
+      tabIndex={0}
+      onClick={onContinue}
+      aria-label="Welcome — click anywhere to begin setup"
+    >
+      <h1 className="onboarding-welcome__title">
+        A few things before you begin.
+      </h1>
+      <p className="onboarding-welcome__description">
+        Takes thirty seconds. You can change any of this later in settings.
+      </p>
+      <p className="onboarding-welcome__hint" aria-hidden="true">
+        Click anywhere to continue
+      </p>
+    </section>
+  );
+}
+
+const THEME_OPTIONS: { value: Theme; label: string; desc: string }[] = [
+  { value: "system", label: "System", desc: "Follows your OS setting" },
+  { value: "light", label: "Light", desc: "Always light" },
+  { value: "dark", label: "Dark", desc: "Always dark" },
+];
+
+function ThemeStep({
+  theme,
+  onSelect,
+  onContinue,
+}: {
+  theme: Theme;
+  onSelect: (t: Theme) => void;
+  onContinue: () => void;
+}) {
+  return (
+    <div className="onboarding-step">
+      <div className="onboarding-step__header">
+        <span className="onboarding-step__index">01</span>
+        <h2 className="onboarding-step__title">Choose your theme</h2>
+      </div>
+
+      <div
+        className="onboarding-theme-grid"
+        role="radiogroup"
+        aria-label="Theme"
+      >
+        {THEME_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            role="radio"
+            aria-checked={theme === opt.value}
+            className={`onboarding-theme-tile${theme === opt.value ? " onboarding-theme-tile--selected" : ""}`}
+            onClick={() => onSelect(opt.value)}
+            type="button"
+          >
+            <ThemePreview variant={opt.value} />
+            <span className="onboarding-theme-tile__label">{opt.label}</span>
+            <span className="onboarding-theme-tile__desc">{opt.desc}</span>
+          </button>
+        ))}
+      </div>
+
+      <button
+        className="onboarding-continue"
+        onClick={onContinue}
+        type="button"
+      >
+        Continue
+      </button>
+    </div>
+  );
+}
+
+function ThemePreview({ variant }: { variant: Theme }) {
+  return (
+    <div
+      className={`theme-preview theme-preview--${variant}`}
+      aria-hidden="true"
+    >
+      <div className="theme-preview__sidebar" />
+      <div className="theme-preview__main">
+        <div className="theme-preview__bar" />
+        <div className="theme-preview__bar theme-preview__bar--short" />
+        <div className="theme-preview__bar theme-preview__bar--shorter" />
+      </div>
+    </div>
+  );
+}
+
+const PRIVACY_TOGGLES: {
+  key: keyof Pick<Prefs, "showUpdateNotifications" | "enableVersionChecks">;
+  label: string;
+  desc: string;
+}[] = [
+  {
+    key: "showUpdateNotifications",
+    label: "Update notifications",
+    desc: "Show a badge when a new version of Staaash is available.",
+  },
+  {
+    key: "enableVersionChecks",
+    label: "Version checks",
+    desc: "Periodically check GitHub for new releases. Sends no personal data.",
+  },
+];
+
+function PrivacyStep({
+  prefs,
+  onChange,
+  onComplete,
+  pending,
+  error,
+}: {
+  prefs: Prefs;
+  onChange: (key: keyof Prefs, val: boolean) => void;
+  onComplete: () => void;
+  pending: boolean;
+  error: string | null;
+}) {
+  return (
+    <div className="onboarding-step">
+      <div className="onboarding-step__header">
+        <span className="onboarding-step__index">02</span>
+        <h2 className="onboarding-step__title">Privacy &amp; features</h2>
+      </div>
+
+      <p className="onboarding-step__body">
+        These features reach external services. All are on by default — turn off
+        anything you'd rather keep fully local.
+      </p>
+
+      <div className="onboarding-toggles">
+        {PRIVACY_TOGGLES.map((t) => (
+          <label key={t.key} className="onboarding-toggle">
+            <div className="onboarding-toggle__text">
+              <span className="onboarding-toggle__label">{t.label}</span>
+              <span className="onboarding-toggle__desc">{t.desc}</span>
+            </div>
+            <button
+              role="switch"
+              aria-checked={prefs[t.key]}
+              className={`onboarding-switch${prefs[t.key] ? " onboarding-switch--on" : ""}`}
+              onClick={() => onChange(t.key, !prefs[t.key])}
+              type="button"
+              aria-label={t.label}
+            >
+              <span className="onboarding-switch__thumb" />
+            </button>
+          </label>
+        ))}
+      </div>
+
+      {error && (
+        <p className="onboarding-error" role="alert">
+          {error}
+        </p>
+      )}
+
+      <button
+        className="onboarding-continue"
+        onClick={onComplete}
+        disabled={pending}
+        type="button"
+      >
+        {pending ? "Saving…" : "Enter Staaash"}
+      </button>
+    </div>
+  );
+}

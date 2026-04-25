@@ -7,7 +7,7 @@ import {
 } from "@/server/auth/session";
 import { authService } from "@/server/auth/service";
 
-export const requireSignedInPageSession = async (redirectTo = "/sign-in") => {
+export const requireSignedInPageSession = async (redirectTo = "/") => {
   const session = await getCurrentSession();
 
   if (!session) {
@@ -18,7 +18,7 @@ export const requireSignedInPageSession = async (redirectTo = "/sign-in") => {
 };
 
 export const requireOwnerPageSession = async () => {
-  const session = await requireSignedInPageSession("/sign-in?next=/admin");
+  const session = await requireSignedInPageSession("/?next=/admin");
 
   if (!canAccessAdminSurface(session.user.role)) {
     redirect("/settings?error=admin");

@@ -1,5 +1,12 @@
 import type { UserRole } from "@staaash/db/client";
 
+export type UserPreferences = {
+  theme: string;
+  showUpdateNotifications: boolean;
+  enableVersionChecks: boolean;
+  onboardingCompletedAt: Date | null;
+};
+
 export type AuthUser = {
   id: string;
   email: string;
@@ -7,6 +14,7 @@ export type AuthUser = {
   displayName: string | null;
   role: UserRole;
   storageLimitBytes: bigint | null;
+  preferences: UserPreferences | null;
   createdAt: Date;
   updatedAt: Date;
 };

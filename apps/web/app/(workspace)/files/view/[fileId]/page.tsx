@@ -22,7 +22,7 @@ export default async function FilesFileViewerPage({
 }: FilesFileViewerPageProps) {
   const { fileId } = await params;
   const session = await requireSignedInPageSession(
-    `/sign-in?next=${encodeURIComponent(`/files/view/${fileId}`)}`,
+    `/?next=${encodeURIComponent(`/files/view/${fileId}`)}`,
   );
 
   try {

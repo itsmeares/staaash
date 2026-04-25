@@ -559,6 +559,23 @@ export const createAuthService = ({
 
       return createSessionForUser(user);
     },
+
+    async savePreferences(
+      userId: string,
+      prefs: {
+        theme: string;
+        showUpdateNotifications: boolean;
+        enableVersionChecks: boolean;
+      },
+    ) {
+      return (await resolveRepo()).savePreferences({
+        userId,
+        theme: prefs.theme,
+        showUpdateNotifications: prefs.showUpdateNotifications,
+        enableVersionChecks: prefs.enableVersionChecks,
+        onboardingCompletedAt: new Date(),
+      });
+    },
   };
 };
 

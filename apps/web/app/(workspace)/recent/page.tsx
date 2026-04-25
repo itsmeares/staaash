@@ -46,7 +46,7 @@ function groupByDate(
 export default async function RecentPage({ searchParams }: RecentPageProps) {
   const [resolvedSearchParams, session] = await Promise.all([
     searchParams,
-    requireSignedInPageSession("/sign-in?next=/recent"),
+    requireSignedInPageSession("/?next=/recent"),
   ]);
   const allItems = await retrievalService.listRecent({
     actorUserId: session.user.id,

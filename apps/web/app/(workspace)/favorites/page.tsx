@@ -22,7 +22,7 @@ export default async function FavoritesPage({
 }: FavoritesPageProps) {
   const [resolvedSearchParams, session] = await Promise.all([
     searchParams,
-    requireSignedInPageSession("/sign-in?next=/favorites"),
+    requireSignedInPageSession("/?next=/favorites"),
   ]);
   const allItems = await retrievalService.listFavorites({
     actorUserId: session.user.id,

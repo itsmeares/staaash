@@ -19,7 +19,7 @@ type SearchPageProps = {
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const [resolvedSearchParams, session] = await Promise.all([
     searchParams,
-    requireSignedInPageSession("/sign-in?next=/search"),
+    requireSignedInPageSession("/?next=/search"),
   ]);
   const query = getSingleSearchParam(resolvedSearchParams, "q")?.trim() ?? "";
   const page = parsePage(getSingleSearchParam(resolvedSearchParams, "page"));

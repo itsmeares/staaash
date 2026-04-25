@@ -44,7 +44,7 @@ type SharedPageProps = {
 export default async function SharedPage({ searchParams }: SharedPageProps) {
   const [resolvedSearchParams, session] = await Promise.all([
     searchParams,
-    requireSignedInPageSession("/sign-in?next=/shared"),
+    requireSignedInPageSession("/?next=/shared"),
   ]);
   const error = getSingleSearchParam(resolvedSearchParams, "error");
   const success = getSingleSearchParam(resolvedSearchParams, "success");

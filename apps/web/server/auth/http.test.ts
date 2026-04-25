@@ -28,7 +28,7 @@ describe("auth http helpers", () => {
 
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe(
-      "http://localhost:3000/sign-in?next=%2Ffiles%2Ff%2Ffolder-1",
+      "http://localhost:3000/?next=%2Ffiles%2Ff%2Ffolder-1",
     );
   });
 });

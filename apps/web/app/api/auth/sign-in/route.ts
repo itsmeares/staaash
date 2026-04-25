@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { buildSessionCookie } from "@/server/auth/session";
+import {
+  buildOnboardedCookie,
+  buildSessionCookie,
+  buildThemeCookie,
+} from "@/server/auth/session";
 import { authService } from "@/server/auth/service";
 import {
   formErrorResponse,
@@ -20,7 +24,7 @@ export async function POST(request: NextRequest) {
         )
       : formErrorResponse(
           request,
-          "/sign-in",
+          "/",
           new Error("Cross-origin requests are not allowed."),
         );
   }
@@ -41,12 +45,16 @@ export async function POST(request: NextRequest) {
       buildSessionCookie(result.sessionToken, result.session.expiresAt),
     );
 
+    const prefs = result.session.user.preferences;
+    if (prefs?.onboardingCompletedAt) {
+      response.cookies.set(buildOnboardedCookie());
+      response.cookies.set(buildThemeCookie(prefs.theme));
+    }
+
     return response;
   } catch (error) {
     const errorPath =
-      next === "/files"
-        ? "/sign-in"
-        : `/sign-in?next=${encodeURIComponent(next)}`;
+      next === "/files" ? "/" : `/?next=${encodeURIComponent(next)}`;
     return wantsJson(request)
       ? jsonErrorResponse(error)
       : formErrorResponse(request, errorPath, error);

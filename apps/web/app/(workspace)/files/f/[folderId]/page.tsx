@@ -27,7 +27,7 @@ export default async function FilesFolderPage({
     searchParams,
   ]);
   const session = await requireSignedInPageSession(
-    `/sign-in?next=${encodeURIComponent(`/files/f/${folderId}`)}`,
+    `/?next=${encodeURIComponent(`/files/f/${folderId}`)}`,
   );
 
   try {

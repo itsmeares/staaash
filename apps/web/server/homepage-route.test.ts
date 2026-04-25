@@ -28,6 +28,8 @@ describe("HomePage route", () => {
     vi.clearAllMocks();
   });
 
+  const searchParams = Promise.resolve({});
+
   it("renders the setup entry state for an unbootstrapped instance", async () => {
     getCurrentSession.mockResolvedValue(null);
     getSetupState.mockResolvedValue({
@@ -36,7 +38,7 @@ describe("HomePage route", () => {
     });
 
     const { default: HomePage } = await import("@/app/page");
-    const page = await HomePage();
+    const page = await HomePage({ searchParams });
     const markup = renderToStaticMarkup(page);
 
     expect(markup).toContain("Bring your Staaash online.");
@@ -45,13 +47,31 @@ describe("HomePage route", () => {
     );
   });
 
-  it("redirects signed-in visitors to the library", async () => {
-    getCurrentSession.mockResolvedValue({ userId: "user-1" });
+  it("redirects signed-in visitors with completed onboarding to the library", async () => {
+    getCurrentSession.mockResolvedValue({
+      user: { preferences: { onboardingCompletedAt: new Date() } },
+    });
     getSetupState.mockResolvedValue({ isBootstrapped: true });
 
     const { default: HomePage } = await import("@/app/page");
 
-    await expect(HomePage()).rejects.toThrow("redirect:/files");
+    await expect(HomePage({ searchParams })).rejects.toThrow("redirect:/files");
     expect(redirect).toHaveBeenCalledWith("/files");
+  });
+
+  it("renders onboarding for signed-in visitors without completed onboarding", async () => {
+    getCurrentSession.mockResolvedValue({
+      user: { preferences: null },
+    });
+    getSetupState.mockResolvedValue({
+      isBootstrapped: true,
+      instanceName: "Test",
+    });
+
+    const { default: HomePage } = await import("@/app/page");
+    const page = await HomePage({ searchParams });
+    const markup = renderToStaticMarkup(page);
+
+    expect(markup).toContain("A few things before you begin.");
   });
 });

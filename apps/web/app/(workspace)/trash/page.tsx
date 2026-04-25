@@ -32,7 +32,7 @@ type CombinedTrashItem =
 export default async function TrashPage({ searchParams }: TrashPageProps) {
   const [resolvedSearchParams, session] = await Promise.all([
     searchParams,
-    requireSignedInPageSession("/sign-in?next=/trash"),
+    requireSignedInPageSession("/?next=/trash"),
   ]);
   const listing = await filesService.listTrashFolders({
     actorUserId: session.user.id,

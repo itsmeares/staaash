@@ -137,7 +137,7 @@ export default async function InviteRedeemPage({
             Successful redemption creates your account, provisions a private
             files root, and starts a local server-side session.
           </p>
-          <Link className="pill" href="/sign-in">
+          <Link className="pill" href="/">
             Already have an account?
           </Link>
         </article>

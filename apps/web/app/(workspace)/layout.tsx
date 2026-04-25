@@ -2,12 +2,15 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 
 import { Toaster } from "@/components/ui/sonner";
+import { env } from "@/lib/env";
 import { getCurrentSession } from "@/server/auth/session";
 import {
   getInstanceStorageUsed,
   getUserStorageUsed,
 } from "@/server/user-storage";
+import { readInstanceUpdateCheck } from "@staaash/db/instance";
 
+import { InstanceBadge } from "./instance-badge";
 import { WorkspaceNav, workspaceNavGroups } from "./workspace-nav";
 import { WorkspaceStorage } from "./workspace-storage";
 
@@ -43,6 +46,8 @@ export default async function WorkspaceLayout({
     limitBytes = session.user.storageLimitBytes ?? null;
     instanceUsedBytes = instanceUsed;
   }
+
+  const instanceUpdateState = await readInstanceUpdateCheck().catch(() => null);
 
   const initials = session
     ? getInitials(session.user.displayName, session.user.username)
@@ -91,11 +96,7 @@ export default async function WorkspaceLayout({
                   </Link>
                 ) : null}
                 <form action="/api/auth/sign-out" method="post">
-                  <input
-                    type="hidden"
-                    name="next"
-                    value="/sign-in?success=Signed%20out."
-                  />
+                  <input type="hidden" name="next" value="/" />
                   <button className="workspace-user-action-link" type="submit">
                     Sign out
                   </button>
@@ -103,6 +104,18 @@ export default async function WorkspaceLayout({
               </div>
             </section>
           ) : null}
+
+          <div className="workspace-instance-footer">
+            <InstanceBadge
+              appVersion={env.APP_VERSION}
+              nodeVersion={process.version}
+              updateStatus={instanceUpdateState?.updateCheckStatus ?? null}
+              latestVersion={
+                instanceUpdateState?.latestAvailableVersion ?? null
+              }
+              repository={env.UPDATE_CHECK_REPOSITORY || null}
+            />
+          </div>
         </aside>
 
         <div className="workspace-main">

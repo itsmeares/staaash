@@ -5,6 +5,7 @@ import {
   type PasswordReset,
   type Session,
   type User,
+  type UserPreference,
   type UserRole,
 } from "@staaash/db/client";
 
@@ -27,6 +28,7 @@ import type {
   StoredAuthUser,
   StoredInvite,
   StoredPasswordReset,
+  UserPreferences,
 } from "@/server/auth/types";
 
 type CreateBootstrapParams = {
@@ -79,6 +81,14 @@ type StoredPasswordResetLookup = {
   user: AuthUser;
 };
 
+type SavePreferencesParams = {
+  userId: string;
+  theme: string;
+  showUpdateNotifications: boolean;
+  enableVersionChecks: boolean;
+  onboardingCompletedAt?: Date;
+};
+
 type AuthPrismaClient = Pick<
   ReturnType<typeof getPrisma>,
   | "folder"
@@ -87,6 +97,7 @@ type AuthPrismaClient = Pick<
   | "passwordReset"
   | "session"
   | "user"
+  | "userPreference"
   | "$transaction"
 >;
 
@@ -124,6 +135,7 @@ export type AuthRepository = {
   consumePasswordReset(
     params: ConsumePasswordResetParams,
   ): Promise<AuthUser | null>;
+  savePreferences(params: SavePreferencesParams): Promise<UserPreferences>;
 };
 
 const toAuthUser = (
@@ -137,7 +149,7 @@ const toAuthUser = (
     | "storageLimitBytes"
     | "createdAt"
     | "updatedAt"
-  >,
+  > & { preferences?: UserPreference | null },
 ): AuthUser => ({
   id: user.id,
   email: user.email,
@@ -145,16 +157,28 @@ const toAuthUser = (
   displayName: user.displayName,
   role: user.role,
   storageLimitBytes: user.storageLimitBytes,
+  preferences: user.preferences
+    ? {
+        theme: user.preferences.theme,
+        showUpdateNotifications: user.preferences.showUpdateNotifications,
+        enableVersionChecks: user.preferences.enableVersionChecks,
+        onboardingCompletedAt: user.preferences.onboardingCompletedAt,
+      }
+    : null,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
 });
 
-const toStoredAuthUser = (user: User): StoredAuthUser => ({
+const toStoredAuthUser = (
+  user: User & { preferences?: UserPreference | null },
+): StoredAuthUser => ({
   ...toAuthUser(user),
   passwordHash: user.passwordHash,
 });
 
-const toAuthSession = (session: Session & { user: User }): AuthSession => ({
+const toAuthSession = (
+  session: Session & { user: User & { preferences?: UserPreference | null } },
+): AuthSession => ({
   id: session.id,
   expiresAt: session.expiresAt,
   createdAt: session.createdAt,
@@ -163,7 +187,7 @@ const toAuthSession = (session: Session & { user: User }): AuthSession => ({
 });
 
 const toStoredAuthSession = (
-  session: Session & { user: User },
+  session: Session & { user: User & { preferences?: UserPreference | null } },
 ): StoredAuthSession => ({
   ...toAuthSession(session),
   tokenHash: session.tokenHash,
@@ -337,7 +361,7 @@ export const createPrismaAuthRepository = (
           expiresAt: params.expiresAt,
         },
         include: {
-          user: true,
+          user: { include: { preferences: true } },
         },
       });
 
@@ -351,7 +375,7 @@ export const createPrismaAuthRepository = (
           tokenHash,
         },
         include: {
-          user: true,
+          user: { include: { preferences: true } },
         },
       });
 
@@ -560,7 +584,7 @@ export const createPrismaAuthRepository = (
           tokenHash,
         },
         include: {
-          user: true,
+          user: { include: { preferences: true } },
         },
       });
 
@@ -623,6 +647,36 @@ export const createPrismaAuthRepository = (
 
         return toAuthUser(user);
       });
+    },
+
+    async savePreferences(
+      params: SavePreferencesParams,
+    ): Promise<UserPreferences> {
+      const client = getClient();
+      const pref = await client.userPreference.upsert({
+        where: { userId: params.userId },
+        create: {
+          userId: params.userId,
+          theme: params.theme,
+          showUpdateNotifications: params.showUpdateNotifications,
+          enableVersionChecks: params.enableVersionChecks,
+          onboardingCompletedAt: params.onboardingCompletedAt ?? new Date(),
+        },
+        update: {
+          theme: params.theme,
+          showUpdateNotifications: params.showUpdateNotifications,
+          enableVersionChecks: params.enableVersionChecks,
+          ...(params.onboardingCompletedAt !== undefined
+            ? { onboardingCompletedAt: params.onboardingCompletedAt }
+            : {}),
+        },
+      });
+      return {
+        theme: pref.theme,
+        showUpdateNotifications: pref.showUpdateNotifications,
+        enableVersionChecks: pref.enableVersionChecks,
+        onboardingCompletedAt: pref.onboardingCompletedAt,
+      };
     },
   };
 };

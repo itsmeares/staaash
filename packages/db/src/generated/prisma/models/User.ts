@@ -249,6 +249,7 @@ export type UserWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"User"> | Date | string
   sessions?: Prisma.SessionListRelationFilter
+  preferences?: Prisma.XOR<Prisma.UserPreferenceNullableScalarRelationFilter, Prisma.UserPreferenceWhereInput> | null
   invitesIssued?: Prisma.InviteListRelationFilter
   invitesAccepted?: Prisma.InviteListRelationFilter
   passwordResetsIssued?: Prisma.PasswordResetListRelationFilter
@@ -274,6 +275,7 @@ export type UserOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   sessions?: Prisma.SessionOrderByRelationAggregateInput
+  preferences?: Prisma.UserPreferenceOrderByWithRelationInput
   invitesIssued?: Prisma.InviteOrderByRelationAggregateInput
   invitesAccepted?: Prisma.InviteOrderByRelationAggregateInput
   passwordResetsIssued?: Prisma.PasswordResetOrderByRelationAggregateInput
@@ -302,6 +304,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"User"> | Date | string
   sessions?: Prisma.SessionListRelationFilter
+  preferences?: Prisma.XOR<Prisma.UserPreferenceNullableScalarRelationFilter, Prisma.UserPreferenceWhereInput> | null
   invitesIssued?: Prisma.InviteListRelationFilter
   invitesAccepted?: Prisma.InviteListRelationFilter
   passwordResetsIssued?: Prisma.PasswordResetListRelationFilter
@@ -359,6 +362,7 @@ export type UserCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
@@ -384,6 +388,7 @@ export type UserUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
@@ -409,6 +414,7 @@ export type UserUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
@@ -434,6 +440,7 @@ export type UserUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
@@ -548,6 +555,20 @@ export type NullableBigIntFieldUpdateOperationsInput = {
   decrement?: bigint | number
   multiply?: bigint | number
   divide?: bigint | number
+}
+
+export type UserCreateNestedOneWithoutPreferencesInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutPreferencesInput, Prisma.UserUncheckedCreateWithoutPreferencesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutPreferencesInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutPreferencesNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutPreferencesInput, Prisma.UserUncheckedCreateWithoutPreferencesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutPreferencesInput
+  upsert?: Prisma.UserUpsertWithoutPreferencesInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutPreferencesInput, Prisma.UserUpdateWithoutPreferencesInput>, Prisma.UserUncheckedUpdateWithoutPreferencesInput>
 }
 
 export type UserCreateNestedOneWithoutSessionsInput = {
@@ -736,6 +757,122 @@ export type UserUpdateOneWithoutRestoreReconciliationRunsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutRestoreReconciliationRunsInput, Prisma.UserUpdateWithoutRestoreReconciliationRunsInput>, Prisma.UserUncheckedUpdateWithoutRestoreReconciliationRunsInput>
 }
 
+export type UserCreateWithoutPreferencesInput = {
+  id?: string
+  email: string
+  username: string
+  displayName?: string | null
+  passwordHash: string
+  role?: $Enums.UserRole
+  storageLimitBytes?: bigint | number | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
+  invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
+  passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
+  passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
+  folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
+  files?: Prisma.FileCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
+  shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
+  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunCreateNestedManyWithoutTriggeredByInput
+}
+
+export type UserUncheckedCreateWithoutPreferencesInput = {
+  id?: string
+  email: string
+  username: string
+  displayName?: string | null
+  passwordHash: string
+  role?: $Enums.UserRole
+  storageLimitBytes?: bigint | number | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
+  invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
+  passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
+  passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
+  folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
+  files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileUncheckedCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
+  shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
+  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedCreateNestedManyWithoutTriggeredByInput
+}
+
+export type UserCreateOrConnectWithoutPreferencesInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutPreferencesInput, Prisma.UserUncheckedCreateWithoutPreferencesInput>
+}
+
+export type UserUpsertWithoutPreferencesInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutPreferencesInput, Prisma.UserUncheckedUpdateWithoutPreferencesInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutPreferencesInput, Prisma.UserUncheckedCreateWithoutPreferencesInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutPreferencesInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutPreferencesInput, Prisma.UserUncheckedUpdateWithoutPreferencesInput>
+}
+
+export type UserUpdateWithoutPreferencesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
+  invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
+  passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
+  passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
+  folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
+  files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
+  shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
+  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUpdateManyWithoutTriggeredByNestedInput
+}
+
+export type UserUncheckedUpdateWithoutPreferencesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
+  invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
+  passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
+  passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
+  folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
+  files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUncheckedUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
+  shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
+  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedUpdateManyWithoutTriggeredByNestedInput
+}
+
 export type UserCreateWithoutSessionsInput = {
   id?: string
   email: string
@@ -746,6 +883,7 @@ export type UserCreateWithoutSessionsInput = {
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
@@ -770,6 +908,7 @@ export type UserUncheckedCreateWithoutSessionsInput = {
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
+  preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
@@ -810,6 +949,7 @@ export type UserUpdateWithoutSessionsInput = {
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
@@ -834,6 +974,7 @@ export type UserUncheckedUpdateWithoutSessionsInput = {
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
@@ -859,6 +1000,7 @@ export type UserCreateWithoutInvitesIssuedInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
   invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
   passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
@@ -883,6 +1025,7 @@ export type UserUncheckedCreateWithoutInvitesIssuedInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
   invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
   passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
@@ -912,6 +1055,7 @@ export type UserCreateWithoutInvitesAcceptedInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
   passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
   passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
@@ -936,6 +1080,7 @@ export type UserUncheckedCreateWithoutInvitesAcceptedInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
   passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
@@ -976,6 +1121,7 @@ export type UserUpdateWithoutInvitesIssuedInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
   invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
   passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
@@ -1000,6 +1146,7 @@ export type UserUncheckedUpdateWithoutInvitesIssuedInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
   invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
   passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
@@ -1035,6 +1182,7 @@ export type UserUpdateWithoutInvitesAcceptedInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
   passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
@@ -1059,6 +1207,7 @@ export type UserUncheckedUpdateWithoutInvitesAcceptedInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
   passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
@@ -1083,6 +1232,7 @@ export type UserCreateWithoutPasswordResetsForUserInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
@@ -1107,6 +1257,7 @@ export type UserUncheckedCreateWithoutPasswordResetsForUserInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
@@ -1136,6 +1287,7 @@ export type UserCreateWithoutPasswordResetsIssuedInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
   passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
@@ -1160,6 +1312,7 @@ export type UserUncheckedCreateWithoutPasswordResetsIssuedInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
   passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
@@ -1200,6 +1353,7 @@ export type UserUpdateWithoutPasswordResetsForUserInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
@@ -1224,6 +1378,7 @@ export type UserUncheckedUpdateWithoutPasswordResetsForUserInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
@@ -1259,6 +1414,7 @@ export type UserUpdateWithoutPasswordResetsIssuedInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
   passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
@@ -1283,6 +1439,7 @@ export type UserUncheckedUpdateWithoutPasswordResetsIssuedInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
   passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
@@ -1307,6 +1464,7 @@ export type UserCreateWithoutFoldersInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
@@ -1331,6 +1489,7 @@ export type UserUncheckedCreateWithoutFoldersInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
@@ -1371,6 +1530,7 @@ export type UserUpdateWithoutFoldersInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
@@ -1395,6 +1555,7 @@ export type UserUncheckedUpdateWithoutFoldersInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
@@ -1419,6 +1580,7 @@ export type UserCreateWithoutFilesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
@@ -1443,6 +1605,7 @@ export type UserUncheckedCreateWithoutFilesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
@@ -1483,6 +1646,7 @@ export type UserUpdateWithoutFilesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
@@ -1507,6 +1671,7 @@ export type UserUncheckedUpdateWithoutFilesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
@@ -1531,6 +1696,7 @@ export type UserCreateWithoutFavoriteFilesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
@@ -1555,6 +1721,7 @@ export type UserUncheckedCreateWithoutFavoriteFilesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
@@ -1595,6 +1762,7 @@ export type UserUpdateWithoutFavoriteFilesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
@@ -1619,6 +1787,7 @@ export type UserUncheckedUpdateWithoutFavoriteFilesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
@@ -1643,6 +1812,7 @@ export type UserCreateWithoutFavoriteFoldersInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
@@ -1667,6 +1837,7 @@ export type UserUncheckedCreateWithoutFavoriteFoldersInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
@@ -1707,6 +1878,7 @@ export type UserUpdateWithoutFavoriteFoldersInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
@@ -1731,6 +1903,7 @@ export type UserUncheckedUpdateWithoutFavoriteFoldersInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
@@ -1755,6 +1928,7 @@ export type UserCreateWithoutRecentFilesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
@@ -1779,6 +1953,7 @@ export type UserUncheckedCreateWithoutRecentFilesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
@@ -1819,6 +1994,7 @@ export type UserUpdateWithoutRecentFilesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
@@ -1843,6 +2019,7 @@ export type UserUncheckedUpdateWithoutRecentFilesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
@@ -1867,6 +2044,7 @@ export type UserCreateWithoutRecentFoldersInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
@@ -1891,6 +2069,7 @@ export type UserUncheckedCreateWithoutRecentFoldersInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
@@ -1931,6 +2110,7 @@ export type UserUpdateWithoutRecentFoldersInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
@@ -1955,6 +2135,7 @@ export type UserUncheckedUpdateWithoutRecentFoldersInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
@@ -1979,6 +2160,7 @@ export type UserCreateWithoutShareLinksInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
@@ -2003,6 +2185,7 @@ export type UserUncheckedCreateWithoutShareLinksInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
@@ -2043,6 +2226,7 @@ export type UserUpdateWithoutShareLinksInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
@@ -2067,6 +2251,7 @@ export type UserUncheckedUpdateWithoutShareLinksInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
@@ -2091,6 +2276,7 @@ export type UserCreateWithoutRestoreReconciliationRunsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
@@ -2115,6 +2301,7 @@ export type UserUncheckedCreateWithoutRestoreReconciliationRunsInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
   invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
   invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
@@ -2155,6 +2342,7 @@ export type UserUpdateWithoutRestoreReconciliationRunsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
@@ -2179,6 +2367,7 @@ export type UserUncheckedUpdateWithoutRestoreReconciliationRunsInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
   invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
   invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
   passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
@@ -2342,6 +2531,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   createdAt?: boolean
   updatedAt?: boolean
   sessions?: boolean | Prisma.User$sessionsArgs<ExtArgs>
+  preferences?: boolean | Prisma.User$preferencesArgs<ExtArgs>
   invitesIssued?: boolean | Prisma.User$invitesIssuedArgs<ExtArgs>
   invitesAccepted?: boolean | Prisma.User$invitesAcceptedArgs<ExtArgs>
   passwordResetsIssued?: boolean | Prisma.User$passwordResetsIssuedArgs<ExtArgs>
@@ -2396,6 +2586,7 @@ export type UserSelectScalar = {
 export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "username" | "displayName" | "passwordHash" | "role" | "storageLimitBytes" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   sessions?: boolean | Prisma.User$sessionsArgs<ExtArgs>
+  preferences?: boolean | Prisma.User$preferencesArgs<ExtArgs>
   invitesIssued?: boolean | Prisma.User$invitesIssuedArgs<ExtArgs>
   invitesAccepted?: boolean | Prisma.User$invitesAcceptedArgs<ExtArgs>
   passwordResetsIssued?: boolean | Prisma.User$passwordResetsIssuedArgs<ExtArgs>
@@ -2417,6 +2608,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   name: "User"
   objects: {
     sessions: Prisma.$SessionPayload<ExtArgs>[]
+    preferences: Prisma.$UserPreferencePayload<ExtArgs> | null
     invitesIssued: Prisma.$InvitePayload<ExtArgs>[]
     invitesAccepted: Prisma.$InvitePayload<ExtArgs>[]
     passwordResetsIssued: Prisma.$PasswordResetPayload<ExtArgs>[]
@@ -2835,6 +3027,7 @@ readonly fields: UserFieldRefs;
 export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   sessions<T extends Prisma.User$sessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$sessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  preferences<T extends Prisma.User$preferencesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$preferencesArgs<ExtArgs>>): Prisma.Prisma__UserPreferenceClient<runtime.Types.Result.GetResult<Prisma.$UserPreferencePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   invitesIssued<T extends Prisma.User$invitesIssuedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$invitesIssuedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$InvitePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   invitesAccepted<T extends Prisma.User$invitesAcceptedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$invitesAcceptedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$InvitePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   passwordResetsIssued<T extends Prisma.User$passwordResetsIssuedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$passwordResetsIssuedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PasswordResetPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -3299,6 +3492,25 @@ export type User$sessionsArgs<ExtArgs extends runtime.Types.Extensions.InternalA
   take?: number
   skip?: number
   distinct?: Prisma.SessionScalarFieldEnum | Prisma.SessionScalarFieldEnum[]
+}
+
+/**
+ * User.preferences
+ */
+export type User$preferencesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the UserPreference
+   */
+  select?: Prisma.UserPreferenceSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the UserPreference
+   */
+  omit?: Prisma.UserPreferenceOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.UserPreferenceInclude<ExtArgs> | null
+  where?: Prisma.UserPreferenceWhereInput
 }
 
 /**

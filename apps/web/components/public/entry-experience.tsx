@@ -16,6 +16,7 @@ type EntryExperienceProps = {
   phase: Phase;
   setPhase: (phase: Phase) => void;
   instanceName?: string;
+  next?: string;
 };
 
 const config = {
@@ -39,6 +40,7 @@ export function EntryExperience({
   phase,
   setPhase,
   instanceName,
+  next,
 }: EntryExperienceProps) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -91,7 +93,10 @@ export function EntryExperience({
 
       if (res.ok) {
         setPhase("success");
-        setTimeout(() => router.push("/files"), 1600);
+        setTimeout(
+          () => router.push(mode === "signin" && next ? next : "/files"),
+          1600,
+        );
       } else {
         setError(json.error ?? "Something went wrong. Please try again.");
         setPending(false);
