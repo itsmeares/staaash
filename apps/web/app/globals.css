@@ -4221,9 +4221,9 @@ h3 {
 
 .onboarding-welcome__title {
   font-family: var(--font-cabinet), sans-serif;
-  font-size: clamp(3rem, 7.5vw, 6.5rem);
-  line-height: 1.02;
-  letter-spacing: -0.04em;
+  font-size: clamp(2.6rem, 5.5vw, 5rem);
+  line-height: 1.06;
+  letter-spacing: -0.035em;
   color: var(--foreground);
   text-wrap: balance;
   animation: setup-fade-up 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
