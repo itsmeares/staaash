@@ -150,7 +150,7 @@ export const getAdminStorageUsageSummary = async (
     activeClient.folder.groupBy({
       by: ["ownerUserId"],
       where: {
-        isLibraryRoot: false,
+        isFilesRoot: false,
       },
       _count: {
         id: true,
