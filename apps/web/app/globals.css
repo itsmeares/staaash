@@ -4213,7 +4213,7 @@ h3 {
   display: grid;
   gap: clamp(1.2rem, 2.4vw, 1.8rem);
   text-align: center;
-  width: min(94vw, 80rem);
+  width: 100%;
   outline: none;
   cursor: default;
   user-select: none;
