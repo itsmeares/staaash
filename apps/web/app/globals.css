@@ -4195,7 +4195,7 @@ h3 {
 }
 
 .onboarding {
-  width: min(100%, 420px);
+  width: 100%;
   display: grid;
   gap: 0;
 }
@@ -4240,6 +4240,8 @@ h3 {
 }
 
 .onboarding-step {
+  width: min(100%, 420px);
+  margin-inline: auto;
   display: grid;
   gap: 24px;
 }
