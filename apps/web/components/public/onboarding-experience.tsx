@@ -24,8 +24,10 @@ function applyThemePreview(theme: Theme) {
 
 export function OnboardingExperience({
   instanceName,
+  isOwner,
 }: {
   instanceName?: string;
+  isOwner: boolean;
 }) {
   const [step, setStep] = useState<OnboardingStep>("welcome");
   const [animating, setAnimating] = useState(false);
@@ -37,6 +39,7 @@ export function OnboardingExperience({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [donePhase, setDonePhase] = useState<0 | 1 | 2>(0);
+  const [nameSwapping, setNameSwapping] = useState(false);
   const router = useRouter();
 
   function advance() {
@@ -46,6 +49,18 @@ export function OnboardingExperience({
       setAnimating(true);
       setTimeout(() => {
         setStep(STEP_ORDER[idx + 1]);
+        setAnimating(false);
+      }, 260);
+    }
+  }
+
+  function goBack() {
+    if (animating) return;
+    const idx = STEP_ORDER.indexOf(step);
+    if (idx > 0) {
+      setAnimating(true);
+      setTimeout(() => {
+        setStep(STEP_ORDER[idx - 1]);
         setAnimating(false);
       }, 260);
     }
@@ -70,7 +85,6 @@ export function OnboardingExperience({
       });
       if (res.ok) {
         setStep("done");
-        setTimeout(() => router.push("/files"), 4800);
       } else {
         const json = await res.json().catch(() => ({}));
         setError(json.error ?? "Something went wrong.");
@@ -85,6 +99,8 @@ export function OnboardingExperience({
   useEffect(() => {
     if (step !== "done") return;
 
+    const isCustomName = (instanceName ?? "Staaash") !== "Staaash";
+
     const t0 = setTimeout(() => {
       confetti({
         particleCount: 110,
@@ -96,14 +112,29 @@ export function OnboardingExperience({
     }, 350);
 
     const t1 = setTimeout(() => setDonePhase(1), 1900);
-    const t2 = setTimeout(() => setDonePhase(2), 3300);
+    const t2 = isCustomName
+      ? setTimeout(() => setDonePhase(2), 3300)
+      : undefined;
+    const tNav = setTimeout(
+      () => router.push("/files"),
+      isCustomName ? 6300 : 4500,
+    );
 
     return () => {
       clearTimeout(t0);
       clearTimeout(t1);
-      clearTimeout(t2);
+      if (t2) clearTimeout(t2);
+      clearTimeout(tNav);
     };
-  }, [step]);
+  }, [step, instanceName, router]);
+
+  // Trigger word-swap transition one frame after the instance span mounts
+  // so the CSS transition fires (can't transition from display:none)
+  useEffect(() => {
+    if (donePhase < 2) return;
+    const raf = requestAnimationFrame(() => setNameSwapping(true));
+    return () => cancelAnimationFrame(raf);
+  }, [donePhase]);
 
   if (step === "done") {
     const effectiveName = instanceName ?? "Staaash";
@@ -117,24 +148,26 @@ export function OnboardingExperience({
           <p className="onboarding-done__message">You&apos;re all set.</p>
         </div>
         <div
-          className={`onboarding-done__phase onboarding-done__phase--welcome${donePhase >= 1 ? " is-entering" : ""}`}
+          className={`onboarding-done__phase onboarding-done__phase--brand${donePhase >= 1 ? " is-entering" : ""}`}
         >
           <p className="onboarding-done__message">
             Welcome to{" "}
-            <span className="onboarding-done__name-wrap">
-              <span
-                className={`onboarding-done__name-brand${donePhase >= 2 && isCustomName ? " is-out" : ""}`}
-              >
-                Staaash
-              </span>
-              {isCustomName && (
+            {isCustomName && donePhase >= 2 ? (
+              <span className="onboarding-done__name-wrap">
                 <span
-                  className={`onboarding-done__name-instance${donePhase >= 2 ? " is-in" : ""}`}
+                  className={`onboarding-done__name-brand${nameSwapping ? " is-out" : ""}`}
+                >
+                  Staaash
+                </span>
+                <span
+                  className={`onboarding-done__name-instance${nameSwapping ? " is-in" : ""}`}
                 >
                   {effectiveName}
                 </span>
-              )}
-            </span>
+              </span>
+            ) : (
+              <span>Staaash</span>
+            )}
             .
           </p>
         </div>
@@ -153,14 +186,25 @@ export function OnboardingExperience({
         <ThemeStep
           theme={prefs.theme}
           onSelect={setTheme}
-          onContinue={advance}
+          onContinue={
+            isOwner
+              ? advance
+              : () => {
+                  void handleComplete();
+                }
+          }
+          onBack={goBack}
+          totalSteps={isOwner ? 2 : 1}
+          pending={!isOwner ? pending : false}
+          submitError={!isOwner ? error : null}
         />
       )}
-      {step === "privacy" && (
+      {step === "privacy" && isOwner && (
         <PrivacyStep
           prefs={prefs}
           onChange={(key, val) => setPrefs((p) => ({ ...p, [key]: val }))}
           onComplete={handleComplete}
+          onBack={goBack}
           pending={pending}
           error={error}
         />
@@ -177,21 +221,34 @@ function WelcomeStep({
   onContinue: () => void;
 }) {
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
+    let ready = false;
+    const guard = setTimeout(() => {
+      ready = true;
+    }, 300);
+
+    const clickHandler = () => {
+      if (ready) onContinue();
+    };
+    const keyHandler = (e: KeyboardEvent) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         onContinue();
       }
     };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
+
+    document.addEventListener("click", clickHandler);
+    document.addEventListener("keydown", keyHandler);
+    return () => {
+      clearTimeout(guard);
+      document.removeEventListener("click", clickHandler);
+      document.removeEventListener("keydown", keyHandler);
+    };
   }, [onContinue]);
 
   return (
     <section
       className="onboarding-welcome"
       tabIndex={0}
-      onClick={onContinue}
       aria-label="Welcome — click anywhere to begin setup"
     >
       <h1 className="onboarding-welcome__title">
@@ -227,14 +284,32 @@ function ThemeStep({
   theme,
   onSelect,
   onContinue,
+  onBack,
+  totalSteps = 2,
+  pending = false,
+  submitError = null,
 }: {
   theme: Theme;
   onSelect: (t: Theme) => void;
   onContinue: () => void;
+  onBack: () => void;
+  totalSteps?: number;
+  pending?: boolean;
+  submitError?: string | null;
 }) {
   return (
     <div className="onboarding-step">
-      <StepProgress current={1} total={2} />
+      <div className="onboarding-step__nav">
+        <button
+          className="onboarding-back"
+          onClick={onBack}
+          type="button"
+          aria-label="Go back"
+        >
+          ← Back
+        </button>
+        <StepProgress current={1} total={totalSteps} />
+      </div>
 
       <div className="onboarding-step__header">
         <span className="onboarding-step__index">01</span>
@@ -251,7 +326,7 @@ function ThemeStep({
             key={opt.value}
             role="radio"
             aria-checked={theme === opt.value}
-            className={`onboarding-theme-tile${theme === opt.value ? " onboarding-theme-tile--selected" : ""}`}
+            className={`onboarding-theme-tile onboarding-theme-tile--variant-${opt.value}${theme === opt.value ? " onboarding-theme-tile--selected" : ""}`}
             onClick={() => onSelect(opt.value)}
             type="button"
           >
@@ -262,12 +337,19 @@ function ThemeStep({
         ))}
       </div>
 
+      {submitError && (
+        <p className="onboarding-error" role="alert">
+          {submitError}
+        </p>
+      )}
+
       <button
         className="onboarding-continue"
         onClick={onContinue}
+        disabled={pending}
         type="button"
       >
-        Continue
+        {pending ? "Saving…" : "Continue"}
       </button>
     </div>
   );
@@ -279,6 +361,7 @@ function ThemePreview({ variant }: { variant: Theme }) {
       className={`theme-preview theme-preview--${variant}`}
       aria-hidden="true"
     >
+      {variant === "system" && <div className="theme-preview__dark-half" />}
       <div className="theme-preview__sidebar" />
       <div className="theme-preview__main">
         <div className="theme-preview__bar" />
@@ -310,18 +393,30 @@ function PrivacyStep({
   prefs,
   onChange,
   onComplete,
+  onBack,
   pending,
   error,
 }: {
   prefs: Prefs;
   onChange: (key: keyof Prefs, val: boolean) => void;
   onComplete: () => void;
+  onBack: () => void;
   pending: boolean;
   error: string | null;
 }) {
   return (
     <div className="onboarding-step">
-      <StepProgress current={2} total={2} />
+      <div className="onboarding-step__nav">
+        <button
+          className="onboarding-back"
+          onClick={onBack}
+          type="button"
+          aria-label="Go back"
+        >
+          ← Back
+        </button>
+        <StepProgress current={2} total={2} />
+      </div>
 
       <div className="onboarding-step__header">
         <span className="onboarding-step__index">02</span>

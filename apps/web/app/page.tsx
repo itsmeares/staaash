@@ -32,6 +32,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       <EntryRoot
         mode="onboarding"
         instanceName={setupState.instanceName ?? undefined}
+        isOwner={session.user.role === "owner"}
       />
     );
   }

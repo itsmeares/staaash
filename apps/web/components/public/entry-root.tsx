@@ -13,10 +13,17 @@ type EntryRootProps = {
   mode: "setup" | "signin" | "onboarding";
   instanceName?: string;
   next?: string;
+  isOwner?: boolean;
 };
 
-export function EntryRoot({ mode, instanceName, next }: EntryRootProps) {
+export function EntryRoot({
+  mode,
+  instanceName,
+  next,
+  isOwner = false,
+}: EntryRootProps) {
   const [phase, setPhase] = useState<Phase>("intro");
+  const [onboardingKey, setOnboardingKey] = useState(0);
 
   function handleBrandClick() {
     setPhase("exiting-to-intro");
@@ -38,8 +45,13 @@ export function EntryRoot({ mode, instanceName, next }: EntryRootProps) {
         }
         contentClassName="justify-center"
         scrimVariant="setup"
+        onBrandClick={() => setOnboardingKey((k) => k + 1)}
       >
-        <OnboardingExperience instanceName={instanceName} />
+        <OnboardingExperience
+          key={onboardingKey}
+          instanceName={instanceName}
+          isOwner={isOwner}
+        />
       </EntryShell>
     );
   }
