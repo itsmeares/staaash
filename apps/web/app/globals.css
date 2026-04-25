@@ -4246,6 +4246,24 @@ h3 {
   gap: 24px;
 }
 
+.onboarding-progress {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 4px;
+}
+
+.onboarding-progress__segment {
+  flex: 1;
+  height: 2px;
+  border-radius: 2px;
+  background: oklch(50% 0.01 78 / 0.25);
+  transition: background 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.onboarding-progress__segment--active {
+  background: oklch(74% 0.08 78);
+}
+
 .onboarding-step__header {
   display: flex;
   align-items: baseline;
@@ -4343,11 +4361,17 @@ h3 {
   background: oklch(12% 0.008 70);
 }
 .theme-preview--system {
-  background: linear-gradient(
-    105deg,
-    oklch(98% 0.006 78) 50%,
-    oklch(12% 0.008 70) 50%
-  );
+  background: oklch(98% 0.006 78);
+  position: relative;
+}
+
+.theme-preview--system::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  left: 50%;
+  background: oklch(12% 0.008 70);
+  z-index: 0;
 }
 
 .theme-preview__sidebar {
@@ -4363,11 +4387,9 @@ h3 {
   background: oklch(17% 0.01 72);
 }
 .theme-preview--system .theme-preview__sidebar {
-  background: linear-gradient(
-    180deg,
-    oklch(94% 0.007 78) 50%,
-    oklch(17% 0.01 72) 50%
-  );
+  background: oklch(94% 0.007 78);
+  position: relative;
+  z-index: 1;
 }
 
 .theme-preview__main {
@@ -4399,12 +4421,13 @@ h3 {
 .theme-preview--dark .theme-preview__bar {
   background: oklch(45% 0.012 76 / 0.6);
 }
+.theme-preview--system .theme-preview__main {
+  position: relative;
+  z-index: 1;
+}
+
 .theme-preview--system .theme-preview__bar {
-  background: linear-gradient(
-    90deg,
-    oklch(72% 0.01 76 / 0.5) 50%,
-    oklch(45% 0.012 76 / 0.6) 50%
-  );
+  background: oklch(55% 0.01 76 / 0.5);
 }
 
 .onboarding-toggles {
@@ -4518,6 +4541,45 @@ h3 {
 .onboarding-done {
   display: grid;
   place-items: center;
+  width: 100%;
+}
+
+.onboarding-done__phase {
+  grid-area: 1 / 1;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transform: translateY(20px);
+  pointer-events: none;
+}
+
+.onboarding-done__phase--allset {
+  animation: setup-fade-up 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.onboarding-done__phase--allset.is-exiting {
+  animation: none;
+  opacity: 0;
+  transform: translateY(-20px);
+  pointer-events: none;
+  transition:
+    opacity 0.45s cubic-bezier(0.4, 0, 1, 1),
+    transform 0.45s cubic-bezier(0.4, 0, 1, 1);
+}
+
+.onboarding-done__phase--welcome {
+  transition:
+    opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s,
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s;
+}
+
+.onboarding-done__phase--welcome.is-entering {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 
 .onboarding-done__message {
@@ -4526,7 +4588,45 @@ h3 {
   line-height: 1.04;
   letter-spacing: -0.04em;
   color: var(--foreground);
-  animation: setup-fade-up 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.onboarding-done__name-wrap {
+  display: inline-grid;
+  vertical-align: baseline;
+}
+
+.onboarding-done__name-wrap > span {
+  grid-area: 1 / 1;
+  transition:
+    opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    filter 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.onboarding-done__name-brand {
+  opacity: 1;
+  filter: blur(0);
+  transform: translateY(0);
+}
+
+.onboarding-done__name-brand.is-out {
+  opacity: 0;
+  filter: blur(8px);
+  transform: translateY(-10px);
+}
+
+.onboarding-done__name-instance {
+  opacity: 0;
+  filter: blur(8px);
+  transform: translateY(10px);
+}
+
+.onboarding-done__name-instance.is-in {
+  opacity: 1;
+  filter: blur(0);
+  transform: translateY(0);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4534,14 +4634,36 @@ h3 {
   .onboarding--exiting,
   .onboarding-welcome__title,
   .onboarding-welcome__hint,
-  .onboarding-done__message {
+  .onboarding-done__phase--allset,
+  .onboarding-done__phase--allset.is-exiting,
+  .onboarding-done__phase--welcome {
     animation: none;
+    transition: none;
+  }
+
+  .onboarding-done__phase--allset {
+    opacity: 1;
+    transform: none;
+  }
+
+  .onboarding-done__phase--allset.is-exiting {
+    opacity: 0;
+  }
+
+  .onboarding-done__phase--welcome.is-entering {
+    opacity: 1;
+    transform: none;
+  }
+
+  .onboarding-done__name-wrap > span {
+    transition: none;
   }
 
   .onboarding-theme-tile,
   .onboarding-switch,
   .onboarding-switch__thumb,
-  .onboarding-continue {
+  .onboarding-continue,
+  .onboarding-progress__segment {
     transition: none;
   }
 }

@@ -37,6 +37,9 @@ importers:
       "@staaash/db":
         specifier: workspace:*
         version: link:../../packages/db
+      canvas-confetti:
+        specifier: ^1.9.4
+        version: 1.9.4
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -86,6 +89,9 @@ importers:
       "@tailwindcss/postcss":
         specifier: ^4.1.14
         version: 4.2.2
+      "@types/canvas-confetti":
+        specifier: ^1.9.0
+        version: 1.9.0
       "@types/node":
         specifier: ^20.19.37
         version: 20.19.37
@@ -1906,6 +1912,12 @@ packages:
     cpu: [arm64]
     os: [win32]
 
+  "@types/canvas-confetti@1.9.0":
+    resolution:
+      {
+        integrity: sha512-aBGj/dULrimR1XDZLtG9JwxX1b4HPRF6CX9Yfwh3NvstZEm1ZL7RBnel4keCPSqs1ANRu1u2Aoz9R+VmtjYuTg==,
+      }
+
   "@types/chai@5.2.3":
     resolution:
       {
@@ -2252,6 +2264,12 @@ packages:
     resolution:
       {
         integrity: sha512-dZcaJLJeDMh4rELYFw1tvSn1bhZWYFOt468FcbHHxx/Z/dFidd1I6ciyFdi3iwfQCyOjqo9upF6lGQYtMiJWxw==,
+      }
+
+  canvas-confetti@1.9.4:
+    resolution:
+      {
+        integrity: sha512-yxQbJkAVrFXWNbTUjPqjF7G+g6pDotOUHGbkZq2NELZUMDpiJ85rIEazVb8GTaAptNW2miJAXbs1BtioA251Pw==,
       }
 
   chai@5.3.3:
@@ -6219,6 +6237,8 @@ snapshots:
   "@turbo/windows-arm64@2.9.5":
     optional: true
 
+  "@types/canvas-confetti@1.9.0": {}
+
   "@types/chai@5.2.3":
     dependencies:
       "@types/deep-eql": 4.0.2
@@ -6428,6 +6448,8 @@ snapshots:
   callsites@3.1.0: {}
 
   caniuse-lite@1.0.30001782: {}
+
+  canvas-confetti@1.9.4: {}
 
   chai@5.3.3:
     dependencies:

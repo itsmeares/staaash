@@ -23,6 +23,7 @@
     "@react-three/fiber": "^9.5.0",
     "@staaash/config": "workspace:*",
     "@staaash/db": "workspace:*",
+    "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.8.0",
@@ -41,6 +42,7 @@
   "devDependencies": {
     "@playwright/test": "^1.51.1",
     "@tailwindcss/postcss": "^4.1.14",
+    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^20.19.37",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

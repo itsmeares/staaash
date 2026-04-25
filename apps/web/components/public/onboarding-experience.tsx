@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import confetti from "canvas-confetti";
 
 type Theme = "light" | "dark" | "system";
 type OnboardingStep = "welcome" | "theme" | "privacy" | "done";
@@ -35,6 +36,7 @@ export function OnboardingExperience({
   });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [donePhase, setDonePhase] = useState<0 | 1 | 2>(0);
   const router = useRouter();
 
   function advance() {
@@ -68,7 +70,7 @@ export function OnboardingExperience({
       });
       if (res.ok) {
         setStep("done");
-        setTimeout(() => router.push("/files"), 1600);
+        setTimeout(() => router.push("/files"), 4800);
       } else {
         const json = await res.json().catch(() => ({}));
         setError(json.error ?? "Something went wrong.");
@@ -80,10 +82,62 @@ export function OnboardingExperience({
     }
   }
 
+  useEffect(() => {
+    if (step !== "done") return;
+
+    const t0 = setTimeout(() => {
+      confetti({
+        particleCount: 110,
+        spread: 72,
+        origin: { y: 0.48 },
+        colors: ["#c8ab72", "#e5d0a0", "#8b6914", "#f5e6c8", "#ffffff"],
+        disableForReducedMotion: true,
+      });
+    }, 350);
+
+    const t1 = setTimeout(() => setDonePhase(1), 1900);
+    const t2 = setTimeout(() => setDonePhase(2), 3300);
+
+    return () => {
+      clearTimeout(t0);
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [step]);
+
   if (step === "done") {
+    const effectiveName = instanceName ?? "Staaash";
+    const isCustomName = effectiveName !== "Staaash";
+
     return (
       <div className="onboarding-done">
-        <p className="onboarding-done__message">You're all set.</p>
+        <div
+          className={`onboarding-done__phase onboarding-done__phase--allset${donePhase > 0 ? " is-exiting" : ""}`}
+        >
+          <p className="onboarding-done__message">You&apos;re all set.</p>
+        </div>
+        <div
+          className={`onboarding-done__phase onboarding-done__phase--welcome${donePhase >= 1 ? " is-entering" : ""}`}
+        >
+          <p className="onboarding-done__message">
+            Welcome to{" "}
+            <span className="onboarding-done__name-wrap">
+              <span
+                className={`onboarding-done__name-brand${donePhase >= 2 && isCustomName ? " is-out" : ""}`}
+              >
+                Staaash
+              </span>
+              {isCustomName && (
+                <span
+                  className={`onboarding-done__name-instance${donePhase >= 2 ? " is-in" : ""}`}
+                >
+                  {effectiveName}
+                </span>
+              )}
+            </span>
+            .
+          </p>
+        </div>
       </div>
     );
   }
@@ -150,6 +204,19 @@ function WelcomeStep({
   );
 }
 
+function StepProgress({ current, total }: { current: number; total: number }) {
+  return (
+    <div className="onboarding-progress" aria-hidden="true">
+      {Array.from({ length: total }, (_, i) => (
+        <div
+          key={i}
+          className={`onboarding-progress__segment${i < current ? " onboarding-progress__segment--active" : ""}`}
+        />
+      ))}
+    </div>
+  );
+}
+
 const THEME_OPTIONS: { value: Theme; label: string; desc: string }[] = [
   { value: "system", label: "System", desc: "Follows your OS setting" },
   { value: "light", label: "Light", desc: "Always light" },
@@ -167,6 +234,8 @@ function ThemeStep({
 }) {
   return (
     <div className="onboarding-step">
+      <StepProgress current={1} total={2} />
+
       <div className="onboarding-step__header">
         <span className="onboarding-step__index">01</span>
         <h2 className="onboarding-step__title">Choose your theme</h2>
@@ -252,6 +321,8 @@ function PrivacyStep({
 }) {
   return (
     <div className="onboarding-step">
+      <StepProgress current={2} total={2} />
+
       <div className="onboarding-step__header">
         <span className="onboarding-step__index">02</span>
         <h2 className="onboarding-step__title">Privacy &amp; features</h2>
@@ -259,7 +330,7 @@ function PrivacyStep({
 
       <p className="onboarding-step__body">
         These features reach external services. All are on by default — turn off
-        anything you'd rather keep fully local.
+        anything you&apos;d rather keep fully local.
       </p>
 
       <div className="onboarding-toggles">
