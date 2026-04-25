@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 
 export type Phase =
   | "intro"
@@ -45,7 +44,6 @@ export function EntryExperience({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const firstFieldRef = useRef<HTMLInputElement>(null);
-  const router = useRouter();
 
   const { description, endpoint, successMessage } = config[mode];
   const title =
@@ -93,10 +91,12 @@ export function EntryExperience({
 
       if (res.ok) {
         setPhase("success");
-        setTimeout(
-          () => router.push(mode === "signin" && next ? next : "/files"),
-          1600,
-        );
+        setTimeout(() => {
+          // Hard navigation — ensures middleware redirect to / (for users
+          // needing onboarding) triggers a full RSC re-fetch instead of
+          // serving the stale router-cache payload for this route.
+          window.location.assign(mode === "signin" && next ? next : "/files");
+        }, 1600);
       } else {
         setError(json.error ?? "Something went wrong. Please try again.");
         setPending(false);
