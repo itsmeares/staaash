@@ -90,13 +90,17 @@ export function EntryExperience({
       const json = await res.json();
 
       if (res.ok) {
-        setPhase("success");
-        setTimeout(() => {
-          // Hard navigation — ensures middleware redirect to / (for users
-          // needing onboarding) triggers a full RSC re-fetch instead of
-          // serving the stale router-cache payload for this route.
-          window.location.assign(mode === "signin" && next ? next : "/files");
-        }, 1600);
+        const dest = mode === "signin" && next ? next : "/files";
+        const needsOnboarding = !json.user?.preferences?.onboardingCompletedAt;
+
+        if (needsOnboarding) {
+          // Skip success animation — navigate immediately so middleware
+          // redirects to / and the user lands straight on onboarding.
+          window.location.assign(dest);
+        } else {
+          setPhase("success");
+          setTimeout(() => window.location.assign(dest), 1600);
+        }
       } else {
         setError(json.error ?? "Something went wrong. Please try again.");
         setPending(false);
