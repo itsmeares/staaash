@@ -22,7 +22,7 @@ type MemoryFile = {
 type MemoryFolder = {
   id: string;
   ownerUserId: string;
-  isLibraryRoot: boolean;
+  isFilesRoot: boolean;
   updatedAt: Date;
 };
 
@@ -94,11 +94,11 @@ const createClient = ({
       },
     },
     folder: {
-      async groupBy(args: { where?: { isLibraryRoot?: boolean } }) {
+      async groupBy(args: { where?: { isFilesRoot?: boolean } }) {
         const relevantFolders = folders.filter(
           (folder) =>
-            args.where?.isLibraryRoot === undefined ||
-            folder.isLibraryRoot === args.where.isLibraryRoot,
+            args.where?.isFilesRoot === undefined ||
+            folder.isFilesRoot === args.where.isFilesRoot,
         );
         const groups = new Map<
           string,
@@ -246,13 +246,13 @@ describe("admin db helpers", () => {
           {
             id: "root-1",
             ownerUserId: "member-1",
-            isLibraryRoot: true,
+            isFilesRoot: true,
             updatedAt: new Date("2026-04-01T08:00:00.000Z"),
           },
           {
             id: "folder-1",
             ownerUserId: "member-1",
-            isLibraryRoot: false,
+            isFilesRoot: false,
             updatedAt: new Date("2026-04-04T08:00:00.000Z"),
           },
         ],
