@@ -53,6 +53,7 @@ export const AnyNull = runtime.AnyNull
 export const ModelName = {
   Instance: 'Instance',
   User: 'User',
+  UserPreference: 'UserPreference',
   Session: 'Session',
   Invite: 'Invite',
   PasswordReset: 'PasswordReset',
@@ -103,6 +104,7 @@ export const UserScalarFieldEnum = {
   email: 'email',
   username: 'username',
   displayName: 'displayName',
+  avatarUrl: 'avatarUrl',
   passwordHash: 'passwordHash',
   role: 'role',
   storageLimitBytes: 'storageLimitBytes',
@@ -111,6 +113,20 @@ export const UserScalarFieldEnum = {
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
+
+
+export const UserPreferenceScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  theme: 'theme',
+  showUpdateNotifications: 'showUpdateNotifications',
+  enableVersionChecks: 'enableVersionChecks',
+  onboardingCompletedAt: 'onboardingCompletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type UserPreferenceScalarFieldEnum = (typeof UserPreferenceScalarFieldEnum)[keyof typeof UserPreferenceScalarFieldEnum]
 
 
 export const SessionScalarFieldEnum = {

@@ -14,7 +14,7 @@ type FilesPageProps = {
 export default async function FilesPage({ searchParams }: FilesPageProps) {
   const [resolvedSearchParams, session] = await Promise.all([
     searchParams,
-    requireSignedInPageSession("/sign-in?next=/files"),
+    requireSignedInPageSession("/?next=/files"),
   ]);
   const listing = await filesService.getFilesListing({
     actorUserId: session.user.id,

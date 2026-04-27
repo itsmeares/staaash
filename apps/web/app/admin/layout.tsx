@@ -42,11 +42,7 @@ export default async function AdminLayout({
               Back to files
             </Link>
             <form action="/api/auth/sign-out" method="post">
-              <input
-                type="hidden"
-                name="next"
-                value="/sign-in?success=Signed%20out."
-              />
+              <input type="hidden" name="next" value="/" />
               <button className="button button-secondary" type="submit">
                 Sign out
               </button>

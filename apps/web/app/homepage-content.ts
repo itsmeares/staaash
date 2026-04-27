@@ -40,7 +40,7 @@ export function getHomePageContent({
   if (!role) {
     return {
       primaryAction: {
-        href: "/sign-in",
+        href: "/",
         label: "Sign in",
       },
       title: "Private storage, right where you left it.",

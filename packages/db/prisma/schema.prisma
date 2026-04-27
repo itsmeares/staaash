@@ -49,12 +49,14 @@ model User {
   email                 String          @unique
   username              String          @unique
   displayName           String?
+  avatarUrl             String?
   passwordHash          String
   role                  UserRole        @default(member)
   storageLimitBytes     BigInt?
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
   sessions              Session[]
+  preferences           UserPreference?
   invitesIssued         Invite[]        @relation("InviteIssuer")
   invitesAccepted       Invite[]        @relation("InviteAcceptor")
   passwordResetsIssued  PasswordReset[] @relation("PasswordResetIssuer")
@@ -67,6 +69,18 @@ model User {
   recentFolders         RecentFolder[]
   shareLinks            ShareLink[]     @relation("ShareLinkCreator")
   restoreReconciliationRuns RestoreReconciliationRun[] @relation("RestoreReconciliationTrigger")
+}
+
+model UserPreference {
+  id                      String    @id @default(cuid())
+  userId                  String    @unique
+  theme                   String    @default("system")
+  showUpdateNotifications Boolean   @default(true)
+  enableVersionChecks     Boolean   @default(true)
+  onboardingCompletedAt   DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Session {

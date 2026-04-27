@@ -19,16 +19,14 @@ export async function POST(request: NextRequest) {
         )
       : formErrorResponse(
           request,
-          "/sign-in",
+          "/",
           new Error("Cross-origin requests are not allowed."),
         );
   }
 
   const body = await readRequestBody(request);
   const token = body.token;
-  const fallbackPath = token
-    ? `/invite/${encodeURIComponent(token)}`
-    : "/sign-in";
+  const fallbackPath = token ? `/invite/${encodeURIComponent(token)}` : "/";
 
   try {
     const result = await authService.redeemInvite({

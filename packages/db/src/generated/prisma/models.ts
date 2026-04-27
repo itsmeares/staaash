@@ -10,6 +10,7 @@
  */
 export type * from './models/Instance'
 export type * from './models/User'
+export type * from './models/UserPreference'
 export type * from './models/Session'
 export type * from './models/Invite'
 export type * from './models/PasswordReset'

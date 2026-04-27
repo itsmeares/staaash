@@ -117,7 +117,7 @@ export const signInRedirectResponse = (
   redirectTo: string,
 ) =>
   NextResponse.redirect(
-    new URL(`/sign-in?next=${encodeURIComponent(redirectTo)}`, request.url),
+    new URL(`/?next=${encodeURIComponent(redirectTo)}`, request.url),
     303,
   );
 

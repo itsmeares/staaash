@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 
 export type Phase =
   | "intro"
@@ -16,6 +15,7 @@ type EntryExperienceProps = {
   phase: Phase;
   setPhase: (phase: Phase) => void;
   instanceName?: string;
+  next?: string;
 };
 
 const config = {
@@ -39,11 +39,11 @@ export function EntryExperience({
   phase,
   setPhase,
   instanceName,
+  next,
 }: EntryExperienceProps) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const firstFieldRef = useRef<HTMLInputElement>(null);
-  const router = useRouter();
 
   const { description, endpoint, successMessage } = config[mode];
   const title =
@@ -90,8 +90,17 @@ export function EntryExperience({
       const json = await res.json();
 
       if (res.ok) {
-        setPhase("success");
-        setTimeout(() => router.push("/files"), 1600);
+        const dest = mode === "signin" && next ? next : "/files";
+        const needsOnboarding = !json.user?.preferences?.onboardingCompletedAt;
+
+        if (needsOnboarding) {
+          // Skip success animation — navigate immediately so middleware
+          // redirects to / and the user lands straight on onboarding.
+          window.location.assign(dest);
+        } else {
+          setPhase("success");
+          setTimeout(() => window.location.assign(dest), 1600);
+        }
       } else {
         setError(json.error ?? "Something went wrong. Please try again.");
         setPending(false);
@@ -199,18 +208,6 @@ export function EntryExperience({
               <span className="entry-form__help">
                 Lowercase letters, numbers, and single hyphens.
               </span>
-            </div>
-
-            <div className="entry-form__field">
-              <label className="entry-form__label" htmlFor="displayName">
-                Display name
-              </label>
-              <input
-                className="entry-form__input"
-                id="displayName"
-                name="displayName"
-                placeholder="John Doe"
-              />
             </div>
 
             <div className="entry-form__field">

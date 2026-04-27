@@ -47,6 +47,7 @@ Desktop.ini
 
 # Local agent and AI tooling files
 AGENTS.md
+CLAUDE.md
 .agents/
 .codex/
 .claude/

@@ -39,5 +39,6 @@ export type {
   ShareLink,
   ShareTargetType,
   User,
+  UserPreference,
   UserRole,
 } from "./generated/prisma/client";

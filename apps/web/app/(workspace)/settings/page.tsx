@@ -6,6 +6,7 @@ import {
   getSingleSearchParam,
 } from "@/app/auth-ui";
 import { requireSignedInPageSession } from "@/server/auth/guards";
+import { PreferencesForm } from "./preferences-form";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ export default async function SettingsPage({
 }: SettingsPageProps) {
   const [resolvedSearchParams, session] = await Promise.all([
     searchParams,
-    requireSignedInPageSession("/sign-in?next=/settings"),
+    requireSignedInPageSession("/?next=/settings"),
   ]);
   const error = getSingleSearchParam(resolvedSearchParams, "error");
   const success = getSingleSearchParam(resolvedSearchParams, "success");
@@ -26,6 +27,8 @@ export default async function SettingsPage({
     error === "admin"
       ? "Admin access is restricted to the instance owner."
       : error;
+
+  const prefs = session.user.preferences;
 
   return (
     <div className="workspace-page">
@@ -60,6 +63,19 @@ export default async function SettingsPage({
 
       <section className="grid">
         <article className="panel stack">
+          <h2>Appearance &amp; privacy</h2>
+          <PreferencesForm
+            initialTheme={
+              (prefs?.theme as "light" | "dark" | "system") ?? "system"
+            }
+            initialShowUpdateNotifications={
+              prefs?.showUpdateNotifications ?? true
+            }
+            initialEnableVersionChecks={prefs?.enableVersionChecks ?? true}
+          />
+        </article>
+
+        <article className="panel stack">
           <h2>Session details</h2>
           <div className="meta-list muted">
             <div className="meta-row">
@@ -78,21 +94,10 @@ export default async function SettingsPage({
         </article>
 
         <article className="panel stack">
-          <h2>Local controls</h2>
-          <p className="muted">
-            Sessions stay opaque and DB-backed. This page is the canonical
-            signed-in account surface now that `/account` redirects here.
-          </p>
+          <h2>Session</h2>
           <div className="cluster">
-            <Link className="pill" href="/api/auth/session">
-              Inspect JSON
-            </Link>
             <form action="/api/auth/sign-out" method="post">
-              <input
-                type="hidden"
-                name="next"
-                value="/sign-in?success=Signed%20out."
-              />
+              <input type="hidden" name="next" value="/" />
               <button className="button button-secondary" type="submit">
                 Sign out
               </button>

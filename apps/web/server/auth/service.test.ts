@@ -47,8 +47,10 @@ const createMemoryRepository = (): AuthRepository => {
     email: user.email,
     username: user.username,
     displayName: user.displayName,
+    avatarUrl: user.avatarUrl,
     role: user.role,
     storageLimitBytes: user.storageLimitBytes,
+    preferences: user.preferences,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   });
@@ -89,9 +91,11 @@ const createMemoryRepository = (): AuthRepository => {
         email: params.email,
         username: params.username,
         displayName: params.displayName ?? null,
+        avatarUrl: null,
         passwordHash: params.passwordHash,
         role: "owner",
         storageLimitBytes: null,
+        preferences: null,
         createdAt: params.createdAt,
         updatedAt: params.createdAt,
       };
@@ -244,9 +248,11 @@ const createMemoryRepository = (): AuthRepository => {
         email: invite.email,
         username: params.username,
         displayName: params.displayName ?? null,
+        avatarUrl: null,
         passwordHash: params.passwordHash,
         role: invite.role,
         storageLimitBytes: null,
+        preferences: null,
         createdAt: params.now,
         updatedAt: params.now,
       };
@@ -344,6 +350,15 @@ const createMemoryRepository = (): AuthRepository => {
       }
 
       return toUser(user);
+    },
+
+    async savePreferences(params) {
+      return {
+        theme: params.theme,
+        showUpdateNotifications: params.showUpdateNotifications,
+        enableVersionChecks: params.enableVersionChecks,
+        onboardingCompletedAt: params.onboardingCompletedAt ?? new Date(),
+      };
     },
   };
 };

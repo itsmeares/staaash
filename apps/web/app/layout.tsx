@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { cookies } from "next/headers";
 
+import { THEME_COOKIE_NAME } from "@/server/auth/session";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -63,13 +65,18 @@ const cabinetGrotesk = localFont({
   display: "swap",
 });
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const cookieStore = await cookies();
+  const theme = cookieStore.get(THEME_COOKIE_NAME)?.value ?? "system";
+  const themeClass =
+    theme === "dark" ? "dark" : theme === "light" ? "light" : "";
+
   return (
     <html
       lang="en"
-      className={`${switzer.variable} ${cabinetGrotesk.variable} font-sans`}
+      className={`${switzer.variable} ${cabinetGrotesk.variable} font-sans${themeClass ? ` ${themeClass}` : ""}`}
     >
       <body>{children}</body>
     </html>

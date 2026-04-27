@@ -98,7 +98,7 @@ export default async function PasswordResetPage({
             The new password signs you in immediately with a fresh server-side
             session.
           </p>
-          <Link className="pill" href="/sign-in">
+          <Link className="pill" href="/">
             Back to sign in
           </Link>
         </article>
