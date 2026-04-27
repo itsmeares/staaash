@@ -39,6 +39,7 @@ export type UserMinAggregateOutputType = {
   email: string | null
   username: string | null
   displayName: string | null
+  avatarUrl: string | null
   passwordHash: string | null
   role: $Enums.UserRole | null
   storageLimitBytes: bigint | null
@@ -51,6 +52,7 @@ export type UserMaxAggregateOutputType = {
   email: string | null
   username: string | null
   displayName: string | null
+  avatarUrl: string | null
   passwordHash: string | null
   role: $Enums.UserRole | null
   storageLimitBytes: bigint | null
@@ -63,6 +65,7 @@ export type UserCountAggregateOutputType = {
   email: number
   username: number
   displayName: number
+  avatarUrl: number
   passwordHash: number
   role: number
   storageLimitBytes: number
@@ -85,6 +88,7 @@ export type UserMinAggregateInputType = {
   email?: true
   username?: true
   displayName?: true
+  avatarUrl?: true
   passwordHash?: true
   role?: true
   storageLimitBytes?: true
@@ -97,6 +101,7 @@ export type UserMaxAggregateInputType = {
   email?: true
   username?: true
   displayName?: true
+  avatarUrl?: true
   passwordHash?: true
   role?: true
   storageLimitBytes?: true
@@ -109,6 +114,7 @@ export type UserCountAggregateInputType = {
   email?: true
   username?: true
   displayName?: true
+  avatarUrl?: true
   passwordHash?: true
   role?: true
   storageLimitBytes?: true
@@ -208,6 +214,7 @@ export type UserGroupByOutputType = {
   email: string
   username: string
   displayName: string | null
+  avatarUrl: string | null
   passwordHash: string
   role: $Enums.UserRole
   storageLimitBytes: bigint | null
@@ -243,6 +250,7 @@ export type UserWhereInput = {
   email?: Prisma.StringFilter<"User"> | string
   username?: Prisma.StringFilter<"User"> | string
   displayName?: Prisma.StringNullableFilter<"User"> | string | null
+  avatarUrl?: Prisma.StringNullableFilter<"User"> | string | null
   passwordHash?: Prisma.StringFilter<"User"> | string
   role?: Prisma.EnumUserRoleFilter<"User"> | $Enums.UserRole
   storageLimitBytes?: Prisma.BigIntNullableFilter<"User"> | bigint | number | null
@@ -269,6 +277,7 @@ export type UserOrderByWithRelationInput = {
   email?: Prisma.SortOrder
   username?: Prisma.SortOrder
   displayName?: Prisma.SortOrderInput | Prisma.SortOrder
+  avatarUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   role?: Prisma.SortOrder
   storageLimitBytes?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -298,6 +307,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   OR?: Prisma.UserWhereInput[]
   NOT?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
   displayName?: Prisma.StringNullableFilter<"User"> | string | null
+  avatarUrl?: Prisma.StringNullableFilter<"User"> | string | null
   passwordHash?: Prisma.StringFilter<"User"> | string
   role?: Prisma.EnumUserRoleFilter<"User"> | $Enums.UserRole
   storageLimitBytes?: Prisma.BigIntNullableFilter<"User"> | bigint | number | null
@@ -324,6 +334,7 @@ export type UserOrderByWithAggregationInput = {
   email?: Prisma.SortOrder
   username?: Prisma.SortOrder
   displayName?: Prisma.SortOrderInput | Prisma.SortOrder
+  avatarUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   role?: Prisma.SortOrder
   storageLimitBytes?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -344,6 +355,7 @@ export type UserScalarWhereWithAggregatesInput = {
   email?: Prisma.StringWithAggregatesFilter<"User"> | string
   username?: Prisma.StringWithAggregatesFilter<"User"> | string
   displayName?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
+  avatarUrl?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   passwordHash?: Prisma.StringWithAggregatesFilter<"User"> | string
   role?: Prisma.EnumUserRoleWithAggregatesFilter<"User"> | $Enums.UserRole
   storageLimitBytes?: Prisma.BigIntNullableWithAggregatesFilter<"User"> | bigint | number | null
@@ -356,6 +368,7 @@ export type UserCreateInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -382,6 +395,7 @@ export type UserUncheckedCreateInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -408,6 +422,7 @@ export type UserUpdateInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -434,6 +449,7 @@ export type UserUncheckedUpdateInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -460,6 +476,7 @@ export type UserCreateManyInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -472,6 +489,7 @@ export type UserUpdateManyMutationInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -484,6 +502,7 @@ export type UserUncheckedUpdateManyInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -496,6 +515,7 @@ export type UserCountOrderByAggregateInput = {
   email?: Prisma.SortOrder
   username?: Prisma.SortOrder
   displayName?: Prisma.SortOrder
+  avatarUrl?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   role?: Prisma.SortOrder
   storageLimitBytes?: Prisma.SortOrder
@@ -512,6 +532,7 @@ export type UserMaxOrderByAggregateInput = {
   email?: Prisma.SortOrder
   username?: Prisma.SortOrder
   displayName?: Prisma.SortOrder
+  avatarUrl?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   role?: Prisma.SortOrder
   storageLimitBytes?: Prisma.SortOrder
@@ -524,6 +545,7 @@ export type UserMinOrderByAggregateInput = {
   email?: Prisma.SortOrder
   username?: Prisma.SortOrder
   displayName?: Prisma.SortOrder
+  avatarUrl?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
   role?: Prisma.SortOrder
   storageLimitBytes?: Prisma.SortOrder
@@ -762,6 +784,7 @@ export type UserCreateWithoutPreferencesInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -787,6 +810,7 @@ export type UserUncheckedCreateWithoutPreferencesInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -828,6 +852,7 @@ export type UserUpdateWithoutPreferencesInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -853,6 +878,7 @@ export type UserUncheckedUpdateWithoutPreferencesInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -878,6 +904,7 @@ export type UserCreateWithoutSessionsInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -903,6 +930,7 @@ export type UserUncheckedCreateWithoutSessionsInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -944,6 +972,7 @@ export type UserUpdateWithoutSessionsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -969,6 +998,7 @@ export type UserUncheckedUpdateWithoutSessionsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -994,6 +1024,7 @@ export type UserCreateWithoutInvitesIssuedInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -1019,6 +1050,7 @@ export type UserUncheckedCreateWithoutInvitesIssuedInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -1049,6 +1081,7 @@ export type UserCreateWithoutInvitesAcceptedInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -1074,6 +1107,7 @@ export type UserUncheckedCreateWithoutInvitesAcceptedInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -1115,6 +1149,7 @@ export type UserUpdateWithoutInvitesIssuedInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -1140,6 +1175,7 @@ export type UserUncheckedUpdateWithoutInvitesIssuedInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -1176,6 +1212,7 @@ export type UserUpdateWithoutInvitesAcceptedInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -1201,6 +1238,7 @@ export type UserUncheckedUpdateWithoutInvitesAcceptedInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -1226,6 +1264,7 @@ export type UserCreateWithoutPasswordResetsForUserInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -1251,6 +1290,7 @@ export type UserUncheckedCreateWithoutPasswordResetsForUserInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -1281,6 +1321,7 @@ export type UserCreateWithoutPasswordResetsIssuedInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -1306,6 +1347,7 @@ export type UserUncheckedCreateWithoutPasswordResetsIssuedInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -1347,6 +1389,7 @@ export type UserUpdateWithoutPasswordResetsForUserInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -1372,6 +1415,7 @@ export type UserUncheckedUpdateWithoutPasswordResetsForUserInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -1408,6 +1452,7 @@ export type UserUpdateWithoutPasswordResetsIssuedInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -1433,6 +1478,7 @@ export type UserUncheckedUpdateWithoutPasswordResetsIssuedInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -1458,6 +1504,7 @@ export type UserCreateWithoutFoldersInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -1483,6 +1530,7 @@ export type UserUncheckedCreateWithoutFoldersInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -1524,6 +1572,7 @@ export type UserUpdateWithoutFoldersInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -1549,6 +1598,7 @@ export type UserUncheckedUpdateWithoutFoldersInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -1574,6 +1624,7 @@ export type UserCreateWithoutFilesInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -1599,6 +1650,7 @@ export type UserUncheckedCreateWithoutFilesInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -1640,6 +1692,7 @@ export type UserUpdateWithoutFilesInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -1665,6 +1718,7 @@ export type UserUncheckedUpdateWithoutFilesInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -1690,6 +1744,7 @@ export type UserCreateWithoutFavoriteFilesInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -1715,6 +1770,7 @@ export type UserUncheckedCreateWithoutFavoriteFilesInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -1756,6 +1812,7 @@ export type UserUpdateWithoutFavoriteFilesInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -1781,6 +1838,7 @@ export type UserUncheckedUpdateWithoutFavoriteFilesInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -1806,6 +1864,7 @@ export type UserCreateWithoutFavoriteFoldersInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -1831,6 +1890,7 @@ export type UserUncheckedCreateWithoutFavoriteFoldersInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -1872,6 +1932,7 @@ export type UserUpdateWithoutFavoriteFoldersInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -1897,6 +1958,7 @@ export type UserUncheckedUpdateWithoutFavoriteFoldersInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -1922,6 +1984,7 @@ export type UserCreateWithoutRecentFilesInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -1947,6 +2010,7 @@ export type UserUncheckedCreateWithoutRecentFilesInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -1988,6 +2052,7 @@ export type UserUpdateWithoutRecentFilesInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -2013,6 +2078,7 @@ export type UserUncheckedUpdateWithoutRecentFilesInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -2038,6 +2104,7 @@ export type UserCreateWithoutRecentFoldersInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -2063,6 +2130,7 @@ export type UserUncheckedCreateWithoutRecentFoldersInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -2104,6 +2172,7 @@ export type UserUpdateWithoutRecentFoldersInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -2129,6 +2198,7 @@ export type UserUncheckedUpdateWithoutRecentFoldersInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -2154,6 +2224,7 @@ export type UserCreateWithoutShareLinksInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -2179,6 +2250,7 @@ export type UserUncheckedCreateWithoutShareLinksInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -2220,6 +2292,7 @@ export type UserUpdateWithoutShareLinksInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -2245,6 +2318,7 @@ export type UserUncheckedUpdateWithoutShareLinksInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -2270,6 +2344,7 @@ export type UserCreateWithoutRestoreReconciliationRunsInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -2295,6 +2370,7 @@ export type UserUncheckedCreateWithoutRestoreReconciliationRunsInput = {
   email: string
   username: string
   displayName?: string | null
+  avatarUrl?: string | null
   passwordHash: string
   role?: $Enums.UserRole
   storageLimitBytes?: bigint | number | null
@@ -2336,6 +2412,7 @@ export type UserUpdateWithoutRestoreReconciliationRunsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -2361,6 +2438,7 @@ export type UserUncheckedUpdateWithoutRestoreReconciliationRunsInput = {
   email?: Prisma.StringFieldUpdateOperationsInput | string
   username?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
   role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
@@ -2525,6 +2603,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   email?: boolean
   username?: boolean
   displayName?: boolean
+  avatarUrl?: boolean
   passwordHash?: boolean
   role?: boolean
   storageLimitBytes?: boolean
@@ -2552,6 +2631,7 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   email?: boolean
   username?: boolean
   displayName?: boolean
+  avatarUrl?: boolean
   passwordHash?: boolean
   role?: boolean
   storageLimitBytes?: boolean
@@ -2564,6 +2644,7 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   email?: boolean
   username?: boolean
   displayName?: boolean
+  avatarUrl?: boolean
   passwordHash?: boolean
   role?: boolean
   storageLimitBytes?: boolean
@@ -2576,6 +2657,7 @@ export type UserSelectScalar = {
   email?: boolean
   username?: boolean
   displayName?: boolean
+  avatarUrl?: boolean
   passwordHash?: boolean
   role?: boolean
   storageLimitBytes?: boolean
@@ -2583,7 +2665,7 @@ export type UserSelectScalar = {
   updatedAt?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "username" | "displayName" | "passwordHash" | "role" | "storageLimitBytes" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "username" | "displayName" | "avatarUrl" | "passwordHash" | "role" | "storageLimitBytes" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   sessions?: boolean | Prisma.User$sessionsArgs<ExtArgs>
   preferences?: boolean | Prisma.User$preferencesArgs<ExtArgs>
@@ -2627,6 +2709,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     email: string
     username: string
     displayName: string | null
+    avatarUrl: string | null
     passwordHash: string
     role: $Enums.UserRole
     storageLimitBytes: bigint | null
@@ -3073,6 +3156,7 @@ export interface UserFieldRefs {
   readonly email: Prisma.FieldRef<"User", 'String'>
   readonly username: Prisma.FieldRef<"User", 'String'>
   readonly displayName: Prisma.FieldRef<"User", 'String'>
+  readonly avatarUrl: Prisma.FieldRef<"User", 'String'>
   readonly passwordHash: Prisma.FieldRef<"User", 'String'>
   readonly role: Prisma.FieldRef<"User", 'UserRole'>
   readonly storageLimitBytes: Prisma.FieldRef<"User", 'BigInt'>

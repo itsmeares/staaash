@@ -13,6 +13,8 @@ const preferencesSchema = z.object({
   theme: z.enum(["light", "dark", "system"]).default("system"),
   showUpdateNotifications: z.boolean().default(true),
   enableVersionChecks: z.boolean().default(true),
+  displayName: z.string().trim().max(80).nullable().optional(),
+  avatarUrl: z.string().max(300000).nullable().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -35,7 +37,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const parsed = preferencesSchema.parse(body);
 
-    await authService.savePreferences(session.user.id, parsed);
+    await authService.savePreferences(session.user.id, {
+      theme: parsed.theme,
+      showUpdateNotifications: parsed.showUpdateNotifications,
+      enableVersionChecks: parsed.enableVersionChecks,
+      displayName: parsed.displayName,
+      avatarUrl: parsed.avatarUrl,
+    });
 
     const response = NextResponse.json({ ok: true });
     response.cookies.set(buildOnboardedCookie());

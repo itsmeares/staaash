@@ -1,19 +1,27 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
 
 type Theme = "light" | "dark" | "system";
-type OnboardingStep = "welcome" | "theme" | "privacy" | "done";
+type OnboardingStep = "welcome" | "theme" | "profile" | "privacy" | "done";
 
 type Prefs = {
   theme: Theme;
   showUpdateNotifications: boolean;
   enableVersionChecks: boolean;
+  displayName: string;
+  avatarUrl: string | null;
 };
 
-const STEP_ORDER: OnboardingStep[] = ["welcome", "theme", "privacy", "done"];
+const STEP_ORDER: OnboardingStep[] = [
+  "welcome",
+  "theme",
+  "profile",
+  "privacy",
+  "done",
+];
 
 function applyThemePreview(theme: Theme) {
   const html = document.documentElement;
@@ -35,6 +43,8 @@ export function OnboardingExperience({
     theme: "system",
     showUpdateNotifications: true,
     enableVersionChecks: true,
+    displayName: "",
+    avatarUrl: null,
   });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +91,13 @@ export function OnboardingExperience({
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify(prefs),
+        body: JSON.stringify({
+          theme: prefs.theme,
+          showUpdateNotifications: prefs.showUpdateNotifications,
+          enableVersionChecks: prefs.enableVersionChecks,
+          displayName: prefs.displayName || null,
+          avatarUrl: prefs.avatarUrl,
+        }),
       });
       if (res.ok) {
         setStep("done");
@@ -117,7 +133,7 @@ export function OnboardingExperience({
       : undefined;
     const tNav = setTimeout(
       () => router.push("/files"),
-      isCustomName ? 6300 : 4500,
+      isCustomName ? 4800 : 3000,
     );
 
     return () => {
@@ -128,8 +144,6 @@ export function OnboardingExperience({
     };
   }, [step, instanceName, router]);
 
-  // Trigger word-swap transition one frame after the instance span mounts
-  // so the CSS transition fires (can't transition from display:none)
   useEffect(() => {
     if (donePhase < 2) return;
     const raf = requestAnimationFrame(() => setNameSwapping(true));
@@ -175,17 +189,29 @@ export function OnboardingExperience({
     );
   }
 
+  const totalSteps = isOwner ? 3 : 2;
+
   return (
     <div
       className={`onboarding${animating ? " onboarding--exiting" : " onboarding--entering"}`}
     >
-      {step === "welcome" && (
-        <WelcomeStep instanceName={instanceName} onContinue={advance} />
-      )}
+      {step === "welcome" && <WelcomeStep onContinue={advance} />}
       {step === "theme" && (
         <ThemeStep
           theme={prefs.theme}
           onSelect={setTheme}
+          onContinue={advance}
+          onBack={goBack}
+          totalSteps={totalSteps}
+        />
+      )}
+      {step === "profile" && (
+        <ProfileStep
+          prefs={prefs}
+          onDisplayNameChange={(val) =>
+            setPrefs((p) => ({ ...p, displayName: val }))
+          }
+          onAvatarChange={(val) => setPrefs((p) => ({ ...p, avatarUrl: val }))}
           onContinue={
             isOwner
               ? advance
@@ -194,15 +220,23 @@ export function OnboardingExperience({
                 }
           }
           onBack={goBack}
-          totalSteps={isOwner ? 2 : 1}
           pending={!isOwner ? pending : false}
-          submitError={!isOwner ? error : null}
+          error={!isOwner ? error : null}
+          stepIndex={2}
+          totalSteps={totalSteps}
+          isLastStep={!isOwner}
         />
       )}
       {step === "privacy" && isOwner && (
         <PrivacyStep
           prefs={prefs}
-          onChange={(key, val) => setPrefs((p) => ({ ...p, [key]: val }))}
+          onVersionChecksChange={(val) =>
+            setPrefs((p) => ({
+              ...p,
+              enableVersionChecks: val,
+              showUpdateNotifications: val,
+            }))
+          }
           onComplete={handleComplete}
           onBack={goBack}
           pending={pending}
@@ -213,13 +247,7 @@ export function OnboardingExperience({
   );
 }
 
-function WelcomeStep({
-  instanceName,
-  onContinue,
-}: {
-  instanceName?: string;
-  onContinue: () => void;
-}) {
+function WelcomeStep({ onContinue }: { onContinue: () => void }) {
   useEffect(() => {
     let ready = false;
     const guard = setTimeout(() => {
@@ -251,9 +279,7 @@ function WelcomeStep({
       tabIndex={0}
       aria-label="Welcome — click anywhere to begin setup"
     >
-      <h1 className="onboarding-welcome__title">
-        Welcome to {instanceName ?? "Staaash"}.
-      </h1>
+      <h1 className="onboarding-welcome__title">Before you dive in.</h1>
       <p className="onboarding-welcome__hint" aria-hidden="true">
         Click anywhere to continue
       </p>
@@ -286,16 +312,12 @@ function ThemeStep({
   onContinue,
   onBack,
   totalSteps = 2,
-  pending = false,
-  submitError = null,
 }: {
   theme: Theme;
   onSelect: (t: Theme) => void;
   onContinue: () => void;
   onBack: () => void;
   totalSteps?: number;
-  pending?: boolean;
-  submitError?: string | null;
 }) {
   return (
     <div className="onboarding-step">
@@ -337,9 +359,202 @@ function ThemeStep({
         ))}
       </div>
 
-      {submitError && (
+      <button
+        className="onboarding-continue"
+        onClick={onContinue}
+        type="button"
+      >
+        Continue
+      </button>
+    </div>
+  );
+}
+
+function PreviewContent() {
+  return (
+    <>
+      <div className="theme-preview__sidebar" />
+      <div className="theme-preview__main">
+        <div className="theme-preview__bar" />
+        <div className="theme-preview__bar theme-preview__bar--short" />
+        <div className="theme-preview__bar theme-preview__bar--shorter" />
+      </div>
+    </>
+  );
+}
+
+function ThemePreview({ variant }: { variant: Theme }) {
+  if (variant === "system") {
+    return (
+      <div className="theme-preview theme-preview--system" aria-hidden="true">
+        <div className="theme-preview__half theme-preview__half--light">
+          <PreviewContent />
+        </div>
+        <div className="theme-preview__half theme-preview__half--dark">
+          <PreviewContent />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`theme-preview theme-preview--${variant}`}
+      aria-hidden="true"
+    >
+      <PreviewContent />
+    </div>
+  );
+}
+
+function ProfileStep({
+  prefs,
+  onDisplayNameChange,
+  onAvatarChange,
+  onContinue,
+  onBack,
+  pending,
+  error,
+  stepIndex,
+  totalSteps,
+  isLastStep,
+}: {
+  prefs: Prefs;
+  onDisplayNameChange: (val: string) => void;
+  onAvatarChange: (val: string | null) => void;
+  onContinue: () => void;
+  onBack: () => void;
+  pending: boolean;
+  error: string | null;
+  stepIndex: number;
+  totalSteps: number;
+  isLastStep: boolean;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 256;
+        canvas.height = 256;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        const size = Math.min(img.width, img.height);
+        const sx = (img.width - size) / 2;
+        const sy = (img.height - size) / 2;
+        ctx.drawImage(img, sx, sy, size, size, 0, 0, 256, 256);
+        onAvatarChange(canvas.toDataURL("image/jpeg", 0.85));
+      };
+      img.src = evt.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  }
+
+  const initials = prefs.displayName
+    ? prefs.displayName
+        .trim()
+        .split(/\s+/)
+        .map((w) => w[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
+    : null;
+
+  const indexStr = String(stepIndex).padStart(2, "0");
+
+  return (
+    <div className="onboarding-step">
+      <div className="onboarding-step__nav">
+        <button
+          className="onboarding-back"
+          onClick={onBack}
+          type="button"
+          aria-label="Go back"
+        >
+          ← Back
+        </button>
+        <StepProgress current={stepIndex} total={totalSteps} />
+      </div>
+
+      <div className="onboarding-step__header">
+        <span className="onboarding-step__index">{indexStr}</span>
+        <h2 className="onboarding-step__title">Your profile</h2>
+      </div>
+
+      <div className="onboarding-profile">
+        <div className="onboarding-avatar">
+          <button
+            type="button"
+            className="onboarding-avatar__btn"
+            onClick={() => fileInputRef.current?.click()}
+            aria-label="Choose profile picture"
+          >
+            <span className="onboarding-avatar__inner">
+              {prefs.avatarUrl ? (
+                <img
+                  className="onboarding-avatar__img"
+                  src={prefs.avatarUrl}
+                  alt="Profile preview"
+                />
+              ) : initials ? (
+                <span className="onboarding-avatar__initials">{initials}</span>
+              ) : (
+                <svg
+                  className="onboarding-avatar__icon"
+                  width="28"
+                  height="28"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 20c0-4 3.582-7 8-7s8 3 8 7" />
+                </svg>
+              )}
+            </span>
+          </button>
+          <span className="onboarding-avatar__hint">Click to upload photo</span>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={handleFileChange}
+          />
+        </div>
+
+        <div className="onboarding-field">
+          <label className="onboarding-field__label" htmlFor="ob-displayName">
+            Full name
+          </label>
+          <input
+            className="onboarding-field__input"
+            id="ob-displayName"
+            type="text"
+            placeholder="Your name"
+            value={prefs.displayName}
+            onChange={(e) => onDisplayNameChange(e.target.value)}
+            maxLength={80}
+          />
+          <span className="onboarding-field__help">
+            Optional — you can update this later.
+          </span>
+        </div>
+      </div>
+
+      {error && (
         <p className="onboarding-error" role="alert">
-          {submitError}
+          {error}
         </p>
       )}
 
@@ -349,56 +564,22 @@ function ThemeStep({
         disabled={pending}
         type="button"
       >
-        {pending ? "Saving…" : "Continue"}
+        {pending ? "Saving…" : isLastStep ? "Enter Staaash" : "Continue"}
       </button>
     </div>
   );
 }
 
-function ThemePreview({ variant }: { variant: Theme }) {
-  return (
-    <div
-      className={`theme-preview theme-preview--${variant}`}
-      aria-hidden="true"
-    >
-      {variant === "system" && <div className="theme-preview__dark-half" />}
-      <div className="theme-preview__sidebar" />
-      <div className="theme-preview__main">
-        <div className="theme-preview__bar" />
-        <div className="theme-preview__bar theme-preview__bar--short" />
-        <div className="theme-preview__bar theme-preview__bar--shorter" />
-      </div>
-    </div>
-  );
-}
-
-const PRIVACY_TOGGLES: {
-  key: keyof Pick<Prefs, "showUpdateNotifications" | "enableVersionChecks">;
-  label: string;
-  desc: string;
-}[] = [
-  {
-    key: "showUpdateNotifications",
-    label: "Update notifications",
-    desc: "Show a badge when a new version of Staaash is available.",
-  },
-  {
-    key: "enableVersionChecks",
-    label: "Version checks",
-    desc: "Periodically check GitHub for new releases. Sends no personal data.",
-  },
-];
-
 function PrivacyStep({
   prefs,
-  onChange,
+  onVersionChecksChange,
   onComplete,
   onBack,
   pending,
   error,
 }: {
   prefs: Prefs;
-  onChange: (key: keyof Prefs, val: boolean) => void;
+  onVersionChecksChange: (val: boolean) => void;
   onComplete: () => void;
   onBack: () => void;
   pending: boolean;
@@ -415,38 +596,39 @@ function PrivacyStep({
         >
           ← Back
         </button>
-        <StepProgress current={2} total={2} />
+        <StepProgress current={3} total={3} />
       </div>
 
       <div className="onboarding-step__header">
-        <span className="onboarding-step__index">02</span>
+        <span className="onboarding-step__index">03</span>
         <h2 className="onboarding-step__title">Privacy &amp; features</h2>
       </div>
 
       <p className="onboarding-step__body">
-        These features reach external services. All are on by default — turn off
-        anything you&apos;d rather keep fully local.
+        Periodically checks GitHub for new releases. Sends no personal data.
+        Disable to keep Staaash fully offline.
       </p>
 
       <div className="onboarding-toggles">
-        {PRIVACY_TOGGLES.map((t) => (
-          <label key={t.key} className="onboarding-toggle">
-            <div className="onboarding-toggle__text">
-              <span className="onboarding-toggle__label">{t.label}</span>
-              <span className="onboarding-toggle__desc">{t.desc}</span>
-            </div>
-            <button
-              role="switch"
-              aria-checked={prefs[t.key]}
-              className={`onboarding-switch${prefs[t.key] ? " onboarding-switch--on" : ""}`}
-              onClick={() => onChange(t.key, !prefs[t.key])}
-              type="button"
-              aria-label={t.label}
-            >
-              <span className="onboarding-switch__thumb" />
-            </button>
-          </label>
-        ))}
+        <label className="onboarding-toggle">
+          <div className="onboarding-toggle__text">
+            <span className="onboarding-toggle__label">Version checks</span>
+            <span className="onboarding-toggle__desc">
+              Check GitHub for updates and show a badge when a new version is
+              available.
+            </span>
+          </div>
+          <button
+            role="switch"
+            aria-checked={prefs.enableVersionChecks}
+            className={`onboarding-switch${prefs.enableVersionChecks ? " onboarding-switch--on" : ""}`}
+            onClick={() => onVersionChecksChange(!prefs.enableVersionChecks)}
+            type="button"
+            aria-label="Version checks"
+          >
+            <span className="onboarding-switch__thumb" />
+          </button>
+        </label>
       </div>
 
       {error && (

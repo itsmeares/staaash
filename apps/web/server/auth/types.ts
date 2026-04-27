@@ -12,6 +12,7 @@ export type AuthUser = {
   email: string;
   username: string;
   displayName: string | null;
+  avatarUrl: string | null;
   role: UserRole;
   storageLimitBytes: bigint | null;
   preferences: UserPreferences | null;

@@ -211,18 +211,6 @@ export function EntryExperience({
             </div>
 
             <div className="entry-form__field">
-              <label className="entry-form__label" htmlFor="displayName">
-                Display name
-              </label>
-              <input
-                className="entry-form__input"
-                id="displayName"
-                name="displayName"
-                placeholder="John Doe"
-              />
-            </div>
-
-            <div className="entry-form__field">
               <label className="entry-form__label" htmlFor="email">
                 Email
               </label>

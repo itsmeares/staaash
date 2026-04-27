@@ -566,6 +566,8 @@ export const createAuthService = ({
         theme: string;
         showUpdateNotifications: boolean;
         enableVersionChecks: boolean;
+        displayName?: string | null;
+        avatarUrl?: string | null;
       },
     ) {
       return (await resolveRepo()).savePreferences({
@@ -573,6 +575,8 @@ export const createAuthService = ({
         theme: prefs.theme,
         showUpdateNotifications: prefs.showUpdateNotifications,
         enableVersionChecks: prefs.enableVersionChecks,
+        displayName: prefs.displayName,
+        avatarUrl: prefs.avatarUrl,
         onboardingCompletedAt: new Date(),
       });
     },

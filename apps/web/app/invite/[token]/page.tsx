@@ -96,19 +96,6 @@ export default async function InviteRedeemPage({
                 </div>
 
                 <div className="field">
-                  <label htmlFor="displayName">Display name</label>
-                  <input
-                    id="displayName"
-                    name="displayName"
-                    autoComplete="name"
-                    placeholder="Your name"
-                  />
-                  <span className="field-help">
-                    Presentation only. This does not affect your disk path.
-                  </span>
-                </div>
-
-                <div className="field">
                   <label htmlFor="password">Password</label>
                   <input
                     id="password"

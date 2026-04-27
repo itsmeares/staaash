@@ -87,6 +87,8 @@ type SavePreferencesParams = {
   showUpdateNotifications: boolean;
   enableVersionChecks: boolean;
   onboardingCompletedAt?: Date;
+  displayName?: string | null;
+  avatarUrl?: string | null;
 };
 
 type AuthPrismaClient = Pick<
@@ -145,6 +147,7 @@ const toAuthUser = (
     | "email"
     | "username"
     | "displayName"
+    | "avatarUrl"
     | "role"
     | "storageLimitBytes"
     | "createdAt"
@@ -155,6 +158,7 @@ const toAuthUser = (
   email: user.email,
   username: user.username,
   displayName: user.displayName,
+  avatarUrl: user.avatarUrl,
   role: user.role,
   storageLimitBytes: user.storageLimitBytes,
   preferences: user.preferences
@@ -653,6 +657,21 @@ export const createPrismaAuthRepository = (
       params: SavePreferencesParams,
     ): Promise<UserPreferences> {
       const client = getClient();
+
+      if (params.displayName !== undefined || params.avatarUrl !== undefined) {
+        await client.user.update({
+          where: { id: params.userId },
+          data: {
+            ...(params.displayName !== undefined
+              ? { displayName: params.displayName || null }
+              : {}),
+            ...(params.avatarUrl !== undefined
+              ? { avatarUrl: params.avatarUrl }
+              : {}),
+          },
+        });
+      }
+
       const pref = await client.userPreference.upsert({
         where: { userId: params.userId },
         create: {
