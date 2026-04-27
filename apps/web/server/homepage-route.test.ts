@@ -72,6 +72,6 @@ describe("HomePage route", () => {
     const page = await HomePage({ searchParams });
     const markup = renderToStaticMarkup(page);
 
-    expect(markup).toContain("A few things before you begin.");
+    expect(markup).toContain("Before you dive in.");
   });
 });
