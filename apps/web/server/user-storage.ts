@@ -1,3 +1,5 @@
+import { statfs } from "fs/promises";
+
 import { getPrisma } from "@staaash/db/client";
 
 export type UserStorageUsage = {
@@ -25,4 +27,20 @@ export const getInstanceStorageUsed = async (): Promise<bigint> => {
   });
 
   return (result._sum.sizeBytes as bigint | null) ?? 0n;
+};
+
+export type DiskInfo = {
+  capacityBytes: bigint;
+  usedBytes: bigint;
+};
+
+export const getInstanceDiskInfo = async (): Promise<DiskInfo | null> => {
+  try {
+    const s = await statfs(process.cwd());
+    const capacity = BigInt(s.blocks) * BigInt(s.bsize);
+    const free = BigInt(s.bfree) * BigInt(s.bsize);
+    return { capacityBytes: capacity, usedBytes: capacity - free };
+  } catch {
+    return null;
+  }
 };

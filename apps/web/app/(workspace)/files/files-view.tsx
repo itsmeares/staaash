@@ -150,6 +150,12 @@ export function FilesView({
   const dragCounterRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    const handler = () => fileInputRef.current?.click();
+    window.addEventListener("staaash:upload-click", handler);
+    return () => window.removeEventListener("staaash:upload-click", handler);
+  }, []);
+
   // ---- Rubber-band ----
   const [rubberBand, setRubberBand] = useState<RubberBand | null>(null);
   const isRubberBanding = useRef(false);
@@ -967,11 +973,6 @@ export function FilesView({
                 </PopoverContent>
               </Popover>
 
-              {/* Upload */}
-              <Button size="sm" onClick={() => fileInputRef.current?.click()}>
-                <Upload />
-                Upload
-              </Button>
               <input
                 ref={fileInputRef}
                 type="file"

@@ -5,12 +5,14 @@ import { Toaster } from "@/components/ui/sonner";
 import { env } from "@/lib/env";
 import { getCurrentSession } from "@/server/auth/session";
 import {
+  getInstanceDiskInfo,
   getInstanceStorageUsed,
   getUserStorageUsed,
 } from "@/server/user-storage";
 import { readInstanceUpdateCheck } from "@staaash/db/instance";
 
 import { InstanceBadge } from "./instance-badge";
+import { TopbarActions } from "./topbar-actions";
 import { WorkspaceNav, workspaceNavGroups } from "./workspace-nav";
 import { WorkspaceStorage } from "./workspace-storage";
 
@@ -35,16 +37,18 @@ export default async function WorkspaceLayout({
 
   let usedBytes: bigint = 0n;
   let limitBytes: bigint | null = null;
-  let instanceUsedBytes: bigint = 0n;
+  let diskCapacityBytes: bigint | null = null;
+  let diskUsedBytes: bigint | null = null;
 
   if (session) {
-    const [usage, instanceUsed] = await Promise.all([
+    const [usage, diskInfo] = await Promise.all([
       getUserStorageUsed(session.user.id),
-      getInstanceStorageUsed(),
+      getInstanceDiskInfo(),
     ]);
     usedBytes = usage.usedBytes;
     limitBytes = session.user.storageLimitBytes ?? null;
-    instanceUsedBytes = instanceUsed;
+    diskCapacityBytes = diskInfo?.capacityBytes ?? null;
+    diskUsedBytes = diskInfo?.usedBytes ?? null;
   }
 
   const instanceUpdateState = await readInstanceUpdateCheck().catch(() => null);
@@ -65,43 +69,15 @@ export default async function WorkspaceLayout({
 
           <WorkspaceNav groups={workspaceNavGroups} />
 
-          {session && userLabel ? (
+          {session ? (
             <section className="workspace-user-panel">
               <WorkspaceStorage
                 usedBytes={usedBytes.toString()}
                 limitBytes={limitBytes?.toString() ?? null}
-                instanceUsedBytes={instanceUsedBytes.toString()}
+                diskUsedBytes={diskUsedBytes?.toString() ?? null}
+                diskCapacityBytes={diskCapacityBytes?.toString() ?? null}
+                isAdmin={session.user.role === "owner"}
               />
-
-              <div className="workspace-user-identity">
-                <div
-                  className="workspace-avatar"
-                  aria-label={`Avatar for ${userLabel}`}
-                >
-                  <span className="workspace-avatar-initials">{initials}</span>
-                </div>
-
-                <div className="workspace-user-info">
-                  <span className="workspace-user-name">{userLabel}</span>
-                  <span className="workspace-user-meta">
-                    @{session.user.username}
-                  </span>
-                </div>
-              </div>
-
-              <div className="workspace-user-actions">
-                {session.user.role === "owner" ? (
-                  <Link className="workspace-user-action-link" href="/admin">
-                    Admin
-                  </Link>
-                ) : null}
-                <form action="/api/auth/sign-out" method="post">
-                  <input type="hidden" name="next" value="/" />
-                  <button className="workspace-user-action-link" type="submit">
-                    Sign out
-                  </button>
-                </form>
-              </div>
             </section>
           ) : null}
 
@@ -134,6 +110,32 @@ export default async function WorkspaceLayout({
                 type="search"
               />
             </form>
+            {session ? (
+              <TopbarActions
+                userLabel={userLabel}
+                username={session.user.username}
+                initials={initials}
+                isOwner={session.user.role === "owner"}
+                avatarUrl={session.user.avatarUrl ?? null}
+                initialTheme={
+                  (session.user.preferences?.theme as
+                    | "light"
+                    | "dark"
+                    | "system") ?? "system"
+                }
+                initialShowUpdateNotifications={
+                  session.user.preferences?.showUpdateNotifications ?? true
+                }
+                initialEnableVersionChecks={
+                  session.user.preferences?.enableVersionChecks ?? true
+                }
+                updateStatus={instanceUpdateState?.updateCheckStatus ?? null}
+                latestVersion={
+                  instanceUpdateState?.latestAvailableVersion ?? null
+                }
+                repository={env.UPDATE_CHECK_REPOSITORY || null}
+              />
+            ) : null}
           </header>
 
           <div className="workspace-content">{children}</div>
