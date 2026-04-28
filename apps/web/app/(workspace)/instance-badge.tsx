@@ -85,19 +85,23 @@ export function InstanceBadge({
               {updateLabel}
             </dd>
           </div>
+          {releaseUrl && (
+            <div className="instance-badge-row">
+              <dt>Releases</dt>
+              <dd>
+                <a
+                  href={releaseUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="instance-badge-releases-link"
+                >
+                  View on GitHub
+                  <ExternalLink size={10} strokeWidth={2} aria-hidden />
+                </a>
+              </dd>
+            </div>
+          )}
         </dl>
-
-        {releaseUrl && (
-          <a
-            href={releaseUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="instance-badge-releases-link"
-          >
-            View releases
-            <ExternalLink size={11} strokeWidth={2} aria-hidden />
-          </a>
-        )}
       </DialogContent>
     </Dialog>
   );
