@@ -2,10 +2,11 @@
 
 import { ExternalLink } from "lucide-react";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 type UpdateStatus =
   | "up-to-date"
@@ -53,20 +54,17 @@ export function InstanceBadge({
     : null;
 
   return (
-    <Popover>
-      <PopoverTrigger className="instance-badge-trigger">
+    <Dialog>
+      <DialogTrigger className="instance-badge-trigger">
         <StatusDot status={updateStatus} />
         <span className="instance-badge-version">v{appVersion}</span>
-      </PopoverTrigger>
-      <PopoverContent
-        side="top"
-        align="start"
-        sideOffset={10}
-        className="instance-badge-popover"
-      >
-        <div className="instance-badge-popover-header">
-          <StatusDot status={updateStatus} />
-          <span className="instance-badge-popover-title">Staaash</span>
+      </DialogTrigger>
+      <DialogContent className="instance-about-dialog">
+        <div className="instance-dialog-header">
+          <div className="flex items-center gap-2">
+            <StatusDot status={updateStatus} />
+            <DialogTitle className="instance-dialog-title">Staaash</DialogTitle>
+          </div>
         </div>
 
         <dl className="instance-badge-dl">
@@ -100,7 +98,7 @@ export function InstanceBadge({
             <ExternalLink size={11} strokeWidth={2} aria-hidden />
           </a>
         )}
-      </PopoverContent>
-    </Popover>
+      </DialogContent>
+    </Dialog>
   );
 }

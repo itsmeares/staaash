@@ -692,23 +692,24 @@ h3 {
   background: oklch(60% 0.2 27);
 }
 
-/* Popover content */
-.instance-badge-popover {
-  width: 196px !important;
-  padding: 14px !important;
-  gap: 12px !important;
+/* About dialog — overrides shadcn DialogContent defaults */
+.instance-about-dialog {
+  max-width: 360px !important;
+  border-radius: 14px !important;
+  padding: 18px 20px 20px !important;
+  gap: 16px !important;
 }
 
-.instance-badge-popover-header {
+.instance-dialog-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
 }
 
-.instance-badge-popover-title {
+.instance-dialog-title {
   font-family: var(--font-cabinet), sans-serif;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--foreground);
 }
 
