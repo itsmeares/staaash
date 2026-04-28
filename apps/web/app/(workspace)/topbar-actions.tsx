@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, Sun, Moon, SunMoon, Bell } from "lucide-react";
+import {
+  Upload,
+  Sun,
+  Moon,
+  SunMoon,
+  Bell,
+  Settings2,
+  Wrench,
+  LogOut,
+} from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -140,7 +149,10 @@ export function TopbarActions({
       </Popover>
 
       <Popover>
-        <PopoverTrigger className="workspace-avatar" aria-label="Profile menu">
+        <PopoverTrigger
+          className="workspace-avatar cursor-pointer"
+          aria-label="Profile menu"
+        >
           {avatarUrl ? (
             <img src={avatarUrl} alt="" className="workspace-avatar-img" />
           ) : (
@@ -150,33 +162,55 @@ export function TopbarActions({
         <PopoverContent
           side="bottom"
           align="end"
-          className="topbar-profile-popover"
+          className="!p-0 gap-0 topbar-profile-popover"
         >
-          <div className="topbar-profile-header">
-            <div className="workspace-avatar topbar-profile-avatar">
+          <div
+            className="flex flex-col items-center px-4 pt-5 pb-4"
+            style={{
+              background:
+                "color-mix(in oklab, var(--primary) 10%, var(--background))",
+              borderBottom:
+                "1px solid color-mix(in oklab, var(--foreground) 8%, transparent)",
+            }}
+          >
+            <div
+              className="workspace-avatar"
+              style={{ width: 48, height: 48, marginBottom: 10 }}
+            >
               {avatarUrl ? (
                 <img src={avatarUrl} alt="" className="workspace-avatar-img" />
               ) : (
                 <span className="workspace-avatar-initials">{initials}</span>
               )}
             </div>
-            <div className="topbar-profile-identity">
-              {userLabel && (
-                <span className="topbar-profile-name">{userLabel}</span>
-              )}
-              <span className="topbar-profile-username">@{username}</span>
-            </div>
+            {userLabel && (
+              <span className="topbar-profile-card-name">{userLabel}</span>
+            )}
+            <span className="topbar-profile-card-username">@{username}</span>
           </div>
 
-          <div className="topbar-profile-actions">
-            <a className="topbar-profile-action" href="/settings">
+          <div className="flex flex-col p-1.5">
+            <a
+              className="topbar-profile-action flex items-center gap-2"
+              href="/settings"
+            >
+              <Settings2 size={14} strokeWidth={2} aria-hidden />
               Settings
             </a>
             {isOwner && (
-              <a className="topbar-profile-action" href="/admin">
+              <a
+                className="topbar-profile-action flex items-center gap-2"
+                href="/admin"
+              >
+                <Wrench size={14} strokeWidth={2} aria-hidden />
                 Admin
               </a>
             )}
+          </div>
+
+          <div className="topbar-profile-divider" />
+
+          <div className="flex flex-col p-1.5">
             <form
               action="/api/auth/sign-out"
               method="post"
@@ -185,8 +219,9 @@ export function TopbarActions({
               <input type="hidden" name="next" value="/" />
               <button
                 type="submit"
-                className="topbar-profile-action topbar-profile-action--danger"
+                className="topbar-profile-action topbar-profile-action--danger flex items-center gap-2"
               >
+                <LogOut size={14} strokeWidth={2} aria-hidden />
                 Sign out
               </button>
             </form>
