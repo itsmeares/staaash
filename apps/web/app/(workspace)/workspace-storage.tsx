@@ -17,9 +17,9 @@ function fmt(n: number): string {
 }
 
 function barColor(pct: number): string {
-  if (pct >= 90) return "oklch(42% 0.18 22)";
-  if (pct >= 70) return "oklch(56% 0.14 42)";
-  return "var(--primary)";
+  if (pct >= 90) return "oklch(60% 0.2 27)";
+  if (pct >= 70) return "oklch(75% 0.16 85)";
+  return "oklch(65% 0.18 145)";
 }
 
 export function WorkspaceStorage({
