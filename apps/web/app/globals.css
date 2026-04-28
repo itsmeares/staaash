@@ -506,15 +506,14 @@ h3 {
 }
 
 .workspace-storage-bar-track {
-  height: 4px;
+  height: 5px;
   border-radius: 99px;
-  background: color-mix(in oklab, var(--foreground) 10%, transparent);
+  background: color-mix(in oklab, var(--foreground) 18%, transparent);
   overflow: hidden;
 }
 
 .workspace-storage-bar-fill {
   height: 100%;
-  border-radius: 99px;
   min-width: 2px;
   transition:
     width 400ms ease,
