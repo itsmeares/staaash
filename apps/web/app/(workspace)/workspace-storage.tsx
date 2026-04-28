@@ -18,11 +18,11 @@ function fmt(n: number): string {
 
 function barColor(pct: number): string {
   const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-  if (pct <= 50) {
-    const t = pct / 50;
+  if (pct <= 65) {
+    const t = pct / 65;
     return `oklch(${lerp(65, 75, t).toFixed(1)}% ${lerp(0.18, 0.16, t).toFixed(3)} ${lerp(145, 85, t).toFixed(1)})`;
   }
-  const t = (pct - 50) / 50;
+  const t = (pct - 65) / 35;
   return `oklch(${lerp(75, 60, t).toFixed(1)}% ${lerp(0.16, 0.2, t).toFixed(3)} ${lerp(85, 27, t).toFixed(1)})`;
 }
 
