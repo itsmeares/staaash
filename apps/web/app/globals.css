@@ -492,46 +492,38 @@ h3 {
 /* Storage */
 .workspace-storage {
   padding: 0 2px;
-}
-
-.workspace-storage-main {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 5px;
 }
 
-.workspace-storage-arc-wrap {
-  position: relative;
-  flex-shrink: 0;
-  width: 56px;
-  height: 56px;
-}
-
-.workspace-storage-arc-inner {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.workspace-storage-arc-pct,
-.workspace-storage-arc-val {
-  position: absolute;
+.workspace-storage-label {
   font-size: 11px;
-  font-weight: 700;
-  color: var(--foreground);
-  line-height: 1;
-  letter-spacing: -0.02em;
-  transition:
-    opacity 200ms ease,
-    transform 200ms ease;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--foreground) 38%, transparent);
 }
 
-.workspace-storage-line {
-  font-size: 13px;
+.workspace-storage-bar-track {
+  height: 4px;
+  border-radius: 99px;
+  background: color-mix(in oklab, var(--foreground) 10%, transparent);
+  overflow: hidden;
+}
+
+.workspace-storage-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  min-width: 2px;
+  transition:
+    width 400ms ease,
+    background 600ms ease;
+}
+
+.workspace-storage-text {
+  font-size: 11.5px;
   color: var(--muted-foreground);
-  line-height: 1.4;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
