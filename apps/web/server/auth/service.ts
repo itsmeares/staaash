@@ -31,7 +31,7 @@ import type {
   SetupState,
   SignInInput,
 } from "@/server/auth/types";
-import { env } from "@/lib/env";
+import { getSystemSettings } from "@/server/settings";
 
 import type { AuthRepository } from "./repository";
 
@@ -102,12 +102,22 @@ export const createAuthService = ({
   repo,
   crypto = authCrypto,
   now = () => new Date(),
-  sessionMaxAgeDays = env.SESSION_MAX_AGE_DAYS,
-  inviteMaxAgeDays = env.INVITE_MAX_AGE_DAYS,
-  passwordResetMaxAgeHours = env.PASSWORD_RESET_MAX_AGE_HOURS,
+  sessionMaxAgeDays,
+  inviteMaxAgeDays,
+  passwordResetMaxAgeHours,
 }: CreateAuthServiceOptions = {}) => {
   const resolveRepo = async (): Promise<AuthRepository> =>
     repo ?? (await import("./repository")).prismaAuthRepository;
+
+  const resolveSettings = async () => {
+    const s = await getSystemSettings();
+    return {
+      sessionMaxAgeDays: sessionMaxAgeDays ?? s.sessionMaxAgeDays,
+      inviteMaxAgeDays: inviteMaxAgeDays ?? s.inviteMaxAgeDays,
+      passwordResetMaxAgeHours:
+        passwordResetMaxAgeHours ?? s.passwordResetMaxAgeHours,
+    };
+  };
 
   const requireOwner = async (actorUserId: string) => {
     const activeRepo = await resolveRepo();
@@ -124,10 +134,11 @@ export const createAuthService = ({
     const issuedAt = now();
     const tokenPair = crypto.issueOpaqueToken();
     const activeRepo = await resolveRepo();
+    const { sessionMaxAgeDays: maxDays } = await resolveSettings();
     const session = await activeRepo.createSession({
       userId: user.id,
       tokenHash: tokenPair.tokenHash,
-      expiresAt: addDays(issuedAt, sessionMaxAgeDays),
+      expiresAt: addDays(issuedAt, maxDays),
     });
 
     return {
@@ -240,13 +251,14 @@ export const createAuthService = ({
 
     const issuedAt = now();
     const tokenPair = crypto.issueOpaqueToken();
+    const { inviteMaxAgeDays: maxDays } = await resolveSettings();
     const invite = await activeRepo.createInvite(
       {
         email: parsed.email,
         role: SESSION_ROLE,
         invitedByUserId: actorUserId,
         tokenHash: tokenPair.tokenHash,
-        expiresAt: addDays(issuedAt, inviteMaxAgeDays),
+        expiresAt: addDays(issuedAt, maxDays),
       },
       issuedAt,
     );
@@ -512,12 +524,13 @@ export const createAuthService = ({
 
       const issuedAt = now();
       const tokenPair = crypto.issueOpaqueToken();
+      const { passwordResetMaxAgeHours: maxHours } = await resolveSettings();
       const reset = await activeRepo.createPasswordReset(
         {
           userId: parsed.userId,
           issuedByUserId: actorUserId,
           tokenHash: tokenPair.tokenHash,
-          expiresAt: addHours(issuedAt, passwordResetMaxAgeHours),
+          expiresAt: addHours(issuedAt, maxHours),
           now: issuedAt,
         },
         issuedAt,

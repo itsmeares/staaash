@@ -1,11 +1,12 @@
 import { createHmac } from "node:crypto";
 
 import { env } from "@/lib/env";
+import { getAuthSecretSync } from "@/server/settings";
 
 export const SHARE_ACCESS_COOKIE_NAME = "staaash_share_access";
 
 const signValue = (value: string) =>
-  createHmac("sha256", env.AUTH_SECRET)
+  createHmac("sha256", getAuthSecretSync())
     .update(":share-access:")
     .update(value)
     .digest("base64url");
@@ -19,7 +20,7 @@ export const buildShareAccessFingerprint = ({
   tokenLookupKey: string;
   passwordHash: string;
 }) =>
-  createHmac("sha256", env.AUTH_SECRET)
+  createHmac("sha256", getAuthSecretSync())
     .update(":share-access-fingerprint:")
     .update(shareId)
     .update(":")

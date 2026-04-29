@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+
 import {
   Prisma,
   getPrisma,
@@ -265,6 +267,7 @@ export const createPrismaAuthRepository = (
               data: {
                 id: "singleton",
                 name: params.instanceName,
+                authSecret: randomBytes(32).toString("hex"),
                 setupCompletedAt: params.createdAt,
               },
             });

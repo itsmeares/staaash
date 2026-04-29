@@ -2,9 +2,9 @@ import { createHash, randomBytes } from "node:crypto";
 
 import type { ShareTargetType } from "@staaash/db/client";
 
-import { env } from "@/lib/env";
 import { canAccessPrivateNamespace } from "@/server/access";
 import { authCrypto } from "@/server/auth/crypto";
+import { getAuthSecret, getSystemSettings } from "@/server/settings";
 import type { FilesRepository } from "@/server/files/repository";
 import type { FilesActor } from "@/server/files/types";
 import type {
@@ -35,6 +35,7 @@ type CreateSharingServiceOptions = {
   filesRepo?: FilesRepository;
   now?: () => Date;
   crypto?: typeof authCrypto;
+  baseUrl?: string;
 };
 
 const getShareLookupKey = (token: string) => {
@@ -43,20 +44,24 @@ const getShareLookupKey = (token: string) => {
   return separatorIndex > 0 ? token.slice(0, separatorIndex) : null;
 };
 
-const signShareLookupKey = (tokenLookupKey: string) =>
+const signShareLookupKey = (secret: string, tokenLookupKey: string) =>
   createHash("sha256")
-    .update(env.AUTH_SECRET)
+    .update(secret)
     .update(":share-token:")
     .update(tokenLookupKey)
     .digest("base64url");
 
-export const buildShareToken = (tokenLookupKey: string) =>
-  `${tokenLookupKey}.${signShareLookupKey(tokenLookupKey)}`;
+export const buildShareToken = (secret: string, tokenLookupKey: string) =>
+  `${tokenLookupKey}.${signShareLookupKey(secret, tokenLookupKey)}`;
 
-export const buildShareUrl = (tokenLookupKey: string) =>
+export const buildShareUrl = (
+  secret: string,
+  tokenLookupKey: string,
+  baseUrl: string,
+) =>
   new URL(
-    `/s/${encodeURIComponent(buildShareToken(tokenLookupKey))}`,
-    env.APP_URL,
+    `/s/${encodeURIComponent(buildShareToken(secret, tokenLookupKey))}`,
+    baseUrl,
   ).toString();
 
 const buildFolderMap = (folders: FolderSummary[]) =>
@@ -234,12 +239,18 @@ export const createSharingService = ({
   filesRepo,
   now = () => new Date(),
   crypto = authCrypto,
+  baseUrl: _baseUrl,
 }: CreateSharingServiceOptions = {}) => {
   const resolveRepo = async (): Promise<SharingRepository> =>
     repo ?? (await import("./repository")).prismaSharingRepository;
   const resolveFilesRepo = async () =>
     filesRepo ??
     (await import("@/server/files/repository")).prismaFilesRepository;
+  const resolveSecretAndBaseUrl = async (callerBaseUrl?: string) => {
+    const secret = await getAuthSecret();
+    const base = callerBaseUrl ?? _baseUrl ?? "http://localhost:3000";
+    return { secret, base };
+  };
 
   const resolveFilesState = async (ownerUserId: string) => {
     const filesRepo = await resolveFilesRepo();
@@ -308,15 +319,16 @@ export const createSharingService = ({
     }
   };
 
-  const issueTokenPair = () => {
+  const issueTokenPair = async (base: string) => {
+    const secret = await getAuthSecret();
     const tokenLookupKey = randomBytes(24).toString("base64url");
-    const token = buildShareToken(tokenLookupKey);
+    const token = buildShareToken(secret, tokenLookupKey);
 
     return {
       tokenLookupKey,
       token,
       tokenHash: crypto.hashOpaqueToken(token),
-      shareUrl: buildShareUrl(tokenLookupKey),
+      shareUrl: buildShareUrl(secret, tokenLookupKey, base),
     };
   };
 
@@ -382,21 +394,25 @@ export const createSharingService = ({
     };
   };
 
-  const toShareSummary = ({
-    share,
-    target,
-    targetUnavailable,
-  }: {
-    share: StoredShareLink;
-    target: ShareTargetSummary;
-    targetUnavailable: boolean;
-  }): ShareLinkSummary => ({
+  const toShareSummary = (
+    {
+      share,
+      target,
+      targetUnavailable,
+    }: {
+      share: StoredShareLink;
+      target: ShareTargetSummary;
+      targetUnavailable: boolean;
+    },
+    secret: string,
+    base: string,
+  ): ShareLinkSummary => ({
     id: share.id,
     createdByUserId: share.createdByUserId,
     targetType: share.targetType,
     fileId: share.fileId,
     folderId: share.folderId,
-    shareUrl: buildShareUrl(share.tokenLookupKey),
+    shareUrl: buildShareUrl(secret, share.tokenLookupKey, base),
     hasPassword: Boolean(share.passwordHash),
     downloadDisabled: share.downloadDisabled,
     expiresAt: share.expiresAt,
@@ -489,6 +505,7 @@ export const createSharingService = ({
       expiresAt,
       downloadDisabled = false,
       password,
+      baseUrl,
     }: FilesActor & {
       targetType: ShareTargetType;
       fileId?: string | null;
@@ -496,13 +513,15 @@ export const createSharingService = ({
       expiresAt?: Date;
       downloadDisabled?: boolean;
       password?: string | null;
+      baseUrl?: string;
     }) {
       const filesRepo = await resolveFilesRepo();
       const actor = { actorUserId, actorRole };
+      const settings = await getSystemSettings();
       const effectiveExpiresAt =
         expiresAt ??
         new Date(
-          now().getTime() + env.SHARE_MAX_AGE_DAYS * 24 * 60 * 60 * 1000,
+          now().getTime() + settings.shareMaxAgeDays * 24 * 60 * 60 * 1000,
         );
 
       if (effectiveExpiresAt.getTime() <= now().getTime()) {
@@ -530,7 +549,8 @@ export const createSharingService = ({
         folderMap,
       });
 
-      const issued = issueTokenPair();
+      const { base } = await resolveSecretAndBaseUrl(baseUrl);
+      const issued = await issueTokenPair(base);
       const passwordHash = password
         ? await crypto.hashPassword(password)
         : null;
@@ -557,11 +577,15 @@ export const createSharingService = ({
       };
     },
 
-    async listOwnedShares({ actorUserId }: FilesActor) {
+    async listOwnedShares({
+      actorUserId,
+      baseUrl,
+    }: FilesActor & { baseUrl?: string }) {
       const [shares, { filesRoot, folderMap, fileMap }] = await Promise.all([
         (await resolveRepo()).listSharesByCreator(actorUserId),
         resolveFilesState(actorUserId),
       ]);
+      const { secret, base } = await resolveSecretAndBaseUrl(baseUrl);
 
       const summaries = shares.map((share) => {
         const target = buildTargetSummary({
@@ -571,11 +595,15 @@ export const createSharingService = ({
           filesRoot,
         });
 
-        return toShareSummary({
-          share,
-          target: target.summary,
-          targetUnavailable: target.targetUnavailable,
-        });
+        return toShareSummary(
+          {
+            share,
+            target: target.summary,
+            targetUnavailable: target.targetUnavailable,
+          },
+          secret,
+          base,
+        );
       });
 
       return {
@@ -590,14 +618,17 @@ export const createSharingService = ({
       currentFolderId,
       childFolderIds,
       fileIds,
+      baseUrl,
     }: FilesActor & {
       currentFolderId: string;
       childFolderIds: string[];
       fileIds: string[];
+      baseUrl?: string;
     }): Promise<ShareFilesLookup> {
       const grouped = await this.listOwnedShares({
         actorUserId,
         actorRole,
+        baseUrl,
       });
       const allShares = [...grouped.active, ...grouped.inactive];
       const folderIdSet = new Set([currentFolderId, ...childFolderIds]);
@@ -687,8 +718,10 @@ export const createSharingService = ({
       actorUserId,
       actorRole,
       shareId,
+      baseUrl,
     }: FilesActor & {
       shareId: string;
+      baseUrl?: string;
     }) {
       const share = await getManagedShare({
         actor: {
@@ -715,7 +748,8 @@ export const createSharingService = ({
         folderMap,
       });
 
-      const issued = issueTokenPair();
+      const { base } = await resolveSecretAndBaseUrl(baseUrl);
+      const issued = await issueTokenPair(base);
       const reissuedShare = await (
         await resolveRepo()
       ).updateShare({
@@ -803,10 +837,12 @@ export const createSharingService = ({
       token,
       requestedFolderId,
       shareAccessCookieValue,
+      baseUrl,
     }: {
       token: string;
       requestedFolderId?: string;
       shareAccessCookieValue?: string | null;
+      baseUrl?: string;
     }): Promise<PublicShareResolution> {
       const share = await getValidatedPublicShare(token);
       const filesRepo = await resolveFilesRepo();
@@ -821,11 +857,16 @@ export const createSharingService = ({
         folderMap: rootState.folderMap,
         filesRoot: rootState.filesRoot,
       });
-      const shareSummary = toShareSummary({
-        share,
-        target: target.summary,
-        targetUnavailable: target.targetUnavailable,
-      });
+      const { secret, base } = await resolveSecretAndBaseUrl(baseUrl);
+      const shareSummary = toShareSummary(
+        {
+          share,
+          target: target.summary,
+          targetUnavailable: target.targetUnavailable,
+        },
+        secret,
+        base,
+      );
 
       if (target.targetUnavailable) {
         throw new ShareError("SHARE_TARGET_UNAVAILABLE");

@@ -33,15 +33,34 @@ enum ShareTargetType {
 }
 
 model Instance {
-  id                    String    @id @default("singleton")
-  name                  String
-  setupCompletedAt      DateTime  @default(now())
-  lastUpdateCheckAt     DateTime?
-  updateCheckStatus     String?
-  updateCheckMessage    String?
+  id                     String    @id @default("singleton")
+  name                   String
+  authSecret             String?
+  setupCompletedAt       DateTime  @default(now())
+  lastUpdateCheckAt      DateTime?
+  updateCheckStatus      String?
+  updateCheckMessage     String?
   latestAvailableVersion String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+}
+
+model SystemSettings {
+  id                           String   @id @default("singleton")
+  sessionMaxAgeDays            Int      @default(30)
+  inviteMaxAgeDays             Int      @default(7)
+  passwordResetMaxAgeHours     Int      @default(4)
+  shareMaxAgeDays              Int      @default(30)
+  maxUploadBytes               BigInt   @default(10737418240)
+  uploadTimeoutMinutes         Int      @default(60)
+  uploadStagingRetentionHours  Int      @default(2)
+  previewMaxSourceBytes        Int      @default(26214400)
+  previewTextMaxBytes          Int      @default(65536)
+  workerHeartbeatMaxAgeSeconds Int      @default(120)
+  updateCheckIntervalHours     Int      @default(24)
+  updateCheckRepository        String   @default("itsmeares/staaash")
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
 }
 
 model User {
