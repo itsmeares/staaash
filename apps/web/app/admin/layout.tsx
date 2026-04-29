@@ -1,76 +1,55 @@
-import Link from "next/link";
-
 import { requireOwnerPageSession } from "@/server/auth/guards";
 
 import { AdminNav } from "./admin-nav";
+import { AdminTopbarActions } from "./admin-topbar-actions";
 
 export const dynamic = "force-dynamic";
+
+function getInitials(displayName: string | null, username: string): string {
+  if (displayName) {
+    const parts = displayName.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
+    }
+    return displayName.slice(0, 2).toUpperCase();
+  }
+  return username.slice(0, 2).toUpperCase();
+}
 
 export default async function AdminLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const session = await requireOwnerPageSession();
   const userLabel = session.user.displayName ?? session.user.email;
+  const initials = getInitials(session.user.displayName, session.user.username);
 
   return (
     <div className="admin-shell">
       <aside className="admin-sidebar">
-        <div className="stack" style={{ gap: "8px" }}>
-          <div className="pill admin-pill" style={{ alignSelf: "start" }}>
-            Owner control plane
-          </div>
-          <h1 className="workspace-brand" style={{ marginTop: "6px" }}>
-            Staaash Admin
-          </h1>
-          <p className="muted" style={{ fontSize: "0.8125rem" }}>
-            Instance operations live here, separate from the everyday member
-            workspace.
-          </p>
-        </div>
-
+        <h1 className="workspace-brand" style={{ padding: "4px 8px" }}>
+          Staaash Admin
+        </h1>
         <AdminNav />
-
-        <div className="admin-sidebar-spacer" />
-
-        <section className="panel stack workspace-user-panel">
-          <div className="stack" style={{ gap: "4px" }}>
-            <strong style={{ fontSize: "0.875rem" }}>{userLabel}</strong>
-            <span className="muted" style={{ fontSize: "0.8125rem" }}>
-              @{session.user.username}
-            </span>
-            <span className="muted" style={{ fontSize: "0.8125rem" }}>
-              {session.user.email}
-            </span>
-            <span
-              className="status-chip status-owner"
-              style={{ marginTop: "4px", alignSelf: "start" }}
-            >
-              {session.user.role}
-            </span>
-          </div>
-          <div className="cluster" style={{ gap: "8px" }}>
-            <Link
-              className="pill"
-              href="/files"
-              style={{ fontSize: "0.8125rem" }}
-            >
-              Back to files
-            </Link>
-            <form action="/api/auth/sign-out" method="post">
-              <input type="hidden" name="next" value="/" />
-              <button
-                className="button button-secondary"
-                type="submit"
-                style={{ minHeight: "36px", fontSize: "0.8125rem" }}
-              >
-                Sign out
-              </button>
-            </form>
-          </div>
-        </section>
       </aside>
 
-      <div className="admin-main">{children}</div>
+      <div className="admin-main">
+        <header className="admin-topbar">
+          <AdminTopbarActions
+            userLabel={userLabel}
+            username={session.user.username}
+            initials={initials}
+            avatarUrl={session.user.avatarUrl ?? null}
+            initialTheme={
+              (session.user.preferences?.theme as
+                | "light"
+                | "dark"
+                | "system") ?? "system"
+            }
+          />
+        </header>
+
+        <div className="admin-main-content">{children}</div>
+      </div>
     </div>
   );
 }

@@ -337,36 +337,55 @@ h3 {
 }
 
 .admin-shell {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   display: grid;
-  grid-template-columns: 252px minmax(0, 1fr);
+  grid-template-columns: 240px minmax(0, 1fr);
 }
 
 .admin-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 28px;
-  padding: 28px 18px;
+  gap: 24px;
+  padding: 24px 16px;
   background: color-mix(in oklab, var(--background) 91%, var(--primary) 9%);
   border-right: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent);
-  position: sticky;
-  top: 0;
   height: 100vh;
   overflow-y: auto;
   -webkit-font-smoothing: antialiased;
 }
 
-.admin-sidebar-spacer {
-  flex: 1;
-}
-
 .admin-main {
   min-width: 0;
-  padding: 40px 48px 72px;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
 }
 
-/* Override global main rule inside admin — admin-main handles all spacing */
-.admin-main main {
+.admin-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 10px 28px;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 8%, transparent);
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.admin-main-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 40px 48px 72px;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--foreground) 14%, transparent)
+    transparent;
+}
+
+/* Override global main rule inside admin — admin-main-content handles spacing */
+.admin-main-content main {
   width: 100%;
   margin: 0;
   padding: 0;
