@@ -12,12 +12,6 @@ export default async function AdminStoragePage() {
   return (
     <main className="stack" style={{ gap: "40px" }}>
       <section>
-        <div
-          className="pill admin-pill"
-          style={{ alignSelf: "start", marginBottom: "16px" }}
-        >
-          /admin/storage
-        </div>
         <h1 style={{ marginBottom: "8px" }}>Storage usage</h1>
         <p className="muted" style={{ maxWidth: "56ch" }}>
           Retained usage counts everything still present in metadata and local

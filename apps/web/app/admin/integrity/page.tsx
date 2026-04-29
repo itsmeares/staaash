@@ -14,12 +14,6 @@ export default async function AdminIntegrityPage() {
   return (
     <main className="stack" style={{ gap: "40px" }}>
       <section>
-        <div
-          className="pill admin-pill"
-          style={{ alignSelf: "start", marginBottom: "16px" }}
-        >
-          /admin/integrity
-        </div>
         <h1 style={{ marginBottom: "8px" }}>Restore integrity</h1>
         <p className="muted" style={{ maxWidth: "56ch" }}>
           Reconciliation verifies DB metadata against committed originals after

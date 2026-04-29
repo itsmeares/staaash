@@ -391,9 +391,15 @@ h3 {
   padding: 0;
 }
 
-.admin-pill {
-  background: color-mix(in oklab, var(--primary) 12%, transparent);
+.admin-kv-link {
+  font-size: 0.78rem;
   color: color-mix(in oklab, var(--primary) 80%, var(--foreground) 20%);
+  font-weight: 500;
+  transition: color 120ms ease;
+}
+
+.admin-kv-link:hover {
+  color: var(--foreground);
 }
 
 .admin-filter-form {

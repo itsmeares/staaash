@@ -37,12 +37,6 @@ export default async function AdminInvitesPage({
   return (
     <main className="stack" style={{ gap: "40px" }}>
       <section>
-        <div
-          className="pill admin-pill"
-          style={{ alignSelf: "start", marginBottom: "16px" }}
-        >
-          /admin/invites
-        </div>
         <h1 style={{ marginBottom: "8px" }}>Invite management</h1>
         <p className="muted" style={{ maxWidth: "56ch" }}>
           Owner-issued invites stay explicit and member-scoped. Active invites

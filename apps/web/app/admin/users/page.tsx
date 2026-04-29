@@ -37,12 +37,6 @@ export default async function AdminUsersPage({
   return (
     <main className="stack" style={{ gap: "40px" }}>
       <section>
-        <div
-          className="pill admin-pill"
-          style={{ alignSelf: "start", marginBottom: "16px" }}
-        >
-          /admin/users
-        </div>
         <h1 style={{ marginBottom: "8px" }}>User management</h1>
         <p className="muted" style={{ maxWidth: "56ch" }}>
           Inventory and password reset issuance. Role changes and moderation

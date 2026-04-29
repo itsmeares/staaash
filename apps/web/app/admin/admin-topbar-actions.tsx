@@ -109,7 +109,7 @@ export function AdminTopbarActions({
               href="/files"
             >
               <FileStack size={14} strokeWidth={2} aria-hidden />
-              Back to files
+              Back to Drive
             </a>
           </div>
 

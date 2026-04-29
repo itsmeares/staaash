@@ -22,12 +22,6 @@ export default async function AdminOverviewPage() {
     <main className="stack" style={{ gap: "40px" }}>
       {/* Page header */}
       <section>
-        <div
-          className="pill admin-pill"
-          style={{ alignSelf: "start", marginBottom: "16px" }}
-        >
-          /admin
-        </div>
         <h1 style={{ marginBottom: "8px" }}>Owner overview</h1>
         <p className="muted" style={{ maxWidth: "56ch" }}>
           Instance health, storage, jobs, and update state at a glance.
@@ -50,16 +44,8 @@ export default async function AdminOverviewPage() {
               {summary.users.activeInvites !== 1 ? "s" : ""}
             </dd>
             <dd>
-              <Link
-                className="pill admin-pill"
-                href="/admin/users"
-                style={{
-                  fontSize: "0.75rem",
-                  padding: "4px 10px",
-                  marginTop: "4px",
-                }}
-              >
-                Manage
+              <Link className="admin-kv-link" href="/admin/users">
+                Manage →
               </Link>
             </dd>
           </div>
@@ -76,16 +62,8 @@ export default async function AdminOverviewPage() {
               {summary.storage.retainedFolderCount !== 1 ? "s" : ""}
             </dd>
             <dd>
-              <Link
-                className="pill admin-pill"
-                href="/admin/storage"
-                style={{
-                  fontSize: "0.75rem",
-                  padding: "4px 10px",
-                  marginTop: "4px",
-                }}
-              >
-                View
+              <Link className="admin-kv-link" href="/admin/storage">
+                View →
               </Link>
             </dd>
           </div>
@@ -107,16 +85,8 @@ export default async function AdminOverviewPage() {
               {summary.jobs.failed} failed · {summary.jobs.dead} dead
             </dd>
             <dd>
-              <Link
-                className="pill admin-pill"
-                href="/admin/jobs"
-                style={{
-                  fontSize: "0.75rem",
-                  padding: "4px 10px",
-                  marginTop: "4px",
-                }}
-              >
-                Monitor
+              <Link className="admin-kv-link" href="/admin/jobs">
+                Monitor →
               </Link>
             </dd>
           </div>
@@ -156,16 +126,8 @@ export default async function AdminOverviewPage() {
               {summary.health.reconciliation.orphanedStorageCount} orphaned
             </dd>
             <dd>
-              <Link
-                className="pill admin-pill"
-                href="/admin/integrity"
-                style={{
-                  fontSize: "0.75rem",
-                  padding: "4px 10px",
-                  marginTop: "4px",
-                }}
-              >
-                Reconcile
+              <Link className="admin-kv-link" href="/admin/integrity">
+                Reconcile →
               </Link>
             </dd>
           </div>

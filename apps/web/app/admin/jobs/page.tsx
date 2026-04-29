@@ -58,12 +58,6 @@ export default async function AdminJobsPage({
   return (
     <main className="stack" style={{ gap: "40px" }}>
       <section>
-        <div
-          className="pill admin-pill"
-          style={{ alignSelf: "start", marginBottom: "16px" }}
-        >
-          /admin/jobs
-        </div>
         <h1 style={{ marginBottom: "8px" }}>Background job monitor</h1>
         <p className="muted" style={{ maxWidth: "56ch" }}>
           Queue state is visible and filterable. Read-only — job mutation is not

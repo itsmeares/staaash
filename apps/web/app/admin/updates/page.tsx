@@ -14,12 +14,6 @@ export default async function AdminUpdatesPage() {
   return (
     <main className="stack" style={{ gap: "40px" }}>
       <section>
-        <div
-          className="pill admin-pill"
-          style={{ alignSelf: "start", marginBottom: "16px" }}
-        >
-          /admin/updates
-        </div>
         <h1 style={{ marginBottom: "8px" }}>Update status</h1>
         <p className="muted" style={{ maxWidth: "56ch" }}>
           Update checks run on the worker and are stored on the instance record.

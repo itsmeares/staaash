@@ -7,12 +7,6 @@ export default async function AdminSettingsPage() {
   return (
     <main className="stack" style={{ gap: "40px" }}>
       <section>
-        <div
-          className="pill admin-pill"
-          style={{ alignSelf: "start", marginBottom: "16px" }}
-        >
-          /admin/settings
-        </div>
         <h1 style={{ marginBottom: "8px" }}>Instance settings</h1>
         <p className="muted" style={{ maxWidth: "56ch" }}>
           Current configuration as resolved from environment variables. All
