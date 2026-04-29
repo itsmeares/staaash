@@ -35,11 +35,16 @@ export default async function AdminInvitesPage({
   const invites = allInvites.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <main className="stack">
-      <section className="panel stack">
-        <div className="pill admin-pill">/admin/invites</div>
-        <h1>Invite management</h1>
-        <p className="muted">
+    <main className="stack" style={{ gap: "40px" }}>
+      <section>
+        <div
+          className="pill admin-pill"
+          style={{ alignSelf: "start", marginBottom: "16px" }}
+        >
+          /admin/invites
+        </div>
+        <h1 style={{ marginBottom: "8px" }}>Invite management</h1>
+        <p className="muted" style={{ maxWidth: "56ch" }}>
           Owner-issued invites stay explicit and member-scoped. Active invites
           can be revoked or reissued without opening broader account controls.
         </p>

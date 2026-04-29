@@ -35,13 +35,18 @@ export default async function AdminUsersPage({
   const users = allUsers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <main className="stack">
-      <section className="panel stack">
-        <div className="pill admin-pill">/admin/users</div>
-        <h1>User management</h1>
-        <p className="muted">
-          Phase 7 keeps user management operational: inventory and password
-          reset issuance, without role changes or moderation controls.
+    <main className="stack" style={{ gap: "40px" }}>
+      <section>
+        <div
+          className="pill admin-pill"
+          style={{ alignSelf: "start", marginBottom: "16px" }}
+        >
+          /admin/users
+        </div>
+        <h1 style={{ marginBottom: "8px" }}>User management</h1>
+        <p className="muted" style={{ maxWidth: "56ch" }}>
+          Inventory and password reset issuance. Role changes and moderation
+          controls are out of scope for this release.
         </p>
       </section>
 

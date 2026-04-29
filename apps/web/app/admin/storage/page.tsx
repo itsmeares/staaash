@@ -10,42 +10,54 @@ export default async function AdminStoragePage() {
   const summary = await getAdminStorageSummary();
 
   return (
-    <main className="stack">
-      <section className="panel stack">
-        <div className="pill admin-pill">/admin/storage</div>
-        <h1>Storage usage</h1>
-        <p className="muted">
+    <main className="stack" style={{ gap: "40px" }}>
+      <section>
+        <div
+          className="pill admin-pill"
+          style={{ alignSelf: "start", marginBottom: "16px" }}
+        >
+          /admin/storage
+        </div>
+        <h1 style={{ marginBottom: "8px" }}>Storage usage</h1>
+        <p className="muted" style={{ maxWidth: "56ch" }}>
           Retained usage counts everything still present in metadata and local
           storage, including trashed content that has not yet been deleted.
         </p>
       </section>
 
-      <section className="grid">
-        <article className="panel stack">
-          <h2>Retained bytes</h2>
-          <p className="muted">{formatAdminBytes(summary.retainedBytes)}</p>
-        </article>
-        <article className="panel stack">
-          <h2>Users</h2>
-          <p className="muted">{summary.totalUsers}</p>
-        </article>
-        <article className="panel stack">
-          <h2>Retained files</h2>
-          <p className="muted">{summary.retainedFileCount}</p>
-        </article>
-        <article className="panel stack">
-          <h2>Retained folders</h2>
-          <p className="muted">{summary.retainedFolderCount}</p>
-        </article>
+      <section>
+        <p className="admin-eyebrow">Summary</p>
+        <dl className="admin-kv-strip">
+          <div className="admin-kv-item">
+            <dt className="admin-kv-label">Retained bytes</dt>
+            <dd className="admin-kv-value">
+              {formatAdminBytes(summary.retainedBytes)}
+            </dd>
+          </div>
+          <div className="admin-kv-item">
+            <dt className="admin-kv-label">Users</dt>
+            <dd className="admin-kv-value">{summary.totalUsers}</dd>
+          </div>
+          <div className="admin-kv-item">
+            <dt className="admin-kv-label">Retained files</dt>
+            <dd className="admin-kv-value">{summary.retainedFileCount}</dd>
+          </div>
+          <div className="admin-kv-item">
+            <dt className="admin-kv-label">Retained folders</dt>
+            <dd className="admin-kv-value">{summary.retainedFolderCount}</dd>
+          </div>
+        </dl>
       </section>
 
-      <section className="panel stack">
-        <div className="split">
-          <div className="stack">
-            <h2>Per-user retained usage</h2>
-            <p className="muted">
-              This view is aggregate-only. It does not allow browsing member
-              private content.
+      <section>
+        <div className="admin-section-head" style={{ marginBottom: "0" }}>
+          <div>
+            <h2 style={{ fontSize: "1rem" }}>Per-user retained usage</h2>
+            <p
+              className="muted"
+              style={{ fontSize: "0.8125rem", marginTop: "4px" }}
+            >
+              Aggregate only — does not allow browsing member private content.
             </p>
           </div>
         </div>
@@ -56,7 +68,7 @@ export default async function AdminStoragePage() {
               <tr>
                 <th>User</th>
                 <th>Role</th>
-                <th>Retained bytes</th>
+                <th>Retained</th>
                 <th>Files</th>
                 <th>Folders</th>
                 <th>Last activity</th>
@@ -66,9 +78,13 @@ export default async function AdminStoragePage() {
               {summary.rows.map((row) => (
                 <tr key={row.userId}>
                   <td>
-                    <div className="stack">
-                      <strong>{row.displayName ?? row.email}</strong>
-                      <span className="muted">@{row.username}</span>
+                    <div style={{ display: "grid", gap: "2px" }}>
+                      <strong style={{ fontSize: "0.875rem" }}>
+                        {row.displayName ?? row.email}
+                      </strong>
+                      <span className="muted" style={{ fontSize: "0.8125rem" }}>
+                        @{row.username}
+                      </span>
                     </div>
                   </td>
                   <td>

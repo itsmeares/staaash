@@ -15,35 +15,54 @@ export default async function AdminLayout({
   return (
     <div className="admin-shell">
       <aside className="admin-sidebar">
-        <div className="stack">
-          <div className="pill admin-pill">Owner control plane</div>
-          <div className="stack">
-            <h1 className="workspace-brand">Staaash Admin</h1>
-            <p className="muted">
-              Instance operations live here, separate from the everyday member
-              workspace.
-            </p>
+        <div className="stack" style={{ gap: "8px" }}>
+          <div className="pill admin-pill" style={{ alignSelf: "start" }}>
+            Owner control plane
           </div>
+          <h1 className="workspace-brand" style={{ marginTop: "6px" }}>
+            Staaash Admin
+          </h1>
+          <p className="muted" style={{ fontSize: "0.8125rem" }}>
+            Instance operations live here, separate from the everyday member
+            workspace.
+          </p>
         </div>
 
         <AdminNav />
 
+        <div className="admin-sidebar-spacer" />
+
         <section className="panel stack workspace-user-panel">
-          <div className="stack">
-            <strong>{userLabel}</strong>
-            <span className="muted">@{session.user.username}</span>
-            <span className="muted">{session.user.email}</span>
-            <span className="status-chip status-owner">
+          <div className="stack" style={{ gap: "4px" }}>
+            <strong style={{ fontSize: "0.875rem" }}>{userLabel}</strong>
+            <span className="muted" style={{ fontSize: "0.8125rem" }}>
+              @{session.user.username}
+            </span>
+            <span className="muted" style={{ fontSize: "0.8125rem" }}>
+              {session.user.email}
+            </span>
+            <span
+              className="status-chip status-owner"
+              style={{ marginTop: "4px", alignSelf: "start" }}
+            >
               {session.user.role}
             </span>
           </div>
-          <div className="cluster">
-            <Link className="pill" href="/files">
+          <div className="cluster" style={{ gap: "8px" }}>
+            <Link
+              className="pill"
+              href="/files"
+              style={{ fontSize: "0.8125rem" }}
+            >
               Back to files
             </Link>
             <form action="/api/auth/sign-out" method="post">
               <input type="hidden" name="next" value="/" />
-              <button className="button button-secondary" type="submit">
+              <button
+                className="button button-secondary"
+                type="submit"
+                style={{ minHeight: "36px", fontSize: "0.8125rem" }}
+              >
                 Sign out
               </button>
             </form>
@@ -51,9 +70,7 @@ export default async function AdminLayout({
         </section>
       </aside>
 
-      <div className="admin-main">
-        <div className="admin-content">{children}</div>
-      </div>
+      <div className="admin-main">{children}</div>
     </div>
   );
 }

@@ -56,73 +56,84 @@ export default async function AdminJobsPage({
   });
 
   return (
-    <main className="stack">
-      <section className="panel stack">
-        <div className="pill admin-pill">/admin/jobs</div>
-        <h1>Background job monitor</h1>
-        <p className="muted">
-          Phase 7 keeps this read-only. Queue state is visible and filterable,
-          but not operator-mutable from the UI.
+    <main className="stack" style={{ gap: "40px" }}>
+      <section>
+        <div
+          className="pill admin-pill"
+          style={{ alignSelf: "start", marginBottom: "16px" }}
+        >
+          /admin/jobs
+        </div>
+        <h1 style={{ marginBottom: "8px" }}>Background job monitor</h1>
+        <p className="muted" style={{ maxWidth: "56ch" }}>
+          Queue state is visible and filterable. Read-only — job mutation is not
+          available from the UI.
         </p>
       </section>
 
-      <section className="grid">
-        <article className="panel stack">
-          <h2>Total jobs</h2>
-          <p className="muted">{response.statusCounts.total}</p>
-        </article>
-        <article className="panel stack">
-          <h2>Queued</h2>
-          <p className="muted">{response.statusCounts.queued}</p>
-        </article>
-        <article className="panel stack">
-          <h2>Running</h2>
-          <p className="muted">{response.statusCounts.running}</p>
-        </article>
-        <article className="panel stack">
-          <h2>Failed</h2>
-          <p className="muted">{response.statusCounts.failed}</p>
-        </article>
-        <article className="panel stack">
-          <h2>Dead</h2>
-          <p className="muted">{response.statusCounts.dead}</p>
-        </article>
+      <section>
+        <p className="admin-eyebrow">Queue counts</p>
+        <dl className="admin-kv-strip">
+          <div className="admin-kv-item">
+            <dt className="admin-kv-label">Total</dt>
+            <dd className="admin-kv-value">{response.statusCounts.total}</dd>
+          </div>
+          <div className="admin-kv-item">
+            <dt className="admin-kv-label">Queued</dt>
+            <dd className="admin-kv-value">{response.statusCounts.queued}</dd>
+          </div>
+          <div className="admin-kv-item">
+            <dt className="admin-kv-label">Running</dt>
+            <dd className="admin-kv-value">{response.statusCounts.running}</dd>
+          </div>
+          <div className="admin-kv-item">
+            <dt className="admin-kv-label">Failed</dt>
+            <dd className="admin-kv-value">{response.statusCounts.failed}</dd>
+          </div>
+          <div className="admin-kv-item">
+            <dt className="admin-kv-label">Dead</dt>
+            <dd className="admin-kv-value">{response.statusCounts.dead}</dd>
+          </div>
+        </dl>
       </section>
 
-      <section className="panel stack">
-        <form className="admin-filter-form" method="get">
-          <div className="field">
-            <label htmlFor="status">Status</label>
-            <select
-              defaultValue={filters.status ?? ""}
-              id="status"
-              name="status"
-            >
-              <option value="">All</option>
-              {ADMIN_JOB_STATUSES.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-          </div>
+      <section className="stack">
+        <div className="admin-section-head">
+          <h2 style={{ fontSize: "1rem" }}>Job log</h2>
+          <form className="admin-filter-form" method="get">
+            <div className="field">
+              <label htmlFor="status">Status</label>
+              <select
+                defaultValue={filters.status ?? ""}
+                id="status"
+                name="status"
+              >
+                <option value="">All</option>
+                {ADMIN_JOB_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div className="field">
-            <label htmlFor="kind">Kind</label>
-            <select defaultValue={filters.kind ?? ""} id="kind" name="kind">
-              <option value="">All</option>
-              {response.availableKinds.map((kind) => (
-                <option key={kind} value={kind}>
-                  {kind}
-                </option>
-              ))}
-            </select>
-          </div>
+            <div className="field">
+              <label htmlFor="kind">Kind</label>
+              <select defaultValue={filters.kind ?? ""} id="kind" name="kind">
+                <option value="">All</option>
+                {response.availableKinds.map((kind) => (
+                  <option key={kind} value={kind}>
+                    {kind}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <button className="button" type="submit">
-            Apply filters
-          </button>
-        </form>
+            <button className="button" type="submit">
+              Filter
+            </button>
+          </form>
+        </div>
 
         <div className="table-wrap">
           <table className="table">
@@ -148,9 +159,14 @@ export default async function AdminJobsPage({
                 response.items.map((job) => (
                   <tr key={job.id}>
                     <td>
-                      <div className="stack">
-                        <strong>{job.kind}</strong>
-                        <span className="muted">
+                      <div style={{ display: "grid", gap: "2px" }}>
+                        <strong style={{ fontSize: "0.875rem" }}>
+                          {job.kind}
+                        </strong>
+                        <span
+                          className="muted"
+                          style={{ fontSize: "0.8125rem" }}
+                        >
                           <code>{job.id}</code>
                         </span>
                       </div>
@@ -163,9 +179,14 @@ export default async function AdminJobsPage({
                     <td>{formatAdminDateTime(job.runAt)}</td>
                     <td>{formatAdminDateTime(job.updatedAt)}</td>
                     <td>
-                      <div className="stack">
+                      <div style={{ display: "grid", gap: "2px" }}>
                         <span>{formatAdminDateTime(job.lockedAt)}</span>
-                        <span className="muted">{job.lockedBy ?? "n/a"}</span>
+                        <span
+                          className="muted"
+                          style={{ fontSize: "0.8125rem" }}
+                        >
+                          {job.lockedBy ?? "n/a"}
+                        </span>
                       </div>
                     </td>
                     <td>

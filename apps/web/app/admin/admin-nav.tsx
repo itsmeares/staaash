@@ -37,6 +37,10 @@ const adminItems: AdminNavItem[] = [
     href: "/admin/updates",
     label: "Updates",
   },
+  {
+    href: "/admin/settings",
+    label: "Settings",
+  },
 ];
 
 const isActiveItem = (pathname: string, href: string) =>
