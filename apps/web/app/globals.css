@@ -542,6 +542,77 @@ h3 {
   word-break: break-all;
 }
 
+/* --- Job operations panel --- */
+
+.admin-op-list {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid color-mix(in oklab, var(--foreground) 6%, transparent);
+}
+
+.admin-op-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: 24px;
+  padding: 20px 0;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 6%, transparent);
+}
+
+.admin-op-meta {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-op-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-family: var(--font-cabinet), sans-serif;
+}
+
+.admin-op-desc {
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
+
+.admin-op-last {
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-op-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 2px;
+  flex-shrink: 0;
+}
+
+.admin-op-history-panel {
+  padding: 4px 0 16px;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 6%, transparent);
+}
+
+.admin-history-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 16px;
+  padding: 8px 0;
+  font-size: 0.8125rem;
+  align-items: baseline;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 4%, transparent);
+}
+
+.admin-history-row:last-child {
+  border-bottom: none;
+}
+
 .workspace-sidebar {
   display: flex;
   flex-direction: column;

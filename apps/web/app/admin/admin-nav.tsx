@@ -30,10 +30,6 @@ const adminItems: AdminNavItem[] = [
     label: "Jobs",
   },
   {
-    href: "/admin/integrity",
-    label: "Integrity",
-  },
-  {
     href: "/admin/updates",
     label: "Updates",
   },
