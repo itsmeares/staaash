@@ -5,8 +5,8 @@ import {
   buildPageHref,
   parsePage,
 } from "@/app/pagination-controls";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { env } from "@/lib/env";
 import { requireOwnerPageSession } from "@/server/auth/guards";
 import { authService } from "@/server/auth/service";
 
@@ -21,10 +21,14 @@ type AdminUsersPageProps = {
 export default async function AdminUsersPage({
   searchParams,
 }: AdminUsersPageProps) {
-  const [resolvedSearchParams, session] = await Promise.all([
+  const [resolvedSearchParams, session, h] = await Promise.all([
     searchParams,
     requireOwnerPageSession(),
+    headers(),
   ]);
+  const proto = h.get("x-forwarded-proto") ?? "http";
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost";
+  const baseUrl = `${proto}://${host}`;
   const allUsers = await authService.listUsers(session.user.id);
   const page = parsePage(getSingleSearchParam(resolvedSearchParams, "page"));
   const totalPages = Math.ceil(allUsers.length / PAGE_SIZE);
@@ -45,7 +49,7 @@ export default async function AdminUsersPage({
       </section>
 
       <UsersAdminConsole
-        appUrl={env.APP_URL}
+        appUrl={baseUrl}
         initialUsers={users.map((user) => ({
           id: user.id,
           email: user.email,

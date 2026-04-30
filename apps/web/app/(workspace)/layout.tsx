@@ -2,8 +2,8 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 
 import { Toaster } from "@/components/ui/sonner";
-import { env } from "@/lib/env";
 import { getCurrentSession } from "@/server/auth/session";
+import { getSystemSettings } from "@/server/settings";
 import {
   getInstanceDiskInfo,
   getInstanceStorageUsed,
@@ -51,7 +51,13 @@ export default async function WorkspaceLayout({
     diskUsedBytes = diskInfo?.usedBytes ?? null;
   }
 
-  const instanceUpdateState = await readInstanceUpdateCheck().catch(() => null);
+  const [instanceUpdateState, settings] = await Promise.all([
+    readInstanceUpdateCheck().catch(() => null),
+    getSystemSettings(),
+  ]);
+
+  const appVersion =
+    process.env.STAAASH_VERSION ?? process.env.APP_VERSION ?? "0.1.0";
 
   const initials = session
     ? getInitials(session.user.displayName, session.user.username)
@@ -83,13 +89,13 @@ export default async function WorkspaceLayout({
 
           <div className="workspace-instance-footer">
             <InstanceBadge
-              appVersion={env.APP_VERSION}
+              appVersion={appVersion}
               nodeVersion={process.version}
               updateStatus={instanceUpdateState?.updateCheckStatus ?? null}
               latestVersion={
                 instanceUpdateState?.latestAvailableVersion ?? null
               }
-              repository={env.UPDATE_CHECK_REPOSITORY || null}
+              repository={settings.updateCheckRepository || null}
             />
           </div>
         </aside>
@@ -133,7 +139,7 @@ export default async function WorkspaceLayout({
                 latestVersion={
                   instanceUpdateState?.latestAvailableVersion ?? null
                 }
-                repository={env.UPDATE_CHECK_REPOSITORY || null}
+                repository={settings.updateCheckRepository || null}
               />
             ) : null}
           </header>

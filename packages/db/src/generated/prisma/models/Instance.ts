@@ -27,6 +27,7 @@ export type AggregateInstance = {
 export type InstanceMinAggregateOutputType = {
   id: string | null
   name: string | null
+  authSecret: string | null
   setupCompletedAt: Date | null
   lastUpdateCheckAt: Date | null
   updateCheckStatus: string | null
@@ -39,6 +40,7 @@ export type InstanceMinAggregateOutputType = {
 export type InstanceMaxAggregateOutputType = {
   id: string | null
   name: string | null
+  authSecret: string | null
   setupCompletedAt: Date | null
   lastUpdateCheckAt: Date | null
   updateCheckStatus: string | null
@@ -51,6 +53,7 @@ export type InstanceMaxAggregateOutputType = {
 export type InstanceCountAggregateOutputType = {
   id: number
   name: number
+  authSecret: number
   setupCompletedAt: number
   lastUpdateCheckAt: number
   updateCheckStatus: number
@@ -65,6 +68,7 @@ export type InstanceCountAggregateOutputType = {
 export type InstanceMinAggregateInputType = {
   id?: true
   name?: true
+  authSecret?: true
   setupCompletedAt?: true
   lastUpdateCheckAt?: true
   updateCheckStatus?: true
@@ -77,6 +81,7 @@ export type InstanceMinAggregateInputType = {
 export type InstanceMaxAggregateInputType = {
   id?: true
   name?: true
+  authSecret?: true
   setupCompletedAt?: true
   lastUpdateCheckAt?: true
   updateCheckStatus?: true
@@ -89,6 +94,7 @@ export type InstanceMaxAggregateInputType = {
 export type InstanceCountAggregateInputType = {
   id?: true
   name?: true
+  authSecret?: true
   setupCompletedAt?: true
   lastUpdateCheckAt?: true
   updateCheckStatus?: true
@@ -174,6 +180,7 @@ export type InstanceGroupByArgs<ExtArgs extends runtime.Types.Extensions.Interna
 export type InstanceGroupByOutputType = {
   id: string
   name: string
+  authSecret: string | null
   setupCompletedAt: Date
   lastUpdateCheckAt: Date | null
   updateCheckStatus: string | null
@@ -207,6 +214,7 @@ export type InstanceWhereInput = {
   NOT?: Prisma.InstanceWhereInput | Prisma.InstanceWhereInput[]
   id?: Prisma.StringFilter<"Instance"> | string
   name?: Prisma.StringFilter<"Instance"> | string
+  authSecret?: Prisma.StringNullableFilter<"Instance"> | string | null
   setupCompletedAt?: Prisma.DateTimeFilter<"Instance"> | Date | string
   lastUpdateCheckAt?: Prisma.DateTimeNullableFilter<"Instance"> | Date | string | null
   updateCheckStatus?: Prisma.StringNullableFilter<"Instance"> | string | null
@@ -219,6 +227,7 @@ export type InstanceWhereInput = {
 export type InstanceOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  authSecret?: Prisma.SortOrderInput | Prisma.SortOrder
   setupCompletedAt?: Prisma.SortOrder
   lastUpdateCheckAt?: Prisma.SortOrderInput | Prisma.SortOrder
   updateCheckStatus?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -234,6 +243,7 @@ export type InstanceWhereUniqueInput = Prisma.AtLeast<{
   OR?: Prisma.InstanceWhereInput[]
   NOT?: Prisma.InstanceWhereInput | Prisma.InstanceWhereInput[]
   name?: Prisma.StringFilter<"Instance"> | string
+  authSecret?: Prisma.StringNullableFilter<"Instance"> | string | null
   setupCompletedAt?: Prisma.DateTimeFilter<"Instance"> | Date | string
   lastUpdateCheckAt?: Prisma.DateTimeNullableFilter<"Instance"> | Date | string | null
   updateCheckStatus?: Prisma.StringNullableFilter<"Instance"> | string | null
@@ -246,6 +256,7 @@ export type InstanceWhereUniqueInput = Prisma.AtLeast<{
 export type InstanceOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  authSecret?: Prisma.SortOrderInput | Prisma.SortOrder
   setupCompletedAt?: Prisma.SortOrder
   lastUpdateCheckAt?: Prisma.SortOrderInput | Prisma.SortOrder
   updateCheckStatus?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -264,6 +275,7 @@ export type InstanceScalarWhereWithAggregatesInput = {
   NOT?: Prisma.InstanceScalarWhereWithAggregatesInput | Prisma.InstanceScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"Instance"> | string
   name?: Prisma.StringWithAggregatesFilter<"Instance"> | string
+  authSecret?: Prisma.StringNullableWithAggregatesFilter<"Instance"> | string | null
   setupCompletedAt?: Prisma.DateTimeWithAggregatesFilter<"Instance"> | Date | string
   lastUpdateCheckAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Instance"> | Date | string | null
   updateCheckStatus?: Prisma.StringNullableWithAggregatesFilter<"Instance"> | string | null
@@ -276,6 +288,7 @@ export type InstanceScalarWhereWithAggregatesInput = {
 export type InstanceCreateInput = {
   id?: string
   name: string
+  authSecret?: string | null
   setupCompletedAt?: Date | string
   lastUpdateCheckAt?: Date | string | null
   updateCheckStatus?: string | null
@@ -288,6 +301,7 @@ export type InstanceCreateInput = {
 export type InstanceUncheckedCreateInput = {
   id?: string
   name: string
+  authSecret?: string | null
   setupCompletedAt?: Date | string
   lastUpdateCheckAt?: Date | string | null
   updateCheckStatus?: string | null
@@ -300,6 +314,7 @@ export type InstanceUncheckedCreateInput = {
 export type InstanceUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  authSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   setupCompletedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastUpdateCheckAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updateCheckStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -312,6 +327,7 @@ export type InstanceUpdateInput = {
 export type InstanceUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  authSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   setupCompletedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastUpdateCheckAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updateCheckStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -324,6 +340,7 @@ export type InstanceUncheckedUpdateInput = {
 export type InstanceCreateManyInput = {
   id?: string
   name: string
+  authSecret?: string | null
   setupCompletedAt?: Date | string
   lastUpdateCheckAt?: Date | string | null
   updateCheckStatus?: string | null
@@ -336,6 +353,7 @@ export type InstanceCreateManyInput = {
 export type InstanceUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  authSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   setupCompletedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastUpdateCheckAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updateCheckStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -348,6 +366,7 @@ export type InstanceUpdateManyMutationInput = {
 export type InstanceUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  authSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   setupCompletedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastUpdateCheckAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   updateCheckStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -360,6 +379,7 @@ export type InstanceUncheckedUpdateManyInput = {
 export type InstanceCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  authSecret?: Prisma.SortOrder
   setupCompletedAt?: Prisma.SortOrder
   lastUpdateCheckAt?: Prisma.SortOrder
   updateCheckStatus?: Prisma.SortOrder
@@ -372,6 +392,7 @@ export type InstanceCountOrderByAggregateInput = {
 export type InstanceMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  authSecret?: Prisma.SortOrder
   setupCompletedAt?: Prisma.SortOrder
   lastUpdateCheckAt?: Prisma.SortOrder
   updateCheckStatus?: Prisma.SortOrder
@@ -384,6 +405,7 @@ export type InstanceMaxOrderByAggregateInput = {
 export type InstanceMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  authSecret?: Prisma.SortOrder
   setupCompletedAt?: Prisma.SortOrder
   lastUpdateCheckAt?: Prisma.SortOrder
   updateCheckStatus?: Prisma.SortOrder
@@ -397,6 +419,10 @@ export type StringFieldUpdateOperationsInput = {
   set?: string
 }
 
+export type NullableStringFieldUpdateOperationsInput = {
+  set?: string | null
+}
+
 export type DateTimeFieldUpdateOperationsInput = {
   set?: Date | string
 }
@@ -405,15 +431,12 @@ export type NullableDateTimeFieldUpdateOperationsInput = {
   set?: Date | string | null
 }
 
-export type NullableStringFieldUpdateOperationsInput = {
-  set?: string | null
-}
-
 
 
 export type InstanceSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   name?: boolean
+  authSecret?: boolean
   setupCompletedAt?: boolean
   lastUpdateCheckAt?: boolean
   updateCheckStatus?: boolean
@@ -426,6 +449,7 @@ export type InstanceSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
 export type InstanceSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   name?: boolean
+  authSecret?: boolean
   setupCompletedAt?: boolean
   lastUpdateCheckAt?: boolean
   updateCheckStatus?: boolean
@@ -438,6 +462,7 @@ export type InstanceSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exte
 export type InstanceSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   name?: boolean
+  authSecret?: boolean
   setupCompletedAt?: boolean
   lastUpdateCheckAt?: boolean
   updateCheckStatus?: boolean
@@ -450,6 +475,7 @@ export type InstanceSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exte
 export type InstanceSelectScalar = {
   id?: boolean
   name?: boolean
+  authSecret?: boolean
   setupCompletedAt?: boolean
   lastUpdateCheckAt?: boolean
   updateCheckStatus?: boolean
@@ -459,7 +485,7 @@ export type InstanceSelectScalar = {
   updatedAt?: boolean
 }
 
-export type InstanceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "setupCompletedAt" | "lastUpdateCheckAt" | "updateCheckStatus" | "updateCheckMessage" | "latestAvailableVersion" | "createdAt" | "updatedAt", ExtArgs["result"]["instance"]>
+export type InstanceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "authSecret" | "setupCompletedAt" | "lastUpdateCheckAt" | "updateCheckStatus" | "updateCheckMessage" | "latestAvailableVersion" | "createdAt" | "updatedAt", ExtArgs["result"]["instance"]>
 
 export type $InstancePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Instance"
@@ -467,6 +493,7 @@ export type $InstancePayload<ExtArgs extends runtime.Types.Extensions.InternalAr
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     name: string
+    authSecret: string | null
     setupCompletedAt: Date
     lastUpdateCheckAt: Date | null
     updateCheckStatus: string | null
@@ -899,6 +926,7 @@ export interface Prisma__InstanceClient<T, Null = never, ExtArgs extends runtime
 export interface InstanceFieldRefs {
   readonly id: Prisma.FieldRef<"Instance", 'String'>
   readonly name: Prisma.FieldRef<"Instance", 'String'>
+  readonly authSecret: Prisma.FieldRef<"Instance", 'String'>
   readonly setupCompletedAt: Prisma.FieldRef<"Instance", 'DateTime'>
   readonly lastUpdateCheckAt: Prisma.FieldRef<"Instance", 'DateTime'>
   readonly updateCheckStatus: Prisma.FieldRef<"Instance", 'String'>

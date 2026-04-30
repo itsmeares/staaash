@@ -38,6 +38,7 @@ export type {
   Session,
   ShareLink,
   ShareTargetType,
+  SystemSettings,
   User,
   UserPreference,
   UserRole,

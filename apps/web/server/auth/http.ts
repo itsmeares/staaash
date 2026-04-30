@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
-import { assertConfiguredAppUrl, env } from "@/lib/env";
 import { AuthError } from "@/server/auth/errors";
 
 type ParsedRequestBody = Record<string, string>;
@@ -56,10 +55,7 @@ export const isSameOrigin = (request: NextRequest) => {
     return true;
   }
 
-  assertConfiguredAppUrl();
-  return (
-    origin === request.nextUrl.origin || origin === new URL(env.APP_URL).origin
-  );
+  return origin === request.nextUrl.origin;
 };
 
 const normalizeError = (error: unknown) => {

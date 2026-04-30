@@ -385,6 +385,7 @@ type FieldRefInputType<Model, FieldType> = Model extends never ? never : FieldRe
 
 export const ModelName = {
   Instance: 'Instance',
+  SystemSettings: 'SystemSettings',
   User: 'User',
   UserPreference: 'UserPreference',
   Session: 'Session',
@@ -414,7 +415,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "instance" | "user" | "userPreference" | "session" | "invite" | "passwordReset" | "folder" | "file" | "favoriteFile" | "favoriteFolder" | "recentFile" | "recentFolder" | "shareLink" | "backgroundJob" | "restoreReconciliationRun"
+    modelProps: "instance" | "systemSettings" | "user" | "userPreference" | "session" | "invite" | "passwordReset" | "folder" | "file" | "favoriteFile" | "favoriteFolder" | "recentFile" | "recentFolder" | "shareLink" | "backgroundJob" | "restoreReconciliationRun"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -489,6 +490,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.InstanceCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.InstanceCountAggregateOutputType> | number
+        }
+      }
+    }
+    SystemSettings: {
+      payload: Prisma.$SystemSettingsPayload<ExtArgs>
+      fields: Prisma.SystemSettingsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.SystemSettingsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SystemSettingsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.SystemSettingsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SystemSettingsPayload>
+        }
+        findFirst: {
+          args: Prisma.SystemSettingsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SystemSettingsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.SystemSettingsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SystemSettingsPayload>
+        }
+        findMany: {
+          args: Prisma.SystemSettingsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SystemSettingsPayload>[]
+        }
+        create: {
+          args: Prisma.SystemSettingsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SystemSettingsPayload>
+        }
+        createMany: {
+          args: Prisma.SystemSettingsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.SystemSettingsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SystemSettingsPayload>[]
+        }
+        delete: {
+          args: Prisma.SystemSettingsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SystemSettingsPayload>
+        }
+        update: {
+          args: Prisma.SystemSettingsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SystemSettingsPayload>
+        }
+        deleteMany: {
+          args: Prisma.SystemSettingsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.SystemSettingsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.SystemSettingsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SystemSettingsPayload>[]
+        }
+        upsert: {
+          args: Prisma.SystemSettingsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$SystemSettingsPayload>
+        }
+        aggregate: {
+          args: Prisma.SystemSettingsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateSystemSettings>
+        }
+        groupBy: {
+          args: Prisma.SystemSettingsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.SystemSettingsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.SystemSettingsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.SystemSettingsCountAggregateOutputType> | number
         }
       }
     }
@@ -1570,6 +1645,7 @@ export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof
 export const InstanceScalarFieldEnum = {
   id: 'id',
   name: 'name',
+  authSecret: 'authSecret',
   setupCompletedAt: 'setupCompletedAt',
   lastUpdateCheckAt: 'lastUpdateCheckAt',
   updateCheckStatus: 'updateCheckStatus',
@@ -1580,6 +1656,27 @@ export const InstanceScalarFieldEnum = {
 } as const
 
 export type InstanceScalarFieldEnum = (typeof InstanceScalarFieldEnum)[keyof typeof InstanceScalarFieldEnum]
+
+
+export const SystemSettingsScalarFieldEnum = {
+  id: 'id',
+  sessionMaxAgeDays: 'sessionMaxAgeDays',
+  inviteMaxAgeDays: 'inviteMaxAgeDays',
+  passwordResetMaxAgeHours: 'passwordResetMaxAgeHours',
+  shareMaxAgeDays: 'shareMaxAgeDays',
+  maxUploadBytes: 'maxUploadBytes',
+  uploadTimeoutMinutes: 'uploadTimeoutMinutes',
+  uploadStagingRetentionHours: 'uploadStagingRetentionHours',
+  previewMaxSourceBytes: 'previewMaxSourceBytes',
+  previewTextMaxBytes: 'previewTextMaxBytes',
+  workerHeartbeatMaxAgeSeconds: 'workerHeartbeatMaxAgeSeconds',
+  updateCheckIntervalHours: 'updateCheckIntervalHours',
+  updateCheckRepository: 'updateCheckRepository',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SystemSettingsScalarFieldEnum = (typeof SystemSettingsScalarFieldEnum)[keyof typeof SystemSettingsScalarFieldEnum]
 
 
 export const UserScalarFieldEnum = {
@@ -1867,16 +1964,16 @@ export type ListDateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaM
 
 
 /**
- * Reference to a field of type 'UserRole'
+ * Reference to a field of type 'Int'
  */
-export type EnumUserRoleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'UserRole'>
+export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int'>
     
 
 
 /**
- * Reference to a field of type 'UserRole[]'
+ * Reference to a field of type 'Int[]'
  */
-export type ListEnumUserRoleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'UserRole[]'>
+export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int[]'>
     
 
 
@@ -1891,6 +1988,20 @@ export type BigIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 
  * Reference to a field of type 'BigInt[]'
  */
 export type ListBigIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'BigInt[]'>
+    
+
+
+/**
+ * Reference to a field of type 'UserRole'
+ */
+export type EnumUserRoleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'UserRole'>
+    
+
+
+/**
+ * Reference to a field of type 'UserRole[]'
+ */
+export type ListEnumUserRoleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'UserRole[]'>
     
 
 
@@ -1940,20 +2051,6 @@ export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'J
  * Reference to a field of type 'QueryMode'
  */
 export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
-    
-
-
-/**
- * Reference to a field of type 'Int'
- */
-export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int'>
-    
-
-
-/**
- * Reference to a field of type 'Int[]'
- */
-export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int[]'>
     
 
 
@@ -2080,6 +2177,7 @@ export type PrismaClientOptions = ({
 }
 export type GlobalOmitConfig = {
   instance?: Prisma.InstanceOmit
+  systemSettings?: Prisma.SystemSettingsOmit
   user?: Prisma.UserOmit
   userPreference?: Prisma.UserPreferenceOmit
   session?: Prisma.SessionOmit

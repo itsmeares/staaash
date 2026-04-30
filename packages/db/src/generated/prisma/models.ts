@@ -9,6 +9,7 @@
  * 🟢 You can import this file directly.
  */
 export type * from './models/Instance'
+export type * from './models/SystemSettings'
 export type * from './models/User'
 export type * from './models/UserPreference'
 export type * from './models/Session'

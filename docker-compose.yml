@@ -1,0 +1,49 @@
+services:
+  app:
+    image: staaash/staaash:${STAAASH_VERSION:-latest}
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD}@db:5432/${DB_DATABASE_NAME:-staaash}
+      UPLOAD_LOCATION: /data/files
+      APP_VERSION: ${STAAASH_VERSION:-latest}
+    volumes:
+      - ${UPLOAD_LOCATION:-library}:/data/files
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "2113:3000"
+    restart: unless-stopped
+
+  worker:
+    image: staaash/staaash:${STAAASH_VERSION:-latest}
+    command: worker
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD}@db:5432/${DB_DATABASE_NAME:-staaash}
+      UPLOAD_LOCATION: /data/files
+    volumes:
+      - ${UPLOAD_LOCATION:-library}:/data/files
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_DATABASE_NAME:-staaash}
+    volumes:
+      - ${DB_DATA_LOCATION:-postgres}:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  library:
+  postgres:
