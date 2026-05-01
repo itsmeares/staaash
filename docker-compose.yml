@@ -3,7 +3,7 @@ name: staaash
 services:
   staaash:
     container_name: staaash_server
-    image: staaash/staaash:${STAAASH_VERSION:-latest}
+    image: ghcr.io/itsmeares/staaash:${STAAASH_VERSION:-latest}
     environment:
       NODE_ENV: production
       PORT: "2113"
@@ -22,7 +22,7 @@ services:
 
   worker:
     container_name: staaash_worker
-    image: staaash/staaash:${STAAASH_VERSION:-latest}
+    image: ghcr.io/itsmeares/staaash:${STAAASH_VERSION:-latest}
     command: node /worker/dist/index.js
     environment:
       NODE_ENV: production

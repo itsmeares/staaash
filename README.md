@@ -29,6 +29,10 @@ Self-hosting readiness is tracked in [#21](https://github.com/itsmeares/staaash/
 
 ## Installation
 
+> **Alpha software.** Staaash is in early alpha. Expect bugs, missing features, and breaking changes between releases. Do not use as your only copy of important files.
+>
+> Before you start, set up a [3-2-1 backup strategy](https://www.backblaze.com/blog/the-3-2-1-backup-strategy/): 3 copies of your data, on 2 different media types, with 1 offsite. Your `./library` folder is the one to back up.
+
 Requirements: [Docker](https://docs.docker.com/get-docker/) with the Compose plugin.
 
 ```console

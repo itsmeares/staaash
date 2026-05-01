@@ -10,9 +10,8 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     env:
-      APP_URL: http://localhost:3000
       DATABASE_URL: postgresql://staaash:staaash@localhost:5432/staaash
-      FILES_ROOT: ./.data/files
+      UPLOAD_LOCATION: ./.data/files
       AUTH_SECRET: ci-placeholder-secret-should-not-be-used-in-production
 
     steps:
