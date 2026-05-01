@@ -2,8 +2,9 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 
 import { Toaster } from "@/components/ui/sonner";
-import { env } from "@/lib/env";
+import { getInitials } from "@/lib/user";
 import { getCurrentSession } from "@/server/auth/session";
+import { getSystemSettings } from "@/server/settings";
 import {
   getInstanceDiskInfo,
   getInstanceStorageUsed,
@@ -17,17 +18,6 @@ import { WorkspaceNav, workspaceNavGroups } from "./workspace-nav";
 import { WorkspaceStorage } from "./workspace-storage";
 
 export const dynamic = "force-dynamic";
-
-function getInitials(displayName: string | null, username: string): string {
-  if (displayName) {
-    const parts = displayName.trim().split(/\s+/);
-    if (parts.length >= 2) {
-      return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
-    }
-    return displayName.slice(0, 2).toUpperCase();
-  }
-  return username.slice(0, 2).toUpperCase();
-}
 
 export default async function WorkspaceLayout({
   children,
@@ -51,7 +41,13 @@ export default async function WorkspaceLayout({
     diskUsedBytes = diskInfo?.usedBytes ?? null;
   }
 
-  const instanceUpdateState = await readInstanceUpdateCheck().catch(() => null);
+  const [instanceUpdateState, settings] = await Promise.all([
+    readInstanceUpdateCheck().catch(() => null),
+    getSystemSettings(),
+  ]);
+
+  const appVersion =
+    process.env.STAAASH_VERSION ?? process.env.APP_VERSION ?? "0.1.0";
 
   const initials = session
     ? getInitials(session.user.displayName, session.user.username)
@@ -83,13 +79,13 @@ export default async function WorkspaceLayout({
 
           <div className="workspace-instance-footer">
             <InstanceBadge
-              appVersion={env.APP_VERSION}
+              appVersion={appVersion}
               nodeVersion={process.version}
               updateStatus={instanceUpdateState?.updateCheckStatus ?? null}
               latestVersion={
                 instanceUpdateState?.latestAvailableVersion ?? null
               }
-              repository={env.UPDATE_CHECK_REPOSITORY || null}
+              repository={settings.updateCheckRepository || null}
             />
           </div>
         </aside>
@@ -133,7 +129,7 @@ export default async function WorkspaceLayout({
                 latestVersion={
                   instanceUpdateState?.latestAvailableVersion ?? null
                 }
-                repository={env.UPDATE_CHECK_REPOSITORY || null}
+                repository={settings.updateCheckRepository || null}
               />
             ) : null}
           </header>

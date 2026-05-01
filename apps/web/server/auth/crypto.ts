@@ -1,7 +1,7 @@
 import { createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 
-import { assertSecureAuthSecret, env } from "@/lib/env";
+import { getAuthSecret, getAuthSecretSync } from "@/server/settings";
 
 const scryptAsync = promisify(scrypt);
 const PASSWORD_HASH_VERSION = "s1";
@@ -20,10 +20,8 @@ export type AuthCrypto = {
 };
 
 export const hashOpaqueToken = (token: string) => {
-  assertSecureAuthSecret();
-
   return createHash("sha256")
-    .update(env.AUTH_SECRET)
+    .update(getAuthSecretSync())
     .update(":")
     .update(token)
     .digest("base64url");
@@ -78,3 +76,5 @@ export const authCrypto: AuthCrypto = {
   hashPassword,
   verifyPassword,
 };
+
+export { getAuthSecret };

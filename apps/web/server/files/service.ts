@@ -1946,7 +1946,7 @@ export const createFilesService = ({
           includeDeleted: true,
         }),
       );
-      const uploadDeadline = createUploadDeadline(now().getTime());
+      const uploadDeadline = await createUploadDeadline(now().getTime());
       const targetFolderPath = getStoragePath(
         buildFolderStorageKey({
           folder: targetFolder,

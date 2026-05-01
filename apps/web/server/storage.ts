@@ -12,7 +12,7 @@ export const STORAGE_DIRECTORIES = {
 } as const;
 
 const resolveWithinRoot = (...segments: string[]) => {
-  const root = path.resolve(env.FILES_ROOT);
+  const root = path.resolve(env.UPLOAD_LOCATION);
   const resolved = path.resolve(root, ...segments);
 
   if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) {
@@ -22,7 +22,7 @@ const resolveWithinRoot = (...segments: string[]) => {
   return resolved;
 };
 
-export const getStorageRoot = () => path.resolve(env.FILES_ROOT);
+export const getStorageRoot = () => path.resolve(env.UPLOAD_LOCATION);
 
 export const getStoragePath = (storageKey: string) =>
   resolveWithinRoot(storageKey);

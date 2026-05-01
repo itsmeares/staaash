@@ -52,6 +52,7 @@ export const AnyNull = runtime.AnyNull
 
 export const ModelName = {
   Instance: 'Instance',
+  SystemSettings: 'SystemSettings',
   User: 'User',
   UserPreference: 'UserPreference',
   Session: 'Session',
@@ -87,6 +88,7 @@ export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof
 export const InstanceScalarFieldEnum = {
   id: 'id',
   name: 'name',
+  authSecret: 'authSecret',
   setupCompletedAt: 'setupCompletedAt',
   lastUpdateCheckAt: 'lastUpdateCheckAt',
   updateCheckStatus: 'updateCheckStatus',
@@ -97,6 +99,27 @@ export const InstanceScalarFieldEnum = {
 } as const
 
 export type InstanceScalarFieldEnum = (typeof InstanceScalarFieldEnum)[keyof typeof InstanceScalarFieldEnum]
+
+
+export const SystemSettingsScalarFieldEnum = {
+  id: 'id',
+  sessionMaxAgeDays: 'sessionMaxAgeDays',
+  inviteMaxAgeDays: 'inviteMaxAgeDays',
+  passwordResetMaxAgeHours: 'passwordResetMaxAgeHours',
+  shareMaxAgeDays: 'shareMaxAgeDays',
+  maxUploadBytes: 'maxUploadBytes',
+  uploadTimeoutMinutes: 'uploadTimeoutMinutes',
+  uploadStagingRetentionHours: 'uploadStagingRetentionHours',
+  previewMaxSourceBytes: 'previewMaxSourceBytes',
+  previewTextMaxBytes: 'previewTextMaxBytes',
+  workerHeartbeatMaxAgeSeconds: 'workerHeartbeatMaxAgeSeconds',
+  updateCheckIntervalHours: 'updateCheckIntervalHours',
+  updateCheckRepository: 'updateCheckRepository',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SystemSettingsScalarFieldEnum = (typeof SystemSettingsScalarFieldEnum)[keyof typeof SystemSettingsScalarFieldEnum]
 
 
 export const UserScalarFieldEnum = {

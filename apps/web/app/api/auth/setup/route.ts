@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { buildSessionCookie } from "@/server/auth/session";
+import {
+  buildClearedOnboardedCookie,
+  buildSessionCookie,
+} from "@/server/auth/session";
 import { authService } from "@/server/auth/service";
 import {
   formErrorResponse,
@@ -43,6 +46,7 @@ export async function POST(request: NextRequest) {
     response.cookies.set(
       buildSessionCookie(result.sessionToken, result.session.expiresAt),
     );
+    response.cookies.set(buildClearedOnboardedCookie());
 
     return response;
   } catch (error) {

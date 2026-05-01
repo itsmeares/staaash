@@ -33,10 +33,24 @@ const workerHeartbeatMs = 30_000;
 const jobPollMs = 10_000;
 
 const TRASH_RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1000;
-const UPDATE_CHECK_INTERVAL_MS =
-  Number(process.env.UPDATE_CHECK_INTERVAL_HOURS ?? 24) * 60 * 60 * 1000;
+const DEFAULT_UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+const getUpdateCheckIntervalMs = async (): Promise<number> => {
+  try {
+    const { getPrisma } = await import("@staaash/db/client");
+    const db = getPrisma();
+    const settings = await db.systemSettings.findUnique({
+      where: { id: "singleton" },
+    });
+    return (settings?.updateCheckIntervalHours ?? 24) * 60 * 60 * 1000;
+  } catch {
+    return DEFAULT_UPDATE_CHECK_INTERVAL_MS;
+  }
+};
 
 const schedulePeriodicJobs = async (now = new Date()) => {
+  const updateCheckIntervalMs = await getUpdateCheckIntervalMs();
+
   await ensureBackgroundJobScheduled({
     kind: STAGING_CLEANUP_JOB_KIND,
     runAt: now,
@@ -57,7 +71,7 @@ const schedulePeriodicJobs = async (now = new Date()) => {
     kind: UPDATE_CHECK_JOB_KIND,
     runAt: now,
     payloadJson: {},
-    windowEnd: new Date(now.getTime() + UPDATE_CHECK_INTERVAL_MS),
+    windowEnd: new Date(now.getTime() + updateCheckIntervalMs),
     now,
   });
 };
@@ -84,14 +98,16 @@ const reschedulePeriodicJob = async (kind: string, intervalMs: number) => {
         windowEnd: new Date(nextRunAt.getTime() + TRASH_RETENTION_INTERVAL_MS),
       });
       break;
-    case UPDATE_CHECK_JOB_KIND:
+    case UPDATE_CHECK_JOB_KIND: {
+      const intervalMs = await getUpdateCheckIntervalMs();
       await ensureBackgroundJobScheduled({
         kind: UPDATE_CHECK_JOB_KIND,
         runAt: nextRunAt,
         payloadJson: {},
-        windowEnd: new Date(nextRunAt.getTime() + UPDATE_CHECK_INTERVAL_MS),
+        windowEnd: new Date(nextRunAt.getTime() + intervalMs),
       });
       break;
+    }
   }
 };
 
@@ -124,7 +140,7 @@ const processNextJob = async (): Promise<boolean> => {
         await handleUpdateCheck(job);
         await reschedulePeriodicJob(
           UPDATE_CHECK_JOB_KIND,
-          UPDATE_CHECK_INTERVAL_MS,
+          await getUpdateCheckIntervalMs(),
         );
         break;
 

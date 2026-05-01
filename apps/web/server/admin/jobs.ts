@@ -3,7 +3,12 @@ import {
   type AdminBackgroundJobListFilters,
   type AdminBackgroundJobListResult,
 } from "@staaash/db/admin";
-import { ALL_SUPPORTED_JOB_KINDS } from "@staaash/db/jobs";
+import {
+  ALL_SUPPORTED_JOB_KINDS,
+  STAGING_CLEANUP_JOB_KIND,
+  TRASH_RETENTION_JOB_KIND,
+  ensureBackgroundJobScheduled,
+} from "@staaash/db/jobs";
 
 import type { JsonAdminJobListResponse } from "./types";
 
@@ -41,6 +46,36 @@ export const parseAdminJobFilters = (params: {
 export const getAdminJobList = async (
   filters: AdminBackgroundJobListFilters = {},
 ) => listAdminBackgroundJobs(filters);
+
+export const enqueueAdminStagingCleanup = async (now = new Date()) =>
+  ensureBackgroundJobScheduled({
+    kind: STAGING_CLEANUP_JOB_KIND,
+    runAt: now,
+    payloadJson: { source: "admin-manual-trigger" },
+    windowEnd: now,
+    now,
+  });
+
+export const enqueueAdminTrashRetention = async (now = new Date()) =>
+  ensureBackgroundJobScheduled({
+    kind: TRASH_RETENTION_JOB_KIND,
+    runAt: now,
+    payloadJson: { source: "admin-manual-trigger" },
+    windowEnd: now,
+    now,
+  });
+
+export const getLastRunPerKind = async () => {
+  const results = await Promise.all(
+    ALL_SUPPORTED_JOB_KINDS.map(async (kind) => {
+      const res = await listAdminBackgroundJobs({ kind, limit: 1 });
+      return { kind, job: res.items[0] ?? null };
+    }),
+  );
+  return Object.fromEntries(
+    results.map(({ kind, job }) => [kind, job]),
+  ) as Record<string, (typeof results)[number]["job"]>;
+};
 
 export const toJsonAdminJobListResponse = (
   response: AdminBackgroundJobListResult,

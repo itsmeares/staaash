@@ -4,16 +4,20 @@ import {
 } from "@staaash/db/jobs";
 import { readInstanceUpdateCheck } from "@staaash/db/instance";
 
-import { env } from "@/lib/env";
+import { getSystemSettings } from "@/server/settings";
 
 import type { AdminUpdateStatus, JsonAdminUpdateStatus } from "./types";
 
 export const getAdminUpdateStatus = async (): Promise<AdminUpdateStatus> => {
-  const state = await readInstanceUpdateCheck();
+  const [state, settings] = await Promise.all([
+    readInstanceUpdateCheck(),
+    getSystemSettings(),
+  ]);
 
   return {
-    currentVersion: env.APP_VERSION,
-    repository: env.UPDATE_CHECK_REPOSITORY || null,
+    currentVersion:
+      process.env.STAAASH_VERSION ?? process.env.APP_VERSION ?? "0.1.0",
+    repository: settings.updateCheckRepository || null,
     lastUpdateCheckAt: state.lastUpdateCheckAt,
     updateCheckStatus: state.updateCheckStatus,
     updateCheckMessage: state.updateCheckMessage,

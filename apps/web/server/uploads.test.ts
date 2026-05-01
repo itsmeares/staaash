@@ -48,21 +48,22 @@ describe("upload guardrails", () => {
     expect(result.status).toBe("verified");
   });
 
-  it("cleans up staged uploads after the retention window", () => {
+  it("cleans up staged uploads after the retention window", async () => {
     const createdAt = new Date("2026-03-01T00:00:00.000Z");
-    const now = new Date(createdAt.getTime() + getUploadStagingTtlMs() + 1);
+    const ttl = await getUploadStagingTtlMs();
+    const now = new Date(createdAt.getTime() + ttl + 1);
 
-    expect(shouldCleanupStagedUpload(createdAt, now)).toBe(true);
+    expect(await shouldCleanupStagedUpload(createdAt, now)).toBe(true);
   });
 
-  it("exposes a 60 minute upload timeout budget", () => {
-    expect(getUploadTimeoutBudgetMs()).toBe(60 * 60 * 1000);
+  it("exposes a 60 minute upload timeout budget", async () => {
+    expect(await getUploadTimeoutBudgetMs()).toBe(60 * 60 * 1000);
   });
 
-  it("rejects oversized uploads", () => {
-    expect(() => assertUploadSizeAllowed(Number.MAX_SAFE_INTEGER)).toThrow(
-      "configured maximum size",
-    );
+  it("rejects oversized uploads", async () => {
+    await expect(
+      assertUploadSizeAllowed(Number.MAX_SAFE_INTEGER),
+    ).rejects.toThrow("configured maximum size");
   });
 
   it("generates keep-both filenames with numeric suffixes", () => {

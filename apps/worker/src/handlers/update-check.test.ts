@@ -1,9 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const writeInstanceUpdateCheck = vi.fn();
+const mockFindUnique = vi.fn();
 
 vi.mock("@staaash/db/instance", () => ({
   writeInstanceUpdateCheck,
+}));
+
+vi.mock("@staaash/db/client", () => ({
+  getPrisma: () => ({
+    systemSettings: {
+      findUnique: mockFindUnique,
+    },
+  }),
 }));
 
 const createJob = () =>
@@ -27,12 +36,13 @@ describe("update check handler", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.clearAllMocks();
-    delete process.env.UPDATE_CHECK_REPOSITORY;
+    mockFindUnique.mockReset();
     delete process.env.UPDATE_CHECK_TOKEN;
     process.env.APP_VERSION = "0.1.0";
   });
 
   it("marks update checks unavailable when no repository is configured", async () => {
+    mockFindUnique.mockResolvedValue(null);
     const { handleUpdateCheck } = await import("./update-check");
 
     await handleUpdateCheck(createJob());
@@ -47,7 +57,9 @@ describe("update check handler", () => {
   });
 
   it("marks an update as available when the release version is newer", async () => {
-    process.env.UPDATE_CHECK_REPOSITORY = "itsmeares/staaash";
+    mockFindUnique.mockResolvedValue({
+      updateCheckRepository: "itsmeares/staaash",
+    });
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -72,7 +84,9 @@ describe("update check handler", () => {
   });
 
   it("marks missing releases as unavailable rather than errors", async () => {
-    process.env.UPDATE_CHECK_REPOSITORY = "itsmeares/staaash";
+    mockFindUnique.mockResolvedValue({
+      updateCheckRepository: "itsmeares/staaash",
+    });
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -94,7 +108,9 @@ describe("update check handler", () => {
   });
 
   it("marks transport or API failures as errors", async () => {
-    process.env.UPDATE_CHECK_REPOSITORY = "itsmeares/staaash";
+    mockFindUnique.mockResolvedValue({
+      updateCheckRepository: "itsmeares/staaash",
+    });
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({

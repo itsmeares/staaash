@@ -7,7 +7,7 @@ import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { z } from "zod";
 
-import { env } from "@/lib/env";
+import { getSystemSettings } from "@/server/settings";
 import { getStorageRoot, getTmpUploadPath } from "@/server/storage";
 import {
   commitStagedUploadWithLock,
@@ -98,11 +98,22 @@ export class UploadError extends Error {
   }
 }
 
-export const uploadPolicy = {
-  maxUploadBytes: env.MAX_UPLOAD_BYTES,
-  timeoutMinutes: env.UPLOAD_TIMEOUT_MINUTES,
-  stagingRetentionHours: env.UPLOAD_STAGING_RETENTION_HOURS,
-} as const;
+let _uploadPolicy: {
+  maxUploadBytes: number;
+  timeoutMinutes: number;
+  stagingRetentionHours: number;
+} | null = null;
+
+export const getUploadPolicy = async () => {
+  if (_uploadPolicy) return _uploadPolicy;
+  const s = await getSystemSettings();
+  _uploadPolicy = {
+    maxUploadBytes: Number(s.maxUploadBytes),
+    timeoutMinutes: s.uploadTimeoutMinutes,
+    stagingRetentionHours: s.uploadStagingRetentionHours,
+  };
+  return _uploadPolicy;
+};
 
 const uploadManifestSchema = z.array(
   z.object({
@@ -122,13 +133,15 @@ export const getDefaultUploadConflictStrategy = (
 ): UploadConflictStrategy =>
   surface === "interactiveWeb" ? "fail" : "safeRename";
 
-export const getUploadTimeoutBudgetMs = () =>
-  uploadPolicy.timeoutMinutes * 60 * 1000;
+export const getUploadTimeoutBudgetMs = async () => {
+  const policy = await getUploadPolicy();
+  return policy.timeoutMinutes * 60 * 1000;
+};
 
-export const createUploadDeadline = (startTime = Date.now()) =>
-  startTime + getUploadTimeoutBudgetMs();
+export const createUploadDeadline = async (startTime = Date.now()) =>
+  startTime + (await getUploadTimeoutBudgetMs());
 
-export const getRemainingUploadBudgetMs = (
+export const getRemainingUploadBudgetMs = async (
   deadline: Date | number | null | undefined,
 ) => {
   if (deadline === null || deadline === undefined) {
@@ -139,14 +152,18 @@ export const getRemainingUploadBudgetMs = (
   return Math.max(0, deadlineMs - Date.now());
 };
 
-export const getUploadStagingTtlMs = () =>
-  uploadPolicy.stagingRetentionHours * 60 * 60 * 1000;
+export const getUploadStagingTtlMs = async () => {
+  const policy = await getUploadPolicy();
+  return policy.stagingRetentionHours * 60 * 60 * 1000;
+};
 
-export const isUploadSizeAllowed = (sizeBytes: number) =>
-  sizeBytes <= uploadPolicy.maxUploadBytes;
+export const isUploadSizeAllowed = async (sizeBytes: number) => {
+  const policy = await getUploadPolicy();
+  return sizeBytes <= policy.maxUploadBytes;
+};
 
-export const assertUploadSizeAllowed = (sizeBytes: number) => {
-  if (!isUploadSizeAllowed(sizeBytes)) {
+export const assertUploadSizeAllowed = async (sizeBytes: number) => {
+  if (!(await isUploadSizeAllowed(sizeBytes))) {
     throw new UploadError("UPLOAD_SIZE_LIMIT_EXCEEDED");
   }
 };
@@ -194,8 +211,10 @@ export const verifyUploadChecksum = async (
   };
 };
 
-export const shouldCleanupStagedUpload = (createdAt: Date, now = new Date()) =>
-  now.getTime() - createdAt.getTime() >= getUploadStagingTtlMs();
+export const shouldCleanupStagedUpload = async (
+  createdAt: Date,
+  now = new Date(),
+) => now.getTime() - createdAt.getTime() >= (await getUploadStagingTtlMs());
 
 export const parseUploadManifest = (
   manifest: string | null | undefined,
@@ -249,7 +268,8 @@ export const stageUpload = async (
   const tmpPath = getTmpUploadPath(uploadId);
   const hash = createHash("sha256");
   let sizeBytes = 0;
-  const remainingBudgetMs = getRemainingUploadBudgetMs(deadline);
+  const policy = await getUploadPolicy();
+  const remainingBudgetMs = await getRemainingUploadBudgetMs(deadline);
 
   await ensureTmpRoot();
 
@@ -272,7 +292,7 @@ export const stageUpload = async (
 
     sizeBytes += buffer.length;
 
-    if (sizeBytes > uploadPolicy.maxUploadBytes) {
+    if (sizeBytes > policy.maxUploadBytes) {
       input.destroy(new UploadError("UPLOAD_SIZE_LIMIT_EXCEEDED"));
       output.destroy(new UploadError("UPLOAD_SIZE_LIMIT_EXCEEDED"));
       return;
@@ -410,7 +430,7 @@ export const cleanupExpiredStagingFiles = async (
       const stats = await stat(absolutePath);
       scannedCount += 1;
 
-      if (!shouldCleanupStagedUpload(stats.mtime, now)) {
+      if (!(await shouldCleanupStagedUpload(stats.mtime, now))) {
         continue;
       }
 

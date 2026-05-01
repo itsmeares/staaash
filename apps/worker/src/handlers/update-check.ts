@@ -100,8 +100,16 @@ const readLatestGitHubRelease = async (repository: string) => {
 export const handleUpdateCheck = async (
   _job: BackgroundJobRecord,
 ): Promise<void> => {
-  const repository = process.env.UPDATE_CHECK_REPOSITORY?.trim();
-  const currentVersion = process.env.APP_VERSION?.trim() ?? "0.1.0";
+  const { getPrisma } = await import("@staaash/db/client");
+  const db = getPrisma();
+  const settings = await db.systemSettings.findUnique({
+    where: { id: "singleton" },
+  });
+  const repository = settings?.updateCheckRepository?.trim();
+  const currentVersion =
+    process.env.STAAASH_VERSION?.trim() ??
+    process.env.APP_VERSION?.trim() ??
+    "0.1.0";
 
   if (!repository) {
     await writeInstanceUpdateCheck({

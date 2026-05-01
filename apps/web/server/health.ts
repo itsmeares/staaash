@@ -8,7 +8,7 @@ import {
 import { readInstanceUpdateCheck } from "@staaash/db/instance";
 import { readLatestRestoreReconciliationRun } from "@staaash/db/reconciliation";
 
-import { env } from "@/lib/env";
+import { getSystemSettings } from "@/server/settings";
 import { buildRestoreReconciliationHealthSummary } from "@/server/restore";
 import {
   ensureStorageDirectories,
@@ -63,7 +63,7 @@ const toStorageWarningSummary = (
 export const getWorkerHeartbeatStatus = (
   lastSeenAt: Date | null,
   now = new Date(),
-  maxAgeMs = env.WORKER_HEARTBEAT_MAX_AGE_SECONDS * 1000,
+  maxAgeMs = 120_000,
 ): WorkerHeartbeatStatus => {
   if (!lastSeenAt) {
     return {
@@ -194,6 +194,7 @@ export const buildInstanceHealthSummary = ({
 };
 
 export const getReadiness = async () => {
+  const databaseUrl = process.env.DATABASE_URL ?? "";
   const [
     database,
     storage,
@@ -202,14 +203,16 @@ export const getReadiness = async () => {
     storageWarnings,
     instanceState,
     latestReconciliationRun,
+    settings,
   ] = await Promise.all([
-    probeDatabaseReachability(env.DATABASE_URL),
+    probeDatabaseReachability(databaseUrl),
     probeStorage(),
     readWorkerHeartbeat(),
-    getQueueBacklogSummary(env.DATABASE_URL),
+    getQueueBacklogSummary(databaseUrl),
     getStorageWarnings(),
     readInstanceUpdateCheck().catch(() => null),
     readLatestRestoreReconciliationRun().catch(() => null),
+    getSystemSettings(),
   ]);
 
   return buildInstanceHealthSummary({
@@ -217,14 +220,19 @@ export const getReadiness = async () => {
     databaseMessage: database.message,
     storageStatus: storage.status,
     storageMessage: storage.message,
-    worker: getWorkerHeartbeatStatus(heartbeat),
+    worker: getWorkerHeartbeatStatus(
+      heartbeat,
+      new Date(),
+      settings.workerHeartbeatMaxAgeSeconds * 1000,
+    ),
     queue,
     reconciliation: buildRestoreReconciliationHealthSummary(
       latestReconciliationRun,
     ),
     storageWarnings,
     versionInfo: {
-      currentVersion: env.APP_VERSION,
+      currentVersion:
+        process.env.STAAASH_VERSION ?? process.env.APP_VERSION ?? "0.1.0",
       lastUpdateCheckAt:
         instanceState?.lastUpdateCheckAt?.toISOString() ?? null,
       updateCheckStatus: instanceState?.updateCheckStatus ?? null,
