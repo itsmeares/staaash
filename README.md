@@ -36,7 +36,7 @@ Self-hosting readiness is tracked in [#21](https://github.com/itsmeares/staaash/
 Requirements: [Docker](https://docs.docker.com/get-docker/) with the Compose plugin.
 
 1. Go to the [releases page](https://github.com/itsmeares/staaash/releases) and download `docker-compose.yml` and `example.env` into the same folder.
-2. Rename `example.env` to `.env`, open it, set `DB_PASSWORD` to a secure value, and change any other values you want.
+2. Rename `example.env` to `.env`, open it, set `DB_PASSWORD` to a secure value (Use a safe password generator for this like pwgen or bitwarden), and change any other values you want.
 3. Run:
 
    ```console
