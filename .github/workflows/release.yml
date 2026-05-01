@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag for the Docker image (e.g. v0.1.0-alpha.2). Leave empty to push :latest only."
+        required: false
+        default: ""
 
 jobs:
   build-and-push:
@@ -32,6 +38,7 @@ jobs:
           images: ghcr.io/itsmeares/staaash
           tags: |
             type=semver,pattern={{raw}}
+            type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' }}
             type=raw,value=latest
 
       - name: Build and push
@@ -46,6 +53,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Create GitHub Release
+        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
