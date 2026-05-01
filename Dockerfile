@@ -16,7 +16,7 @@ FROM base AS build
 WORKDIR /app
 COPY --from=install /app /app
 COPY . .
-RUN pnpm run db:generate && pnpm build && pnpm --filter worker deploy --prod /deploy/worker
+RUN pnpm run db:generate && pnpm build && pnpm --filter worker deploy --prod --legacy /deploy/worker
 
 # ── Runner ────────────────────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
