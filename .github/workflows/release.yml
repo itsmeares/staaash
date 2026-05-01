@@ -66,6 +66,7 @@ jobs:
           gh release create "$TAG" \
             --title "$TAG" \
             --generate-notes \
+            --draft \
             $PRERELEASE_FLAG \
             docker-compose.yml \
             example.env
