@@ -11,7 +11,7 @@ import {
 } from "@staaash/db/reconciliation";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
 
-import type { WorkerStoragePaths } from "../storage-maintenance";
+import type { WorkerStoragePaths } from "../storage-maintenance.js";
 
 type ReconciliationFileRecord = {
   id: string;

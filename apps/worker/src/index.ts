@@ -21,11 +21,11 @@ import {
   getWorkerStoragePaths,
   recoverPendingDeletes,
   writeHeartbeat,
-} from "./storage-maintenance";
-import { handleStagingCleanup } from "./handlers/staging-cleanup";
-import { handleRestoreReconciliation } from "./handlers/restore-reconciliation";
-import { handleTrashRetention } from "./handlers/trash-retention";
-import { handleUpdateCheck } from "./handlers/update-check";
+} from "./storage-maintenance.js";
+import { handleStagingCleanup } from "./handlers/staging-cleanup.js";
+import { handleRestoreReconciliation } from "./handlers/restore-reconciliation.js";
+import { handleTrashRetention } from "./handlers/trash-retention.js";
+import { handleUpdateCheck } from "./handlers/update-check.js";
 
 const storagePaths = getWorkerStoragePaths();
 const workerId = `${os.hostname()}-${process.pid}`;

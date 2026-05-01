@@ -1,6 +1,6 @@
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
-import { cleanupExpiredStagingFiles } from "../storage-maintenance";
-import type { WorkerStoragePaths } from "../storage-maintenance";
+import { cleanupExpiredStagingFiles } from "../storage-maintenance.js";
+import type { WorkerStoragePaths } from "../storage-maintenance.js";
 
 export const handleStagingCleanup = async (
   job: BackgroundJobRecord,

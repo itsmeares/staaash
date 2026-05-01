@@ -2,6 +2,7 @@
   "name": "worker",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "build:deps": "pnpm --filter @staaash/config build && pnpm --filter @staaash/db build",
     "predev": "pnpm run build:deps",

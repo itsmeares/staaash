@@ -37,10 +37,9 @@ COPY --from=build /app/apps/web/.next/static ./apps/web/.next/static
 
 # Prisma schema + migrations
 COPY --from=build /app/packages/db/prisma ./prisma
-COPY --from=build /app/packages/db/prisma.config.ts ./prisma.config.ts
 
 # Worker (self-contained via pnpm deploy)
 COPY --from=build /deploy/worker /worker
 
 EXPOSE 2113
-CMD ["sh", "-c", "prisma migrate deploy && node server.js"]
+CMD ["sh", "-c", "prisma migrate deploy --url \"$DATABASE_URL\" && node server.js"]
