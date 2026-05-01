@@ -1,49 +1,54 @@
+name: staaash
+
 services:
-  app:
+  staaash:
+    container_name: staaash_server
     image: staaash/staaash:${STAAASH_VERSION:-latest}
     environment:
       NODE_ENV: production
+      PORT: "2113"
+      STAAASH_VERSION: ${STAAASH_VERSION:-latest}
       DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD}@db:5432/${DB_DATABASE_NAME:-staaash}
       UPLOAD_LOCATION: /data/files
-      APP_VERSION: ${STAAASH_VERSION:-latest}
     volumes:
-      - ${UPLOAD_LOCATION:-library}:/data/files
+      # Do not edit the next line. To change where files are stored, edit UPLOAD_LOCATION in the .env file
+      - ${UPLOAD_LOCATION:-./library}:/data/files
     depends_on:
       db:
         condition: service_healthy
     ports:
-      - "2113:3000"
-    restart: unless-stopped
+      - "2113:2113"
+    restart: always
 
   worker:
+    container_name: staaash_worker
     image: staaash/staaash:${STAAASH_VERSION:-latest}
     command: worker
     environment:
       NODE_ENV: production
+      STAAASH_VERSION: ${STAAASH_VERSION:-latest}
       DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD}@db:5432/${DB_DATABASE_NAME:-staaash}
       UPLOAD_LOCATION: /data/files
     volumes:
-      - ${UPLOAD_LOCATION:-library}:/data/files
+      - ${UPLOAD_LOCATION:-./library}:/data/files
     depends_on:
       db:
         condition: service_healthy
-    restart: unless-stopped
+    restart: always
 
   db:
+    container_name: staaash_postgres
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: ${DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_DATABASE_NAME:-staaash}
     volumes:
-      - ${DB_DATA_LOCATION:-postgres}:/var/lib/postgresql/data
+      # Do not edit the next line. To change where the database is stored, edit DB_DATA_LOCATION in the .env file
+      - ${DB_DATA_LOCATION:-./postgres}:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres}"]
       interval: 5s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
-
-volumes:
-  library:
-  postgres:
+    restart: always
