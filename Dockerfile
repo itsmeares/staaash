@@ -42,4 +42,4 @@ COPY --from=build /app/packages/db/prisma ./prisma
 COPY --from=build /deploy/worker /worker
 
 EXPOSE 2113
-CMD ["sh", "-c", "prisma migrate deploy && node server.js"]
+CMD ["sh", "-c", "prisma migrate deploy --url $DATABASE_URL && node server.js"]
