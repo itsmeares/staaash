@@ -13,7 +13,7 @@ node_modules/
 # Env files (never bake secrets into image)
 .env
 .env.*
-!.env.example
+!example.env
 
 # Test + dev artifacts
 **/*.test.ts

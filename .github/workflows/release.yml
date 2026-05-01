@@ -60,4 +60,4 @@ jobs:
             --generate-notes \
             $PRERELEASE_FLAG \
             docker-compose.yml \
-            .env.example
+            example.env

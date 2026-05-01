@@ -20,7 +20,7 @@ temp/
 .env
 .env.local
 .env.*.local
-!.env.example
+!example.env
 
 # Logs
 *.log

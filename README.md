@@ -37,7 +37,7 @@ Requirements: [Docker](https://docs.docker.com/get-docker/) with the Compose plu
 
 ```console
 curl -L https://github.com/itsmeares/staaash/releases/latest/download/docker-compose.yml -o docker-compose.yml
-curl -L https://github.com/itsmeares/staaash/releases/latest/download/.env.example -o .env
+curl -L https://github.com/itsmeares/staaash/releases/latest/download/example.env -o .env
 ```
 
 Open `.env` and set `DB_PASSWORD` to a secure value, then:
@@ -99,9 +99,9 @@ Both paths are relative to where `docker-compose.yml` lives. Change them in `.en
 
 ## Local Development
 
-1. Copy `.env.example` to `.env`.
+1. Copy `example.env` to `.env`.
 2. Start PostgreSQL.
-   The default `.env.example` expects `postgresql://staaash:staaash@localhost:5432/staaash`.
+   The default `example.env` expects `postgresql://staaash:staaash@localhost:5432/staaash`.
    If you want a local Docker container that matches those values, run:
 
    ```console

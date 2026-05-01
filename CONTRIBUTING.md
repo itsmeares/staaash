@@ -14,9 +14,9 @@ This repo is intentionally straightforward: focused changes, honest docs, and wo
 
 ## Local Setup
 
-1. Copy `.env.example` to `.env`.
+1. Copy `example.env` to `.env`.
 2. Start PostgreSQL.
-   The default `.env.example` expects `postgresql://staaash:staaash@localhost:5432/staaash`.
+   The default `example.env` expects `postgresql://staaash:staaash@localhost:5432/staaash`.
    If you want to run PostgreSQL in Docker locally, use:
 
    ```console
