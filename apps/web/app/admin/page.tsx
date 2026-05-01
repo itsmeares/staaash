@@ -110,27 +110,6 @@ export default async function AdminOverviewPage() {
               </span>
             </dd>
           </div>
-
-          <div className="admin-kv-item">
-            <dt className="admin-kv-label">Integrity</dt>
-            <dd className="admin-kv-value">
-              <span
-                className={`status-chip status-${summary.health.reconciliation.status}`}
-                style={{ fontSize: "0.9rem" }}
-              >
-                {summary.health.reconciliation.runStatus ?? "not run"}
-              </span>
-            </dd>
-            <dd className="admin-kv-sub">
-              {summary.health.reconciliation.missingOriginalCount} missing ·{" "}
-              {summary.health.reconciliation.orphanedStorageCount} orphaned
-            </dd>
-            <dd>
-              <Link className="admin-kv-link" href="/admin/integrity">
-                Reconcile →
-              </Link>
-            </dd>
-          </div>
         </dl>
       </section>
 

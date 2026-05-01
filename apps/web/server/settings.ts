@@ -41,9 +41,9 @@ export const getAuthSecretSync = (): string => {
 
 export const getSystemSettings = cache(async () => {
   const db = getPrisma();
-  return db.systemSettings.upsert({
+  const existing = await db.systemSettings.findUnique({
     where: { id: "singleton" },
-    create: { id: "singleton" },
-    update: {},
   });
+  if (existing) return existing;
+  return db.systemSettings.create({ data: { id: "singleton" } });
 });

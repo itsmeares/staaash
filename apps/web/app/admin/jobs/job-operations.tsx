@@ -62,6 +62,7 @@ function JobOperationRow({
     initialLastRun,
   );
   const [running, setRunning] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<JsonBackgroundJob[] | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -71,12 +72,18 @@ function JobOperationRow({
 
   const handleRun = async () => {
     setRunning(true);
+    setRunError(null);
     try {
-      await fetch("/api/admin/jobs/run", {
+      const runRes = await fetch("/api/admin/jobs/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind }),
       });
+      if (!runRes.ok) {
+        const body = await runRes.json().catch(() => null);
+        setRunError(body?.error ?? `Request failed (${runRes.status}).`);
+        return;
+      }
       const res = await fetch(`/api/admin/jobs?kind=${kind}&limit=1`);
       if (res.ok) {
         const data = await res.json();
@@ -143,6 +150,14 @@ function JobOperationRow({
           >
             History {historyOpen ? "▴" : "▾"}
           </button>
+          {runError ? (
+            <span
+              className="muted"
+              style={{ fontSize: "0.8125rem", color: "var(--destructive)" }}
+            >
+              {runError}
+            </span>
+          ) : null}
         </div>
       </div>
       {historyOpen && (

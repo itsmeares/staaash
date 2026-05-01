@@ -21,8 +21,8 @@ const defaultSystemSettings = {
 vi.mock("@staaash/db/client", () => ({
   getPrisma: () => ({
     systemSettings: {
-      upsert: vi.fn().mockResolvedValue(defaultSystemSettings),
       findUnique: vi.fn().mockResolvedValue(defaultSystemSettings),
+      create: vi.fn().mockResolvedValue(defaultSystemSettings),
     },
     instance: {
       findUnique: vi.fn().mockResolvedValue(null),

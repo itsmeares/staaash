@@ -24,8 +24,10 @@ RUN apk add --no-cache openssl
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Prisma CLI for running migrations on startup
-RUN npm install -g prisma@7.6.0 --no-fund --no-audit
+# Prisma CLI for running migrations on startup — version derived from db package
+COPY --from=install /app/packages/db/package.json /tmp/db-pkg.json
+RUN npm install -g "prisma@$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/tmp/db-pkg.json','utf8')).devDependencies.prisma)")" --no-fund --no-audit \
+    && rm /tmp/db-pkg.json
 
 # Next.js standalone server
 COPY --from=build /app/apps/web/.next/standalone ./
