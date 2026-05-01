@@ -1,0 +1,28 @@
+# Dependencies (rebuilt inside Docker)
+node_modules/
+**/node_modules/
+
+# Build artifacts (rebuilt inside Docker)
+.next/
+**/dist/
+
+# Git
+.git/
+.gitignore
+
+# Env files (never bake secrets into image)
+.env
+.env.*
+!.env.example
+
+# Test + dev artifacts
+**/*.test.ts
+**/*.spec.ts
+**/playwright-report/
+**/test-results/
+**/coverage/
+**/.turbo/
+
+# OS / editor
+.DS_Store
+*.log

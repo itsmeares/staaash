@@ -23,7 +23,7 @@ services:
   worker:
     container_name: staaash_worker
     image: staaash/staaash:${STAAASH_VERSION:-latest}
-    command: worker
+    command: node /worker/dist/index.js
     environment:
       NODE_ENV: production
       STAAASH_VERSION: ${STAAASH_VERSION:-latest}
