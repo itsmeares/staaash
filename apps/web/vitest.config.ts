@@ -9,6 +9,7 @@ process.env.UPLOAD_LOCATION ??= "./.data/files";
 export default defineConfig({
   test: {
     environment: "node",
+    setupFiles: ["./vitest.setup.ts"],
     include: ["server/**/*.test.ts"],
     // Storage-backed integration tests share the same UPLOAD_LOCATION fixture tree.
     // Run files serially to avoid cross-file races on Windows filesystem ops.
