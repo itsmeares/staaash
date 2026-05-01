@@ -8,6 +8,7 @@ import {
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireOwnerPageSession } from "@/server/auth/guards";
+import { getBaseUrl } from "@/server/request";
 import { authService } from "@/server/auth/service";
 
 import { InvitesAdminConsole } from "../invites-admin-console";
@@ -26,9 +27,7 @@ export default async function AdminInvitesPage({
     requireOwnerPageSession(),
     headers(),
   ]);
-  const proto = h.get("x-forwarded-proto") ?? "http";
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost";
-  const baseUrl = `${proto}://${host}`;
+  const baseUrl = getBaseUrl(h);
   const allInvites = await authService.listInvites(session.user.id);
   const page = parsePage(getSingleSearchParam(resolvedSearchParams, "page"));
   const totalPages = Math.ceil(allInvites.length / PAGE_SIZE);

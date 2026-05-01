@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 
 import { Toaster } from "@/components/ui/sonner";
+import { getInitials } from "@/lib/user";
 import { getCurrentSession } from "@/server/auth/session";
 import { getSystemSettings } from "@/server/settings";
 import {
@@ -17,17 +18,6 @@ import { WorkspaceNav, workspaceNavGroups } from "./workspace-nav";
 import { WorkspaceStorage } from "./workspace-storage";
 
 export const dynamic = "force-dynamic";
-
-function getInitials(displayName: string | null, username: string): string {
-  if (displayName) {
-    const parts = displayName.trim().split(/\s+/);
-    if (parts.length >= 2) {
-      return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
-    }
-    return displayName.slice(0, 2).toUpperCase();
-  }
-  return username.slice(0, 2).toUpperCase();
-}
 
 export default async function WorkspaceLayout({
   children,
