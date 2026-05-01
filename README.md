@@ -25,12 +25,44 @@ What is shipped:
 - restore reconciliation with missing-original and orphaned-storage reporting
 - integration tests and Playwright E2E smoke harness
 
-Not yet:
-
-- no Docker Compose or one-command deployment
-- no installation guide for non-developers
-
 Self-hosting readiness is tracked in [#21](https://github.com/itsmeares/staaash/issues/21).
+
+## Installation
+
+Requirements: [Docker](https://docs.docker.com/get-docker/) with the Compose plugin.
+
+```console
+curl -L https://github.com/itsmeares/staaash/releases/latest/download/docker-compose.yml -o docker-compose.yml
+curl -L https://github.com/itsmeares/staaash/releases/latest/download/.env.example -o .env
+```
+
+Open `.env` and set `DB_PASSWORD` to a secure value, then:
+
+```console
+docker compose up -d
+```
+
+Staaash is now running at `http://localhost:2113`.
+
+The first account you register becomes the owner. Subsequent accounts require an invite from the owner.
+
+### Upgrading
+
+```console
+docker compose pull
+docker compose up -d
+```
+
+Migrations run automatically on startup.
+
+### Data locations
+
+| What           | Default path |
+| -------------- | ------------ |
+| Uploaded files | `./library`  |
+| Database       | `./postgres` |
+
+Both paths are relative to where `docker-compose.yml` lives. Change them in `.env` before first run.
 
 ## Core Behavior
 
