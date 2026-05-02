@@ -1,5 +1,9 @@
 import { canAccessAdminSurface } from "@/server/access";
-import { authCrypto, type AuthCrypto } from "@/server/auth/crypto";
+import {
+  authCrypto,
+  getAuthSecret,
+  type AuthCrypto,
+} from "@/server/auth/crypto";
 import { AuthError } from "@/server/auth/errors";
 import {
   bootstrapInputSchema,
@@ -342,6 +346,7 @@ export const createAuthService = ({
         return null;
       }
 
+      await getAuthSecret();
       const tokenHash = crypto.hashOpaqueToken(rawToken);
       const activeRepo = await resolveRepo();
       const session = await activeRepo.findSessionByTokenHash(tokenHash);
