@@ -2,36 +2,16 @@
 
 [![AGPL-3.0 License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](./LICENSE)
 
+> [!IMPORTANT]
+> **Staaash has just shipped its first pre-release and is in early alpha.** Expect bugs, missing features, and breaking changes between releases. Do not use as your only copy of important files — set up a [3-2-1 backup strategy](https://www.backblaze.com/blog/the-3-2-1-backup-strategy/) before you start.
+
 Staaash is a self-hosted personal cloud drive I am building in public.
 
 The goal is not to clone a larger product feature-for-feature. The goal is to build a storage app with predictable behavior around uploads, file layout, sharing, search, and recovery, then make those rules explicit in the code and docs.
 
 Think of it as the [Immich](https://github.com/immich-app/immich) for files.
 
-## Current Status
-
-v1 is feature-complete.
-
-What is shipped:
-
-- signed-in workspace with Files, Recent, Favorites, Shared, Trash, and Settings
-- nested folder navigation with breadcrumbs, create, rename, move, trash, and restore
-- staged upload pipeline with checksum verification and atomic commit
-- public share links with expiry, optional password, download-disable, and folder subtree browsing
-- inline viewers for image, video, PDF, text, and audio files
-- private search, favorites, and recents
-- worker job loop for trash retention, staging cleanup, and update checks
-- owner admin surface for users, invites, storage, jobs, health, and update status
-- restore reconciliation with missing-original and orphaned-storage reporting
-- integration tests and Playwright E2E smoke harness
-
-Self-hosting readiness is tracked in [#21](https://github.com/itsmeares/staaash/issues/21).
-
 ## Installation
-
-> **Alpha software.** Staaash is in early alpha. Expect bugs, missing features, and breaking changes between releases. Do not use as your only copy of important files.
->
-> Before you start, set up a [3-2-1 backup strategy](https://www.backblaze.com/blog/the-3-2-1-backup-strategy/): 3 copies of your data, on 2 different media types, with 1 offsite. Your `./library` folder is the one to back up.
 
 Requirements: [Docker](https://docs.docker.com/get-docker/) with the Compose plugin.
 
@@ -65,26 +45,9 @@ Migrations run automatically on startup.
 
 Both paths are relative to where `docker-compose.yml` lives. Change them in `.env` before first run.
 
-## Core Behavior
-
-- immutable ID-based physical storage — rename and move never touch the binary on disk
-- staged uploads with checksum verification before commit
-- explicit sharing boundaries — no silent re-share, no hidden subtree filtering
-- deterministic search: case-insensitive, accent-insensitive, path-token aware
-- owner health and operational visibility as a first-class surface
-- restore requires reconciliation instead of silent best effort
-
 ## Tech Stack
 
-- Next.js
-- React
-- TypeScript
-- PNPM workspaces
-- Turborepo
-- Prisma
-- PostgreSQL
-- Vitest
-- Playwright
+Next.js · TypeScript · Prisma · PostgreSQL
 
 ## Repository Layout
 
