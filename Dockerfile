@@ -35,11 +35,16 @@ RUN npm install -g "prisma@$(node -e "process.stdout.write(JSON.parse(require('f
 COPY --from=build /app/apps/web/.next/standalone ./
 COPY --from=build /app/apps/web/.next/static ./apps/web/.next/static
 
-# Prisma schema + migrations
+# Prisma schema + migrations + config
 COPY --from=build /app/packages/db/prisma ./prisma
+COPY --from=build /app/packages/db/prisma.config.ts ./
 
 # Worker (self-contained via pnpm deploy)
 COPY --from=build /deploy/worker /worker
+
+# Next.js standalone copies node_modules to /app — symlink global prisma in so
+# prisma.config.ts can resolve "prisma/config" when migrate runs
+RUN ln -sf "$(npm root -g)/prisma" /app/node_modules/prisma
 
 EXPOSE 2113
 CMD ["sh", "-c", "prisma migrate deploy && node server.js"]
