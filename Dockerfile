@@ -35,9 +35,8 @@ RUN npm install -g "prisma@$(node -e "process.stdout.write(JSON.parse(require('f
 COPY --from=build /app/apps/web/.next/standalone ./
 COPY --from=build /app/apps/web/.next/static ./apps/web/.next/static
 
-# Prisma schema + migrations + config
+# Prisma schema + migrations
 COPY --from=build /app/packages/db/prisma ./prisma
-COPY --from=build /app/packages/db/prisma.config.ts ./
 
 # Worker (self-contained via pnpm deploy)
 COPY --from=build /deploy/worker /worker
