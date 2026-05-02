@@ -163,6 +163,7 @@ export const createAuthService = ({
       };
     }
 
+    await getAuthSecret();
     const tokenHash = crypto.hashOpaqueToken(rawToken);
     const activeRepo = await resolveRepo();
     const invite = await activeRepo.findInviteByTokenHash(tokenHash);
@@ -203,6 +204,7 @@ export const createAuthService = ({
       };
     }
 
+    await getAuthSecret();
     const tokenHash = crypto.hashOpaqueToken(rawToken);
     const activeRepo = await resolveRepo();
     const record = await activeRepo.findPasswordResetByTokenHash(tokenHash);
