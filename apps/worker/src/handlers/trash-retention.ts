@@ -6,7 +6,7 @@ import type { BackgroundJobRecord } from "@staaash/db/jobs";
 import { resolveWorkspacePath } from "@staaash/config";
 
 const trashEnvSchema = z.object({
-  FILES_ROOT: z.string().trim().min(1),
+  UPLOAD_LOCATION: z.string().trim().min(1),
   TRASH_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
 });
 
@@ -98,8 +98,8 @@ export const handleTrashRetention = async (
   _job: BackgroundJobRecord,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<void> => {
-  const { FILES_ROOT, TRASH_RETENTION_DAYS } = trashEnvSchema.parse(env);
-  const filesRoot = resolveWorkspacePath(FILES_ROOT, process.cwd());
+  const { UPLOAD_LOCATION, TRASH_RETENTION_DAYS } = trashEnvSchema.parse(env);
+  const filesRoot = resolveWorkspacePath(UPLOAD_LOCATION, process.cwd());
   const cutoff = new Date(
     Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000,
   );

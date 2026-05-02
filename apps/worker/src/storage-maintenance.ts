@@ -12,7 +12,7 @@ import { z } from "zod";
 import { resolveWorkspacePath } from "@staaash/config";
 
 const workerEnvSchema = z.object({
-  FILES_ROOT: z.string().trim().min(1),
+  UPLOAD_LOCATION: z.string().trim().min(1),
   UPLOAD_STAGING_RETENTION_HOURS: z.coerce.number().int().positive().default(2),
 });
 
@@ -48,7 +48,7 @@ export const getWorkerStoragePaths = (
   startDir = process.cwd(),
 ): WorkerStoragePaths => {
   const parsed = workerEnvSchema.parse(env);
-  const filesRoot = resolveWorkspacePath(parsed.FILES_ROOT, startDir);
+  const filesRoot = resolveWorkspacePath(parsed.UPLOAD_LOCATION, startDir);
   const tmpRoot = path.resolve(filesRoot, "tmp");
 
   return {

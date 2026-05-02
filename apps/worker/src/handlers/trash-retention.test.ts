@@ -241,7 +241,7 @@ describe("trash retention handler", () => {
     const { handleTrashRetention } = await import("./trash-retention.js");
 
     await handleTrashRetention(createJob(), {
-      FILES_ROOT: filesRoot,
+      UPLOAD_LOCATION: filesRoot,
       TRASH_RETENTION_DAYS: "30",
     });
 
@@ -285,7 +285,7 @@ describe("trash retention handler", () => {
     const { handleTrashRetention } = await import("./trash-retention.js");
 
     await handleTrashRetention(createJob(), {
-      FILES_ROOT: filesRoot,
+      UPLOAD_LOCATION: filesRoot,
       TRASH_RETENTION_DAYS: "30",
     });
 
@@ -326,7 +326,7 @@ describe("trash retention handler", () => {
     const { handleTrashRetention } = await import("./trash-retention.js");
 
     await handleTrashRetention(createJob(), {
-      FILES_ROOT: filesRoot,
+      UPLOAD_LOCATION: filesRoot,
       TRASH_RETENTION_DAYS: "30",
     });
 
@@ -378,7 +378,7 @@ describe("trash retention handler", () => {
     const { handleTrashRetention } = await import("./trash-retention.js");
 
     await handleTrashRetention(createJob(), {
-      FILES_ROOT: filesRoot,
+      UPLOAD_LOCATION: filesRoot,
       TRASH_RETENTION_DAYS: "30",
     });
 
