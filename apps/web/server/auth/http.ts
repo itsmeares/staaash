@@ -55,6 +55,19 @@ export const isSameOrigin = (request: NextRequest) => {
     return true;
   }
 
+  // Compare against Host header rather than nextUrl.origin — in Next.js standalone
+  // (Docker), nextUrl.origin reflects the internal server hostname (e.g. localhost)
+  // not the external host the browser used.
+  const host = request.headers.get("host");
+
+  if (host) {
+    try {
+      return new URL(origin).host === host;
+    } catch {
+      return false;
+    }
+  }
+
   return origin === request.nextUrl.origin;
 };
 
