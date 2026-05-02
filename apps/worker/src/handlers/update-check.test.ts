@@ -43,7 +43,7 @@ describe("update check handler", () => {
 
   it("marks update checks unavailable when no repository is configured", async () => {
     mockFindUnique.mockResolvedValue(null);
-    const { handleUpdateCheck } = await import("./update-check");
+    const { handleUpdateCheck } = await import("./update-check.js");
 
     await handleUpdateCheck(createJob());
 
@@ -71,7 +71,7 @@ describe("update check handler", () => {
       }),
     );
 
-    const { handleUpdateCheck } = await import("./update-check");
+    const { handleUpdateCheck } = await import("./update-check.js");
 
     await handleUpdateCheck(createJob());
 
@@ -95,7 +95,7 @@ describe("update check handler", () => {
       }),
     );
 
-    const { handleUpdateCheck } = await import("./update-check");
+    const { handleUpdateCheck } = await import("./update-check.js");
 
     await handleUpdateCheck(createJob());
 
@@ -119,7 +119,7 @@ describe("update check handler", () => {
       }),
     );
 
-    const { handleUpdateCheck } = await import("./update-check");
+    const { handleUpdateCheck } = await import("./update-check.js");
 
     await handleUpdateCheck(createJob());
 

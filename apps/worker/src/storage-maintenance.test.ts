@@ -15,7 +15,7 @@ import {
   cleanupExpiredStagingFiles,
   recoverPendingDeletes,
   shouldCleanupStagedUpload,
-} from "./storage-maintenance";
+} from "./storage-maintenance.js";
 
 const createTempRoot = () =>
   path.join(os.tmpdir(), `staaash-worker-${Date.now()}-${Math.random()}`);

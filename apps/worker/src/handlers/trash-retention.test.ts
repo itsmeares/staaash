@@ -238,7 +238,7 @@ describe("trash retention handler", () => {
     const blobPath = await createBlob(filesRoot, files[0]!.storageKey, "child");
     getPrismaMock.mockReturnValue(createMockPrisma({ files, folders }));
 
-    const { handleTrashRetention } = await import("./trash-retention");
+    const { handleTrashRetention } = await import("./trash-retention.js");
 
     await handleTrashRetention(createJob(), {
       FILES_ROOT: filesRoot,
@@ -282,7 +282,7 @@ describe("trash retention handler", () => {
     const blobPath = await createBlob(filesRoot, files[0]!.storageKey, "child");
     getPrismaMock.mockReturnValue(createMockPrisma({ files, folders }));
 
-    const { handleTrashRetention } = await import("./trash-retention");
+    const { handleTrashRetention } = await import("./trash-retention.js");
 
     await handleTrashRetention(createJob(), {
       FILES_ROOT: filesRoot,
@@ -323,7 +323,7 @@ describe("trash retention handler", () => {
     const blobPath = await createBlob(filesRoot, files[0]!.storageKey, "root");
     getPrismaMock.mockReturnValue(createMockPrisma({ files, folders }));
 
-    const { handleTrashRetention } = await import("./trash-retention");
+    const { handleTrashRetention } = await import("./trash-retention.js");
 
     await handleTrashRetention(createJob(), {
       FILES_ROOT: filesRoot,
@@ -375,7 +375,7 @@ describe("trash retention handler", () => {
       }),
     );
 
-    const { handleTrashRetention } = await import("./trash-retention");
+    const { handleTrashRetention } = await import("./trash-retention.js");
 
     await handleTrashRetention(createJob(), {
       FILES_ROOT: filesRoot,

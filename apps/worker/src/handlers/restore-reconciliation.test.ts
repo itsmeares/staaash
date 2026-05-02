@@ -24,7 +24,7 @@ const {
   collectOrphanedStorageKeys,
   collectRestoreReconciliationIssues,
   handleRestoreReconciliation,
-} = await import("./restore-reconciliation");
+} = await import("./restore-reconciliation.js");
 
 const createTempFilesRoot = () =>
   path.join(

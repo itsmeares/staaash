@@ -1,1 +1,1 @@
-export { findWorkspaceRoot, resolveWorkspacePath } from "./runtime-paths";
+export { findWorkspaceRoot, resolveWorkspacePath } from "./runtime-paths.js";
