@@ -47,4 +47,4 @@ COPY --from=build /deploy/worker /worker
 RUN ln -sf "$(npm root -g)/prisma" /app/node_modules/prisma
 
 EXPOSE 2113
-CMD ["sh", "-c", "prisma migrate deploy && node server.js"]
+CMD ["sh", "-c", "prisma migrate deploy && node apps/web/server.js"]
