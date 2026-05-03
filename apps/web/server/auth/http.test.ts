@@ -21,6 +21,7 @@ describe("auth http helpers", () => {
     const request = new NextRequest("http://localhost:3000/library", {
       headers: {
         accept: "text/html",
+        host: "localhost:3000",
       },
     });
 
