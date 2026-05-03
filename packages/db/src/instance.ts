@@ -16,7 +16,7 @@ export type InstanceUpdateCheckState = {
 type InstanceClient = {
   instance: {
     findUnique(args: object): Promise<InstanceUpdateCheckState | null>;
-    upsert(args: object): Promise<InstanceUpdateCheckState>;
+    updateMany(args: object): Promise<unknown>;
   };
 };
 
@@ -74,9 +74,8 @@ export const writeInstanceUpdateCheck = async (
     data.latestAvailableVersion = latestAvailableVersion;
   }
 
-  await activeClient.instance.upsert({
+  await activeClient.instance.updateMany({
     where: { id: "singleton" },
-    create: { id: "singleton", ...data },
-    update: data,
+    data,
   });
 };
