@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { enforceSameOrigin, requireOwnerApiSession } from "@/server/admin/http";
 import { jsonErrorResponse } from "@/server/auth/http";
 import { authService } from "@/server/auth/service";
+import { getBaseUrl } from "@/server/request";
 
 type RouteContext = {
   params: Promise<{
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       invite: result.invite,
       redeemUrl: new URL(
         `/invite/${result.token}`,
-        request.nextUrl.origin,
+        getBaseUrl(request.headers),
       ).toString(),
     });
   } catch (error) {

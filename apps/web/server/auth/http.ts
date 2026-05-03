@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
 import { AuthError } from "@/server/auth/errors";
+import { getBaseUrl } from "@/server/request";
 
 type ParsedRequestBody = Record<string, string>;
 
@@ -126,7 +127,10 @@ export const signInRedirectResponse = (
   redirectTo: string,
 ) =>
   NextResponse.redirect(
-    new URL(`/?next=${encodeURIComponent(redirectTo)}`, request.url),
+    new URL(
+      `/?next=${encodeURIComponent(redirectTo)}`,
+      getBaseUrl(request.headers),
+    ),
     303,
   );
 
@@ -144,7 +148,7 @@ export const redirectWithMessage = (
   key: "error" | "success",
   message: string,
 ) => {
-  const url = new URL(path, request.url);
+  const url = new URL(path, getBaseUrl(request.headers));
   url.searchParams.set(key, message);
   return NextResponse.redirect(url, 303);
 };

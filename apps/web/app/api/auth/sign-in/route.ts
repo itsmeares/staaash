@@ -14,6 +14,7 @@ import {
   readRequestBody,
   wantsJson,
 } from "@/server/auth/http";
+import { getBaseUrl } from "@/server/request";
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
     });
     const response = wantsJson(request)
       ? NextResponse.json({ user: result.user, session: result.session })
-      : NextResponse.redirect(new URL(next, request.url), 303);
+      : NextResponse.redirect(new URL(next, getBaseUrl(request.headers)), 303);
 
     response.cookies.set(
       buildSessionCookie(result.sessionToken, result.session.expiresAt),

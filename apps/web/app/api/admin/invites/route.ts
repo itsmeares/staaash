@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { enforceSameOrigin, requireOwnerApiSession } from "@/server/admin/http";
 import { jsonErrorResponse, readRequestBody } from "@/server/auth/http";
 import { authService } from "@/server/auth/service";
+import { getBaseUrl } from "@/server/request";
 
 export async function POST(request: NextRequest) {
   const sameOriginError = enforceSameOrigin(request);
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
         invite: result.invite,
         redeemUrl: new URL(
           `/invite/${result.token}`,
-          request.nextUrl.origin,
+          getBaseUrl(request.headers),
         ).toString(),
       },
       { status: 201 },
