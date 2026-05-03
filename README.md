@@ -15,7 +15,9 @@ Think of it as the [Immich](https://github.com/immich-app/immich) for files.
 
 Requirements: [Docker](https://docs.docker.com/get-docker/) with the Compose plugin.
 
-1. Go to the [releases page](https://github.com/itsmeares/staaash/releases) and download `docker-compose.yml` and `example.env` into the same folder.
+### Windows and Linux
+
+1. Go to the [releases page](https://github.com/itsmeares/staaash/releases) and download `docker-compose.yml` and `example.env` into the same folder. (I suggest downloading from the latest release or a specific version because files on main may not always be ready for production. Always prefer release version.)
 2. Rename `example.env` to `.env`, open it, set `DB_PASSWORD` to a secure value (Use a safe password generator for this like pwgen or bitwarden), and change any other values you want.
 3. Run:
 
