@@ -5,10 +5,8 @@ import {
   buildPageHref,
   parsePage,
 } from "@/app/pagination-controls";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireOwnerPageSession } from "@/server/auth/guards";
-import { getBaseUrl } from "@/server/request";
 import { authService } from "@/server/auth/service";
 
 import { InvitesAdminConsole } from "../invites-admin-console";
@@ -22,12 +20,10 @@ type AdminInvitesPageProps = {
 export default async function AdminInvitesPage({
   searchParams,
 }: AdminInvitesPageProps) {
-  const [resolvedSearchParams, session, h] = await Promise.all([
+  const [resolvedSearchParams, session] = await Promise.all([
     searchParams,
     requireOwnerPageSession(),
-    headers(),
   ]);
-  const baseUrl = getBaseUrl(h);
   const allInvites = await authService.listInvites(session.user.id);
   const page = parsePage(getSingleSearchParam(resolvedSearchParams, "page"));
   const totalPages = Math.ceil(allInvites.length / PAGE_SIZE);
@@ -48,7 +44,6 @@ export default async function AdminInvitesPage({
       </section>
 
       <InvitesAdminConsole
-        appUrl={baseUrl}
         initialInvites={invites.map((invite) => ({
           id: invite.id,
           email: invite.email,

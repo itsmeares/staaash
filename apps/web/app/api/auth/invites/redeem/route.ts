@@ -9,6 +9,7 @@ import {
   readRequestBody,
   wantsJson,
 } from "@/server/auth/http";
+import { getBaseUrl } from "@/server/request";
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
@@ -40,7 +41,10 @@ export async function POST(request: NextRequest) {
           { user: result.user, session: result.session },
           { status: 201 },
         )
-      : NextResponse.redirect(new URL("/files", request.url), 303);
+      : NextResponse.redirect(
+          new URL("/files", getBaseUrl(request.headers)),
+          303,
+        );
 
     response.cookies.set(
       buildSessionCookie(result.sessionToken, result.session.expiresAt),

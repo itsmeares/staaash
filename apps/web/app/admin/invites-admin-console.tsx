@@ -16,12 +16,10 @@ type AdminInvite = {
 
 type InvitesAdminConsoleProps = {
   initialInvites: AdminInvite[];
-  appUrl: string;
 };
 
 export function InvitesAdminConsole({
   initialInvites,
-  appUrl,
 }: InvitesAdminConsoleProps) {
   const router = useRouter();
   const [isRefreshing, startTransition] = useTransition();
@@ -119,7 +117,7 @@ export function InvitesAdminConsole({
             <div className="banner banner-success">
               Invite issued. Share this URL:
               <br />
-              <code>{issuedInviteUrl.replace(appUrl, "")}</code>
+              <code>{issuedInviteUrl}</code>
             </div>
           ) : (
             <p className="muted">
