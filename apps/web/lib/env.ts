@@ -11,6 +11,10 @@ const envSchema = z.object({
     .min(1)
     .default("postgresql://postgres:staaash@localhost:5432/staaash"),
   UPLOAD_LOCATION: z.string().trim().min(1).default("./.data/files"),
+  SECURE_COOKIES: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((val) => (val === undefined ? undefined : val === "true")),
 });
 
 export const env = (() => {

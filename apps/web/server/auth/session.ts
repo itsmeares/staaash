@@ -7,7 +7,10 @@ export const SESSION_COOKIE_NAME = "staaash_session";
 export const ONBOARDED_COOKIE_NAME = "staaash_onboarded";
 export const THEME_COOKIE_NAME = "staaash_theme";
 
-const isSecure = env.NODE_ENV === "production";
+const isSecure =
+  env.SECURE_COOKIES !== undefined
+    ? env.SECURE_COOKIES
+    : env.NODE_ENV === "production";
 
 const baseCookie = {
   name: SESSION_COOKIE_NAME,
