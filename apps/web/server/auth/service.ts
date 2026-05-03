@@ -136,6 +136,7 @@ export const createAuthService = ({
 
   const createSessionForUser = async (user: AuthUser): Promise<AuthResult> => {
     const issuedAt = now();
+    await getAuthSecret();
     const tokenPair = crypto.issueOpaqueToken();
     const activeRepo = await resolveRepo();
     const { sessionMaxAgeDays: maxDays } = await resolveSettings();
