@@ -55,8 +55,10 @@ describe("HomePage route", () => {
 
     const { default: HomePage } = await import("@/app/page");
 
-    await expect(HomePage({ searchParams })).rejects.toThrow("redirect:/files");
-    expect(redirect).toHaveBeenCalledWith("/files");
+    await expect(HomePage({ searchParams })).rejects.toThrow(
+      "redirect:/api/auth/rehydrate",
+    );
+    expect(redirect).toHaveBeenCalledWith("/api/auth/rehydrate");
   });
 
   it("renders onboarding for signed-in visitors without completed onboarding", async () => {
