@@ -3912,7 +3912,7 @@ h3 {
 /* Actions row (meta + download) */
 .sp-media {
   width: min(95vw, 1280px);
-  justify-self: center;
+  margin-left: calc((min(95vw, 1280px) - 100%) / -2);
 }
 
 .sp-actions {
