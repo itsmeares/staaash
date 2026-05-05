@@ -4,6 +4,8 @@ import {
 } from "@staaash/db/jobs";
 import { readInstanceUpdateCheck } from "@staaash/db/instance";
 
+import { version as packageVersion } from "../../package.json";
+
 import { getSystemSettings } from "@/server/settings";
 
 import type { AdminUpdateStatus, JsonAdminUpdateStatus } from "./types";
@@ -16,7 +18,11 @@ export const getAdminUpdateStatus = async (): Promise<AdminUpdateStatus> => {
 
   return {
     currentVersion:
-      process.env.STAAASH_VERSION ?? process.env.APP_VERSION ?? "0.1.0",
+      process.env.NODE_ENV !== "production"
+        ? "development"
+        : (process.env.STAAASH_VERSION ??
+          process.env.APP_VERSION ??
+          packageVersion),
     repository: settings.updateCheckRepository || null,
     lastUpdateCheckAt: state.lastUpdateCheckAt,
     updateCheckStatus: state.updateCheckStatus,

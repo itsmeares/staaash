@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const writeInstanceUpdateCheck = vi.fn();
 const mockFindUnique = vi.fn();
@@ -33,7 +33,15 @@ const createJob = () =>
   }) as const;
 
 describe("update check handler", () => {
+  let originalNodeEnv: string | undefined;
+
+  beforeEach(() => {
+    originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+  });
+
   afterEach(() => {
+    process.env.NODE_ENV = originalNodeEnv;
     vi.restoreAllMocks();
     vi.clearAllMocks();
     mockFindUnique.mockReset();
