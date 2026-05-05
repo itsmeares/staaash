@@ -256,7 +256,18 @@ export function ShareDialog({
 
   const copyUrl = async () => {
     if (!dialogShare?.shareUrl) return;
-    await navigator.clipboard.writeText(dialogShare.shareUrl);
+    try {
+      await navigator.clipboard.writeText(dialogShare.shareUrl);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = dialogShare.shareUrl;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
     setCopied(true);
     toast.success("Link copied");
     setTimeout(() => setCopied(false), 2000);
