@@ -175,7 +175,7 @@ export function ShareFilePage({
   const formatLabel = ext ?? file.mimeType;
 
   return (
-    <main className="share-page stack">
+    <main className="share-page sp-file-layout">
       {error ? <FlashMessage>{error}</FlashMessage> : null}
       {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
 
@@ -221,8 +221,8 @@ export function ShareFilePage({
               src={contentHref}
               style={{
                 display: "block",
-                maxWidth: "100%",
-                maxHeight: "75vh",
+                maxWidth: "min(90vw, 1920px)",
+                maxHeight: "60vh",
                 objectFit: "contain",
               }}
             />
@@ -234,8 +234,8 @@ export function ShareFilePage({
               src={contentHref}
               style={{
                 display: "block",
-                width: "100%",
-                maxHeight: "75vh",
+                maxWidth: "min(90vw, 1920px)",
+                maxHeight: "60vh",
               }}
             >
               Your browser could not play this video inline.

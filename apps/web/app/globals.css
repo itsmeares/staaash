@@ -3619,6 +3619,25 @@ h3 {
   padding-bottom: 48px;
 }
 
+.sp-file-layout {
+  max-width: none;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 24px;
+  gap: 16px;
+}
+
+.sp-file-layout > * {
+  width: min(90vw, 1920px);
+  box-sizing: border-box;
+}
+
+.sp-file-layout .share-page-footer {
+  margin-top: auto;
+}
+
 .sp-topbar {
   display: flex;
   align-items: flex-start;
@@ -3910,10 +3929,10 @@ h3 {
 }
 
 /* Actions row (meta + download) */
-.sp-media {
-  justify-self: start;
-  width: min(90vw, 1920px);
-  transform: translateX(calc(min(50vw, 300px) - min(45vw, 960px)));
+.sp-file-layout .sp-media {
+  width: fit-content;
+  max-width: min(90vw, 1920px);
+  padding: 0;
 }
 
 .sp-actions {
