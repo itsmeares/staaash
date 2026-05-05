@@ -21,6 +21,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { FlashMessage } from "@/app/auth-ui";
+import { randomClientId } from "@/lib/client-id";
 import type { FilesListing } from "@/server/files/types";
 import type { ShareFilesLookup } from "@/server/sharing";
 
@@ -601,7 +602,7 @@ export function FilesView({
 
   const uploadFiles = (files: File[]) => {
     for (const file of files) {
-      const clientKey = crypto.randomUUID();
+      const clientKey = randomClientId();
       setUploadingFiles((prev) => [
         ...prev,
         {
