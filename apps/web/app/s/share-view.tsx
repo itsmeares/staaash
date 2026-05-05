@@ -213,7 +213,6 @@ export function ShareFilePage({
             justifyContent: "center",
             backgroundColor:
               "color-mix(in oklab, var(--foreground) 4%, var(--background))",
-            minHeight: "60vh",
           }}
         >
           {file.viewerKind === "image" ? (
