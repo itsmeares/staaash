@@ -11,7 +11,7 @@ import {
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FolderPlus, Upload } from "lucide-react";
+import { FolderPlus, RefreshCw, Upload } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1290,6 +1290,18 @@ export function FilesView({
             >
               <Upload size={13} />
               Upload files
+            </button>
+            <button
+              className="bg-ctx-item"
+              onClick={() => {
+                setBgCtxMenu(null);
+                startTransition(() => {
+                  router.refresh();
+                });
+              }}
+            >
+              <RefreshCw size={13} />
+              Refresh
             </button>
             <div className="bg-ctx-sep" />
             {cutItems.length > 0 && (
