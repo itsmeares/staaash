@@ -3912,8 +3912,8 @@ h3 {
 /* Actions row (meta + download) */
 .sp-media {
   justify-self: start;
-  width: min(95vw, 1280px);
-  margin-left: calc((min(95vw, 1280px) - 100%) / -2);
+  width: min(90vw, 1920px);
+  margin-left: calc((min(90vw, 1920px) - 100%) / -2);
 }
 
 .sp-actions {
