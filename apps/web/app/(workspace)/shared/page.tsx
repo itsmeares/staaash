@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 
 import {
   FlashMessage,
@@ -12,6 +13,7 @@ import {
 } from "@/app/pagination-controls";
 import { redirect } from "next/navigation";
 import { requireSignedInPageSession } from "@/server/auth/guards";
+import { getBaseUrl } from "@/server/request";
 import { formatDateTimeLocalValue } from "@/server/sharing/schema";
 import { sharingService } from "@/server/sharing/service";
 
@@ -42,15 +44,18 @@ type SharedPageProps = {
 };
 
 export default async function SharedPage({ searchParams }: SharedPageProps) {
-  const [resolvedSearchParams, session] = await Promise.all([
+  const [resolvedSearchParams, session, h] = await Promise.all([
     searchParams,
     requireSignedInPageSession("/?next=/shared"),
+    headers(),
   ]);
+  const baseUrl = getBaseUrl(h);
   const error = getSingleSearchParam(resolvedSearchParams, "error");
   const success = getSingleSearchParam(resolvedSearchParams, "success");
   const shares = await sharingService.listOwnedShares({
     actorUserId: session.user.id,
     actorRole: session.user.role,
+    baseUrl,
   });
 
   const activePage = parsePage(

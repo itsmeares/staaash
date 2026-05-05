@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { requireSignedInPageSession } from "@/server/auth/guards";
@@ -5,6 +6,7 @@ import { isFilesError } from "@/server/files/errors";
 import { filesService } from "@/server/files/service";
 import { recordFolderAccessBestEffort } from "@/server/retrieval/recent-tracking";
 import { retrievalService } from "@/server/retrieval/service";
+import { getBaseUrl } from "@/server/request";
 import { sharingService } from "@/server/sharing/service";
 
 import { FilesExplorer } from "../../files-explorer";
@@ -22,10 +24,12 @@ export default async function FilesFolderPage({
   params,
   searchParams,
 }: FilesFolderPageProps) {
-  const [{ folderId }, resolvedSearchParams] = await Promise.all([
+  const [{ folderId }, resolvedSearchParams, h] = await Promise.all([
     params,
     searchParams,
+    headers(),
   ]);
+  const baseUrl = getBaseUrl(h);
   const session = await requireSignedInPageSession(
     `/?next=${encodeURIComponent(`/files/f/${folderId}`)}`,
   );
@@ -54,6 +58,7 @@ export default async function FilesFolderPage({
         currentFolderId: listing.currentFolder.id,
         childFolderIds: listing.childFolders.map((folder) => folder.id),
         fileIds: listing.files.map((file) => file.id),
+        baseUrl,
       }),
       retrievalService.listFavorites({
         actorUserId: session.user.id,
