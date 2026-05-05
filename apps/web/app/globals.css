@@ -3910,6 +3910,11 @@ h3 {
 }
 
 /* Actions row (meta + download) */
+.sp-media {
+  width: min(95vw, 1280px);
+  margin-left: calc((min(95vw, 1280px) - 100%) / -2);
+}
+
 .sp-actions {
   display: flex;
   align-items: center;

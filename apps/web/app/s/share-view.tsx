@@ -205,7 +205,7 @@ export function ShareFilePage({
         <TextFileViewer contentHref={contentHref} />
       ) : file.viewerKind === "image" || file.viewerKind === "video" ? (
         <section
-          className="panel stack"
+          className="panel stack sp-media"
           style={{
             overflow: "hidden",
             display: "flex",
@@ -235,7 +235,7 @@ export function ShareFilePage({
               src={contentHref}
               style={{
                 display: "block",
-                maxWidth: "100%",
+                width: "100%",
                 maxHeight: "75vh",
               }}
             >
