@@ -18,7 +18,7 @@ Requirements: [Docker](https://docs.docker.com/get-docker/) with the Compose plu
 ### Windows and Linux
 
 1. Go to the [releases page](https://github.com/itsmeares/staaash/releases) and download `docker-compose.yml` and `example.env` into the same folder. (I suggest downloading from the latest release or a specific version because files on main may not always be ready for production. Always prefer release version.)
-2. Rename `example.env` to `.env`, open it, set `DB_PASSWORD` to a secure value (Use a safe password generator for this like pwgen or bitwarden), and change any other values you want.
+2. Rename `example.env` to `.env`, open it, set `DB_PASSWORD` to a secure value (You can use something like pwgen). Also, if you are gonna run without HTTPS, you should set `SECURE_COOKIES` to `false`, and change any other values you want.
 3. Run:
 
    ```console
