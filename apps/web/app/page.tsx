@@ -26,7 +26,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   if (session) {
     if (session.user.preferences?.onboardingCompletedAt) {
-      redirect("/files");
+      redirect("/api/auth/rehydrate");
     }
     return (
       <EntryRoot

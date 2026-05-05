@@ -15,8 +15,10 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((val) => {
-      if (val === undefined || val === "") return undefined;
-      return val.toLowerCase() !== "false";
+      if (val === undefined) return undefined;
+      const trimmed = val.trim();
+      if (trimmed === "") return undefined;
+      return trimmed.toLowerCase() !== "false";
     }),
 });
 
