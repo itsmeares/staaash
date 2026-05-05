@@ -5,7 +5,7 @@
 > [!IMPORTANT]
 > **Staaash has just shipped its first pre-release and is in early alpha.** Expect bugs, missing features, and breaking changes between releases. Do not use as your only copy of important files — set up a [3-2-1 backup strategy](https://www.backblaze.com/blog/the-3-2-1-backup-strategy/) before you start.
 
-Staaash is a self-hosted personal cloud drive I am building in public. 
+Staaash is a self-hosted personal cloud drive I am building in public.
 
 This was just gonna be something that only I was going to use and share with some friends but I thought "why not I just do it open-source, maybe some people would like to see aswell" so I made it.
 
@@ -61,17 +61,17 @@ Next.js · TypeScript · Prisma · PostgreSQL
 
 ## Local Development
 
-1. Copy `example.env` to `.env`.
+1. Copy `dev.example.env` to `.env.local` at the repo root.
 2. Start PostgreSQL.
-   The default `example.env` expects `postgresql://staaash:staaash@localhost:5432/staaash`.
+   The default `.env.local` expects `postgresql://staaash:staaash@localhost:5432/staaash`.
    If you want a local Docker container that matches those values, run:
 
    ```console
-   docker run --name staaash-postgres -e POSTGRES_USER=staaash -e POSTGRES_PASSWORD=staaash -e POSTGRES_DB=staaash -p 5432:5432 -v staaash-postgres-data:/var/lib/postgresql -d postgres:18
+   docker run --name staaash-postgres -e POSTGRES_USER=staaash -e POSTGRES_PASSWORD=staaash -e POSTGRES_DB=staaash -p 5432:5432 -v staaash-postgres-data:/var/lib/postgresql -d postgres:16
    ```
 
    After that first run, you can restart it later with `docker start staaash-postgres`.
-   If you already have PostgreSQL running another way, just make sure `DATABASE_URL` in `.env` matches it.
+   If you already have PostgreSQL running another way, just update `DATABASE_URL` in `.env.local`.
 
 3. Run `pnpm i`.
 4. Run `pnpm db:generate`.
