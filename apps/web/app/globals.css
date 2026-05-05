@@ -3912,10 +3912,8 @@ h3 {
 /* Actions row (meta + download) */
 .sp-media {
   justify-self: start;
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
   width: min(90vw, 1920px);
+  transform: translateX(calc(min(50vw, 300px) - min(45vw, 960px)));
 }
 
 .sp-actions {
