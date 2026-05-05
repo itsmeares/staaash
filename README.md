@@ -5,9 +5,9 @@
 > [!IMPORTANT]
 > **Staaash has just shipped its first pre-release and is in early alpha.** Expect bugs, missing features, and breaking changes between releases. Do not use as your only copy of important files — set up a [3-2-1 backup strategy](https://www.backblaze.com/blog/the-3-2-1-backup-strategy/) before you start.
 
-Staaash is a self-hosted personal cloud drive I am building in public.
+Staaash is a self-hosted personal cloud drive I am building in public. 
 
-The goal is not to clone a larger product feature-for-feature. The goal is to build a storage app with predictable behavior around uploads, file layout, sharing, search, and recovery, then make those rules explicit in the code and docs.
+This was just gonna be something that only I was going to use and share with some friends but I thought "why not I just do it open-source, maybe some people would like to see aswell" so I made it.
 
 Think of it as the [Immich](https://github.com/immich-app/immich) for files.
 
