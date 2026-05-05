@@ -8,6 +8,8 @@ import {
 import { readInstanceUpdateCheck } from "@staaash/db/instance";
 import { readLatestRestoreReconciliationRun } from "@staaash/db/reconciliation";
 
+import { version as packageVersion } from "../package.json";
+
 import { getSystemSettings } from "@/server/settings";
 import { buildRestoreReconciliationHealthSummary } from "@/server/restore";
 import {
@@ -232,7 +234,11 @@ export const getReadiness = async () => {
     storageWarnings,
     versionInfo: {
       currentVersion:
-        process.env.STAAASH_VERSION ?? process.env.APP_VERSION ?? "0.1.0",
+        process.env.NODE_ENV !== "production"
+          ? "development"
+          : (process.env.STAAASH_VERSION ??
+            process.env.APP_VERSION ??
+            packageVersion),
       lastUpdateCheckAt:
         instanceState?.lastUpdateCheckAt?.toISOString() ?? null,
       updateCheckStatus: instanceState?.updateCheckStatus ?? null,
