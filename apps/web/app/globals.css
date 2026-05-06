@@ -3629,8 +3629,9 @@ h3 {
   gap: 16px;
 }
 
-.sp-file-layout > * {
-  width: min(90vw, 1920px);
+.sp-file-layout .sp-topbar,
+.sp-file-layout .sp-actions {
+  width: min(calc(60vh * 16 / 9), 90vw, 1920px);
   box-sizing: border-box;
 }
 
