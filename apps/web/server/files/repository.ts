@@ -168,7 +168,7 @@ const toStoredFile = (file: FileRecord): StoredFile => ({
   mimeType: file.mimeType,
   sizeBytes: Number(file.sizeBytes),
   contentChecksum: file.contentChecksum,
-  viewerKind: resolveViewerKind(file.mimeType),
+  viewerKind: resolveViewerKind(file.mimeType, file.originalName),
   deletedAt: file.deletedAt,
   createdAt: file.createdAt,
   updatedAt: file.updatedAt,

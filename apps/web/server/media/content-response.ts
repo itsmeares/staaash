@@ -1,8 +1,6 @@
 import { open } from "node:fs/promises";
 import type { Readable } from "node:stream";
 
-import sharp from "sharp";
-
 import { getStoragePath } from "@/server/storage";
 import type { StoredFile } from "@/server/files/types";
 
@@ -12,9 +10,16 @@ const HEIC_MIME_TYPES = new Set([
   "image/heic-sequence",
   "image/heif-sequence",
 ]);
+const HEIC_EXTENSIONS = new Set(["heic", "heif"]);
 
-const isHeicMimeType = (mimeType: string): boolean =>
-  HEIC_MIME_TYPES.has(mimeType.split(";")[0]?.trim().toLowerCase() ?? "");
+const isHeicFile = (file: Pick<StoredFile, "mimeType" | "name">): boolean => {
+  if (
+    HEIC_MIME_TYPES.has(file.mimeType.split(";")[0]?.trim().toLowerCase() ?? "")
+  )
+    return true;
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return HEIC_EXTENSIONS.has(ext);
+};
 
 const buildInlineDisposition = (fileName: string) =>
   `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`;
@@ -241,24 +246,29 @@ export const createInlineOriginalContentResponse = async ({
     };
 
     if (file.viewerKind === "image") {
-      if (isHeicMimeType(file.mimeType)) {
-        const nodeStream = fileHandle.createReadStream();
+      if (isHeicFile(file)) {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const heicConvert = require("heic-convert") as (options: {
+          buffer: Buffer;
+          format: "JPEG";
+          quality: number;
+        }) => Promise<ArrayBuffer>;
+        const inputBuffer = await fileHandle.readFile();
         streamCreated = true;
-        nodeStream.on("close", () => {
-          fileHandle.close().catch(() => {});
+        await fileHandle.close().catch(() => {});
+        const outputBuffer = await heicConvert({
+          buffer: inputBuffer,
+          format: "JPEG",
+          quality: 0.92,
         });
-        const converter = sharp().jpeg({ quality: 90 });
-        nodeStream.pipe(converter);
-        return new Response(
-          toWebStream(converter, request.signal, () => nodeStream.destroy()),
-          {
-            status: 200,
-            headers: {
-              ...createBaseHeaders(file),
-              "content-type": "image/jpeg",
-            },
+        return new Response(outputBuffer, {
+          status: 200,
+          headers: {
+            ...createBaseHeaders(file),
+            "content-type": "image/jpeg",
+            "content-length": String(outputBuffer.byteLength),
           },
-        );
+        });
       }
 
       return new Response(createStream(), {
