@@ -240,7 +240,7 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
                               <div className="sl-pw-row">
                                 <input
                                   className="sl-pw-input"
-                                  minLength={8}
+                                  minLength={4}
                                   name="password"
                                   type="password"
                                   placeholder={

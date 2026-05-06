@@ -46,6 +46,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      heic-convert:
+        specifier: ^2.1.0
+        version: 2.1.0
       lucide-react:
         specifier: ^1.8.0
         version: 1.8.0(react@19.2.4)
@@ -3176,6 +3179,20 @@ packages:
         integrity: sha512-IScLbePpkvO846sIwOtOTDjutRMWdXdJmXdMvk6gCBHxFO8d+QKOQedyZSxFTTFYRSmlgSTDtXqqq4pcenBXLQ==,
       }
 
+  heic-convert@2.1.0:
+    resolution:
+      {
+        integrity: sha512-1qDuRvEHifTVAj3pFIgkqGgJIr0M3X7cxEPjEp0oG4mo8GFjq99DpCo8Eg3kg17Cy0MTjxpFdoBHOatj7ZVKtg==,
+      }
+    engines: { node: ">=12.0.0" }
+
+  heic-decode@2.1.0:
+    resolution:
+      {
+        integrity: sha512-0fB3O3WMk38+PScbHLVp66jcNhsZ/ErtQ6u2lMYu/YxXgbBtl+oKOhGQHa4RpvE68k8IzbWkABzHnyAIjR758A==,
+      }
+    engines: { node: ">=8.0.0" }
+
   hono@4.12.9:
     resolution:
       {
@@ -3458,6 +3475,12 @@ packages:
       }
     engines: { node: ">=10" }
 
+  jpeg-js@0.4.4:
+    resolution:
+      {
+        integrity: sha512-WZzeDOEtTOBK4Mdsar0IqEU5sMr3vSV2RqkAIzUEV2BHnUfKGyswWFPFwK5EeDo93K3FohSHbLAjj0s1Wzd+dg==,
+      }
+
   js-tokens@4.0.0:
     resolution:
       {
@@ -3530,6 +3553,13 @@ packages:
         integrity: sha512-o+NO+8WrRiQEE4/7nwRJhN1HWpVmJm511pBHUxPLtp0BUISzlBplORYSmTclCnJvQq2tKu/sgl3xVpkc7ZWuQQ==,
       }
     engines: { node: ">=6" }
+
+  libheif-js@1.19.8:
+    resolution:
+      {
+        integrity: sha512-vQJWusIxO7wavpON1dusciL8Go9jsIQ+EUrckauFYAiSTjcmLAsuJh3SszLpvkwPci3JcL41ek2n+LUZGFpPIQ==,
+      }
+    engines: { node: ">=8.0.0" }
 
   lightningcss-android-arm64@1.32.0:
     resolution:
@@ -4232,6 +4262,13 @@ packages:
       }
     engines: { node: ">=18" }
     hasBin: true
+
+  pngjs@6.0.0:
+    resolution:
+      {
+        integrity: sha512-TRzzuFRRmEoSW/p1KVAmiOgPco2Irlah+bGFCeNfJXxxYGwSw7YwAOAcd7X28K/m5bjBWKsC29KyoMfHbypayg==,
+      }
+    engines: { node: ">=12.13.0" }
 
   postcss-load-config@6.0.1:
     resolution:
@@ -7128,6 +7165,16 @@ snapshots:
 
   headers-polyfill@4.0.3: {}
 
+  heic-convert@2.1.0:
+    dependencies:
+      heic-decode: 2.1.0
+      jpeg-js: 0.4.4
+      pngjs: 6.0.0
+
+  heic-decode@2.1.0:
+    dependencies:
+      libheif-js: 1.19.8
+
   hono@4.12.9: {}
 
   http-errors@2.0.1:
@@ -7239,6 +7286,8 @@ snapshots:
 
   joycon@3.1.1: {}
 
+  jpeg-js@0.4.4: {}
+
   js-tokens@4.0.0: {}
 
   js-tokens@9.0.1: {}
@@ -7266,6 +7315,8 @@ snapshots:
   kleur@3.0.3: {}
 
   kleur@4.1.5: {}
+
+  libheif-js@1.19.8: {}
 
   lightningcss-android-arm64@1.32.0:
     optional: true
@@ -7663,6 +7714,8 @@ snapshots:
       playwright-core: 1.59.1
     optionalDependencies:
       fsevents: 2.3.2
+
+  pngjs@6.0.0: {}
 
   postcss-load-config@6.0.1(jiti@2.6.1)(postcss@8.5.8)(tsx@4.21.0)(yaml@2.8.3):
     dependencies:

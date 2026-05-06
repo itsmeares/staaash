@@ -79,7 +79,7 @@ export const createShareSchema = z
     folderId: z.string().trim().min(1).optional(),
     expiresAt: coerceOptionalDate,
     downloadDisabled: coerceBoolean.default(false),
-    password: z.string().trim().min(8).max(256).optional(),
+    password: z.string().trim().min(4).max(256).optional(),
     redirectTo: z.string().trim().optional(),
   })
   .superRefine((value, context) => {
@@ -129,7 +129,7 @@ export const updateShareSchema = z.object({
 
 export const updateSharePasswordSchema = z
   .object({
-    password: z.string().trim().min(8).max(256).optional(),
+    password: z.string().trim().min(4).max(256).optional(),
     clear: coerceBoolean.default(false),
     redirectTo: z.string().trim().optional(),
   })

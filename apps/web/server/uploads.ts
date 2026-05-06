@@ -14,6 +14,17 @@ import {
   replaceCommittedUploadWithLock,
 } from "@/server/storage-mutations";
 
+const EXTENSION_MIME_FALLBACKS: Record<string, string> = {
+  heic: "image/heic",
+  heif: "image/heif",
+};
+
+const resolveMimeType = (file: File): string => {
+  if (file.type) return file.type;
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  return (ext && EXTENSION_MIME_FALLBACKS[ext]) ?? "application/octet-stream";
+};
+
 export type UploadSurface = "interactiveWeb" | "bulk" | "api";
 
 export type UploadConflictStrategy = "fail" | "safeRename" | "replace";
@@ -324,7 +335,7 @@ export const stageUpload = async (
     expectedChecksum,
     conflictStrategy,
     tmpPath,
-    mimeType: file.type || "application/octet-stream",
+    mimeType: resolveMimeType(file),
     sizeBytes,
     actualChecksum,
   };

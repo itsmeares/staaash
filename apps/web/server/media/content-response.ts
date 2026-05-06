@@ -1,8 +1,25 @@
 import { open } from "node:fs/promises";
-import { Readable } from "node:stream";
+import type { Readable } from "node:stream";
 
 import { getStoragePath } from "@/server/storage";
 import type { StoredFile } from "@/server/files/types";
+
+const HEIC_MIME_TYPES = new Set([
+  "image/heic",
+  "image/heif",
+  "image/heic-sequence",
+  "image/heif-sequence",
+]);
+const HEIC_EXTENSIONS = new Set(["heic", "heif"]);
+
+const isHeicFile = (file: Pick<StoredFile, "mimeType" | "name">): boolean => {
+  if (
+    HEIC_MIME_TYPES.has(file.mimeType.split(";")[0]?.trim().toLowerCase() ?? "")
+  )
+    return true;
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return HEIC_EXTENSIONS.has(ext);
+};
 
 const buildInlineDisposition = (fileName: string) =>
   `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`;
@@ -130,6 +147,63 @@ export const createMediaErrorResponse = (error: MediaContentError) =>
     },
   });
 
+// Wraps a Node.js Readable as a Web ReadableStream with backpressure and safe error handling.
+// Readable.toWeb() does not guard controller.enqueue/close against ERR_INVALID_STATE
+// when the consumer cancels mid-stream (common with video range requests).
+// Using pull() + pause/resume to avoid unbounded memory growth with large files.
+const toWebStream = (
+  readable: Readable,
+  signal: AbortSignal,
+  extraCleanup?: () => void,
+): ReadableStream<Uint8Array> => {
+  const destroy = () => {
+    readable.destroy();
+    extraCleanup?.();
+  };
+
+  return new ReadableStream<Uint8Array>(
+    {
+      start(controller) {
+        readable.on("data", (chunk: Buffer) => {
+          try {
+            controller.enqueue(
+              new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength),
+            );
+          } catch {
+            destroy();
+            return;
+          }
+          if ((controller.desiredSize ?? 1) <= 0) {
+            readable.pause();
+          }
+        });
+        readable.on("end", () => {
+          try {
+            controller.close();
+          } catch {
+            // already closed
+          }
+        });
+        readable.on("error", (err) => {
+          try {
+            controller.error(err);
+          } catch {
+            // already closed/errored
+          }
+        });
+        signal.addEventListener("abort", destroy, { once: true });
+      },
+      pull() {
+        readable.resume();
+      },
+      cancel() {
+        destroy();
+      },
+    },
+    new ByteLengthQueuingStrategy({ highWaterMark: 512 * 1024 }),
+  );
+};
+
 export const createInlineOriginalContentResponse = async ({
   request,
   file,
@@ -159,11 +233,45 @@ export const createInlineOriginalContentResponse = async ({
   try {
     const stat = await fileHandle.stat();
 
-    if (file.viewerKind === "image") {
-      const nodeStream = fileHandle.createReadStream();
+    const createStream = (options?: { start: number; end: number }) => {
+      const nodeStream = fileHandle.createReadStream({
+        ...options,
+        highWaterMark: 512 * 1024,
+      });
       streamCreated = true;
+      nodeStream.on("close", () => {
+        fileHandle.close().catch(() => {});
+      });
+      return toWebStream(nodeStream, request.signal);
+    };
 
-      return new Response(Readable.toWeb(nodeStream) as ReadableStream, {
+    if (file.viewerKind === "image") {
+      if (isHeicFile(file)) {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const heicConvert = require("heic-convert") as (options: {
+          buffer: Buffer;
+          format: "JPEG";
+          quality: number;
+        }) => Promise<ArrayBuffer>;
+        const inputBuffer = await fileHandle.readFile();
+        streamCreated = true;
+        await fileHandle.close().catch(() => {});
+        const outputBuffer = await heicConvert({
+          buffer: inputBuffer,
+          format: "JPEG",
+          quality: 0.92,
+        });
+        return new Response(outputBuffer, {
+          status: 200,
+          headers: {
+            ...createBaseHeaders(file),
+            "content-type": "image/jpeg",
+            "content-length": String(outputBuffer.byteLength),
+          },
+        });
+      }
+
+      return new Response(createStream(), {
         status: 200,
         headers: {
           ...createBaseHeaders(file),
@@ -179,10 +287,7 @@ export const createInlineOriginalContentResponse = async ({
     };
 
     if (!rangeHeader) {
-      const nodeStream = fileHandle.createReadStream();
-      streamCreated = true;
-
-      return new Response(Readable.toWeb(nodeStream) as ReadableStream, {
+      return new Response(createStream(), {
         status: 200,
         headers: {
           ...baseHeaders,
@@ -192,14 +297,9 @@ export const createInlineOriginalContentResponse = async ({
     }
 
     const { start, end } = parseSingleRange(rangeHeader, stat.size);
-    const nodeStream = fileHandle.createReadStream({
-      start,
-      end,
-    });
     const contentLength = end - start + 1;
-    streamCreated = true;
 
-    return new Response(Readable.toWeb(nodeStream) as ReadableStream, {
+    return new Response(createStream({ start, end }), {
       status: 206,
       headers: {
         ...baseHeaders,

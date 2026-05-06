@@ -114,35 +114,33 @@ export function ShareLockedView({
   token: string;
 }) {
   return (
-    <main className="share-page stack">
-      <ShareBrand />
-      <section className="panel stack">
-        <div className="pill">Protected share</div>
-        <h1>Password required</h1>
-        <p className="muted">Enter the password to access this shared item.</p>
+    <main className="share-locked-page">
+      <div className="share-locked-body">
         {error ? <FlashMessage>{error}</FlashMessage> : null}
         {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
         <form
           action={`/s/${encodeURIComponent(token)}/unlock`}
-          className="form-grid"
+          className="share-locked-form"
           method="post"
         >
           <input name="redirectTo" type="hidden" value={redirectPath} />
-          <div className="field">
-            <label htmlFor="share-password">Password</label>
-            <input
-              id="share-password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-            />
-          </div>
-          <button className="button" type="submit">
+          <label className="sr-only" htmlFor="share-password">
+            Password
+          </label>
+          <input
+            id="share-password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            placeholder="Password"
+            required
+            className="share-locked-input"
+          />
+          <button type="submit" className="share-locked-submit">
             Unlock
           </button>
         </form>
-      </section>
+      </div>
     </main>
   );
 }
@@ -175,7 +173,7 @@ export function ShareFilePage({
   const formatLabel = ext ?? file.mimeType;
 
   return (
-    <main className="share-page stack">
+    <main className="share-page sp-file-layout">
       {error ? <FlashMessage>{error}</FlashMessage> : null}
       {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
 
@@ -205,7 +203,7 @@ export function ShareFilePage({
         <TextFileViewer contentHref={contentHref} />
       ) : file.viewerKind === "image" || file.viewerKind === "video" ? (
         <section
-          className="panel stack"
+          className="panel stack sp-media"
           style={{
             overflow: "hidden",
             display: "flex",
@@ -213,7 +211,6 @@ export function ShareFilePage({
             justifyContent: "center",
             backgroundColor:
               "color-mix(in oklab, var(--foreground) 4%, var(--background))",
-            minHeight: "60vh",
           }}
         >
           {file.viewerKind === "image" ? (
@@ -222,8 +219,8 @@ export function ShareFilePage({
               src={contentHref}
               style={{
                 display: "block",
-                maxWidth: "100%",
-                maxHeight: "75vh",
+                maxWidth: "min(90vw, 1920px)",
+                maxHeight: "60vh",
                 objectFit: "contain",
               }}
             />
@@ -235,8 +232,8 @@ export function ShareFilePage({
               src={contentHref}
               style={{
                 display: "block",
-                maxWidth: "100%",
-                maxHeight: "75vh",
+                maxWidth: "min(90vw, 1920px)",
+                maxHeight: "60vh",
               }}
             >
               Your browser could not play this video inline.

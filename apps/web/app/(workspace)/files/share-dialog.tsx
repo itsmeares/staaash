@@ -222,7 +222,7 @@ export function ShareDialog({
   };
 
   const handleSetPassword = async () => {
-    if (!dialogShare || passwordValue.trim().length < 8) return;
+    if (!dialogShare || passwordValue.trim().length < 4) return;
     const result = await callApi(`/api/shares/${dialogShare.id}/password`, {
       password: passwordValue,
     });
@@ -256,7 +256,18 @@ export function ShareDialog({
 
   const copyUrl = async () => {
     if (!dialogShare?.shareUrl) return;
-    await navigator.clipboard.writeText(dialogShare.shareUrl);
+    try {
+      await navigator.clipboard.writeText(dialogShare.shareUrl);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = dialogShare.shareUrl;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
     setCopied(true);
     toast.success("Link copied");
     setTimeout(() => setCopied(false), 2000);
@@ -450,7 +461,7 @@ export function ShareDialog({
                       <input
                         type="password"
                         className="share-password-input"
-                        placeholder="Min 8 characters"
+                        placeholder="Min 4 characters"
                         value={passwordValue}
                         onChange={(e) => setPasswordValue(e.target.value)}
                         onKeyDown={(e) => {
@@ -464,7 +475,7 @@ export function ShareDialog({
                         type="button"
                         className="share-action-btn share-action-btn--primary"
                         onClick={handleSetPassword}
-                        disabled={isBusy || passwordValue.trim().length < 8}
+                        disabled={isBusy || passwordValue.trim().length < 4}
                       >
                         {dialogShare.hasPassword ? "Update" : "Set"}
                       </button>
