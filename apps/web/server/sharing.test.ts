@@ -205,7 +205,7 @@ describe("folder public link behavior", () => {
       }),
     );
 
-    expect(markup).toContain("Password required");
+    expect(markup).toContain("share-locked-page");
     expect(markup).not.toContain("plan.txt");
     expect(markup).not.toContain("text/plain");
   });
@@ -219,7 +219,7 @@ describe("folder public link behavior", () => {
       }),
     );
 
-    expect(markup).toContain("Password required");
+    expect(markup).toContain("share-locked-page");
     expect(markup).not.toContain("Projects");
     expect(markup).not.toContain("2026");
     expect(markup).not.toContain("Breadcrumb");
