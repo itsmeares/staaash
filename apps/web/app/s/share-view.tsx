@@ -114,35 +114,33 @@ export function ShareLockedView({
   token: string;
 }) {
   return (
-    <main className="share-page stack">
-      <ShareBrand />
-      <section className="panel stack">
-        <div className="pill">Protected share</div>
-        <h1>Password required</h1>
-        <p className="muted">Enter the password to access this shared item.</p>
+    <main className="share-locked-page">
+      <div className="share-locked-body">
         {error ? <FlashMessage>{error}</FlashMessage> : null}
         {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
         <form
           action={`/s/${encodeURIComponent(token)}/unlock`}
-          className="form-grid"
+          className="share-locked-form"
           method="post"
         >
           <input name="redirectTo" type="hidden" value={redirectPath} />
-          <div className="field">
-            <label htmlFor="share-password">Password</label>
-            <input
-              id="share-password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-            />
-          </div>
-          <button className="button" type="submit">
+          <label className="sr-only" htmlFor="share-password">
+            Password
+          </label>
+          <input
+            id="share-password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            placeholder="Password"
+            required
+            className="share-locked-input"
+          />
+          <button type="submit" className="share-locked-submit">
             Unlock
           </button>
         </form>
-      </section>
+      </div>
     </main>
   );
 }

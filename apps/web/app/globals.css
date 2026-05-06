@@ -3735,6 +3735,83 @@ h3 {
   text-decoration: underline;
 }
 
+/* ---- Share locked gate ---- */
+
+main.share-locked-page {
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  position: relative;
+}
+
+.share-locked-body {
+  display: grid;
+  gap: 20px;
+  width: min(340px, 100%);
+}
+
+.share-locked-form {
+  display: flex;
+  border-radius: 14px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 11%, transparent);
+  overflow: hidden;
+  background: color-mix(in oklab, var(--card) 96%, white);
+  transition:
+    border-color 100ms ease,
+    box-shadow 100ms ease;
+}
+
+.share-locked-form:focus-within {
+  border-color: color-mix(in oklab, var(--ring) 55%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 18%, transparent);
+}
+
+.share-locked-input {
+  flex: 1;
+  min-width: 0;
+  padding: 13px 16px;
+  border: none;
+  background: transparent;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+}
+
+.share-locked-input::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0.6;
+}
+
+.share-locked-submit {
+  padding: 0 20px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: none;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 100ms ease;
+}
+
+.share-locked-submit:hover {
+  background: color-mix(in oklab, var(--primary) 84%, var(--foreground));
+}
+
+.share-locked-submit:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--ring) 62%, transparent);
+  outline-offset: -2px;
+}
+
 /* ============================================================
    Share file page — hero + audio player  (sp-*)
    ============================================================ */
