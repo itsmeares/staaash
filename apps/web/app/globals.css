@@ -3015,6 +3015,37 @@ h3 {
   background: color-mix(in oklab, var(--primary) 10%, transparent);
 }
 
+/* ---- Ghost upload row (incomplete / resumable) ---- */
+
+.ghost-upload-row,
+.ghost-upload-row * {
+  font-style: normal;
+}
+
+.ghost-upload-row {
+  opacity: 0.55;
+  outline: 1px dashed
+    color-mix(in oklab, var(--muted-foreground) 50%, transparent);
+  background: transparent;
+  cursor: pointer;
+}
+
+.ghost-upload-row:hover {
+  opacity: 0.75;
+}
+
+.ghost-upload-row-track {
+  background: color-mix(in oklab, var(--muted-foreground) 15%, transparent);
+}
+
+.ghost-upload-row-fill {
+  height: 100%;
+  width: 35%;
+  background: var(--muted-foreground);
+  border-radius: 99px;
+  opacity: 0.4;
+}
+
 /* ---- Keyboard shortcut legend ---- */
 
 .shortcut-legend-overlay {

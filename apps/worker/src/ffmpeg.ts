@@ -105,6 +105,8 @@ export const runFfmpegStreamCopy = (
     "copy",
     "-movflags",
     "+faststart",
+    "-f",
+    "mp4",
     outputPath,
   ]);
 
@@ -136,5 +138,7 @@ export const runFfmpegTranscode = (
     "160k",
     "-movflags",
     "+faststart",
+    "-f",
+    "mp4",
     outputPath,
   ]);
