@@ -36,6 +36,9 @@ import type { ShareLinkSummary } from "@/server/sharing";
 
 const FOLDER_ICON_KEY = "staaash:folder-icons";
 const CUT_STATE_KEY = "staaash:cut-items";
+const UPLOAD_SESSION_KEY_PREFIX = "staaash:upload-session";
+const CHUNKED_UPLOAD_THRESHOLD = 100 * 1024 * 1024; // 100 MB
+const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB
 
 type CutItem = { id: string; kind: "folder" | "file"; name: string };
 
@@ -615,7 +618,169 @@ export function FilesView({
           fileRef: file,
         },
       ]);
-      uploadSingleFile(clientKey, file);
+      if (file.size >= CHUNKED_UPLOAD_THRESHOLD) {
+        void uploadLargeFile(clientKey, file);
+      } else {
+        uploadSingleFile(clientKey, file);
+      }
+    }
+  };
+
+  const uploadLargeFile = async (clientKey: string, file: File) => {
+    const folderId = listing.currentFolder.id;
+    const sessionStorageKey = `${UPLOAD_SESSION_KEY_PREFIX}:${folderId}:${file.name}:${file.size}`;
+    let sessionId: string | null = null;
+    let receivedBytes = 0;
+    const startTime = Date.now();
+
+    // Try to resume existing session
+    try {
+      const stored = JSON.parse(
+        localStorage.getItem(sessionStorageKey) ?? "null",
+      ) as { sessionId: string } | null;
+      if (stored?.sessionId) {
+        const res = await fetch(`/api/uploads/sessions/${stored.sessionId}`, {
+          headers: { Accept: "application/json" },
+        });
+        if (res.ok) {
+          const data = (await res.json()) as { receivedBytes: number };
+          sessionId = stored.sessionId;
+          receivedBytes = data.receivedBytes;
+        } else {
+          localStorage.removeItem(sessionStorageKey);
+        }
+      }
+    } catch {
+      localStorage.removeItem(sessionStorageKey);
+    }
+
+    // Create new session if not resuming
+    if (!sessionId) {
+      try {
+        const res = await fetch("/api/uploads/sessions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            folderId,
+            originalName: file.name,
+            mimeType: file.type || "application/octet-stream",
+            totalSizeBytes: file.size,
+            conflictStrategy: "safeRename",
+          }),
+        });
+        if (!res.ok) {
+          const data = (await res.json().catch(() => ({}))) as {
+            error?: string;
+          };
+          throw new Error(data.error ?? "Failed to start upload");
+        }
+        const data = (await res.json()) as { id: string };
+        sessionId = data.id;
+        receivedBytes = 0;
+        localStorage.setItem(sessionStorageKey, JSON.stringify({ sessionId }));
+      } catch (error) {
+        setUploadingFiles((prev) =>
+          prev.map((f) =>
+            f.clientKey === clientKey
+              ? {
+                  ...f,
+                  status: "error",
+                  error:
+                    error instanceof Error ? error.message : "Upload failed",
+                }
+              : f,
+          ),
+        );
+        return;
+      }
+    }
+
+    // Upload chunks
+    try {
+      while (receivedBytes < file.size) {
+        const chunkEnd = Math.min(receivedBytes + CHUNK_SIZE, file.size);
+        const chunk = file.slice(receivedBytes, chunkEnd);
+        const buffer = await chunk.arrayBuffer();
+
+        const res = await fetch(`/api/uploads/sessions/${sessionId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/octet-stream",
+            "Content-Range": `bytes ${receivedBytes}-${chunkEnd - 1}/${file.size}`,
+            Accept: "application/json",
+          },
+          body: buffer,
+        });
+
+        if (!res.ok) {
+          const data = (await res.json().catch(() => ({}))) as {
+            error?: string;
+          };
+          throw new Error(data.error ?? "Chunk upload failed");
+        }
+
+        const data = (await res.json()) as { receivedBytes: number };
+        receivedBytes = data.receivedBytes;
+
+        const progress = Math.round((receivedBytes / file.size) * 100);
+        const elapsed = (Date.now() - startTime) / 1000;
+        const speed = elapsed > 0 ? receivedBytes / elapsed : 0;
+
+        setUploadingFiles((prev) =>
+          prev.map((f) =>
+            f.clientKey === clientKey ? { ...f, progress, speed } : f,
+          ),
+        );
+      }
+
+      // Complete upload
+      const completeRes = await fetch(
+        `/api/uploads/sessions/${sessionId}/complete`,
+        {
+          method: "POST",
+          headers: { Accept: "application/json" },
+        },
+      );
+
+      if (!completeRes.ok) {
+        const data = (await completeRes.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(data.error ?? "Failed to complete upload");
+      }
+
+      const data = (await completeRes.json()) as { id?: string };
+      localStorage.removeItem(sessionStorageKey);
+
+      setUploadingFiles((prev) =>
+        prev.map((f) =>
+          f.clientKey === clientKey
+            ? { ...f, status: "done", progress: 100, fileId: data.id }
+            : f,
+        ),
+      );
+      setTimeout(() => {
+        setUploadingFiles((prev) =>
+          prev.filter((f) => f.clientKey !== clientKey),
+        );
+      }, 1800);
+      startTransition(() => router.refresh());
+    } catch (error) {
+      // Keep session in localStorage for resume
+      setUploadingFiles((prev) =>
+        prev.map((f) =>
+          f.clientKey === clientKey
+            ? {
+                ...f,
+                status: "error",
+                error: error instanceof Error ? error.message : "Upload failed",
+              }
+            : f,
+        ),
+      );
     }
   };
 
@@ -1125,7 +1290,11 @@ export function FilesView({
                                   : u,
                               ),
                             );
-                            uploadSingleFile(f.clientKey, f.fileRef!);
+                            if (f.fileRef!.size >= CHUNKED_UPLOAD_THRESHOLD) {
+                              void uploadLargeFile(f.clientKey, f.fileRef!);
+                            } else {
+                              uploadSingleFile(f.clientKey, f.fileRef!);
+                            }
                           }
                         : undefined
                     }
