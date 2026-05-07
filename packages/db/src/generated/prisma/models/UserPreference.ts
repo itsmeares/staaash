@@ -410,10 +410,6 @@ export type UserPreferenceUncheckedUpdateOneWithoutUserNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserPreferenceUpdateToOneWithWhereWithoutUserInput, Prisma.UserPreferenceUpdateWithoutUserInput>, Prisma.UserPreferenceUncheckedUpdateWithoutUserInput>
 }
 
-export type BoolFieldUpdateOperationsInput = {
-  set?: boolean
-}
-
 export type UserPreferenceCreateWithoutUserInput = {
   id?: string
   theme?: string

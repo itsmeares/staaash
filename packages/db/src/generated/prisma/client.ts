@@ -121,3 +121,13 @@ export type BackgroundJob = Prisma.BackgroundJobModel
  * 
  */
 export type RestoreReconciliationRun = Prisma.RestoreReconciliationRunModel
+/**
+ * Model MediaDerivative
+ * 
+ */
+export type MediaDerivative = Prisma.MediaDerivativeModel
+/**
+ * Model UploadSession
+ * 
+ */
+export type UploadSession = Prisma.UploadSessionModel
