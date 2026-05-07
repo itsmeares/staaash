@@ -2,6 +2,8 @@ import os from "node:os";
 import { mkdir } from "node:fs/promises";
 
 import {
+  MEDIA_DERIVATIVE_CLEANUP_JOB_KIND,
+  MEDIA_DERIVATIVE_GENERATE_JOB_KIND,
   RESTORE_RECONCILE_JOB_KIND,
   STAGING_CLEANUP_JOB_KIND,
   STAGING_CLEANUP_SCHEDULE_WINDOW_MS,
@@ -22,10 +24,13 @@ import {
   recoverPendingDeletes,
   writeHeartbeat,
 } from "./storage-maintenance.js";
+import { detectFfmpeg } from "./ffmpeg.js";
 import { handleStagingCleanup } from "./handlers/staging-cleanup.js";
 import { handleRestoreReconciliation } from "./handlers/restore-reconciliation.js";
 import { handleTrashRetention } from "./handlers/trash-retention.js";
 import { handleUpdateCheck } from "./handlers/update-check.js";
+import { handleMediaDerivativeGenerate } from "./handlers/media-derivative.js";
+import { handleMediaDerivativeCleanup } from "./handlers/media-derivative-cleanup.js";
 
 const storagePaths = getWorkerStoragePaths();
 const workerId = `${os.hostname()}-${process.pid}`;
@@ -34,6 +39,7 @@ const jobPollMs = 10_000;
 
 const TRASH_RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const MEDIA_DERIVATIVE_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 const getUpdateCheckIntervalMs = async (): Promise<number> => {
   try {
@@ -74,6 +80,14 @@ const schedulePeriodicJobs = async (now = new Date()) => {
     windowEnd: new Date(now.getTime() + updateCheckIntervalMs),
     now,
   });
+
+  await ensureBackgroundJobScheduled({
+    kind: MEDIA_DERIVATIVE_CLEANUP_JOB_KIND,
+    runAt: now,
+    payloadJson: {},
+    windowEnd: new Date(now.getTime() + MEDIA_DERIVATIVE_CLEANUP_INTERVAL_MS),
+    now,
+  });
 };
 
 const reschedulePeriodicJob = async (kind: string, intervalMs: number) => {
@@ -108,6 +122,16 @@ const reschedulePeriodicJob = async (kind: string, intervalMs: number) => {
       });
       break;
     }
+    case MEDIA_DERIVATIVE_CLEANUP_JOB_KIND:
+      await ensureBackgroundJobScheduled({
+        kind: MEDIA_DERIVATIVE_CLEANUP_JOB_KIND,
+        runAt: nextRunAt,
+        payloadJson: {},
+        windowEnd: new Date(
+          nextRunAt.getTime() + MEDIA_DERIVATIVE_CLEANUP_INTERVAL_MS,
+        ),
+      });
+      break;
   }
 };
 
@@ -146,6 +170,18 @@ const processNextJob = async (): Promise<boolean> => {
 
       case RESTORE_RECONCILE_JOB_KIND:
         await handleRestoreReconciliation(job, storagePaths);
+        break;
+
+      case MEDIA_DERIVATIVE_GENERATE_JOB_KIND:
+        await handleMediaDerivativeGenerate(job, storagePaths);
+        break;
+
+      case MEDIA_DERIVATIVE_CLEANUP_JOB_KIND:
+        await handleMediaDerivativeCleanup(job, storagePaths);
+        await reschedulePeriodicJob(
+          MEDIA_DERIVATIVE_CLEANUP_JOB_KIND,
+          MEDIA_DERIVATIVE_CLEANUP_INTERVAL_MS,
+        );
         break;
 
       default:
@@ -202,6 +238,20 @@ const runMaintenance = async () => {
 const main = async () => {
   await mkdir(storagePaths.tmpRoot, { recursive: true });
   await writeHeartbeat(storagePaths.heartbeatPath);
+
+  const ffmpegHealth = await detectFfmpeg();
+  if (!ffmpegHealth.available) {
+    console.warn(
+      "[worker] FFmpeg not available — media preview generation disabled.",
+      { error: ffmpegHealth.lastProbeError },
+    );
+  } else {
+    console.info("[worker] FFmpeg detected.", {
+      ffmpegVersion: ffmpegHealth.ffmpegVersion,
+      ffprobeVersion: ffmpegHealth.ffprobeVersion,
+    });
+  }
+
   await schedulePeriodicJobs();
   await runMaintenance();
 

@@ -9,6 +9,8 @@ export const STORAGE_DIRECTORIES = {
   tmp: "tmp",
   locks: "tmp/locks",
   pendingDelete: "tmp/pending-delete",
+  derivatives: "derivatives",
+  derivativesTmp: "tmp/derivatives",
 } as const;
 
 const resolveWithinRoot = (...segments: string[]) => {
@@ -109,6 +111,15 @@ export const getTrashedFolderStorageKey = ({
   folderPathSegments: string[];
 }) =>
   path.posix.join(getUserTrashRootStorageKey(username), ...folderPathSegments);
+
+export const getDerivativePath = (storageKey: string) =>
+  resolveWithinRoot(storageKey);
+
+export const getDerivativeTmpPath = (derivativeId: string) =>
+  resolveWithinRoot(
+    STORAGE_DIRECTORIES.derivativesTmp,
+    `${derivativeId}.mp4.tmp`,
+  );
 
 export const getTmpUploadPath = (uploadId: string) =>
   resolveWithinRoot(STORAGE_DIRECTORIES.tmp, `${uploadId}.upload`);

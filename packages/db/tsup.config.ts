@@ -9,6 +9,7 @@ export default defineConfig({
     admin: "src/admin.ts",
     reconciliation: "src/reconciliation.ts",
     "viewer-contract": "src/viewer-contract.ts",
+    "media-derivatives": "src/media-derivatives.ts",
   },
   format: ["esm"],
   platform: "node",
