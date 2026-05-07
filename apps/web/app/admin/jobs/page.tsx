@@ -24,6 +24,8 @@ export default async function AdminJobsPage() {
               lastError: job.lastError,
               attemptCount: job.attemptCount,
               maxAttempts: job.maxAttempts,
+              dedupeKey: job.dedupeKey,
+              payloadJson: job.payloadJson as Record<string, unknown> | null,
             }
           : null,
       ]),

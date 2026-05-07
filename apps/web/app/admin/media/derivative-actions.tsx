@@ -15,6 +15,7 @@ export function DerivativeActions({
   regenerateAction,
   setPinAction,
   removeAction,
+  cancelAction,
 }: {
   id: string;
   fileId: string;
@@ -23,31 +24,37 @@ export function DerivativeActions({
   regenerateAction: ActionFn;
   setPinAction: ActionFn;
   removeAction: ActionFn;
+  cancelAction: ActionFn;
 }) {
   const [regenState, regenAction, regenPending] = useActionState(
     regenerateAction,
     {},
   );
-  const [pinState, pinAction, pinPending] = useActionState(setPinAction, {});
+  const [, pinAction, pinPending] = useActionState(setPinAction, {});
   const [removeState, removeFormAction, removePending] = useActionState(
     removeAction,
     {},
   );
+  const [cancelState, cancelFormAction, cancelPending] = useActionState(
+    cancelAction,
+    {},
+  );
 
+  const isActive = status === "queued" || status === "processing";
   const canRemove =
     status === "ready" || status === "failed" || status === "stale";
+  const canCancel = status === "queued";
+  const anyError = regenState.error ?? removeState.error ?? cancelState.error;
 
   return (
-    <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+    <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
       <form action={regenAction}>
         <input type="hidden" name="fileId" value={fileId} />
         <button
           type="submit"
           className="btn btn-sm"
-          disabled={
-            regenPending || status === "queued" || status === "processing"
-          }
-          title={regenState.error}
+          disabled={regenPending || isActive}
+          title="Re-queue derivative generation"
         >
           {regenPending ? "…" : "Regenerate"}
         </button>
@@ -64,11 +71,29 @@ export function DerivativeActions({
           type="submit"
           className="btn btn-sm"
           disabled={pinPending}
-          title={pinState.error}
+          title={
+            pinnedByAdmin
+              ? "Remove pin — allow cleanup"
+              : "Pin — exclude from cleanup"
+          }
         >
           {pinPending ? "…" : pinnedByAdmin ? "Unpin" : "Pin"}
         </button>
       </form>
+
+      {canCancel && (
+        <form action={cancelFormAction}>
+          <input type="hidden" name="id" value={id} />
+          <button
+            type="submit"
+            className="btn btn-sm"
+            disabled={cancelPending}
+            title="Cancel queued generation"
+          >
+            {cancelPending ? "…" : "Cancel"}
+          </button>
+        </form>
+      )}
 
       {canRemove && (
         <form action={removeFormAction}>
@@ -77,11 +102,24 @@ export function DerivativeActions({
             type="submit"
             className="btn btn-sm btn-danger"
             disabled={removePending}
-            title={removeState.error}
+            title="Delete derivative file from disk"
           >
             {removePending ? "…" : "Delete"}
           </button>
         </form>
+      )}
+
+      {anyError && (
+        <span
+          title={anyError}
+          style={{
+            cursor: "help",
+            fontSize: "0.875rem",
+            color: "var(--color-error)",
+          }}
+        >
+          ⚠
+        </span>
       )}
     </div>
   );
