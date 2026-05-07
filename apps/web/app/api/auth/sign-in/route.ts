@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       password: body.password,
     });
     const response = wantsJson(request)
-      ? NextResponse.json({ user: result.user, session: result.session })
+      ? NextResponse.json({ user: { preferences: result.user.preferences } })
       : NextResponse.redirect(new URL(next, getBaseUrl(request.headers)), 303);
 
     response.cookies.set(

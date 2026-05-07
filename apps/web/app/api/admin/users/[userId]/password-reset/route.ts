@@ -31,7 +31,6 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     );
     return NextResponse.json({
       reset: result.reset,
-      user: result.user,
       resetUrl: new URL(
         `/reset/${result.token}`,
         request.nextUrl.origin,

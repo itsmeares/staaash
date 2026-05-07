@@ -14,7 +14,7 @@ import { readInstanceUpdateCheck } from "@staaash/db/instance";
 
 import { InstanceBadge } from "./instance-badge";
 import { TopbarActions } from "./topbar-actions";
-import { WorkspaceNav, workspaceNavGroups } from "./workspace-nav";
+import { WorkspaceNav } from "./workspace-nav";
 import { WorkspaceStorage } from "./workspace-storage";
 
 export const dynamic = "force-dynamic";
@@ -63,7 +63,7 @@ export default async function WorkspaceLayout({
             </Link>
           </div>
 
-          <WorkspaceNav groups={workspaceNavGroups} />
+          <WorkspaceNav />
 
           {session ? (
             <section className="workspace-user-panel">

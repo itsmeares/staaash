@@ -83,12 +83,12 @@ const isItemActive = (pathname: string, item: WorkspaceNavItem) => {
   return pathname === item.href || pathname.startsWith(`${prefix}/`);
 };
 
-export function WorkspaceNav({ groups }: { groups: WorkspaceNavGroup[] }) {
+export function WorkspaceNav() {
   const pathname = usePathname();
 
   return (
     <nav className="workspace-nav" aria-label="Workspace">
-      {groups.map((group, groupIndex) => (
+      {workspaceNavGroups.map((group, groupIndex) => (
         <div key={groupIndex} className="workspace-nav-group">
           {group.label ? (
             <span className="workspace-nav-label">{group.label}</span>
