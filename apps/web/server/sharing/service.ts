@@ -1,6 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
 
 import type { ShareTargetType } from "@staaash/db/client";
+import {
+  scheduleDerivativeGenerate,
+  touchDerivativeShared,
+  findReadyDerivative,
+} from "@staaash/db/media-derivatives";
 
 import { canAccessPrivateNamespace } from "@/server/access";
 import { authCrypto } from "@/server/auth/crypto";
@@ -232,6 +237,79 @@ const getShareStatus = ({
   }
 
   return "active";
+};
+
+type MediaPreviewSettings = {
+  mediaPreviewEnabled: boolean;
+  mediaPreviewThresholdBytes: bigint;
+};
+
+const isEligibleForPreview = (
+  file: StoredFile,
+  settings: MediaPreviewSettings,
+): boolean =>
+  settings.mediaPreviewEnabled &&
+  file.viewerKind === "video" &&
+  BigInt(file.sizeBytes) >= settings.mediaPreviewThresholdBytes;
+
+const schedulePreviewsForShare = async ({
+  targetType,
+  file,
+  folderId,
+  settings,
+  files,
+  folderMap,
+  now,
+}: {
+  targetType: ShareTargetType;
+  file: StoredFile | null;
+  folderId: string | null;
+  settings: MediaPreviewSettings;
+  files: StoredFile[];
+  folderMap: Map<string, FolderSummary>;
+  now: Date;
+}): Promise<void> => {
+  if (targetType === "file") {
+    if (!file || !isEligibleForPreview(file, settings)) return;
+    const existing = await findReadyDerivative(file.id);
+    if (!existing) {
+      await scheduleDerivativeGenerate({
+        fileId: file.id,
+        reason: "share-created",
+        now,
+      });
+    }
+    await touchDerivativeShared(file.id, "preview", "preview-1080p", now);
+    return;
+  }
+
+  if (!folderId) return;
+
+  const eligibleFiles = files.filter(
+    (f) =>
+      !f.deletedAt &&
+      f.folderId &&
+      isEligibleForPreview(f, settings) &&
+      isFolderWithinRoot({
+        folderId: f.folderId,
+        rootFolderId: folderId,
+        folderMap,
+      }),
+  );
+
+  await Promise.all(
+    eligibleFiles.map(async (f) => {
+      const existing = await findReadyDerivative(f.id);
+      if (!existing) {
+        await scheduleDerivativeGenerate({
+          fileId: f.id,
+          reason: "share-created",
+          now,
+        });
+      }
+      await touchDerivativeShared(f.id, "preview", "preview-1080p", now);
+    }),
+  );
 };
 
 export const createSharingService = ({
@@ -531,7 +609,8 @@ export const createSharingService = ({
         );
       }
 
-      const { folderMap } = await resolveFilesState(actorUserId);
+      const filesState = await resolveFilesState(actorUserId);
+      const { folderMap } = filesState;
       const file =
         targetType === "file" && fileId
           ? await filesRepo.findFileById(fileId)
@@ -568,6 +647,18 @@ export const createSharingService = ({
         downloadDisabled,
         expiresAt: effectiveExpiresAt,
         revokedAt: null,
+      });
+
+      void schedulePreviewsForShare({
+        targetType,
+        file,
+        folderId: folderId ?? null,
+        settings,
+        files: filesState.files,
+        folderMap,
+        now: now(),
+      }).catch((err: unknown) => {
+        console.error("[sharing] Failed to schedule preview generation.", err);
       });
 
       return {

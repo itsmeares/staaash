@@ -46,21 +46,28 @@ model Instance {
 }
 
 model SystemSettings {
-  id                           String   @id @default("singleton")
-  sessionMaxAgeDays            Int      @default(30)
-  inviteMaxAgeDays             Int      @default(7)
-  passwordResetMaxAgeHours     Int      @default(4)
-  shareMaxAgeDays              Int      @default(30)
-  maxUploadBytes               BigInt   @default(10737418240)
-  uploadTimeoutMinutes         Int      @default(60)
-  uploadStagingRetentionHours  Int      @default(2)
-  previewMaxSourceBytes        Int      @default(26214400)
-  previewTextMaxBytes          Int      @default(65536)
-  workerHeartbeatMaxAgeSeconds Int      @default(120)
-  updateCheckIntervalHours     Int      @default(24)
-  updateCheckRepository        String   @default("itsmeares/staaash")
-  createdAt                    DateTime @default(now())
-  updatedAt                    DateTime @updatedAt
+  id                              String   @id @default("singleton")
+  sessionMaxAgeDays               Int      @default(30)
+  inviteMaxAgeDays                Int      @default(7)
+  passwordResetMaxAgeHours        Int      @default(4)
+  shareMaxAgeDays                 Int      @default(30)
+  maxUploadBytes                  BigInt   @default(10737418240)
+  uploadTimeoutMinutes            Int      @default(60)
+  uploadStagingRetentionHours     Int      @default(2)
+  previewMaxSourceBytes           Int      @default(26214400)
+  previewTextMaxBytes             Int      @default(65536)
+  workerHeartbeatMaxAgeSeconds    Int      @default(120)
+  updateCheckIntervalHours        Int      @default(24)
+  updateCheckRepository           String   @default("itsmeares/staaash")
+  mediaPreviewEnabled             Boolean  @default(true)
+  mediaPreviewGenerateOnUpload    Boolean  @default(false)
+  mediaPreviewThresholdBytes      BigInt   @default(367001600)
+  mediaPreviewRetentionDays       Int      @default(14)
+  mediaPreviewMaxHeight           Int      @default(1080)
+  mediaPreviewCrf                 Int      @default(22)
+  mediaPreviewMaxConcurrentJobs   Int      @default(1)
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
 }
 
 model User {
@@ -187,7 +194,8 @@ model File {
   folder           Folder?       @relation(fields: [folderId], references: [id], onDelete: SetNull)
   favorites        FavoriteFile[]
   recents          RecentFile[]
-  shareLink        ShareLink?    @relation("ShareLinkFile")
+  shareLink        ShareLink?       @relation("ShareLinkFile")
+  derivatives      MediaDerivative[]
 
   @@index([ownerUserId, folderId, deletedAt])
 }
@@ -299,4 +307,53 @@ model RestoreReconciliationRun {
 
   @@index([status, createdAt])
   @@index([createdAt])
+}
+
+model MediaDerivative {
+  id              String    @id @default(cuid())
+  fileId          String
+  kind            String
+  profile         String
+  status          String
+  storageKey      String?   @unique
+  mimeType        String?
+  sizeBytes       BigInt?
+  width           Int?
+  height          Int?
+  durationSeconds Float?
+  videoCodec      String?
+  audioCodec      String?
+  error           String?
+  pinnedByAdmin   Boolean   @default(false)
+  lastViewedAt    DateTime?
+  lastSharedAt    DateTime?
+  generatedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([fileId, kind, profile])
+  @@index([status, updatedAt])
+  @@index([pinnedByAdmin, lastViewedAt])
+}
+
+model UploadSession {
+  id               String   @id @default(cuid())
+  ownerUserId      String
+  folderId         String?
+  originalName     String
+  mimeType         String
+  totalSizeBytes   BigInt
+  receivedBytes    BigInt   @default(0)
+  expectedChecksum String?
+  tmpPath          String
+  conflictStrategy String
+  status           String
+  expiresAt        DateTime
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([ownerUserId, status])
+  @@index([expiresAt, status])
 }

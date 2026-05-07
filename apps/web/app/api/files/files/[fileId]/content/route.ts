@@ -5,10 +5,10 @@ import { notSignedInResponse } from "@/server/auth/http";
 import { FilesError } from "@/server/files/errors";
 import { getAccessiblePrivateFile } from "@/server/files/viewer";
 import {
-  createInlineOriginalContentResponse,
   createMediaErrorResponse,
   MediaContentError,
 } from "@/server/media/content-response";
+import { createInlineContentResponse } from "@/server/media/derivative-content-response";
 
 type RouteContext = {
   params: Promise<{
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       fileId,
     });
 
-    return await createInlineOriginalContentResponse({
+    return await createInlineContentResponse({
       request,
       file,
     });

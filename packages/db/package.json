@@ -34,6 +34,10 @@
     "./viewer-contract": {
       "types": "./dist/viewer-contract.d.ts",
       "default": "./dist/viewer-contract.js"
+    },
+    "./media-derivatives": {
+      "types": "./dist/media-derivatives.d.ts",
+      "default": "./dist/media-derivatives.js"
     }
   },
   "scripts": {

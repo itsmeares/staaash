@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { FolderPlus, RefreshCw, Upload } from "lucide-react";
 
@@ -36,6 +36,9 @@ import type { ShareLinkSummary } from "@/server/sharing";
 
 const FOLDER_ICON_KEY = "staaash:folder-icons";
 const CUT_STATE_KEY = "staaash:cut-items";
+const UPLOAD_SESSION_KEY_PREFIX = "staaash:upload-session";
+const CHUNKED_UPLOAD_THRESHOLD = 100 * 1024 * 1024; // 100 MB
+const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB
 
 type CutItem = { id: string; kind: "folder" | "file"; name: string };
 
@@ -81,6 +84,7 @@ type UploadingFile = {
   progress: number;
   speed: number; // bytes per second
   error?: string;
+  resumeHint?: string;
   fileRef?: File; // retained for retry
   fileId?: string; // server-assigned ID, set on successful upload
 };
@@ -90,6 +94,12 @@ function formatSpeed(bytesPerSec: number): string {
   if (bytesPerSec < 1024 * 1024)
     return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
   return `${(bytesPerSec / 1024 / 1024).toFixed(1)} MB/s`;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 // ---------------------------------------------------------------------------
@@ -127,6 +137,7 @@ export function FilesView({
   favoriteFolderIds,
 }: FilesViewProps) {
   const router = useRouter();
+  const pathname = usePathname();
 
   // ---- Selection ----
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -148,6 +159,9 @@ export function FilesView({
   // ---- Upload ----
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [resumableSessions, setResumableSessions] = useState<
+    { name: string; size: number; storageKey: string }[]
+  >([]);
   const dragCounterRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -223,6 +237,27 @@ export function FilesView({
     const saved = loadCutItems();
     if (saved.length > 0) setCutItems(saved);
   }, []);
+
+  // ---- Scan for resumable upload sessions in this folder ----
+  useEffect(() => {
+    const folderId = listing.currentFolder.id;
+    const prefix = `${UPLOAD_SESSION_KEY_PREFIX}:${folderId}:`;
+    const sessions: { name: string; size: number; storageKey: string }[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(prefix)) {
+        const rest = key.slice(prefix.length);
+        const lastColon = rest.lastIndexOf(":");
+        if (lastColon > 0) {
+          const name = rest.slice(0, lastColon);
+          const size = parseInt(rest.slice(lastColon + 1), 10);
+          if (name && !isNaN(size))
+            sessions.push({ name, size, storageKey: key });
+        }
+      }
+    }
+    setResumableSessions(sessions);
+  }, [listing.currentFolder.id, pathname]);
 
   // ---------------------------------------------------------------------------
   // Selection handlers
@@ -450,7 +485,7 @@ export function FilesView({
     const endpoint =
       kind === "folder"
         ? `/api/files/folders/${id}/rename`
-        : `/api/files/view/${id}/rename`;
+        : `/api/files/files/${id}/rename`;
 
     await fetch(endpoint, {
       method: "POST",
@@ -472,7 +507,7 @@ export function FilesView({
     const endpoint =
       kind === "folder"
         ? `/api/files/folders/${id}/favorite`
-        : `/api/files/view/${id}/favorite`;
+        : `/api/files/files/${id}/favorite`;
     await fetch(endpoint, {
       method: "POST",
       body: new URLSearchParams({
@@ -487,7 +522,7 @@ export function FilesView({
     const endpoint =
       kind === "folder"
         ? `/api/files/folders/${id}/trash`
-        : `/api/files/view/${id}/trash`;
+        : `/api/files/files/${id}/trash`;
     await fetch(endpoint, {
       method: "POST",
       body: new URLSearchParams({ redirectTo: currentPath }),
@@ -509,7 +544,7 @@ export function FilesView({
     const endpoint =
       kind === "folder"
         ? `/api/files/folders/${id}/move`
-        : `/api/files/view/${id}/move`;
+        : `/api/files/files/${id}/move`;
     await fetch(endpoint, {
       method: "POST",
       body: new URLSearchParams({
@@ -615,7 +650,186 @@ export function FilesView({
           fileRef: file,
         },
       ]);
-      uploadSingleFile(clientKey, file);
+      if (file.size >= CHUNKED_UPLOAD_THRESHOLD) {
+        void uploadLargeFile(clientKey, file);
+      } else {
+        uploadSingleFile(clientKey, file);
+      }
+    }
+  };
+
+  const uploadLargeFile = async (clientKey: string, file: File) => {
+    const folderId = listing.currentFolder.id;
+    const sessionStorageKey = `${UPLOAD_SESSION_KEY_PREFIX}:${folderId}:${file.name}:${file.size}`;
+    let sessionId: string | null = null;
+    let receivedBytes = 0;
+    const startTime = Date.now();
+
+    // Try to resume existing session
+    try {
+      const stored = JSON.parse(
+        localStorage.getItem(sessionStorageKey) ?? "null",
+      ) as { sessionId: string } | null;
+      if (stored?.sessionId) {
+        const res = await fetch(`/api/uploads/sessions/${stored.sessionId}`, {
+          headers: { Accept: "application/json" },
+        });
+        if (res.ok) {
+          const data = (await res.json()) as { receivedBytes: number };
+          sessionId = stored.sessionId;
+          receivedBytes = data.receivedBytes;
+          if (receivedBytes > 0) {
+            setUploadingFiles((prev) =>
+              prev.map((f) =>
+                f.clientKey === clientKey
+                  ? {
+                      ...f,
+                      resumeHint: `Resuming from ${formatBytes(receivedBytes)}`,
+                    }
+                  : f,
+              ),
+            );
+          }
+        } else {
+          localStorage.removeItem(sessionStorageKey);
+        }
+      }
+    } catch {
+      localStorage.removeItem(sessionStorageKey);
+    }
+
+    // Create new session if not resuming
+    if (!sessionId) {
+      try {
+        const res = await fetch("/api/uploads/sessions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            folderId,
+            originalName: file.name,
+            mimeType: file.type || "application/octet-stream",
+            totalSizeBytes: file.size,
+            conflictStrategy: "safeRename",
+          }),
+        });
+        if (!res.ok) {
+          const data = (await res.json().catch(() => ({}))) as {
+            error?: string;
+          };
+          throw new Error(data.error ?? "Failed to start upload");
+        }
+        const data = (await res.json()) as { id: string };
+        sessionId = data.id;
+        receivedBytes = 0;
+        localStorage.setItem(sessionStorageKey, JSON.stringify({ sessionId }));
+      } catch (error) {
+        setUploadingFiles((prev) =>
+          prev.map((f) =>
+            f.clientKey === clientKey
+              ? {
+                  ...f,
+                  status: "error",
+                  error:
+                    error instanceof Error ? error.message : "Upload failed",
+                }
+              : f,
+          ),
+        );
+        return;
+      }
+    }
+
+    // Upload chunks
+    const sessionStartBytes = receivedBytes;
+    try {
+      while (receivedBytes < file.size) {
+        const chunkEnd = Math.min(receivedBytes + CHUNK_SIZE, file.size);
+        const chunk = file.slice(receivedBytes, chunkEnd);
+        const buffer = await chunk.arrayBuffer();
+
+        const res = await fetch(`/api/uploads/sessions/${sessionId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/octet-stream",
+            "Content-Range": `bytes ${receivedBytes}-${chunkEnd - 1}/${file.size}`,
+            Accept: "application/json",
+          },
+          body: buffer,
+        });
+
+        if (!res.ok) {
+          const data = (await res.json().catch(() => ({}))) as {
+            error?: string;
+          };
+          throw new Error(data.error ?? "Chunk upload failed");
+        }
+
+        const data = (await res.json()) as { receivedBytes: number };
+        receivedBytes = data.receivedBytes;
+
+        const progress = Math.round((receivedBytes / file.size) * 100);
+        const elapsed = (Date.now() - startTime) / 1000;
+        const sessionBytes = receivedBytes - sessionStartBytes;
+        const speed = elapsed > 0 ? sessionBytes / elapsed : 0;
+
+        setUploadingFiles((prev) =>
+          prev.map((f) =>
+            f.clientKey === clientKey
+              ? { ...f, progress, speed, resumeHint: undefined }
+              : f,
+          ),
+        );
+      }
+
+      // Complete upload
+      const completeRes = await fetch(
+        `/api/uploads/sessions/${sessionId}/complete`,
+        {
+          method: "POST",
+          headers: { Accept: "application/json" },
+        },
+      );
+
+      if (!completeRes.ok) {
+        const data = (await completeRes.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(data.error ?? "Failed to complete upload");
+      }
+
+      const data = (await completeRes.json()) as { id?: string };
+      localStorage.removeItem(sessionStorageKey);
+      setResumableSessions((prev) => prev.filter((s) => s.name !== file.name));
+
+      setUploadingFiles((prev) =>
+        prev.map((f) =>
+          f.clientKey === clientKey
+            ? { ...f, status: "done", progress: 100, fileId: data.id }
+            : f,
+        ),
+      );
+      setTimeout(() => {
+        setUploadingFiles((prev) =>
+          prev.filter((f) => f.clientKey !== clientKey),
+        );
+      }, 1800);
+      startTransition(() => router.refresh());
+    } catch (error) {
+      // Keep session in localStorage for resume
+      setUploadingFiles((prev) =>
+        prev.map((f) =>
+          f.clientKey === clientKey
+            ? {
+                ...f,
+                status: "error",
+                error: error instanceof Error ? error.message : "Upload failed",
+              }
+            : f,
+        ),
+      );
     }
   };
 
@@ -845,7 +1059,8 @@ export function FilesView({
 
   type MergedFileEntry =
     | { kind: "file"; file: (typeof listing.files)[0] }
-    | { kind: "upload"; upload: UploadingFile };
+    | { kind: "upload"; upload: UploadingFile }
+    | { kind: "ghost"; name: string; size: number; storageKey: string };
 
   const activeUploads = uploadingFiles.filter(
     (f) =>
@@ -854,13 +1069,30 @@ export function FilesView({
       !listing.files.some((lf) => lf.id === f.fileId),
   );
 
+  // Ghost rows for sessions not already being actively uploaded
+  const activeUploadNames = new Set(uploadingFiles.map((f) => f.name));
+  const ghostEntries = resumableSessions.filter(
+    (s) => !activeUploadNames.has(s.name),
+  );
+
   const mergedFileEntries: MergedFileEntry[] = [
     ...listing.files.map((f) => ({ kind: "file" as const, file: f })),
     ...activeUploads.map((u) => ({ kind: "upload" as const, upload: u })),
+    ...ghostEntries.map((s) => ({ kind: "ghost" as const, ...s })),
   ];
   mergedFileEntries.sort((a, b) => {
-    const na = a.kind === "file" ? a.file.name : a.upload.name;
-    const nb = b.kind === "file" ? b.file.name : b.upload.name;
+    const na =
+      a.kind === "file"
+        ? a.file.name
+        : a.kind === "upload"
+          ? a.upload.name
+          : a.name;
+    const nb =
+      b.kind === "file"
+        ? b.file.name
+        : b.kind === "upload"
+          ? b.upload.name
+          : b.name;
     return na.localeCompare(nb, undefined, { sensitivity: "base" });
   });
 
@@ -1098,6 +1330,22 @@ export function FilesView({
 
             {/* ---- Files + uploading rows merged, sorted alphabetically ---- */}
             {mergedFileEntries.map((entry) => {
+              if (entry.kind === "ghost") {
+                return (
+                  <GhostUploadRow
+                    key={entry.storageKey}
+                    name={entry.name}
+                    size={entry.size}
+                    onDismiss={() => {
+                      localStorage.removeItem(entry.storageKey);
+                      setResumableSessions((prev) =>
+                        prev.filter((s) => s.storageKey !== entry.storageKey),
+                      );
+                    }}
+                    onDoubleClick={() => fileInputRef.current?.click()}
+                  />
+                );
+              }
               if (entry.kind === "upload") {
                 const f = entry.upload;
                 return (
@@ -1125,7 +1373,11 @@ export function FilesView({
                                   : u,
                               ),
                             );
-                            uploadSingleFile(f.clientKey, f.fileRef!);
+                            if (f.fileRef!.size >= CHUNKED_UPLOAD_THRESHOLD) {
+                              void uploadLargeFile(f.clientKey, f.fileRef!);
+                            } else {
+                              uploadSingleFile(f.clientKey, f.fileRef!);
+                            }
                           }
                         : undefined
                     }
@@ -1387,7 +1639,9 @@ function UploadingRow({
       ? (file.error ?? "Upload failed")
       : file.status === "done"
         ? "Done"
-        : `${file.progress}% · ${formatSpeed(file.speed)}`;
+        : file.resumeHint && file.progress === 0
+          ? file.resumeHint
+          : `${file.progress}% · ${formatSpeed(file.speed)}`;
 
   return (
     <div className="uploading-row">
@@ -1429,6 +1683,64 @@ function UploadingRow({
           />
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Ghost upload row (resumable session persisted from a previous visit)
+// ---------------------------------------------------------------------------
+
+function GhostUploadRow({
+  name,
+  size,
+  onDismiss,
+  onDoubleClick,
+}: {
+  name: string;
+  size: number;
+  onDismiss: () => void;
+  onDoubleClick: () => void;
+}) {
+  const { File: FileIcon } = { File: require("lucide-react").File };
+  return (
+    <div
+      className="uploading-row ghost-upload-row"
+      onDoubleClick={onDoubleClick}
+    >
+      <div className="uploading-row-top">
+        <div className="explorer-row-icon">
+          <FileIcon size={16} style={{ color: "var(--muted-foreground)" }} />
+        </div>
+        <span className="uploading-row-name">{name}</span>
+        <span className="uploading-row-status ghost-upload-row-status">
+          Incomplete · click to
+          <button
+            type="button"
+            className="uploading-row-retry"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDoubleClick();
+            }}
+          >
+            resume
+          </button>
+          <button
+            type="button"
+            className="uploading-row-dismiss"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDismiss();
+            }}
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </span>
+      </div>
+      <div className="uploading-row-progress-track ghost-upload-row-track">
+        <div className="ghost-upload-row-fill" />
+      </div>
     </div>
   );
 }

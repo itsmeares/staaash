@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   formatAdminDateTime,
@@ -17,6 +17,8 @@ export type JsonBackgroundJob = {
   lastError: string | null;
   attemptCount: number;
   maxAttempts: number;
+  dedupeKey: string | null;
+  payloadJson: Record<string, unknown> | null;
 };
 
 const JOB_META: Record<string, { name: string; desc: string }> = {
@@ -35,6 +37,14 @@ const JOB_META: Record<string, { name: string; desc: string }> = {
   "restore.reconcile": {
     name: "Restore Reconciliation",
     desc: "Verify database metadata against committed originals in file storage. Run after a restore.",
+  },
+  "media.derivative.generate": {
+    name: "Derivative Generate",
+    desc: "Generate preview derivatives for video files. One job is queued per file.",
+  },
+  "media.derivative.cleanup": {
+    name: "Derivative Cleanup",
+    desc: "Remove stale or orphaned derivative files from storage.",
   },
 };
 
@@ -61,6 +71,7 @@ function JobOperationRow({
   const [lastRun, setLastRun] = useState<JsonBackgroundJob | null>(
     initialLastRun,
   );
+  const [activeCount, setActiveCount] = useState<number | null>(null);
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -69,6 +80,38 @@ function JobOperationRow({
 
   const isActive =
     lastRun?.status === "queued" || lastRun?.status === "running";
+
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await fetch(
+          `/api/admin/jobs?kind=${encodeURIComponent(kind)}`,
+        );
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        const jobs: JsonBackgroundJob[] = data.items ?? [];
+        const latest: JsonBackgroundJob | null = jobs[0] ?? null;
+        const count = jobs.filter(
+          (j) => j.status === "queued" || j.status === "running",
+        ).length;
+        if (!cancelled) {
+          setLastRun(latest);
+          setActiveCount(count > 0 ? count : null);
+          if (historyOpen) {
+            setHistory(jobs);
+          }
+        }
+      } catch {
+        // network error — ignore, retry next tick
+      }
+    };
+    const id = setInterval(() => void poll(), 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [kind, historyOpen]);
 
   const handleRun = async () => {
     setRunning(true);
@@ -129,6 +172,12 @@ function JobOperationRow({
                 {lastRun.status}
               </span>{" "}
               · {formatTimeAgo(lastRun.updatedAt)}
+              {activeCount !== null && activeCount > 1 && (
+                <>
+                  {" "}
+                  · <strong>{activeCount} active</strong>
+                </>
+              )}
             </span>
           ) : (
             <span className="admin-op-last">Never run</span>
@@ -170,19 +219,35 @@ function JobOperationRow({
               Loading…
             </p>
           ) : history && history.length > 0 ? (
-            history.map((job) => (
-              <div className="admin-history-row" key={job.id}>
-                <span className={getAdminStatusClassName(job.status)}>
-                  {job.status}
-                </span>
-                <span className="muted">
-                  {formatAdminDateTime(job.createdAt)}
-                </span>
-                <span className="muted" style={{ fontSize: "0.78rem" }}>
-                  {job.lastError ?? ""}
-                </span>
-              </div>
-            ))
+            history.map((job) => {
+              const fileId = job.dedupeKey?.split(":")[1] ?? null;
+              const reason =
+                typeof job.payloadJson?.reason === "string"
+                  ? job.payloadJson.reason
+                  : null;
+              return (
+                <div className="admin-history-row" key={job.id}>
+                  <span className={getAdminStatusClassName(job.status)}>
+                    {job.status}
+                  </span>
+                  <span className="muted">
+                    {formatAdminDateTime(job.createdAt)}
+                  </span>
+                  {fileId ? (
+                    <span className="muted" style={{ fontSize: "0.78rem" }}>
+                      {reason ? `${reason} · ` : ""}
+                      <code style={{ fontSize: "0.75rem" }}>
+                        {fileId.slice(0, 8)}…
+                      </code>
+                    </span>
+                  ) : (
+                    <span className="muted" style={{ fontSize: "0.78rem" }}>
+                      {job.lastError ?? ""}
+                    </span>
+                  )}
+                </div>
+              );
+            })
           ) : (
             <p
               className="muted"

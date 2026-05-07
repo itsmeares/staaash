@@ -1,5 +1,4 @@
 import { open } from "node:fs/promises";
-import { Readable } from "node:stream";
 
 import { NextRequest } from "next/server";
 
@@ -10,15 +9,13 @@ import { FilesError } from "@/server/files/errors";
 import { prismaFilesRepository } from "@/server/files/repository";
 import { recordFileAccessBestEffort } from "@/server/retrieval/recent-tracking";
 import { getStoragePath } from "@/server/storage";
+import { createRangeResponseFromHandle } from "@/server/downloads/range-response";
 
 type RouteContext = {
   params: Promise<{
     fileId: string;
   }>;
 };
-
-const buildAttachmentDisposition = (fileName: string) =>
-  `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 
 const normalizeDownloadError = (error: unknown) => {
   if (
@@ -122,23 +119,13 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       source: "download-file-route",
     });
 
-    const nodeStream = fileHandle.createReadStream();
-
-    nodeStream.on("error", (streamError) => {
-      console.error("download-route: stream error after response started", {
-        fileId: file.id,
-        error: streamError,
-      });
-    });
-
-    return new Response(Readable.toWeb(nodeStream) as ReadableStream, {
-      headers: {
-        "content-disposition": buildAttachmentDisposition(file.name),
-        "content-length": String(file.sizeBytes),
-        "content-type": file.mimeType || "application/octet-stream",
-        "x-content-type-options": "nosniff",
-      },
-    });
+    return createRangeResponseFromHandle(
+      request,
+      fileHandle,
+      file.sizeBytes,
+      file.mimeType || "application/octet-stream",
+      file.name,
+    );
   } catch (error) {
     return createDownloadErrorResponse(error, request);
   }

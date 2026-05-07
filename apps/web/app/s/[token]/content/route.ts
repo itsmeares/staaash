@@ -4,10 +4,10 @@ import { createShareErrorResponse } from "@/app/s/share-response";
 import { SHARE_ACCESS_COOKIE_NAME } from "@/server/sharing/access-cookie";
 import { sharingService } from "@/server/sharing/service";
 import {
-  createInlineOriginalContentResponse,
   createMediaErrorResponse,
   MediaContentError,
 } from "@/server/media/content-response";
+import { createInlineContentResponse } from "@/server/media/derivative-content-response";
 
 export async function GET(
   request: Request,
@@ -23,7 +23,7 @@ export async function GET(
         cookieStore.get(SHARE_ACCESS_COOKIE_NAME)?.value ?? null,
     });
 
-    return await createInlineOriginalContentResponse({
+    return await createInlineContentResponse({
       request,
       file,
     });

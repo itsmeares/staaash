@@ -399,7 +399,9 @@ export const ModelName = {
   RecentFolder: 'RecentFolder',
   ShareLink: 'ShareLink',
   BackgroundJob: 'BackgroundJob',
-  RestoreReconciliationRun: 'RestoreReconciliationRun'
+  RestoreReconciliationRun: 'RestoreReconciliationRun',
+  MediaDerivative: 'MediaDerivative',
+  UploadSession: 'UploadSession'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -415,7 +417,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "instance" | "systemSettings" | "user" | "userPreference" | "session" | "invite" | "passwordReset" | "folder" | "file" | "favoriteFile" | "favoriteFolder" | "recentFile" | "recentFolder" | "shareLink" | "backgroundJob" | "restoreReconciliationRun"
+    modelProps: "instance" | "systemSettings" | "user" | "userPreference" | "session" | "invite" | "passwordReset" | "folder" | "file" | "favoriteFile" | "favoriteFolder" | "recentFile" | "recentFolder" | "shareLink" | "backgroundJob" | "restoreReconciliationRun" | "mediaDerivative" | "uploadSession"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1603,6 +1605,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    MediaDerivative: {
+      payload: Prisma.$MediaDerivativePayload<ExtArgs>
+      fields: Prisma.MediaDerivativeFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.MediaDerivativeFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MediaDerivativePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.MediaDerivativeFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MediaDerivativePayload>
+        }
+        findFirst: {
+          args: Prisma.MediaDerivativeFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MediaDerivativePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.MediaDerivativeFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MediaDerivativePayload>
+        }
+        findMany: {
+          args: Prisma.MediaDerivativeFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MediaDerivativePayload>[]
+        }
+        create: {
+          args: Prisma.MediaDerivativeCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MediaDerivativePayload>
+        }
+        createMany: {
+          args: Prisma.MediaDerivativeCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.MediaDerivativeCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MediaDerivativePayload>[]
+        }
+        delete: {
+          args: Prisma.MediaDerivativeDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MediaDerivativePayload>
+        }
+        update: {
+          args: Prisma.MediaDerivativeUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MediaDerivativePayload>
+        }
+        deleteMany: {
+          args: Prisma.MediaDerivativeDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.MediaDerivativeUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.MediaDerivativeUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MediaDerivativePayload>[]
+        }
+        upsert: {
+          args: Prisma.MediaDerivativeUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$MediaDerivativePayload>
+        }
+        aggregate: {
+          args: Prisma.MediaDerivativeAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateMediaDerivative>
+        }
+        groupBy: {
+          args: Prisma.MediaDerivativeGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MediaDerivativeGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.MediaDerivativeCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.MediaDerivativeCountAggregateOutputType> | number
+        }
+      }
+    }
+    UploadSession: {
+      payload: Prisma.$UploadSessionPayload<ExtArgs>
+      fields: Prisma.UploadSessionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.UploadSessionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UploadSessionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.UploadSessionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UploadSessionPayload>
+        }
+        findFirst: {
+          args: Prisma.UploadSessionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UploadSessionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.UploadSessionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UploadSessionPayload>
+        }
+        findMany: {
+          args: Prisma.UploadSessionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UploadSessionPayload>[]
+        }
+        create: {
+          args: Prisma.UploadSessionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UploadSessionPayload>
+        }
+        createMany: {
+          args: Prisma.UploadSessionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.UploadSessionCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UploadSessionPayload>[]
+        }
+        delete: {
+          args: Prisma.UploadSessionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UploadSessionPayload>
+        }
+        update: {
+          args: Prisma.UploadSessionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UploadSessionPayload>
+        }
+        deleteMany: {
+          args: Prisma.UploadSessionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.UploadSessionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.UploadSessionUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UploadSessionPayload>[]
+        }
+        upsert: {
+          args: Prisma.UploadSessionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UploadSessionPayload>
+        }
+        aggregate: {
+          args: Prisma.UploadSessionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateUploadSession>
+        }
+        groupBy: {
+          args: Prisma.UploadSessionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.UploadSessionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.UploadSessionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.UploadSessionCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -1672,6 +1822,13 @@ export const SystemSettingsScalarFieldEnum = {
   workerHeartbeatMaxAgeSeconds: 'workerHeartbeatMaxAgeSeconds',
   updateCheckIntervalHours: 'updateCheckIntervalHours',
   updateCheckRepository: 'updateCheckRepository',
+  mediaPreviewEnabled: 'mediaPreviewEnabled',
+  mediaPreviewGenerateOnUpload: 'mediaPreviewGenerateOnUpload',
+  mediaPreviewThresholdBytes: 'mediaPreviewThresholdBytes',
+  mediaPreviewRetentionDays: 'mediaPreviewRetentionDays',
+  mediaPreviewMaxHeight: 'mediaPreviewMaxHeight',
+  mediaPreviewCrf: 'mediaPreviewCrf',
+  mediaPreviewMaxConcurrentJobs: 'mediaPreviewMaxConcurrentJobs',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -1881,6 +2038,52 @@ export const RestoreReconciliationRunScalarFieldEnum = {
 export type RestoreReconciliationRunScalarFieldEnum = (typeof RestoreReconciliationRunScalarFieldEnum)[keyof typeof RestoreReconciliationRunScalarFieldEnum]
 
 
+export const MediaDerivativeScalarFieldEnum = {
+  id: 'id',
+  fileId: 'fileId',
+  kind: 'kind',
+  profile: 'profile',
+  status: 'status',
+  storageKey: 'storageKey',
+  mimeType: 'mimeType',
+  sizeBytes: 'sizeBytes',
+  width: 'width',
+  height: 'height',
+  durationSeconds: 'durationSeconds',
+  videoCodec: 'videoCodec',
+  audioCodec: 'audioCodec',
+  error: 'error',
+  pinnedByAdmin: 'pinnedByAdmin',
+  lastViewedAt: 'lastViewedAt',
+  lastSharedAt: 'lastSharedAt',
+  generatedAt: 'generatedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type MediaDerivativeScalarFieldEnum = (typeof MediaDerivativeScalarFieldEnum)[keyof typeof MediaDerivativeScalarFieldEnum]
+
+
+export const UploadSessionScalarFieldEnum = {
+  id: 'id',
+  ownerUserId: 'ownerUserId',
+  folderId: 'folderId',
+  originalName: 'originalName',
+  mimeType: 'mimeType',
+  totalSizeBytes: 'totalSizeBytes',
+  receivedBytes: 'receivedBytes',
+  expectedChecksum: 'expectedChecksum',
+  tmpPath: 'tmpPath',
+  conflictStrategy: 'conflictStrategy',
+  status: 'status',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type UploadSessionScalarFieldEnum = (typeof UploadSessionScalarFieldEnum)[keyof typeof UploadSessionScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -1992,6 +2195,13 @@ export type ListBigIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaMod
 
 
 /**
+ * Reference to a field of type 'Boolean'
+ */
+export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
+    
+
+
+/**
  * Reference to a field of type 'UserRole'
  */
 export type EnumUserRoleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'UserRole'>
@@ -2002,13 +2212,6 @@ export type EnumUserRoleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaM
  * Reference to a field of type 'UserRole[]'
  */
 export type ListEnumUserRoleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'UserRole[]'>
-    
-
-
-/**
- * Reference to a field of type 'Boolean'
- */
-export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
     
 
 
@@ -2192,6 +2395,8 @@ export type GlobalOmitConfig = {
   shareLink?: Prisma.ShareLinkOmit
   backgroundJob?: Prisma.BackgroundJobOmit
   restoreReconciliationRun?: Prisma.RestoreReconciliationRunOmit
+  mediaDerivative?: Prisma.MediaDerivativeOmit
+  uploadSession?: Prisma.UploadSessionOmit
 }
 
 /* Types for Logging */

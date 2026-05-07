@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
 
+import { scheduleDerivativeGenerate } from "@staaash/db/media-derivatives";
+
 import { canAccessPrivateNamespace } from "@/server/access";
+import { getSystemSettings } from "@/server/settings";
 import { FilesError } from "@/server/files/errors";
 import {
   buildFileStorageKey,
@@ -119,6 +122,16 @@ type UploadConflictItem = {
 type UploadFilesResult = {
   uploadedFiles: FileSummary[];
   conflicts: UploadConflictItem[];
+};
+
+type CommitResumableUploadInput = FilesActor & {
+  tmpPath: string;
+  folderId: string | null;
+  originalName: string;
+  mimeType: string;
+  totalSizeBytes: number;
+  contentChecksum: string | null;
+  conflictStrategy: UploadConflictStrategy;
 };
 
 const getFolderHref = (folder: Pick<FolderSummary, "id" | "isFilesRoot">) =>
@@ -2103,10 +2116,195 @@ export const createFilesService = ({
         await scheduleStagingCleanup();
       }
 
+      if (uploadedFiles.length > 0) {
+        void (async () => {
+          try {
+            const settings = await getSystemSettings();
+            if (
+              !settings.mediaPreviewEnabled ||
+              !settings.mediaPreviewGenerateOnUpload
+            ) {
+              return;
+            }
+            const threshold = settings.mediaPreviewThresholdBytes;
+            await Promise.all(
+              uploadedFiles
+                .filter(
+                  (f) =>
+                    f.viewerKind === "video" &&
+                    BigInt(f.sizeBytes) >= threshold,
+                )
+                .map((f) =>
+                  scheduleDerivativeGenerate({
+                    fileId: f.id,
+                    reason: "upload",
+                    now: now(),
+                  }),
+                ),
+            );
+          } catch (err) {
+            console.error(
+              "[files] Failed to schedule preview generation.",
+              err,
+            );
+          }
+        })();
+      }
+
       return {
         uploadedFiles,
         conflicts,
       };
+    },
+
+    async commitResumableUpload({
+      actorRole,
+      actorUserId,
+      tmpPath,
+      folderId,
+      originalName,
+      mimeType,
+      totalSizeBytes,
+      contentChecksum,
+      conflictStrategy,
+    }: CommitResumableUploadInput): Promise<FileSummary> {
+      const targetFolder = folderId
+        ? await getActiveOwnedFolder({ actorRole, actorUserId, folderId })
+        : await ensureFilesRoot(actorUserId);
+      const activeRepo = await resolveRepo();
+      const filesRoot = await ensureFilesRoot(targetFolder.ownerUserId);
+      const folderMap = buildFolderMap(
+        await activeRepo.listFoldersByOwner(targetFolder.ownerUserId, {
+          includeDeleted: true,
+        }),
+      );
+      const normalizedName = normalizeFileName(originalName);
+      const targetFolderPath = getStoragePath(
+        buildFolderStorageKey({
+          folder: targetFolder,
+          folderMap,
+          filesRoot,
+          trashed: false,
+        }),
+      );
+      const targetFolderLockKeys = [
+        getEntryMutationLockKey(targetFolderPath),
+        getDirectoryMutationLockKey(targetFolderPath),
+      ];
+
+      return withStorageLocks({
+        lockKeys: targetFolderLockKeys,
+        callback: async () => {
+          const activeConflict = await findActiveNameConflict({
+            ownerUserId: targetFolder.ownerUserId,
+            parentId: targetFolder.id,
+            name: normalizedName,
+          });
+
+          let finalName = normalizedName;
+
+          if (activeConflict) {
+            if (
+              conflictStrategy === "replace" &&
+              activeConflict.kind === "file"
+            ) {
+              const updated = await replaceCommittedUpload({
+                stagedFile: { tmpPath, uploadId: randomUUID() },
+                targetPath: getStoragePath(activeConflict.item.storageKey),
+                applyMetadataUpdate: () =>
+                  activeRepo.updateFile({
+                    id: activeConflict.item.id,
+                    name: activeConflict.item.name,
+                    mimeType,
+                    sizeBytes: totalSizeBytes,
+                    contentChecksum,
+                    deletedAt: null,
+                    folderId: targetFolder.id,
+                  }),
+              });
+              return toFileSummary(updated);
+            }
+
+            if (conflictStrategy === "safeRename") {
+              const siblings = await Promise.all([
+                activeRepo.listChildFolders(
+                  targetFolder.ownerUserId,
+                  targetFolder.id,
+                  { includeDeleted: false },
+                ),
+                activeRepo.listChildFiles(
+                  targetFolder.ownerUserId,
+                  targetFolder.id,
+                  { includeDeleted: false },
+                ),
+              ]);
+              finalName = buildSafeRenamedFileName(normalizedName, [
+                ...siblings[0].map((f) => f.name),
+                ...siblings[1].map((f) => f.name),
+              ]);
+            } else {
+              throw new FilesError("FILE_NAME_CONFLICT");
+            }
+          }
+
+          const storageKey = buildFileStorageKey({
+            file: {
+              ownerUsername: targetFolder.ownerUsername,
+              folderId: targetFolder.id,
+              name: finalName,
+            },
+            folderMap,
+            filesRoot,
+            trashed: false,
+          });
+          const fileId = randomUUID();
+          const targetPath = getStoragePath(storageKey);
+
+          await commitStagedUpload({ tmpPath }, targetPath);
+
+          let createdFile: StoredFile;
+          try {
+            createdFile = await activeRepo.createFile({
+              id: fileId,
+              ownerUserId: targetFolder.ownerUserId,
+              folderId: targetFolder.id,
+              name: finalName,
+              storageKey,
+              mimeType,
+              sizeBytes: totalSizeBytes,
+              contentChecksum,
+            });
+          } catch (error) {
+            await rm(targetPath, { force: true });
+            throw error;
+          }
+
+          const summary = toFileSummary(createdFile);
+
+          if (summary.viewerKind === "video") {
+            void (async () => {
+              try {
+                const settings = await getSystemSettings();
+                if (
+                  settings.mediaPreviewEnabled &&
+                  settings.mediaPreviewGenerateOnUpload &&
+                  BigInt(totalSizeBytes) >= settings.mediaPreviewThresholdBytes
+                ) {
+                  await scheduleDerivativeGenerate({
+                    fileId: createdFile.id,
+                    reason: "upload",
+                    now: now(),
+                  });
+                }
+              } catch {
+                // best-effort
+              }
+            })();
+          }
+
+          return summary;
+        },
+      });
     },
   };
 };

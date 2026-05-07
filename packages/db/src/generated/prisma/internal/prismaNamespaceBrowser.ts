@@ -66,7 +66,9 @@ export const ModelName = {
   RecentFolder: 'RecentFolder',
   ShareLink: 'ShareLink',
   BackgroundJob: 'BackgroundJob',
-  RestoreReconciliationRun: 'RestoreReconciliationRun'
+  RestoreReconciliationRun: 'RestoreReconciliationRun',
+  MediaDerivative: 'MediaDerivative',
+  UploadSession: 'UploadSession'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -115,6 +117,13 @@ export const SystemSettingsScalarFieldEnum = {
   workerHeartbeatMaxAgeSeconds: 'workerHeartbeatMaxAgeSeconds',
   updateCheckIntervalHours: 'updateCheckIntervalHours',
   updateCheckRepository: 'updateCheckRepository',
+  mediaPreviewEnabled: 'mediaPreviewEnabled',
+  mediaPreviewGenerateOnUpload: 'mediaPreviewGenerateOnUpload',
+  mediaPreviewThresholdBytes: 'mediaPreviewThresholdBytes',
+  mediaPreviewRetentionDays: 'mediaPreviewRetentionDays',
+  mediaPreviewMaxHeight: 'mediaPreviewMaxHeight',
+  mediaPreviewCrf: 'mediaPreviewCrf',
+  mediaPreviewMaxConcurrentJobs: 'mediaPreviewMaxConcurrentJobs',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -322,6 +331,52 @@ export const RestoreReconciliationRunScalarFieldEnum = {
 } as const
 
 export type RestoreReconciliationRunScalarFieldEnum = (typeof RestoreReconciliationRunScalarFieldEnum)[keyof typeof RestoreReconciliationRunScalarFieldEnum]
+
+
+export const MediaDerivativeScalarFieldEnum = {
+  id: 'id',
+  fileId: 'fileId',
+  kind: 'kind',
+  profile: 'profile',
+  status: 'status',
+  storageKey: 'storageKey',
+  mimeType: 'mimeType',
+  sizeBytes: 'sizeBytes',
+  width: 'width',
+  height: 'height',
+  durationSeconds: 'durationSeconds',
+  videoCodec: 'videoCodec',
+  audioCodec: 'audioCodec',
+  error: 'error',
+  pinnedByAdmin: 'pinnedByAdmin',
+  lastViewedAt: 'lastViewedAt',
+  lastSharedAt: 'lastSharedAt',
+  generatedAt: 'generatedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type MediaDerivativeScalarFieldEnum = (typeof MediaDerivativeScalarFieldEnum)[keyof typeof MediaDerivativeScalarFieldEnum]
+
+
+export const UploadSessionScalarFieldEnum = {
+  id: 'id',
+  ownerUserId: 'ownerUserId',
+  folderId: 'folderId',
+  originalName: 'originalName',
+  mimeType: 'mimeType',
+  totalSizeBytes: 'totalSizeBytes',
+  receivedBytes: 'receivedBytes',
+  expectedChecksum: 'expectedChecksum',
+  tmpPath: 'tmpPath',
+  conflictStrategy: 'conflictStrategy',
+  status: 'status',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type UploadSessionScalarFieldEnum = (typeof UploadSessionScalarFieldEnum)[keyof typeof UploadSessionScalarFieldEnum]
 
 
 export const SortOrder = {

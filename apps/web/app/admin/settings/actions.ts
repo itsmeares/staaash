@@ -20,6 +20,19 @@ const updateSettingsSchema = z.object({
   workerHeartbeatMaxAgeSeconds: z.coerce.number().int().positive(),
   updateCheckIntervalHours: z.coerce.number().int().positive(),
   updateCheckRepository: z.string().trim(),
+  mediaPreviewEnabled: z
+    .string()
+    .optional()
+    .transform((v) => v === "on"),
+  mediaPreviewGenerateOnUpload: z
+    .string()
+    .optional()
+    .transform((v) => v === "on"),
+  mediaPreviewThresholdBytes: z.coerce.bigint().positive(),
+  mediaPreviewRetentionDays: z.coerce.number().int().min(0),
+  mediaPreviewMaxHeight: z.coerce.number().int().positive(),
+  mediaPreviewCrf: z.coerce.number().int().min(0).max(51),
+  mediaPreviewMaxConcurrentJobs: z.coerce.number().int().positive(),
 });
 
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
