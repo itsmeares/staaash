@@ -102,7 +102,9 @@ export const handleUpdateCheck = async (
 ): Promise<void> => {
   if (process.env.NODE_ENV !== "production") return;
 
-  const { version } = await import("../../package.json");
+  const { version } = await import("../../package.json", {
+    with: { type: "json" },
+  });
   const { getPrisma } = await import("@staaash/db/client");
   const db = getPrisma();
   const settings = await db.systemSettings.findUnique({
