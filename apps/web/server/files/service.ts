@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
 
+import { scheduleDerivativeGenerate } from "@staaash/db/media-derivatives";
+
 import { canAccessPrivateNamespace } from "@/server/access";
+import { getSystemSettings } from "@/server/settings";
 import { FilesError } from "@/server/files/errors";
 import {
   buildFileStorageKey,
@@ -2101,6 +2104,41 @@ export const createFilesService = ({
 
       if (stagedAnyUpload) {
         await scheduleStagingCleanup();
+      }
+
+      if (uploadedFiles.length > 0) {
+        void (async () => {
+          try {
+            const settings = await getSystemSettings();
+            if (
+              !settings.mediaPreviewEnabled ||
+              !settings.mediaPreviewGenerateOnUpload
+            ) {
+              return;
+            }
+            const threshold = settings.mediaPreviewThresholdBytes;
+            await Promise.all(
+              uploadedFiles
+                .filter(
+                  (f) =>
+                    f.viewerKind === "video" &&
+                    BigInt(f.sizeBytes) >= threshold,
+                )
+                .map((f) =>
+                  scheduleDerivativeGenerate({
+                    fileId: f.id,
+                    reason: "upload",
+                    now: now(),
+                  }),
+                ),
+            );
+          } catch (err) {
+            console.error(
+              "[files] Failed to schedule preview generation.",
+              err,
+            );
+          }
+        })();
       }
 
       return {
