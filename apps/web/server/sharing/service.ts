@@ -4,6 +4,7 @@ import type { ShareTargetType } from "@staaash/db/client";
 import {
   scheduleDerivativeGenerate,
   touchDerivativeShared,
+  findReadyDerivative,
 } from "@staaash/db/media-derivatives";
 
 import { canAccessPrivateNamespace } from "@/server/access";
@@ -270,14 +271,15 @@ const schedulePreviewsForShare = async ({
 }): Promise<void> => {
   if (targetType === "file") {
     if (!file || !isEligibleForPreview(file, settings)) return;
-    await Promise.all([
-      scheduleDerivativeGenerate({
+    const existing = await findReadyDerivative(file.id);
+    if (!existing) {
+      await scheduleDerivativeGenerate({
         fileId: file.id,
         reason: "share-created",
         now,
-      }),
-      touchDerivativeShared(file.id, "preview", "preview-1080p", now),
-    ]);
+      });
+    }
+    await touchDerivativeShared(file.id, "preview", "preview-1080p", now);
     return;
   }
 
@@ -296,14 +298,17 @@ const schedulePreviewsForShare = async ({
   );
 
   await Promise.all(
-    eligibleFiles.flatMap((f) => [
-      scheduleDerivativeGenerate({
-        fileId: f.id,
-        reason: "share-created",
-        now,
-      }),
-      touchDerivativeShared(f.id, "preview", "preview-1080p", now),
-    ]),
+    eligibleFiles.map(async (f) => {
+      const existing = await findReadyDerivative(f.id);
+      if (!existing) {
+        await scheduleDerivativeGenerate({
+          fileId: f.id,
+          reason: "share-created",
+          now,
+        });
+      }
+      await touchDerivativeShared(f.id, "preview", "preview-1080p", now);
+    }),
   );
 };
 
