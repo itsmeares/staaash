@@ -252,7 +252,7 @@ export function EntryExperience({
                 className="entry-form__input"
                 id="identifier"
                 name="identifier"
-                autoComplete="username"
+                autoComplete="email"
                 required
               />
             </div>
