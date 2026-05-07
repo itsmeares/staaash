@@ -244,13 +244,13 @@ export function EntryExperience({
         ) : (
           <>
             <div className="entry-form__field">
-              <label className="entry-form__label" htmlFor="identifier">
+              <label className="entry-form__label" htmlFor="email">
                 Username or email
               </label>
               <input
                 ref={firstFieldRef}
                 className="entry-form__input"
-                id="identifier"
+                id="email"
                 name="identifier"
                 autoComplete="email"
                 required
