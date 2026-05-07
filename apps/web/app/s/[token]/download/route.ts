@@ -8,7 +8,7 @@ import { SHARE_ACCESS_COOKIE_NAME } from "@/server/sharing/access-cookie";
 import { sharingService } from "@/server/sharing/service";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
@@ -21,7 +21,7 @@ export async function GET(
         cookieStore.get(SHARE_ACCESS_COOKIE_NAME)?.value ?? null,
     });
 
-    return createFileDownloadResponse(result);
+    return createFileDownloadResponse(result, request);
   } catch (error) {
     return createShareErrorResponse(error);
   }

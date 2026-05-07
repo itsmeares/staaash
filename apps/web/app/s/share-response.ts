@@ -1,31 +1,30 @@
-import { createReadStream } from "node:fs";
-import { Readable } from "node:stream";
-
 import { getStoragePath } from "@/server/storage";
+import { createRangeResponseFromPath } from "@/server/downloads/range-response";
 import { ShareError, isShareError } from "@/server/sharing/errors";
 import type { ShareDownloadResult } from "@/server/sharing/types";
 
 const buildAttachmentDisposition = (fileName: string) =>
   `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 
-export const createFileDownloadResponse = ({
-  file,
-  contentType,
-  contentLength,
-}: ShareDownloadResult) =>
-  new Response(
-    Readable.toWeb(
-      createReadStream(getStoragePath(file.storageKey)),
-    ) as ReadableStream,
-    {
-      headers: {
-        "content-disposition": buildAttachmentDisposition(file.name),
-        "content-length": String(contentLength),
-        "content-type": contentType,
-        "x-content-type-options": "nosniff",
-      },
-    },
+export const createFileDownloadResponse = async (
+  { file, contentType, contentLength }: ShareDownloadResult,
+  request: Request,
+): Promise<Response> => {
+  const response = await createRangeResponseFromPath(
+    request,
+    getStoragePath(file.storageKey),
+    contentLength,
+    contentType,
+    file.name,
   );
+  if (!response) {
+    return new Response("File not found.", {
+      status: 404,
+      headers: { "content-type": "text/plain; charset=utf-8" },
+    });
+  }
+  return response;
+};
 
 export const createArchiveResponse = ({
   fileName,
