@@ -14,6 +14,7 @@ type EntryRootProps = {
   instanceName?: string;
   next?: string;
   isOwner?: boolean;
+  initialMediaPreviewEnabled?: boolean;
 };
 
 export function EntryRoot({
@@ -21,6 +22,7 @@ export function EntryRoot({
   instanceName,
   next,
   isOwner = false,
+  initialMediaPreviewEnabled = true,
 }: EntryRootProps) {
   const [phase, setPhase] = useState<Phase>("intro");
   const [onboardingKey, setOnboardingKey] = useState(0);
@@ -51,6 +53,7 @@ export function EntryRoot({
           key={onboardingKey}
           instanceName={instanceName}
           isOwner={isOwner}
+          initialMediaPreviewEnabled={initialMediaPreviewEnabled}
         />
       </EntryShell>
     );
