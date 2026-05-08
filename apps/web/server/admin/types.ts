@@ -84,6 +84,7 @@ export type JsonAdminJobListResponse = Omit<AdminJobListResponse, "items"> & {
       lockedAt: string | null;
       createdAt: string;
       updatedAt: string;
+      fileName?: string | null;
     }
   >;
 };

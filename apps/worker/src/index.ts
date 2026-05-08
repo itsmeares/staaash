@@ -172,9 +172,16 @@ const processNextJob = async (): Promise<boolean> => {
         await handleRestoreReconciliation(job, storagePaths);
         break;
 
-      case MEDIA_DERIVATIVE_GENERATE_JOB_KIND:
-        await handleMediaDerivativeGenerate(job, storagePaths);
+      case MEDIA_DERIVATIVE_GENERATE_JOB_KIND: {
+        const cancelled = await handleMediaDerivativeGenerate(
+          job,
+          storagePaths,
+        );
+        if (cancelled) {
+          return true;
+        }
         break;
+      }
 
       case MEDIA_DERIVATIVE_CLEANUP_JOB_KIND:
         await handleMediaDerivativeCleanup(job, storagePaths);

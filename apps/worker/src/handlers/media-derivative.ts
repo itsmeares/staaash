@@ -7,6 +7,7 @@ import {
   DERIVATIVE_KIND_PREVIEW,
   DERIVATIVE_PROFILE_1080P,
   DERIVATIVE_STATUS_PROCESSING,
+  DERIVATIVE_STATUS_STALE,
   buildDerivativeStorageKey,
   markDerivativeFailed,
   markDerivativeReady,
@@ -46,6 +47,7 @@ type PrismaClient = {
     findUnique(args: object): Promise<SystemSettingsRecord | null>;
   };
   mediaDerivative: {
+    findUnique(args: object): Promise<{ id: string; status: string } | null>;
     upsert(args: object): Promise<{ id: string; status: string }>;
     update(args: object): Promise<{ id: string; status: string }>;
   };
@@ -86,7 +88,7 @@ const DEFAULT_SETTINGS: SystemSettingsRecord = {
 export const handleMediaDerivativeGenerate = async (
   job: BackgroundJobRecord,
   storagePaths: WorkerStoragePaths,
-): Promise<void> => {
+): Promise<boolean> => {
   const health = getFfmpegHealth();
   if (!health.available) {
     throw new Error(
@@ -109,7 +111,7 @@ export const handleMediaDerivativeGenerate = async (
   const settings: SystemSettingsRecord = rawSettings ?? DEFAULT_SETTINGS;
 
   if (!settings.mediaPreviewEnabled) {
-    return;
+    return false;
   }
 
   const file = await prisma.file.findUnique({
@@ -129,14 +131,14 @@ export const handleMediaDerivativeGenerate = async (
   }
 
   if (!file.mimeType.startsWith("video/")) {
-    return;
+    return false;
   }
 
   if (
     payload.reason !== "manual-regenerate" &&
     file.sizeBytes < settings.mediaPreviewThresholdBytes
   ) {
-    return;
+    return false;
   }
 
   const kind =
@@ -175,18 +177,50 @@ export const handleMediaDerivativeGenerate = async (
     throw err;
   }
 
+  const controller = new AbortController();
+  let cancelledByAdmin = false;
+
+  const cancelPollId = setInterval(() => {
+    void (getPrisma() as unknown as PrismaClient).mediaDerivative
+      .findUnique({
+        where: { id: derivative.id },
+        select: { status: true } as object,
+      })
+      .then((current) => {
+        if (current?.status === DERIVATIVE_STATUS_STALE) {
+          cancelledByAdmin = true;
+          controller.abort();
+        }
+      })
+      .catch(() => {
+        // ignore transient DB errors during poll
+      });
+  }, 3000);
+
   try {
     if (isStreamCopyCompatible(probe)) {
-      await runFfmpegStreamCopy(inputPath, tmpPath);
+      await runFfmpegStreamCopy(inputPath, tmpPath, controller.signal);
     } else {
       await runFfmpegTranscode(
         inputPath,
         tmpPath,
         settings.mediaPreviewMaxHeight,
         settings.mediaPreviewCrf,
+        controller.signal,
       );
     }
+  } catch (err) {
+    await rm(tmpPath, { force: true });
+    if (cancelledByAdmin) {
+      return true;
+    }
+    await markDerivativeFailed(derivative.id, String(err));
+    throw err;
+  } finally {
+    clearInterval(cancelPollId);
+  }
 
+  try {
     await mkdir(path.dirname(outputPath), { recursive: true });
     await rename(tmpPath, outputPath);
   } catch (err) {
@@ -202,6 +236,18 @@ export const handleMediaDerivativeGenerate = async (
     ? parseFloat(probe.format.duration)
     : null;
 
+  // Guard: admin may have marked stale while we were processing.
+  const current = await (
+    getPrisma() as unknown as PrismaClient
+  ).mediaDerivative.findUnique({
+    where: { id: derivative.id },
+    select: { status: true } as object,
+  });
+  if (current?.status === DERIVATIVE_STATUS_STALE) {
+    await rm(outputPath, { force: true });
+    return true;
+  }
+
   await markDerivativeReady(derivative.id, {
     storageKey,
     mimeType: "video/mp4",
@@ -213,4 +259,6 @@ export const handleMediaDerivativeGenerate = async (
     audioCodec: audioStream?.codec_name ?? null,
     generatedAt: new Date(),
   });
+
+  return false;
 };

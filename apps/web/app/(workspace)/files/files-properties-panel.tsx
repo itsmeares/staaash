@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   X,
   Folder,
@@ -62,6 +62,118 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024 * 1024)
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+// ---------------------------------------------------------------------------
+// Media preview section
+// ---------------------------------------------------------------------------
+
+type DerivativeStatus =
+  | "none"
+  | "queued"
+  | "processing"
+  | "ready"
+  | "failed"
+  | "stale";
+
+type DerivativeState = {
+  status: DerivativeStatus;
+  generatedAt: string | null;
+};
+
+function MediaPreviewSection({ fileId }: { fileId: string }) {
+  const [state, setState] = useState<DerivativeState | null>(null);
+  const [queuing, setQueuing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch(`/api/files/files/${fileId}/derivative`)
+      .then((r) => r.json())
+      .then((data: DerivativeState) => {
+        if (!cancelled) setState(data);
+      })
+      .catch(() => {
+        if (!cancelled) setState({ status: "none", generatedAt: null });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fileId]);
+
+  const handleGenerate = async () => {
+    setQueuing(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/files/files/${fileId}/derivative`, {
+        method: "POST",
+      });
+      const data = (await res.json()) as { status?: string; error?: string };
+      if (!res.ok) {
+        setError(data.error ?? "Failed to queue preview.");
+      } else {
+        setState({ status: "queued", generatedAt: null });
+      }
+    } catch {
+      setError("Failed to queue preview.");
+    } finally {
+      setQueuing(false);
+    }
+  };
+
+  const STATUS_LABEL: Record<DerivativeStatus, string> = {
+    none: "Not generated",
+    queued: "Queued…",
+    processing: "Generating…",
+    ready: "Ready",
+    failed: "Failed",
+    stale: "Stale",
+  };
+
+  const isActive = state?.status === "queued" || state?.status === "processing";
+  const buttonLabel =
+    state?.status === "ready" || state?.status === "stale"
+      ? "Regenerate"
+      : "Generate preview";
+
+  return (
+    <div className="properties-section">
+      <p className="properties-section-title">Media preview</p>
+      {state ? (
+        <div className="properties-row">
+          <span className="properties-row-label">Status</span>
+          <span className="properties-row-value">
+            {STATUS_LABEL[state.status]}
+          </span>
+        </div>
+      ) : (
+        <div className="properties-row">
+          <span className="properties-row-label">Status</span>
+          <span className="properties-row-value muted">Loading…</span>
+        </div>
+      )}
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={queuing || isActive || state === null}
+        onClick={() => void handleGenerate()}
+      >
+        {queuing ? "Queuing…" : buttonLabel}
+      </Button>
+      {error && (
+        <p
+          className="muted"
+          style={{
+            fontSize: "0.78rem",
+            color: "var(--color-error, red)",
+            marginTop: 4,
+          }}
+        >
+          {error}
+        </p>
+      )}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -180,6 +292,12 @@ export function FilesPropertiesPanel({
                 </span>
               </div>
             </div>
+
+            {/* Media preview section — video files only */}
+            {item.kind === "file" &&
+              item.data.mimeType.startsWith("video/") && (
+                <MediaPreviewSection fileId={item.data.id} />
+              )}
 
             {/* Sharing section */}
             {onShare && (

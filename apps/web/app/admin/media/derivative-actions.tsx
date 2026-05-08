@@ -43,7 +43,7 @@ export function DerivativeActions({
   const isActive = status === "queued" || status === "processing";
   const canRemove =
     status === "ready" || status === "failed" || status === "stale";
-  const canCancel = status === "queued";
+  const canCancel = status === "queued" || status === "processing";
   const anyError = regenState.error ?? removeState.error ?? cancelState.error;
 
   return (

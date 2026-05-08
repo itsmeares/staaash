@@ -19,6 +19,7 @@ export type JsonBackgroundJob = {
   maxAttempts: number;
   dedupeKey: string | null;
   payloadJson: Record<string, unknown> | null;
+  fileName?: string | null;
 };
 
 const JOB_META: Record<string, { name: string; desc: string }> = {
@@ -47,6 +48,15 @@ const JOB_META: Record<string, { name: string; desc: string }> = {
     desc: "Remove stale or orphaned derivative files from storage.",
   },
 };
+
+function effectiveStatus(
+  job: Pick<JsonBackgroundJob, "status" | "lastError">,
+): string {
+  if (job.status === "dead" && job.lastError === "Cancelled by admin.") {
+    return "cancelled";
+  }
+  return job.status;
+}
 
 function formatTimeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -168,8 +178,10 @@ function JobOperationRow({
           <span className="admin-op-desc">{meta?.desc}</span>
           {lastRun ? (
             <span className="admin-op-last">
-              <span className={getAdminStatusClassName(lastRun.status)}>
-                {lastRun.status}
+              <span
+                className={getAdminStatusClassName(effectiveStatus(lastRun))}
+              >
+                {effectiveStatus(lastRun)}
               </span>{" "}
               · {formatTimeAgo(lastRun.updatedAt)}
               {activeCount !== null && activeCount > 1 && (
@@ -225,20 +237,22 @@ function JobOperationRow({
                 typeof job.payloadJson?.reason === "string"
                   ? job.payloadJson.reason
                   : null;
+              const fileLabel =
+                job.fileName ?? (fileId ? `${fileId.slice(0, 8)}…` : null);
               return (
                 <div className="admin-history-row" key={job.id}>
-                  <span className={getAdminStatusClassName(job.status)}>
-                    {job.status}
+                  <span
+                    className={getAdminStatusClassName(effectiveStatus(job))}
+                  >
+                    {effectiveStatus(job)}
                   </span>
                   <span className="muted">
                     {formatAdminDateTime(job.createdAt)}
                   </span>
-                  {fileId ? (
+                  {fileLabel ? (
                     <span className="muted" style={{ fontSize: "0.78rem" }}>
                       {reason ? `${reason} · ` : ""}
-                      <code style={{ fontSize: "0.75rem" }}>
-                        {fileId.slice(0, 8)}…
-                      </code>
+                      {fileLabel}
                     </span>
                   ) : (
                     <span className="muted" style={{ fontSize: "0.78rem" }}>
