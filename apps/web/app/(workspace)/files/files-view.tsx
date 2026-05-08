@@ -102,6 +102,28 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+function formatEta(
+  totalBytes: number,
+  progress: number,
+  speed: number,
+): string {
+  if (speed <= 0 || progress >= 100) return "";
+  const remainingBytes = totalBytes * (1 - progress / 100);
+  const seconds = Math.round(remainingBytes / speed);
+  if (seconds < 60)
+    return `(${seconds} ${seconds === 1 ? "second" : "seconds"} left)`;
+  if (seconds < 3600) {
+    const m = Math.round(seconds / 60);
+    return `(${m} ${m === 1 ? "minute" : "minutes"} left)`;
+  }
+  if (seconds < 86400) {
+    const h = Math.round(seconds / 3600);
+    return `(${h} ${h === 1 ? "hour" : "hours"} left)`;
+  }
+  const d = Math.round(seconds / 86400);
+  return `(${d} ${d === 1 ? "day" : "days"} left)`;
+}
+
 // ---------------------------------------------------------------------------
 // Rubber-band state
 // ---------------------------------------------------------------------------
@@ -1634,6 +1656,7 @@ function UploadingRow({
 }) {
   const { File: FileIcon } = { File: require("lucide-react").File };
 
+  const eta = formatEta(file.size, file.progress, file.speed);
   const statusText =
     file.status === "error"
       ? (file.error ?? "Upload failed")
@@ -1641,7 +1664,7 @@ function UploadingRow({
         ? "Done"
         : file.resumeHint && file.progress === 0
           ? file.resumeHint
-          : `${file.progress}% · ${formatSpeed(file.speed)}`;
+          : `${file.progress}% · ${formatSpeed(file.speed)}${eta ? ` · ${eta}` : ""}`;
 
   return (
     <div className="uploading-row">
