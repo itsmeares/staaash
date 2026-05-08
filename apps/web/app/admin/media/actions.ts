@@ -79,8 +79,8 @@ export async function cancelDerivative(
     select: { fileId: true, status: true },
   });
   if (!derivative) return { error: "Derivative not found." };
-  if (derivative.status !== "queued")
-    return { error: "Only queued derivatives can be cancelled." };
+  if (derivative.status !== "queued" && derivative.status !== "processing")
+    return { error: "Only queued or processing derivatives can be cancelled." };
 
   const dedupeKey = buildDerivativeDedupeKey(
     derivative.fileId,
@@ -88,10 +88,25 @@ export async function cancelDerivative(
     DERIVATIVE_PROFILE_1080P,
   );
 
-  await db.backgroundJob.updateMany({
-    where: { dedupeKey, status: "queued" },
-    data: { status: "dead", lastError: "Cancelled by admin." },
-  });
+  if (derivative.status === "queued") {
+    await db.backgroundJob.updateMany({
+      where: { dedupeKey, status: "queued" },
+      data: { status: "dead", lastError: "Cancelled by admin." },
+    });
+  } else {
+    // Mark the running job dead immediately so:
+    // 1. The UI shows "dead" without waiting for the worker
+    // 2. The job can't be re-claimed after its 60s lease expires
+    await db.backgroundJob.updateMany({
+      where: { dedupeKey, status: "running" },
+      data: {
+        status: "dead",
+        lastError: "Cancelled by admin.",
+        lockedAt: null,
+        lockedBy: null,
+      },
+    });
+  }
 
   await markDerivativeStale(id);
   revalidatePath("/admin/media");

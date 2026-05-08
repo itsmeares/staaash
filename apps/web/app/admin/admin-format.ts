@@ -39,9 +39,11 @@ export const getAdminStatusClassName = (status: string) =>
           status === "queued" ||
           status === "running"
         ? "status-warning"
-        : status === "owner"
-          ? "status-owner"
-          : status === "member"
-            ? "status-member"
-            : "status-error"
+        : status === "cancelled"
+          ? ""
+          : status === "owner"
+            ? "status-owner"
+            : status === "member"
+              ? "status-member"
+              : "status-error"
   }`;
