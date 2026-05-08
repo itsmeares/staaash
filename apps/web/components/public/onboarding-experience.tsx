@@ -2,10 +2,18 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+
+import { setMediaPreviewEnabled as saveMediaPreviewSetting } from "@/app/admin/settings/actions";
 import confetti from "canvas-confetti";
 
 type Theme = "light" | "dark" | "system";
-type OnboardingStep = "welcome" | "theme" | "profile" | "privacy" | "done";
+type OnboardingStep =
+  | "welcome"
+  | "theme"
+  | "profile"
+  | "privacy"
+  | "media"
+  | "done";
 
 type Prefs = {
   theme: Theme;
@@ -20,6 +28,7 @@ const STEP_ORDER: OnboardingStep[] = [
   "theme",
   "profile",
   "privacy",
+  "media",
   "done",
 ];
 
@@ -33,9 +42,11 @@ function applyThemePreview(theme: Theme) {
 export function OnboardingExperience({
   instanceName,
   isOwner,
+  initialMediaPreviewEnabled = true,
 }: {
   instanceName?: string;
   isOwner: boolean;
+  initialMediaPreviewEnabled?: boolean;
 }) {
   const [step, setStep] = useState<OnboardingStep>("welcome");
   const [animating, setAnimating] = useState(false);
@@ -46,6 +57,9 @@ export function OnboardingExperience({
     displayName: "",
     avatarUrl: null,
   });
+  const [mediaPreviewEnabled, setMediaPreviewEnabled] = useState(
+    initialMediaPreviewEnabled,
+  );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [donePhase, setDonePhase] = useState<0 | 1 | 2>(0);
@@ -85,29 +99,32 @@ export function OnboardingExperience({
     setPending(true);
     setError(null);
     try {
-      const res = await fetch("/api/user/preferences", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          theme: prefs.theme,
-          showUpdateNotifications: prefs.showUpdateNotifications,
-          enableVersionChecks: prefs.enableVersionChecks,
-          displayName: prefs.displayName || null,
-          avatarUrl: prefs.avatarUrl,
+      const tasks: Promise<unknown>[] = [
+        fetch("/api/user/preferences", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            theme: prefs.theme,
+            showUpdateNotifications: prefs.showUpdateNotifications,
+            enableVersionChecks: prefs.enableVersionChecks,
+            displayName: prefs.displayName || null,
+            avatarUrl: prefs.avatarUrl,
+          }),
+        }).then(async (res) => {
+          if (!res.ok) {
+            const json = await res.json().catch(() => ({}));
+            throw new Error(json.error ?? "Something went wrong.");
+          }
         }),
-      });
-      if (res.ok) {
-        setStep("done");
-      } else {
-        const json = await res.json().catch(() => ({}));
-        setError(json.error ?? "Something went wrong.");
-        setPending(false);
-      }
-    } catch {
-      setError("Network error. Please try again.");
+      ];
+      if (isOwner) tasks.push(saveMediaPreviewSetting(mediaPreviewEnabled));
+      await Promise.all(tasks);
+      setStep("done");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
       setPending(false);
     }
   }
@@ -189,7 +206,7 @@ export function OnboardingExperience({
     );
   }
 
-  const totalSteps = isOwner ? 3 : 2;
+  const totalSteps = isOwner ? 4 : 2;
 
   return (
     <div
@@ -237,7 +254,20 @@ export function OnboardingExperience({
               showUpdateNotifications: val,
             }))
           }
-          onComplete={handleComplete}
+          onComplete={advance}
+          onBack={goBack}
+          pending={false}
+          error={null}
+          isLastStep={false}
+        />
+      )}
+      {step === "media" && isOwner && (
+        <MediaStep
+          enabled={mediaPreviewEnabled}
+          onToggle={setMediaPreviewEnabled}
+          onComplete={() => {
+            void handleComplete();
+          }}
           onBack={goBack}
           pending={pending}
           error={error}
@@ -577,6 +607,7 @@ function PrivacyStep({
   onBack,
   pending,
   error,
+  isLastStep = true,
 }: {
   prefs: Prefs;
   onVersionChecksChange: (val: boolean) => void;
@@ -584,6 +615,7 @@ function PrivacyStep({
   onBack: () => void;
   pending: boolean;
   error: string | null;
+  isLastStep?: boolean;
 }) {
   return (
     <div className="onboarding-step">
@@ -596,7 +628,7 @@ function PrivacyStep({
         >
           ← Back
         </button>
-        <StepProgress current={3} total={3} />
+        <StepProgress current={3} total={4} />
       </div>
 
       <div className="onboarding-step__header">
@@ -625,6 +657,88 @@ function PrivacyStep({
             onClick={() => onVersionChecksChange(!prefs.enableVersionChecks)}
             type="button"
             aria-label="Version checks"
+          >
+            <span className="onboarding-switch__thumb" />
+          </button>
+        </label>
+      </div>
+
+      {error && (
+        <p className="onboarding-error" role="alert">
+          {error}
+        </p>
+      )}
+
+      <button
+        className="onboarding-continue"
+        onClick={onComplete}
+        disabled={pending}
+        type="button"
+      >
+        {pending ? "Saving…" : isLastStep ? "Enter Staaash" : "Continue"}
+      </button>
+    </div>
+  );
+}
+
+function MediaStep({
+  enabled,
+  onToggle,
+  onComplete,
+  onBack,
+  pending,
+  error,
+}: {
+  enabled: boolean;
+  onToggle: (val: boolean) => void;
+  onComplete: () => void;
+  onBack: () => void;
+  pending: boolean;
+  error: string | null;
+}) {
+  return (
+    <div className="onboarding-step">
+      <div className="onboarding-step__nav">
+        <button
+          className="onboarding-back"
+          onClick={onBack}
+          type="button"
+          aria-label="Go back"
+        >
+          ← Back
+        </button>
+        <StepProgress current={4} total={4} />
+      </div>
+
+      <div className="onboarding-step__header">
+        <span className="onboarding-step__index">04</span>
+        <h2 className="onboarding-step__title">Media previews</h2>
+      </div>
+
+      <p className="onboarding-step__body">
+        Staaash can transcode uploaded videos into streamable previews using
+        FFmpeg. This runs in a background worker and can use significant CPU.
+        You can change this anytime in Admin → Settings.
+      </p>
+
+      <div className="onboarding-toggles">
+        <label className="onboarding-toggle">
+          <div className="onboarding-toggle__text">
+            <span className="onboarding-toggle__label">
+              Enable media previews
+            </span>
+            <span className="onboarding-toggle__desc">
+              Generates compressed video previews on demand. Requires a worker
+              process and a reasonably capable CPU.
+            </span>
+          </div>
+          <button
+            role="switch"
+            aria-checked={enabled}
+            className={`onboarding-switch${enabled ? " onboarding-switch--on" : ""}`}
+            onClick={() => onToggle(!enabled)}
+            type="button"
+            aria-label="Enable media previews"
           >
             <span className="onboarding-switch__thumb" />
           </button>

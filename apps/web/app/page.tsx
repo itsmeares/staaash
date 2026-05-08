@@ -5,6 +5,7 @@ import { getSafeLocalPath, getSingleSearchParam } from "@/app/auth-ui";
 import { EntryRoot } from "@/components/public/entry-root";
 import { authService } from "@/server/auth/service";
 import { getCurrentSession } from "@/server/auth/session";
+import { getSystemSettings } from "@/server/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +14,13 @@ type HomePageProps = {
 };
 
 export default async function HomePage({ searchParams }: HomePageProps) {
-  const [resolvedSearchParams, setupState, session] = await Promise.all([
-    searchParams,
-    authService.getSetupState(),
-    getCurrentSession(),
-  ]);
+  const [resolvedSearchParams, setupState, session, systemSettings] =
+    await Promise.all([
+      searchParams,
+      authService.getSetupState(),
+      getCurrentSession(),
+      getSystemSettings(),
+    ]);
 
   const next = getSafeLocalPath(
     getSingleSearchParam(resolvedSearchParams, "next"),
@@ -33,6 +36,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         mode="onboarding"
         instanceName={setupState.instanceName ?? undefined}
         isOwner={session.user.role === "owner"}
+        initialMediaPreviewEnabled={systemSettings.mediaPreviewEnabled}
       />
     );
   }

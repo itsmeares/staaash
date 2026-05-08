@@ -60,3 +60,17 @@ export async function updateSystemSettings(
   revalidatePath("/admin/settings");
   return { success: true };
 }
+
+export async function setMediaPreviewEnabled(
+  enabled: boolean,
+): Promise<{ error?: string; success?: boolean }> {
+  await requireOwnerPageSession();
+  const db = getPrisma();
+  await db.systemSettings.upsert({
+    where: { id: "singleton" },
+    create: { id: "singleton", mediaPreviewEnabled: enabled },
+    update: { mediaPreviewEnabled: enabled },
+  });
+  revalidatePath("/admin/settings");
+  return { success: true };
+}
