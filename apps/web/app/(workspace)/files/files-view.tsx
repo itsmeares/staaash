@@ -11,7 +11,7 @@ import {
 import { createPortal } from "react-dom";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import { FolderPlus, RefreshCw, Upload } from "lucide-react";
+import { Download, FolderPlus, RefreshCw, Upload } from "lucide-react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,10 @@ import type { ShareFilesLookup } from "@/server/sharing";
 import { FilesRow } from "./files-row";
 import { FilesPropertiesPanel } from "./files-properties-panel";
 import { ShareDialog } from "./share-dialog";
+import {
+  DownloadProgress,
+  type DownloadProgressState,
+} from "./download-progress";
 import type { ShareLinkSummary } from "@/server/sharing";
 
 // ---------------------------------------------------------------------------
@@ -37,6 +41,7 @@ import type { ShareLinkSummary } from "@/server/sharing";
 const FOLDER_ICON_KEY = "staaash:folder-icons";
 const CUT_STATE_KEY = "staaash:cut-items";
 const UPLOAD_SESSION_KEY_PREFIX = "staaash:upload-session";
+const ACTIVE_DOWNLOAD_KEY = "staaash:active-download";
 const CHUNKED_UPLOAD_THRESHOLD = 100 * 1024 * 1024; // 100 MB
 const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -181,6 +186,13 @@ export function FilesView({
   // ---- Upload ----
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
+
+  // ---- Download (zip archive) ----
+  const [activeDownload, setActiveDownload] = useState<{
+    archiveId: string;
+    state: DownloadProgressState;
+  } | null>(null);
+  const downloadPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [resumableSessions, setResumableSessions] = useState<
     { name: string; size: number; storageKey: string }[]
   >([]);
@@ -575,6 +587,120 @@ export function FilesView({
       }),
     });
   };
+
+  const stopDownloadPoll = () => {
+    if (downloadPollRef.current) {
+      clearInterval(downloadPollRef.current);
+      downloadPollRef.current = null;
+    }
+  };
+
+  const startDownloadPoll = (archiveId: string) => {
+    stopDownloadPoll();
+    downloadPollRef.current = setInterval(() => {
+      void fetch(`/api/files/archives/${archiveId}`)
+        .then((res) => res.json())
+        .then(
+          (data: { status: string; fileCount?: number; error?: string }) => {
+            if (data.status === "ready") {
+              stopDownloadPoll();
+              localStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
+              setActiveDownload({
+                archiveId,
+                state: { status: "ready", archiveId },
+              });
+            } else if (data.status === "failed") {
+              stopDownloadPoll();
+              localStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
+              setActiveDownload({
+                archiveId,
+                state: {
+                  status: "error",
+                  message: data.error ?? "Zip creation failed.",
+                },
+              });
+            } else if (data.status === "processing" && data.fileCount != null) {
+              setActiveDownload((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      state: {
+                        status: "processing",
+                        fileCount: data.fileCount,
+                      },
+                    }
+                  : prev,
+              );
+            }
+          },
+        )
+        .catch(() => {});
+    }, 2000);
+  };
+
+  const handleDownload = async (ids: string[]) => {
+    stopDownloadPoll();
+    setActiveDownload({ archiveId: "", state: { status: "queued" } });
+
+    try {
+      const res = await fetch("/api/files/archives", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        setActiveDownload({
+          archiveId: "",
+          state: {
+            status: "error",
+            message: data.error ?? "Failed to start download.",
+          },
+        });
+        return;
+      }
+
+      const data = (await res.json()) as { archiveId: string; status: string };
+      const { archiveId, status } = data;
+
+      localStorage.setItem(ACTIVE_DOWNLOAD_KEY, JSON.stringify({ archiveId }));
+
+      if (status === "ready") {
+        localStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
+        setActiveDownload({ archiveId, state: { status: "ready", archiveId } });
+      } else {
+        setActiveDownload({ archiveId, state: { status: "processing" } });
+        startDownloadPoll(archiveId);
+      }
+    } catch (err) {
+      setActiveDownload({
+        archiveId: "",
+        state: {
+          status: "error",
+          message: err instanceof Error ? err.message : "Download failed.",
+        },
+      });
+    }
+  };
+
+  // Resume any in-progress download on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(ACTIVE_DOWNLOAD_KEY);
+      if (!saved) return;
+      const { archiveId } = JSON.parse(saved) as { archiveId: string };
+      if (!archiveId) return;
+      setActiveDownload({ archiveId, state: { status: "processing" } });
+      startDownloadPoll(archiveId);
+    } catch {
+      // ignore
+    }
+    return () => stopDownloadPoll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handlePaste = async () => {
     if (cutItems.length === 0) return;
@@ -1174,9 +1300,22 @@ export function FilesView({
                 {(selectedIds.size > 0 || cutItems.length > 0) && (
                   <div className="explorer-badges">
                     {selectedIds.size > 0 && (
-                      <span className="selection-badge">
-                        {selectedIds.size} selected
-                      </span>
+                      <>
+                        <span className="selection-badge">
+                          {selectedIds.size} selected
+                        </span>
+                        <button
+                          className="download-badge"
+                          type="button"
+                          onClick={() =>
+                            handleDownload(Array.from(selectedIds))
+                          }
+                          title={`Download ${selectedIds.size} item${selectedIds.size !== 1 ? "s" : ""} as zip`}
+                        >
+                          <Download size={12} />
+                          Download
+                        </button>
+                      </>
                     )}
                     {cutItems.length > 0 && selectedIds.size === 0 && (
                       <button
@@ -1333,6 +1472,7 @@ export function FilesView({
                       startTransition(() => router.refresh()),
                     );
                   }}
+                  onDownload={() => handleDownload([folder.id])}
                   rowRef={(el) => {
                     if (el) rowRefs.current.set(folder.id, el);
                     else rowRefs.current.delete(folder.id);
@@ -1516,6 +1656,18 @@ export function FilesView({
               : undefined
           }
         />
+
+        {/* ---- Download progress panel ---- */}
+        {activeDownload && (
+          <DownloadProgress
+            state={activeDownload.state}
+            onClose={() => {
+              stopDownloadPoll();
+              setActiveDownload(null);
+              localStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
+            }}
+          />
+        )}
 
         {/* ---- Share dialog ---- */}
         {shareDialogTarget && (

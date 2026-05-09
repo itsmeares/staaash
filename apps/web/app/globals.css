@@ -2470,6 +2470,105 @@ h3 {
   cursor: pointer;
 }
 
+.download-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  background: color-mix(in oklab, var(--foreground) 8%, var(--card));
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
+  cursor: pointer;
+  border: none;
+}
+
+.download-badge:hover {
+  background: color-mix(in oklab, var(--foreground) 14%, var(--card));
+}
+
+/* ---- Download progress panel ---- */
+
+.download-progress-panel {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 50;
+  min-width: 280px;
+  max-width: 360px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px color-mix(in oklab, var(--foreground) 12%, transparent);
+  overflow: hidden;
+}
+
+.download-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  gap: 8px;
+}
+
+.download-progress-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--foreground);
+  flex: 1;
+}
+
+.download-progress-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.download-progress-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.download-progress-icon-btn:hover {
+  background: color-mix(in oklab, var(--foreground) 8%, transparent);
+  color: var(--foreground);
+}
+
+.download-progress-body {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.download-progress-body-text {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+.download-progress-spinner {
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+  animation: spin 1s linear infinite;
+}
+
+.download-progress-icon-success {
+  flex-shrink: 0;
+  color: var(--color-success, hsl(142 76% 36%));
+}
+
 /* ---- List container ---- */
 
 .explorer-list {

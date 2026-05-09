@@ -6,6 +6,8 @@ export const UPDATE_CHECK_JOB_KIND = "update.check";
 export const RESTORE_RECONCILE_JOB_KIND = "restore.reconcile";
 export const MEDIA_DERIVATIVE_GENERATE_JOB_KIND = "media.derivative.generate";
 export const MEDIA_DERIVATIVE_CLEANUP_JOB_KIND = "media.derivative.cleanup";
+export const ZIP_ARCHIVE_GENERATE_JOB_KIND = "zip.archive.generate" as const;
+export const ZIP_ARCHIVE_CLEANUP_JOB_KIND = "zip.archive.cleanup" as const;
 
 export const STAGING_CLEANUP_SCHEDULE_WINDOW_MS = 15 * 60 * 1000;
 export const BACKGROUND_JOB_LEASE_MS = 60_000;
@@ -17,7 +19,9 @@ export type SupportedBackgroundJobKind =
   | typeof UPDATE_CHECK_JOB_KIND
   | typeof RESTORE_RECONCILE_JOB_KIND
   | typeof MEDIA_DERIVATIVE_GENERATE_JOB_KIND
-  | typeof MEDIA_DERIVATIVE_CLEANUP_JOB_KIND;
+  | typeof MEDIA_DERIVATIVE_CLEANUP_JOB_KIND
+  | typeof ZIP_ARCHIVE_GENERATE_JOB_KIND
+  | typeof ZIP_ARCHIVE_CLEANUP_JOB_KIND;
 
 export const ALL_SUPPORTED_JOB_KINDS: SupportedBackgroundJobKind[] = [
   STAGING_CLEANUP_JOB_KIND,
@@ -26,6 +30,8 @@ export const ALL_SUPPORTED_JOB_KINDS: SupportedBackgroundJobKind[] = [
   RESTORE_RECONCILE_JOB_KIND,
   MEDIA_DERIVATIVE_GENERATE_JOB_KIND,
   MEDIA_DERIVATIVE_CLEANUP_JOB_KIND,
+  ZIP_ARCHIVE_GENERATE_JOB_KIND,
+  ZIP_ARCHIVE_CLEANUP_JOB_KIND,
 ];
 
 export type BackgroundJobRecord = {
@@ -310,6 +316,21 @@ export const markBackgroundJobTerminal = async ({
     },
   });
 };
+
+export const scheduleZipArchiveGenerate = async ({
+  archiveId,
+  now = new Date(),
+}: {
+  archiveId: string;
+  now?: Date;
+}) =>
+  ensureBackgroundJobScheduled({
+    kind: ZIP_ARCHIVE_GENERATE_JOB_KIND,
+    runAt: now,
+    payloadJson: { archiveId },
+    dedupeKey: `${ZIP_ARCHIVE_GENERATE_JOB_KIND}:${archiveId}`,
+    now,
+  });
 
 /**
  * Marks a background job as failed. Returns the updated job record so the

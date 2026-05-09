@@ -38,6 +38,10 @@
     "./media-derivatives": {
       "types": "./dist/media-derivatives.d.ts",
       "default": "./dist/media-derivatives.js"
+    },
+    "./zip-archives": {
+      "types": "./dist/zip-archives.d.ts",
+      "default": "./dist/zip-archives.js"
     }
   },
   "scripts": {

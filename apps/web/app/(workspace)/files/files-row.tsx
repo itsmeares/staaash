@@ -105,6 +105,7 @@ type BaseFolderRowProps = {
   onProperties: () => void;
   onCut: () => void;
   onMoveTo: (destinationId: string) => void;
+  onDownload: () => void;
   rowRef: (el: HTMLDivElement | null) => void;
 };
 
@@ -160,6 +161,8 @@ export function FilesRow(props: FilesRowProps) {
     onMoveTo,
     rowRef,
   } = props;
+
+  const onDownload = props.kind === "folder" ? props.onDownload : undefined;
 
   const renameInputRef = useRef<HTMLInputElement>(null);
 
@@ -298,6 +301,12 @@ export function FilesRow(props: FilesRowProps) {
             Download
           </ContextMenuItem>
         ) : null}
+
+        {props.kind === "folder" && (
+          <ContextMenuItem onClick={onDownload}>
+            Download as zip
+          </ContextMenuItem>
+        )}
 
         <ContextMenuSeparator />
 

@@ -41,6 +41,7 @@ export type SystemSettingsAvgAggregateOutputType = {
   mediaPreviewThresholdBytes: number | null
   mediaPreviewRetentionDays: number | null
   mediaPreviewMaxHeight: number | null
+  zipArchiveRetentionDays: number | null
   mediaPreviewCrf: number | null
   mediaPreviewMaxConcurrentJobs: number | null
 }
@@ -60,6 +61,7 @@ export type SystemSettingsSumAggregateOutputType = {
   mediaPreviewThresholdBytes: bigint | null
   mediaPreviewRetentionDays: number | null
   mediaPreviewMaxHeight: number | null
+  zipArchiveRetentionDays: number | null
   mediaPreviewCrf: number | null
   mediaPreviewMaxConcurrentJobs: number | null
 }
@@ -83,6 +85,7 @@ export type SystemSettingsMinAggregateOutputType = {
   mediaPreviewThresholdBytes: bigint | null
   mediaPreviewRetentionDays: number | null
   mediaPreviewMaxHeight: number | null
+  zipArchiveRetentionDays: number | null
   mediaPreviewCrf: number | null
   mediaPreviewMaxConcurrentJobs: number | null
   createdAt: Date | null
@@ -108,6 +111,7 @@ export type SystemSettingsMaxAggregateOutputType = {
   mediaPreviewThresholdBytes: bigint | null
   mediaPreviewRetentionDays: number | null
   mediaPreviewMaxHeight: number | null
+  zipArchiveRetentionDays: number | null
   mediaPreviewCrf: number | null
   mediaPreviewMaxConcurrentJobs: number | null
   createdAt: Date | null
@@ -133,6 +137,7 @@ export type SystemSettingsCountAggregateOutputType = {
   mediaPreviewThresholdBytes: number
   mediaPreviewRetentionDays: number
   mediaPreviewMaxHeight: number
+  zipArchiveRetentionDays: number
   mediaPreviewCrf: number
   mediaPreviewMaxConcurrentJobs: number
   createdAt: number
@@ -156,6 +161,7 @@ export type SystemSettingsAvgAggregateInputType = {
   mediaPreviewThresholdBytes?: true
   mediaPreviewRetentionDays?: true
   mediaPreviewMaxHeight?: true
+  zipArchiveRetentionDays?: true
   mediaPreviewCrf?: true
   mediaPreviewMaxConcurrentJobs?: true
 }
@@ -175,6 +181,7 @@ export type SystemSettingsSumAggregateInputType = {
   mediaPreviewThresholdBytes?: true
   mediaPreviewRetentionDays?: true
   mediaPreviewMaxHeight?: true
+  zipArchiveRetentionDays?: true
   mediaPreviewCrf?: true
   mediaPreviewMaxConcurrentJobs?: true
 }
@@ -198,6 +205,7 @@ export type SystemSettingsMinAggregateInputType = {
   mediaPreviewThresholdBytes?: true
   mediaPreviewRetentionDays?: true
   mediaPreviewMaxHeight?: true
+  zipArchiveRetentionDays?: true
   mediaPreviewCrf?: true
   mediaPreviewMaxConcurrentJobs?: true
   createdAt?: true
@@ -223,6 +231,7 @@ export type SystemSettingsMaxAggregateInputType = {
   mediaPreviewThresholdBytes?: true
   mediaPreviewRetentionDays?: true
   mediaPreviewMaxHeight?: true
+  zipArchiveRetentionDays?: true
   mediaPreviewCrf?: true
   mediaPreviewMaxConcurrentJobs?: true
   createdAt?: true
@@ -248,6 +257,7 @@ export type SystemSettingsCountAggregateInputType = {
   mediaPreviewThresholdBytes?: true
   mediaPreviewRetentionDays?: true
   mediaPreviewMaxHeight?: true
+  zipArchiveRetentionDays?: true
   mediaPreviewCrf?: true
   mediaPreviewMaxConcurrentJobs?: true
   createdAt?: true
@@ -360,6 +370,7 @@ export type SystemSettingsGroupByOutputType = {
   mediaPreviewThresholdBytes: bigint
   mediaPreviewRetentionDays: number
   mediaPreviewMaxHeight: number
+  zipArchiveRetentionDays: number
   mediaPreviewCrf: number
   mediaPreviewMaxConcurrentJobs: number
   createdAt: Date
@@ -408,6 +419,7 @@ export type SystemSettingsWhereInput = {
   mediaPreviewThresholdBytes?: Prisma.BigIntFilter<"SystemSettings"> | bigint | number
   mediaPreviewRetentionDays?: Prisma.IntFilter<"SystemSettings"> | number
   mediaPreviewMaxHeight?: Prisma.IntFilter<"SystemSettings"> | number
+  zipArchiveRetentionDays?: Prisma.IntFilter<"SystemSettings"> | number
   mediaPreviewCrf?: Prisma.IntFilter<"SystemSettings"> | number
   mediaPreviewMaxConcurrentJobs?: Prisma.IntFilter<"SystemSettings"> | number
   createdAt?: Prisma.DateTimeFilter<"SystemSettings"> | Date | string
@@ -433,6 +445,7 @@ export type SystemSettingsOrderByWithRelationInput = {
   mediaPreviewThresholdBytes?: Prisma.SortOrder
   mediaPreviewRetentionDays?: Prisma.SortOrder
   mediaPreviewMaxHeight?: Prisma.SortOrder
+  zipArchiveRetentionDays?: Prisma.SortOrder
   mediaPreviewCrf?: Prisma.SortOrder
   mediaPreviewMaxConcurrentJobs?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -461,6 +474,7 @@ export type SystemSettingsWhereUniqueInput = Prisma.AtLeast<{
   mediaPreviewThresholdBytes?: Prisma.BigIntFilter<"SystemSettings"> | bigint | number
   mediaPreviewRetentionDays?: Prisma.IntFilter<"SystemSettings"> | number
   mediaPreviewMaxHeight?: Prisma.IntFilter<"SystemSettings"> | number
+  zipArchiveRetentionDays?: Prisma.IntFilter<"SystemSettings"> | number
   mediaPreviewCrf?: Prisma.IntFilter<"SystemSettings"> | number
   mediaPreviewMaxConcurrentJobs?: Prisma.IntFilter<"SystemSettings"> | number
   createdAt?: Prisma.DateTimeFilter<"SystemSettings"> | Date | string
@@ -486,6 +500,7 @@ export type SystemSettingsOrderByWithAggregationInput = {
   mediaPreviewThresholdBytes?: Prisma.SortOrder
   mediaPreviewRetentionDays?: Prisma.SortOrder
   mediaPreviewMaxHeight?: Prisma.SortOrder
+  zipArchiveRetentionDays?: Prisma.SortOrder
   mediaPreviewCrf?: Prisma.SortOrder
   mediaPreviewMaxConcurrentJobs?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -519,6 +534,7 @@ export type SystemSettingsScalarWhereWithAggregatesInput = {
   mediaPreviewThresholdBytes?: Prisma.BigIntWithAggregatesFilter<"SystemSettings"> | bigint | number
   mediaPreviewRetentionDays?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
   mediaPreviewMaxHeight?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
+  zipArchiveRetentionDays?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
   mediaPreviewCrf?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
   mediaPreviewMaxConcurrentJobs?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"SystemSettings"> | Date | string
@@ -544,6 +560,7 @@ export type SystemSettingsCreateInput = {
   mediaPreviewThresholdBytes?: bigint | number
   mediaPreviewRetentionDays?: number
   mediaPreviewMaxHeight?: number
+  zipArchiveRetentionDays?: number
   mediaPreviewCrf?: number
   mediaPreviewMaxConcurrentJobs?: number
   createdAt?: Date | string
@@ -569,6 +586,7 @@ export type SystemSettingsUncheckedCreateInput = {
   mediaPreviewThresholdBytes?: bigint | number
   mediaPreviewRetentionDays?: number
   mediaPreviewMaxHeight?: number
+  zipArchiveRetentionDays?: number
   mediaPreviewCrf?: number
   mediaPreviewMaxConcurrentJobs?: number
   createdAt?: Date | string
@@ -594,6 +612,7 @@ export type SystemSettingsUpdateInput = {
   mediaPreviewThresholdBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   mediaPreviewRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
   mediaPreviewMaxHeight?: Prisma.IntFieldUpdateOperationsInput | number
+  zipArchiveRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
   mediaPreviewCrf?: Prisma.IntFieldUpdateOperationsInput | number
   mediaPreviewMaxConcurrentJobs?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -619,6 +638,7 @@ export type SystemSettingsUncheckedUpdateInput = {
   mediaPreviewThresholdBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   mediaPreviewRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
   mediaPreviewMaxHeight?: Prisma.IntFieldUpdateOperationsInput | number
+  zipArchiveRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
   mediaPreviewCrf?: Prisma.IntFieldUpdateOperationsInput | number
   mediaPreviewMaxConcurrentJobs?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -644,6 +664,7 @@ export type SystemSettingsCreateManyInput = {
   mediaPreviewThresholdBytes?: bigint | number
   mediaPreviewRetentionDays?: number
   mediaPreviewMaxHeight?: number
+  zipArchiveRetentionDays?: number
   mediaPreviewCrf?: number
   mediaPreviewMaxConcurrentJobs?: number
   createdAt?: Date | string
@@ -669,6 +690,7 @@ export type SystemSettingsUpdateManyMutationInput = {
   mediaPreviewThresholdBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   mediaPreviewRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
   mediaPreviewMaxHeight?: Prisma.IntFieldUpdateOperationsInput | number
+  zipArchiveRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
   mediaPreviewCrf?: Prisma.IntFieldUpdateOperationsInput | number
   mediaPreviewMaxConcurrentJobs?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -694,6 +716,7 @@ export type SystemSettingsUncheckedUpdateManyInput = {
   mediaPreviewThresholdBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   mediaPreviewRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
   mediaPreviewMaxHeight?: Prisma.IntFieldUpdateOperationsInput | number
+  zipArchiveRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
   mediaPreviewCrf?: Prisma.IntFieldUpdateOperationsInput | number
   mediaPreviewMaxConcurrentJobs?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -719,6 +742,7 @@ export type SystemSettingsCountOrderByAggregateInput = {
   mediaPreviewThresholdBytes?: Prisma.SortOrder
   mediaPreviewRetentionDays?: Prisma.SortOrder
   mediaPreviewMaxHeight?: Prisma.SortOrder
+  zipArchiveRetentionDays?: Prisma.SortOrder
   mediaPreviewCrf?: Prisma.SortOrder
   mediaPreviewMaxConcurrentJobs?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -740,6 +764,7 @@ export type SystemSettingsAvgOrderByAggregateInput = {
   mediaPreviewThresholdBytes?: Prisma.SortOrder
   mediaPreviewRetentionDays?: Prisma.SortOrder
   mediaPreviewMaxHeight?: Prisma.SortOrder
+  zipArchiveRetentionDays?: Prisma.SortOrder
   mediaPreviewCrf?: Prisma.SortOrder
   mediaPreviewMaxConcurrentJobs?: Prisma.SortOrder
 }
@@ -763,6 +788,7 @@ export type SystemSettingsMaxOrderByAggregateInput = {
   mediaPreviewThresholdBytes?: Prisma.SortOrder
   mediaPreviewRetentionDays?: Prisma.SortOrder
   mediaPreviewMaxHeight?: Prisma.SortOrder
+  zipArchiveRetentionDays?: Prisma.SortOrder
   mediaPreviewCrf?: Prisma.SortOrder
   mediaPreviewMaxConcurrentJobs?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -788,6 +814,7 @@ export type SystemSettingsMinOrderByAggregateInput = {
   mediaPreviewThresholdBytes?: Prisma.SortOrder
   mediaPreviewRetentionDays?: Prisma.SortOrder
   mediaPreviewMaxHeight?: Prisma.SortOrder
+  zipArchiveRetentionDays?: Prisma.SortOrder
   mediaPreviewCrf?: Prisma.SortOrder
   mediaPreviewMaxConcurrentJobs?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
@@ -809,6 +836,7 @@ export type SystemSettingsSumOrderByAggregateInput = {
   mediaPreviewThresholdBytes?: Prisma.SortOrder
   mediaPreviewRetentionDays?: Prisma.SortOrder
   mediaPreviewMaxHeight?: Prisma.SortOrder
+  zipArchiveRetentionDays?: Prisma.SortOrder
   mediaPreviewCrf?: Prisma.SortOrder
   mediaPreviewMaxConcurrentJobs?: Prisma.SortOrder
 }
@@ -854,6 +882,7 @@ export type SystemSettingsSelect<ExtArgs extends runtime.Types.Extensions.Intern
   mediaPreviewThresholdBytes?: boolean
   mediaPreviewRetentionDays?: boolean
   mediaPreviewMaxHeight?: boolean
+  zipArchiveRetentionDays?: boolean
   mediaPreviewCrf?: boolean
   mediaPreviewMaxConcurrentJobs?: boolean
   createdAt?: boolean
@@ -879,6 +908,7 @@ export type SystemSettingsSelectCreateManyAndReturn<ExtArgs extends runtime.Type
   mediaPreviewThresholdBytes?: boolean
   mediaPreviewRetentionDays?: boolean
   mediaPreviewMaxHeight?: boolean
+  zipArchiveRetentionDays?: boolean
   mediaPreviewCrf?: boolean
   mediaPreviewMaxConcurrentJobs?: boolean
   createdAt?: boolean
@@ -904,6 +934,7 @@ export type SystemSettingsSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
   mediaPreviewThresholdBytes?: boolean
   mediaPreviewRetentionDays?: boolean
   mediaPreviewMaxHeight?: boolean
+  zipArchiveRetentionDays?: boolean
   mediaPreviewCrf?: boolean
   mediaPreviewMaxConcurrentJobs?: boolean
   createdAt?: boolean
@@ -929,13 +960,14 @@ export type SystemSettingsSelectScalar = {
   mediaPreviewThresholdBytes?: boolean
   mediaPreviewRetentionDays?: boolean
   mediaPreviewMaxHeight?: boolean
+  zipArchiveRetentionDays?: boolean
   mediaPreviewCrf?: boolean
   mediaPreviewMaxConcurrentJobs?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type SystemSettingsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionMaxAgeDays" | "inviteMaxAgeDays" | "passwordResetMaxAgeHours" | "shareMaxAgeDays" | "maxUploadBytes" | "uploadTimeoutMinutes" | "uploadStagingRetentionHours" | "previewMaxSourceBytes" | "previewTextMaxBytes" | "workerHeartbeatMaxAgeSeconds" | "updateCheckIntervalHours" | "updateCheckRepository" | "mediaPreviewEnabled" | "mediaPreviewGenerateOnUpload" | "mediaPreviewThresholdBytes" | "mediaPreviewRetentionDays" | "mediaPreviewMaxHeight" | "mediaPreviewCrf" | "mediaPreviewMaxConcurrentJobs" | "createdAt" | "updatedAt", ExtArgs["result"]["systemSettings"]>
+export type SystemSettingsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionMaxAgeDays" | "inviteMaxAgeDays" | "passwordResetMaxAgeHours" | "shareMaxAgeDays" | "maxUploadBytes" | "uploadTimeoutMinutes" | "uploadStagingRetentionHours" | "previewMaxSourceBytes" | "previewTextMaxBytes" | "workerHeartbeatMaxAgeSeconds" | "updateCheckIntervalHours" | "updateCheckRepository" | "mediaPreviewEnabled" | "mediaPreviewGenerateOnUpload" | "mediaPreviewThresholdBytes" | "mediaPreviewRetentionDays" | "mediaPreviewMaxHeight" | "zipArchiveRetentionDays" | "mediaPreviewCrf" | "mediaPreviewMaxConcurrentJobs" | "createdAt" | "updatedAt", ExtArgs["result"]["systemSettings"]>
 
 export type $SystemSettingsPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "SystemSettings"
@@ -959,6 +991,7 @@ export type $SystemSettingsPayload<ExtArgs extends runtime.Types.Extensions.Inte
     mediaPreviewThresholdBytes: bigint
     mediaPreviewRetentionDays: number
     mediaPreviewMaxHeight: number
+    zipArchiveRetentionDays: number
     mediaPreviewCrf: number
     mediaPreviewMaxConcurrentJobs: number
     createdAt: Date
@@ -1404,6 +1437,7 @@ export interface SystemSettingsFieldRefs {
   readonly mediaPreviewThresholdBytes: Prisma.FieldRef<"SystemSettings", 'BigInt'>
   readonly mediaPreviewRetentionDays: Prisma.FieldRef<"SystemSettings", 'Int'>
   readonly mediaPreviewMaxHeight: Prisma.FieldRef<"SystemSettings", 'Int'>
+  readonly zipArchiveRetentionDays: Prisma.FieldRef<"SystemSettings", 'Int'>
   readonly mediaPreviewCrf: Prisma.FieldRef<"SystemSettings", 'Int'>
   readonly mediaPreviewMaxConcurrentJobs: Prisma.FieldRef<"SystemSettings", 'Int'>
   readonly createdAt: Prisma.FieldRef<"SystemSettings", 'DateTime'>

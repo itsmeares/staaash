@@ -9,6 +9,8 @@ import {
   STAGING_CLEANUP_SCHEDULE_WINDOW_MS,
   TRASH_RETENTION_JOB_KIND,
   UPDATE_CHECK_JOB_KIND,
+  ZIP_ARCHIVE_GENERATE_JOB_KIND,
+  ZIP_ARCHIVE_CLEANUP_JOB_KIND,
   claimDueBackgroundJob,
   ensureBackgroundJobScheduled,
   markBackgroundJobFailed,
@@ -31,6 +33,8 @@ import { handleTrashRetention } from "./handlers/trash-retention.js";
 import { handleUpdateCheck } from "./handlers/update-check.js";
 import { handleMediaDerivativeGenerate } from "./handlers/media-derivative.js";
 import { handleMediaDerivativeCleanup } from "./handlers/media-derivative-cleanup.js";
+import { handleZipArchiveGenerate } from "./handlers/zip-archive.js";
+import { handleZipArchiveCleanup } from "./handlers/zip-archive-cleanup.js";
 
 const storagePaths = getWorkerStoragePaths();
 const workerId = `${os.hostname()}-${process.pid}`;
@@ -40,6 +44,7 @@ const jobPollMs = 10_000;
 const TRASH_RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const MEDIA_DERIVATIVE_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const ZIP_ARCHIVE_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 const getUpdateCheckIntervalMs = async (): Promise<number> => {
   try {
@@ -88,6 +93,14 @@ const schedulePeriodicJobs = async (now = new Date()) => {
     windowEnd: new Date(now.getTime() + MEDIA_DERIVATIVE_CLEANUP_INTERVAL_MS),
     now,
   });
+
+  await ensureBackgroundJobScheduled({
+    kind: ZIP_ARCHIVE_CLEANUP_JOB_KIND,
+    runAt: now,
+    payloadJson: {},
+    windowEnd: new Date(now.getTime() + ZIP_ARCHIVE_CLEANUP_INTERVAL_MS),
+    now,
+  });
 };
 
 const reschedulePeriodicJob = async (kind: string, intervalMs: number) => {
@@ -129,6 +142,16 @@ const reschedulePeriodicJob = async (kind: string, intervalMs: number) => {
         payloadJson: {},
         windowEnd: new Date(
           nextRunAt.getTime() + MEDIA_DERIVATIVE_CLEANUP_INTERVAL_MS,
+        ),
+      });
+      break;
+    case ZIP_ARCHIVE_CLEANUP_JOB_KIND:
+      await ensureBackgroundJobScheduled({
+        kind: ZIP_ARCHIVE_CLEANUP_JOB_KIND,
+        runAt: nextRunAt,
+        payloadJson: {},
+        windowEnd: new Date(
+          nextRunAt.getTime() + ZIP_ARCHIVE_CLEANUP_INTERVAL_MS,
         ),
       });
       break;
@@ -188,6 +211,18 @@ const processNextJob = async (): Promise<boolean> => {
         await reschedulePeriodicJob(
           MEDIA_DERIVATIVE_CLEANUP_JOB_KIND,
           MEDIA_DERIVATIVE_CLEANUP_INTERVAL_MS,
+        );
+        break;
+
+      case ZIP_ARCHIVE_GENERATE_JOB_KIND:
+        await handleZipArchiveGenerate(job, storagePaths);
+        break;
+
+      case ZIP_ARCHIVE_CLEANUP_JOB_KIND:
+        await handleZipArchiveCleanup(job, storagePaths);
+        await reschedulePeriodicJob(
+          ZIP_ARCHIVE_CLEANUP_JOB_KIND,
+          ZIP_ARCHIVE_CLEANUP_INTERVAL_MS,
         );
         break;
 
