@@ -504,7 +504,14 @@ export function FilesView({
     const file = listing.files.find((f) => f.id === id);
     if (file) {
       if (file.viewerKind) router.push(`/files/view/${file.id}`);
-      else window.location.href = `/api/files/files/${file.id}/download`;
+      else {
+        const a = document.createElement("a");
+        a.href = `/api/files/files/${file.id}/download`;
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
     }
   };
 
@@ -1627,7 +1634,9 @@ export function FilesView({
                     );
                   }}
                   onDownload={
-                    selectedIds.has(file.id) && selectedIds.size > 1
+                    file.viewerKind &&
+                    selectedIds.has(file.id) &&
+                    selectedIds.size > 1
                       ? () => handleDownload(Array.from(selectedIdsRef.current))
                       : undefined
                   }

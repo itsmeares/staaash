@@ -300,7 +300,12 @@ export function FilesRow(props: FilesRowProps) {
         ) : props.kind === "file" && props.data.viewerKind ? (
           <ContextMenuItem
             onClick={() => {
-              window.location.href = `/api/files/files/${props.data.id}/download`;
+              const a = document.createElement("a");
+              a.href = `/api/files/files/${props.data.id}/download`;
+              a.rel = "noopener noreferrer";
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
             }}
           >
             Download
