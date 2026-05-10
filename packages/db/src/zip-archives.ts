@@ -59,16 +59,35 @@ export const findOrCreateZipArchive = async ({
   const db = getClient();
   const now = new Date();
 
+  // Search without status/expiry filters — the contentKey column is UNIQUE so
+  // filtering them out would cause a unique-constraint violation when we try to
+  // create a fresh record for a previously-failed or expired archive.
   const existing = await db.zipArchive.findFirst({
-    where: {
-      contentKey,
-      status: { not: ZIP_ARCHIVE_STATUS_FAILED },
-      expiresAt: { gt: now },
-    },
+    where: { contentKey },
   });
 
   if (existing) {
-    return { archive: existing, created: false };
+    // Valid (non-failed, non-expired) archive — return it as-is.
+    if (
+      existing.status !== ZIP_ARCHIVE_STATUS_FAILED &&
+      existing.expiresAt > now
+    ) {
+      return { archive: existing, created: false };
+    }
+    // FAILED or EXPIRED — reset to queued so the caller re-schedules the job.
+    const updated = await db.zipArchive.update({
+      where: { id: existing.id },
+      data: {
+        status: ZIP_ARCHIVE_STATUS_QUEUED,
+        expiresAt,
+        storageKey: null,
+        fileName: null,
+        sizeBytes: null,
+        fileCount: null,
+        error: null,
+      },
+    });
+    return { archive: updated, created: true };
   }
 
   const archive = await db.zipArchive.create({

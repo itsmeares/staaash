@@ -131,6 +131,7 @@ type BaseFileRowProps = {
   onProperties: () => void;
   onCut: () => void;
   onMoveTo: (destinationId: string) => void;
+  onDownload?: () => void;
   rowRef: (el: HTMLDivElement | null) => void;
 };
 
@@ -162,7 +163,7 @@ export function FilesRow(props: FilesRowProps) {
     rowRef,
   } = props;
 
-  const onDownload = props.kind === "folder" ? props.onDownload : undefined;
+  const onDownload = props.onDownload;
 
   const renameInputRef = useRef<HTMLInputElement>(null);
 
@@ -292,7 +293,11 @@ export function FilesRow(props: FilesRowProps) {
           <ContextMenuShortcut>↵</ContextMenuShortcut>
         </ContextMenuItem>
 
-        {props.kind === "file" && props.data.viewerKind ? (
+        {onDownload ? (
+          <ContextMenuItem onClick={onDownload}>
+            Download as zip
+          </ContextMenuItem>
+        ) : props.kind === "file" && props.data.viewerKind ? (
           <ContextMenuItem
             onClick={() => {
               window.location.href = `/api/files/files/${props.data.id}/download`;
@@ -301,12 +306,6 @@ export function FilesRow(props: FilesRowProps) {
             Download
           </ContextMenuItem>
         ) : null}
-
-        {props.kind === "folder" && (
-          <ContextMenuItem onClick={onDownload}>
-            Download as zip
-          </ContextMenuItem>
-        )}
 
         <ContextMenuSeparator />
 

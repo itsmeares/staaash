@@ -169,6 +169,8 @@ export function FilesView({
   // ---- Selection ----
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+  const selectedIdsRef = useRef(selectedIds);
+  selectedIdsRef.current = selectedIds;
 
   // ---- Rename ----
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -1472,7 +1474,14 @@ export function FilesView({
                       startTransition(() => router.refresh()),
                     );
                   }}
-                  onDownload={() => handleDownload([folder.id])}
+                  onDownload={() => {
+                    const current = selectedIdsRef.current;
+                    const idsToDownload =
+                      current.has(folder.id) && current.size > 1
+                        ? Array.from(current)
+                        : [folder.id];
+                    handleDownload(idsToDownload);
+                  }}
                   rowRef={(el) => {
                     if (el) rowRefs.current.set(folder.id, el);
                     else rowRefs.current.delete(folder.id);
@@ -1617,6 +1626,11 @@ export function FilesView({
                       startTransition(() => router.refresh()),
                     );
                   }}
+                  onDownload={
+                    selectedIds.has(file.id) && selectedIds.size > 1
+                      ? () => handleDownload(Array.from(selectedIdsRef.current))
+                      : undefined
+                  }
                   rowRef={(el) => {
                     if (el) rowRefs.current.set(file.id, el);
                     else rowRefs.current.delete(file.id);

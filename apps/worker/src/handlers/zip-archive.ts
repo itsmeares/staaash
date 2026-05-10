@@ -232,7 +232,7 @@ export const handleZipArchiveGenerate = async (
         archivePath = file.originalName;
       }
 
-      zipFile.addFile(filePath, archivePath);
+      zipFile.addFile(filePath, archivePath, { compressionLevel: 9 });
     }
 
     zipFile.end();
