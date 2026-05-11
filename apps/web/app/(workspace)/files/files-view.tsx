@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Download, FolderPlus, RefreshCw, Upload } from "lucide-react";
 
@@ -21,7 +21,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { FlashMessage } from "@/app/auth-ui";
-import { randomClientId } from "@/lib/client-id";
 import type { FilesListing } from "@/server/files/types";
 import type { ShareFilesLookup } from "@/server/sharing";
 
@@ -29,9 +28,12 @@ import { FilesRow } from "./files-row";
 import { FilesPropertiesPanel } from "./files-properties-panel";
 import { ShareDialog } from "./share-dialog";
 import {
-  DownloadProgress,
-  type DownloadProgressState,
-} from "./download-progress";
+  useTransferContext,
+  type UploadingFile,
+  CHUNKED_UPLOAD_THRESHOLD,
+  formatSpeed,
+  formatEta,
+} from "../transfer-context";
 import type { ShareLinkSummary } from "@/server/sharing";
 
 // ---------------------------------------------------------------------------
@@ -41,9 +43,6 @@ import type { ShareLinkSummary } from "@/server/sharing";
 const FOLDER_ICON_KEY = "staaash:folder-icons";
 const CUT_STATE_KEY = "staaash:cut-items";
 const UPLOAD_SESSION_KEY_PREFIX = "staaash:upload-session";
-const ACTIVE_DOWNLOAD_KEY = "staaash:active-download";
-const CHUNKED_UPLOAD_THRESHOLD = 100 * 1024 * 1024; // 100 MB
-const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB
 
 type CutItem = { id: string; kind: "folder" | "file"; name: string };
 
@@ -76,58 +75,6 @@ const persistCutItems = (items: CutItem[]) => {
 };
 
 const clearCutItems = () => sessionStorage.removeItem(CUT_STATE_KEY);
-
-// ---------------------------------------------------------------------------
-// Optimistic upload types
-// ---------------------------------------------------------------------------
-
-type UploadingFile = {
-  clientKey: string;
-  name: string;
-  size: number;
-  status: "uploading" | "done" | "error";
-  progress: number;
-  speed: number; // bytes per second
-  error?: string;
-  resumeHint?: string;
-  fileRef?: File; // retained for retry
-  fileId?: string; // server-assigned ID, set on successful upload
-};
-
-function formatSpeed(bytesPerSec: number): string {
-  if (bytesPerSec < 1024) return `${Math.round(bytesPerSec)} B/s`;
-  if (bytesPerSec < 1024 * 1024)
-    return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
-  return `${(bytesPerSec / 1024 / 1024).toFixed(1)} MB/s`;
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function formatEta(
-  totalBytes: number,
-  progress: number,
-  speed: number,
-): string {
-  if (speed <= 0 || progress >= 100) return "";
-  const remainingBytes = totalBytes * (1 - progress / 100);
-  const seconds = Math.round(remainingBytes / speed);
-  if (seconds < 60)
-    return `(${seconds} ${seconds === 1 ? "second" : "seconds"} left)`;
-  if (seconds < 3600) {
-    const m = Math.round(seconds / 60);
-    return `(${m} ${m === 1 ? "minute" : "minutes"} left)`;
-  }
-  if (seconds < 86400) {
-    const h = Math.round(seconds / 3600);
-    return `(${h} ${h === 1 ? "hour" : "hours"} left)`;
-  }
-  const d = Math.round(seconds / 86400);
-  return `(${d} ${d === 1 ? "day" : "days"} left)`;
-}
 
 // ---------------------------------------------------------------------------
 // Rubber-band state
@@ -165,6 +112,17 @@ export function FilesView({
 }: FilesViewProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const rawSearchParams = useSearchParams();
+
+  // ---- Transfer context (upload + download state lives in WorkspaceProvider) ----
+  const {
+    uploadingFiles,
+    beginUpload,
+    dismissUpload,
+    retryUpload,
+    handleDownload,
+    registerFileInput,
+  } = useTransferContext();
 
   // ---- Selection ----
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -185,26 +143,32 @@ export function FilesView({
   // ---- Folder icons ----
   const [folderIcons, setFolderIcons] = useState<Record<string, string>>({});
 
-  // ---- Upload ----
-  const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
+  // ---- Upload drag state ----
   const [isDragOver, setIsDragOver] = useState(false);
-
-  // ---- Download (zip archive) ----
-  const [activeDownload, setActiveDownload] = useState<{
-    archiveId: string;
-    state: DownloadProgressState;
-  } | null>(null);
-  const downloadPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [resumableSessions, setResumableSessions] = useState<
     { name: string; size: number; storageKey: string }[]
   >([]);
   const dragCounterRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Register fileInputRef + current folder ID with TransferProvider so the
+  // topbar Upload button can trigger it and the panel can scope uploads by folder.
   useEffect(() => {
-    const handler = () => fileInputRef.current?.click();
-    window.addEventListener("staaash:upload-click", handler);
-    return () => window.removeEventListener("staaash:upload-click", handler);
+    registerFileInput(fileInputRef.current, listing.currentFolder.id);
+    return () => registerFileInput(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-open file picker when navigated here via Upload button from another route.
+  useEffect(() => {
+    if (rawSearchParams.get("upload") === "1") {
+      fileInputRef.current?.click();
+      const next = new URLSearchParams(rawSearchParams.toString());
+      next.delete("upload");
+      const qs = next.toString();
+      router.replace(`${pathname}${qs ? `?${qs}` : ""}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ---- Rubber-band ----
@@ -275,6 +239,7 @@ export function FilesView({
   }, []);
 
   // ---- Scan for resumable upload sessions in this folder ----
+  // Re-run when listing changes (router.refresh clears completed sessions from localStorage)
   useEffect(() => {
     const folderId = listing.currentFolder.id;
     const prefix = `${UPLOAD_SESSION_KEY_PREFIX}:${folderId}:`;
@@ -293,7 +258,7 @@ export function FilesView({
       }
     }
     setResumableSessions(sessions);
-  }, [listing.currentFolder.id, pathname]);
+  }, [listing, pathname]);
 
   // ---------------------------------------------------------------------------
   // Selection handlers
@@ -597,120 +562,6 @@ export function FilesView({
     });
   };
 
-  const stopDownloadPoll = () => {
-    if (downloadPollRef.current) {
-      clearInterval(downloadPollRef.current);
-      downloadPollRef.current = null;
-    }
-  };
-
-  const startDownloadPoll = (archiveId: string) => {
-    stopDownloadPoll();
-    downloadPollRef.current = setInterval(() => {
-      void fetch(`/api/files/archives/${archiveId}`)
-        .then((res) => res.json())
-        .then(
-          (data: { status: string; fileCount?: number; error?: string }) => {
-            if (data.status === "ready") {
-              stopDownloadPoll();
-              localStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
-              setActiveDownload({
-                archiveId,
-                state: { status: "ready", archiveId },
-              });
-            } else if (data.status === "failed") {
-              stopDownloadPoll();
-              localStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
-              setActiveDownload({
-                archiveId,
-                state: {
-                  status: "error",
-                  message: data.error ?? "Zip creation failed.",
-                },
-              });
-            } else if (data.status === "processing" && data.fileCount != null) {
-              setActiveDownload((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      state: {
-                        status: "processing",
-                        fileCount: data.fileCount,
-                      },
-                    }
-                  : prev,
-              );
-            }
-          },
-        )
-        .catch(() => {});
-    }, 2000);
-  };
-
-  const handleDownload = async (ids: string[]) => {
-    stopDownloadPoll();
-    setActiveDownload({ archiveId: "", state: { status: "queued" } });
-
-    try {
-      const res = await fetch("/api/files/archives", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids }),
-      });
-
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        setActiveDownload({
-          archiveId: "",
-          state: {
-            status: "error",
-            message: data.error ?? "Failed to start download.",
-          },
-        });
-        return;
-      }
-
-      const data = (await res.json()) as { archiveId: string; status: string };
-      const { archiveId, status } = data;
-
-      localStorage.setItem(ACTIVE_DOWNLOAD_KEY, JSON.stringify({ archiveId }));
-
-      if (status === "ready") {
-        localStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
-        setActiveDownload({ archiveId, state: { status: "ready", archiveId } });
-      } else {
-        setActiveDownload({ archiveId, state: { status: "processing" } });
-        startDownloadPoll(archiveId);
-      }
-    } catch (err) {
-      setActiveDownload({
-        archiveId: "",
-        state: {
-          status: "error",
-          message: err instanceof Error ? err.message : "Download failed.",
-        },
-      });
-    }
-  };
-
-  // Resume any in-progress download on mount
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(ACTIVE_DOWNLOAD_KEY);
-      if (!saved) return;
-      const { archiveId } = JSON.parse(saved) as { archiveId: string };
-      if (!archiveId) return;
-      setActiveDownload({ archiveId, state: { status: "processing" } });
-      startDownloadPoll(archiveId);
-    } catch {
-      // ignore
-    }
-    return () => stopDownloadPoll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const handlePaste = async () => {
     if (cutItems.length === 0) return;
     const dest = listing.currentFolder.id;
@@ -783,290 +634,15 @@ export function FilesView({
     dragCounterRef.current = 0;
     setIsDragOver(false);
     const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) uploadFiles(files);
+    if (files.length > 0)
+      beginUpload(listing.currentFolder.id, currentPath, files);
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
-    if (files.length > 0) uploadFiles(files);
+    if (files.length > 0)
+      beginUpload(listing.currentFolder.id, currentPath, files);
     if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const uploadFiles = (files: File[]) => {
-    for (const file of files) {
-      const clientKey = randomClientId();
-      setUploadingFiles((prev) => [
-        ...prev,
-        {
-          clientKey,
-          name: file.name,
-          size: file.size,
-          status: "uploading",
-          progress: 0,
-          speed: 0,
-          fileRef: file,
-        },
-      ]);
-      if (file.size >= CHUNKED_UPLOAD_THRESHOLD) {
-        void uploadLargeFile(clientKey, file);
-      } else {
-        uploadSingleFile(clientKey, file);
-      }
-    }
-  };
-
-  const uploadLargeFile = async (clientKey: string, file: File) => {
-    const folderId = listing.currentFolder.id;
-    const sessionStorageKey = `${UPLOAD_SESSION_KEY_PREFIX}:${folderId}:${file.name}:${file.size}`;
-    let sessionId: string | null = null;
-    let receivedBytes = 0;
-    const startTime = Date.now();
-
-    // Try to resume existing session
-    try {
-      const stored = JSON.parse(
-        localStorage.getItem(sessionStorageKey) ?? "null",
-      ) as { sessionId: string } | null;
-      if (stored?.sessionId) {
-        const res = await fetch(`/api/uploads/sessions/${stored.sessionId}`, {
-          headers: { Accept: "application/json" },
-        });
-        if (res.ok) {
-          const data = (await res.json()) as { receivedBytes: number };
-          sessionId = stored.sessionId;
-          receivedBytes = data.receivedBytes;
-          if (receivedBytes > 0) {
-            setUploadingFiles((prev) =>
-              prev.map((f) =>
-                f.clientKey === clientKey
-                  ? {
-                      ...f,
-                      resumeHint: `Resuming from ${formatBytes(receivedBytes)}`,
-                    }
-                  : f,
-              ),
-            );
-          }
-        } else {
-          localStorage.removeItem(sessionStorageKey);
-        }
-      }
-    } catch {
-      localStorage.removeItem(sessionStorageKey);
-    }
-
-    // Create new session if not resuming
-    if (!sessionId) {
-      try {
-        const res = await fetch("/api/uploads/sessions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({
-            folderId,
-            originalName: file.name,
-            mimeType: file.type || "application/octet-stream",
-            totalSizeBytes: file.size,
-            conflictStrategy: "safeRename",
-          }),
-        });
-        if (!res.ok) {
-          const data = (await res.json().catch(() => ({}))) as {
-            error?: string;
-          };
-          throw new Error(data.error ?? "Failed to start upload");
-        }
-        const data = (await res.json()) as { id: string };
-        sessionId = data.id;
-        receivedBytes = 0;
-        localStorage.setItem(sessionStorageKey, JSON.stringify({ sessionId }));
-      } catch (error) {
-        setUploadingFiles((prev) =>
-          prev.map((f) =>
-            f.clientKey === clientKey
-              ? {
-                  ...f,
-                  status: "error",
-                  error:
-                    error instanceof Error ? error.message : "Upload failed",
-                }
-              : f,
-          ),
-        );
-        return;
-      }
-    }
-
-    // Upload chunks
-    const sessionStartBytes = receivedBytes;
-    try {
-      while (receivedBytes < file.size) {
-        const chunkEnd = Math.min(receivedBytes + CHUNK_SIZE, file.size);
-        const chunk = file.slice(receivedBytes, chunkEnd);
-        const buffer = await chunk.arrayBuffer();
-
-        const res = await fetch(`/api/uploads/sessions/${sessionId}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/octet-stream",
-            "Content-Range": `bytes ${receivedBytes}-${chunkEnd - 1}/${file.size}`,
-            Accept: "application/json",
-          },
-          body: buffer,
-        });
-
-        if (!res.ok) {
-          const data = (await res.json().catch(() => ({}))) as {
-            error?: string;
-          };
-          throw new Error(data.error ?? "Chunk upload failed");
-        }
-
-        const data = (await res.json()) as { receivedBytes: number };
-        receivedBytes = data.receivedBytes;
-
-        const progress = Math.round((receivedBytes / file.size) * 100);
-        const elapsed = (Date.now() - startTime) / 1000;
-        const sessionBytes = receivedBytes - sessionStartBytes;
-        const speed = elapsed > 0 ? sessionBytes / elapsed : 0;
-
-        setUploadingFiles((prev) =>
-          prev.map((f) =>
-            f.clientKey === clientKey
-              ? { ...f, progress, speed, resumeHint: undefined }
-              : f,
-          ),
-        );
-      }
-
-      // Complete upload
-      const completeRes = await fetch(
-        `/api/uploads/sessions/${sessionId}/complete`,
-        {
-          method: "POST",
-          headers: { Accept: "application/json" },
-        },
-      );
-
-      if (!completeRes.ok) {
-        const data = (await completeRes.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        throw new Error(data.error ?? "Failed to complete upload");
-      }
-
-      const data = (await completeRes.json()) as { id?: string };
-      localStorage.removeItem(sessionStorageKey);
-      setResumableSessions((prev) => prev.filter((s) => s.name !== file.name));
-
-      setUploadingFiles((prev) =>
-        prev.map((f) =>
-          f.clientKey === clientKey
-            ? { ...f, status: "done", progress: 100, fileId: data.id }
-            : f,
-        ),
-      );
-      setTimeout(() => {
-        setUploadingFiles((prev) =>
-          prev.filter((f) => f.clientKey !== clientKey),
-        );
-      }, 1800);
-      startTransition(() => router.refresh());
-    } catch (error) {
-      // Keep session in localStorage for resume
-      setUploadingFiles((prev) =>
-        prev.map((f) =>
-          f.clientKey === clientKey
-            ? {
-                ...f,
-                status: "error",
-                error: error instanceof Error ? error.message : "Upload failed",
-              }
-            : f,
-        ),
-      );
-    }
-  };
-
-  const uploadSingleFile = (clientKey: string, file: File) => {
-    const startTime = Date.now();
-    const formData = new FormData();
-    formData.append("folderId", listing.currentFolder.id);
-    formData.append("redirectTo", currentPath);
-    formData.append(
-      "manifest",
-      JSON.stringify([
-        { clientKey, originalName: file.name, conflictStrategy: "fail" },
-      ]),
-    );
-    formData.append("files", file);
-
-    const xhr = new XMLHttpRequest();
-    xhr.upload.onprogress = (ev) => {
-      if (!ev.lengthComputable) return;
-      const progress = Math.round((ev.loaded / ev.total) * 100);
-      const elapsed = (Date.now() - startTime) / 1000;
-      const speed = elapsed > 0 ? ev.loaded / elapsed : 0;
-      setUploadingFiles((prev) =>
-        prev.map((f) =>
-          f.clientKey === clientKey ? { ...f, progress, speed } : f,
-        ),
-      );
-    };
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        let fileId: string | undefined;
-        try {
-          fileId = JSON.parse(xhr.responseText)?.uploadedFiles?.[0]?.id;
-        } catch {
-          /* ignore */
-        }
-        setUploadingFiles((prev) =>
-          prev.map((f) =>
-            f.clientKey === clientKey
-              ? { ...f, status: "done", progress: 100, fileId }
-              : f,
-          ),
-        );
-        setTimeout(() => {
-          setUploadingFiles((prev) =>
-            prev.filter((f) => f.clientKey !== clientKey),
-          );
-        }, 1800);
-        startTransition(() => router.refresh());
-      } else {
-        let msg = "Upload failed";
-        try {
-          msg = JSON.parse(xhr.responseText)?.error ?? msg;
-        } catch {
-          /* ignore */
-        }
-        setUploadingFiles((prev) =>
-          prev.map((f) =>
-            f.clientKey === clientKey
-              ? { ...f, status: "error", error: msg }
-              : f,
-          ),
-        );
-      }
-    };
-
-    xhr.onerror = () => {
-      setUploadingFiles((prev) =>
-        prev.map((f) =>
-          f.clientKey === clientKey
-            ? { ...f, status: "error", error: "Connection failed" }
-            : f,
-        ),
-      );
-    };
-
-    xhr.open("POST", "/api/files/files");
-    xhr.setRequestHeader("Accept", "application/json");
-    xhr.send(formData);
   };
 
   // ---------------------------------------------------------------------------
@@ -1221,15 +797,17 @@ export function FilesView({
 
   const activeUploads = uploadingFiles.filter(
     (f) =>
-      f.status !== "done" ||
-      !f.fileId ||
-      !listing.files.some((lf) => lf.id === f.fileId),
+      f.folderId === listing.currentFolder.id &&
+      (f.status !== "done" ||
+        !f.fileId ||
+        !listing.files.some((lf) => lf.id === f.fileId)),
   );
 
-  // Ghost rows for sessions not already being actively uploaded
+  // Ghost rows for sessions not already being actively uploaded or already in the listing
   const activeUploadNames = new Set(uploadingFiles.map((f) => f.name));
+  const existingFileNames = new Set(listing.files.map((f) => f.name));
   const ghostEntries = resumableSessions.filter(
-    (s) => !activeUploadNames.has(s.name),
+    (s) => !activeUploadNames.has(s.name) && !existingFileNames.has(s.name),
   );
 
   const mergedFileEntries: MergedFileEntry[] = [
@@ -1555,34 +1133,9 @@ export function FilesView({
                   <UploadingRow
                     key={f.clientKey}
                     file={f}
-                    onDismiss={() =>
-                      setUploadingFiles((prev) =>
-                        prev.filter((u) => u.clientKey !== f.clientKey),
-                      )
-                    }
+                    onDismiss={() => dismissUpload(f.clientKey)}
                     onRetry={
-                      f.fileRef
-                        ? () => {
-                            setUploadingFiles((prev) =>
-                              prev.map((u) =>
-                                u.clientKey === f.clientKey
-                                  ? {
-                                      ...u,
-                                      status: "uploading",
-                                      progress: 0,
-                                      speed: 0,
-                                      error: undefined,
-                                    }
-                                  : u,
-                              ),
-                            );
-                            if (f.fileRef!.size >= CHUNKED_UPLOAD_THRESHOLD) {
-                              void uploadLargeFile(f.clientKey, f.fileRef!);
-                            } else {
-                              uploadSingleFile(f.clientKey, f.fileRef!);
-                            }
-                          }
-                        : undefined
+                      f.fileRef ? () => retryUpload(f.clientKey) : undefined
                     }
                   />
                 );
@@ -1596,13 +1149,7 @@ export function FilesView({
                   <UploadingRow
                     key={doneUpload.clientKey}
                     file={doneUpload}
-                    onDismiss={() =>
-                      setUploadingFiles((prev) =>
-                        prev.filter(
-                          (u) => u.clientKey !== doneUpload.clientKey,
-                        ),
-                      )
-                    }
+                    onDismiss={() => dismissUpload(doneUpload.clientKey)}
                     onRetry={undefined}
                   />
                 );
@@ -1727,18 +1274,6 @@ export function FilesView({
               : undefined
           }
         />
-
-        {/* ---- Download progress panel ---- */}
-        {activeDownload && (
-          <DownloadProgress
-            state={activeDownload.state}
-            onClose={() => {
-              stopDownloadPoll();
-              setActiveDownload(null);
-              localStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
-            }}
-          />
-        )}
 
         {/* ---- Share dialog ---- */}
         {shareDialogTarget && (
