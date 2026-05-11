@@ -6,6 +6,7 @@ import {
   getSessionTokenFromCookieStore,
 } from "@/server/auth/session";
 import { authService } from "@/server/auth/service";
+import { getBaseUrl } from "@/server/request";
 import {
   getSafeRedirectTarget,
   isSameOrigin,
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
           { error: "Cross-origin requests are not allowed." },
           { status: 403 },
         )
-      : NextResponse.redirect(new URL("/", request.url), 303);
+      : NextResponse.redirect(new URL("/", getBaseUrl(request.headers)), 303);
   }
 
   const body = await readRequestBody(request);
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
     );
     const response = wantsJson(request)
       ? NextResponse.json({ ok: true })
-      : NextResponse.redirect(new URL(next, request.url), 303);
+      : NextResponse.redirect(new URL(next, getBaseUrl(request.headers)), 303);
 
     response.cookies.set(buildClearedSessionCookie());
     response.cookies.set(buildClearedOnboardedCookie());
@@ -43,7 +44,10 @@ export async function POST(request: NextRequest) {
     return wantsJson(request)
       ? jsonErrorResponse(error)
       : NextResponse.redirect(
-          new URL("/settings?error=Unable%20to%20sign%20out.", request.url),
+          new URL(
+            "/settings?error=Unable%20to%20sign%20out.",
+            getBaseUrl(request.headers),
+          ),
           303,
         );
   }
