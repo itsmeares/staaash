@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import {
@@ -19,6 +19,7 @@ import {
   type UploadingFile,
   type DownloadProgressState,
 } from "./transfer-context";
+import { startValidatedDownload } from "@/lib/transfers/download";
 
 // ---------------------------------------------------------------------------
 // Transfer panel (portal-rendered, bottom-right)
@@ -37,26 +38,41 @@ export function TransferPanel() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const anchorRef = useRef<HTMLAnchorElement>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Auto-trigger download when archive is ready
+  // Auto-trigger download when archive is ready.
   useEffect(() => {
-    if (activeDownload?.state.status === "ready") {
-      anchorRef.current?.click();
-    }
-  }, [activeDownload?.state.status]);
+    if (activeDownload?.state.status !== "ready") return;
+
+    let cancelled = false;
+    setDownloadError(null);
+    startValidatedDownload(
+      `/api/files/archives/${activeDownload.archiveId}/download`,
+      "Archive download failed",
+    ).catch((err) => {
+      if (!cancelled) {
+        setDownloadError(
+          err instanceof Error ? err.message : "Archive download failed",
+        );
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeDownload?.archiveId, activeDownload?.state.status]);
 
   // Auto-dismiss download panel 3s after it's ready
   useEffect(() => {
-    if (activeDownload?.state.status === "ready") {
+    if (activeDownload?.state.status === "ready" && !downloadError) {
       const timer = setTimeout(dismissDownload, 3000);
       return () => clearTimeout(timer);
     }
-  }, [activeDownload?.state.status, dismissDownload]);
+  }, [activeDownload?.state.status, dismissDownload, downloadError]);
 
   const isOnFilesRoute =
     pathname === "/files" || pathname.startsWith("/files/");
@@ -104,19 +120,11 @@ export function TransferPanel() {
           {activeDownload && (
             <PanelDownloadRow
               state={activeDownload.state}
+              error={downloadError}
               onClose={dismissDownload}
             />
           )}
         </div>
-      )}
-
-      {activeDownload?.state.status === "ready" && (
-        <a
-          ref={anchorRef}
-          href={`/api/files/archives/${activeDownload.archiveId}/download`}
-          style={{ display: "none" }}
-          aria-hidden
-        />
       )}
     </div>
   );
@@ -195,13 +203,16 @@ function PanelUploadRow({
 
 function PanelDownloadRow({
   state,
+  error,
   onClose,
 }: {
   state: DownloadProgressState;
+  error: string | null;
   onClose: () => void;
 }) {
-  const bodyText =
-    state.status === "queued"
+  const bodyText = error
+    ? error
+    : state.status === "queued"
       ? "Waiting for worker…"
       : state.status === "processing"
         ? state.fileCount != null
@@ -214,12 +225,12 @@ function PanelDownloadRow({
   return (
     <div className="transfer-panel-row transfer-panel-row--download">
       <div className="transfer-panel-row-top">
-        {state.status === "ready" ? (
+        {state.status === "ready" && !error ? (
           <CheckCircle2
             size={13}
             className="transfer-panel-row-icon--success"
           />
-        ) : state.status === "error" ? null : (
+        ) : state.status === "error" || error ? null : (
           <Loader2 size={13} className="transfer-panel-row-icon--spin" />
         )}
         <span className="transfer-panel-row-name">{bodyText}</span>

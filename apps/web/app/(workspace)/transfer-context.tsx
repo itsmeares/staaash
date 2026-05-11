@@ -3,6 +3,7 @@
 import {
   createContext,
   startTransition,
+  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -136,13 +137,13 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
     string | null
   >(null);
 
-  const registerFileInput = (
-    el: HTMLInputElement | null,
-    folderId?: string,
-  ) => {
-    fileInputRef.current = el;
-    setCurrentFilesViewFolderId(folderId ?? null);
-  };
+  const registerFileInput = useCallback(
+    (el: HTMLInputElement | null, folderId?: string) => {
+      fileInputRef.current = el;
+      setCurrentFilesViewFolderId(folderId ?? null);
+    },
+    [],
+  );
 
   // ---- staaash:upload-click ----
   useEffect(() => {

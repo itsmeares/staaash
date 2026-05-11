@@ -21,6 +21,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { FlashMessage } from "@/app/auth-ui";
+import { startValidatedDownload } from "@/lib/transfers/download";
 import type { FilesListing } from "@/server/files/types";
 import type { ShareFilesLookup } from "@/server/sharing";
 
@@ -171,8 +172,7 @@ export function FilesView({
   useEffect(() => {
     registerFileInput(fileInputRef.current, listing.currentFolder.id);
     return () => registerFileInput(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [listing.currentFolder.id, registerFileInput]);
 
   // Auto-open file picker when navigated here via Upload button from another route.
   useEffect(() => {
@@ -479,6 +479,19 @@ export function FilesView({
   // Item actions
   // ---------------------------------------------------------------------------
 
+  const downloadFile = async (id: string) => {
+    try {
+      await startValidatedDownload(
+        `/api/files/files/${id}/download`,
+        "File download failed",
+      );
+    } catch (err) {
+      setTrashError(
+        err instanceof Error ? err.message : "File download failed",
+      );
+    }
+  };
+
   const openItem = (id: string) => {
     const folder = listing.childFolders.find((f) => f.id === id);
     if (folder) {
@@ -488,14 +501,7 @@ export function FilesView({
     const file = listing.files.find((f) => f.id === id);
     if (file) {
       if (file.viewerKind) router.push(`/files/view/${file.id}`);
-      else {
-        const a = document.createElement("a");
-        a.href = `/api/files/files/${file.id}/download`;
-        a.rel = "noopener noreferrer";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
+      else void downloadFile(file.id);
     }
   };
 
@@ -552,9 +558,13 @@ export function FilesView({
         : `/api/files/files/${id}/trash`;
     const res = await fetch(endpoint, {
       method: "POST",
+      headers: { Accept: "application/json" },
       body: new URLSearchParams({ redirectTo: currentPath }),
     });
-    if (!res.ok) throw new Error(`Trash failed (${res.status})`);
+    if (res.ok || res.status === 404) return;
+
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? `Trash failed (${res.status})`);
   };
 
   const trashItem = async (id: string, kind: "folder" | "file") => {
@@ -1301,12 +1311,7 @@ export function FilesView({
                       handleDownload(Array.from(current));
                       return;
                     }
-                    const a = document.createElement("a");
-                    a.href = `/api/files/files/${file.id}/download`;
-                    a.rel = "noopener noreferrer";
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
+                    void downloadFile(file.id);
                   }}
                   rowRef={(el) => {
                     if (el) rowRefs.current.set(file.id, el);
