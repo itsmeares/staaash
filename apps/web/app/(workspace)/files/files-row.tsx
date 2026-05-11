@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Folder,
   Image,
@@ -133,7 +133,7 @@ type BaseFileRowProps = {
   onProperties: () => void;
   onCut: () => void;
   onMoveTo: (destinationId: string) => void;
-  onDownload?: () => void;
+  onDownload: () => void;
   rowRef: (el: HTMLDivElement | null) => void;
 };
 
@@ -200,7 +200,14 @@ export function FilesRow(props: FilesRowProps) {
   const name = props.data.name;
 
   // ---- Meta ----
-  const date = formatDateTime(props.data.updatedAt);
+  // Format on the client only — server's timezone diverges from the browser's
+  // so a render-time `Intl.DateTimeFormat` call mismatches at hydration
+  // (React #418). Empty on first paint, populated on mount.
+  const updatedAt = props.data.updatedAt;
+  const [date, setDate] = useState("");
+  useEffect(() => {
+    setDate(formatDateTime(updatedAt));
+  }, [updatedAt]);
   const size = props.kind === "file" ? formatBytes(props.data.sizeBytes) : "";
 
   // ---- Href ----
@@ -282,7 +289,9 @@ export function FilesRow(props: FilesRowProps) {
           <span className="explorer-row-meta">{size}</span>
 
           {/* Date */}
-          <span className="explorer-row-meta">{date}</span>
+          <span className="explorer-row-meta" suppressHydrationWarning>
+            {date}
+          </span>
         </div>
       </ContextMenuTrigger>
 
@@ -298,25 +307,16 @@ export function FilesRow(props: FilesRowProps) {
           <ContextMenuShortcut>↵</ContextMenuShortcut>
         </ContextMenuItem>
 
-        {onDownload ? (
+        {isMultiSelected ? (
           <ContextMenuItem onClick={onDownload}>
-            {isMultiSelected
-              ? `Download ${selectedCount} items as zip`
-              : "Download as zip"}
+            {`Download ${selectedCount} items as zip`}
           </ContextMenuItem>
-        ) : props.kind === "file" && props.data.viewerKind ? (
-          <ContextMenuItem
-            onClick={() => {
-              const a = document.createElement("a");
-              a.href = `/api/files/files/${props.data.id}/download`;
-              a.rel = "noopener noreferrer";
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
-            }}
-          >
-            Download
+        ) : props.kind === "folder" ? (
+          <ContextMenuItem onClick={onDownload}>
+            Download as zip
           </ContextMenuItem>
+        ) : props.data.viewerKind ? (
+          <ContextMenuItem onClick={onDownload}>Download</ContextMenuItem>
         ) : null}
 
         <ContextMenuSeparator />

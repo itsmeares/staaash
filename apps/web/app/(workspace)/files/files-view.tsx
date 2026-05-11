@@ -21,6 +21,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { FlashMessage } from "@/app/auth-ui";
+import { startValidatedDownload } from "@/lib/transfers/download";
 import type { FilesListing } from "@/server/files/types";
 import type { ShareFilesLookup } from "@/server/sharing";
 
@@ -130,6 +131,21 @@ export function FilesView({
   const selectedIdsRef = useRef(selectedIds);
   selectedIdsRef.current = selectedIds;
 
+  // ---- Optimistic trash ----
+  // Items moved to trash are filtered out client-side before the server-side
+  // refresh comes back so the list visually updates instantly. Cleared once
+  // the new listing arrives (the server response no longer contains them).
+  const [trashedIds, setTrashedIds] = useState<Set<string>>(new Set());
+  const [trashError, setTrashError] = useState<string | null>(null);
+  useEffect(() => {
+    setTrashedIds(new Set());
+  }, [listing]);
+  useEffect(() => {
+    if (!trashError) return;
+    const t = setTimeout(() => setTrashError(null), 4000);
+    return () => clearTimeout(t);
+  }, [trashError]);
+
   // ---- Rename ----
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -156,8 +172,7 @@ export function FilesView({
   useEffect(() => {
     registerFileInput(fileInputRef.current, listing.currentFolder.id);
     return () => registerFileInput(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [listing.currentFolder.id, registerFileInput]);
 
   // Auto-open file picker when navigated here via Upload button from another route.
   useEffect(() => {
@@ -222,13 +237,17 @@ export function FilesView({
   // ---- Sets ----
   const favoriteFileSet = new Set(favoriteFileIds);
   const favoriteFolderSet = new Set(favoriteFolderIds);
+  const visibleFolders = listing.childFolders.filter(
+    (f) => !trashedIds.has(f.id),
+  );
+  const visibleFiles = listing.files.filter((f) => !trashedIds.has(f.id));
 
   // Flat ordered list of all items (folders first, then files)
   type AnyItem = { kind: "folder"; id: string } | { kind: "file"; id: string };
 
   const allItems: AnyItem[] = [
-    ...listing.childFolders.map((f) => ({ kind: "folder" as const, id: f.id })),
-    ...listing.files.map((f) => ({ kind: "file" as const, id: f.id })),
+    ...visibleFolders.map((f) => ({ kind: "folder" as const, id: f.id })),
+    ...visibleFiles.map((f) => ({ kind: "file" as const, id: f.id })),
   ];
 
   // ---- Load persisted state ----
@@ -460,6 +479,19 @@ export function FilesView({
   // Item actions
   // ---------------------------------------------------------------------------
 
+  const downloadFile = async (id: string) => {
+    try {
+      await startValidatedDownload(
+        `/api/files/files/${id}/download`,
+        "File download failed",
+      );
+    } catch (err) {
+      setTrashError(
+        err instanceof Error ? err.message : "File download failed",
+      );
+    }
+  };
+
   const openItem = (id: string) => {
     const folder = listing.childFolders.find((f) => f.id === id);
     if (folder) {
@@ -469,14 +501,7 @@ export function FilesView({
     const file = listing.files.find((f) => f.id === id);
     if (file) {
       if (file.viewerKind) router.push(`/files/view/${file.id}`);
-      else {
-        const a = document.createElement("a");
-        a.href = `/api/files/files/${file.id}/download`;
-        a.rel = "noopener noreferrer";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
+      else void downloadFile(file.id);
     }
   };
 
@@ -526,22 +551,73 @@ export function FilesView({
     startTransition(() => router.refresh());
   };
 
-  const trashItem = async (id: string, kind: "folder" | "file") => {
+  const moveToTrash = async (id: string, kind: "folder" | "file") => {
     const endpoint =
       kind === "folder"
         ? `/api/files/folders/${id}/trash`
         : `/api/files/files/${id}/trash`;
-    await fetch(endpoint, {
+    const res = await fetch(endpoint, {
       method: "POST",
+      headers: { Accept: "application/json" },
       body: new URLSearchParams({ redirectTo: currentPath }),
     });
-    startTransition(() => router.refresh());
+    if (res.ok || res.status === 404) return;
+
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? `Trash failed (${res.status})`);
+  };
+
+  const trashItem = async (id: string, kind: "folder" | "file") => {
+    setTrashedIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    try {
+      await moveToTrash(id, kind);
+      startTransition(() => router.refresh());
+    } catch (err) {
+      setTrashedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      setTrashError(
+        err instanceof Error ? err.message : "Failed to move to trash",
+      );
+    }
   };
 
   const handleTrashSelected = async () => {
     const items = allItems.filter((i) => selectedIds.has(i.id));
-    await Promise.all(items.map((i) => trashItem(i.id, i.kind)));
+    if (items.length === 0) return;
     setSelectedIds(new Set());
+    setTrashedIds((prev) => {
+      const next = new Set(prev);
+      for (const item of items) next.add(item.id);
+      return next;
+    });
+    const results = await Promise.allSettled(
+      items.map((i) => moveToTrash(i.id, i.kind)),
+    );
+    let succeeded = false;
+    const failedIds = new Set<string>();
+    results.forEach((result, index) => {
+      if (result.status === "fulfilled") {
+        succeeded = true;
+      } else {
+        failedIds.add(items[index].id);
+      }
+    });
+    if (failedIds.size > 0) {
+      setTrashedIds((prev) => {
+        const next = new Set(prev);
+        for (const id of failedIds) next.delete(id);
+        return next;
+      });
+      setTrashError("Some items could not be moved to trash.");
+    }
+    if (succeeded) startTransition(() => router.refresh());
   };
 
   const moveItem = async (
@@ -800,18 +876,18 @@ export function FilesView({
       f.folderId === listing.currentFolder.id &&
       (f.status !== "done" ||
         !f.fileId ||
-        !listing.files.some((lf) => lf.id === f.fileId)),
+        !visibleFiles.some((lf) => lf.id === f.fileId)),
   );
 
   // Ghost rows for sessions not already being actively uploaded or already in the listing
   const activeUploadNames = new Set(uploadingFiles.map((f) => f.name));
-  const existingFileNames = new Set(listing.files.map((f) => f.name));
+  const existingFileNames = new Set(visibleFiles.map((f) => f.name));
   const ghostEntries = resumableSessions.filter(
     (s) => !activeUploadNames.has(s.name) && !existingFileNames.has(s.name),
   );
 
   const mergedFileEntries: MergedFileEntry[] = [
-    ...listing.files.map((f) => ({ kind: "file" as const, file: f })),
+    ...visibleFiles.map((f) => ({ kind: "file" as const, file: f })),
     ...activeUploads.map((u) => ({ kind: "upload" as const, upload: u })),
     ...ghostEntries.map((s) => ({ kind: "ghost" as const, ...s })),
   ];
@@ -841,6 +917,7 @@ export function FilesView({
         {/* Flash messages */}
         {error ? <FlashMessage>{error}</FlashMessage> : null}
         {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
+        {trashError ? <FlashMessage>{trashError}</FlashMessage> : null}
 
         <div
           className="explorer-root"
@@ -1003,7 +1080,7 @@ export function FilesView({
             )}
 
             {/* ---- Folders ---- */}
-            {listing.childFolders.map((folder) => {
+            {visibleFolders.map((folder) => {
               const availableMoveTargetIds = new Set(
                 listing.availableMoveTargetIdsByFolderId[folder.id] ?? [],
               );
@@ -1101,13 +1178,11 @@ export function FilesView({
             })}
 
             {/* ---- Empty state ---- */}
-            {mergedFileEntries.length === 0 &&
-              listing.childFolders.length === 0 && (
-                <div className="explorer-empty">
-                  This folder is empty. Drop files here or use the Upload
-                  button.
-                </div>
-              )}
+            {mergedFileEntries.length === 0 && visibleFolders.length === 0 && (
+              <div className="explorer-empty">
+                This folder is empty. Drop files here or use the Upload button.
+              </div>
+            )}
 
             {/* ---- Files + uploading rows merged, sorted alphabetically ---- */}
             {mergedFileEntries.map((entry) => {
@@ -1230,11 +1305,14 @@ export function FilesView({
                       startTransition(() => router.refresh()),
                     );
                   }}
-                  onDownload={
-                    selectedIds.has(file.id) && selectedIds.size > 1
-                      ? () => handleDownload(Array.from(selectedIdsRef.current))
-                      : undefined
-                  }
+                  onDownload={() => {
+                    const current = selectedIdsRef.current;
+                    if (current.has(file.id) && current.size > 1) {
+                      handleDownload(Array.from(current));
+                      return;
+                    }
+                    void downloadFile(file.id);
+                  }}
                   rowRef={(el) => {
                     if (el) rowRefs.current.set(file.id, el);
                     else rowRefs.current.delete(file.id);
