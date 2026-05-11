@@ -10,6 +10,11 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { randomClientId } from "@/lib/client-id";
+import {
+  fetchWithRetry,
+  queuedFetch,
+  queuedXhrUpload,
+} from "@/lib/transfers/request-queue";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -120,9 +125,13 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
     state: DownloadProgressState;
   } | null>(null);
   const downloadPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const downloadAbortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const uploadingFilesRef = useRef<UploadingFile[]>([]);
   uploadingFilesRef.current = uploadingFiles;
+  const uploadAbortControllers = useRef<Map<string, AbortController>>(
+    new Map(),
+  );
   const [currentFilesViewFolderId, setCurrentFilesViewFolderId] = useState<
     string | null
   >(null);
@@ -160,7 +169,16 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
   const startDownloadPoll = (archiveId: string) => {
     stopDownloadPoll();
     downloadPollRef.current = setInterval(() => {
-      void fetch(`/api/files/archives/${archiveId}`)
+      void queuedFetch(
+        "poll",
+        `/api/files/archives/${archiveId}`,
+        { headers: { Accept: "application/json" } },
+        {
+          retries: 5,
+          backoffMs: 1000,
+          signal: downloadAbortRef.current?.signal,
+        },
+      )
         .then((res) => res.json())
         .then(
           (data: { status: string; fileCount?: number; error?: string }) => {
@@ -196,7 +214,10 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
             }
           },
         )
-        .catch(() => {});
+        .catch(() => {
+          // Transient errors are absorbed by fetchWithRetry; anything still
+          // surfacing here (e.g. user-aborted) is intentionally swallowed.
+        });
     }, 2000);
   };
 
@@ -212,20 +233,35 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore
     }
-    return () => stopDownloadPoll();
+    return () => {
+      stopDownloadPoll();
+      downloadAbortRef.current?.abort();
+      downloadAbortRef.current = null;
+      for (const controller of uploadAbortControllers.current.values()) {
+        controller.abort();
+      }
+      uploadAbortControllers.current.clear();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleDownload = async (ids: string[]) => {
     stopDownloadPoll();
+    downloadAbortRef.current?.abort();
+    const controller = new AbortController();
+    downloadAbortRef.current = controller;
     setActiveDownload({ archiveId: "", state: { status: "queued" } });
 
     try {
-      const res = await fetch("/api/files/archives", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids }),
-      });
+      const res = await fetchWithRetry(
+        "/api/files/archives",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids }),
+        },
+        { retries: 2, backoffMs: 500, signal: controller.signal },
+      );
 
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as {
@@ -254,6 +290,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
         startDownloadPoll(archiveId);
       }
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       setActiveDownload({
         archiveId: "",
         state: {
@@ -266,17 +303,20 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
 
   const dismissDownload = () => {
     stopDownloadPoll();
+    downloadAbortRef.current?.abort();
+    downloadAbortRef.current = null;
     setActiveDownload(null);
     localStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
   };
 
   // ---- Upload ----
 
-  const uploadSingleFile = (
+  const uploadSingleFile = async (
     clientKey: string,
     file: File,
     folderId: string,
     currentPath: string,
+    signal: AbortSignal,
   ) => {
     const startTime = Date.now();
     const formData = new FormData();
@@ -290,24 +330,27 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
     );
     formData.append("files", file);
 
-    const xhr = new XMLHttpRequest();
-    xhr.upload.onprogress = (ev) => {
-      if (!ev.lengthComputable) return;
-      const progress = Math.round((ev.loaded / ev.total) * 100);
-      const elapsed = (Date.now() - startTime) / 1000;
-      const speed = elapsed > 0 ? ev.loaded / elapsed : 0;
-      setUploadingFiles((prev) =>
-        prev.map((f) =>
-          f.clientKey === clientKey ? { ...f, progress, speed } : f,
-        ),
-      );
-    };
+    try {
+      const result = await queuedXhrUpload({
+        url: "/api/files/files",
+        body: formData,
+        signal,
+        onProgress: (loaded, total) => {
+          const progress = Math.round((loaded / total) * 100);
+          const elapsed = (Date.now() - startTime) / 1000;
+          const speed = elapsed > 0 ? loaded / elapsed : 0;
+          setUploadingFiles((prev) =>
+            prev.map((f) =>
+              f.clientKey === clientKey ? { ...f, progress, speed } : f,
+            ),
+          );
+        },
+      });
 
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
+      if (result.status >= 200 && result.status < 300) {
         let fileId: string | undefined;
         try {
-          fileId = JSON.parse(xhr.responseText)?.uploadedFiles?.[0]?.id;
+          fileId = JSON.parse(result.responseText)?.uploadedFiles?.[0]?.id;
         } catch {
           /* ignore */
         }
@@ -327,7 +370,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
       } else {
         let msg = "Upload failed";
         try {
-          msg = JSON.parse(xhr.responseText)?.error ?? msg;
+          msg = JSON.parse(result.responseText)?.error ?? msg;
         } catch {
           /* ignore */
         }
@@ -339,9 +382,8 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
           ),
         );
       }
-    };
-
-    xhr.onerror = () => {
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
       setUploadingFiles((prev) =>
         prev.map((f) =>
           f.clientKey === clientKey
@@ -349,17 +391,16 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
             : f,
         ),
       );
-    };
-
-    xhr.open("POST", "/api/files/files");
-    xhr.setRequestHeader("Accept", "application/json");
-    xhr.send(formData);
+    } finally {
+      uploadAbortControllers.current.delete(clientKey);
+    }
   };
 
   const uploadLargeFile = async (
     clientKey: string,
     file: File,
     folderId: string,
+    signal: AbortSignal,
   ) => {
     const sessionStorageKey = `${UPLOAD_SESSION_KEY_PREFIX}:${folderId}:${file.name}:${file.size}`;
     let sessionId: string | null = null;
@@ -371,9 +412,12 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
         localStorage.getItem(sessionStorageKey) ?? "null",
       ) as { sessionId: string } | null;
       if (stored?.sessionId) {
-        const res = await fetch(`/api/uploads/sessions/${stored.sessionId}`, {
-          headers: { Accept: "application/json" },
-        });
+        const res = await queuedFetch(
+          "upload",
+          `/api/uploads/sessions/${stored.sessionId}`,
+          { headers: { Accept: "application/json" } },
+          { retries: 3, backoffMs: 500, signal },
+        );
         if (res.ok) {
           const data = (await res.json()) as { receivedBytes: number };
           sessionId = stored.sessionId;
@@ -394,26 +438,32 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
           localStorage.removeItem(sessionStorageKey);
         }
       }
-    } catch {
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") throw err;
       localStorage.removeItem(sessionStorageKey);
     }
 
     if (!sessionId) {
       try {
-        const res = await fetch("/api/uploads/sessions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
+        const res = await queuedFetch(
+          "upload",
+          "/api/uploads/sessions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({
+              folderId,
+              originalName: file.name,
+              mimeType: file.type || "application/octet-stream",
+              totalSizeBytes: file.size,
+              conflictStrategy: "safeRename",
+            }),
           },
-          body: JSON.stringify({
-            folderId,
-            originalName: file.name,
-            mimeType: file.type || "application/octet-stream",
-            totalSizeBytes: file.size,
-            conflictStrategy: "safeRename",
-          }),
-        });
+          { retries: 3, backoffMs: 500, signal },
+        );
         if (!res.ok) {
           const data = (await res.json().catch(() => ({}))) as {
             error?: string;
@@ -448,15 +498,20 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
         const chunk = file.slice(receivedBytes, chunkEnd);
         const buffer = await chunk.arrayBuffer();
 
-        const res = await fetch(`/api/uploads/sessions/${sessionId}`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/octet-stream",
-            "Content-Range": `bytes ${receivedBytes}-${chunkEnd - 1}/${file.size}`,
-            Accept: "application/json",
+        const res = await queuedFetch(
+          "upload",
+          `/api/uploads/sessions/${sessionId}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/octet-stream",
+              "Content-Range": `bytes ${receivedBytes}-${chunkEnd - 1}/${file.size}`,
+              Accept: "application/json",
+            },
+            body: buffer,
           },
-          body: buffer,
-        });
+          { retries: 3, backoffMs: 500, signal },
+        );
 
         if (!res.ok) {
           const data = (await res.json().catch(() => ({}))) as {
@@ -482,12 +537,14 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
         );
       }
 
-      const completeRes = await fetch(
+      const completeRes = await queuedFetch(
+        "upload",
         `/api/uploads/sessions/${sessionId}/complete`,
         {
           method: "POST",
           headers: { Accept: "application/json" },
         },
+        { retries: 3, backoffMs: 500, signal },
       );
 
       if (!completeRes.ok) {
@@ -514,6 +571,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
       }, 1800);
       startTransition(() => router.refresh());
     } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
       setUploadingFiles((prev) =>
         prev.map((f) =>
           f.clientKey === clientKey
@@ -524,6 +582,31 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
               }
             : f,
         ),
+      );
+    } finally {
+      uploadAbortControllers.current.delete(clientKey);
+    }
+  };
+
+  const startUpload = (
+    clientKey: string,
+    file: File,
+    folderId: string,
+    currentPath: string,
+  ) => {
+    const existing = uploadAbortControllers.current.get(clientKey);
+    existing?.abort();
+    const controller = new AbortController();
+    uploadAbortControllers.current.set(clientKey, controller);
+    if (file.size >= CHUNKED_UPLOAD_THRESHOLD) {
+      void uploadLargeFile(clientKey, file, folderId, controller.signal);
+    } else {
+      void uploadSingleFile(
+        clientKey,
+        file,
+        folderId,
+        currentPath,
+        controller.signal,
       );
     }
   };
@@ -548,15 +631,16 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
           folderId,
         },
       ]);
-      if (file.size >= CHUNKED_UPLOAD_THRESHOLD) {
-        void uploadLargeFile(clientKey, file, folderId);
-      } else {
-        uploadSingleFile(clientKey, file, folderId, currentPath);
-      }
+      startUpload(clientKey, file, folderId, currentPath);
     }
   };
 
   const dismissUpload = (clientKey: string) => {
+    const controller = uploadAbortControllers.current.get(clientKey);
+    if (controller) {
+      controller.abort();
+      uploadAbortControllers.current.delete(clientKey);
+    }
     setUploadingFiles((prev) => prev.filter((f) => f.clientKey !== clientKey));
   };
 
@@ -578,11 +662,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
           : f,
       ),
     );
-    if (file.fileRef.size >= CHUNKED_UPLOAD_THRESHOLD) {
-      void uploadLargeFile(clientKey, file.fileRef, file.folderId);
-    } else {
-      uploadSingleFile(clientKey, file.fileRef, file.folderId, "");
-    }
+    startUpload(clientKey, file.fileRef, file.folderId, "");
   };
 
   return (
