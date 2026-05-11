@@ -11,7 +11,11 @@ import {
 
 import { canAccessPrivateNamespace } from "@/server/access";
 import { getRequestSession } from "@/server/auth/guards";
-import { notSignedInResponse, jsonErrorResponse } from "@/server/auth/http";
+import {
+  isSameOrigin,
+  jsonErrorResponse,
+  notSignedInResponse,
+} from "@/server/auth/http";
 import { FilesError } from "@/server/files/errors";
 import { prismaFilesRepository } from "@/server/files/repository";
 import { getSystemSettings } from "@/server/settings";
@@ -23,6 +27,13 @@ const bodySchema = z.object({
 const ZIP_ARCHIVE_RETENTION_DEFAULT_DAYS = 7;
 
 export async function POST(request: NextRequest): Promise<Response> {
+  if (!isSameOrigin(request)) {
+    return Response.json(
+      { error: "Cross-origin requests are not allowed." },
+      { status: 403 },
+    );
+  }
+
   const session = await getRequestSession(request);
   if (!session) {
     return notSignedInResponse(request, "/api/files/archives");

@@ -3,7 +3,7 @@ import { rm } from "node:fs/promises";
 import { NextRequest } from "next/server";
 
 import { getRequestSession } from "@/server/auth/guards";
-import { notSignedInResponse } from "@/server/auth/http";
+import { isSameOrigin, notSignedInResponse } from "@/server/auth/http";
 import { filesService } from "@/server/files/service";
 import { FilesError } from "@/server/files/errors";
 import { computeFileSha256 } from "@/server/uploads";
@@ -17,6 +17,13 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 export async function POST(request: NextRequest, { params }: RouteContext) {
   const { id } = await params;
+  if (!isSameOrigin(request)) {
+    return Response.json(
+      { error: "Cross-origin requests are not allowed." },
+      { status: 403 },
+    );
+  }
+
   const session = await getRequestSession(request);
   if (!session)
     return notSignedInResponse(request, `/api/uploads/sessions/${id}/complete`);

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { getRequestSession } from "@/server/auth/guards";
-import { notSignedInResponse } from "@/server/auth/http";
+import { isSameOrigin, notSignedInResponse } from "@/server/auth/http";
 import { assertUploadSizeAllowed, UploadError } from "@/server/uploads";
 import { createResumableSession } from "@/server/uploads/session-service";
 
@@ -23,6 +23,13 @@ const createSessionSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  if (!isSameOrigin(request)) {
+    return Response.json(
+      { error: "Cross-origin requests are not allowed." },
+      { status: 403 },
+    );
+  }
+
   const session = await getRequestSession(request);
   if (!session) {
     return notSignedInResponse(request, "/api/uploads/sessions");
