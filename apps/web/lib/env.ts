@@ -1,6 +1,22 @@
 import { z } from "zod";
 import { resolveWorkspacePath } from "@staaash/config";
 
+const parseSecureCookies = (val: string | undefined, ctx: z.RefinementCtx) => {
+  if (val === undefined) return undefined;
+  const trimmed = val.trim();
+  if (trimmed === "") return undefined;
+
+  const normalized = trimmed.toLowerCase();
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message: "SECURE_COOKIES must be true or false when set.",
+  });
+  return z.NEVER;
+};
+
 const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -11,19 +27,11 @@ const envSchema = z.object({
     .min(1)
     .default("postgresql://postgres:staaash@localhost:5432/staaash"),
   UPLOAD_LOCATION: z.string().trim().min(1).default("./.data/files"),
-  SECURE_COOKIES: z
-    .string()
-    .optional()
-    .transform((val) => {
-      if (val === undefined) return undefined;
-      const trimmed = val.trim();
-      if (trimmed === "") return undefined;
-      return trimmed.toLowerCase() !== "false";
-    }),
+  SECURE_COOKIES: z.string().optional().transform(parseSecureCookies),
 });
 
-export const env = (() => {
-  const parsed = envSchema.parse(process.env);
+export const parseWebEnv = (rawEnv: NodeJS.ProcessEnv) => {
+  const parsed = envSchema.parse(rawEnv);
 
   return {
     ...parsed,
@@ -31,4 +39,6 @@ export const env = (() => {
       /* turbopackIgnore: true */ parsed.UPLOAD_LOCATION,
     ),
   };
-})();
+};
+
+export const env = parseWebEnv(process.env);
