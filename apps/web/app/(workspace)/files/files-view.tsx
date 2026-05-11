@@ -1438,6 +1438,7 @@ export function FilesView({
                   kind="folder"
                   data={folder}
                   isSelected={selectedIds.has(folder.id)}
+                  selectedCount={selectedIds.size}
                   isCut={cutItems.some((c) => c.id === folder.id)}
                   isJustMoved={justMovedIds.has(folder.id)}
                   isRenaming={renamingId === folder.id}
@@ -1465,16 +1466,40 @@ export function FilesView({
                       favoriteFolderSet.has(folder.id),
                     )
                   }
-                  onTrash={() => trashItem(folder.id, "folder")}
+                  onTrash={() => {
+                    if (selectedIds.has(folder.id) && selectedIds.size > 1) {
+                      handleTrashSelected();
+                    } else {
+                      trashItem(folder.id, "folder");
+                    }
+                  }}
                   onProperties={() => setPropertiesId(folder.id)}
                   onCut={() => {
-                    const item: CutItem = {
-                      id: folder.id,
-                      kind: "folder",
-                      name: folder.name,
-                    };
-                    setCutItems([item]);
-                    persistCutItems([item]);
+                    if (selectedIds.has(folder.id) && selectedIds.size > 1) {
+                      const items = allItems
+                        .filter((i) => selectedIdsRef.current.has(i.id))
+                        .map((i) => {
+                          const data =
+                            i.kind === "folder"
+                              ? listing.childFolders.find((f) => f.id === i.id)
+                              : listing.files.find((f) => f.id === i.id);
+                          return {
+                            id: i.id,
+                            kind: i.kind as CutItem["kind"],
+                            name: data?.name ?? "",
+                          };
+                        });
+                      setCutItems(items);
+                      persistCutItems(items);
+                    } else {
+                      const item: CutItem = {
+                        id: folder.id,
+                        kind: "folder",
+                        name: folder.name,
+                      };
+                      setCutItems([item]);
+                      persistCutItems([item]);
+                    }
                   }}
                   onMoveTo={(dest) => {
                     moveItem(folder.id, "folder", dest).then(() =>
@@ -1591,6 +1616,7 @@ export function FilesView({
                   kind="file"
                   data={file}
                   isSelected={selectedIds.has(file.id)}
+                  selectedCount={selectedIds.size}
                   isCut={cutItems.some((c) => c.id === file.id)}
                   isJustMoved={justMovedIds.has(file.id)}
                   isRenaming={renamingId === file.id}
@@ -1617,16 +1643,40 @@ export function FilesView({
                       favoriteFileSet.has(file.id),
                     )
                   }
-                  onTrash={() => trashItem(file.id, "file")}
+                  onTrash={() => {
+                    if (selectedIds.has(file.id) && selectedIds.size > 1) {
+                      handleTrashSelected();
+                    } else {
+                      trashItem(file.id, "file");
+                    }
+                  }}
                   onProperties={() => setPropertiesId(file.id)}
                   onCut={() => {
-                    const item: CutItem = {
-                      id: file.id,
-                      kind: "file",
-                      name: file.name,
-                    };
-                    setCutItems([item]);
-                    persistCutItems([item]);
+                    if (selectedIds.has(file.id) && selectedIds.size > 1) {
+                      const items = allItems
+                        .filter((i) => selectedIdsRef.current.has(i.id))
+                        .map((i) => {
+                          const data =
+                            i.kind === "folder"
+                              ? listing.childFolders.find((f) => f.id === i.id)
+                              : listing.files.find((f) => f.id === i.id);
+                          return {
+                            id: i.id,
+                            kind: i.kind as CutItem["kind"],
+                            name: data?.name ?? "",
+                          };
+                        });
+                      setCutItems(items);
+                      persistCutItems(items);
+                    } else {
+                      const item: CutItem = {
+                        id: file.id,
+                        kind: "file",
+                        name: file.name,
+                      };
+                      setCutItems([item]);
+                      persistCutItems([item]);
+                    }
                   }}
                   onMoveTo={(dest) => {
                     moveItem(file.id, "file", dest).then(() =>
@@ -1634,9 +1684,7 @@ export function FilesView({
                     );
                   }}
                   onDownload={
-                    file.viewerKind &&
-                    selectedIds.has(file.id) &&
-                    selectedIds.size > 1
+                    selectedIds.has(file.id) && selectedIds.size > 1
                       ? () => handleDownload(Array.from(selectedIdsRef.current))
                       : undefined
                   }
@@ -1778,6 +1826,17 @@ export function FilesView({
             {selectedIds.size > 0 && (
               <>
                 <div className="bg-ctx-sep" />
+                <button
+                  className="bg-ctx-item"
+                  onClick={() => {
+                    handleDownload(Array.from(selectedIdsRef.current));
+                    setBgCtxMenu(null);
+                  }}
+                >
+                  <Download size={13} />
+                  Download {selectedIds.size} item
+                  {selectedIds.size !== 1 ? "s" : ""} as zip
+                </button>
                 <button
                   className="bg-ctx-item"
                   onClick={() => {

@@ -86,6 +86,7 @@ type BaseFolderRowProps = {
   kind: "folder";
   data: FolderSummary;
   isSelected: boolean;
+  selectedCount: number;
   isCut: boolean;
   isJustMoved: boolean;
   isRenaming: boolean;
@@ -113,6 +114,7 @@ type BaseFileRowProps = {
   kind: "file";
   data: FileSummary;
   isSelected: boolean;
+  selectedCount: number;
   isCut: boolean;
   isJustMoved: boolean;
   isRenaming: boolean;
@@ -142,6 +144,7 @@ type FilesRowProps = BaseFolderRowProps | BaseFileRowProps;
 export function FilesRow(props: FilesRowProps) {
   const {
     isSelected,
+    selectedCount,
     isCut,
     isJustMoved,
     isRenaming,
@@ -162,6 +165,8 @@ export function FilesRow(props: FilesRowProps) {
     onMoveTo,
     rowRef,
   } = props;
+
+  const isMultiSelected = isSelected && selectedCount > 1;
 
   const onDownload = props.onDownload;
 
@@ -295,7 +300,9 @@ export function FilesRow(props: FilesRowProps) {
 
         {onDownload ? (
           <ContextMenuItem onClick={onDownload}>
-            Download as zip
+            {isMultiSelected
+              ? `Download ${selectedCount} items as zip`
+              : "Download as zip"}
           </ContextMenuItem>
         ) : props.kind === "file" && props.data.viewerKind ? (
           <ContextMenuItem
@@ -315,7 +322,7 @@ export function FilesRow(props: FilesRowProps) {
         <ContextMenuSeparator />
 
         {/* Group 2 — item management */}
-        <ContextMenuItem onClick={onStartRename}>
+        <ContextMenuItem onClick={onStartRename} disabled={isMultiSelected}>
           Rename
           <ContextMenuShortcut>F2</ContextMenuShortcut>
         </ContextMenuItem>
@@ -342,7 +349,7 @@ export function FilesRow(props: FilesRowProps) {
 
         {/* Group 3 — clipboard and destructive */}
         <ContextMenuItem onClick={onCut}>
-          Cut
+          {isMultiSelected ? `Cut ${selectedCount} items` : "Cut"}
           <ContextMenuShortcut>⌘X</ContextMenuShortcut>
         </ContextMenuItem>
 
@@ -367,7 +374,9 @@ export function FilesRow(props: FilesRowProps) {
         <ContextMenuSeparator />
 
         <ContextMenuItem variant="destructive" onClick={onTrash}>
-          Move to trash
+          {isMultiSelected
+            ? `Move ${selectedCount} items to trash`
+            : "Move to trash"}
           <ContextMenuShortcut>Del</ContextMenuShortcut>
         </ContextMenuItem>
       </ContextMenuContent>
