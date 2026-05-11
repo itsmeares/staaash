@@ -68,6 +68,7 @@ export const ModelName = {
   BackgroundJob: 'BackgroundJob',
   RestoreReconciliationRun: 'RestoreReconciliationRun',
   MediaDerivative: 'MediaDerivative',
+  ZipArchive: 'ZipArchive',
   UploadSession: 'UploadSession'
 } as const
 
@@ -122,6 +123,7 @@ export const SystemSettingsScalarFieldEnum = {
   mediaPreviewThresholdBytes: 'mediaPreviewThresholdBytes',
   mediaPreviewRetentionDays: 'mediaPreviewRetentionDays',
   mediaPreviewMaxHeight: 'mediaPreviewMaxHeight',
+  zipArchiveRetentionDays: 'zipArchiveRetentionDays',
   mediaPreviewCrf: 'mediaPreviewCrf',
   mediaPreviewMaxConcurrentJobs: 'mediaPreviewMaxConcurrentJobs',
   createdAt: 'createdAt',
@@ -357,6 +359,25 @@ export const MediaDerivativeScalarFieldEnum = {
 } as const
 
 export type MediaDerivativeScalarFieldEnum = (typeof MediaDerivativeScalarFieldEnum)[keyof typeof MediaDerivativeScalarFieldEnum]
+
+
+export const ZipArchiveScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  contentKey: 'contentKey',
+  idsJson: 'idsJson',
+  status: 'status',
+  storageKey: 'storageKey',
+  fileName: 'fileName',
+  sizeBytes: 'sizeBytes',
+  fileCount: 'fileCount',
+  error: 'error',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ZipArchiveScalarFieldEnum = (typeof ZipArchiveScalarFieldEnum)[keyof typeof ZipArchiveScalarFieldEnum]
 
 
 export const UploadSessionScalarFieldEnum = {

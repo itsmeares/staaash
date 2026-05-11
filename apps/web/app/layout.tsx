@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import { cookies } from "next/headers";
 
 import { THEME_COOKIE_NAME } from "@/server/auth/session";
+import { TransferRoot } from "./transfer-root";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -78,7 +79,9 @@ export default async function RootLayout({
       lang="en"
       className={`${switzer.variable} ${cabinetGrotesk.variable} font-sans${themeClass ? ` ${themeClass}` : ""}`}
     >
-      <body>{children}</body>
+      <body>
+        <TransferRoot>{children}</TransferRoot>
+      </body>
     </html>
   );
 }

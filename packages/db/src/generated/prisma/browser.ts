@@ -103,6 +103,11 @@ export type RestoreReconciliationRun = Prisma.RestoreReconciliationRunModel
  */
 export type MediaDerivative = Prisma.MediaDerivativeModel
 /**
+ * Model ZipArchive
+ * 
+ */
+export type ZipArchive = Prisma.ZipArchiveModel
+/**
  * Model UploadSession
  * 
  */

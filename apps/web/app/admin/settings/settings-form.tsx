@@ -290,6 +290,26 @@ export function SettingsForm({ settings }: SettingsFormProps) {
           </dl>
         </section>
 
+        <section>
+          <p className="admin-eyebrow">Downloads</p>
+          <dl className="admin-setting-list">
+            <div className="admin-setting-row">
+              <dt className="admin-setting-key">
+                Zip archive retention (days, 0 = never)
+              </dt>
+              <dd className="admin-setting-val">
+                <input
+                  name="zipArchiveRetentionDays"
+                  type="number"
+                  defaultValue={settings.zipArchiveRetentionDays}
+                  min={0}
+                  className="admin-setting-input"
+                />
+              </dd>
+            </div>
+          </dl>
+        </section>
+
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <button type="submit" className="btn btn-primary" disabled={pending}>
             {pending ? "Saving…" : "Save settings"}

@@ -401,6 +401,7 @@ export const ModelName = {
   BackgroundJob: 'BackgroundJob',
   RestoreReconciliationRun: 'RestoreReconciliationRun',
   MediaDerivative: 'MediaDerivative',
+  ZipArchive: 'ZipArchive',
   UploadSession: 'UploadSession'
 } as const
 
@@ -417,7 +418,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "instance" | "systemSettings" | "user" | "userPreference" | "session" | "invite" | "passwordReset" | "folder" | "file" | "favoriteFile" | "favoriteFolder" | "recentFile" | "recentFolder" | "shareLink" | "backgroundJob" | "restoreReconciliationRun" | "mediaDerivative" | "uploadSession"
+    modelProps: "instance" | "systemSettings" | "user" | "userPreference" | "session" | "invite" | "passwordReset" | "folder" | "file" | "favoriteFile" | "favoriteFolder" | "recentFile" | "recentFolder" | "shareLink" | "backgroundJob" | "restoreReconciliationRun" | "mediaDerivative" | "zipArchive" | "uploadSession"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1679,6 +1680,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    ZipArchive: {
+      payload: Prisma.$ZipArchivePayload<ExtArgs>
+      fields: Prisma.ZipArchiveFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ZipArchiveFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ZipArchivePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ZipArchiveFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ZipArchivePayload>
+        }
+        findFirst: {
+          args: Prisma.ZipArchiveFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ZipArchivePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ZipArchiveFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ZipArchivePayload>
+        }
+        findMany: {
+          args: Prisma.ZipArchiveFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ZipArchivePayload>[]
+        }
+        create: {
+          args: Prisma.ZipArchiveCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ZipArchivePayload>
+        }
+        createMany: {
+          args: Prisma.ZipArchiveCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ZipArchiveCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ZipArchivePayload>[]
+        }
+        delete: {
+          args: Prisma.ZipArchiveDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ZipArchivePayload>
+        }
+        update: {
+          args: Prisma.ZipArchiveUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ZipArchivePayload>
+        }
+        deleteMany: {
+          args: Prisma.ZipArchiveDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ZipArchiveUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ZipArchiveUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ZipArchivePayload>[]
+        }
+        upsert: {
+          args: Prisma.ZipArchiveUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ZipArchivePayload>
+        }
+        aggregate: {
+          args: Prisma.ZipArchiveAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateZipArchive>
+        }
+        groupBy: {
+          args: Prisma.ZipArchiveGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ZipArchiveGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ZipArchiveCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ZipArchiveCountAggregateOutputType> | number
+        }
+      }
+    }
     UploadSession: {
       payload: Prisma.$UploadSessionPayload<ExtArgs>
       fields: Prisma.UploadSessionFieldRefs
@@ -1827,6 +1902,7 @@ export const SystemSettingsScalarFieldEnum = {
   mediaPreviewThresholdBytes: 'mediaPreviewThresholdBytes',
   mediaPreviewRetentionDays: 'mediaPreviewRetentionDays',
   mediaPreviewMaxHeight: 'mediaPreviewMaxHeight',
+  zipArchiveRetentionDays: 'zipArchiveRetentionDays',
   mediaPreviewCrf: 'mediaPreviewCrf',
   mediaPreviewMaxConcurrentJobs: 'mediaPreviewMaxConcurrentJobs',
   createdAt: 'createdAt',
@@ -2062,6 +2138,25 @@ export const MediaDerivativeScalarFieldEnum = {
 } as const
 
 export type MediaDerivativeScalarFieldEnum = (typeof MediaDerivativeScalarFieldEnum)[keyof typeof MediaDerivativeScalarFieldEnum]
+
+
+export const ZipArchiveScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  contentKey: 'contentKey',
+  idsJson: 'idsJson',
+  status: 'status',
+  storageKey: 'storageKey',
+  fileName: 'fileName',
+  sizeBytes: 'sizeBytes',
+  fileCount: 'fileCount',
+  error: 'error',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ZipArchiveScalarFieldEnum = (typeof ZipArchiveScalarFieldEnum)[keyof typeof ZipArchiveScalarFieldEnum]
 
 
 export const UploadSessionScalarFieldEnum = {
@@ -2396,6 +2491,7 @@ export type GlobalOmitConfig = {
   backgroundJob?: Prisma.BackgroundJobOmit
   restoreReconciliationRun?: Prisma.RestoreReconciliationRunOmit
   mediaDerivative?: Prisma.MediaDerivativeOmit
+  zipArchive?: Prisma.ZipArchiveOmit
   uploadSession?: Prisma.UploadSessionOmit
 }
 

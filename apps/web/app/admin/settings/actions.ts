@@ -31,6 +31,7 @@ const updateSettingsSchema = z.object({
   mediaPreviewThresholdBytes: z.coerce.bigint().positive(),
   mediaPreviewRetentionDays: z.coerce.number().int().min(0),
   mediaPreviewMaxHeight: z.coerce.number().int().positive(),
+  zipArchiveRetentionDays: z.coerce.number().int().min(0),
   mediaPreviewCrf: z.coerce.number().int().min(0).max(51),
   mediaPreviewMaxConcurrentJobs: z.coerce.number().int().positive(),
 });

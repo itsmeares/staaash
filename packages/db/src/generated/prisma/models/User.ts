@@ -270,6 +270,7 @@ export type UserWhereInput = {
   recentFolders?: Prisma.RecentFolderListRelationFilter
   shareLinks?: Prisma.ShareLinkListRelationFilter
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunListRelationFilter
+  zipArchives?: Prisma.ZipArchiveListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -297,6 +298,7 @@ export type UserOrderByWithRelationInput = {
   recentFolders?: Prisma.RecentFolderOrderByRelationAggregateInput
   shareLinks?: Prisma.ShareLinkOrderByRelationAggregateInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunOrderByRelationAggregateInput
+  zipArchives?: Prisma.ZipArchiveOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -327,6 +329,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   recentFolders?: Prisma.RecentFolderListRelationFilter
   shareLinks?: Prisma.ShareLinkListRelationFilter
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunListRelationFilter
+  zipArchives?: Prisma.ZipArchiveListRelationFilter
 }, "id" | "email" | "username">
 
 export type UserOrderByWithAggregationInput = {
@@ -388,6 +391,7 @@ export type UserCreateInput = {
   recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -415,6 +419,7 @@ export type UserUncheckedCreateInput = {
   recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserUpdateInput = {
@@ -442,6 +447,7 @@ export type UserUpdateInput = {
   recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -469,6 +475,7 @@ export type UserUncheckedUpdateInput = {
   recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -779,6 +786,20 @@ export type UserUpdateOneWithoutRestoreReconciliationRunsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutRestoreReconciliationRunsInput, Prisma.UserUpdateWithoutRestoreReconciliationRunsInput>, Prisma.UserUncheckedUpdateWithoutRestoreReconciliationRunsInput>
 }
 
+export type UserCreateNestedOneWithoutZipArchivesInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutZipArchivesInput, Prisma.UserUncheckedCreateWithoutZipArchivesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutZipArchivesInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutZipArchivesNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutZipArchivesInput, Prisma.UserUncheckedCreateWithoutZipArchivesInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutZipArchivesInput
+  upsert?: Prisma.UserUpsertWithoutZipArchivesInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutZipArchivesInput, Prisma.UserUpdateWithoutZipArchivesInput>, Prisma.UserUncheckedUpdateWithoutZipArchivesInput>
+}
+
 export type UserCreateWithoutPreferencesInput = {
   id?: string
   email: string
@@ -803,6 +824,7 @@ export type UserCreateWithoutPreferencesInput = {
   recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutPreferencesInput = {
@@ -829,6 +851,7 @@ export type UserUncheckedCreateWithoutPreferencesInput = {
   recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutPreferencesInput = {
@@ -871,6 +894,7 @@ export type UserUpdateWithoutPreferencesInput = {
   recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutPreferencesInput = {
@@ -897,6 +921,7 @@ export type UserUncheckedUpdateWithoutPreferencesInput = {
   recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutSessionsInput = {
@@ -923,6 +948,7 @@ export type UserCreateWithoutSessionsInput = {
   recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutSessionsInput = {
@@ -949,6 +975,7 @@ export type UserUncheckedCreateWithoutSessionsInput = {
   recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutSessionsInput = {
@@ -991,6 +1018,7 @@ export type UserUpdateWithoutSessionsInput = {
   recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutSessionsInput = {
@@ -1017,6 +1045,7 @@ export type UserUncheckedUpdateWithoutSessionsInput = {
   recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutInvitesIssuedInput = {
@@ -1043,6 +1072,7 @@ export type UserCreateWithoutInvitesIssuedInput = {
   recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutInvitesIssuedInput = {
@@ -1069,6 +1099,7 @@ export type UserUncheckedCreateWithoutInvitesIssuedInput = {
   recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutInvitesIssuedInput = {
@@ -1100,6 +1131,7 @@ export type UserCreateWithoutInvitesAcceptedInput = {
   recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutInvitesAcceptedInput = {
@@ -1126,6 +1158,7 @@ export type UserUncheckedCreateWithoutInvitesAcceptedInput = {
   recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutInvitesAcceptedInput = {
@@ -1168,6 +1201,7 @@ export type UserUpdateWithoutInvitesIssuedInput = {
   recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutInvitesIssuedInput = {
@@ -1194,6 +1228,7 @@ export type UserUncheckedUpdateWithoutInvitesIssuedInput = {
   recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserUpsertWithoutInvitesAcceptedInput = {
@@ -1231,6 +1266,7 @@ export type UserUpdateWithoutInvitesAcceptedInput = {
   recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutInvitesAcceptedInput = {
@@ -1257,6 +1293,7 @@ export type UserUncheckedUpdateWithoutInvitesAcceptedInput = {
   recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutPasswordResetsForUserInput = {
@@ -1283,6 +1320,7 @@ export type UserCreateWithoutPasswordResetsForUserInput = {
   recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutPasswordResetsForUserInput = {
@@ -1309,6 +1347,7 @@ export type UserUncheckedCreateWithoutPasswordResetsForUserInput = {
   recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutPasswordResetsForUserInput = {
@@ -1340,6 +1379,7 @@ export type UserCreateWithoutPasswordResetsIssuedInput = {
   recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutPasswordResetsIssuedInput = {
@@ -1366,6 +1406,7 @@ export type UserUncheckedCreateWithoutPasswordResetsIssuedInput = {
   recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutPasswordResetsIssuedInput = {
@@ -1408,6 +1449,7 @@ export type UserUpdateWithoutPasswordResetsForUserInput = {
   recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutPasswordResetsForUserInput = {
@@ -1434,6 +1476,7 @@ export type UserUncheckedUpdateWithoutPasswordResetsForUserInput = {
   recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserUpsertWithoutPasswordResetsIssuedInput = {
@@ -1471,6 +1514,7 @@ export type UserUpdateWithoutPasswordResetsIssuedInput = {
   recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutPasswordResetsIssuedInput = {
@@ -1497,6 +1541,7 @@ export type UserUncheckedUpdateWithoutPasswordResetsIssuedInput = {
   recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutFoldersInput = {
@@ -1523,6 +1568,7 @@ export type UserCreateWithoutFoldersInput = {
   recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutFoldersInput = {
@@ -1549,6 +1595,7 @@ export type UserUncheckedCreateWithoutFoldersInput = {
   recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutFoldersInput = {
@@ -1591,6 +1638,7 @@ export type UserUpdateWithoutFoldersInput = {
   recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutFoldersInput = {
@@ -1617,6 +1665,7 @@ export type UserUncheckedUpdateWithoutFoldersInput = {
   recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutFilesInput = {
@@ -1643,6 +1692,7 @@ export type UserCreateWithoutFilesInput = {
   recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutFilesInput = {
@@ -1669,6 +1719,7 @@ export type UserUncheckedCreateWithoutFilesInput = {
   recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutFilesInput = {
@@ -1711,6 +1762,7 @@ export type UserUpdateWithoutFilesInput = {
   recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutFilesInput = {
@@ -1737,6 +1789,7 @@ export type UserUncheckedUpdateWithoutFilesInput = {
   recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutFavoriteFilesInput = {
@@ -1763,6 +1816,7 @@ export type UserCreateWithoutFavoriteFilesInput = {
   recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutFavoriteFilesInput = {
@@ -1789,6 +1843,7 @@ export type UserUncheckedCreateWithoutFavoriteFilesInput = {
   recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutFavoriteFilesInput = {
@@ -1831,6 +1886,7 @@ export type UserUpdateWithoutFavoriteFilesInput = {
   recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutFavoriteFilesInput = {
@@ -1857,6 +1913,7 @@ export type UserUncheckedUpdateWithoutFavoriteFilesInput = {
   recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutFavoriteFoldersInput = {
@@ -1883,6 +1940,7 @@ export type UserCreateWithoutFavoriteFoldersInput = {
   recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutFavoriteFoldersInput = {
@@ -1909,6 +1967,7 @@ export type UserUncheckedCreateWithoutFavoriteFoldersInput = {
   recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutFavoriteFoldersInput = {
@@ -1951,6 +2010,7 @@ export type UserUpdateWithoutFavoriteFoldersInput = {
   recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutFavoriteFoldersInput = {
@@ -1977,6 +2037,7 @@ export type UserUncheckedUpdateWithoutFavoriteFoldersInput = {
   recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutRecentFilesInput = {
@@ -2003,6 +2064,7 @@ export type UserCreateWithoutRecentFilesInput = {
   recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutRecentFilesInput = {
@@ -2029,6 +2091,7 @@ export type UserUncheckedCreateWithoutRecentFilesInput = {
   recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutRecentFilesInput = {
@@ -2071,6 +2134,7 @@ export type UserUpdateWithoutRecentFilesInput = {
   recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutRecentFilesInput = {
@@ -2097,6 +2161,7 @@ export type UserUncheckedUpdateWithoutRecentFilesInput = {
   recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutRecentFoldersInput = {
@@ -2123,6 +2188,7 @@ export type UserCreateWithoutRecentFoldersInput = {
   recentFiles?: Prisma.RecentFileCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutRecentFoldersInput = {
@@ -2149,6 +2215,7 @@ export type UserUncheckedCreateWithoutRecentFoldersInput = {
   recentFiles?: Prisma.RecentFileUncheckedCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutRecentFoldersInput = {
@@ -2191,6 +2258,7 @@ export type UserUpdateWithoutRecentFoldersInput = {
   recentFiles?: Prisma.RecentFileUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutRecentFoldersInput = {
@@ -2217,6 +2285,7 @@ export type UserUncheckedUpdateWithoutRecentFoldersInput = {
   recentFiles?: Prisma.RecentFileUncheckedUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutShareLinksInput = {
@@ -2243,6 +2312,7 @@ export type UserCreateWithoutShareLinksInput = {
   recentFiles?: Prisma.RecentFileCreateNestedManyWithoutUserInput
   recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutShareLinksInput = {
@@ -2269,6 +2339,7 @@ export type UserUncheckedCreateWithoutShareLinksInput = {
   recentFiles?: Prisma.RecentFileUncheckedCreateNestedManyWithoutUserInput
   recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedCreateNestedManyWithoutTriggeredByInput
+  zipArchives?: Prisma.ZipArchiveUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutShareLinksInput = {
@@ -2311,6 +2382,7 @@ export type UserUpdateWithoutShareLinksInput = {
   recentFiles?: Prisma.RecentFileUpdateManyWithoutUserNestedInput
   recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutShareLinksInput = {
@@ -2337,6 +2409,7 @@ export type UserUncheckedUpdateWithoutShareLinksInput = {
   recentFiles?: Prisma.RecentFileUncheckedUpdateManyWithoutUserNestedInput
   recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedUpdateManyWithoutTriggeredByNestedInput
+  zipArchives?: Prisma.ZipArchiveUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutRestoreReconciliationRunsInput = {
@@ -2363,6 +2436,7 @@ export type UserCreateWithoutRestoreReconciliationRunsInput = {
   recentFiles?: Prisma.RecentFileCreateNestedManyWithoutUserInput
   recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
+  zipArchives?: Prisma.ZipArchiveCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutRestoreReconciliationRunsInput = {
@@ -2389,6 +2463,7 @@ export type UserUncheckedCreateWithoutRestoreReconciliationRunsInput = {
   recentFiles?: Prisma.RecentFileUncheckedCreateNestedManyWithoutUserInput
   recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
   shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
+  zipArchives?: Prisma.ZipArchiveUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutRestoreReconciliationRunsInput = {
@@ -2431,6 +2506,7 @@ export type UserUpdateWithoutRestoreReconciliationRunsInput = {
   recentFiles?: Prisma.RecentFileUpdateManyWithoutUserNestedInput
   recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
+  zipArchives?: Prisma.ZipArchiveUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutRestoreReconciliationRunsInput = {
@@ -2457,6 +2533,131 @@ export type UserUncheckedUpdateWithoutRestoreReconciliationRunsInput = {
   recentFiles?: Prisma.RecentFileUncheckedUpdateManyWithoutUserNestedInput
   recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
   shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
+  zipArchives?: Prisma.ZipArchiveUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutZipArchivesInput = {
+  id?: string
+  email: string
+  username: string
+  displayName?: string | null
+  avatarUrl?: string | null
+  passwordHash: string
+  role?: $Enums.UserRole
+  storageLimitBytes?: bigint | number | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
+  invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
+  invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
+  passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
+  passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
+  folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
+  files?: Prisma.FileCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
+  shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
+  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunCreateNestedManyWithoutTriggeredByInput
+}
+
+export type UserUncheckedCreateWithoutZipArchivesInput = {
+  id?: string
+  email: string
+  username: string
+  displayName?: string | null
+  avatarUrl?: string | null
+  passwordHash: string
+  role?: $Enums.UserRole
+  storageLimitBytes?: bigint | number | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
+  preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
+  invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
+  invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
+  passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
+  passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
+  folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
+  files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedCreateNestedManyWithoutUserInput
+  recentFiles?: Prisma.RecentFileUncheckedCreateNestedManyWithoutUserInput
+  recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
+  shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
+  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedCreateNestedManyWithoutTriggeredByInput
+}
+
+export type UserCreateOrConnectWithoutZipArchivesInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutZipArchivesInput, Prisma.UserUncheckedCreateWithoutZipArchivesInput>
+}
+
+export type UserUpsertWithoutZipArchivesInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutZipArchivesInput, Prisma.UserUncheckedUpdateWithoutZipArchivesInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutZipArchivesInput, Prisma.UserUncheckedCreateWithoutZipArchivesInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutZipArchivesInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutZipArchivesInput, Prisma.UserUncheckedUpdateWithoutZipArchivesInput>
+}
+
+export type UserUpdateWithoutZipArchivesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
+  invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
+  invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
+  passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
+  passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
+  folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
+  files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
+  shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
+  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUpdateManyWithoutTriggeredByNestedInput
+}
+
+export type UserUncheckedUpdateWithoutZipArchivesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
+  preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
+  invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
+  invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
+  passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
+  passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
+  folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
+  files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
+  favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
+  favoriteFolders?: Prisma.FavoriteFolderUncheckedUpdateManyWithoutUserNestedInput
+  recentFiles?: Prisma.RecentFileUncheckedUpdateManyWithoutUserNestedInput
+  recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
+  shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
+  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedUpdateManyWithoutTriggeredByNestedInput
 }
 
 
@@ -2478,6 +2679,7 @@ export type UserCountOutputType = {
   recentFolders: number
   shareLinks: number
   restoreReconciliationRuns: number
+  zipArchives: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -2494,6 +2696,7 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   recentFolders?: boolean | UserCountOutputTypeCountRecentFoldersArgs
   shareLinks?: boolean | UserCountOutputTypeCountShareLinksArgs
   restoreReconciliationRuns?: boolean | UserCountOutputTypeCountRestoreReconciliationRunsArgs
+  zipArchives?: boolean | UserCountOutputTypeCountZipArchivesArgs
 }
 
 /**
@@ -2597,6 +2800,13 @@ export type UserCountOutputTypeCountRestoreReconciliationRunsArgs<ExtArgs extend
   where?: Prisma.RestoreReconciliationRunWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountZipArchivesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ZipArchiveWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -2623,6 +2833,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   recentFolders?: boolean | Prisma.User$recentFoldersArgs<ExtArgs>
   shareLinks?: boolean | Prisma.User$shareLinksArgs<ExtArgs>
   restoreReconciliationRuns?: boolean | Prisma.User$restoreReconciliationRunsArgs<ExtArgs>
+  zipArchives?: boolean | Prisma.User$zipArchivesArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -2681,6 +2892,7 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   recentFolders?: boolean | Prisma.User$recentFoldersArgs<ExtArgs>
   shareLinks?: boolean | Prisma.User$shareLinksArgs<ExtArgs>
   restoreReconciliationRuns?: boolean | Prisma.User$restoreReconciliationRunsArgs<ExtArgs>
+  zipArchives?: boolean | Prisma.User$zipArchivesArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -2703,6 +2915,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     recentFolders: Prisma.$RecentFolderPayload<ExtArgs>[]
     shareLinks: Prisma.$ShareLinkPayload<ExtArgs>[]
     restoreReconciliationRuns: Prisma.$RestoreReconciliationRunPayload<ExtArgs>[]
+    zipArchives: Prisma.$ZipArchivePayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -3123,6 +3336,7 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   recentFolders<T extends Prisma.User$recentFoldersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$recentFoldersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RecentFolderPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   shareLinks<T extends Prisma.User$shareLinksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$shareLinksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ShareLinkPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   restoreReconciliationRuns<T extends Prisma.User$restoreReconciliationRunsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$restoreReconciliationRunsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RestoreReconciliationRunPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  zipArchives<T extends Prisma.User$zipArchivesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$zipArchivesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ZipArchivePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -3883,6 +4097,30 @@ export type User$restoreReconciliationRunsArgs<ExtArgs extends runtime.Types.Ext
   take?: number
   skip?: number
   distinct?: Prisma.RestoreReconciliationRunScalarFieldEnum | Prisma.RestoreReconciliationRunScalarFieldEnum[]
+}
+
+/**
+ * User.zipArchives
+ */
+export type User$zipArchivesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ZipArchive
+   */
+  select?: Prisma.ZipArchiveSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ZipArchive
+   */
+  omit?: Prisma.ZipArchiveOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ZipArchiveInclude<ExtArgs> | null
+  where?: Prisma.ZipArchiveWhereInput
+  orderBy?: Prisma.ZipArchiveOrderByWithRelationInput | Prisma.ZipArchiveOrderByWithRelationInput[]
+  cursor?: Prisma.ZipArchiveWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ZipArchiveScalarFieldEnum | Prisma.ZipArchiveScalarFieldEnum[]
 }
 
 /**

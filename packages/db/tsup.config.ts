@@ -10,6 +10,7 @@ export default defineConfig({
     reconciliation: "src/reconciliation.ts",
     "viewer-contract": "src/viewer-contract.ts",
     "media-derivatives": "src/media-derivatives.ts",
+    "zip-archives": "src/zip-archives.ts",
   },
   format: ["esm"],
   platform: "node",
