@@ -6,6 +6,7 @@ import {
   probeDatabaseReachability,
 } from "@staaash/db/health";
 import { readInstanceUpdateCheck } from "@staaash/db/instance";
+import { listWorkerInstances } from "@staaash/db/jobs";
 import { readLatestRestoreReconciliationRun } from "@staaash/db/reconciliation";
 
 import { version as packageVersion } from "../package.json";
@@ -206,6 +207,7 @@ export const getReadiness = async () => {
     instanceState,
     latestReconciliationRun,
     settings,
+    workers,
   ] = await Promise.all([
     probeDatabaseReachability(databaseUrl),
     probeStorage(),
@@ -215,7 +217,10 @@ export const getReadiness = async () => {
     readInstanceUpdateCheck().catch(() => null),
     readLatestRestoreReconciliationRun().catch(() => null),
     getSystemSettings(),
+    listWorkerInstances().catch(() => []),
   ]);
+
+  const latestWorkerHeartbeat = workers[0]?.lastHeartbeatAt ?? heartbeat;
 
   return buildInstanceHealthSummary({
     databaseStatus: database.status,
@@ -223,7 +228,7 @@ export const getReadiness = async () => {
     storageStatus: storage.status,
     storageMessage: storage.message,
     worker: getWorkerHeartbeatStatus(
-      heartbeat,
+      latestWorkerHeartbeat,
       new Date(),
       settings.workerHeartbeatMaxAgeSeconds * 1000,
     ),

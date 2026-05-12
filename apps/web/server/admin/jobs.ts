@@ -7,7 +7,11 @@ import {
   ALL_SUPPORTED_JOB_KINDS,
   STAGING_CLEANUP_JOB_KIND,
   TRASH_RETENTION_JOB_KIND,
+  cancelBackgroundJob,
   ensureBackgroundJobScheduled,
+  getQueueOperationalSummary,
+  listBackgroundJobEvents,
+  retryBackgroundJob,
 } from "@staaash/db/jobs";
 
 import type { JsonAdminJobListResponse } from "./types";
@@ -18,6 +22,7 @@ export const ADMIN_JOB_STATUSES = [
   "succeeded",
   "failed",
   "dead",
+  "cancelled",
 ] as const;
 
 export type AdminJobStatusFilter = (typeof ADMIN_JOB_STATUSES)[number];
@@ -26,6 +31,7 @@ export const parseAdminJobFilters = (params: {
   status?: string | null;
   kind?: string | null;
   cursor?: string | null;
+  limit?: string | null;
 }) => {
   const status = params.status?.trim() ?? "";
   const kind = params.kind?.trim() ?? "";
@@ -40,12 +46,32 @@ export const parseAdminJobFilters = (params: {
       ? kind
       : null,
     cursor: params.cursor?.trim() || null,
-  } satisfies Pick<AdminBackgroundJobListFilters, "status" | "kind" | "cursor">;
+    limit: normalizeAdminJobLimit(params.limit),
+  } satisfies Pick<
+    AdminBackgroundJobListFilters,
+    "status" | "kind" | "cursor" | "limit"
+  >;
+};
+
+const normalizeAdminJobLimit = (limit?: string | null) => {
+  const parsed = Number.parseInt(limit ?? "", 10);
+  return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 100) : 25;
 };
 
 export const getAdminJobList = async (
   filters: AdminBackgroundJobListFilters = {},
 ) => listAdminBackgroundJobs(filters);
+
+export const getAdminJobSummary = async () => getQueueOperationalSummary();
+
+export const getAdminJobEvents = async (jobId: string) =>
+  listBackgroundJobEvents({ jobId });
+
+export const cancelAdminJob = async (jobId: string, actorUserId: string) =>
+  cancelBackgroundJob({ jobId, actorUserId });
+
+export const retryAdminJob = async (jobId: string, actorUserId: string) =>
+  retryBackgroundJob({ jobId, actorUserId });
 
 export const enqueueAdminStagingCleanup = async (now = new Date()) =>
   ensureBackgroundJobScheduled({
@@ -85,6 +111,11 @@ export const toJsonAdminJobListResponse = (
     ...item,
     runAt: item.runAt.toISOString(),
     lockedAt: item.lockedAt?.toISOString() ?? null,
+    leaseExpiresAt: item.leaseExpiresAt?.toISOString() ?? null,
+    timeoutAt: item.timeoutAt?.toISOString() ?? null,
+    startedAt: item.startedAt?.toISOString() ?? null,
+    completedAt: item.completedAt?.toISOString() ?? null,
+    cancelledAt: item.cancelledAt?.toISOString() ?? null,
     createdAt: item.createdAt.toISOString(),
     updatedAt: item.updatedAt.toISOString(),
   })),

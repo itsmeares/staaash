@@ -117,6 +117,16 @@ export type ShareLink = Prisma.ShareLinkModel
  */
 export type BackgroundJob = Prisma.BackgroundJobModel
 /**
+ * Model WorkerInstance
+ * 
+ */
+export type WorkerInstance = Prisma.WorkerInstanceModel
+/**
+ * Model BackgroundJobEvent
+ * 
+ */
+export type BackgroundJobEvent = Prisma.BackgroundJobEventModel
+/**
  * Model RestoreReconciliationRun
  * 
  */

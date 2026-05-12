@@ -10,8 +10,13 @@ import {
 export type JsonBackgroundJob = {
   id: string;
   kind: string;
-  status: "queued" | "running" | "succeeded" | "failed" | "dead";
+  status: "queued" | "running" | "succeeded" | "failed" | "dead" | "cancelled";
   runAt: string;
+  lockedAt?: string | null;
+  leaseExpiresAt?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  cancelledAt?: string | null;
   createdAt: string;
   updatedAt: string;
   lastError: string | null;
@@ -20,6 +25,40 @@ export type JsonBackgroundJob = {
   dedupeKey: string | null;
   payloadJson: Record<string, unknown> | null;
   fileName?: string | null;
+};
+
+type JsonWorker = {
+  id: string;
+  hostname: string;
+  pid: number;
+  version: string | null;
+  startedAt: string;
+  lastHeartbeatAt: string;
+  stoppedAt: string | null;
+  status: string;
+  currentJobId: string | null;
+};
+
+type JsonJobSummary = {
+  statusCounts: Record<JsonBackgroundJob["status"], number> & { total: number };
+  countsByKind: Record<
+    string,
+    Partial<Record<JsonBackgroundJob["status"], number>>
+  >;
+  oldestQueuedAgeSeconds: number | null;
+  staleRunning: number;
+  failed: number;
+  dead: number;
+  workers: JsonWorker[];
+};
+
+type JsonJobEvent = {
+  id: string;
+  type: string;
+  message: string | null;
+  metadataJson: Record<string, unknown>;
+  workerId: string | null;
+  createdAt: string;
 };
 
 const JOB_META: Record<string, { name: string; desc: string }> = {
@@ -46,6 +85,14 @@ const JOB_META: Record<string, { name: string; desc: string }> = {
   "media.derivative.cleanup": {
     name: "Derivative Cleanup",
     desc: "Remove stale or orphaned derivative files from storage.",
+  },
+  "zip.archive.generate": {
+    name: "Archive Generate",
+    desc: "Build downloadable zip archives for selected files and folders.",
+  },
+  "zip.archive.cleanup": {
+    name: "Archive Cleanup",
+    desc: "Remove expired generated zip archives from storage.",
   },
 };
 
@@ -87,6 +134,9 @@ function JobOperationRow({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<JsonBackgroundJob[] | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [eventsJobId, setEventsJobId] = useState<string | null>(null);
+  const [events, setEvents] = useState<JsonJobEvent[] | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const isActive =
     lastRun?.status === "queued" || lastRun?.status === "running";
@@ -150,6 +200,36 @@ function JobOperationRow({
       }
     } finally {
       setRunning(false);
+    }
+  };
+
+  const postJobAction = async (jobId: string, action: "retry" | "cancel") => {
+    setActionError(null);
+    const res = await fetch(`/api/admin/jobs/${jobId}/${action}`, {
+      method: "POST",
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      setActionError(body?.error ?? `Request failed (${res.status}).`);
+      return;
+    }
+    const updated = await fetch(
+      `/api/admin/jobs?kind=${encodeURIComponent(kind)}`,
+    );
+    if (updated.ok) {
+      const data = await updated.json();
+      setHistory(data.items ?? null);
+      setLastRun(data.items?.[0] ?? null);
+    }
+  };
+
+  const loadEvents = async (jobId: string) => {
+    setEventsJobId(jobId);
+    setEvents(null);
+    const res = await fetch(`/api/admin/jobs/${jobId}/events`);
+    if (res.ok) {
+      const data = await res.json();
+      setEvents(data.items ?? []);
     }
   };
 
@@ -219,6 +299,14 @@ function JobOperationRow({
               {runError}
             </span>
           ) : null}
+          {actionError ? (
+            <span
+              className="muted"
+              style={{ fontSize: "0.8125rem", color: "var(--destructive)" }}
+            >
+              {actionError}
+            </span>
+          ) : null}
         </div>
       </div>
       {historyOpen && (
@@ -259,6 +347,33 @@ function JobOperationRow({
                       {job.lastError ?? ""}
                     </span>
                   )}
+                  <button
+                    className="button button-secondary"
+                    onClick={() => void loadEvents(job.id)}
+                    style={{ fontSize: "0.75rem", padding: "4px 8px" }}
+                  >
+                    Events
+                  </button>
+                  {job.status === "failed" ||
+                  job.status === "dead" ||
+                  job.status === "cancelled" ? (
+                    <button
+                      className="button button-secondary"
+                      onClick={() => void postJobAction(job.id, "retry")}
+                      style={{ fontSize: "0.75rem", padding: "4px 8px" }}
+                    >
+                      Retry
+                    </button>
+                  ) : null}
+                  {job.status === "queued" || job.status === "running" ? (
+                    <button
+                      className="button button-secondary"
+                      onClick={() => void postJobAction(job.id, "cancel")}
+                      style={{ fontSize: "0.75rem", padding: "4px 8px" }}
+                    >
+                      Cancel
+                    </button>
+                  ) : null}
                 </div>
               );
             })
@@ -272,25 +387,122 @@ function JobOperationRow({
           )}
         </div>
       )}
+      {eventsJobId && historyOpen ? (
+        <div className="admin-op-history-panel" style={{ marginTop: "8px" }}>
+          <p className="admin-eyebrow">Events</p>
+          {events === null ? (
+            <p className="muted" style={{ fontSize: "0.8125rem" }}>
+              Loading…
+            </p>
+          ) : events.length > 0 ? (
+            events.map((event) => (
+              <div className="admin-history-row" key={event.id}>
+                <span className="status-chip status-healthy">{event.type}</span>
+                <span className="muted">
+                  {formatAdminDateTime(event.createdAt)}
+                </span>
+                <span className="muted" style={{ fontSize: "0.78rem" }}>
+                  {event.message ?? event.workerId ?? ""}
+                </span>
+              </div>
+            ))
+          ) : (
+            <p className="muted" style={{ fontSize: "0.8125rem" }}>
+              No events recorded.
+            </p>
+          )}
+        </div>
+      ) : null}
     </>
   );
 }
 
 type Props = {
   initialLastRuns: Record<string, JsonBackgroundJob | null>;
+  initialSummary: JsonJobSummary;
   jobKinds: string[];
 };
 
-export function JobOperations({ initialLastRuns, jobKinds }: Props) {
+export function JobOperations({
+  initialLastRuns,
+  initialSummary,
+  jobKinds,
+}: Props) {
+  const [summary, setSummary] = useState(initialSummary);
+
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      const res = await fetch("/api/admin/jobs/summary");
+      if (!res.ok || cancelled) return;
+      setSummary(await res.json());
+    };
+    const id = setInterval(() => void poll(), 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
   return (
-    <div className="admin-op-list">
-      {jobKinds.map((kind) => (
-        <JobOperationRow
-          initialLastRun={initialLastRuns[kind] ?? null}
-          key={kind}
-          kind={kind}
-        />
-      ))}
+    <div className="stack" style={{ gap: "24px" }}>
+      <dl className="admin-kv-strip">
+        <div className="admin-kv-item">
+          <dt className="admin-kv-label">Queue</dt>
+          <dd className="admin-kv-value">{summary.statusCounts.total}</dd>
+          <dd className="admin-kv-sub">
+            {summary.statusCounts.queued} queued ·{" "}
+            {summary.statusCounts.running} running
+          </dd>
+        </div>
+        <div className="admin-kv-item">
+          <dt className="admin-kv-label">Failures</dt>
+          <dd className="admin-kv-value">{summary.failed + summary.dead}</dd>
+          <dd className="admin-kv-sub">
+            {summary.failed} failed · {summary.dead} dead
+          </dd>
+        </div>
+        <div className="admin-kv-item">
+          <dt className="admin-kv-label">Oldest queued</dt>
+          <dd className="admin-kv-value">
+            {summary.oldestQueuedAgeSeconds === null
+              ? "none"
+              : `${summary.oldestQueuedAgeSeconds}s`}
+          </dd>
+          <dd className="admin-kv-sub">{summary.staleRunning} stale running</dd>
+        </div>
+      </dl>
+
+      {summary.workers.length > 0 ? (
+        <section>
+          <p className="admin-eyebrow">Workers</p>
+          <div className="admin-op-history-panel">
+            {summary.workers.map((worker) => (
+              <div className="admin-history-row" key={worker.id}>
+                <span className={getAdminStatusClassName(worker.status)}>
+                  {worker.status}
+                </span>
+                <span className="muted">
+                  {worker.hostname}:{worker.pid}
+                </span>
+                <span className="muted">
+                  last seen {formatTimeAgo(worker.lastHeartbeatAt)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <div className="admin-op-list">
+        {jobKinds.map((kind) => (
+          <JobOperationRow
+            initialLastRun={initialLastRuns[kind] ?? null}
+            key={kind}
+            kind={kind}
+          />
+        ))}
+      </div>
     </div>
   );
 }

@@ -1,4 +1,3 @@
-import path from "node:path";
 import { rm } from "node:fs/promises";
 
 import { getPrisma } from "@staaash/db/client";
@@ -11,6 +10,7 @@ import {
 } from "@staaash/db/media-derivatives";
 
 import type { WorkerStoragePaths } from "../storage-maintenance.js";
+import { safeResolveStoragePath } from "../storage-maintenance.js";
 
 type MediaDerivativeRecord = {
   id: string;
@@ -176,7 +176,7 @@ export const handleMediaDerivativeCleanup = async (
     if (activeJobStatus) continue;
 
     if (derivative.storageKey) {
-      const filePath = path.resolve(
+      const filePath = safeResolveStoragePath(
         storagePaths.filesRoot,
         derivative.storageKey,
       );

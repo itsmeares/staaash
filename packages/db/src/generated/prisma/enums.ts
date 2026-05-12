@@ -22,7 +22,8 @@ export const JobStatus = {
   running: 'running',
   succeeded: 'succeeded',
   failed: 'failed',
-  dead: 'dead'
+  dead: 'dead',
+  cancelled: 'cancelled'
 } as const
 
 export type JobStatus = (typeof JobStatus)[keyof typeof JobStatus]

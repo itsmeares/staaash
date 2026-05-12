@@ -16,6 +16,25 @@ const workerEnvSchema = z.object({
   UPLOAD_STAGING_RETENTION_HOURS: z.coerce.number().int().positive().default(2),
 });
 
+export const safeResolveStoragePath = (
+  filesRoot: string,
+  storageKey: string,
+) => {
+  const resolvedRoot = path.resolve(filesRoot);
+  const resolvedPath = path.resolve(resolvedRoot, storageKey);
+  const relativePath = path.relative(resolvedRoot, resolvedPath);
+
+  if (
+    relativePath === "" ||
+    relativePath.startsWith("..") ||
+    path.isAbsolute(relativePath)
+  ) {
+    throw new Error("Storage path resolves outside the files root.");
+  }
+
+  return resolvedPath;
+};
+
 export type WorkerStoragePaths = {
   filesRoot: string;
   tmpRoot: string;

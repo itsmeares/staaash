@@ -7,6 +7,9 @@ export type QueueBacklogSummary = {
   running: number;
   failed: number;
   dead: number;
+  cancelled: number;
+  oldestQueuedAgeSeconds: number | null;
+  staleRunning: number;
   status: HealthCheckStatus;
   message?: string;
 };
@@ -66,6 +69,9 @@ export const getQueueBacklogSummary = async (
       running: 0,
       failed: 0,
       dead: 0,
+      cancelled: 0,
+      oldestQueuedAgeSeconds: null,
+      staleRunning: 0,
       status: "error",
       message: "DATABASE_URL is not configured.",
     };
@@ -82,6 +88,7 @@ export const getQueueBacklogSummary = async (
         running: 0,
         failed: 0,
         dead: 0,
+        cancelled: 0,
       };
 
       for (const row of result.rows) {
@@ -90,11 +97,38 @@ export const getQueueBacklogSummary = async (
         }
       }
 
+      const [oldestQueuedResult, staleRunningResult] = await Promise.all([
+        client.query<{ age_seconds: string | null }>(
+          'SELECT EXTRACT(EPOCH FROM (NOW() - MIN("runAt")))::text AS age_seconds FROM "BackgroundJob" WHERE status = $1',
+          ["queued"],
+        ),
+        client.query<{ count: string }>(
+          `SELECT COUNT(*)::text AS count
+           FROM "BackgroundJob"
+           WHERE status = 'running'
+             AND (
+               ("leaseExpiresAt" IS NOT NULL AND "leaseExpiresAt" <= NOW())
+               OR ("leaseExpiresAt" IS NULL AND "lockedAt" <= NOW() - INTERVAL '60 seconds')
+             )`,
+        ),
+      ]);
+
       const status: HealthCheckStatus =
-        counts.dead > 0 ? "error" : counts.failed > 0 ? "warning" : "healthy";
+        counts.dead > 0 || Number(staleRunningResult.rows[0]?.count ?? 0) > 0
+          ? "error"
+          : counts.failed > 0
+            ? "warning"
+            : "healthy";
 
       return {
         ...counts,
+        oldestQueuedAgeSeconds: oldestQueuedResult.rows[0]?.age_seconds
+          ? Math.max(
+              0,
+              Math.floor(Number(oldestQueuedResult.rows[0].age_seconds)),
+            )
+          : null,
+        staleRunning: Number(staleRunningResult.rows[0]?.count ?? 0),
         status,
       };
     });
@@ -104,6 +138,9 @@ export const getQueueBacklogSummary = async (
       running: 0,
       failed: 0,
       dead: 0,
+      cancelled: 0,
+      oldestQueuedAgeSeconds: null,
+      staleRunning: 0,
       status: "warning",
       message: getErrorMessage(error),
     };

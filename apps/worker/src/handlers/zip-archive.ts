@@ -5,6 +5,7 @@ import { pipeline } from "node:stream/promises";
 import { createWriteStream } from "node:fs";
 
 import yazl from "yazl";
+import { z } from "zod";
 import { getPrisma } from "@staaash/db/client";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
 import {
@@ -16,6 +17,9 @@ import {
 } from "@staaash/db/zip-archives";
 
 import type { WorkerStoragePaths } from "../storage-maintenance.js";
+import { safeResolveStoragePath } from "../storage-maintenance.js";
+import type { JobContext } from "../job-context.js";
+import { TerminalJobError } from "../job-context.js";
 
 type FolderRecord = {
   id: string;
@@ -48,6 +52,11 @@ type PrismaClient = {
 type ZipArchiveGeneratePayload = {
   archiveId: string;
 };
+
+const zipArchiveIdsSchema = z.object({
+  fileIds: z.array(z.string()),
+  folderIds: z.array(z.string()),
+});
 
 const buildFolderSegments = ({
   folder,
@@ -88,6 +97,7 @@ const collectDescendantFolderIds = (
 export const handleZipArchiveGenerate = async (
   job: BackgroundJobRecord,
   storagePaths: WorkerStoragePaths,
+  context?: JobContext,
 ): Promise<void> => {
   const payload = job.payloadJson as ZipArchiveGeneratePayload;
   const { archiveId } = payload;
@@ -97,7 +107,12 @@ export const handleZipArchiveGenerate = async (
     return;
   }
 
-  const idsJson = archive.idsJson as { fileIds: string[]; folderIds: string[] };
+  const parsedIds = zipArchiveIdsSchema.safeParse(archive.idsJson);
+  if (!parsedIds.success) {
+    throw new TerminalJobError("Invalid zip archive selection.", "payload");
+  }
+
+  const idsJson = parsedIds.data;
   const { fileIds, folderIds } = idsJson;
   const userId = archive.userId;
 
@@ -109,6 +124,7 @@ export const handleZipArchiveGenerate = async (
 
   try {
     const prisma = getPrisma() as unknown as PrismaClient;
+    await context?.updateProgress({ stage: "loading_selection", archiveId });
 
     const allFolders = await prisma.folder.findMany({
       where: { ownerUserId: userId, deletedAt: null } as object,
@@ -161,6 +177,12 @@ export const handleZipArchiveGenerate = async (
       fileName = "staaash-files.zip";
     }
 
+    await context?.updateProgress({
+      stage: "writing_archive",
+      archiveId,
+      fileCount: filesToZip.length,
+    });
+
     // Build zip
     const zipFile = new yazl.ZipFile();
 
@@ -190,7 +212,10 @@ export const handleZipArchiveGenerate = async (
 
     // Add files
     for (const file of filesToZip) {
-      const filePath = path.resolve(storagePaths.filesRoot, file.storageKey);
+      const filePath = safeResolveStoragePath(
+        storagePaths.filesRoot,
+        file.storageKey,
+      );
 
       let archivePath: string;
 
@@ -245,7 +270,10 @@ export const handleZipArchiveGenerate = async (
 
     // Move to final location
     const storageKey = `archives/${archiveId}.zip`;
-    const finalPath = path.resolve(storagePaths.filesRoot, storageKey);
+    const finalPath = safeResolveStoragePath(
+      storagePaths.filesRoot,
+      storageKey,
+    );
     await mkdir(path.dirname(finalPath), { recursive: true });
     await rename(tmpPath, finalPath);
 
@@ -258,6 +286,7 @@ export const handleZipArchiveGenerate = async (
       BigInt(size),
       filesToZip.length,
     );
+    await context?.updateProgress({ stage: "ready", archiveId });
   } catch (error) {
     await rm(tmpPath, { force: true });
     const message =

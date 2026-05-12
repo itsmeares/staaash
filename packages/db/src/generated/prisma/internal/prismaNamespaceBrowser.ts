@@ -66,6 +66,8 @@ export const ModelName = {
   RecentFolder: 'RecentFolder',
   ShareLink: 'ShareLink',
   BackgroundJob: 'BackgroundJob',
+  WorkerInstance: 'WorkerInstance',
+  BackgroundJobEvent: 'BackgroundJobEvent',
   RestoreReconciliationRun: 'RestoreReconciliationRun',
   MediaDerivative: 'MediaDerivative',
   ZipArchive: 'ZipArchive',
@@ -301,20 +303,61 @@ export type ShareLinkScalarFieldEnum = (typeof ShareLinkScalarFieldEnum)[keyof t
 export const BackgroundJobScalarFieldEnum = {
   id: 'id',
   kind: 'kind',
+  queueName: 'queueName',
+  priority: 'priority',
   status: 'status',
   payloadJson: 'payloadJson',
+  progressJson: 'progressJson',
   dedupeKey: 'dedupeKey',
   runAt: 'runAt',
   lockedAt: 'lockedAt',
   lockedBy: 'lockedBy',
+  leaseExpiresAt: 'leaseExpiresAt',
+  timeoutAt: 'timeoutAt',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  cancelledAt: 'cancelledAt',
+  cancelledByUserId: 'cancelledByUserId',
   attemptCount: 'attemptCount',
   maxAttempts: 'maxAttempts',
   lastError: 'lastError',
+  errorCode: 'errorCode',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type BackgroundJobScalarFieldEnum = (typeof BackgroundJobScalarFieldEnum)[keyof typeof BackgroundJobScalarFieldEnum]
+
+
+export const WorkerInstanceScalarFieldEnum = {
+  id: 'id',
+  hostname: 'hostname',
+  pid: 'pid',
+  version: 'version',
+  startedAt: 'startedAt',
+  lastHeartbeatAt: 'lastHeartbeatAt',
+  stoppedAt: 'stoppedAt',
+  status: 'status',
+  currentJobId: 'currentJobId',
+  metadataJson: 'metadataJson',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type WorkerInstanceScalarFieldEnum = (typeof WorkerInstanceScalarFieldEnum)[keyof typeof WorkerInstanceScalarFieldEnum]
+
+
+export const BackgroundJobEventScalarFieldEnum = {
+  id: 'id',
+  jobId: 'jobId',
+  type: 'type',
+  message: 'message',
+  metadataJson: 'metadataJson',
+  workerId: 'workerId',
+  createdAt: 'createdAt'
+} as const
+
+export type BackgroundJobEventScalarFieldEnum = (typeof BackgroundJobEventScalarFieldEnum)[keyof typeof BackgroundJobEventScalarFieldEnum]
 
 
 export const RestoreReconciliationRunScalarFieldEnum = {

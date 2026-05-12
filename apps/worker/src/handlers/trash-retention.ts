@@ -1,9 +1,9 @@
-import path from "node:path";
-import { mkdir, rm } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import { z } from "zod";
 import { getPrisma } from "@staaash/db/client";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
 import { resolveWorkspacePath } from "@staaash/config";
+import { safeResolveStoragePath } from "../storage-maintenance.js";
 
 const trashEnvSchema = z.object({
   UPLOAD_LOCATION: z.string().trim().min(1),
@@ -38,9 +38,6 @@ type PrismaClient = {
   };
   $transaction<T>(fn: (tx: PrismaClient) => Promise<T>): Promise<T>;
 };
-
-const resolveStoragePath = (filesRoot: string, storageKey: string) =>
-  path.resolve(filesRoot, storageKey);
 
 const isRetentionRootFolder = (
   folder: FolderRecord,
@@ -159,7 +156,7 @@ export const handleTrashRetention = async (
       continue;
     }
 
-    const filePath = resolveStoragePath(filesRoot, current.storageKey);
+    const filePath = safeResolveStoragePath(filesRoot, current.storageKey);
     await rm(filePath, { force: true });
     await prisma.file.deleteMany({
       where: { id: current.id },
@@ -231,7 +228,7 @@ export const handleTrashRetention = async (
 
       // Delete file blobs
       for (const f of filesInTree) {
-        const filePath = resolveStoragePath(filesRoot, f.storageKey);
+        const filePath = safeResolveStoragePath(filesRoot, f.storageKey);
         await rm(filePath, { force: true });
       }
 

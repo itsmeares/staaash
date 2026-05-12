@@ -1,6 +1,6 @@
 import { ALL_SUPPORTED_JOB_KINDS } from "@staaash/db/jobs";
 
-import { getLastRunPerKind } from "@/server/admin/jobs";
+import { getAdminJobSummary, getLastRunPerKind } from "@/server/admin/jobs";
 
 import { type JsonBackgroundJob, JobOperations } from "./job-operations";
 
@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminJobsPage() {
   const lastRunPerKind = await getLastRunPerKind();
+  const queueSummary = await getAdminJobSummary();
 
   const initialLastRuns: Record<string, JsonBackgroundJob | null> =
     Object.fromEntries(
@@ -43,6 +44,17 @@ export default async function AdminJobsPage() {
       <section>
         <JobOperations
           initialLastRuns={initialLastRuns}
+          initialSummary={{
+            ...queueSummary,
+            workers: queueSummary.workers.map((worker) => ({
+              ...worker,
+              startedAt: worker.startedAt.toISOString(),
+              lastHeartbeatAt: worker.lastHeartbeatAt.toISOString(),
+              stoppedAt: worker.stoppedAt?.toISOString() ?? null,
+              createdAt: worker.createdAt.toISOString(),
+              updatedAt: worker.updatedAt.toISOString(),
+            })),
+          }}
           jobKinds={[...ALL_SUPPORTED_JOB_KINDS]}
         />
       </section>
