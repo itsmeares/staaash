@@ -12,6 +12,7 @@ import {
   getQueueOperationalSummary,
   listBackgroundJobEvents,
   retryBackgroundJob,
+  type BackgroundJobRecord,
 } from "@staaash/db/jobs";
 
 import type { JsonAdminJobListResponse } from "./types";
@@ -91,11 +92,28 @@ export const enqueueAdminTrashRetention = async (now = new Date()) =>
     now,
   });
 
+const isFinishedAdminJob = (job: BackgroundJobRecord) =>
+  job.status === "succeeded" ||
+  job.status === "failed" ||
+  job.status === "dead" ||
+  job.status === "cancelled";
+
+const selectRepresentativeAdminJob = (
+  jobs: BackgroundJobRecord[],
+  now = new Date(),
+) =>
+  jobs.find((job) => job.status === "running") ??
+  jobs.find((job) => job.status === "queued" && job.runAt <= now) ??
+  jobs.find(isFinishedAdminJob) ??
+  jobs.find((job) => job.status === "queued") ??
+  null;
+
 export const getLastRunPerKind = async () => {
+  const now = new Date();
   const results = await Promise.all(
     ALL_SUPPORTED_JOB_KINDS.map(async (kind) => {
-      const res = await listAdminBackgroundJobs({ kind, limit: 1 });
-      return { kind, job: res.items[0] ?? null };
+      const res = await listAdminBackgroundJobs({ kind, limit: 100 });
+      return { kind, job: selectRepresentativeAdminJob(res.items, now) };
     }),
   );
   return Object.fromEntries(

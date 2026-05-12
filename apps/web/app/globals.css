@@ -297,21 +297,26 @@ h3 {
 
 .status-active,
 .status-healthy {
-  background: rgba(49, 123, 75, 0.12);
-  color: #23573a;
+  background: oklch(64% 0.11 145 / 0.14);
+  color: oklch(43% 0.1 145);
 }
 
 .status-accepted,
 .status-warning {
-  background: rgba(180, 132, 0, 0.14);
-  color: #7b5b0d;
+  background: oklch(74% 0.1 78 / 0.16);
+  color: oklch(44% 0.08 78);
 }
 
 .status-expired,
 .status-revoked,
 .status-error {
-  background: rgba(170, 52, 52, 0.12);
-  color: #8a2323;
+  background: oklch(62% 0.16 25 / 0.14);
+  color: oklch(47% 0.16 25);
+}
+
+.status-muted {
+  background: color-mix(in oklab, var(--foreground) 7%, transparent);
+  color: color-mix(in oklab, var(--foreground) 58%, transparent);
 }
 
 .status-owner {
@@ -322,6 +327,30 @@ h3 {
 .status-member {
   background: color-mix(in oklab, var(--foreground) 8%, var(--card));
   color: color-mix(in oklab, var(--foreground) 70%, transparent);
+}
+
+.dark .status-active,
+.dark .status-healthy {
+  background: oklch(67% 0.12 145 / 0.16);
+  color: oklch(78% 0.1 145);
+}
+
+.dark .status-accepted,
+.dark .status-warning {
+  background: oklch(74% 0.1 78 / 0.17);
+  color: oklch(82% 0.09 78);
+}
+
+.dark .status-expired,
+.dark .status-revoked,
+.dark .status-error {
+  background: oklch(62% 0.16 25 / 0.16);
+  color: oklch(76% 0.13 25);
+}
+
+.dark .status-muted {
+  background: color-mix(in oklab, var(--foreground) 8%, transparent);
+  color: color-mix(in oklab, var(--foreground) 54%, transparent);
 }
 
 .inline-form {
@@ -598,6 +627,182 @@ h3 {
     color-mix(in oklab, var(--foreground) 6%, transparent);
 }
 
+.admin-worker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0 22px;
+  padding: 2px 0 14px;
+  border-top: 1px solid color-mix(in oklab, var(--foreground) 6%, transparent);
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 6%, transparent);
+}
+
+.admin-worker-grid:empty {
+  display: none;
+}
+
+.admin-worker-archive {
+  margin-top: 10px;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+}
+
+.admin-worker-archive summary {
+  cursor: pointer;
+  width: max-content;
+  max-width: 100%;
+  padding: 5px 0;
+  color: color-mix(in oklab, var(--foreground) 62%, transparent);
+}
+
+.admin-worker-grid-archived {
+  margin-top: 4px;
+  opacity: 0.82;
+}
+
+.admin-worker-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 38px;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 4%, transparent);
+  font-size: 0.8125rem;
+}
+
+.admin-worker-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: color-mix(in oklab, var(--foreground) 84%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-job-history-panel {
+  padding: 14px 0 20px;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 6%, transparent);
+}
+
+.admin-job-history-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.42fr) minmax(320px, 1fr);
+  gap: 26px;
+}
+
+.admin-job-history-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 0 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.admin-job-run-list {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-width: thin;
+}
+
+.admin-job-run-button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-job-run-button:hover {
+  background: color-mix(in oklab, var(--foreground) 5%, transparent);
+}
+
+.admin-job-run-button-active {
+  background: color-mix(in oklab, var(--primary) 9%, transparent);
+  border-color: color-mix(in oklab, var(--primary) 18%, transparent);
+}
+
+.admin-job-detail {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  padding-top: 2px;
+}
+
+.admin-job-detail-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-job-detail-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.admin-job-detail-id {
+  margin-top: 3px;
+  font-size: 0.72rem;
+  font-family: "Cascadia Code", monospace;
+  word-break: break-all;
+}
+
+.admin-job-detail-error {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: color-mix(in oklab, var(--destructive) 82%, var(--foreground));
+}
+
+.admin-job-detail-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-job-events {
+  display: grid;
+  gap: 0;
+  padding-top: 4px;
+}
+
+.admin-job-event-row {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 4%, transparent);
+  font-size: 0.78rem;
+}
+
+.admin-job-events-empty {
+  font-size: 0.8125rem;
+  padding: 8px 0;
+}
+
 .admin-history-row {
   display: grid;
   grid-template-columns: auto auto 1fr;
@@ -611,6 +816,16 @@ h3 {
 
 .admin-history-row:last-child {
   border-bottom: none;
+}
+
+@media (max-width: 860px) {
+  .admin-job-history-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-worker-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .workspace-sidebar {

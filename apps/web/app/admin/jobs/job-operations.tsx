@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   formatAdminDateTime,
@@ -100,6 +100,7 @@ const JOB_META: Record<string, { name: string; desc: string }> = {
 
 const JOB_POLL_MS = 5000;
 const CLOCK_TICK_MS = 1000;
+const HISTORY_VISIBLE_RUNS = 12;
 
 function effectiveStatus(
   job: Pick<JsonBackgroundJob, "status" | "lastError">,
@@ -138,30 +139,42 @@ function formatRelativeTime(dateStr: string, nowMs: number | null): string {
   return `${days}d ${suffix}`;
 }
 
-function getJobTimingLabel(job: JsonBackgroundJob, nowMs: number | null) {
-  if (job.status === "queued") {
+function getJobDisplayStatus(
+  job: Pick<JsonBackgroundJob, "id" | "status" | "lastError">,
+  workerRunningJobIds: Set<string>,
+): string {
+  if (workerRunningJobIds.has(job.id)) return "running";
+  return effectiveStatus(job);
+}
+
+function getJobTimingLabel(
+  job: JsonBackgroundJob,
+  nowMs: number | null,
+  displayStatus = effectiveStatus(job),
+) {
+  if (displayStatus === "queued") {
     const runAtMs = new Date(job.runAt).getTime();
     if (nowMs !== null && runAtMs <= nowMs) {
-      return `due ${formatRelativeTime(job.runAt, nowMs)}`;
+      return `waiting ${formatRelativeTime(job.runAt, nowMs)}`;
     }
     return `scheduled ${formatLocalDateTime(job.runAt, nowMs)}`;
   }
 
-  if (job.status === "running") {
+  if (displayStatus === "running") {
     return `started ${formatRelativeTime(
       job.startedAt ?? job.lockedAt ?? job.updatedAt,
       nowMs,
     )}`;
   }
 
-  if (job.status === "succeeded") {
+  if (displayStatus === "succeeded") {
     return `completed ${formatRelativeTime(
       job.completedAt ?? job.updatedAt,
       nowMs,
     )}`;
   }
 
-  if (job.status === "cancelled") {
+  if (displayStatus === "cancelled") {
     return `cancelled ${formatRelativeTime(
       job.cancelledAt ?? job.updatedAt,
       nowMs,
@@ -182,64 +195,115 @@ function formatDuration(seconds: number | null) {
   return `${days}d`;
 }
 
+function isFinishedJob(job: JsonBackgroundJob) {
+  return (
+    job.status === "succeeded" ||
+    job.status === "failed" ||
+    job.status === "dead" ||
+    job.status === "cancelled"
+  );
+}
+
+function selectRepresentativeJob(
+  jobs: JsonBackgroundJob[],
+  workerRunningJobIds: Set<string>,
+) {
+  const now = new Date();
+  return (
+    jobs.find((job) => workerRunningJobIds.has(job.id)) ??
+    jobs.find((job) => job.status === "running") ??
+    jobs.find((job) => job.status === "queued" && new Date(job.runAt) <= now) ??
+    jobs.find(isFinishedJob) ??
+    jobs.find((job) => job.status === "queued") ??
+    null
+  );
+}
+
+function getActiveJobState(
+  jobs: JsonBackgroundJob[],
+  workerRunningJobIds: Set<string>,
+) {
+  const hasRunning = jobs.some(
+    (job) => job.status === "running" || workerRunningJobIds.has(job.id),
+  );
+  const hasQueued = jobs.some((job) => job.status === "queued");
+  const activeCount = jobs.filter(
+    (job) => job.status === "queued" || job.status === "running",
+  ).length;
+
+  return { hasRunning, hasQueued, activeCount };
+}
+
 function JobOperationRow({
   kind,
   initialLastRun,
   nowMs,
+  workerRunningJobIds,
 }: {
   kind: string;
   initialLastRun: JsonBackgroundJob | null;
   nowMs: number | null;
+  workerRunningJobIds: Set<string>;
 }) {
   const meta = JOB_META[kind];
   const [lastRun, setLastRun] = useState<JsonBackgroundJob | null>(
     initialLastRun,
   );
-  const [activeCount, setActiveCount] = useState<number | null>(null);
+  const [activeJobState, setActiveJobState] = useState({
+    hasRunning: initialLastRun?.status === "running",
+    hasQueued: initialLastRun?.status === "queued",
+    activeCount:
+      initialLastRun?.status === "queued" ||
+      initialLastRun?.status === "running"
+        ? 1
+        : 0,
+  });
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<JsonBackgroundJob[] | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [eventsJobId, setEventsJobId] = useState<string | null>(null);
+  const [selectedHistoryJobId, setSelectedHistoryJobId] = useState<
+    string | null
+  >(null);
   const [events, setEvents] = useState<JsonJobEvent[] | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const isQueued = lastRun?.status === "queued";
-  const isRunning = lastRun?.status === "running";
-  const isActive = isQueued || isRunning;
+  const isActive = activeJobState.hasQueued || activeJobState.hasRunning;
+  const lastRunStatus = lastRun
+    ? getJobDisplayStatus(lastRun, workerRunningJobIds)
+    : null;
 
   useEffect(() => {
     let cancelled = false;
     const poll = async () => {
       try {
         const res = await fetch(
-          `/api/admin/jobs?kind=${encodeURIComponent(kind)}`,
+          `/api/admin/jobs?kind=${encodeURIComponent(kind)}&limit=100`,
         );
         if (!res.ok || cancelled) return;
         const data = await res.json();
         const jobs: JsonBackgroundJob[] = data.items ?? [];
-        const latest: JsonBackgroundJob | null = jobs[0] ?? null;
-        const count = jobs.filter(
-          (j) => j.status === "queued" || j.status === "running",
-        ).length;
+        const latest = selectRepresentativeJob(jobs, workerRunningJobIds);
         if (!cancelled) {
           setLastRun(latest);
-          setActiveCount(count > 0 ? count : null);
+          setActiveJobState(getActiveJobState(jobs, workerRunningJobIds));
           if (historyOpen) {
             setHistory(jobs);
+            setSelectedHistoryJobId((current) => current ?? latest?.id ?? null);
           }
         }
       } catch {
         // network error — ignore, retry next tick
       }
     };
+    void poll();
     const id = setInterval(() => void poll(), JOB_POLL_MS);
     return () => {
       cancelled = true;
       clearInterval(id);
     };
-  }, [kind, historyOpen]);
+  }, [kind, historyOpen, workerRunningJobIds]);
 
   const handleRun = async () => {
     setRunning(true);
@@ -255,11 +319,13 @@ function JobOperationRow({
         setRunError(body?.error ?? `Request failed (${runRes.status}).`);
         return;
       }
-      const res = await fetch(`/api/admin/jobs?kind=${kind}&limit=1`);
+      const res = await fetch(`/api/admin/jobs?kind=${kind}&limit=100`);
       if (res.ok) {
         const data = await res.json();
-        const job = data.items[0] ?? null;
+        const jobs: JsonBackgroundJob[] = data.items ?? [];
+        const job = selectRepresentativeJob(jobs, workerRunningJobIds);
         setLastRun(job);
+        setActiveJobState(getActiveJobState(jobs, workerRunningJobIds));
         if (historyOpen && job) {
           setHistory((prev) =>
             prev ? [job, ...prev.filter((j) => j.id !== job.id)] : [job],
@@ -282,24 +348,36 @@ function JobOperationRow({
       return;
     }
     const updated = await fetch(
-      `/api/admin/jobs?kind=${encodeURIComponent(kind)}`,
+      `/api/admin/jobs?kind=${encodeURIComponent(kind)}&limit=100`,
     );
     if (updated.ok) {
       const data = await updated.json();
-      setHistory(data.items ?? null);
-      setLastRun(data.items?.[0] ?? null);
+      const jobs: JsonBackgroundJob[] = data.items ?? [];
+      setHistory(jobs);
+      setLastRun(selectRepresentativeJob(jobs, workerRunningJobIds));
+      setActiveJobState(getActiveJobState(jobs, workerRunningJobIds));
     }
   };
 
-  const loadEvents = async (jobId: string) => {
-    setEventsJobId(jobId);
+  useEffect(() => {
+    if (!historyOpen || !selectedHistoryJobId) return;
+
+    let cancelled = false;
     setEvents(null);
-    const res = await fetch(`/api/admin/jobs/${jobId}/events`);
-    if (res.ok) {
-      const data = await res.json();
-      setEvents(data.items ?? []);
-    }
-  };
+    void fetch(`/api/admin/jobs/${selectedHistoryJobId}/events`)
+      .then(async (res) => {
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        setEvents(data.items ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setEvents([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [historyOpen, selectedHistoryJobId]);
 
   const handleToggleHistory = async () => {
     const opening = !historyOpen;
@@ -307,16 +385,25 @@ function JobOperationRow({
     if (opening && history === null) {
       setHistoryLoading(true);
       try {
-        const res = await fetch(`/api/admin/jobs?kind=${kind}&limit=10`);
+        const res = await fetch(`/api/admin/jobs?kind=${kind}&limit=100`);
         if (res.ok) {
           const data = await res.json();
-          setHistory(data.items);
+          const jobs: JsonBackgroundJob[] = data.items ?? [];
+          const selected = selectRepresentativeJob(jobs, workerRunningJobIds);
+          setHistory(jobs);
+          setSelectedHistoryJobId(selected?.id ?? jobs[0]?.id ?? null);
         }
       } finally {
         setHistoryLoading(false);
       }
     }
   };
+
+  const visibleHistory = history?.slice(0, HISTORY_VISIBLE_RUNS) ?? [];
+  const selectedHistoryJob =
+    history?.find((job) => job.id === selectedHistoryJobId) ??
+    visibleHistory[0] ??
+    null;
 
   return (
     <>
@@ -326,16 +413,14 @@ function JobOperationRow({
           <span className="admin-op-desc">{meta?.desc}</span>
           {lastRun ? (
             <span className="admin-op-last">
-              <span
-                className={getAdminStatusClassName(effectiveStatus(lastRun))}
-              >
-                {effectiveStatus(lastRun)}
+              <span className={getAdminStatusClassName(lastRunStatus ?? "")}>
+                {lastRunStatus}
               </span>{" "}
-              · {getJobTimingLabel(lastRun, nowMs)}
-              {activeCount !== null && activeCount > 1 && (
+              · {getJobTimingLabel(lastRun, nowMs, lastRunStatus ?? undefined)}
+              {activeJobState.activeCount > 1 && (
                 <>
                   {" "}
-                  · <strong>{activeCount} active</strong>
+                  · <strong>{activeJobState.activeCount} active</strong>
                 </>
               )}
             </span>
@@ -352,9 +437,9 @@ function JobOperationRow({
           >
             {running
               ? "Queuing…"
-              : isRunning
+              : activeJobState.hasRunning
                 ? "Running"
-                : isQueued
+                : activeJobState.hasQueued
                   ? "Scheduled"
                   : "Run"}
           </button>
@@ -384,7 +469,7 @@ function JobOperationRow({
         </div>
       </div>
       {historyOpen && (
-        <div className="admin-op-history-panel">
+        <div className="admin-job-history-panel">
           {historyLoading ? (
             <p
               className="muted"
@@ -393,62 +478,135 @@ function JobOperationRow({
               Loading…
             </p>
           ) : history && history.length > 0 ? (
-            history.map((job) => {
-              const fileId = job.dedupeKey?.split(":")[1] ?? null;
-              const reason =
-                typeof job.payloadJson?.reason === "string"
-                  ? job.payloadJson.reason
-                  : null;
-              const fileLabel =
-                job.fileName ?? (fileId ? `${fileId.slice(0, 8)}…` : null);
-              return (
-                <div className="admin-history-row" key={job.id}>
-                  <span
-                    className={getAdminStatusClassName(effectiveStatus(job))}
-                  >
-                    {effectiveStatus(job)}
+            <div className="admin-job-history-layout">
+              <div className="admin-job-run-list">
+                <div className="admin-job-history-head">
+                  <span>Recent runs</span>
+                  <span className="muted">
+                    {visibleHistory.length} of {history.length}
                   </span>
-                  <span className="muted">{getJobTimingLabel(job, nowMs)}</span>
-                  {fileLabel ? (
-                    <span className="muted" style={{ fontSize: "0.78rem" }}>
-                      {reason ? `${reason} · ` : ""}
-                      {fileLabel}
-                    </span>
-                  ) : (
-                    <span className="muted" style={{ fontSize: "0.78rem" }}>
-                      {job.lastError ?? ""}
-                    </span>
-                  )}
-                  <button
-                    className="button button-secondary"
-                    onClick={() => void loadEvents(job.id)}
-                    style={{ fontSize: "0.75rem", padding: "4px 8px" }}
-                  >
-                    Events
-                  </button>
-                  {job.status === "failed" ||
-                  job.status === "dead" ||
-                  job.status === "cancelled" ? (
-                    <button
-                      className="button button-secondary"
-                      onClick={() => void postJobAction(job.id, "retry")}
-                      style={{ fontSize: "0.75rem", padding: "4px 8px" }}
-                    >
-                      Retry
-                    </button>
-                  ) : null}
-                  {job.status === "queued" || job.status === "running" ? (
-                    <button
-                      className="button button-secondary"
-                      onClick={() => void postJobAction(job.id, "cancel")}
-                      style={{ fontSize: "0.75rem", padding: "4px 8px" }}
-                    >
-                      Cancel
-                    </button>
-                  ) : null}
                 </div>
-              );
-            })
+                {visibleHistory.map((job) => {
+                  const displayStatus = getJobDisplayStatus(
+                    job,
+                    workerRunningJobIds,
+                  );
+                  return (
+                    <button
+                      className={`admin-job-run-button ${
+                        selectedHistoryJob?.id === job.id
+                          ? "admin-job-run-button-active"
+                          : ""
+                      }`}
+                      key={job.id}
+                      onClick={() => setSelectedHistoryJobId(job.id)}
+                      type="button"
+                    >
+                      <span className={getAdminStatusClassName(displayStatus)}>
+                        {displayStatus}
+                      </span>
+                      <span>
+                        {getJobTimingLabel(job, nowMs, displayStatus)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="admin-job-detail">
+                {selectedHistoryJob ? (
+                  <>
+                    <div className="admin-job-detail-head">
+                      <div>
+                        <p className="admin-job-detail-title">
+                          {getJobTimingLabel(
+                            selectedHistoryJob,
+                            nowMs,
+                            getJobDisplayStatus(
+                              selectedHistoryJob,
+                              workerRunningJobIds,
+                            ),
+                          )}
+                        </p>
+                        <p className="muted admin-job-detail-id">
+                          {selectedHistoryJob.id}
+                        </p>
+                      </div>
+                      <span
+                        className={getAdminStatusClassName(
+                          getJobDisplayStatus(
+                            selectedHistoryJob,
+                            workerRunningJobIds,
+                          ),
+                        )}
+                      >
+                        {getJobDisplayStatus(
+                          selectedHistoryJob,
+                          workerRunningJobIds,
+                        )}
+                      </span>
+                    </div>
+
+                    {selectedHistoryJob.lastError ? (
+                      <p className="admin-job-detail-error">
+                        {selectedHistoryJob.lastError}
+                      </p>
+                    ) : null}
+
+                    <div className="admin-job-detail-actions">
+                      {selectedHistoryJob.status === "failed" ||
+                      selectedHistoryJob.status === "dead" ||
+                      selectedHistoryJob.status === "cancelled" ? (
+                        <button
+                          className="button button-secondary"
+                          onClick={() =>
+                            void postJobAction(selectedHistoryJob.id, "retry")
+                          }
+                          style={{ fontSize: "0.75rem", padding: "4px 10px" }}
+                        >
+                          Retry
+                        </button>
+                      ) : null}
+                      {selectedHistoryJob.status === "queued" ||
+                      selectedHistoryJob.status === "running" ? (
+                        <button
+                          className="button button-secondary"
+                          onClick={() =>
+                            void postJobAction(selectedHistoryJob.id, "cancel")
+                          }
+                          style={{ fontSize: "0.75rem", padding: "4px 10px" }}
+                        >
+                          Cancel
+                        </button>
+                      ) : null}
+                    </div>
+
+                    <div className="admin-job-events">
+                      <p className="admin-eyebrow">Events</p>
+                      {events === null ? (
+                        <p className="muted admin-job-events-empty">Loading…</p>
+                      ) : events.length > 0 ? (
+                        events.map((event) => (
+                          <div className="admin-job-event-row" key={event.id}>
+                            <span className="status-chip">{event.type}</span>
+                            <span className="muted">
+                              {formatLocalDateTime(event.createdAt, nowMs)}
+                            </span>
+                            <span className="muted">
+                              {event.message ?? event.workerId ?? ""}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="muted admin-job-events-empty">
+                          No events recorded.
+                        </p>
+                      )}
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            </div>
           ) : (
             <p
               className="muted"
@@ -459,32 +617,6 @@ function JobOperationRow({
           )}
         </div>
       )}
-      {eventsJobId && historyOpen ? (
-        <div className="admin-op-history-panel" style={{ marginTop: "8px" }}>
-          <p className="admin-eyebrow">Events</p>
-          {events === null ? (
-            <p className="muted" style={{ fontSize: "0.8125rem" }}>
-              Loading…
-            </p>
-          ) : events.length > 0 ? (
-            events.map((event) => (
-              <div className="admin-history-row" key={event.id}>
-                <span className="status-chip status-healthy">{event.type}</span>
-                <span className="muted">
-                  {formatLocalDateTime(event.createdAt, nowMs)}
-                </span>
-                <span className="muted" style={{ fontSize: "0.78rem" }}>
-                  {event.message ?? event.workerId ?? ""}
-                </span>
-              </div>
-            ))
-          ) : (
-            <p className="muted" style={{ fontSize: "0.8125rem" }}>
-              No events recorded.
-            </p>
-          )}
-        </div>
-      ) : null}
     </>
   );
 }
@@ -504,6 +636,22 @@ export function JobOperations({
   const [nowMs, setNowMs] = useState<number | null>(null);
   const activeQueueCount =
     summary.statusCounts.queued + summary.statusCounts.running;
+  const activeWorkers = summary.workers.filter(
+    (worker) => worker.status !== "stopped" && worker.status !== "stale",
+  );
+  const inactiveWorkers = summary.workers.filter(
+    (worker) => worker.status === "stopped" || worker.status === "stale",
+  );
+  const workerRunningJobIds = useMemo(
+    () =>
+      new Set(
+        summary.workers
+          .filter((worker) => worker.status === "running")
+          .map((worker) => worker.currentJobId)
+          .filter((jobId): jobId is string => Boolean(jobId)),
+      ),
+    [summary.workers],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -561,13 +709,13 @@ export function JobOperations({
       {summary.workers.length > 0 ? (
         <section>
           <p className="admin-eyebrow">Workers</p>
-          <div className="admin-op-history-panel">
-            {summary.workers.map((worker) => (
-              <div className="admin-history-row" key={worker.id}>
+          <div className="admin-worker-grid">
+            {activeWorkers.map((worker) => (
+              <div className="admin-worker-row" key={worker.id}>
                 <span className={getAdminStatusClassName(worker.status)}>
                   {worker.status}
                 </span>
-                <span className="muted">
+                <span className="admin-worker-name">
                   {worker.hostname}:{worker.pid}
                 </span>
                 <span className="muted">
@@ -576,6 +724,30 @@ export function JobOperations({
               </div>
             ))}
           </div>
+          {inactiveWorkers.length > 0 ? (
+            <details className="admin-worker-archive">
+              <summary>
+                {inactiveWorkers.length} stopped or stale worker
+                {inactiveWorkers.length === 1 ? "" : "s"}
+              </summary>
+              <div className="admin-worker-grid admin-worker-grid-archived">
+                {inactiveWorkers.map((worker) => (
+                  <div className="admin-worker-row" key={worker.id}>
+                    <span className={getAdminStatusClassName(worker.status)}>
+                      {worker.status}
+                    </span>
+                    <span className="admin-worker-name">
+                      {worker.hostname}:{worker.pid}
+                    </span>
+                    <span className="muted">
+                      last seen{" "}
+                      {formatRelativeTime(worker.lastHeartbeatAt, nowMs)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          ) : null}
         </section>
       ) : null}
 
@@ -586,6 +758,7 @@ export function JobOperations({
             key={kind}
             kind={kind}
             nowMs={nowMs}
+            workerRunningJobIds={workerRunningJobIds}
           />
         ))}
       </div>

@@ -30,20 +30,23 @@ export const getAdminStatusClassName = (status: string) =>
     status === "healthy" ||
     status === "active" ||
     status === "up-to-date" ||
-    status === "succeeded"
+    status === "succeeded" ||
+    status === "running"
       ? "status-healthy"
       : status === "warning" ||
           status === "accepted" ||
           status === "update-available" ||
           status === "unavailable" ||
           status === "queued" ||
-          status === "running"
+          status === "stale"
         ? "status-warning"
-        : status === "cancelled"
-          ? ""
-          : status === "owner"
-            ? "status-owner"
-            : status === "member"
-              ? "status-member"
-              : "status-error"
+        : status === "idle" || status === "stopped"
+          ? "status-muted"
+          : status === "cancelled"
+            ? ""
+            : status === "owner"
+              ? "status-owner"
+              : status === "member"
+                ? "status-member"
+                : "status-error"
   }`;
