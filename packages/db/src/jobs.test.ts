@@ -20,6 +20,7 @@ const {
 type DateComparisonFilter = {
   lte?: Date;
   gte?: Date;
+  gt?: Date;
 };
 
 type InFilter = {
@@ -91,6 +92,10 @@ const createClient = (
     }
 
     if ("gte" in filter && !(fieldValue && fieldValue >= filter.gte!)) {
+      return false;
+    }
+
+    if ("gt" in filter && !(fieldValue && fieldValue > filter.gt!)) {
       return false;
     }
 
@@ -558,6 +563,38 @@ describe("background jobs", () => {
     expect(jobs).toHaveLength(1);
   });
 
+  it("retries scheduling when Prisma reports a transaction write conflict", async () => {
+    const now = new Date("2026-04-01T12:00:00.000Z");
+    const jobs: MemoryJob[] = [];
+    const baseClient = createClient(jobs);
+    let attempts = 0;
+    const client = {
+      ...baseClient,
+      async $transaction<T>(callback: (tx: typeof baseClient) => Promise<T>) {
+        attempts += 1;
+
+        if (attempts === 1) {
+          const error = new Error("TransactionWriteConflict");
+          error.name = "TransactionWriteConflict";
+          throw error;
+        }
+
+        return baseClient.$transaction(callback);
+      },
+    };
+
+    const result = await ensureBackgroundJobScheduled({
+      kind: UPDATE_CHECK_JOB_KIND,
+      runAt: now,
+      client,
+      now,
+    });
+
+    expect(result.created).toBe(true);
+    expect(attempts).toBe(2);
+    expect(jobs).toHaveLength(1);
+  });
+
   it("multi-kind dispatcher claims the earliest due job across kinds", async () => {
     const now = new Date("2026-04-01T12:00:00.000Z");
     const earlier = new Date(now.getTime() - 1000);
@@ -746,8 +783,29 @@ describe("background jobs", () => {
 
   it("records events and summarizes queue operations", async () => {
     const events: MemoryEvent[] = [];
+    const workers: MemoryWorker[] = [
+      {
+        id: "worker-1",
+        hostname: "host",
+        pid: 1,
+        version: null,
+        startedAt: new Date("2026-04-01T11:00:00.000Z"),
+        lastHeartbeatAt: new Date("2026-04-01T11:57:00.000Z"),
+        stoppedAt: null,
+        status: "starting",
+        currentJobId: null,
+        metadataJson: {},
+        createdAt: new Date("2026-04-01T11:00:00.000Z"),
+        updatedAt: new Date("2026-04-01T11:00:00.000Z"),
+      },
+    ];
     const jobs = [
       createJob({ id: "queued-job", status: "queued" }),
+      createJob({
+        id: "future-job",
+        status: "queued",
+        runAt: new Date("2026-04-01T12:15:00.000Z"),
+      }),
       createJob({ id: "dead-job", status: "dead" }),
       createJob({
         id: "stale-running",
@@ -755,7 +813,7 @@ describe("background jobs", () => {
         lockedAt: new Date("2026-04-01T11:58:00.000Z"),
       }),
     ];
-    const client = createClient(jobs, events);
+    const client = createClient(jobs, events, workers);
 
     await cancelBackgroundJob({
       jobId: "queued-job",
@@ -774,7 +832,12 @@ describe("background jobs", () => {
 
     expect(jobEvents.map((event) => event.type)).toContain("cancelled");
     expect(summary.statusCounts.cancelled).toBe(1);
+    expect(summary.oldestDueQueuedAgeSeconds).toBeNull();
+    expect(summary.nextQueuedRunAt).toEqual(
+      new Date("2026-04-01T12:15:00.000Z"),
+    );
     expect(summary.dead).toBe(1);
     expect(summary.staleRunning).toBe(1);
+    expect(summary.workers[0]?.status).toBe("stale");
   });
 });

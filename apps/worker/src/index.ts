@@ -56,7 +56,7 @@ const main = async () => {
     });
   }
 
-  await schedulePeriodicJobs();
+  await schedulePeriodicJobs(new Date(), { runMissingImmediately: true });
   await runMaintenance();
 
   const heartbeatTimer = setInterval(() => {

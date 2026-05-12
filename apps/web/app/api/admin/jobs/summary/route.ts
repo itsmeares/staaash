@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     ...summary,
+    nextQueuedRunAt: summary.nextQueuedRunAt?.toISOString() ?? null,
     workers: summary.workers.map((worker) => ({
       ...worker,
       startedAt: worker.startedAt.toISOString(),

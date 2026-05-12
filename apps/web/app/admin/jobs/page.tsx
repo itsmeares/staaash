@@ -20,6 +20,11 @@ export default async function AdminJobsPage() {
               kind: job.kind,
               status: job.status,
               runAt: job.runAt.toISOString(),
+              lockedAt: job.lockedAt?.toISOString() ?? null,
+              leaseExpiresAt: job.leaseExpiresAt?.toISOString() ?? null,
+              startedAt: job.startedAt?.toISOString() ?? null,
+              completedAt: job.completedAt?.toISOString() ?? null,
+              cancelledAt: job.cancelledAt?.toISOString() ?? null,
               createdAt: job.createdAt.toISOString(),
               updatedAt: job.updatedAt.toISOString(),
               lastError: job.lastError,
@@ -46,6 +51,8 @@ export default async function AdminJobsPage() {
           initialLastRuns={initialLastRuns}
           initialSummary={{
             ...queueSummary,
+            nextQueuedRunAt:
+              queueSummary.nextQueuedRunAt?.toISOString() ?? null,
             workers: queueSummary.workers.map((worker) => ({
               ...worker,
               startedAt: worker.startedAt.toISOString(),

@@ -180,26 +180,30 @@ export const getJobRegistryEntry = (kind: string) =>
 const resolveMaybeAsyncMs = async (value: number | (() => Promise<number>)) =>
   typeof value === "number" ? value : value();
 
-export const schedulePeriodicJobs = async (now = new Date()) => {
-  await Promise.all(
-    Object.values(JOB_REGISTRY)
-      .filter((entry) => entry.scheduleEveryMs)
-      .map(async (entry) => {
-        const intervalMs = await resolveMaybeAsyncMs(entry.scheduleEveryMs!);
-        const windowMs = entry.scheduleWindowMs
-          ? await resolveMaybeAsyncMs(entry.scheduleWindowMs)
-          : intervalMs;
+export const schedulePeriodicJobs = async (
+  now = new Date(),
+  { runMissingImmediately = false }: { runMissingImmediately?: boolean } = {},
+) => {
+  for (const entry of Object.values(JOB_REGISTRY)) {
+    if (!entry.scheduleEveryMs) continue;
 
-        await ensureBackgroundJobScheduled({
-          kind: entry.kind,
-          runAt: now,
-          payloadJson: {},
-          maxAttempts: entry.maxAttempts,
-          windowEnd: new Date(now.getTime() + windowMs),
-          now,
-        });
-      }),
-  );
+    const intervalMs = await resolveMaybeAsyncMs(entry.scheduleEveryMs);
+    const windowMs = entry.scheduleWindowMs
+      ? await resolveMaybeAsyncMs(entry.scheduleWindowMs)
+      : intervalMs;
+    const runAt = runMissingImmediately
+      ? now
+      : new Date(now.getTime() + intervalMs);
+
+    await ensureBackgroundJobScheduled({
+      kind: entry.kind,
+      runAt,
+      payloadJson: {},
+      maxAttempts: entry.maxAttempts,
+      windowEnd: new Date(runAt.getTime() + windowMs),
+      now,
+    });
+  }
 };
 
 export const scheduleNextPeriodicRun = async (

@@ -46,6 +46,8 @@ type JsonJobSummary = {
     Partial<Record<JsonBackgroundJob["status"], number>>
   >;
   oldestQueuedAgeSeconds: number | null;
+  oldestDueQueuedAgeSeconds: number | null;
+  nextQueuedRunAt: string | null;
   staleRunning: number;
   failed: number;
   dead: number;
@@ -96,6 +98,9 @@ const JOB_META: Record<string, { name: string; desc: string }> = {
   },
 };
 
+const JOB_POLL_MS = 5000;
+const CLOCK_TICK_MS = 1000;
+
 function effectiveStatus(
   job: Pick<JsonBackgroundJob, "status" | "lastError">,
 ): string {
@@ -105,24 +110,86 @@ function effectiveStatus(
   return job.status;
 }
 
-function formatTimeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+function formatStableUtcDateTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return dateStr;
+  return `${date.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}
+
+function formatLocalDateTime(dateStr: string, nowMs: number | null): string {
+  if (nowMs === null) return formatStableUtcDateTime(dateStr);
+  return formatAdminDateTime(dateStr);
+}
+
+function formatRelativeTime(dateStr: string, nowMs: number | null): string {
+  if (nowMs === null) {
+    return formatStableUtcDateTime(dateStr);
+  }
+
+  const diff = nowMs - new Date(dateStr).getTime();
+  const absoluteSeconds = Math.max(0, Math.floor(Math.abs(diff) / 1000));
+  const suffix = diff < 0 ? "from now" : "ago";
+  if (absoluteSeconds < 60) return `${absoluteSeconds}s ${suffix}`;
+  const minutes = Math.floor(absoluteSeconds / 60);
+  if (minutes < 60) return `${minutes}m ${suffix}`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return `${hours}h ${suffix}`;
   const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return `${days}d ${suffix}`;
+}
+
+function getJobTimingLabel(job: JsonBackgroundJob, nowMs: number | null) {
+  if (job.status === "queued") {
+    const runAtMs = new Date(job.runAt).getTime();
+    if (nowMs !== null && runAtMs <= nowMs) {
+      return `due ${formatRelativeTime(job.runAt, nowMs)}`;
+    }
+    return `scheduled ${formatLocalDateTime(job.runAt, nowMs)}`;
+  }
+
+  if (job.status === "running") {
+    return `started ${formatRelativeTime(
+      job.startedAt ?? job.lockedAt ?? job.updatedAt,
+      nowMs,
+    )}`;
+  }
+
+  if (job.status === "succeeded") {
+    return `completed ${formatRelativeTime(
+      job.completedAt ?? job.updatedAt,
+      nowMs,
+    )}`;
+  }
+
+  if (job.status === "cancelled") {
+    return `cancelled ${formatRelativeTime(
+      job.cancelledAt ?? job.updatedAt,
+      nowMs,
+    )}`;
+  }
+
+  return `updated ${formatRelativeTime(job.updatedAt, nowMs)}`;
+}
+
+function formatDuration(seconds: number | null) {
+  if (seconds === null) return "none";
+  const minutes = Math.floor(seconds / 60);
+  if (seconds < 60) return `${seconds}s`;
+  const hours = Math.floor(minutes / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const days = Math.floor(hours / 24);
+  if (hours < 24) return `${hours}h`;
+  return `${days}d`;
 }
 
 function JobOperationRow({
   kind,
   initialLastRun,
+  nowMs,
 }: {
   kind: string;
   initialLastRun: JsonBackgroundJob | null;
+  nowMs: number | null;
 }) {
   const meta = JOB_META[kind];
   const [lastRun, setLastRun] = useState<JsonBackgroundJob | null>(
@@ -138,8 +205,9 @@ function JobOperationRow({
   const [events, setEvents] = useState<JsonJobEvent[] | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const isActive =
-    lastRun?.status === "queued" || lastRun?.status === "running";
+  const isQueued = lastRun?.status === "queued";
+  const isRunning = lastRun?.status === "running";
+  const isActive = isQueued || isRunning;
 
   useEffect(() => {
     let cancelled = false;
@@ -166,7 +234,7 @@ function JobOperationRow({
         // network error — ignore, retry next tick
       }
     };
-    const id = setInterval(() => void poll(), 1000);
+    const id = setInterval(() => void poll(), JOB_POLL_MS);
     return () => {
       cancelled = true;
       clearInterval(id);
@@ -263,7 +331,7 @@ function JobOperationRow({
               >
                 {effectiveStatus(lastRun)}
               </span>{" "}
-              · {formatTimeAgo(lastRun.updatedAt)}
+              · {getJobTimingLabel(lastRun, nowMs)}
               {activeCount !== null && activeCount > 1 && (
                 <>
                   {" "}
@@ -282,7 +350,13 @@ function JobOperationRow({
             onClick={handleRun}
             style={{ fontSize: "0.8125rem" }}
           >
-            {running ? "Queuing…" : isActive ? "Active" : "Run"}
+            {running
+              ? "Queuing…"
+              : isRunning
+                ? "Running"
+                : isQueued
+                  ? "Scheduled"
+                  : "Run"}
           </button>
           <button
             className="button button-secondary"
@@ -334,9 +408,7 @@ function JobOperationRow({
                   >
                     {effectiveStatus(job)}
                   </span>
-                  <span className="muted">
-                    {formatAdminDateTime(job.createdAt)}
-                  </span>
+                  <span className="muted">{getJobTimingLabel(job, nowMs)}</span>
                   {fileLabel ? (
                     <span className="muted" style={{ fontSize: "0.78rem" }}>
                       {reason ? `${reason} · ` : ""}
@@ -399,7 +471,7 @@ function JobOperationRow({
               <div className="admin-history-row" key={event.id}>
                 <span className="status-chip status-healthy">{event.type}</span>
                 <span className="muted">
-                  {formatAdminDateTime(event.createdAt)}
+                  {formatLocalDateTime(event.createdAt, nowMs)}
                 </span>
                 <span className="muted" style={{ fontSize: "0.78rem" }}>
                   {event.message ?? event.workerId ?? ""}
@@ -429,6 +501,9 @@ export function JobOperations({
   jobKinds,
 }: Props) {
   const [summary, setSummary] = useState(initialSummary);
+  const [nowMs, setNowMs] = useState<number | null>(null);
+  const activeQueueCount =
+    summary.statusCounts.queued + summary.statusCounts.running;
 
   useEffect(() => {
     let cancelled = false;
@@ -437,11 +512,17 @@ export function JobOperations({
       if (!res.ok || cancelled) return;
       setSummary(await res.json());
     };
-    const id = setInterval(() => void poll(), 5000);
+    const id = setInterval(() => void poll(), JOB_POLL_MS);
     return () => {
       cancelled = true;
       clearInterval(id);
     };
+  }, []);
+
+  useEffect(() => {
+    setNowMs(Date.now());
+    const id = setInterval(() => setNowMs(Date.now()), CLOCK_TICK_MS);
+    return () => clearInterval(id);
   }, []);
 
   return (
@@ -449,9 +530,9 @@ export function JobOperations({
       <dl className="admin-kv-strip">
         <div className="admin-kv-item">
           <dt className="admin-kv-label">Queue</dt>
-          <dd className="admin-kv-value">{summary.statusCounts.total}</dd>
+          <dd className="admin-kv-value">{activeQueueCount}</dd>
           <dd className="admin-kv-sub">
-            {summary.statusCounts.queued} queued ·{" "}
+            {summary.statusCounts.queued} scheduled ·{" "}
             {summary.statusCounts.running} running
           </dd>
         </div>
@@ -463,13 +544,17 @@ export function JobOperations({
           </dd>
         </div>
         <div className="admin-kv-item">
-          <dt className="admin-kv-label">Oldest queued</dt>
+          <dt className="admin-kv-label">Due backlog</dt>
           <dd className="admin-kv-value">
-            {summary.oldestQueuedAgeSeconds === null
-              ? "none"
-              : `${summary.oldestQueuedAgeSeconds}s`}
+            {formatDuration(summary.oldestDueQueuedAgeSeconds)}
           </dd>
-          <dd className="admin-kv-sub">{summary.staleRunning} stale running</dd>
+          <dd className="admin-kv-sub">
+            next{" "}
+            {summary.nextQueuedRunAt
+              ? formatLocalDateTime(summary.nextQueuedRunAt, nowMs)
+              : "none"}{" "}
+            · {summary.staleRunning} stale running
+          </dd>
         </div>
       </dl>
 
@@ -486,7 +571,7 @@ export function JobOperations({
                   {worker.hostname}:{worker.pid}
                 </span>
                 <span className="muted">
-                  last seen {formatTimeAgo(worker.lastHeartbeatAt)}
+                  last seen {formatRelativeTime(worker.lastHeartbeatAt, nowMs)}
                 </span>
               </div>
             ))}
@@ -500,6 +585,7 @@ export function JobOperations({
             initialLastRun={initialLastRuns[kind] ?? null}
             key={kind}
             kind={kind}
+            nowMs={nowMs}
           />
         ))}
       </div>

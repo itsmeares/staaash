@@ -175,6 +175,15 @@ const retryDelayMs = (
 
 export const calculateBackgroundJobRetryDelayMs = retryDelayMs;
 
+const isSerializableTransactionConflict = (error: unknown) => {
+  const candidate = error as { code?: string; name?: string; message?: string };
+  return (
+    candidate.code === "P2034" ||
+    candidate.name === "TransactionWriteConflict" ||
+    candidate.message?.includes("TransactionWriteConflict") === true
+  );
+};
+
 export const recordBackgroundJobEvent = async ({
   jobId,
   type,
@@ -303,7 +312,7 @@ export const ensureBackgroundJobScheduled = async ({
     } catch (error) {
       if (
         attempt === BACKGROUND_JOB_SCHEDULE_MAX_RETRIES - 1 ||
-        (error as { code?: string }).code !== "P2034"
+        !isSerializableTransactionConflict(error)
       ) {
         throw error;
       }
@@ -836,6 +845,8 @@ export type QueueOperationalSummary = {
   statusCounts: Record<BackgroundJobStatus, number> & { total: number };
   countsByKind: Record<string, Partial<Record<BackgroundJobStatus, number>>>;
   oldestQueuedAgeSeconds: number | null;
+  oldestDueQueuedAgeSeconds: number | null;
+  nextQueuedRunAt: Date | null;
   staleRunning: number;
   failed: number;
   dead: number;
@@ -853,31 +864,60 @@ export const getQueueOperationalSummary = async ({
 } = {}): Promise<QueueOperationalSummary> => {
   const activeClient = getClient(client);
   const staleCutoff = new Date(now.getTime() - staleLeaseMs);
-  const [statusGroups, oldestQueued, staleRunning, workers, jobs] =
-    await Promise.all([
-      activeClient.backgroundJob.groupBy({
-        by: ["status"],
-        _count: { status: true },
-      }),
-      activeClient.backgroundJob.findFirst({
-        where: { status: "queued" },
-        orderBy: { runAt: "asc" },
-      }),
-      activeClient.backgroundJob.count({
-        where: {
-          status: "running",
-          OR: [
-            { leaseExpiresAt: { lte: now } },
-            { leaseExpiresAt: null, lockedAt: { lte: staleCutoff } },
-          ],
-        },
-      }),
-      listWorkerInstances({ client: activeClient }),
-      activeClient.backgroundJob.findMany({
-        select: { kind: true, status: true },
-        orderBy: { kind: "asc" },
-      } as object),
-    ]);
+  const [
+    statusGroups,
+    oldestQueued,
+    oldestDueQueued,
+    nextQueued,
+    staleRunning,
+    workers,
+    jobs,
+  ] = await Promise.all([
+    activeClient.backgroundJob.groupBy({
+      by: ["status"],
+      _count: { status: true },
+    }),
+    activeClient.backgroundJob.findFirst({
+      where: { status: "queued" },
+      orderBy: { runAt: "asc" },
+    }),
+    activeClient.backgroundJob.findFirst({
+      where: { status: "queued", runAt: { lte: now } },
+      orderBy: { runAt: "asc" },
+    }),
+    activeClient.backgroundJob.findFirst({
+      where: { status: "queued", runAt: { gt: now } },
+      orderBy: { runAt: "asc" },
+    }),
+    activeClient.backgroundJob.count({
+      where: {
+        status: "running",
+        OR: [
+          { leaseExpiresAt: { lte: now } },
+          { leaseExpiresAt: null, lockedAt: { lte: staleCutoff } },
+        ],
+      },
+    }),
+    listWorkerInstances({ client: activeClient }),
+    activeClient.backgroundJob.findMany({
+      select: { kind: true, status: true },
+      orderBy: { kind: "asc" },
+    } as object),
+  ]);
+
+  const workerStaleAfterMs = staleLeaseMs * 2;
+  const workersWithEffectiveStatus = workers.map((worker) => {
+    const heartbeatAgeMs = now.getTime() - worker.lastHeartbeatAt.getTime();
+
+    if (heartbeatAgeMs > workerStaleAfterMs) {
+      return {
+        ...worker,
+        status: "stale",
+      };
+    }
+
+    return worker;
+  });
 
   const statusCounts = {
     queued: 0,
@@ -909,9 +949,16 @@ export const getQueueOperationalSummary = async ({
           Math.floor((now.getTime() - oldestQueued.runAt.getTime()) / 1000),
         )
       : null,
+    oldestDueQueuedAgeSeconds: oldestDueQueued
+      ? Math.max(
+          0,
+          Math.floor((now.getTime() - oldestDueQueued.runAt.getTime()) / 1000),
+        )
+      : null,
+    nextQueuedRunAt: nextQueued?.runAt ?? null,
     staleRunning,
     failed: statusCounts.failed,
     dead: statusCounts.dead,
-    workers,
+    workers: workersWithEffectiveStatus,
   };
 };
