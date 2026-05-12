@@ -1,4 +1,3 @@
-import path from "node:path";
 import { rm } from "node:fs/promises";
 
 import { getPrisma } from "@staaash/db/client";
@@ -6,6 +5,7 @@ import type { BackgroundJobRecord } from "@staaash/db/jobs";
 import { findExpiredZipArchives } from "@staaash/db/zip-archives";
 
 import type { WorkerStoragePaths } from "../storage-maintenance.js";
+import { safeResolveStoragePath } from "../storage-maintenance.js";
 
 type SystemSettingsRecord = {
   zipArchiveRetentionDays: number;
@@ -45,7 +45,10 @@ export const handleZipArchiveCleanup = async (
 
   for (const archive of expired) {
     if (archive.storageKey) {
-      const filePath = path.resolve(storagePaths.filesRoot, archive.storageKey);
+      const filePath = safeResolveStoragePath(
+        storagePaths.filesRoot,
+        archive.storageKey,
+      );
       await rm(filePath, { force: true });
     }
 

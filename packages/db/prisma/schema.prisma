@@ -18,6 +18,7 @@ enum JobStatus {
   succeeded
   failed
   dead
+  cancelled
 }
 
 enum RestoreReconciliationStatus {
@@ -276,20 +277,66 @@ model ShareLink {
 model BackgroundJob {
   id           String    @id @default(cuid())
   kind         String
+  queueName    String    @default("default")
+  priority     Int       @default(0)
   status       JobStatus @default(queued)
   payloadJson  Json
+  progressJson Json      @default("{}")
   dedupeKey    String?
   runAt        DateTime  @default(now())
   lockedAt     DateTime?
   lockedBy     String?
+  leaseExpiresAt DateTime?
+  timeoutAt    DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  cancelledAt  DateTime?
+  cancelledByUserId String?
   attemptCount Int       @default(0)
   maxAttempts  Int       @default(5)
   lastError    String?
+  errorCode    String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  events       BackgroundJobEvent[]
 
   @@index([status, runAt])
   @@index([kind, dedupeKey, status])
+  @@index([status, queueName, priority, runAt])
+  @@index([lockedBy, leaseExpiresAt])
+  @@index([kind, status, runAt])
+}
+
+model WorkerInstance {
+  id              String    @id
+  hostname        String
+  pid             Int
+  version         String?
+  startedAt       DateTime  @default(now())
+  lastHeartbeatAt DateTime  @default(now())
+  stoppedAt       DateTime?
+  status          String
+  currentJobId    String?
+  metadataJson    Json      @default("{}")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([status])
+  @@index([lastHeartbeatAt])
+}
+
+model BackgroundJobEvent {
+  id           String        @id @default(cuid())
+  jobId        String
+  type         String
+  message      String?
+  metadataJson Json          @default("{}")
+  workerId     String?
+  createdAt    DateTime      @default(now())
+  job          BackgroundJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, createdAt])
+  @@index([type])
 }
 
 model RestoreReconciliationRun {

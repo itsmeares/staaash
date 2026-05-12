@@ -269,6 +269,7 @@ export const listAdminBackgroundJobs = async (
     succeeded: 0,
     failed: 0,
     dead: 0,
+    cancelled: 0,
     total,
   };
 

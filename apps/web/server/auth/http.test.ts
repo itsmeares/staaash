@@ -45,6 +45,28 @@ describe("auth http helpers", () => {
     expect(isSameOrigin(request)).toBe(true);
   });
 
+  it("allows matching domain origin and host headers", () => {
+    const request = new NextRequest("http://internal:3000/files", {
+      headers: {
+        host: "staaash.example.com",
+        origin: "https://staaash.example.com",
+      },
+    });
+
+    expect(isSameOrigin(request)).toBe(true);
+  });
+
+  it("allows matching LAN IP origin and host headers", () => {
+    const request = new NextRequest("http://localhost:3000/files", {
+      headers: {
+        host: "192.168.1.20:2113",
+        origin: "http://192.168.1.20:2113",
+      },
+    });
+
+    expect(isSameOrigin(request)).toBe(true);
+  });
+
   it("allows requests with no origin header", () => {
     const request = new NextRequest("http://localhost:3000/files", {
       headers: {
@@ -60,6 +82,28 @@ describe("auth http helpers", () => {
       headers: {
         host: "localhost:3000",
         origin: "https://evil.example",
+      },
+    });
+
+    expect(isSameOrigin(request)).toBe(false);
+  });
+
+  it("denies domain origin with direct IP host", () => {
+    const request = new NextRequest("http://localhost:3000/files", {
+      headers: {
+        host: "203.0.113.10:2113",
+        origin: "https://staaash.example.com",
+      },
+    });
+
+    expect(isSameOrigin(request)).toBe(false);
+  });
+
+  it("denies matching hosts on different ports", () => {
+    const request = new NextRequest("http://localhost:3000/files", {
+      headers: {
+        host: "staaash.example.com:2113",
+        origin: "https://staaash.example.com",
       },
     });
 

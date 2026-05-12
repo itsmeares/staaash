@@ -75,6 +75,9 @@ export type QueueBacklogSummary = {
   running: number;
   failed: number;
   dead: number;
+  cancelled: number;
+  oldestQueuedAgeSeconds: number | null;
+  staleRunning: number;
   status: HealthCheckStatus;
   message?: string;
 };

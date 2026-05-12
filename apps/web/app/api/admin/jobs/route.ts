@@ -24,9 +24,10 @@ export async function GET(request: NextRequest) {
     status: request.nextUrl.searchParams.get("status"),
     kind: request.nextUrl.searchParams.get("kind"),
     cursor: request.nextUrl.searchParams.get("cursor"),
+    limit: request.nextUrl.searchParams.get("limit"),
   });
 
-  const jobList = await getAdminJobList({ ...filters, limit: 25 });
+  const jobList = await getAdminJobList(filters);
   const response = toJsonAdminJobListResponse(jobList);
 
   const derivativeItems = response.items.filter(

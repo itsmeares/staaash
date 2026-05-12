@@ -78,10 +78,23 @@ export type JsonAdminJobListResponse = Omit<AdminJobListResponse, "items"> & {
   items: Array<
     Omit<
       AdminJobListResponse["items"][number],
-      "runAt" | "lockedAt" | "createdAt" | "updatedAt"
+      | "runAt"
+      | "lockedAt"
+      | "leaseExpiresAt"
+      | "timeoutAt"
+      | "startedAt"
+      | "completedAt"
+      | "cancelledAt"
+      | "createdAt"
+      | "updatedAt"
     > & {
       runAt: string;
       lockedAt: string | null;
+      leaseExpiresAt: string | null;
+      timeoutAt: string | null;
+      startedAt: string | null;
+      completedAt: string | null;
+      cancelledAt: string | null;
       createdAt: string;
       updatedAt: string;
       fileName?: string | null;

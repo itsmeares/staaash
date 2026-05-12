@@ -1,6 +1,6 @@
 import { ALL_SUPPORTED_JOB_KINDS } from "@staaash/db/jobs";
 
-import { getLastRunPerKind } from "@/server/admin/jobs";
+import { getAdminJobSummary, getLastRunPerKind } from "@/server/admin/jobs";
 
 import { type JsonBackgroundJob, JobOperations } from "./job-operations";
 
@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminJobsPage() {
   const lastRunPerKind = await getLastRunPerKind();
+  const queueSummary = await getAdminJobSummary();
 
   const initialLastRuns: Record<string, JsonBackgroundJob | null> =
     Object.fromEntries(
@@ -19,6 +20,11 @@ export default async function AdminJobsPage() {
               kind: job.kind,
               status: job.status,
               runAt: job.runAt.toISOString(),
+              lockedAt: job.lockedAt?.toISOString() ?? null,
+              leaseExpiresAt: job.leaseExpiresAt?.toISOString() ?? null,
+              startedAt: job.startedAt?.toISOString() ?? null,
+              completedAt: job.completedAt?.toISOString() ?? null,
+              cancelledAt: job.cancelledAt?.toISOString() ?? null,
               createdAt: job.createdAt.toISOString(),
               updatedAt: job.updatedAt.toISOString(),
               lastError: job.lastError,
@@ -43,6 +49,19 @@ export default async function AdminJobsPage() {
       <section>
         <JobOperations
           initialLastRuns={initialLastRuns}
+          initialSummary={{
+            ...queueSummary,
+            nextQueuedRunAt:
+              queueSummary.nextQueuedRunAt?.toISOString() ?? null,
+            workers: queueSummary.workers.map((worker) => ({
+              ...worker,
+              startedAt: worker.startedAt.toISOString(),
+              lastHeartbeatAt: worker.lastHeartbeatAt.toISOString(),
+              stoppedAt: worker.stoppedAt?.toISOString() ?? null,
+              createdAt: worker.createdAt.toISOString(),
+              updatedAt: worker.updatedAt.toISOString(),
+            })),
+          }}
           jobKinds={[...ALL_SUPPORTED_JOB_KINDS]}
         />
       </section>

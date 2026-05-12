@@ -36,7 +36,8 @@ export const getAdminOverviewSummary = async (
         health.queue.queued +
         health.queue.running +
         health.queue.failed +
-        health.queue.dead,
+        health.queue.dead +
+        health.queue.cancelled,
     },
     users: {
       total: users.length,

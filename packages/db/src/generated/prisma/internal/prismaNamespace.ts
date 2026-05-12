@@ -399,6 +399,8 @@ export const ModelName = {
   RecentFolder: 'RecentFolder',
   ShareLink: 'ShareLink',
   BackgroundJob: 'BackgroundJob',
+  WorkerInstance: 'WorkerInstance',
+  BackgroundJobEvent: 'BackgroundJobEvent',
   RestoreReconciliationRun: 'RestoreReconciliationRun',
   MediaDerivative: 'MediaDerivative',
   ZipArchive: 'ZipArchive',
@@ -418,7 +420,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "instance" | "systemSettings" | "user" | "userPreference" | "session" | "invite" | "passwordReset" | "folder" | "file" | "favoriteFile" | "favoriteFolder" | "recentFile" | "recentFolder" | "shareLink" | "backgroundJob" | "restoreReconciliationRun" | "mediaDerivative" | "zipArchive" | "uploadSession"
+    modelProps: "instance" | "systemSettings" | "user" | "userPreference" | "session" | "invite" | "passwordReset" | "folder" | "file" | "favoriteFile" | "favoriteFolder" | "recentFile" | "recentFolder" | "shareLink" | "backgroundJob" | "workerInstance" | "backgroundJobEvent" | "restoreReconciliationRun" | "mediaDerivative" | "zipArchive" | "uploadSession"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1532,6 +1534,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    WorkerInstance: {
+      payload: Prisma.$WorkerInstancePayload<ExtArgs>
+      fields: Prisma.WorkerInstanceFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.WorkerInstanceFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorkerInstancePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.WorkerInstanceFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorkerInstancePayload>
+        }
+        findFirst: {
+          args: Prisma.WorkerInstanceFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorkerInstancePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.WorkerInstanceFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorkerInstancePayload>
+        }
+        findMany: {
+          args: Prisma.WorkerInstanceFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorkerInstancePayload>[]
+        }
+        create: {
+          args: Prisma.WorkerInstanceCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorkerInstancePayload>
+        }
+        createMany: {
+          args: Prisma.WorkerInstanceCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.WorkerInstanceCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorkerInstancePayload>[]
+        }
+        delete: {
+          args: Prisma.WorkerInstanceDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorkerInstancePayload>
+        }
+        update: {
+          args: Prisma.WorkerInstanceUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorkerInstancePayload>
+        }
+        deleteMany: {
+          args: Prisma.WorkerInstanceDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.WorkerInstanceUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.WorkerInstanceUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorkerInstancePayload>[]
+        }
+        upsert: {
+          args: Prisma.WorkerInstanceUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$WorkerInstancePayload>
+        }
+        aggregate: {
+          args: Prisma.WorkerInstanceAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateWorkerInstance>
+        }
+        groupBy: {
+          args: Prisma.WorkerInstanceGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.WorkerInstanceGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.WorkerInstanceCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.WorkerInstanceCountAggregateOutputType> | number
+        }
+      }
+    }
+    BackgroundJobEvent: {
+      payload: Prisma.$BackgroundJobEventPayload<ExtArgs>
+      fields: Prisma.BackgroundJobEventFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.BackgroundJobEventFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundJobEventPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.BackgroundJobEventFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundJobEventPayload>
+        }
+        findFirst: {
+          args: Prisma.BackgroundJobEventFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundJobEventPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.BackgroundJobEventFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundJobEventPayload>
+        }
+        findMany: {
+          args: Prisma.BackgroundJobEventFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundJobEventPayload>[]
+        }
+        create: {
+          args: Prisma.BackgroundJobEventCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundJobEventPayload>
+        }
+        createMany: {
+          args: Prisma.BackgroundJobEventCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.BackgroundJobEventCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundJobEventPayload>[]
+        }
+        delete: {
+          args: Prisma.BackgroundJobEventDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundJobEventPayload>
+        }
+        update: {
+          args: Prisma.BackgroundJobEventUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundJobEventPayload>
+        }
+        deleteMany: {
+          args: Prisma.BackgroundJobEventDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.BackgroundJobEventUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.BackgroundJobEventUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundJobEventPayload>[]
+        }
+        upsert: {
+          args: Prisma.BackgroundJobEventUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$BackgroundJobEventPayload>
+        }
+        aggregate: {
+          args: Prisma.BackgroundJobEventAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateBackgroundJobEvent>
+        }
+        groupBy: {
+          args: Prisma.BackgroundJobEventGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.BackgroundJobEventGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.BackgroundJobEventCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.BackgroundJobEventCountAggregateOutputType> | number
+        }
+      }
+    }
     RestoreReconciliationRun: {
       payload: Prisma.$RestoreReconciliationRunPayload<ExtArgs>
       fields: Prisma.RestoreReconciliationRunFieldRefs
@@ -2080,20 +2230,61 @@ export type ShareLinkScalarFieldEnum = (typeof ShareLinkScalarFieldEnum)[keyof t
 export const BackgroundJobScalarFieldEnum = {
   id: 'id',
   kind: 'kind',
+  queueName: 'queueName',
+  priority: 'priority',
   status: 'status',
   payloadJson: 'payloadJson',
+  progressJson: 'progressJson',
   dedupeKey: 'dedupeKey',
   runAt: 'runAt',
   lockedAt: 'lockedAt',
   lockedBy: 'lockedBy',
+  leaseExpiresAt: 'leaseExpiresAt',
+  timeoutAt: 'timeoutAt',
+  startedAt: 'startedAt',
+  completedAt: 'completedAt',
+  cancelledAt: 'cancelledAt',
+  cancelledByUserId: 'cancelledByUserId',
   attemptCount: 'attemptCount',
   maxAttempts: 'maxAttempts',
   lastError: 'lastError',
+  errorCode: 'errorCode',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type BackgroundJobScalarFieldEnum = (typeof BackgroundJobScalarFieldEnum)[keyof typeof BackgroundJobScalarFieldEnum]
+
+
+export const WorkerInstanceScalarFieldEnum = {
+  id: 'id',
+  hostname: 'hostname',
+  pid: 'pid',
+  version: 'version',
+  startedAt: 'startedAt',
+  lastHeartbeatAt: 'lastHeartbeatAt',
+  stoppedAt: 'stoppedAt',
+  status: 'status',
+  currentJobId: 'currentJobId',
+  metadataJson: 'metadataJson',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type WorkerInstanceScalarFieldEnum = (typeof WorkerInstanceScalarFieldEnum)[keyof typeof WorkerInstanceScalarFieldEnum]
+
+
+export const BackgroundJobEventScalarFieldEnum = {
+  id: 'id',
+  jobId: 'jobId',
+  type: 'type',
+  message: 'message',
+  metadataJson: 'metadataJson',
+  workerId: 'workerId',
+  createdAt: 'createdAt'
+} as const
+
+export type BackgroundJobEventScalarFieldEnum = (typeof BackgroundJobEventScalarFieldEnum)[keyof typeof BackgroundJobEventScalarFieldEnum]
 
 
 export const RestoreReconciliationRunScalarFieldEnum = {
@@ -2489,6 +2680,8 @@ export type GlobalOmitConfig = {
   recentFolder?: Prisma.RecentFolderOmit
   shareLink?: Prisma.ShareLinkOmit
   backgroundJob?: Prisma.BackgroundJobOmit
+  workerInstance?: Prisma.WorkerInstanceOmit
+  backgroundJobEvent?: Prisma.BackgroundJobEventOmit
   restoreReconciliationRun?: Prisma.RestoreReconciliationRunOmit
   mediaDerivative?: Prisma.MediaDerivativeOmit
   zipArchive?: Prisma.ZipArchiveOmit

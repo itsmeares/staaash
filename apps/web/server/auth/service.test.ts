@@ -455,6 +455,45 @@ describe("auth service", () => {
     await expect(service.getSession(signIn.sessionToken)).resolves.toBeNull();
   });
 
+  it("rejects revoked and expired sessions", async () => {
+    let currentTime = new Date("2026-03-30T12:00:00.000Z");
+    const service = createAuthService({
+      repo: createMemoryRepository(),
+      crypto: createFakeCrypto(),
+      now: () => currentTime,
+      sessionMaxAgeDays: 1,
+    });
+
+    await service.bootstrap({
+      instanceName: "Home Drive",
+      email: "owner@example.com",
+      username: "owner",
+      password: "super-secure-password",
+    });
+
+    const revokedSignIn = await service.signIn({
+      identifier: "owner",
+      password: "super-secure-password",
+    });
+    await service.revokeSession(revokedSignIn.sessionToken);
+    await expect(
+      service.getSession(revokedSignIn.sessionToken),
+    ).resolves.toBeNull();
+
+    const expiringSignIn = await service.signIn({
+      identifier: "owner",
+      password: "super-secure-password",
+    });
+    currentTime = new Date("2026-03-31T12:00:00.001Z");
+
+    await expect(
+      service.getSession(expiringSignIn.sessionToken),
+    ).resolves.toBeNull();
+    await expect(
+      service.getSession(expiringSignIn.sessionToken),
+    ).resolves.toBeNull();
+  });
+
   it("issues and redeems member invites", async () => {
     const service = createAuthService({
       repo: createMemoryRepository(),
@@ -489,6 +528,53 @@ describe("auth service", () => {
     expect(inviteState).toMatchObject({
       isRedeemable: false,
       reason: "accepted",
+    });
+  });
+
+  it("revokes prior live sessions after password reset redemption", async () => {
+    const service = createAuthService({
+      repo: createMemoryRepository(),
+      crypto: createFakeCrypto(),
+      now: () => new Date("2026-03-30T12:00:00.000Z"),
+    });
+
+    const bootstrap = await service.bootstrap({
+      instanceName: "Home Drive",
+      email: "owner@example.com",
+      username: "owner",
+      password: "super-secure-password",
+    });
+    const invite = await service.createInvite(bootstrap.user.id, {
+      email: "member@example.com",
+    });
+    const redeemedInvite = await service.redeemInvite({
+      token: invite.token,
+      username: "member",
+      password: "member-secure-password",
+    });
+    const priorSession = await service.signIn({
+      identifier: "member",
+      password: "member-secure-password",
+    });
+    const reset = await service.issuePasswordReset(
+      bootstrap.user.id,
+      redeemedInvite.user.id,
+    );
+
+    const redeemedReset = await service.redeemPasswordReset({
+      token: reset.token,
+      password: "new-member-secure-password",
+    });
+
+    await expect(
+      service.getSession(priorSession.sessionToken),
+    ).resolves.toBeNull();
+    await expect(
+      service.getSession(redeemedReset.sessionToken),
+    ).resolves.toMatchObject({
+      user: {
+        id: redeemedInvite.user.id,
+      },
     });
   });
 });

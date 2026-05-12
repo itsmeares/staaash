@@ -2,24 +2,9 @@ import os from "node:os";
 import { mkdir } from "node:fs/promises";
 
 import {
-  MEDIA_DERIVATIVE_CLEANUP_JOB_KIND,
-  MEDIA_DERIVATIVE_GENERATE_JOB_KIND,
-  RESTORE_RECONCILE_JOB_KIND,
-  STAGING_CLEANUP_JOB_KIND,
-  STAGING_CLEANUP_SCHEDULE_WINDOW_MS,
-  TRASH_RETENTION_JOB_KIND,
-  UPDATE_CHECK_JOB_KIND,
-  ZIP_ARCHIVE_GENERATE_JOB_KIND,
-  ZIP_ARCHIVE_CLEANUP_JOB_KIND,
-  claimDueBackgroundJob,
-  ensureBackgroundJobScheduled,
-  markBackgroundJobFailed,
-  markBackgroundJobSucceeded,
+  markWorkerInstanceStopped,
+  registerWorkerInstance,
 } from "@staaash/db/jobs";
-import {
-  failRestoreReconciliationRun,
-  markRestoreReconciliationRunQueued,
-} from "@staaash/db/reconciliation";
 
 import {
   getWorkerStoragePaths,
@@ -27,249 +12,15 @@ import {
   writeHeartbeat,
 } from "./storage-maintenance.js";
 import { detectFfmpeg } from "./ffmpeg.js";
-import { handleStagingCleanup } from "./handlers/staging-cleanup.js";
-import { handleRestoreReconciliation } from "./handlers/restore-reconciliation.js";
-import { handleTrashRetention } from "./handlers/trash-retention.js";
-import { handleUpdateCheck } from "./handlers/update-check.js";
-import { handleMediaDerivativeGenerate } from "./handlers/media-derivative.js";
-import { handleMediaDerivativeCleanup } from "./handlers/media-derivative-cleanup.js";
-import { handleZipArchiveGenerate } from "./handlers/zip-archive.js";
-import { handleZipArchiveCleanup } from "./handlers/zip-archive-cleanup.js";
+import { schedulePeriodicJobs } from "./job-registry.js";
+import { WorkerRunner } from "./runner.js";
 
 const storagePaths = getWorkerStoragePaths();
-const workerId = `${os.hostname()}-${process.pid}`;
+const workerId = `${os.hostname()}-${process.pid}-${Date.now()}`;
+const workerVersion =
+  process.env.STAAASH_VERSION ?? process.env.APP_VERSION ?? null;
 const workerHeartbeatMs = 30_000;
-const jobPollMs = 10_000;
-
-const TRASH_RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1000;
-const DEFAULT_UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
-const MEDIA_DERIVATIVE_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
-const ZIP_ARCHIVE_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
-
-const getUpdateCheckIntervalMs = async (): Promise<number> => {
-  try {
-    const { getPrisma } = await import("@staaash/db/client");
-    const db = getPrisma();
-    const settings = await db.systemSettings.findUnique({
-      where: { id: "singleton" },
-    });
-    return (settings?.updateCheckIntervalHours ?? 24) * 60 * 60 * 1000;
-  } catch {
-    return DEFAULT_UPDATE_CHECK_INTERVAL_MS;
-  }
-};
-
-const schedulePeriodicJobs = async (now = new Date()) => {
-  const updateCheckIntervalMs = await getUpdateCheckIntervalMs();
-
-  await ensureBackgroundJobScheduled({
-    kind: STAGING_CLEANUP_JOB_KIND,
-    runAt: now,
-    payloadJson: {},
-    windowEnd: new Date(now.getTime() + STAGING_CLEANUP_SCHEDULE_WINDOW_MS),
-    now,
-  });
-
-  await ensureBackgroundJobScheduled({
-    kind: TRASH_RETENTION_JOB_KIND,
-    runAt: now,
-    payloadJson: {},
-    windowEnd: new Date(now.getTime() + TRASH_RETENTION_INTERVAL_MS),
-    now,
-  });
-
-  await ensureBackgroundJobScheduled({
-    kind: UPDATE_CHECK_JOB_KIND,
-    runAt: now,
-    payloadJson: {},
-    windowEnd: new Date(now.getTime() + updateCheckIntervalMs),
-    now,
-  });
-
-  await ensureBackgroundJobScheduled({
-    kind: MEDIA_DERIVATIVE_CLEANUP_JOB_KIND,
-    runAt: now,
-    payloadJson: {},
-    windowEnd: new Date(now.getTime() + MEDIA_DERIVATIVE_CLEANUP_INTERVAL_MS),
-    now,
-  });
-
-  await ensureBackgroundJobScheduled({
-    kind: ZIP_ARCHIVE_CLEANUP_JOB_KIND,
-    runAt: now,
-    payloadJson: {},
-    windowEnd: new Date(now.getTime() + ZIP_ARCHIVE_CLEANUP_INTERVAL_MS),
-    now,
-  });
-};
-
-const reschedulePeriodicJob = async (kind: string, intervalMs: number) => {
-  const nextRunAt = new Date(Date.now() + intervalMs);
-
-  switch (kind) {
-    case STAGING_CLEANUP_JOB_KIND:
-      await ensureBackgroundJobScheduled({
-        kind: STAGING_CLEANUP_JOB_KIND,
-        runAt: nextRunAt,
-        payloadJson: {},
-        windowEnd: new Date(
-          nextRunAt.getTime() + STAGING_CLEANUP_SCHEDULE_WINDOW_MS,
-        ),
-      });
-      break;
-    case TRASH_RETENTION_JOB_KIND:
-      await ensureBackgroundJobScheduled({
-        kind: TRASH_RETENTION_JOB_KIND,
-        runAt: nextRunAt,
-        payloadJson: {},
-        windowEnd: new Date(nextRunAt.getTime() + TRASH_RETENTION_INTERVAL_MS),
-      });
-      break;
-    case UPDATE_CHECK_JOB_KIND: {
-      const intervalMs = await getUpdateCheckIntervalMs();
-      await ensureBackgroundJobScheduled({
-        kind: UPDATE_CHECK_JOB_KIND,
-        runAt: nextRunAt,
-        payloadJson: {},
-        windowEnd: new Date(nextRunAt.getTime() + intervalMs),
-      });
-      break;
-    }
-    case MEDIA_DERIVATIVE_CLEANUP_JOB_KIND:
-      await ensureBackgroundJobScheduled({
-        kind: MEDIA_DERIVATIVE_CLEANUP_JOB_KIND,
-        runAt: nextRunAt,
-        payloadJson: {},
-        windowEnd: new Date(
-          nextRunAt.getTime() + MEDIA_DERIVATIVE_CLEANUP_INTERVAL_MS,
-        ),
-      });
-      break;
-    case ZIP_ARCHIVE_CLEANUP_JOB_KIND:
-      await ensureBackgroundJobScheduled({
-        kind: ZIP_ARCHIVE_CLEANUP_JOB_KIND,
-        runAt: nextRunAt,
-        payloadJson: {},
-        windowEnd: new Date(
-          nextRunAt.getTime() + ZIP_ARCHIVE_CLEANUP_INTERVAL_MS,
-        ),
-      });
-      break;
-  }
-};
-
-const processNextJob = async (): Promise<boolean> => {
-  const job = await claimDueBackgroundJob({ workerId });
-
-  if (!job) {
-    return false;
-  }
-
-  try {
-    switch (job.kind) {
-      case STAGING_CLEANUP_JOB_KIND:
-        await handleStagingCleanup(job, storagePaths);
-        await reschedulePeriodicJob(
-          STAGING_CLEANUP_JOB_KIND,
-          STAGING_CLEANUP_SCHEDULE_WINDOW_MS,
-        );
-        break;
-
-      case TRASH_RETENTION_JOB_KIND:
-        await handleTrashRetention(job);
-        await reschedulePeriodicJob(
-          TRASH_RETENTION_JOB_KIND,
-          TRASH_RETENTION_INTERVAL_MS,
-        );
-        break;
-
-      case UPDATE_CHECK_JOB_KIND:
-        await handleUpdateCheck(job);
-        await reschedulePeriodicJob(
-          UPDATE_CHECK_JOB_KIND,
-          await getUpdateCheckIntervalMs(),
-        );
-        break;
-
-      case RESTORE_RECONCILE_JOB_KIND:
-        await handleRestoreReconciliation(job, storagePaths);
-        break;
-
-      case MEDIA_DERIVATIVE_GENERATE_JOB_KIND: {
-        const cancelled = await handleMediaDerivativeGenerate(
-          job,
-          storagePaths,
-        );
-        if (cancelled) {
-          return true;
-        }
-        break;
-      }
-
-      case MEDIA_DERIVATIVE_CLEANUP_JOB_KIND:
-        await handleMediaDerivativeCleanup(job, storagePaths);
-        await reschedulePeriodicJob(
-          MEDIA_DERIVATIVE_CLEANUP_JOB_KIND,
-          MEDIA_DERIVATIVE_CLEANUP_INTERVAL_MS,
-        );
-        break;
-
-      case ZIP_ARCHIVE_GENERATE_JOB_KIND:
-        await handleZipArchiveGenerate(job, storagePaths);
-        break;
-
-      case ZIP_ARCHIVE_CLEANUP_JOB_KIND:
-        await handleZipArchiveCleanup(job, storagePaths);
-        await reschedulePeriodicJob(
-          ZIP_ARCHIVE_CLEANUP_JOB_KIND,
-          ZIP_ARCHIVE_CLEANUP_INTERVAL_MS,
-        );
-        break;
-
-      default:
-        console.warn(`[worker] Unknown job kind: ${job.kind} — skipping.`);
-    }
-
-    await markBackgroundJobSucceeded({ jobId: job.id });
-  } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown worker error.";
-    const updatedJob = await markBackgroundJobFailed({
-      jobId: job.id,
-      errorMessage,
-    });
-
-    if (job.kind === RESTORE_RECONCILE_JOB_KIND) {
-      if (updatedJob.status === "queued") {
-        await markRestoreReconciliationRunQueued({
-          backgroundJobId: job.id,
-          errorMessage,
-        });
-      } else if (updatedJob.status === "dead") {
-        await failRestoreReconciliationRun({
-          backgroundJobId: job.id,
-          errorMessage,
-        });
-      }
-    }
-
-    if (updatedJob.status === "dead") {
-      console.error("[worker] Background job dead-lettered after retries.", {
-        jobId: job.id,
-        kind: job.kind,
-        error: errorMessage,
-      });
-    } else {
-      console.warn("[worker] Background job retried.", {
-        jobId: job.id,
-        kind: job.kind,
-        error: errorMessage,
-      });
-    }
-  }
-
-  return true;
-};
+const maintenanceMs = 60_000;
 
 const runMaintenance = async () => {
   await recoverPendingDeletes({
@@ -280,6 +31,17 @@ const runMaintenance = async () => {
 const main = async () => {
   await mkdir(storagePaths.tmpRoot, { recursive: true });
   await writeHeartbeat(storagePaths.heartbeatPath);
+
+  await registerWorkerInstance({
+    id: workerId,
+    hostname: os.hostname(),
+    pid: process.pid,
+    version: workerVersion,
+    metadataJson: {
+      platform: process.platform,
+      node: process.version,
+    },
+  });
 
   const ffmpegHealth = await detectFfmpeg();
   if (!ffmpegHealth.available) {
@@ -294,30 +56,41 @@ const main = async () => {
     });
   }
 
-  await schedulePeriodicJobs();
+  await schedulePeriodicJobs(new Date(), { runMissingImmediately: true });
   await runMaintenance();
 
-  let polling = false;
-
-  setInterval(() => {
+  const heartbeatTimer = setInterval(() => {
     void writeHeartbeat(storagePaths.heartbeatPath);
   }, workerHeartbeatMs);
 
-  setInterval(() => {
-    if (polling) {
-      return;
-    }
-
-    polling = true;
-
-    void runMaintenance()
-      .then(() => processNextJob())
-      .finally(() => {
-        polling = false;
+  const maintenanceTimer = setInterval(() => {
+    void runMaintenance().catch((error) => {
+      console.warn("[worker] Maintenance failed.", {
+        error: error instanceof Error ? error.message : "Unknown error.",
       });
-  }, jobPollMs);
+    });
+  }, maintenanceMs);
 
-  await processNextJob();
+  const runner = new WorkerRunner({ workerId, storagePaths });
+
+  const stop = async (signal: NodeJS.Signals) => {
+    console.info("[worker] Shutdown requested.", { signal });
+    clearInterval(heartbeatTimer);
+    clearInterval(maintenanceTimer);
+    await runner.stop();
+    await markWorkerInstanceStopped({ id: workerId }).catch(() => undefined);
+    process.exit(0);
+  };
+
+  process.once("SIGINT", (signal) => void stop(signal));
+  process.once("SIGTERM", (signal) => void stop(signal));
+
+  await runner.start();
 };
 
-void main();
+void main().catch((error) => {
+  console.error("[worker] Fatal startup error.", {
+    error: error instanceof Error ? error.message : "Unknown error.",
+  });
+  process.exit(1);
+});

@@ -15,6 +15,8 @@ import {
 } from "@staaash/db/media-derivatives";
 
 import type { WorkerStoragePaths } from "../storage-maintenance.js";
+import type { JobContext } from "../job-context.js";
+import { safeResolveStoragePath } from "../storage-maintenance.js";
 import {
   getFfmpegHealth,
   isStreamCopyCompatible,
@@ -88,6 +90,7 @@ const DEFAULT_SETTINGS: SystemSettingsRecord = {
 export const handleMediaDerivativeGenerate = async (
   job: BackgroundJobRecord,
   storagePaths: WorkerStoragePaths,
+  context?: JobContext,
 ): Promise<boolean> => {
   const health = getFfmpegHealth();
   if (!health.available) {
@@ -157,17 +160,22 @@ export const handleMediaDerivativeGenerate = async (
     data: { status: DERIVATIVE_STATUS_PROCESSING, error: null } as object,
   });
 
-  const inputPath = path.resolve(storagePaths.filesRoot, file.storageKey);
+  const inputPath = safeResolveStoragePath(
+    storagePaths.filesRoot,
+    file.storageKey,
+  );
   const storageKey = buildDerivativeStorageKey(
     file.ownerUserId,
     file.id,
     profile,
   );
-  const outputPath = path.resolve(storagePaths.filesRoot, storageKey);
+  const outputPath = safeResolveStoragePath(storagePaths.filesRoot, storageKey);
   const tmpDir = path.resolve(storagePaths.tmpRoot, "derivatives");
   const tmpPath = path.resolve(tmpDir, `${derivative.id}.mp4.tmp`);
 
   await mkdir(tmpDir, { recursive: true });
+
+  await context?.updateProgress({ stage: "probing", fileId: file.id });
 
   let probe;
   try {
@@ -177,10 +185,21 @@ export const handleMediaDerivativeGenerate = async (
     throw err;
   }
 
-  const controller = new AbortController();
   let cancelledByAdmin = false;
+  const controller = new AbortController();
+  const abortFromContext = () => {
+    cancelledByAdmin = true;
+    controller.abort();
+  };
+  context?.signal.addEventListener("abort", abortFromContext, { once: true });
 
   const cancelPollId = setInterval(() => {
+    if (context?.signal.aborted) {
+      cancelledByAdmin = true;
+      controller.abort();
+      return;
+    }
+
     void (getPrisma() as unknown as PrismaClient).mediaDerivative
       .findUnique({
         where: { id: derivative.id },
@@ -198,6 +217,7 @@ export const handleMediaDerivativeGenerate = async (
   }, 3000);
 
   try {
+    await context?.updateProgress({ stage: "encoding", fileId: file.id });
     if (isStreamCopyCompatible(probe)) {
       await runFfmpegStreamCopy(inputPath, tmpPath, controller.signal);
     } else {
@@ -218,9 +238,11 @@ export const handleMediaDerivativeGenerate = async (
     throw err;
   } finally {
     clearInterval(cancelPollId);
+    context?.signal.removeEventListener("abort", abortFromContext);
   }
 
   try {
+    await context?.updateProgress({ stage: "committing", fileId: file.id });
     await mkdir(path.dirname(outputPath), { recursive: true });
     await rename(tmpPath, outputPath);
   } catch (err) {
@@ -259,6 +281,8 @@ export const handleMediaDerivativeGenerate = async (
     audioCodec: audioStream?.codec_name ?? null,
     generatedAt: new Date(),
   });
+
+  await context?.updateProgress({ stage: "ready", fileId: file.id });
 
   return false;
 };

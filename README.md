@@ -3,7 +3,7 @@
 [![AGPL-3.0 License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](./LICENSE)
 
 > [!IMPORTANT]
-> **Staaash has just shipped its first pre-release and is in early alpha.** Expect bugs, missing features, and breaking changes between releases. Do not use as your only copy of important files — set up a [3-2-1 backup strategy](https://www.backblaze.com/blog/the-3-2-1-backup-strategy/) before you start.
+> **Staaash is moving toward beta.** Expect some bugs and breaking changes between pre-1.0 releases. Do not use it as your only copy of important files — set up a [3-2-1 backup strategy](https://www.backblaze.com/blog/the-3-2-1-backup-strategy/) before you start.
 
 Staaash is a self-hosted personal cloud drive I am building in public.
 
@@ -18,7 +18,7 @@ Requirements: [Docker](https://docs.docker.com/get-docker/) with the Compose plu
 ### Windows and Linux
 
 1. Go to the [releases page](https://github.com/itsmeares/staaash/releases) and download `docker-compose.yml` and `example.env` into the same folder. (I suggest downloading from the latest release or a specific version because files on main may not always be ready for production. Always prefer release version.)
-2. Rename `example.env` to `.env`, open it, set `DB_PASSWORD` to a secure value (You can use something like pwgen). Also, if you are gonna run without HTTPS, you should set `SECURE_COOKIES` to `false`, and change any other values you want.
+2. Rename `example.env` to `.env`, open it, set `DB_PASSWORD` to a secure value (You can use something like pwgen). Also, if you are running plain HTTP without HTTPS, set `SECURE_COOKIES` to `false`, and change any other values you want. `SECURE_COOKIES` only accepts `true` or `false` when set.
 3. Run:
 
    ```console
@@ -28,6 +28,14 @@ Requirements: [Docker](https://docs.docker.com/get-docker/) with the Compose plu
 Staaash is now running at `http://localhost:2113`.
 
 The first account you register becomes the owner. Subsequent accounts require an invite from the owner.
+
+### Reverse proxies
+
+If you put Staaash behind Caddy, Nginx, Traefik, or another reverse proxy, preserve the original `Host` header. Staaash rejects cross-origin mutating requests by comparing the browser `Origin` host to the request `Host`.
+
+Use one public address consistently. Loading the app from `https://staaash.example.com` and posting to a direct server IP, LAN IP, or different port can fail by design.
+
+If you run Staaash over plain HTTP, set `SECURE_COOKIES=false`. With HTTPS, leave secure cookies enabled.
 
 ### Upgrading
 
