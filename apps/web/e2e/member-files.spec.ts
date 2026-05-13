@@ -8,8 +8,11 @@ test("member can complete a core files flow", async ({ page }) => {
 
   await signIn(page, credentials);
 
-  await expect(page.getByRole("heading", { name: "Files" })).toBeVisible();
-  await page.getByLabel("New folder").fill(folderName);
+  await expect(
+    page.getByRole("navigation", { name: "Breadcrumb" }).getByText("Files"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "New folder" }).click();
+  await page.getByPlaceholder("Folder name").fill(folderName);
   await page.getByRole("button", { name: "Create" }).click();
 
   await expect(page.getByText(folderName)).toBeVisible();

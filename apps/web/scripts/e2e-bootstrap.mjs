@@ -217,18 +217,19 @@ const seedE2EData = async ({ filesRoot, authSecret, databaseUrl }) => {
     );
 
     await client.query(
-      `INSERT INTO "Folder" ("id", "ownerUserId", "parentId", "name", "isLibraryRoot", "deletedAt", "createdAt", "updatedAt")
+      `INSERT INTO "UserPreference" ("id", "userId", "onboardingCompletedAt", "createdAt", "updatedAt")
+       VALUES
+       ($1, $2, NOW(), NOW(), NOW()),
+       ($3, $4, NOW(), NOW(), NOW())`,
+      ["e2e-owner-preferences", OWNER_ID, "e2e-member-preferences", MEMBER_ID],
+    );
+
+    await client.query(
+      `INSERT INTO "Folder" ("id", "ownerUserId", "parentId", "name", "isFilesRoot", "deletedAt", "createdAt", "updatedAt")
        VALUES
        ($1, $2, NULL, $3, TRUE, NULL, NOW(), NOW()),
        ($4, $5, NULL, $6, TRUE, NULL, NOW(), NOW())`,
-      [
-        OWNER_ROOT_ID,
-        OWNER_ID,
-        "Library",
-        MEMBER_ROOT_ID,
-        MEMBER_ID,
-        "Library",
-      ],
+      [OWNER_ROOT_ID, OWNER_ID, "Files", MEMBER_ROOT_ID, MEMBER_ID, "Files"],
     );
 
     const storageKey = `library/${OWNER_ID}/${SHARE_FILE_NAME}`;

@@ -64,6 +64,5 @@ This separation is one of the main architectural choices in the repo. It keeps l
 
 ## Related Docs
 
-- [`implementation-plan.md`](./implementation-plan.md) for the phased roadmap
-- [`decision-log.md`](./decision-log.md) for stable product and architecture choices
+- [`../README.md`](../README.md) for install and local development steps
 - [`operations/backup-restore.md`](./operations/backup-restore.md) for backup and restore expectations

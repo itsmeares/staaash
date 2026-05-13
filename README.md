@@ -114,6 +114,7 @@ This will:
 ## Documentation
 
 - [`docs/architecture.md`](./docs/architecture.md) - system shape, storage model, and design boundaries
+- [`docs/operations/backup-restore.md`](./docs/operations/backup-restore.md) - simple backup and restore checklist
 
 ## AI Use
 
