@@ -1,4 +1,4 @@
-FROM node:22-alpine AS base
+FROM node:24-alpine AS base
 RUN npm install -g pnpm@10.33.0 --no-fund --no-audit
 
 # ── Install dependencies ──────────────────────────────────────────────────────
@@ -21,7 +21,7 @@ RUN pnpm run db:generate && pnpm build && \
     cp -r apps/worker/dist /deploy/worker/dist
 
 # ── Runner ────────────────────────────────────────────────────────────────────
-FROM node:22-alpine AS runner
+FROM node:24-alpine AS runner
 RUN apk add --no-cache openssl ffmpeg
 WORKDIR /app
 ENV NODE_ENV=production
