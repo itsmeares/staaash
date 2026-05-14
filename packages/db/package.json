@@ -52,14 +52,14 @@
     "db:generate": "prisma generate"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.6.0",
-    "@prisma/client": "^7.6.0",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "pg": "^8.16.3"
   },
   "devDependencies": {
     "@types/node": "^20.19.37",
     "@types/pg": "^8.15.5",
-    "prisma": "^7.6.0",
+    "prisma": "^7.8.0",
     "tsup": "^8.0.0",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"

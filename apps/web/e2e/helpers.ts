@@ -85,6 +85,7 @@ export const signIn = async (
   await page.getByLabel("Username or email").fill(identifier);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
+  await page.waitForURL((url) => url.pathname === next, { timeout: 20_000 });
 };
 
 export const expectQueuedOrRunningState = async (target: Locator) => {

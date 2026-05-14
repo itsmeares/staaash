@@ -6,7 +6,7 @@ const ONBOARDED_COOKIE = "staaash_onboarded";
 
 const WORKSPACE_PREFIX = ["/files", "/settings", "/admin", "/invite", "/share"];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isWorkspace = WORKSPACE_PREFIX.some((p) => pathname.startsWith(p));
