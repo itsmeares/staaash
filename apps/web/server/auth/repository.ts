@@ -311,6 +311,9 @@ export const createPrismaAuthRepository = (
         where: {
           email,
         },
+        include: {
+          preferences: true,
+        },
       });
 
       return user ? toStoredAuthUser(user) : null;
@@ -321,6 +324,9 @@ export const createPrismaAuthRepository = (
       const user = await client.user.findUnique({
         where: {
           username,
+        },
+        include: {
+          preferences: true,
         },
       });
 
