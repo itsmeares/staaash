@@ -15,7 +15,7 @@ jobs:
       AUTH_SECRET: ci-placeholder-secret-should-not-be-used-in-production
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v4
         with:
