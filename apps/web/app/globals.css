@@ -1621,6 +1621,15 @@ h3 {
   gap: 0;
 }
 
+.home-pinned-list > [data-slot="context-menu"],
+.home-folder-list > [data-slot="context-menu"],
+.home-shared-list > [data-slot="context-menu"],
+.home-recent-grid > [data-slot="context-menu"],
+.retrieval-list > [data-slot="context-menu"],
+.sl-list > [data-slot="context-menu"] {
+  display: contents;
+}
+
 .home-pinned-row,
 .home-folder-row,
 .home-shared-row {
