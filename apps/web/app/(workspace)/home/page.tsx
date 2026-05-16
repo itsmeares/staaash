@@ -5,6 +5,7 @@ import { ArrowRight, Share2, Video } from "lucide-react";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { filesService } from "@/server/files/service";
 import type { FolderSummary } from "@/server/files/types";
+import { ItemContextMenu } from "@/app/item-context-menu";
 import { ItemTypeIcon, itemVisualIconMap } from "@/app/item-type-icon";
 import { retrievalService } from "@/server/retrieval/service";
 import type { RetrievalItem } from "@/server/retrieval/types";
@@ -63,7 +64,13 @@ function EmptyLine({ children }: { children: React.ReactNode }) {
   return <p className="home-empty-line">{children}</p>;
 }
 
-function PinnedList({ items }: { items: RetrievalItem[] }) {
+function PinnedList({
+  items,
+  redirectTo,
+}: {
+  items: RetrievalItem[];
+  redirectTo: string;
+}) {
   if (items.length === 0) {
     return <EmptyLine>No pinned files yet</EmptyLine>;
   }
@@ -82,22 +89,26 @@ function PinnedList({ items }: { items: RetrievalItem[] }) {
           </>
         );
 
-        return item.kind === "folder" ? (
-          <Link
-            className="home-pinned-row"
+        return (
+          <ItemContextMenu
             href={item.href}
+            id={item.id}
+            isFavorite={item.isFavorite}
             key={`${item.kind}-${item.id}`}
+            kind={item.kind}
+            name={item.name}
+            redirectTo={redirectTo}
           >
-            {content}
-          </Link>
-        ) : (
-          <a
-            className="home-pinned-row"
-            href={item.href}
-            key={`${item.kind}-${item.id}`}
-          >
-            {content}
-          </a>
+            {item.kind === "folder" ? (
+              <Link className="home-pinned-row" href={item.href}>
+                {content}
+              </Link>
+            ) : (
+              <a className="home-pinned-row" href={item.href}>
+                {content}
+              </a>
+            )}
+          </ItemContextMenu>
         );
       })}
     </div>
@@ -190,7 +201,13 @@ function RecentPreview({ item }: { item: RetrievalItem }) {
   );
 }
 
-function RecentGrid({ items }: { items: RetrievalItem[] }) {
+function RecentGrid({
+  items,
+  redirectTo,
+}: {
+  items: RetrievalItem[];
+  redirectTo: string;
+}) {
   if (items.length === 0) {
     return <EmptyLine>Nothing recent yet</EmptyLine>;
   }
@@ -212,48 +229,67 @@ function RecentGrid({ items }: { items: RetrievalItem[] }) {
           </>
         );
 
-        return item.kind === "folder" ? (
-          <Link
-            className="home-recent-card"
+        return (
+          <ItemContextMenu
             href={item.href}
+            id={item.id}
+            isFavorite={item.isFavorite}
             key={`${item.kind}-${item.id}`}
+            kind={item.kind}
+            name={item.name}
+            redirectTo={redirectTo}
           >
-            {content}
-          </Link>
-        ) : (
-          <a
-            className="home-recent-card"
-            href={item.href}
-            key={`${item.kind}-${item.id}`}
-          >
-            {content}
-          </a>
+            {item.kind === "folder" ? (
+              <Link className="home-recent-card" href={item.href}>
+                {content}
+              </Link>
+            ) : (
+              <a className="home-recent-card" href={item.href}>
+                {content}
+              </a>
+            )}
+          </ItemContextMenu>
         );
       })}
     </div>
   );
 }
 
-function FolderList({ folders }: { folders: HomeFolder[] }) {
+function FolderList({
+  folders,
+  redirectTo,
+}: {
+  folders: HomeFolder[];
+  redirectTo: string;
+}) {
   if (folders.length === 0) {
     return <EmptyLine>No folders yet</EmptyLine>;
   }
 
   return (
     <div className="home-folder-list">
-      {folders.map(({ folder, childCount }) => (
-        <Link
-          className="home-folder-row"
-          href={folder.isFilesRoot ? "/files" : `/files/f/${folder.id}`}
-          key={folder.id}
-        >
-          <HomeIcon visual={getHomeItemVisual("folder")} />
-          <span className="home-folder-name">{folder.name}</span>
-          <span className="home-folder-meta">
-            {formatHomeChildCount(childCount)}
-          </span>
-        </Link>
-      ))}
+      {folders.map(({ folder, childCount }) => {
+        const href = folder.isFilesRoot ? "/files" : `/files/f/${folder.id}`;
+
+        return (
+          <ItemContextMenu
+            href={href}
+            id={folder.id}
+            key={folder.id}
+            kind="folder"
+            name={folder.name}
+            redirectTo={redirectTo}
+          >
+            <Link className="home-folder-row" href={href}>
+              <HomeIcon visual={getHomeItemVisual("folder")} />
+              <span className="home-folder-name">{folder.name}</span>
+              <span className="home-folder-meta">
+                {formatHomeChildCount(childCount)}
+              </span>
+            </Link>
+          </ItemContextMenu>
+        );
+      })}
     </div>
   );
 }
@@ -272,22 +308,26 @@ function SharedList({ shares }: { shares: ShareLinkSummary[] }) {
         );
 
         return (
-          <Link
-            className="home-shared-row"
+          <ItemContextMenu
             href={`/shared#${share.id}`}
+            id={share.id}
             key={share.id}
+            kind="share"
+            name={share.target.name}
           >
-            <HomeIcon visual={visual} />
-            <span className="home-shared-main">
-              <span className="home-shared-name">{share.target.name}</span>
-              <span className="home-shared-meta">
-                {share.downloadDisabled ? "Downloads off" : "Downloads on"}
-                {" · expires "}
-                {formatHomeExpiryTime(share.expiresAt)}
+            <Link className="home-shared-row" href={`/shared#${share.id}`}>
+              <HomeIcon visual={visual} />
+              <span className="home-shared-main">
+                <span className="home-shared-name">{share.target.name}</span>
+                <span className="home-shared-meta">
+                  {share.downloadDisabled ? "Downloads off" : "Downloads on"}
+                  {" · expires "}
+                  {formatHomeExpiryTime(share.expiresAt)}
+                </span>
               </span>
-            </span>
-            <Share2 size={13} strokeWidth={1.8} aria-hidden />
-          </Link>
+              <Share2 size={13} strokeWidth={1.8} aria-hidden />
+            </Link>
+          </ItemContextMenu>
         );
       })}
     </div>
@@ -345,6 +385,7 @@ export default async function HomePage() {
   ]);
   const displayName = session.user.displayName ?? session.user.username;
   const greeting = getHomeGreeting(new Date().getHours());
+  const currentPath = "/home";
 
   return (
     <div className="workspace-page home-page">
@@ -355,7 +396,10 @@ export default async function HomePage() {
       <div className="home-top-grid">
         <section className="home-section" aria-labelledby="home-pinned-title">
           <SectionHeader title="Pinned" titleId="home-pinned-title" />
-          <PinnedList items={favoriteItems.slice(0, 6)} />
+          <PinnedList
+            items={favoriteItems.slice(0, 6)}
+            redirectTo={currentPath}
+          />
         </section>
 
         <section className="home-section" aria-labelledby="home-recent-title">
@@ -365,7 +409,10 @@ export default async function HomePage() {
             title="Recent"
             titleId="home-recent-title"
           />
-          <RecentGrid items={recentItems.slice(0, 6)} />
+          <RecentGrid
+            items={recentItems.slice(0, 6)}
+            redirectTo={currentPath}
+          />
         </section>
       </div>
 
@@ -377,7 +424,7 @@ export default async function HomePage() {
             title="Folders"
             titleId="home-folders-title"
           />
-          <FolderList folders={folders} />
+          <FolderList folders={folders} redirectTo={currentPath} />
         </section>
 
         <section className="home-section" aria-labelledby="home-shared-title">

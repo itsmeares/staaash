@@ -6,6 +6,7 @@ import {
   formatDateTime,
   getSingleSearchParam,
 } from "@/app/auth-ui";
+import { ItemContextMenu } from "@/app/item-context-menu";
 import { getItemVisual } from "@/app/item-visuals";
 import { ItemTypeIcon } from "@/app/item-type-icon";
 import {
@@ -139,141 +140,179 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
 
                 <div className="sl-list">
                   {activeItems.map((share) => (
-                    <article className="sl-row" id={share.id} key={share.id}>
-                      {/* ── Row head ── */}
-                      <div className="sl-head">
-                        <div className="sl-identity-row">
-                          <ItemTypeIcon
-                            visual={getItemVisual(
-                              share.target.targetType,
-                              share.target.targetType === "file"
-                                ? share.target.mimeType
-                                : null,
-                            )}
-                          />
-                          <div className="sl-identity">
-                            <span className="sl-name">{share.target.name}</span>
-                            <span className="sl-meta">
-                              {share.target.pathLabel}
-                              {" · "}
-                              {share.target.targetType}
-                              {" · expires in "}
-                              <strong>
-                                {getRelativeExpiry(share.expiresAt)}
-                              </strong>
-                            </span>
-                          </div>
-                        </div>
-                        <span className="sl-badge sl-badge--active">
-                          Active
-                        </span>
-                      </div>
-
-                      {/* ── Management panel ── */}
-                      <details className="sl-panel">
-                        <summary className="sl-summary">Manage</summary>
-
-                        <div className="sl-body">
-                          {/* URL row */}
-                          <div className="sl-url-row">
-                            <input
-                              className="sl-url-input"
-                              readOnly
-                              value={share.shareUrl}
-                              aria-label="Share URL"
+                    <ItemContextMenu
+                      href={`/shared#${share.id}`}
+                      id={share.id}
+                      key={share.id}
+                      kind="share"
+                      name={share.target.name}
+                    >
+                      <article className="sl-row" id={share.id}>
+                        {/* ── Row head ── */}
+                        <div className="sl-head">
+                          <div className="sl-identity-row">
+                            <ItemTypeIcon
+                              visual={getItemVisual(
+                                share.target.targetType,
+                                share.target.targetType === "file"
+                                  ? share.target.mimeType
+                                  : null,
+                              )}
                             />
-                            <a
-                              className="sl-open-link"
-                              href={share.shareUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              Open ↗
-                            </a>
-                          </div>
-
-                          {/* Policy — expiry + downloads */}
-                          <form
-                            action={`/api/shares/${share.id}/update`}
-                            method="post"
-                            className="sl-policy-form"
-                          >
-                            <input
-                              name="redirectTo"
-                              type="hidden"
-                              value={`/shared#${share.id}`}
-                            />
-                            <div className="sl-policy-row">
-                              <input
-                                className="sl-datetime-input"
-                                defaultValue={formatDateTimeLocalValue(
-                                  share.expiresAt,
-                                )}
-                                name="expiresAt"
-                                type="datetime-local"
-                                required
-                              />
-                              <label className="sl-toggle-label">
-                                <input
-                                  type="checkbox"
-                                  name="downloadDisabled"
-                                  value="true"
-                                  defaultChecked={share.downloadDisabled}
-                                  className="share-toggle-check"
-                                />
-                                <span
-                                  className="share-toggle-slider"
-                                  aria-hidden
-                                />
-                                <span className="sl-toggle-text">
-                                  {share.downloadDisabled
-                                    ? "Downloads blocked"
-                                    : "Downloads allowed"}
-                                </span>
-                              </label>
-                              <button className="sl-save-btn" type="submit">
-                                Save
-                              </button>
+                            <div className="sl-identity">
+                              <span className="sl-name">
+                                {share.target.name}
+                              </span>
+                              <span className="sl-meta">
+                                {share.target.pathLabel}
+                                {" · "}
+                                {share.target.targetType}
+                                {" · expires in "}
+                                <strong>
+                                  {getRelativeExpiry(share.expiresAt)}
+                                </strong>
+                              </span>
                             </div>
-                          </form>
+                          </div>
+                          <span className="sl-badge sl-badge--active">
+                            Active
+                          </span>
+                        </div>
 
-                          {/* Password */}
-                          <div className="sl-pw-section">
+                        {/* ── Management panel ── */}
+                        <details className="sl-panel">
+                          <summary className="sl-summary">Manage</summary>
+
+                          <div className="sl-body">
+                            {/* URL row */}
+                            <div className="sl-url-row">
+                              <input
+                                className="sl-url-input"
+                                readOnly
+                                value={share.shareUrl}
+                                aria-label="Share URL"
+                              />
+                              <a
+                                className="sl-open-link"
+                                href={share.shareUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                Open ↗
+                              </a>
+                            </div>
+
+                            {/* Policy — expiry + downloads */}
                             <form
-                              action={`/api/shares/${share.id}/password`}
+                              action={`/api/shares/${share.id}/update`}
                               method="post"
-                              className="sl-pw-form"
+                              className="sl-policy-form"
                             >
                               <input
                                 name="redirectTo"
                                 type="hidden"
                                 value={`/shared#${share.id}`}
                               />
-                              <div className="sl-pw-row">
+                              <div className="sl-policy-row">
                                 <input
-                                  className="sl-pw-input"
-                                  minLength={4}
-                                  name="password"
-                                  type="password"
-                                  placeholder={
-                                    share.hasPassword
-                                      ? "New password…"
-                                      : "Set a password…"
-                                  }
+                                  className="sl-datetime-input"
+                                  defaultValue={formatDateTimeLocalValue(
+                                    share.expiresAt,
+                                  )}
+                                  name="expiresAt"
+                                  type="datetime-local"
+                                  required
                                 />
-                                <button className="sl-action-btn" type="submit">
-                                  {share.hasPassword ? "Rotate" : "Set"}
-                                </button>
-                                {share.hasPassword && (
-                                  <span className="sl-pw-status">
-                                    Password set
+                                <label className="sl-toggle-label">
+                                  <input
+                                    type="checkbox"
+                                    name="downloadDisabled"
+                                    value="true"
+                                    defaultChecked={share.downloadDisabled}
+                                    className="share-toggle-check"
+                                  />
+                                  <span
+                                    className="share-toggle-slider"
+                                    aria-hidden
+                                  />
+                                  <span className="sl-toggle-text">
+                                    {share.downloadDisabled
+                                      ? "Downloads blocked"
+                                      : "Downloads allowed"}
                                   </span>
-                                )}
+                                </label>
+                                <button className="sl-save-btn" type="submit">
+                                  Save
+                                </button>
                               </div>
                             </form>
-                            {share.hasPassword && (
+
+                            {/* Password */}
+                            <div className="sl-pw-section">
                               <form
                                 action={`/api/shares/${share.id}/password`}
+                                method="post"
+                                className="sl-pw-form"
+                              >
+                                <input
+                                  name="redirectTo"
+                                  type="hidden"
+                                  value={`/shared#${share.id}`}
+                                />
+                                <div className="sl-pw-row">
+                                  <input
+                                    className="sl-pw-input"
+                                    minLength={4}
+                                    name="password"
+                                    type="password"
+                                    placeholder={
+                                      share.hasPassword
+                                        ? "New password…"
+                                        : "Set a password…"
+                                    }
+                                  />
+                                  <button
+                                    className="sl-action-btn"
+                                    type="submit"
+                                  >
+                                    {share.hasPassword ? "Rotate" : "Set"}
+                                  </button>
+                                  {share.hasPassword && (
+                                    <span className="sl-pw-status">
+                                      Password set
+                                    </span>
+                                  )}
+                                </div>
+                              </form>
+                              {share.hasPassword && (
+                                <form
+                                  action={`/api/shares/${share.id}/password`}
+                                  method="post"
+                                >
+                                  <input
+                                    name="redirectTo"
+                                    type="hidden"
+                                    value={`/shared#${share.id}`}
+                                  />
+                                  <input
+                                    name="clear"
+                                    type="hidden"
+                                    value="true"
+                                  />
+                                  <button
+                                    className="sl-action-btn sl-action-btn--danger"
+                                    type="submit"
+                                  >
+                                    Remove password
+                                  </button>
+                                </form>
+                              )}
+                            </div>
+
+                            {/* Danger zone */}
+                            <div className="sl-danger-row">
+                              <form
+                                action={`/api/shares/${share.id}/revoke`}
                                 method="post"
                               >
                                 <input
@@ -281,53 +320,28 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
                                   type="hidden"
                                   value={`/shared#${share.id}`}
                                 />
-                                <input
-                                  name="clear"
-                                  type="hidden"
-                                  value="true"
-                                />
-                                <button
-                                  className="sl-action-btn sl-action-btn--danger"
-                                  type="submit"
-                                >
-                                  Remove password
+                                <button className="sl-danger-btn" type="submit">
+                                  Revoke link
                                 </button>
                               </form>
-                            )}
+                              <form
+                                action={`/api/shares/${share.id}/delete`}
+                                method="post"
+                              >
+                                <input
+                                  name="redirectTo"
+                                  type="hidden"
+                                  value="/shared"
+                                />
+                                <button className="sl-danger-btn" type="submit">
+                                  Delete record
+                                </button>
+                              </form>
+                            </div>
                           </div>
-
-                          {/* Danger zone */}
-                          <div className="sl-danger-row">
-                            <form
-                              action={`/api/shares/${share.id}/revoke`}
-                              method="post"
-                            >
-                              <input
-                                name="redirectTo"
-                                type="hidden"
-                                value={`/shared#${share.id}`}
-                              />
-                              <button className="sl-danger-btn" type="submit">
-                                Revoke link
-                              </button>
-                            </form>
-                            <form
-                              action={`/api/shares/${share.id}/delete`}
-                              method="post"
-                            >
-                              <input
-                                name="redirectTo"
-                                type="hidden"
-                                value="/shared"
-                              />
-                              <button className="sl-danger-btn" type="submit">
-                                Delete record
-                              </button>
-                            </form>
-                          </div>
-                        </div>
-                      </details>
-                    </article>
+                        </details>
+                      </article>
+                    </ItemContextMenu>
                   ))}
                 </div>
 
@@ -351,96 +365,104 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
 
                 <div className="sl-list">
                   {inactiveItems.map((share) => (
-                    <article className="sl-row" id={share.id} key={share.id}>
-                      <div className="sl-head">
-                        <div className="sl-identity-row">
-                          <ItemTypeIcon
-                            visual={getItemVisual(
-                              share.target.targetType,
-                              share.target.targetType === "file"
-                                ? share.target.mimeType
-                                : null,
+                    <ItemContextMenu
+                      href={`/shared#${share.id}`}
+                      id={share.id}
+                      key={share.id}
+                      kind="share"
+                      name={share.target.name}
+                    >
+                      <article className="sl-row" id={share.id}>
+                        <div className="sl-head">
+                          <div className="sl-identity-row">
+                            <ItemTypeIcon
+                              visual={getItemVisual(
+                                share.target.targetType,
+                                share.target.targetType === "file"
+                                  ? share.target.mimeType
+                                  : null,
+                              )}
+                            />
+                            <div className="sl-identity">
+                              <span className="sl-name sl-name--inactive">
+                                {share.target.name}
+                              </span>
+                              <span className="sl-meta">
+                                {share.target.pathLabel}
+                                {" · "}
+                                {share.target.targetType}
+                                {" · "}
+                                {formatDateTime(share.expiresAt)}
+                              </span>
+                            </div>
+                          </div>
+                          <span
+                            className={`sl-badge sl-badge--${share.status === "expired" ? "expired" : "revoked"}`}
+                          >
+                            {shareStatusLabel[share.status]}
+                          </span>
+                        </div>
+
+                        <details className="sl-panel">
+                          <summary className="sl-summary">Manage</summary>
+
+                          <div className="sl-body">
+                            {share.status !== "target-unavailable" ? (
+                              <form action="/api/shares" method="post">
+                                <input
+                                  name="mode"
+                                  type="hidden"
+                                  value="reissue"
+                                />
+                                <input
+                                  name="shareId"
+                                  type="hidden"
+                                  value={share.id}
+                                />
+                                <input
+                                  name="redirectTo"
+                                  type="hidden"
+                                  value={`/shared#${share.id}`}
+                                />
+                                <div className="sl-reissue-row">
+                                  <span className="sl-reissue-hint">
+                                    Generate a new link for this{" "}
+                                    {share.target.targetType}.
+                                  </span>
+                                  <button
+                                    className="sl-reissue-btn"
+                                    type="submit"
+                                  >
+                                    Reissue link
+                                  </button>
+                                </div>
+                              </form>
+                            ) : (
+                              <p className="sl-unavailable-hint">
+                                Restore the item in the library before reissuing
+                                this link.
+                              </p>
                             )}
-                          />
-                          <div className="sl-identity">
-                            <span className="sl-name sl-name--inactive">
-                              {share.target.name}
-                            </span>
-                            <span className="sl-meta">
-                              {share.target.pathLabel}
-                              {" · "}
-                              {share.target.targetType}
-                              {" · "}
-                              {formatDateTime(share.expiresAt)}
-                            </span>
-                          </div>
-                        </div>
-                        <span
-                          className={`sl-badge sl-badge--${share.status === "expired" ? "expired" : "revoked"}`}
-                        >
-                          {shareStatusLabel[share.status]}
-                        </span>
-                      </div>
 
-                      <details className="sl-panel">
-                        <summary className="sl-summary">Manage</summary>
-
-                        <div className="sl-body">
-                          {share.status !== "target-unavailable" ? (
-                            <form action="/api/shares" method="post">
-                              <input
-                                name="mode"
-                                type="hidden"
-                                value="reissue"
-                              />
-                              <input
-                                name="shareId"
-                                type="hidden"
-                                value={share.id}
-                              />
-                              <input
-                                name="redirectTo"
-                                type="hidden"
-                                value={`/shared#${share.id}`}
-                              />
-                              <div className="sl-reissue-row">
-                                <span className="sl-reissue-hint">
-                                  Generate a new link for this{" "}
-                                  {share.target.targetType}.
-                                </span>
-                                <button
-                                  className="sl-reissue-btn"
-                                  type="submit"
-                                >
-                                  Reissue link
+                            <div className="sl-danger-row">
+                              <form
+                                action={`/api/shares/${share.id}/delete`}
+                                method="post"
+                              >
+                                <input
+                                  name="redirectTo"
+                                  type="hidden"
+                                  value="/shared"
+                                />
+                                <button className="sl-danger-btn" type="submit">
+                                  Delete record
                                 </button>
-                              </div>
-                            </form>
-                          ) : (
-                            <p className="sl-unavailable-hint">
-                              Restore the item in the library before reissuing
-                              this link.
-                            </p>
-                          )}
-
-                          <div className="sl-danger-row">
-                            <form
-                              action={`/api/shares/${share.id}/delete`}
-                              method="post"
-                            >
-                              <input
-                                name="redirectTo"
-                                type="hidden"
-                                value="/shared"
-                              />
-                              <button className="sl-danger-btn" type="submit">
-                                Delete record
-                              </button>
-                            </form>
+                              </form>
+                            </div>
                           </div>
-                        </div>
-                      </details>
-                    </article>
+                        </details>
+                      </article>
+                    </ItemContextMenu>
                   ))}
                 </div>
 

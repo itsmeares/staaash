@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { formatDateTime } from "@/app/auth-ui";
+import { ItemContextMenu } from "@/app/item-context-menu";
 import { getItemVisual } from "@/app/item-visuals";
 import { ItemTypeIcon } from "@/app/item-type-icon";
 import type { RetrievalItem } from "@/server/retrieval/types";
@@ -44,89 +45,99 @@ export function RetrievalItemList({
   return (
     <div className="retrieval-list">
       {items.map((item) => (
-        <article className="retrieval-row" key={`${item.kind}-${item.id}`}>
-          <div className="retrieval-row-main">
-            <ItemTypeIcon
-              visual={getItemVisual(
-                item.kind,
-                item.kind === "file" ? item.mimeType : null,
-              )}
-            />
-            <div className="retrieval-row-name-wrap">
-              {item.kind === "folder" ? (
-                <Link className="retrieval-row-name" href={item.href}>
-                  {item.name}
-                </Link>
-              ) : (
-                <a className="retrieval-row-name" href={item.href}>
-                  {item.name}
-                </a>
-              )}
+        <ItemContextMenu
+          href={item.href}
+          id={item.id}
+          isFavorite={item.isFavorite}
+          key={`${item.kind}-${item.id}`}
+          kind={item.kind}
+          name={item.name}
+          redirectTo={currentPath}
+        >
+          <article className="retrieval-row">
+            <div className="retrieval-row-main">
+              <ItemTypeIcon
+                visual={getItemVisual(
+                  item.kind,
+                  item.kind === "file" ? item.mimeType : null,
+                )}
+              />
+              <div className="retrieval-row-name-wrap">
+                {item.kind === "folder" ? (
+                  <Link className="retrieval-row-name" href={item.href}>
+                    {item.name}
+                  </Link>
+                ) : (
+                  <a className="retrieval-row-name" href={item.href}>
+                    {item.name}
+                  </a>
+                )}
+              </div>
+
+              <div className="retrieval-row-badges">
+                {showMatchKind && item.matchKind ? (
+                  <span className="pill pill-sm">{item.matchKind}</span>
+                ) : null}
+                <span className="pill pill-sm">
+                  {item.kind === "folder" ? "Folder" : "File"}
+                </span>
+                {item.isFavorite ? (
+                  <span
+                    className="retrieval-row-favorite-dot"
+                    role="img"
+                    aria-label="Favorited"
+                  />
+                ) : null}
+              </div>
             </div>
 
-            <div className="retrieval-row-badges">
-              {showMatchKind && item.matchKind ? (
-                <span className="pill pill-sm">{item.matchKind}</span>
-              ) : null}
-              <span className="pill pill-sm">
-                {item.kind === "folder" ? "Folder" : "File"}
+            <div className="retrieval-row-sub">
+              <span className="retrieval-row-meta">
+                {formatDateTime(item.updatedAt)}
+                {item.kind === "file"
+                  ? ` · ${formatFileSize(item.sizeBytes)}`
+                  : ` · ${item.pathLabel}`}
               </span>
-              {item.isFavorite ? (
-                <span
-                  className="retrieval-row-favorite-dot"
-                  role="img"
-                  aria-label="Favorited"
-                />
-              ) : null}
+
+              <div className="retrieval-row-actions">
+                {item.kind === "folder" ? (
+                  <Link
+                    className="button button-secondary button-sm"
+                    href={item.href}
+                  >
+                    Open
+                  </Link>
+                ) : (
+                  <a
+                    className="button button-secondary button-sm"
+                    href={item.href}
+                  >
+                    Download
+                  </a>
+                )}
+
+                <form
+                  action={`/api/files/${item.kind === "folder" ? "folders" : "files"}/${item.id}/favorite`}
+                  method="post"
+                  className="inline-form"
+                >
+                  <input name="redirectTo" type="hidden" value={currentPath} />
+                  <input
+                    name="isFavorite"
+                    type="hidden"
+                    value={item.isFavorite ? "false" : "true"}
+                  />
+                  <button
+                    className="button button-secondary button-sm"
+                    type="submit"
+                  >
+                    {getFavoriteActionLabel(item)}
+                  </button>
+                </form>
+              </div>
             </div>
-          </div>
-
-          <div className="retrieval-row-sub">
-            <span className="retrieval-row-meta">
-              {formatDateTime(item.updatedAt)}
-              {item.kind === "file"
-                ? ` · ${formatFileSize(item.sizeBytes)}`
-                : ` · ${item.pathLabel}`}
-            </span>
-
-            <div className="retrieval-row-actions">
-              {item.kind === "folder" ? (
-                <Link
-                  className="button button-secondary button-sm"
-                  href={item.href}
-                >
-                  Open
-                </Link>
-              ) : (
-                <a
-                  className="button button-secondary button-sm"
-                  href={item.href}
-                >
-                  Download
-                </a>
-              )}
-
-              <form
-                action={`/api/files/${item.kind === "folder" ? "folders" : "files"}/${item.id}/favorite`}
-                method="post"
-                className="inline-form"
-              >
-                <input name="redirectTo" type="hidden" value={currentPath} />
-                <input
-                  name="isFavorite"
-                  type="hidden"
-                  value={item.isFavorite ? "false" : "true"}
-                />
-                <button
-                  className="button button-secondary button-sm"
-                  type="submit"
-                >
-                  {getFavoriteActionLabel(item)}
-                </button>
-              </form>
-            </div>
-          </div>
-        </article>
+          </article>
+        </ItemContextMenu>
       ))}
     </div>
   );
