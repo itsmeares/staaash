@@ -3,6 +3,8 @@ import {
   formatDateTime,
   getSingleSearchParam,
 } from "@/app/auth-ui";
+import { getItemVisual } from "@/app/item-visuals";
+import { ItemTypeIcon } from "@/app/item-type-icon";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { filesService } from "@/server/files/service";
 import type {
@@ -119,14 +121,17 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
                   {folders.map((item) => (
                     <article className="folder-row" key={item.folder.id}>
                       <div className="folder-row-head">
-                        <div className="stack">
-                          <h2>{item.folder.name}</h2>
-                          <p className="folder-meta">
-                            Deleted{" "}
-                            {formatDateTime(
-                              item.folder.deletedAt ?? item.folder.updatedAt,
-                            )}
-                          </p>
+                        <div className="item-row-title">
+                          <ItemTypeIcon visual={getItemVisual("folder")} />
+                          <div className="stack">
+                            <h2>{item.folder.name}</h2>
+                            <p className="folder-meta">
+                              Deleted{" "}
+                              {formatDateTime(
+                                item.folder.deletedAt ?? item.folder.updatedAt,
+                              )}
+                            </p>
+                          </div>
                         </div>
                         <span className="pill">Restore ready</span>
                       </div>
@@ -171,14 +176,19 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
                   {files.map((item) => (
                     <article className="folder-row" key={item.file.id}>
                       <div className="folder-row-head">
-                        <div className="stack">
-                          <h2>{item.file.name}</h2>
-                          <p className="folder-meta">
-                            Deleted{" "}
-                            {formatDateTime(
-                              item.file.deletedAt ?? item.file.updatedAt,
-                            )}
-                          </p>
+                        <div className="item-row-title">
+                          <ItemTypeIcon
+                            visual={getItemVisual("file", item.file.mimeType)}
+                          />
+                          <div className="stack">
+                            <h2>{item.file.name}</h2>
+                            <p className="folder-meta">
+                              Deleted{" "}
+                              {formatDateTime(
+                                item.file.deletedAt ?? item.file.updatedAt,
+                              )}
+                            </p>
+                          </div>
                         </div>
                         <span className="pill">File</span>
                       </div>

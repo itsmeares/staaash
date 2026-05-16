@@ -6,6 +6,8 @@ import {
   formatDateTime,
   getSingleSearchParam,
 } from "@/app/auth-ui";
+import { getItemVisual } from "@/app/item-visuals";
+import { ItemTypeIcon } from "@/app/item-type-icon";
 import {
   PAGE_SIZE,
   PaginationControls,
@@ -140,17 +142,27 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
                     <article className="sl-row" id={share.id} key={share.id}>
                       {/* ── Row head ── */}
                       <div className="sl-head">
-                        <div className="sl-identity">
-                          <span className="sl-name">{share.target.name}</span>
-                          <span className="sl-meta">
-                            {share.target.pathLabel}
-                            {" · "}
-                            {share.target.targetType}
-                            {" · expires in "}
-                            <strong>
-                              {getRelativeExpiry(share.expiresAt)}
-                            </strong>
-                          </span>
+                        <div className="sl-identity-row">
+                          <ItemTypeIcon
+                            visual={getItemVisual(
+                              share.target.targetType,
+                              share.target.targetType === "file"
+                                ? share.target.mimeType
+                                : null,
+                            )}
+                          />
+                          <div className="sl-identity">
+                            <span className="sl-name">{share.target.name}</span>
+                            <span className="sl-meta">
+                              {share.target.pathLabel}
+                              {" · "}
+                              {share.target.targetType}
+                              {" · expires in "}
+                              <strong>
+                                {getRelativeExpiry(share.expiresAt)}
+                              </strong>
+                            </span>
+                          </div>
                         </div>
                         <span className="sl-badge sl-badge--active">
                           Active
@@ -341,17 +353,27 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
                   {inactiveItems.map((share) => (
                     <article className="sl-row" id={share.id} key={share.id}>
                       <div className="sl-head">
-                        <div className="sl-identity">
-                          <span className="sl-name sl-name--inactive">
-                            {share.target.name}
-                          </span>
-                          <span className="sl-meta">
-                            {share.target.pathLabel}
-                            {" · "}
-                            {share.target.targetType}
-                            {" · "}
-                            {formatDateTime(share.expiresAt)}
-                          </span>
+                        <div className="sl-identity-row">
+                          <ItemTypeIcon
+                            visual={getItemVisual(
+                              share.target.targetType,
+                              share.target.targetType === "file"
+                                ? share.target.mimeType
+                                : null,
+                            )}
+                          />
+                          <div className="sl-identity">
+                            <span className="sl-name sl-name--inactive">
+                              {share.target.name}
+                            </span>
+                            <span className="sl-meta">
+                              {share.target.pathLabel}
+                              {" · "}
+                              {share.target.targetType}
+                              {" · "}
+                              {formatDateTime(share.expiresAt)}
+                            </span>
+                          </div>
                         </div>
                         <span
                           className={`sl-badge sl-badge--${share.status === "expired" ? "expired" : "revoked"}`}

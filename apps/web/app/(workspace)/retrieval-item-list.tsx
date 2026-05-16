@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 import { formatDateTime } from "@/app/auth-ui";
+import { getItemVisual } from "@/app/item-visuals";
+import { ItemTypeIcon } from "@/app/item-type-icon";
 import type { RetrievalItem } from "@/server/retrieval/types";
 
 type RetrievalItemListProps = {
@@ -44,6 +46,12 @@ export function RetrievalItemList({
       {items.map((item) => (
         <article className="retrieval-row" key={`${item.kind}-${item.id}`}>
           <div className="retrieval-row-main">
+            <ItemTypeIcon
+              visual={getItemVisual(
+                item.kind,
+                item.kind === "file" ? item.mimeType : null,
+              )}
+            />
             <div className="retrieval-row-name-wrap">
               {item.kind === "folder" ? (
                 <Link className="retrieval-row-name" href={item.href}>

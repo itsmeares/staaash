@@ -1644,6 +1644,7 @@ h3 {
   padding: 7px 6px;
 }
 
+.item-type-icon,
 .home-item-icon {
   width: 26px;
   height: 26px;
@@ -1652,6 +1653,17 @@ h3 {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+.item-row-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.item-row-title > .stack {
+  min-width: 0;
 }
 
 .home-pinned-name,
@@ -3343,6 +3355,11 @@ h3 {
   flex-shrink: 0;
 }
 
+.explorer-row-icon .item-type-icon {
+  width: 28px;
+  height: 28px;
+}
+
 .explorer-row-icon svg {
   width: 16px;
   height: 16px;
@@ -4964,6 +4981,13 @@ main.share-locked-page {
 .sl-identity {
   display: grid;
   gap: 3px;
+  min-width: 0;
+}
+
+.sl-identity-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
 }
 

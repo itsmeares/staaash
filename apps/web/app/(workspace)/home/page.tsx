@@ -1,21 +1,11 @@
 import Link from "next/link";
 import { headers } from "next/headers";
-import {
-  Archive,
-  ArrowRight,
-  File,
-  FileText,
-  Folder,
-  Image,
-  Music,
-  Share2,
-  Video,
-  type LucideIcon,
-} from "lucide-react";
+import { ArrowRight, Share2, Video } from "lucide-react";
 
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { filesService } from "@/server/files/service";
 import type { FolderSummary } from "@/server/files/types";
+import { ItemTypeIcon, itemVisualIconMap } from "@/app/item-type-icon";
 import { retrievalService } from "@/server/retrieval/service";
 import type { RetrievalItem } from "@/server/retrieval/types";
 import { getBaseUrl } from "@/server/request";
@@ -30,7 +20,6 @@ import {
   getHomeGreeting,
   getHomeItemVisual,
   type HomeItemVisual,
-  type HomeVisualKind,
 } from "./home-helpers";
 
 export const dynamic = "force-dynamic";
@@ -38,17 +27,6 @@ export const dynamic = "force-dynamic";
 type HomeFolder = {
   folder: FolderSummary;
   childCount: number;
-};
-
-const visualIconMap: Record<HomeVisualKind, LucideIcon> = {
-  archive: Archive,
-  audio: Music,
-  file: File,
-  folder: Folder,
-  image: Image,
-  pdf: FileText,
-  text: FileText,
-  video: Video,
 };
 
 function SectionHeader({
@@ -78,13 +56,7 @@ function SectionHeader({
 }
 
 function HomeIcon({ visual }: { visual: HomeItemVisual }) {
-  const Icon = visualIconMap[visual.kind];
-
-  return (
-    <span className="home-item-icon" style={{ background: visual.background }}>
-      <Icon size={14} strokeWidth={1.8} color={visual.color} aria-hidden />
-    </span>
-  );
+  return <ItemTypeIcon className="home-item-icon" visual={visual} />;
 }
 
 function EmptyLine({ children }: { children: React.ReactNode }) {
@@ -170,7 +142,7 @@ function RecentPreview({ item }: { item: RetrievalItem }) {
     item.kind,
     item.kind === "file" ? item.mimeType : null,
   );
-  const Icon = visualIconMap[visual.kind];
+  const Icon = itemVisualIconMap[visual.kind];
 
   if (visual.kind === "video") {
     return (
