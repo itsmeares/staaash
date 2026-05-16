@@ -3,12 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Folder,
-  Image,
-  Film,
-  Music,
-  FileText,
-  Archive,
-  File,
   Star,
   Heart,
   Lock,
@@ -20,6 +14,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { getItemVisual } from "@/app/item-visuals";
+import { ItemTypeIcon } from "@/app/item-type-icon";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -35,30 +31,6 @@ import { formatDateTime } from "@/app/auth-ui";
 import type { FileSummary, FolderSummary } from "@/server/files/types";
 import type { ShareLinkSummary } from "@/server/sharing";
 import { FOLDER_ICON_MAP } from "./files-properties-panel";
-
-// ---------------------------------------------------------------------------
-// File icon mapping
-// ---------------------------------------------------------------------------
-
-function getFileIcon(mimeType: string): LucideIcon {
-  if (mimeType.startsWith("image/")) return Image;
-  if (mimeType.startsWith("video/")) return Film;
-  if (mimeType.startsWith("audio/")) return Music;
-  if (
-    mimeType.includes("pdf") ||
-    mimeType.startsWith("text/") ||
-    mimeType.includes("document")
-  )
-    return FileText;
-  if (
-    mimeType.includes("zip") ||
-    mimeType.includes("archive") ||
-    mimeType.includes("tar") ||
-    mimeType.includes("gzip")
-  )
-    return Archive;
-  return File;
-}
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -182,18 +154,18 @@ export function FilesRow(props: FilesRowProps) {
     .join(" ");
 
   // ---- Icon ----
-  let IconComponent: LucideIcon;
-  let iconColor: string;
+  let IconComponent: LucideIcon | undefined;
+  const visual = getItemVisual(
+    props.kind,
+    props.kind === "file" ? props.data.mimeType : null,
+  );
 
   if (props.kind === "folder") {
     const customIcon =
       FOLDER_ICON_MAP[props.folderIconName ?? "Folder"] ?? Folder;
     IconComponent = isSelected ? FolderOpen : customIcon;
-    iconColor =
-      "color-mix(in oklab, var(--primary) 80%, var(--foreground) 20%)";
   } else {
-    IconComponent = getFileIcon(props.data.mimeType);
-    iconColor = "var(--muted-foreground)";
+    IconComponent = undefined;
   }
 
   // ---- Name ----
@@ -242,7 +214,11 @@ export function FilesRow(props: FilesRowProps) {
         >
           {/* Icon */}
           <div className="explorer-row-icon">
-            <IconComponent size={16} style={{ color: iconColor }} aria-hidden />
+            <ItemTypeIcon
+              icon={props.kind === "folder" ? IconComponent : undefined}
+              size={16}
+              visual={visual}
+            />
           </div>
 
           {/* Name */}

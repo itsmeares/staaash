@@ -8,6 +8,8 @@ import {
   formatDateTime,
   getSingleSearchParam,
 } from "@/app/auth-ui";
+import { getItemVisual } from "@/app/item-visuals";
+import { ItemTypeIcon } from "@/app/item-type-icon";
 import { authService } from "@/server/auth/service";
 import { ShareAudioPlayer } from "./share-audio-player";
 import type { FileSummary } from "@/server/files/types";
@@ -375,16 +377,19 @@ export function ShareView({ resolution, token, searchParams }: ShareViewProps) {
             {resolution.listing.childFolders.map((folder) => (
               <article className="folder-row" key={folder.id}>
                 <div className="folder-row-head">
-                  <div className="stack">
-                    <Link
-                      className="folder-link"
-                      href={`/s/${encodeURIComponent(token)}/f/${folder.id}`}
-                    >
-                      {folder.name}
-                    </Link>
-                    <p className="share-file-meta">
-                      Updated {formatDateTime(folder.updatedAt)}
-                    </p>
+                  <div className="item-row-title">
+                    <ItemTypeIcon visual={getItemVisual("folder")} />
+                    <div className="stack">
+                      <Link
+                        className="folder-link"
+                        href={`/s/${encodeURIComponent(token)}/f/${folder.id}`}
+                      >
+                        {folder.name}
+                      </Link>
+                      <p className="share-file-meta">
+                        Updated {formatDateTime(folder.updatedAt)}
+                      </p>
+                    </div>
                   </div>
                   <span className="pill">Folder</span>
                 </div>
@@ -409,12 +414,17 @@ export function ShareView({ resolution, token, searchParams }: ShareViewProps) {
             {resolution.listing.files.map((file) => (
               <article className="folder-row" key={file.id}>
                 <div className="folder-row-head">
-                  <div className="stack">
-                    <h3 className="folder-link">{file.name}</h3>
-                    <p className="share-file-meta">
-                      {file.mimeType} · {formatBytes(file.sizeBytes)} · updated{" "}
-                      {formatDateTime(file.updatedAt)}
-                    </p>
+                  <div className="item-row-title">
+                    <ItemTypeIcon
+                      visual={getItemVisual("file", file.mimeType)}
+                    />
+                    <div className="stack">
+                      <h3 className="folder-link">{file.name}</h3>
+                      <p className="share-file-meta">
+                        {file.mimeType} · {formatBytes(file.sizeBytes)} ·
+                        updated {formatDateTime(file.updatedAt)}
+                      </p>
+                    </div>
                   </div>
                   <div className="workspace-inline-fields retrieval-inline-actions">
                     {file.viewerKind ? (
