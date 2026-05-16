@@ -11,6 +11,19 @@ This was just gonna be something that only I was going to use and share with som
 
 Think of it as the [Immich](https://github.com/immich-app/immich) for files.
 
+## Screenshots
+
+A quick look at the beta experience: a calm home dashboard, focused file management, and public sharing that still feels like your space.
+
+<p align="center">
+  <img src="./docs/assets/readme/home-dashboard-light.png" alt="Staaash home dashboard in light mode" width="100%">
+</p>
+
+<p align="center">
+  <img src="./docs/assets/readme/files-dark.png" alt="Staaash files view in dark mode" width="49%">
+  <img src="./docs/assets/readme/share-page-light.png" alt="Staaash public share page in light mode" width="49%">
+</p>
+
 ## Installation
 
 Requirements: [Docker](https://docs.docker.com/get-docker/) with the Compose plugin.
