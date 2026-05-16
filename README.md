@@ -3,7 +3,7 @@
 [![AGPL-3.0 License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](./LICENSE)
 
 > [!IMPORTANT]
-> **Staaash is moving toward beta.** Expect some bugs and breaking changes between pre-1.0 releases. Do not use it as your only copy of important files — set up a [3-2-1 backup strategy](https://www.backblaze.com/blog/the-3-2-1-backup-strategy/) before you start.
+> **Staaash is in beta.** Expect some bugs and breaking changes between pre-1.0 releases. Do not use it as your only copy of important files — set up a [3-2-1 backup strategy](https://www.backblaze.com/blog/the-3-2-1-backup-strategy/) before you start.
 
 Staaash is a self-hosted personal cloud drive I am building in public.
 
@@ -17,7 +17,7 @@ Requirements: [Docker](https://docs.docker.com/get-docker/) with the Compose plu
 
 ### Windows and Linux
 
-1. Go to the [releases page](https://github.com/itsmeares/staaash/releases) and download `docker-compose.yml` and `example.env` into the same folder. (I suggest downloading from the latest release or a specific version because files on main may not always be ready for production. Always prefer release version.)
+1. Go to the [releases page](https://github.com/itsmeares/staaash/releases) and download `docker-compose.yml` and `example.env` into the same folder. Use the latest release, or pick a specific version if you need one. Files on `main` may include unreleased changes.
 2. Rename `example.env` to `.env`, open it, set `DB_PASSWORD` to a secure value (You can use something like pwgen). Also, if you are running plain HTTP without HTTPS, set `SECURE_COOKIES` to `false`, and change any other values you want. `SECURE_COOKIES` only accepts `true` or `false` when set.
 3. Run:
 

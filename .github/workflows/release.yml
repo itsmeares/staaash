@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version tag for the Docker image (e.g. v0.1.0-alpha.2). Leave empty to push :latest only."
+        description: "Version tag for the Docker image (e.g. v0.2.0-beta.1). Leave empty to push :latest only."
         required: false
         default: ""
 

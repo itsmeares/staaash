@@ -46,7 +46,7 @@ describe("update check handler", () => {
     vi.clearAllMocks();
     mockFindUnique.mockReset();
     delete process.env.UPDATE_CHECK_TOKEN;
-    process.env.APP_VERSION = "0.1.0";
+    process.env.APP_VERSION = "0.2.0-beta.1";
   });
 
   it("marks update checks unavailable when no repository is configured", async () => {
@@ -74,7 +74,7 @@ describe("update check handler", () => {
         ok: true,
         status: 200,
         json: async () => ({
-          tag_name: "v0.2.0",
+          tag_name: "v0.3.0",
         }),
       }),
     );
@@ -86,7 +86,7 @@ describe("update check handler", () => {
     expect(writeInstanceUpdateCheck).toHaveBeenCalledWith(
       expect.objectContaining({
         updateCheckStatus: "update-available",
-        latestAvailableVersion: "0.2.0",
+        latestAvailableVersion: "0.3.0",
       }),
     );
   });

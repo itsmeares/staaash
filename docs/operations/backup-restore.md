@@ -1,6 +1,6 @@
 # Backup And Restore
 
-Staaash is still in alpha. Do not keep important files in Staaash unless you also have a separate backup.
+Staaash is in beta. Do not keep important files in Staaash unless you also have a separate backup.
 
 Back up both data folders together:
 
