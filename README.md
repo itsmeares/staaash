@@ -1,28 +1,34 @@
 # Staaash
 
 [![AGPL-3.0 License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](./LICENSE)
+[![Release](https://img.shields.io/github/v/release/itsmeares/staaash?include_prereleases&label=release)](https://github.com/itsmeares/staaash/releases)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/itsmeares/staaash/pkgs/container/staaash)
+[![Self-hosted](https://img.shields.io/badge/self--hosted-yes-brightgreen)](#installation)
 
 > [!IMPORTANT]
-> **Staaash is in beta.** Expect some bugs and breaking changes between pre-1.0 releases. Do not use it as your only copy of important files — set up a [3-2-1 backup strategy](https://www.backblaze.com/blog/the-3-2-1-backup-strategy/) before you start.
+> **Staaash is in beta.** Expect some bugs and breaking changes between pre-releases. Do not use it as your only copy of important files — set up a [3-2-1 backup strategy](https://www.backblaze.com/blog/the-3-2-1-backup-strategy/) before you start.
 
-Staaash is a self-hosted personal cloud drive I am building in public.
+Staaash is a self-hosted file drive for people who want their files on their own server.
 
-This was just gonna be something that only I was going to use and share with some friends but I thought "why not I just do it open-source, maybe some people would like to see aswell" so I made it.
+Upload files, organize folders, invite trusted users, and share links without handing the whole thing to someone else's cloud. It is built for self-hosters who want something small enough to understand and useful enough to run at home.
 
-Think of it as the [Immich](https://github.com/immich-app/immich) for files.
-
-## Screenshots
-
-A quick look at the beta experience: a calm home dashboard, focused file management, and public sharing that still feels like your space.
+If [Immich](https://github.com/immich-app/immich) is your self-hosted photo library, Staaash aims to be your self-hosted file drive.
 
 <p align="center">
   <img src="./docs/assets/readme/home-dashboard-light.png" alt="Staaash home dashboard in light mode" width="100%">
 </p>
 
 <p align="center">
-  <img src="./docs/assets/readme/files-dark.png" alt="Staaash files view in dark mode" width="49%">
+  <img src="./docs/assets/readme/files-light.png" alt="Staaash files view in light mode" width="49%">
   <img src="./docs/assets/readme/share-page-light.png" alt="Staaash public share page in light mode" width="49%">
 </p>
+
+## Why Use It
+
+- Your files stay on storage you control.
+- Sharing is built in, with public links for files and folders.
+- Invite friends or family and give them their own space.
+- Built for real home use: uploads, folders, sharing, backups, and restore checks.
 
 ## Installation
 
@@ -68,11 +74,24 @@ Migrations run automatically on startup.
 
 Both paths are relative to where `docker-compose.yml` lives. Change them in `.env` before first run.
 
-## Tech Stack
+## Backup And Restore
+
+Back up both the database and uploaded files. In the default Docker setup, that means backing up `./postgres` and `./library` together.
+
+See [`docs/operations/backup-restore.md`](./docs/operations/backup-restore.md) for the restore checklist.
+
+## Documentation
+
+- [`docs/architecture.md`](./docs/architecture.md) - system shape, storage model, and design boundaries
+- [`docs/operations/backup-restore.md`](./docs/operations/backup-restore.md) - simple backup and restore checklist
+
+## Local Development
+
+Staaash is a PNPM workspace monorepo.
 
 Next.js · TypeScript · Prisma · PostgreSQL
 
-## Repository Layout
+### Repository Layout
 
 - `apps/web` - web app and server routes
 - `apps/worker` - background worker runtime
@@ -80,7 +99,7 @@ Next.js · TypeScript · Prisma · PostgreSQL
 - `packages/db` - Prisma schema and DB helpers
 - `docs` - architecture reference
 
-## Local Development
+### Development Setup
 
 1. Copy `dev.example.env` to `.env.local` at the repo root.
 2. Start PostgreSQL.
@@ -100,7 +119,7 @@ Next.js · TypeScript · Prisma · PostgreSQL
 6. Start the web app with `pnpm web:dev`.
 7. Start the worker with `pnpm worker:dev`.
 
-## Resetting Local Data
+### Resetting Local Data
 
 If you need to reset your local database and file uploads during development:
 
@@ -115,7 +134,7 @@ This will:
 
 **Note:** Use this script to reset your database please, you may have data remain if you do it manually.
 
-## Quality Checks
+## Testing And Quality
 
 - staged files are auto-formatted on commit
 - `pnpm format:check`
@@ -123,11 +142,6 @@ This will:
 - `pnpm lint`
 - `pnpm test`
 - `pnpm build`
-
-## Documentation
-
-- [`docs/architecture.md`](./docs/architecture.md) - system shape, storage model, and design boundaries
-- [`docs/operations/backup-restore.md`](./docs/operations/backup-restore.md) - simple backup and restore checklist
 
 ## AI Use
 
