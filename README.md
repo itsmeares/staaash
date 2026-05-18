@@ -19,8 +19,8 @@ If [Immich](https://github.com/immich-app/immich) is your self-hosted photo libr
 </p>
 
 <p align="center">
-  <img src="./docs/assets/readme/files-light.png" alt="Staaash files view in light mode" width="50%">
-  <img src="./docs/assets/readme/share-page-light.png" alt="Staaash public share page in light mode" width="50%">
+  <img src="./docs/assets/readme/files-light.png" alt="Staaash files view in light mode" width="49%">
+  <img src="./docs/assets/readme/share-page-light.png" alt="Staaash public share page in light mode" width="49%">
 </p>
 
 ## Why Use It
