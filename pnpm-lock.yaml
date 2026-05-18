@@ -6,6 +6,7 @@ settings:
 
 overrides:
   "@hono/node-server": 1.19.13
+  brace-expansion: 5.0.6
   fast-uri: 3.1.2
   hono: 4.12.18
   ip-address: 10.1.1
@@ -2680,10 +2681,10 @@ packages:
       }
     engines: { node: ">=18" }
 
-  brace-expansion@5.0.5:
+  brace-expansion@5.0.6:
     resolution:
       {
-        integrity: sha512-VZznLgtwhn+Mact9tfiwx64fA9erHH/MCXEUfB/0bX/6Fz6ny5EGTXYltMocqg4xFAQZtnO3DHWWXi8RiuN7cQ==,
+        integrity: sha512-kLpxurY4Z4r9sgMsyG0Z9uzsBlgiU/EFKhj/h91/8yHu0edo7XuixOIH3VcJ8kkxs6/jPzoI6U9Vj3WqbMQ94g==,
       }
     engines: { node: 18 || 20 || >=22 }
 
@@ -7239,7 +7240,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  brace-expansion@5.0.5:
+  brace-expansion@5.0.6:
     dependencies:
       balanced-match: 4.0.4
 
@@ -8113,7 +8114,7 @@ snapshots:
 
   minimatch@10.2.5:
     dependencies:
-      brace-expansion: 5.0.5
+      brace-expansion: 5.0.6
 
   minimist@1.2.8: {}
 
