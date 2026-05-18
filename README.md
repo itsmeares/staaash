@@ -10,14 +10,21 @@
 
 Staaash is a self-hosted file drive for people who want their files on their own server.
 
-<p align="center">
-  <img src="./docs/assets/readme/home-dashboard-light.png" alt="Staaash home dashboard in light mode" width="100%">
-</p>
-
-<p align="center">
-  <img src="./docs/assets/readme/files-light.png" alt="Staaash files view in light mode" width="49%">
-  <img src="./docs/assets/readme/share-page-light.png" alt="Staaash public share page in light mode" width="49%">
-</p>
+<table>
+  <tr>
+    <td colspan="2">
+      <img src="./docs/assets/readme/files-light.png" alt="Staaash files view in light mode">
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <img src="./docs/assets/readme/home-dashboard-light.png" alt="Staaash home dashboard in light mode">
+    </td>
+    <td>
+      <img src="./docs/assets/readme/share-page-light.png" alt="Staaash public share page in light mode">
+    </td>
+  </tr>
+</table>
 
 ## Why Use It
 
