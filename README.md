@@ -10,10 +10,6 @@
 
 Staaash is a self-hosted file drive for people who want their files on their own server.
 
-Upload files, organize folders, invite trusted users, and share links without handing the whole thing to someone else's cloud. It is built for self-hosters who want something small enough to understand and useful enough to run at home.
-
-If [Immich](https://github.com/immich-app/immich) is your self-hosted photo library, Staaash aims to be your self-hosted file drive.
-
 <p align="center">
   <img src="./docs/assets/readme/home-dashboard-light.png" alt="Staaash home dashboard in light mode" width="100%">
 </p>
@@ -29,6 +25,10 @@ If [Immich](https://github.com/immich-app/immich) is your self-hosted photo libr
 - Sharing is built in, with public links for files and folders.
 - Invite friends or family and give them their own space.
 - Built for real home use: uploads, folders, sharing, backups, and restore checks.
+
+Upload files, organize folders, invite trusted users, and share links without handing the whole thing to someone else's cloud. It is built for self-hosters who want something small enough to understand and useful enough to run at home.
+
+If [Immich](https://github.com/immich-app/immich) is your self-hosted photo library, Staaash aims to be your self-hosted file drive.
 
 ## Installation
 

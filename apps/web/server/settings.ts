@@ -45,5 +45,20 @@ export const getSystemSettings = cache(async () => {
     where: { id: "singleton" },
   });
   if (existing) return existing;
-  return db.systemSettings.create({ data: { id: "singleton" } });
+  try {
+    return await db.systemSettings.create({ data: { id: "singleton" } });
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "P2002"
+    ) {
+      const racedSettings = await db.systemSettings.findUnique({
+        where: { id: "singleton" },
+      });
+      if (racedSettings) return racedSettings;
+    }
+    throw error;
+  }
 });
