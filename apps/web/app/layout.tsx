@@ -79,7 +79,7 @@ export default async function RootLayout({
       lang="en"
       className={`${switzer.variable} ${cabinetGrotesk.variable} font-sans${themeClass ? ` ${themeClass}` : ""}`}
     >
-      <body>
+      <body suppressHydrationWarning>
         <TransferRoot>{children}</TransferRoot>
       </body>
     </html>
