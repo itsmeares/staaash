@@ -475,6 +475,55 @@ export const createRetrievalService = ({
       );
     },
 
+    async listRecentlyAdded({
+      actorUserId,
+    }: FilesActor): Promise<RetrievalItem[]> {
+      const activeRepo = await resolveRepo();
+      const [filesRoot, folders, files, favoriteState] = await Promise.all([
+        activeRepo.ensureFilesRoot(actorUserId),
+        activeRepo.listFoldersByOwner(actorUserId),
+        activeRepo.listFilesByOwner(actorUserId),
+        getFavoriteState(actorUserId),
+      ]);
+      const folderMap = buildFolderMap(folders);
+      const items = [
+        ...folders
+          .filter((folder) => !folder.isFilesRoot)
+          .map((folder) => ({
+            createdAt: folder.createdAt,
+            item: {
+              ...toFolderItem({
+                folder,
+                folderMap,
+                filesRoot,
+                favoriteFolderIds: favoriteState.favoriteFolderIds,
+              }),
+              updatedAt: folder.createdAt,
+            },
+          })),
+        ...files.map((file) => ({
+          createdAt: file.createdAt,
+          item: {
+            ...toFileItem({
+              file,
+              folderMap,
+              filesRoot,
+              favoriteFileIds: favoriteState.favoriteFileIds,
+            }),
+            updatedAt: file.createdAt,
+          },
+        })),
+      ];
+
+      return items
+        .sort(
+          (left, right) =>
+            right.createdAt.getTime() - left.createdAt.getTime() ||
+            compareRetrievalItems(left.item, right.item),
+        )
+        .map((entry) => entry.item);
+    },
+
     async listRecent({ actorUserId }: FilesActor): Promise<RetrievalItem[]> {
       const activeRepo = await resolveRepo();
       const [
