@@ -50,6 +50,7 @@ const createMemoryRepository = () => {
     name,
     isFilesRoot = false,
     deletedAt = null,
+    createdAt,
     updatedAt,
     ownerUsername = ownerUserId,
   }: {
@@ -58,10 +59,11 @@ const createMemoryRepository = () => {
     name: string;
     isFilesRoot?: boolean;
     deletedAt?: Date | null;
+    createdAt?: Date;
     updatedAt?: Date;
     ownerUsername?: string;
   }) => {
-    const timestamp = updatedAt ?? nextDate();
+    const timestamp = createdAt ?? updatedAt ?? nextDate();
     const folder: FolderSummary = {
       id: nextId("folder"),
       ownerUserId,
@@ -71,7 +73,7 @@ const createMemoryRepository = () => {
       isFilesRoot,
       deletedAt,
       createdAt: timestamp,
-      updatedAt: timestamp,
+      updatedAt: updatedAt ?? timestamp,
     };
 
     state.folders.push(folder);
@@ -85,6 +87,7 @@ const createMemoryRepository = () => {
     mimeType = "text/plain",
     sizeBytes = 1024,
     deletedAt = null,
+    createdAt,
     updatedAt,
     ownerUsername = ownerUserId,
   }: {
@@ -94,10 +97,11 @@ const createMemoryRepository = () => {
     mimeType?: string;
     sizeBytes?: number;
     deletedAt?: Date | null;
+    createdAt?: Date;
     updatedAt?: Date;
     ownerUsername?: string;
   }) => {
-    const timestamp = updatedAt ?? nextDate();
+    const timestamp = createdAt ?? updatedAt ?? nextDate();
     const file: FileSummary = {
       id: nextId("file"),
       ownerUserId,
@@ -109,7 +113,7 @@ const createMemoryRepository = () => {
       viewerKind: null,
       deletedAt,
       createdAt: timestamp,
-      updatedAt: timestamp,
+      updatedAt: updatedAt ?? timestamp,
     };
 
     state.files.push(file);
@@ -583,6 +587,62 @@ describe("retrieval service", () => {
       ["file", "notes.txt", true],
       ["folder", "Projects", true],
     ]);
+  });
+
+  it("lists recently added active files and folders by created time", async () => {
+    const { repo, ensureFilesRootRecord, addFolder, addFile } =
+      createMemoryRepository();
+    const root = ensureFilesRootRecord("alice");
+    const folder = addFolder({
+      ownerUserId: "alice",
+      parentId: root.id,
+      name: "Uploads",
+      createdAt: new Date("2026-05-19T11:00:00.000Z"),
+      updatedAt: new Date("2026-05-19T13:00:00.000Z"),
+    });
+    addFile({
+      ownerUserId: "alice",
+      folderId: root.id,
+      name: "older.bin",
+      mimeType: "application/octet-stream",
+      createdAt: new Date("2026-05-19T10:00:00.000Z"),
+      updatedAt: new Date("2026-05-19T15:00:00.000Z"),
+    });
+    addFile({
+      ownerUserId: "alice",
+      folderId: folder.id,
+      name: "newer.bin",
+      mimeType: "application/octet-stream",
+      createdAt: new Date("2026-05-19T12:00:00.000Z"),
+    });
+    addFile({
+      ownerUserId: "alice",
+      folderId: root.id,
+      name: "trashed.bin",
+      mimeType: "application/octet-stream",
+      createdAt: new Date("2026-05-19T13:00:00.000Z"),
+      deletedAt: new Date("2026-05-19T13:05:00.000Z"),
+    });
+    addFile({
+      ownerUserId: "bob",
+      folderId: null,
+      name: "other.bin",
+      mimeType: "application/octet-stream",
+      createdAt: new Date("2026-05-19T14:00:00.000Z"),
+    });
+    const service = createRetrievalService({ repo });
+
+    const items = await service.listRecentlyAdded({
+      actorUserId: "alice",
+      actorRole: "member",
+    });
+
+    expect(items.map((item) => [item.kind, item.name])).toEqual([
+      ["file", "newer.bin"],
+      ["folder", "Uploads"],
+      ["file", "older.bin"],
+    ]);
+    expect(items[2]?.updatedAt.toISOString()).toBe("2026-05-19T10:00:00.000Z");
   });
 
   it("records recent folder and file interactions as one row per item", async () => {
