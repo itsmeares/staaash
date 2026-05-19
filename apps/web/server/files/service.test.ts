@@ -1,4 +1,5 @@
 import { access, readFile, rm } from "node:fs/promises";
+import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { describe, expect, it } from "vitest";
@@ -6,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { FilesError } from "@/server/files/errors";
 import type { FilesRepository } from "@/server/files/repository";
 import { createFilesService } from "@/server/files/service";
-import { getStoragePath } from "@/server/storage";
+import { getStoragePath, getStorageRoot } from "@/server/storage";
 import type {
   FileSummary,
   FolderSummary,
@@ -402,10 +403,21 @@ const createService = (repo: FilesRepository) =>
     scheduleStagingCleanupJob: async () => undefined,
   });
 
+const assertTestStorageRoot = () => {
+  const root = path.normalize(getStorageRoot());
+  const marker = `${path.sep}.tmp${path.sep}vitest-files`;
+
+  if (!root.includes(marker)) {
+    throw new Error(`Refusing to clean non-test storage root: ${root}`);
+  }
+};
+
 const cleanDataRoot = async () => {
+  assertTestStorageRoot();
+
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
-      await rm(getStoragePath(""), {
+      await rm(getStorageRoot(), {
         recursive: true,
         force: true,
       });
