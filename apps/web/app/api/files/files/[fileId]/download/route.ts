@@ -48,6 +48,11 @@ const isFileUnreadable = (error: unknown) => {
   return code === "ENOENT" || code === "EACCES" || code === "EISDIR";
 };
 
+const isMissingStorageObject = (error: unknown) => {
+  const code = (error as NodeJS.ErrnoException | null)?.code;
+  return code === "ENOENT" || code === "EISDIR";
+};
+
 const createDownloadErrorResponse = (error: unknown, request: NextRequest) => {
   const normalized = normalizeDownloadError(error);
 
@@ -105,6 +110,10 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     try {
       fileHandle = await open(storagePath, "r");
     } catch (openError) {
+      if (isMissingStorageObject(openError)) {
+        await prismaFilesRepository.markFileStorageMissing(file.id);
+      }
+
       if (isFileUnreadable(openError)) {
         throw new FilesError("FILE_NOT_FOUND");
       }

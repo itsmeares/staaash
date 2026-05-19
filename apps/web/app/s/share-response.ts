@@ -1,5 +1,6 @@
 import { getStoragePath } from "@/server/storage";
 import { createRangeResponseFromPath } from "@/server/downloads/range-response";
+import { prismaFilesRepository } from "@/server/files/repository";
 import { ShareError, isShareError } from "@/server/sharing/errors";
 import type { ShareDownloadResult } from "@/server/sharing/types";
 
@@ -16,6 +17,10 @@ export const createFileDownloadResponse = async (
     contentLength,
     contentType,
     file.name,
+    {
+      onMissingStorageObject: () =>
+        prismaFilesRepository.markFileStorageMissing(file.id),
+    },
   );
   if (!response) {
     return new Response("File not found.", {

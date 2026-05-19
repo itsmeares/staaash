@@ -68,6 +68,9 @@ const sharedFile: StoredFile = {
   folderId: "folder-shared",
   name: "plan.txt",
   storageKey: "files/alice/Projects/plan.txt",
+  storageStatus: "available",
+  storageCheckedAt: null,
+  storageMissingAt: null,
   mimeType: "text/plain",
   sizeBytes: 120,
   contentChecksum: "abc",
@@ -84,6 +87,9 @@ const childFile: StoredFile = {
   folderId: "folder-child",
   name: "notes.txt",
   storageKey: "files/alice/Projects/2026/notes.txt",
+  storageStatus: "available",
+  storageCheckedAt: null,
+  storageMissingAt: null,
   mimeType: "text/plain",
   sizeBytes: 220,
   contentChecksum: "def",
@@ -216,13 +222,19 @@ const fakeFilesRepo = {
     );
   },
   async findFileById(fileId: string) {
-    return [sharedFile, childFile].find((file) => file.id === fileId) ?? null;
+    return (
+      [sharedFile, childFile].find(
+        (file) => file.id === fileId && file.storageStatus === "available",
+      ) ?? null
+    );
   },
   async listFoldersByOwner() {
     return [filesRoot, sharedFolder, childFolder, siblingFolder];
   },
   async listFilesByOwner() {
-    return [sharedFile, childFile];
+    return [sharedFile, childFile].filter(
+      (file) => file.storageStatus === "available",
+    );
   },
 } as unknown as FilesRepository;
 

@@ -30,6 +30,9 @@ const fileSelect = {
   folderId: true,
   originalName: true,
   storageKey: true,
+  storageStatus: true,
+  storageCheckedAt: true,
+  storageMissingAt: true,
   mimeType: true,
   sizeBytes: true,
   contentChecksum: true,
@@ -52,6 +55,11 @@ type ListFoldersOptions = {
 
 type ListFilesOptions = {
   includeDeleted?: boolean;
+  includeMissing?: boolean;
+};
+
+type FindFileOptions = {
+  includeMissing?: boolean;
 };
 
 type CreateFolderParams = {
@@ -88,6 +96,9 @@ type UpdateFileParams = {
   sizeBytes?: number;
   contentChecksum?: string | null;
   deletedAt?: Date | null;
+  storageStatus?: "available" | "missing";
+  storageCheckedAt?: Date | null;
+  storageMissingAt?: Date | null;
 };
 
 type UpdateFoldersParams = {
@@ -112,6 +123,7 @@ type FolderDelegate = {
 
 type FileDelegate = {
   findUnique(args: Prisma.FileFindUniqueArgs): Promise<FileRecord | null>;
+  findFirst(args: Prisma.FileFindFirstArgs): Promise<FileRecord | null>;
   findMany(args: Prisma.FileFindManyArgs): Promise<FileRecord[]>;
   create(args: Prisma.FileCreateArgs): Promise<FileRecord>;
   update(args: Prisma.FileUpdateArgs): Promise<FileRecord>;
@@ -165,6 +177,9 @@ const toStoredFile = (file: FileRecord): StoredFile => ({
   folderId: file.folderId,
   name: file.originalName,
   storageKey: file.storageKey,
+  storageStatus: file.storageStatus,
+  storageCheckedAt: file.storageCheckedAt,
+  storageMissingAt: file.storageMissingAt,
   mimeType: file.mimeType,
   sizeBytes: Number(file.sizeBytes),
   contentChecksum: file.contentChecksum,
@@ -236,7 +251,10 @@ const createCanonicalRoot = async (
 export type FilesRepository = {
   ensureFilesRoot(ownerUserId: string): Promise<FolderSummary>;
   findFolderById(folderId: string): Promise<FolderSummary | null>;
-  findFileById(fileId: string): Promise<StoredFile | null>;
+  findFileById(
+    fileId: string,
+    options?: FindFileOptions,
+  ): Promise<StoredFile | null>;
   listChildFolders(
     ownerUserId: string,
     parentId: string,
@@ -266,6 +284,7 @@ export type FilesRepository = {
   updateFile(params: UpdateFileParams): Promise<StoredFile>;
   updateFolders(params: UpdateFoldersParams): Promise<void>;
   updateFiles(params: UpdateFilesParams): Promise<void>;
+  markFileStorageMissing(fileId: string, checkedAt?: Date): Promise<void>;
   deleteFile(fileId: string): Promise<void>;
   deleteFiles(fileIds: string[]): Promise<number>;
   deleteFolders(folderIds: string[]): Promise<number>;
@@ -347,11 +366,12 @@ export const createPrismaFilesRepository = (
       return folder ? toFolderSummary(folder) : null;
     },
 
-    async findFileById(fileId) {
+    async findFileById(fileId, options = {}) {
       const client = getClient();
-      const file = await client.file.findUnique({
+      const file = await client.file.findFirst({
         where: {
           id: fileId,
+          ...(options.includeMissing ? {} : { storageStatus: "available" }),
         },
         select: fileSelect,
       });
@@ -380,6 +400,7 @@ export const createPrismaFilesRepository = (
         where: {
           ownerUserId,
           folderId,
+          ...(options.includeMissing ? {} : { storageStatus: "available" }),
           ...(options.includeDeleted ? {} : { deletedAt: null }),
         },
         orderBy: [{ originalName: "asc" }, { createdAt: "asc" }],
@@ -442,6 +463,7 @@ export const createPrismaFilesRepository = (
                 SELECT id FROM "File"
                 WHERE "ownerUserId" = ${ownerUserId}
                   AND "deletedAt" IS NULL
+                  AND "storageStatus" = 'available'::"FileStorageStatus"
                   AND unaccent(lower("originalName")) LIKE '%' || unaccent(lower(${trimmed})) || '%'
               `.then((rows) => {
               for (const r of rows) matchingIds.add(r.id);
@@ -453,6 +475,7 @@ export const createPrismaFilesRepository = (
                 where: {
                   ownerUserId,
                   deletedAt: null,
+                  storageStatus: "available",
                   folderId: { in: folderIds },
                 },
                 select: { id: true },
@@ -468,7 +491,10 @@ export const createPrismaFilesRepository = (
       }
 
       const files = await prisma.file.findMany({
-        where: { id: { in: [...matchingIds] } },
+        where: {
+          id: { in: [...matchingIds] },
+          storageStatus: "available",
+        },
         select: fileSelect,
       });
 
@@ -502,6 +528,9 @@ export const createPrismaFilesRepository = (
           mimeType: params.mimeType,
           sizeBytes: BigInt(params.sizeBytes),
           contentChecksum: params.contentChecksum,
+          storageStatus: "available",
+          storageCheckedAt: new Date(),
+          storageMissingAt: null,
         },
         select: fileSelect,
       });
@@ -568,6 +597,18 @@ export const createPrismaFilesRepository = (
         data.deletedAt = params.deletedAt;
       }
 
+      if ("storageStatus" in params) {
+        data.storageStatus = params.storageStatus;
+      }
+
+      if ("storageCheckedAt" in params) {
+        data.storageCheckedAt = params.storageCheckedAt;
+      }
+
+      if ("storageMissingAt" in params) {
+        data.storageMissingAt = params.storageMissingAt;
+      }
+
       const file = await client.file.update({
         where: {
           id: params.id,
@@ -613,6 +654,21 @@ export const createPrismaFilesRepository = (
         },
         data: {
           deletedAt: params.deletedAt,
+        },
+      });
+    },
+
+    async markFileStorageMissing(fileId, checkedAt = new Date()) {
+      const client = getClient();
+
+      await client.file.updateMany({
+        where: {
+          id: fileId,
+        },
+        data: {
+          storageStatus: "missing",
+          storageCheckedAt: checkedAt,
+          storageMissingAt: checkedAt,
         },
       });
     },

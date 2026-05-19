@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const openMock = vi.fn();
 const getStoragePathMock = vi.fn();
+const markFileStorageMissingMock = vi.fn();
 
 vi.mock("node:fs/promises", () => ({
   open: openMock,
@@ -11,6 +12,12 @@ vi.mock("node:fs/promises", () => ({
 
 vi.mock("@/server/storage", () => ({
   getStoragePath: getStoragePathMock,
+}));
+
+vi.mock("@/server/files/repository", () => ({
+  prismaFilesRepository: {
+    markFileStorageMissing: markFileStorageMissingMock,
+  },
 }));
 
 const makeFile = (
@@ -27,6 +34,9 @@ const makeFile = (
     createdAt: Date;
     updatedAt: Date;
     storageKey: string;
+    storageStatus: "available" | "missing";
+    storageCheckedAt: Date | null;
+    storageMissingAt: Date | null;
     contentChecksum: string | null;
   }> = {},
 ) => ({
@@ -42,6 +52,9 @@ const makeFile = (
   createdAt: new Date("2026-04-06T12:00:00.000Z"),
   updatedAt: new Date("2026-04-06T12:00:00.000Z"),
   storageKey: "files/member-1/clip.mp4",
+  storageStatus: "available" as const,
+  storageCheckedAt: null,
+  storageMissingAt: null,
   contentChecksum: null,
   ...overrides,
 });
@@ -130,5 +143,27 @@ describe("media content response", () => {
     expect(response.headers.get("content-length")).toBe("11");
     await expect(response.text()).resolves.toBe("hello world");
     expect(fakeHandle.close).not.toHaveBeenCalled();
+  });
+
+  it("marks the file missing when original bytes are gone", async () => {
+    const error = Object.assign(new Error("missing"), { code: "ENOENT" });
+    openMock.mockRejectedValueOnce(error);
+    getStoragePathMock.mockReturnValueOnce("C:\\temp\\missing.mp4");
+    markFileStorageMissingMock.mockResolvedValueOnce(undefined);
+
+    const { createInlineOriginalContentResponse, MediaContentError } =
+      await import("@/server/media/content-response");
+
+    await expect(
+      createInlineOriginalContentResponse({
+        request: new Request("http://localhost/content"),
+        file: makeFile(),
+      }),
+    ).rejects.toMatchObject({
+      name: MediaContentError.name,
+      status: 404,
+    });
+
+    expect(markFileStorageMissingMock).toHaveBeenCalledWith("file-1");
   });
 });

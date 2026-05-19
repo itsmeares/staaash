@@ -195,6 +195,10 @@ const createFakePrismaClient = () => {
       return null;
     },
 
+    async findFirst() {
+      return null;
+    },
+
     async findMany() {
       return [];
     },
