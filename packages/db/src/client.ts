@@ -31,6 +31,7 @@ export function getPrisma(): PrismaClient {
 export { Prisma };
 export type {
   File,
+  FileStorageStatus,
   Folder,
   Invite,
   PasswordReset,

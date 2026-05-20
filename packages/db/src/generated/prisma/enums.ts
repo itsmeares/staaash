@@ -45,3 +45,11 @@ export const ShareTargetType = {
 } as const
 
 export type ShareTargetType = (typeof ShareTargetType)[keyof typeof ShareTargetType]
+
+
+export const FileStorageStatus = {
+  available: 'available',
+  missing: 'missing'
+} as const
+
+export type FileStorageStatus = (typeof FileStorageStatus)[keyof typeof FileStorageStatus]

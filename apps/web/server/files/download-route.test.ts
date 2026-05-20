@@ -15,6 +15,7 @@ import {
 
 const getRequestSession = vi.fn();
 const findFileById = vi.fn();
+const markFileStorageMissing = vi.fn();
 const recordFileAccessBestEffort = vi.fn();
 const getStoragePath = vi.fn();
 
@@ -25,6 +26,7 @@ vi.mock("@/server/auth/guards", () => ({
 vi.mock("@/server/files/repository", () => ({
   prismaFilesRepository: {
     findFileById,
+    markFileStorageMissing,
   },
 }));
 
@@ -42,6 +44,9 @@ const makeFile = (
     ownerUserId: string;
     deletedAt: Date | null;
     storageKey: string;
+    storageStatus: "available" | "missing";
+    storageCheckedAt: Date | null;
+    storageMissingAt: Date | null;
   }> = {},
 ) => ({
   id: "file-1",
@@ -55,6 +60,9 @@ const makeFile = (
   createdAt: new Date("2026-04-02T12:00:00.000Z"),
   updatedAt: new Date("2026-04-02T12:00:00.000Z"),
   storageKey: "files/alice/notes.txt",
+  storageStatus: "available" as const,
+  storageCheckedAt: null,
+  storageMissingAt: null,
   contentChecksum: null,
   viewerKind: null,
   ...overrides,
@@ -210,6 +218,7 @@ describe("private file download route", () => {
     );
 
     expect(response.status).toBe(404);
+    expect(markFileStorageMissing).toHaveBeenCalledWith("file-1");
     expect(recordFileAccessBestEffort).not.toHaveBeenCalled();
   });
 });

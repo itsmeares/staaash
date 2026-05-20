@@ -2,6 +2,7 @@ import { open } from "node:fs/promises";
 import type { Readable } from "node:stream";
 
 import { getStoragePath } from "@/server/storage";
+import { prismaFilesRepository } from "@/server/files/repository";
 import type { StoredFile } from "@/server/files/types";
 
 const HEIC_MIME_TYPES = new Set([
@@ -147,6 +148,11 @@ export const createMediaErrorResponse = (error: MediaContentError) =>
     },
   });
 
+const isMissingStorageObject = (error: unknown) => {
+  const code = (error as NodeJS.ErrnoException | null)?.code;
+  return code === "ENOENT" || code === "EISDIR";
+};
+
 // Wraps a Node.js Readable as a Web ReadableStream with backpressure and safe error handling.
 // Readable.toWeb() does not guard controller.enqueue/close against ERR_INVALID_STATE
 // when the consumer cancels mid-stream (common with video range requests).
@@ -224,7 +230,11 @@ export const createInlineOriginalContentResponse = async ({
 
   try {
     fileHandle = await open(storagePath, "r");
-  } catch {
+  } catch (error) {
+    if (isMissingStorageObject(error)) {
+      await prismaFilesRepository.markFileStorageMissing(file.id);
+    }
+
     throw new MediaContentError(404, "File content is unavailable.");
   }
 

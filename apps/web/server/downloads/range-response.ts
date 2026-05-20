@@ -87,11 +87,18 @@ export const createRangeResponseFromPath = async (
   sizeBytes: number,
   mimeType: string,
   fileName: string,
+  options: {
+    onMissingStorageObject?: () => Promise<void> | void;
+  } = {},
 ): Promise<Response | null> => {
   let fileHandle: FileHandle;
   try {
     fileHandle = await open(storagePath, "r");
-  } catch {
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException | null)?.code;
+    if (code === "ENOENT" || code === "EISDIR") {
+      await options.onMissingStorageObject?.();
+    }
     return null;
   }
   try {

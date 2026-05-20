@@ -33,6 +33,11 @@ enum ShareTargetType {
   folder
 }
 
+enum FileStorageStatus {
+  available
+  missing
+}
+
 model Instance {
   id                     String    @id @default("singleton")
   name                   String
@@ -187,6 +192,9 @@ model File {
   folderId         String?
   originalName     String
   storageKey       String        @unique
+  storageStatus    FileStorageStatus @default(available)
+  storageCheckedAt DateTime?
+  storageMissingAt DateTime?
   mimeType         String
   sizeBytes        BigInt
   contentChecksum  String?
@@ -201,6 +209,7 @@ model File {
   derivatives      MediaDerivative[]
 
   @@index([ownerUserId, folderId, deletedAt])
+  @@index([ownerUserId, folderId, deletedAt, storageStatus])
 }
 
 model FavoriteFile {

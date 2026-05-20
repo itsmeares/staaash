@@ -21,6 +21,7 @@ type ReconciliationFileRecord = {
 type ReconciliationClient = {
   file: {
     findMany(args: object): Promise<ReconciliationFileRecord[]>;
+    updateMany(args: object): Promise<unknown>;
   };
 };
 
@@ -152,6 +153,56 @@ export const collectRestoreReconciliationIssues = async ({
   };
 };
 
+const markReconciledStorageStatus = async ({
+  client,
+  fileRecords,
+  missingOriginals,
+  checkedAt,
+}: {
+  client: ReconciliationClient;
+  fileRecords: ReconciliationFileRecord[];
+  missingOriginals: RestoreReconciliationIssueDetails["missingOriginals"];
+  checkedAt: Date;
+}) => {
+  const missingIds = new Set(
+    missingOriginals.map((missingOriginal) => missingOriginal.fileId),
+  );
+  const availableIds = fileRecords
+    .filter((file) => !missingIds.has(file.id))
+    .map((file) => file.id);
+  const missingFileIds = [...missingIds];
+
+  if (availableIds.length > 0) {
+    await client.file.updateMany({
+      where: {
+        id: {
+          in: availableIds,
+        },
+      },
+      data: {
+        storageStatus: "available",
+        storageCheckedAt: checkedAt,
+        storageMissingAt: null,
+      },
+    });
+  }
+
+  if (missingFileIds.length > 0) {
+    await client.file.updateMany({
+      where: {
+        id: {
+          in: missingFileIds,
+        },
+      },
+      data: {
+        storageStatus: "missing",
+        storageCheckedAt: checkedAt,
+        storageMissingAt: checkedAt,
+      },
+    });
+  }
+};
+
 /**
  * Runs the manual restore-reconciliation audit.
  *
@@ -193,6 +244,14 @@ export const handleRestoreReconciliation = async (
   const details = await collectRestoreReconciliationIssues({
     filesRoot: storagePaths.filesRoot,
     fileRecords,
+  });
+  const checkedAt = new Date();
+
+  await markReconciledStorageStatus({
+    client: activeClient,
+    fileRecords,
+    missingOriginals: details.missingOriginals,
+    checkedAt,
   });
 
   await completeRestoreReconciliationRun({

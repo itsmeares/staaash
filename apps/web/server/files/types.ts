@@ -34,6 +34,9 @@ export type FileSummary = {
 
 export type StoredFile = FileSummary & {
   storageKey: string;
+  storageStatus: "available" | "missing";
+  storageCheckedAt: Date | null;
+  storageMissingAt: Date | null;
   contentChecksum: string | null;
 };
 

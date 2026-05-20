@@ -111,6 +111,9 @@ const createMemoryRepository = () => {
     sizeBytes = 5,
     contentChecksum = null,
     deletedAt = null,
+    storageStatus = "available",
+    storageCheckedAt = null,
+    storageMissingAt = null,
     ownerUsername = ownerUserId,
   }: {
     ownerUserId: string;
@@ -121,6 +124,9 @@ const createMemoryRepository = () => {
     sizeBytes?: number;
     contentChecksum?: string | null;
     deletedAt?: Date | null;
+    storageStatus?: StoredFile["storageStatus"];
+    storageCheckedAt?: Date | null;
+    storageMissingAt?: Date | null;
     ownerUsername?: string;
   }) => {
     const now = nextDate();
@@ -134,6 +140,9 @@ const createMemoryRepository = () => {
       mimeType,
       sizeBytes,
       contentChecksum,
+      storageStatus,
+      storageCheckedAt,
+      storageMissingAt,
       viewerKind: null,
       deletedAt,
       createdAt: now,
@@ -172,8 +181,14 @@ const createMemoryRepository = () => {
       return folder ? cloneFolder(folder) : null;
     },
 
-    async findFileById(fileId) {
-      const file = state.files.find((candidate) => candidate.id === fileId);
+    async findFileById(fileId, options = {}) {
+      const file = state.files.find(
+        (candidate) =>
+          candidate.id === fileId &&
+          (options.includeMissing
+            ? true
+            : candidate.storageStatus === "available"),
+      );
       return file ? cloneFile(file) : null;
     },
 
@@ -194,6 +209,9 @@ const createMemoryRepository = () => {
           (file) =>
             file.ownerUserId === ownerUserId &&
             file.folderId === folderId &&
+            (options.includeMissing
+              ? true
+              : file.storageStatus === "available") &&
             (options.includeDeleted ? true : file.deletedAt === null),
         ),
       ).map(cloneFile);
@@ -214,6 +232,9 @@ const createMemoryRepository = () => {
         state.files.filter(
           (file) =>
             file.ownerUserId === ownerUserId &&
+            (options.includeMissing
+              ? true
+              : file.storageStatus === "available") &&
             (options.includeDeleted ? true : file.deletedAt === null),
         ),
       ).map(cloneFile);
@@ -226,6 +247,7 @@ const createMemoryRepository = () => {
           (file) =>
             file.ownerUserId === ownerUserId &&
             file.deletedAt === null &&
+            file.storageStatus === "available" &&
             ((normalized.length > 0 &&
               file.name.toLowerCase().includes(normalized)) ||
               folderIds.includes(file.folderId ?? "")),
@@ -256,6 +278,9 @@ const createMemoryRepository = () => {
         mimeType: params.mimeType,
         sizeBytes: params.sizeBytes,
         contentChecksum: params.contentChecksum,
+        storageStatus: "available",
+        storageCheckedAt: now,
+        storageMissingAt: null,
         viewerKind: null,
         deletedAt: null,
         createdAt: now,
@@ -332,6 +357,18 @@ const createMemoryRepository = () => {
         file.deletedAt = params.deletedAt ?? null;
       }
 
+      if ("storageStatus" in params && params.storageStatus !== undefined) {
+        file.storageStatus = params.storageStatus;
+      }
+
+      if ("storageCheckedAt" in params) {
+        file.storageCheckedAt = params.storageCheckedAt ?? null;
+      }
+
+      if ("storageMissingAt" in params) {
+        file.storageMissingAt = params.storageMissingAt ?? null;
+      }
+
       file.updatedAt = nextDate();
       return cloneFile(file);
     },
@@ -356,6 +393,17 @@ const createMemoryRepository = () => {
           file.updatedAt = updatedAt;
         }
       }
+    },
+
+    async markFileStorageMissing(fileId, checkedAt = new Date()) {
+      const file = state.files.find((candidate) => candidate.id === fileId);
+      if (!file) {
+        return;
+      }
+
+      file.storageStatus = "missing";
+      file.storageCheckedAt = checkedAt;
+      file.storageMissingAt = checkedAt;
     },
 
     async deleteFile(fileId) {
@@ -447,6 +495,34 @@ describe.sequential("files service", () => {
     expect(listing.currentFolder.isFilesRoot).toBe(true);
     expect(listing.files).toEqual([]);
     expect(listing.breadcrumbs[0]?.name).toBe("Files");
+  });
+
+  it("hides missing storage files from normal listings", async () => {
+    const { repo, addFile } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureFilesRoot("member-1");
+    addFile({
+      ownerUserId: "member-1",
+      folderId: root.id,
+      name: "available.txt",
+      storageKey: "library/member-1/available.txt",
+    });
+    addFile({
+      ownerUserId: "member-1",
+      folderId: root.id,
+      name: "missing.txt",
+      storageKey: "library/member-1/missing.txt",
+      storageStatus: "missing",
+      storageCheckedAt: new Date("2026-05-20T10:00:00.000Z"),
+      storageMissingAt: new Date("2026-05-20T10:00:00.000Z"),
+    });
+
+    const listing = await service.getFilesListing({
+      actorUserId: "member-1",
+      actorRole: "member",
+    });
+
+    expect(listing.files.map((file) => file.name)).toEqual(["available.txt"]);
   });
 
   it("rejects duplicate active sibling folder names", async () => {

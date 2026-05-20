@@ -246,6 +246,23 @@ export type BigIntNullableWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedBigIntNullableFilter<$PrismaModel>
 }
 
+export type EnumFileStorageStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.FileStorageStatus | Prisma.EnumFileStorageStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.FileStorageStatus[] | Prisma.ListEnumFileStorageStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.FileStorageStatus[] | Prisma.ListEnumFileStorageStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumFileStorageStatusFilter<$PrismaModel> | $Enums.FileStorageStatus
+}
+
+export type EnumFileStorageStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.FileStorageStatus | Prisma.EnumFileStorageStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.FileStorageStatus[] | Prisma.ListEnumFileStorageStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.FileStorageStatus[] | Prisma.ListEnumFileStorageStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumFileStorageStatusWithAggregatesFilter<$PrismaModel> | $Enums.FileStorageStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumFileStorageStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumFileStorageStatusFilter<$PrismaModel>
+}
+
 export type EnumShareTargetTypeFilter<$PrismaModel = never> = {
   equals?: $Enums.ShareTargetType | Prisma.EnumShareTargetTypeFieldRefInput<$PrismaModel>
   in?: $Enums.ShareTargetType[] | Prisma.ListEnumShareTargetTypeFieldRefInput<$PrismaModel>
@@ -707,6 +724,23 @@ export type NestedFloatNullableFilter<$PrismaModel = never> = {
   gt?: number | Prisma.FloatFieldRefInput<$PrismaModel>
   gte?: number | Prisma.FloatFieldRefInput<$PrismaModel>
   not?: Prisma.NestedFloatNullableFilter<$PrismaModel> | number | null
+}
+
+export type NestedEnumFileStorageStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.FileStorageStatus | Prisma.EnumFileStorageStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.FileStorageStatus[] | Prisma.ListEnumFileStorageStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.FileStorageStatus[] | Prisma.ListEnumFileStorageStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumFileStorageStatusFilter<$PrismaModel> | $Enums.FileStorageStatus
+}
+
+export type NestedEnumFileStorageStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.FileStorageStatus | Prisma.EnumFileStorageStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.FileStorageStatus[] | Prisma.ListEnumFileStorageStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.FileStorageStatus[] | Prisma.ListEnumFileStorageStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumFileStorageStatusWithAggregatesFilter<$PrismaModel> | $Enums.FileStorageStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumFileStorageStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumFileStorageStatusFilter<$PrismaModel>
 }
 
 export type NestedEnumShareTargetTypeFilter<$PrismaModel = never> = {
