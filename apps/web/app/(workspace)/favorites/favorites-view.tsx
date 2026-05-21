@@ -54,13 +54,6 @@ const FILTERS: { id: FavoriteFilterType; label: string }[] = [
   { id: "archive", label: "Archives" },
 ];
 
-const SORT_OPTIONS: { id: FavoriteSortKey; label: string }[] = [
-  { id: "favoritedAt", label: "Added" },
-  { id: "name", label: "Name" },
-  { id: "path", label: "Location" },
-  { id: "size", label: "Size" },
-];
-
 function getItemKey(item: Pick<FavoriteClientItem, "id" | "kind">): string {
   return `${item.kind}:${item.id}`;
 }
@@ -435,39 +428,6 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
             ))}
           </select>
         </label>
-
-        <label className="favorites-sort-control">
-          <span>Sort</span>
-          <select
-            value={sortKey}
-            onChange={(event) => {
-              const next = event.target.value as FavoriteSortKey;
-              setSortKey(next);
-              setSortDirection(
-                next === "favoritedAt" || next === "size" ? "desc" : "asc",
-              );
-            }}
-          >
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <button
-          aria-label={
-            sortDirection === "desc" ? "Sort descending" : "Sort ascending"
-          }
-          className="favorites-sort-dir"
-          type="button"
-          onClick={() =>
-            setSortDirection((current) => (current === "asc" ? "desc" : "asc"))
-          }
-        >
-          <SortIcon active direction={sortDirection} />
-        </button>
 
         <div className="favorites-view-toggle" aria-label="View mode">
           <button

@@ -2631,8 +2631,7 @@ h3 {
   gap: 8px;
 }
 
-.favorites-filter-control,
-.favorites-sort-control {
+.favorites-filter-control {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -2644,8 +2643,7 @@ h3 {
   white-space: nowrap;
 }
 
-.favorites-filter-control span,
-.favorites-sort-control span {
+.favorites-filter-control span {
   color: color-mix(in oklab, var(--muted-foreground) 70%, transparent);
   font-size: 10.5px;
   font-weight: 700;
@@ -2653,8 +2651,7 @@ h3 {
   text-transform: uppercase;
 }
 
-.favorites-filter-control select,
-.favorites-sort-control select {
+.favorites-filter-control select {
   min-height: 28px;
   padding: 0 18px 0 0;
   border: 0;
@@ -2664,25 +2661,8 @@ h3 {
   font-size: 12.5px;
 }
 
-.favorites-filter-control select:focus,
-.favorites-sort-control select:focus {
+.favorites-filter-control select:focus {
   outline: none;
-}
-
-.favorites-sort-dir {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  color: var(--muted-foreground);
-}
-
-.favorites-sort-dir:hover {
-  color: var(--foreground);
-  background: color-mix(in oklab, var(--foreground) 7%, transparent);
 }
 
 .favorites-view-toggle {
@@ -3033,13 +3013,11 @@ h3 {
     flex-wrap: wrap;
   }
 
-  .favorites-filter-control,
-  .favorites-sort-control {
+  .favorites-filter-control {
     flex: 1 1 160px;
   }
 
-  .favorites-filter-control select,
-  .favorites-sort-control select {
+  .favorites-filter-control select {
     flex: 1;
   }
 }
