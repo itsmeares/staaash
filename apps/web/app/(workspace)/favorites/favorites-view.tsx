@@ -10,6 +10,8 @@ import {
   Grid2X2,
   Heart,
   List,
+  Pin,
+  PinOff,
 } from "lucide-react";
 
 import { FlashMessage } from "@/app/auth-ui";
@@ -58,6 +60,10 @@ const SORT_OPTIONS: { id: FavoriteSortKey; label: string }[] = [
   { id: "path", label: "Location" },
   { id: "size", label: "Size" },
 ];
+
+function getItemKey(item: Pick<FavoriteClientItem, "id" | "kind">): string {
+  return `${item.kind}:${item.id}`;
+}
 
 function getDownloadHref(item: FavoriteClientItem): string {
   return `/api/files/files/${item.id}/download`;
@@ -110,7 +116,10 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
   const [sortKey, setSortKey] = useState<FavoriteSortKey>("favoritedAt");
   const [sortDirection, setSortDirection] =
     useState<FavoriteSortDirection>("desc");
-  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
+  const [removedKeys, setRemovedKeys] = useState<Set<string>>(new Set());
+  const [quickAccessOverrides, setQuickAccessOverrides] = useState<
+    Record<string, string | null>
+  >({});
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -131,8 +140,18 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
   }, [actionError]);
 
   const activeItems = useMemo(
-    () => items.filter((item) => !removedIds.has(item.id)),
-    [items, removedIds],
+    () =>
+      items
+        .filter((item) => !removedKeys.has(getItemKey(item)))
+        .map((item) => {
+          const key = getItemKey(item);
+          if (!Object.hasOwn(quickAccessOverrides, key)) return item;
+          return {
+            ...item,
+            quickAccessPinnedAt: quickAccessOverrides[key],
+          };
+        }),
+    [items, quickAccessOverrides, removedKeys],
   );
   const visibleItems = useMemo(
     () =>
@@ -186,7 +205,8 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
   };
 
   const removeFavorite = async (item: FavoriteClientItem) => {
-    setRemovedIds((current) => new Set(current).add(item.id));
+    const key = getItemKey(item);
+    setRemovedKeys((current) => new Set(current).add(key));
 
     try {
       const res = await fetch(getFavoriteEndpoint(item), {
@@ -210,13 +230,60 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
 
       startTransition(() => router.refresh());
     } catch (err) {
-      setRemovedIds((current) => {
+      setRemovedKeys((current) => {
         const next = new Set(current);
-        next.delete(item.id);
+        next.delete(key);
         return next;
       });
       setActionError(
         err instanceof Error ? err.message : "Favorite could not be removed.",
+      );
+    }
+  };
+
+  const setQuickAccess = async (
+    item: FavoriteClientItem,
+    quickAccessPinned: boolean,
+  ) => {
+    const key = getItemKey(item);
+    const previous = item.quickAccessPinnedAt;
+    const nextPinnedAt = quickAccessPinned ? new Date().toISOString() : null;
+
+    setQuickAccessOverrides((current) => ({
+      ...current,
+      [key]: nextPinnedAt,
+    }));
+
+    try {
+      const res = await fetch(getFavoriteEndpoint(item), {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          quickAccessPinned,
+          redirectTo: "/favorites",
+        }),
+      });
+
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(data.error ?? `Quick access failed (${res.status})`);
+      }
+
+      startTransition(() => router.refresh());
+    } catch (err) {
+      setQuickAccessOverrides((current) => ({
+        ...current,
+        [key]: previous,
+      }));
+      setActionError(
+        err instanceof Error
+          ? err.message
+          : "Quick access could not be updated.",
       );
     }
   };
@@ -238,43 +305,66 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
     </button>
   );
 
-  const renderItemActions = (item: FavoriteClientItem) => (
-    <>
-      <button
-        aria-label={`Open ${item.name}`}
-        className="favorites-action-btn"
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          openItem(item);
-        }}
-      >
-        <ExternalLink size={13} aria-hidden />
-      </button>
-      <button
-        aria-label={`Download ${item.name}`}
-        className="favorites-action-btn"
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          void downloadItem(item);
-        }}
-      >
-        <Download size={13} aria-hidden />
-      </button>
-      <button
-        aria-label={`Remove ${item.name} from favorites`}
-        className="favorites-action-btn favorites-action-btn-danger"
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          void removeFavorite(item);
-        }}
-      >
-        <Heart size={13} fill="currentColor" aria-hidden />
-      </button>
-    </>
-  );
+  const renderItemActions = (item: FavoriteClientItem) => {
+    const pinned = item.quickAccessPinnedAt != null;
+
+    return (
+      <>
+        <button
+          aria-label={`Open ${item.name}`}
+          className="favorites-action-btn"
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            openItem(item);
+          }}
+        >
+          <ExternalLink size={13} aria-hidden />
+        </button>
+        <button
+          aria-label={`Download ${item.name}`}
+          className="favorites-action-btn"
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            void downloadItem(item);
+          }}
+        >
+          <Download size={13} aria-hidden />
+        </button>
+        <button
+          aria-label={
+            pinned
+              ? `Remove ${item.name} from quick access`
+              : `Pin ${item.name} to quick access`
+          }
+          className={`favorites-action-btn${pinned ? " is-pinned" : ""}`}
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            void setQuickAccess(item, !pinned);
+          }}
+        >
+          {pinned ? (
+            <PinOff size={13} aria-hidden />
+          ) : (
+            <Pin size={13} aria-hidden />
+          )}
+        </button>
+        <button
+          aria-label={`Remove ${item.name} from favorites`}
+          className="favorites-action-btn favorites-action-btn-danger"
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            void removeFavorite(item);
+          }}
+        >
+          <Heart size={13} fill="currentColor" aria-hidden />
+        </button>
+      </>
+    );
+  };
 
   return (
     <div className="workspace-page favorites-page">
@@ -314,7 +404,9 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
                   <span className="favorites-quick-copy">
                     <span title={item.name}>{item.name}</span>
                     <small>
-                      {formatFavoriteRelativeTime(item.favoritedAt)}
+                      {formatFavoriteRelativeTime(
+                        item.quickAccessPinnedAt ?? item.favoritedAt,
+                      )}
                     </small>
                   </span>
                 </button>
@@ -328,22 +420,21 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
         className="favorites-toolbar"
         aria-label="Favorites display controls"
       >
-        <div className="favorites-filter-pills" aria-label="Favorite type">
-          {FILTERS.map((filter) => {
-            const active = filterType === filter.id;
-            return (
-              <button
-                aria-pressed={active}
-                className={`favorites-filter-pill${active ? " is-active" : ""}`}
-                key={filter.id}
-                type="button"
-                onClick={() => setFilterType(filter.id)}
-              >
+        <label className="favorites-filter-control">
+          <span>Type</span>
+          <select
+            value={filterType}
+            onChange={(event) =>
+              setFilterType(event.target.value as FavoriteFilterType)
+            }
+          >
+            {FILTERS.map((filter) => (
+              <option key={filter.id} value={filter.id}>
                 {filter.label}
-              </button>
-            );
-          })}
-        </div>
+              </option>
+            ))}
+          </select>
+        </label>
 
         <label className="favorites-sort-control">
           <span>Sort</span>
@@ -410,7 +501,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
           </p>
           <span>
             {activeItems.length === 0
-              ? "Add favorites from files, search, or recent views to pin quick access here."
+              ? "Add favorites from files, search, or recent views. Pin favorites here for quick access."
               : "Try a different type."}
           </span>
         </div>

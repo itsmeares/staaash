@@ -2631,45 +2631,7 @@ h3 {
   gap: 8px;
 }
 
-.favorites-filter-pills {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  gap: 5px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.favorites-filter-pills::-webkit-scrollbar {
-  display: none;
-}
-
-.favorites-filter-pill {
-  flex: 0 0 auto;
-  min-height: 28px;
-  padding: 0 12px;
-  border: 1px solid color-mix(in oklab, var(--foreground) 11%, transparent);
-  border-radius: 999px;
-  color: color-mix(in oklab, var(--muted-foreground) 82%, transparent);
-  font-size: 12.5px;
-  font-weight: 550;
-  transition:
-    background 100ms ease,
-    border-color 100ms ease,
-    color 100ms ease;
-}
-
-.favorites-filter-pill:hover {
-  border-color: color-mix(in oklab, var(--foreground) 18%, transparent);
-  color: var(--foreground);
-}
-
-.favorites-filter-pill.is-active {
-  border-color: color-mix(in oklab, var(--primary) 36%, transparent);
-  background: color-mix(in oklab, var(--primary) 10%, transparent);
-  color: color-mix(in oklab, var(--primary) 82%, var(--foreground) 18%);
-}
-
+.favorites-filter-control,
 .favorites-sort-control {
   display: inline-flex;
   align-items: center;
@@ -2682,6 +2644,7 @@ h3 {
   white-space: nowrap;
 }
 
+.favorites-filter-control span,
 .favorites-sort-control span {
   color: color-mix(in oklab, var(--muted-foreground) 70%, transparent);
   font-size: 10.5px;
@@ -2690,6 +2653,7 @@ h3 {
   text-transform: uppercase;
 }
 
+.favorites-filter-control select,
 .favorites-sort-control select {
   min-height: 28px;
   padding: 0 18px 0 0;
@@ -2700,6 +2664,7 @@ h3 {
   font-size: 12.5px;
 }
 
+.favorites-filter-control select:focus,
 .favorites-sort-control select:focus {
   outline: none;
 }
@@ -2912,6 +2877,14 @@ h3 {
   background: color-mix(in oklab, var(--foreground) 8%, transparent);
 }
 
+.favorites-action-btn.is-pinned {
+  color: color-mix(in oklab, var(--primary) 84%, var(--foreground) 16%);
+}
+
+.favorites-action-btn.is-pinned:hover {
+  background: color-mix(in oklab, var(--primary) 10%, transparent);
+}
+
 .favorites-action-btn-danger:hover {
   color: var(--destructive);
   background: color-mix(in oklab, var(--destructive) 10%, transparent);
@@ -3060,14 +3033,12 @@ h3 {
     flex-wrap: wrap;
   }
 
-  .favorites-filter-pills {
-    flex: 1 1 100%;
-  }
-
+  .favorites-filter-control,
   .favorites-sort-control {
     flex: 1 1 160px;
   }
 
+  .favorites-filter-control select,
   .favorites-sort-control select {
     flex: 1;
   }

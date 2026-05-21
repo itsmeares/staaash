@@ -28,9 +28,19 @@ type FileFavoriteInput = FilesActor & {
   isFavorite: boolean;
 };
 
+type FileQuickAccessInput = FilesActor & {
+  fileId: string;
+  quickAccessPinned: boolean;
+};
+
 type FolderFavoriteInput = FilesActor & {
   folderId: string;
   isFavorite: boolean;
+};
+
+type FolderQuickAccessInput = FilesActor & {
+  folderId: string;
+  quickAccessPinned: boolean;
 };
 
 type FileAccessInput = FilesActor & {
@@ -400,11 +410,13 @@ export const createRetrievalService = ({
         ...favoriteFolders.map((favorite) => ({
           kind: "folder" as const,
           createdAt: favorite.createdAt,
+          quickAccessPinnedAt: favorite.quickAccessPinnedAt,
           item: favorite.folderId ? folderById.get(favorite.folderId) : null,
         })),
         ...favoriteFiles.map((favorite) => ({
           kind: "file" as const,
           createdAt: favorite.createdAt,
+          quickAccessPinnedAt: favorite.quickAccessPinnedAt,
           item: favorite.fileId ? fileById.get(favorite.fileId) : null,
         })),
       ]
@@ -415,11 +427,13 @@ export const createRetrievalService = ({
             | {
                 kind: "folder";
                 createdAt: Date;
+                quickAccessPinnedAt: Date | null;
                 item: FolderSummary;
               }
             | {
                 kind: "file";
                 createdAt: Date;
+                quickAccessPinnedAt: Date | null;
                 item: FileSummary;
               } =>
             entry.item != null &&
@@ -476,6 +490,7 @@ export const createRetrievalService = ({
               favoriteFileIds: favoriteState.favoriteFileIds,
             })),
         favoritedAt: entry.createdAt,
+        quickAccessPinnedAt: entry.quickAccessPinnedAt,
       }));
     },
 
@@ -665,6 +680,42 @@ export const createRetrievalService = ({
         kind: "file",
         id: file.id,
         isFavorite,
+        quickAccessPinnedAt: isFavorite ? undefined : null,
+      };
+    },
+
+    async setFileFavoriteQuickAccess({
+      actorUserId,
+      actorRole,
+      fileId,
+      quickAccessPinned,
+    }: FileQuickAccessInput): Promise<FavoriteMutationResult> {
+      const activeRepo = await resolveRepo();
+      const file = assertActiveFile(
+        assertFileAccess(
+          {
+            actorUserId,
+            actorRole,
+          },
+          await activeRepo.findFileById(fileId),
+        ),
+      );
+      const quickAccessPinnedAt = quickAccessPinned ? now() : null;
+      const updated = await activeRepo.updateFileFavoriteQuickAccess({
+        userId: actorUserId,
+        fileId: file.id,
+        quickAccessPinnedAt,
+      });
+
+      if (!updated) {
+        throw new FilesError("FILE_NOT_FOUND", "Favorite file does not exist.");
+      }
+
+      return {
+        kind: "file",
+        id: file.id,
+        isFavorite: true,
+        quickAccessPinnedAt,
       };
     },
 
@@ -706,6 +757,50 @@ export const createRetrievalService = ({
         kind: "folder",
         id: folder.id,
         isFavorite,
+        quickAccessPinnedAt: isFavorite ? undefined : null,
+      };
+    },
+
+    async setFolderFavoriteQuickAccess({
+      actorUserId,
+      actorRole,
+      folderId,
+      quickAccessPinned,
+    }: FolderQuickAccessInput): Promise<FavoriteMutationResult> {
+      const activeRepo = await resolveRepo();
+      const folder = assertActiveFolder(
+        assertFolderAccess(
+          {
+            actorUserId,
+            actorRole,
+          },
+          await activeRepo.findFolderById(folderId),
+        ),
+      );
+
+      if (folder.isFilesRoot) {
+        throw new FilesError("FOLDER_ROOT_IMMUTABLE");
+      }
+
+      const quickAccessPinnedAt = quickAccessPinned ? now() : null;
+      const updated = await activeRepo.updateFolderFavoriteQuickAccess({
+        userId: actorUserId,
+        folderId: folder.id,
+        quickAccessPinnedAt,
+      });
+
+      if (!updated) {
+        throw new FilesError(
+          "FOLDER_NOT_FOUND",
+          "Favorite folder does not exist.",
+        );
+      }
+
+      return {
+        kind: "folder",
+        id: folder.id,
+        isFavorite: true,
+        quickAccessPinnedAt,
       };
     },
 

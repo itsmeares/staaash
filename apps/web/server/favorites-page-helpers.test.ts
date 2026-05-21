@@ -25,6 +25,7 @@ const makeFile = (
   mimeType: "image/png",
   name: "hero.png",
   pathLabel: "Files / Design / hero.png",
+  quickAccessPinnedAt: null,
   sizeBytes: 2400000,
   updatedAt: new Date("2026-05-19T10:00:00.000Z"),
   ...overrides,
@@ -41,6 +42,7 @@ const makeFolder = (
   name: "Design",
   parentId: "root",
   pathLabel: "Files / Design",
+  quickAccessPinnedAt: null,
   updatedAt: new Date("2026-05-19T09:00:00.000Z"),
   ...overrides,
 });
@@ -55,6 +57,7 @@ const clientItem = (
   locationLabel: "Design",
   mimeType: "image/png",
   name: "hero.png",
+  quickAccessPinnedAt: null,
   sizeBytes: 2400000,
   ...overrides,
 });
@@ -71,6 +74,7 @@ describe("favorites page helpers", () => {
           mimeType: "application/pdf",
           name: "Q1.pdf",
           pathLabel: "Files / Client / Reports / Q1.pdf",
+          quickAccessPinnedAt: new Date("2026-05-20T11:45:00.000Z"),
         }),
       ),
     ).toMatchObject({
@@ -78,6 +82,7 @@ describe("favorites page helpers", () => {
       kind: "file",
       locationLabel: "Client / Reports",
       mimeType: "application/pdf",
+      quickAccessPinnedAt: "2026-05-20T11:45:00.000Z",
     });
   });
 
@@ -115,6 +120,7 @@ describe("favorites page helpers", () => {
         id: "b",
         mimeType: "video/mp4",
         name: "Beta.mov",
+        quickAccessPinnedAt: "2026-05-20T10:00:00.000Z",
         sizeBytes: 20,
       }),
       clientItem({
@@ -131,6 +137,7 @@ describe("favorites page helpers", () => {
         locationLabel: "/",
         mimeType: undefined,
         name: "Client",
+        quickAccessPinnedAt: "2026-05-20T09:00:00.000Z",
         sizeBytes: undefined,
       }),
       clientItem({
@@ -152,7 +159,6 @@ describe("favorites page helpers", () => {
       sortFavoriteItems(items, "size", "desc").map((item) => item.id),
     ).toEqual(["d", "b", "a", "c"]);
     expect(getQuickAccessFavorites(items).map((item) => item.id)).toEqual([
-      "a",
       "b",
       "c",
     ]);

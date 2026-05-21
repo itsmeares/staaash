@@ -78,6 +78,7 @@ export const createPrismaRetrievalRepository = ({
           userId: favorite.userId,
           fileId: favorite.fileId,
           createdAt: favorite.createdAt,
+          quickAccessPinnedAt: favorite.quickAccessPinnedAt,
         }),
       );
     },
@@ -96,6 +97,7 @@ export const createPrismaRetrievalRepository = ({
           userId: favorite.userId,
           folderId: favorite.folderId,
           createdAt: favorite.createdAt,
+          quickAccessPinnedAt: favorite.quickAccessPinnedAt,
         }),
       );
     },
@@ -150,6 +152,7 @@ export const createPrismaRetrievalRepository = ({
           userId,
           fileId,
           createdAt,
+          quickAccessPinnedAt: null,
         },
         update: {},
       });
@@ -166,6 +169,26 @@ export const createPrismaRetrievalRepository = ({
       });
     },
 
+    async updateFileFavoriteQuickAccess({
+      userId,
+      fileId,
+      quickAccessPinnedAt,
+    }) {
+      const client = getClient();
+
+      const result = await client.favoriteFile.updateMany({
+        where: {
+          userId,
+          fileId,
+        },
+        data: {
+          quickAccessPinnedAt,
+        },
+      });
+
+      return result.count > 0;
+    },
+
     async upsertFolderFavorite({ userId, folderId, createdAt }) {
       const client = getClient();
 
@@ -180,6 +203,7 @@ export const createPrismaRetrievalRepository = ({
           userId,
           folderId,
           createdAt,
+          quickAccessPinnedAt: null,
         },
         update: {},
       });
@@ -194,6 +218,26 @@ export const createPrismaRetrievalRepository = ({
           folderId,
         },
       });
+    },
+
+    async updateFolderFavoriteQuickAccess({
+      userId,
+      folderId,
+      quickAccessPinnedAt,
+    }) {
+      const client = getClient();
+
+      const result = await client.favoriteFolder.updateMany({
+        where: {
+          userId,
+          folderId,
+        },
+        data: {
+          quickAccessPinnedAt,
+        },
+      });
+
+      return result.count > 0;
     },
 
     async upsertRecentFile({ userId, fileId, lastInteractedAt }) {

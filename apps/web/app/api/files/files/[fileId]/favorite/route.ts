@@ -46,12 +46,24 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
 
   try {
     const { fileId } = await params;
-    const result = await retrievalService.setFileFavorite({
-      actorUserId: session.user.id,
-      actorRole: session.user.role,
-      fileId,
-      isFavorite: parseBoolean(body.isFavorite, true),
-    });
+    const quickAccessPinned =
+      body.quickAccessPinned === undefined
+        ? undefined
+        : parseBoolean(body.quickAccessPinned, false);
+    const result =
+      quickAccessPinned === undefined
+        ? await retrievalService.setFileFavorite({
+            actorUserId: session.user.id,
+            actorRole: session.user.role,
+            fileId,
+            isFavorite: parseBoolean(body.isFavorite, true),
+          })
+        : await retrievalService.setFileFavoriteQuickAccess({
+            actorUserId: session.user.id,
+            actorRole: session.user.role,
+            fileId,
+            quickAccessPinned,
+          });
 
     return wantsJson(request)
       ? NextResponse.json(result)
@@ -59,9 +71,13 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
           request,
           redirectTo,
           "success",
-          result.isFavorite
-            ? "Added file to favorites."
-            : "Removed file from favorites.",
+          quickAccessPinned === undefined
+            ? result.isFavorite
+              ? "Added file to favorites."
+              : "Removed file from favorites."
+            : quickAccessPinned
+              ? "Pinned file to quick access."
+              : "Removed file from quick access.",
         );
   } catch (error) {
     return wantsJson(request)

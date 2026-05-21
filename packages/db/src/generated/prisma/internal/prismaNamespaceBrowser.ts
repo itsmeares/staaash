@@ -248,7 +248,8 @@ export const FavoriteFileScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
   fileId: 'fileId',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  quickAccessPinnedAt: 'quickAccessPinnedAt'
 } as const
 
 export type FavoriteFileScalarFieldEnum = (typeof FavoriteFileScalarFieldEnum)[keyof typeof FavoriteFileScalarFieldEnum]
@@ -258,7 +259,8 @@ export const FavoriteFolderScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
   folderId: 'folderId',
-  createdAt: 'createdAt'
+  createdAt: 'createdAt',
+  quickAccessPinnedAt: 'quickAccessPinnedAt'
 } as const
 
 export type FavoriteFolderScalarFieldEnum = (typeof FavoriteFolderScalarFieldEnum)[keyof typeof FavoriteFolderScalarFieldEnum]

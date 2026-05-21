@@ -218,6 +218,7 @@ const createMemoryRepository = () => {
         userId,
         fileId,
         createdAt,
+        quickAccessPinnedAt: null,
       });
     },
 
@@ -226,6 +227,20 @@ const createMemoryRepository = () => {
         (favorite) =>
           !(favorite.userId === userId && favorite.fileId === fileId),
       );
+    },
+
+    async updateFileFavoriteQuickAccess({
+      userId,
+      fileId,
+      quickAccessPinnedAt,
+    }) {
+      const existing = state.favoriteFiles.find(
+        (favorite) => favorite.userId === userId && favorite.fileId === fileId,
+      );
+
+      if (!existing) return false;
+      existing.quickAccessPinnedAt = quickAccessPinnedAt;
+      return true;
     },
 
     async upsertFolderFavorite({ userId, folderId, createdAt }) {
@@ -242,6 +257,7 @@ const createMemoryRepository = () => {
         userId,
         folderId,
         createdAt,
+        quickAccessPinnedAt: null,
       });
     },
 
@@ -250,6 +266,21 @@ const createMemoryRepository = () => {
         (favorite) =>
           !(favorite.userId === userId && favorite.folderId === folderId),
       );
+    },
+
+    async updateFolderFavoriteQuickAccess({
+      userId,
+      folderId,
+      quickAccessPinnedAt,
+    }) {
+      const existing = state.favoriteFolders.find(
+        (favorite) =>
+          favorite.userId === userId && favorite.folderId === folderId,
+      );
+
+      if (!existing) return false;
+      existing.quickAccessPinnedAt = quickAccessPinnedAt;
+      return true;
     },
 
     async upsertRecentFile({ userId, fileId, lastInteractedAt }) {
@@ -587,10 +618,100 @@ describe("retrieval service", () => {
         item.name,
         item.isFavorite,
         item.favoritedAt.toISOString(),
+        item.quickAccessPinnedAt,
       ]),
     ).toEqual([
-      ["file", "notes.txt", true, "2026-04-02T14:05:00.000Z"],
-      ["folder", "Projects", true, "2026-04-02T14:00:00.000Z"],
+      ["file", "notes.txt", true, "2026-04-02T14:05:00.000Z", null],
+      ["folder", "Projects", true, "2026-04-02T14:00:00.000Z", null],
+    ]);
+  });
+
+  it("pins only existing favorites to quick access", async () => {
+    const { repo, ensureFilesRootRecord, addFolder, addFile, state } =
+      createMemoryRepository();
+    const root = ensureFilesRootRecord("alice");
+    const folder = addFolder({
+      ownerUserId: "alice",
+      parentId: root.id,
+      name: "Projects",
+    });
+    const file = addFile({
+      ownerUserId: "alice",
+      folderId: folder.id,
+      name: "notes.txt",
+    });
+    let currentTime = new Date("2026-04-02T14:00:00.000Z");
+    const service = createRetrievalService({
+      repo,
+      now: () => currentTime,
+    });
+
+    await expect(
+      service.setFileFavoriteQuickAccess({
+        actorUserId: "alice",
+        actorRole: "member",
+        fileId: file.id,
+        quickAccessPinned: true,
+      }),
+    ).rejects.toMatchObject({
+      code: "FILE_NOT_FOUND",
+    });
+
+    await service.setFileFavorite({
+      actorUserId: "alice",
+      actorRole: "member",
+      fileId: file.id,
+      isFavorite: true,
+    });
+    await service.setFolderFavorite({
+      actorUserId: "alice",
+      actorRole: "member",
+      folderId: folder.id,
+      isFavorite: true,
+    });
+
+    currentTime = new Date("2026-04-02T14:10:00.000Z");
+    await service.setFileFavoriteQuickAccess({
+      actorUserId: "alice",
+      actorRole: "member",
+      fileId: file.id,
+      quickAccessPinned: true,
+    });
+    currentTime = new Date("2026-04-02T14:20:00.000Z");
+    await service.setFolderFavoriteQuickAccess({
+      actorUserId: "alice",
+      actorRole: "member",
+      folderId: folder.id,
+      quickAccessPinned: true,
+    });
+
+    expect(state.favoriteFiles[0]?.quickAccessPinnedAt?.toISOString()).toBe(
+      "2026-04-02T14:10:00.000Z",
+    );
+    expect(state.favoriteFolders[0]?.quickAccessPinnedAt?.toISOString()).toBe(
+      "2026-04-02T14:20:00.000Z",
+    );
+
+    await service.setFileFavoriteQuickAccess({
+      actorUserId: "alice",
+      actorRole: "member",
+      fileId: file.id,
+      quickAccessPinned: false,
+    });
+
+    const favorites = await service.listFavorites({
+      actorUserId: "alice",
+      actorRole: "member",
+    });
+
+    expect(
+      favorites.map((item) => [
+        item.kind,
+        item.quickAccessPinnedAt?.toISOString() ?? null,
+      ]),
+    ).toEqual([
+      ["folder", "2026-04-02T14:20:00.000Z"],
+      ["file", null],
     ]);
   });
 

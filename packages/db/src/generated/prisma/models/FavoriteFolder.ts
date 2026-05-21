@@ -29,6 +29,7 @@ export type FavoriteFolderMinAggregateOutputType = {
   userId: string | null
   folderId: string | null
   createdAt: Date | null
+  quickAccessPinnedAt: Date | null
 }
 
 export type FavoriteFolderMaxAggregateOutputType = {
@@ -36,6 +37,7 @@ export type FavoriteFolderMaxAggregateOutputType = {
   userId: string | null
   folderId: string | null
   createdAt: Date | null
+  quickAccessPinnedAt: Date | null
 }
 
 export type FavoriteFolderCountAggregateOutputType = {
@@ -43,6 +45,7 @@ export type FavoriteFolderCountAggregateOutputType = {
   userId: number
   folderId: number
   createdAt: number
+  quickAccessPinnedAt: number
   _all: number
 }
 
@@ -52,6 +55,7 @@ export type FavoriteFolderMinAggregateInputType = {
   userId?: true
   folderId?: true
   createdAt?: true
+  quickAccessPinnedAt?: true
 }
 
 export type FavoriteFolderMaxAggregateInputType = {
@@ -59,6 +63,7 @@ export type FavoriteFolderMaxAggregateInputType = {
   userId?: true
   folderId?: true
   createdAt?: true
+  quickAccessPinnedAt?: true
 }
 
 export type FavoriteFolderCountAggregateInputType = {
@@ -66,6 +71,7 @@ export type FavoriteFolderCountAggregateInputType = {
   userId?: true
   folderId?: true
   createdAt?: true
+  quickAccessPinnedAt?: true
   _all?: true
 }
 
@@ -146,6 +152,7 @@ export type FavoriteFolderGroupByOutputType = {
   userId: string
   folderId: string
   createdAt: Date
+  quickAccessPinnedAt: Date | null
   _count: FavoriteFolderCountAggregateOutputType | null
   _min: FavoriteFolderMinAggregateOutputType | null
   _max: FavoriteFolderMaxAggregateOutputType | null
@@ -174,6 +181,7 @@ export type FavoriteFolderWhereInput = {
   userId?: Prisma.StringFilter<"FavoriteFolder"> | string
   folderId?: Prisma.StringFilter<"FavoriteFolder"> | string
   createdAt?: Prisma.DateTimeFilter<"FavoriteFolder"> | Date | string
+  quickAccessPinnedAt?: Prisma.DateTimeNullableFilter<"FavoriteFolder"> | Date | string | null
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   folder?: Prisma.XOR<Prisma.FolderScalarRelationFilter, Prisma.FolderWhereInput>
 }
@@ -183,6 +191,7 @@ export type FavoriteFolderOrderByWithRelationInput = {
   userId?: Prisma.SortOrder
   folderId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  quickAccessPinnedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
   folder?: Prisma.FolderOrderByWithRelationInput
 }
@@ -196,6 +205,7 @@ export type FavoriteFolderWhereUniqueInput = Prisma.AtLeast<{
   userId?: Prisma.StringFilter<"FavoriteFolder"> | string
   folderId?: Prisma.StringFilter<"FavoriteFolder"> | string
   createdAt?: Prisma.DateTimeFilter<"FavoriteFolder"> | Date | string
+  quickAccessPinnedAt?: Prisma.DateTimeNullableFilter<"FavoriteFolder"> | Date | string | null
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   folder?: Prisma.XOR<Prisma.FolderScalarRelationFilter, Prisma.FolderWhereInput>
 }, "id" | "userId_folderId">
@@ -205,6 +215,7 @@ export type FavoriteFolderOrderByWithAggregationInput = {
   userId?: Prisma.SortOrder
   folderId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  quickAccessPinnedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.FavoriteFolderCountOrderByAggregateInput
   _max?: Prisma.FavoriteFolderMaxOrderByAggregateInput
   _min?: Prisma.FavoriteFolderMinOrderByAggregateInput
@@ -218,11 +229,13 @@ export type FavoriteFolderScalarWhereWithAggregatesInput = {
   userId?: Prisma.StringWithAggregatesFilter<"FavoriteFolder"> | string
   folderId?: Prisma.StringWithAggregatesFilter<"FavoriteFolder"> | string
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"FavoriteFolder"> | Date | string
+  quickAccessPinnedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"FavoriteFolder"> | Date | string | null
 }
 
 export type FavoriteFolderCreateInput = {
   id?: string
   createdAt?: Date | string
+  quickAccessPinnedAt?: Date | string | null
   user: Prisma.UserCreateNestedOneWithoutFavoriteFoldersInput
   folder: Prisma.FolderCreateNestedOneWithoutFavoritesInput
 }
@@ -232,11 +245,13 @@ export type FavoriteFolderUncheckedCreateInput = {
   userId: string
   folderId: string
   createdAt?: Date | string
+  quickAccessPinnedAt?: Date | string | null
 }
 
 export type FavoriteFolderUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  quickAccessPinnedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   user?: Prisma.UserUpdateOneRequiredWithoutFavoriteFoldersNestedInput
   folder?: Prisma.FolderUpdateOneRequiredWithoutFavoritesNestedInput
 }
@@ -246,6 +261,7 @@ export type FavoriteFolderUncheckedUpdateInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   folderId?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  quickAccessPinnedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type FavoriteFolderCreateManyInput = {
@@ -253,11 +269,13 @@ export type FavoriteFolderCreateManyInput = {
   userId: string
   folderId: string
   createdAt?: Date | string
+  quickAccessPinnedAt?: Date | string | null
 }
 
 export type FavoriteFolderUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  quickAccessPinnedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type FavoriteFolderUncheckedUpdateManyInput = {
@@ -265,6 +283,7 @@ export type FavoriteFolderUncheckedUpdateManyInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   folderId?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  quickAccessPinnedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type FavoriteFolderListRelationFilter = {
@@ -287,6 +306,7 @@ export type FavoriteFolderCountOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   folderId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  quickAccessPinnedAt?: Prisma.SortOrder
 }
 
 export type FavoriteFolderMaxOrderByAggregateInput = {
@@ -294,6 +314,7 @@ export type FavoriteFolderMaxOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   folderId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  quickAccessPinnedAt?: Prisma.SortOrder
 }
 
 export type FavoriteFolderMinOrderByAggregateInput = {
@@ -301,6 +322,7 @@ export type FavoriteFolderMinOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   folderId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  quickAccessPinnedAt?: Prisma.SortOrder
 }
 
 export type FavoriteFolderCreateNestedManyWithoutUserInput = {
@@ -390,6 +412,7 @@ export type FavoriteFolderUncheckedUpdateManyWithoutFolderNestedInput = {
 export type FavoriteFolderCreateWithoutUserInput = {
   id?: string
   createdAt?: Date | string
+  quickAccessPinnedAt?: Date | string | null
   folder: Prisma.FolderCreateNestedOneWithoutFavoritesInput
 }
 
@@ -397,6 +420,7 @@ export type FavoriteFolderUncheckedCreateWithoutUserInput = {
   id?: string
   folderId: string
   createdAt?: Date | string
+  quickAccessPinnedAt?: Date | string | null
 }
 
 export type FavoriteFolderCreateOrConnectWithoutUserInput = {
@@ -433,11 +457,13 @@ export type FavoriteFolderScalarWhereInput = {
   userId?: Prisma.StringFilter<"FavoriteFolder"> | string
   folderId?: Prisma.StringFilter<"FavoriteFolder"> | string
   createdAt?: Prisma.DateTimeFilter<"FavoriteFolder"> | Date | string
+  quickAccessPinnedAt?: Prisma.DateTimeNullableFilter<"FavoriteFolder"> | Date | string | null
 }
 
 export type FavoriteFolderCreateWithoutFolderInput = {
   id?: string
   createdAt?: Date | string
+  quickAccessPinnedAt?: Date | string | null
   user: Prisma.UserCreateNestedOneWithoutFavoriteFoldersInput
 }
 
@@ -445,6 +471,7 @@ export type FavoriteFolderUncheckedCreateWithoutFolderInput = {
   id?: string
   userId: string
   createdAt?: Date | string
+  quickAccessPinnedAt?: Date | string | null
 }
 
 export type FavoriteFolderCreateOrConnectWithoutFolderInput = {
@@ -477,11 +504,13 @@ export type FavoriteFolderCreateManyUserInput = {
   id?: string
   folderId: string
   createdAt?: Date | string
+  quickAccessPinnedAt?: Date | string | null
 }
 
 export type FavoriteFolderUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  quickAccessPinnedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   folder?: Prisma.FolderUpdateOneRequiredWithoutFavoritesNestedInput
 }
 
@@ -489,23 +518,27 @@ export type FavoriteFolderUncheckedUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   folderId?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  quickAccessPinnedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type FavoriteFolderUncheckedUpdateManyWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   folderId?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  quickAccessPinnedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type FavoriteFolderCreateManyFolderInput = {
   id?: string
   userId: string
   createdAt?: Date | string
+  quickAccessPinnedAt?: Date | string | null
 }
 
 export type FavoriteFolderUpdateWithoutFolderInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  quickAccessPinnedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   user?: Prisma.UserUpdateOneRequiredWithoutFavoriteFoldersNestedInput
 }
 
@@ -513,12 +546,14 @@ export type FavoriteFolderUncheckedUpdateWithoutFolderInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  quickAccessPinnedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type FavoriteFolderUncheckedUpdateManyWithoutFolderInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  quickAccessPinnedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 
@@ -528,6 +563,7 @@ export type FavoriteFolderSelect<ExtArgs extends runtime.Types.Extensions.Intern
   userId?: boolean
   folderId?: boolean
   createdAt?: boolean
+  quickAccessPinnedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   folder?: boolean | Prisma.FolderDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["favoriteFolder"]>
@@ -537,6 +573,7 @@ export type FavoriteFolderSelectCreateManyAndReturn<ExtArgs extends runtime.Type
   userId?: boolean
   folderId?: boolean
   createdAt?: boolean
+  quickAccessPinnedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   folder?: boolean | Prisma.FolderDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["favoriteFolder"]>
@@ -546,6 +583,7 @@ export type FavoriteFolderSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
   userId?: boolean
   folderId?: boolean
   createdAt?: boolean
+  quickAccessPinnedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   folder?: boolean | Prisma.FolderDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["favoriteFolder"]>
@@ -555,9 +593,10 @@ export type FavoriteFolderSelectScalar = {
   userId?: boolean
   folderId?: boolean
   createdAt?: boolean
+  quickAccessPinnedAt?: boolean
 }
 
-export type FavoriteFolderOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "folderId" | "createdAt", ExtArgs["result"]["favoriteFolder"]>
+export type FavoriteFolderOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "folderId" | "createdAt" | "quickAccessPinnedAt", ExtArgs["result"]["favoriteFolder"]>
 export type FavoriteFolderInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   folder?: boolean | Prisma.FolderDefaultArgs<ExtArgs>
@@ -582,6 +621,7 @@ export type $FavoriteFolderPayload<ExtArgs extends runtime.Types.Extensions.Inte
     userId: string
     folderId: string
     createdAt: Date
+    quickAccessPinnedAt: Date | null
   }, ExtArgs["result"]["favoriteFolder"]>
   composites: {}
 }
@@ -1011,6 +1051,7 @@ export interface FavoriteFolderFieldRefs {
   readonly userId: Prisma.FieldRef<"FavoriteFolder", 'String'>
   readonly folderId: Prisma.FieldRef<"FavoriteFolder", 'String'>
   readonly createdAt: Prisma.FieldRef<"FavoriteFolder", 'DateTime'>
+  readonly quickAccessPinnedAt: Prisma.FieldRef<"FavoriteFolder", 'DateTime'>
 }
     
 

@@ -11,6 +11,7 @@ export type FavoriteClientItem = {
   mimeType?: string;
   name: string;
   parentId?: string | null;
+  quickAccessPinnedAt: string | null;
   sizeBytes?: number;
 };
 
@@ -56,6 +57,7 @@ export function toFavoriteClientItem(
     mimeType: item.kind === "file" ? item.mimeType : undefined,
     name: item.name,
     parentId: item.kind === "folder" ? item.parentId : undefined,
+    quickAccessPinnedAt: item.quickAccessPinnedAt?.toISOString() ?? null,
     sizeBytes: item.kind === "file" ? item.sizeBytes : undefined,
   };
 }
@@ -181,5 +183,16 @@ export function sortFavoriteItems(
 export function getQuickAccessFavorites(
   items: FavoriteClientItem[],
 ): FavoriteClientItem[] {
-  return sortFavoriteItems(items, "favoritedAt", "desc").slice(0, 3);
+  return [...items]
+    .filter((item) => item.quickAccessPinnedAt != null)
+    .sort((left, right) => {
+      const delta =
+        new Date(right.quickAccessPinnedAt!).getTime() -
+        new Date(left.quickAccessPinnedAt!).getTime();
+
+      if (delta !== 0) return delta;
+      return (
+        compareStrings(left.name, right.name) || left.id.localeCompare(right.id)
+      );
+    });
 }

@@ -29,6 +29,7 @@ export type FavoriteFileMinAggregateOutputType = {
   userId: string | null
   fileId: string | null
   createdAt: Date | null
+  quickAccessPinnedAt: Date | null
 }
 
 export type FavoriteFileMaxAggregateOutputType = {
@@ -36,6 +37,7 @@ export type FavoriteFileMaxAggregateOutputType = {
   userId: string | null
   fileId: string | null
   createdAt: Date | null
+  quickAccessPinnedAt: Date | null
 }
 
 export type FavoriteFileCountAggregateOutputType = {
@@ -43,6 +45,7 @@ export type FavoriteFileCountAggregateOutputType = {
   userId: number
   fileId: number
   createdAt: number
+  quickAccessPinnedAt: number
   _all: number
 }
 
@@ -52,6 +55,7 @@ export type FavoriteFileMinAggregateInputType = {
   userId?: true
   fileId?: true
   createdAt?: true
+  quickAccessPinnedAt?: true
 }
 
 export type FavoriteFileMaxAggregateInputType = {
@@ -59,6 +63,7 @@ export type FavoriteFileMaxAggregateInputType = {
   userId?: true
   fileId?: true
   createdAt?: true
+  quickAccessPinnedAt?: true
 }
 
 export type FavoriteFileCountAggregateInputType = {
@@ -66,6 +71,7 @@ export type FavoriteFileCountAggregateInputType = {
   userId?: true
   fileId?: true
   createdAt?: true
+  quickAccessPinnedAt?: true
   _all?: true
 }
 
@@ -146,6 +152,7 @@ export type FavoriteFileGroupByOutputType = {
   userId: string
   fileId: string
   createdAt: Date
+  quickAccessPinnedAt: Date | null
   _count: FavoriteFileCountAggregateOutputType | null
   _min: FavoriteFileMinAggregateOutputType | null
   _max: FavoriteFileMaxAggregateOutputType | null
@@ -174,6 +181,7 @@ export type FavoriteFileWhereInput = {
   userId?: Prisma.StringFilter<"FavoriteFile"> | string
   fileId?: Prisma.StringFilter<"FavoriteFile"> | string
   createdAt?: Prisma.DateTimeFilter<"FavoriteFile"> | Date | string
+  quickAccessPinnedAt?: Prisma.DateTimeNullableFilter<"FavoriteFile"> | Date | string | null
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   file?: Prisma.XOR<Prisma.FileScalarRelationFilter, Prisma.FileWhereInput>
 }
@@ -183,6 +191,7 @@ export type FavoriteFileOrderByWithRelationInput = {
   userId?: Prisma.SortOrder
   fileId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  quickAccessPinnedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
   file?: Prisma.FileOrderByWithRelationInput
 }
@@ -196,6 +205,7 @@ export type FavoriteFileWhereUniqueInput = Prisma.AtLeast<{
   userId?: Prisma.StringFilter<"FavoriteFile"> | string
   fileId?: Prisma.StringFilter<"FavoriteFile"> | string
   createdAt?: Prisma.DateTimeFilter<"FavoriteFile"> | Date | string
+  quickAccessPinnedAt?: Prisma.DateTimeNullableFilter<"FavoriteFile"> | Date | string | null
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   file?: Prisma.XOR<Prisma.FileScalarRelationFilter, Prisma.FileWhereInput>
 }, "id" | "userId_fileId">
@@ -205,6 +215,7 @@ export type FavoriteFileOrderByWithAggregationInput = {
   userId?: Prisma.SortOrder
   fileId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  quickAccessPinnedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.FavoriteFileCountOrderByAggregateInput
   _max?: Prisma.FavoriteFileMaxOrderByAggregateInput
   _min?: Prisma.FavoriteFileMinOrderByAggregateInput
@@ -218,11 +229,13 @@ export type FavoriteFileScalarWhereWithAggregatesInput = {
   userId?: Prisma.StringWithAggregatesFilter<"FavoriteFile"> | string
   fileId?: Prisma.StringWithAggregatesFilter<"FavoriteFile"> | string
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"FavoriteFile"> | Date | string
+  quickAccessPinnedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"FavoriteFile"> | Date | string | null
 }
 
 export type FavoriteFileCreateInput = {
   id?: string
   createdAt?: Date | string
+  quickAccessPinnedAt?: Date | string | null
   user: Prisma.UserCreateNestedOneWithoutFavoriteFilesInput
   file: Prisma.FileCreateNestedOneWithoutFavoritesInput
 }
@@ -232,11 +245,13 @@ export type FavoriteFileUncheckedCreateInput = {
   userId: string
   fileId: string
   createdAt?: Date | string
+  quickAccessPinnedAt?: Date | string | null
 }
 
 export type FavoriteFileUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  quickAccessPinnedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   user?: Prisma.UserUpdateOneRequiredWithoutFavoriteFilesNestedInput
   file?: Prisma.FileUpdateOneRequiredWithoutFavoritesNestedInput
 }
@@ -246,6 +261,7 @@ export type FavoriteFileUncheckedUpdateInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   fileId?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  quickAccessPinnedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type FavoriteFileCreateManyInput = {
@@ -253,11 +269,13 @@ export type FavoriteFileCreateManyInput = {
   userId: string
   fileId: string
   createdAt?: Date | string
+  quickAccessPinnedAt?: Date | string | null
 }
 
 export type FavoriteFileUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  quickAccessPinnedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type FavoriteFileUncheckedUpdateManyInput = {
@@ -265,6 +283,7 @@ export type FavoriteFileUncheckedUpdateManyInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   fileId?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  quickAccessPinnedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type FavoriteFileListRelationFilter = {
@@ -287,6 +306,7 @@ export type FavoriteFileCountOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   fileId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  quickAccessPinnedAt?: Prisma.SortOrder
 }
 
 export type FavoriteFileMaxOrderByAggregateInput = {
@@ -294,6 +314,7 @@ export type FavoriteFileMaxOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   fileId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  quickAccessPinnedAt?: Prisma.SortOrder
 }
 
 export type FavoriteFileMinOrderByAggregateInput = {
@@ -301,6 +322,7 @@ export type FavoriteFileMinOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   fileId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+  quickAccessPinnedAt?: Prisma.SortOrder
 }
 
 export type FavoriteFileCreateNestedManyWithoutUserInput = {
@@ -390,6 +412,7 @@ export type FavoriteFileUncheckedUpdateManyWithoutFileNestedInput = {
 export type FavoriteFileCreateWithoutUserInput = {
   id?: string
   createdAt?: Date | string
+  quickAccessPinnedAt?: Date | string | null
   file: Prisma.FileCreateNestedOneWithoutFavoritesInput
 }
 
@@ -397,6 +420,7 @@ export type FavoriteFileUncheckedCreateWithoutUserInput = {
   id?: string
   fileId: string
   createdAt?: Date | string
+  quickAccessPinnedAt?: Date | string | null
 }
 
 export type FavoriteFileCreateOrConnectWithoutUserInput = {
@@ -433,11 +457,13 @@ export type FavoriteFileScalarWhereInput = {
   userId?: Prisma.StringFilter<"FavoriteFile"> | string
   fileId?: Prisma.StringFilter<"FavoriteFile"> | string
   createdAt?: Prisma.DateTimeFilter<"FavoriteFile"> | Date | string
+  quickAccessPinnedAt?: Prisma.DateTimeNullableFilter<"FavoriteFile"> | Date | string | null
 }
 
 export type FavoriteFileCreateWithoutFileInput = {
   id?: string
   createdAt?: Date | string
+  quickAccessPinnedAt?: Date | string | null
   user: Prisma.UserCreateNestedOneWithoutFavoriteFilesInput
 }
 
@@ -445,6 +471,7 @@ export type FavoriteFileUncheckedCreateWithoutFileInput = {
   id?: string
   userId: string
   createdAt?: Date | string
+  quickAccessPinnedAt?: Date | string | null
 }
 
 export type FavoriteFileCreateOrConnectWithoutFileInput = {
@@ -477,11 +504,13 @@ export type FavoriteFileCreateManyUserInput = {
   id?: string
   fileId: string
   createdAt?: Date | string
+  quickAccessPinnedAt?: Date | string | null
 }
 
 export type FavoriteFileUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  quickAccessPinnedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   file?: Prisma.FileUpdateOneRequiredWithoutFavoritesNestedInput
 }
 
@@ -489,23 +518,27 @@ export type FavoriteFileUncheckedUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   fileId?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  quickAccessPinnedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type FavoriteFileUncheckedUpdateManyWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   fileId?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  quickAccessPinnedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type FavoriteFileCreateManyFileInput = {
   id?: string
   userId: string
   createdAt?: Date | string
+  quickAccessPinnedAt?: Date | string | null
 }
 
 export type FavoriteFileUpdateWithoutFileInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  quickAccessPinnedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   user?: Prisma.UserUpdateOneRequiredWithoutFavoriteFilesNestedInput
 }
 
@@ -513,12 +546,14 @@ export type FavoriteFileUncheckedUpdateWithoutFileInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  quickAccessPinnedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type FavoriteFileUncheckedUpdateManyWithoutFileInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  quickAccessPinnedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 
@@ -528,6 +563,7 @@ export type FavoriteFileSelect<ExtArgs extends runtime.Types.Extensions.Internal
   userId?: boolean
   fileId?: boolean
   createdAt?: boolean
+  quickAccessPinnedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   file?: boolean | Prisma.FileDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["favoriteFile"]>
@@ -537,6 +573,7 @@ export type FavoriteFileSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   userId?: boolean
   fileId?: boolean
   createdAt?: boolean
+  quickAccessPinnedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   file?: boolean | Prisma.FileDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["favoriteFile"]>
@@ -546,6 +583,7 @@ export type FavoriteFileSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   userId?: boolean
   fileId?: boolean
   createdAt?: boolean
+  quickAccessPinnedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   file?: boolean | Prisma.FileDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["favoriteFile"]>
@@ -555,9 +593,10 @@ export type FavoriteFileSelectScalar = {
   userId?: boolean
   fileId?: boolean
   createdAt?: boolean
+  quickAccessPinnedAt?: boolean
 }
 
-export type FavoriteFileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "fileId" | "createdAt", ExtArgs["result"]["favoriteFile"]>
+export type FavoriteFileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "fileId" | "createdAt" | "quickAccessPinnedAt", ExtArgs["result"]["favoriteFile"]>
 export type FavoriteFileInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   file?: boolean | Prisma.FileDefaultArgs<ExtArgs>
@@ -582,6 +621,7 @@ export type $FavoriteFilePayload<ExtArgs extends runtime.Types.Extensions.Intern
     userId: string
     fileId: string
     createdAt: Date
+    quickAccessPinnedAt: Date | null
   }, ExtArgs["result"]["favoriteFile"]>
   composites: {}
 }
@@ -1011,6 +1051,7 @@ export interface FavoriteFileFieldRefs {
   readonly userId: Prisma.FieldRef<"FavoriteFile", 'String'>
   readonly fileId: Prisma.FieldRef<"FavoriteFile", 'String'>
   readonly createdAt: Prisma.FieldRef<"FavoriteFile", 'DateTime'>
+  readonly quickAccessPinnedAt: Prisma.FieldRef<"FavoriteFile", 'DateTime'>
 }
     
 
