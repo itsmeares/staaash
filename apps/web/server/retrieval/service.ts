@@ -13,6 +13,7 @@ import {
 
 import type {
   FavoriteMutationResult,
+  FavoriteRetrievalItem,
   RetrievalItem,
   RetrievalRepository,
 } from "./types";
@@ -373,7 +374,9 @@ export const createRetrievalService = ({
         );
     },
 
-    async listFavorites({ actorUserId }: FilesActor): Promise<RetrievalItem[]> {
+    async listFavorites({
+      actorUserId,
+    }: FilesActor): Promise<FavoriteRetrievalItem[]> {
       const activeRepo = await resolveRepo();
       const [
         filesRoot,
@@ -458,8 +461,8 @@ export const createRetrievalService = ({
             ),
         );
 
-      return items.map((entry) =>
-        entry.kind === "folder"
+      return items.map((entry) => ({
+        ...(entry.kind === "folder"
           ? toFolderItem({
               folder: entry.item as FolderSummary,
               folderMap,
@@ -471,8 +474,9 @@ export const createRetrievalService = ({
               folderMap,
               filesRoot,
               favoriteFileIds: favoriteState.favoriteFileIds,
-            }),
-      );
+            })),
+        favoritedAt: entry.createdAt,
+      }));
     },
 
     async listRecentlyAdded({

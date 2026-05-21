@@ -27,6 +27,10 @@ export type RetrievalItem =
       sizeBytes: number;
     };
 
+export type FavoriteRetrievalItem = RetrievalItem & {
+  favoritedAt: Date;
+};
+
 export type FavoriteMutationResult = {
   kind: RetrievalItem["kind"];
   id: string;

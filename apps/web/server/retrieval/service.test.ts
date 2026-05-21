@@ -582,10 +582,15 @@ describe("retrieval service", () => {
     });
 
     expect(
-      favorites.map((item) => [item.kind, item.name, item.isFavorite]),
+      favorites.map((item) => [
+        item.kind,
+        item.name,
+        item.isFavorite,
+        item.favoritedAt.toISOString(),
+      ]),
     ).toEqual([
-      ["file", "notes.txt", true],
-      ["folder", "Projects", true],
+      ["file", "notes.txt", true, "2026-04-02T14:05:00.000Z"],
+      ["folder", "Projects", true, "2026-04-02T14:00:00.000Z"],
     ]);
   });
 
