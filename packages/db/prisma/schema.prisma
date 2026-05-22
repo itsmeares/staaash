@@ -52,55 +52,55 @@ model Instance {
 }
 
 model SystemSettings {
-  id                              String   @id @default("singleton")
-  sessionMaxAgeDays               Int      @default(30)
-  inviteMaxAgeDays                Int      @default(7)
-  passwordResetMaxAgeHours        Int      @default(4)
-  shareMaxAgeDays                 Int      @default(30)
-  maxUploadBytes                  BigInt   @default(10737418240)
-  uploadTimeoutMinutes            Int      @default(60)
-  uploadStagingRetentionHours     Int      @default(2)
-  previewMaxSourceBytes           Int      @default(26214400)
-  previewTextMaxBytes             Int      @default(65536)
-  workerHeartbeatMaxAgeSeconds    Int      @default(120)
-  updateCheckIntervalHours        Int      @default(24)
-  updateCheckRepository           String   @default("itsmeares/staaash")
-  mediaPreviewEnabled             Boolean  @default(true)
-  mediaPreviewGenerateOnUpload    Boolean  @default(false)
-  mediaPreviewThresholdBytes      BigInt   @default(367001600)
-  mediaPreviewRetentionDays       Int      @default(14)
-  mediaPreviewMaxHeight           Int      @default(1080)
-  zipArchiveRetentionDays         Int      @default(7)
-  mediaPreviewCrf                 Int      @default(22)
-  mediaPreviewMaxConcurrentJobs   Int      @default(1)
-  createdAt                       DateTime @default(now())
-  updatedAt                       DateTime @updatedAt
+  id                            String   @id @default("singleton")
+  sessionMaxAgeDays             Int      @default(30)
+  inviteMaxAgeDays              Int      @default(7)
+  passwordResetMaxAgeHours      Int      @default(4)
+  shareMaxAgeDays               Int      @default(30)
+  maxUploadBytes                BigInt   @default(10737418240)
+  uploadTimeoutMinutes          Int      @default(60)
+  uploadStagingRetentionHours   Int      @default(2)
+  previewMaxSourceBytes         Int      @default(26214400)
+  previewTextMaxBytes           Int      @default(65536)
+  workerHeartbeatMaxAgeSeconds  Int      @default(120)
+  updateCheckIntervalHours      Int      @default(24)
+  updateCheckRepository         String   @default("itsmeares/staaash")
+  mediaPreviewEnabled           Boolean  @default(true)
+  mediaPreviewGenerateOnUpload  Boolean  @default(false)
+  mediaPreviewThresholdBytes    BigInt   @default(367001600)
+  mediaPreviewRetentionDays     Int      @default(14)
+  mediaPreviewMaxHeight         Int      @default(1080)
+  zipArchiveRetentionDays       Int      @default(7)
+  mediaPreviewCrf               Int      @default(22)
+  mediaPreviewMaxConcurrentJobs Int      @default(1)
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
 }
 
 model User {
-  id                    String          @id @default(cuid())
-  email                 String          @unique
-  username              String          @unique
-  displayName           String?
-  avatarUrl             String?
-  passwordHash          String
-  role                  UserRole        @default(member)
-  storageLimitBytes     BigInt?
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
-  sessions              Session[]
-  preferences           UserPreference?
-  invitesIssued         Invite[]        @relation("InviteIssuer")
-  invitesAccepted       Invite[]        @relation("InviteAcceptor")
-  passwordResetsIssued  PasswordReset[] @relation("PasswordResetIssuer")
-  passwordResetsForUser PasswordReset[] @relation("PasswordResetUser")
-  folders               Folder[]        @relation("FolderOwner")
-  files                 File[]          @relation("FileOwner")
-  favoriteFiles         FavoriteFile[]
-  favoriteFolders       FavoriteFolder[]
-  recentFiles           RecentFile[]
-  recentFolders         RecentFolder[]
-  shareLinks            ShareLink[]     @relation("ShareLinkCreator")
+  id                        String                     @id @default(cuid())
+  email                     String                     @unique
+  username                  String                     @unique
+  displayName               String?
+  avatarUrl                 String?
+  passwordHash              String
+  role                      UserRole                   @default(member)
+  storageLimitBytes         BigInt?
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  sessions                  Session[]
+  preferences               UserPreference?
+  invitesIssued             Invite[]                   @relation("InviteIssuer")
+  invitesAccepted           Invite[]                   @relation("InviteAcceptor")
+  passwordResetsIssued      PasswordReset[]            @relation("PasswordResetIssuer")
+  passwordResetsForUser     PasswordReset[]            @relation("PasswordResetUser")
+  folders                   Folder[]                   @relation("FolderOwner")
+  files                     File[]                     @relation("FileOwner")
+  favoriteFiles             FavoriteFile[]
+  favoriteFolders           FavoriteFolder[]
+  recentFiles               RecentFile[]
+  recentFolders             RecentFolder[]
+  shareLinks                ShareLink[]                @relation("ShareLinkCreator")
   restoreReconciliationRuns RestoreReconciliationRun[] @relation("RestoreReconciliationTrigger")
   zipArchives               ZipArchive[]
 }
@@ -118,14 +118,14 @@ model UserPreference {
 }
 
 model Session {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  tokenHash String   @unique
+  tokenHash String    @unique
   expiresAt DateTime
   revokedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, expiresAt])
 }
@@ -149,37 +149,37 @@ model Invite {
 }
 
 model PasswordReset {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   userId         String
   issuedByUserId String
-  tokenHash      String   @unique
+  tokenHash      String    @unique
   expiresAt      DateTime
   redeemedAt     DateTime?
   revokedAt      DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  user           User     @relation("PasswordResetUser", fields: [userId], references: [id], onDelete: Cascade)
-  issuedBy       User     @relation("PasswordResetIssuer", fields: [issuedByUserId], references: [id], onDelete: Restrict)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  user           User      @relation("PasswordResetUser", fields: [userId], references: [id], onDelete: Cascade)
+  issuedBy       User      @relation("PasswordResetIssuer", fields: [issuedByUserId], references: [id], onDelete: Restrict)
 
   @@index([userId, revokedAt, expiresAt])
 }
 
 model Folder {
-  id             String   @id @default(cuid())
-  ownerUserId    String
-  parentId       String?
-  name           String
-  isFilesRoot    Boolean  @default(false)
-  deletedAt      DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  owner          User     @relation("FolderOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
-  parent         Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children       Folder[] @relation("FolderHierarchy")
-  files          File[]
-  favorites      FavoriteFolder[]
-  recents        RecentFolder[]
-  shareLink      ShareLink? @relation("ShareLinkFolder")
+  id          String           @id @default(cuid())
+  ownerUserId String
+  parentId    String?
+  name        String
+  isFilesRoot Boolean          @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  owner       User             @relation("FolderOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  parent      Folder?          @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Folder[]         @relation("FolderHierarchy")
+  files       File[]
+  favorites   FavoriteFolder[]
+  recents     RecentFolder[]
+  shareLink   ShareLink?       @relation("ShareLinkFolder")
 
   @@index([ownerUserId, isFilesRoot])
   @@index([ownerUserId, parentId, deletedAt])
@@ -187,11 +187,11 @@ model Folder {
 }
 
 model File {
-  id               String        @id @default(cuid())
+  id               String            @id @default(cuid())
   ownerUserId      String
   folderId         String?
   originalName     String
-  storageKey       String        @unique
+  storageKey       String            @unique
   storageStatus    FileStorageStatus @default(available)
   storageCheckedAt DateTime?
   storageMissingAt DateTime?
@@ -199,13 +199,13 @@ model File {
   sizeBytes        BigInt
   contentChecksum  String?
   deletedAt        DateTime?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  owner            User          @relation("FileOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
-  folder           Folder?       @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  owner            User              @relation("FileOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  folder           Folder?           @relation(fields: [folderId], references: [id], onDelete: SetNull)
   favorites        FavoriteFile[]
   recents          RecentFile[]
-  shareLink        ShareLink?       @relation("ShareLinkFile")
+  shareLink        ShareLink?        @relation("ShareLinkFile")
   derivatives      MediaDerivative[]
 
   @@index([ownerUserId, folderId, deletedAt])
@@ -213,48 +213,52 @@ model File {
 }
 
 model FavoriteFile {
-  id        String   @id @default(cuid())
-  userId    String
-  fileId    String
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  file      File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  id                  String    @id @default(cuid())
+  userId              String
+  fileId              String
+  createdAt           DateTime  @default(now())
+  quickAccessPinnedAt DateTime?
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  file                File      @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
   @@unique([userId, fileId])
   @@index([userId, createdAt])
+  @@index([userId, quickAccessPinnedAt])
 }
 
 model FavoriteFolder {
-  id        String   @id @default(cuid())
-  userId    String
-  folderId  String
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  folder    Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  id                  String    @id @default(cuid())
+  userId              String
+  folderId            String
+  createdAt           DateTime  @default(now())
+  quickAccessPinnedAt DateTime?
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder              Folder    @relation(fields: [folderId], references: [id], onDelete: Cascade)
 
   @@unique([userId, folderId])
   @@index([userId, createdAt])
+  @@index([userId, quickAccessPinnedAt])
 }
 
 model RecentFile {
-  id                String   @id @default(cuid())
-  userId            String
-  fileId            String
-  lastInteractedAt  DateTime
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  file              File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  id               String   @id @default(cuid())
+  userId           String
+  fileId           String
+  lastInteractedAt DateTime
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  file             File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
   @@unique([userId, fileId])
   @@index([userId, lastInteractedAt])
 }
 
 model RecentFolder {
-  id                String   @id @default(cuid())
-  userId            String
-  folderId          String
-  lastInteractedAt  DateTime
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  folder            Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  id               String   @id @default(cuid())
+  userId           String
+  folderId         String
+  lastInteractedAt DateTime
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder           Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
 
   @@unique([userId, folderId])
   @@index([userId, lastInteractedAt])
@@ -284,30 +288,30 @@ model ShareLink {
 }
 
 model BackgroundJob {
-  id           String    @id @default(cuid())
-  kind         String
-  queueName    String    @default("default")
-  priority     Int       @default(0)
-  status       JobStatus @default(queued)
-  payloadJson  Json
-  progressJson Json      @default("{}")
-  dedupeKey    String?
-  runAt        DateTime  @default(now())
-  lockedAt     DateTime?
-  lockedBy     String?
-  leaseExpiresAt DateTime?
-  timeoutAt    DateTime?
-  startedAt    DateTime?
-  completedAt  DateTime?
-  cancelledAt  DateTime?
+  id                String               @id @default(cuid())
+  kind              String
+  queueName         String               @default("default")
+  priority          Int                  @default(0)
+  status            JobStatus            @default(queued)
+  payloadJson       Json
+  progressJson      Json                 @default("{}")
+  dedupeKey         String?
+  runAt             DateTime             @default(now())
+  lockedAt          DateTime?
+  lockedBy          String?
+  leaseExpiresAt    DateTime?
+  timeoutAt         DateTime?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  cancelledAt       DateTime?
   cancelledByUserId String?
-  attemptCount Int       @default(0)
-  maxAttempts  Int       @default(5)
-  lastError    String?
-  errorCode    String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  events       BackgroundJobEvent[]
+  attemptCount      Int                  @default(0)
+  maxAttempts       Int                  @default(5)
+  lastError         String?
+  errorCode         String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  events            BackgroundJobEvent[]
 
   @@index([status, runAt])
   @@index([kind, dedupeKey, status])

@@ -27,22 +27,30 @@ export type RetrievalItem =
       sizeBytes: number;
     };
 
+export type FavoriteRetrievalItem = RetrievalItem & {
+  favoritedAt: Date;
+  quickAccessPinnedAt: Date | null;
+};
+
 export type FavoriteMutationResult = {
   kind: RetrievalItem["kind"];
   id: string;
   isFavorite: boolean;
+  quickAccessPinnedAt?: Date | null;
 };
 
 export type FavoriteFileRecord = {
   userId: string;
   fileId: string;
   createdAt: Date;
+  quickAccessPinnedAt: Date | null;
 };
 
 export type FavoriteFolderRecord = {
   userId: string;
   folderId: string;
   createdAt: Date;
+  quickAccessPinnedAt: Date | null;
 };
 
 export type RecentFileRecord = {
@@ -78,6 +86,11 @@ export type RetrievalRepository = {
     createdAt: Date;
   }): Promise<void>;
   deleteFileFavorite(params: { userId: string; fileId: string }): Promise<void>;
+  updateFileFavoriteQuickAccess(params: {
+    userId: string;
+    fileId: string;
+    quickAccessPinnedAt: Date | null;
+  }): Promise<boolean>;
   upsertFolderFavorite(params: {
     userId: string;
     folderId: string;
@@ -87,6 +100,11 @@ export type RetrievalRepository = {
     userId: string;
     folderId: string;
   }): Promise<void>;
+  updateFolderFavoriteQuickAccess(params: {
+    userId: string;
+    folderId: string;
+    quickAccessPinnedAt: Date | null;
+  }): Promise<boolean>;
   upsertRecentFile(params: {
     userId: string;
     fileId: string;
