@@ -2014,12 +2014,13 @@ h3 {
 }
 
 .recent-header h1,
-.favorites-header h1 {
+.favorites-header h1,
+.shared-header h1 {
   margin: 0;
   font-family: var(--font-cabinet), sans-serif;
-  font-size: 1.7rem;
+  font-size: 1.45rem;
   font-weight: 600;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.02em;
   line-height: 1.1;
 }
 
@@ -4054,6 +4055,20 @@ h3 {
   line-height: 1.1;
 }
 
+.workspace-breadcrumb-active,
+.explorer-title-row h1,
+.recent-header h1,
+.favorites-header h1,
+.shared-header h1 {
+  margin: 0;
+  font-family: var(--font-cabinet), sans-serif;
+  font-size: 1.45rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--foreground);
+}
+
 .explorer-header-actions {
   display: flex;
   align-items: center;
@@ -5988,14 +6003,6 @@ main.share-locked-page {
   align-items: center;
   gap: 10px;
   min-width: 0;
-}
-
-.shared-header h1 {
-  font-family: var(--font-cabinet);
-  font-size: 1.45rem;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.02em;
 }
 
 .shared-header .section-count {
