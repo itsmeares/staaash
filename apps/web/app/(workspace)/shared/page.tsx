@@ -23,8 +23,19 @@ const shareStatusLabel = {
 function getRelativeExpiry(expiresAt: Date | string): string {
   const d = new Date(expiresAt);
   const diffMs = d.getTime() - Date.now();
+  const diffSeconds = Math.ceil(diffMs / 1000);
+  if (diffSeconds <= 0) return "expired";
+  if (diffSeconds < 60)
+    return `${diffSeconds} second${diffSeconds === 1 ? "" : "s"}`;
+
+  const diffMinutes = Math.ceil(diffSeconds / 60);
+  if (diffMinutes < 60)
+    return `${diffMinutes} minute${diffMinutes === 1 ? "" : "s"}`;
+
+  const diffHours = Math.ceil(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? "" : "s"}`;
+
   const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays <= 0) return "expired";
   if (diffDays === 1) return "1 day";
   if (diffDays < 7) return `${diffDays} days`;
   if (diffDays < 60)
@@ -33,11 +44,15 @@ function getRelativeExpiry(expiresAt: Date | string): string {
   return `${Math.floor(diffDays / 365)}y`;
 }
 
-function isExpiringSoon(expiresAt: Date | string): boolean {
+function getExpiryTone(
+  expiresAt: Date | string,
+): SharedTableItem["expiryTone"] {
   const d = new Date(expiresAt);
   const diffMs = d.getTime() - Date.now();
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-  return diffDays > 0 && diffDays < 7;
+  if (diffMs <= 0) return "default";
+  if (diffMs < 1000 * 60 * 60 * 24) return "critical";
+  if (diffMs < 1000 * 60 * 60 * 24 * 7) return "warning";
+  return "default";
 }
 
 type SharedPageProps = {
@@ -68,8 +83,8 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
       share.status === "active"
         ? getRelativeExpiry(share.expiresAt)
         : formatDateTime(share.expiresAt),
-    isExpiringSoon:
-      share.status === "active" && isExpiringSoon(share.expiresAt),
+    expiryTone:
+      share.status === "active" ? getExpiryTone(share.expiresAt) : "default",
     statusLabel: shareStatusLabel[share.status],
   }));
 

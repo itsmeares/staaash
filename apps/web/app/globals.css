@@ -6297,8 +6297,13 @@ main.share-locked-page {
   font-variant-numeric: tabular-nums;
 }
 
-.st-expires--soon {
-  color: oklch(58% 0.16 52);
+.st-expires--warning {
+  color: color-mix(in oklab, var(--primary) 82%, oklch(76% 0.15 70) 18%);
+  font-weight: 600;
+}
+
+.st-expires--critical {
+  color: oklch(64% 0.22 28);
   font-weight: 600;
 }
 
