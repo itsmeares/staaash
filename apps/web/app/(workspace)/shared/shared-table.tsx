@@ -179,13 +179,6 @@ export function SharedTable({ items }: SharedTableProps) {
                         >
                           {share.target.name}
                         </span>
-                        {share.hasPassword ? (
-                          <KeyRound
-                            aria-label="Password protected"
-                            className="st-name-lock"
-                            size={13}
-                          />
-                        ) : null}
                       </span>
                     </td>
                     <td className="st-td st-muted">
@@ -227,6 +220,20 @@ export function SharedTable({ items }: SharedTableProps) {
                         >
                           Manage
                         </button>
+                        <span
+                          aria-hidden={!share.hasPassword}
+                          className="st-password-hint"
+                          title={
+                            share.hasPassword ? "Password protected" : undefined
+                          }
+                        >
+                          {share.hasPassword ? (
+                            <KeyRound
+                              aria-label="Password protected"
+                              size={13}
+                            />
+                          ) : null}
+                        </span>
                       </div>
                     </td>
                   </tr>

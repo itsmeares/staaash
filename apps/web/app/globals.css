@@ -6202,27 +6202,27 @@ main.share-locked-page {
 }
 
 .st-col-name {
-  width: 28%;
+  width: 29%;
 }
 
 .st-col-location {
-  width: 24%;
+  width: 25%;
 }
 
 .st-col-type {
-  width: 12%;
+  width: 11%;
 }
 
 .st-col-expires {
-  width: 16%;
+  width: 15%;
 }
 
 .st-col-status {
-  width: 12%;
+  width: 11%;
 }
 
 .st-col-actions {
-  width: 12%;
+  width: 9%;
 }
 
 .st-th {
@@ -6271,7 +6271,6 @@ main.share-locked-page {
   display: inline-flex;
   align-items: center;
   max-width: 100%;
-  gap: 6px;
   white-space: nowrap;
   font-weight: 600;
 }
@@ -6280,12 +6279,6 @@ main.share-locked-page {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.st-name-lock {
-  flex: 0 0 auto;
-  color: color-mix(in oklab, var(--primary) 62%, var(--muted-foreground) 38%);
-  transform: translateY(0.5px);
 }
 
 .st-location {
@@ -6310,10 +6303,12 @@ main.share-locked-page {
 }
 
 .st-actions {
-  display: flex;
+  display: inline-grid;
+  grid-template-columns: max-content 1fr;
   align-items: center;
-  gap: 6px;
+  column-gap: 8px;
   min-width: 0;
+  width: 100%;
 }
 
 .st-actions {
@@ -6347,6 +6342,16 @@ main.share-locked-page {
 .st-action:disabled {
   color: color-mix(in oklab, var(--muted-foreground) 55%, transparent);
   cursor: not-allowed;
+}
+
+.st-password-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: end;
+  width: 16px;
+  height: 16px;
+  color: color-mix(in oklab, var(--primary) 62%, var(--muted-foreground) 38%);
 }
 
 .st-action--danger {
