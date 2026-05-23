@@ -2014,12 +2014,13 @@ h3 {
 }
 
 .recent-header h1,
-.favorites-header h1 {
+.favorites-header h1,
+.shared-header h1 {
   margin: 0;
   font-family: var(--font-cabinet), sans-serif;
-  font-size: 1.7rem;
+  font-size: 1.45rem;
   font-weight: 600;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.02em;
   line-height: 1.1;
 }
 
@@ -4054,6 +4055,20 @@ h3 {
   line-height: 1.1;
 }
 
+.workspace-breadcrumb-active,
+.explorer-title-row h1,
+.recent-header h1,
+.favorites-header h1,
+.shared-header h1 {
+  margin: 0;
+  font-family: var(--font-cabinet), sans-serif;
+  font-size: 1.45rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--foreground);
+}
+
 .explorer-header-actions {
   display: flex;
   align-items: center;
@@ -5975,7 +5990,65 @@ main.share-locked-page {
 
 .sl-page {
   display: grid;
-  gap: 36px;
+  gap: 16px;
+}
+
+.shared-header {
+  display: flex;
+  align-items: center;
+}
+
+.shared-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.shared-header .section-count {
+  transform: translateY(1px);
+}
+
+.shared-new-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 18px;
+  border-radius: 8px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    background 120ms ease,
+    filter 120ms ease;
+}
+
+.shared-new-link:hover {
+  filter: brightness(1.04);
+}
+
+.shared-new-link:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--primary) 65%, transparent);
+  outline-offset: 3px;
+}
+
+.shared-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.shared-toolbar .favorites-filter-control {
+  min-height: 28px;
+}
+
+.shared-toolbar .favorites-filter-control select {
+  min-width: 96px;
 }
 
 /* Group (Active / Inactive) */
@@ -6112,6 +6185,193 @@ main.share-locked-page {
   background: color-mix(in oklab, var(--destructive) 8%, transparent);
   color: var(--destructive);
   border: 1px solid color-mix(in oklab, var(--destructive) 22%, transparent);
+}
+
+.sl-badge--unavailable {
+  background: color-mix(in oklab, var(--foreground) 7%, transparent);
+  color: var(--muted-foreground);
+  border: 1px solid color-mix(in oklab, var(--foreground) 13%, transparent);
+}
+
+/* Dense table */
+
+.st-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.st-table {
+  width: 100%;
+  min-width: 760px;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.st-col-name {
+  width: 29%;
+}
+
+.st-col-location {
+  width: 25%;
+}
+
+.st-col-type {
+  width: 11%;
+}
+
+.st-col-expires {
+  width: 15%;
+}
+
+.st-col-status {
+  width: 11%;
+}
+
+.st-col-actions {
+  width: 9%;
+}
+
+.st-th {
+  padding: 8px 14px;
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  background: color-mix(in oklab, var(--foreground) 2.5%, var(--card));
+  border-bottom: 1px solid var(--border);
+}
+
+.st-td {
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--foreground);
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 5%, transparent);
+  vertical-align: middle;
+}
+
+.st-tr:last-child .st-td {
+  border-bottom: none;
+}
+
+.st-tr:hover .st-td {
+  background: color-mix(in oklab, var(--foreground) 3%, transparent);
+}
+
+.st-tr--inactive .st-td {
+  opacity: 0.55;
+}
+
+.st-name-cell,
+.st-muted,
+.st-location {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-name {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.st-name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.st-location {
+  display: block;
+}
+
+.st-muted {
+  color: var(--muted-foreground);
+}
+
+.st-capitalize {
+  text-transform: capitalize;
+}
+
+.st-mono {
+  font-variant-numeric: tabular-nums;
+}
+
+.st-expires--warning {
+  color: color-mix(in oklab, var(--primary) 82%, oklch(76% 0.15 70) 18%);
+  font-weight: 600;
+}
+
+.st-expires--critical {
+  color: oklch(64% 0.22 28);
+  font-weight: 600;
+}
+
+.st-actions {
+  display: inline-grid;
+  grid-template-columns: max-content 1fr;
+  align-items: center;
+  column-gap: 8px;
+  min-width: 0;
+  width: 100%;
+}
+
+.st-actions {
+  white-space: nowrap;
+}
+
+.st-action {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 0;
+  border: none;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 80ms ease;
+}
+
+.st-action:hover:not(:disabled) {
+  color: color-mix(in oklab, var(--primary) 76%, var(--foreground) 24%);
+}
+
+.st-action:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--primary) 65%, transparent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.st-action:disabled {
+  color: color-mix(in oklab, var(--muted-foreground) 55%, transparent);
+  cursor: not-allowed;
+}
+
+.st-password-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: end;
+  width: 16px;
+  height: 16px;
+  color: color-mix(in oklab, var(--primary) 62%, var(--muted-foreground) 38%);
+}
+
+.st-action--danger {
+  color: var(--destructive);
+}
+
+.st-action--danger:hover {
+  color: color-mix(in oklab, var(--destructive) 82%, var(--foreground) 18%);
 }
 
 /* Management panel (details/summary) */
@@ -6441,7 +6701,8 @@ main.share-locked-page {
 
 @media (prefers-reduced-motion: reduce) {
   .sl-row,
-  .sl-summary::before {
+  .sl-summary::before,
+  .st-action {
     transition: none;
   }
 }
