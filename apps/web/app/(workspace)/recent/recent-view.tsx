@@ -15,6 +15,7 @@ import {
   ExternalLink,
   Grid2X2,
   List,
+  RotateCcw,
   Trash2,
   X,
 } from "lucide-react";
@@ -67,6 +68,16 @@ function getDownloadHref(item: RecentClientItem): string {
   return `/api/files/files/${item.id}/download`;
 }
 
+function getRestoreHref(item: RecentClientItem): string {
+  return item.kind === "folder"
+    ? `/api/files/folders/${item.id}/restore`
+    : `/api/files/files/${item.id}/restore`;
+}
+
+function getTrashItemHref(item: RecentClientItem): string {
+  return `/trash#${item.kind}-${item.id}`;
+}
+
 function SortIcon({
   active,
   direction,
@@ -110,27 +121,40 @@ export function RecentView({ error, items, success }: RecentViewProps) {
   const [sortDirection, setSortDirection] =
     useState<RecentSortDirection>("desc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [trashedIds, setTrashedIds] = useState<Set<string>>(new Set());
+  const [optimisticDeletedAtById, setOptimisticDeletedAtById] = useState<
+    Record<string, string>
+  >({});
   const [actionError, setActionError] = useState<string | null>(null);
 
   const visibleItems = useMemo(() => {
-    const activeItems = items.filter((item) => !trashedIds.has(item.id));
+    const itemsWithOptimisticState = items.map((item) => {
+      const deletedAt = optimisticDeletedAtById[item.id];
+      return deletedAt && !item.deletedAt ? { ...item, deletedAt } : item;
+    });
+
     return sortRecentItems(
-      filterRecentItems(activeItems, filterType),
+      filterRecentItems(itemsWithOptimisticState, filterType),
       sortKey,
       sortDirection,
     );
-  }, [filterType, items, sortDirection, sortKey, trashedIds]);
+  }, [filterType, items, optimisticDeletedAtById, sortDirection, sortKey]);
 
   const groups = useMemo(() => groupRecentItems(visibleItems), [visibleItems]);
   const visibleIdSet = useMemo(
-    () => new Set(visibleItems.map((item) => item.id)),
+    () =>
+      new Set(
+        visibleItems.filter((item) => !item.deletedAt).map((item) => item.id),
+      ),
     [visibleItems],
   );
   const allVisibleSelected =
-    visibleItems.length > 0 &&
-    visibleItems.every((item) => selectedIds.has(item.id));
-  const selectedItems = visibleItems.filter((item) => selectedIds.has(item.id));
+    visibleIdSet.size > 0 &&
+    visibleItems
+      .filter((item) => !item.deletedAt)
+      .every((item) => selectedIds.has(item.id));
+  const selectedItems = visibleItems.filter(
+    (item) => !item.deletedAt && selectedIds.has(item.id),
+  );
 
   useEffect(() => {
     setSelectedIds((current) => {
@@ -171,11 +195,18 @@ export function RecentView({ error, items, success }: RecentViewProps) {
   const selectAllVisible = () => {
     setSelectedIds((current) => {
       if (allVisibleSelected) return new Set();
-      return new Set([...current, ...visibleItems.map((item) => item.id)]);
+      return new Set([
+        ...current,
+        ...visibleItems
+          .filter((item) => !item.deletedAt)
+          .map((item) => item.id),
+      ]);
     });
   };
 
   const openItem = (item: RecentClientItem) => {
+    if (item.deletedAt) return;
+
     const href = getOpenHref(item);
     if (href.startsWith("/files/")) {
       router.push(href);
@@ -185,6 +216,8 @@ export function RecentView({ error, items, success }: RecentViewProps) {
   };
 
   const downloadItem = async (item: RecentClientItem) => {
+    if (item.deletedAt) return;
+
     if (item.kind === "folder") {
       await handleDownload([item.id]);
       return;
@@ -219,30 +252,32 @@ export function RecentView({ error, items, success }: RecentViewProps) {
   };
 
   const trashItems = async (targets: RecentClientItem[]) => {
-    if (targets.length === 0) return;
+    const activeTargets = targets.filter((item) => !item.deletedAt);
+    if (activeTargets.length === 0) return;
 
     setSelectedIds(new Set());
-    setTrashedIds((current) => {
-      const next = new Set(current);
-      for (const item of targets) next.add(item.id);
+    setOptimisticDeletedAtById((current) => {
+      const next = { ...current };
+      const deletedAt = new Date().toISOString();
+      for (const item of activeTargets) next[item.id] = deletedAt;
       return next;
     });
 
     const results = await Promise.allSettled(
-      targets.map((item) => moveToTrash(item)),
+      activeTargets.map((item) => moveToTrash(item)),
     );
     const failedIds = new Set<string>();
     let movedAny = false;
 
     results.forEach((result, index) => {
       if (result.status === "fulfilled") movedAny = true;
-      else failedIds.add(targets[index].id);
+      else failedIds.add(activeTargets[index].id);
     });
 
     if (failedIds.size > 0) {
-      setTrashedIds((current) => {
-        const next = new Set(current);
-        for (const id of failedIds) next.delete(id);
+      setOptimisticDeletedAtById((current) => {
+        const next = { ...current };
+        for (const id of failedIds) delete next[id];
         return next;
       });
       setActionError("Some items could not be moved to trash.");
@@ -297,39 +332,68 @@ export function RecentView({ error, items, success }: RecentViewProps) {
 
   const renderItemActions = (item: RecentClientItem) => (
     <>
-      <button
-        aria-label={`Open ${item.name}`}
-        className="recent-action-btn"
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          openItem(item);
-        }}
-      >
-        <ExternalLink size={13} aria-hidden />
-      </button>
-      <button
-        aria-label={`Download ${item.name}`}
-        className="recent-action-btn"
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          void downloadItem(item);
-        }}
-      >
-        <Download size={13} aria-hidden />
-      </button>
-      <button
-        aria-label={`Move ${item.name} to trash`}
-        className="recent-action-btn recent-action-btn-danger"
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          void trashItems([item]);
-        }}
-      >
-        <Trash2 size={13} aria-hidden />
-      </button>
+      {item.deletedAt ? (
+        <>
+          <form action={getRestoreHref(item)} method="post">
+            <input name="redirectTo" type="hidden" value="/recent" />
+            <button
+              aria-label={`Restore ${item.name}`}
+              className="recent-action-btn"
+              type="submit"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <RotateCcw size={13} aria-hidden />
+            </button>
+          </form>
+          <button
+            aria-label={`Delete ${item.name} from Trash`}
+            className="recent-action-btn recent-action-btn-danger"
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              router.push(getTrashItemHref(item));
+            }}
+          >
+            <Trash2 size={13} aria-hidden />
+          </button>
+        </>
+      ) : (
+        <>
+          <button
+            aria-label={`Open ${item.name}`}
+            className="recent-action-btn"
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              openItem(item);
+            }}
+          >
+            <ExternalLink size={13} aria-hidden />
+          </button>
+          <button
+            aria-label={`Download ${item.name}`}
+            className="recent-action-btn"
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              void downloadItem(item);
+            }}
+          >
+            <Download size={13} aria-hidden />
+          </button>
+          <button
+            aria-label={`Move ${item.name} to trash`}
+            className="recent-action-btn recent-action-btn-danger"
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              void trashItems([item]);
+            }}
+          >
+            <Trash2 size={13} aria-hidden />
+          </button>
+        </>
+      )}
     </>
   );
 
@@ -431,17 +495,20 @@ export function RecentView({ error, items, success }: RecentViewProps) {
               </div>
 
               {group.items.map((item) => {
-                const selected = selectedIds.has(item.id);
+                const deleted = Boolean(item.deletedAt);
+                const selected = !deleted && selectedIds.has(item.id);
                 return (
                   <article
-                    className={`recent-row${selected ? " is-selected" : ""}`}
+                    className={`recent-row${selected ? " is-selected" : ""}${deleted ? " is-deleted" : ""}`}
                     key={`${item.kind}-${item.id}`}
                     onClick={(event) => {
                       event.stopPropagation();
+                      if (deleted) return;
                       toggleItem(item.id);
                     }}
                     onDoubleClick={(event) => {
                       event.stopPropagation();
+                      if (deleted) return;
                       openItem(item);
                     }}
                   >
@@ -453,9 +520,11 @@ export function RecentView({ error, items, success }: RecentViewProps) {
                       }
                       aria-pressed={selected}
                       className={`recent-select-box${selected ? " is-checked" : ""}`}
+                      disabled={deleted}
                       type="button"
                       onClick={(event) => {
                         event.stopPropagation();
+                        if (deleted) return;
                         toggleItem(item.id);
                       }}
                     />
@@ -470,6 +539,9 @@ export function RecentView({ error, items, success }: RecentViewProps) {
                           className="recent-favorite-dot"
                         />
                       ) : null}
+                      {deleted ? (
+                        <span className="recent-deleted-badge">Deleted</span>
+                      ) : null}
                     </span>
                     <span
                       className="recent-row-location"
@@ -481,11 +553,19 @@ export function RecentView({ error, items, success }: RecentViewProps) {
                       {formatRecentFileSize(item.sizeBytes)}
                     </span>
                     <span className="recent-row-time">
-                      {formatRecentRelativeTime(item.uploadedAt)}
+                      {deleted ? (
+                        <span className="recent-row-inline-actions">
+                          {renderItemActions(item)}
+                        </span>
+                      ) : (
+                        formatRecentRelativeTime(item.uploadedAt)
+                      )}
                     </span>
-                    <span className="recent-row-actions">
-                      {renderItemActions(item)}
-                    </span>
+                    {!deleted ? (
+                      <span className="recent-row-actions">
+                        {renderItemActions(item)}
+                      </span>
+                    ) : null}
                   </article>
                 );
               })}
@@ -506,21 +586,24 @@ export function RecentView({ error, items, success }: RecentViewProps) {
 
               <div className="recent-grid-cards">
                 {group.items.map((item) => {
-                  const selected = selectedIds.has(item.id);
+                  const deleted = Boolean(item.deletedAt);
+                  const selected = !deleted && selectedIds.has(item.id);
                   const visual = getItemVisual(
                     item.kind,
                     item.kind === "file" ? item.mimeType : null,
                   );
                   return (
                     <article
-                      className={`recent-grid-card${selected ? " is-selected" : ""}`}
+                      className={`recent-grid-card${selected ? " is-selected" : ""}${deleted ? " is-deleted" : ""}`}
                       key={`${item.kind}-${item.id}`}
                       onClick={(event) => {
                         event.stopPropagation();
+                        if (deleted) return;
                         toggleItem(item.id);
                       }}
                       onDoubleClick={(event) => {
                         event.stopPropagation();
+                        if (deleted) return;
                         openItem(item);
                       }}
                     >
@@ -534,9 +617,11 @@ export function RecentView({ error, items, success }: RecentViewProps) {
                         className={`recent-select-box recent-grid-card-check${
                           selected ? " is-checked" : ""
                         }`}
+                        disabled={deleted}
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
+                          if (deleted) return;
                           toggleItem(item.id);
                         }}
                       />
@@ -553,6 +638,9 @@ export function RecentView({ error, items, success }: RecentViewProps) {
                         >
                           {item.name}
                         </span>
+                        {deleted ? (
+                          <span className="recent-deleted-badge">Deleted</span>
+                        ) : null}
                         <span className="recent-grid-card-meta">
                           <span>
                             {formatRecentRelativeTime(item.uploadedAt)}

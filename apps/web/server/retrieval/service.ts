@@ -192,6 +192,7 @@ const toFolderItem = ({
   }),
   href: getFolderHref(folder),
   updatedAt: folder.updatedAt,
+  deletedAt: folder.deletedAt,
   isFavorite: favoriteFolderIds.has(folder.id),
   parentId: folder.parentId,
 });
@@ -217,6 +218,7 @@ const toFileItem = ({
   }),
   href: getFileHref(file),
   updatedAt: file.updatedAt,
+  deletedAt: file.deletedAt,
   isFavorite: favoriteFileIds.has(file.id),
   folderId: file.folderId,
   mimeType: file.mimeType,
@@ -500,8 +502,8 @@ export const createRetrievalService = ({
       const activeRepo = await resolveRepo();
       const [filesRoot, folders, files, favoriteState] = await Promise.all([
         activeRepo.ensureFilesRoot(actorUserId),
-        activeRepo.listFoldersByOwner(actorUserId),
-        activeRepo.listFilesByOwner(actorUserId),
+        activeRepo.listFoldersByOwner(actorUserId, { includeDeleted: true }),
+        activeRepo.listFilesByOwner(actorUserId, { includeDeleted: true }),
         getFavoriteState(actorUserId),
       ]);
       const folderMap = buildFolderMap(folders);

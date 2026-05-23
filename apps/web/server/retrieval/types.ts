@@ -9,6 +9,7 @@ export type RetrievalItem =
       pathLabel: string;
       href: string;
       updatedAt: Date;
+      deletedAt: Date | null;
       isFavorite: boolean;
       matchKind?: SearchMatchKind;
       parentId: string | null;
@@ -20,6 +21,7 @@ export type RetrievalItem =
       pathLabel: string;
       href: string;
       updatedAt: Date;
+      deletedAt: Date | null;
       isFavorite: boolean;
       matchKind?: SearchMatchKind;
       folderId: string | null;
@@ -65,12 +67,22 @@ export type RecentFolderRecord = {
   lastInteractedAt: Date;
 };
 
+export type RetrievalListOptions = {
+  includeDeleted?: boolean;
+};
+
 export type RetrievalRepository = {
   ensureFilesRoot(ownerUserId: string): Promise<FolderSummary>;
   findFolderById(folderId: string): Promise<FolderSummary | null>;
   findFileById(fileId: string): Promise<FileSummary | null>;
-  listFoldersByOwner(ownerUserId: string): Promise<FolderSummary[]>;
-  listFilesByOwner(ownerUserId: string): Promise<FileSummary[]>;
+  listFoldersByOwner(
+    ownerUserId: string,
+    options?: RetrievalListOptions,
+  ): Promise<FolderSummary[]>;
+  listFilesByOwner(
+    ownerUserId: string,
+    options?: RetrievalListOptions,
+  ): Promise<FileSummary[]>;
   searchFilesByOwner(
     ownerUserId: string,
     nameQuery: string,

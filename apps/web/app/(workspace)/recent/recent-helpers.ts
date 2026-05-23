@@ -2,6 +2,7 @@ import type { ItemVisualKind } from "@/app/item-visuals";
 import type { RetrievalItem } from "@/server/retrieval/types";
 
 export type RecentClientItem = {
+  deletedAt: string | null;
   folderId?: string | null;
   href: string;
   id: string;
@@ -62,6 +63,7 @@ export function getRecentLocationLabel(item: RetrievalItem): string {
 export function toRecentClientItem(item: RetrievalItem): RecentClientItem {
   return {
     folderId: item.kind === "file" ? item.folderId : undefined,
+    deletedAt: item.deletedAt?.toISOString() ?? null,
     href: item.href,
     id: item.id,
     isFavorite: item.isFavorite,

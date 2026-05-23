@@ -154,19 +154,22 @@ const createMemoryRepository = () => {
       return file ? cloneFile(file) : null;
     },
 
-    async listFoldersByOwner(ownerUserId) {
+    async listFoldersByOwner(ownerUserId, options = {}) {
       return state.folders
         .filter(
           (folder) =>
-            folder.ownerUserId === ownerUserId && folder.deletedAt === null,
+            folder.ownerUserId === ownerUserId &&
+            (options.includeDeleted || folder.deletedAt === null),
         )
         .map(cloneFolder);
     },
 
-    async listFilesByOwner(ownerUserId) {
+    async listFilesByOwner(ownerUserId, options = {}) {
       return state.files
         .filter(
-          (file) => file.ownerUserId === ownerUserId && file.deletedAt === null,
+          (file) =>
+            file.ownerUserId === ownerUserId &&
+            (options.includeDeleted || file.deletedAt === null),
         )
         .map(cloneFile);
     },
@@ -715,7 +718,7 @@ describe("retrieval service", () => {
     ]);
   });
 
-  it("lists recently added active files and folders by created time", async () => {
+  it("lists recently added files and folders by created time", async () => {
     const { repo, ensureFilesRootRecord, addFolder, addFile } =
       createMemoryRepository();
     const root = ensureFilesRootRecord("alice");
@@ -764,14 +767,16 @@ describe("retrieval service", () => {
     });
 
     expect(items.map((item) => [item.kind, item.name])).toEqual([
+      ["file", "trashed.bin"],
       ["file", "newer.bin"],
       ["folder", "Uploads"],
       ["file", "older.bin"],
     ]);
-    expect(items[2]?.updatedAt.toISOString()).toBe("2026-05-19T10:00:00.000Z");
+    expect(items[0]?.deletedAt?.toISOString()).toBe("2026-05-19T13:05:00.000Z");
+    expect(items[3]?.updatedAt.toISOString()).toBe("2026-05-19T10:00:00.000Z");
   });
 
-  it("records recent folder and file interactions as one row per item", async () => {
+  it("lists soft-deleted items on the recent page", async () => {
     const { repo, ensureFilesRootRecord, addFolder, addFile, state } =
       createMemoryRepository();
     const root = ensureFilesRootRecord("alice");
@@ -779,57 +784,59 @@ describe("retrieval service", () => {
       ownerUserId: "alice",
       parentId: root.id,
       name: "Projects",
+      createdAt: new Date("2026-04-02T15:00:00.000Z"),
     });
     const file = addFile({
       ownerUserId: "alice",
       folderId: folder.id,
       name: "notes.txt",
+      createdAt: new Date("2026-04-02T15:10:00.000Z"),
+      deletedAt: new Date("2026-04-02T15:15:00.000Z"),
     });
-    let currentTime = new Date("2026-04-02T15:00:00.000Z");
-    const service = createRetrievalService({
-      repo,
-      now: () => currentTime,
+    const deletedFolder = addFolder({
+      ownerUserId: "alice",
+      parentId: root.id,
+      name: "Archive",
+      createdAt: new Date("2026-04-02T15:20:00.000Z"),
+      deletedAt: new Date("2026-04-02T15:25:00.000Z"),
     });
+    const service = createRetrievalService({ repo });
 
-    await service.recordFolderAccess({
-      actorUserId: "alice",
-      actorRole: "member",
-      folderId: root.id,
-    });
-    await service.recordFolderAccess({
-      actorUserId: "alice",
-      actorRole: "member",
-      folderId: folder.id,
-    });
-    currentTime = new Date("2026-04-02T15:05:00.000Z");
-    await service.recordFolderAccess({
-      actorUserId: "alice",
-      actorRole: "member",
-      folderId: folder.id,
-    });
-    currentTime = new Date("2026-04-02T15:10:00.000Z");
-    await service.recordFileAccess({
-      actorUserId: "alice",
-      actorRole: "member",
-      fileId: file.id,
-    });
-    currentTime = new Date("2026-04-02T15:15:00.000Z");
-    file.deletedAt = new Date("2026-04-02T15:15:00.000Z");
-    await service.recordFileAccess({
-      actorUserId: "alice",
-      actorRole: "member",
-      fileId: file.id,
-    });
-
-    expect(state.recentFolders).toHaveLength(1);
-    expect(state.recentFiles).toHaveLength(1);
-
-    const recents = await service.listRecent({
+    const recents = await service.listRecentlyAdded({
       actorUserId: "alice",
       actorRole: "member",
     });
 
     expect(recents).toEqual([
+      expect.objectContaining({
+        deletedAt: new Date("2026-04-02T15:25:00.000Z"),
+        kind: "folder",
+        name: "Archive",
+      }),
+      expect.objectContaining({
+        deletedAt: new Date("2026-04-02T15:15:00.000Z"),
+        kind: "file",
+        name: "notes.txt",
+      }),
+      expect.objectContaining({
+        deletedAt: null,
+        kind: "folder",
+        name: "Projects",
+      }),
+    ]);
+
+    state.files = state.files.filter((candidate) => candidate.id !== file.id);
+
+    await expect(
+      service.listRecentlyAdded({
+        actorUserId: "alice",
+        actorRole: "member",
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        kind: "folder",
+        name: "Archive",
+      }),
       expect.objectContaining({
         kind: "folder",
         name: "Projects",

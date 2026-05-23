@@ -119,7 +119,11 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
 
                 <div className="folder-list">
                   {folders.map((item) => (
-                    <article className="folder-row" key={item.folder.id}>
+                    <article
+                      className="folder-row"
+                      id={`folder-${item.folder.id}`}
+                      key={item.folder.id}
+                    >
                       <div className="folder-row-head">
                         <div className="item-row-title">
                           <ItemTypeIcon visual={getItemVisual("folder")} />
@@ -174,7 +178,11 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
 
                 <div className="folder-list">
                   {files.map((item) => (
-                    <article className="folder-row" key={item.file.id}>
+                    <article
+                      className="folder-row"
+                      id={`file-${item.file.id}`}
+                      key={item.file.id}
+                    >
                       <div className="folder-row-head">
                         <div className="item-row-title">
                           <ItemTypeIcon
