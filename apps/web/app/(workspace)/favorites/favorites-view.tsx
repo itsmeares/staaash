@@ -7,14 +7,21 @@ import {
   ArrowUp,
   Download,
   ExternalLink,
+  FolderOpen,
   Grid2X2,
   Heart,
   List,
   Pin,
   PinOff,
+  RefreshCw,
 } from "lucide-react";
 
 import { FlashMessage } from "@/app/auth-ui";
+import {
+  DashboardItemContextMenu,
+  DashboardPageContextMenu,
+  type DashboardContextMenuGroup,
+} from "@/app/dashboard-context-menu";
 import { getItemVisual } from "@/app/item-visuals";
 import { ItemTypeIcon } from "@/app/item-type-icon";
 import { startValidatedDownload } from "@/lib/transfers/download";
@@ -359,8 +366,67 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
     );
   };
 
+  const getFavoriteItemContextGroups = (
+    item: FavoriteClientItem,
+  ): DashboardContextMenuGroup[] => {
+    const pinned = item.quickAccessPinnedAt != null;
+
+    return [
+      {
+        actions: [
+          {
+            icon: <ExternalLink size={13} />,
+            label: "Open",
+            shortcut: "↵",
+            onSelect: () => openItem(item),
+          },
+          {
+            icon: <Download size={13} />,
+            label: item.kind === "folder" ? "Download as zip" : "Download",
+            onSelect: () => void downloadItem(item),
+          },
+        ],
+      },
+      {
+        actions: [
+          {
+            icon: pinned ? <PinOff size={13} /> : <Pin size={13} />,
+            label: pinned ? "Remove from quick access" : "Pin to quick access",
+            onSelect: () => void setQuickAccess(item, !pinned),
+          },
+          {
+            destructive: true,
+            icon: <Heart size={13} fill="currentColor" />,
+            label: "Remove from favorites",
+            onSelect: () => void removeFavorite(item),
+          },
+        ],
+      },
+    ];
+  };
+
+  const backgroundMenuGroups: DashboardContextMenuGroup[] = [
+    {
+      actions: [
+        {
+          icon: <RefreshCw size={13} />,
+          label: "Refresh",
+          onSelect: () => startTransition(() => router.refresh()),
+        },
+        {
+          icon: <FolderOpen size={13} />,
+          label: "Open files",
+          onSelect: () => router.push("/files"),
+        },
+      ],
+    },
+  ];
+
   return (
-    <div className="workspace-page favorites-page">
+    <DashboardPageContextMenu
+      className="workspace-page favorites-page"
+      groups={backgroundMenuGroups}
+    >
       <div className="favorites-header">
         <h1>Favorites</h1>
         {activeItems.length > 0 ? (
@@ -384,25 +450,29 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
                 item.kind === "file" ? item.mimeType : null,
               );
               return (
-                <button
-                  className="favorites-quick-card"
+                <DashboardItemContextMenu
+                  groups={getFavoriteItemContextGroups(item)}
                   key={`${item.kind}-${item.id}`}
-                  style={{ background: visual.background }}
-                  type="button"
-                  onClick={() => openItem(item)}
                 >
-                  <span className="favorites-quick-thumb">
-                    <FavoriteIcon item={item} size={18} />
-                  </span>
-                  <span className="favorites-quick-copy">
-                    <span title={item.name}>{item.name}</span>
-                    <small>
-                      {formatFavoriteRelativeTime(
-                        item.quickAccessPinnedAt ?? item.favoritedAt,
-                      )}
-                    </small>
-                  </span>
-                </button>
+                  <button
+                    className="favorites-quick-card"
+                    style={{ background: visual.background }}
+                    type="button"
+                    onClick={() => openItem(item)}
+                  >
+                    <span className="favorites-quick-thumb">
+                      <FavoriteIcon item={item} size={18} />
+                    </span>
+                    <span className="favorites-quick-copy">
+                      <span title={item.name}>{item.name}</span>
+                      <small>
+                        {formatFavoriteRelativeTime(
+                          item.quickAccessPinnedAt ?? item.favoritedAt,
+                        )}
+                      </small>
+                    </span>
+                  </button>
+                </DashboardItemContextMenu>
               );
             })}
           </div>
@@ -480,38 +550,42 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
           </div>
 
           {visibleItems.map((item) => (
-            <article
-              className="favorites-row"
+            <DashboardItemContextMenu
+              groups={getFavoriteItemContextGroups(item)}
               key={`${item.kind}-${item.id}`}
-              onDoubleClick={() => openItem(item)}
             >
-              <span className="favorites-row-thumb">
-                <FavoriteIcon item={item} />
-              </span>
-              <button
-                className="favorites-row-name"
-                title={item.name}
-                type="button"
-                onClick={() => openItem(item)}
+              <article
+                className="favorites-row"
+                onDoubleClick={() => openItem(item)}
               >
-                {item.name}
-              </button>
-              <span
-                className="favorites-row-location"
-                title={item.locationLabel}
-              >
-                {item.locationLabel}
-              </span>
-              <span className="favorites-row-size">
-                {formatFavoriteFileSize(item.sizeBytes)}
-              </span>
-              <span className="favorites-row-time">
-                {formatFavoriteRelativeTime(item.favoritedAt)}
-              </span>
-              <span className="favorites-row-actions">
-                {renderItemActions(item)}
-              </span>
-            </article>
+                <span className="favorites-row-thumb">
+                  <FavoriteIcon item={item} />
+                </span>
+                <button
+                  className="favorites-row-name"
+                  title={item.name}
+                  type="button"
+                  onClick={() => openItem(item)}
+                >
+                  {item.name}
+                </button>
+                <span
+                  className="favorites-row-location"
+                  title={item.locationLabel}
+                >
+                  {item.locationLabel}
+                </span>
+                <span className="favorites-row-size">
+                  {formatFavoriteFileSize(item.sizeBytes)}
+                </span>
+                <span className="favorites-row-time">
+                  {formatFavoriteRelativeTime(item.favoritedAt)}
+                </span>
+                <span className="favorites-row-actions">
+                  {renderItemActions(item)}
+                </span>
+              </article>
+            </DashboardItemContextMenu>
           ))}
         </div>
       ) : (
@@ -522,50 +596,56 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
               item.kind === "file" ? item.mimeType : null,
             );
             return (
-              <article
-                className="favorites-grid-card"
+              <DashboardItemContextMenu
+                groups={getFavoriteItemContextGroups(item)}
                 key={`${item.kind}-${item.id}`}
-                onDoubleClick={() => openItem(item)}
               >
-                <div
-                  className="favorites-grid-preview"
-                  style={{ background: visual.background }}
+                <article
+                  className="favorites-grid-card"
+                  onDoubleClick={() => openItem(item)}
                 >
-                  <FavoriteIcon item={item} size={30} />
-                  <span
-                    className="favorites-type-badge"
-                    style={{
-                      background: visual.background,
-                      color: visual.color,
-                    }}
+                  <div
+                    className="favorites-grid-preview"
+                    style={{ background: visual.background }}
                   >
-                    {getFavoriteType(item) === "all"
-                      ? "FILE"
-                      : getFavoriteType(item).toUpperCase()}
+                    <FavoriteIcon item={item} size={30} />
+                    <span
+                      className="favorites-type-badge"
+                      style={{
+                        background: visual.background,
+                        color: visual.color,
+                      }}
+                    >
+                      {getFavoriteType(item) === "all"
+                        ? "FILE"
+                        : getFavoriteType(item).toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="favorites-grid-body">
+                    <button
+                      className="favorites-grid-name"
+                      title={item.name}
+                      type="button"
+                      onClick={() => openItem(item)}
+                    >
+                      {item.name}
+                    </button>
+                    <span className="favorites-grid-meta">
+                      <span>
+                        {formatFavoriteRelativeTime(item.favoritedAt)}
+                      </span>
+                      <span>{formatFavoriteFileSize(item.sizeBytes)}</span>
+                    </span>
+                  </div>
+                  <span className="favorites-grid-actions">
+                    {renderItemActions(item)}
                   </span>
-                </div>
-                <div className="favorites-grid-body">
-                  <button
-                    className="favorites-grid-name"
-                    title={item.name}
-                    type="button"
-                    onClick={() => openItem(item)}
-                  >
-                    {item.name}
-                  </button>
-                  <span className="favorites-grid-meta">
-                    <span>{formatFavoriteRelativeTime(item.favoritedAt)}</span>
-                    <span>{formatFavoriteFileSize(item.sizeBytes)}</span>
-                  </span>
-                </div>
-                <span className="favorites-grid-actions">
-                  {renderItemActions(item)}
-                </span>
-              </article>
+                </article>
+              </DashboardItemContextMenu>
             );
           })}
         </div>
       )}
-    </div>
+    </DashboardPageContextMenu>
   );
 }

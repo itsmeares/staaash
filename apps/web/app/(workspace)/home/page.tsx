@@ -6,6 +6,7 @@ import { requireSignedInPageSession } from "@/server/auth/guards";
 import { filesService } from "@/server/files/service";
 import type { FolderSummary } from "@/server/files/types";
 import { ItemContextMenu } from "@/app/item-context-menu";
+import { WorkspacePresetPageContextMenu } from "@/app/dashboard-context-menu";
 import { ItemTypeIcon, itemVisualIconMap } from "@/app/item-type-icon";
 import { retrievalService } from "@/server/retrieval/service";
 import type { RetrievalItem } from "@/server/retrieval/types";
@@ -388,7 +389,10 @@ export default async function HomePage() {
   const currentPath = "/home";
 
   return (
-    <div className="workspace-page home-page">
+    <WorkspacePresetPageContextMenu
+      className="workspace-page home-page"
+      preset="home"
+    >
       <header className="home-greeting">
         <h1>{`${greeting}, ${displayName}.`}</h1>
       </header>
@@ -437,6 +441,6 @@ export default async function HomePage() {
           <SharedList shares={shares.active.slice(0, 3)} />
         </section>
       </div>
-    </div>
+    </WorkspacePresetPageContextMenu>
   );
 }

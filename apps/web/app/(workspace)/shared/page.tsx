@@ -6,6 +6,7 @@ import {
   formatDateTime,
   getSingleSearchParam,
 } from "@/app/auth-ui";
+import { WorkspacePresetPageContextMenu } from "@/app/dashboard-context-menu";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { getBaseUrl } from "@/server/request";
 import { sharingService } from "@/server/sharing/service";
@@ -89,7 +90,7 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
   }));
 
   return (
-    <div className="workspace-page">
+    <WorkspacePresetPageContextMenu className="workspace-page" preset="shared">
       <div className="stack">
         {/* Page header */}
         <div className="shared-header">
@@ -121,6 +122,6 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
           </div>
         )}
       </div>
-    </div>
+    </WorkspacePresetPageContextMenu>
   );
 }

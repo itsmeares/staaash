@@ -3,6 +3,7 @@ import {
   formatDateTime,
   getSingleSearchParam,
 } from "@/app/auth-ui";
+import { WorkspacePresetPageContextMenu } from "@/app/dashboard-context-menu";
 import { getItemVisual } from "@/app/item-visuals";
 import { ItemTypeIcon } from "@/app/item-type-icon";
 import { requireSignedInPageSession } from "@/server/auth/guards";
@@ -20,6 +21,7 @@ import {
 } from "@/app/pagination-controls";
 import { redirect } from "next/navigation";
 import { EmptyTrashAction, TrashFileActions } from "./trash-file-actions";
+import { TrashContextMenu } from "./trash-context-menu";
 
 export const dynamic = "force-dynamic";
 
@@ -78,7 +80,11 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
   );
 
   return (
-    <div className="workspace-page">
+    <WorkspacePresetPageContextMenu
+      className="workspace-page"
+      isTrashEmpty={isEmpty}
+      preset="trash"
+    >
       <section className="panel stack">
         <div className="split">
           <div className="stack">
@@ -119,48 +125,59 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
 
                 <div className="folder-list">
                   {folders.map((item) => (
-                    <article
-                      className="folder-row"
-                      id={`folder-${item.folder.id}`}
+                    <TrashContextMenu
+                      itemId={item.folder.id}
+                      itemName={item.folder.name}
+                      kind="folder"
                       key={item.folder.id}
                     >
-                      <div className="folder-row-head">
-                        <div className="item-row-title">
-                          <ItemTypeIcon visual={getItemVisual("folder")} />
-                          <div className="stack">
-                            <h2>{item.folder.name}</h2>
-                            <p className="folder-meta">
-                              Deleted{" "}
-                              {formatDateTime(
-                                item.folder.deletedAt ?? item.folder.updatedAt,
-                              )}
-                            </p>
+                      <article
+                        className="folder-row"
+                        id={`folder-${item.folder.id}`}
+                      >
+                        <div className="folder-row-head">
+                          <div className="item-row-title">
+                            <ItemTypeIcon visual={getItemVisual("folder")} />
+                            <div className="stack">
+                              <h2>{item.folder.name}</h2>
+                              <p className="folder-meta">
+                                Deleted{" "}
+                                {formatDateTime(
+                                  item.folder.deletedAt ??
+                                    item.folder.updatedAt,
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="pill">Restore ready</span>
+                        </div>
+
+                        <div className="meta-list muted">
+                          <div className="meta-row">
+                            <span>Original path</span>
+                            <strong>{item.originalPathLabel}</strong>
+                          </div>
+                          <div className="meta-row">
+                            <span>Restore target</span>
+                            <strong>{item.restoreLocation.pathLabel}</strong>
                           </div>
                         </div>
-                        <span className="pill">Restore ready</span>
-                      </div>
 
-                      <div className="meta-list muted">
-                        <div className="meta-row">
-                          <span>Original path</span>
-                          <strong>{item.originalPathLabel}</strong>
-                        </div>
-                        <div className="meta-row">
-                          <span>Restore target</span>
-                          <strong>{item.restoreLocation.pathLabel}</strong>
-                        </div>
-                      </div>
-
-                      <form
-                        action={`/api/files/folders/${item.folder.id}/restore`}
-                        method="post"
-                      >
-                        <input name="redirectTo" type="hidden" value="/trash" />
-                        <button className="button" type="submit">
-                          Restore folder
-                        </button>
-                      </form>
-                    </article>
+                        <form
+                          action={`/api/files/folders/${item.folder.id}/restore`}
+                          method="post"
+                        >
+                          <input
+                            name="redirectTo"
+                            type="hidden"
+                            value="/trash"
+                          />
+                          <button className="button" type="submit">
+                            Restore folder
+                          </button>
+                        </form>
+                      </article>
+                    </TrashContextMenu>
                   ))}
                 </div>
               </div>
@@ -178,45 +195,51 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
 
                 <div className="folder-list">
                   {files.map((item) => (
-                    <article
-                      className="folder-row"
-                      id={`file-${item.file.id}`}
+                    <TrashContextMenu
+                      itemId={item.file.id}
+                      itemName={item.file.name}
+                      kind="file"
                       key={item.file.id}
                     >
-                      <div className="folder-row-head">
-                        <div className="item-row-title">
-                          <ItemTypeIcon
-                            visual={getItemVisual("file", item.file.mimeType)}
-                          />
-                          <div className="stack">
-                            <h2>{item.file.name}</h2>
-                            <p className="folder-meta">
-                              Deleted{" "}
-                              {formatDateTime(
-                                item.file.deletedAt ?? item.file.updatedAt,
-                              )}
-                            </p>
+                      <article
+                        className="folder-row"
+                        id={`file-${item.file.id}`}
+                      >
+                        <div className="folder-row-head">
+                          <div className="item-row-title">
+                            <ItemTypeIcon
+                              visual={getItemVisual("file", item.file.mimeType)}
+                            />
+                            <div className="stack">
+                              <h2>{item.file.name}</h2>
+                              <p className="folder-meta">
+                                Deleted{" "}
+                                {formatDateTime(
+                                  item.file.deletedAt ?? item.file.updatedAt,
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="pill">File</span>
+                        </div>
+
+                        <div className="meta-list muted">
+                          <div className="meta-row">
+                            <span>Original path</span>
+                            <strong>{item.originalPathLabel}</strong>
+                          </div>
+                          <div className="meta-row">
+                            <span>Restore target</span>
+                            <strong>{item.restoreLocation.pathLabel}</strong>
                           </div>
                         </div>
-                        <span className="pill">File</span>
-                      </div>
 
-                      <div className="meta-list muted">
-                        <div className="meta-row">
-                          <span>Original path</span>
-                          <strong>{item.originalPathLabel}</strong>
-                        </div>
-                        <div className="meta-row">
-                          <span>Restore target</span>
-                          <strong>{item.restoreLocation.pathLabel}</strong>
-                        </div>
-                      </div>
-
-                      <TrashFileActions
-                        fileId={item.file.id}
-                        fileName={item.file.name}
-                      />
-                    </article>
+                        <TrashFileActions
+                          fileId={item.file.id}
+                          fileName={item.file.name}
+                        />
+                      </article>
+                    </TrashContextMenu>
                   ))}
                 </div>
               </div>
@@ -230,6 +253,6 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
           </>
         )}
       </section>
-    </div>
+    </WorkspacePresetPageContextMenu>
   );
 }

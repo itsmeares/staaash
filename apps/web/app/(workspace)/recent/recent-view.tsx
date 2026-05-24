@@ -15,12 +15,19 @@ import {
   ExternalLink,
   Grid2X2,
   List,
+  RefreshCw,
   RotateCcw,
   Trash2,
   X,
 } from "lucide-react";
 
 import { FlashMessage } from "@/app/auth-ui";
+import {
+  DashboardItemContextMenu,
+  DashboardPageContextMenu,
+  submitDashboardPostForm,
+  type DashboardContextMenuGroup,
+} from "@/app/dashboard-context-menu";
 import { getItemVisual } from "@/app/item-visuals";
 import { ItemTypeIcon } from "@/app/item-type-icon";
 import { startValidatedDownload } from "@/lib/transfers/download";
@@ -397,9 +404,99 @@ export function RecentView({ error, items, success }: RecentViewProps) {
     </>
   );
 
+  const getRecentItemContextGroups = (
+    item: RecentClientItem,
+  ): DashboardContextMenuGroup[] =>
+    item.deletedAt
+      ? [
+          {
+            actions: [
+              {
+                icon: <RotateCcw size={13} />,
+                label: "Restore",
+                onSelect: () =>
+                  submitDashboardPostForm({
+                    action: getRestoreHref(item),
+                    fields: { redirectTo: "/recent" },
+                  }),
+              },
+              {
+                destructive: true,
+                icon: <Trash2 size={13} />,
+                label: "Open in Trash",
+                onSelect: () => router.push(getTrashItemHref(item)),
+              },
+            ],
+          },
+        ]
+      : [
+          {
+            actions: [
+              {
+                icon: <ExternalLink size={13} />,
+                label: "Open",
+                shortcut: "↵",
+                onSelect: () => openItem(item),
+              },
+              {
+                icon: <Download size={13} />,
+                label: item.kind === "folder" ? "Download as zip" : "Download",
+                onSelect: () => void downloadItem(item),
+              },
+            ],
+          },
+          {
+            actions: [
+              {
+                destructive: true,
+                icon: <Trash2 size={13} />,
+                label: "Move to trash",
+                shortcut: "Del",
+                onSelect: () => void trashItems([item]),
+              },
+            ],
+          },
+        ];
+
+  const backgroundMenuGroups: DashboardContextMenuGroup[] = [
+    {
+      actions: [
+        {
+          icon: <RefreshCw size={13} />,
+          label: "Refresh",
+          onSelect: () => startTransition(() => router.refresh()),
+        },
+        {
+          disabled: visibleIdSet.size === 0,
+          label: allVisibleSelected ? "Clear selection" : "Select all",
+          onSelect: selectAllVisible,
+        },
+      ],
+    },
+    {
+      actions: [
+        {
+          hidden: selectedItems.length === 0,
+          icon: <Download size={13} />,
+          label: "Download selected",
+          onSelect: () =>
+            void handleDownload(selectedItems.map((item) => item.id)),
+        },
+        {
+          destructive: true,
+          hidden: selectedItems.length === 0,
+          icon: <Trash2 size={13} />,
+          label: "Move selected to trash",
+          onSelect: () => void trashItems(selectedItems),
+        },
+      ],
+    },
+  ];
+
   return (
-    <div
+    <DashboardPageContextMenu
       className="workspace-page recent-page"
+      groups={backgroundMenuGroups}
       tabIndex={-1}
       onKeyDown={handleKeyDown}
     >
@@ -498,75 +595,79 @@ export function RecentView({ error, items, success }: RecentViewProps) {
                 const deleted = Boolean(item.deletedAt);
                 const selected = !deleted && selectedIds.has(item.id);
                 return (
-                  <article
-                    className={`recent-row${selected ? " is-selected" : ""}${deleted ? " is-deleted" : ""}`}
+                  <DashboardItemContextMenu
+                    groups={getRecentItemContextGroups(item)}
                     key={`${item.kind}-${item.id}`}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      if (deleted) return;
-                      toggleItem(item.id);
-                    }}
-                    onDoubleClick={(event) => {
-                      event.stopPropagation();
-                      if (deleted) return;
-                      openItem(item);
-                    }}
                   >
-                    <button
-                      aria-label={
-                        selected
-                          ? `Deselect ${item.name}`
-                          : `Select ${item.name}`
-                      }
-                      aria-pressed={selected}
-                      className={`recent-select-box${selected ? " is-checked" : ""}`}
-                      disabled={deleted}
-                      type="button"
+                    <article
+                      className={`recent-row${selected ? " is-selected" : ""}${deleted ? " is-deleted" : ""}`}
                       onClick={(event) => {
                         event.stopPropagation();
                         if (deleted) return;
                         toggleItem(item.id);
                       }}
-                    />
-                    <span className="recent-row-thumb">
-                      <ItemIcon item={item} />
-                    </span>
-                    <span className="recent-row-name" title={item.name}>
-                      {item.name}
-                      {item.isFavorite ? (
-                        <span
-                          aria-label="Favorited"
-                          className="recent-favorite-dot"
-                        />
-                      ) : null}
-                      {deleted ? (
-                        <span className="recent-deleted-badge">Deleted</span>
-                      ) : null}
-                    </span>
-                    <span
-                      className="recent-row-location"
-                      title={item.locationLabel}
+                      onDoubleClick={(event) => {
+                        event.stopPropagation();
+                        if (deleted) return;
+                        openItem(item);
+                      }}
                     >
-                      {item.locationLabel}
-                    </span>
-                    <span className="recent-row-size">
-                      {formatRecentFileSize(item.sizeBytes)}
-                    </span>
-                    <span className="recent-row-time">
-                      {deleted ? (
-                        <span className="recent-row-inline-actions">
+                      <button
+                        aria-label={
+                          selected
+                            ? `Deselect ${item.name}`
+                            : `Select ${item.name}`
+                        }
+                        aria-pressed={selected}
+                        className={`recent-select-box${selected ? " is-checked" : ""}`}
+                        disabled={deleted}
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (deleted) return;
+                          toggleItem(item.id);
+                        }}
+                      />
+                      <span className="recent-row-thumb">
+                        <ItemIcon item={item} />
+                      </span>
+                      <span className="recent-row-name" title={item.name}>
+                        {item.name}
+                        {item.isFavorite ? (
+                          <span
+                            aria-label="Favorited"
+                            className="recent-favorite-dot"
+                          />
+                        ) : null}
+                        {deleted ? (
+                          <span className="recent-deleted-badge">Deleted</span>
+                        ) : null}
+                      </span>
+                      <span
+                        className="recent-row-location"
+                        title={item.locationLabel}
+                      >
+                        {item.locationLabel}
+                      </span>
+                      <span className="recent-row-size">
+                        {formatRecentFileSize(item.sizeBytes)}
+                      </span>
+                      <span className="recent-row-time">
+                        {deleted ? (
+                          <span className="recent-row-inline-actions">
+                            {renderItemActions(item)}
+                          </span>
+                        ) : (
+                          formatRecentRelativeTime(item.uploadedAt)
+                        )}
+                      </span>
+                      {!deleted ? (
+                        <span className="recent-row-actions">
                           {renderItemActions(item)}
                         </span>
-                      ) : (
-                        formatRecentRelativeTime(item.uploadedAt)
-                      )}
-                    </span>
-                    {!deleted ? (
-                      <span className="recent-row-actions">
-                        {renderItemActions(item)}
-                      </span>
-                    ) : null}
-                  </article>
+                      ) : null}
+                    </article>
+                  </DashboardItemContextMenu>
                 );
               })}
             </section>
@@ -593,65 +694,71 @@ export function RecentView({ error, items, success }: RecentViewProps) {
                     item.kind === "file" ? item.mimeType : null,
                   );
                   return (
-                    <article
-                      className={`recent-grid-card${selected ? " is-selected" : ""}${deleted ? " is-deleted" : ""}`}
+                    <DashboardItemContextMenu
+                      groups={getRecentItemContextGroups(item)}
                       key={`${item.kind}-${item.id}`}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        if (deleted) return;
-                        toggleItem(item.id);
-                      }}
-                      onDoubleClick={(event) => {
-                        event.stopPropagation();
-                        if (deleted) return;
-                        openItem(item);
-                      }}
                     >
-                      <button
-                        aria-label={
-                          selected
-                            ? `Deselect ${item.name}`
-                            : `Select ${item.name}`
-                        }
-                        aria-pressed={selected}
-                        className={`recent-select-box recent-grid-card-check${
-                          selected ? " is-checked" : ""
-                        }`}
-                        disabled={deleted}
-                        type="button"
+                      <article
+                        className={`recent-grid-card${selected ? " is-selected" : ""}${deleted ? " is-deleted" : ""}`}
                         onClick={(event) => {
                           event.stopPropagation();
                           if (deleted) return;
                           toggleItem(item.id);
                         }}
-                      />
-                      <div
-                        className="recent-grid-card-preview"
-                        style={{ background: visual.background }}
+                        onDoubleClick={(event) => {
+                          event.stopPropagation();
+                          if (deleted) return;
+                          openItem(item);
+                        }}
                       >
-                        <ItemIcon item={item} size={30} />
-                      </div>
-                      <div className="recent-grid-card-body">
-                        <span
-                          className="recent-grid-card-name"
-                          title={item.name}
+                        <button
+                          aria-label={
+                            selected
+                              ? `Deselect ${item.name}`
+                              : `Select ${item.name}`
+                          }
+                          aria-pressed={selected}
+                          className={`recent-select-box recent-grid-card-check${
+                            selected ? " is-checked" : ""
+                          }`}
+                          disabled={deleted}
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            if (deleted) return;
+                            toggleItem(item.id);
+                          }}
+                        />
+                        <div
+                          className="recent-grid-card-preview"
+                          style={{ background: visual.background }}
                         >
-                          {item.name}
-                        </span>
-                        {deleted ? (
-                          <span className="recent-deleted-badge">Deleted</span>
-                        ) : null}
-                        <span className="recent-grid-card-meta">
-                          <span>
-                            {formatRecentRelativeTime(item.uploadedAt)}
+                          <ItemIcon item={item} size={30} />
+                        </div>
+                        <div className="recent-grid-card-body">
+                          <span
+                            className="recent-grid-card-name"
+                            title={item.name}
+                          >
+                            {item.name}
                           </span>
-                          <span>{formatRecentFileSize(item.sizeBytes)}</span>
+                          {deleted ? (
+                            <span className="recent-deleted-badge">
+                              Deleted
+                            </span>
+                          ) : null}
+                          <span className="recent-grid-card-meta">
+                            <span>
+                              {formatRecentRelativeTime(item.uploadedAt)}
+                            </span>
+                            <span>{formatRecentFileSize(item.sizeBytes)}</span>
+                          </span>
+                        </div>
+                        <span className="recent-grid-card-actions">
+                          {renderItemActions(item)}
                         </span>
-                      </div>
-                      <span className="recent-grid-card-actions">
-                        {renderItemActions(item)}
-                      </span>
-                    </article>
+                      </article>
+                    </DashboardItemContextMenu>
                   );
                 })}
               </div>
@@ -691,6 +798,6 @@ export function RecentView({ error, items, success }: RecentViewProps) {
           </button>
         </div>
       ) : null}
-    </div>
+    </DashboardPageContextMenu>
   );
 }

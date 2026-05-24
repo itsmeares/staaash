@@ -16,17 +16,7 @@ import {
 
 import { getItemVisual } from "@/app/item-visuals";
 import { ItemTypeIcon } from "@/app/item-type-icon";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuShortcut,
-  ContextMenuSub,
-  ContextMenuSubContent,
-  ContextMenuSubTrigger,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
+import { DashboardItemContextMenu } from "@/app/dashboard-context-menu";
 import { formatDateTime } from "@/app/auth-ui";
 import type { FileSummary, FolderSummary } from "@/server/files/types";
 import type { ShareLinkSummary } from "@/server/sharing";
@@ -200,162 +190,166 @@ export function FilesRow(props: FilesRowProps) {
     : null;
 
   return (
-    <ContextMenu>
-      <ContextMenuTrigger>
-        <div
-          ref={rowRef}
-          data-file-row={props.data.id}
-          className={rowClasses}
-          onClick={onClick}
-          onDoubleClick={onOpen}
-          role="row"
-          aria-selected={isSelected}
-          tabIndex={isSelected ? 0 : -1}
-        >
-          {/* Icon */}
-          <div className="explorer-row-icon">
-            <ItemTypeIcon
-              icon={props.kind === "folder" ? IconComponent : undefined}
-              size={16}
-              visual={visual}
-            />
-          </div>
-
-          {/* Name */}
-          <div className="explorer-row-name-cell">
-            {isRenaming ? (
-              <input
-                ref={renameInputRef}
-                className="explorer-row-rename"
-                value={renameValue}
-                autoFocus
-                onChange={(e) => onRenameChange(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    onRenameSubmit();
-                  }
-                  if (e.key === "Escape") {
-                    e.preventDefault();
-                    onRenameCancel();
-                  }
-                  // Stop propagation so row keyboard handlers don't fire
-                  e.stopPropagation();
-                }}
-                onBlur={onRenameSubmit}
-                onClick={(e) => e.stopPropagation()}
-              />
-            ) : (
-              <>
-                <span className="explorer-row-name" title={name}>
-                  {name}
-                </span>
-                {shareProps.share?.status === "active" && (
-                  <Share2
-                    size={10}
-                    className="explorer-row-share-badge"
-                    aria-label="Shared"
-                  />
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Size */}
-          <span className="explorer-row-meta">{size}</span>
-
-          {/* Date */}
-          <span className="explorer-row-meta" suppressHydrationWarning>
-            {date}
-          </span>
+    <DashboardItemContextMenu
+      groups={[
+        {
+          actions: [
+            {
+              label:
+                props.kind === "folder"
+                  ? "Open"
+                  : props.data.viewerKind
+                    ? "Open"
+                    : "Download",
+              shortcut: "↵",
+              onSelect: onOpen,
+            },
+            {
+              hidden: !(
+                isMultiSelected ||
+                props.kind === "folder" ||
+                props.data.viewerKind
+              ),
+              label: isMultiSelected
+                ? `Download ${selectedCount} items as zip`
+                : props.kind === "folder"
+                  ? "Download as zip"
+                  : "Download",
+              onSelect: onDownload,
+            },
+          ],
+        },
+        {
+          actions: [
+            {
+              disabled: isMultiSelected,
+              label: "Rename",
+              shortcut: "F2",
+              onSelect: onStartRename,
+            },
+            {
+              label: isFavorite
+                ? "Remove from favourites"
+                : "Add to favourites",
+              onSelect: onFavorite,
+            },
+            {
+              label: shareLabel ? "Share — manage link" : "Share",
+              onSelect: shareProps.onShare,
+            },
+            {
+              hidden: props.kind !== "folder",
+              label: "Change icon…",
+              onSelect: onProperties,
+            },
+            {
+              label: "Properties",
+              onSelect: onProperties,
+            },
+          ],
+        },
+        {
+          actions: [
+            {
+              label: isMultiSelected ? `Cut ${selectedCount} items` : "Cut",
+              shortcut: "⌘X",
+              onSelect: onCut,
+            },
+            availableMoveTargets.length > 0
+              ? {
+                  label: "Move to…",
+                  subActions: availableMoveTargets.map((target) => ({
+                    label: target.pathLabel,
+                    onSelect: () => onMoveTo(target.id),
+                  })),
+                }
+              : {
+                  disabled: true,
+                  label: "Move to…",
+                },
+          ],
+        },
+        {
+          actions: [
+            {
+              destructive: true,
+              label: isMultiSelected
+                ? `Move ${selectedCount} items to trash`
+                : "Move to trash",
+              shortcut: "Del",
+              onSelect: onTrash,
+            },
+          ],
+        },
+      ]}
+    >
+      <div
+        ref={rowRef}
+        data-file-row={props.data.id}
+        className={rowClasses}
+        onClick={onClick}
+        onDoubleClick={onOpen}
+        role="row"
+        aria-selected={isSelected}
+        tabIndex={isSelected ? 0 : -1}
+      >
+        {/* Icon */}
+        <div className="explorer-row-icon">
+          <ItemTypeIcon
+            icon={props.kind === "folder" ? IconComponent : undefined}
+            size={16}
+            visual={visual}
+          />
         </div>
-      </ContextMenuTrigger>
 
-      {/* ---- Context menu ---- */}
-      <ContextMenuContent>
-        {/* Group 1 — primary action */}
-        <ContextMenuItem onClick={onOpen}>
-          {props.kind === "folder"
-            ? "Open"
-            : props.data.viewerKind
-              ? "Open"
-              : "Download"}
-          <ContextMenuShortcut>↵</ContextMenuShortcut>
-        </ContextMenuItem>
+        {/* Name */}
+        <div className="explorer-row-name-cell">
+          {isRenaming ? (
+            <input
+              ref={renameInputRef}
+              className="explorer-row-rename"
+              value={renameValue}
+              autoFocus
+              onChange={(e) => onRenameChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  onRenameSubmit();
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  onRenameCancel();
+                }
+                // Stop propagation so row keyboard handlers don't fire
+                e.stopPropagation();
+              }}
+              onBlur={onRenameSubmit}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <>
+              <span className="explorer-row-name" title={name}>
+                {name}
+              </span>
+              {shareProps.share?.status === "active" && (
+                <Share2
+                  size={10}
+                  className="explorer-row-share-badge"
+                  aria-label="Shared"
+                />
+              )}
+            </>
+          )}
+        </div>
 
-        {isMultiSelected ? (
-          <ContextMenuItem onClick={onDownload}>
-            {`Download ${selectedCount} items as zip`}
-          </ContextMenuItem>
-        ) : props.kind === "folder" ? (
-          <ContextMenuItem onClick={onDownload}>
-            Download as zip
-          </ContextMenuItem>
-        ) : props.data.viewerKind ? (
-          <ContextMenuItem onClick={onDownload}>Download</ContextMenuItem>
-        ) : null}
+        {/* Size */}
+        <span className="explorer-row-meta">{size}</span>
 
-        <ContextMenuSeparator />
-
-        {/* Group 2 — item management */}
-        <ContextMenuItem onClick={onStartRename} disabled={isMultiSelected}>
-          Rename
-          <ContextMenuShortcut>F2</ContextMenuShortcut>
-        </ContextMenuItem>
-
-        <ContextMenuItem onClick={onFavorite}>
-          {isFavorite ? "Remove from favourites" : "Add to favourites"}
-        </ContextMenuItem>
-
-        {shareLabel ? (
-          <ContextMenuItem onClick={shareProps.onShare}>
-            Share — manage link
-          </ContextMenuItem>
-        ) : (
-          <ContextMenuItem onClick={shareProps.onShare}>Share</ContextMenuItem>
-        )}
-
-        {props.kind === "folder" && (
-          <ContextMenuItem onClick={onProperties}>Change icon…</ContextMenuItem>
-        )}
-
-        <ContextMenuItem onClick={onProperties}>Properties</ContextMenuItem>
-
-        <ContextMenuSeparator />
-
-        {/* Group 3 — clipboard and destructive */}
-        <ContextMenuItem onClick={onCut}>
-          {isMultiSelected ? `Cut ${selectedCount} items` : "Cut"}
-          <ContextMenuShortcut>⌘X</ContextMenuShortcut>
-        </ContextMenuItem>
-
-        {availableMoveTargets.length > 0 ? (
-          <ContextMenuSub>
-            <ContextMenuSubTrigger>Move to…</ContextMenuSubTrigger>
-            <ContextMenuSubContent>
-              {availableMoveTargets.map((target) => (
-                <ContextMenuItem
-                  key={target.id}
-                  onClick={() => onMoveTo(target.id)}
-                >
-                  {target.pathLabel}
-                </ContextMenuItem>
-              ))}
-            </ContextMenuSubContent>
-          </ContextMenuSub>
-        ) : (
-          <ContextMenuItem disabled>Move to…</ContextMenuItem>
-        )}
-
-        <ContextMenuSeparator />
-
-        <ContextMenuItem variant="destructive" onClick={onTrash}>
-          {isMultiSelected
-            ? `Move ${selectedCount} items to trash`
-            : "Move to trash"}
-          <ContextMenuShortcut>Del</ContextMenuShortcut>
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+        {/* Date */}
+        <span className="explorer-row-meta" suppressHydrationWarning>
+          {date}
+        </span>
+      </div>
+    </DashboardItemContextMenu>
   );
 }
