@@ -44,15 +44,15 @@ export const createPrismaRetrievalRepository = ({
       return getFilesRepo().findFileById(fileId);
     },
 
-    listFoldersByOwner(ownerUserId) {
+    listFoldersByOwner(ownerUserId, options = {}) {
       return getFilesRepo().listFoldersByOwner(ownerUserId, {
-        includeDeleted: false,
+        includeDeleted: options.includeDeleted ?? false,
       });
     },
 
-    listFilesByOwner(ownerUserId) {
+    listFilesByOwner(ownerUserId, options = {}) {
       return getFilesRepo().listFilesByOwner(ownerUserId, {
-        includeDeleted: false,
+        includeDeleted: options.includeDeleted ?? false,
       });
     },
 

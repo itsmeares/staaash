@@ -44,10 +44,10 @@ function ContextMenuTrigger({
               return elementProps
                 ? React.cloneElement(
                     element,
-                    mergeProps(triggerProps, {
+                    mergeProps(elementProps, triggerProps, {
                       className: cn(
-                        triggerProps.className,
                         elementProps.className,
+                        triggerProps.className,
                       ),
                     }),
                   )

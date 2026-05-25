@@ -1,4 +1,5 @@
 import { FlashMessage, getSingleSearchParam } from "@/app/auth-ui";
+import { WorkspacePresetPageContextMenu } from "@/app/dashboard-context-menu";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { retrievalService } from "@/server/retrieval/service";
 
@@ -50,7 +51,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const success = getSingleSearchParam(resolvedSearchParams, "success");
 
   return (
-    <div className="workspace-page">
+    <WorkspacePresetPageContextMenu className="workspace-page" preset="search">
       <section className="panel stack">
         <div className="pill">Search</div>
         <h1>Files search</h1>
@@ -108,6 +109,6 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           </>
         )}
       </section>
-    </div>
+    </WorkspacePresetPageContextMenu>
   );
 }

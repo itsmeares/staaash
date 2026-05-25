@@ -27,6 +27,7 @@ const makeFile = (
   pathLabel: "Files / Design / hero.png",
   sizeBytes: 2400000,
   updatedAt: new Date("2026-05-19T10:00:00.000Z"),
+  deletedAt: null,
   ...overrides,
 });
 
@@ -41,6 +42,7 @@ const makeFolder = (
   parentId: "root",
   pathLabel: "Files / Design",
   updatedAt: new Date("2026-05-19T09:00:00.000Z"),
+  deletedAt: null,
   ...overrides,
 });
 
@@ -56,6 +58,7 @@ const clientItem = (
   name: "hero.png",
   sizeBytes: 2400000,
   uploadedAt: "2026-05-19T10:00:00.000Z",
+  deletedAt: null,
   ...overrides,
 });
 
@@ -67,6 +70,7 @@ describe("recent page helpers", () => {
     expect(
       toRecentClientItem(
         makeFile({
+          deletedAt: new Date("2026-05-20T08:00:00.000Z"),
           pathLabel: "Files / Client / Reports / Q1.pdf",
           name: "Q1.pdf",
           mimeType: "application/pdf",
@@ -74,6 +78,7 @@ describe("recent page helpers", () => {
       ),
     ).toMatchObject({
       kind: "file",
+      deletedAt: "2026-05-20T08:00:00.000Z",
       locationLabel: "Client / Reports",
       mimeType: "application/pdf",
       uploadedAt: "2026-05-19T10:00:00.000Z",

@@ -28,6 +28,7 @@ const makeFile = (
   quickAccessPinnedAt: null,
   sizeBytes: 2400000,
   updatedAt: new Date("2026-05-19T10:00:00.000Z"),
+  deletedAt: null,
   ...overrides,
 });
 
@@ -44,6 +45,7 @@ const makeFolder = (
   pathLabel: "Files / Design",
   quickAccessPinnedAt: null,
   updatedAt: new Date("2026-05-19T09:00:00.000Z"),
+  deletedAt: null,
   ...overrides,
 });
 

@@ -2,14 +2,7 @@
 
 import type { ReactElement } from "react";
 
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuShortcut,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
+import { DashboardItemContextMenu } from "@/app/dashboard-context-menu";
 
 type ItemContextMenuProps = {
   children: ReactElement;
@@ -76,64 +69,63 @@ export function ItemContextMenu({
   const effectiveDownloadHref = downloadHref;
 
   return (
-    <ContextMenu>
-      <ContextMenuTrigger render={children} />
-      <ContextMenuContent>
-        <ContextMenuItem
-          onClick={() => {
-            window.location.href = href;
-          }}
-        >
-          {openLabel}
-          <ContextMenuShortcut>↵</ContextMenuShortcut>
-        </ContextMenuItem>
-
-        {effectiveDownloadHref ? (
-          <ContextMenuItem
-            onClick={() => {
-              window.location.href = effectiveDownloadHref;
-            }}
-          >
-            {kind === "folder" ? "Download as zip" : "Download"}
-          </ContextMenuItem>
-        ) : null}
-
-        {canFavorite || shareHref ? <ContextMenuSeparator /> : null}
-
-        {canFavorite ? (
-          <ContextMenuItem
-            onClick={() =>
-              submitFavorite({
-                id,
-                isFavorite: Boolean(isFavorite),
-                kind,
-                redirectTo,
-              })
-            }
-          >
-            {isFavorite ? "Remove from favorites" : "Add to favorites"}
-          </ContextMenuItem>
-        ) : null}
-
-        {shareHref ? (
-          <ContextMenuItem
-            onClick={() => {
-              window.location.href = shareHref;
-            }}
-          >
-            Manage shared link
-          </ContextMenuItem>
-        ) : null}
-
-        <ContextMenuSeparator />
-        <ContextMenuItem
-          onClick={() => {
-            void navigator.clipboard?.writeText(name);
-          }}
-        >
-          Copy name
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+    <DashboardItemContextMenu
+      groups={[
+        {
+          actions: [
+            {
+              label: openLabel,
+              shortcut: "↵",
+              onSelect: () => {
+                window.location.href = href;
+              },
+            },
+            {
+              hidden: !effectiveDownloadHref,
+              label: kind === "folder" ? "Download as zip" : "Download",
+              onSelect: () => {
+                if (!effectiveDownloadHref) return;
+                window.location.href = effectiveDownloadHref;
+              },
+            },
+          ],
+        },
+        {
+          actions: [
+            {
+              hidden: !canFavorite,
+              label: isFavorite ? "Remove from favorites" : "Add to favorites",
+              onSelect: () =>
+                submitFavorite({
+                  id,
+                  isFavorite: Boolean(isFavorite),
+                  kind: kind as "file" | "folder",
+                  redirectTo,
+                }),
+            },
+            {
+              hidden: !shareHref,
+              label: "Manage shared link",
+              onSelect: () => {
+                if (!shareHref) return;
+                window.location.href = shareHref;
+              },
+            },
+          ],
+        },
+        {
+          actions: [
+            {
+              label: "Copy name",
+              onSelect: () => {
+                void navigator.clipboard?.writeText(name);
+              },
+            },
+          ],
+        },
+      ]}
+    >
+      {children}
+    </DashboardItemContextMenu>
   );
 }

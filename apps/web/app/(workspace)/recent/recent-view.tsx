@@ -1,11 +1,14 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useTransition,
   type KeyboardEvent,
+  type MouseEvent,
 } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -15,11 +18,18 @@ import {
   ExternalLink,
   Grid2X2,
   List,
+  RefreshCw,
+  RotateCcw,
   Trash2,
-  X,
 } from "lucide-react";
 
 import { FlashMessage } from "@/app/auth-ui";
+import {
+  DashboardItemContextMenu,
+  DashboardPageContextMenu,
+  submitDashboardPostForm,
+  type DashboardContextMenuGroup,
+} from "@/app/dashboard-context-menu";
 import { getItemVisual } from "@/app/item-visuals";
 import { ItemTypeIcon } from "@/app/item-type-icon";
 import { startValidatedDownload } from "@/lib/transfers/download";
@@ -45,6 +55,13 @@ type RecentViewProps = {
   success?: string | null;
 };
 
+type RubberBand = {
+  currentX: number;
+  currentY: number;
+  startX: number;
+  startY: number;
+};
+
 const FILTERS: { id: RecentFilterType; label: string }[] = [
   { id: "all", label: "All" },
   { id: "folder", label: "Folders" },
@@ -56,6 +73,8 @@ const FILTERS: { id: RecentFilterType; label: string }[] = [
   { id: "archive", label: "Archives" },
 ];
 
+const DRAG_THRESHOLD = 5;
+
 function getOpenHref(item: RecentClientItem): string {
   if (item.kind === "folder") return item.href;
   return item.href.startsWith("/files/view/")
@@ -65,6 +84,16 @@ function getOpenHref(item: RecentClientItem): string {
 
 function getDownloadHref(item: RecentClientItem): string {
   return `/api/files/files/${item.id}/download`;
+}
+
+function getRestoreHref(item: RecentClientItem): string {
+  return item.kind === "folder"
+    ? `/api/files/folders/${item.id}/restore`
+    : `/api/files/files/${item.id}/restore`;
+}
+
+function getTrashItemHref(item: RecentClientItem): string {
+  return `/trash#${item.kind}-${item.id}`;
 }
 
 function SortIcon({
@@ -110,27 +139,54 @@ export function RecentView({ error, items, success }: RecentViewProps) {
   const [sortDirection, setSortDirection] =
     useState<RecentSortDirection>("desc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [trashedIds, setTrashedIds] = useState<Set<string>>(new Set());
+  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+  const [optimisticDeletedAtById, setOptimisticDeletedAtById] = useState<
+    Record<string, string>
+  >({});
   const [actionError, setActionError] = useState<string | null>(null);
+  const [rubberBand, setRubberBand] = useState<RubberBand | null>(null);
+  const didRubberBand = useRef(false);
+  const dragOrigin = useRef<{ onItem: boolean; x: number; y: number } | null>(
+    null,
+  );
+  const isRubberBanding = useRef(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  const rubberBandStart = useRef<{ startX: number; startY: number } | null>(
+    null,
+  );
 
   const visibleItems = useMemo(() => {
-    const activeItems = items.filter((item) => !trashedIds.has(item.id));
+    const itemsWithOptimisticState = items.map((item) => {
+      const deletedAt = optimisticDeletedAtById[item.id];
+      return deletedAt && !item.deletedAt ? { ...item, deletedAt } : item;
+    });
+
     return sortRecentItems(
-      filterRecentItems(activeItems, filterType),
+      filterRecentItems(itemsWithOptimisticState, filterType),
       sortKey,
       sortDirection,
     );
-  }, [filterType, items, sortDirection, sortKey, trashedIds]);
+  }, [filterType, items, optimisticDeletedAtById, sortDirection, sortKey]);
 
   const groups = useMemo(() => groupRecentItems(visibleItems), [visibleItems]);
-  const visibleIdSet = useMemo(
-    () => new Set(visibleItems.map((item) => item.id)),
+  const activeVisibleItems = useMemo(
+    () => visibleItems.filter((item) => !item.deletedAt),
     [visibleItems],
   );
+  const activeVisibleIds = useMemo(
+    () => activeVisibleItems.map((item) => item.id),
+    [activeVisibleItems],
+  );
+  const visibleIdSet = useMemo(
+    () => new Set(activeVisibleIds),
+    [activeVisibleIds],
+  );
   const allVisibleSelected =
-    visibleItems.length > 0 &&
-    visibleItems.every((item) => selectedIds.has(item.id));
-  const selectedItems = visibleItems.filter((item) => selectedIds.has(item.id));
+    visibleIdSet.size > 0 &&
+    activeVisibleIds.every((id) => selectedIds.has(id));
+  const selectedItems = visibleItems.filter(
+    (item) => !item.deletedAt && selectedIds.has(item.id),
+  );
 
   useEffect(() => {
     setSelectedIds((current) => {
@@ -141,6 +197,7 @@ export function RecentView({ error, items, success }: RecentViewProps) {
 
   useEffect(() => {
     setSelectedIds(new Set());
+    setLastSelectedId(null);
   }, [filterType, viewMode]);
 
   useEffect(() => {
@@ -159,23 +216,53 @@ export function RecentView({ error, items, success }: RecentViewProps) {
     setSortDirection(key === "uploadedAt" || key === "size" ? "desc" : "asc");
   };
 
-  const toggleItem = (id: string) => {
+  const selectAllVisible = () => {
     setSelectedIds((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+      if (allVisibleSelected) {
+        setLastSelectedId(null);
+        return new Set();
+      }
+      setLastSelectedId(activeVisibleIds.at(-1) ?? null);
+      return new Set([...current, ...activeVisibleIds]);
     });
   };
 
-  const selectAllVisible = () => {
-    setSelectedIds((current) => {
-      if (allVisibleSelected) return new Set();
-      return new Set([...current, ...visibleItems.map((item) => item.id)]);
-    });
+  const handleItemClick = (
+    item: RecentClientItem,
+    event: MouseEvent<HTMLElement>,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (didRubberBand.current || item.deletedAt) return;
+
+    if (event.ctrlKey || event.metaKey) {
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        if (next.has(item.id)) next.delete(item.id);
+        else next.add(item.id);
+        return next;
+      });
+      setLastSelectedId(item.id);
+      return;
+    }
+
+    if (event.shiftKey && lastSelectedId) {
+      const start = activeVisibleIds.indexOf(lastSelectedId);
+      const end = activeVisibleIds.indexOf(item.id);
+      if (start >= 0 && end >= 0) {
+        const [from, to] = [Math.min(start, end), Math.max(start, end)];
+        setSelectedIds(new Set(activeVisibleIds.slice(from, to + 1)));
+        return;
+      }
+    }
+
+    setSelectedIds(new Set([item.id]));
+    setLastSelectedId(item.id);
   };
 
   const openItem = (item: RecentClientItem) => {
+    if (item.deletedAt) return;
+
     const href = getOpenHref(item);
     if (href.startsWith("/files/")) {
       router.push(href);
@@ -185,6 +272,8 @@ export function RecentView({ error, items, success }: RecentViewProps) {
   };
 
   const downloadItem = async (item: RecentClientItem) => {
+    if (item.deletedAt) return;
+
     if (item.kind === "folder") {
       await handleDownload([item.id]);
       return;
@@ -219,30 +308,33 @@ export function RecentView({ error, items, success }: RecentViewProps) {
   };
 
   const trashItems = async (targets: RecentClientItem[]) => {
-    if (targets.length === 0) return;
+    const activeTargets = targets.filter((item) => !item.deletedAt);
+    if (activeTargets.length === 0) return;
 
     setSelectedIds(new Set());
-    setTrashedIds((current) => {
-      const next = new Set(current);
-      for (const item of targets) next.add(item.id);
+    setLastSelectedId(null);
+    setOptimisticDeletedAtById((current) => {
+      const next = { ...current };
+      const deletedAt = new Date().toISOString();
+      for (const item of activeTargets) next[item.id] = deletedAt;
       return next;
     });
 
     const results = await Promise.allSettled(
-      targets.map((item) => moveToTrash(item)),
+      activeTargets.map((item) => moveToTrash(item)),
     );
     const failedIds = new Set<string>();
     let movedAny = false;
 
     results.forEach((result, index) => {
       if (result.status === "fulfilled") movedAny = true;
-      else failedIds.add(targets[index].id);
+      else failedIds.add(activeTargets[index].id);
     });
 
     if (failedIds.size > 0) {
-      setTrashedIds((current) => {
-        const next = new Set(current);
-        for (const id of failedIds) next.delete(id);
+      setOptimisticDeletedAtById((current) => {
+        const next = { ...current };
+        for (const id of failedIds) delete next[id];
         return next;
       });
       setActionError("Some items could not be moved to trash.");
@@ -254,6 +346,7 @@ export function RecentView({ error, items, success }: RecentViewProps) {
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Escape") {
       setSelectedIds(new Set());
+      setLastSelectedId(null);
       return;
     }
 
@@ -278,6 +371,145 @@ export function RecentView({ error, items, success }: RecentViewProps) {
     }
   };
 
+  const handleRecentListClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (didRubberBand.current) return;
+    const target = event.target as HTMLElement;
+    if (!target.closest("[data-recent-item]")) {
+      setSelectedIds(new Set());
+      setLastSelectedId(null);
+    }
+  };
+
+  const handleRecentMouseDown = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      if (event.button !== 0) return;
+
+      const target = event.target as HTMLElement;
+      if (target.closest("button, input, select, textarea")) return;
+      if (target.closest(".recent-toolbar, .recent-col-head")) return;
+
+      const container = listRef.current;
+      if (!container) return;
+
+      const onItem = Boolean(target.closest("[data-recent-item]"));
+      const rect = container.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      dragOrigin.current = { onItem, x, y };
+
+      if (!onItem) {
+        event.preventDefault();
+        rubberBandStart.current = { startX: x, startY: y };
+        isRubberBanding.current = true;
+        setRubberBand({ startX: x, startY: y, currentX: x, currentY: y });
+        if (!event.shiftKey && !event.ctrlKey && !event.metaKey) {
+          setSelectedIds(new Set());
+          setLastSelectedId(null);
+        }
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const onMove = (event: globalThis.MouseEvent) => {
+      const container = listRef.current;
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      const currentX = event.clientX - rect.left;
+      const currentY = event.clientY - rect.top;
+
+      if (!isRubberBanding.current) {
+        const origin = dragOrigin.current;
+        if (!origin?.onItem) return;
+
+        const dist = Math.hypot(currentX - origin.x, currentY - origin.y);
+        if (dist < DRAG_THRESHOLD) return;
+
+        isRubberBanding.current = true;
+        didRubberBand.current = true;
+        rubberBandStart.current = { startX: origin.x, startY: origin.y };
+        setRubberBand({
+          startX: origin.x,
+          startY: origin.y,
+          currentX,
+          currentY,
+        });
+        setSelectedIds(new Set());
+        setLastSelectedId(null);
+        return;
+      }
+
+      didRubberBand.current = true;
+      const start = rubberBandStart.current;
+      if (!start) return;
+
+      setRubberBand({
+        startX: start.startX,
+        startY: start.startY,
+        currentX,
+        currentY,
+      });
+
+      const selLeft = Math.min(start.startX, currentX);
+      const selTop = Math.min(start.startY, currentY);
+      const selRight = Math.max(start.startX, currentX);
+      const selBottom = Math.max(start.startY, currentY);
+      const next = new Set<string>();
+
+      container
+        .querySelectorAll<HTMLElement>('[data-recent-active="true"]')
+        .forEach((element) => {
+          const id = element.dataset.recentItem;
+          if (!id) return;
+
+          const itemRect = element.getBoundingClientRect();
+          const rowTop = itemRect.top - rect.top;
+          const rowBottom = itemRect.bottom - rect.top;
+          const rowLeft = itemRect.left - rect.left;
+          const rowRight = itemRect.right - rect.left;
+
+          if (
+            !(
+              rowRight < selLeft ||
+              rowLeft > selRight ||
+              rowBottom < selTop ||
+              rowTop > selBottom
+            )
+          ) {
+            next.add(id);
+          }
+        });
+
+      setSelectedIds(next);
+      setLastSelectedId(
+        next.size > 0 ? (Array.from(next).at(-1) ?? null) : null,
+      );
+    };
+
+    const onUp = () => {
+      dragOrigin.current = null;
+      if (!isRubberBanding.current) return;
+
+      isRubberBanding.current = false;
+      rubberBandStart.current = null;
+      setRubberBand(null);
+      window.setTimeout(() => {
+        didRubberBand.current = false;
+      }, 0);
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, []);
+
   const renderSortButton = (
     key: RecentSortKey,
     label: string,
@@ -297,45 +529,192 @@ export function RecentView({ error, items, success }: RecentViewProps) {
 
   const renderItemActions = (item: RecentClientItem) => (
     <>
-      <button
-        aria-label={`Open ${item.name}`}
-        className="recent-action-btn"
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          openItem(item);
-        }}
-      >
-        <ExternalLink size={13} aria-hidden />
-      </button>
-      <button
-        aria-label={`Download ${item.name}`}
-        className="recent-action-btn"
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          void downloadItem(item);
-        }}
-      >
-        <Download size={13} aria-hidden />
-      </button>
-      <button
-        aria-label={`Move ${item.name} to trash`}
-        className="recent-action-btn recent-action-btn-danger"
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          void trashItems([item]);
-        }}
-      >
-        <Trash2 size={13} aria-hidden />
-      </button>
+      {item.deletedAt ? (
+        <>
+          <form action={getRestoreHref(item)} method="post">
+            <input name="redirectTo" type="hidden" value="/recent" />
+            <button
+              aria-label={`Restore ${item.name}`}
+              className="recent-action-btn"
+              type="submit"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <RotateCcw size={13} aria-hidden />
+            </button>
+          </form>
+          <button
+            aria-label={`Delete ${item.name} from Trash`}
+            className="recent-action-btn recent-action-btn-danger"
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              router.push(getTrashItemHref(item));
+            }}
+          >
+            <Trash2 size={13} aria-hidden />
+          </button>
+        </>
+      ) : (
+        <>
+          <button
+            aria-label={`Open ${item.name}`}
+            className="recent-action-btn"
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              openItem(item);
+            }}
+          >
+            <ExternalLink size={13} aria-hidden />
+          </button>
+          <button
+            aria-label={`Download ${item.name}`}
+            className="recent-action-btn"
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              void downloadItem(item);
+            }}
+          >
+            <Download size={13} aria-hidden />
+          </button>
+          <button
+            aria-label={`Move ${item.name} to trash`}
+            className="recent-action-btn recent-action-btn-danger"
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              void trashItems([item]);
+            }}
+          >
+            <Trash2 size={13} aria-hidden />
+          </button>
+        </>
+      )}
     </>
   );
 
+  const getRecentItemContextGroups = (
+    item: RecentClientItem,
+  ): DashboardContextMenuGroup[] => {
+    if (item.deletedAt) {
+      return [
+        {
+          actions: [
+            {
+              icon: <RotateCcw size={13} />,
+              label: "Restore",
+              onSelect: () =>
+                submitDashboardPostForm({
+                  action: getRestoreHref(item),
+                  fields: { redirectTo: "/recent" },
+                }),
+            },
+            {
+              destructive: true,
+              icon: <Trash2 size={13} />,
+              label: "Open in Trash",
+              onSelect: () => router.push(getTrashItemHref(item)),
+            },
+          ],
+        },
+      ];
+    }
+
+    const targets =
+      selectedIds.has(item.id) && selectedItems.length > 1
+        ? selectedItems
+        : [item];
+    const bulk = targets.length > 1;
+
+    return [
+      {
+        actions: [
+          {
+            disabled: bulk,
+            icon: <ExternalLink size={13} />,
+            label: "Open",
+            shortcut: "↵",
+            onSelect: () => openItem(item),
+          },
+          {
+            icon: <Download size={13} />,
+            label: bulk
+              ? `Download ${targets.length} selected`
+              : item.kind === "folder"
+                ? "Download as zip"
+                : "Download",
+            onSelect: () =>
+              bulk
+                ? void handleDownload(targets.map((target) => target.id))
+                : void downloadItem(item),
+          },
+        ],
+      },
+      {
+        actions: [
+          {
+            destructive: true,
+            icon: <Trash2 size={13} />,
+            label: bulk
+              ? `Move ${targets.length} selected to trash`
+              : "Move to trash",
+            shortcut: "Del",
+            onSelect: () => void trashItems(targets),
+          },
+        ],
+      },
+    ];
+  };
+
+  const backgroundMenuGroups: DashboardContextMenuGroup[] = [
+    {
+      actions: [
+        {
+          icon: <RefreshCw size={13} />,
+          label: "Refresh",
+          onSelect: () => startTransition(() => router.refresh()),
+        },
+        {
+          disabled: visibleIdSet.size === 0,
+          label: allVisibleSelected ? "Clear selection" : "Select all",
+          onSelect: selectAllVisible,
+        },
+        {
+          disabled: selectedItems.length === 0,
+          hidden: selectedItems.length === 0 || allVisibleSelected,
+          label: "Clear selection",
+          onSelect: () => {
+            setSelectedIds(new Set());
+            setLastSelectedId(null);
+          },
+        },
+      ],
+    },
+    {
+      actions: [
+        {
+          hidden: selectedItems.length === 0,
+          icon: <Download size={13} />,
+          label: "Download selected",
+          onSelect: () =>
+            void handleDownload(selectedItems.map((item) => item.id)),
+        },
+        {
+          destructive: true,
+          hidden: selectedItems.length === 0,
+          icon: <Trash2 size={13} />,
+          label: "Move selected to trash",
+          onSelect: () => void trashItems(selectedItems),
+        },
+      ],
+    },
+  ];
+
   return (
-    <div
+    <DashboardPageContextMenu
       className="workspace-page recent-page"
+      groups={backgroundMenuGroups}
       tabIndex={-1}
       onKeyDown={handleKeyDown}
     >
@@ -343,6 +722,11 @@ export function RecentView({ error, items, success }: RecentViewProps) {
         <h1>Recent</h1>
         {items.length > 0 ? (
           <span className="section-count">{items.length}</span>
+        ) : null}
+        {selectedItems.length > 0 ? (
+          <span className="selection-badge">
+            {selectedItems.length} selected
+          </span>
         ) : null}
       </div>
 
@@ -398,30 +782,35 @@ export function RecentView({ error, items, success }: RecentViewProps) {
         </div>
       ) : viewMode === "list" ? (
         <div
+          ref={listRef}
           className="recent-table-wrap"
-          onClick={() => setSelectedIds(new Set())}
+          onClick={handleRecentListClick}
+          onMouseDown={handleRecentMouseDown}
         >
           <div
             className="recent-col-head"
             role="row"
             aria-label="Recent columns"
           >
-            <button
-              aria-label={allVisibleSelected ? "Clear selection" : "Select all"}
-              aria-pressed={allVisibleSelected}
-              className={`recent-select-box${allVisibleSelected ? " is-checked" : ""}`}
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                selectAllVisible();
-              }}
-            />
             <span aria-hidden />
             {renderSortButton("name", "Name")}
             {renderSortButton("path", "Location")}
             {renderSortButton("size", "Size", "right")}
             {renderSortButton("uploadedAt", "Uploaded", "right")}
           </div>
+
+          {rubberBand ? (
+            <div
+              className="rubber-band-rect"
+              style={{
+                left: Math.min(rubberBand.startX, rubberBand.currentX),
+                top: Math.min(rubberBand.startY, rubberBand.currentY),
+                width: Math.abs(rubberBand.currentX - rubberBand.startX),
+                height: Math.abs(rubberBand.currentY - rubberBand.startY),
+              }}
+              aria-hidden
+            />
+          ) : null}
 
           {groups.map((group) => (
             <section className="recent-group-section" key={group.label}>
@@ -431,62 +820,64 @@ export function RecentView({ error, items, success }: RecentViewProps) {
               </div>
 
               {group.items.map((item) => {
-                const selected = selectedIds.has(item.id);
+                const deleted = Boolean(item.deletedAt);
+                const selected = !deleted && selectedIds.has(item.id);
                 return (
-                  <article
-                    className={`recent-row${selected ? " is-selected" : ""}`}
+                  <DashboardItemContextMenu
+                    groups={getRecentItemContextGroups(item)}
                     key={`${item.kind}-${item.id}`}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      toggleItem(item.id);
-                    }}
-                    onDoubleClick={(event) => {
-                      event.stopPropagation();
-                      openItem(item);
-                    }}
                   >
-                    <button
-                      aria-label={
-                        selected
-                          ? `Deselect ${item.name}`
-                          : `Select ${item.name}`
-                      }
-                      aria-pressed={selected}
-                      className={`recent-select-box${selected ? " is-checked" : ""}`}
-                      type="button"
-                      onClick={(event) => {
+                    <article
+                      data-recent-active={deleted ? undefined : "true"}
+                      data-recent-item={item.id}
+                      className={`recent-row${selected ? " is-selected" : ""}${deleted ? " is-deleted" : ""}`}
+                      onClick={(event) => handleItemClick(item, event)}
+                      onDoubleClick={(event) => {
                         event.stopPropagation();
-                        toggleItem(item.id);
+                        if (deleted) return;
+                        openItem(item);
                       }}
-                    />
-                    <span className="recent-row-thumb">
-                      <ItemIcon item={item} />
-                    </span>
-                    <span className="recent-row-name" title={item.name}>
-                      {item.name}
-                      {item.isFavorite ? (
-                        <span
-                          aria-label="Favorited"
-                          className="recent-favorite-dot"
-                        />
-                      ) : null}
-                    </span>
-                    <span
-                      className="recent-row-location"
-                      title={item.locationLabel}
                     >
-                      {item.locationLabel}
-                    </span>
-                    <span className="recent-row-size">
-                      {formatRecentFileSize(item.sizeBytes)}
-                    </span>
-                    <span className="recent-row-time">
-                      {formatRecentRelativeTime(item.uploadedAt)}
-                    </span>
-                    <span className="recent-row-actions">
-                      {renderItemActions(item)}
-                    </span>
-                  </article>
+                      <span className="recent-row-thumb">
+                        <ItemIcon item={item} />
+                      </span>
+                      <span className="recent-row-name" title={item.name}>
+                        {item.name}
+                        {item.isFavorite ? (
+                          <span
+                            aria-label="Favorited"
+                            className="recent-favorite-dot"
+                          />
+                        ) : null}
+                        {deleted ? (
+                          <span className="recent-deleted-badge">Deleted</span>
+                        ) : null}
+                      </span>
+                      <span
+                        className="recent-row-location"
+                        title={item.locationLabel}
+                      >
+                        {item.locationLabel}
+                      </span>
+                      <span className="recent-row-size">
+                        {formatRecentFileSize(item.sizeBytes)}
+                      </span>
+                      <span className="recent-row-time">
+                        {deleted ? (
+                          <span className="recent-row-inline-actions">
+                            {renderItemActions(item)}
+                          </span>
+                        ) : (
+                          formatRecentRelativeTime(item.uploadedAt)
+                        )}
+                      </span>
+                      {!deleted ? (
+                        <span className="recent-row-actions">
+                          {renderItemActions(item)}
+                        </span>
+                      ) : null}
+                    </article>
+                  </DashboardItemContextMenu>
                 );
               })}
             </section>
@@ -494,9 +885,24 @@ export function RecentView({ error, items, success }: RecentViewProps) {
         </div>
       ) : (
         <div
+          ref={listRef}
           className="recent-grid-wrap"
-          onClick={() => setSelectedIds(new Set())}
+          onClick={handleRecentListClick}
+          onMouseDown={handleRecentMouseDown}
         >
+          {rubberBand ? (
+            <div
+              className="rubber-band-rect"
+              style={{
+                left: Math.min(rubberBand.startX, rubberBand.currentX),
+                top: Math.min(rubberBand.startY, rubberBand.currentY),
+                width: Math.abs(rubberBand.currentX - rubberBand.startX),
+                height: Math.abs(rubberBand.currentY - rubberBand.startY),
+              }}
+              aria-hidden
+            />
+          ) : null}
+
           {groups.map((group) => (
             <section className="recent-grid-group" key={group.label}>
               <div className="recent-grid-group-header">
@@ -506,64 +912,58 @@ export function RecentView({ error, items, success }: RecentViewProps) {
 
               <div className="recent-grid-cards">
                 {group.items.map((item) => {
-                  const selected = selectedIds.has(item.id);
+                  const deleted = Boolean(item.deletedAt);
+                  const selected = !deleted && selectedIds.has(item.id);
                   const visual = getItemVisual(
                     item.kind,
                     item.kind === "file" ? item.mimeType : null,
                   );
                   return (
-                    <article
-                      className={`recent-grid-card${selected ? " is-selected" : ""}`}
+                    <DashboardItemContextMenu
+                      groups={getRecentItemContextGroups(item)}
                       key={`${item.kind}-${item.id}`}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        toggleItem(item.id);
-                      }}
-                      onDoubleClick={(event) => {
-                        event.stopPropagation();
-                        openItem(item);
-                      }}
                     >
-                      <button
-                        aria-label={
-                          selected
-                            ? `Deselect ${item.name}`
-                            : `Select ${item.name}`
-                        }
-                        aria-pressed={selected}
-                        className={`recent-select-box recent-grid-card-check${
-                          selected ? " is-checked" : ""
-                        }`}
-                        type="button"
-                        onClick={(event) => {
+                      <article
+                        data-recent-active={deleted ? undefined : "true"}
+                        data-recent-item={item.id}
+                        className={`recent-grid-card${selected ? " is-selected" : ""}${deleted ? " is-deleted" : ""}`}
+                        onClick={(event) => handleItemClick(item, event)}
+                        onDoubleClick={(event) => {
                           event.stopPropagation();
-                          toggleItem(item.id);
+                          if (deleted) return;
+                          openItem(item);
                         }}
-                      />
-                      <div
-                        className="recent-grid-card-preview"
-                        style={{ background: visual.background }}
                       >
-                        <ItemIcon item={item} size={30} />
-                      </div>
-                      <div className="recent-grid-card-body">
-                        <span
-                          className="recent-grid-card-name"
-                          title={item.name}
+                        <div
+                          className="recent-grid-card-preview"
+                          style={{ background: visual.background }}
                         >
-                          {item.name}
-                        </span>
-                        <span className="recent-grid-card-meta">
-                          <span>
-                            {formatRecentRelativeTime(item.uploadedAt)}
+                          <ItemIcon item={item} size={30} />
+                        </div>
+                        <div className="recent-grid-card-body">
+                          <span
+                            className="recent-grid-card-name"
+                            title={item.name}
+                          >
+                            {item.name}
                           </span>
-                          <span>{formatRecentFileSize(item.sizeBytes)}</span>
+                          {deleted ? (
+                            <span className="recent-deleted-badge">
+                              Deleted
+                            </span>
+                          ) : null}
+                          <span className="recent-grid-card-meta">
+                            <span>
+                              {formatRecentRelativeTime(item.uploadedAt)}
+                            </span>
+                            <span>{formatRecentFileSize(item.sizeBytes)}</span>
+                          </span>
+                        </div>
+                        <span className="recent-grid-card-actions">
+                          {renderItemActions(item)}
                         </span>
-                      </div>
-                      <span className="recent-grid-card-actions">
-                        {renderItemActions(item)}
-                      </span>
-                    </article>
+                      </article>
+                    </DashboardItemContextMenu>
                   );
                 })}
               </div>
@@ -571,38 +971,6 @@ export function RecentView({ error, items, success }: RecentViewProps) {
           ))}
         </div>
       )}
-
-      {selectedItems.length > 0 ? (
-        <div className="recent-float-bar" role="status">
-          <span>{selectedItems.length} selected</span>
-          <span className="recent-float-divider" aria-hidden />
-          <button
-            type="button"
-            onClick={() =>
-              void handleDownload(selectedItems.map((item) => item.id))
-            }
-          >
-            <Download size={13} aria-hidden />
-            Download
-          </button>
-          <button
-            className="recent-float-danger"
-            type="button"
-            onClick={() => void trashItems(selectedItems)}
-          >
-            <Trash2 size={13} aria-hidden />
-            Move to trash
-          </button>
-          <span className="recent-float-divider" aria-hidden />
-          <button
-            aria-label="Clear selection"
-            type="button"
-            onClick={() => setSelectedIds(new Set())}
-          >
-            <X size={13} aria-hidden />
-          </button>
-        </div>
-      ) : null}
-    </div>
+    </DashboardPageContextMenu>
   );
 }

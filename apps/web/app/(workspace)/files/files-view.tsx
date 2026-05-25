@@ -4,11 +4,9 @@ import {
   startTransition,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Download, FolderPlus, RefreshCw, Upload } from "lucide-react";
@@ -21,6 +19,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { FlashMessage } from "@/app/auth-ui";
+import { DashboardPageContextMenu } from "@/app/dashboard-context-menu";
 import { startValidatedDownload } from "@/lib/transfers/download";
 import type { FilesListing } from "@/server/files/types";
 import type { ShareFilesLookup } from "@/server/sharing";
@@ -221,12 +220,6 @@ export function FilesView({
   // ---- New folder popover ----
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
-
-  // ---- Background context menu (right-click on empty space) ----
-  const [bgCtxMenu, setBgCtxMenu] = useState<{ x: number; y: number } | null>(
-    null,
-  );
-  const bgCtxMenuRef = useRef<HTMLDivElement>(null);
 
   // ---- Flash messages ----
   const error =
@@ -442,38 +435,6 @@ export function FilesView({
     return () => document.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allItems, selectedIds, cutItems, lastSelectedId, showShortcutLegend]);
-
-  // Close background context menu on any pointer-down outside it, or Escape.
-  useEffect(() => {
-    if (!bgCtxMenu) return;
-    const close = () => setBgCtxMenu(null);
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-    };
-    window.addEventListener("pointerdown", close);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("pointerdown", close);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [bgCtxMenu]);
-
-  // Clamp background context menu to the viewport.
-  // useLayoutEffect fires before paint so there is no visible flicker —
-  // the user only ever sees the corrected position.
-  useLayoutEffect(() => {
-    if (!bgCtxMenu || !bgCtxMenuRef.current) return;
-    const el = bgCtxMenuRef.current;
-    const { width, height } = el.getBoundingClientRect();
-    const pad = 8;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const x = Math.max(pad, Math.min(bgCtxMenu.x, vw - width - pad));
-    const y = Math.max(pad, Math.min(bgCtxMenu.y, vh - height - pad));
-    if (x !== bgCtxMenu.x || y !== bgCtxMenu.y) {
-      setBgCtxMenu({ x, y });
-    }
-  }, [bgCtxMenu]);
 
   // ---------------------------------------------------------------------------
   // Item actions
@@ -794,6 +755,7 @@ export function FilesView({
       const start = rubberBandStart.current;
       if (!start) return;
 
+      didRubberBand.current = true;
       setRubberBand({
         startX: start.startX,
         startY: start.startY,
@@ -807,24 +769,33 @@ export function FilesView({
       const selBottom = Math.max(start.startY, currentY);
 
       const next = new Set<string>();
-      rowRefs.current.forEach((el, id) => {
-        const r = el.getBoundingClientRect();
-        const rowTop = r.top - rect.top;
-        const rowBottom = r.bottom - rect.top;
-        const rowLeft = r.left - rect.left;
-        const rowRight = r.right - rect.left;
-        if (
-          !(
-            rowRight < selLeft ||
-            rowLeft > selRight ||
-            rowBottom < selTop ||
-            rowTop > selBottom
-          )
-        ) {
-          next.add(id);
-        }
-      });
+      container
+        .querySelectorAll<HTMLElement>("[data-file-row]")
+        .forEach((el) => {
+          const id = el.dataset.fileRow;
+          if (!id) return;
+
+          const rowRect = el.getBoundingClientRect();
+          const rowTop = rowRect.top - rect.top;
+          const rowBottom = rowRect.bottom - rect.top;
+          const rowLeft = rowRect.left - rect.left;
+          const rowRight = rowRect.right - rect.left;
+
+          if (
+            !(
+              rowRight < selLeft ||
+              rowLeft > selRight ||
+              rowBottom < selTop ||
+              rowTop > selBottom
+            )
+          ) {
+            next.add(id);
+          }
+        });
       setSelectedIds(next);
+      setLastSelectedId(
+        next.size > 0 ? (Array.from(next).at(-1) ?? null) : null,
+      );
     };
 
     const onUp = () => {
@@ -907,6 +878,79 @@ export function FilesView({
     return na.localeCompare(nb, undefined, { sensitivity: "base" });
   });
 
+  const cutSelectedItems = () => {
+    const items = allItems.filter((item) => selectedIds.has(item.id));
+    const cut = items.map((item) => {
+      const data =
+        item.kind === "folder"
+          ? listing.childFolders.find((folder) => folder.id === item.id)
+          : listing.files.find((file) => file.id === item.id);
+      return { id: item.id, kind: item.kind, name: data?.name ?? "" };
+    });
+    setCutItems(cut);
+    persistCutItems(cut);
+  };
+
+  const backgroundMenuGroups = [
+    {
+      actions: [
+        {
+          icon: <FolderPlus size={13} />,
+          label: "New folder",
+          onSelect: () => setNewFolderOpen(true),
+        },
+        {
+          icon: <Upload size={13} />,
+          label: "Upload files",
+          onSelect: () => fileInputRef.current?.click(),
+        },
+        {
+          icon: <RefreshCw size={13} />,
+          label: "Refresh",
+          onSelect: () => startTransition(() => router.refresh()),
+        },
+      ],
+    },
+    {
+      actions: [
+        {
+          hidden: cutItems.length === 0,
+          label: `Paste ${cutItems.length} item${cutItems.length !== 1 ? "s" : ""}`,
+          shortcut: "⌘V",
+          onSelect: handlePaste,
+        },
+        {
+          label: "Select all",
+          onSelect: () =>
+            setSelectedIds(new Set(allItems.map((item) => item.id))),
+        },
+      ],
+    },
+    {
+      actions: [
+        {
+          hidden: selectedIds.size === 0,
+          icon: <Download size={13} />,
+          label: `Download ${selectedIds.size} item${selectedIds.size !== 1 ? "s" : ""} as zip`,
+          onSelect: () => handleDownload(Array.from(selectedIdsRef.current)),
+        },
+        {
+          hidden: selectedIds.size === 0,
+          label: `Cut ${selectedIds.size} item${selectedIds.size !== 1 ? "s" : ""}`,
+          shortcut: "⌘X",
+          onSelect: cutSelectedItems,
+        },
+        {
+          destructive: true,
+          hidden: selectedIds.size === 0,
+          label: "Move to trash",
+          shortcut: "Del",
+          onSelect: handleTrashSelected,
+        },
+      ],
+    },
+  ];
+
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
@@ -919,18 +963,11 @@ export function FilesView({
         {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
         {trashError ? <FlashMessage>{trashError}</FlashMessage> : null}
 
-        <div
+        <DashboardPageContextMenu
           className="explorer-root"
+          groups={backgroundMenuGroups}
+          ignoreSelector=".explorer-header"
           onMouseDown={handleListMouseDown}
-          onContextMenu={(e) => {
-            // Radix's ContextMenuTrigger calls e.preventDefault() synchronously,
-            // so if a row context menu already handled this event, skip.
-            if (e.defaultPrevented) return;
-            // Don't capture right-clicks on the header toolbar
-            if ((e.target as HTMLElement).closest(".explorer-header")) return;
-            e.preventDefault();
-            setBgCtxMenu({ x: e.clientX, y: e.clientY });
-          }}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}
@@ -1331,7 +1368,7 @@ export function FilesView({
               </div>
             </div>
           )}
-        </div>
+        </DashboardPageContextMenu>
 
         {/* ---- Properties panel ---- */}
         <FilesPropertiesPanel
@@ -1371,119 +1408,6 @@ export function FilesView({
           <ShortcutLegend onClose={() => setShowShortcutLegend(false)} />
         )}
       </div>
-
-      {/* ---- Background context menu (right-click on empty space) ---- */}
-      {bgCtxMenu &&
-        createPortal(
-          <div
-            ref={bgCtxMenuRef}
-            className="bg-ctx-menu"
-            style={{ top: bgCtxMenu.y, left: bgCtxMenu.x }}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            <button
-              className="bg-ctx-item"
-              onClick={() => {
-                setNewFolderOpen(true);
-                setBgCtxMenu(null);
-              }}
-            >
-              <FolderPlus size={13} />
-              New folder
-            </button>
-            <button
-              className="bg-ctx-item"
-              onClick={() => {
-                fileInputRef.current?.click();
-                setBgCtxMenu(null);
-              }}
-            >
-              <Upload size={13} />
-              Upload files
-            </button>
-            <button
-              className="bg-ctx-item"
-              onClick={() => {
-                setBgCtxMenu(null);
-                startTransition(() => {
-                  router.refresh();
-                });
-              }}
-            >
-              <RefreshCw size={13} />
-              Refresh
-            </button>
-            <div className="bg-ctx-sep" />
-            {cutItems.length > 0 && (
-              <button
-                className="bg-ctx-item"
-                onClick={() => {
-                  handlePaste();
-                  setBgCtxMenu(null);
-                }}
-              >
-                Paste {cutItems.length} item{cutItems.length !== 1 ? "s" : ""}
-                <span className="bg-ctx-shortcut">⌘V</span>
-              </button>
-            )}
-            <button
-              className="bg-ctx-item"
-              onClick={() => {
-                setSelectedIds(new Set(allItems.map((i) => i.id)));
-                setBgCtxMenu(null);
-              }}
-            >
-              Select all
-              <span className="bg-ctx-shortcut">⌘A</span>
-            </button>
-            {selectedIds.size > 0 && (
-              <>
-                <div className="bg-ctx-sep" />
-                <button
-                  className="bg-ctx-item"
-                  onClick={() => {
-                    handleDownload(Array.from(selectedIdsRef.current));
-                    setBgCtxMenu(null);
-                  }}
-                >
-                  <Download size={13} />
-                  Download {selectedIds.size} item
-                  {selectedIds.size !== 1 ? "s" : ""} as zip
-                </button>
-                <button
-                  className="bg-ctx-item"
-                  onClick={() => {
-                    const items = allItems.filter((i) => selectedIds.has(i.id));
-                    const cut = items.map((i) => {
-                      const data =
-                        i.kind === "folder"
-                          ? listing.childFolders.find((f) => f.id === i.id)
-                          : listing.files.find((f) => f.id === i.id);
-                      return { id: i.id, kind: i.kind, name: data?.name ?? "" };
-                    });
-                    setCutItems(cut);
-                    persistCutItems(cut);
-                    setBgCtxMenu(null);
-                  }}
-                >
-                  Cut {selectedIds.size} item{selectedIds.size !== 1 ? "s" : ""}
-                  <span className="bg-ctx-shortcut">⌘X</span>
-                </button>
-                <button
-                  className="bg-ctx-item bg-ctx-item--danger"
-                  onClick={() => {
-                    handleTrashSelected();
-                    setBgCtxMenu(null);
-                  }}
-                >
-                  Move to trash
-                  <span className="bg-ctx-shortcut">Del</span>
-                </button>
-              </>
-            )}
-          </div>,
-          document.body,
-        )}
     </>
   );
 }
