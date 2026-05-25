@@ -2041,19 +2041,22 @@ h3 {
   gap: 8px;
 }
 
-.recent-filter-label {
+.recent-filter-label,
+.favorites-filter-control {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   min-height: 30px;
-  padding: 0 0 0 10px;
+  padding: 0 9px 0 10px;
   border: 1px solid var(--border);
   border-radius: 7px;
   color: color-mix(in oklab, var(--foreground) 76%, transparent);
   background: transparent;
+  white-space: nowrap;
 }
 
-.recent-filter-label span {
+.recent-filter-label span,
+.favorites-filter-control span {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -2062,9 +2065,10 @@ h3 {
   color: color-mix(in oklab, var(--foreground) 45%, transparent);
 }
 
-.recent-type-select {
+.recent-type-select,
+.favorites-filter-control select {
   min-height: 28px;
-  padding: 0 28px 0 0;
+  padding: 0 22px 0 0;
   border: 0;
   color: var(--foreground);
   background: transparent;
@@ -2638,38 +2642,6 @@ h3 {
   gap: 8px;
 }
 
-.favorites-filter-control {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 30px;
-  padding: 0 9px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  color: color-mix(in oklab, var(--foreground) 76%, transparent);
-  white-space: nowrap;
-}
-
-.favorites-filter-control span {
-  color: color-mix(in oklab, var(--muted-foreground) 70%, transparent);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.favorites-filter-control select {
-  min-height: 28px;
-  padding: 0 18px 0 0;
-  border: 0;
-  background: transparent;
-  color: var(--foreground);
-  font: inherit;
-  font-size: 13px;
-  line-height: 1;
-}
-
 .favorites-filter-control select:focus {
   outline: none;
 }
@@ -2707,6 +2679,9 @@ h3 {
 }
 
 .favorites-selection-surface {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
   position: relative;
   min-height: calc(100vh - 120px);
   user-select: none;
@@ -6072,14 +6047,6 @@ main.share-locked-page {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-}
-
-.shared-toolbar .favorites-filter-control {
-  min-height: 28px;
-}
-
-.shared-toolbar .favorites-filter-control select {
-  min-width: 96px;
 }
 
 /* Group (Active / Inactive) */

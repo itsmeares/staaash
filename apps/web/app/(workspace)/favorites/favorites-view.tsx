@@ -878,6 +878,46 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
       >
         {renderRubberBand()}
 
+        <div
+          className="favorites-toolbar"
+          aria-label="Favorites display controls"
+        >
+          <label className="favorites-filter-control">
+            <span>Type</span>
+            <select
+              value={filterType}
+              onChange={(event) =>
+                setFilterType(event.target.value as FavoriteFilterType)
+              }
+            >
+              {FILTERS.map((filter) => (
+                <option key={filter.id} value={filter.id}>
+                  {filter.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div className="favorites-view-toggle" aria-label="View mode">
+            <button
+              aria-label="List view"
+              className={viewMode === "list" ? "is-active" : ""}
+              type="button"
+              onClick={() => setViewMode("list")}
+            >
+              <List size={14} aria-hidden />
+            </button>
+            <button
+              aria-label="Grid view"
+              className={viewMode === "grid" ? "is-active" : ""}
+              type="button"
+              onClick={() => setViewMode("grid")}
+            >
+              <Grid2X2 size={14} aria-hidden />
+            </button>
+          </div>
+        </div>
+
         {quickAccessItems.length > 0 ? (
           <section className="favorites-quick-section" aria-labelledby="fav-qa">
             <h2 id="fav-qa" className="favorites-section-eyebrow">
@@ -918,46 +958,6 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
             </div>
           </section>
         ) : null}
-
-        <div
-          className="favorites-toolbar"
-          aria-label="Favorites display controls"
-        >
-          <label className="favorites-filter-control">
-            <span>Type</span>
-            <select
-              value={filterType}
-              onChange={(event) =>
-                setFilterType(event.target.value as FavoriteFilterType)
-              }
-            >
-              {FILTERS.map((filter) => (
-                <option key={filter.id} value={filter.id}>
-                  {filter.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="favorites-view-toggle" aria-label="View mode">
-            <button
-              aria-label="List view"
-              className={viewMode === "list" ? "is-active" : ""}
-              type="button"
-              onClick={() => setViewMode("list")}
-            >
-              <List size={14} aria-hidden />
-            </button>
-            <button
-              aria-label="Grid view"
-              className={viewMode === "grid" ? "is-active" : ""}
-              type="button"
-              onClick={() => setViewMode("grid")}
-            >
-              <Grid2X2 size={14} aria-hidden />
-            </button>
-          </div>
-        </div>
 
         {visibleItems.length === 0 ? (
           <div className="favorites-empty-state">
