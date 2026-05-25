@@ -47,7 +47,7 @@ export default async function WorkspaceLayout({
   ]);
 
   const appVersion =
-    process.env.STAAASH_VERSION ?? process.env.APP_VERSION ?? "0.2.0-beta.2";
+    process.env.STAAASH_VERSION ?? process.env.APP_VERSION ?? "0.2.0-beta.3";
 
   const initials = session
     ? getInitials(session.user.displayName, session.user.username)

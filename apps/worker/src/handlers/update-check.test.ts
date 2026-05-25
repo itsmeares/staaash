@@ -46,7 +46,7 @@ describe("update check handler", () => {
     vi.clearAllMocks();
     mockFindUnique.mockReset();
     delete process.env.UPDATE_CHECK_TOKEN;
-    process.env.APP_VERSION = "0.2.0-beta.2";
+    process.env.APP_VERSION = "0.2.0-beta.3";
   });
 
   it("marks update checks unavailable when no repository is configured", async () => {

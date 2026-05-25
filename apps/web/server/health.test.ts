@@ -7,7 +7,7 @@ import {
 } from "@/server/health";
 
 const baseVersionInfo = {
-  currentVersion: "0.2.0-beta.2",
+  currentVersion: "0.2.0-beta.3",
   lastUpdateCheckAt: null,
   updateCheckStatus: null,
   updateCheckMessage: null,
@@ -64,7 +64,7 @@ describe("health summaries", () => {
     });
 
     expect(summary.ok).toBe(true);
-    expect(summary.version.currentVersion).toBe("0.2.0-beta.2");
+    expect(summary.version.currentVersion).toBe("0.2.0-beta.3");
     expect(summary.version.lastUpdateCheckAt).toBeNull();
   });
 
