@@ -755,6 +755,7 @@ export function FilesView({
       const start = rubberBandStart.current;
       if (!start) return;
 
+      didRubberBand.current = true;
       setRubberBand({
         startX: start.startX,
         startY: start.startY,
@@ -768,24 +769,33 @@ export function FilesView({
       const selBottom = Math.max(start.startY, currentY);
 
       const next = new Set<string>();
-      rowRefs.current.forEach((el, id) => {
-        const r = el.getBoundingClientRect();
-        const rowTop = r.top - rect.top;
-        const rowBottom = r.bottom - rect.top;
-        const rowLeft = r.left - rect.left;
-        const rowRight = r.right - rect.left;
-        if (
-          !(
-            rowRight < selLeft ||
-            rowLeft > selRight ||
-            rowBottom < selTop ||
-            rowTop > selBottom
-          )
-        ) {
-          next.add(id);
-        }
-      });
+      container
+        .querySelectorAll<HTMLElement>("[data-file-row]")
+        .forEach((el) => {
+          const id = el.dataset.fileRow;
+          if (!id) return;
+
+          const rowRect = el.getBoundingClientRect();
+          const rowTop = rowRect.top - rect.top;
+          const rowBottom = rowRect.bottom - rect.top;
+          const rowLeft = rowRect.left - rect.left;
+          const rowRight = rowRect.right - rect.left;
+
+          if (
+            !(
+              rowRight < selLeft ||
+              rowLeft > selRight ||
+              rowBottom < selTop ||
+              rowTop > selBottom
+            )
+          ) {
+            next.add(id);
+          }
+        });
       setSelectedIds(next);
+      setLastSelectedId(
+        next.size > 0 ? (Array.from(next).at(-1) ?? null) : null,
+      );
     };
 
     const onUp = () => {

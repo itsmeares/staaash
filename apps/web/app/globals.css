@@ -1504,6 +1504,7 @@ h3 {
 
 .explorer-badges {
   display: flex;
+  align-items: center;
   gap: 8px;
 }
 
@@ -2031,7 +2032,7 @@ h3 {
 
 .recent-header .section-count,
 .favorites-header .section-count {
-  transform: translateY(1px);
+  transform: none;
 }
 
 .recent-toolbar {
@@ -2556,6 +2557,7 @@ h3 {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .favorites-section-eyebrow {
@@ -2704,9 +2706,17 @@ h3 {
   background: color-mix(in oklab, var(--foreground) 10%, transparent);
 }
 
+.favorites-selection-surface {
+  position: relative;
+  min-height: calc(100vh - 120px);
+  user-select: none;
+}
+
 .favorites-list-wrap {
   display: grid;
   min-height: 0;
+  position: relative;
+  user-select: none;
 }
 
 .favorites-col-head,
@@ -2761,6 +2771,7 @@ h3 {
   padding: 0 8px 0 4px;
   border-bottom: 1px solid
     color-mix(in oklab, var(--foreground) 5%, transparent);
+  cursor: default;
   transition: background 80ms ease;
 }
 
@@ -2773,8 +2784,18 @@ h3 {
   background: color-mix(in oklab, var(--foreground) 4%, transparent);
 }
 
+.favorites-row.is-selected {
+  background: color-mix(in oklab, var(--primary) 8%, transparent);
+}
+
+.favorites-row.is-selected:hover,
+.favorites-row.is-selected:focus-within {
+  background: color-mix(in oklab, var(--primary) 10%, transparent);
+}
+
 .favorites-row-name,
 .favorites-grid-name {
+  display: block;
   min-width: 0;
   overflow: hidden;
   padding: 0;
@@ -2886,6 +2907,8 @@ h3 {
   grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
   gap: 10px;
   padding-bottom: 56px;
+  position: relative;
+  user-select: none;
 }
 
 .favorites-grid-card {
@@ -2895,6 +2918,7 @@ h3 {
   border-radius: 10px;
   background: color-mix(in oklab, var(--foreground) 3%, transparent);
   color: var(--foreground);
+  cursor: default;
   transition:
     background 100ms ease,
     border-color 100ms ease;
@@ -2904,6 +2928,11 @@ h3 {
 .favorites-grid-card:focus-within {
   border-color: color-mix(in oklab, var(--foreground) 14%, transparent);
   background: color-mix(in oklab, var(--foreground) 5%, transparent);
+}
+
+.favorites-grid-card.is-selected {
+  border-color: color-mix(in oklab, var(--primary) 32%, transparent);
+  background: color-mix(in oklab, var(--primary) 8%, transparent);
 }
 
 .favorites-grid-preview {
@@ -3740,12 +3769,18 @@ h3 {
 }
 
 .section-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
   font-size: 12px;
   font-weight: 600;
+  line-height: 1;
   color: var(--muted-foreground);
   background: color-mix(in oklab, var(--foreground) 7%, var(--card));
   border-radius: 999px;
-  padding: 2px 8px;
+  padding: 0 8px;
 }
 
 /* ---- Upload zone ---- */
@@ -4027,7 +4062,7 @@ h3 {
 
 .explorer-title-row {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 12px;
   flex-wrap: wrap;
 }
@@ -4061,22 +4096,32 @@ h3 {
 }
 
 .selection-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
   font-size: 12px;
   font-weight: 500;
+  line-height: 1;
   color: color-mix(in oklab, var(--primary) 76%, var(--foreground) 24%);
   background: color-mix(in oklab, var(--primary) 8%, var(--card));
   border-radius: 999px;
-  padding: 3px 10px;
+  padding: 0 10px;
   white-space: nowrap;
 }
 
 .cut-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
   font-size: 12px;
   font-weight: 600;
+  line-height: 1;
   color: var(--muted-foreground);
   background: color-mix(in oklab, var(--foreground) 8%, var(--card));
   border-radius: 999px;
-  padding: 3px 10px;
+  padding: 0 10px;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -4084,13 +4129,16 @@ h3 {
 .download-badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
+  height: 22px;
   font-size: 12px;
   font-weight: 600;
+  line-height: 1;
   color: var(--muted-foreground);
   background: color-mix(in oklab, var(--foreground) 8%, var(--card));
   border-radius: 999px;
-  padding: 3px 10px;
+  padding: 0 10px;
   white-space: nowrap;
   cursor: pointer;
   border: none;
@@ -5989,7 +6037,7 @@ main.share-locked-page {
 }
 
 .shared-header .section-count {
-  transform: translateY(1px);
+  transform: none;
 }
 
 .shared-new-link {

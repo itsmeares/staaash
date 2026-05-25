@@ -723,6 +723,11 @@ export function RecentView({ error, items, success }: RecentViewProps) {
         {items.length > 0 ? (
           <span className="section-count">{items.length}</span>
         ) : null}
+        {selectedItems.length > 0 ? (
+          <span className="selection-badge">
+            {selectedItems.length} selected
+          </span>
+        ) : null}
       </div>
 
       {error ? <FlashMessage>{error}</FlashMessage> : null}
