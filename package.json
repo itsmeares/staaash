@@ -27,6 +27,7 @@
     "prepare": "husky",
     "db:generate": "pnpm --filter @staaash/db db:generate",
     "db:push": "pnpm --filter @staaash/db exec prisma db push",
+    "app:clear-caches": "node scripts/clear-caches.mjs",
     "app:reset-local-data": "node scripts/reset-local-data.mjs"
   },
   "lint-staged": {
