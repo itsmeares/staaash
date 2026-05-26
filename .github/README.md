@@ -13,15 +13,15 @@ Staaash is a self-hosted file drive for people who want their files on their own
 <table>
   <tr>
     <td colspan="2">
-      <img src="./docs/assets/readme/home-dashboard-light.png" alt="Staaash files view in light mode">
+      <img src="../docs/assets/readme/home-dashboard-light.png" alt="Staaash files view in light mode">
     </td>
   </tr>
   <tr>
     <td>
-      <img src="./docs/assets/readme/files-light.png" alt="Staaash home dashboard in light mode">
+      <img src="../docs/assets/readme/files-light.png" alt="Staaash home dashboard in light mode">
     </td>
     <td>
-      <img src="./docs/assets/readme/share-page-light.png" alt="Staaash public share page in light mode">
+      <img src="../docs/assets/readme/share-page-light.png" alt="Staaash public share page in light mode">
     </td>
   </tr>
 </table>
@@ -85,12 +85,12 @@ Both paths are relative to where `docker-compose.yml` lives. Change them in `.en
 
 Back up both the database and uploaded files. In the default Docker setup, that means backing up `./postgres` and `./library` together.
 
-See [`docs/operations/backup-restore.md`](./docs/operations/backup-restore.md) for the restore checklist.
+See [`docs/operations/backup-restore.md`](../docs/operations/backup-restore.md) for the restore checklist.
 
 ## Documentation
 
-- [`docs/architecture.md`](./docs/architecture.md) - system shape, storage model, and design boundaries
-- [`docs/operations/backup-restore.md`](./docs/operations/backup-restore.md) - simple backup and restore checklist
+- [`docs/architecture.md`](../docs/architecture.md) - system shape, storage model, and design boundaries
+- [`docs/operations/backup-restore.md`](../docs/operations/backup-restore.md) - simple backup and restore checklist
 
 ## Local Development
 
