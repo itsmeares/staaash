@@ -169,4 +169,4 @@ That does not change the quality bar. Generated code or generated docs still nee
 
 ## License
 
-AGPL-3.0 — see [LICENSE](./LICENSE).
+AGPL-3.0 — see [LICENSE](../LICENSE).
