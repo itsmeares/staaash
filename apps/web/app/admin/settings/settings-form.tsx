@@ -3,9 +3,9 @@
 import { useActionState } from "react";
 
 import type { SystemSettings } from "@staaash/db/client";
-import { getSupportedTimeZones } from "@staaash/config/time-zone";
 
 import { formatAdminBytes } from "@/app/admin/admin-format";
+import { TimeZonePicker } from "@/components/time-zone-picker";
 
 import { updateSystemSettings } from "./actions";
 
@@ -15,7 +15,6 @@ type SettingsFormProps = {
 
 export function SettingsForm({ settings }: SettingsFormProps) {
   const [state, action, pending] = useActionState(updateSystemSettings, {});
-  const timeZones = getSupportedTimeZones();
 
   return (
     <form action={action}>
@@ -202,18 +201,11 @@ export function SettingsForm({ settings }: SettingsFormProps) {
             <div className="admin-setting-row">
               <dt className="admin-setting-key">Instance time zone</dt>
               <dd className="admin-setting-val">
-                <input
+                <TimeZonePicker
                   name="timeZone"
-                  type="text"
                   defaultValue={settings.timeZone}
-                  list="admin-time-zone-options"
                   className="admin-setting-input"
                 />
-                <datalist id="admin-time-zone-options">
-                  {timeZones.map((zone) => (
-                    <option key={zone} value={zone} />
-                  ))}
-                </datalist>
               </dd>
             </div>
             <div className="admin-setting-row">

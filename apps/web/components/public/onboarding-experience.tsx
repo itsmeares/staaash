@@ -7,11 +7,10 @@ import confetti from "canvas-confetti";
 import {
   DEFAULT_TIME_ZONE,
   getBrowserTimeZone,
-  getSupportedTimeZones,
-  normalizeTimeZone,
 } from "@staaash/config/time-zone";
 
 import { saveOwnerOnboardingSettings } from "@/app/admin/settings/actions";
+import { TimeZonePicker } from "@/components/time-zone-picker";
 
 type Theme = "light" | "dark" | "system";
 type OnboardingStep =
@@ -378,8 +377,6 @@ const THEME_OPTIONS: { value: Theme; label: string; desc: string }[] = [
   { value: "dark", label: "Dark", desc: "Always dark" },
 ];
 
-const TIME_ZONE_OPTIONS = getSupportedTimeZones();
-
 function ThemeStep({
   theme,
   onSelect,
@@ -484,20 +481,12 @@ function TimeZoneStep({
         <label className="onboarding-field__label" htmlFor="ob-timeZone">
           Time zone
         </label>
-        <input
+        <TimeZonePicker
           className="onboarding-field__input"
           id="ob-timeZone"
-          type="text"
-          list="ob-time-zone-options"
           value={timeZone}
-          onChange={(e) => onSelect(e.target.value)}
-          onBlur={(e) => onSelect(normalizeTimeZone(e.target.value))}
+          onChange={onSelect}
         />
-        <datalist id="ob-time-zone-options">
-          {TIME_ZONE_OPTIONS.map((zone) => (
-            <option key={zone} value={zone} />
-          ))}
-        </datalist>
         <span className="onboarding-field__help">
           Detected from this browser. You can update it later.
         </span>

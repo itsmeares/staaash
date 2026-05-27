@@ -2,10 +2,9 @@
 
 import React, { useState } from "react";
 
-import {
-  getSupportedTimeZones,
-  normalizeTimeZone,
-} from "@staaash/config/time-zone";
+import { normalizeTimeZone } from "@staaash/config/time-zone";
+
+import { TimeZonePicker } from "@/components/time-zone-picker";
 
 type Theme = "light" | "dark" | "system";
 
@@ -28,8 +27,6 @@ const THEME_OPTIONS: { value: Theme; label: string }[] = [
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
 ];
-
-const TIME_ZONE_OPTIONS = getSupportedTimeZones();
 
 export function PreferencesForm({
   initialTheme,
@@ -127,22 +124,14 @@ export function PreferencesForm({
             </div>
           </div>
           <div className="onboarding-field" style={{ maxWidth: 260 }}>
-            <input
+            <TimeZonePicker
               className="onboarding-field__input"
-              type="text"
-              list="settings-time-zone-options"
               value={timeZone}
-              onChange={(e) => {
-                setTimeZone(e.target.value);
+              onChange={(nextTimeZone) => {
+                setTimeZone(nextTimeZone);
                 setSaved(false);
               }}
-              onBlur={(e) => setTimeZone(normalizeTimeZone(e.target.value))}
             />
-            <datalist id="settings-time-zone-options">
-              {TIME_ZONE_OPTIONS.map((zone) => (
-                <option key={zone} value={zone} />
-              ))}
-            </datalist>
           </div>
         </div>
         <div className="meta-row" style={{ paddingBlock: 12 }}>
