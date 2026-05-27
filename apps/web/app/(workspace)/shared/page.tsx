@@ -108,10 +108,8 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
         {/* Empty state */}
         {allShares.length === 0 ? (
           <div className="workspace-empty-state">
-            <h2>No public links yet</h2>
-            <p className="muted">
-              Create the first link from files on a file or folder.
-            </p>
+            <h2>No shared links yet</h2>
+            <p className="muted">Create a link from any file or folder.</p>
             <Link className="pill" href="/files">
               Open files
             </Link>

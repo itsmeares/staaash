@@ -297,7 +297,7 @@ function FolderList({
 
 function SharedList({ shares }: { shares: ShareLinkSummary[] }) {
   if (shares.length === 0) {
-    return <EmptyLine>No active links</EmptyLine>;
+    return <EmptyLine>No active links yet</EmptyLine>;
   }
 
   return (

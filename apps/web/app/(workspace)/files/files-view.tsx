@@ -1217,7 +1217,7 @@ export function FilesView({
             {/* ---- Empty state ---- */}
             {mergedFileEntries.length === 0 && visibleFolders.length === 0 && (
               <div className="explorer-empty">
-                This folder is empty. Drop files here or use the Upload button.
+                No files here yet. Drop files here or use Upload.
               </div>
             )}
 

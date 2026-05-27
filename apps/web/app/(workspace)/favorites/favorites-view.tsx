@@ -971,7 +971,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
             </p>
             <span>
               {activeItems.length === 0
-                ? "Add favorites from files, search, or recent views. Pin favorites here for quick access."
+                ? "Add favorites from files, search, or recent. Pin favorites here for quick access."
                 : "Try a different type."}
             </span>
           </div>
