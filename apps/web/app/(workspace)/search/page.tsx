@@ -96,8 +96,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           <>
             <RetrievalItemList
               currentPath={currentPath}
-              emptyDescription="No private files or folders matched that query."
-              emptyTitle="No results"
+              emptyDescription="Try a different name, extension, or folder."
+              emptyTitle="No results match that search"
               items={items}
               showMatchKind
             />

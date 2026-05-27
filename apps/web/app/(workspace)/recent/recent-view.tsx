@@ -777,8 +777,16 @@ export function RecentView({ error, items, success }: RecentViewProps) {
           <span className="recent-empty-icon">
             <ItemTypeIcon size={22} visual={getItemVisual("folder", null)} />
           </span>
-          <p>No recent uploads</p>
-          <span>Files and folders you add will appear here.</span>
+          <p>
+            {items.length === 0
+              ? "No recent uploads yet"
+              : "No recent items match that filter"}
+          </p>
+          <span>
+            {items.length === 0
+              ? "Files and folders you add will appear here."
+              : "Try a different type."}
+          </span>
         </div>
       ) : viewMode === "list" ? (
         <div
