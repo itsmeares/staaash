@@ -14,6 +14,8 @@ const defaultSystemSettings = {
   workerHeartbeatMaxAgeSeconds: 120,
   updateCheckIntervalHours: 24,
   updateCheckRepository: "itsmeares/staaash",
+  timeZone: "UTC",
+  maintenanceRunTime: "02:00",
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
   updatedAt: new Date("2026-01-01T00:00:00.000Z"),
 };

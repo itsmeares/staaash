@@ -5,6 +5,7 @@ import {
   formatDateTime,
   getSingleSearchParam,
 } from "@/app/auth-ui";
+import { DEFAULT_TIME_ZONE } from "@staaash/config/time-zone";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { PreferencesForm } from "./preferences-form";
 
@@ -68,6 +69,7 @@ export default async function SettingsPage({
             initialTheme={
               (prefs?.theme as "light" | "dark" | "system") ?? "system"
             }
+            initialTimeZone={prefs?.timeZone ?? DEFAULT_TIME_ZONE}
             initialShowUpdateNotifications={
               prefs?.showUpdateNotifications ?? true
             }
@@ -84,11 +86,15 @@ export default async function SettingsPage({
             </div>
             <div className="meta-row">
               <span>Created</span>
-              <strong>{formatDateTime(session.createdAt)}</strong>
+              <strong>
+                {formatDateTime(session.createdAt, prefs?.timeZone)}
+              </strong>
             </div>
             <div className="meta-row">
               <span>Expires</span>
-              <strong>{formatDateTime(session.expiresAt)}</strong>
+              <strong>
+                {formatDateTime(session.expiresAt, prefs?.timeZone)}
+              </strong>
             </div>
           </div>
         </article>

@@ -3,13 +3,21 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { setMediaPreviewEnabled as saveMediaPreviewSetting } from "@/app/admin/settings/actions";
 import confetti from "canvas-confetti";
+import {
+  DEFAULT_TIME_ZONE,
+  getBrowserTimeZone,
+  getSupportedTimeZones,
+  normalizeTimeZone,
+} from "@staaash/config/time-zone";
+
+import { saveOwnerOnboardingSettings } from "@/app/admin/settings/actions";
 
 type Theme = "light" | "dark" | "system";
 type OnboardingStep =
   | "welcome"
   | "theme"
+  | "timezone"
   | "profile"
   | "privacy"
   | "media"
@@ -17,6 +25,7 @@ type OnboardingStep =
 
 type Prefs = {
   theme: Theme;
+  timeZone: string;
   showUpdateNotifications: boolean;
   enableVersionChecks: boolean;
   displayName: string;
@@ -26,6 +35,7 @@ type Prefs = {
 const STEP_ORDER: OnboardingStep[] = [
   "welcome",
   "theme",
+  "timezone",
   "profile",
   "privacy",
   "media",
@@ -52,6 +62,7 @@ export function OnboardingExperience({
   const [animating, setAnimating] = useState(false);
   const [prefs, setPrefs] = useState<Prefs>({
     theme: "system",
+    timeZone: DEFAULT_TIME_ZONE,
     showUpdateNotifications: true,
     enableVersionChecks: true,
     displayName: "",
@@ -95,6 +106,10 @@ export function OnboardingExperience({
     applyThemePreview(t);
   }
 
+  function setTimeZone(timeZone: string) {
+    setPrefs((p) => ({ ...p, timeZone }));
+  }
+
   async function handleComplete() {
     setPending(true);
     setError(null);
@@ -108,6 +123,7 @@ export function OnboardingExperience({
           },
           body: JSON.stringify({
             theme: prefs.theme,
+            timeZone: prefs.timeZone,
             showUpdateNotifications: prefs.showUpdateNotifications,
             enableVersionChecks: prefs.enableVersionChecks,
             displayName: prefs.displayName || null,
@@ -120,7 +136,16 @@ export function OnboardingExperience({
           }
         }),
       ];
-      if (isOwner) tasks.push(saveMediaPreviewSetting(mediaPreviewEnabled));
+      if (isOwner) {
+        tasks.push(
+          saveOwnerOnboardingSettings({
+            mediaPreviewEnabled,
+            timeZone: prefs.timeZone,
+          }).then((result) => {
+            if (result?.error) throw new Error(result.error);
+          }),
+        );
+      }
       await Promise.all(tasks);
       setStep("done");
     } catch (err) {
@@ -167,6 +192,14 @@ export function OnboardingExperience({
     return () => cancelAnimationFrame(raf);
   }, [donePhase]);
 
+  useEffect(() => {
+    setPrefs((p) =>
+      p.timeZone === DEFAULT_TIME_ZONE
+        ? { ...p, timeZone: getBrowserTimeZone() }
+        : p,
+    );
+  }, []);
+
   if (step === "done") {
     const effectiveName = instanceName ?? "Staaash";
     const isCustomName = effectiveName !== "Staaash";
@@ -206,7 +239,7 @@ export function OnboardingExperience({
     );
   }
 
-  const totalSteps = isOwner ? 4 : 2;
+  const totalSteps = isOwner ? 5 : 3;
 
   return (
     <div
@@ -217,6 +250,15 @@ export function OnboardingExperience({
         <ThemeStep
           theme={prefs.theme}
           onSelect={setTheme}
+          onContinue={advance}
+          onBack={goBack}
+          totalSteps={totalSteps}
+        />
+      )}
+      {step === "timezone" && (
+        <TimeZoneStep
+          timeZone={prefs.timeZone}
+          onSelect={setTimeZone}
           onContinue={advance}
           onBack={goBack}
           totalSteps={totalSteps}
@@ -239,7 +281,7 @@ export function OnboardingExperience({
           onBack={goBack}
           pending={!isOwner ? pending : false}
           error={!isOwner ? error : null}
-          stepIndex={2}
+          stepIndex={3}
           totalSteps={totalSteps}
           isLastStep={!isOwner}
         />
@@ -336,6 +378,8 @@ const THEME_OPTIONS: { value: Theme; label: string; desc: string }[] = [
   { value: "dark", label: "Dark", desc: "Always dark" },
 ];
 
+const TIME_ZONE_OPTIONS = getSupportedTimeZones();
+
 function ThemeStep({
   theme,
   onSelect,
@@ -387,6 +431,76 @@ function ThemeStep({
             <span className="onboarding-theme-tile__desc">{opt.desc}</span>
           </button>
         ))}
+      </div>
+
+      <button
+        className="onboarding-continue"
+        onClick={onContinue}
+        type="button"
+      >
+        Continue
+      </button>
+    </div>
+  );
+}
+
+function TimeZoneStep({
+  timeZone,
+  onSelect,
+  onContinue,
+  onBack,
+  totalSteps,
+}: {
+  timeZone: string;
+  onSelect: (timeZone: string) => void;
+  onContinue: () => void;
+  onBack: () => void;
+  totalSteps: number;
+}) {
+  return (
+    <div className="onboarding-step">
+      <div className="onboarding-step__nav">
+        <button
+          className="onboarding-back"
+          onClick={onBack}
+          type="button"
+          aria-label="Go back"
+        >
+          ← Back
+        </button>
+        <StepProgress current={2} total={totalSteps} />
+      </div>
+
+      <div className="onboarding-step__header">
+        <span className="onboarding-step__index">02</span>
+        <h2 className="onboarding-step__title">Set your time zone</h2>
+      </div>
+
+      <p className="onboarding-step__body">
+        Used for dates, activity, and schedules shown to you.
+      </p>
+
+      <div className="onboarding-field">
+        <label className="onboarding-field__label" htmlFor="ob-timeZone">
+          Time zone
+        </label>
+        <input
+          className="onboarding-field__input"
+          id="ob-timeZone"
+          type="text"
+          list="ob-time-zone-options"
+          value={timeZone}
+          onChange={(e) => onSelect(e.target.value)}
+          onBlur={(e) => onSelect(normalizeTimeZone(e.target.value))}
+        />
+        <datalist id="ob-time-zone-options">
+          {TIME_ZONE_OPTIONS.map((zone) => (
+            <option key={zone} value={zone} />
+          ))}
+        </datalist>
+        <span className="onboarding-field__help">
+          Detected from this browser. You can update it later.
+        </span>
       </div>
 
       <button
@@ -628,11 +742,11 @@ function PrivacyStep({
         >
           ← Back
         </button>
-        <StepProgress current={3} total={4} />
+        <StepProgress current={4} total={5} />
       </div>
 
       <div className="onboarding-step__header">
-        <span className="onboarding-step__index">03</span>
+        <span className="onboarding-step__index">04</span>
         <h2 className="onboarding-step__title">Privacy &amp; features</h2>
       </div>
 
@@ -707,11 +821,11 @@ function MediaStep({
         >
           ← Back
         </button>
-        <StepProgress current={4} total={4} />
+        <StepProgress current={5} total={5} />
       </div>
 
       <div className="onboarding-step__header">
-        <span className="onboarding-step__index">04</span>
+        <span className="onboarding-step__index">05</span>
         <h2 className="onboarding-step__title">Media previews</h2>
       </div>
 

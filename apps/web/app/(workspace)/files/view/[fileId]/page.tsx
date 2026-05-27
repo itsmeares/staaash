@@ -46,6 +46,7 @@ export default async function FilesFileViewerPage({
     const backHref = file.folderId ? `/files/f/${file.folderId}` : "/files";
     const contentHref = `/api/files/files/${file.id}/content`;
     const downloadHref = `/api/files/files/${file.id}/download`;
+    const userTimeZone = session.user.preferences?.timeZone;
 
     return (
       <main
@@ -62,7 +63,7 @@ export default async function FilesFileViewerPage({
             <p className="muted" style={{ marginTop: 6, fontSize: 13 }}>
               {file.mimeType}
               {" · "}
-              Updated {formatDateTime(file.updatedAt)}
+              Updated {formatDateTime(file.updatedAt, userTimeZone)}
             </p>
           </div>
           <div

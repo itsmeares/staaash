@@ -117,9 +117,13 @@ function formatStableUtcDateTime(dateStr: string): string {
   return `${date.toISOString().slice(0, 16).replace("T", " ")} UTC`;
 }
 
-function formatLocalDateTime(dateStr: string, nowMs: number | null): string {
+function formatLocalDateTime(
+  dateStr: string,
+  nowMs: number | null,
+  timeZone?: string,
+): string {
   if (nowMs === null) return formatStableUtcDateTime(dateStr);
-  return formatAdminDateTime(dateStr);
+  return formatAdminDateTime(dateStr, timeZone);
 }
 
 function formatRelativeTime(dateStr: string, nowMs: number | null): string {
@@ -150,6 +154,7 @@ function getJobDisplayStatus(
 function getJobTimingLabel(
   job: JsonBackgroundJob,
   nowMs: number | null,
+  timeZone?: string,
   displayStatus = effectiveStatus(job),
 ) {
   if (displayStatus === "queued") {
@@ -157,7 +162,7 @@ function getJobTimingLabel(
     if (nowMs !== null && runAtMs <= nowMs) {
       return `waiting ${formatRelativeTime(job.runAt, nowMs)}`;
     }
-    return `scheduled ${formatLocalDateTime(job.runAt, nowMs)}`;
+    return `scheduled ${formatLocalDateTime(job.runAt, nowMs, timeZone)}`;
   }
 
   if (displayStatus === "running") {
@@ -239,11 +244,13 @@ function JobOperationRow({
   initialLastRun,
   nowMs,
   workerRunningJobIds,
+  instanceTimeZone,
 }: {
   kind: string;
   initialLastRun: JsonBackgroundJob | null;
   nowMs: number | null;
   workerRunningJobIds: Set<string>;
+  instanceTimeZone: string;
 }) {
   const meta = JOB_META[kind];
   const [lastRun, setLastRun] = useState<JsonBackgroundJob | null>(
@@ -416,7 +423,13 @@ function JobOperationRow({
               <span className={getAdminStatusClassName(lastRunStatus ?? "")}>
                 {lastRunStatus}
               </span>{" "}
-              · {getJobTimingLabel(lastRun, nowMs, lastRunStatus ?? undefined)}
+              ·{" "}
+              {getJobTimingLabel(
+                lastRun,
+                nowMs,
+                instanceTimeZone,
+                lastRunStatus ?? undefined,
+              )}
               {activeJobState.activeCount > 1 && (
                 <>
                   {" "}
@@ -506,7 +519,12 @@ function JobOperationRow({
                         {displayStatus}
                       </span>
                       <span>
-                        {getJobTimingLabel(job, nowMs, displayStatus)}
+                        {getJobTimingLabel(
+                          job,
+                          nowMs,
+                          instanceTimeZone,
+                          displayStatus,
+                        )}
                       </span>
                     </button>
                   );
@@ -522,6 +540,7 @@ function JobOperationRow({
                           {getJobTimingLabel(
                             selectedHistoryJob,
                             nowMs,
+                            instanceTimeZone,
                             getJobDisplayStatus(
                               selectedHistoryJob,
                               workerRunningJobIds,
@@ -590,7 +609,11 @@ function JobOperationRow({
                           <div className="admin-job-event-row" key={event.id}>
                             <span className="status-chip">{event.type}</span>
                             <span className="muted">
-                              {formatLocalDateTime(event.createdAt, nowMs)}
+                              {formatLocalDateTime(
+                                event.createdAt,
+                                nowMs,
+                                instanceTimeZone,
+                              )}
                             </span>
                             <span className="muted">
                               {event.message ?? event.workerId ?? ""}
@@ -625,12 +648,14 @@ type Props = {
   initialLastRuns: Record<string, JsonBackgroundJob | null>;
   initialSummary: JsonJobSummary;
   jobKinds: string[];
+  instanceTimeZone: string;
 };
 
 export function JobOperations({
   initialLastRuns,
   initialSummary,
   jobKinds,
+  instanceTimeZone,
 }: Props) {
   const [summary, setSummary] = useState(initialSummary);
   const [nowMs, setNowMs] = useState<number | null>(null);
@@ -699,10 +724,19 @@ export function JobOperations({
           <dd className="admin-kv-sub">
             next{" "}
             {summary.nextQueuedRunAt
-              ? formatLocalDateTime(summary.nextQueuedRunAt, nowMs)
+              ? formatLocalDateTime(
+                  summary.nextQueuedRunAt,
+                  nowMs,
+                  instanceTimeZone,
+                )
               : "none"}{" "}
             · {summary.staleRunning} stale running
           </dd>
+        </div>
+        <div className="admin-kv-item">
+          <dt className="admin-kv-label">Time zone</dt>
+          <dd className="admin-kv-value">{instanceTimeZone}</dd>
+          <dd className="admin-kv-sub">maintenance schedule</dd>
         </div>
       </dl>
 
@@ -759,6 +793,7 @@ export function JobOperations({
             kind={kind}
             nowMs={nowMs}
             workerRunningJobIds={workerRunningJobIds}
+            instanceTimeZone={instanceTimeZone}
           />
         ))}
       </div>

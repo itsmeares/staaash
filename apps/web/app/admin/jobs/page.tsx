@@ -1,14 +1,18 @@
 import { ALL_SUPPORTED_JOB_KINDS } from "@staaash/db/jobs";
 
 import { getAdminJobSummary, getLastRunPerKind } from "@/server/admin/jobs";
+import { getSystemSettings } from "@/server/settings";
 
 import { type JsonBackgroundJob, JobOperations } from "./job-operations";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminJobsPage() {
-  const lastRunPerKind = await getLastRunPerKind();
-  const queueSummary = await getAdminJobSummary();
+  const [lastRunPerKind, queueSummary, settings] = await Promise.all([
+    getLastRunPerKind(),
+    getAdminJobSummary(),
+    getSystemSettings(),
+  ]);
 
   const initialLastRuns: Record<string, JsonBackgroundJob | null> =
     Object.fromEntries(
@@ -63,6 +67,7 @@ export default async function AdminJobsPage() {
             })),
           }}
           jobKinds={[...ALL_SUPPORTED_JOB_KINDS]}
+          instanceTimeZone={settings.timeZone}
         />
       </section>
     </main>

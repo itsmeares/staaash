@@ -585,6 +585,7 @@ export const createAuthService = ({
       userId: string,
       prefs: {
         theme: string;
+        timeZone: string;
         showUpdateNotifications: boolean;
         enableVersionChecks: boolean;
         displayName?: string | null;
@@ -594,6 +595,7 @@ export const createAuthService = ({
       return (await resolveRepo()).savePreferences({
         userId,
         theme: prefs.theme,
+        timeZone: prefs.timeZone,
         showUpdateNotifications: prefs.showUpdateNotifications,
         enableVersionChecks: prefs.enableVersionChecks,
         displayName: prefs.displayName,

@@ -8,11 +8,17 @@ import {
 } from "@/server/auth/session";
 import { authService } from "@/server/auth/service";
 import { isSameOrigin, jsonErrorResponse } from "@/server/auth/http";
+import { DEFAULT_TIME_ZONE, isValidTimeZone } from "@staaash/config/time-zone";
 
 const preferencesSchema = z.object({
-  theme: z.enum(["light", "dark", "system"]).default("system"),
-  showUpdateNotifications: z.boolean().default(true),
-  enableVersionChecks: z.boolean().default(true),
+  theme: z.enum(["light", "dark", "system"]).optional(),
+  timeZone: z
+    .string()
+    .trim()
+    .refine(isValidTimeZone, "Invalid time zone.")
+    .optional(),
+  showUpdateNotifications: z.boolean().optional(),
+  enableVersionChecks: z.boolean().optional(),
   displayName: z.string().trim().max(80).nullable().optional(),
   avatarUrl: z.string().max(300000).nullable().optional(),
 });
@@ -36,18 +42,29 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const parsed = preferencesSchema.parse(body);
+    const existingPrefs = session.user.preferences;
+    const theme = parsed.theme ?? existingPrefs?.theme ?? "system";
+    const timeZone =
+      parsed.timeZone ?? existingPrefs?.timeZone ?? DEFAULT_TIME_ZONE;
 
     await authService.savePreferences(session.user.id, {
-      theme: parsed.theme,
-      showUpdateNotifications: parsed.showUpdateNotifications,
-      enableVersionChecks: parsed.enableVersionChecks,
+      theme,
+      timeZone,
+      showUpdateNotifications:
+        parsed.showUpdateNotifications ??
+        existingPrefs?.showUpdateNotifications ??
+        true,
+      enableVersionChecks:
+        parsed.enableVersionChecks ??
+        existingPrefs?.enableVersionChecks ??
+        true,
       displayName: parsed.displayName,
       avatarUrl: parsed.avatarUrl,
     });
 
     const response = NextResponse.json({ ok: true });
     response.cookies.set(buildOnboardedCookie());
-    response.cookies.set(buildThemeCookie(parsed.theme));
+    response.cookies.set(buildThemeCookie(theme));
     return response;
   } catch (error) {
     return jsonErrorResponse(error);

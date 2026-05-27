@@ -1,0 +1,6 @@
+ALTER TABLE "SystemSettings"
+  ADD COLUMN "timeZone" TEXT NOT NULL DEFAULT 'UTC',
+  ADD COLUMN "maintenanceRunTime" TEXT NOT NULL DEFAULT '02:00';
+
+ALTER TABLE "UserPreference"
+  ADD COLUMN "timeZone" TEXT NOT NULL DEFAULT 'UTC';

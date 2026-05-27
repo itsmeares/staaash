@@ -217,10 +217,10 @@ const seedE2EData = async ({ filesRoot, authSecret, databaseUrl }) => {
     );
 
     await client.query(
-      `INSERT INTO "UserPreference" ("id", "userId", "onboardingCompletedAt", "createdAt", "updatedAt")
+      `INSERT INTO "UserPreference" ("id", "userId", "timeZone", "onboardingCompletedAt", "createdAt", "updatedAt")
        VALUES
-       ($1, $2, NOW(), NOW(), NOW()),
-       ($3, $4, NOW(), NOW(), NOW())`,
+       ($1, $2, 'UTC', NOW(), NOW(), NOW()),
+       ($3, $4, 'UTC', NOW(), NOW(), NOW())`,
       ["e2e-owner-preferences", OWNER_ID, "e2e-member-preferences", MEMBER_ID],
     );
 

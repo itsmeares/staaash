@@ -355,6 +355,7 @@ const createMemoryRepository = (): AuthRepository => {
     async savePreferences(params) {
       return {
         theme: params.theme,
+        timeZone: params.timeZone,
         showUpdateNotifications: params.showUpdateNotifications,
         enableVersionChecks: params.enableVersionChecks,
         onboardingCompletedAt: params.onboardingCompletedAt ?? new Date(),

@@ -2,10 +2,16 @@
 
 import React, { useState } from "react";
 
+import {
+  getSupportedTimeZones,
+  normalizeTimeZone,
+} from "@staaash/config/time-zone";
+
 type Theme = "light" | "dark" | "system";
 
 type PreferencesFormProps = {
   initialTheme: Theme;
+  initialTimeZone: string;
   initialShowUpdateNotifications: boolean;
   initialEnableVersionChecks: boolean;
 };
@@ -23,12 +29,16 @@ const THEME_OPTIONS: { value: Theme; label: string }[] = [
   { value: "dark", label: "Dark" },
 ];
 
+const TIME_ZONE_OPTIONS = getSupportedTimeZones();
+
 export function PreferencesForm({
   initialTheme,
+  initialTimeZone,
   initialShowUpdateNotifications,
   initialEnableVersionChecks,
 }: PreferencesFormProps) {
   const [theme, setTheme] = useState<Theme>(initialTheme);
+  const [timeZone, setTimeZone] = useState(initialTimeZone);
   const [showUpdateNotifications, setShowUpdateNotifications] = useState(
     initialShowUpdateNotifications,
   );
@@ -55,6 +65,7 @@ export function PreferencesForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           theme,
+          timeZone: normalizeTimeZone(timeZone),
           showUpdateNotifications,
           enableVersionChecks,
         }),
@@ -103,6 +114,37 @@ export function PreferencesForm({
       </div>
 
       <div className="meta-list" style={{ marginTop: 8 }}>
+        <div className="meta-row" style={{ paddingBlock: 12 }}>
+          <div>
+            <div style={{ fontWeight: 500, fontSize: "0.875rem" }}>
+              Time zone
+            </div>
+            <div
+              className="muted"
+              style={{ fontSize: "0.78rem", marginTop: 2 }}
+            >
+              Used for dates and schedules shown to you.
+            </div>
+          </div>
+          <div className="onboarding-field" style={{ maxWidth: 260 }}>
+            <input
+              className="onboarding-field__input"
+              type="text"
+              list="settings-time-zone-options"
+              value={timeZone}
+              onChange={(e) => {
+                setTimeZone(e.target.value);
+                setSaved(false);
+              }}
+              onBlur={(e) => setTimeZone(normalizeTimeZone(e.target.value))}
+            />
+            <datalist id="settings-time-zone-options">
+              {TIME_ZONE_OPTIONS.map((zone) => (
+                <option key={zone} value={zone} />
+              ))}
+            </datalist>
+          </div>
+        </div>
         <div className="meta-row" style={{ paddingBlock: 12 }}>
           <div>
             <div style={{ fontWeight: 500, fontSize: "0.875rem" }}>

@@ -86,6 +86,7 @@ type StoredPasswordResetLookup = {
 type SavePreferencesParams = {
   userId: string;
   theme: string;
+  timeZone: string;
   showUpdateNotifications: boolean;
   enableVersionChecks: boolean;
   onboardingCompletedAt?: Date;
@@ -166,6 +167,7 @@ const toAuthUser = (
   preferences: user.preferences
     ? {
         theme: user.preferences.theme,
+        timeZone: user.preferences.timeZone,
         showUpdateNotifications: user.preferences.showUpdateNotifications,
         enableVersionChecks: user.preferences.enableVersionChecks,
         onboardingCompletedAt: user.preferences.onboardingCompletedAt,
@@ -686,12 +688,14 @@ export const createPrismaAuthRepository = (
         create: {
           userId: params.userId,
           theme: params.theme,
+          timeZone: params.timeZone,
           showUpdateNotifications: params.showUpdateNotifications,
           enableVersionChecks: params.enableVersionChecks,
           onboardingCompletedAt: params.onboardingCompletedAt ?? new Date(),
         },
         update: {
           theme: params.theme,
+          timeZone: params.timeZone,
           showUpdateNotifications: params.showUpdateNotifications,
           enableVersionChecks: params.enableVersionChecks,
           ...(params.onboardingCompletedAt !== undefined
@@ -701,6 +705,7 @@ export const createPrismaAuthRepository = (
       });
       return {
         theme: pref.theme,
+        timeZone: pref.timeZone,
         showUpdateNotifications: pref.showUpdateNotifications,
         enableVersionChecks: pref.enableVersionChecks,
         onboardingCompletedAt: pref.onboardingCompletedAt,

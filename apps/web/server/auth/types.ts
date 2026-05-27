@@ -2,6 +2,7 @@ import type { UserRole } from "@staaash/db/client";
 
 export type UserPreferences = {
   theme: string;
+  timeZone: string;
   showUpdateNotifications: boolean;
   enableVersionChecks: boolean;
   onboardingCompletedAt: Date | null;
