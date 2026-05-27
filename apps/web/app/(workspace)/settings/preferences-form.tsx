@@ -123,7 +123,10 @@ export function PreferencesForm({
               Used for dates and schedules shown to you.
             </div>
           </div>
-          <div className="onboarding-field" style={{ maxWidth: 260 }}>
+          <div
+            className="onboarding-field"
+            style={{ width: "min(360px, 100%)" }}
+          >
             <TimeZonePicker
               className="onboarding-field__input"
               value={timeZone}

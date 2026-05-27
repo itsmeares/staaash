@@ -18,7 +18,17 @@ type TimeZonePickerProps = {
   onChange?: (value: string) => void;
 };
 
-const SUPPORTED_TIME_ZONES = getSupportedTimeZones();
+type TimeZoneOption = {
+  zone: string;
+  label: string;
+  offsetLabel: string;
+  offsetMinutes: number;
+  searchLabel: string;
+};
+
+const SELECTABLE_TIME_ZONES = getSupportedTimeZones().filter(
+  (zone) => zone === DEFAULT_TIME_ZONE || !zone.startsWith("Etc/"),
+);
 const TIME_ZONE_PICKER_CSS = `
 .time-zone-picker {
   --time-zone-picker-panel-bg: oklch(99% 0.004 78);
@@ -33,6 +43,14 @@ const TIME_ZONE_PICKER_CSS = `
   --time-zone-picker-panel-bg: oklch(16% 0.01 72);
   --time-zone-picker-field-bg: oklch(20% 0.01 72);
   --time-zone-picker-option-bg: oklch(23% 0.012 72);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) .time-zone-picker {
+    --time-zone-picker-panel-bg: oklch(16% 0.01 72);
+    --time-zone-picker-field-bg: oklch(20% 0.01 72);
+    --time-zone-picker-option-bg: oklch(23% 0.012 72);
+  }
 }
 
 .time-zone-picker__trigger {
@@ -60,10 +78,25 @@ const TIME_ZONE_PICKER_CSS = `
 }
 
 .time-zone-picker__value {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
   min-width: 0;
+  width: 100%;
+}
+
+.time-zone-picker__zone {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.time-zone-picker__offset {
+  color: var(--muted-foreground);
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .time-zone-picker__chevron {
@@ -144,17 +177,10 @@ const TIME_ZONE_PICKER_CSS = `
   font: inherit;
   font-size: 0.86rem;
   gap: 8px;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   min-height: 34px;
   padding: 0 8px;
   text-align: left;
-}
-
-.time-zone-picker__option span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .time-zone-picker__option:hover,
@@ -182,6 +208,71 @@ function formatZone(zone: string) {
   return zone.replaceAll("_", " ");
 }
 
+function normalizeOffsetLabel(label: string) {
+  const offset = label.replace(/^GMT/i, "");
+  if (!offset) return "UTC+0";
+
+  const match = offset.match(/^([+-])(\d{1,2})(?::([0-5]\d))?$/);
+  if (!match) return label.replace(/^GMT/i, "UTC");
+
+  const [, sign, rawHour, rawMinute] = match;
+  const hour = Number(rawHour);
+  const minute = rawMinute ? Number(rawMinute) : 0;
+  return minute === 0 ? `UTC${sign}${hour}` : `UTC${sign}${hour}:${rawMinute}`;
+}
+
+function offsetMinutesFromLabel(label: string) {
+  const match = label.match(/^UTC([+-])(\d{1,2})(?::([0-5]\d))?$/);
+  if (!match) return 0;
+
+  const [, sign, rawHour, rawMinute] = match;
+  const minutes = Number(rawHour) * 60 + Number(rawMinute ?? 0);
+  return sign === "-" ? -minutes : minutes;
+}
+
+function getTimeZoneOffsetLabel(zone: string, date: Date) {
+  if (zone === DEFAULT_TIME_ZONE) return "UTC+0";
+
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: zone,
+      timeZoneName: "shortOffset",
+    }).formatToParts(date);
+    const timeZoneName = parts.find((part) => part.type === "timeZoneName");
+    return normalizeOffsetLabel(timeZoneName?.value ?? "GMT");
+  } catch {
+    return "UTC+0";
+  }
+}
+
+function buildTimeZoneOption(zone: string, date: Date): TimeZoneOption {
+  const offsetLabel = getTimeZoneOffsetLabel(zone, date);
+  return {
+    zone,
+    label: formatZone(zone),
+    offsetLabel,
+    offsetMinutes: offsetMinutesFromLabel(offsetLabel),
+    searchLabel: formatZone(zone).toLowerCase(),
+  };
+}
+
+function parseOffsetQuery(query: string) {
+  const normalizedQuery = query.trim().toUpperCase().replace(/\s+/g, "");
+  const match = normalizedQuery.match(
+    /^(?:UTC|GMT)?([+-])(\d{1,2})(?::([0-5]\d))?$/,
+  );
+  if (!match) return null;
+
+  const [, sign, rawHour, rawMinute] = match;
+  const hour = Number(rawHour);
+  if (hour > 14) return null;
+
+  const minutes = hour * 60 + Number(rawMinute ?? 0);
+  return sign === "-" ? -minutes : minutes;
+}
+
 export function TimeZonePicker({
   id,
   name,
@@ -205,25 +296,41 @@ export function TimeZonePicker({
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const offsetReferenceDate = useMemo(() => new Date(), []);
 
   const options = useMemo(() => {
-    return SUPPORTED_TIME_ZONES.includes(selectedValue)
-      ? SUPPORTED_TIME_ZONES
-      : [selectedValue, ...SUPPORTED_TIME_ZONES];
+    return SELECTABLE_TIME_ZONES.includes(selectedValue)
+      ? SELECTABLE_TIME_ZONES
+      : [selectedValue, ...SELECTABLE_TIME_ZONES];
   }, [selectedValue]);
+
+  const optionData = useMemo(
+    () => options.map((zone) => buildTimeZoneOption(zone, offsetReferenceDate)),
+    [offsetReferenceDate, options],
+  );
+  const selectedOption = optionData.find(
+    (option) => option.zone === selectedValue,
+  );
 
   const filteredOptions = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    if (!normalizedQuery) return options;
-    return options.filter((zone) => {
-      const zoneText = zone.toLowerCase();
-      const labelText = formatZone(zone).toLowerCase();
+    if (!normalizedQuery) return optionData;
+
+    const offsetQuery = parseOffsetQuery(query);
+    if (offsetQuery !== null) {
+      return optionData.filter(
+        (option) => option.offsetMinutes === offsetQuery,
+      );
+    }
+
+    return optionData.filter((option) => {
+      const zoneText = option.zone.toLowerCase();
       return (
         zoneText.includes(normalizedQuery) ||
-        labelText.includes(normalizedQuery)
+        option.searchLabel.includes(normalizedQuery)
       );
     });
-  }, [options, query]);
+  }, [optionData, query]);
 
   useEffect(() => {
     if (isControlled) return;
@@ -245,11 +352,13 @@ export function TimeZonePicker({
 
   useEffect(() => {
     if (!open) return;
-    const selectedIndex = options.indexOf(selectedValue);
+    const selectedIndex = optionData.findIndex(
+      (option) => option.zone === selectedValue,
+    );
     setHighlightedIndex(selectedIndex >= 0 ? selectedIndex : 0);
     const frame = requestAnimationFrame(() => searchRef.current?.focus());
     return () => cancelAnimationFrame(frame);
-  }, [open, options, selectedValue]);
+  }, [open, optionData, selectedValue]);
 
   useEffect(() => {
     setHighlightedIndex((index) =>
@@ -310,7 +419,7 @@ export function TimeZonePicker({
     if (event.key === "Enter") {
       event.preventDefault();
       const highlightedOption = filteredOptions[highlightedIndex];
-      if (highlightedOption) choose(highlightedOption);
+      if (highlightedOption) choose(highlightedOption.zone);
     }
   }
 
@@ -333,7 +442,12 @@ export function TimeZonePicker({
         ref={triggerRef}
         type="button"
       >
-        <span className="time-zone-picker__value">{selectedValue}</span>
+        <span className="time-zone-picker__value">
+          <span className="time-zone-picker__zone">{selectedValue}</span>
+          <span className="time-zone-picker__offset">
+            {selectedOption?.offsetLabel}
+          </span>
+        </span>
         <ChevronDownIcon
           aria-hidden="true"
           className="time-zone-picker__chevron"
@@ -358,6 +472,7 @@ export function TimeZonePicker({
               }}
               onKeyDown={handleSearchKeyDown}
               placeholder="Search time zones"
+              title="Search by city or UTC offset, for example UTC+1"
               ref={searchRef}
               type="search"
               value={query}
@@ -371,21 +486,26 @@ export function TimeZonePicker({
             tabIndex={-1}
           >
             {filteredOptions.length ? (
-              filteredOptions.map((zone, index) => {
-                const selected = zone === selectedValue;
+              filteredOptions.map((option, index) => {
+                const selected = option.zone === selectedValue;
                 const highlighted = index === highlightedIndex;
                 return (
                   <button
                     aria-selected={selected}
                     className={`time-zone-picker__option${selected ? " is-selected" : ""}${highlighted ? " is-highlighted" : ""}`}
                     data-time-zone-index={index}
-                    key={zone}
-                    onClick={() => choose(zone)}
+                    key={option.zone}
+                    onClick={() => choose(option.zone)}
                     onMouseEnter={() => setHighlightedIndex(index)}
                     role="option"
                     type="button"
                   >
-                    <span>{zone}</span>
+                    <span className="time-zone-picker__zone">
+                      {option.zone}
+                    </span>
+                    <span className="time-zone-picker__offset">
+                      {option.offsetLabel}
+                    </span>
                     {selected ? (
                       <CheckIcon
                         aria-hidden="true"
