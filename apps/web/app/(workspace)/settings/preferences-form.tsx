@@ -2,10 +2,15 @@
 
 import React, { useState } from "react";
 
+import { normalizeTimeZone } from "@staaash/config/time-zone";
+
+import { TimeZonePicker } from "@/components/time-zone-picker";
+
 type Theme = "light" | "dark" | "system";
 
 type PreferencesFormProps = {
   initialTheme: Theme;
+  initialTimeZone: string;
   initialShowUpdateNotifications: boolean;
   initialEnableVersionChecks: boolean;
 };
@@ -25,10 +30,12 @@ const THEME_OPTIONS: { value: Theme; label: string }[] = [
 
 export function PreferencesForm({
   initialTheme,
+  initialTimeZone,
   initialShowUpdateNotifications,
   initialEnableVersionChecks,
 }: PreferencesFormProps) {
   const [theme, setTheme] = useState<Theme>(initialTheme);
+  const [timeZone, setTimeZone] = useState(initialTimeZone);
   const [showUpdateNotifications, setShowUpdateNotifications] = useState(
     initialShowUpdateNotifications,
   );
@@ -55,6 +62,7 @@ export function PreferencesForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           theme,
+          timeZone: normalizeTimeZone(timeZone),
           showUpdateNotifications,
           enableVersionChecks,
         }),
@@ -103,6 +111,32 @@ export function PreferencesForm({
       </div>
 
       <div className="meta-list" style={{ marginTop: 8 }}>
+        <div className="meta-row" style={{ paddingBlock: 12 }}>
+          <div>
+            <div style={{ fontWeight: 500, fontSize: "0.875rem" }}>
+              Time zone
+            </div>
+            <div
+              className="muted"
+              style={{ fontSize: "0.78rem", marginTop: 2 }}
+            >
+              Used for dates and schedules shown to you.
+            </div>
+          </div>
+          <div
+            className="onboarding-field"
+            style={{ width: "min(360px, 100%)" }}
+          >
+            <TimeZonePicker
+              className="onboarding-field__input"
+              value={timeZone}
+              onChange={(nextTimeZone) => {
+                setTimeZone(nextTimeZone);
+                setSaved(false);
+              }}
+            />
+          </div>
+        </div>
         <div className="meta-row" style={{ paddingBlock: 12 }}>
           <div>
             <div style={{ fontWeight: 500, fontSize: "0.875rem" }}>

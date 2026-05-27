@@ -1,6 +1,10 @@
 import { z } from "zod";
 
 import {
+  DEFAULT_MAINTENANCE_RUN_TIME,
+  DEFAULT_TIME_ZONE,
+} from "@staaash/config/time-zone";
+import {
   MEDIA_DERIVATIVE_CLEANUP_JOB_KIND,
   MEDIA_DERIVATIVE_GENERATE_JOB_KIND,
   RESTORE_RECONCILE_JOB_KIND,
@@ -26,6 +30,7 @@ import { handleZipArchiveGenerate } from "./handlers/zip-archive.js";
 import { handleZipArchiveCleanup } from "./handlers/zip-archive-cleanup.js";
 import type { JobContext } from "./job-context.js";
 import { TerminalJobError } from "./job-context.js";
+import { nextDailyRunAtUtc, nextDailyWindowEndUtc } from "./scheduling.js";
 
 export type JobHandlerResult = {
   cancelled?: boolean;
@@ -38,6 +43,7 @@ export type JobRegistryEntry = {
   cancellable: boolean;
   scheduleEveryMs?: number | (() => Promise<number>);
   scheduleWindowMs?: number | (() => Promise<number>);
+  scheduleDaily?: boolean;
   parsePayload: (payloadJson: unknown) => Record<string, unknown>;
   run: (
     job: BackgroundJobRecord,
@@ -69,10 +75,7 @@ const parseWith =
     return parsed.data;
   };
 
-const TRASH_RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
-const MEDIA_DERIVATIVE_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
-const ZIP_ARCHIVE_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 const getUpdateCheckIntervalMs = async (): Promise<number> => {
   try {
@@ -84,6 +87,26 @@ const getUpdateCheckIntervalMs = async (): Promise<number> => {
     return (settings?.updateCheckIntervalHours ?? 24) * 60 * 60 * 1000;
   } catch {
     return DEFAULT_UPDATE_CHECK_INTERVAL_MS;
+  }
+};
+
+const getSchedulingSettings = async () => {
+  try {
+    const { getPrisma } = await import("@staaash/db/client");
+    const db = getPrisma();
+    const settings = await db.systemSettings.findUnique({
+      where: { id: "singleton" },
+    });
+    return {
+      timeZone: settings?.timeZone ?? DEFAULT_TIME_ZONE,
+      maintenanceRunTime:
+        settings?.maintenanceRunTime ?? DEFAULT_MAINTENANCE_RUN_TIME,
+    };
+  } catch {
+    return {
+      timeZone: DEFAULT_TIME_ZONE,
+      maintenanceRunTime: DEFAULT_MAINTENANCE_RUN_TIME,
+    };
   }
 };
 
@@ -106,8 +129,7 @@ export const JOB_REGISTRY: Record<
     maxAttempts: 5,
     timeoutMs: 60 * 60 * 1000,
     cancellable: false,
-    scheduleEveryMs: TRASH_RETENTION_INTERVAL_MS,
-    scheduleWindowMs: TRASH_RETENTION_INTERVAL_MS,
+    scheduleDaily: true,
     parsePayload: parseWith(emptyPayloadSchema),
     run: async (job) => handleTrashRetention(job),
   },
@@ -149,8 +171,7 @@ export const JOB_REGISTRY: Record<
     maxAttempts: 5,
     timeoutMs: 60 * 60 * 1000,
     cancellable: false,
-    scheduleEveryMs: MEDIA_DERIVATIVE_CLEANUP_INTERVAL_MS,
-    scheduleWindowMs: MEDIA_DERIVATIVE_CLEANUP_INTERVAL_MS,
+    scheduleDaily: true,
     parsePayload: parseWith(emptyPayloadSchema),
     run: handleMediaDerivativeCleanup,
   },
@@ -167,8 +188,7 @@ export const JOB_REGISTRY: Record<
     maxAttempts: 5,
     timeoutMs: 60 * 60 * 1000,
     cancellable: false,
-    scheduleEveryMs: ZIP_ARCHIVE_CLEANUP_INTERVAL_MS,
-    scheduleWindowMs: ZIP_ARCHIVE_CLEANUP_INTERVAL_MS,
+    scheduleDaily: true,
     parsePayload: parseWith(emptyPayloadSchema),
     run: handleZipArchiveCleanup,
   },
@@ -180,27 +200,56 @@ export const getJobRegistryEntry = (kind: string) =>
 const resolveMaybeAsyncMs = async (value: number | (() => Promise<number>)) =>
   typeof value === "number" ? value : value();
 
+const resolveSchedule = async (
+  entry: JobRegistryEntry,
+  now: Date,
+  runMissingImmediately: boolean,
+) => {
+  if (entry.scheduleDaily) {
+    const { timeZone, maintenanceRunTime } = await getSchedulingSettings();
+    const runAt = runMissingImmediately
+      ? now
+      : nextDailyRunAtUtc({ timeZone, localTime: maintenanceRunTime, now });
+    return {
+      runAt,
+      windowEnd: nextDailyWindowEndUtc({
+        timeZone,
+        localTime: maintenanceRunTime,
+        runAt,
+      }),
+    };
+  }
+
+  if (!entry.scheduleEveryMs) return null;
+
+  const intervalMs = await resolveMaybeAsyncMs(entry.scheduleEveryMs);
+  const windowMs = entry.scheduleWindowMs
+    ? await resolveMaybeAsyncMs(entry.scheduleWindowMs)
+    : intervalMs;
+  const runAt = runMissingImmediately
+    ? now
+    : new Date(now.getTime() + intervalMs);
+
+  return {
+    runAt,
+    windowEnd: new Date(runAt.getTime() + windowMs),
+  };
+};
+
 export const schedulePeriodicJobs = async (
   now = new Date(),
   { runMissingImmediately = false }: { runMissingImmediately?: boolean } = {},
 ) => {
   for (const entry of Object.values(JOB_REGISTRY)) {
-    if (!entry.scheduleEveryMs) continue;
-
-    const intervalMs = await resolveMaybeAsyncMs(entry.scheduleEveryMs);
-    const windowMs = entry.scheduleWindowMs
-      ? await resolveMaybeAsyncMs(entry.scheduleWindowMs)
-      : intervalMs;
-    const runAt = runMissingImmediately
-      ? now
-      : new Date(now.getTime() + intervalMs);
+    const schedule = await resolveSchedule(entry, now, runMissingImmediately);
+    if (!schedule) continue;
 
     await ensureBackgroundJobScheduled({
       kind: entry.kind,
-      runAt,
+      runAt: schedule.runAt,
       payloadJson: {},
       maxAttempts: entry.maxAttempts,
-      windowEnd: new Date(runAt.getTime() + windowMs),
+      windowEnd: schedule.windowEnd,
       now,
     });
   }
@@ -211,20 +260,15 @@ export const scheduleNextPeriodicRun = async (
   now = new Date(),
 ) => {
   const entry = JOB_REGISTRY[kind];
-  if (!entry.scheduleEveryMs) return;
-
-  const intervalMs = await resolveMaybeAsyncMs(entry.scheduleEveryMs);
-  const windowMs = entry.scheduleWindowMs
-    ? await resolveMaybeAsyncMs(entry.scheduleWindowMs)
-    : intervalMs;
-  const runAt = new Date(now.getTime() + intervalMs);
+  const schedule = await resolveSchedule(entry, now, false);
+  if (!schedule) return;
 
   await ensureBackgroundJobScheduled({
     kind,
-    runAt,
+    runAt: schedule.runAt,
     payloadJson: {},
     maxAttempts: entry.maxAttempts,
-    windowEnd: new Date(runAt.getTime() + windowMs),
+    windowEnd: schedule.windowEnd,
     now,
   });
 };

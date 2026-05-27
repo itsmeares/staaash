@@ -68,6 +68,7 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
   const buildHref = buildPageHref("/trash");
+  const userTimeZone = session.user.preferences?.timeZone;
 
   if (totalPages > 0 && page > totalPages) redirect(buildHref(1));
 
@@ -145,6 +146,7 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
                                 {formatDateTime(
                                   item.folder.deletedAt ??
                                     item.folder.updatedAt,
+                                  userTimeZone,
                                 )}
                               </p>
                             </div>
@@ -216,6 +218,7 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
                                 Deleted{" "}
                                 {formatDateTime(
                                   item.file.deletedAt ?? item.file.updatedAt,
+                                  userTimeZone,
                                 )}
                               </p>
                             </div>

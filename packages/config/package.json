@@ -14,6 +14,10 @@
     "./runtime-paths": {
       "types": "./dist/runtime-paths.d.ts",
       "default": "./dist/runtime-paths.js"
+    },
+    "./time-zone": {
+      "types": "./dist/time-zone.d.ts",
+      "default": "./dist/time-zone.js"
     }
   },
   "types": "./dist/index.d.ts",

@@ -28,6 +28,7 @@ export type UserPreferenceMinAggregateOutputType = {
   id: string | null
   userId: string | null
   theme: string | null
+  timeZone: string | null
   showUpdateNotifications: boolean | null
   enableVersionChecks: boolean | null
   onboardingCompletedAt: Date | null
@@ -39,6 +40,7 @@ export type UserPreferenceMaxAggregateOutputType = {
   id: string | null
   userId: string | null
   theme: string | null
+  timeZone: string | null
   showUpdateNotifications: boolean | null
   enableVersionChecks: boolean | null
   onboardingCompletedAt: Date | null
@@ -50,6 +52,7 @@ export type UserPreferenceCountAggregateOutputType = {
   id: number
   userId: number
   theme: number
+  timeZone: number
   showUpdateNotifications: number
   enableVersionChecks: number
   onboardingCompletedAt: number
@@ -63,6 +66,7 @@ export type UserPreferenceMinAggregateInputType = {
   id?: true
   userId?: true
   theme?: true
+  timeZone?: true
   showUpdateNotifications?: true
   enableVersionChecks?: true
   onboardingCompletedAt?: true
@@ -74,6 +78,7 @@ export type UserPreferenceMaxAggregateInputType = {
   id?: true
   userId?: true
   theme?: true
+  timeZone?: true
   showUpdateNotifications?: true
   enableVersionChecks?: true
   onboardingCompletedAt?: true
@@ -85,6 +90,7 @@ export type UserPreferenceCountAggregateInputType = {
   id?: true
   userId?: true
   theme?: true
+  timeZone?: true
   showUpdateNotifications?: true
   enableVersionChecks?: true
   onboardingCompletedAt?: true
@@ -169,6 +175,7 @@ export type UserPreferenceGroupByOutputType = {
   id: string
   userId: string
   theme: string
+  timeZone: string
   showUpdateNotifications: boolean
   enableVersionChecks: boolean
   onboardingCompletedAt: Date | null
@@ -201,6 +208,7 @@ export type UserPreferenceWhereInput = {
   id?: Prisma.StringFilter<"UserPreference"> | string
   userId?: Prisma.StringFilter<"UserPreference"> | string
   theme?: Prisma.StringFilter<"UserPreference"> | string
+  timeZone?: Prisma.StringFilter<"UserPreference"> | string
   showUpdateNotifications?: Prisma.BoolFilter<"UserPreference"> | boolean
   enableVersionChecks?: Prisma.BoolFilter<"UserPreference"> | boolean
   onboardingCompletedAt?: Prisma.DateTimeNullableFilter<"UserPreference"> | Date | string | null
@@ -213,6 +221,7 @@ export type UserPreferenceOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   theme?: Prisma.SortOrder
+  timeZone?: Prisma.SortOrder
   showUpdateNotifications?: Prisma.SortOrder
   enableVersionChecks?: Prisma.SortOrder
   onboardingCompletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -228,6 +237,7 @@ export type UserPreferenceWhereUniqueInput = Prisma.AtLeast<{
   OR?: Prisma.UserPreferenceWhereInput[]
   NOT?: Prisma.UserPreferenceWhereInput | Prisma.UserPreferenceWhereInput[]
   theme?: Prisma.StringFilter<"UserPreference"> | string
+  timeZone?: Prisma.StringFilter<"UserPreference"> | string
   showUpdateNotifications?: Prisma.BoolFilter<"UserPreference"> | boolean
   enableVersionChecks?: Prisma.BoolFilter<"UserPreference"> | boolean
   onboardingCompletedAt?: Prisma.DateTimeNullableFilter<"UserPreference"> | Date | string | null
@@ -240,6 +250,7 @@ export type UserPreferenceOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   theme?: Prisma.SortOrder
+  timeZone?: Prisma.SortOrder
   showUpdateNotifications?: Prisma.SortOrder
   enableVersionChecks?: Prisma.SortOrder
   onboardingCompletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -257,6 +268,7 @@ export type UserPreferenceScalarWhereWithAggregatesInput = {
   id?: Prisma.StringWithAggregatesFilter<"UserPreference"> | string
   userId?: Prisma.StringWithAggregatesFilter<"UserPreference"> | string
   theme?: Prisma.StringWithAggregatesFilter<"UserPreference"> | string
+  timeZone?: Prisma.StringWithAggregatesFilter<"UserPreference"> | string
   showUpdateNotifications?: Prisma.BoolWithAggregatesFilter<"UserPreference"> | boolean
   enableVersionChecks?: Prisma.BoolWithAggregatesFilter<"UserPreference"> | boolean
   onboardingCompletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"UserPreference"> | Date | string | null
@@ -267,6 +279,7 @@ export type UserPreferenceScalarWhereWithAggregatesInput = {
 export type UserPreferenceCreateInput = {
   id?: string
   theme?: string
+  timeZone?: string
   showUpdateNotifications?: boolean
   enableVersionChecks?: boolean
   onboardingCompletedAt?: Date | string | null
@@ -279,6 +292,7 @@ export type UserPreferenceUncheckedCreateInput = {
   id?: string
   userId: string
   theme?: string
+  timeZone?: string
   showUpdateNotifications?: boolean
   enableVersionChecks?: boolean
   onboardingCompletedAt?: Date | string | null
@@ -289,6 +303,7 @@ export type UserPreferenceUncheckedCreateInput = {
 export type UserPreferenceUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   theme?: Prisma.StringFieldUpdateOperationsInput | string
+  timeZone?: Prisma.StringFieldUpdateOperationsInput | string
   showUpdateNotifications?: Prisma.BoolFieldUpdateOperationsInput | boolean
   enableVersionChecks?: Prisma.BoolFieldUpdateOperationsInput | boolean
   onboardingCompletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -301,6 +316,7 @@ export type UserPreferenceUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   theme?: Prisma.StringFieldUpdateOperationsInput | string
+  timeZone?: Prisma.StringFieldUpdateOperationsInput | string
   showUpdateNotifications?: Prisma.BoolFieldUpdateOperationsInput | boolean
   enableVersionChecks?: Prisma.BoolFieldUpdateOperationsInput | boolean
   onboardingCompletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -312,6 +328,7 @@ export type UserPreferenceCreateManyInput = {
   id?: string
   userId: string
   theme?: string
+  timeZone?: string
   showUpdateNotifications?: boolean
   enableVersionChecks?: boolean
   onboardingCompletedAt?: Date | string | null
@@ -322,6 +339,7 @@ export type UserPreferenceCreateManyInput = {
 export type UserPreferenceUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   theme?: Prisma.StringFieldUpdateOperationsInput | string
+  timeZone?: Prisma.StringFieldUpdateOperationsInput | string
   showUpdateNotifications?: Prisma.BoolFieldUpdateOperationsInput | boolean
   enableVersionChecks?: Prisma.BoolFieldUpdateOperationsInput | boolean
   onboardingCompletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -333,6 +351,7 @@ export type UserPreferenceUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   theme?: Prisma.StringFieldUpdateOperationsInput | string
+  timeZone?: Prisma.StringFieldUpdateOperationsInput | string
   showUpdateNotifications?: Prisma.BoolFieldUpdateOperationsInput | boolean
   enableVersionChecks?: Prisma.BoolFieldUpdateOperationsInput | boolean
   onboardingCompletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -349,6 +368,7 @@ export type UserPreferenceCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   theme?: Prisma.SortOrder
+  timeZone?: Prisma.SortOrder
   showUpdateNotifications?: Prisma.SortOrder
   enableVersionChecks?: Prisma.SortOrder
   onboardingCompletedAt?: Prisma.SortOrder
@@ -360,6 +380,7 @@ export type UserPreferenceMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   theme?: Prisma.SortOrder
+  timeZone?: Prisma.SortOrder
   showUpdateNotifications?: Prisma.SortOrder
   enableVersionChecks?: Prisma.SortOrder
   onboardingCompletedAt?: Prisma.SortOrder
@@ -371,6 +392,7 @@ export type UserPreferenceMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   userId?: Prisma.SortOrder
   theme?: Prisma.SortOrder
+  timeZone?: Prisma.SortOrder
   showUpdateNotifications?: Prisma.SortOrder
   enableVersionChecks?: Prisma.SortOrder
   onboardingCompletedAt?: Prisma.SortOrder
@@ -413,6 +435,7 @@ export type UserPreferenceUncheckedUpdateOneWithoutUserNestedInput = {
 export type UserPreferenceCreateWithoutUserInput = {
   id?: string
   theme?: string
+  timeZone?: string
   showUpdateNotifications?: boolean
   enableVersionChecks?: boolean
   onboardingCompletedAt?: Date | string | null
@@ -423,6 +446,7 @@ export type UserPreferenceCreateWithoutUserInput = {
 export type UserPreferenceUncheckedCreateWithoutUserInput = {
   id?: string
   theme?: string
+  timeZone?: string
   showUpdateNotifications?: boolean
   enableVersionChecks?: boolean
   onboardingCompletedAt?: Date | string | null
@@ -449,6 +473,7 @@ export type UserPreferenceUpdateToOneWithWhereWithoutUserInput = {
 export type UserPreferenceUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   theme?: Prisma.StringFieldUpdateOperationsInput | string
+  timeZone?: Prisma.StringFieldUpdateOperationsInput | string
   showUpdateNotifications?: Prisma.BoolFieldUpdateOperationsInput | boolean
   enableVersionChecks?: Prisma.BoolFieldUpdateOperationsInput | boolean
   onboardingCompletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -459,6 +484,7 @@ export type UserPreferenceUpdateWithoutUserInput = {
 export type UserPreferenceUncheckedUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   theme?: Prisma.StringFieldUpdateOperationsInput | string
+  timeZone?: Prisma.StringFieldUpdateOperationsInput | string
   showUpdateNotifications?: Prisma.BoolFieldUpdateOperationsInput | boolean
   enableVersionChecks?: Prisma.BoolFieldUpdateOperationsInput | boolean
   onboardingCompletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -472,6 +498,7 @@ export type UserPreferenceSelect<ExtArgs extends runtime.Types.Extensions.Intern
   id?: boolean
   userId?: boolean
   theme?: boolean
+  timeZone?: boolean
   showUpdateNotifications?: boolean
   enableVersionChecks?: boolean
   onboardingCompletedAt?: boolean
@@ -484,6 +511,7 @@ export type UserPreferenceSelectCreateManyAndReturn<ExtArgs extends runtime.Type
   id?: boolean
   userId?: boolean
   theme?: boolean
+  timeZone?: boolean
   showUpdateNotifications?: boolean
   enableVersionChecks?: boolean
   onboardingCompletedAt?: boolean
@@ -496,6 +524,7 @@ export type UserPreferenceSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
   id?: boolean
   userId?: boolean
   theme?: boolean
+  timeZone?: boolean
   showUpdateNotifications?: boolean
   enableVersionChecks?: boolean
   onboardingCompletedAt?: boolean
@@ -508,6 +537,7 @@ export type UserPreferenceSelectScalar = {
   id?: boolean
   userId?: boolean
   theme?: boolean
+  timeZone?: boolean
   showUpdateNotifications?: boolean
   enableVersionChecks?: boolean
   onboardingCompletedAt?: boolean
@@ -515,7 +545,7 @@ export type UserPreferenceSelectScalar = {
   updatedAt?: boolean
 }
 
-export type UserPreferenceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "theme" | "showUpdateNotifications" | "enableVersionChecks" | "onboardingCompletedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["userPreference"]>
+export type UserPreferenceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "theme" | "timeZone" | "showUpdateNotifications" | "enableVersionChecks" | "onboardingCompletedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["userPreference"]>
 export type UserPreferenceInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }
@@ -535,6 +565,7 @@ export type $UserPreferencePayload<ExtArgs extends runtime.Types.Extensions.Inte
     id: string
     userId: string
     theme: string
+    timeZone: string
     showUpdateNotifications: boolean
     enableVersionChecks: boolean
     onboardingCompletedAt: Date | null
@@ -967,6 +998,7 @@ export interface UserPreferenceFieldRefs {
   readonly id: Prisma.FieldRef<"UserPreference", 'String'>
   readonly userId: Prisma.FieldRef<"UserPreference", 'String'>
   readonly theme: Prisma.FieldRef<"UserPreference", 'String'>
+  readonly timeZone: Prisma.FieldRef<"UserPreference", 'String'>
   readonly showUpdateNotifications: Prisma.FieldRef<"UserPreference", 'Boolean'>
   readonly enableVersionChecks: Prisma.FieldRef<"UserPreference", 'Boolean'>
   readonly onboardingCompletedAt: Prisma.FieldRef<"UserPreference", 'DateTime'>

@@ -65,6 +65,8 @@ model SystemSettings {
   workerHeartbeatMaxAgeSeconds  Int      @default(120)
   updateCheckIntervalHours      Int      @default(24)
   updateCheckRepository         String   @default("itsmeares/staaash")
+  timeZone                      String   @default("UTC")
+  maintenanceRunTime            String   @default("02:00")
   mediaPreviewEnabled           Boolean  @default(true)
   mediaPreviewGenerateOnUpload  Boolean  @default(false)
   mediaPreviewThresholdBytes    BigInt   @default(367001600)
@@ -109,6 +111,7 @@ model UserPreference {
   id                      String    @id @default(cuid())
   userId                  String    @unique
   theme                   String    @default("system")
+  timeZone                String    @default("UTC")
   showUpdateNotifications Boolean   @default(true)
   enableVersionChecks     Boolean   @default(true)
   onboardingCompletedAt   DateTime?

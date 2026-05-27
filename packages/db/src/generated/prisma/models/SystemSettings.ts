@@ -80,6 +80,8 @@ export type SystemSettingsMinAggregateOutputType = {
   workerHeartbeatMaxAgeSeconds: number | null
   updateCheckIntervalHours: number | null
   updateCheckRepository: string | null
+  timeZone: string | null
+  maintenanceRunTime: string | null
   mediaPreviewEnabled: boolean | null
   mediaPreviewGenerateOnUpload: boolean | null
   mediaPreviewThresholdBytes: bigint | null
@@ -106,6 +108,8 @@ export type SystemSettingsMaxAggregateOutputType = {
   workerHeartbeatMaxAgeSeconds: number | null
   updateCheckIntervalHours: number | null
   updateCheckRepository: string | null
+  timeZone: string | null
+  maintenanceRunTime: string | null
   mediaPreviewEnabled: boolean | null
   mediaPreviewGenerateOnUpload: boolean | null
   mediaPreviewThresholdBytes: bigint | null
@@ -132,6 +136,8 @@ export type SystemSettingsCountAggregateOutputType = {
   workerHeartbeatMaxAgeSeconds: number
   updateCheckIntervalHours: number
   updateCheckRepository: number
+  timeZone: number
+  maintenanceRunTime: number
   mediaPreviewEnabled: number
   mediaPreviewGenerateOnUpload: number
   mediaPreviewThresholdBytes: number
@@ -200,6 +206,8 @@ export type SystemSettingsMinAggregateInputType = {
   workerHeartbeatMaxAgeSeconds?: true
   updateCheckIntervalHours?: true
   updateCheckRepository?: true
+  timeZone?: true
+  maintenanceRunTime?: true
   mediaPreviewEnabled?: true
   mediaPreviewGenerateOnUpload?: true
   mediaPreviewThresholdBytes?: true
@@ -226,6 +234,8 @@ export type SystemSettingsMaxAggregateInputType = {
   workerHeartbeatMaxAgeSeconds?: true
   updateCheckIntervalHours?: true
   updateCheckRepository?: true
+  timeZone?: true
+  maintenanceRunTime?: true
   mediaPreviewEnabled?: true
   mediaPreviewGenerateOnUpload?: true
   mediaPreviewThresholdBytes?: true
@@ -252,6 +262,8 @@ export type SystemSettingsCountAggregateInputType = {
   workerHeartbeatMaxAgeSeconds?: true
   updateCheckIntervalHours?: true
   updateCheckRepository?: true
+  timeZone?: true
+  maintenanceRunTime?: true
   mediaPreviewEnabled?: true
   mediaPreviewGenerateOnUpload?: true
   mediaPreviewThresholdBytes?: true
@@ -365,6 +377,8 @@ export type SystemSettingsGroupByOutputType = {
   workerHeartbeatMaxAgeSeconds: number
   updateCheckIntervalHours: number
   updateCheckRepository: string
+  timeZone: string
+  maintenanceRunTime: string
   mediaPreviewEnabled: boolean
   mediaPreviewGenerateOnUpload: boolean
   mediaPreviewThresholdBytes: bigint
@@ -414,6 +428,8 @@ export type SystemSettingsWhereInput = {
   workerHeartbeatMaxAgeSeconds?: Prisma.IntFilter<"SystemSettings"> | number
   updateCheckIntervalHours?: Prisma.IntFilter<"SystemSettings"> | number
   updateCheckRepository?: Prisma.StringFilter<"SystemSettings"> | string
+  timeZone?: Prisma.StringFilter<"SystemSettings"> | string
+  maintenanceRunTime?: Prisma.StringFilter<"SystemSettings"> | string
   mediaPreviewEnabled?: Prisma.BoolFilter<"SystemSettings"> | boolean
   mediaPreviewGenerateOnUpload?: Prisma.BoolFilter<"SystemSettings"> | boolean
   mediaPreviewThresholdBytes?: Prisma.BigIntFilter<"SystemSettings"> | bigint | number
@@ -440,6 +456,8 @@ export type SystemSettingsOrderByWithRelationInput = {
   workerHeartbeatMaxAgeSeconds?: Prisma.SortOrder
   updateCheckIntervalHours?: Prisma.SortOrder
   updateCheckRepository?: Prisma.SortOrder
+  timeZone?: Prisma.SortOrder
+  maintenanceRunTime?: Prisma.SortOrder
   mediaPreviewEnabled?: Prisma.SortOrder
   mediaPreviewGenerateOnUpload?: Prisma.SortOrder
   mediaPreviewThresholdBytes?: Prisma.SortOrder
@@ -469,6 +487,8 @@ export type SystemSettingsWhereUniqueInput = Prisma.AtLeast<{
   workerHeartbeatMaxAgeSeconds?: Prisma.IntFilter<"SystemSettings"> | number
   updateCheckIntervalHours?: Prisma.IntFilter<"SystemSettings"> | number
   updateCheckRepository?: Prisma.StringFilter<"SystemSettings"> | string
+  timeZone?: Prisma.StringFilter<"SystemSettings"> | string
+  maintenanceRunTime?: Prisma.StringFilter<"SystemSettings"> | string
   mediaPreviewEnabled?: Prisma.BoolFilter<"SystemSettings"> | boolean
   mediaPreviewGenerateOnUpload?: Prisma.BoolFilter<"SystemSettings"> | boolean
   mediaPreviewThresholdBytes?: Prisma.BigIntFilter<"SystemSettings"> | bigint | number
@@ -495,6 +515,8 @@ export type SystemSettingsOrderByWithAggregationInput = {
   workerHeartbeatMaxAgeSeconds?: Prisma.SortOrder
   updateCheckIntervalHours?: Prisma.SortOrder
   updateCheckRepository?: Prisma.SortOrder
+  timeZone?: Prisma.SortOrder
+  maintenanceRunTime?: Prisma.SortOrder
   mediaPreviewEnabled?: Prisma.SortOrder
   mediaPreviewGenerateOnUpload?: Prisma.SortOrder
   mediaPreviewThresholdBytes?: Prisma.SortOrder
@@ -529,6 +551,8 @@ export type SystemSettingsScalarWhereWithAggregatesInput = {
   workerHeartbeatMaxAgeSeconds?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
   updateCheckIntervalHours?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
   updateCheckRepository?: Prisma.StringWithAggregatesFilter<"SystemSettings"> | string
+  timeZone?: Prisma.StringWithAggregatesFilter<"SystemSettings"> | string
+  maintenanceRunTime?: Prisma.StringWithAggregatesFilter<"SystemSettings"> | string
   mediaPreviewEnabled?: Prisma.BoolWithAggregatesFilter<"SystemSettings"> | boolean
   mediaPreviewGenerateOnUpload?: Prisma.BoolWithAggregatesFilter<"SystemSettings"> | boolean
   mediaPreviewThresholdBytes?: Prisma.BigIntWithAggregatesFilter<"SystemSettings"> | bigint | number
@@ -555,6 +579,8 @@ export type SystemSettingsCreateInput = {
   workerHeartbeatMaxAgeSeconds?: number
   updateCheckIntervalHours?: number
   updateCheckRepository?: string
+  timeZone?: string
+  maintenanceRunTime?: string
   mediaPreviewEnabled?: boolean
   mediaPreviewGenerateOnUpload?: boolean
   mediaPreviewThresholdBytes?: bigint | number
@@ -581,6 +607,8 @@ export type SystemSettingsUncheckedCreateInput = {
   workerHeartbeatMaxAgeSeconds?: number
   updateCheckIntervalHours?: number
   updateCheckRepository?: string
+  timeZone?: string
+  maintenanceRunTime?: string
   mediaPreviewEnabled?: boolean
   mediaPreviewGenerateOnUpload?: boolean
   mediaPreviewThresholdBytes?: bigint | number
@@ -607,6 +635,8 @@ export type SystemSettingsUpdateInput = {
   workerHeartbeatMaxAgeSeconds?: Prisma.IntFieldUpdateOperationsInput | number
   updateCheckIntervalHours?: Prisma.IntFieldUpdateOperationsInput | number
   updateCheckRepository?: Prisma.StringFieldUpdateOperationsInput | string
+  timeZone?: Prisma.StringFieldUpdateOperationsInput | string
+  maintenanceRunTime?: Prisma.StringFieldUpdateOperationsInput | string
   mediaPreviewEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   mediaPreviewGenerateOnUpload?: Prisma.BoolFieldUpdateOperationsInput | boolean
   mediaPreviewThresholdBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
@@ -633,6 +663,8 @@ export type SystemSettingsUncheckedUpdateInput = {
   workerHeartbeatMaxAgeSeconds?: Prisma.IntFieldUpdateOperationsInput | number
   updateCheckIntervalHours?: Prisma.IntFieldUpdateOperationsInput | number
   updateCheckRepository?: Prisma.StringFieldUpdateOperationsInput | string
+  timeZone?: Prisma.StringFieldUpdateOperationsInput | string
+  maintenanceRunTime?: Prisma.StringFieldUpdateOperationsInput | string
   mediaPreviewEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   mediaPreviewGenerateOnUpload?: Prisma.BoolFieldUpdateOperationsInput | boolean
   mediaPreviewThresholdBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
@@ -659,6 +691,8 @@ export type SystemSettingsCreateManyInput = {
   workerHeartbeatMaxAgeSeconds?: number
   updateCheckIntervalHours?: number
   updateCheckRepository?: string
+  timeZone?: string
+  maintenanceRunTime?: string
   mediaPreviewEnabled?: boolean
   mediaPreviewGenerateOnUpload?: boolean
   mediaPreviewThresholdBytes?: bigint | number
@@ -685,6 +719,8 @@ export type SystemSettingsUpdateManyMutationInput = {
   workerHeartbeatMaxAgeSeconds?: Prisma.IntFieldUpdateOperationsInput | number
   updateCheckIntervalHours?: Prisma.IntFieldUpdateOperationsInput | number
   updateCheckRepository?: Prisma.StringFieldUpdateOperationsInput | string
+  timeZone?: Prisma.StringFieldUpdateOperationsInput | string
+  maintenanceRunTime?: Prisma.StringFieldUpdateOperationsInput | string
   mediaPreviewEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   mediaPreviewGenerateOnUpload?: Prisma.BoolFieldUpdateOperationsInput | boolean
   mediaPreviewThresholdBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
@@ -711,6 +747,8 @@ export type SystemSettingsUncheckedUpdateManyInput = {
   workerHeartbeatMaxAgeSeconds?: Prisma.IntFieldUpdateOperationsInput | number
   updateCheckIntervalHours?: Prisma.IntFieldUpdateOperationsInput | number
   updateCheckRepository?: Prisma.StringFieldUpdateOperationsInput | string
+  timeZone?: Prisma.StringFieldUpdateOperationsInput | string
+  maintenanceRunTime?: Prisma.StringFieldUpdateOperationsInput | string
   mediaPreviewEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   mediaPreviewGenerateOnUpload?: Prisma.BoolFieldUpdateOperationsInput | boolean
   mediaPreviewThresholdBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
@@ -737,6 +775,8 @@ export type SystemSettingsCountOrderByAggregateInput = {
   workerHeartbeatMaxAgeSeconds?: Prisma.SortOrder
   updateCheckIntervalHours?: Prisma.SortOrder
   updateCheckRepository?: Prisma.SortOrder
+  timeZone?: Prisma.SortOrder
+  maintenanceRunTime?: Prisma.SortOrder
   mediaPreviewEnabled?: Prisma.SortOrder
   mediaPreviewGenerateOnUpload?: Prisma.SortOrder
   mediaPreviewThresholdBytes?: Prisma.SortOrder
@@ -783,6 +823,8 @@ export type SystemSettingsMaxOrderByAggregateInput = {
   workerHeartbeatMaxAgeSeconds?: Prisma.SortOrder
   updateCheckIntervalHours?: Prisma.SortOrder
   updateCheckRepository?: Prisma.SortOrder
+  timeZone?: Prisma.SortOrder
+  maintenanceRunTime?: Prisma.SortOrder
   mediaPreviewEnabled?: Prisma.SortOrder
   mediaPreviewGenerateOnUpload?: Prisma.SortOrder
   mediaPreviewThresholdBytes?: Prisma.SortOrder
@@ -809,6 +851,8 @@ export type SystemSettingsMinOrderByAggregateInput = {
   workerHeartbeatMaxAgeSeconds?: Prisma.SortOrder
   updateCheckIntervalHours?: Prisma.SortOrder
   updateCheckRepository?: Prisma.SortOrder
+  timeZone?: Prisma.SortOrder
+  maintenanceRunTime?: Prisma.SortOrder
   mediaPreviewEnabled?: Prisma.SortOrder
   mediaPreviewGenerateOnUpload?: Prisma.SortOrder
   mediaPreviewThresholdBytes?: Prisma.SortOrder
@@ -877,6 +921,8 @@ export type SystemSettingsSelect<ExtArgs extends runtime.Types.Extensions.Intern
   workerHeartbeatMaxAgeSeconds?: boolean
   updateCheckIntervalHours?: boolean
   updateCheckRepository?: boolean
+  timeZone?: boolean
+  maintenanceRunTime?: boolean
   mediaPreviewEnabled?: boolean
   mediaPreviewGenerateOnUpload?: boolean
   mediaPreviewThresholdBytes?: boolean
@@ -903,6 +949,8 @@ export type SystemSettingsSelectCreateManyAndReturn<ExtArgs extends runtime.Type
   workerHeartbeatMaxAgeSeconds?: boolean
   updateCheckIntervalHours?: boolean
   updateCheckRepository?: boolean
+  timeZone?: boolean
+  maintenanceRunTime?: boolean
   mediaPreviewEnabled?: boolean
   mediaPreviewGenerateOnUpload?: boolean
   mediaPreviewThresholdBytes?: boolean
@@ -929,6 +977,8 @@ export type SystemSettingsSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
   workerHeartbeatMaxAgeSeconds?: boolean
   updateCheckIntervalHours?: boolean
   updateCheckRepository?: boolean
+  timeZone?: boolean
+  maintenanceRunTime?: boolean
   mediaPreviewEnabled?: boolean
   mediaPreviewGenerateOnUpload?: boolean
   mediaPreviewThresholdBytes?: boolean
@@ -955,6 +1005,8 @@ export type SystemSettingsSelectScalar = {
   workerHeartbeatMaxAgeSeconds?: boolean
   updateCheckIntervalHours?: boolean
   updateCheckRepository?: boolean
+  timeZone?: boolean
+  maintenanceRunTime?: boolean
   mediaPreviewEnabled?: boolean
   mediaPreviewGenerateOnUpload?: boolean
   mediaPreviewThresholdBytes?: boolean
@@ -967,7 +1019,7 @@ export type SystemSettingsSelectScalar = {
   updatedAt?: boolean
 }
 
-export type SystemSettingsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionMaxAgeDays" | "inviteMaxAgeDays" | "passwordResetMaxAgeHours" | "shareMaxAgeDays" | "maxUploadBytes" | "uploadTimeoutMinutes" | "uploadStagingRetentionHours" | "previewMaxSourceBytes" | "previewTextMaxBytes" | "workerHeartbeatMaxAgeSeconds" | "updateCheckIntervalHours" | "updateCheckRepository" | "mediaPreviewEnabled" | "mediaPreviewGenerateOnUpload" | "mediaPreviewThresholdBytes" | "mediaPreviewRetentionDays" | "mediaPreviewMaxHeight" | "zipArchiveRetentionDays" | "mediaPreviewCrf" | "mediaPreviewMaxConcurrentJobs" | "createdAt" | "updatedAt", ExtArgs["result"]["systemSettings"]>
+export type SystemSettingsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionMaxAgeDays" | "inviteMaxAgeDays" | "passwordResetMaxAgeHours" | "shareMaxAgeDays" | "maxUploadBytes" | "uploadTimeoutMinutes" | "uploadStagingRetentionHours" | "previewMaxSourceBytes" | "previewTextMaxBytes" | "workerHeartbeatMaxAgeSeconds" | "updateCheckIntervalHours" | "updateCheckRepository" | "timeZone" | "maintenanceRunTime" | "mediaPreviewEnabled" | "mediaPreviewGenerateOnUpload" | "mediaPreviewThresholdBytes" | "mediaPreviewRetentionDays" | "mediaPreviewMaxHeight" | "zipArchiveRetentionDays" | "mediaPreviewCrf" | "mediaPreviewMaxConcurrentJobs" | "createdAt" | "updatedAt", ExtArgs["result"]["systemSettings"]>
 
 export type $SystemSettingsPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "SystemSettings"
@@ -986,6 +1038,8 @@ export type $SystemSettingsPayload<ExtArgs extends runtime.Types.Extensions.Inte
     workerHeartbeatMaxAgeSeconds: number
     updateCheckIntervalHours: number
     updateCheckRepository: string
+    timeZone: string
+    maintenanceRunTime: string
     mediaPreviewEnabled: boolean
     mediaPreviewGenerateOnUpload: boolean
     mediaPreviewThresholdBytes: bigint
@@ -1432,6 +1486,8 @@ export interface SystemSettingsFieldRefs {
   readonly workerHeartbeatMaxAgeSeconds: Prisma.FieldRef<"SystemSettings", 'Int'>
   readonly updateCheckIntervalHours: Prisma.FieldRef<"SystemSettings", 'Int'>
   readonly updateCheckRepository: Prisma.FieldRef<"SystemSettings", 'String'>
+  readonly timeZone: Prisma.FieldRef<"SystemSettings", 'String'>
+  readonly maintenanceRunTime: Prisma.FieldRef<"SystemSettings", 'String'>
   readonly mediaPreviewEnabled: Prisma.FieldRef<"SystemSettings", 'Boolean'>
   readonly mediaPreviewGenerateOnUpload: Prisma.FieldRef<"SystemSettings", 'Boolean'>
   readonly mediaPreviewThresholdBytes: Prisma.FieldRef<"SystemSettings", 'BigInt'>

@@ -1,0 +1,527 @@
+"use client";
+
+import { CheckIcon, ChevronDownIcon, SearchIcon } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+
+import {
+  DEFAULT_TIME_ZONE,
+  getSupportedTimeZones,
+  normalizeTimeZone,
+} from "@staaash/config/time-zone";
+
+type TimeZonePickerProps = {
+  id?: string;
+  name?: string;
+  value?: string;
+  defaultValue?: string;
+  className?: string;
+  onChange?: (value: string) => void;
+};
+
+type TimeZoneOption = {
+  zone: string;
+  label: string;
+  offsetLabel: string;
+  offsetMinutes: number;
+  searchLabel: string;
+};
+
+const SELECTABLE_TIME_ZONES = getSupportedTimeZones().filter(
+  (zone) => zone === DEFAULT_TIME_ZONE || !zone.startsWith("Etc/"),
+);
+const TIME_ZONE_PICKER_CSS = `
+.time-zone-picker {
+  --time-zone-picker-panel-bg: oklch(99% 0.004 78);
+  --time-zone-picker-field-bg: oklch(97% 0.006 78);
+  --time-zone-picker-option-bg: oklch(94% 0.008 78);
+  position: relative;
+  width: 100%;
+}
+
+.dark .time-zone-picker,
+.entry-surface .time-zone-picker {
+  --time-zone-picker-panel-bg: oklch(16% 0.01 72);
+  --time-zone-picker-field-bg: oklch(20% 0.01 72);
+  --time-zone-picker-option-bg: oklch(23% 0.012 72);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) .time-zone-picker {
+    --time-zone-picker-panel-bg: oklch(16% 0.01 72);
+    --time-zone-picker-field-bg: oklch(20% 0.01 72);
+    --time-zone-picker-option-bg: oklch(23% 0.012 72);
+  }
+}
+
+.time-zone-picker__trigger {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-height: 42px;
+  text-align: left;
+}
+
+.time-zone-picker__trigger.onboarding-field__input {
+  background: var(--time-zone-picker-field-bg);
+}
+
+.time-zone-picker__trigger.admin-setting-input {
+  background: var(--time-zone-picker-field-bg);
+  border: 1px solid color-mix(in oklab, var(--foreground) 12%, transparent);
+  border-radius: 10px;
+  color: var(--foreground);
+  font: inherit;
+  min-width: 240px;
+  padding: 9px 12px;
+}
+
+.time-zone-picker__value {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+  width: 100%;
+}
+
+.time-zone-picker__zone {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.time-zone-picker__offset {
+  color: var(--muted-foreground);
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.time-zone-picker__chevron {
+  flex: 0 0 auto;
+  opacity: 0.62;
+  transition: transform 150ms ease-out;
+}
+
+.time-zone-picker[data-open="true"] .time-zone-picker__chevron {
+  transform: rotate(180deg);
+}
+
+.time-zone-picker__panel {
+  background: var(--time-zone-picker-panel-bg);
+  border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
+  border-radius: 8px;
+  box-shadow: 0 18px 50px color-mix(in oklab, black 28%, transparent);
+  color: var(--popover-foreground);
+  display: grid;
+  gap: 8px;
+  left: 0;
+  max-height: min(320px, 48vh);
+  overflow: hidden;
+  padding: 8px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 70;
+}
+
+.time-zone-picker__search-wrap {
+  position: relative;
+}
+
+.time-zone-picker__search-icon {
+  color: var(--muted-foreground);
+  left: 10px;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.time-zone-picker__search {
+  background: var(--time-zone-picker-field-bg);
+  border: 1px solid color-mix(in oklab, var(--foreground) 9%, transparent);
+  border-radius: 6px;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 0.86rem;
+  min-height: 36px;
+  padding: 8px 10px 8px 32px;
+  width: 100%;
+}
+
+.time-zone-picker__search:focus {
+  border-color: color-mix(in oklab, var(--ring) 55%, transparent);
+  outline: none;
+}
+
+.time-zone-picker__list {
+  display: grid;
+  gap: 2px;
+  max-height: 246px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+}
+
+.time-zone-picker__option {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  font-size: 0.86rem;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  min-height: 34px;
+  padding: 0 8px;
+  text-align: left;
+}
+
+.time-zone-picker__option:hover,
+.time-zone-picker__option.is-highlighted {
+  background: var(--time-zone-picker-option-bg);
+}
+
+.time-zone-picker__option.is-selected {
+  color: var(--foreground);
+}
+
+.time-zone-picker__check {
+  color: var(--primary);
+}
+
+.time-zone-picker__empty {
+  color: var(--muted-foreground);
+  font-size: 0.82rem;
+  margin: 0;
+  padding: 12px 8px;
+}
+`;
+
+function formatZone(zone: string) {
+  return zone.replaceAll("_", " ");
+}
+
+function normalizeOffsetLabel(label: string) {
+  const offset = label.replace(/^GMT/i, "");
+  if (!offset) return "UTC+0";
+
+  const match = offset.match(/^([+-])(\d{1,2})(?::([0-5]\d))?$/);
+  if (!match) return label.replace(/^GMT/i, "UTC");
+
+  const [, sign, rawHour, rawMinute] = match;
+  const hour = Number(rawHour);
+  const minute = rawMinute ? Number(rawMinute) : 0;
+  return minute === 0 ? `UTC${sign}${hour}` : `UTC${sign}${hour}:${rawMinute}`;
+}
+
+function offsetMinutesFromLabel(label: string) {
+  const match = label.match(/^UTC([+-])(\d{1,2})(?::([0-5]\d))?$/);
+  if (!match) return 0;
+
+  const [, sign, rawHour, rawMinute] = match;
+  const minutes = Number(rawHour) * 60 + Number(rawMinute ?? 0);
+  return sign === "-" ? -minutes : minutes;
+}
+
+function getTimeZoneOffsetLabel(zone: string, date: Date) {
+  if (zone === DEFAULT_TIME_ZONE) return "UTC+0";
+
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: zone,
+      timeZoneName: "shortOffset",
+    }).formatToParts(date);
+    const timeZoneName = parts.find((part) => part.type === "timeZoneName");
+    return normalizeOffsetLabel(timeZoneName?.value ?? "GMT");
+  } catch {
+    return "UTC+0";
+  }
+}
+
+function buildTimeZoneOption(zone: string, date: Date): TimeZoneOption {
+  const offsetLabel = getTimeZoneOffsetLabel(zone, date);
+  return {
+    zone,
+    label: formatZone(zone),
+    offsetLabel,
+    offsetMinutes: offsetMinutesFromLabel(offsetLabel),
+    searchLabel: formatZone(zone).toLowerCase(),
+  };
+}
+
+function parseOffsetQuery(query: string) {
+  const normalizedQuery = query.trim().toUpperCase().replace(/\s+/g, "");
+  const match = normalizedQuery.match(
+    /^(?:UTC|GMT)?([+-])(\d{1,2})(?::([0-5]\d))?$/,
+  );
+  if (!match) return null;
+
+  const [, sign, rawHour, rawMinute] = match;
+  const hour = Number(rawHour);
+  if (hour > 14) return null;
+
+  const minutes = hour * 60 + Number(rawMinute ?? 0);
+  return sign === "-" ? -minutes : minutes;
+}
+
+export function TimeZonePicker({
+  id,
+  name,
+  value,
+  defaultValue = DEFAULT_TIME_ZONE,
+  className,
+  onChange,
+}: TimeZonePickerProps) {
+  const generatedId = useId();
+  const pickerId = id ?? generatedId;
+  const listId = `${pickerId}-listbox`;
+  const searchId = `${pickerId}-search`;
+  const isControlled = value !== undefined;
+  const [internalValue, setInternalValue] = useState(() =>
+    normalizeTimeZone(defaultValue),
+  );
+  const selectedValue = normalizeTimeZone(isControlled ? value : internalValue);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const offsetReferenceDate = useMemo(() => new Date(), []);
+
+  const options = useMemo(() => {
+    return SELECTABLE_TIME_ZONES.includes(selectedValue)
+      ? SELECTABLE_TIME_ZONES
+      : [selectedValue, ...SELECTABLE_TIME_ZONES];
+  }, [selectedValue]);
+
+  const optionData = useMemo(
+    () => options.map((zone) => buildTimeZoneOption(zone, offsetReferenceDate)),
+    [offsetReferenceDate, options],
+  );
+  const selectedOption = optionData.find(
+    (option) => option.zone === selectedValue,
+  );
+
+  const filteredOptions = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) return optionData;
+
+    const offsetQuery = parseOffsetQuery(query);
+    if (offsetQuery !== null) {
+      return optionData.filter(
+        (option) => option.offsetMinutes === offsetQuery,
+      );
+    }
+
+    return optionData.filter((option) => {
+      const zoneText = option.zone.toLowerCase();
+      return (
+        zoneText.includes(normalizedQuery) ||
+        option.searchLabel.includes(normalizedQuery)
+      );
+    });
+  }, [optionData, query]);
+
+  useEffect(() => {
+    if (isControlled) return;
+    setInternalValue(normalizeTimeZone(defaultValue));
+  }, [defaultValue, isControlled]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const selectedIndex = optionData.findIndex(
+      (option) => option.zone === selectedValue,
+    );
+    setHighlightedIndex(selectedIndex >= 0 ? selectedIndex : 0);
+    const frame = requestAnimationFrame(() => searchRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [open, optionData, selectedValue]);
+
+  useEffect(() => {
+    setHighlightedIndex((index) =>
+      Math.min(index, Math.max(filteredOptions.length - 1, 0)),
+    );
+  }, [filteredOptions.length]);
+
+  useEffect(() => {
+    if (!open) return;
+    const option = rootRef.current?.querySelector<HTMLElement>(
+      `[data-time-zone-index="${highlightedIndex}"]`,
+    );
+    option?.scrollIntoView({ block: "nearest" });
+  }, [highlightedIndex, open]);
+
+  function choose(nextValue: string) {
+    const normalizedValue = normalizeTimeZone(nextValue);
+    if (!isControlled) setInternalValue(normalizedValue);
+    onChange?.(normalizedValue);
+    setOpen(false);
+    setQuery("");
+    triggerRef.current?.focus();
+  }
+
+  function handleTriggerKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
+    if (event.key === "ArrowDown" || event.key === "Enter") {
+      event.preventDefault();
+      setOpen(true);
+    }
+    if (event.key === " ") {
+      event.preventDefault();
+      setOpen((current) => !current);
+    }
+  }
+
+  function handleSearchKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setOpen(false);
+      triggerRef.current?.focus();
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setHighlightedIndex((index) =>
+        Math.min(index + 1, filteredOptions.length - 1),
+      );
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setHighlightedIndex((index) => Math.max(index - 1, 0));
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      const highlightedOption = filteredOptions[highlightedIndex];
+      if (highlightedOption) choose(highlightedOption.zone);
+    }
+  }
+
+  return (
+    <div
+      className="time-zone-picker"
+      data-open={open ? "true" : "false"}
+      ref={rootRef}
+    >
+      <style>{TIME_ZONE_PICKER_CSS}</style>
+      {name ? <input type="hidden" name={name} value={selectedValue} /> : null}
+      <button
+        aria-controls={listId}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        className={`time-zone-picker__trigger${className ? ` ${className}` : ""}`}
+        id={pickerId}
+        onClick={() => setOpen((current) => !current)}
+        onKeyDown={handleTriggerKeyDown}
+        ref={triggerRef}
+        type="button"
+      >
+        <span className="time-zone-picker__value">
+          <span className="time-zone-picker__zone">{selectedValue}</span>
+          <span className="time-zone-picker__offset">
+            {selectedOption?.offsetLabel}
+          </span>
+        </span>
+        <ChevronDownIcon
+          aria-hidden="true"
+          className="time-zone-picker__chevron"
+          size={16}
+        />
+      </button>
+      {open ? (
+        <div className="time-zone-picker__panel">
+          <div className="time-zone-picker__search-wrap">
+            <SearchIcon
+              aria-hidden="true"
+              className="time-zone-picker__search-icon"
+              size={15}
+            />
+            <input
+              aria-label="Search time zones"
+              className="time-zone-picker__search"
+              id={searchId}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setHighlightedIndex(0);
+              }}
+              onKeyDown={handleSearchKeyDown}
+              placeholder="Search time zones"
+              title="Search by city or UTC offset, for example UTC+1"
+              ref={searchRef}
+              type="search"
+              value={query}
+            />
+          </div>
+          <div
+            aria-labelledby={pickerId}
+            className="time-zone-picker__list"
+            id={listId}
+            role="listbox"
+            tabIndex={-1}
+          >
+            {filteredOptions.length ? (
+              filteredOptions.map((option, index) => {
+                const selected = option.zone === selectedValue;
+                const highlighted = index === highlightedIndex;
+                return (
+                  <button
+                    aria-selected={selected}
+                    className={`time-zone-picker__option${selected ? " is-selected" : ""}${highlighted ? " is-highlighted" : ""}`}
+                    data-time-zone-index={index}
+                    key={option.zone}
+                    onClick={() => choose(option.zone)}
+                    onMouseEnter={() => setHighlightedIndex(index)}
+                    role="option"
+                    type="button"
+                  >
+                    <span className="time-zone-picker__zone">
+                      {option.zone}
+                    </span>
+                    <span className="time-zone-picker__offset">
+                      {option.offsetLabel}
+                    </span>
+                    {selected ? (
+                      <CheckIcon
+                        aria-hidden="true"
+                        className="time-zone-picker__check"
+                        size={15}
+                      />
+                    ) : null}
+                  </button>
+                );
+              })
+            ) : (
+              <p className="time-zone-picker__empty">No matching time zones.</p>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}

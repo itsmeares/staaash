@@ -4,6 +4,12 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getPrisma } from "@staaash/db/client";
+import {
+  DEFAULT_MAINTENANCE_RUN_TIME,
+  DEFAULT_TIME_ZONE,
+  isValidMaintenanceRunTime,
+  isValidTimeZone,
+} from "@staaash/config/time-zone";
 
 import { requireOwnerPageSession } from "@/server/auth/guards";
 
@@ -20,6 +26,16 @@ const updateSettingsSchema = z.object({
   workerHeartbeatMaxAgeSeconds: z.coerce.number().int().positive(),
   updateCheckIntervalHours: z.coerce.number().int().positive(),
   updateCheckRepository: z.string().trim(),
+  timeZone: z
+    .string()
+    .trim()
+    .default(DEFAULT_TIME_ZONE)
+    .refine(isValidTimeZone, "Invalid time zone."),
+  maintenanceRunTime: z
+    .string()
+    .trim()
+    .default(DEFAULT_MAINTENANCE_RUN_TIME)
+    .refine(isValidMaintenanceRunTime, "Invalid maintenance run time."),
   mediaPreviewEnabled: z
     .string()
     .optional()
@@ -56,6 +72,44 @@ export async function updateSystemSettings(
     where: { id: "singleton" },
     create: { id: "singleton", ...parsed.data },
     update: parsed.data,
+  });
+
+  revalidatePath("/admin/settings");
+  return { success: true };
+}
+
+const ownerOnboardingSettingsSchema = z.object({
+  mediaPreviewEnabled: z.boolean(),
+  timeZone: z
+    .string()
+    .trim()
+    .default(DEFAULT_TIME_ZONE)
+    .refine(isValidTimeZone, "Invalid time zone."),
+});
+
+export async function saveOwnerOnboardingSettings(input: {
+  mediaPreviewEnabled: boolean;
+  timeZone: string;
+}): Promise<{ error?: string; success?: boolean }> {
+  await requireOwnerPageSession();
+
+  const parsed = ownerOnboardingSettingsSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  }
+
+  const db = getPrisma();
+  await db.systemSettings.upsert({
+    where: { id: "singleton" },
+    create: {
+      id: "singleton",
+      mediaPreviewEnabled: parsed.data.mediaPreviewEnabled,
+      timeZone: parsed.data.timeZone,
+    },
+    update: {
+      mediaPreviewEnabled: parsed.data.mediaPreviewEnabled,
+      timeZone: parsed.data.timeZone,
+    },
   });
 
   revalidatePath("/admin/settings");

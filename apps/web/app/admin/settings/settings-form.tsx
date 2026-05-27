@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import type { SystemSettings } from "@staaash/db/client";
 
 import { formatAdminBytes } from "@/app/admin/admin-format";
+import { TimeZonePicker } from "@/components/time-zone-picker";
 
 import { updateSystemSettings } from "./actions";
 
@@ -187,6 +188,33 @@ export function SettingsForm({ settings }: SettingsFormProps) {
                   type="number"
                   defaultValue={settings.workerHeartbeatMaxAgeSeconds}
                   min={1}
+                  className="admin-setting-input"
+                />
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+        <section>
+          <p className="admin-eyebrow">Scheduling</p>
+          <dl className="admin-setting-list">
+            <div className="admin-setting-row">
+              <dt className="admin-setting-key">Instance time zone</dt>
+              <dd className="admin-setting-val">
+                <TimeZonePicker
+                  name="timeZone"
+                  defaultValue={settings.timeZone}
+                  className="admin-setting-input"
+                />
+              </dd>
+            </div>
+            <div className="admin-setting-row">
+              <dt className="admin-setting-key">Daily maintenance time</dt>
+              <dd className="admin-setting-val">
+                <input
+                  name="maintenanceRunTime"
+                  type="time"
+                  defaultValue={settings.maintenanceRunTime}
                   className="admin-setting-input"
                 />
               </dd>

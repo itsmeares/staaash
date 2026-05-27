@@ -76,6 +76,7 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
   });
 
   const allShares = [...shares.active, ...shares.inactive];
+  const userTimeZone = session.user.preferences?.timeZone;
 
   const tableItems: SharedTableItem[] = allShares.map((share) => ({
     share,
@@ -83,7 +84,7 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
     expiresLabel:
       share.status === "active"
         ? getRelativeExpiry(share.expiresAt)
-        : formatDateTime(share.expiresAt),
+        : formatDateTime(share.expiresAt, userTimeZone),
     expiryTone:
       share.status === "active" ? getExpiryTone(share.expiresAt) : "default",
     statusLabel: shareStatusLabel[share.status],
