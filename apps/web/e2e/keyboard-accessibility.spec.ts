@@ -87,7 +87,7 @@ test("incomplete-onboarding user can finish setup with keyboard", async ({
   await expect(page.getByRole("radio", { name: /Light/i })).toBeChecked();
   await page.keyboard.press("ArrowRight");
   await expect(page.getByRole("radio", { name: /Dark/i })).toBeChecked();
-  await page.getByRole("button", { name: "Continue" }).press("Enter");
+  await page.keyboard.press("Enter");
 
   await expect(
     page.getByRole("heading", { name: "Set your time zone" }),

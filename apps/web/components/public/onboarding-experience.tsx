@@ -419,6 +419,12 @@ function ThemeStep({
   onBack: () => void;
   totalSteps?: number;
 }) {
+  const handleThemeKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    onContinue();
+  };
+
   return (
     <div className="onboarding-step">
       <div className="onboarding-step__nav">
@@ -457,6 +463,7 @@ function ThemeStep({
               value={opt.value}
               checked={theme === opt.value}
               onChange={() => onSelect(opt.value)}
+              onKeyDown={handleThemeKeyDown}
             />
             <ThemePreview variant={opt.value} />
             <span className="onboarding-theme-tile__label">{opt.label}</span>
