@@ -18,6 +18,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { FlashMessage } from "@/app/auth-ui";
 import { DashboardPageContextMenu } from "@/app/dashboard-context-menu";
 import { startValidatedDownload } from "@/lib/transfers/download";
@@ -203,6 +204,15 @@ export function FilesView({
   const didRubberBand = useRef(false);
   const listRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const focusRowById = useCallback((id: string) => {
+    const row =
+      rowRefs.current.get(id) ??
+      Array.from(
+        listRef.current?.querySelectorAll<HTMLElement>("[data-file-row]") ?? [],
+      ).find((element) => element.dataset.fileRow === id);
+
+    row?.focus({ preventScroll: true });
+  }, []);
 
   // ---- Paste animation ----
   const [justMovedIds, setJustMovedIds] = useState<Set<string>>(new Set());
@@ -313,6 +323,7 @@ export function FilesView({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
+      if (!listRef.current?.contains(target)) return;
       if (
         target.tagName === "INPUT" ||
         target.tagName === "TEXTAREA" ||
@@ -419,6 +430,20 @@ export function FilesView({
         if (ids[next]) {
           setSelectedIds(new Set([ids[next]]));
           setLastSelectedId(ids[next]);
+          requestAnimationFrame(() => focusRowById(ids[next]));
+        }
+        return;
+      }
+
+      // Space — select the focused row or first row when the list itself is focused
+      if (e.key === " ") {
+        const focusedRow = target.closest<HTMLElement>("[data-file-row]");
+        const id = focusedRow?.dataset.fileRow ?? allItems[0]?.id;
+        if (id) {
+          e.preventDefault();
+          setSelectedIds(new Set([id]));
+          setLastSelectedId(id);
+          requestAnimationFrame(() => focusRowById(id));
         }
         return;
       }
@@ -435,6 +460,12 @@ export function FilesView({
     return () => document.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allItems, selectedIds, cutItems, lastSelectedId, showShortcutLegend]);
+
+  useEffect(() => {
+    if (selectedIds.size !== 1) return;
+    const id = Array.from(selectedIds)[0];
+    focusRowById(id);
+  }, [focusRowById, selectedIds]);
 
   // ---------------------------------------------------------------------------
   // Item actions
@@ -998,6 +1029,11 @@ export function FilesView({
                     );
                   })}
                 </nav>
+                <p className="sr-only" aria-live="polite">
+                  {selectedIds.size === 0
+                    ? "No items selected"
+                    : `${selectedIds.size} item${selectedIds.size === 1 ? "" : "s"} selected`}
+                </p>
                 {(selectedIds.size > 0 || cutItems.length > 0) && (
                   <div className="explorer-badges">
                     {selectedIds.size > 0 && (
@@ -1083,6 +1119,9 @@ export function FilesView({
           <div
             ref={listRef}
             className="explorer-list"
+            role="grid"
+            aria-label={`${listing.currentFolder.name} files`}
+            tabIndex={0}
             onClick={(e) => {
               // A rubber-band drag just ended — skip this ghost click entirely
               if (didRubberBand.current) return;
@@ -1508,7 +1547,7 @@ function GhostUploadRow({
         </div>
         <span className="uploading-row-name">{name}</span>
         <span className="uploading-row-status ghost-upload-row-status">
-          Incomplete · click to
+          Incomplete ·
           <button
             type="button"
             className="uploading-row-retry"
@@ -1544,23 +1583,34 @@ function GhostUploadRow({
 // ---------------------------------------------------------------------------
 
 function ShortcutLegend({ onClose }: { onClose: () => void }) {
+  const openerRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const opener = document.activeElement;
+    openerRef.current = opener instanceof HTMLElement ? opener : null;
+  }, []);
+
+  const closeAndRestoreFocus = () => {
+    onClose();
+    requestAnimationFrame(() => openerRef.current?.focus());
+  };
+
   return (
-    <div
-      className="shortcut-legend-overlay"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) closeAndRestoreFocus();
       }}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Keyboard shortcuts"
     >
-      <div className="shortcut-legend">
+      <DialogContent className="shortcut-legend" showCloseButton={false}>
         <div className="shortcut-legend-title">
-          Keyboard shortcuts
+          <DialogTitle className="shortcut-legend-title-text">
+            Keyboard shortcuts
+          </DialogTitle>
           <button
             className="shortcut-legend-close"
             type="button"
-            onClick={onClose}
+            onClick={closeAndRestoreFocus}
             aria-label="Close"
           >
             ✕
@@ -1674,7 +1724,7 @@ function ShortcutLegend({ onClose }: { onClose: () => void }) {
             </span>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

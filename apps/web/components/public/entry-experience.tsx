@@ -44,23 +44,43 @@ export function EntryExperience({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const firstFieldRef = useRef<HTMLInputElement>(null);
+  const advancingRef = useRef(false);
 
   const { description, endpoint, successMessage } = config[mode];
   const title =
     mode === "signin" && instanceName ? instanceName : config[mode].title;
 
-  // Click-anywhere handler — active during intro and intro-return phases
+  const advanceToForm = () => {
+    if (advancingRef.current) return;
+    advancingRef.current = true;
+    setPhase("transitioning");
+    setTimeout(() => {
+      setPhase("form");
+      advancingRef.current = false;
+    }, 360);
+  };
+
+  // The intro is visually mouse-first, but Enter/Space remain hidden shortcuts.
   useEffect(() => {
     if (phase !== "intro" && phase !== "intro-return") return;
+    advancingRef.current = false;
 
-    const advance = (e: MouseEvent) => {
-      if ((e.target as Element).closest(".entry-brand")) return;
-      setPhase("transitioning");
-      setTimeout(() => setPhase("form"), 360);
+    const handleClick = () => advanceToForm();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      advanceToForm();
     };
 
-    document.addEventListener("click", advance);
-    return () => document.removeEventListener("click", advance);
+    document.addEventListener("click", handleClick);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("click", handleClick);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
   // Focus first field when form appears
@@ -130,25 +150,17 @@ export function EntryExperience({
         ]
           .filter(Boolean)
           .join(" ")}
-        tabIndex={isActive ? 0 : -1}
-        aria-label={
-          mode === "setup"
-            ? "First launch — click anywhere or press Enter to begin setup"
-            : "Sign in — click anywhere or press Enter to continue"
-        }
-        onKeyDown={(e) => {
-          if (isActive && (e.key === "Enter" || e.key === " ")) {
-            e.preventDefault();
-            setPhase("transitioning");
-            setTimeout(() => setPhase("form"), 360);
-          }
-        }}
       >
         <h1 className="entry-intro__title">{title}</h1>
         <p className="entry-intro__description">{description}</p>
-        <p className="entry-intro__hint" aria-hidden="true">
+        <button
+          className="entry-intro__hint entry-intro-action"
+          disabled={!isActive}
+          onClick={advanceToForm}
+          type="button"
+        >
           Click anywhere to begin
-        </p>
+        </button>
       </section>
     );
   }

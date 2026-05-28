@@ -260,6 +260,39 @@ export function RecentView({ error, items, success }: RecentViewProps) {
     setLastSelectedId(item.id);
   };
 
+  const selectItemFromKeyboard = (
+    item: RecentClientItem,
+    event: KeyboardEvent<HTMLElement>,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (item.deletedAt) return;
+
+    if (event.ctrlKey || event.metaKey) {
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        if (next.has(item.id)) next.delete(item.id);
+        else next.add(item.id);
+        return next;
+      });
+      setLastSelectedId(item.id);
+      return;
+    }
+
+    if (event.shiftKey && lastSelectedId) {
+      const start = activeVisibleIds.indexOf(lastSelectedId);
+      const end = activeVisibleIds.indexOf(item.id);
+      if (start >= 0 && end >= 0) {
+        const [from, to] = [Math.min(start, end), Math.max(start, end)];
+        setSelectedIds(new Set(activeVisibleIds.slice(from, to + 1)));
+        return;
+      }
+    }
+
+    setSelectedIds(new Set([item.id]));
+    setLastSelectedId(item.id);
+  };
+
   const openItem = (item: RecentClientItem) => {
     if (item.deletedAt) return;
 
@@ -368,6 +401,22 @@ export function RecentView({ error, items, success }: RecentViewProps) {
     if (event.key === "Enter" && selectedItems.length === 1) {
       event.preventDefault();
       openItem(selectedItems[0]);
+    }
+  };
+
+  const handleRecentItemKeyDown = (
+    item: RecentClientItem,
+    event: KeyboardEvent<HTMLElement>,
+  ) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === "Enter") {
+      event.preventDefault();
+      event.stopPropagation();
+      openItem(item);
+      return;
+    }
+    if (event.key === " ") {
+      selectItemFromKeyboard(item, event);
     }
   };
 
@@ -838,7 +887,13 @@ export function RecentView({ error, items, success }: RecentViewProps) {
                     <article
                       data-recent-active={deleted ? undefined : "true"}
                       data-recent-item={item.id}
+                      tabIndex={deleted ? -1 : 0}
+                      role={deleted ? undefined : "button"}
+                      aria-pressed={deleted ? undefined : selected}
                       className={`recent-row${selected ? " is-selected" : ""}${deleted ? " is-deleted" : ""}`}
+                      onKeyDown={(event) =>
+                        handleRecentItemKeyDown(item, event)
+                      }
                       onClick={(event) => handleItemClick(item, event)}
                       onDoubleClick={(event) => {
                         event.stopPropagation();
@@ -934,7 +989,13 @@ export function RecentView({ error, items, success }: RecentViewProps) {
                       <article
                         data-recent-active={deleted ? undefined : "true"}
                         data-recent-item={item.id}
+                        tabIndex={deleted ? -1 : 0}
+                        role={deleted ? undefined : "button"}
+                        aria-pressed={deleted ? undefined : selected}
                         className={`recent-grid-card${selected ? " is-selected" : ""}${deleted ? " is-deleted" : ""}`}
+                        onKeyDown={(event) =>
+                          handleRecentItemKeyDown(item, event)
+                        }
                         onClick={(event) => handleItemClick(item, event)}
                         onDoubleClick={(event) => {
                           event.stopPropagation();

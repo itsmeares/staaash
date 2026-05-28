@@ -41,6 +41,16 @@ const STEP_ORDER: OnboardingStep[] = [
   "done",
 ];
 
+const STEP_ANNOUNCEMENTS: Record<OnboardingStep, string> = {
+  welcome: "Before you dive in.",
+  theme: "Choose your theme.",
+  timezone: "Set your time zone.",
+  profile: "Your profile.",
+  privacy: "Privacy and features.",
+  media: "Media previews.",
+  done: "Onboarding complete.",
+};
+
 function applyThemePreview(theme: Theme) {
   const html = document.documentElement;
   html.classList.remove("dark", "light");
@@ -204,7 +214,7 @@ export function OnboardingExperience({
     const isCustomName = effectiveName !== "Staaash";
 
     return (
-      <div className="onboarding-done">
+      <div className="onboarding-done" role="status" aria-live="polite">
         <div
           className={`onboarding-done__phase onboarding-done__phase--allset${donePhase > 0 ? " is-exiting" : ""}`}
         >
@@ -244,6 +254,9 @@ export function OnboardingExperience({
     <div
       className={`onboarding${animating ? " onboarding--exiting" : " onboarding--entering"}`}
     >
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {STEP_ANNOUNCEMENTS[step]}
+      </p>
       {step === "welcome" && <WelcomeStep onContinue={advance} />}
       {step === "theme" && (
         <ThemeStep
@@ -319,54 +332,71 @@ export function OnboardingExperience({
 }
 
 function WelcomeStep({ onContinue }: { onContinue: () => void }) {
+  const advancingRef = useRef(false);
+
+  const advance = () => {
+    if (advancingRef.current) return;
+    advancingRef.current = true;
+    onContinue();
+  };
+
   useEffect(() => {
-    let ready = false;
-    const guard = setTimeout(() => {
-      ready = true;
-    }, 300);
+    advancingRef.current = false;
 
-    const clickHandler = () => {
-      if (ready) onContinue();
-    };
-    const keyHandler = (e: KeyboardEvent) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        onContinue();
-      }
+    const handleClick = () => advance();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      advance();
     };
 
-    document.addEventListener("click", clickHandler);
-    document.addEventListener("keydown", keyHandler);
+    document.addEventListener("click", handleClick);
+    document.addEventListener("keydown", handleKeyDown);
+
     return () => {
-      clearTimeout(guard);
-      document.removeEventListener("click", clickHandler);
-      document.removeEventListener("keydown", keyHandler);
+      document.removeEventListener("click", handleClick);
+      document.removeEventListener("keydown", handleKeyDown);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onContinue]);
 
   return (
-    <section
-      className="onboarding-welcome"
-      tabIndex={0}
-      aria-label="Welcome — click anywhere to begin setup"
-    >
+    <section className="onboarding-welcome">
       <h1 className="onboarding-welcome__title">Before you dive in.</h1>
-      <p className="onboarding-welcome__hint" aria-hidden="true">
+      <button
+        className="onboarding-welcome__hint onboarding-welcome-action"
+        onClick={advance}
+        type="button"
+      >
         Click anywhere to continue
-      </p>
+      </button>
     </section>
   );
 }
 
 function StepProgress({ current, total }: { current: number; total: number }) {
   return (
-    <div className="onboarding-progress" aria-hidden="true">
-      {Array.from({ length: total }, (_, i) => (
-        <div
-          key={i}
-          className={`onboarding-progress__segment${i < current ? " onboarding-progress__segment--active" : ""}`}
-        />
-      ))}
+    <div
+      className="onboarding-progress"
+      aria-label={`Step ${current} of ${total}`}
+    >
+      <ol className="sr-only">
+        {Array.from({ length: total }, (_, i) => (
+          <li key={i} aria-current={i + 1 === current ? "step" : undefined}>
+            Step {i + 1}
+            {i + 1 === current ? " of onboarding, current step" : ""}
+          </li>
+        ))}
+      </ol>
+      <div className="onboarding-progress__visual" aria-hidden="true">
+        {Array.from({ length: total }, (_, i) => (
+          <span
+            key={i}
+            className={`onboarding-progress__segment${i < current ? " onboarding-progress__segment--active" : ""}`}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -390,6 +420,12 @@ function ThemeStep({
   onBack: () => void;
   totalSteps?: number;
 }) {
+  const handleThemeKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    onContinue();
+  };
+
   return (
     <div className="onboarding-step">
       <div className="onboarding-step__nav">
@@ -415,18 +451,23 @@ function ThemeStep({
         aria-label="Theme"
       >
         {THEME_OPTIONS.map((opt) => (
-          <button
+          <label
             key={opt.value}
-            role="radio"
-            aria-checked={theme === opt.value}
             className={`onboarding-theme-tile onboarding-theme-tile--variant-${opt.value}${theme === opt.value ? " onboarding-theme-tile--selected" : ""}`}
-            onClick={() => onSelect(opt.value)}
-            type="button"
           >
+            <input
+              className="onboarding-theme-input"
+              type="radio"
+              name="onboarding-theme"
+              value={opt.value}
+              checked={theme === opt.value}
+              onChange={() => onSelect(opt.value)}
+              onKeyDown={handleThemeKeyDown}
+            />
             <ThemePreview variant={opt.value} />
             <span className="onboarding-theme-tile__label">{opt.label}</span>
             <span className="onboarding-theme-tile__desc">{opt.desc}</span>
-          </button>
+          </label>
         ))}
       </div>
 
@@ -634,7 +675,7 @@ function ProfileStep({
                 <img
                   className="onboarding-avatar__img"
                   src={prefs.avatarUrl}
-                  alt="Profile preview"
+                  alt=""
                 />
               ) : initials ? (
                 <span className="onboarding-avatar__initials">{initials}</span>
@@ -656,7 +697,7 @@ function ProfileStep({
               )}
             </span>
           </button>
-          <span className="onboarding-avatar__hint">Click to upload photo</span>
+          <span className="onboarding-avatar__hint">Select photo</span>
           <input
             ref={fileInputRef}
             type="file"
@@ -745,24 +786,31 @@ function PrivacyStep({
       </p>
 
       <div className="onboarding-toggles">
-        <label className="onboarding-toggle">
+        <label className="onboarding-toggle" htmlFor="ob-version-checks">
+          <input
+            id="ob-version-checks"
+            role="switch"
+            className="onboarding-switch-input"
+            type="checkbox"
+            checked={prefs.enableVersionChecks}
+            onChange={(event) =>
+              onVersionChecksChange(event.currentTarget.checked)
+            }
+            aria-describedby="ob-version-checks-desc"
+          />
           <div className="onboarding-toggle__text">
             <span className="onboarding-toggle__label">Version checks</span>
-            <span className="onboarding-toggle__desc">
+            <span
+              className="onboarding-toggle__desc"
+              id="ob-version-checks-desc"
+            >
               Check GitHub for updates and show a badge when a new version is
               available.
             </span>
           </div>
-          <button
-            role="switch"
-            aria-checked={prefs.enableVersionChecks}
-            className={`onboarding-switch${prefs.enableVersionChecks ? " onboarding-switch--on" : ""}`}
-            onClick={() => onVersionChecksChange(!prefs.enableVersionChecks)}
-            type="button"
-            aria-label="Version checks"
-          >
+          <span className="onboarding-switch" aria-hidden="true">
             <span className="onboarding-switch__thumb" />
-          </button>
+          </span>
         </label>
       </div>
 
@@ -825,26 +873,31 @@ function MediaStep({
       </p>
 
       <div className="onboarding-toggles">
-        <label className="onboarding-toggle">
+        <label className="onboarding-toggle" htmlFor="ob-media-previews">
+          <input
+            id="ob-media-previews"
+            role="switch"
+            className="onboarding-switch-input"
+            type="checkbox"
+            checked={enabled}
+            onChange={(event) => onToggle(event.currentTarget.checked)}
+            aria-describedby="ob-media-previews-desc"
+          />
           <div className="onboarding-toggle__text">
             <span className="onboarding-toggle__label">
               Enable media previews
             </span>
-            <span className="onboarding-toggle__desc">
+            <span
+              className="onboarding-toggle__desc"
+              id="ob-media-previews-desc"
+            >
               Generates compressed video previews on demand. Requires a worker
               process and a reasonably capable CPU.
             </span>
           </div>
-          <button
-            role="switch"
-            aria-checked={enabled}
-            className={`onboarding-switch${enabled ? " onboarding-switch--on" : ""}`}
-            onClick={() => onToggle(!enabled)}
-            type="button"
-            aria-label="Enable media previews"
-          >
+          <span className="onboarding-switch" aria-hidden="true">
             <span className="onboarding-switch__thumb" />
-          </button>
+          </span>
         </label>
       </div>
 

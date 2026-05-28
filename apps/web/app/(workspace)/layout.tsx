@@ -55,6 +55,9 @@ export default async function WorkspaceLayout({
 
   return (
     <>
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
       <div className="workspace-shell">
         <aside className="workspace-sidebar">
           <div className="workspace-brand-area">
@@ -93,6 +96,9 @@ export default async function WorkspaceLayout({
         <div className="workspace-main">
           <header className="workspace-topbar">
             <form action="/search" className="workspace-search" method="get">
+              <label className="sr-only" htmlFor="workspace-search">
+                Search files and folders
+              </label>
               <Search
                 className="workspace-search-icon"
                 size={14}
@@ -134,7 +140,9 @@ export default async function WorkspaceLayout({
             ) : null}
           </header>
 
-          <div className="workspace-content">{children}</div>
+          <main className="workspace-content" id="main-content" tabIndex={-1}>
+            {children}
+          </main>
         </div>
       </div>
 

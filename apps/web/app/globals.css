@@ -63,6 +63,29 @@ a {
   text-decoration: none;
 }
 
+.skip-link {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 1000;
+  transform: translateY(-160%);
+  border-radius: 8px;
+  padding: 9px 12px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: 0 12px 32px
+    color-mix(in oklab, var(--foreground) 22%, transparent);
+  transition: transform 140ms ease-out;
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid color-mix(in oklab, var(--ring) 70%, transparent);
+  outline-offset: 3px;
+}
+
 a:focus-visible,
 button:focus-visible,
 input:focus-visible,
@@ -2214,6 +2237,12 @@ h3 {
   background: color-mix(in oklab, var(--foreground) 4%, transparent);
 }
 
+.recent-row:focus-visible,
+.recent-grid-card:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--ring) 62%, transparent);
+  outline-offset: 2px;
+}
+
 .recent-row.is-selected {
   background: color-mix(in oklab, var(--primary) 8%, transparent);
 }
@@ -2757,6 +2786,12 @@ h3 {
 .favorites-row:hover,
 .favorites-row:focus-within {
   background: color-mix(in oklab, var(--foreground) 4%, transparent);
+}
+
+.favorites-row:focus-visible,
+.favorites-grid-card:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--ring) 62%, transparent);
+  outline-offset: 2px;
 }
 
 .favorites-row.is-selected {
@@ -3310,6 +3345,25 @@ h3 {
   outline: none;
   cursor: default;
   user-select: none;
+}
+
+.entry-intro-action {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.entry-intro-action:disabled {
+  cursor: default;
+}
+
+.entry-intro-action:focus-visible {
+  outline: 2px solid oklch(74% 0.08 78 / 0.55);
+  outline-offset: 12px;
+  border-radius: 12px;
 }
 
 .entry-intro__title {
@@ -4364,6 +4418,13 @@ h3 {
   user-select: none;
   /* Don't select text during rubber-band */
   min-height: 200px;
+  outline: none;
+}
+
+.explorer-list:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--ring) 58%, transparent);
+  outline-offset: 6px;
+  border-radius: 10px;
 }
 
 /* ---- Section label ---- */
@@ -4413,6 +4474,11 @@ h3 {
 
 .explorer-row.is-selected:hover {
   background: color-mix(in oklab, var(--primary) 10%, var(--card));
+}
+
+.explorer-row:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--ring) 62%, transparent);
+  outline-offset: 2px;
 }
 
 .explorer-row.is-cut {
@@ -4959,6 +5025,7 @@ h3 {
 }
 
 .shortcut-legend {
+  display: block;
   background: var(--card);
   border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
   border-radius: 18px;
@@ -4968,6 +5035,11 @@ h3 {
   box-shadow: 0 16px 40px
     color-mix(in oklab, var(--foreground) 12%, transparent);
   animation: legend-in 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.shortcut-legend-title-text {
+  font: inherit;
+  color: inherit;
 }
 
 @keyframes legend-in {
@@ -5078,9 +5150,11 @@ h3 {
 }
 
 .share-dialog {
+  display: block;
   background: var(--card);
   border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
   border-radius: 14px;
+  padding: 0;
   width: 420px;
   max-width: calc(100vw - 32px);
   box-shadow:
@@ -5167,6 +5241,14 @@ h3 {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.share-url-input:focus-visible,
+.share-date-input:focus-visible,
+.share-time-input:focus-visible,
+.share-password-input:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--ring) 62%, transparent);
+  outline-offset: 2px;
 }
 
 .share-copy-btn {
@@ -5507,11 +5589,15 @@ h3 {
   border-radius: 9px;
   border: 1px solid color-mix(in oklab, var(--destructive) 28%, transparent);
   background: color-mix(in oklab, var(--destructive) 6%, var(--card));
-  color: var(--destructive);
+  color: color-mix(in oklab, var(--destructive) 78%, black 22%);
   cursor: pointer;
   transition:
     background 100ms ease,
     border-color 100ms ease;
+}
+
+.dark .share-revoke-btn {
+  color: color-mix(in oklab, var(--destructive) 90%, white 10%);
 }
 
 .share-revoke-btn:hover:not(:disabled) {
@@ -6802,6 +6888,21 @@ main.share-locked-page {
   user-select: none;
 }
 
+.onboarding-welcome-action {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.onboarding-welcome-action:focus-visible {
+  outline: 2px solid oklch(74% 0.08 78 / 0.55);
+  outline-offset: 12px;
+  border-radius: 12px;
+}
+
 .onboarding-welcome__title {
   font-family: var(--font-cabinet), sans-serif;
   font-size: clamp(2.6rem, 5.5vw, 5rem);
@@ -6867,13 +6968,18 @@ main.share-locked-page {
 }
 
 .onboarding-progress {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.onboarding-progress__visual {
   display: flex;
   gap: 5px;
-  margin-bottom: 4px;
 }
 
 .onboarding-progress__segment {
   flex: 1;
+  display: block;
   height: 2px;
   border-radius: 2px;
   background: oklch(50% 0.01 78 / 0.25);
@@ -6922,6 +7028,7 @@ main.share-locked-page {
 }
 
 .onboarding-theme-tile {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -6936,6 +7043,13 @@ main.share-locked-page {
     background 140ms ease-out;
 }
 
+.onboarding-theme-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
 .onboarding-theme-tile:hover {
   background: oklch(22% 0.01 72 / 0.65);
   border-color: oklch(50% 0.012 76 / 0.5);
@@ -6947,7 +7061,8 @@ main.share-locked-page {
   box-shadow: 0 0 0 1px oklch(74% 0.08 78 / 0.25);
 }
 
-.onboarding-theme-tile:focus-visible {
+.onboarding-theme-tile:focus-visible,
+.onboarding-theme-tile:has(.onboarding-theme-input:focus-visible) {
   outline: 2px solid oklch(74% 0.08 78 / 0.5);
   outline-offset: 2px;
 }
@@ -7055,12 +7170,20 @@ main.share-locked-page {
 }
 
 .onboarding-toggle {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
   padding: 16px 0;
   border-bottom: 1px solid oklch(40% 0.012 76 / 0.22);
+  cursor: pointer;
+}
+
+.onboarding-switch-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
   cursor: pointer;
 }
 
@@ -7102,6 +7225,10 @@ main.share-locked-page {
   background: oklch(74% 0.08 78);
 }
 
+.onboarding-switch-input:checked ~ .onboarding-switch {
+  background: oklch(74% 0.08 78);
+}
+
 .onboarding-switch__thumb {
   position: absolute;
   top: 3px;
@@ -7117,7 +7244,14 @@ main.share-locked-page {
   transform: translateX(18px);
 }
 
-.onboarding-switch:focus-visible {
+.onboarding-switch-input:checked
+  ~ .onboarding-switch
+  .onboarding-switch__thumb {
+  transform: translateX(18px);
+}
+
+.onboarding-switch:focus-visible,
+.onboarding-switch-input:focus-visible ~ .onboarding-switch {
   outline: 2px solid oklch(74% 0.08 78 / 0.5);
   outline-offset: 3px;
 }
@@ -7220,6 +7354,11 @@ main.share-locked-page {
 .onboarding-field__input:focus {
   outline: none;
   border-color: oklch(74% 0.08 78 / 0.65);
+}
+
+.onboarding-field__input:focus-visible {
+  outline: 2px solid oklch(74% 0.08 78 / 0.5);
+  outline-offset: 2px;
 }
 
 .onboarding-field__input::placeholder {

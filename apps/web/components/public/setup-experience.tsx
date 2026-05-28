@@ -31,21 +31,39 @@ export function SetupExperience({ title, description }: SetupExperienceProps) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const firstFieldRef = useRef<HTMLInputElement>(null);
+  const advancingRef = useRef(false);
   const router = useRouter();
 
-  // Click-anywhere handler — active only during intro phase
+  const advanceToForm = () => {
+    if (advancingRef.current) return;
+    advancingRef.current = true;
+    setPhase("transitioning");
+    setTimeout(() => {
+      setPhase("form");
+      advancingRef.current = false;
+    }, 380);
+  };
+
   useEffect(() => {
     if (phase !== "intro") return;
+    advancingRef.current = false;
 
-    const advance = () => {
-      setPhase("transitioning");
-      setTimeout(() => setPhase("form"), 380);
+    const handleClick = () => advanceToForm();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      advanceToForm();
     };
 
-    document.addEventListener("click", advance);
+    document.addEventListener("click", handleClick);
+    document.addEventListener("keydown", handleKeyDown);
+
     return () => {
-      document.removeEventListener("click", advance);
+      document.removeEventListener("click", handleClick);
+      document.removeEventListener("keydown", handleKeyDown);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
   // Focus first field when form appears
@@ -92,15 +110,6 @@ export function SetupExperience({ title, description }: SetupExperienceProps) {
       {phase !== "form" && (
         <section
           className={`setup-gateway${phase === "transitioning" ? " setup-gateway--exiting" : ""}`}
-          tabIndex={phase === "intro" ? 0 : -1}
-          aria-label="First launch — click anywhere or press Enter to begin setup"
-          onKeyDown={(e) => {
-            if (phase === "intro" && (e.key === "Enter" || e.key === " ")) {
-              e.preventDefault();
-              setPhase("transitioning");
-              setTimeout(() => setPhase("form"), 380);
-            }
-          }}
         >
           <h1 className="setup-gateway__title font-heading text-[clamp(4rem,9vw,8rem)] leading-[0.92] tracking-[-0.06em] text-foreground">
             {title}
@@ -108,9 +117,14 @@ export function SetupExperience({ title, description }: SetupExperienceProps) {
           <p className="setup-gateway__description text-base leading-7 text-muted-foreground md:text-lg md:leading-8">
             {description}
           </p>
-          <p className="setup-gateway__hint" aria-hidden="true">
-            Click anywhere to begin
-          </p>
+          <button
+            className="setup-gateway__hint entry-intro-action"
+            disabled={phase !== "intro"}
+            onClick={advanceToForm}
+            type="button"
+          >
+            Click anywhere to begin setup
+          </button>
         </section>
       )}
 
