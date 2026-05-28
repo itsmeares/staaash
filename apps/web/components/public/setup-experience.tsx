@@ -31,21 +31,18 @@ export function SetupExperience({ title, description }: SetupExperienceProps) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const firstFieldRef = useRef<HTMLInputElement>(null);
+  const introActionRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
 
-  // Click-anywhere handler — active only during intro phase
+  const advanceToForm = () => {
+    setPhase("transitioning");
+    setTimeout(() => setPhase("form"), 380);
+  };
+
   useEffect(() => {
     if (phase !== "intro") return;
-
-    const advance = () => {
-      setPhase("transitioning");
-      setTimeout(() => setPhase("form"), 380);
-    };
-
-    document.addEventListener("click", advance);
-    return () => {
-      document.removeEventListener("click", advance);
-    };
+    const frame = requestAnimationFrame(() => introActionRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
   }, [phase]);
 
   // Focus first field when form appears
@@ -92,15 +89,6 @@ export function SetupExperience({ title, description }: SetupExperienceProps) {
       {phase !== "form" && (
         <section
           className={`setup-gateway${phase === "transitioning" ? " setup-gateway--exiting" : ""}`}
-          tabIndex={phase === "intro" ? 0 : -1}
-          aria-label="First launch — click anywhere or press Enter to begin setup"
-          onKeyDown={(e) => {
-            if (phase === "intro" && (e.key === "Enter" || e.key === " ")) {
-              e.preventDefault();
-              setPhase("transitioning");
-              setTimeout(() => setPhase("form"), 380);
-            }
-          }}
         >
           <h1 className="setup-gateway__title font-heading text-[clamp(4rem,9vw,8rem)] leading-[0.92] tracking-[-0.06em] text-foreground">
             {title}
@@ -108,9 +96,15 @@ export function SetupExperience({ title, description }: SetupExperienceProps) {
           <p className="setup-gateway__description text-base leading-7 text-muted-foreground md:text-lg md:leading-8">
             {description}
           </p>
-          <p className="setup-gateway__hint" aria-hidden="true">
-            Click anywhere to begin
-          </p>
+          <button
+            ref={introActionRef}
+            className="setup-gateway__hint entry-intro-action"
+            disabled={phase !== "intro"}
+            onClick={advanceToForm}
+            type="button"
+          >
+            Press Enter to begin setup
+          </button>
         </section>
       )}
 

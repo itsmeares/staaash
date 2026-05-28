@@ -25,12 +25,17 @@ export function EntryShell({
 }: EntryShellProps) {
   return (
     <main
+      id="main-content"
       className={cn(
         "entry-surface",
         background ? "entry-surface--gateway" : "entry-surface--focused",
         className,
       )}
+      tabIndex={-1}
     >
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
       {background ? (
         <div aria-hidden="true" className="entry-surface__background">
           {background}

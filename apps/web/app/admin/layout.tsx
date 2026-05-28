@@ -14,32 +14,39 @@ export default async function AdminLayout({
   const initials = getInitials(session.user.displayName, session.user.username);
 
   return (
-    <div className="admin-shell">
-      <aside className="admin-sidebar">
-        <h1 className="workspace-brand" style={{ padding: "4px 8px" }}>
-          Staaash Admin
-        </h1>
-        <AdminNav />
-      </aside>
+    <>
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
+      <div className="admin-shell">
+        <aside className="admin-sidebar">
+          <h1 className="workspace-brand" style={{ padding: "4px 8px" }}>
+            Staaash Admin
+          </h1>
+          <AdminNav />
+        </aside>
 
-      <div className="admin-main">
-        <header className="admin-topbar">
-          <AdminTopbarActions
-            userLabel={userLabel}
-            username={session.user.username}
-            initials={initials}
-            avatarUrl={session.user.avatarUrl ?? null}
-            initialTheme={
-              (session.user.preferences?.theme as
-                | "light"
-                | "dark"
-                | "system") ?? "system"
-            }
-          />
-        </header>
+        <div className="admin-main">
+          <header className="admin-topbar">
+            <AdminTopbarActions
+              userLabel={userLabel}
+              username={session.user.username}
+              initials={initials}
+              avatarUrl={session.user.avatarUrl ?? null}
+              initialTheme={
+                (session.user.preferences?.theme as
+                  | "light"
+                  | "dark"
+                  | "system") ?? "system"
+              }
+            />
+          </header>
 
-        <div className="admin-main-content">{children}</div>
+          <main className="admin-main-content" id="main-content" tabIndex={-1}>
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

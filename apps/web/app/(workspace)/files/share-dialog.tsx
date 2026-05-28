@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useRef, useState } from "react";
 import { Check, Copy, Link2Off, Lock, LockOpen, Download } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { ShareLinkSummary } from "@/server/sharing";
 
 // ---------------------------------------------------------------------------
@@ -96,10 +96,21 @@ export function ShareDialog({
   const [copied, setCopied] = useState(false);
   const [passwordValue, setPasswordValue] = useState("");
   const [showPasswordField, setShowPasswordField] = useState(false);
+  const openerRef = useRef<HTMLElement | null>(null);
 
   // Custom expiry state — kept in sync with dialogShare.expiresAt
   const [customDate, setCustomDate] = useState("");
   const [customTime, setCustomTime] = useState("");
+
+  useEffect(() => {
+    const opener = document.activeElement;
+    openerRef.current = opener instanceof HTMLElement ? opener : null;
+  }, []);
+
+  const closeAndRestoreFocus = () => {
+    onClose();
+    requestAnimationFrame(() => openerRef.current?.focus());
+  };
 
   // Sync custom date/time when share changes
   useEffect(() => {
@@ -108,15 +119,6 @@ export function ShareDialog({
       setCustomTime(toLocalTimeString(dialogShare.expiresAt));
     }
   }, [dialogShare?.id, dialogShare?.expiresAt.getTime()]);
-
-  // Close on Escape
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
 
   // ---------------------------------------------------------------------------
   // API helper
@@ -276,26 +278,21 @@ export function ShareDialog({
   const isActive = dialogShare?.status === "active";
   const isInactive = dialogShare !== null && dialogShare.status !== "active";
 
-  return createPortal(
-    <div
-      className="share-dialog-overlay"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) closeAndRestoreFocus();
       }}
     >
-      <div
-        className="share-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Share"
-      >
+      <DialogContent className="share-dialog" showCloseButton={false}>
         {/* Header */}
         <div className="share-dialog-header">
-          <span className="share-dialog-title">Share</span>
+          <DialogTitle className="share-dialog-title">Share</DialogTitle>
           <button
             className="shortcut-legend-close"
             type="button"
-            onClick={onClose}
+            onClick={closeAndRestoreFocus}
             aria-label="Close"
           >
             ✕
@@ -520,8 +517,7 @@ export function ShareDialog({
             </div>
           )}
         </div>
-      </div>
-    </div>,
-    document.body,
+      </DialogContent>
+    </Dialog>
   );
 }

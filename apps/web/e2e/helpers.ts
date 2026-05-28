@@ -7,6 +7,8 @@ type BootstrapState = {
   ownerPassword?: string;
   memberIdentifier?: string;
   memberPassword?: string;
+  onboardingIdentifier?: string;
+  onboardingPassword?: string;
   shareUrl?: string;
 };
 
@@ -64,6 +66,17 @@ export const getMemberCredentials = () => ({
   ),
 });
 
+export const getOnboardingCredentials = () => ({
+  identifier: getRequiredValue(
+    "STAAASH_E2E_ONBOARDING_IDENTIFIER",
+    readBootstrapState()?.onboardingIdentifier,
+  ),
+  password: getRequiredValue(
+    "STAAASH_E2E_ONBOARDING_PASSWORD",
+    readBootstrapState()?.onboardingPassword,
+  ),
+});
+
 export const getShareUrl = () =>
   getRequiredValue("STAAASH_E2E_SHARE_URL", readBootstrapState()?.shareUrl);
 
@@ -80,11 +93,13 @@ export const signIn = async (
   },
 ) => {
   await page.goto(`/?next=${encodeURIComponent(next)}`);
-  await page.click("body");
+  await page
+    .getByRole("button", { name: /Press Enter to begin/i })
+    .press("Enter");
   await page.waitForSelector(".entry-form");
   await page.getByLabel("Username or email").fill(identifier);
   await page.getByLabel("Password").fill(password);
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByRole("button", { name: "Sign in" }).press("Enter");
   await page.waitForURL((url) => url.pathname === next, { timeout: 20_000 });
 };
 

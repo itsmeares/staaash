@@ -44,23 +44,22 @@ export function EntryExperience({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const firstFieldRef = useRef<HTMLInputElement>(null);
+  const introActionRef = useRef<HTMLButtonElement>(null);
 
   const { description, endpoint, successMessage } = config[mode];
   const title =
     mode === "signin" && instanceName ? instanceName : config[mode].title;
 
-  // Click-anywhere handler — active during intro and intro-return phases
+  const advanceToForm = () => {
+    setPhase("transitioning");
+    setTimeout(() => setPhase("form"), 360);
+  };
+
+  // Put keyboard users directly on the primary action when the intro returns.
   useEffect(() => {
     if (phase !== "intro" && phase !== "intro-return") return;
-
-    const advance = (e: MouseEvent) => {
-      if ((e.target as Element).closest(".entry-brand")) return;
-      setPhase("transitioning");
-      setTimeout(() => setPhase("form"), 360);
-    };
-
-    document.addEventListener("click", advance);
-    return () => document.removeEventListener("click", advance);
+    const frame = requestAnimationFrame(() => introActionRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
   }, [phase]);
 
   // Focus first field when form appears
@@ -130,25 +129,18 @@ export function EntryExperience({
         ]
           .filter(Boolean)
           .join(" ")}
-        tabIndex={isActive ? 0 : -1}
-        aria-label={
-          mode === "setup"
-            ? "First launch — click anywhere or press Enter to begin setup"
-            : "Sign in — click anywhere or press Enter to continue"
-        }
-        onKeyDown={(e) => {
-          if (isActive && (e.key === "Enter" || e.key === " ")) {
-            e.preventDefault();
-            setPhase("transitioning");
-            setTimeout(() => setPhase("form"), 360);
-          }
-        }}
       >
         <h1 className="entry-intro__title">{title}</h1>
         <p className="entry-intro__description">{description}</p>
-        <p className="entry-intro__hint" aria-hidden="true">
-          Click anywhere to begin
-        </p>
+        <button
+          ref={introActionRef}
+          className="entry-intro__hint entry-intro-action"
+          disabled={!isActive}
+          onClick={advanceToForm}
+          type="button"
+        >
+          Press Enter to begin
+        </button>
       </section>
     );
   }

@@ -22,8 +22,13 @@ const MEMBER_EMAIL = "member-e2e@staaash.test";
 const MEMBER_ID = "e2e-member";
 const MEMBER_USERNAME = "member";
 const MEMBER_PASSWORD = "staaash-member-pass";
+const ONBOARDING_EMAIL = "onboarding-e2e@staaash.test";
+const ONBOARDING_ID = "e2e-onboarding";
+const ONBOARDING_USERNAME = "onboarding";
+const ONBOARDING_PASSWORD = "staaash-onboarding-pass";
 const OWNER_ROOT_ID = "e2e-owner-root";
 const MEMBER_ROOT_ID = "e2e-member-root";
+const ONBOARDING_ROOT_ID = "e2e-onboarding-root";
 const SHARE_FILE_ID = "e2e-share-file";
 const SHARE_LINK_ID = "e2e-share-link";
 const SHARE_FILE_NAME = "shared-preview.png";
@@ -188,6 +193,7 @@ const seedE2EData = async ({ filesRoot, authSecret, databaseUrl }) => {
   try {
     const ownerPasswordHash = hashPassword(OWNER_PASSWORD);
     const memberPasswordHash = hashPassword(MEMBER_PASSWORD);
+    const onboardingPasswordHash = hashPassword(ONBOARDING_PASSWORD);
 
     await client.query(
       `INSERT INTO "Instance" ("id", "name", "setupCompletedAt", "createdAt", "updatedAt")
@@ -199,7 +205,8 @@ const seedE2EData = async ({ filesRoot, authSecret, databaseUrl }) => {
       `INSERT INTO "User" ("id", "email", "username", "displayName", "passwordHash", "role", "createdAt", "updatedAt")
        VALUES
        ($1, $2, $3, $4, $5, $6::"UserRole", NOW(), NOW()),
-       ($7, $8, $9, $10, $11, $12::"UserRole", NOW(), NOW())`,
+       ($7, $8, $9, $10, $11, $12::"UserRole", NOW(), NOW()),
+       ($13, $14, $15, $16, $17, $18::"UserRole", NOW(), NOW())`,
       [
         OWNER_ID,
         OWNER_EMAIL,
@@ -213,6 +220,12 @@ const seedE2EData = async ({ filesRoot, authSecret, databaseUrl }) => {
         "E2E Member",
         memberPasswordHash,
         "member",
+        ONBOARDING_ID,
+        ONBOARDING_EMAIL,
+        ONBOARDING_USERNAME,
+        "E2E Onboarding",
+        onboardingPasswordHash,
+        "owner",
       ],
     );
 
@@ -220,16 +233,35 @@ const seedE2EData = async ({ filesRoot, authSecret, databaseUrl }) => {
       `INSERT INTO "UserPreference" ("id", "userId", "timeZone", "onboardingCompletedAt", "createdAt", "updatedAt")
        VALUES
        ($1, $2, 'UTC', NOW(), NOW(), NOW()),
-       ($3, $4, 'UTC', NOW(), NOW(), NOW())`,
-      ["e2e-owner-preferences", OWNER_ID, "e2e-member-preferences", MEMBER_ID],
+       ($3, $4, 'UTC', NOW(), NOW(), NOW()),
+       ($5, $6, 'UTC', NULL, NOW(), NOW())`,
+      [
+        "e2e-owner-preferences",
+        OWNER_ID,
+        "e2e-member-preferences",
+        MEMBER_ID,
+        "e2e-onboarding-preferences",
+        ONBOARDING_ID,
+      ],
     );
 
     await client.query(
       `INSERT INTO "Folder" ("id", "ownerUserId", "parentId", "name", "isFilesRoot", "deletedAt", "createdAt", "updatedAt")
        VALUES
        ($1, $2, NULL, $3, TRUE, NULL, NOW(), NOW()),
-       ($4, $5, NULL, $6, TRUE, NULL, NOW(), NOW())`,
-      [OWNER_ROOT_ID, OWNER_ID, "Files", MEMBER_ROOT_ID, MEMBER_ID, "Files"],
+       ($4, $5, NULL, $6, TRUE, NULL, NOW(), NOW()),
+       ($7, $8, NULL, $9, TRUE, NULL, NOW(), NOW())`,
+      [
+        OWNER_ROOT_ID,
+        OWNER_ID,
+        "Files",
+        MEMBER_ROOT_ID,
+        MEMBER_ID,
+        "Files",
+        ONBOARDING_ROOT_ID,
+        ONBOARDING_ID,
+        "Files",
+      ],
     );
 
     const storageKey = `library/${OWNER_ID}/${SHARE_FILE_NAME}`;
@@ -280,6 +312,8 @@ const seedE2EData = async ({ filesRoot, authSecret, databaseUrl }) => {
           ownerPassword: OWNER_PASSWORD,
           memberIdentifier: MEMBER_USERNAME,
           memberPassword: MEMBER_PASSWORD,
+          onboardingIdentifier: ONBOARDING_USERNAME,
+          onboardingPassword: ONBOARDING_PASSWORD,
           shareUrl: `/s/${encodeURIComponent(shareToken)}`,
         },
         null,

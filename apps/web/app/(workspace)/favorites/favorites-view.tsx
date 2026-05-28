@@ -279,6 +279,38 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
     setLastSelectedKey(key);
   };
 
+  const selectItemFromKeyboard = (
+    key: string,
+    event: KeyboardEvent<HTMLElement>,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (event.ctrlKey || event.metaKey) {
+      setSelectedKeys((current) => {
+        const next = new Set(current);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        return next;
+      });
+      setLastSelectedKey(key);
+      return;
+    }
+
+    if (event.shiftKey && lastSelectedKey) {
+      const start = visibleKeys.indexOf(lastSelectedKey);
+      const end = visibleKeys.indexOf(key);
+      if (start >= 0 && end >= 0) {
+        const [from, to] = [Math.min(start, end), Math.max(start, end)];
+        setSelectedKeys(new Set(visibleKeys.slice(from, to + 1)));
+        return;
+      }
+    }
+
+    setSelectedKeys(new Set([key]));
+    setLastSelectedKey(key);
+  };
+
   const openItem = (item: FavoriteClientItem) => {
     if (item.href.startsWith("/files/")) {
       router.push(item.href);
@@ -469,48 +501,6 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
     }
   };
 
-  useEffect(() => {
-    const onKey = (event: globalThis.KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (
-        target?.tagName === "INPUT" ||
-        target?.tagName === "TEXTAREA" ||
-        target?.tagName === "SELECT" ||
-        target?.isContentEditable
-      ) {
-        return;
-      }
-
-      if (event.key === "Escape") {
-        clearSelection();
-        return;
-      }
-
-      if (
-        (event.key === "Delete" || event.key === "Backspace") &&
-        selectedItems.length > 0
-      ) {
-        event.preventDefault();
-        void removeFavorites(selectedItems);
-        return;
-      }
-
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
-        event.preventDefault();
-        selectAllVisible();
-        return;
-      }
-
-      if (event.key === "Enter" && selectedItems.length === 1) {
-        event.preventDefault();
-        openItem(selectedItems[0]);
-      }
-    };
-
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [selectedItems, visibleKeys, allVisibleSelected]);
-
   const handleFavoritesSurfaceClick = (event: MouseEvent<HTMLDivElement>) => {
     if (didRubberBand.current) return;
     const target = event.target as HTMLElement;
@@ -556,6 +546,21 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
     },
     [],
   );
+
+  const handleFavoriteItemKeyDown = (
+    item: FavoriteClientItem,
+    event: KeyboardEvent<HTMLElement>,
+  ) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === "Enter") {
+      event.preventDefault();
+      openItem(item);
+      return;
+    }
+    if (event.key === " ") {
+      selectItemFromKeyboard(getItemKey(item), event);
+    }
+  };
 
   useEffect(() => {
     const onMove = (event: globalThis.MouseEvent) => {
@@ -1000,7 +1005,13 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
                 >
                   <article
                     data-favorite-item={key}
+                    tabIndex={0}
+                    role="button"
+                    aria-pressed={selected}
                     className={`favorites-row${selected ? " is-selected" : ""}`}
+                    onKeyDown={(event) =>
+                      handleFavoriteItemKeyDown(item, event)
+                    }
                     onDoubleClick={(event) => {
                       event.stopPropagation();
                       openItem(item);
@@ -1048,7 +1059,13 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
                 >
                   <article
                     data-favorite-item={key}
+                    tabIndex={0}
+                    role="button"
+                    aria-pressed={selected}
                     className={`favorites-grid-card${selected ? " is-selected" : ""}`}
+                    onKeyDown={(event) =>
+                      handleFavoriteItemKeyDown(item, event)
+                    }
                     onDoubleClick={(event) => {
                       event.stopPropagation();
                       openItem(item);
