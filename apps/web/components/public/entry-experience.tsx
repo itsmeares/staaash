@@ -44,7 +44,6 @@ export function EntryExperience({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const firstFieldRef = useRef<HTMLInputElement>(null);
-  const introActionRef = useRef<HTMLButtonElement>(null);
   const advancingRef = useRef(false);
 
   const { description, endpoint, successMessage } = config[mode];
@@ -61,12 +60,10 @@ export function EntryExperience({
     }, 360);
   };
 
-  // The intro is visually mouse-first, but keeps the button focused for
-  // keyboard users and accepts Enter/Space as hidden shortcuts.
+  // The intro is visually mouse-first, but Enter/Space remain hidden shortcuts.
   useEffect(() => {
     if (phase !== "intro" && phase !== "intro-return") return;
     advancingRef.current = false;
-    const frame = requestAnimationFrame(() => introActionRef.current?.focus());
 
     const handleClick = () => advanceToForm();
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -80,7 +77,6 @@ export function EntryExperience({
     document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      cancelAnimationFrame(frame);
       document.removeEventListener("click", handleClick);
       document.removeEventListener("keydown", handleKeyDown);
     };
@@ -158,7 +154,6 @@ export function EntryExperience({
         <h1 className="entry-intro__title">{title}</h1>
         <p className="entry-intro__description">{description}</p>
         <button
-          ref={introActionRef}
           className="entry-intro__hint entry-intro-action"
           disabled={!isActive}
           onClick={advanceToForm}

@@ -201,7 +201,7 @@ export function OnboardingExperience({
   }, []);
 
   useEffect(() => {
-    if (step === "done") return;
+    if (step === "welcome" || step === "done") return;
     const frame = requestAnimationFrame(() => {
       stepContainerRef.current
         ?.querySelector<HTMLElement>("[data-step-focus]")
@@ -365,7 +365,6 @@ function WelcomeStep({ onContinue }: { onContinue: () => void }) {
       <h1 className="onboarding-welcome__title">Before you dive in.</h1>
       <button
         className="onboarding-welcome__hint onboarding-welcome-action"
-        data-step-focus
         onClick={advance}
         type="button"
       >

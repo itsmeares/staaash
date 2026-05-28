@@ -31,7 +31,6 @@ export function SetupExperience({ title, description }: SetupExperienceProps) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const firstFieldRef = useRef<HTMLInputElement>(null);
-  const introActionRef = useRef<HTMLButtonElement>(null);
   const advancingRef = useRef(false);
   const router = useRouter();
 
@@ -48,7 +47,6 @@ export function SetupExperience({ title, description }: SetupExperienceProps) {
   useEffect(() => {
     if (phase !== "intro") return;
     advancingRef.current = false;
-    const frame = requestAnimationFrame(() => introActionRef.current?.focus());
 
     const handleClick = () => advanceToForm();
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -62,7 +60,6 @@ export function SetupExperience({ title, description }: SetupExperienceProps) {
     document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      cancelAnimationFrame(frame);
       document.removeEventListener("click", handleClick);
       document.removeEventListener("keydown", handleKeyDown);
     };
@@ -121,7 +118,6 @@ export function SetupExperience({ title, description }: SetupExperienceProps) {
             {description}
           </p>
           <button
-            ref={introActionRef}
             className="setup-gateway__hint entry-intro-action"
             disabled={phase !== "intro"}
             onClick={advanceToForm}
