@@ -41,6 +41,16 @@ const STEP_ORDER: OnboardingStep[] = [
   "done",
 ];
 
+const STEP_ANNOUNCEMENTS: Record<OnboardingStep, string> = {
+  welcome: "Before you dive in.",
+  theme: "Choose your theme.",
+  timezone: "Set your time zone.",
+  profile: "Your profile.",
+  privacy: "Privacy and features.",
+  media: "Media previews.",
+  done: "Onboarding complete.",
+};
+
 function applyThemePreview(theme: Theme) {
   const html = document.documentElement;
   html.classList.remove("dark", "light");
@@ -74,7 +84,6 @@ export function OnboardingExperience({
   const [error, setError] = useState<string | null>(null);
   const [donePhase, setDonePhase] = useState<0 | 1 | 2>(0);
   const [nameSwapping, setNameSwapping] = useState(false);
-  const stepContainerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   function advance() {
@@ -200,16 +209,6 @@ export function OnboardingExperience({
     );
   }, []);
 
-  useEffect(() => {
-    if (step === "welcome" || step === "done") return;
-    const frame = requestAnimationFrame(() => {
-      stepContainerRef.current
-        ?.querySelector<HTMLElement>("[data-step-focus]")
-        ?.focus();
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [step]);
-
   if (step === "done") {
     const effectiveName = instanceName ?? "Staaash";
     const isCustomName = effectiveName !== "Staaash";
@@ -253,9 +252,11 @@ export function OnboardingExperience({
 
   return (
     <div
-      ref={stepContainerRef}
       className={`onboarding${animating ? " onboarding--exiting" : " onboarding--entering"}`}
     >
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {STEP_ANNOUNCEMENTS[step]}
+      </p>
       {step === "welcome" && <WelcomeStep onContinue={advance} />}
       {step === "theme" && (
         <ThemeStep
@@ -441,9 +442,7 @@ function ThemeStep({
 
       <div className="onboarding-step__header">
         <span className="onboarding-step__index">01</span>
-        <h2 className="onboarding-step__title" tabIndex={-1} data-step-focus>
-          Choose your theme
-        </h2>
+        <h2 className="onboarding-step__title">Choose your theme</h2>
       </div>
 
       <div
@@ -512,9 +511,7 @@ function TimeZoneStep({
 
       <div className="onboarding-step__header">
         <span className="onboarding-step__index">02</span>
-        <h2 className="onboarding-step__title" tabIndex={-1} data-step-focus>
-          Set your time zone
-        </h2>
+        <h2 className="onboarding-step__title">Set your time zone</h2>
       </div>
 
       <p className="onboarding-step__body">
@@ -662,9 +659,7 @@ function ProfileStep({
 
       <div className="onboarding-step__header">
         <span className="onboarding-step__index">{indexStr}</span>
-        <h2 className="onboarding-step__title" tabIndex={-1} data-step-focus>
-          Your profile
-        </h2>
+        <h2 className="onboarding-step__title">Your profile</h2>
       </div>
 
       <div className="onboarding-profile">
@@ -782,9 +777,7 @@ function PrivacyStep({
 
       <div className="onboarding-step__header">
         <span className="onboarding-step__index">04</span>
-        <h2 className="onboarding-step__title" tabIndex={-1} data-step-focus>
-          Privacy &amp; features
-        </h2>
+        <h2 className="onboarding-step__title">Privacy &amp; features</h2>
       </div>
 
       <p className="onboarding-step__body">
@@ -870,9 +863,7 @@ function MediaStep({
 
       <div className="onboarding-step__header">
         <span className="onboarding-step__index">05</span>
-        <h2 className="onboarding-step__title" tabIndex={-1} data-step-focus>
-          Media previews
-        </h2>
+        <h2 className="onboarding-step__title">Media previews</h2>
       </div>
 
       <p className="onboarding-step__body">

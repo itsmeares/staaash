@@ -7014,16 +7014,6 @@ main.share-locked-page {
   margin: 0;
 }
 
-.onboarding-step__title:focus {
-  outline: none;
-}
-
-.onboarding-step__title:focus-visible {
-  outline: 2px solid oklch(74% 0.08 78 / 0.5);
-  outline-offset: 4px;
-  border-radius: 6px;
-}
-
 .onboarding-step__body {
   font-size: 0.9rem;
   line-height: 1.65;

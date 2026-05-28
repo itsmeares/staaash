@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import {
   getOnboardingCredentials,
@@ -33,6 +33,17 @@ const expectNoSeriousA11yViolations = async (
       )
       .join("\n\n"),
   ).toEqual([]);
+};
+
+const tabUntilFocused = async (page: Page, target: Locator, maxTabs = 6) => {
+  for (let i = 0; i < maxTabs; i += 1) {
+    if (await target.evaluate((node) => node === document.activeElement)) {
+      return;
+    }
+    await page.keyboard.press("Tab");
+  }
+
+  await expect(target).toBeFocused();
 };
 
 test("sign-in intro opens and submits with keyboard", async ({ page }) => {
@@ -80,9 +91,11 @@ test("incomplete-onboarding user can finish setup with keyboard", async ({
 
   await expect(
     page.getByRole("heading", { name: "Choose your theme" }),
-  ).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(page.getByRole("radio", { name: /System/i })).toBeFocused();
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Choose your theme" }),
+  ).not.toBeFocused();
+  await tabUntilFocused(page, page.getByRole("radio", { name: /System/i }));
   await page.keyboard.press("ArrowRight");
   await expect(page.getByRole("radio", { name: /Light/i })).toBeChecked();
   await page.keyboard.press("ArrowRight");
@@ -91,18 +104,27 @@ test("incomplete-onboarding user can finish setup with keyboard", async ({
 
   await expect(
     page.getByRole("heading", { name: "Set your time zone" }),
-  ).toBeFocused();
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Set your time zone" }),
+  ).not.toBeFocused();
   await page.getByRole("button", { name: "Continue" }).press("Enter");
 
   await expect(
     page.getByRole("heading", { name: "Your profile" }),
-  ).toBeFocused();
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Your profile" }),
+  ).not.toBeFocused();
   await page.getByLabel("Full name").fill("Keyboard E2E");
   await page.getByRole("button", { name: "Continue" }).press("Enter");
 
   await expect(
     page.getByRole("heading", { name: "Privacy & features" }),
-  ).toBeFocused();
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Privacy & features" }),
+  ).not.toBeFocused();
   const versionChecks = page.getByRole("switch", { name: /Version checks/i });
   await expect(versionChecks).toBeChecked();
   await versionChecks.press("Space");
@@ -111,7 +133,10 @@ test("incomplete-onboarding user can finish setup with keyboard", async ({
 
   await expect(
     page.getByRole("heading", { name: "Media previews" }),
-  ).toBeFocused();
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Media previews" }),
+  ).not.toBeFocused();
   const mediaPreviews = page.getByRole("switch", {
     name: /Enable media previews/i,
   });
