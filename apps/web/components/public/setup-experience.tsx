@@ -32,17 +32,41 @@ export function SetupExperience({ title, description }: SetupExperienceProps) {
   const [pending, setPending] = useState(false);
   const firstFieldRef = useRef<HTMLInputElement>(null);
   const introActionRef = useRef<HTMLButtonElement>(null);
+  const advancingRef = useRef(false);
   const router = useRouter();
 
   const advanceToForm = () => {
+    if (advancingRef.current) return;
+    advancingRef.current = true;
     setPhase("transitioning");
-    setTimeout(() => setPhase("form"), 380);
+    setTimeout(() => {
+      setPhase("form");
+      advancingRef.current = false;
+    }, 380);
   };
 
   useEffect(() => {
     if (phase !== "intro") return;
+    advancingRef.current = false;
     const frame = requestAnimationFrame(() => introActionRef.current?.focus());
-    return () => cancelAnimationFrame(frame);
+
+    const handleClick = () => advanceToForm();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      advanceToForm();
+    };
+
+    document.addEventListener("click", handleClick);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("click", handleClick);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
   // Focus first field when form appears
@@ -103,7 +127,7 @@ export function SetupExperience({ title, description }: SetupExperienceProps) {
             onClick={advanceToForm}
             type="button"
           >
-            Press Enter to begin setup
+            Click anywhere to begin setup
           </button>
         </section>
       )}

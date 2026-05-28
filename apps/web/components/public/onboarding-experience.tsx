@@ -331,16 +331,45 @@ export function OnboardingExperience({
 }
 
 function WelcomeStep({ onContinue }: { onContinue: () => void }) {
+  const advancingRef = useRef(false);
+
+  const advance = () => {
+    if (advancingRef.current) return;
+    advancingRef.current = true;
+    onContinue();
+  };
+
+  useEffect(() => {
+    advancingRef.current = false;
+
+    const handleClick = () => advance();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      advance();
+    };
+
+    document.addEventListener("click", handleClick);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("click", handleClick);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onContinue]);
+
   return (
     <section className="onboarding-welcome">
       <h1 className="onboarding-welcome__title">Before you dive in.</h1>
       <button
         className="onboarding-welcome__hint onboarding-welcome-action"
         data-step-focus
-        onClick={onContinue}
+        onClick={advance}
         type="button"
       >
-        Press Enter to continue
+        Click anywhere to continue
       </button>
     </section>
   );

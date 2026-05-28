@@ -45,21 +45,46 @@ export function EntryExperience({
   const [pending, setPending] = useState(false);
   const firstFieldRef = useRef<HTMLInputElement>(null);
   const introActionRef = useRef<HTMLButtonElement>(null);
+  const advancingRef = useRef(false);
 
   const { description, endpoint, successMessage } = config[mode];
   const title =
     mode === "signin" && instanceName ? instanceName : config[mode].title;
 
   const advanceToForm = () => {
+    if (advancingRef.current) return;
+    advancingRef.current = true;
     setPhase("transitioning");
-    setTimeout(() => setPhase("form"), 360);
+    setTimeout(() => {
+      setPhase("form");
+      advancingRef.current = false;
+    }, 360);
   };
 
-  // Put keyboard users directly on the primary action when the intro returns.
+  // The intro is visually mouse-first, but keeps the button focused for
+  // keyboard users and accepts Enter/Space as hidden shortcuts.
   useEffect(() => {
     if (phase !== "intro" && phase !== "intro-return") return;
+    advancingRef.current = false;
     const frame = requestAnimationFrame(() => introActionRef.current?.focus());
-    return () => cancelAnimationFrame(frame);
+
+    const handleClick = () => advanceToForm();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      advanceToForm();
+    };
+
+    document.addEventListener("click", handleClick);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("click", handleClick);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
   // Focus first field when form appears
@@ -139,7 +164,7 @@ export function EntryExperience({
           onClick={advanceToForm}
           type="button"
         >
-          Press Enter to begin
+          Click anywhere to begin
         </button>
       </section>
     );
