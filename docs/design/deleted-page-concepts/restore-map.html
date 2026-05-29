@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Staaash Deleted Concept - Restore Map</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family:
+          "Segoe UI",
+          system-ui,
+          -apple-system,
+          sans-serif;
+        --bg: oklch(98% 0.006 78);
+        --bg-soft: oklch(96.5% 0.008 78);
+        --surface: oklch(99.2% 0.004 78);
+        --surface-2: oklch(95.5% 0.007 78);
+        --surface-3: oklch(92.8% 0.011 78);
+        --text: oklch(21% 0.015 72);
+        --muted: oklch(48% 0.014 72);
+        --faint: oklch(63% 0.012 72);
+        --line: oklch(90% 0.009 78);
+        --accent: oklch(48% 0.09 78);
+        --accent-strong: oklch(38% 0.08 78);
+        --accent-soft: oklch(92% 0.025 78);
+        --danger: oklch(50% 0.17 25);
+        --danger-soft: oklch(94% 0.025 25);
+        --good: oklch(45% 0.1 145);
+        --good-soft: oklch(93% 0.025 145);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: linear-gradient(
+          180deg,
+          var(--surface) 0%,
+          var(--bg-soft) 100%
+        );
+        color: var(--text);
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      button:focus-visible,
+      a:focus-visible,
+      input:focus-visible {
+        outline: 2px solid oklch(68% 0.06 80);
+        outline-offset: 4px;
+      }
+
+      .shell {
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 264px minmax(0, 1fr);
+      }
+
+      .sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        padding: 24px 18px;
+        border-right: 1px solid var(--line);
+        background: oklch(97.5% 0.006 78);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 8px;
+        font-weight: 760;
+        letter-spacing: 0.01em;
+      }
+
+      .brand-mark,
+      .nav-mark,
+      .node-mark {
+        display: inline-grid;
+        place-items: center;
+        flex: 0 0 auto;
+        border-radius: 10px;
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+        font-weight: 760;
+      }
+
+      .brand-mark {
+        width: 34px;
+        height: 34px;
+      }
+
+      .nav-section {
+        display: grid;
+        gap: 7px;
+      }
+
+      .nav-label {
+        padding: 0 10px 4px;
+        color: var(--faint);
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .nav-link {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 38px;
+        border-radius: 12px;
+        padding: 0 10px;
+        color: var(--muted);
+        font-size: 0.94rem;
+        font-weight: 600;
+      }
+
+      .nav-link.active,
+      .nav-link:hover {
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+      }
+
+      .nav-mark {
+        width: 24px;
+        height: 24px;
+        border-radius: 8px;
+        background: color-mix(in oklab, var(--text) 5%, transparent);
+        color: var(--muted);
+        font-size: 0.72rem;
+      }
+
+      .active .nav-mark {
+        background: color-mix(in oklab, var(--accent) 20%, var(--surface));
+        color: var(--accent-strong);
+      }
+
+      .storage {
+        margin-top: auto;
+        display: grid;
+        gap: 9px;
+        padding: 16px 10px 0;
+        border-top: 1px solid var(--line);
+        background: transparent;
+      }
+
+      .storage-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        color: var(--muted);
+        font-size: 0.8rem;
+      }
+
+      .storage-track {
+        height: 7px;
+        border-radius: 99px;
+        background: var(--surface-3);
+        overflow: hidden;
+      }
+
+      .storage-fill {
+        width: 38%;
+        height: 100%;
+        background: var(--accent);
+      }
+
+      .main {
+        min-width: 0;
+        display: grid;
+        grid-template-rows: auto 1fr;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        min-height: 72px;
+        padding: 16px 32px;
+        border-bottom: 1px solid var(--line);
+        background: color-mix(in oklab, var(--surface) 88%, transparent);
+      }
+
+      .search {
+        width: min(460px, 100%);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 0 14px;
+        background: var(--surface);
+        color: var(--muted);
+      }
+
+      .search input {
+        width: 100%;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--text);
+      }
+
+      .user {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .avatar {
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background: var(--text);
+        color: var(--surface);
+        font-weight: 750;
+      }
+
+      .content {
+        padding: 28px 32px 56px;
+      }
+
+      .page {
+        max-width: 1180px;
+        margin: 0 auto;
+        display: grid;
+        gap: 22px;
+      }
+
+      .hero {
+        display: flex;
+        justify-content: space-between;
+        gap: 22px;
+        align-items: end;
+      }
+
+      .crumb {
+        color: var(--faint);
+        font-size: 0.84rem;
+        font-weight: 650;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        margin-top: 8px;
+        font-size: 2rem;
+        line-height: 1.08;
+        letter-spacing: -0.02em;
+      }
+
+      .lede {
+        max-width: 68ch;
+        margin-top: 10px;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 40px;
+        border: 0;
+        border-radius: 12px;
+        padding: 0 14px;
+        background: var(--accent);
+        color: var(--surface);
+        font-weight: 740;
+        cursor: pointer;
+      }
+
+      .button.secondary {
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--accent-strong);
+      }
+
+      .button.danger {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+
+      .map-layout {
+        display: grid;
+        grid-template-columns: minmax(260px, 0.85fr) minmax(0, 1.6fr);
+        gap: 18px;
+      }
+
+      .summary-panel,
+      .map-panel {
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        background: transparent;
+      }
+
+      .summary-panel {
+        align-self: start;
+        display: grid;
+        gap: 18px;
+        padding: 18px;
+      }
+
+      .summary-kicker {
+        color: var(--faint);
+        font-size: 0.75rem;
+        font-weight: 780;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .summary-number {
+        font-size: 2.5rem;
+        line-height: 1;
+        font-weight: 790;
+        letter-spacing: -0.04em;
+      }
+
+      .summary-text {
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      .summary-list {
+        display: grid;
+        gap: 10px;
+        padding-top: 4px;
+      }
+
+      .summary-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+      }
+
+      .summary-row:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+      }
+
+      .summary-row strong {
+        color: var(--text);
+      }
+
+      .map-panel {
+        overflow: hidden;
+      }
+
+      .map-toolbar {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface-2);
+      }
+
+      .map-title {
+        display: grid;
+        gap: 3px;
+      }
+
+      .map-title h2 {
+        font-size: 1.05rem;
+      }
+
+      .map-title span {
+        color: var(--muted);
+        font-size: 0.86rem;
+      }
+
+      .group {
+        display: grid;
+        grid-template-columns: 220px minmax(0, 1fr);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .group:last-child {
+        border-bottom: 0;
+      }
+
+      .destination {
+        padding: 18px;
+        background: color-mix(in oklab, var(--accent) 6%, var(--surface));
+        border-right: 1px solid var(--line);
+      }
+
+      .destination-path {
+        display: grid;
+        gap: 7px;
+      }
+
+      .destination-path span {
+        color: var(--faint);
+        font-size: 0.74rem;
+        font-weight: 780;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .destination-path strong {
+        overflow-wrap: anywhere;
+        line-height: 1.35;
+      }
+
+      .restore-count {
+        width: max-content;
+        margin-top: 12px;
+        border-radius: 999px;
+        padding: 5px 9px;
+        background: var(--good-soft);
+        color: var(--good);
+        font-size: 0.78rem;
+        font-weight: 740;
+      }
+
+      .node-list {
+        display: grid;
+      }
+
+      .node {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+        min-height: 80px;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .node:last-child {
+        border-bottom: 0;
+      }
+
+      .node:hover {
+        background: color-mix(in oklab, var(--accent) 5%, var(--surface));
+      }
+
+      .node-main {
+        min-width: 0;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .node-mark {
+        width: 38px;
+        height: 38px;
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        font-size: 0.78rem;
+      }
+
+      .node-mark.folder {
+        background: var(--accent-soft);
+      }
+
+      .node-copy {
+        min-width: 0;
+        display: grid;
+        gap: 4px;
+      }
+
+      .node-copy strong {
+        overflow-wrap: anywhere;
+      }
+
+      .node-copy span {
+        color: var(--muted);
+        font-size: 0.86rem;
+        line-height: 1.35;
+      }
+
+      .node-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      .node-actions .button {
+        min-height: 36px;
+        padding-inline: 11px;
+        font-size: 0.86rem;
+      }
+
+      .footer-note {
+        padding: 14px 18px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      @media (max-width: 980px) {
+        .map-layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 880px) {
+        .shell {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          display: block;
+          padding: 16px;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .brand,
+        .storage,
+        .nav-label {
+          display: none;
+        }
+
+        .nav-section {
+          display: flex;
+          gap: 8px;
+          overflow-x: auto;
+          padding-bottom: 2px;
+        }
+
+        .nav-link {
+          white-space: nowrap;
+          flex: 0 0 auto;
+        }
+
+        .topbar {
+          padding: 14px 18px;
+        }
+
+        .content {
+          padding: 22px 18px 42px;
+        }
+
+        .hero {
+          flex-direction: column;
+          align-items: stretch;
+        }
+      }
+
+      @media (max-width: 680px) {
+        .topbar .user {
+          display: none;
+        }
+
+        .group {
+          grid-template-columns: 1fr;
+        }
+
+        .destination {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .node {
+          grid-template-columns: 1fr;
+        }
+
+        .node-actions {
+          justify-content: stretch;
+        }
+
+        .node-actions .button {
+          flex: 1 1 130px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar" aria-label="Workspace">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">S</span
+          ><span>Staaash</span>
+        </div>
+        <nav class="nav-section" aria-label="Primary">
+          <a class="nav-link" href="#"
+            ><span class="nav-mark" aria-hidden="true">H</span>Home</a
+          >
+          <a class="nav-link" href="#"
+            ><span class="nav-mark" aria-hidden="true">F</span>Files</a
+          >
+        </nav>
+        <nav class="nav-section" aria-label="Collection">
+          <span class="nav-label">Collection</span>
+          <a class="nav-link" href="#"
+            ><span class="nav-mark" aria-hidden="true">R</span>Recent</a
+          >
+          <a class="nav-link" href="#"
+            ><span class="nav-mark" aria-hidden="true">V</span>Favorites</a
+          >
+          <a class="nav-link" href="#"
+            ><span class="nav-mark" aria-hidden="true">S</span>Shared</a
+          >
+        </nav>
+        <nav class="nav-section" aria-label="Manage">
+          <span class="nav-label">Manage</span>
+          <a class="nav-link active" href="#"
+            ><span class="nav-mark" aria-hidden="true">T</span>Trash</a
+          >
+          <a class="nav-link" href="#"
+            ><span class="nav-mark" aria-hidden="true">G</span>Settings</a
+          >
+        </nav>
+        <div class="storage" aria-label="Storage usage">
+          <div class="storage-row">
+            <span>Storage</span><strong>38%</strong>
+          </div>
+          <div class="storage-track"><div class="storage-fill"></div></div>
+          <div class="storage-row">
+            <span>182 GB used</span><span>of 480 GB</span>
+          </div>
+        </div>
+      </aside>
+      <main class="main">
+        <header class="topbar">
+          <label class="search"
+            ><span>Search</span><input value="" placeholder="Search files"
+          /></label>
+          <div class="user"><span>Ares</span><span class="avatar">A</span></div>
+        </header>
+        <div class="content">
+          <section class="page" aria-labelledby="page-title">
+            <header class="hero">
+              <div>
+                <div class="crumb">Workspace / Manage / Trash</div>
+                <h1 id="page-title">Deleted items</h1>
+                <p class="lede">
+                  Restore Map groups deleted items by where they will return. It
+                  makes folder restores feel safer because the destination is
+                  the first thing shown.
+                </p>
+              </div>
+              <button class="button danger" type="button">Empty trash</button>
+            </header>
+
+            <div class="map-layout">
+              <aside class="summary-panel" aria-label="Restore summary">
+                <div>
+                  <div class="summary-kicker">Restore map</div>
+                  <div class="summary-number">4</div>
+                  <p class="summary-text">
+                    destinations have deleted items waiting.
+                  </p>
+                </div>
+                <div class="summary-list">
+                  <div class="summary-row">
+                    <span>Folder roots</span><strong>3</strong>
+                  </div>
+                  <div class="summary-row">
+                    <span>Standalone files</span><strong>4</strong>
+                  </div>
+                  <div class="summary-row">
+                    <span>Oldest item</span><strong>12 days</strong>
+                  </div>
+                  <div class="summary-row">
+                    <span>Total size</span><strong>6.8 GB</strong>
+                  </div>
+                </div>
+                <button class="button secondary" type="button">
+                  Show newest first
+                </button>
+              </aside>
+
+              <section class="map-panel" aria-label="Restore destinations">
+                <div class="map-toolbar">
+                  <div class="map-title">
+                    <h2>Restore destinations</h2>
+                    <span
+                      >Items are grouped by their current restore target.</span
+                    >
+                  </div>
+                  <button class="button secondary" type="button">
+                    Collapse all
+                  </button>
+                </div>
+
+                <article class="group">
+                  <div class="destination">
+                    <div class="destination-path">
+                      <span>Restore target</span>
+                      <strong>Files / Archive / Finance</strong>
+                    </div>
+                    <div class="restore-count">2 items</div>
+                  </div>
+                  <div class="node-list">
+                    <div class="node">
+                      <div class="node-main">
+                        <span class="node-mark folder">DIR</span>
+                        <div class="node-copy">
+                          <strong>Tax Documents</strong>
+                          <span
+                            >Folder root deleted today. Restores with 18
+                            descendant files.</span
+                          >
+                        </div>
+                      </div>
+                      <div class="node-actions">
+                        <button class="button" type="button">
+                          Restore folder
+                        </button>
+                      </div>
+                    </div>
+                    <div class="node">
+                      <div class="node-main">
+                        <span class="node-mark">PDF</span>
+                        <div class="node-copy">
+                          <strong>q1-charity-receipt.pdf</strong>
+                          <span>Standalone file deleted May 22.</span>
+                        </div>
+                      </div>
+                      <div class="node-actions">
+                        <button class="button" type="button">Restore</button>
+                        <button class="button danger" type="button">
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+
+                <article class="group">
+                  <div class="destination">
+                    <div class="destination-path">
+                      <span>Restore target</span>
+                      <strong>Files / Photos</strong>
+                    </div>
+                    <div class="restore-count">1 item</div>
+                  </div>
+                  <div class="node-list">
+                    <div class="node">
+                      <div class="node-main">
+                        <span class="node-mark folder">DIR</span>
+                        <div class="node-copy">
+                          <strong>Phone imports</strong>
+                          <span
+                            >Folder root deleted May 24. Restores with 126
+                            photos.</span
+                          >
+                        </div>
+                      </div>
+                      <div class="node-actions">
+                        <button class="button" type="button">
+                          Restore folder
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+
+                <article class="group">
+                  <div class="destination">
+                    <div class="destination-path">
+                      <span>Restore target</span>
+                      <strong>Files / Identity</strong>
+                    </div>
+                    <div class="restore-count">1 item</div>
+                  </div>
+                  <div class="node-list">
+                    <div class="node">
+                      <div class="node-main">
+                        <span class="node-mark">PDF</span>
+                        <div class="node-copy">
+                          <strong>passport-scan.pdf</strong>
+                          <span>Standalone file deleted yesterday.</span>
+                        </div>
+                      </div>
+                      <div class="node-actions">
+                        <button class="button" type="button">Restore</button>
+                        <button class="button danger" type="button">
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+
+                <p class="footer-note">
+                  Showing 1 to 4 restore destinations. Folder rows restore their
+                  descendant files with them.
+                </p>
+              </section>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>
