@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Staaash Deleted Concept - Drive Standard</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family:
+          "Segoe UI",
+          system-ui,
+          -apple-system,
+          sans-serif;
+        --surface: oklch(99.2% 0.004 78);
+        --surface-2: oklch(95.5% 0.007 78);
+        --surface-3: oklch(92.8% 0.011 78);
+        --text: oklch(21% 0.015 72);
+        --muted: oklch(48% 0.014 72);
+        --faint: oklch(63% 0.012 72);
+        --line: oklch(90% 0.009 78);
+        --accent: oklch(48% 0.09 78);
+        --accent-strong: oklch(38% 0.08 78);
+        --accent-soft: oklch(92% 0.025 78);
+        --danger: oklch(50% 0.17 25);
+        --danger-soft: oklch(94% 0.025 25);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: linear-gradient(
+          180deg,
+          var(--surface) 0%,
+          oklch(96.5% 0.008 78) 100%
+        );
+        color: var(--text);
+      }
+
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+
+      button,
+      a {
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      button:focus-visible,
+      a:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: 2px solid oklch(68% 0.06 80);
+        outline-offset: 4px;
+      }
+
+      .shell {
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 264px minmax(0, 1fr);
+      }
+
+      .sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        padding: 24px 18px;
+        border-right: 1px solid var(--line);
+        background: oklch(97.5% 0.006 78);
+      }
+
+      .brand,
+      .nav-link,
+      .topbar,
+      .user,
+      .search,
+      .row-name,
+      .toolbar,
+      .table-actions {
+        display: flex;
+        align-items: center;
+      }
+
+      .brand {
+        gap: 12px;
+        padding: 0 8px;
+        font-weight: 760;
+      }
+
+      .brand-mark,
+      .nav-mark,
+      .item-mark {
+        display: inline-grid;
+        place-items: center;
+        flex: 0 0 auto;
+        font-weight: 760;
+      }
+
+      .brand-mark {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+      }
+
+      .nav-section {
+        display: grid;
+        gap: 7px;
+      }
+
+      .nav-label {
+        padding: 0 10px 4px;
+        color: var(--faint);
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .nav-link {
+        gap: 10px;
+        min-height: 38px;
+        border-radius: 12px;
+        padding: 0 10px;
+        color: var(--muted);
+        font-size: 0.94rem;
+        font-weight: 600;
+      }
+
+      .nav-link.active,
+      .nav-link:hover {
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+      }
+
+      .nav-mark {
+        width: 24px;
+        height: 24px;
+        border-radius: 8px;
+        background: color-mix(in oklab, var(--text) 5%, transparent);
+        color: var(--muted);
+        font-size: 0.72rem;
+      }
+
+      .active .nav-mark {
+        background: color-mix(in oklab, var(--accent) 20%, var(--surface));
+        color: var(--accent-strong);
+      }
+
+      .storage {
+        margin-top: auto;
+        display: grid;
+        gap: 9px;
+        padding: 16px 10px 0;
+        border-top: 1px solid var(--line);
+        background: transparent;
+      }
+
+      .storage-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        color: var(--muted);
+        font-size: 0.8rem;
+      }
+
+      .storage-track {
+        height: 7px;
+        border-radius: 99px;
+        background: var(--surface-3);
+        overflow: hidden;
+      }
+
+      .storage-fill {
+        width: 38%;
+        height: 100%;
+        background: var(--accent);
+      }
+
+      .main {
+        min-width: 0;
+        display: grid;
+        grid-template-rows: auto 1fr;
+      }
+
+      .topbar {
+        justify-content: space-between;
+        gap: 18px;
+        min-height: 72px;
+        padding: 16px 32px;
+        border-bottom: 1px solid var(--line);
+        background: color-mix(in oklab, var(--surface) 88%, transparent);
+      }
+
+      .search {
+        width: min(460px, 100%);
+        gap: 10px;
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 0 14px;
+        background: var(--surface);
+        color: var(--muted);
+      }
+
+      .search input {
+        width: 100%;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--text);
+      }
+
+      .user {
+        gap: 10px;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .avatar {
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background: var(--text);
+        color: var(--surface);
+        font-weight: 750;
+      }
+
+      .content {
+        padding: 28px 32px 56px;
+      }
+
+      .page {
+        max-width: 1180px;
+        margin: 0 auto;
+        display: grid;
+        gap: 18px;
+      }
+
+      .header {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 18px;
+      }
+
+      .crumb {
+        color: var(--faint);
+        font-size: 0.84rem;
+        font-weight: 650;
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        margin-top: 8px;
+        font-size: 2rem;
+        line-height: 1.08;
+        letter-spacing: -0.02em;
+      }
+
+      .lede {
+        max-width: 70ch;
+        margin-top: 8px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 38px;
+        border: 0;
+        border-radius: 10px;
+        padding: 0 13px;
+        background: var(--accent);
+        color: var(--surface);
+        font-weight: 720;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      .button.secondary {
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--accent-strong);
+      }
+
+      .button.danger {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+
+      .toolbar {
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 12px;
+        min-height: 58px;
+        padding: 10px 0;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        background: transparent;
+      }
+
+      .toolbar-left,
+      .toolbar-right {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .pill,
+      .seg {
+        min-height: 34px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 0 12px;
+        background: var(--surface);
+        color: var(--muted);
+        font-size: 0.88rem;
+        font-weight: 650;
+      }
+
+      .pill.active {
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+        border-color: color-mix(in oklab, var(--accent) 20%, var(--line));
+      }
+
+      .seg {
+        border-radius: 10px;
+      }
+
+      .table-shell {
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        background: transparent;
+        overflow: hidden;
+      }
+
+      .table-head,
+      .table-row {
+        display: grid;
+        grid-template-columns:
+          36px minmax(210px, 1.25fr) minmax(160px, 0.85fr)
+          minmax(120px, 0.55fr) minmax(76px, 0.35fr) 190px;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .table-head {
+        min-height: 46px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface-2);
+        color: var(--faint);
+        font-size: 0.76rem;
+        font-weight: 760;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      .table-row {
+        min-height: 60px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .table-row:last-child {
+        border-bottom: 0;
+      }
+
+      .table-row:hover {
+        background: color-mix(in oklab, var(--text) 3.5%, transparent);
+      }
+
+      .select {
+        width: 17px;
+        height: 17px;
+        accent-color: var(--accent);
+      }
+
+      .row-name {
+        min-width: 0;
+        gap: 11px;
+      }
+
+      .item-mark {
+        width: 34px;
+        height: 34px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: var(--surface-2);
+        color: var(--accent-strong);
+        font-size: 0.72rem;
+      }
+
+      .item-mark.folder {
+        background: var(--accent-soft);
+      }
+
+      .name-copy {
+        min-width: 0;
+        display: grid;
+        gap: 2px;
+      }
+
+      .name-copy strong,
+      .path {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .name-copy strong {
+        font-size: 0.93rem;
+        font-weight: 650;
+      }
+
+      .name-copy span,
+      .cell {
+        color: var(--muted);
+        font-size: 0.84rem;
+      }
+
+      .cell.size {
+        color: var(--faint);
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+
+      .table-actions {
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      .table-actions .button {
+        min-height: 34px;
+        padding-inline: 10px;
+        font-size: 0.83rem;
+      }
+
+      .footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        min-height: 50px;
+        padding: 0 16px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+
+      @media (max-width: 1040px) {
+        .table-head {
+          display: none;
+        }
+
+        .table-row {
+          grid-template-columns: 28px minmax(0, 1fr) auto;
+          min-height: 78px;
+          padding-block: 10px;
+        }
+
+        .table-row > .cell,
+        .table-row > .path {
+          display: none;
+        }
+      }
+
+      @media (max-width: 880px) {
+        .shell {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          display: block;
+          padding: 16px;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .brand,
+        .storage,
+        .nav-label {
+          display: none;
+        }
+
+        .nav-section {
+          display: flex;
+          gap: 8px;
+          overflow-x: auto;
+          padding-bottom: 2px;
+        }
+
+        .nav-link {
+          white-space: nowrap;
+          flex: 0 0 auto;
+        }
+
+        .topbar {
+          padding: 14px 18px;
+        }
+
+        .content {
+          padding: 22px 18px 42px;
+        }
+
+        .header {
+          align-items: stretch;
+          flex-direction: column;
+        }
+      }
+
+      @media (max-width: 620px) {
+        .topbar .user {
+          display: none;
+        }
+
+        .table-row {
+          grid-template-columns: 24px minmax(0, 1fr);
+        }
+
+        .table-actions {
+          grid-column: 1 / -1;
+          justify-content: stretch;
+          padding-left: 35px;
+        }
+
+        .table-actions .button,
+        .footer .button {
+          flex: 1 1 auto;
+        }
+
+        .footer {
+          align-items: stretch;
+          flex-direction: column;
+          padding-block: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar" aria-label="Workspace">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">S</span
+          ><span>Staaash</span>
+        </div>
+        <nav class="nav-section" aria-label="Primary">
+          <a class="nav-link" href="#"
+            ><span class="nav-mark" aria-hidden="true">H</span>Home</a
+          >
+          <a class="nav-link" href="#"
+            ><span class="nav-mark" aria-hidden="true">F</span>Files</a
+          >
+        </nav>
+        <nav class="nav-section" aria-label="Collection">
+          <span class="nav-label">Collection</span>
+          <a class="nav-link" href="#"
+            ><span class="nav-mark" aria-hidden="true">R</span>Recent</a
+          >
+          <a class="nav-link" href="#"
+            ><span class="nav-mark" aria-hidden="true">V</span>Favorites</a
+          >
+          <a class="nav-link" href="#"
+            ><span class="nav-mark" aria-hidden="true">S</span>Shared</a
+          >
+        </nav>
+        <nav class="nav-section" aria-label="Manage">
+          <span class="nav-label">Manage</span>
+          <a class="nav-link active" href="#"
+            ><span class="nav-mark" aria-hidden="true">T</span>Trash</a
+          >
+          <a class="nav-link" href="#"
+            ><span class="nav-mark" aria-hidden="true">G</span>Settings</a
+          >
+        </nav>
+        <div class="storage" aria-label="Storage usage">
+          <div class="storage-row">
+            <span>Storage</span><strong>38%</strong>
+          </div>
+          <div class="storage-track"><div class="storage-fill"></div></div>
+          <div class="storage-row">
+            <span>182 GB used</span><span>of 480 GB</span>
+          </div>
+        </div>
+      </aside>
+      <main class="main">
+        <header class="topbar">
+          <label class="search"
+            ><span>Search</span><input placeholder="Search files"
+          /></label>
+          <div class="user"><span>Ares</span><span class="avatar">A</span></div>
+        </header>
+        <div class="content">
+          <section class="page" aria-labelledby="page-title">
+            <header class="header">
+              <div>
+                <div class="crumb">Workspace / Manage / Trash</div>
+                <h1 id="page-title">Deleted items</h1>
+                <p class="lede">
+                  A familiar Drive-style trash list: plain toolbar, selectable
+                  rows, clear columns, and direct restore or permanent delete
+                  actions.
+                </p>
+              </div>
+              <button class="button danger" type="button">Empty trash</button>
+            </header>
+
+            <section class="toolbar" aria-label="Deleted item controls">
+              <div class="toolbar-left">
+                <button class="pill active" type="button">All</button>
+                <button class="pill" type="button">Folders</button>
+                <button class="pill" type="button">Files</button>
+                <button class="pill" type="button">Older than 7 days</button>
+              </div>
+              <div class="toolbar-right">
+                <button class="seg" type="button">Newest</button>
+                <button class="seg" type="button">List</button>
+              </div>
+            </section>
+
+            <section class="table-shell" aria-label="Deleted items table">
+              <div class="table-head">
+                <span></span>
+                <span>Name</span>
+                <span>Original location</span>
+                <span>Deleted</span>
+                <span>Size</span>
+                <span>Actions</span>
+              </div>
+
+              <article class="table-row">
+                <input
+                  class="select"
+                  type="checkbox"
+                  aria-label="Select Tax Documents"
+                />
+                <div class="row-name">
+                  <span class="item-mark folder">DIR</span>
+                  <span class="name-copy">
+                    <strong>Tax Documents</strong>
+                    <span>Folder root, restores with 18 files</span>
+                  </span>
+                </div>
+                <span class="path">Files / Archive / Finance</span>
+                <span class="cell">Today</span>
+                <span class="cell size">--</span>
+                <span class="table-actions">
+                  <button class="button" type="button">Restore</button>
+                </span>
+              </article>
+
+              <article class="table-row">
+                <input
+                  class="select"
+                  type="checkbox"
+                  aria-label="Select passport-scan.pdf"
+                />
+                <div class="row-name">
+                  <span class="item-mark">PDF</span>
+                  <span class="name-copy">
+                    <strong>passport-scan.pdf</strong>
+                    <span>Standalone file</span>
+                  </span>
+                </div>
+                <span class="path">Files / Identity</span>
+                <span class="cell">Yesterday</span>
+                <span class="cell size">2.4 MB</span>
+                <span class="table-actions">
+                  <button class="button" type="button">Restore</button>
+                  <button class="button danger" type="button">Delete</button>
+                </span>
+              </article>
+
+              <article class="table-row">
+                <input
+                  class="select"
+                  type="checkbox"
+                  aria-label="Select Phone imports"
+                />
+                <div class="row-name">
+                  <span class="item-mark folder">DIR</span>
+                  <span class="name-copy">
+                    <strong>Phone imports</strong>
+                    <span>Folder root, restores with 126 photos</span>
+                  </span>
+                </div>
+                <span class="path">Files / Photos</span>
+                <span class="cell">May 24</span>
+                <span class="cell size">--</span>
+                <span class="table-actions">
+                  <button class="button" type="button">Restore</button>
+                </span>
+              </article>
+
+              <article class="table-row">
+                <input
+                  class="select"
+                  type="checkbox"
+                  aria-label="Select kitchen-renovation-before.mov"
+                />
+                <div class="row-name">
+                  <span class="item-mark">MOV</span>
+                  <span class="name-copy">
+                    <strong>kitchen-renovation-before.mov</strong>
+                    <span>Standalone file</span>
+                  </span>
+                </div>
+                <span class="path">Files / House / Videos</span>
+                <span class="cell">May 21</span>
+                <span class="cell size">2.1 GB</span>
+                <span class="table-actions">
+                  <button class="button" type="button">Restore</button>
+                  <button class="button danger" type="button">Delete</button>
+                </span>
+              </article>
+
+              <footer class="footer">
+                <span>Showing 1 to 4 of 7 deleted items</span>
+                <button class="button secondary" type="button">
+                  Next page
+                </button>
+              </footer>
+            </section>
+          </section>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

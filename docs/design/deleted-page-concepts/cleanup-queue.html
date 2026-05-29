@@ -1,0 +1,802 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Staaash Deleted Concept - Cleanup Queue</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family:
+          "Segoe UI",
+          system-ui,
+          -apple-system,
+          sans-serif;
+        --bg: oklch(98% 0.006 78);
+        --bg-soft: oklch(96.5% 0.008 78);
+        --surface: oklch(99.2% 0.004 78);
+        --surface-2: oklch(95.5% 0.007 78);
+        --surface-3: oklch(92.8% 0.011 78);
+        --text: oklch(21% 0.015 72);
+        --muted: oklch(48% 0.014 72);
+        --faint: oklch(63% 0.012 72);
+        --line: oklch(90% 0.009 78);
+        --accent: oklch(48% 0.09 78);
+        --accent-strong: oklch(38% 0.08 78);
+        --accent-soft: oklch(92% 0.025 78);
+        --danger: oklch(50% 0.17 25);
+        --danger-soft: oklch(94% 0.025 25);
+        --warn: oklch(54% 0.11 58);
+        --warn-soft: oklch(94% 0.03 65);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: linear-gradient(
+          180deg,
+          var(--surface) 0%,
+          var(--bg-soft) 100%
+        );
+        color: var(--text);
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      button:focus-visible,
+      a:focus-visible,
+      input:focus-visible {
+        outline: 2px solid oklch(68% 0.06 80);
+        outline-offset: 4px;
+      }
+
+      .shell {
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 264px minmax(0, 1fr);
+      }
+
+      .sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        padding: 24px 18px;
+        border-right: 1px solid var(--line);
+        background: oklch(97.5% 0.006 78);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 0 8px;
+        font-weight: 760;
+        letter-spacing: 0.01em;
+      }
+
+      .brand-mark,
+      .nav-mark,
+      .queue-mark {
+        display: inline-grid;
+        place-items: center;
+        flex: 0 0 auto;
+        border-radius: 10px;
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+        font-weight: 760;
+      }
+
+      .brand-mark {
+        width: 34px;
+        height: 34px;
+      }
+
+      .nav-section {
+        display: grid;
+        gap: 7px;
+      }
+
+      .nav-label {
+        padding: 0 10px 4px;
+        color: var(--faint);
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .nav-link {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 38px;
+        border-radius: 12px;
+        padding: 0 10px;
+        color: var(--muted);
+        font-size: 0.94rem;
+        font-weight: 600;
+      }
+
+      .nav-link.active,
+      .nav-link:hover {
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+      }
+
+      .nav-mark {
+        width: 24px;
+        height: 24px;
+        border-radius: 8px;
+        background: color-mix(in oklab, var(--text) 5%, transparent);
+        color: var(--muted);
+        font-size: 0.72rem;
+      }
+
+      .active .nav-mark {
+        background: color-mix(in oklab, var(--accent) 20%, var(--surface));
+        color: var(--accent-strong);
+      }
+
+      .storage {
+        margin-top: auto;
+        display: grid;
+        gap: 9px;
+        padding: 16px 10px 0;
+        border-top: 1px solid var(--line);
+        background: transparent;
+      }
+
+      .storage-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        color: var(--muted);
+        font-size: 0.8rem;
+      }
+
+      .storage-track {
+        height: 7px;
+        border-radius: 99px;
+        background: var(--surface-3);
+        overflow: hidden;
+      }
+
+      .storage-fill {
+        width: 38%;
+        height: 100%;
+        background: var(--accent);
+      }
+
+      .main {
+        min-width: 0;
+        display: grid;
+        grid-template-rows: auto 1fr;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        min-height: 72px;
+        padding: 16px 32px;
+        border-bottom: 1px solid var(--line);
+        background: color-mix(in oklab, var(--surface) 88%, transparent);
+      }
+
+      .search {
+        width: min(460px, 100%);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 0 14px;
+        background: var(--surface);
+        color: var(--muted);
+      }
+
+      .search input {
+        width: 100%;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--text);
+      }
+
+      .user {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .avatar {
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background: var(--text);
+        color: var(--surface);
+        font-weight: 750;
+      }
+
+      .content {
+        padding: 28px 32px 56px;
+      }
+
+      .page {
+        max-width: 1180px;
+        margin: 0 auto;
+        display: grid;
+        gap: 22px;
+      }
+
+      .hero {
+        display: flex;
+        justify-content: space-between;
+        gap: 22px;
+        align-items: end;
+      }
+
+      .crumb {
+        color: var(--faint);
+        font-size: 0.84rem;
+        font-weight: 650;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        margin-top: 8px;
+        font-size: 2rem;
+        line-height: 1.08;
+        letter-spacing: -0.02em;
+      }
+
+      .lede {
+        max-width: 68ch;
+        margin-top: 10px;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 40px;
+        border: 0;
+        border-radius: 12px;
+        padding: 0 14px;
+        background: var(--accent);
+        color: var(--surface);
+        font-weight: 740;
+        cursor: pointer;
+      }
+
+      .button.secondary {
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--accent-strong);
+      }
+
+      .button.danger {
+        background: var(--danger-soft);
+        color: var(--danger);
+      }
+
+      .queue-shell {
+        display: grid;
+        gap: 14px;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        background: transparent;
+        overflow: hidden;
+      }
+
+      .queue-top {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 16px;
+        align-items: center;
+        padding: 18px;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface-2);
+      }
+
+      .queue-title {
+        display: grid;
+        gap: 4px;
+      }
+
+      .queue-title h2 {
+        font-size: 1.1rem;
+      }
+
+      .queue-title p {
+        color: var(--muted);
+        line-height: 1.45;
+      }
+
+      .batch-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: flex-end;
+      }
+
+      .queue-columns {
+        display: grid;
+        grid-template-columns: minmax(0, 1.5fr) minmax(270px, 0.7fr);
+        gap: 0;
+      }
+
+      .queue-list {
+        display: grid;
+        border-right: 1px solid var(--line);
+      }
+
+      .queue-row {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 13px;
+        align-items: center;
+        min-height: 86px;
+        padding: 15px 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .queue-row:last-child {
+        border-bottom: 0;
+      }
+
+      .queue-row:hover {
+        background: color-mix(in oklab, var(--accent) 5%, var(--surface));
+      }
+
+      .check {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--accent);
+      }
+
+      .queue-main {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .queue-mark {
+        width: 38px;
+        height: 38px;
+        background: var(--surface-2);
+        border: 1px solid var(--line);
+        font-size: 0.78rem;
+      }
+
+      .queue-mark.folder {
+        background: var(--accent-soft);
+      }
+
+      .queue-copy {
+        min-width: 0;
+        display: grid;
+        gap: 4px;
+      }
+
+      .queue-copy strong {
+        overflow-wrap: anywhere;
+      }
+
+      .queue-copy span {
+        color: var(--muted);
+        font-size: 0.86rem;
+        line-height: 1.35;
+      }
+
+      .queue-status {
+        display: grid;
+        justify-items: end;
+        gap: 6px;
+      }
+
+      .age {
+        border-radius: 999px;
+        padding: 5px 9px;
+        background: var(--warn-soft);
+        color: var(--warn);
+        font-size: 0.78rem;
+        font-weight: 760;
+      }
+
+      .age.new {
+        background: var(--accent-soft);
+        color: var(--accent-strong);
+      }
+
+      .queue-side {
+        display: grid;
+        align-content: start;
+        gap: 18px;
+        padding: 18px;
+      }
+
+      .side-box {
+        display: grid;
+        gap: 10px;
+        padding-bottom: 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .side-box:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+      }
+
+      .side-box h3 {
+        font-size: 0.98rem;
+      }
+
+      .side-box p {
+        color: var(--muted);
+        line-height: 1.45;
+        font-size: 0.92rem;
+      }
+
+      .danger-zone {
+        padding: 14px 0;
+        border-top: 1px solid
+          color-mix(in oklab, var(--danger) 22%, transparent);
+        border-bottom: 1px solid
+          color-mix(in oklab, var(--danger) 22%, transparent);
+        background: transparent;
+      }
+
+      .queue-footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        padding: 14px 18px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      @media (max-width: 980px) {
+        .queue-columns {
+          grid-template-columns: 1fr;
+        }
+
+        .queue-list {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+      }
+
+      @media (max-width: 880px) {
+        .shell {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          display: block;
+          padding: 16px;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .brand,
+        .storage,
+        .nav-label {
+          display: none;
+        }
+
+        .nav-section {
+          display: flex;
+          gap: 8px;
+          overflow-x: auto;
+          padding-bottom: 2px;
+        }
+
+        .nav-link {
+          white-space: nowrap;
+          flex: 0 0 auto;
+        }
+
+        .topbar {
+          padding: 14px 18px;
+        }
+
+        .content {
+          padding: 22px 18px 42px;
+        }
+
+        .hero,
+        .queue-top,
+        .queue-footer {
+          flex-direction: column;
+          align-items: stretch;
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 620px) {
+        .topbar .user {
+          display: none;
+        }
+
+        .queue-row {
+          grid-template-columns: auto minmax(0, 1fr);
+        }
+
+        .queue-status {
+          grid-column: 1 / -1;
+          justify-items: start;
+          padding-left: 31px;
+        }
+
+        .batch-actions,
+        .queue-footer {
+          justify-content: stretch;
+        }
+
+        .batch-actions .button,
+        .queue-footer .button {
+          flex: 1 1 140px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar" aria-label="Workspace">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">S</span
+          ><span>Staaash</span>
+        </div>
+        <nav class="nav-section" aria-label="Primary">
+          <a class="nav-link" href="#"
+            ><span class="nav-mark" aria-hidden="true">H</span>Home</a
+          >
+          <a class="nav-link" href="#"
+            ><span class="nav-mark" aria-hidden="true">F</span>Files</a
+          >
+        </nav>
+        <nav class="nav-section" aria-label="Collection">
+          <span class="nav-label">Collection</span>
+          <a class="nav-link" href="#"
+            ><span class="nav-mark" aria-hidden="true">R</span>Recent</a
+          >
+          <a class="nav-link" href="#"
+            ><span class="nav-mark" aria-hidden="true">V</span>Favorites</a
+          >
+          <a class="nav-link" href="#"
+            ><span class="nav-mark" aria-hidden="true">S</span>Shared</a
+          >
+        </nav>
+        <nav class="nav-section" aria-label="Manage">
+          <span class="nav-label">Manage</span>
+          <a class="nav-link active" href="#"
+            ><span class="nav-mark" aria-hidden="true">T</span>Trash</a
+          >
+          <a class="nav-link" href="#"
+            ><span class="nav-mark" aria-hidden="true">G</span>Settings</a
+          >
+        </nav>
+        <div class="storage" aria-label="Storage usage">
+          <div class="storage-row">
+            <span>Storage</span><strong>38%</strong>
+          </div>
+          <div class="storage-track"><div class="storage-fill"></div></div>
+          <div class="storage-row">
+            <span>182 GB used</span><span>of 480 GB</span>
+          </div>
+        </div>
+      </aside>
+      <main class="main">
+        <header class="topbar">
+          <label class="search"
+            ><span>Search</span><input value="" placeholder="Search files"
+          /></label>
+          <div class="user"><span>Ares</span><span class="avatar">A</span></div>
+        </header>
+        <div class="content">
+          <section class="page" aria-labelledby="page-title">
+            <header class="hero">
+              <div>
+                <div class="crumb">Workspace / Manage / Trash</div>
+                <h1 id="page-title">Deleted items</h1>
+                <p class="lede">
+                  Cleanup Queue treats Trash like a holding queue. Restore stays
+                  easy, but permanent removal has a clearly separated boundary.
+                </p>
+              </div>
+              <button class="button danger" type="button">Empty trash</button>
+            </header>
+
+            <section class="queue-shell" aria-label="Deleted cleanup queue">
+              <div class="queue-top">
+                <div class="queue-title">
+                  <h2>Queue</h2>
+                  <p>
+                    Review selected deleted items before restoring or
+                    permanently removing them.
+                  </p>
+                </div>
+                <div class="batch-actions">
+                  <button class="button secondary" type="button">
+                    Restore selected
+                  </button>
+                  <button class="button danger" type="button">
+                    Delete selected
+                  </button>
+                </div>
+              </div>
+
+              <div class="queue-columns">
+                <div class="queue-list">
+                  <article class="queue-row">
+                    <input
+                      class="check"
+                      type="checkbox"
+                      aria-label="Select Tax Documents"
+                    />
+                    <div class="queue-main">
+                      <span class="queue-mark folder">DIR</span>
+                      <div class="queue-copy">
+                        <strong>Tax Documents</strong>
+                        <span
+                          >Folder root. Deleted today from Files / Archive /
+                          Finance.</span
+                        >
+                      </div>
+                    </div>
+                    <div class="queue-status">
+                      <span class="age new">Today</span>
+                      <span class="queue-copy"
+                        ><span>18 descendants</span></span
+                      >
+                    </div>
+                  </article>
+
+                  <article class="queue-row">
+                    <input
+                      class="check"
+                      type="checkbox"
+                      aria-label="Select passport-scan.pdf"
+                      checked
+                    />
+                    <div class="queue-main">
+                      <span class="queue-mark">PDF</span>
+                      <div class="queue-copy">
+                        <strong>passport-scan.pdf</strong>
+                        <span
+                          >Standalone file. Deleted yesterday from Files /
+                          Identity.</span
+                        >
+                      </div>
+                    </div>
+                    <div class="queue-status">
+                      <span class="age new">1 day</span>
+                      <span class="queue-copy"><span>2.4 MB</span></span>
+                    </div>
+                  </article>
+
+                  <article class="queue-row">
+                    <input
+                      class="check"
+                      type="checkbox"
+                      aria-label="Select Phone imports"
+                    />
+                    <div class="queue-main">
+                      <span class="queue-mark folder">DIR</span>
+                      <div class="queue-copy">
+                        <strong>Phone imports</strong>
+                        <span
+                          >Folder root. Deleted May 24 from Files /
+                          Photos.</span
+                        >
+                      </div>
+                    </div>
+                    <div class="queue-status">
+                      <span class="age">5 days</span>
+                      <span class="queue-copy"
+                        ><span>126 descendants</span></span
+                      >
+                    </div>
+                  </article>
+
+                  <article class="queue-row">
+                    <input
+                      class="check"
+                      type="checkbox"
+                      aria-label="Select kitchen-renovation-before.mov"
+                      checked
+                    />
+                    <div class="queue-main">
+                      <span class="queue-mark">MOV</span>
+                      <div class="queue-copy">
+                        <strong>kitchen-renovation-before.mov</strong>
+                        <span
+                          >Standalone file. Deleted May 21 from Files / House /
+                          Videos.</span
+                        >
+                      </div>
+                    </div>
+                    <div class="queue-status">
+                      <span class="age">8 days</span>
+                      <span class="queue-copy"><span>2.1 GB</span></span>
+                    </div>
+                  </article>
+                </div>
+
+                <aside class="queue-side" aria-label="Cleanup details">
+                  <div class="side-box">
+                    <h3>Selected</h3>
+                    <p>
+                      2 standalone files selected. They can be restored together
+                      or permanently removed after confirmation.
+                    </p>
+                    <button class="button" type="button">
+                      Restore 2 files
+                    </button>
+                  </div>
+                  <div class="side-box danger-zone">
+                    <h3>Permanent deletion</h3>
+                    <p>
+                      Only standalone files expose direct permanent delete here.
+                      Folder cleanup stays tied to emptying Trash.
+                    </p>
+                    <button class="button danger" type="button">
+                      Delete 2 files
+                    </button>
+                  </div>
+                  <div class="side-box">
+                    <h3>Folder restore rule</h3>
+                    <p>
+                      Restoring a folder root brings its descendant files back
+                      to the same path.
+                    </p>
+                  </div>
+                </aside>
+              </div>
+
+              <div class="queue-footer">
+                <span>Showing 1 to 4 of 7 deleted items</span>
+                <div class="batch-actions">
+                  <button class="button secondary" type="button">
+                    Previous
+                  </button>
+                  <button class="button secondary" type="button">Next</button>
+                </div>
+              </div>
+            </section>
+          </section>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>
