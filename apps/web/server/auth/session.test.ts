@@ -24,6 +24,11 @@ const loadSessionModule = async ({
   return import("@/server/auth/session");
 };
 
+const requestContext = (url: string, headers?: HeadersInit) => ({
+  url,
+  headers: new Headers(headers),
+});
+
 describe("auth session cookies", () => {
   afterEach(() => {
     vi.doUnmock("@/lib/env");
@@ -66,13 +71,55 @@ describe("auth session cookies", () => {
     });
   });
 
-  it("defaults secure cookies on in production", async () => {
+  it("lets SECURE_COOKIES=false override HTTPS requests", async () => {
+    const { buildSessionCookie } = await loadSessionModule({
+      secureCookies: false,
+    });
+    const expiresAt = new Date("2026-05-11T12:00:00.000Z");
+
+    expect(
+      buildSessionCookie(
+        "session-token",
+        expiresAt,
+        requestContext("http://staaash:2113/api/auth/sign-in", {
+          "x-forwarded-proto": "https",
+        }),
+      ),
+    ).toMatchObject({
+      secure: false,
+    });
+  });
+
+  it("uses non-secure cookies for plain HTTP requests without an override", async () => {
+    const { buildSessionCookie } = await loadSessionModule({
+      nodeEnv: "production",
+    });
+    const expiresAt = new Date("2026-05-11T12:00:00.000Z");
+
+    expect(
+      buildSessionCookie(
+        "session-token",
+        expiresAt,
+        requestContext("http://46.1.113.7:2113/api/auth/sign-in"),
+      ),
+    ).toMatchObject({
+      secure: false,
+    });
+  });
+
+  it("uses secure cookies for forwarded HTTPS requests without an override", async () => {
     const { buildOnboardedCookie, ONBOARDED_COOKIE_NAME } =
       await loadSessionModule({
         nodeEnv: "production",
       });
 
-    expect(buildOnboardedCookie()).toEqual({
+    expect(
+      buildOnboardedCookie(
+        requestContext("http://staaash:2113/api/auth/rehydrate", {
+          "x-forwarded-proto": "https",
+        }),
+      ),
+    ).toEqual({
       name: ONBOARDED_COOKIE_NAME,
       value: "1",
       httpOnly: true,
@@ -80,6 +127,16 @@ describe("auth session cookies", () => {
       secure: true,
       path: "/",
       maxAge: 60 * 60 * 24 * 365 * 10,
+    });
+  });
+
+  it("falls back to secure cookies in production when no request is passed", async () => {
+    const { buildOnboardedCookie } = await loadSessionModule({
+      nodeEnv: "production",
+    });
+
+    expect(buildOnboardedCookie()).toMatchObject({
+      secure: true,
     });
   });
 
@@ -96,6 +153,7 @@ describe("auth session cookies", () => {
     expect(buildClearedOnboardedCookie()).toEqual({
       name: ONBOARDED_COOKIE_NAME,
       value: "",
+      secure: false,
       expires: new Date(0),
       maxAge: 0,
       path: "/",

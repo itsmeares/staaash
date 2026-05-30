@@ -44,7 +44,11 @@ export async function POST(request: NextRequest) {
         );
 
     response.cookies.set(
-      buildSessionCookie(result.sessionToken, result.session.expiresAt),
+      buildSessionCookie(
+        result.sessionToken,
+        result.session.expiresAt,
+        request,
+      ),
     );
 
     return response;

@@ -44,9 +44,13 @@ export async function POST(request: NextRequest) {
       : NextResponse.redirect(new URL("/files", request.url), 303);
 
     response.cookies.set(
-      buildSessionCookie(result.sessionToken, result.session.expiresAt),
+      buildSessionCookie(
+        result.sessionToken,
+        result.session.expiresAt,
+        request,
+      ),
     );
-    response.cookies.set(buildClearedOnboardedCookie());
+    response.cookies.set(buildClearedOnboardedCookie(request));
 
     return response;
   } catch (error) {
