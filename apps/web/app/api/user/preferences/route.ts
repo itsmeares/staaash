@@ -63,8 +63,8 @@ export async function POST(request: NextRequest) {
     });
 
     const response = NextResponse.json({ ok: true });
-    response.cookies.set(buildOnboardedCookie());
-    response.cookies.set(buildThemeCookie(theme));
+    response.cookies.set(buildOnboardedCookie(request));
+    response.cookies.set(buildThemeCookie(theme, request));
     return response;
   } catch (error) {
     return jsonErrorResponse(error);

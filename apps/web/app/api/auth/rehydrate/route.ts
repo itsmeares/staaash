@@ -20,7 +20,9 @@ export async function GET(request: NextRequest) {
   const response = NextResponse.redirect(
     new URL("/files", getBaseUrl(request.headers)),
   );
-  response.cookies.set(buildOnboardedCookie());
-  response.cookies.set(buildThemeCookie(session.user.preferences.theme));
+  response.cookies.set(buildOnboardedCookie(request));
+  response.cookies.set(
+    buildThemeCookie(session.user.preferences.theme, request),
+  );
   return response;
 }

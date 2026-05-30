@@ -31,6 +31,6 @@ export async function DELETE(request: NextRequest) {
     getSessionTokenFromCookieStore(request.cookies),
   );
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(buildClearedSessionCookie());
+  response.cookies.set(buildClearedSessionCookie(request));
   return response;
 }

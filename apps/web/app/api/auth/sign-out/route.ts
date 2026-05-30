@@ -36,8 +36,8 @@ export async function POST(request: NextRequest) {
       ? NextResponse.json({ ok: true })
       : NextResponse.redirect(new URL(next, getBaseUrl(request.headers)), 303);
 
-    response.cookies.set(buildClearedSessionCookie());
-    response.cookies.set(buildClearedOnboardedCookie());
+    response.cookies.set(buildClearedSessionCookie(request));
+    response.cookies.set(buildClearedOnboardedCookie(request));
 
     return response;
   } catch (error) {

@@ -43,13 +43,17 @@ export async function POST(request: NextRequest) {
       : NextResponse.redirect(new URL(next, getBaseUrl(request.headers)), 303);
 
     response.cookies.set(
-      buildSessionCookie(result.sessionToken, result.session.expiresAt),
+      buildSessionCookie(
+        result.sessionToken,
+        result.session.expiresAt,
+        request,
+      ),
     );
 
     const prefs = result.session.user.preferences;
     if (prefs?.onboardingCompletedAt) {
-      response.cookies.set(buildOnboardedCookie());
-      response.cookies.set(buildThemeCookie(prefs.theme));
+      response.cookies.set(buildOnboardedCookie(request));
+      response.cookies.set(buildThemeCookie(prefs.theme, request));
     }
 
     return response;
