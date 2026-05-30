@@ -4,7 +4,17 @@ import { NextRequest, NextResponse } from "next/server";
 const SESSION_COOKIE = "staaash_session";
 const ONBOARDED_COOKIE = "staaash_onboarded";
 
-const WORKSPACE_PREFIX = ["/files", "/settings", "/admin", "/invite", "/share"];
+const WORKSPACE_PREFIX = [
+  "/admin",
+  "/favorites",
+  "/files",
+  "/home",
+  "/recent",
+  "/search",
+  "/settings",
+  "/shared",
+  "/trash",
+];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
