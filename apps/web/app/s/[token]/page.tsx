@@ -1,8 +1,11 @@
-import { cookies } from "next/headers";
+import type { Metadata } from "next";
+import { cookies, headers } from "next/headers";
 
 import { ShareErrorView, ShareView } from "@/app/s/share-view";
+import { getBaseUrl } from "@/server/request";
 import { SHARE_ACCESS_COOKIE_NAME } from "@/server/sharing/access-cookie";
 import { ShareError, isShareError } from "@/server/sharing/errors";
+import { getSharePageMetadata } from "@/server/sharing/metadata";
 import { sharingService } from "@/server/sharing/service";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +16,23 @@ type SharedRootPageProps = {
   }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
+
+export async function generateMetadata({
+  params,
+}: SharedRootPageProps): Promise<Metadata> {
+  const [{ token }, h, cookieStore] = await Promise.all([
+    params,
+    headers(),
+    cookies(),
+  ]);
+
+  return getSharePageMetadata({
+    token,
+    baseUrl: getBaseUrl(h),
+    shareAccessCookieValue:
+      cookieStore.get(SHARE_ACCESS_COOKIE_NAME)?.value ?? null,
+  });
+}
 
 export default async function SharedRootPage({
   params,
