@@ -44,7 +44,7 @@ Requirements: [Docker](https://docs.docker.com/get-docker/) with the Compose plu
 ### Windows and Linux
 
 1. Go to the [releases page](https://github.com/itsmeares/staaash/releases) and download `docker-compose.yml` and `example.env` into the same folder. Use the latest release, or pick a specific version if you need one. Files on `main` may include unreleased changes.
-2. Rename `example.env` to `.env`, open it, set `DB_PASSWORD` to a secure value (You can use something like pwgen). Also, if you are running plain HTTP without HTTPS, set `SECURE_COOKIES` to `false`, and change any other values you want. `SECURE_COOKIES` only accepts `true` or `false` when set.
+2. Rename `example.env` to `.env`, open it, set `DB_PASSWORD` to a secure value (you can use something like pwgen), and change any other values you want.
 3. Run:
 
    ```console
@@ -61,7 +61,7 @@ If you put Staaash behind Caddy, Nginx, Traefik, or another reverse proxy, prese
 
 Use one public address consistently. Loading the app from `https://staaash.example.com` and posting to a direct server IP, LAN IP, or different port can fail by design.
 
-If you run Staaash over plain HTTP, set `SECURE_COOKIES=false`. With HTTPS, leave secure cookies enabled.
+`SECURE_COOKIES` is optional. By default, Staaash uses secure cookies on HTTPS and non-secure cookies on plain HTTP. Only set `SECURE_COOKIES` if you need to force cookie behavior. If your HTTPS proxy forwards traffic to Staaash over HTTP, make sure it sends `x-forwarded-proto: https`.
 
 ### Upgrading
 
