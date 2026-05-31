@@ -10,6 +10,16 @@ import type { PublicShareResolution } from "./types";
 
 const DEFAULT_INSTANCE_NAME = "Staaash";
 const PLAYABLE_VIDEO_TYPES = new Set(["video/mp4", "video/webm"]);
+const DEFAULT_VIDEO_EMBED_DIMENSIONS = {
+  width: 1280,
+  height: 720,
+};
+
+type VideoEmbedMetadata = {
+  type: string;
+  width: number;
+  height: number;
+};
 
 type GenericShareMetadataTarget = {
   kind: "generic";
@@ -22,7 +32,7 @@ type FileShareMetadataTarget = {
   pagePath: string;
   contentPath: string;
   file: FileSummary;
-  hasReadyVideoDerivative: boolean;
+  videoEmbedMetadata: VideoEmbedMetadata | null;
 };
 
 type FolderShareMetadataTarget = {
@@ -53,8 +63,18 @@ type SharePageMetadataInput = {
 const normalizeMimeType = (mimeType: string) =>
   mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
 
-const isBroadlyPlayableVideo = (file: FileSummary) =>
-  PLAYABLE_VIDEO_TYPES.has(normalizeMimeType(file.mimeType));
+const getOriginalVideoEmbedMetadata = (
+  file: FileSummary,
+): VideoEmbedMetadata | null => {
+  const type = normalizeMimeType(file.mimeType);
+
+  if (!PLAYABLE_VIDEO_TYPES.has(type)) return null;
+
+  return {
+    type,
+    ...DEFAULT_VIDEO_EMBED_DIMENSIONS,
+  };
+};
 
 const toAbsoluteUrl = (path: string, baseUrl: string) =>
   new URL(path, baseUrl).toString();
@@ -147,9 +167,11 @@ export const buildShareMetadata = ({
   const description = `${file.mimeType} - ${formatBytes(file.sizeBytes)} shared via ${instanceName}.`;
   const mediaUrl = toAbsoluteUrl(target.contentPath, baseUrl);
   const isImage = file.viewerKind === "image";
-  const shouldExposeVideo =
-    file.viewerKind === "video" &&
-    (target.hasReadyVideoDerivative || isBroadlyPlayableVideo(file));
+  const videoEmbedMetadata =
+    file.viewerKind === "video"
+      ? (target.videoEmbedMetadata ?? getOriginalVideoEmbedMetadata(file))
+      : null;
+  const shouldExposeVideo = videoEmbedMetadata !== null;
 
   return {
     title,
@@ -175,9 +197,9 @@ export const buildShareMetadata = ({
             videos: [
               {
                 url: mediaUrl,
-                type: target.hasReadyVideoDerivative
-                  ? "video/mp4"
-                  : normalizeMimeType(file.mimeType),
+                type: videoEmbedMetadata.type,
+                width: videoEmbedMetadata.width,
+                height: videoEmbedMetadata.height,
               },
             ],
           }
@@ -201,12 +223,22 @@ const getInstanceName = async (): Promise<string> => {
   }
 };
 
-const hasReadyVideoDerivative = async (fileId: string): Promise<boolean> => {
+const getReadyVideoEmbedMetadata = async (
+  fileId: string,
+): Promise<VideoEmbedMetadata | null> => {
   const derivative = await findReadyDerivative(fileId);
-  return Boolean(
-    derivative?.storageKey &&
-    normalizeMimeType(derivative.mimeType ?? "") === "video/mp4",
-  );
+  const mimeType = normalizeMimeType(derivative?.mimeType ?? "");
+  const width = derivative?.width ?? 0;
+  const height = derivative?.height ?? 0;
+
+  if (!derivative?.storageKey || mimeType !== "video/mp4") return null;
+  if (width <= 0 || height <= 0) return null;
+
+  return {
+    type: mimeType,
+    width,
+    height,
+  };
 };
 
 const shouldExposeShareDetails = (resolution: PublicShareResolution) =>
@@ -279,10 +311,10 @@ export const getSharePageMetadata = async ({
           pagePath: buildFileSharePath(token, file.id),
           contentPath: buildNestedFileContentPath(token, file.id),
           file,
-          hasReadyVideoDerivative:
+          videoEmbedMetadata:
             file.viewerKind === "video"
-              ? await hasReadyVideoDerivative(file.id)
-              : false,
+              ? await getReadyVideoEmbedMetadata(file.id)
+              : null,
         },
       });
     }
@@ -296,10 +328,10 @@ export const getSharePageMetadata = async ({
           pagePath: buildRootSharePath(token),
           contentPath: `${buildRootSharePath(token)}/content`,
           file: resolution.file,
-          hasReadyVideoDerivative:
+          videoEmbedMetadata:
             resolution.file.viewerKind === "video"
-              ? await hasReadyVideoDerivative(resolution.file.id)
-              : false,
+              ? await getReadyVideoEmbedMetadata(resolution.file.id)
+              : null,
         },
       });
     }
