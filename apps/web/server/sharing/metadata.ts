@@ -1,0 +1,321 @@
+import type { Metadata } from "next";
+
+import { findReadyDerivative } from "@staaash/db/media-derivatives";
+
+import { authService } from "@/server/auth/service";
+import type { FileSummary } from "@/server/files/types";
+
+import { sharingService } from "./service";
+import type { PublicShareResolution } from "./types";
+
+const DEFAULT_INSTANCE_NAME = "Staaash";
+const PLAYABLE_VIDEO_TYPES = new Set(["video/mp4", "video/webm"]);
+
+type GenericShareMetadataTarget = {
+  kind: "generic";
+  pagePath: string;
+  noindex: boolean;
+};
+
+type FileShareMetadataTarget = {
+  kind: "file";
+  pagePath: string;
+  contentPath: string;
+  file: FileSummary;
+  hasReadyVideoDerivative: boolean;
+};
+
+type FolderShareMetadataTarget = {
+  kind: "folder";
+  pagePath: string;
+  folderName: string;
+};
+
+export type ShareMetadataTarget =
+  | GenericShareMetadataTarget
+  | FileShareMetadataTarget
+  | FolderShareMetadataTarget;
+
+export type ShareMetadataInput = {
+  baseUrl: string;
+  instanceName?: string | null;
+  target: ShareMetadataTarget;
+};
+
+type SharePageMetadataInput = {
+  baseUrl: string;
+  fileId?: string;
+  folderId?: string;
+  shareAccessCookieValue?: string | null;
+  token: string;
+};
+
+const normalizeMimeType = (mimeType: string) =>
+  mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
+
+const isBroadlyPlayableVideo = (file: FileSummary) =>
+  PLAYABLE_VIDEO_TYPES.has(normalizeMimeType(file.mimeType));
+
+const toAbsoluteUrl = (path: string, baseUrl: string) =>
+  new URL(path, baseUrl).toString();
+
+const formatBytes = (value: number) =>
+  new Intl.NumberFormat("en-GB", {
+    maximumFractionDigits: 1,
+    notation: "standard",
+  }).format(value / (1024 * 1024)) + " MB";
+
+const buildGenericDescription = (instanceName: string) =>
+  `A file or folder shared via ${instanceName}.`;
+
+const buildGenericShareMetadata = ({
+  baseUrl,
+  instanceName,
+  pagePath,
+  noindex,
+}: {
+  baseUrl: string;
+  instanceName: string;
+  pagePath: string;
+  noindex: boolean;
+}): Metadata => {
+  const title = `${instanceName} share`;
+  const description = buildGenericDescription(instanceName);
+  const pageUrl = toAbsoluteUrl(pagePath, baseUrl);
+
+  return {
+    title,
+    description,
+    ...(noindex ? { robots: { index: false, follow: false } } : {}),
+    openGraph: {
+      title,
+      description,
+      siteName: instanceName,
+      type: "website",
+      url: pageUrl,
+    },
+    twitter: {
+      card: "summary",
+      title,
+      description,
+    },
+  };
+};
+
+export const buildShareMetadata = ({
+  baseUrl,
+  instanceName: rawInstanceName,
+  target,
+}: ShareMetadataInput): Metadata => {
+  const instanceName = rawInstanceName?.trim() || DEFAULT_INSTANCE_NAME;
+
+  if (target.kind === "generic") {
+    return buildGenericShareMetadata({
+      baseUrl,
+      instanceName,
+      pagePath: target.pagePath,
+      noindex: target.noindex,
+    });
+  }
+
+  const pageUrl = toAbsoluteUrl(target.pagePath, baseUrl);
+
+  if (target.kind === "folder") {
+    const title = `${target.folderName} - ${instanceName}`;
+    const description = `Folder shared via ${instanceName}.`;
+
+    return {
+      title,
+      description,
+      openGraph: {
+        title,
+        description,
+        siteName: instanceName,
+        type: "website",
+        url: pageUrl,
+      },
+      twitter: {
+        card: "summary",
+        title,
+        description,
+      },
+    };
+  }
+
+  const file = target.file;
+  const title = `${file.name} - ${instanceName}`;
+  const description = `${file.mimeType} - ${formatBytes(file.sizeBytes)} shared via ${instanceName}.`;
+  const mediaUrl = toAbsoluteUrl(target.contentPath, baseUrl);
+  const isImage = file.viewerKind === "image";
+  const shouldExposeVideo =
+    file.viewerKind === "video" &&
+    (target.hasReadyVideoDerivative || isBroadlyPlayableVideo(file));
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      siteName: instanceName,
+      type: shouldExposeVideo ? "video.other" : "website",
+      url: pageUrl,
+      ...(isImage
+        ? {
+            images: [
+              {
+                url: mediaUrl,
+                alt: file.name,
+              },
+            ],
+          }
+        : {}),
+      ...(shouldExposeVideo
+        ? {
+            videos: [
+              {
+                url: mediaUrl,
+                type: target.hasReadyVideoDerivative
+                  ? "video/mp4"
+                  : normalizeMimeType(file.mimeType),
+              },
+            ],
+          }
+        : {}),
+    },
+    twitter: {
+      card: isImage ? "summary_large_image" : "summary",
+      title,
+      description,
+      ...(isImage ? { images: [mediaUrl] } : {}),
+    },
+  };
+};
+
+const getInstanceName = async (): Promise<string> => {
+  try {
+    const setupState = await authService.getSetupState();
+    return setupState.instanceName?.trim() || DEFAULT_INSTANCE_NAME;
+  } catch {
+    return DEFAULT_INSTANCE_NAME;
+  }
+};
+
+const hasReadyVideoDerivative = async (fileId: string): Promise<boolean> => {
+  const derivative = await findReadyDerivative(fileId);
+  return Boolean(
+    derivative?.storageKey &&
+    normalizeMimeType(derivative.mimeType ?? "") === "video/mp4",
+  );
+};
+
+const shouldExposeShareDetails = (resolution: PublicShareResolution) =>
+  resolution.share.status === "active" && !resolution.share.hasPassword;
+
+const buildRootSharePath = (token: string) => `/s/${encodeURIComponent(token)}`;
+
+const buildFolderSharePath = (token: string, folderId: string) =>
+  `/s/${encodeURIComponent(token)}/f/${encodeURIComponent(folderId)}`;
+
+const buildFileSharePath = (token: string, fileId: string) =>
+  `/s/${encodeURIComponent(token)}/files/${encodeURIComponent(fileId)}`;
+
+const buildNestedFileContentPath = (token: string, fileId: string) =>
+  `/s/${encodeURIComponent(token)}/files/${encodeURIComponent(fileId)}/content`;
+
+export const getSharePageMetadata = async ({
+  baseUrl,
+  fileId,
+  folderId,
+  shareAccessCookieValue,
+  token,
+}: SharePageMetadataInput): Promise<Metadata> => {
+  const instanceName = await getInstanceName();
+  const fallbackPath = fileId
+    ? buildFileSharePath(token, fileId)
+    : folderId
+      ? buildFolderSharePath(token, folderId)
+      : buildRootSharePath(token);
+
+  const fallbackMetadata = () =>
+    buildShareMetadata({
+      baseUrl,
+      instanceName,
+      target: {
+        kind: "generic",
+        pagePath: fallbackPath,
+        noindex: true,
+      },
+    });
+
+  try {
+    const resolution = await sharingService.resolvePublicShare({
+      token,
+      requestedFolderId: folderId,
+      shareAccessCookieValue,
+      baseUrl,
+    });
+
+    if (!shouldExposeShareDetails(resolution)) {
+      return fallbackMetadata();
+    }
+
+    if (fileId) {
+      if (resolution.kind !== "folder") {
+        return fallbackMetadata();
+      }
+
+      const { file } = await sharingService.getSharedNestedFileContent({
+        token,
+        fileId,
+        shareAccessCookieValue,
+      });
+
+      return buildShareMetadata({
+        baseUrl,
+        instanceName,
+        target: {
+          kind: "file",
+          pagePath: buildFileSharePath(token, file.id),
+          contentPath: buildNestedFileContentPath(token, file.id),
+          file,
+          hasReadyVideoDerivative:
+            file.viewerKind === "video"
+              ? await hasReadyVideoDerivative(file.id)
+              : false,
+        },
+      });
+    }
+
+    if (resolution.kind === "file") {
+      return buildShareMetadata({
+        baseUrl,
+        instanceName,
+        target: {
+          kind: "file",
+          pagePath: buildRootSharePath(token),
+          contentPath: `${buildRootSharePath(token)}/content`,
+          file: resolution.file,
+          hasReadyVideoDerivative:
+            resolution.file.viewerKind === "video"
+              ? await hasReadyVideoDerivative(resolution.file.id)
+              : false,
+        },
+      });
+    }
+
+    return buildShareMetadata({
+      baseUrl,
+      instanceName,
+      target: {
+        kind: "folder",
+        pagePath: folderId
+          ? buildFolderSharePath(token, resolution.listing.currentFolder.id)
+          : buildRootSharePath(token),
+        folderName: resolution.listing.currentFolder.name,
+      },
+    });
+  } catch {
+    return fallbackMetadata();
+  }
+};
