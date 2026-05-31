@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { filesService } from "@/server/files/service";
 import { retrievalService } from "@/server/retrieval/service";
-import { getBaseUrl } from "@/server/request";
+import { getShareBaseUrl } from "@/server/request";
 import { sharingService } from "@/server/sharing/service";
 
 import { FilesExplorer } from "./files-explorer";
@@ -20,7 +20,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
     requireSignedInPageSession("/?next=/files"),
     headers(),
   ]);
-  const baseUrl = getBaseUrl(h);
+  const baseUrl = getShareBaseUrl(h);
   const listing = await filesService.getFilesListing({
     actorUserId: session.user.id,
     actorRole: session.user.role,

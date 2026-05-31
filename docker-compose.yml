@@ -11,6 +11,7 @@ services:
       DATABASE_URL: postgresql://${DB_USERNAME:-postgres}:${DB_PASSWORD}@db:5432/${DB_DATABASE_NAME:-staaash}
       UPLOAD_LOCATION: /data/files
       SECURE_COOKIES: "${SECURE_COOKIES:-}"
+      STAAASH_PUBLIC_URL: "${STAAASH_PUBLIC_URL:-}"
     volumes:
       # Do not edit the next line. To change where files are stored, edit UPLOAD_LOCATION in the .env file
       - ${UPLOAD_LOCATION:-./library}:/data/files

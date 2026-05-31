@@ -6,7 +6,9 @@ import {
 } from "./jobs";
 
 export const DERIVATIVE_KIND_PREVIEW = "preview" as const;
+export const DERIVATIVE_KIND_POSTER = "poster" as const;
 export const DERIVATIVE_PROFILE_1080P = "preview-1080p" as const;
+export const DERIVATIVE_PROFILE_SOCIAL_JPEG = "social-jpeg" as const;
 
 export const DERIVATIVE_STATUS_QUEUED = "queued" as const;
 export const DERIVATIVE_STATUS_PROCESSING = "processing" as const;
@@ -14,8 +16,12 @@ export const DERIVATIVE_STATUS_READY = "ready" as const;
 export const DERIVATIVE_STATUS_FAILED = "failed" as const;
 export const DERIVATIVE_STATUS_STALE = "stale" as const;
 
-export type DerivativeKind = typeof DERIVATIVE_KIND_PREVIEW;
-export type DerivativeProfile = typeof DERIVATIVE_PROFILE_1080P;
+export type DerivativeKind =
+  | typeof DERIVATIVE_KIND_PREVIEW
+  | typeof DERIVATIVE_KIND_POSTER;
+export type DerivativeProfile =
+  | typeof DERIVATIVE_PROFILE_1080P
+  | typeof DERIVATIVE_PROFILE_SOCIAL_JPEG;
 export type DerivativeStatus =
   | typeof DERIVATIVE_STATUS_QUEUED
   | typeof DERIVATIVE_STATUS_PROCESSING
@@ -77,7 +83,13 @@ export const buildDerivativeStorageKey = (
   ownerUserId: string,
   fileId: string,
   profile: DerivativeProfile,
-): string => `derivatives/${ownerUserId}/${fileId}/${profile}.mp4`;
+): string => {
+  const fileName =
+    profile === DERIVATIVE_PROFILE_SOCIAL_JPEG
+      ? "social-poster.jpg"
+      : `${profile}.mp4`;
+  return `derivatives/${ownerUserId}/${fileId}/${fileName}`;
+};
 
 export const buildDerivativeDedupeKey = (
   fileId: string,
@@ -129,6 +141,17 @@ export const findReadyDerivative = async (
     where: { fileId, kind, profile, status: DERIVATIVE_STATUS_READY },
   });
 };
+
+export const findReadyPosterDerivative = async (
+  fileId: string,
+  client?: DerivativeClient,
+): Promise<MediaDerivativeRecord | null> =>
+  findReadyDerivative(
+    fileId,
+    DERIVATIVE_KIND_POSTER,
+    DERIVATIVE_PROFILE_SOCIAL_JPEG,
+    client,
+  );
 
 export const findDerivative = async (
   fileId: string,

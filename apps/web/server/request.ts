@@ -1,3 +1,5 @@
+import { env } from "@/lib/env";
+
 export function getBaseUrl(headers: {
   get(name: string): string | null;
 }): string {
@@ -5,4 +7,10 @@ export function getBaseUrl(headers: {
   const host =
     headers.get("x-forwarded-host") ?? headers.get("host") ?? "localhost";
   return `${proto}://${host}`;
+}
+
+export function getShareBaseUrl(headers: {
+  get(name: string): string | null;
+}): string {
+  return env.STAAASH_PUBLIC_URL ?? getBaseUrl(headers);
 }

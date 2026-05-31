@@ -8,7 +8,7 @@ import {
 } from "@/app/auth-ui";
 import { WorkspacePresetPageContextMenu } from "@/app/dashboard-context-menu";
 import { requireSignedInPageSession } from "@/server/auth/guards";
-import { getBaseUrl } from "@/server/request";
+import { getShareBaseUrl } from "@/server/request";
 import { sharingService } from "@/server/sharing/service";
 import { SharedTable, type SharedTableItem } from "./shared-table";
 
@@ -66,7 +66,7 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
     requireSignedInPageSession("/?next=/shared"),
     headers(),
   ]);
-  const baseUrl = getBaseUrl(h);
+  const baseUrl = getShareBaseUrl(h);
   const error = getSingleSearchParam(resolvedSearchParams, "error");
   const success = getSingleSearchParam(resolvedSearchParams, "success");
   const shares = await sharingService.listOwnedShares({

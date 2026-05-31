@@ -1,4 +1,32 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const derivativeMocks = vi.hoisted(() => ({
+  findReadyDerivative: vi.fn(),
+  scheduleDerivativeGenerate: vi.fn(),
+  touchDerivativeShared: vi.fn(),
+}));
+const settingsMocks = vi.hoisted(() => ({
+  getSystemSettings: vi.fn(),
+}));
+
+vi.mock("@staaash/db/media-derivatives", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@staaash/db/media-derivatives")>();
+  return {
+    ...actual,
+    findReadyDerivative: derivativeMocks.findReadyDerivative,
+    scheduleDerivativeGenerate: derivativeMocks.scheduleDerivativeGenerate,
+    touchDerivativeShared: derivativeMocks.touchDerivativeShared,
+  };
+});
+
+vi.mock("@/server/settings", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/server/settings")>();
+  return {
+    ...actual,
+    getSystemSettings: settingsMocks.getSystemSettings,
+  };
+});
 
 import { buildShareAccessCookie } from "@/server/sharing/access-cookie";
 import { ShareError } from "@/server/sharing/errors";
@@ -94,6 +122,25 @@ const childFile: StoredFile = {
   sizeBytes: 220,
   contentChecksum: "def",
   viewerKind: null,
+  deletedAt: null,
+  createdAt: fixedNow,
+  updatedAt: fixedNow,
+};
+
+const smallVideoFile: StoredFile = {
+  id: "file-small-video",
+  ownerUserId: "user-1",
+  ownerUsername: "alice",
+  folderId: "folder-shared",
+  name: "clip.mp4",
+  storageKey: "files/alice/Projects/clip.mp4",
+  storageStatus: "available",
+  storageCheckedAt: null,
+  storageMissingAt: null,
+  mimeType: "video/mp4",
+  sizeBytes: 13 * 1024 * 1024,
+  contentChecksum: "video",
+  viewerKind: "video",
   deletedAt: null,
   createdAt: fixedNow,
   updatedAt: fixedNow,
@@ -238,7 +285,34 @@ const fakeFilesRepo = {
   },
 } as unknown as FilesRepository;
 
+const waitForAssertion = async (assertion: () => void) => {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    try {
+      assertion();
+      return;
+    } catch (error) {
+      lastError = error;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  }
+
+  throw lastError;
+};
+
 describe("sharing service", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    settingsMocks.getSystemSettings.mockResolvedValue({
+      mediaPreviewEnabled: true,
+      mediaPreviewThresholdBytes: 367001600n,
+    });
+    derivativeMocks.findReadyDerivative.mockResolvedValue(null);
+    derivativeMocks.scheduleDerivativeGenerate.mockResolvedValue({ id: "job" });
+    derivativeMocks.touchDerivativeShared.mockResolvedValue(undefined);
+  });
+
   it("creates and reissues singleton links for the same target", async () => {
     const sharingRepo = createFakeSharingRepository();
     const service = createSharingService({
@@ -388,5 +462,51 @@ describe("sharing service", () => {
     ).rejects.toMatchObject({
       code: "SHARE_ACCESS_DENIED",
     });
+  });
+
+  it("schedules a social poster for small shared videos below preview threshold", async () => {
+    const sharingRepo = createFakeSharingRepository();
+    const videoFilesRepo = {
+      ...fakeFilesRepo,
+      async findFileById(fileId: string) {
+        if (fileId === smallVideoFile.id) return smallVideoFile;
+        return fakeFilesRepo.findFileById(fileId);
+      },
+    } as unknown as FilesRepository;
+    const service = createSharingService({
+      repo: sharingRepo.repo,
+      filesRepo: videoFilesRepo,
+      now: () => fixedNow,
+    });
+
+    await service.createOrReissueShare({
+      actorUserId: "user-1",
+      actorRole: "member",
+      targetType: "file",
+      fileId: smallVideoFile.id,
+      expiresAt: addDays(7),
+    });
+
+    await waitForAssertion(() => {
+      expect(derivativeMocks.scheduleDerivativeGenerate).toHaveBeenCalledWith({
+        fileId: smallVideoFile.id,
+        kind: "poster",
+        profile: "social-jpeg",
+        reason: "share-created",
+        now: fixedNow,
+      });
+    });
+    expect(derivativeMocks.scheduleDerivativeGenerate).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        fileId: smallVideoFile.id,
+        kind: "preview",
+      }),
+    );
+    expect(derivativeMocks.touchDerivativeShared).toHaveBeenCalledWith(
+      smallVideoFile.id,
+      "poster",
+      "social-jpeg",
+      fixedNow,
+    );
   });
 });

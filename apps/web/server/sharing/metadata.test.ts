@@ -5,6 +5,7 @@ import type { PublicShareResolution, ShareLinkSummary } from "./types";
 
 const mocks = vi.hoisted(() => ({
   findReadyDerivative: vi.fn(),
+  findReadyPosterDerivative: vi.fn(),
   getSetupState: vi.fn(),
   getSharedNestedFileContent: vi.fn(),
   resolvePublicShare: vi.fn(),
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@staaash/db/media-derivatives", () => ({
   findReadyDerivative: mocks.findReadyDerivative,
+  findReadyPosterDerivative: mocks.findReadyPosterDerivative,
 }));
 
 vi.mock("@/server/auth/service", () => ({
@@ -31,8 +33,16 @@ import { buildShareMetadata, getSharePageMetadata } from "./metadata";
 
 const fixedNow = new Date("2026-05-31T12:00:00.000Z");
 
+type OpenGraphImageForTest = {
+  url: string;
+  alt?: string;
+  type?: string;
+  width?: number;
+  height?: number;
+};
+
 type OpenGraphForTest = {
-  images?: Array<{ url: string; alt?: string; type?: string }>;
+  images?: OpenGraphImageForTest[];
   videos?: Array<{
     url: string;
     type?: string;
@@ -164,6 +174,7 @@ describe("share metadata", () => {
     vi.clearAllMocks();
     mocks.getSetupState.mockResolvedValue({ instanceName: "Ares Cloud" });
     mocks.findReadyDerivative.mockResolvedValue(null);
+    mocks.findReadyPosterDerivative.mockResolvedValue(null);
   });
 
   it("emits absolute Open Graph and Twitter image URLs for image shares", () => {
@@ -289,6 +300,46 @@ describe("share metadata", () => {
         height: 810,
       },
     ]);
+  });
+
+  it("emits poster image metadata for resolved video shares", async () => {
+    mocks.resolvePublicShare.mockResolvedValue(
+      makeFileResolution({
+        file: makeFile({
+          name: "clip.mp4",
+          mimeType: "video/mp4",
+          viewerKind: "video",
+        }),
+      }),
+    );
+    mocks.findReadyPosterDerivative.mockResolvedValue({
+      storageKey: "derivatives/user-1/file-1/social-poster.jpg",
+      mimeType: "image/jpeg",
+      width: 1280,
+      height: 720,
+    });
+
+    const metadata = await getSharePageMetadata({
+      baseUrl: "https://files.example",
+      token: "token",
+    });
+
+    const openGraph = metadata.openGraph as OpenGraphForTest;
+    const twitter = metadata.twitter as TwitterForTest;
+
+    expect(openGraph.images).toEqual([
+      {
+        url: "https://files.example/s/token/poster",
+        alt: "clip.mp4",
+        type: "image/jpeg",
+        width: 1280,
+        height: 720,
+      },
+    ]);
+    expect(twitter).toMatchObject({
+      card: "summary_large_image",
+      images: ["https://files.example/s/token/poster"],
+    });
   });
 
   it("does not emit Open Graph video for non-playable video without derivative", () => {

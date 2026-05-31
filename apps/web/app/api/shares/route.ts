@@ -11,7 +11,7 @@ import {
   wantsJson,
 } from "@/server/auth/http";
 import { getRequestSession } from "@/server/auth/guards";
-import { getBaseUrl } from "@/server/request";
+import { getShareBaseUrl } from "@/server/request";
 import { createShareSchema } from "@/server/sharing/schema";
 import { sharingService } from "@/server/sharing/service";
 
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const baseUrl = getBaseUrl(request.headers);
+    const baseUrl = getShareBaseUrl(request.headers);
     const result =
       body.mode === "reissue"
         ? await sharingService.reissueShare({
