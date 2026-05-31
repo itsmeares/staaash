@@ -33,7 +33,12 @@ const fixedNow = new Date("2026-05-31T12:00:00.000Z");
 
 type OpenGraphForTest = {
   images?: Array<{ url: string; alt?: string; type?: string }>;
-  videos?: Array<{ url: string; type?: string }>;
+  videos?: Array<{
+    url: string;
+    type?: string;
+    width?: number;
+    height?: number;
+  }>;
   type?: string;
 };
 
@@ -170,7 +175,7 @@ describe("share metadata", () => {
         pagePath: "/s/token",
         contentPath: "/s/token/content",
         file: makeFile(),
-        hasReadyVideoDerivative: false,
+        videoEmbedMetadata: null,
       },
     });
 
@@ -202,7 +207,11 @@ describe("share metadata", () => {
           mimeType: "video/x-matroska",
           viewerKind: "video",
         }),
-        hasReadyVideoDerivative: true,
+        videoEmbedMetadata: {
+          type: "video/mp4",
+          width: 1920,
+          height: 1080,
+        },
       },
     });
 
@@ -213,11 +222,13 @@ describe("share metadata", () => {
       {
         url: "https://files.example/s/token/content",
         type: "video/mp4",
+        width: 1920,
+        height: 1080,
       },
     ]);
   });
 
-  it("emits Open Graph video for broadly playable original videos", () => {
+  it("emits Open Graph video with fallback dimensions for broadly playable original videos", () => {
     const metadata = buildShareMetadata({
       baseUrl: "https://files.example",
       instanceName: "Ares Cloud",
@@ -230,7 +241,7 @@ describe("share metadata", () => {
           mimeType: "video/mp4",
           viewerKind: "video",
         }),
-        hasReadyVideoDerivative: false,
+        videoEmbedMetadata: null,
       },
     });
 
@@ -240,6 +251,42 @@ describe("share metadata", () => {
       {
         url: "https://files.example/s/token/content",
         type: "video/mp4",
+        width: 1280,
+        height: 720,
+      },
+    ]);
+  });
+
+  it("uses ready derivative dimensions for resolved video shares", async () => {
+    mocks.resolvePublicShare.mockResolvedValue(
+      makeFileResolution({
+        file: makeFile({
+          name: "clip.mkv",
+          mimeType: "video/x-matroska",
+          viewerKind: "video",
+        }),
+      }),
+    );
+    mocks.findReadyDerivative.mockResolvedValue({
+      storageKey: "derivatives/user-1/file-1/preview-1080p.mp4",
+      mimeType: "video/mp4",
+      width: 1440,
+      height: 810,
+    });
+
+    const metadata = await getSharePageMetadata({
+      baseUrl: "https://files.example",
+      token: "token",
+    });
+
+    const openGraph = metadata.openGraph as OpenGraphForTest;
+
+    expect(openGraph.videos).toEqual([
+      {
+        url: "https://files.example/s/token/content",
+        type: "video/mp4",
+        width: 1440,
+        height: 810,
       },
     ]);
   });
@@ -257,7 +304,7 @@ describe("share metadata", () => {
           mimeType: "video/x-matroska",
           viewerKind: "video",
         }),
-        hasReadyVideoDerivative: false,
+        videoEmbedMetadata: null,
       },
     });
 

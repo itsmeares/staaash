@@ -252,10 +252,11 @@ export const handleMediaDerivativeGenerate = async (
   }
 
   const outputStats = await stat(outputPath);
-  const videoStream = probe.streams.find((s) => s.codec_type === "video");
-  const audioStream = probe.streams.find((s) => s.codec_type === "audio");
-  const durationSeconds = probe.format.duration
-    ? parseFloat(probe.format.duration)
+  const outputProbe = await runFfprobe(outputPath);
+  const videoStream = outputProbe.streams.find((s) => s.codec_type === "video");
+  const audioStream = outputProbe.streams.find((s) => s.codec_type === "audio");
+  const durationSeconds = outputProbe.format.duration
+    ? parseFloat(outputProbe.format.duration)
     : null;
 
   // Guard: admin may have marked stale while we were processing.
