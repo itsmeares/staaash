@@ -7,7 +7,7 @@ import {
   ShareFilePage,
   ShareLockedView,
 } from "@/app/s/share-view";
-import { getBaseUrl } from "@/server/request";
+import { getShareBaseUrl } from "@/server/request";
 import { SHARE_ACCESS_COOKIE_NAME } from "@/server/sharing/access-cookie";
 import { ShareError, isShareError } from "@/server/sharing/errors";
 import { getSharePageMetadata } from "@/server/sharing/metadata";
@@ -35,7 +35,7 @@ export async function generateMetadata({
   return getSharePageMetadata({
     token,
     fileId,
-    baseUrl: getBaseUrl(h),
+    baseUrl: getShareBaseUrl(h),
     shareAccessCookieValue:
       cookieStore.get(SHARE_ACCESS_COOKIE_NAME)?.value ?? null,
   });

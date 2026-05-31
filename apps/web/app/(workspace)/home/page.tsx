@@ -10,7 +10,7 @@ import { WorkspacePresetPageContextMenu } from "@/app/dashboard-context-menu";
 import { ItemTypeIcon, itemVisualIconMap } from "@/app/item-type-icon";
 import { retrievalService } from "@/server/retrieval/service";
 import type { RetrievalItem } from "@/server/retrieval/types";
-import { getBaseUrl } from "@/server/request";
+import { getShareBaseUrl } from "@/server/request";
 import { sharingService } from "@/server/sharing/service";
 import type { ShareLinkSummary } from "@/server/sharing/types";
 import type { UserRole } from "@/server/types";
@@ -374,7 +374,7 @@ export default async function HomePage() {
     actorUserId: session.user.id,
     actorRole: session.user.role,
   };
-  const baseUrl = getBaseUrl(h);
+  const baseUrl = getShareBaseUrl(h);
   const [favoriteItems, recentItems, folders, shares] = await Promise.all([
     retrievalService.listFavorites(actor),
     retrievalService.listRecent(actor),

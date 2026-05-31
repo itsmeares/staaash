@@ -4,8 +4,10 @@ import { mkdir, rename, rm, stat } from "node:fs/promises";
 import { getPrisma } from "@staaash/db/client";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
 import {
+  DERIVATIVE_KIND_POSTER,
   DERIVATIVE_KIND_PREVIEW,
   DERIVATIVE_PROFILE_1080P,
+  DERIVATIVE_PROFILE_SOCIAL_JPEG,
   DERIVATIVE_STATUS_PROCESSING,
   DERIVATIVE_STATUS_STALE,
   buildDerivativeStorageKey,
@@ -20,6 +22,7 @@ import { safeResolveStoragePath } from "../storage-maintenance.js";
 import {
   getFfmpegHealth,
   isStreamCopyCompatible,
+  runFfmpegPoster,
   runFfmpegStreamCopy,
   runFfmpegTranscode,
   runFfprobe,
@@ -137,21 +140,23 @@ export const handleMediaDerivativeGenerate = async (
     return false;
   }
 
+  const kind =
+    payload.kind === DERIVATIVE_KIND_POSTER
+      ? DERIVATIVE_KIND_POSTER
+      : DERIVATIVE_KIND_PREVIEW;
+  const profile =
+    kind === DERIVATIVE_KIND_POSTER
+      ? DERIVATIVE_PROFILE_SOCIAL_JPEG
+      : DERIVATIVE_PROFILE_1080P;
+  const isPoster = kind === DERIVATIVE_KIND_POSTER;
+
   if (
+    !isPoster &&
     payload.reason !== "manual-regenerate" &&
     file.sizeBytes < settings.mediaPreviewThresholdBytes
   ) {
     return false;
   }
-
-  const kind =
-    payload.kind === DERIVATIVE_KIND_PREVIEW
-      ? DERIVATIVE_KIND_PREVIEW
-      : DERIVATIVE_KIND_PREVIEW;
-  const profile =
-    payload.profile === DERIVATIVE_PROFILE_1080P
-      ? DERIVATIVE_PROFILE_1080P
-      : DERIVATIVE_PROFILE_1080P;
 
   const derivative = await upsertDerivativeQueued(file.id, kind, profile);
 
@@ -171,7 +176,10 @@ export const handleMediaDerivativeGenerate = async (
   );
   const outputPath = safeResolveStoragePath(storagePaths.filesRoot, storageKey);
   const tmpDir = path.resolve(storagePaths.tmpRoot, "derivatives");
-  const tmpPath = path.resolve(tmpDir, `${derivative.id}.mp4.tmp`);
+  const tmpPath = path.resolve(
+    tmpDir,
+    `${derivative.id}.${isPoster ? "jpg" : "mp4"}.tmp`,
+  );
 
   await mkdir(tmpDir, { recursive: true });
 
@@ -217,8 +225,13 @@ export const handleMediaDerivativeGenerate = async (
   }, 3000);
 
   try {
-    await context?.updateProgress({ stage: "encoding", fileId: file.id });
-    if (isStreamCopyCompatible(probe)) {
+    await context?.updateProgress({
+      stage: isPoster ? "capturing-poster" : "encoding",
+      fileId: file.id,
+    });
+    if (isPoster) {
+      await runFfmpegPoster(inputPath, tmpPath, controller.signal);
+    } else if (isStreamCopyCompatible(probe)) {
       await runFfmpegStreamCopy(inputPath, tmpPath, controller.signal);
     } else {
       await runFfmpegTranscode(
@@ -253,11 +266,16 @@ export const handleMediaDerivativeGenerate = async (
 
   const outputStats = await stat(outputPath);
   const outputProbe = await runFfprobe(outputPath);
-  const videoStream = outputProbe.streams.find((s) => s.codec_type === "video");
-  const audioStream = outputProbe.streams.find((s) => s.codec_type === "audio");
-  const durationSeconds = outputProbe.format.duration
-    ? parseFloat(outputProbe.format.duration)
-    : null;
+  const visualStream = outputProbe.streams.find(
+    (s) => s.codec_type === "video",
+  );
+  const audioStream = isPoster
+    ? null
+    : outputProbe.streams.find((s) => s.codec_type === "audio");
+  const durationSeconds =
+    !isPoster && outputProbe.format.duration
+      ? parseFloat(outputProbe.format.duration)
+      : null;
 
   // Guard: admin may have marked stale while we were processing.
   const current = await (
@@ -273,12 +291,12 @@ export const handleMediaDerivativeGenerate = async (
 
   await markDerivativeReady(derivative.id, {
     storageKey,
-    mimeType: "video/mp4",
+    mimeType: isPoster ? "image/jpeg" : "video/mp4",
     sizeBytes: BigInt(outputStats.size),
-    width: videoStream?.width ?? null,
-    height: videoStream?.height ?? null,
+    width: visualStream?.width ?? null,
+    height: visualStream?.height ?? null,
     durationSeconds: Number.isFinite(durationSeconds) ? durationSeconds : null,
-    videoCodec: videoStream?.codec_name ?? null,
+    videoCodec: isPoster ? null : (visualStream?.codec_name ?? null),
     audioCodec: audioStream?.codec_name ?? null,
     generatedAt: new Date(),
   });

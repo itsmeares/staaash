@@ -6,7 +6,7 @@ import { isFilesError } from "@/server/files/errors";
 import { filesService } from "@/server/files/service";
 import { recordFolderAccessBestEffort } from "@/server/retrieval/recent-tracking";
 import { retrievalService } from "@/server/retrieval/service";
-import { getBaseUrl } from "@/server/request";
+import { getShareBaseUrl } from "@/server/request";
 import { sharingService } from "@/server/sharing/service";
 
 import { FilesExplorer } from "../../files-explorer";
@@ -29,7 +29,7 @@ export default async function FilesFolderPage({
     searchParams,
     headers(),
   ]);
-  const baseUrl = getBaseUrl(h);
+  const baseUrl = getShareBaseUrl(h);
   const session = await requireSignedInPageSession(
     `/?next=${encodeURIComponent(`/files/f/${folderId}`)}`,
   );

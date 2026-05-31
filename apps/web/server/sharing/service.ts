@@ -2,9 +2,13 @@ import { createHash, randomBytes } from "node:crypto";
 
 import type { ShareTargetType } from "@staaash/db/client";
 import {
+  DERIVATIVE_KIND_POSTER,
   scheduleDerivativeGenerate,
   touchDerivativeShared,
   findReadyDerivative,
+  DERIVATIVE_PROFILE_SOCIAL_JPEG,
+  DERIVATIVE_KIND_PREVIEW,
+  DERIVATIVE_PROFILE_1080P,
 } from "@staaash/db/media-derivatives";
 
 import { canAccessPrivateNamespace } from "@/server/access";
@@ -252,6 +256,35 @@ const isEligibleForPreview = (
   file.viewerKind === "video" &&
   BigInt(file.sizeBytes) >= settings.mediaPreviewThresholdBytes;
 
+const isEligibleForPoster = (
+  file: StoredFile,
+  settings: MediaPreviewSettings,
+): boolean => settings.mediaPreviewEnabled && file.viewerKind === "video";
+
+const ensureSharedDerivative = async ({
+  fileId,
+  kind,
+  profile,
+  now,
+}: {
+  fileId: string;
+  kind: "preview" | "poster";
+  profile: "preview-1080p" | "social-jpeg";
+  now: Date;
+}) => {
+  const existing = await findReadyDerivative(fileId, kind, profile);
+  if (!existing) {
+    await scheduleDerivativeGenerate({
+      fileId,
+      kind,
+      profile,
+      reason: "share-created",
+      now,
+    });
+  }
+  await touchDerivativeShared(fileId, kind, profile, now);
+};
+
 const schedulePreviewsForShare = async ({
   targetType,
   file,
@@ -270,16 +303,21 @@ const schedulePreviewsForShare = async ({
   now: Date;
 }): Promise<void> => {
   if (targetType === "file") {
-    if (!file || !isEligibleForPreview(file, settings)) return;
-    const existing = await findReadyDerivative(file.id);
-    if (!existing) {
-      await scheduleDerivativeGenerate({
+    if (!file || !isEligibleForPoster(file, settings)) return;
+    await ensureSharedDerivative({
+      fileId: file.id,
+      kind: DERIVATIVE_KIND_POSTER,
+      profile: DERIVATIVE_PROFILE_SOCIAL_JPEG,
+      now,
+    });
+    if (isEligibleForPreview(file, settings)) {
+      await ensureSharedDerivative({
         fileId: file.id,
-        reason: "share-created",
+        kind: DERIVATIVE_KIND_PREVIEW,
+        profile: DERIVATIVE_PROFILE_1080P,
         now,
       });
     }
-    await touchDerivativeShared(file.id, "preview", "preview-1080p", now);
     return;
   }
 
@@ -289,7 +327,7 @@ const schedulePreviewsForShare = async ({
     (f) =>
       !f.deletedAt &&
       f.folderId &&
-      isEligibleForPreview(f, settings) &&
+      isEligibleForPoster(f, settings) &&
       isFolderWithinRoot({
         folderId: f.folderId,
         rootFolderId: folderId,
@@ -299,15 +337,20 @@ const schedulePreviewsForShare = async ({
 
   await Promise.all(
     eligibleFiles.map(async (f) => {
-      const existing = await findReadyDerivative(f.id);
-      if (!existing) {
-        await scheduleDerivativeGenerate({
+      await ensureSharedDerivative({
+        fileId: f.id,
+        kind: DERIVATIVE_KIND_POSTER,
+        profile: DERIVATIVE_PROFILE_SOCIAL_JPEG,
+        now,
+      });
+      if (isEligibleForPreview(f, settings)) {
+        await ensureSharedDerivative({
           fileId: f.id,
-          reason: "share-created",
+          kind: DERIVATIVE_KIND_PREVIEW,
+          profile: DERIVATIVE_PROFILE_1080P,
           now,
         });
       }
-      await touchDerivativeShared(f.id, "preview", "preview-1080p", now);
     }),
   );
 };

@@ -92,14 +92,14 @@ const serveDerivativeBytes = async (
   sizeBytes: number,
   mimeType: string,
   fileName: string,
-): Promise<Response> => {
+): Promise<Response | null> => {
   const storagePath = getStoragePath(storageKey);
   let fileHandle;
 
   try {
     fileHandle = await open(storagePath, "r");
   } catch {
-    return null as unknown as Response;
+    return null;
   }
 
   try {
@@ -124,7 +124,7 @@ const serveDerivativeBytes = async (
     };
 
     if (!rangeHeader) {
-      return new Response(createStream() as unknown as ReadableStream, {
+      return new Response(createStream() as unknown as BodyInit, {
         status: 200,
         headers: { ...baseHeaders, "content-length": String(sizeBytes) },
       });
@@ -145,17 +145,14 @@ const serveDerivativeBytes = async (
     const { start, end } = range;
     const contentLength = end - start + 1;
 
-    return new Response(
-      createStream({ start, end }) as unknown as ReadableStream,
-      {
-        status: 206,
-        headers: {
-          ...baseHeaders,
-          "content-length": String(contentLength),
-          "content-range": `bytes ${start}-${end}/${sizeBytes}`,
-        },
+    return new Response(createStream({ start, end }) as unknown as BodyInit, {
+      status: 206,
+      headers: {
+        ...baseHeaders,
+        "content-length": String(contentLength),
+        "content-range": `bytes ${start}-${end}/${sizeBytes}`,
       },
-    );
+    });
   } catch (error) {
     try {
       await fileHandle.close();
@@ -164,6 +161,34 @@ const serveDerivativeBytes = async (
     }
     throw error;
   }
+};
+
+export const createReadyDerivativeContentResponse = async ({
+  request,
+  derivative,
+  fileName,
+}: {
+  request: Request;
+  derivative: Pick<DerivativeRow, "storageKey" | "sizeBytes" | "mimeType">;
+  fileName: string;
+}): Promise<Response> => {
+  if (!derivative.storageKey || derivative.sizeBytes === null) {
+    throw new MediaContentError(404, "Derivative content is unavailable.");
+  }
+
+  const response = await serveDerivativeBytes(
+    request,
+    derivative.storageKey,
+    Number(derivative.sizeBytes),
+    derivative.mimeType ?? "application/octet-stream",
+    fileName,
+  );
+
+  if (!response) {
+    throw new MediaContentError(404, "Derivative content is unavailable.");
+  }
+
+  return response;
 };
 
 export const createInlineContentResponse = async ({

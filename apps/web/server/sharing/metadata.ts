@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 
-import { findReadyDerivative } from "@staaash/db/media-derivatives";
+import {
+  findReadyDerivative,
+  findReadyPosterDerivative,
+} from "@staaash/db/media-derivatives";
 
 import { authService } from "@/server/auth/service";
 import type { FileSummary } from "@/server/files/types";
@@ -21,6 +24,12 @@ type VideoEmbedMetadata = {
   height: number;
 };
 
+type ImageEmbedMetadata = {
+  type?: string;
+  width?: number;
+  height?: number;
+};
+
 type GenericShareMetadataTarget = {
   kind: "generic";
   pagePath: string;
@@ -31,8 +40,10 @@ type FileShareMetadataTarget = {
   kind: "file";
   pagePath: string;
   contentPath: string;
+  posterPath?: string | null;
   file: FileSummary;
   videoEmbedMetadata: VideoEmbedMetadata | null;
+  posterImageMetadata?: ImageEmbedMetadata | null;
 };
 
 type FolderShareMetadataTarget = {
@@ -166,12 +177,24 @@ export const buildShareMetadata = ({
   const title = `${file.name} - ${instanceName}`;
   const description = `${file.mimeType} - ${formatBytes(file.sizeBytes)} shared via ${instanceName}.`;
   const mediaUrl = toAbsoluteUrl(target.contentPath, baseUrl);
+  const posterUrl = target.posterPath
+    ? toAbsoluteUrl(target.posterPath, baseUrl)
+    : null;
   const isImage = file.viewerKind === "image";
   const videoEmbedMetadata =
     file.viewerKind === "video"
       ? (target.videoEmbedMetadata ?? getOriginalVideoEmbedMetadata(file))
       : null;
   const shouldExposeVideo = videoEmbedMetadata !== null;
+  const imageMetadata = isImage
+    ? { url: mediaUrl, alt: file.name }
+    : target.posterImageMetadata && posterUrl
+      ? {
+          url: posterUrl,
+          alt: file.name,
+          ...target.posterImageMetadata,
+        }
+      : null;
 
   return {
     title,
@@ -182,14 +205,9 @@ export const buildShareMetadata = ({
       siteName: instanceName,
       type: shouldExposeVideo ? "video.other" : "website",
       url: pageUrl,
-      ...(isImage
+      ...(imageMetadata
         ? {
-            images: [
-              {
-                url: mediaUrl,
-                alt: file.name,
-              },
-            ],
+            images: [imageMetadata],
           }
         : {}),
       ...(shouldExposeVideo
@@ -206,10 +224,10 @@ export const buildShareMetadata = ({
         : {}),
     },
     twitter: {
-      card: isImage ? "summary_large_image" : "summary",
+      card: imageMetadata ? "summary_large_image" : "summary",
       title,
       description,
-      ...(isImage ? { images: [mediaUrl] } : {}),
+      ...(imageMetadata ? { images: [imageMetadata.url] } : {}),
     },
   };
 };
@@ -241,6 +259,24 @@ const getReadyVideoEmbedMetadata = async (
   };
 };
 
+const getReadyPosterImageMetadata = async (
+  fileId: string,
+): Promise<ImageEmbedMetadata | null> => {
+  const derivative = await findReadyPosterDerivative(fileId);
+  const mimeType = normalizeMimeType(derivative?.mimeType ?? "");
+  const width = derivative?.width ?? 0;
+  const height = derivative?.height ?? 0;
+
+  if (!derivative?.storageKey || mimeType !== "image/jpeg") return null;
+  if (width <= 0 || height <= 0) return null;
+
+  return {
+    type: mimeType,
+    width,
+    height,
+  };
+};
+
 const shouldExposeShareDetails = (resolution: PublicShareResolution) =>
   resolution.share.status === "active" && !resolution.share.hasPassword;
 
@@ -254,6 +290,12 @@ const buildFileSharePath = (token: string, fileId: string) =>
 
 const buildNestedFileContentPath = (token: string, fileId: string) =>
   `/s/${encodeURIComponent(token)}/files/${encodeURIComponent(fileId)}/content`;
+
+const buildRootSharePosterPath = (token: string) =>
+  `${buildRootSharePath(token)}/poster`;
+
+const buildNestedFilePosterPath = (token: string, fileId: string) =>
+  `/s/${encodeURIComponent(token)}/files/${encodeURIComponent(fileId)}/poster`;
 
 export const getSharePageMetadata = async ({
   baseUrl,
@@ -310,10 +352,18 @@ export const getSharePageMetadata = async ({
           kind: "file",
           pagePath: buildFileSharePath(token, file.id),
           contentPath: buildNestedFileContentPath(token, file.id),
+          posterPath:
+            file.viewerKind === "video"
+              ? buildNestedFilePosterPath(token, file.id)
+              : null,
           file,
           videoEmbedMetadata:
             file.viewerKind === "video"
               ? await getReadyVideoEmbedMetadata(file.id)
+              : null,
+          posterImageMetadata:
+            file.viewerKind === "video"
+              ? await getReadyPosterImageMetadata(file.id)
               : null,
         },
       });
@@ -327,10 +377,18 @@ export const getSharePageMetadata = async ({
           kind: "file",
           pagePath: buildRootSharePath(token),
           contentPath: `${buildRootSharePath(token)}/content`,
+          posterPath:
+            resolution.file.viewerKind === "video"
+              ? buildRootSharePosterPath(token)
+              : null,
           file: resolution.file,
           videoEmbedMetadata:
             resolution.file.viewerKind === "video"
               ? await getReadyVideoEmbedMetadata(resolution.file.id)
+              : null,
+          posterImageMetadata:
+            resolution.file.viewerKind === "video"
+              ? await getReadyPosterImageMetadata(resolution.file.id)
               : null,
         },
       });

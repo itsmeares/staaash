@@ -37,4 +37,29 @@ describe("web env parsing", () => {
       ).toThrow(/SECURE_COOKIES must be true or false/);
     },
   );
+
+  it.each([
+    ["https://drive.example.com", "https://drive.example.com"],
+    [" https://drive.example.com/ ", "https://drive.example.com"],
+    ["http://46.1.113.7:2113", "http://46.1.113.7:2113"],
+  ])("parses STAAASH_PUBLIC_URL=%s", (value, expected) => {
+    const env = parseWebEnv({
+      ...baseEnv,
+      STAAASH_PUBLIC_URL: value,
+    });
+
+    expect(env.STAAASH_PUBLIC_URL).toBe(expected);
+  });
+
+  it.each(["ftp://drive.example.com", "not-a-url"])(
+    "rejects invalid STAAASH_PUBLIC_URL=%s",
+    (value) => {
+      expect(() =>
+        parseWebEnv({
+          ...baseEnv,
+          STAAASH_PUBLIC_URL: value,
+        }),
+      ).toThrow(/STAAASH_PUBLIC_URL/);
+    },
+  );
 });
