@@ -20,7 +20,7 @@
     "@date-fns/tz": "^1.5.0",
     "@staaash/config": "workspace:*",
     "@staaash/db": "workspace:*",
-    "date-fns": "^4.3.0",
+    "date-fns": "^4.4.0",
     "tsx": "^4.22.3",
     "yazl": "^3.3.1",
     "zod": "^4.4.3"
