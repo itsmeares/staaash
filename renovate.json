@@ -7,7 +7,7 @@
   "rebaseWhen": "behind-base-branch",
   "minimumReleaseAge": "1 day",
   "prCreation": "not-pending",
-  "internalChecksFilter": "strict"
+  "internalChecksFilter": "strict",
   "rangeStrategy": "bump",
   "lockFileMaintenance": {
     "enabled": true,
