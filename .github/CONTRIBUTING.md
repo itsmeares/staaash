@@ -20,7 +20,7 @@ This repo is intentionally straightforward: focused changes, honest docs, and wo
    If you want a local Docker container that matches those values, run:
 
    ```console
-   docker run --name staaash-postgres -e POSTGRES_USER=staaash -e POSTGRES_PASSWORD=staaash -e POSTGRES_DB=staaash -p 5432:5432 -v staaash-postgres-data:/var/lib/postgresql -d postgres:16
+   docker run --name staaash-postgres -e POSTGRES_USER=staaash -e POSTGRES_PASSWORD=staaash -e POSTGRES_DB=staaash -p 5432:5432 -v staaash-postgres-data:/var/lib/postgresql -d postgres:18-alpine
    ```
 
    After that first run, you can restart it later with `docker start staaash-postgres`.

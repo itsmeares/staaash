@@ -40,14 +40,14 @@ services:
 
   db:
     container_name: staaash_postgres
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: ${DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_DATABASE_NAME:-staaash}
     volumes:
       # Do not edit the next line. To change where the database is stored, edit DB_DATA_LOCATION in the .env file
-      - ${DB_DATA_LOCATION:-./postgres}:/var/lib/postgresql/data
+      - ${DB_DATA_LOCATION:-./postgres}:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres}"]
       interval: 5s
