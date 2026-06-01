@@ -9,6 +9,8 @@ Back up both data folders together:
 
 By default these folders sit next to `docker-compose.yml`. If you changed `UPLOAD_LOCATION` or `DB_DATA_LOCATION` in `.env`, back up those custom paths instead.
 
+Fresh installs use Postgres 18. The default `postgres` folder is still the folder you back up, but the Postgres 18 container stores the actual database cluster under its versioned directory inside the container.
+
 ## Backup Checklist
 
 1. Stop writes for a moment.
@@ -52,6 +54,56 @@ Test restore before you need it for real.
    - open a public share link, if you use shares
 
 If any check fails, keep the restored copy untouched and investigate before using it as your main copy.
+
+## Moving Beta Data To Postgres 18
+
+Do not reuse a Postgres 16 `postgres` folder by only changing the image tag to Postgres 18. That can leave the database unable to start.
+
+The supported path for current beta installs is a dump and restore:
+
+1. Update to the last Staaash build that still uses Postgres 16, then let the app start and finish its migrations.
+2. Stop app writes:
+
+   ```console
+   docker compose stop staaash worker
+   ```
+
+3. Create a data-only dump without Prisma migration history:
+
+   ```console
+   docker compose exec db sh -c 'pg_dump --data-only --disable-triggers --exclude-table=_prisma_migrations -U "$POSTGRES_USER" "$POSTGRES_DB"' > staaash-data.sql
+   ```
+
+4. Back up `library` and the old `postgres` folder.
+5. Move the old `postgres` folder aside. Keep it until the new install is checked.
+6. Start a fresh Postgres 18 database:
+
+   ```console
+   docker compose up -d db
+   ```
+
+7. Run the new baseline migration:
+
+   ```console
+   docker compose run --rm --no-deps staaash prisma migrate deploy
+   ```
+
+8. Restore the data-only dump into the fresh database:
+
+   ```console
+   docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" "$POSTGRES_DB"' < staaash-data.sql
+   ```
+
+9. Start Staaash again:
+
+   ```console
+   docker compose up -d
+   ```
+
+10. Sign in, open the admin area, and run the restore reconciliation job.
+11. Check the basics: file list, upload, download, search, trash restore, and any share links you rely on.
+
+Older alpha or beta schemas are not upgraded directly by this baseline. Update to the latest pre-baseline release first, or reset and start fresh.
 
 ## Notes
 

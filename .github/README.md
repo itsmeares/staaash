@@ -72,6 +72,8 @@ docker compose up -d
 
 Migrations run automatically on startup.
 
+Postgres major upgrades need extra care. Fresh installs use Postgres 18. Do not point the Postgres 18 container at an old Postgres 16 `postgres` folder by only changing the image tag. To keep beta data across this baseline change, use the Postgres 18 upgrade path in [`docs/operations/backup-restore.md`](../docs/operations/backup-restore.md).
+
 ### Data locations
 
 | What           | Default path |
@@ -80,6 +82,8 @@ Migrations run automatically on startup.
 | Database       | `./postgres` |
 
 Both paths are relative to where `docker-compose.yml` lives. Change them in `.env` before first run.
+
+With the default Postgres 18 container, `./postgres` is still the folder you back up. Inside the container, Postgres stores the actual cluster under its versioned data directory.
 
 ## Backup And Restore
 
@@ -114,7 +118,7 @@ Next.js · TypeScript · Prisma · PostgreSQL
    If you want a local Docker container that matches those values, run:
 
    ```console
-   docker run --name staaash-postgres -e POSTGRES_USER=staaash -e POSTGRES_PASSWORD=staaash -e POSTGRES_DB=staaash -p 5432:5432 -v staaash-postgres-data:/var/lib/postgresql -d postgres:16
+   docker run --name staaash-postgres -e POSTGRES_USER=staaash -e POSTGRES_PASSWORD=staaash -e POSTGRES_DB=staaash -p 5432:5432 -v staaash-postgres-data:/var/lib/postgresql -d postgres:18-alpine
    ```
 
    After that first run, you can restart it later with `docker start staaash-postgres`.
