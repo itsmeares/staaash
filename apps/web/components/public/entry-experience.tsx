@@ -2,6 +2,8 @@
 
 import React, { useEffect, useRef, useState } from "react";
 
+import { USERNAME_INPUT_PATTERN } from "@/lib/user";
+
 export type Phase =
   | "intro"
   | "intro-return"
@@ -213,7 +215,7 @@ export function EntryExperience({
                 autoComplete="username"
                 maxLength={32}
                 minLength={3}
-                pattern="^(?!-)(?!.*--)[a-z0-9-]{3,32}(?<!-)$"
+                pattern={USERNAME_INPUT_PATTERN}
                 placeholder="johndoe"
                 required
               />

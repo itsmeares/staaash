@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { FlashMessage, getSingleSearchParam } from "@/app/auth-ui";
+import { USERNAME_INPUT_PATTERN } from "@/lib/user";
 import { getCurrentSession } from "@/server/auth/session";
 import { authService } from "@/server/auth/service";
 
@@ -85,7 +86,7 @@ export default async function InviteRedeemPage({
                     name="username"
                     autoComplete="username"
                     placeholder="johnsmith"
-                    pattern="^(?!-)(?!.*--)[a-z0-9-]{3,32}(?<!-)$"
+                    pattern={USERNAME_INPUT_PATTERN}
                     minLength={3}
                     maxLength={32}
                     required

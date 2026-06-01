@@ -18,6 +18,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { USERNAME_INPUT_PATTERN } from "@/lib/user";
 
 type Phase = "intro" | "transitioning" | "form";
 
@@ -171,7 +172,7 @@ export function SetupExperience({ title, description }: SetupExperienceProps) {
                         maxLength={32}
                         minLength={3}
                         name="username"
-                        pattern="^(?!-)(?!.*--)[a-z0-9-]{3,32}(?<!-)$"
+                        pattern={USERNAME_INPUT_PATTERN}
                         placeholder="johnsmith"
                         required
                       />

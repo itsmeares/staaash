@@ -1,3 +1,7 @@
+export const USERNAME_INPUT_PATTERN =
+  "^(?!-)(?!.*--)(?!.*-$)[a-z0-9\\-]{3,32}$";
+export const USERNAME_PATTERN = new RegExp(USERNAME_INPUT_PATTERN);
+
 export function getInitials(
   displayName: string | null,
   username: string,

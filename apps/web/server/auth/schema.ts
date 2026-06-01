@@ -1,7 +1,8 @@
 import { z } from "zod";
 
+import { USERNAME_PATTERN } from "@/lib/user";
+
 const normalizeEmail = (value: string) => value.trim().toLowerCase();
-const usernamePattern = /^(?!-)(?!.*--)[a-z0-9-]{3,32}(?<!-)$/;
 const normalizeUsername = (value: string) => value.trim().toLowerCase();
 const optionalDisplayName = z
   .string()
@@ -15,7 +16,7 @@ const usernameSchema = z
   .trim()
   .min(1, "Username is required.")
   .transform(normalizeUsername)
-  .refine((value) => usernamePattern.test(value), {
+  .refine((value) => USERNAME_PATTERN.test(value), {
     message:
       "Username must be 3-32 characters using lowercase letters, numbers, and single hyphens.",
   });
