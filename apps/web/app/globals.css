@@ -51,11 +51,7 @@ body {
   margin: 0;
   min-height: 100vh;
   color: inherit;
-  background: linear-gradient(
-    180deg,
-    oklch(99% 0.004 78) 0%,
-    oklch(96.5% 0.008 78) 100%
-  );
+  background: var(--background);
 }
 
 a {
@@ -386,6 +382,7 @@ h3 {
   display: grid;
   grid-template-columns: 216px minmax(0, 1fr);
   grid-template-rows: 100vh;
+  background: var(--background);
 }
 
 .admin-shell {
@@ -1238,6 +1235,7 @@ h3 {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  background: var(--background);
 }
 
 .workspace-topbar {
@@ -1249,6 +1247,7 @@ h3 {
   padding: 10px 28px;
   border-bottom: 1px solid
     color-mix(in oklab, var(--foreground) 8%, transparent);
+  background: var(--background);
 }
 
 .workspace-search {
@@ -1471,6 +1470,7 @@ h3 {
   min-width: 0;
   padding: 24px 32px 56px;
   overflow-y: auto;
+  background: var(--background);
   scrollbar-width: thin;
   scrollbar-color: color-mix(in oklab, var(--foreground) 14%, transparent)
     transparent;
@@ -6932,13 +6932,7 @@ main.share-locked-page {
 }
 
 .light body {
-  background:
-    radial-gradient(
-      circle at top left,
-      color-mix(in oklab, var(--primary) 14%, transparent),
-      transparent 32%
-    ),
-    linear-gradient(180deg, oklch(99% 0.004 78) 0%, oklch(96.5% 0.008 78) 100%);
+  background: var(--background);
 }
 
 /* ============================================================
@@ -7649,19 +7643,18 @@ main.share-locked-page {
 }
 
 [data-slot="dialog-content"].workspace-bottom-sheet {
-  top: auto;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  max-width: none;
+  inset: auto 0 0 0 !important;
+  width: 100dvw !important;
+  max-width: 100dvw !important;
   max-height: min(82dvh, 680px);
-  translate: none;
-  transform: none;
+  translate: none !important;
+  transform: none !important;
   overflow-y: auto;
   border-radius: 18px 18px 0 0;
   padding: 10px 14px max(18px, env(safe-area-inset-bottom));
   background: var(--popover);
+  box-shadow: none;
+  animation-name: none !important;
 }
 
 .workspace-bottom-sheet-handle {
