@@ -1,12 +1,13 @@
-# Staaash
-
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="../docs/assets/readme/app-icon-dark.png">
     <source media="(prefers-color-scheme: light)" srcset="../docs/assets/readme/app-icon-light.png">
-    <img src="../docs/assets/readme/app-icon-light.png" alt="Staaash app icon" width="96" height="96">
+    <img src="../docs/assets/readme/app-icon-light.png" alt="Staaash app icon" width="144" height="144">
   </picture>
 </p>
+
+
+# Staaash
 
 [![AGPL-3.0 License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](./LICENSE)
 [![Release](https://img.shields.io/github/v/release/itsmeares/staaash?include_prereleases&label=release)](https://github.com/itsmeares/staaash/releases)
