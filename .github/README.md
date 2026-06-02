@@ -20,7 +20,7 @@
 
 ---
 
-Staaash is a self-hosted file drive for people who want their files on their own server.
+<p align="center">Staaash is a self-hosted file drive for people who want their files on their own server.</p>
 
 <table>
   <tr>
