@@ -9,6 +9,7 @@ import {
   useTransition,
   type KeyboardEvent,
   type MouseEvent,
+  type PointerEvent,
 } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -18,6 +19,7 @@ import {
   ExternalLink,
   Grid2X2,
   List,
+  MoreHorizontal,
   RefreshCw,
   RotateCcw,
   Trash2,
@@ -35,6 +37,8 @@ import { ItemTypeIcon } from "@/app/item-type-icon";
 import { startValidatedDownload } from "@/lib/transfers/download";
 
 import { useTransferContext } from "../transfer-context";
+import { useCoarsePointer } from "../use-coarse-pointer";
+import { WorkspaceActionSheet } from "../workspace-action-sheet";
 import {
   filterRecentItems,
   formatRecentFileSize,
@@ -133,6 +137,7 @@ export function RecentView({ error, items, success }: RecentViewProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const { handleDownload } = useTransferContext();
+  const isCoarsePointer = useCoarsePointer();
   const [viewMode, setViewMode] = useState<RecentViewMode>("list");
   const [filterType, setFilterType] = useState<RecentFilterType>("all");
   const [sortKey, setSortKey] = useState<RecentSortKey>("uploadedAt");
@@ -154,6 +159,10 @@ export function RecentView({ error, items, success }: RecentViewProps) {
   const rubberBandStart = useRef<{ startX: number; startY: number } | null>(
     null,
   );
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suppressNextClickRef = useRef(false);
+  const [actionSheetItem, setActionSheetItem] =
+    useState<RecentClientItem | null>(null);
 
   const visibleItems = useMemo(() => {
     const itemsWithOptimisticState = items.map((item) => {
@@ -233,6 +242,32 @@ export function RecentView({ error, items, success }: RecentViewProps) {
   ) => {
     event.preventDefault();
     event.stopPropagation();
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
+      return;
+    }
+
+    if (isCoarsePointer) {
+      if (item.deletedAt) {
+        setActionSheetItem(item);
+        return;
+      }
+
+      if (selectedIds.size > 0) {
+        setSelectedIds((current) => {
+          const next = new Set(current);
+          if (next.has(item.id)) next.delete(item.id);
+          else next.add(item.id);
+          return next;
+        });
+        setLastSelectedId(item.id);
+        return;
+      }
+
+      openItem(item);
+      return;
+    }
+
     if (didRubberBand.current || item.deletedAt) return;
 
     if (event.ctrlKey || event.metaKey) {
@@ -431,6 +466,7 @@ export function RecentView({ error, items, success }: RecentViewProps) {
 
   const handleRecentMouseDown = useCallback(
     (event: MouseEvent<HTMLDivElement>) => {
+      if (isCoarsePointer) return;
       if (event.button !== 0) return;
 
       const target = event.target as HTMLElement;
@@ -458,11 +494,37 @@ export function RecentView({ error, items, success }: RecentViewProps) {
         }
       }
     },
-    [],
+    [isCoarsePointer],
   );
+
+  const clearLongPressTimer = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleRecentPointerDown = (
+    item: RecentClientItem,
+    event: PointerEvent<HTMLElement>,
+  ) => {
+    if (!isCoarsePointer || event.pointerType === "mouse" || item.deletedAt) {
+      return;
+    }
+    const target = event.target as HTMLElement;
+    if (target.closest("button, input, select, textarea, a")) return;
+    clearLongPressTimer();
+    suppressNextClickRef.current = false;
+    longPressTimerRef.current = setTimeout(() => {
+      suppressNextClickRef.current = true;
+      setSelectedIds(new Set([item.id]));
+      setLastSelectedId(item.id);
+    }, 420);
+  };
 
   useEffect(() => {
     const onMove = (event: globalThis.MouseEvent) => {
+      if (isCoarsePointer) return;
       const container = listRef.current;
       if (!container) return;
 
@@ -554,10 +616,11 @@ export function RecentView({ error, items, success }: RecentViewProps) {
     window.addEventListener("mouseup", onUp);
 
     return () => {
+      clearLongPressTimer();
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, []);
+  }, [isCoarsePointer]);
 
   const renderSortButton = (
     key: RecentSortKey,
@@ -576,72 +639,85 @@ export function RecentView({ error, items, success }: RecentViewProps) {
     </button>
   );
 
-  const renderItemActions = (item: RecentClientItem) => (
-    <>
-      {item.deletedAt ? (
-        <>
-          <form action={getRestoreHref(item)} method="post">
-            <input name="redirectTo" type="hidden" value="/recent" />
+  const renderItemActions = (item: RecentClientItem) =>
+    isCoarsePointer ? (
+      <button
+        aria-label={`Actions for ${item.name}`}
+        className="recent-action-btn"
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          setActionSheetItem(item);
+        }}
+      >
+        <MoreHorizontal size={13} aria-hidden />
+      </button>
+    ) : (
+      <>
+        {item.deletedAt ? (
+          <>
+            <form action={getRestoreHref(item)} method="post">
+              <input name="redirectTo" type="hidden" value="/recent" />
+              <button
+                aria-label={`Restore ${item.name}`}
+                className="recent-action-btn"
+                type="submit"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <RotateCcw size={13} aria-hidden />
+              </button>
+            </form>
             <button
-              aria-label={`Restore ${item.name}`}
-              className="recent-action-btn"
-              type="submit"
-              onClick={(event) => event.stopPropagation()}
+              aria-label={`Delete ${item.name} from Trash`}
+              className="recent-action-btn recent-action-btn-danger"
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                router.push(getTrashItemHref(item));
+              }}
             >
-              <RotateCcw size={13} aria-hidden />
+              <Trash2 size={13} aria-hidden />
             </button>
-          </form>
-          <button
-            aria-label={`Delete ${item.name} from Trash`}
-            className="recent-action-btn recent-action-btn-danger"
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              router.push(getTrashItemHref(item));
-            }}
-          >
-            <Trash2 size={13} aria-hidden />
-          </button>
-        </>
-      ) : (
-        <>
-          <button
-            aria-label={`Open ${item.name}`}
-            className="recent-action-btn"
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              openItem(item);
-            }}
-          >
-            <ExternalLink size={13} aria-hidden />
-          </button>
-          <button
-            aria-label={`Download ${item.name}`}
-            className="recent-action-btn"
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              void downloadItem(item);
-            }}
-          >
-            <Download size={13} aria-hidden />
-          </button>
-          <button
-            aria-label={`Move ${item.name} to trash`}
-            className="recent-action-btn recent-action-btn-danger"
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              void trashItems([item]);
-            }}
-          >
-            <Trash2 size={13} aria-hidden />
-          </button>
-        </>
-      )}
-    </>
-  );
+          </>
+        ) : (
+          <>
+            <button
+              aria-label={`Open ${item.name}`}
+              className="recent-action-btn"
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                openItem(item);
+              }}
+            >
+              <ExternalLink size={13} aria-hidden />
+            </button>
+            <button
+              aria-label={`Download ${item.name}`}
+              className="recent-action-btn"
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                void downloadItem(item);
+              }}
+            >
+              <Download size={13} aria-hidden />
+            </button>
+            <button
+              aria-label={`Move ${item.name} to trash`}
+              className="recent-action-btn recent-action-btn-danger"
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                void trashItems([item]);
+              }}
+            >
+              <Trash2 size={13} aria-hidden />
+            </button>
+          </>
+        )}
+      </>
+    );
 
   const getRecentItemContextGroups = (
     item: RecentClientItem,
@@ -900,6 +976,12 @@ export function RecentView({ error, items, success }: RecentViewProps) {
                         if (deleted) return;
                         openItem(item);
                       }}
+                      onPointerCancel={clearLongPressTimer}
+                      onPointerDown={(event) =>
+                        handleRecentPointerDown(item, event)
+                      }
+                      onPointerLeave={clearLongPressTimer}
+                      onPointerUp={clearLongPressTimer}
                     >
                       <span className="recent-row-thumb">
                         <ItemIcon item={item} />
@@ -1002,6 +1084,12 @@ export function RecentView({ error, items, success }: RecentViewProps) {
                           if (deleted) return;
                           openItem(item);
                         }}
+                        onPointerCancel={clearLongPressTimer}
+                        onPointerDown={(event) =>
+                          handleRecentPointerDown(item, event)
+                        }
+                        onPointerLeave={clearLongPressTimer}
+                        onPointerUp={clearLongPressTimer}
                       >
                         <div
                           className="recent-grid-card-preview"
@@ -1040,6 +1128,48 @@ export function RecentView({ error, items, success }: RecentViewProps) {
           ))}
         </div>
       )}
+      {isCoarsePointer && selectedItems.length > 0 ? (
+        <div className="workspace-selection-bar" role="region">
+          <span>
+            {selectedItems.length} item
+            {selectedItems.length === 1 ? "" : "s"}
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              void handleDownload(selectedItems.map((item) => item.id))
+            }
+          >
+            Download
+          </button>
+          <button
+            className="is-danger"
+            type="button"
+            onClick={() => void trashItems(selectedItems)}
+          >
+            Trash
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedIds(new Set());
+              setLastSelectedId(null);
+            }}
+          >
+            Clear
+          </button>
+        </div>
+      ) : null}
+      <WorkspaceActionSheet
+        groups={
+          actionSheetItem ? getRecentItemContextGroups(actionSheetItem) : []
+        }
+        itemName={actionSheetItem?.name}
+        open={actionSheetItem !== null}
+        onOpenChange={(open) => {
+          if (!open) setActionSheetItem(null);
+        }}
+      />
     </DashboardPageContextMenu>
   );
 }

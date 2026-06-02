@@ -174,136 +174,217 @@ export function SharedTable({ items }: SharedTableProps) {
           <p className="muted">Try a different type.</p>
         </div>
       ) : (
-        <div className="st-wrap">
-          <table className="st-table">
-            <colgroup>
-              <col className="st-col-name" />
-              <col className="st-col-location" />
-              <col className="st-col-type" />
-              <col className="st-col-expires" />
-              <col className="st-col-status" />
-              <col className="st-col-actions" />
-            </colgroup>
-            <thead>
-              <tr>
-                <th className="st-th" scope="col">
-                  Name
-                </th>
-                <th className="st-th" scope="col">
-                  Location
-                </th>
-                <th className="st-th" scope="col">
-                  Type
-                </th>
-                <th className="st-th" scope="col">
-                  Expires
-                </th>
-                <th className="st-th" scope="col">
-                  Status
-                </th>
-                <th className="st-th" scope="col">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleItems.map(
-                ({
-                  share,
-                  canManage,
-                  expiresLabel,
-                  expiryTone,
-                  statusLabel,
-                }) => {
-                  const locationLabel = getShareLocationLabel(share);
-
-                  return (
-                    <DashboardItemContextMenu
-                      groups={getShareItemContextGroups({
-                        share,
-                        canManage,
-                        expiresLabel,
-                        expiryTone,
-                        statusLabel,
-                      })}
-                      key={share.id}
+        <>
+          <div className="st-card-list">
+            {visibleItems.map(
+              ({ share, canManage, expiresLabel, expiryTone, statusLabel }) => {
+                const locationLabel = getShareLocationLabel(share);
+                return (
+                  <DashboardItemContextMenu
+                    groups={getShareItemContextGroups({
+                      share,
+                      canManage,
+                      expiresLabel,
+                      expiryTone,
+                      statusLabel,
+                    })}
+                    key={share.id}
+                  >
+                    <article
+                      className={`st-card${share.status === "active" ? "" : " st-card--inactive"}`}
+                      id={`mobile-${share.id}`}
                     >
-                      <tr
-                        className={`st-tr${share.status === "active" ? "" : " st-tr--inactive"}`}
-                        id={share.id}
-                      >
-                        <td className="st-td st-name-cell">
-                          <span className="st-name">
-                            <span
-                              className="st-name-text"
-                              title={share.target.name}
-                            >
-                              {share.target.name}
-                            </span>
-                          </span>
-                        </td>
-                        <td className="st-td st-muted">
-                          <span className="st-location" title={locationLabel}>
-                            {locationLabel}
-                          </span>
-                        </td>
-                        <td className="st-td st-muted">
-                          {getShareTypeLabel(share)}
-                        </td>
-                        <td
-                          className={`st-td st-mono st-expires--${expiryTone}`}
+                      <div className="st-card-head">
+                        <span
+                          className="st-name-text"
+                          title={share.target.name}
                         >
-                          {expiresLabel}
-                        </td>
-                        <td className="st-td">
-                          <span
-                            className={`sl-badge sl-badge--${getStatusClass(share.status)}`}
-                          >
-                            {statusLabel}
+                          {share.target.name}
+                        </span>
+                        <span
+                          className={`sl-badge sl-badge--${getStatusClass(share.status)}`}
+                        >
+                          {statusLabel}
+                        </span>
+                      </div>
+                      <dl className="st-card-meta">
+                        <div>
+                          <dt>Location</dt>
+                          <dd>{locationLabel}</dd>
+                        </div>
+                        <div>
+                          <dt>Type</dt>
+                          <dd>{getShareTypeLabel(share)}</dd>
+                        </div>
+                        <div>
+                          <dt>Expires</dt>
+                          <dd className={`st-mono st-expires--${expiryTone}`}>
+                            {expiresLabel}
+                          </dd>
+                        </div>
+                      </dl>
+                      <div className="st-card-actions">
+                        <button
+                          className="st-action"
+                          disabled={!canManage}
+                          onClick={() =>
+                            setShareDialogTarget({
+                              targetType: share.target.targetType,
+                              targetId: share.target.id,
+                              share,
+                            })
+                          }
+                          type="button"
+                        >
+                          Manage
+                        </button>
+                        {share.hasPassword ? (
+                          <span className="st-password-hint">
+                            <KeyRound
+                              aria-label="Password protected"
+                              size={13}
+                            />
                           </span>
-                        </td>
-                        <td className="st-td">
-                          <div className="st-actions">
-                            <button
-                              className="st-action"
-                              disabled={!canManage}
-                              onClick={() =>
-                                setShareDialogTarget({
-                                  targetType: share.target.targetType,
-                                  targetId: share.target.id,
-                                  share,
-                                })
-                              }
-                              type="button"
-                            >
-                              Manage
-                            </button>
-                            <span
-                              aria-hidden={!share.hasPassword}
-                              className="st-password-hint"
-                              title={
-                                share.hasPassword
-                                  ? "Password protected"
-                                  : undefined
-                              }
-                            >
-                              {share.hasPassword ? (
-                                <KeyRound
-                                  aria-label="Password protected"
-                                  size={13}
-                                />
-                              ) : null}
+                        ) : null}
+                      </div>
+                    </article>
+                  </DashboardItemContextMenu>
+                );
+              },
+            )}
+          </div>
+
+          <div className="st-wrap">
+            <table className="st-table">
+              <colgroup>
+                <col className="st-col-name" />
+                <col className="st-col-location" />
+                <col className="st-col-type" />
+                <col className="st-col-expires" />
+                <col className="st-col-status" />
+                <col className="st-col-actions" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th className="st-th" scope="col">
+                    Name
+                  </th>
+                  <th className="st-th" scope="col">
+                    Location
+                  </th>
+                  <th className="st-th" scope="col">
+                    Type
+                  </th>
+                  <th className="st-th" scope="col">
+                    Expires
+                  </th>
+                  <th className="st-th" scope="col">
+                    Status
+                  </th>
+                  <th className="st-th" scope="col">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleItems.map(
+                  ({
+                    share,
+                    canManage,
+                    expiresLabel,
+                    expiryTone,
+                    statusLabel,
+                  }) => {
+                    const locationLabel = getShareLocationLabel(share);
+
+                    return (
+                      <DashboardItemContextMenu
+                        groups={getShareItemContextGroups({
+                          share,
+                          canManage,
+                          expiresLabel,
+                          expiryTone,
+                          statusLabel,
+                        })}
+                        key={share.id}
+                      >
+                        <tr
+                          className={`st-tr${share.status === "active" ? "" : " st-tr--inactive"}`}
+                          id={share.id}
+                        >
+                          <td className="st-td st-name-cell">
+                            <span className="st-name">
+                              <span
+                                className="st-name-text"
+                                title={share.target.name}
+                              >
+                                {share.target.name}
+                              </span>
                             </span>
-                          </div>
-                        </td>
-                      </tr>
-                    </DashboardItemContextMenu>
-                  );
-                },
-              )}
-            </tbody>
-          </table>
-        </div>
+                          </td>
+                          <td className="st-td st-muted">
+                            <span className="st-location" title={locationLabel}>
+                              {locationLabel}
+                            </span>
+                          </td>
+                          <td className="st-td st-muted">
+                            {getShareTypeLabel(share)}
+                          </td>
+                          <td
+                            className={`st-td st-mono st-expires--${expiryTone}`}
+                          >
+                            {expiresLabel}
+                          </td>
+                          <td className="st-td">
+                            <span
+                              className={`sl-badge sl-badge--${getStatusClass(share.status)}`}
+                            >
+                              {statusLabel}
+                            </span>
+                          </td>
+                          <td className="st-td">
+                            <div className="st-actions">
+                              <button
+                                className="st-action"
+                                disabled={!canManage}
+                                onClick={() =>
+                                  setShareDialogTarget({
+                                    targetType: share.target.targetType,
+                                    targetId: share.target.id,
+                                    share,
+                                  })
+                                }
+                                type="button"
+                              >
+                                Manage
+                              </button>
+                              <span
+                                aria-hidden={!share.hasPassword}
+                                className="st-password-hint"
+                                title={
+                                  share.hasPassword
+                                    ? "Password protected"
+                                    : undefined
+                                }
+                              >
+                                {share.hasPassword ? (
+                                  <KeyRound
+                                    aria-label="Password protected"
+                                    size={13}
+                                  />
+                                ) : null}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      </DashboardItemContextMenu>
+                    );
+                  },
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {shareDialogTarget ? (

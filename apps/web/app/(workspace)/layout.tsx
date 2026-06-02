@@ -14,6 +14,7 @@ import { readInstanceUpdateCheck } from "@staaash/db/instance";
 
 import { InstanceBadge } from "./instance-badge";
 import { TopbarActions } from "./topbar-actions";
+import { WorkspaceMobileNav } from "./workspace-mobile-nav";
 import { WorkspaceNav } from "./workspace-nav";
 import { WorkspaceStorage } from "./workspace-storage";
 
@@ -145,6 +146,24 @@ export default async function WorkspaceLayout({
           </main>
         </div>
       </div>
+      {session ? (
+        <WorkspaceMobileNav
+          appVersion={appVersion}
+          avatarUrl={session.user.avatarUrl ?? null}
+          diskCapacityBytes={diskCapacityBytes?.toString() ?? null}
+          diskUsedBytes={diskUsedBytes?.toString() ?? null}
+          initials={initials}
+          isOwner={session.user.role === "owner"}
+          latestVersion={instanceUpdateState?.latestAvailableVersion ?? null}
+          limitBytes={limitBytes?.toString() ?? null}
+          nodeVersion={process.version}
+          repository={settings.updateCheckRepository || null}
+          updateStatus={instanceUpdateState?.updateCheckStatus ?? null}
+          usedBytes={usedBytes.toString()}
+          userLabel={userLabel}
+          username={session.user.username}
+        />
+      ) : null}
 
       {/* Toaster outside workspace-shell grid — fixed elements still consume a grid cell. */}
       <Toaster position="bottom-right" richColors />
