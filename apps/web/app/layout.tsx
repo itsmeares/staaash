@@ -10,6 +10,11 @@ export const metadata: Metadata = {
   title: "Staaash",
   description:
     "A self-hosted personal cloud drive with a calm web surface, deliberate sharing, and owned storage boundaries.",
+  icons: {
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    shortcut: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/apple-icon.png", sizes: "1024x1024", type: "image/png" }],
+  },
 };
 
 const switzer = localFont({
