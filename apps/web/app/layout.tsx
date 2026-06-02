@@ -11,7 +11,10 @@ export const metadata: Metadata = {
   description:
     "A self-hosted personal cloud drive with a calm web surface, deliberate sharing, and owned storage boundaries.",
   icons: {
-    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon-64.png", sizes: "64x64", type: "image/png" },
+    ],
     shortcut: [{ url: "/favicon.svg", type: "image/svg+xml" }],
     apple: [{ url: "/apple-icon.png", sizes: "1024x1024", type: "image/png" }],
   },
