@@ -1,14 +1,26 @@
-# Staaash
+<div align="center">
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="../design/App/Staaash%20App%20Icon-White%400.25.png">
+    <source media="(prefers-color-scheme: dark)" srcset="../design/App/Staaash%20App%20Icon%400.25.png">
+    <img src="../design/App/Staaash%20App%20Icon%400.25.png" alt="Staaash" width="192" height="192">
+  </picture>
+</p>
+<h1>Staaash</h1>
 
 [![AGPL-3.0 License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](./LICENSE)
 [![Release](https://img.shields.io/github/v/release/itsmeares/staaash?include_prereleases&label=release)](https://github.com/itsmeares/staaash/releases)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/itsmeares/staaash/pkgs/container/staaash)
 [![Self-hosted](https://img.shields.io/badge/self--hosted-yes-brightgreen)](#installation)
 
+</div>
+
 > [!IMPORTANT]
 > **Staaash is in beta.** Expect some bugs and breaking changes between pre-releases. Do not use it as your only copy of important files — set up a [3-2-1 backup strategy](https://www.backblaze.com/blog/the-3-2-1-backup-strategy/) before you start.
 
-Staaash is a self-hosted file drive for people who want their files on their own server.
+---
+
+<p align="center">Staaash is a self-hosted file drive for people who want their files on their own server.</p>
 
 <table>
   <tr>
