@@ -1,8 +1,8 @@
 <div align="center">
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="../design/App/Staaash%20App%20Icon-White%400.25.png">
-    <source media="(prefers-color-scheme: light)" srcset="../design/App/Staaash%20App%20Icon%400.25.png">
+    <source media="(prefers-color-scheme: light)" srcset="../design/App/Staaash%20App%20Icon-White%400.25.png">
+    <source media="(prefers-color-scheme: dark)" srcset="../design/App/Staaash%20App%20Icon%400.25.png">
     <img src="../design/App/Staaash%20App%20Icon%400.25.png" alt="Staaash" width="192" height="192">
   </picture>
 </p>
