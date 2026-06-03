@@ -23,7 +23,7 @@ type CreatePrismaRetrievalRepositoryOptions = {
   filesRepo?: FilesRepository;
 };
 
-export const createPrismaRetrievalRepository = ({
+const createPrismaRetrievalRepository = ({
   client,
   filesRepo,
 }: CreatePrismaRetrievalRepositoryOptions = {}): RetrievalRepository => {
@@ -284,4 +284,5 @@ export const createPrismaRetrievalRepository = ({
   };
 };
 
+// fallow-ignore-next-line unused-export
 export const prismaRetrievalRepository = createPrismaRetrievalRepository();

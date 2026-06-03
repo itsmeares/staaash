@@ -3,11 +3,11 @@ import { randomUUID } from "node:crypto";
 import { getPrisma } from "@staaash/db/client";
 import { getTmpUploadPath } from "@/server/storage";
 
-export const SESSION_STATUS_CREATED = "created";
-export const SESSION_STATUS_RECEIVING = "receiving";
-export const SESSION_STATUS_COMPLETED = "completed";
-export const SESSION_STATUS_FAILED = "failed";
-export const SESSION_STATUS_CANCELLED = "cancelled";
+const SESSION_STATUS_CREATED = "created";
+const SESSION_STATUS_RECEIVING = "receiving";
+const SESSION_STATUS_COMPLETED = "completed";
+const SESSION_STATUS_FAILED = "failed";
+const SESSION_STATUS_CANCELLED = "cancelled";
 
 const ACTIVE_STATUSES = [SESSION_STATUS_CREATED, SESSION_STATUS_RECEIVING];
 

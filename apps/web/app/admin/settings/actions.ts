@@ -52,8 +52,6 @@ const updateSettingsSchema = z.object({
   mediaPreviewMaxConcurrentJobs: z.coerce.number().int().positive(),
 });
 
-export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
-
 export async function updateSystemSettings(
   _prevState: { error?: string; success?: boolean },
   formData: FormData,
@@ -116,7 +114,7 @@ export async function saveOwnerOnboardingSettings(input: {
   return { success: true };
 }
 
-export async function setMediaPreviewEnabled(
+async function setMediaPreviewEnabled(
   enabled: boolean,
 ): Promise<{ error?: string; success?: boolean }> {
   await requireOwnerPageSession();

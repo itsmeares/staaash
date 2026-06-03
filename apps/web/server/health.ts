@@ -133,7 +133,7 @@ const getStorageWarnings = async () => {
   }
 };
 
-export const writeWorkerHeartbeat = async (timestamp = new Date()) => {
+const writeWorkerHeartbeat = async (timestamp = new Date()) => {
   await ensureStorageDirectories();
   await mkdir(getStorageRoot(), { recursive: true });
   await writeFile(

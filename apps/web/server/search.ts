@@ -4,7 +4,7 @@ import type {
   SearchResultItem,
 } from "@/server/types";
 
-export const searchNormalizationPolicy: SearchNormalizationPolicy = {
+const searchNormalizationPolicy: SearchNormalizationPolicy = {
   caseInsensitive: true,
   accentInsensitive: true,
   tokenizedPathMatching: true,

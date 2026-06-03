@@ -3,7 +3,7 @@ import { mkdir } from "node:fs/promises";
 
 import { env } from "@/lib/env";
 
-export const STORAGE_DIRECTORIES = {
+const STORAGE_DIRECTORIES = {
   files: "files",
   trash: ".trash",
   tmp: "tmp",
@@ -29,7 +29,7 @@ export const getStorageRoot = () => path.resolve(env.UPLOAD_LOCATION);
 export const getStoragePath = (storageKey: string) =>
   resolveWithinRoot(storageKey);
 
-export const getTmpRootPath = () => resolveWithinRoot(STORAGE_DIRECTORIES.tmp);
+const getTmpRootPath = () => resolveWithinRoot(STORAGE_DIRECTORIES.tmp);
 
 export const getStorageLockDirectoryPath = () =>
   resolveWithinRoot(STORAGE_DIRECTORIES.locks);
@@ -112,10 +112,9 @@ export const getTrashedFolderStorageKey = ({
 }) =>
   path.posix.join(getUserTrashRootStorageKey(username), ...folderPathSegments);
 
-export const getDerivativePath = (storageKey: string) =>
-  resolveWithinRoot(storageKey);
+const getDerivativePath = (storageKey: string) => resolveWithinRoot(storageKey);
 
-export const getDerivativeTmpPath = (derivativeId: string) =>
+const getDerivativeTmpPath = (derivativeId: string) =>
   resolveWithinRoot(
     STORAGE_DIRECTORIES.derivativesTmp,
     `${derivativeId}.mp4.tmp`,

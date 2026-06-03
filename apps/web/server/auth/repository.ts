@@ -228,7 +228,7 @@ const getUniqueConstraintTargets = (error: unknown): string[] => {
   return typeof target === "string" ? [target] : [];
 };
 
-export const createPrismaAuthRepository = (
+const createPrismaAuthRepository = (
   client?: AuthPrismaClient,
 ): AuthRepository => {
   const getClient = () =>
@@ -714,4 +714,5 @@ export const createPrismaAuthRepository = (
   };
 };
 
+// fallow-ignore-next-line unused-export
 export const prismaAuthRepository = createPrismaAuthRepository();

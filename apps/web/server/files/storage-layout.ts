@@ -80,7 +80,7 @@ export const normalizeFolderName = (value: string) =>
 export const normalizeFileName = (value: string) =>
   validateSegment(value, "file");
 
-export const buildFolderPathSegments = ({
+const buildFolderPathSegments = ({
   folder,
   folderMap,
   filesRoot,

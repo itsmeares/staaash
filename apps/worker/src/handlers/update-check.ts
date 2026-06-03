@@ -15,10 +15,7 @@ const parseVersionParts = (value: string) =>
     .split(".")
     .map((part) => Number.parseInt(part, 10));
 
-export const compareVersions = (
-  currentVersion: string,
-  latestVersion: string,
-) => {
+const compareVersions = (currentVersion: string, latestVersion: string) => {
   const currentParts = parseVersionParts(currentVersion);
   const latestParts = parseVersionParts(latestVersion);
   const maxLength = Math.max(currentParts.length, latestParts.length);

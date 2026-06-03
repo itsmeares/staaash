@@ -17,7 +17,7 @@ import {
 
 import type { JsonAdminJobListResponse } from "./types";
 
-export const ADMIN_JOB_STATUSES = [
+const ADMIN_JOB_STATUSES = [
   "queued",
   "running",
   "succeeded",
@@ -26,7 +26,7 @@ export const ADMIN_JOB_STATUSES = [
   "cancelled",
 ] as const;
 
-export type AdminJobStatusFilter = (typeof ADMIN_JOB_STATUSES)[number];
+type AdminJobStatusFilter = (typeof ADMIN_JOB_STATUSES)[number];
 
 export const parseAdminJobFilters = (params: {
   status?: string | null;

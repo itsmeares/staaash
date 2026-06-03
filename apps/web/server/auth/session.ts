@@ -3,7 +3,9 @@ import { cookies } from "next/headers";
 import { authService } from "@/server/auth/service";
 import { env } from "@/lib/env";
 
+// fallow-ignore-next-line unused-export
 export const SESSION_COOKIE_NAME = "staaash_session";
+// fallow-ignore-next-line unused-export
 export const ONBOARDED_COOKIE_NAME = "staaash_onboarded";
 export const THEME_COOKIE_NAME = "staaash_theme";
 
@@ -47,7 +49,7 @@ const getRequestProtocol = (context?: CookieRequestContext) => {
   return null;
 };
 
-export const resolveSecureCookie = (context?: CookieRequestContext) => {
+const resolveSecureCookie = (context?: CookieRequestContext) => {
   if (env.SECURE_COOKIES !== undefined) {
     return env.SECURE_COOKIES;
   }

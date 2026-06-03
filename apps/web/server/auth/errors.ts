@@ -80,8 +80,7 @@ export class AuthError extends Error {
   }
 }
 
-export const isAuthError = (error: unknown): error is AuthError =>
+const isAuthError = (error: unknown): error is AuthError =>
   error instanceof AuthError;
 
-export const getAuthErrorMessage = (code: AuthErrorCode) =>
-  authErrorMessages[code];
+const getAuthErrorMessage = (code: AuthErrorCode) => authErrorMessages[code];

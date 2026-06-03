@@ -8,7 +8,7 @@ import {
 import { authService } from "@/server/auth/service";
 import type { AuthSession } from "@/server/auth/types";
 
-export const hasCompletedOnboarding = (session: AuthSession | null) =>
+const hasCompletedOnboarding = (session: AuthSession | null) =>
   Boolean(session?.user.preferences?.onboardingCompletedAt);
 
 export const requireSignedInPageSession = async (redirectTo = "/") => {

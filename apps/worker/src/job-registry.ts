@@ -32,11 +32,11 @@ import type { JobContext } from "./job-context.js";
 import { TerminalJobError } from "./job-context.js";
 import { nextDailyRunAtUtc, nextDailyWindowEndUtc } from "./scheduling.js";
 
-export type JobHandlerResult = {
+type JobHandlerResult = {
   cancelled?: boolean;
 };
 
-export type JobRegistryEntry = {
+type JobRegistryEntry = {
   kind: SupportedBackgroundJobKind;
   maxAttempts: number;
   timeoutMs: number;
@@ -110,10 +110,7 @@ const getSchedulingSettings = async () => {
   }
 };
 
-export const JOB_REGISTRY: Record<
-  SupportedBackgroundJobKind,
-  JobRegistryEntry
-> = {
+const JOB_REGISTRY: Record<SupportedBackgroundJobKind, JobRegistryEntry> = {
   [STAGING_CLEANUP_JOB_KIND]: {
     kind: STAGING_CLEANUP_JOB_KIND,
     maxAttempts: 5,
