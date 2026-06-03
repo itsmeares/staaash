@@ -39,6 +39,10 @@ import { startValidatedDownload } from "@/lib/transfers/download";
 
 import { useTransferContext } from "../transfer-context";
 import { useCoarsePointer } from "../use-coarse-pointer";
+import {
+  getWorkspaceItemDownloadHref,
+  WORKSPACE_ITEM_FILTERS,
+} from "../workspace-item-helpers";
 import { WorkspaceActionSheet } from "../workspace-action-sheet";
 import {
   filterFavoriteItems,
@@ -71,23 +75,8 @@ type RubberBand = {
 const VIEW_STORAGE_KEY = "staaash:favorites:view";
 const DRAG_THRESHOLD = 5;
 
-const FILTERS: { id: FavoriteFilterType; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "folder", label: "Folders" },
-  { id: "image", label: "Images" },
-  { id: "pdf", label: "PDFs" },
-  { id: "video", label: "Videos" },
-  { id: "audio", label: "Audio" },
-  { id: "text", label: "Docs" },
-  { id: "archive", label: "Archives" },
-];
-
 function getItemKey(item: Pick<FavoriteClientItem, "id" | "kind">): string {
   return `${item.kind}:${item.id}`;
-}
-
-function getDownloadHref(item: FavoriteClientItem): string {
-  return `/api/files/files/${item.id}/download`;
 }
 
 function getFavoriteEndpoint(item: FavoriteClientItem): string {
@@ -335,11 +324,11 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
       return;
     }
 
+    const downloadHref = getWorkspaceItemDownloadHref(item);
+    if (!downloadHref) return;
+
     try {
-      await startValidatedDownload(
-        getDownloadHref(item),
-        "File download failed",
-      );
+      await startValidatedDownload(downloadHref, "File download failed");
     } catch (err) {
       setActionError(
         err instanceof Error ? err.message : "File download failed",
@@ -966,7 +955,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
                 setFilterType(event.target.value as FavoriteFilterType)
               }
             >
-              {FILTERS.map((filter) => (
+              {WORKSPACE_ITEM_FILTERS.map((filter) => (
                 <option key={filter.id} value={filter.id}>
                   {filter.label}
                 </option>

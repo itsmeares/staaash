@@ -1,5 +1,16 @@
-import type { ItemVisualKind } from "@/app/item-visuals";
 import type { FavoriteRetrievalItem } from "@/server/retrieval/types";
+
+import {
+  compareWorkspaceStrings,
+  filterWorkspaceItems,
+  formatWorkspaceFileSize,
+  formatWorkspaceRelativeTime,
+  getWorkspaceItemType,
+  getWorkspaceLocationLabel,
+  sortWorkspaceItems,
+  type WorkspaceItemFilterType,
+  type WorkspaceSortDirection,
+} from "../workspace-item-helpers";
 
 export type FavoriteClientItem = {
   favoritedAt: string;
@@ -15,33 +26,13 @@ export type FavoriteClientItem = {
   sizeBytes?: number;
 };
 
-export type FavoriteFilterType =
-  | "all"
-  | "archive"
-  | "audio"
-  | "folder"
-  | "image"
-  | "pdf"
-  | "text"
-  | "video";
+export type FavoriteFilterType = WorkspaceItemFilterType;
 
 export type FavoriteSortKey = "favoritedAt" | "name" | "path" | "size";
-export type FavoriteSortDirection = "asc" | "desc";
-
-function splitPathLabel(pathLabel: string): string[] {
-  return pathLabel
-    .split("/")
-    .map((part) => part.trim())
-    .filter(Boolean);
-}
+export type FavoriteSortDirection = WorkspaceSortDirection;
 
 export function getFavoriteLocationLabel(item: FavoriteRetrievalItem): string {
-  const parts = splitPathLabel(item.pathLabel);
-  const pathWithoutSelf =
-    parts.at(-1) === item.name ? parts.slice(0, -1) : parts;
-  const withoutRoot =
-    pathWithoutSelf.length > 1 ? pathWithoutSelf.slice(1) : [];
-  return withoutRoot.length > 0 ? withoutRoot.join(" / ") : "/";
+  return getWorkspaceLocationLabel(item);
 }
 
 export function toFavoriteClientItem(
@@ -65,86 +56,25 @@ export function toFavoriteClientItem(
 export function getFavoriteType(
   item: Pick<FavoriteClientItem, "kind" | "mimeType">,
 ): FavoriteFilterType {
-  if (item.kind === "folder") return "folder";
-
-  const mime = item.mimeType ?? "";
-  if (mime.startsWith("image/")) return "image";
-  if (mime.startsWith("video/")) return "video";
-  if (mime.startsWith("audio/")) return "audio";
-  if (mime.includes("pdf")) return "pdf";
-  if (
-    mime.startsWith("text/") ||
-    mime.includes("typescript") ||
-    mime.includes("json") ||
-    mime.includes("document")
-  ) {
-    return "text";
-  }
-  if (
-    mime.includes("zip") ||
-    mime.includes("archive") ||
-    mime.includes("tar") ||
-    mime.includes("gzip")
-  ) {
-    return "archive";
-  }
-
-  return "all";
-}
-
-function getFavoriteVisualKind(
-  item: Pick<FavoriteClientItem, "kind" | "mimeType">,
-): ItemVisualKind {
-  const type = getFavoriteType(item);
-  return type === "all" ? "file" : type;
+  return getWorkspaceItemType(item);
 }
 
 export function filterFavoriteItems(
   items: FavoriteClientItem[],
   filterType: FavoriteFilterType,
 ): FavoriteClientItem[] {
-  if (filterType === "all") return items;
-  return items.filter((item) => getFavoriteType(item) === filterType);
+  return filterWorkspaceItems(items, filterType);
 }
 
 export function formatFavoriteFileSize(bytes?: number): string {
-  if (bytes == null) return "-";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  if (bytes < 1024 * 1024 * 1024)
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  return formatWorkspaceFileSize(bytes);
 }
 
 export function formatFavoriteRelativeTime(
   value: Date | string,
   now = new Date(),
 ): string {
-  const date = value instanceof Date ? value : new Date(value);
-  const diffMs = Math.max(0, now.getTime() - date.getTime());
-  const diffMinutes = Math.floor(diffMs / 60000);
-
-  if (diffMinutes < 1) return "Just now";
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays} days ago`;
-
-  return date.toLocaleDateString("en", {
-    day: "numeric",
-    month: "short",
-  });
-}
-
-function compareStrings(left: string, right: string): number {
-  return left.localeCompare(right, undefined, {
-    numeric: true,
-    sensitivity: "base",
-  });
+  return formatWorkspaceRelativeTime(value, now);
 }
 
 export function sortFavoriteItems(
@@ -152,32 +82,26 @@ export function sortFavoriteItems(
   sortKey: FavoriteSortKey,
   sortDirection: FavoriteSortDirection,
 ): FavoriteClientItem[] {
-  const direction = sortDirection === "asc" ? 1 : -1;
-
-  return [...items].sort((left, right) => {
-    let delta = 0;
-
-    if (sortKey === "name") {
-      delta = compareStrings(left.name, right.name);
-    } else if (sortKey === "path") {
-      delta = compareStrings(left.locationLabel, right.locationLabel);
-    } else if (sortKey === "size") {
-      delta = (left.sizeBytes ?? -1) - (right.sizeBytes ?? -1);
-    } else {
-      delta =
+  return sortWorkspaceItems(
+    items,
+    sortDirection,
+    (left, right) => {
+      if (sortKey === "name") {
+        return compareWorkspaceStrings(left.name, right.name);
+      }
+      if (sortKey === "path") {
+        return compareWorkspaceStrings(left.locationLabel, right.locationLabel);
+      }
+      if (sortKey === "size") {
+        return (left.sizeBytes ?? -1) - (right.sizeBytes ?? -1);
+      }
+      return (
         new Date(left.favoritedAt).getTime() -
-        new Date(right.favoritedAt).getTime();
-    }
-
-    if (delta === 0) {
-      delta =
-        compareStrings(left.name, right.name) ||
-        left.kind.localeCompare(right.kind) ||
-        left.id.localeCompare(right.id);
-    }
-
-    return delta * direction;
-  });
+        new Date(right.favoritedAt).getTime()
+      );
+    },
+    { includeKindTieBreak: true },
+  );
 }
 
 export function getQuickAccessFavorites(
@@ -192,7 +116,8 @@ export function getQuickAccessFavorites(
 
       if (delta !== 0) return delta;
       return (
-        compareStrings(left.name, right.name) || left.id.localeCompare(right.id)
+        compareWorkspaceStrings(left.name, right.name) ||
+        left.id.localeCompare(right.id)
       );
     });
 }

@@ -1,5 +1,16 @@
-import type { ItemVisualKind } from "@/app/item-visuals";
 import type { RetrievalItem } from "@/server/retrieval/types";
+
+import {
+  compareWorkspaceStrings,
+  filterWorkspaceItems,
+  formatWorkspaceFileSize,
+  formatWorkspaceRelativeTime,
+  getWorkspaceItemType,
+  getWorkspaceLocationLabel,
+  sortWorkspaceItems,
+  type WorkspaceItemFilterType,
+  type WorkspaceSortDirection,
+} from "../workspace-item-helpers";
 
 export type RecentClientItem = {
   deletedAt: string | null;
@@ -16,18 +27,10 @@ export type RecentClientItem = {
   uploadedAt: string;
 };
 
-export type RecentFilterType =
-  | "all"
-  | "archive"
-  | "audio"
-  | "folder"
-  | "image"
-  | "pdf"
-  | "text"
-  | "video";
+export type RecentFilterType = WorkspaceItemFilterType;
 
 export type RecentSortKey = "name" | "path" | "size" | "uploadedAt";
-export type RecentSortDirection = "asc" | "desc";
+export type RecentSortDirection = WorkspaceSortDirection;
 
 const RECENT_GROUP_ORDER = [
   "Today",
@@ -44,20 +47,8 @@ export type RecentGroup<T> = {
   items: T[];
 };
 
-function splitPathLabel(pathLabel: string): string[] {
-  return pathLabel
-    .split("/")
-    .map((part) => part.trim())
-    .filter(Boolean);
-}
-
 export function getRecentLocationLabel(item: RetrievalItem): string {
-  const parts = splitPathLabel(item.pathLabel);
-  const pathWithoutSelf =
-    parts.at(-1) === item.name ? parts.slice(0, -1) : parts;
-  const withoutRoot =
-    pathWithoutSelf.length > 1 ? pathWithoutSelf.slice(1) : [];
-  return withoutRoot.length > 0 ? withoutRoot.join(" / ") : "/";
+  return getWorkspaceLocationLabel(item);
 }
 
 export function toRecentClientItem(item: RetrievalItem): RecentClientItem {
@@ -80,79 +71,25 @@ export function toRecentClientItem(item: RetrievalItem): RecentClientItem {
 export function getRecentType(
   item: Pick<RecentClientItem, "kind" | "mimeType">,
 ): RecentFilterType {
-  if (item.kind === "folder") return "folder";
-
-  const mime = item.mimeType ?? "";
-  if (mime.startsWith("image/")) return "image";
-  if (mime.startsWith("video/")) return "video";
-  if (mime.startsWith("audio/")) return "audio";
-  if (mime.includes("pdf")) return "pdf";
-  if (
-    mime.startsWith("text/") ||
-    mime.includes("typescript") ||
-    mime.includes("json") ||
-    mime.includes("document")
-  ) {
-    return "text";
-  }
-  if (
-    mime.includes("zip") ||
-    mime.includes("archive") ||
-    mime.includes("tar") ||
-    mime.includes("gzip")
-  ) {
-    return "archive";
-  }
-
-  return "all";
-}
-
-function getRecentVisualKind(
-  item: Pick<RecentClientItem, "kind" | "mimeType">,
-): ItemVisualKind {
-  const type = getRecentType(item);
-  return type === "all" ? "file" : type;
+  return getWorkspaceItemType(item);
 }
 
 export function filterRecentItems(
   items: RecentClientItem[],
   filterType: RecentFilterType,
 ): RecentClientItem[] {
-  if (filterType === "all") return items;
-  return items.filter((item) => getRecentType(item) === filterType);
+  return filterWorkspaceItems(items, filterType);
 }
 
 export function formatRecentFileSize(bytes?: number): string {
-  if (bytes == null) return "-";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  if (bytes < 1024 * 1024 * 1024)
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  return formatWorkspaceFileSize(bytes);
 }
 
 export function formatRecentRelativeTime(
   value: Date | string,
   now = new Date(),
 ): string {
-  const date = value instanceof Date ? value : new Date(value);
-  const diffMs = Math.max(0, now.getTime() - date.getTime());
-  const diffMinutes = Math.floor(diffMs / 60000);
-
-  if (diffMinutes < 1) return "Just now";
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays} days ago`;
-
-  return date.toLocaleDateString("en", {
-    day: "numeric",
-    month: "short",
-  });
+  return formatWorkspaceRelativeTime(value, now);
 }
 
 export function getRecentDateGroup(
@@ -177,42 +114,24 @@ export function getRecentDateGroup(
   return "Older";
 }
 
-function compareStrings(left: string, right: string): number {
-  return left.localeCompare(right, undefined, {
-    numeric: true,
-    sensitivity: "base",
-  });
-}
-
 export function sortRecentItems(
   items: RecentClientItem[],
   sortKey: RecentSortKey,
   sortDirection: RecentSortDirection,
 ): RecentClientItem[] {
-  const direction = sortDirection === "asc" ? 1 : -1;
-
-  return [...items].sort((left, right) => {
-    let delta = 0;
-
+  return sortWorkspaceItems(items, sortDirection, (left, right) => {
     if (sortKey === "name") {
-      delta = compareStrings(left.name, right.name);
-    } else if (sortKey === "path") {
-      delta = compareStrings(left.locationLabel, right.locationLabel);
-    } else if (sortKey === "size") {
-      delta = (left.sizeBytes ?? -1) - (right.sizeBytes ?? -1);
-    } else {
-      delta =
-        new Date(left.uploadedAt).getTime() -
-        new Date(right.uploadedAt).getTime();
+      return compareWorkspaceStrings(left.name, right.name);
     }
-
-    if (delta === 0) {
-      delta =
-        compareStrings(left.name, right.name) ||
-        left.id.localeCompare(right.id);
+    if (sortKey === "path") {
+      return compareWorkspaceStrings(left.locationLabel, right.locationLabel);
     }
-
-    return delta * direction;
+    if (sortKey === "size") {
+      return (left.sizeBytes ?? -1) - (right.sizeBytes ?? -1);
+    }
+    return (
+      new Date(left.uploadedAt).getTime() - new Date(right.uploadedAt).getTime()
+    );
   });
 }
 
