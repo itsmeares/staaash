@@ -31,6 +31,7 @@ yarn-error.log*
 
 # Test and tooling caches
 test-results/
+apps/web/test-results/
 playwright-report/
 .cache/
 .eslintcache

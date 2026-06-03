@@ -9,6 +9,7 @@ import {
   useTransition,
   type KeyboardEvent,
   type MouseEvent,
+  type PointerEvent,
 } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -20,6 +21,7 @@ import {
   Grid2X2,
   Heart,
   List,
+  MoreHorizontal,
   Pin,
   PinOff,
   RefreshCw,
@@ -36,6 +38,8 @@ import { ItemTypeIcon } from "@/app/item-type-icon";
 import { startValidatedDownload } from "@/lib/transfers/download";
 
 import { useTransferContext } from "../transfer-context";
+import { useCoarsePointer } from "../use-coarse-pointer";
+import { WorkspaceActionSheet } from "../workspace-action-sheet";
 import {
   filterFavoriteItems,
   formatFavoriteFileSize,
@@ -127,6 +131,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const { handleDownload } = useTransferContext();
+  const isCoarsePointer = useCoarsePointer();
   const [viewMode, setViewMode] = useState<FavoriteViewMode>("list");
   const [viewReady, setViewReady] = useState(false);
   const [filterType, setFilterType] = useState<FavoriteFilterType>("all");
@@ -150,6 +155,10 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
   const rubberBandStart = useRef<{ startX: number; startY: number } | null>(
     null,
   );
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suppressNextClickRef = useRef(false);
+  const [actionSheetItem, setActionSheetItem] =
+    useState<FavoriteClientItem | null>(null);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
@@ -503,12 +512,31 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
 
   const handleFavoritesSurfaceClick = (event: MouseEvent<HTMLDivElement>) => {
     if (didRubberBand.current) return;
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
+      return;
+    }
     const target = event.target as HTMLElement;
     if (target.closest("button, input, select, textarea")) return;
 
     const item = target.closest<HTMLElement>("[data-favorite-item]");
     const key = item?.dataset.favoriteItem;
     if (key && visibleItemByKey.has(key)) {
+      const favorite = visibleItemByKey.get(key)!;
+      if (isCoarsePointer) {
+        if (selectedKeys.size === 0) {
+          openItem(favorite);
+          return;
+        }
+        setSelectedKeys((current) => {
+          const next = new Set(current);
+          if (next.has(key)) next.delete(key);
+          else next.add(key);
+          return next;
+        });
+        setLastSelectedKey(key);
+        return;
+      }
       selectItem(key, event);
       return;
     }
@@ -518,6 +546,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
 
   const handleFavoritesMouseDown = useCallback(
     (event: MouseEvent<HTMLDivElement>) => {
+      if (isCoarsePointer) return;
       if (event.button !== 0) return;
 
       const target = event.target as HTMLElement;
@@ -544,8 +573,32 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
         }
       }
     },
-    [],
+    [isCoarsePointer],
   );
+
+  const clearLongPressTimer = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleFavoritePointerDown = (
+    item: FavoriteClientItem,
+    event: PointerEvent<HTMLElement>,
+  ) => {
+    if (!isCoarsePointer || event.pointerType === "mouse") return;
+    const target = event.target as HTMLElement;
+    if (target.closest("button, input, select, textarea, a")) return;
+    clearLongPressTimer();
+    suppressNextClickRef.current = false;
+    const key = getItemKey(item);
+    longPressTimerRef.current = setTimeout(() => {
+      suppressNextClickRef.current = true;
+      setSelectedKeys(new Set([key]));
+      setLastSelectedKey(key);
+    }, 420);
+  };
 
   const handleFavoriteItemKeyDown = (
     item: FavoriteClientItem,
@@ -564,6 +617,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
 
   useEffect(() => {
     const onMove = (event: globalThis.MouseEvent) => {
+      if (isCoarsePointer) return;
       const container = listRef.current;
       if (!container) return;
 
@@ -654,10 +708,11 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
     window.addEventListener("mouseup", onUp);
 
     return () => {
+      clearLongPressTimer();
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, []);
+  }, [isCoarsePointer]);
 
   const renderSortButton = (
     key: FavoriteSortKey,
@@ -678,6 +733,22 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
 
   const renderItemActions = (item: FavoriteClientItem) => {
     const pinned = item.quickAccessPinnedAt != null;
+
+    if (isCoarsePointer) {
+      return (
+        <button
+          aria-label={`Actions for ${item.name}`}
+          className="favorites-action-btn"
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            setActionSheetItem(item);
+          }}
+        >
+          <MoreHorizontal size={13} aria-hidden />
+        </button>
+      );
+    }
 
     return (
       <>
@@ -1016,6 +1087,12 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
                       event.stopPropagation();
                       openItem(item);
                     }}
+                    onPointerCancel={clearLongPressTimer}
+                    onPointerDown={(event) =>
+                      handleFavoritePointerDown(item, event)
+                    }
+                    onPointerLeave={clearLongPressTimer}
+                    onPointerUp={clearLongPressTimer}
                   >
                     <span className="favorites-row-thumb">
                       <FavoriteIcon item={item} />
@@ -1070,6 +1147,12 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
                       event.stopPropagation();
                       openItem(item);
                     }}
+                    onPointerCancel={clearLongPressTimer}
+                    onPointerDown={(event) =>
+                      handleFavoritePointerDown(item, event)
+                    }
+                    onPointerLeave={clearLongPressTimer}
+                    onPointerUp={clearLongPressTimer}
                   >
                     <div
                       className="favorites-grid-preview"
@@ -1109,6 +1192,42 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
           </div>
         )}
       </div>
+      {isCoarsePointer && selectedItems.length > 0 ? (
+        <div className="workspace-selection-bar" role="region">
+          <span>
+            {selectedItems.length} item
+            {selectedItems.length === 1 ? "" : "s"}
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              void handleDownload(selectedItems.map((item) => item.id))
+            }
+          >
+            Download
+          </button>
+          <button
+            className="is-danger"
+            type="button"
+            onClick={() => void removeFavorites(selectedItems)}
+          >
+            Remove
+          </button>
+          <button type="button" onClick={clearSelection}>
+            Clear
+          </button>
+        </div>
+      ) : null}
+      <WorkspaceActionSheet
+        groups={
+          actionSheetItem ? getFavoriteItemContextGroups(actionSheetItem) : []
+        }
+        itemName={actionSheetItem?.name}
+        open={actionSheetItem !== null}
+        onOpenChange={(open) => {
+          if (!open) setActionSheetItem(null);
+        }}
+      />
     </DashboardPageContextMenu>
   );
 }

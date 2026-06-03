@@ -35,6 +35,7 @@ import {
   formatSpeed,
   formatEta,
 } from "../transfer-context";
+import { useCoarsePointer } from "../use-coarse-pointer";
 import type { ShareLinkSummary } from "@/server/sharing";
 
 // ---------------------------------------------------------------------------
@@ -114,6 +115,7 @@ export function FilesView({
   const router = useRouter();
   const pathname = usePathname();
   const rawSearchParams = useSearchParams();
+  const isCoarsePointer = useCoarsePointer();
 
   // ---- Transfer context (upload + download state lives in WorkspaceProvider) ----
   const {
@@ -293,6 +295,17 @@ export function FilesView({
       // the mouseup; ignore it so we don't clobber the band selection.
       if (didRubberBand.current) return;
 
+      if (isCoarsePointer && selectedIdsRef.current.size > 0) {
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          if (next.has(id)) next.delete(id);
+          else next.add(id);
+          return next;
+        });
+        setLastSelectedId(id);
+        return;
+      }
+
       if (e.ctrlKey || e.metaKey) {
         setSelectedIds((prev) => {
           const next = new Set(prev);
@@ -313,8 +326,13 @@ export function FilesView({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [lastSelectedId, allItems.length],
+    [isCoarsePointer, lastSelectedId, allItems.length],
   );
+
+  const selectSingleItem = useCallback((id: string) => {
+    setSelectedIds(new Set([id]));
+    setLastSelectedId(id);
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Keyboard shortcuts
@@ -722,6 +740,7 @@ export function FilesView({
 
   const handleListMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
+      if (isCoarsePointer) return;
       if (e.button !== 0) return;
       const target = e.target as HTMLElement;
       // Let rename inputs and buttons handle their own events
@@ -747,7 +766,7 @@ export function FilesView({
       }
       // Row click: wait for drag threshold in the window mousemove handler
     },
-    [],
+    [isCoarsePointer],
   );
 
   // Attach rubber-band move/end handlers to window so they fire even when the
@@ -755,6 +774,7 @@ export function FilesView({
   // are no stale closures and the effect never needs to re-run.
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
+      if (isCoarsePointer) return;
       const container = listRef.current;
       if (!container) return;
 
@@ -848,8 +868,7 @@ export function FilesView({
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isCoarsePointer]);
 
   // ---------------------------------------------------------------------------
   // Properties panel target
@@ -1188,6 +1207,7 @@ export function FilesView({
                   onRenameSubmit={() => submitRename(folder.id, "folder")}
                   onRenameCancel={cancelRename}
                   onClick={(e) => handleRowClick(folder.id, e)}
+                  onLongPress={() => selectSingleItem(folder.id)}
                   onOpen={() => openItem(folder.id)}
                   onStartRename={() => beginRename(folder.id, folder.name)}
                   onFavorite={() =>
@@ -1249,6 +1269,7 @@ export function FilesView({
                     if (el) rowRefs.current.set(folder.id, el);
                     else rowRefs.current.delete(folder.id);
                   }}
+                  touchMode={isCoarsePointer}
                 />
               );
             })}
@@ -1332,6 +1353,7 @@ export function FilesView({
                   onRenameSubmit={() => submitRename(file.id, "file")}
                   onRenameCancel={cancelRename}
                   onClick={(e) => handleRowClick(file.id, e)}
+                  onLongPress={() => selectSingleItem(file.id)}
                   onOpen={() => openItem(file.id)}
                   onStartRename={() => beginRename(file.id, file.name)}
                   onFavorite={() =>
@@ -1393,10 +1415,40 @@ export function FilesView({
                     if (el) rowRefs.current.set(file.id, el);
                     else rowRefs.current.delete(file.id);
                   }}
+                  touchMode={isCoarsePointer}
                 />
               );
             })}
           </div>
+
+          {isCoarsePointer && selectedIds.size > 0 ? (
+            <div className="workspace-selection-bar" role="region">
+              <span>
+                {selectedIds.size} item{selectedIds.size === 1 ? "" : "s"}
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  handleDownload(Array.from(selectedIdsRef.current))
+                }
+              >
+                Download
+              </button>
+              <button type="button" onClick={cutSelectedItems}>
+                Cut
+              </button>
+              <button
+                className="is-danger"
+                type="button"
+                onClick={handleTrashSelected}
+              >
+                Trash
+              </button>
+              <button type="button" onClick={() => setSelectedIds(new Set())}>
+                Clear
+              </button>
+            </div>
+          ) : null}
 
           {/* ---- Drag-to-upload overlay ---- */}
           {isDragOver && (

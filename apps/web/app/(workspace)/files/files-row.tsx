@@ -10,17 +10,22 @@ import {
   Briefcase,
   Download,
   FolderOpen,
+  MoreHorizontal,
   Share2,
   type LucideIcon,
 } from "lucide-react";
 
 import { getItemVisual } from "@/app/item-visuals";
 import { ItemTypeIcon } from "@/app/item-type-icon";
-import { DashboardItemContextMenu } from "@/app/dashboard-context-menu";
+import {
+  DashboardItemContextMenu,
+  type DashboardContextMenuGroup,
+} from "@/app/dashboard-context-menu";
 import { formatDateTime } from "@/app/auth-ui";
 import type { FileSummary, FolderSummary } from "@/server/files/types";
 import type { ShareLinkSummary } from "@/server/sharing";
 import { FOLDER_ICON_MAP } from "./files-properties-panel";
+import { WorkspaceActionSheet } from "../workspace-action-sheet";
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -61,6 +66,7 @@ type BaseFolderRowProps = {
   onRenameSubmit: () => void;
   onRenameCancel: () => void;
   onClick: (e: React.MouseEvent) => void;
+  onLongPress: () => void;
   onOpen: () => void;
   onStartRename: () => void;
   onFavorite: () => void;
@@ -70,6 +76,7 @@ type BaseFolderRowProps = {
   onMoveTo: (destinationId: string) => void;
   onDownload: () => void;
   rowRef: (el: HTMLDivElement | null) => void;
+  touchMode: boolean;
 };
 
 type BaseFileRowProps = {
@@ -88,6 +95,7 @@ type BaseFileRowProps = {
   onRenameSubmit: () => void;
   onRenameCancel: () => void;
   onClick: (e: React.MouseEvent) => void;
+  onLongPress: () => void;
   onOpen: () => void;
   onStartRename: () => void;
   onFavorite: () => void;
@@ -97,6 +105,7 @@ type BaseFileRowProps = {
   onMoveTo: (destinationId: string) => void;
   onDownload: () => void;
   rowRef: (el: HTMLDivElement | null) => void;
+  touchMode: boolean;
 };
 
 type FilesRowProps = BaseFolderRowProps | BaseFileRowProps;
@@ -114,10 +123,12 @@ export function FilesRow(props: FilesRowProps) {
     isFavorite,
     availableMoveTargets,
     shareProps,
+    touchMode,
     onRenameChange,
     onRenameSubmit,
     onRenameCancel,
     onClick,
+    onLongPress,
     onOpen,
     onStartRename,
     onFavorite,
@@ -133,6 +144,15 @@ export function FilesRow(props: FilesRowProps) {
   const onDownload = props.onDownload;
 
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suppressNextClickRef = useRef(false);
+  const [actionSheetOpen, setActionSheetOpen] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    };
+  }, []);
 
   const rowClasses = [
     "explorer-row",
@@ -189,173 +209,231 @@ export function FilesRow(props: FilesRowProps) {
       : "Link inactive"
     : null;
 
+  const contextGroups: DashboardContextMenuGroup[] = [
+    {
+      actions: [
+        {
+          label:
+            props.kind === "folder"
+              ? "Open"
+              : props.data.viewerKind
+                ? "Open"
+                : "Download",
+          shortcut: "↵",
+          onSelect: onOpen,
+        },
+        {
+          hidden: !(
+            isMultiSelected ||
+            props.kind === "folder" ||
+            props.data.viewerKind
+          ),
+          label: isMultiSelected
+            ? `Download ${selectedCount} items as zip`
+            : props.kind === "folder"
+              ? "Download as zip"
+              : "Download",
+          onSelect: onDownload,
+        },
+      ],
+    },
+    {
+      actions: [
+        {
+          disabled: isMultiSelected,
+          label: "Rename",
+          shortcut: "F2",
+          onSelect: onStartRename,
+        },
+        {
+          label: isFavorite ? "Remove from favourites" : "Add to favourites",
+          onSelect: onFavorite,
+        },
+        {
+          label: shareLabel ? "Share — manage link" : "Share",
+          onSelect: shareProps.onShare,
+        },
+        {
+          hidden: props.kind !== "folder",
+          label: "Change icon…",
+          onSelect: onProperties,
+        },
+        {
+          label: "Properties",
+          onSelect: onProperties,
+        },
+      ],
+    },
+    {
+      actions: [
+        {
+          label: isMultiSelected ? `Cut ${selectedCount} items` : "Cut",
+          shortcut: "⌘X",
+          onSelect: onCut,
+        },
+        availableMoveTargets.length > 0
+          ? {
+              label: "Move to…",
+              subActions: availableMoveTargets.map((target) => ({
+                label: target.pathLabel,
+                onSelect: () => onMoveTo(target.id),
+              })),
+            }
+          : {
+              disabled: true,
+              label: "Move to…",
+            },
+      ],
+    },
+    {
+      actions: [
+        {
+          destructive: true,
+          label: isMultiSelected
+            ? `Move ${selectedCount} items to trash`
+            : "Move to trash",
+          shortcut: "Del",
+          onSelect: onTrash,
+        },
+      ],
+    },
+  ];
+
+  const clearLongPressTimer = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!touchMode || event.pointerType === "mouse" || isRenaming) return;
+    const target = event.target as HTMLElement;
+    if (target.closest("button, input, a")) return;
+    clearLongPressTimer();
+    suppressNextClickRef.current = false;
+    longPressTimerRef.current = setTimeout(() => {
+      suppressNextClickRef.current = true;
+      onLongPress();
+    }, 420);
+  };
+
+  const handleRowClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    if (touchMode && !isRenaming) {
+      if (selectedCount > 0) onClick(event);
+      else onOpen();
+      return;
+    }
+
+    onClick(event);
+  };
+
   return (
-    <DashboardItemContextMenu
-      groups={[
-        {
-          actions: [
-            {
-              label:
-                props.kind === "folder"
-                  ? "Open"
-                  : props.data.viewerKind
-                    ? "Open"
-                    : "Download",
-              shortcut: "↵",
-              onSelect: onOpen,
-            },
-            {
-              hidden: !(
-                isMultiSelected ||
-                props.kind === "folder" ||
-                props.data.viewerKind
-              ),
-              label: isMultiSelected
-                ? `Download ${selectedCount} items as zip`
-                : props.kind === "folder"
-                  ? "Download as zip"
-                  : "Download",
-              onSelect: onDownload,
-            },
-          ],
-        },
-        {
-          actions: [
-            {
-              disabled: isMultiSelected,
-              label: "Rename",
-              shortcut: "F2",
-              onSelect: onStartRename,
-            },
-            {
-              label: isFavorite
-                ? "Remove from favourites"
-                : "Add to favourites",
-              onSelect: onFavorite,
-            },
-            {
-              label: shareLabel ? "Share — manage link" : "Share",
-              onSelect: shareProps.onShare,
-            },
-            {
-              hidden: props.kind !== "folder",
-              label: "Change icon…",
-              onSelect: onProperties,
-            },
-            {
-              label: "Properties",
-              onSelect: onProperties,
-            },
-          ],
-        },
-        {
-          actions: [
-            {
-              label: isMultiSelected ? `Cut ${selectedCount} items` : "Cut",
-              shortcut: "⌘X",
-              onSelect: onCut,
-            },
-            availableMoveTargets.length > 0
-              ? {
-                  label: "Move to…",
-                  subActions: availableMoveTargets.map((target) => ({
-                    label: target.pathLabel,
-                    onSelect: () => onMoveTo(target.id),
-                  })),
-                }
-              : {
-                  disabled: true,
-                  label: "Move to…",
-                },
-          ],
-        },
-        {
-          actions: [
-            {
-              destructive: true,
-              label: isMultiSelected
-                ? `Move ${selectedCount} items to trash`
-                : "Move to trash",
-              shortcut: "Del",
-              onSelect: onTrash,
-            },
-          ],
-        },
-      ]}
-    >
-      <div
-        ref={rowRef}
-        data-file-row={props.data.id}
-        className={rowClasses}
-        onClick={onClick}
-        onDoubleClick={onOpen}
-        role="row"
-        aria-selected={isSelected}
-        tabIndex={isSelected ? 0 : -1}
-      >
-        {/* Icon */}
-        <div className="explorer-row-icon" role="gridcell">
-          <ItemTypeIcon
-            icon={props.kind === "folder" ? IconComponent : undefined}
-            size={16}
-            visual={visual}
-          />
-        </div>
-
-        {/* Name */}
-        <div className="explorer-row-name-cell" role="gridcell">
-          {isRenaming ? (
-            <input
-              ref={renameInputRef}
-              className="explorer-row-rename"
-              value={renameValue}
-              autoFocus
-              onChange={(e) => onRenameChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  onRenameSubmit();
-                }
-                if (e.key === "Escape") {
-                  e.preventDefault();
-                  onRenameCancel();
-                }
-                // Stop propagation so row keyboard handlers don't fire
-                e.stopPropagation();
-              }}
-              onBlur={onRenameSubmit}
-              onClick={(e) => e.stopPropagation()}
-            />
-          ) : (
-            <>
-              <span className="explorer-row-name" title={name}>
-                {name}
-              </span>
-              {shareProps.share?.status === "active" && (
-                <Share2
-                  size={10}
-                  className="explorer-row-share-badge"
-                  aria-label="Shared"
-                />
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Size */}
-        <span className="explorer-row-meta" role="gridcell">
-          {size}
-        </span>
-
-        {/* Date */}
-        <span
-          className="explorer-row-meta"
-          role="gridcell"
-          suppressHydrationWarning
+    <>
+      <DashboardItemContextMenu groups={contextGroups}>
+        <div
+          ref={rowRef}
+          data-file-row={props.data.id}
+          className={rowClasses}
+          onClick={handleRowClick}
+          onDoubleClick={touchMode ? undefined : onOpen}
+          onPointerCancel={clearLongPressTimer}
+          onPointerDown={handlePointerDown}
+          onPointerLeave={clearLongPressTimer}
+          onPointerUp={clearLongPressTimer}
+          role="row"
+          aria-selected={isSelected}
+          tabIndex={isSelected ? 0 : -1}
         >
-          {date}
-        </span>
-      </div>
-    </DashboardItemContextMenu>
+          {/* Icon */}
+          <div className="explorer-row-icon" role="gridcell">
+            <ItemTypeIcon
+              icon={props.kind === "folder" ? IconComponent : undefined}
+              size={16}
+              visual={visual}
+            />
+          </div>
+
+          {/* Name */}
+          <div className="explorer-row-name-cell" role="gridcell">
+            {isRenaming ? (
+              <input
+                ref={renameInputRef}
+                className="explorer-row-rename"
+                value={renameValue}
+                autoFocus
+                onChange={(e) => onRenameChange(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    onRenameSubmit();
+                  }
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    onRenameCancel();
+                  }
+                  // Stop propagation so row keyboard handlers don't fire
+                  e.stopPropagation();
+                }}
+                onBlur={onRenameSubmit}
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <>
+                <span className="explorer-row-name" title={name}>
+                  {name}
+                </span>
+                {shareProps.share?.status === "active" && (
+                  <Share2
+                    size={10}
+                    className="explorer-row-share-badge"
+                    aria-label="Shared"
+                  />
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Size */}
+          <span className="explorer-row-meta" role="gridcell">
+            {size}
+          </span>
+
+          {/* Date */}
+          <span
+            className="explorer-row-meta"
+            role="gridcell"
+            suppressHydrationWarning
+          >
+            {date}
+          </span>
+
+          <button
+            aria-label={`Actions for ${name}`}
+            className="explorer-row-mobile-action"
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setActionSheetOpen(true);
+            }}
+          >
+            <MoreHorizontal size={16} aria-hidden />
+          </button>
+        </div>
+      </DashboardItemContextMenu>
+      <WorkspaceActionSheet
+        groups={contextGroups}
+        itemName={name}
+        open={actionSheetOpen}
+        onOpenChange={setActionSheetOpen}
+      />
+    </>
   );
 }
