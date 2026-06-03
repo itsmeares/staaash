@@ -82,20 +82,21 @@ function DialogContent({
     target.removeAttribute("data-dragging");
 
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      resetBottomSheetDrag(target);
-      target.removeAttribute("data-closing");
+      bottomSheetDrag.current = null;
       onSwipeClose();
       return;
     }
 
     const closeDistance = Math.ceil(target.getBoundingClientRect().height + 48);
     target.style.transition = `transform ${BOTTOM_SHEET_CLOSE_ANIMATION_MS}ms cubic-bezier(0.22, 1, 0.36, 1)`;
+    let didFinishClose = false;
 
     const finishClose = () => {
+      if (didFinishClose) return;
+      didFinishClose = true;
       clearTimeout(fallbackTimer);
       target.removeEventListener("transitionend", handleTransitionEnd);
-      resetBottomSheetDrag(target);
-      target.removeAttribute("data-closing");
+      bottomSheetDrag.current = null;
       onSwipeClose();
     };
 
