@@ -72,7 +72,7 @@ type QuarantineDeleteWithLockOptions = {
   deadline?: StorageDeadline;
 };
 
-export type StorageMutationErrorCode =
+type StorageMutationErrorCode =
   | "STORAGE_LOCK_TIMEOUT"
   | "STORAGE_TARGET_EXISTS"
   | "STORAGE_TARGET_MISSING";
@@ -90,7 +90,7 @@ const storageMutationMessages: Record<StorageMutationErrorCode, string> = {
   STORAGE_TARGET_MISSING: "The source storage path no longer exists.",
 };
 
-export class StorageMutationError extends Error {
+class StorageMutationError extends Error {
   readonly code: StorageMutationErrorCode;
   readonly status: number;
 

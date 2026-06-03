@@ -9,7 +9,7 @@ type EmptyTrashActionProps = {
   disabled: boolean;
 };
 
-export function TrashFileActions({ fileId, fileName }: TrashFileActionsProps) {
+function TrashFileActions({ fileId, fileName }: TrashFileActionsProps) {
   return (
     <div className="workspace-inline-fields">
       <form action={`/api/files/files/${fileId}/restore`} method="post">

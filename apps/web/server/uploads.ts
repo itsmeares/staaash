@@ -65,7 +65,7 @@ export type StagedUploadFile = UploadManifestItem & {
   actualChecksum: string;
 };
 
-export type StagingCleanupResult = {
+type StagingCleanupResult = {
   scannedCount: number;
   deletedCount: number;
   deletedPaths: string[];
@@ -115,7 +115,7 @@ let _uploadPolicy: {
   stagingRetentionHours: number;
 } | null = null;
 
-export const getUploadPolicy = async () => {
+const getUploadPolicy = async () => {
   if (_uploadPolicy) return _uploadPolicy;
   const s = await getSystemSettings();
   _uploadPolicy = {
@@ -152,7 +152,7 @@ export const getUploadTimeoutBudgetMs = async () => {
 export const createUploadDeadline = async (startTime = Date.now()) =>
   startTime + (await getUploadTimeoutBudgetMs());
 
-export const getRemainingUploadBudgetMs = async (
+const getRemainingUploadBudgetMs = async (
   deadline: Date | number | null | undefined,
 ) => {
   if (deadline === null || deadline === undefined) {
@@ -168,7 +168,7 @@ export const getUploadStagingTtlMs = async () => {
   return policy.stagingRetentionHours * 60 * 60 * 1000;
 };
 
-export const isUploadSizeAllowed = async (sizeBytes: number) => {
+const isUploadSizeAllowed = async (sizeBytes: number) => {
   const policy = await getUploadPolicy();
   return sizeBytes <= policy.maxUploadBytes;
 };
@@ -412,7 +412,7 @@ export const buildSafeRenamedFileName = (
   throw new Error("Unable to generate a safe renamed filename.");
 };
 
-export const copyCommittedUpload = async (
+const copyCommittedUpload = async (
   sourcePath: string,
   destinationPath: string,
 ) => {
@@ -422,7 +422,7 @@ export const copyCommittedUpload = async (
   await copyFile(sourcePath, destinationPath);
 };
 
-export const cleanupExpiredStagingFiles = async (
+const cleanupExpiredStagingFiles = async (
   now = new Date(),
 ): Promise<StagingCleanupResult> => {
   const tmpRoot = path.join(getStorageRoot(), "tmp");

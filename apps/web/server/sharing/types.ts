@@ -66,12 +66,6 @@ export type ShareLinkSummary = {
   target: ShareTargetSummary;
 };
 
-export type SharePolicyInput = {
-  expiresAt?: Date;
-  downloadDisabled?: boolean;
-  password?: string | null;
-};
-
 export type ShareAccessState = {
   requiresPassword: boolean;
   isUnlocked: boolean;

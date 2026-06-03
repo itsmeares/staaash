@@ -20,6 +20,7 @@ export const getUserStorageUsed = async (
   };
 };
 
+// fallow-ignore-next-line unused-export
 export const getInstanceStorageUsed = async (): Promise<bigint> => {
   const client = getPrisma();
   const result = await (client.file as any).aggregate({

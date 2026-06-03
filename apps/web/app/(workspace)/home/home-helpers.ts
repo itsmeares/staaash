@@ -1,10 +1,9 @@
 import {
   getItemVisual,
   type ItemVisual as HomeItemVisual,
-  type ItemVisualKind as HomeVisualKind,
 } from "@/app/item-visuals";
 
-export type { HomeItemVisual, HomeVisualKind };
+export type { HomeItemVisual };
 
 export function getHomeGreeting(hour: number): string {
   if (hour < 5) return "Good night";

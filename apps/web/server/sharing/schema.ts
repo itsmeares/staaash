@@ -23,8 +23,8 @@ const coerceOptionalDate = z.preprocess((value) => {
   return parseDateTimeLocalValue(value);
 }, z.date().optional());
 
-export const shareTargetTypeSchema = z.enum(["file", "folder"]);
-export const shareMutationModeSchema = z.enum(["create", "reissue"]);
+const shareTargetTypeSchema = z.enum(["file", "folder"]);
+const shareMutationModeSchema = z.enum(["create", "reissue"]);
 
 const parseDateTimeLocalValue = (value: unknown) => {
   if (value instanceof Date) {

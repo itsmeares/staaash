@@ -19,7 +19,7 @@ export type AuthCrypto = {
   verifyPassword(password: string, passwordHash: string): Promise<boolean>;
 };
 
-export const hashOpaqueToken = (token: string) => {
+const hashOpaqueToken = (token: string) => {
   return createHash("sha256")
     .update(getAuthSecretSync())
     .update(":")
@@ -27,7 +27,7 @@ export const hashOpaqueToken = (token: string) => {
     .digest("base64url");
 };
 
-export const issueOpaqueToken = (): TokenPair => {
+const issueOpaqueToken = (): TokenPair => {
   const token = randomBytes(32).toString("base64url");
 
   return {
@@ -36,7 +36,7 @@ export const issueOpaqueToken = (): TokenPair => {
   };
 };
 
-export const hashPassword = async (password: string) => {
+const hashPassword = async (password: string) => {
   const salt = randomBytes(16).toString("base64url");
   const derivedKey = (await scryptAsync(
     password,
@@ -47,10 +47,7 @@ export const hashPassword = async (password: string) => {
   return `${PASSWORD_HASH_VERSION}:${salt}:${derivedKey.toString("base64url")}`;
 };
 
-export const verifyPassword = async (
-  password: string,
-  passwordHash: string,
-) => {
+const verifyPassword = async (password: string, passwordHash: string) => {
   const [version, salt, expectedHash] = passwordHash.split(":");
 
   if (version !== PASSWORD_HASH_VERSION || !salt || !expectedHash) {

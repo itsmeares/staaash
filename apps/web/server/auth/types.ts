@@ -125,10 +125,6 @@ export type RedeemInviteInput = {
   password: string;
 };
 
-export type IssuePasswordResetInput = {
-  userId: string;
-};
-
 export type RedeemPasswordResetInput = {
   token: string;
   password: string;

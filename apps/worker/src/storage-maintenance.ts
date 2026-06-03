@@ -43,7 +43,7 @@ export type WorkerStoragePaths = {
   uploadStagingTtlMs: number;
 };
 
-export type WorkerPendingDeleteRecord = {
+type WorkerPendingDeleteRecord = {
   operationId: string;
   fileId: string;
   originalStorageKey: string;

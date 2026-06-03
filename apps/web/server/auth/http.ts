@@ -122,10 +122,7 @@ export const jsonErrorResponse = (error: unknown) => {
 export const jsonNotSignedInResponse = () =>
   jsonErrorResponse(new AuthError("NOT_SIGNED_IN"));
 
-export const signInRedirectResponse = (
-  request: NextRequest,
-  redirectTo: string,
-) =>
+const signInRedirectResponse = (request: NextRequest, redirectTo: string) =>
   NextResponse.redirect(
     new URL(
       `/?next=${encodeURIComponent(redirectTo)}`,

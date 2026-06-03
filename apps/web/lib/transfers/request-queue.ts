@@ -75,7 +75,7 @@ function laneFor(lane: TransferLane): Lane {
   return lane === "upload" ? uploadLane : pollLane;
 }
 
-export async function withTransferSlot<T>(
+async function withTransferSlot<T>(
   lane: TransferLane,
   fn: () => Promise<T>,
   signal?: AbortSignal,

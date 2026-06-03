@@ -60,10 +60,10 @@ const signShareLookupKey = (secret: string, tokenLookupKey: string) =>
     .update(tokenLookupKey)
     .digest("base64url");
 
-export const buildShareToken = (secret: string, tokenLookupKey: string) =>
+const buildShareToken = (secret: string, tokenLookupKey: string) =>
   `${tokenLookupKey}.${signShareLookupKey(secret, tokenLookupKey)}`;
 
-export const buildShareUrl = (
+const buildShareUrl = (
   secret: string,
   tokenLookupKey: string,
   baseUrl: string,

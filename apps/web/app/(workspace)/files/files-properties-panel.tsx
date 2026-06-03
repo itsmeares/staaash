@@ -29,9 +29,7 @@ import type { ShareLinkSummary } from "@/server/sharing";
 // Icon catalog for folder customisation
 // ---------------------------------------------------------------------------
 
-export type FolderIconName = (typeof FOLDER_ICON_OPTIONS)[number]["name"];
-
-export const FOLDER_ICON_OPTIONS: Array<{
+const FOLDER_ICON_OPTIONS: Array<{
   name: string;
   icon: LucideIcon;
   label: string;

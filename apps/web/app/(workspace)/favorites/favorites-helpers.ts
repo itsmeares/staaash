@@ -92,7 +92,7 @@ export function getFavoriteType(
   return "all";
 }
 
-export function getFavoriteVisualKind(
+function getFavoriteVisualKind(
   item: Pick<FavoriteClientItem, "kind" | "mimeType">,
 ): ItemVisualKind {
   const type = getFavoriteType(item);

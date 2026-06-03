@@ -29,7 +29,7 @@ export type RecentFilterType =
 export type RecentSortKey = "name" | "path" | "size" | "uploadedAt";
 export type RecentSortDirection = "asc" | "desc";
 
-export const RECENT_GROUP_ORDER = [
+const RECENT_GROUP_ORDER = [
   "Today",
   "Yesterday",
   "This week",
@@ -107,7 +107,7 @@ export function getRecentType(
   return "all";
 }
 
-export function getRecentVisualKind(
+function getRecentVisualKind(
   item: Pick<RecentClientItem, "kind" | "mimeType">,
 ): ItemVisualKind {
   const type = getRecentType(item);

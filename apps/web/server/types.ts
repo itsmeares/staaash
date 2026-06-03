@@ -1,27 +1,8 @@
 export type UserRole = "owner" | "member";
 
-export type UploadConflictStrategy = "fail" | "safeRename" | "replace";
-
-export type UploadCommitStatus = "staged" | "verified" | "committed" | "failed";
-
 export type SearchMatchKind = "exact" | "prefix" | "substring";
 
 export type HealthCheckStatus = "healthy" | "warning" | "error";
-
-export type UploadSession = {
-  id: string;
-  tmpPath: string;
-  conflictStrategy: UploadConflictStrategy;
-  status: UploadCommitStatus;
-  expectedChecksum?: string;
-};
-
-export type UploadVerificationResult = {
-  status: UploadCommitStatus;
-  checksumMatches: boolean;
-  actualChecksum: string;
-  expectedChecksum?: string;
-};
 
 export type SearchNormalizationPolicy = {
   caseInsensitive: true;

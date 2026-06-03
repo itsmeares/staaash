@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { createHash, randomBytes, scryptSync } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
-import pg from "../../../packages/db/node_modules/pg/lib/index.js";
+import pg from "pg";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const webAppRoot = path.resolve(scriptDirectory, "..");

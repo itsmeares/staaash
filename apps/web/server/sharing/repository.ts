@@ -84,7 +84,7 @@ export type SharingRepository = {
   deleteShare(shareId: string): Promise<void>;
 };
 
-export const createPrismaSharingRepository = (
+const createPrismaSharingRepository = (
   client?: SharingPrismaClient,
 ): SharingRepository => {
   const getClient = () =>
@@ -292,4 +292,5 @@ export const createPrismaSharingRepository = (
   };
 };
 
+// fallow-ignore-next-line unused-export
 export const prismaSharingRepository = createPrismaSharingRepository();

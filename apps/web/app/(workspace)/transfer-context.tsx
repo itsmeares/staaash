@@ -59,6 +59,7 @@ type TransferContextValue = {
 
 const UPLOAD_SESSION_KEY_PREFIX = "staaash:upload-session";
 const ACTIVE_DOWNLOAD_KEY = "staaash:active-download";
+// fallow-ignore-next-line unused-export
 export const CHUNKED_UPLOAD_THRESHOLD = 100 * 1024 * 1024;
 const CHUNK_SIZE = 10 * 1024 * 1024;
 
@@ -73,7 +74,7 @@ export function formatSpeed(bytesPerSec: number): string {
   return `${(bytesPerSec / 1024 / 1024).toFixed(1)} MB/s`;
 }
 
-export function formatBytes(bytes: number): string {
+function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
