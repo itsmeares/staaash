@@ -51,41 +51,42 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const success = getSingleSearchParam(resolvedSearchParams, "success");
 
   return (
-    <WorkspacePresetPageContextMenu className="workspace-page" preset="search">
-      <section className="panel stack">
-        <div className="pill">Search</div>
-        <h1>Files search</h1>
-        <p className="muted">
-          Search scans active private files and folders with one mixed ranking
-          across names, extensions, and logical path tokens.
-        </p>
-      </section>
+    <WorkspacePresetPageContextMenu
+      className="workspace-page search-page"
+      preset="search"
+    >
+      <header className="search-header">
+        <div className="search-header-copy">
+          <h1>Search</h1>
+          <p className="muted search-description">
+            Find active files and folders by name, extension, or path segment.
+          </p>
+        </div>
+        {query.length > 0 ? (
+          <span className="section-count">
+            {allItems.length} match{allItems.length === 1 ? "" : "es"}
+          </span>
+        ) : null}
+      </header>
 
       {error ? <FlashMessage>{error}</FlashMessage> : null}
       {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
 
-      <section className="panel stack">
-        <div className="split">
-          <div className="stack">
-            <h2>Results</h2>
-            <p className="muted">
-              Query:{" "}
-              {query.length > 0 ? (
-                <strong>{query}</strong>
-              ) : (
-                "enter a search above"
-              )}
-            </p>
-          </div>
-          {query.length > 0 ? (
-            <span className="pill">
-              {allItems.length} match{allItems.length === 1 ? "" : "es"}
-            </span>
-          ) : null}
+      <section className="search-results" aria-labelledby="search-results">
+        <div className="search-results-head">
+          <h2 id="search-results">Results</h2>
+          <p className="muted search-query">
+            Query:{" "}
+            {query.length > 0 ? (
+              <strong>{query}</strong>
+            ) : (
+              "enter a search above"
+            )}
+          </p>
         </div>
 
         {query.length === 0 ? (
-          <div className="workspace-empty-state">
+          <div className="workspace-empty-state search-empty-state">
             <h2>Search your files</h2>
             <p className="muted">
               Use the top-bar search field to find active files and folders by

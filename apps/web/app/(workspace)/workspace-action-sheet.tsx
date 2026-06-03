@@ -33,8 +33,13 @@ export function WorkspaceActionSheet({
       <DialogContent
         className="workspace-bottom-sheet workspace-action-sheet"
         showCloseButton={false}
+        onSwipeClose={() => onOpenChange(false)}
       >
-        <div className="workspace-bottom-sheet-handle" aria-hidden />
+        <div
+          className="workspace-bottom-sheet-handle"
+          data-bottom-sheet-drag-handle
+          aria-hidden
+        />
         <div className="workspace-action-sheet-head">
           <DialogTitle className="workspace-action-sheet-title">
             {title}

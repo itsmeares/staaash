@@ -112,13 +112,15 @@ export function WorkspaceMobileNav(props: WorkspaceMobileNavProps) {
         <DialogContent
           className="workspace-bottom-sheet workspace-more-sheet"
           showCloseButton={false}
+          onSwipeClose={() => setOpen(false)}
         >
-          <div className="workspace-bottom-sheet-handle" aria-hidden />
+          <div
+            className="workspace-bottom-sheet-handle"
+            data-bottom-sheet-drag-handle
+            aria-hidden
+          />
           <div className="workspace-more-head">
             <DialogTitle className="workspace-more-title">Staaash</DialogTitle>
-            <span className="workspace-more-user">
-              {props.userLabel ?? `@${props.username}`}
-            </span>
           </div>
 
           <div className="workspace-more-profile">
