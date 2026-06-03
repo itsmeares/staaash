@@ -38,6 +38,7 @@ playwright-report/
 .stylelintcache
 .parcel-cache/
 .vite/
+.fallow/
 
 # OS and editor noise
 .DS_Store
