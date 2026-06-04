@@ -28,8 +28,8 @@
     "test": "vitest run --passWithNoTests"
   },
   "devDependencies": {
-    "@types/node": "^20.19.41",
-    "typescript": "^5.9.3",
+    "@types/node": "^24.12.4",
+    "typescript": "^6.0.3",
     "vitest": "^4.1.0"
   }
 }
