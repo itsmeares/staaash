@@ -7,6 +7,11 @@ process.env.DATABASE_URL ??=
 process.env.UPLOAD_LOCATION = path.resolve(__dirname, ".tmp", "vitest-files");
 
 export default defineConfig({
+  oxc: {
+    jsx: {
+      runtime: "automatic",
+    },
+  },
   test: {
     environment: "node",
     setupFiles: ["./vitest.setup.ts"],
