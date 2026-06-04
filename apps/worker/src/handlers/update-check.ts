@@ -10,19 +10,67 @@ const GITHUB_API_ROOT = "https://api.github.com";
 
 const normalizeVersion = (value: string) => value.trim().replace(/^v/i, "");
 
-const parseVersionParts = (value: string) =>
-  normalizeVersion(value)
+const parseVersion = (value: string) => {
+  const [coreVersion, prereleaseVersion] = normalizeVersion(value).split(
+    "-",
+    2,
+  );
+  const coreParts = coreVersion
     .split(".")
     .map((part) => Number.parseInt(part, 10));
+  const prereleaseParts = prereleaseVersion?.split(".") ?? [];
 
-const compareVersions = (currentVersion: string, latestVersion: string) => {
-  const currentParts = parseVersionParts(currentVersion);
-  const latestParts = parseVersionParts(latestVersion);
+  return {
+    coreParts,
+    prereleaseParts,
+  };
+};
+
+const comparePrereleaseParts = (
+  currentParts: string[],
+  latestParts: string[],
+) => {
+  if (currentParts.length === 0 && latestParts.length === 0) return 0;
+  if (currentParts.length === 0) return 1;
+  if (latestParts.length === 0) return -1;
+
   const maxLength = Math.max(currentParts.length, latestParts.length);
 
   for (let index = 0; index < maxLength; index += 1) {
-    const currentPart = currentParts[index] ?? 0;
-    const latestPart = latestParts[index] ?? 0;
+    const currentPart = currentParts[index];
+    const latestPart = latestParts[index];
+
+    if (currentPart === undefined) return -1;
+    if (latestPart === undefined) return 1;
+
+    const currentNumber = Number.parseInt(currentPart, 10);
+    const latestNumber = Number.parseInt(latestPart, 10);
+    const compareAsNumbers =
+      Number.isFinite(currentNumber) &&
+      Number.isFinite(latestNumber) &&
+      currentNumber.toString() === currentPart &&
+      latestNumber.toString() === latestPart;
+
+    if (compareAsNumbers && latestNumber !== currentNumber) {
+      return latestNumber > currentNumber ? -1 : 1;
+    }
+
+    if (!compareAsNumbers && latestPart !== currentPart) {
+      return latestPart > currentPart ? -1 : 1;
+    }
+  }
+
+  return 0;
+};
+
+const compareVersions = (currentVersion: string, latestVersion: string) => {
+  const current = parseVersion(currentVersion);
+  const latest = parseVersion(latestVersion);
+  const maxLength = Math.max(current.coreParts.length, latest.coreParts.length);
+
+  for (let index = 0; index < maxLength; index += 1) {
+    const currentPart = current.coreParts[index] ?? 0;
+    const latestPart = latest.coreParts[index] ?? 0;
 
     if (latestPart > currentPart) {
       return -1;
@@ -33,7 +81,10 @@ const compareVersions = (currentVersion: string, latestVersion: string) => {
     }
   }
 
-  return 0;
+  return comparePrereleaseParts(
+    current.prereleaseParts,
+    latest.prereleaseParts,
+  );
 };
 
 const buildGitHubHeaders = () => {
