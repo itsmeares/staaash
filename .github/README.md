@@ -69,6 +69,8 @@ The first account you register becomes the owner. Subsequent accounts require an
 
 ### Reverse proxies
 
+For a working Caddy example, see [`docs/operations/reverse-proxy.md`](../docs/operations/reverse-proxy.md).
+
 If you put Staaash behind Caddy, Nginx, Traefik, or another reverse proxy, preserve the original `Host` header. Staaash rejects cross-origin mutating requests by comparing the browser `Origin` host to the request `Host`.
 
 Use one public address consistently. Loading the app from `https://staaash.example.com` and posting to a direct server IP, LAN IP, or different port can fail by design.
