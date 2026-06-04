@@ -146,7 +146,7 @@ main:not(.entry-surface) {
 }
 
 code {
-  font-family: "Cascadia Code", monospace;
+  font-family: var(--font-jetbrains-mono), monospace;
 }
 
 h1,
@@ -793,7 +793,7 @@ h3 {
 .admin-job-detail-id {
   margin-top: 3px;
   font-size: 0.72rem;
-  font-family: "Cascadia Code", monospace;
+  font-family: var(--font-jetbrains-mono), monospace;
   word-break: break-all;
 }
 
@@ -2409,7 +2409,7 @@ h3 {
 }
 
 .recent-row-size {
-  font-family: "Cascadia Code", "JetBrains Mono", monospace;
+  font-family: var(--font-jetbrains-mono), monospace;
 }
 
 .recent-favorite-dot {
@@ -3041,7 +3041,7 @@ h3 {
 }
 
 .favorites-row-size {
-  font-family: "Cascadia Code", "JetBrains Mono", monospace;
+  font-family: var(--font-jetbrains-mono), monospace;
 }
 
 .favorites-row-actions,
@@ -4094,6 +4094,7 @@ h3 {
 @theme inline {
   --font-heading: var(--font-cabinet);
   --font-sans: var(--font-switzer);
+  --font-mono: var(--font-jetbrains-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -5327,7 +5328,7 @@ html.light {
   flex: 1;
   min-width: 0;
   font-size: 11px;
-  font-family: monospace;
+  font-family: var(--font-jetbrains-mono), monospace;
   padding: 7px 10px;
   border-radius: 8px;
   border: 1px solid color-mix(in oklab, var(--foreground) 11%, transparent);
@@ -6623,7 +6624,7 @@ main.share-locked-page {
   flex: 1;
   min-width: 0;
   font-size: 11px;
-  font-family: monospace;
+  font-family: var(--font-jetbrains-mono), monospace;
   padding: 6px 10px;
   border-radius: 7px;
   border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);

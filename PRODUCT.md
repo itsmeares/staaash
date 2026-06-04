@@ -1,74 +1,84 @@
-## Design Context
+# Product
 
-### Users
+## Register
 
-Small circles — solo users, couples, friend groups, families, or mixes. Not enterprise, not anonymous public. The person using Staaash chose to self-host, which means they have an opinion about privacy and ownership. They are comfortable with technology but are not necessarily developers. Use context ranges from sitting at a desk to pulling out a phone to upload something quickly. Desktop is primary; mobile needs to work.
+product
 
-### Brand Personality
+## Users
 
-Voice: grounded, unhurried, precise.
-Three words: **debloated, clear, calm.**
+Staaash is for self-hosters, privacy-minded people, and open-source home-server users who want a dependable file drive on storage they control. The expected baseline is still Docker/self-hosting, but the product should be clear enough for people who do not enjoy debugging infrastructure.
 
-The product solves a real frustration (Google Drive: our data, their control) with a quiet confidence. It does not need to announce itself. It should feel like a quality tool you own, not a service you subscribe to — more like a well-made NAS with a good UI than a SaaS app trying to win you over.
+The main audience is broader than the maintainer now: solo users, households, families, friend groups, and small trusted circles. They use Staaash for ordinary file work: upload, browse, search, share, favorite, recover from trash, and check that the instance is healthy.
 
-The name "Staaash" has a bit of latent personality (the triple-A spelling). That personality lives in the logo and brand mark, not in the interface chrome. The UI is the calm container; the name is the character.
+There are two user contexts:
 
-### Reference and Anti-Reference
+- Workspace users manage their own files, folders, favorites, recent items, trash, preferences, and shared links.
+- Owners also manage the instance: invites, storage state, worker jobs, update checks, restore reconciliation, health, and beta upgrade risk.
 
-**Reference**: Immich — open source Google Photos alternative. Dark, composed surfaces, confident typography, generous whitespace, functional without being corporate. Not flashy but you notice the care.
+Owner authority is operational. It should not make the owner a normal-app superuser who can casually browse member private files.
 
-**Anti-reference**: Nextcloud Files — cluttered, enterprise-gray, dense, accordion-heavy, too much chrome competing for attention. The exact feeling to avoid.
+## Product Purpose
 
-### Aesthetic Direction
+Staaash is an open-source, self-hosted file drive for people and small trusted groups who want a dependable alternative to handing personal files to a commercial cloud.
 
-**Theme**: Dark mode primary. Light mode as a supported alternative (not an afterthought).
+The product is in beta, moving toward release candidate. Success means the core trust loop works: install, upload, organize, share, back up, restore, upgrade, and understand system health when something goes wrong.
 
-**Dark palette (OKLCH):**
+It should feel almost release-ready: clear to install, safe to upgrade, honest about beta risk, and usable by someone beyond the maintainer.
 
-- Base background: `oklch(12% 0.008 70)` — deep bronze-charcoal, not pure black
-- Surface (panels, cards): `oklch(18% 0.010 72)`
-- Elevated surface (popovers, modals): `oklch(23% 0.012 72)`
-- Muted text: `oklch(78% 0.014 76)`
-- Body text: `oklch(95% 0.008 78)` — off-white, warm, not clinical
-- Accent: aged brass `oklch(74% 0.08 78)` — calm, tactile, low-noise
-- Accent hover/focus: `oklch(82% 0.06 80)`
-- Destructive: `oklch(62% 0.16 25)` — dusty red
+## Brand Personality
 
-**Light palette (OKLCH):**
+Voice: plain, honest, practical.
 
-- Base background: `oklch(98% 0.006 78)` — paper with a warm cast
-- Surface: `oklch(99% 0.004 78)`
-- Muted text: `oklch(48% 0.014 72)`
-- Body text: `oklch(21% 0.015 72)`
-- Accent: bronze `oklch(48% 0.09 78)` — darker, readable on light
+Personality: calm, dependable, self-owned.
 
-**Typography:**
+Staaash should feel like a well-made home tool, not a SaaS dashboard. It can have personality through the name, icon, and small product details, but the interface should stay quiet enough that files, folders, media, jobs, and warnings remain the focus.
 
-- Headings/brand: Cabinet Grotesk (Fontshare) — self-hosted. Has character at large sizes without noise.
-- UI/body: Switzer (Fontshare) — self-hosted. Clean, clear, not anonymous.
-- Monospace (code, IDs, checksums): TX-02 or Monaspace Neon — only where semantically required.
-- Both fonts self-hosted — never load from Google Fonts CDN (privacy-forward product).
+Public-facing copy should be simple and direct. Avoid hype, enterprise language, and vague confidence claims. When the product is beta or risky, say that plainly.
 
-**Spacing**: 4pt base scale. Tokens: `--space-1` (4px) through `--space-24` (96px). Use `gap` for siblings. Generous whitespace — "debloated" means less, not cramped.
+## Anti-references
 
-**Motion**: Transitions ≤ 200ms, ease-out-quart. Always `prefers-reduced-motion: reduce` fallback — no transitions at all. No bounce, no elastic.
+Staaash should not feel like:
 
-### Design Principles
+- Nextcloud Files at its worst: crowded, gray, chrome-heavy, and hard to scan.
+- A generic SaaS productivity dashboard with marketing polish where operational clarity is needed.
+- A consumer cloud service that hides ownership, storage, backup, or restore details behind vague status text.
+- A homelab tool that treats confusing setup, vague errors, or missing recovery guidance as acceptable because the user is technical.
+- A feature-bloated platform trying to support every deployment, storage backend, client, and collaboration model before the basic home-server path is trustworthy.
 
-1. **The interface is the container, not the content.** File names, folder names, and media are the content. The chrome should step back, not compete.
+## Design Principles
 
-2. **Calm ≠ boring.** Restraint in density, not in personality. Typography contrast, intentional whitespace, and a considered accent color create distinctiveness without noise.
+### Trust Before Features
 
-3. **Private-feeling.** Nothing should look like a SaaS dashboard trying to upsell. No gradient text, no glowing accents, no hero metrics. It should feel like it belongs to the person using it.
+Prioritize proof that core file and recovery behavior works. Backup, restore, upgrade, admin health, missing-storage handling, and worker visibility are product features, not maintenance chores.
 
-4. **Trustworthy through clarity.** The UI tells you exactly what it is doing. No ambiguous states, no buried actions. File operations (upload, move, trash, share) should feel safe to execute.
+### Open-Source, But Owned
 
-5. **Accessibility is architecture.** WCAG 2.2 AA minimum. Visible focus rings (2px, bronze accent offset), full keyboard navigation, reduced-motion support, readable at 200% zoom. Not a compliance checkbox — it is how the product behaves for everyone.
+Design for a real public audience while keeping the product small enough for one maintainer and self-hosters to understand. Public users benefit most when the app is clear, stable, and honest about tradeoffs.
 
-6. **As few cards as possible.** The `.panel` card is reserved for major page-level boundaries only — never for list items, row containers, or repeated elements. Lists, rows, and item groups use flat surfaces: whitespace, subtle separators, and hover states provide hierarchy. If you are tempted to wrap a list item in a card, use spacing and a divider line instead. The goal is a clean, editorial surface — not a dashboard of boxes.
+### The Interface Serves The Files
 
-### Two UI Zones
+Files, folders, previews, shares, and operational state are the content. UI chrome should support scanning, selection, movement, upload, recovery, and sharing without competing for attention.
 
-**Workspace** (regular users): calm, personal. Warm light surfaces by default, dark entry surfaces where focus matters, bronze accent, lots of breathing room. Sidebar navigation.
+### Operational Clarity Is Part Of The Product
 
-**Admin** (owner): slightly distinct — a warmer or more authoritative tone to signal elevated context. Keep the same bronze family, but allow stronger contrast and a more operational tone.
+Owners need honest status: database, file volume, worker heartbeat, queue backlog, disk warnings, updates, restore reconciliation, and beta upgrade caveats. Do not hide uncertainty behind green-looking summaries.
+
+### Small Architecture, Clear Boundaries
+
+Keep the v1 shape focused: web app, worker, PostgreSQL metadata, and local file storage. Treat microservices, desktop sync, native mobile, S3-compatible storage, and complex collaboration permissions as post-v1 work unless a clear product decision changes that.
+
+### Safe File Actions
+
+Upload, move, rename, trash, restore, delete, download, archive, and share flows must make state and consequences clear. Dangerous or irreversible actions need plain wording and recoverability where possible.
+
+### Mobile Is A Real Surface
+
+Mobile and tablet support should keep the same product model as desktop. Navigation, upload, selection, action sheets, sharing, and recovery flows should work cleanly on coarse pointers without becoming a separate reduced product.
+
+## Accessibility & Inclusion
+
+Target WCAG 2.2 AA. Keep keyboard navigation, visible focus states, readable contrast, clear form labels, reduced-motion support, and 200% zoom behavior as product requirements.
+
+Use plain language for setup, beta warnings, backup/restore, invites, sharing, admin health, and destructive actions. The app is for self-hosters, but the UI should not require developer fluency.
+
+Support privacy expectations by keeping member namespaces distinct, owner admin actions explicit, and public share states easy to understand.

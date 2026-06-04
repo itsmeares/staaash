@@ -281,7 +281,7 @@ export function FilesPropertiesPanel({
                 <span
                   className="properties-row-value"
                   style={{
-                    fontFamily: "monospace",
+                    fontFamily: "var(--font-jetbrains-mono), monospace",
                     fontSize: 11,
                     opacity: 0.65,
                   }}

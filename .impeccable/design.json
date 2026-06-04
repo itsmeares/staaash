@@ -1,0 +1,272 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-04T00:00:00.000Z",
+  "title": "Design System: Staaash",
+  "extensions": {
+    "colorMeta": {
+      "background": {
+        "role": "neutral",
+        "displayName": "Warm Workspace Base",
+        "canonical": "oklch(0.982 0.006 78)",
+        "tonalRamp": [
+          "oklch(0.15 0.006 78)",
+          "oklch(0.25 0.006 78)",
+          "oklch(0.38 0.006 78)",
+          "oklch(0.52 0.006 78)",
+          "oklch(0.66 0.006 78)",
+          "oklch(0.80 0.006 78)",
+          "oklch(0.92 0.006 78)",
+          "oklch(0.982 0.006 78)"
+        ]
+      },
+      "foreground": {
+        "role": "neutral",
+        "displayName": "Readable Ink",
+        "canonical": "oklch(0.21 0.015 72)",
+        "tonalRamp": [
+          "oklch(0.15 0.015 72)",
+          "oklch(0.21 0.015 72)",
+          "oklch(0.32 0.015 72)",
+          "oklch(0.45 0.015 72)",
+          "oklch(0.60 0.015 72)",
+          "oklch(0.74 0.015 72)",
+          "oklch(0.86 0.015 72)",
+          "oklch(0.95 0.015 72)"
+        ]
+      },
+      "primary": {
+        "role": "primary",
+        "displayName": "Owned Bronze",
+        "canonical": "oklch(0.48 0.09 78)",
+        "tonalRamp": [
+          "oklch(0.18 0.09 78)",
+          "oklch(0.28 0.09 78)",
+          "oklch(0.38 0.09 78)",
+          "oklch(0.48 0.09 78)",
+          "oklch(0.60 0.09 78)",
+          "oklch(0.72 0.09 78)",
+          "oklch(0.84 0.09 78)",
+          "oklch(0.94 0.09 78)"
+        ]
+      },
+      "destructive": {
+        "role": "danger",
+        "displayName": "Destructive Red",
+        "canonical": "oklch(0.577 0.245 27.325)",
+        "tonalRamp": [
+          "oklch(0.18 0.16 27.325)",
+          "oklch(0.28 0.18 27.325)",
+          "oklch(0.40 0.20 27.325)",
+          "oklch(0.577 0.245 27.325)",
+          "oklch(0.68 0.20 27.325)",
+          "oklch(0.78 0.16 27.325)",
+          "oklch(0.88 0.10 27.325)",
+          "oklch(0.96 0.05 27.325)"
+        ]
+      },
+      "dark-background": {
+        "role": "neutral",
+        "displayName": "Deep Entry Charcoal",
+        "canonical": "oklch(0.12 0.008 70)",
+        "tonalRamp": [
+          "oklch(0.12 0.008 70)",
+          "oklch(0.18 0.008 70)",
+          "oklch(0.26 0.008 70)",
+          "oklch(0.38 0.008 70)",
+          "oklch(0.52 0.008 70)",
+          "oklch(0.66 0.008 70)",
+          "oklch(0.82 0.008 70)",
+          "oklch(0.95 0.008 70)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Cabinet Display",
+        "purpose": "Entry and onboarding moments only."
+      },
+      "headline": {
+        "displayName": "Workspace Headline",
+        "purpose": "Workspace page titles and breadcrumbs."
+      },
+      "body": {
+        "displayName": "Switzer Product Body",
+        "purpose": "Dense file, settings, admin, and dialog UI."
+      },
+      "label": {
+        "displayName": "Compact Product Label",
+        "purpose": "Short structural labels, metadata, and status."
+      },
+      "mono": {
+        "displayName": "JetBrains Mono",
+        "purpose": "IDs, URLs, checksums, code, archive IDs, and technical values."
+      }
+    },
+    "shadows": [
+      {
+        "name": "panel",
+        "value": "0 16px 40px color-mix(in oklab, var(--foreground) 8%, transparent)",
+        "purpose": "Major panels and shortcut overlays."
+      },
+      {
+        "name": "dialog",
+        "value": "0 4px 8px color-mix(in oklab, var(--foreground) 5%, transparent), 0 16px 36px color-mix(in oklab, var(--foreground) 12%, transparent)",
+        "purpose": "Share dialog and modal surfaces."
+      },
+      {
+        "name": "transfer",
+        "value": "0 4px 16px color-mix(in oklab, var(--foreground) 12%, transparent)",
+        "purpose": "Persistent transfer panel."
+      },
+      {
+        "name": "mobile-selection",
+        "value": "0 10px 26px color-mix(in oklab, var(--foreground) 16%, transparent)",
+        "purpose": "Floating mobile selection bar."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-fast",
+        "value": "80ms ease",
+        "purpose": "Small action hover and focus feedback."
+      },
+      {
+        "name": "state-standard",
+        "value": "120ms to 150ms ease",
+        "purpose": "Nav, row, and button state changes."
+      },
+      {
+        "name": "panel-enter",
+        "value": "180ms to 280ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Dialogs, sheets, and properties panels."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile-shell",
+        "value": "860px"
+      },
+      {
+        "name": "rail-shell",
+        "value": "1120px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main action button for classic forms and entry surfaces.",
+      "html": "<button class=\"ds-button-primary\">Upload files</button>",
+      "css": ".ds-button-primary { display:inline-flex; align-items:center; justify-content:center; gap:10px; min-height:44px; border:0; border-radius:14px; padding:0 18px; background:var(--primary); color:var(--primary-foreground); font:600 14px var(--font-switzer, 'Segoe UI', sans-serif); cursor:pointer; box-shadow:0 8px 20px color-mix(in oklab, var(--primary) 6%, transparent); transition:background 120ms ease, transform 120ms ease; } .ds-button-primary:hover { background:color-mix(in oklab, var(--primary) 88%, var(--foreground) 12%); } .ds-button-primary:focus-visible { outline:2px solid color-mix(in oklab, var(--ring) 62%, transparent); outline-offset:4px; } .ds-button-primary:active { transform:translateY(1px); }"
+    },
+    {
+      "name": "Workspace Nav Link",
+      "kind": "nav",
+      "refersTo": "nav-link-active",
+      "description": "Desktop sidebar navigation link with active bronze state.",
+      "html": "<a class=\"ds-nav-link ds-nav-link-active\" href=\"#\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1v-10.5Z\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linejoin=\"round\"/></svg><span>Home</span></a>",
+      "css": ".ds-nav-link { display:flex; align-items:center; gap:9px; padding:7px 10px; border-radius:8px; color:color-mix(in oklab, var(--foreground) 62%, transparent); background:transparent; font:500 13.5px var(--font-switzer, 'Segoe UI', sans-serif); text-decoration:none; transition:background 140ms ease, color 140ms ease; } .ds-nav-link svg { width:15px; height:15px; opacity:.7; flex-shrink:0; } .ds-nav-link:hover { background:color-mix(in oklab, var(--foreground) 6%, transparent); color:color-mix(in oklab, var(--foreground) 88%, transparent); } .ds-nav-link-active { background:color-mix(in oklab, var(--primary) 9%, transparent); color:color-mix(in oklab, var(--primary) 80%, var(--foreground) 20%); font-weight:600; } .ds-nav-link-active svg { opacity:1; } .ds-nav-link:focus-visible { outline:2px solid color-mix(in oklab, var(--ring) 62%, transparent); outline-offset:3px; }"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Workspace topbar search field.",
+      "html": "<label class=\"ds-search\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m21 21-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"/></svg><input placeholder=\"Search files and folders\" /></label>",
+      "css": ".ds-search { display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:8px; border:1px solid color-mix(in oklab, var(--foreground) 10%, transparent); background:color-mix(in oklab, var(--foreground) 4%, transparent); color:var(--muted-foreground); font:400 13.5px var(--font-switzer, 'Segoe UI', sans-serif); } .ds-search svg { width:14px; height:14px; opacity:.7; flex-shrink:0; } .ds-search input { width:100%; min-width:0; border:0; padding:0; background:transparent; color:var(--foreground); font:inherit; outline:none; } .ds-search:focus-within { border-color:color-mix(in oklab, var(--ring) 55%, transparent); box-shadow:0 0 0 2px color-mix(in oklab, var(--ring) 18%, transparent); }"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Small operational state label for admin health and file state.",
+      "html": "<span class=\"ds-status-chip\">healthy</span>",
+      "css": ".ds-status-chip { display:inline-flex; align-items:center; gap:6px; width:max-content; border-radius:999px; padding:4px 8px; background:color-mix(in oklab, var(--primary) 12%, var(--card)); color:color-mix(in oklab, var(--primary) 72%, var(--foreground) 28%); font:700 12px var(--font-switzer, 'Segoe UI', sans-serif); line-height:1; }"
+    },
+    {
+      "name": "Transfer Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Persistent floating upload and download panel.",
+      "html": "<section class=\"ds-transfer\"><header><strong>Uploads</strong><button>×</button></header><div class=\"ds-transfer-row\"><span>family-photo.jpg</span><small>uploading</small><div><i style=\"width:64%\"></i></div></div></section>",
+      "css": ".ds-transfer { width:340px; background:var(--card); border:1px solid var(--border); border-radius:8px; box-shadow:0 4px 16px color-mix(in oklab, var(--foreground) 12%, transparent); overflow:hidden; color:var(--foreground); font-family:var(--font-switzer, 'Segoe UI', sans-serif); } .ds-transfer header { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 12px; } .ds-transfer strong { font-size:13px; font-weight:500; } .ds-transfer button { width:22px; height:22px; border:0; border-radius:4px; background:transparent; color:var(--muted-foreground); cursor:pointer; } .ds-transfer button:hover { background:color-mix(in oklab, var(--foreground) 8%, transparent); color:var(--foreground); } .ds-transfer-row { display:grid; gap:4px; padding:8px 12px; border-top:1px solid var(--border); } .ds-transfer-row span { font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .ds-transfer-row small { font-size:11px; color:var(--muted-foreground); } .ds-transfer-row div { height:3px; overflow:hidden; border-radius:2px; background:color-mix(in oklab, var(--foreground) 10%, transparent); } .ds-transfer-row i { display:block; height:100%; border-radius:2px; background:var(--primary); transition:width .3s ease; }"
+    },
+    {
+      "name": "Mobile Bottom Sheet Action",
+      "kind": "custom",
+      "refersTo": "button-secondary",
+      "description": "Coarse-pointer action row used in mobile sheets.",
+      "html": "<button class=\"ds-sheet-action\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M12 3v12m0 0 4-4m-4 4-4-4M4 21h16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg><span>Upload</span></button>",
+      "css": ".ds-sheet-action { display:flex; min-height:44px; align-items:center; gap:12px; width:100%; padding:0 12px; border:0; border-radius:10px; background:color-mix(in oklab, var(--foreground) 4%, transparent); color:var(--foreground); font:600 14px var(--font-switzer, 'Segoe UI', sans-serif); text-align:left; cursor:pointer; } .ds-sheet-action svg { width:18px; height:18px; color:var(--muted-foreground); } .ds-sheet-action:hover { background:color-mix(in oklab, var(--foreground) 8%, transparent); } .ds-sheet-action:focus-visible { outline:2px solid color-mix(in oklab, var(--ring) 62%, transparent); outline-offset:2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Owned Drive",
+    "overview": "Staaash should feel like a dependable file drive that happens to be open source, not a developer console with a file list attached. The visual system is calm, practical, and self-owned: warm neutral surfaces, bronze actions, compact navigation, flat rows, and direct status language. It should make install, upload, share, restore, upgrade, and admin health feel understandable.",
+    "keyCharacteristics": [
+      "Warm light workspace with bronze actions and calm dark alternatives.",
+      "Flat lists and rows by default, with borders and tonal fills doing most hierarchy work.",
+      "Cabinet Grotesk for brand and page titles, Switzer for dense product UI.",
+      "Compact controls, visible focus, restrained motion, and no decorative blur.",
+      "Owner/admin states are operational, explicit, and scan-friendly."
+    ],
+    "rules": [
+      {
+        "name": "The Accent Means Action Rule",
+        "body": "Bronze is for primary actions, active state, focus, progress, and selected state. Do not use it as decoration.",
+        "section": "colors"
+      },
+      {
+        "name": "The Warm Neutral Rule",
+        "body": "Warm neutrals are structural, not nostalgic. They make the file content readable and owned, not paper-themed or cute.",
+        "section": "colors"
+      },
+      {
+        "name": "The Honest Red Rule",
+        "body": "Destructive red appears only when an action or state can harm, block, or permanently remove something.",
+        "section": "colors"
+      },
+      {
+        "name": "The Product Type Rule",
+        "body": "Workspace and admin UI use fixed rem sizes. Fluid type belongs to entry/onboarding moments, not file lists, buttons, or settings.",
+        "section": "typography"
+      },
+      {
+        "name": "The Label Restraint Rule",
+        "body": "Uppercase labels are allowed only for short structural labels. Never use uppercase body copy.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-Until-Lifted Rule",
+        "body": "Lists, nav, rows, and page sections are flat at rest. Use tonal hover and border changes first; use shadow only when the object floats over the page.",
+        "section": "elevation"
+      },
+      {
+        "name": "The No Glass Rule",
+        "body": "Decorative blur and glassmorphism are forbidden. Dialog overlays use tint, not blur.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do keep file content, filenames, metadata, and status more prominent than chrome.",
+      "Do use warm neutral surfaces and 1px borders for hierarchy before adding shadow.",
+      "Do reserve Owned Bronze for action, active state, focus, selected state, and progress.",
+      "Do keep mobile and tablet actions complete: upload, navigation, selection, action sheets, sharing, and recovery all need coarse-pointer behavior.",
+      "Do make admin health and beta-risk states explicit with direct labels and status chips.",
+      "Do keep focus visible with the ring token and at least a 2px outline or halo.",
+      "Do use Cabinet Grotesk for Staaash identity and page titles, then return to Switzer for dense task UI."
+    ],
+    "donts": [
+      "Don't make Staaash feel like Nextcloud Files at its worst: crowded, gray, chrome-heavy, and hard to scan.",
+      "Don't use generic SaaS productivity polish where operational clarity is needed.",
+      "Don't hide ownership, storage, backup, restore, or upgrade risk behind vague commercial-cloud status text.",
+      "Don't create a homelab tool that treats confusing setup, vague errors, or missing recovery guidance as acceptable because the user is technical.",
+      "Don't imply platform scope before the core drive is dependable. Microservices, desktop sync, native mobile, S3-compatible storage, and complex collaboration permissions are not v1 default visual assumptions.",
+      "Don't turn repeated rows into cards. Use flat rows, separators, and hover states.",
+      "Don't use glassmorphism, decorative blur, gradient text, colored side stripes, oversized shadows, or ornamental motion.",
+      "Don't put destructive actions in bronze or hide them behind ambiguous labels."
+    ]
+  }
+}
