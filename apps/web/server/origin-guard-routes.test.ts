@@ -78,6 +78,18 @@ const crossOriginRequest = (path: string, method: string) =>
     },
   });
 
+const sameOriginJsonRequest = (path: string, method: string, body: unknown) =>
+  new NextRequest(`http://localhost:3000${path}`, {
+    method,
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      host: "localhost:3000",
+      origin: "http://localhost:3000",
+    },
+    body: JSON.stringify(body),
+  });
+
 const expectCrossOriginRejection = async (response: Response) => {
   expect(response.status).toBe(403);
   await expect(response.json()).resolves.toEqual({
@@ -134,5 +146,72 @@ describe("mutating route same-origin guards", () => {
 
     await expectCrossOriginRejection(response);
     expect(scheduleZipArchiveGenerate).not.toHaveBeenCalled();
+  });
+});
+
+describe("upload session creation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getRequestSession).mockResolvedValue({
+      user: { id: "user-1", role: "owner" },
+    } as Awaited<ReturnType<typeof getRequestSession>>);
+    vi.mocked(createResumableSession).mockResolvedValue({
+      id: "session-1",
+      ownerUserId: "user-1",
+      folderId: null,
+      originalName: "video.mp4",
+      mimeType: "video/mp4",
+      totalSizeBytes: 123,
+      receivedBytes: 0,
+      expectedChecksum:
+        "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+      tmpPath: "/tmp/session-1",
+      conflictStrategy: "safeRename",
+      status: "created",
+      expiresAt: new Date("2026-01-01T00:00:00.000Z"),
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    });
+  });
+
+  it("passes expected checksum into resumable session creation", async () => {
+    const expectedChecksum =
+      "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9";
+
+    const response = await createUploadSession(
+      sameOriginJsonRequest("/api/uploads/sessions", "POST", {
+        folderId: null,
+        originalName: "video.mp4",
+        mimeType: "video/mp4",
+        totalSizeBytes: 123,
+        conflictStrategy: "safeRename",
+        expectedChecksum,
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(createResumableSession).toHaveBeenCalledWith({
+      ownerUserId: "user-1",
+      folderId: null,
+      originalName: "video.mp4",
+      mimeType: "video/mp4",
+      totalSizeBytes: 123,
+      expectedChecksum,
+      conflictStrategy: "safeRename",
+    });
+  });
+
+  it("rejects malformed expected checksums", async () => {
+    const response = await createUploadSession(
+      sameOriginJsonRequest("/api/uploads/sessions", "POST", {
+        folderId: null,
+        originalName: "video.mp4",
+        mimeType: "video/mp4",
+        totalSizeBytes: 123,
+        expectedChecksum: "not-a-sha256",
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(createResumableSession).not.toHaveBeenCalled();
   });
 });

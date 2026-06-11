@@ -153,7 +153,9 @@ function PanelUploadRow({
         ? "Done"
         : file.resumeHint && file.progress === 0
           ? file.resumeHint
-          : `${file.progress}% · ${formatSpeed(file.speed)}${eta ? ` · ${eta}` : ""}`;
+          : file.statusLabel
+            ? file.statusLabel
+            : `${file.progress}% · ${formatSpeed(file.speed)}${eta ? ` · ${eta}` : ""}`;
 
   return (
     <div className="transfer-panel-row">
