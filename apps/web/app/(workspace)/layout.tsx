@@ -3,6 +3,7 @@ import { Search } from "lucide-react";
 
 import { Toaster } from "@/components/ui/sonner";
 import { getInitials } from "@/lib/user";
+import { resolveAppVersion } from "@/server/app-version";
 import { getCurrentSession } from "@/server/auth/session";
 import { getSystemSettings } from "@/server/settings";
 import {
@@ -47,8 +48,7 @@ export default async function WorkspaceLayout({
     getSystemSettings(),
   ]);
 
-  const appVersion =
-    process.env.STAAASH_VERSION ?? process.env.APP_VERSION ?? "0.3.0-beta.1";
+  const appVersion = resolveAppVersion();
 
   const initials = session
     ? getInitials(session.user.displayName, session.user.username)
