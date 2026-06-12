@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowDown,
   ArrowUp,
+  Clock,
   Download,
   ExternalLink,
   Grid2X2,
@@ -889,7 +890,7 @@ export function RecentView({ error, items, success }: RecentViewProps) {
       {visibleItems.length === 0 ? (
         <div className="recent-empty-state">
           <span className="recent-empty-icon">
-            <ItemTypeIcon size={22} visual={getItemVisual("folder", null)} />
+            <Clock size={22} aria-hidden />
           </span>
           <p>
             {items.length === 0
