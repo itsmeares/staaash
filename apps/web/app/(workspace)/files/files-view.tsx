@@ -1277,7 +1277,34 @@ export function FilesView({
             {/* ---- Empty state ---- */}
             {mergedFileEntries.length === 0 && visibleFolders.length === 0 && (
               <div className="explorer-empty">
-                No files here yet. Drop files here or use Upload.
+                <div className="explorer-empty-copy">
+                  <strong>No files here yet</strong>
+                  <span>Drop files here or choose files to upload.</span>
+                </div>
+                <div className="explorer-empty-actions">
+                  <button
+                    className="explorer-empty-primary"
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
+                  >
+                    <Upload size={16} />
+                    Upload files
+                  </button>
+                  <button
+                    className="explorer-empty-secondary"
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setNewFolderOpen(true);
+                    }}
+                  >
+                    <FolderPlus size={15} />
+                    New folder
+                  </button>
+                </div>
               </div>
             )}
 

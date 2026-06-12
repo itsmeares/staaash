@@ -4847,13 +4847,97 @@ html.light {
 /* ---- Empty state ---- */
 
 .explorer-empty {
-  padding: 32px 12px;
-  text-align: center;
+  min-height: min(52vh, 480px);
+  padding: 34px 18px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 16px;
   color: var(--muted-foreground);
   font-size: 14px;
   border-radius: 10px;
   border: 1px dashed color-mix(in oklab, var(--foreground) 10%, transparent);
+  background: color-mix(in oklab, var(--foreground) 0.5%, transparent);
   margin-top: 4px;
+}
+
+.explorer-empty-copy {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  text-align: center;
+}
+
+.explorer-empty-copy strong {
+  font-size: 15px;
+  font-weight: 650;
+  color: color-mix(in oklab, var(--foreground) 88%, transparent);
+}
+
+.explorer-empty-copy span {
+  max-width: 34ch;
+  line-height: 1.45;
+}
+
+.explorer-empty-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.explorer-empty-primary,
+.explorer-empty-secondary {
+  min-height: 40px;
+  border-radius: 9px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    transform 120ms ease;
+}
+
+.explorer-empty-primary {
+  border: 1px solid color-mix(in oklab, var(--primary) 84%, var(--foreground));
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.explorer-empty-primary:hover {
+  background: color-mix(in oklab, var(--primary) 92%, var(--foreground));
+}
+
+.explorer-empty-secondary {
+  border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
+  background: color-mix(in oklab, var(--foreground) 4%, transparent);
+  color: color-mix(in oklab, var(--foreground) 78%, transparent);
+}
+
+.explorer-empty-secondary:hover {
+  border-color: color-mix(in oklab, var(--foreground) 16%, transparent);
+  background: color-mix(in oklab, var(--foreground) 7%, transparent);
+  color: var(--foreground);
+}
+
+.explorer-empty-primary:active,
+.explorer-empty-secondary:active {
+  transform: translateY(1px);
+}
+
+.explorer-empty-primary:focus-visible,
+.explorer-empty-secondary:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--ring) 58%, transparent);
+  outline-offset: 3px;
 }
 
 /* ---- Properties panel ---- */
@@ -8158,7 +8242,7 @@ main.share-locked-page {
   }
 
   .explorer-empty {
-    min-height: 180px;
+    min-height: 240px;
     padding: 28px 14px;
   }
 
