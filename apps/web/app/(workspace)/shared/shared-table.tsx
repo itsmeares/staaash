@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { KeyRound } from "lucide-react";
+import { KeyRound, Share2 } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 
 import { ShareDialog } from "@/app/(workspace)/files/share-dialog";
@@ -171,7 +171,7 @@ export function SharedTable({ items }: SharedTableProps) {
       {visibleItems.length === 0 ? (
         <div className="shared-empty-state">
           <span className="shared-empty-icon">
-            <KeyRound size={22} aria-hidden />
+            <Share2 size={22} aria-hidden />
           </span>
           <p>No shared links match that filter</p>
           <span>Try a different type.</span>
