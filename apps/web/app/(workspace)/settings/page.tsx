@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import {
   FlashMessage,
   formatDateTime,
@@ -32,39 +30,24 @@ export default async function SettingsPage({
   const prefs = session.user.preferences;
 
   return (
-    <div className="workspace-page">
-      <section className="panel stack">
-        <div className="split">
-          <div className="stack">
-            <div className="pill">Settings</div>
-            <h1>{session.user.displayName ?? session.user.email}</h1>
-            <p className="muted">
-              Signed in as <strong>{session.user.email}</strong> with the{" "}
-              <strong>{session.user.role}</strong> role.
-            </p>
-            <p className="muted">
-              Username <strong>@{session.user.username}</strong>
-            </p>
-          </div>
-          <div className="cluster">
-            <Link className="pill" href="/files">
-              Open files
-            </Link>
-            {session.user.role === "owner" ? (
-              <Link className="pill" href="/admin">
-                Open /admin
-              </Link>
-            ) : null}
-          </div>
-        </div>
+    <div className="workspace-page settings-page">
+      <section className="settings-page-head">
+        <h1>Settings</h1>
       </section>
 
       {errorMessage ? <FlashMessage>{errorMessage}</FlashMessage> : null}
       {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
 
-      <section className="grid">
-        <article className="panel stack">
-          <h2>Appearance &amp; privacy</h2>
+      <div className="settings-accordion" aria-label="Settings sections">
+        <details className="settings-panel">
+          <summary className="settings-panel-summary">
+            <span>
+              <span className="settings-panel-title">Preferences</span>
+              <span className="settings-panel-description">
+                Theme, time zone, and update notices
+              </span>
+            </span>
+          </summary>
           <PreferencesForm
             initialTheme={
               (prefs?.theme as "light" | "dark" | "system") ?? "system"
@@ -75,42 +58,88 @@ export default async function SettingsPage({
             }
             initialEnableVersionChecks={prefs?.enableVersionChecks ?? true}
           />
-        </article>
+        </details>
 
-        <article className="panel stack">
-          <h2>Session details</h2>
-          <div className="meta-list muted">
-            <div className="meta-row">
-              <span>Session ID</span>
-              <code>{session.id}</code>
-            </div>
-            <div className="meta-row">
-              <span>Created</span>
-              <strong>
-                {formatDateTime(session.createdAt, prefs?.timeZone)}
-              </strong>
-            </div>
-            <div className="meta-row">
-              <span>Expires</span>
-              <strong>
-                {formatDateTime(session.expiresAt, prefs?.timeZone)}
-              </strong>
-            </div>
+        <details className="settings-panel">
+          <summary className="settings-panel-summary">
+            <span>
+              <span className="settings-panel-title">Account</span>
+              <span className="settings-panel-description">
+                Identity and access role
+              </span>
+            </span>
+          </summary>
+          <div className="settings-panel-body">
+            <dl className="settings-list">
+              <div className="settings-row">
+                <dt className="settings-row-label">Display name</dt>
+                <dd className="settings-row-value">
+                  {session.user.displayName ?? "Not set"}
+                </dd>
+              </div>
+              <div className="settings-row">
+                <dt className="settings-row-label">Email</dt>
+                <dd className="settings-row-value">{session.user.email}</dd>
+              </div>
+              <div className="settings-row">
+                <dt className="settings-row-label">Username</dt>
+                <dd className="settings-row-value">@{session.user.username}</dd>
+              </div>
+              <div className="settings-row">
+                <dt className="settings-row-label">Role</dt>
+                <dd className="settings-row-value">{session.user.role}</dd>
+              </div>
+            </dl>
           </div>
-        </article>
+        </details>
 
-        <article className="panel stack">
-          <h2>Session</h2>
-          <div className="cluster">
-            <form action="/api/auth/sign-out" method="post">
-              <input type="hidden" name="next" value="/" />
-              <button className="button button-secondary" type="submit">
-                Sign out
-              </button>
-            </form>
+        <details className="settings-panel">
+          <summary className="settings-panel-summary">
+            <span>
+              <span className="settings-panel-title">Session</span>
+              <span className="settings-panel-description">
+                Current browser session
+              </span>
+            </span>
+          </summary>
+          <div className="settings-panel-body">
+            <dl className="settings-list">
+              <div className="settings-row">
+                <dt className="settings-row-label">Session ID</dt>
+                <dd className="settings-row-value">
+                  <code>{session.id}</code>
+                </dd>
+              </div>
+              <div className="settings-row">
+                <dt className="settings-row-label">Created</dt>
+                <dd className="settings-row-value">
+                  {formatDateTime(session.createdAt, prefs?.timeZone)}
+                </dd>
+              </div>
+              <div className="settings-row">
+                <dt className="settings-row-label">Expires</dt>
+                <dd className="settings-row-value">
+                  {formatDateTime(session.expiresAt, prefs?.timeZone)}
+                </dd>
+              </div>
+              <div className="settings-row settings-row-action">
+                <dt className="settings-row-label">Sign out</dt>
+                <dd className="settings-row-value">
+                  <form action="/api/auth/sign-out" method="post">
+                    <input type="hidden" name="next" value="/" />
+                    <button
+                      className="settings-action settings-action-danger"
+                      type="submit"
+                    >
+                      Sign out
+                    </button>
+                  </form>
+                </dd>
+              </div>
+            </dl>
           </div>
-        </article>
-      </section>
+        </details>
+      </div>
     </div>
   );
 }

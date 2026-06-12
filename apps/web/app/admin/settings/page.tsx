@@ -10,10 +10,10 @@ export default async function AdminSettingsPage() {
   const settings = await getSystemSettings();
 
   return (
-    <main className="stack" style={{ gap: "40px" }}>
-      <section>
-        <h1 style={{ marginBottom: "8px" }}>Instance settings</h1>
-        <p className="muted" style={{ maxWidth: "56ch" }}>
+    <main className="settings-page admin-settings-page">
+      <section className="settings-page-head">
+        <h1>Instance settings</h1>
+        <p className="muted">
           Configure operational settings. Changes take effect immediately.
         </p>
       </section>

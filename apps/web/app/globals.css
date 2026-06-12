@@ -1506,6 +1506,325 @@ h3 {
   gap: 22px;
 }
 
+.settings-page {
+  --settings-max-width: 760px;
+  width: min(var(--settings-max-width), 100%);
+  margin: 0 auto;
+  align-content: start;
+  gap: 18px;
+}
+
+.admin-settings-page {
+  --settings-max-width: 840px;
+}
+
+.admin-main-content main.settings-page {
+  width: min(var(--settings-max-width), 100%);
+  margin: 0 auto;
+  padding: 0;
+}
+
+.settings-page-head {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 8%, transparent);
+}
+
+.settings-page-head h1 {
+  font-size: 1.45rem;
+  font-weight: 650;
+  line-height: 1.15;
+}
+
+.settings-page-head p {
+  max-width: 58ch;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.settings-form {
+  display: grid;
+  gap: 18px;
+}
+
+.settings-accordion {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-panel {
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--foreground) 12%, transparent);
+  border-radius: 10px;
+  background: color-mix(in oklab, var(--card) 82%, transparent);
+}
+
+.settings-panel[open] {
+  border-color: color-mix(in oklab, var(--foreground) 18%, transparent);
+}
+
+.settings-panel-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  min-height: 64px;
+  padding: 13px 16px;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.settings-panel-summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-panel-summary:hover {
+  background: color-mix(in oklab, var(--foreground) 4%, transparent);
+}
+
+.settings-panel-summary::after {
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--muted-foreground);
+  border-bottom: 2px solid var(--muted-foreground);
+  content: "";
+  transform: rotate(45deg);
+  transition: transform 140ms ease;
+}
+
+.settings-panel[open] .settings-panel-summary::after {
+  transform: rotate(-135deg);
+}
+
+.settings-panel-title,
+.settings-panel-description {
+  display: block;
+}
+
+.settings-panel-title {
+  color: var(--foreground);
+  font-size: 0.9375rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.settings-panel-description {
+  margin-top: 3px;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.settings-panel-body {
+  display: grid;
+  gap: 14px;
+  padding: 0 16px 16px;
+  border-top: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent);
+}
+
+.settings-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.settings-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, auto);
+  align-items: center;
+  gap: 24px;
+  min-height: 56px;
+  padding: 13px 0;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 6%, transparent);
+}
+
+.settings-row:last-child {
+  border-bottom: 0;
+}
+
+.settings-row-label {
+  min-width: 0;
+  margin: 0;
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 550;
+  line-height: 1.35;
+}
+
+.settings-row-help {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.settings-row-value {
+  min-width: 0;
+  margin: 0;
+  color: color-mix(in oklab, var(--foreground) 82%, transparent);
+  font-size: 0.875rem;
+  line-height: 1.35;
+  text-align: right;
+  word-break: break-word;
+}
+
+.settings-row-value code {
+  word-break: break-all;
+}
+
+.settings-row-control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.settings-input {
+  width: min(280px, 100%);
+  min-height: 38px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 12%, transparent);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--foreground) 3%, var(--card));
+  color: var(--foreground);
+  font: inherit;
+  font-size: 0.875rem;
+  padding: 8px 11px;
+}
+
+.settings-input:focus {
+  border-color: color-mix(in oklab, var(--ring) 58%, transparent);
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--ring) 18%, transparent);
+}
+
+.dark .settings-input {
+  color-scheme: dark;
+}
+
+.settings-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+}
+
+.settings-field-note {
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.settings-segmented {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
+  border-radius: 9px;
+  background: color-mix(in oklab, var(--foreground) 3%, transparent);
+}
+
+.settings-segment {
+  min-height: 36px;
+  border: 0;
+  border-right: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  padding: 0 13px;
+  background: transparent;
+  color: color-mix(in oklab, var(--foreground) 72%, transparent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.settings-segment:last-child {
+  border-right: 0;
+}
+
+.settings-segment:hover {
+  background: color-mix(in oklab, var(--foreground) 5%, transparent);
+  color: var(--foreground);
+}
+
+.settings-segment.is-active {
+  background: color-mix(in oklab, var(--primary) 16%, transparent);
+  color: color-mix(in oklab, var(--primary) 70%, var(--foreground) 30%);
+}
+
+.settings-form-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
+
+.settings-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0 14px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 650;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    opacity 120ms ease;
+}
+
+.settings-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.settings-action-primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.settings-action-primary:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--primary) 88%, var(--foreground) 12%);
+}
+
+.settings-action-danger {
+  border-color: color-mix(in oklab, var(--destructive) 20%, transparent);
+  background: color-mix(in oklab, var(--destructive) 6%, transparent);
+  color: var(--destructive);
+}
+
+.settings-action-danger:hover {
+  border-color: color-mix(in oklab, var(--destructive) 36%, transparent);
+  background: color-mix(in oklab, var(--destructive) 10%, transparent);
+}
+
+.settings-form-status {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.settings-form-status-success {
+  color: oklch(43% 0.1 145);
+}
+
+.settings-form-status-error {
+  color: color-mix(in oklab, var(--destructive) 84%, var(--foreground) 16%);
+}
+
 .workspace-breadcrumbs {
   display: flex;
   flex-wrap: wrap;
@@ -8160,6 +8479,49 @@ main.share-locked-page {
 }
 
 @media (max-width: 720px), (pointer: coarse) {
+  .settings-page {
+    --settings-max-width: 100%;
+  }
+
+  .settings-panel-summary {
+    min-height: 58px;
+    padding: 12px 14px;
+  }
+
+  .settings-panel-body {
+    padding: 0 14px 14px;
+  }
+
+  .settings-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    gap: 9px;
+    padding: 12px 0;
+  }
+
+  .settings-row-value {
+    text-align: left;
+  }
+
+  .settings-row-control {
+    justify-content: flex-start;
+  }
+
+  .settings-input,
+  .settings-row-control .time-zone-picker,
+  .settings-row-control .time-zone-picker__trigger {
+    width: 100%;
+  }
+
+  .settings-form-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .settings-form-footer .settings-action {
+    width: 100%;
+  }
+
   .explorer-col-header,
   .recent-col-head,
   .favorites-col-head {
@@ -8461,6 +8823,10 @@ main.share-locked-page {
   .workspace-mobile-nav-item,
   .workspace-selection-bar,
   .transfer-panel,
+  .settings-action,
+  .settings-panel-summary,
+  .settings-panel-summary::after,
+  .settings-segment,
   .explorer-row,
   .recent-row,
   .favorites-row {

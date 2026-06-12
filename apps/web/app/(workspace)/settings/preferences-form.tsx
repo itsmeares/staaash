@@ -82,53 +82,45 @@ export function PreferencesForm({
   }
 
   return (
-    <div className="stack">
-      <div className="stack" style={{ gap: 8 }}>
-        <p className="muted" style={{ fontSize: "0.85rem", margin: 0 }}>
-          Theme
-        </p>
-        <div style={{ display: "flex", gap: 8 }}>
-          {THEME_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => handleThemeChange(opt.value)}
-              className={theme === opt.value ? "pill pill--active" : "pill"}
-              style={
-                theme === opt.value
-                  ? {
-                      background: "oklch(74% 0.08 78)",
-                      color: "oklch(18% 0.015 72)",
-                      borderColor: "transparent",
-                    }
-                  : undefined
-              }
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="meta-list" style={{ marginTop: 8 }}>
-        <div className="meta-row" style={{ paddingBlock: 12 }}>
+    <div className="settings-panel-body">
+      <div className="settings-list">
+        <div className="settings-row">
           <div>
-            <div style={{ fontWeight: 500, fontSize: "0.875rem" }}>
-              Time zone
+            <div className="settings-row-label">Theme</div>
+            <div className="settings-row-help">
+              Choose how Staaash looks in this browser.
             </div>
-            <div
-              className="muted"
-              style={{ fontSize: "0.78rem", marginTop: 2 }}
-            >
+          </div>
+          <div className="settings-row-value">
+            <div className="settings-segmented" role="group" aria-label="Theme">
+              {THEME_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => handleThemeChange(opt.value)}
+                  className={
+                    theme === opt.value
+                      ? "settings-segment is-active"
+                      : "settings-segment"
+                  }
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="settings-row">
+          <div>
+            <div className="settings-row-label">Time zone</div>
+            <div className="settings-row-help">
               Used for dates and schedules shown to you.
             </div>
           </div>
-          <div
-            className="onboarding-field"
-            style={{ width: "min(360px, 100%)" }}
-          >
+          <div className="settings-row-value settings-row-control">
             <TimeZonePicker
-              className="onboarding-field__input"
+              className="settings-input"
               value={timeZone}
               onChange={(nextTimeZone) => {
                 setTimeZone(nextTimeZone);
@@ -137,54 +129,50 @@ export function PreferencesForm({
             />
           </div>
         </div>
-        <div className="meta-row" style={{ paddingBlock: 12 }}>
+
+        <div className="settings-row">
           <div>
-            <div style={{ fontWeight: 500, fontSize: "0.875rem" }}>
-              Update notifications
-            </div>
-            <div
-              className="muted"
-              style={{ fontSize: "0.78rem", marginTop: 2 }}
-            >
+            <div className="settings-row-label">Update notifications</div>
+            <div className="settings-row-help">
               Show a badge when a new version is available.
             </div>
           </div>
-          <ToggleSwitch
-            checked={showUpdateNotifications}
-            onChange={setShowUpdateNotifications}
-            label="Update notifications"
-          />
+          <div className="settings-row-value">
+            <ToggleSwitch
+              checked={showUpdateNotifications}
+              onChange={setShowUpdateNotifications}
+              label="Update notifications"
+            />
+          </div>
         </div>
-        <div className="meta-row" style={{ paddingBlock: 12 }}>
+
+        <div className="settings-row">
           <div>
-            <div style={{ fontWeight: 500, fontSize: "0.875rem" }}>
-              Version checks
-            </div>
-            <div
-              className="muted"
-              style={{ fontSize: "0.78rem", marginTop: 2 }}
-            >
+            <div className="settings-row-label">Version checks</div>
+            <div className="settings-row-help">
               Periodically check GitHub for new releases.
             </div>
           </div>
-          <ToggleSwitch
-            checked={enableVersionChecks}
-            onChange={setEnableVersionChecks}
-            label="Version checks"
-          />
+          <div className="settings-row-value">
+            <ToggleSwitch
+              checked={enableVersionChecks}
+              onChange={setEnableVersionChecks}
+              label="Version checks"
+            />
+          </div>
         </div>
       </div>
 
       {error && (
-        <p style={{ color: "var(--destructive)", fontSize: "0.825rem" }}>
+        <p className="settings-form-status settings-form-status-error">
           {error}
         </p>
       )}
 
-      <div className="cluster">
+      <div className="settings-form-footer">
         <button
           type="button"
-          className="button"
+          className="settings-action settings-action-primary"
           onClick={handleSave}
           disabled={saving}
         >
