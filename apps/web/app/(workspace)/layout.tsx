@@ -3,6 +3,7 @@ import { Search } from "lucide-react";
 
 import { Toaster } from "@/components/ui/sonner";
 import { getInitials } from "@/lib/user";
+import { authService } from "@/server/auth/service";
 import { resolveAppVersion } from "@/server/app-version";
 import { getCurrentSession } from "@/server/auth/session";
 import { getSystemSettings } from "@/server/settings";
@@ -43,12 +44,15 @@ export default async function WorkspaceLayout({
     diskUsedBytes = diskInfo?.usedBytes ?? null;
   }
 
-  const [instanceUpdateState, settings] = await Promise.all([
+  const [instanceUpdateState, settings, setupState] = await Promise.all([
     readInstanceUpdateCheck().catch(() => null),
     getSystemSettings(),
+    authService.getSetupState(),
   ]);
 
   const appVersion = resolveAppVersion();
+  const instanceName = setupState.instanceName?.trim() || "Staaash";
+  const compactInstanceInitial = instanceName.charAt(0).toUpperCase() || "S";
 
   const initials = session
     ? getInitials(session.user.displayName, session.user.username)
@@ -62,8 +66,17 @@ export default async function WorkspaceLayout({
       <div className="workspace-shell">
         <aside className="workspace-sidebar">
           <div className="workspace-brand-area">
-            <Link className="workspace-brand-link" href="/files">
-              <span className="workspace-brand">Staaash</span>
+            <Link
+              className="workspace-brand-link"
+              href="/files"
+              title={instanceName}
+            >
+              <span
+                className="workspace-brand"
+                data-compact-initial={compactInstanceInitial}
+              >
+                {instanceName}
+              </span>
             </Link>
           </div>
 
@@ -153,6 +166,7 @@ export default async function WorkspaceLayout({
           diskCapacityBytes={diskCapacityBytes?.toString() ?? null}
           diskUsedBytes={diskUsedBytes?.toString() ?? null}
           initials={initials}
+          instanceName={instanceName}
           isOwner={session.user.role === "owner"}
           latestVersion={instanceUpdateState?.latestAvailableVersion ?? null}
           limitBytes={limitBytes?.toString() ?? null}

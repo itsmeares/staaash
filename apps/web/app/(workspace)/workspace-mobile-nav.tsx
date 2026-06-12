@@ -38,6 +38,7 @@ type WorkspaceMobileNavProps = {
   diskCapacityBytes: string | null;
   diskUsedBytes: string | null;
   initials: string;
+  instanceName: string;
   isOwner: boolean;
   latestVersion: string | null;
   limitBytes: string | null;
@@ -120,7 +121,9 @@ export function WorkspaceMobileNav(props: WorkspaceMobileNavProps) {
             aria-hidden
           />
           <div className="workspace-more-head">
-            <DialogTitle className="workspace-more-title">Staaash</DialogTitle>
+            <DialogTitle className="workspace-more-title">
+              {props.instanceName}
+            </DialogTitle>
           </div>
 
           <div className="workspace-more-profile">

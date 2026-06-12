@@ -889,6 +889,7 @@ h3 {
   line-height: 1;
   letter-spacing: 0em;
   color: color-mix(in oklab, var(--foreground) 88%, var(--primary) 12%);
+  overflow-wrap: anywhere;
 }
 
 /* Nav groups */
@@ -8053,7 +8054,7 @@ main.share-locked-page {
   }
 
   .workspace-brand::before {
-    content: "S";
+    content: attr(data-compact-initial);
     font-size: 25px;
   }
 
