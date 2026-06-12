@@ -169,9 +169,12 @@ export function SharedTable({ items }: SharedTableProps) {
       </div>
 
       {visibleItems.length === 0 ? (
-        <div className="workspace-empty-state">
-          <h2>No shared links match that filter</h2>
-          <p className="muted">Try a different type.</p>
+        <div className="shared-empty-state">
+          <span className="shared-empty-icon">
+            <KeyRound size={22} aria-hidden />
+          </span>
+          <p>No shared links match that filter</p>
+          <span>Try a different type.</span>
         </div>
       ) : (
         <>

@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { headers } from "next/headers";
+import { KeyRound } from "lucide-react";
 
 import {
   FlashMessage,
@@ -108,12 +108,12 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
 
         {/* Empty state */}
         {allShares.length === 0 ? (
-          <div className="workspace-empty-state">
-            <h2>No shared links yet</h2>
-            <p className="muted">Create a link from any file or folder.</p>
-            <Link className="pill" href="/files">
-              Open files
-            </Link>
+          <div className="shared-empty-state">
+            <span className="shared-empty-icon">
+              <KeyRound size={22} aria-hidden />
+            </span>
+            <p>No shared links yet</p>
+            <span>Create a link from any file or folder.</span>
           </div>
         ) : (
           <div className="sl-page">
