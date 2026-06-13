@@ -4660,6 +4660,43 @@ html.light {
   color: oklch(0.21 0.015 72);
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes staaash-theme-polygon-light {
+    from {
+      clip-path: polygon(32% 32%, 68% 32%, 68% 68%, 32% 68%);
+    }
+
+    to {
+      clip-path: polygon(-30% -30%, 130% -30%, 130% 130%, -30% 130%);
+    }
+  }
+
+  @keyframes staaash-theme-polygon-dark {
+    from {
+      clip-path: polygon(-30% -30%, 130% -30%, 130% 130%, -30% 130%);
+    }
+
+    to {
+      clip-path: polygon(50% 50%, 50% 50%, 50% 50%, 50% 50%);
+    }
+  }
+
+  html[data-theme-transition]::view-transition-old(root) {
+    animation: none;
+    mix-blend-mode: normal;
+  }
+
+  html[data-theme-transition]::view-transition-new(root) {
+    animation: staaash-theme-polygon-light var(--theme-toggle-duration, 1500ms)
+      var(--theme-toggle-easing, ease-in-out);
+    mix-blend-mode: normal;
+  }
+
+  html[data-theme-transition="dark"]::view-transition-new(root) {
+    animation-name: staaash-theme-polygon-dark;
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
