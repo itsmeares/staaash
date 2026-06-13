@@ -13,6 +13,7 @@ import {
 type SettingsPanelProps = {
   title: string;
   description: string;
+  hidden?: boolean;
   children: ReactNode;
 };
 
@@ -27,6 +28,7 @@ const prefersReducedMotion = () =>
 export function SettingsPanel({
   title,
   description,
+  hidden = false,
   children,
 }: SettingsPanelProps) {
   const panelId = useId();
@@ -86,7 +88,7 @@ export function SettingsPanel({
   useEffect(() => clearCloseTimer, []);
 
   return (
-    <section className="settings-panel" data-state={panelState}>
+    <section className="settings-panel" data-state={panelState} hidden={hidden}>
       <button
         aria-expanded={panelState === "open"}
         aria-controls={contentId}
