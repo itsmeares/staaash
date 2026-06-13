@@ -5,18 +5,13 @@ import { type ReactNode, useActionState } from "react";
 import type { SystemSettings } from "@staaash/db/client";
 
 import { formatAdminBytes } from "@/app/admin/admin-format";
+import { SettingsPanel } from "@/components/settings-panel";
 import { TimeZonePicker } from "@/components/time-zone-picker";
 
 import { updateSystemSettings } from "./actions";
 
 type SettingsFormProps = {
   settings: SystemSettings;
-};
-
-type SettingsPanelProps = {
-  title: string;
-  description: string;
-  children: ReactNode;
 };
 
 type SettingRowProps = {
@@ -311,20 +306,6 @@ export function SettingsForm({ settings }: SettingsFormProps) {
         ) : null}
       </div>
     </form>
-  );
-}
-
-function SettingsPanel({ title, description, children }: SettingsPanelProps) {
-  return (
-    <details className="settings-panel">
-      <summary className="settings-panel-summary">
-        <span>
-          <span className="settings-panel-title">{title}</span>
-          <span className="settings-panel-description">{description}</span>
-        </span>
-      </summary>
-      <div className="settings-panel-body">{children}</div>
-    </details>
   );
 }
 

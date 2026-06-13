@@ -82,7 +82,7 @@ export function PreferencesForm({
   }
 
   return (
-    <div className="settings-panel-body">
+    <>
       <div className="settings-list">
         <div className="settings-row">
           <div>
@@ -179,7 +179,7 @@ export function PreferencesForm({
           {saving ? "Saving…" : saved ? "Saved" : "Save preferences"}
         </button>
       </div>
-    </div>
+    </>
   );
 }
 

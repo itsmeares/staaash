@@ -1565,23 +1565,8 @@ h3 {
   background: color-mix(in oklab, var(--card) 82%, transparent);
 }
 
-.settings-panel::details-content {
-  block-size: 0;
-  overflow: hidden;
-  transition-behavior: allow-discrete;
-  transition:
-    block-size var(--settings-panel-motion-duration)
-      var(--settings-panel-motion-ease),
-    content-visibility var(--settings-panel-motion-duration)
-      var(--settings-panel-motion-ease) allow-discrete;
-}
-
-.settings-panel[open] {
+.settings-panel[data-state="open"] {
   border-color: color-mix(in oklab, var(--foreground) 18%, transparent);
-}
-
-.settings-panel[open]::details-content {
-  block-size: auto;
 }
 
 .settings-panel-summary {
@@ -1589,18 +1574,19 @@ h3 {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 16px;
+  width: 100%;
   min-height: 64px;
+  border: 0;
   padding: 13px 16px;
-  list-style: none;
+  background: transparent;
+  color: inherit;
   cursor: pointer;
+  font: inherit;
+  text-align: left;
   user-select: none;
   transition:
     background 120ms ease,
     color 120ms ease;
-}
-
-.settings-panel-summary::-webkit-details-marker {
-  display: none;
 }
 
 .settings-panel-summary:hover {
@@ -1617,7 +1603,7 @@ h3 {
   transition: transform 140ms ease;
 }
 
-.settings-panel[open] .settings-panel-summary::after {
+.settings-panel[data-state="open"] .settings-panel-summary::after {
   transform: rotate(-135deg);
 }
 
@@ -1640,6 +1626,23 @@ h3 {
   line-height: 1.35;
 }
 
+.settings-panel-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  overflow: hidden;
+  transition: grid-template-rows var(--settings-panel-motion-duration)
+    var(--settings-panel-motion-ease);
+}
+
+.settings-panel[data-state="open"] .settings-panel-content {
+  grid-template-rows: 1fr;
+}
+
+.settings-panel-content-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
 .settings-panel-body {
   display: grid;
   gap: 14px;
@@ -1655,17 +1658,17 @@ h3 {
       var(--settings-panel-motion-ease);
 }
 
-.settings-panel[open] .settings-panel-body {
+.settings-panel[data-state="open"] .settings-panel-body {
   clip-path: inset(0);
   transform: translateY(0);
 }
 
 @starting-style {
-  .settings-panel[open]::details-content {
-    block-size: 0;
+  .settings-panel[data-state="open"] .settings-panel-content {
+    grid-template-rows: 0fr;
   }
 
-  .settings-panel[open] .settings-panel-body {
+  .settings-panel[data-state="open"] .settings-panel-body {
     clip-path: inset(0 0 100% 0);
     transform: translateY(-18px);
   }
@@ -1866,25 +1869,6 @@ h3 {
 
 .settings-form-status-error {
   color: color-mix(in oklab, var(--destructive) 84%, var(--foreground) 16%);
-}
-
-@supports not selector(::details-content) {
-  .settings-panel[open] .settings-panel-body {
-    animation: settings-panel-unfold var(--settings-panel-motion-duration)
-      var(--settings-panel-motion-ease) both;
-  }
-}
-
-@keyframes settings-panel-unfold {
-  from {
-    clip-path: inset(0 0 100% 0);
-    transform: translateY(-18px);
-  }
-
-  to {
-    clip-path: inset(0);
-    transform: translateY(0);
-  }
 }
 
 .workspace-breadcrumbs {
@@ -8886,7 +8870,7 @@ main.share-locked-page {
   .workspace-selection-bar,
   .transfer-panel,
   .settings-action,
-  .settings-panel::details-content,
+  .settings-panel-content,
   .settings-panel-body,
   .settings-panel-summary,
   .settings-panel-summary::after,
@@ -8897,9 +8881,8 @@ main.share-locked-page {
     transition: none;
   }
 
-  .settings-panel[open] .settings-panel-body {
+  .settings-panel[data-state="open"] .settings-panel-body {
     clip-path: inset(0);
     transform: none;
-    animation: none;
   }
 }

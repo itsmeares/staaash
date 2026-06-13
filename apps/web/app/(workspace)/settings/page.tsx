@@ -4,6 +4,7 @@ import {
   getSingleSearchParam,
 } from "@/app/auth-ui";
 import { DEFAULT_TIME_ZONE } from "@staaash/config/time-zone";
+import { SettingsPanel } from "@/components/settings-panel";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { PreferencesForm } from "./preferences-form";
 
@@ -39,15 +40,10 @@ export default async function SettingsPage({
       {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
 
       <div className="settings-accordion" aria-label="Settings sections">
-        <details className="settings-panel">
-          <summary className="settings-panel-summary">
-            <span>
-              <span className="settings-panel-title">Preferences</span>
-              <span className="settings-panel-description">
-                Theme, time zone, and update notices
-              </span>
-            </span>
-          </summary>
+        <SettingsPanel
+          title="Preferences"
+          description="Theme, time zone, and update notices"
+        >
           <PreferencesForm
             initialTheme={
               (prefs?.theme as "light" | "dark" | "system") ?? "system"
@@ -58,87 +54,67 @@ export default async function SettingsPage({
             }
             initialEnableVersionChecks={prefs?.enableVersionChecks ?? true}
           />
-        </details>
+        </SettingsPanel>
 
-        <details className="settings-panel">
-          <summary className="settings-panel-summary">
-            <span>
-              <span className="settings-panel-title">Account</span>
-              <span className="settings-panel-description">
-                Identity and access role
-              </span>
-            </span>
-          </summary>
-          <div className="settings-panel-body">
-            <dl className="settings-list">
-              <div className="settings-row">
-                <dt className="settings-row-label">Display name</dt>
-                <dd className="settings-row-value">
-                  {session.user.displayName ?? "Not set"}
-                </dd>
-              </div>
-              <div className="settings-row">
-                <dt className="settings-row-label">Email</dt>
-                <dd className="settings-row-value">{session.user.email}</dd>
-              </div>
-              <div className="settings-row">
-                <dt className="settings-row-label">Username</dt>
-                <dd className="settings-row-value">@{session.user.username}</dd>
-              </div>
-              <div className="settings-row">
-                <dt className="settings-row-label">Role</dt>
-                <dd className="settings-row-value">{session.user.role}</dd>
-              </div>
-            </dl>
-          </div>
-        </details>
+        <SettingsPanel title="Account" description="Identity and access role">
+          <dl className="settings-list">
+            <div className="settings-row">
+              <dt className="settings-row-label">Display name</dt>
+              <dd className="settings-row-value">
+                {session.user.displayName ?? "Not set"}
+              </dd>
+            </div>
+            <div className="settings-row">
+              <dt className="settings-row-label">Email</dt>
+              <dd className="settings-row-value">{session.user.email}</dd>
+            </div>
+            <div className="settings-row">
+              <dt className="settings-row-label">Username</dt>
+              <dd className="settings-row-value">@{session.user.username}</dd>
+            </div>
+            <div className="settings-row">
+              <dt className="settings-row-label">Role</dt>
+              <dd className="settings-row-value">{session.user.role}</dd>
+            </div>
+          </dl>
+        </SettingsPanel>
 
-        <details className="settings-panel">
-          <summary className="settings-panel-summary">
-            <span>
-              <span className="settings-panel-title">Session</span>
-              <span className="settings-panel-description">
-                Current browser session
-              </span>
-            </span>
-          </summary>
-          <div className="settings-panel-body">
-            <dl className="settings-list">
-              <div className="settings-row">
-                <dt className="settings-row-label">Session ID</dt>
-                <dd className="settings-row-value">
-                  <code>{session.id}</code>
-                </dd>
-              </div>
-              <div className="settings-row">
-                <dt className="settings-row-label">Created</dt>
-                <dd className="settings-row-value">
-                  {formatDateTime(session.createdAt, prefs?.timeZone)}
-                </dd>
-              </div>
-              <div className="settings-row">
-                <dt className="settings-row-label">Expires</dt>
-                <dd className="settings-row-value">
-                  {formatDateTime(session.expiresAt, prefs?.timeZone)}
-                </dd>
-              </div>
-              <div className="settings-row settings-row-action">
-                <dt className="settings-row-label">Sign out</dt>
-                <dd className="settings-row-value">
-                  <form action="/api/auth/sign-out" method="post">
-                    <input type="hidden" name="next" value="/" />
-                    <button
-                      className="settings-action settings-action-danger"
-                      type="submit"
-                    >
-                      Sign out
-                    </button>
-                  </form>
-                </dd>
-              </div>
-            </dl>
-          </div>
-        </details>
+        <SettingsPanel title="Session" description="Current browser session">
+          <dl className="settings-list">
+            <div className="settings-row">
+              <dt className="settings-row-label">Session ID</dt>
+              <dd className="settings-row-value">
+                <code>{session.id}</code>
+              </dd>
+            </div>
+            <div className="settings-row">
+              <dt className="settings-row-label">Created</dt>
+              <dd className="settings-row-value">
+                {formatDateTime(session.createdAt, prefs?.timeZone)}
+              </dd>
+            </div>
+            <div className="settings-row">
+              <dt className="settings-row-label">Expires</dt>
+              <dd className="settings-row-value">
+                {formatDateTime(session.expiresAt, prefs?.timeZone)}
+              </dd>
+            </div>
+            <div className="settings-row settings-row-action">
+              <dt className="settings-row-label">Sign out</dt>
+              <dd className="settings-row-value">
+                <form action="/api/auth/sign-out" method="post">
+                  <input type="hidden" name="next" value="/" />
+                  <button
+                    className="settings-action settings-action-danger"
+                    type="submit"
+                  >
+                    Sign out
+                  </button>
+                </form>
+              </dd>
+            </div>
+          </dl>
+        </SettingsPanel>
       </div>
     </div>
   );
