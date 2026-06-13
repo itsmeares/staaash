@@ -1555,6 +1555,9 @@ h3 {
 }
 
 .settings-panel {
+  --settings-panel-motion-duration: 520ms;
+  --settings-panel-motion-ease: cubic-bezier(0.33, 0, 0.2, 1);
+
   interpolate-size: allow-keywords;
   overflow: hidden;
   border: 1px solid color-mix(in oklab, var(--foreground) 12%, transparent);
@@ -1566,8 +1569,9 @@ h3 {
   block-size: 0;
   overflow: hidden;
   transition:
-    block-size 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    content-visibility 220ms allow-discrete;
+    block-size var(--settings-panel-motion-duration)
+      var(--settings-panel-motion-ease),
+    content-visibility var(--settings-panel-motion-duration) allow-discrete;
 }
 
 .settings-panel[open] {
@@ -1639,10 +1643,12 @@ h3 {
   gap: 14px;
   padding: 0 16px 16px;
   border-top: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent);
+  transform-origin: top center;
 }
 
 .settings-panel[open] .settings-panel-body {
-  animation: settings-panel-slide-down 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: settings-panel-slide-down var(--settings-panel-motion-duration)
+    var(--settings-panel-motion-ease) both;
 }
 
 .settings-list {
@@ -1844,15 +1850,15 @@ h3 {
 
 @supports not selector(::details-content) {
   .settings-panel[open] .settings-panel-body {
-    animation: settings-panel-slide-down 180ms cubic-bezier(0.22, 1, 0.36, 1)
-      both;
+    animation: settings-panel-slide-down var(--settings-panel-motion-duration)
+      var(--settings-panel-motion-ease) both;
   }
 }
 
 @keyframes settings-panel-slide-down {
   from {
     clip-path: inset(0 0 100% 0);
-    transform: translateY(-12px);
+    transform: translateY(-18px);
   }
 
   to {
