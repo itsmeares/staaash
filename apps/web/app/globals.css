@@ -1555,14 +1555,30 @@ h3 {
 }
 
 .settings-panel {
+  interpolate-size: allow-keywords;
   overflow: hidden;
   border: 1px solid color-mix(in oklab, var(--foreground) 12%, transparent);
   border-radius: 10px;
   background: color-mix(in oklab, var(--card) 82%, transparent);
 }
 
+.settings-panel::details-content {
+  block-size: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition:
+    block-size 210ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 160ms ease-out,
+    content-visibility 210ms allow-discrete;
+}
+
 .settings-panel[open] {
   border-color: color-mix(in oklab, var(--foreground) 18%, transparent);
+}
+
+.settings-panel[open]::details-content {
+  block-size: auto;
+  opacity: 1;
 }
 
 .settings-panel-summary {
@@ -1823,6 +1839,26 @@ h3 {
 
 .settings-form-status-error {
   color: color-mix(in oklab, var(--destructive) 84%, var(--foreground) 16%);
+}
+
+@supports not selector(::details-content) {
+  .settings-panel[open] .settings-panel-body {
+    animation: settings-panel-open 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+@keyframes settings-panel-open {
+  from {
+    clip-path: inset(0 0 100% 0);
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    clip-path: inset(0);
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .workspace-breadcrumbs {
@@ -8824,6 +8860,8 @@ main.share-locked-page {
   .workspace-selection-bar,
   .transfer-panel,
   .settings-action,
+  .settings-panel::details-content,
+  .settings-panel[open] .settings-panel-body,
   .settings-panel-summary,
   .settings-panel-summary::after,
   .settings-segment,
@@ -8831,5 +8869,9 @@ main.share-locked-page {
   .recent-row,
   .favorites-row {
     transition: none;
+  }
+
+  .settings-panel[open] .settings-panel-body {
+    animation: none;
   }
 }
