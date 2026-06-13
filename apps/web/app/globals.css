@@ -1568,10 +1568,12 @@ h3 {
 .settings-panel::details-content {
   block-size: 0;
   overflow: hidden;
+  transition-behavior: allow-discrete;
   transition:
     block-size var(--settings-panel-motion-duration)
       var(--settings-panel-motion-ease),
-    content-visibility var(--settings-panel-motion-duration) allow-discrete;
+    content-visibility var(--settings-panel-motion-duration)
+      var(--settings-panel-motion-ease) allow-discrete;
 }
 
 .settings-panel[open] {
@@ -1643,12 +1645,30 @@ h3 {
   gap: 14px;
   padding: 0 16px 16px;
   border-top: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent);
+  clip-path: inset(0 0 100% 0);
+  transform: translateY(-18px);
   transform-origin: top center;
+  transition:
+    clip-path var(--settings-panel-motion-duration)
+      var(--settings-panel-motion-ease),
+    transform var(--settings-panel-motion-duration)
+      var(--settings-panel-motion-ease);
 }
 
 .settings-panel[open] .settings-panel-body {
-  animation: settings-panel-slide-down var(--settings-panel-motion-duration)
-    var(--settings-panel-motion-ease) both;
+  clip-path: inset(0);
+  transform: translateY(0);
+}
+
+@starting-style {
+  .settings-panel[open]::details-content {
+    block-size: 0;
+  }
+
+  .settings-panel[open] .settings-panel-body {
+    clip-path: inset(0 0 100% 0);
+    transform: translateY(-18px);
+  }
 }
 
 .settings-list {
@@ -1850,12 +1870,12 @@ h3 {
 
 @supports not selector(::details-content) {
   .settings-panel[open] .settings-panel-body {
-    animation: settings-panel-slide-down var(--settings-panel-motion-duration)
+    animation: settings-panel-unfold var(--settings-panel-motion-duration)
       var(--settings-panel-motion-ease) both;
   }
 }
 
-@keyframes settings-panel-slide-down {
+@keyframes settings-panel-unfold {
   from {
     clip-path: inset(0 0 100% 0);
     transform: translateY(-18px);
@@ -8867,7 +8887,7 @@ main.share-locked-page {
   .transfer-panel,
   .settings-action,
   .settings-panel::details-content,
-  .settings-panel[open] .settings-panel-body,
+  .settings-panel-body,
   .settings-panel-summary,
   .settings-panel-summary::after,
   .settings-segment,
@@ -8878,6 +8898,8 @@ main.share-locked-page {
   }
 
   .settings-panel[open] .settings-panel-body {
+    clip-path: inset(0);
+    transform: none;
     animation: none;
   }
 }
