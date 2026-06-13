@@ -1565,11 +1565,9 @@ h3 {
 .settings-panel::details-content {
   block-size: 0;
   overflow: hidden;
-  opacity: 0;
   transition:
-    block-size 210ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 160ms ease-out,
-    content-visibility 210ms allow-discrete;
+    block-size 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    content-visibility 220ms allow-discrete;
 }
 
 .settings-panel[open] {
@@ -1578,7 +1576,6 @@ h3 {
 
 .settings-panel[open]::details-content {
   block-size: auto;
-  opacity: 1;
 }
 
 .settings-panel-summary {
@@ -1642,6 +1639,10 @@ h3 {
   gap: 14px;
   padding: 0 16px 16px;
   border-top: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent);
+}
+
+.settings-panel[open] .settings-panel-body {
+  animation: settings-panel-slide-down 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .settings-list {
@@ -1843,20 +1844,19 @@ h3 {
 
 @supports not selector(::details-content) {
   .settings-panel[open] .settings-panel-body {
-    animation: settings-panel-open 180ms cubic-bezier(0.22, 1, 0.36, 1);
+    animation: settings-panel-slide-down 180ms cubic-bezier(0.22, 1, 0.36, 1)
+      both;
   }
 }
 
-@keyframes settings-panel-open {
+@keyframes settings-panel-slide-down {
   from {
     clip-path: inset(0 0 100% 0);
-    opacity: 0;
-    transform: translateY(-4px);
+    transform: translateY(-12px);
   }
 
   to {
     clip-path: inset(0);
-    opacity: 1;
     transform: translateY(0);
   }
 }
