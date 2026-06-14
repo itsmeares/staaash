@@ -3,18 +3,14 @@
   "extends": ["config:recommended", "mergeConfidence:all-badges"],
   "dependencyDashboard": true,
   "timezone": "Europe/London",
-  "schedule": ["* 0-3 * * 1"],
+  "schedule": ["before 8am every weekday"],
   "minimumReleaseAge": "1 day",
   "rangeStrategy": "bump",
   "lockFileMaintenance": {
     "enabled": true,
-    "schedule": ["* 0-3 * * 1"]
+    "schedule": ["before 8am every weekday"]
   },
   "packageRules": [
-    {
-      "matchUpdateTypes": ["major"],
-      "groupName": "Major Updates"
-    },
     {
       "matchManagers": ["github-actions"],
       "groupName": "GitHub Actions"
