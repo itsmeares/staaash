@@ -7,8 +7,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-
-type Theme = "light" | "dark" | "system";
+import { applyThemeWithTransition, type Theme } from "@/lib/theme";
 
 interface AdminTopbarActionsProps {
   userLabel: string | null;
@@ -16,13 +15,6 @@ interface AdminTopbarActionsProps {
   initials: string;
   avatarUrl: string | null;
   initialTheme: Theme;
-}
-
-function applyTheme(theme: Theme) {
-  const html = document.documentElement;
-  html.classList.remove("dark", "light");
-  if (theme === "dark") html.classList.add("dark");
-  else if (theme === "light") html.classList.add("light");
 }
 
 const THEME_CYCLE: Theme[] = ["system", "light", "dark"];
@@ -41,7 +33,7 @@ export function AdminTopbarActions({
     const idx = THEME_CYCLE.indexOf(theme);
     const next = THEME_CYCLE[(idx + 1) % THEME_CYCLE.length]!;
     setTheme(next);
-    applyTheme(next);
+    applyThemeWithTransition(next);
     fetch("/api/user/preferences", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
