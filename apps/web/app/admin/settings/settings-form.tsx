@@ -1,6 +1,13 @@
 "use client";
 
-import { type ReactNode, useActionState, useState } from "react";
+import {
+  type ClipboardEvent,
+  type InputHTMLAttributes,
+  type InputEvent as ReactInputEvent,
+  type ReactNode,
+  useActionState,
+  useState,
+} from "react";
 import { SearchIcon } from "lucide-react";
 
 import type { SystemSettings } from "@staaash/db/client";
@@ -20,6 +27,13 @@ type SettingRowProps = {
   hint?: ReactNode;
   hidden?: boolean;
   children: ReactNode;
+};
+
+type SettingsNumberInputProps = Omit<
+  InputHTMLAttributes<HTMLInputElement>,
+  "defaultValue" | "inputMode" | "pattern" | "type"
+> & {
+  defaultValue: number | string | bigint;
 };
 
 export function SettingsForm({ settings }: SettingsFormProps) {
@@ -100,9 +114,8 @@ export function SettingsForm({ settings }: SettingsFormProps) {
         >
           <dl className="settings-list">
             <SettingRow label="Max upload size (bytes)">
-              <input
+              <SettingsNumberInput
                 name="maxUploadBytes"
-                type="number"
                 defaultValue={String(settings.maxUploadBytes)}
                 min={1}
                 className="settings-input"
@@ -112,27 +125,24 @@ export function SettingsForm({ settings }: SettingsFormProps) {
               </span>
             </SettingRow>
             <SettingRow label="Upload timeout (minutes)">
-              <input
+              <SettingsNumberInput
                 name="uploadTimeoutMinutes"
-                type="number"
                 defaultValue={settings.uploadTimeoutMinutes}
                 min={1}
                 className="settings-input"
               />
             </SettingRow>
             <SettingRow label="Staging retention (hours)">
-              <input
+              <SettingsNumberInput
                 name="uploadStagingRetentionHours"
-                type="number"
                 defaultValue={settings.uploadStagingRetentionHours}
                 min={1}
                 className="settings-input"
               />
             </SettingRow>
             <SettingRow label="Preview source max (bytes)">
-              <input
+              <SettingsNumberInput
                 name="previewMaxSourceBytes"
-                type="number"
                 defaultValue={settings.previewMaxSourceBytes}
                 min={1}
                 className="settings-input"
@@ -142,9 +152,8 @@ export function SettingsForm({ settings }: SettingsFormProps) {
               </span>
             </SettingRow>
             <SettingRow label="Preview text max (bytes)">
-              <input
+              <SettingsNumberInput
                 name="previewTextMaxBytes"
-                type="number"
                 defaultValue={settings.previewTextMaxBytes}
                 min={1}
                 className="settings-input"
@@ -161,36 +170,32 @@ export function SettingsForm({ settings }: SettingsFormProps) {
         >
           <dl className="settings-list">
             <SettingRow label="Session max age (days)">
-              <input
+              <SettingsNumberInput
                 name="sessionMaxAgeDays"
-                type="number"
                 defaultValue={settings.sessionMaxAgeDays}
                 min={1}
                 className="settings-input"
               />
             </SettingRow>
             <SettingRow label="Invite max age (days)">
-              <input
+              <SettingsNumberInput
                 name="inviteMaxAgeDays"
-                type="number"
                 defaultValue={settings.inviteMaxAgeDays}
                 min={1}
                 className="settings-input"
               />
             </SettingRow>
             <SettingRow label="Password reset max age (hours)">
-              <input
+              <SettingsNumberInput
                 name="passwordResetMaxAgeHours"
-                type="number"
                 defaultValue={settings.passwordResetMaxAgeHours}
                 min={1}
                 className="settings-input"
               />
             </SettingRow>
             <SettingRow label="Share max age (days)">
-              <input
+              <SettingsNumberInput
                 name="shareMaxAgeDays"
-                type="number"
                 defaultValue={settings.shareMaxAgeDays}
                 min={1}
                 className="settings-input"
@@ -216,9 +221,8 @@ export function SettingsForm({ settings }: SettingsFormProps) {
               />
             </SettingRow>
             <SettingRow label="Check interval (hours)">
-              <input
+              <SettingsNumberInput
                 name="updateCheckIntervalHours"
-                type="number"
                 defaultValue={settings.updateCheckIntervalHours}
                 min={1}
                 className="settings-input"
@@ -235,9 +239,8 @@ export function SettingsForm({ settings }: SettingsFormProps) {
         >
           <dl className="settings-list">
             <SettingRow label="Heartbeat max age (seconds)">
-              <input
+              <SettingsNumberInput
                 name="workerHeartbeatMaxAgeSeconds"
-                type="number"
                 defaultValue={settings.workerHeartbeatMaxAgeSeconds}
                 min={1}
                 className="settings-input"
@@ -293,9 +296,8 @@ export function SettingsForm({ settings }: SettingsFormProps) {
               />
             </SettingRow>
             <SettingRow label="Threshold (bytes)">
-              <input
+              <SettingsNumberInput
                 name="mediaPreviewThresholdBytes"
-                type="number"
                 defaultValue={String(settings.mediaPreviewThresholdBytes)}
                 min={1}
                 className="settings-input"
@@ -305,27 +307,24 @@ export function SettingsForm({ settings }: SettingsFormProps) {
               </span>
             </SettingRow>
             <SettingRow label="Retention (days, 0 = never)">
-              <input
+              <SettingsNumberInput
                 name="mediaPreviewRetentionDays"
-                type="number"
                 defaultValue={settings.mediaPreviewRetentionDays}
                 min={0}
                 className="settings-input"
               />
             </SettingRow>
             <SettingRow label="Max height (px)">
-              <input
+              <SettingsNumberInput
                 name="mediaPreviewMaxHeight"
-                type="number"
                 defaultValue={settings.mediaPreviewMaxHeight}
                 min={1}
                 className="settings-input"
               />
             </SettingRow>
             <SettingRow label="CRF quality (0-51, lower = better)">
-              <input
+              <SettingsNumberInput
                 name="mediaPreviewCrf"
-                type="number"
                 defaultValue={settings.mediaPreviewCrf}
                 min={0}
                 max={51}
@@ -333,9 +332,8 @@ export function SettingsForm({ settings }: SettingsFormProps) {
               />
             </SettingRow>
             <SettingRow label="Max concurrent jobs">
-              <input
+              <SettingsNumberInput
                 name="mediaPreviewMaxConcurrentJobs"
-                type="number"
                 defaultValue={settings.mediaPreviewMaxConcurrentJobs}
                 min={1}
                 className="settings-input"
@@ -352,9 +350,8 @@ export function SettingsForm({ settings }: SettingsFormProps) {
         >
           <dl className="settings-list">
             <SettingRow label="Zip archive retention (days, 0 = never)">
-              <input
+              <SettingsNumberInput
                 name="zipArchiveRetentionDays"
-                type="number"
                 defaultValue={settings.zipArchiveRetentionDays}
                 min={0}
                 className="settings-input"
@@ -369,6 +366,69 @@ export function SettingsForm({ settings }: SettingsFormProps) {
         <p className="settings-search-empty">No settings found.</p>
       ) : null}
     </form>
+  );
+}
+
+function sanitizeWholeNumber(value: string) {
+  return value.replace(/\D/gu, "");
+}
+
+function SettingsNumberInput({
+  defaultValue,
+  onBeforeInput,
+  onInput,
+  onPaste,
+  ...props
+}: SettingsNumberInputProps) {
+  function handleBeforeInput(event: ReactInputEvent<HTMLInputElement>) {
+    onBeforeInput?.(event);
+    if (event.defaultPrevented) return;
+
+    if (event.data && /\D/u.test(event.data)) {
+      event.preventDefault();
+    }
+  }
+
+  function handleInput(event: ReactInputEvent<HTMLInputElement>) {
+    onInput?.(event);
+    if (event.defaultPrevented) return;
+
+    const input = event.currentTarget;
+    const sanitizedValue = sanitizeWholeNumber(input.value);
+    if (input.value !== sanitizedValue) {
+      input.value = sanitizedValue;
+    }
+  }
+
+  function handlePaste(event: ClipboardEvent<HTMLInputElement>) {
+    onPaste?.(event);
+    if (event.defaultPrevented) return;
+
+    const pastedValue = event.clipboardData.getData("text");
+    const sanitizedValue = sanitizeWholeNumber(pastedValue);
+    if (pastedValue === sanitizedValue) return;
+
+    event.preventDefault();
+    if (!sanitizedValue) return;
+
+    const input = event.currentTarget;
+    const selectionStart = input.selectionStart ?? input.value.length;
+    const selectionEnd = input.selectionEnd ?? input.value.length;
+    input.setRangeText(sanitizedValue, selectionStart, selectionEnd, "end");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  return (
+    <input
+      {...props}
+      defaultValue={String(defaultValue)}
+      inputMode="numeric"
+      onBeforeInput={handleBeforeInput}
+      onInput={handleInput}
+      onPaste={handlePaste}
+      pattern="[0-9]*"
+      type="text"
+    />
   );
 }
 

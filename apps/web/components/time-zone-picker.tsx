@@ -1,7 +1,16 @@
 "use client";
 
 import { CheckIcon, ChevronDownIcon, SearchIcon } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
+import { createPortal } from "react-dom";
 
 import {
   DEFAULT_TIME_ZONE,
@@ -30,15 +39,20 @@ const SELECTABLE_TIME_ZONES = getSupportedTimeZones().filter(
   (zone) => zone === DEFAULT_TIME_ZONE || !zone.startsWith("Etc/"),
 );
 const TIME_ZONE_PICKER_CSS = `
-.time-zone-picker {
+.time-zone-picker,
+.time-zone-picker__panel {
   --time-zone-picker-panel-bg: oklch(99% 0.004 78);
   --time-zone-picker-field-bg: oklch(97% 0.006 78);
   --time-zone-picker-option-bg: oklch(94% 0.008 78);
+}
+
+.time-zone-picker {
   position: relative;
   width: 100%;
 }
 
 .dark .time-zone-picker,
+.dark .time-zone-picker__panel,
 .entry-surface .time-zone-picker {
   --time-zone-picker-panel-bg: oklch(16% 0.01 72);
   --time-zone-picker-field-bg: oklch(20% 0.01 72);
@@ -46,7 +60,8 @@ const TIME_ZONE_PICKER_CSS = `
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not(.light) .time-zone-picker {
+  :root:not(.light) .time-zone-picker,
+  :root:not(.light) .time-zone-picker__panel {
     --time-zone-picker-panel-bg: oklch(16% 0.01 72);
     --time-zone-picker-field-bg: oklch(20% 0.01 72);
     --time-zone-picker-option-bg: oklch(23% 0.012 72);
@@ -117,14 +132,11 @@ const TIME_ZONE_PICKER_CSS = `
   color: var(--popover-foreground);
   display: grid;
   gap: 8px;
-  left: 0;
-  max-height: min(320px, 48vh);
+  max-height: min(var(--time-zone-picker-panel-max-height, 320px), calc(100vh - 24px));
   overflow: hidden;
   padding: 8px;
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  z-index: 70;
+  position: fixed;
+  z-index: 120;
 }
 
 .time-zone-picker__search-wrap {
@@ -160,7 +172,7 @@ const TIME_ZONE_PICKER_CSS = `
 .time-zone-picker__list {
   display: grid;
   gap: 2px;
-  max-height: 246px;
+  max-height: var(--time-zone-picker-list-max-height, 246px);
   overflow: auto;
   overscroll-behavior: contain;
   padding-right: 2px;
@@ -296,7 +308,56 @@ export function TimeZonePicker({
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [panelStyle, setPanelStyle] = useState<CSSProperties>(
+    () =>
+      ({
+        left: 0,
+        top: 0,
+        width: 0,
+        "--time-zone-picker-panel-max-height": "320px",
+        "--time-zone-picker-list-max-height": "246px",
+      }) as CSSProperties,
+  );
   const offsetReferenceDate = useMemo(() => new Date(), []);
+
+  const updatePanelPosition = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+
+    const viewportPadding = 12;
+    const panelGap = 6;
+    const rect = trigger.getBoundingClientRect();
+    const availableBelow = window.innerHeight - rect.bottom - viewportPadding;
+    const availableAbove = rect.top - viewportPadding;
+    const openAbove = availableBelow < 220 && availableAbove > availableBelow;
+    const availableHeight = Math.max(
+      176,
+      (openAbove ? availableAbove : availableBelow) - panelGap,
+    );
+    const panelHeight = Math.min(320, availableHeight);
+    const left = Math.min(
+      Math.max(viewportPadding, rect.left),
+      window.innerWidth - rect.width - viewportPadding,
+    );
+    const top = openAbove
+      ? Math.max(viewportPadding, rect.top - panelHeight - panelGap)
+      : Math.min(
+          window.innerHeight - viewportPadding - panelHeight,
+          rect.bottom + panelGap,
+        );
+
+    setPanelStyle({
+      left,
+      top,
+      width: rect.width,
+      "--time-zone-picker-panel-max-height": `${panelHeight}px`,
+      "--time-zone-picker-list-max-height": `${Math.max(
+        96,
+        panelHeight - 74,
+      )}px`,
+    } as CSSProperties);
+  }, []);
 
   const options = useMemo(() => {
     return SELECTABLE_TIME_ZONES.includes(selectedValue)
@@ -341,7 +402,11 @@ export function TimeZonePicker({
     if (!open) return;
 
     function handlePointerDown(event: PointerEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        !rootRef.current?.contains(target) &&
+        !panelRef.current?.contains(target)
+      ) {
         setOpen(false);
       }
     }
@@ -361,6 +426,18 @@ export function TimeZonePicker({
   }, [open, optionData, selectedValue]);
 
   useEffect(() => {
+    if (!open) return;
+
+    updatePanelPosition();
+    window.addEventListener("resize", updatePanelPosition);
+    window.addEventListener("scroll", updatePanelPosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePanelPosition);
+      window.removeEventListener("scroll", updatePanelPosition, true);
+    };
+  }, [open, updatePanelPosition]);
+
+  useEffect(() => {
     setHighlightedIndex((index) =>
       Math.min(index, Math.max(filteredOptions.length - 1, 0)),
     );
@@ -368,7 +445,7 @@ export function TimeZonePicker({
 
   useEffect(() => {
     if (!open) return;
-    const option = rootRef.current?.querySelector<HTMLElement>(
+    const option = panelRef.current?.querySelector<HTMLElement>(
       `[data-time-zone-index="${highlightedIndex}"]`,
     );
     option?.scrollIntoView({ block: "nearest" });
@@ -383,14 +460,20 @@ export function TimeZonePicker({
     triggerRef.current?.focus();
   }
 
+  function openPicker() {
+    updatePanelPosition();
+    setOpen(true);
+  }
+
   function handleTriggerKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
     if (event.key === "ArrowDown" || event.key === "Enter") {
       event.preventDefault();
-      setOpen(true);
+      openPicker();
     }
     if (event.key === " ") {
       event.preventDefault();
-      setOpen((current) => !current);
+      if (open) setOpen(false);
+      else openPicker();
     }
   }
 
@@ -423,6 +506,73 @@ export function TimeZonePicker({
     }
   }
 
+  const panel = open ? (
+    <div className="time-zone-picker__panel" ref={panelRef} style={panelStyle}>
+      <div className="time-zone-picker__search-wrap">
+        <SearchIcon
+          aria-hidden="true"
+          className="time-zone-picker__search-icon"
+          size={15}
+        />
+        <input
+          aria-label="Search time zones"
+          className="time-zone-picker__search"
+          id={searchId}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setHighlightedIndex(0);
+          }}
+          onKeyDown={handleSearchKeyDown}
+          placeholder="Search time zones"
+          title="Search by city or UTC offset, for example UTC+1"
+          ref={searchRef}
+          type="search"
+          value={query}
+        />
+      </div>
+      <div
+        aria-labelledby={pickerId}
+        className="time-zone-picker__list"
+        id={listId}
+        role="listbox"
+        tabIndex={-1}
+      >
+        {filteredOptions.length ? (
+          filteredOptions.map((option, index) => {
+            const selected = option.zone === selectedValue;
+            const highlighted = index === highlightedIndex;
+            return (
+              <button
+                aria-selected={selected}
+                className={`time-zone-picker__option${selected ? " is-selected" : ""}${highlighted ? " is-highlighted" : ""}`}
+                data-time-zone-index={index}
+                key={option.zone}
+                onClick={() => choose(option.zone)}
+                onMouseEnter={() => setHighlightedIndex(index)}
+                role="option"
+                type="button"
+              >
+                <span className="time-zone-picker__zone">{option.zone}</span>
+                <span className="time-zone-picker__offset">
+                  {option.offsetLabel}
+                </span>
+                {selected ? (
+                  <CheckIcon
+                    aria-hidden="true"
+                    className="time-zone-picker__check"
+                    size={15}
+                  />
+                ) : null}
+              </button>
+            );
+          })
+        ) : (
+          <p className="time-zone-picker__empty">No matching time zones.</p>
+        )}
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div
       className="time-zone-picker"
@@ -437,7 +587,10 @@ export function TimeZonePicker({
         aria-haspopup="listbox"
         className={`time-zone-picker__trigger${className ? ` ${className}` : ""}`}
         id={pickerId}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => {
+          if (open) setOpen(false);
+          else openPicker();
+        }}
         onKeyDown={handleTriggerKeyDown}
         ref={triggerRef}
         type="button"
@@ -454,74 +607,9 @@ export function TimeZonePicker({
           size={16}
         />
       </button>
-      {open ? (
-        <div className="time-zone-picker__panel">
-          <div className="time-zone-picker__search-wrap">
-            <SearchIcon
-              aria-hidden="true"
-              className="time-zone-picker__search-icon"
-              size={15}
-            />
-            <input
-              aria-label="Search time zones"
-              className="time-zone-picker__search"
-              id={searchId}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setHighlightedIndex(0);
-              }}
-              onKeyDown={handleSearchKeyDown}
-              placeholder="Search time zones"
-              title="Search by city or UTC offset, for example UTC+1"
-              ref={searchRef}
-              type="search"
-              value={query}
-            />
-          </div>
-          <div
-            aria-labelledby={pickerId}
-            className="time-zone-picker__list"
-            id={listId}
-            role="listbox"
-            tabIndex={-1}
-          >
-            {filteredOptions.length ? (
-              filteredOptions.map((option, index) => {
-                const selected = option.zone === selectedValue;
-                const highlighted = index === highlightedIndex;
-                return (
-                  <button
-                    aria-selected={selected}
-                    className={`time-zone-picker__option${selected ? " is-selected" : ""}${highlighted ? " is-highlighted" : ""}`}
-                    data-time-zone-index={index}
-                    key={option.zone}
-                    onClick={() => choose(option.zone)}
-                    onMouseEnter={() => setHighlightedIndex(index)}
-                    role="option"
-                    type="button"
-                  >
-                    <span className="time-zone-picker__zone">
-                      {option.zone}
-                    </span>
-                    <span className="time-zone-picker__offset">
-                      {option.offsetLabel}
-                    </span>
-                    {selected ? (
-                      <CheckIcon
-                        aria-hidden="true"
-                        className="time-zone-picker__check"
-                        size={15}
-                      />
-                    ) : null}
-                  </button>
-                );
-              })
-            ) : (
-              <p className="time-zone-picker__empty">No matching time zones.</p>
-            )}
-          </div>
-        </div>
-      ) : null}
+      {panel && typeof document !== "undefined"
+        ? createPortal(panel, document.body)
+        : null}
     </div>
   );
 }
