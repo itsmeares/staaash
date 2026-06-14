@@ -13,7 +13,7 @@
   "packageRules": [
     {
       "matchUpdateTypes": ["major"],
-      "dependencyDashboardApproval": true
+      "groupName": "Major Updates"
     },
     {
       "matchManagers": ["github-actions"],
