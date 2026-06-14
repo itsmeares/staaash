@@ -3,7 +3,7 @@
   "extends": ["config:recommended", "mergeConfidence:all-badges"],
   "dependencyDashboard": true,
   "timezone": "Europe/London",
-  "schedule": ["before 9am on monday"],
+  "schedule": ["* 0-3 * * 1"],
   "rebaseWhen": "behind-base-branch",
   "minimumReleaseAge": "1 day",
   "prCreation": "not-pending",
