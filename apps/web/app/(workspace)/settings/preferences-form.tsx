@@ -5,10 +5,8 @@ import React, { useState } from "react";
 import { normalizeTimeZone } from "@staaash/config/time-zone";
 
 import { TimeZonePicker } from "@/components/time-zone-picker";
-import {
-  applyThemeWithPolygonTransition,
-  type Theme,
-} from "@/lib/theme-transition";
+
+type Theme = "light" | "dark" | "system";
 
 type PreferencesFormProps = {
   initialTheme: Theme;
@@ -16,6 +14,13 @@ type PreferencesFormProps = {
   initialShowUpdateNotifications: boolean;
   initialEnableVersionChecks: boolean;
 };
+
+function applyTheme(theme: Theme) {
+  const html = document.documentElement;
+  html.classList.remove("dark", "light");
+  if (theme === "dark") html.classList.add("dark");
+  else if (theme === "light") html.classList.add("light");
+}
 
 const THEME_OPTIONS: { value: Theme; label: string }[] = [
   { value: "system", label: "System" },
@@ -43,7 +48,7 @@ export function PreferencesForm({
 
   function handleThemeChange(t: Theme) {
     setTheme(t);
-    applyThemeWithPolygonTransition(t);
+    applyTheme(t);
     setSaved(false);
   }
 
