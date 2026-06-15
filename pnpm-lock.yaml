@@ -148,7 +148,7 @@ importers:
         specifier: ^4.4.0
         version: 4.4.0
       tsx:
-        specifier: ^4.22.3
+        specifier: ^4.22.4
         version: 4.22.4
       yazl:
         specifier: ^3.3.1
