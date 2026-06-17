@@ -51,8 +51,8 @@ export type AdminOverviewSummary = {
   users: {
     total: number;
     owners: number;
+    admins: number;
     members: number;
-    activeInvites: number;
   };
   updates: AdminUpdateStatus;
 };

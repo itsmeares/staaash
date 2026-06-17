@@ -27,7 +27,7 @@ type UpdateStatus =
 
 interface TopbarActionsProps {
   userLabel: string | null;
-  username: string;
+  email: string;
   initials: string;
   isOwner: boolean;
   avatarUrl: string | null;
@@ -44,7 +44,7 @@ const THEME_ICONS = { system: SunMoon, light: Sun, dark: Moon } as const;
 
 export function TopbarActions({
   userLabel,
-  username,
+  email,
   initials,
   isOwner,
   avatarUrl,
@@ -179,7 +179,7 @@ export function TopbarActions({
             {userLabel && (
               <span className="topbar-profile-card-name">{userLabel}</span>
             )}
-            <span className="topbar-profile-card-username">@{username}</span>
+            <span className="topbar-profile-card-email">{email}</span>
           </div>
 
           <div className="flex flex-col p-1.5">

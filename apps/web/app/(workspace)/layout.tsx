@@ -55,7 +55,7 @@ export default async function WorkspaceLayout({
   const compactInstanceInitial = instanceName.charAt(0).toUpperCase() || "S";
 
   const initials = session
-    ? getInitials(session.user.displayName, session.user.username)
+    ? getInitials(session.user.displayName, session.user.email)
     : "??";
 
   return (
@@ -89,7 +89,7 @@ export default async function WorkspaceLayout({
                 limitBytes={limitBytes?.toString() ?? null}
                 diskUsedBytes={diskUsedBytes?.toString() ?? null}
                 diskCapacityBytes={diskCapacityBytes?.toString() ?? null}
-                isAdmin={session.user.role === "owner"}
+                isAdmin={session.user.isAdmin}
               />
             </section>
           ) : null}
@@ -129,9 +129,9 @@ export default async function WorkspaceLayout({
             {session ? (
               <TopbarActions
                 userLabel={userLabel}
-                username={session.user.username}
+                email={session.user.email}
                 initials={initials}
-                isOwner={session.user.role === "owner"}
+                isOwner={session.user.isAdmin}
                 avatarUrl={session.user.avatarUrl ?? null}
                 initialTheme={
                   (session.user.preferences?.theme as
@@ -167,7 +167,7 @@ export default async function WorkspaceLayout({
           diskUsedBytes={diskUsedBytes?.toString() ?? null}
           initials={initials}
           instanceName={instanceName}
-          isOwner={session.user.role === "owner"}
+          isOwner={session.user.isAdmin}
           latestVersion={instanceUpdateState?.latestAvailableVersion ?? null}
           limitBytes={limitBytes?.toString() ?? null}
           nodeVersion={process.version}
@@ -175,7 +175,7 @@ export default async function WorkspaceLayout({
           updateStatus={instanceUpdateState?.updateCheckStatus ?? null}
           usedBytes={usedBytes.toString()}
           userLabel={userLabel}
-          username={session.user.username}
+          email={session.user.email}
         />
       ) : null}
 

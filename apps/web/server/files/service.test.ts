@@ -2,7 +2,7 @@ import { access, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { FilesError } from "@/server/files/errors";
 import type { FilesRepository } from "@/server/files/repository";
@@ -13,6 +13,10 @@ import type {
   FolderSummary,
   StoredFile,
 } from "@/server/files/types";
+
+vi.mock("@/server/user-storage", () => ({
+  assertUserStorageQuotaAvailable: vi.fn().mockResolvedValue(undefined),
+}));
 
 type MemoryFolderRecord = FolderSummary & {};
 
@@ -40,7 +44,7 @@ const createMemoryRepository = () => {
   const cloneFolder = (folder: MemoryFolderRecord): FolderSummary => ({
     id: folder.id,
     ownerUserId: folder.ownerUserId,
-    ownerUsername: folder.ownerUsername,
+    ownerStorageId: folder.ownerStorageId,
     parentId: folder.parentId,
     name: folder.name,
     isFilesRoot: folder.isFilesRoot,
@@ -76,20 +80,20 @@ const createMemoryRepository = () => {
     name,
     isFilesRoot = false,
     deletedAt = null,
-    ownerUsername = ownerUserId,
+    ownerStorageId = ownerUserId,
   }: {
     ownerUserId: string;
     parentId: string | null;
     name: string;
     isFilesRoot?: boolean;
     deletedAt?: Date | null;
-    ownerUsername?: string;
+    ownerStorageId?: string;
   }) => {
     const now = nextDate();
     const folder: MemoryFolderRecord = {
       id: nextId("folder"),
       ownerUserId,
-      ownerUsername,
+      ownerStorageId,
       parentId,
       name,
       isFilesRoot,
@@ -114,7 +118,7 @@ const createMemoryRepository = () => {
     storageStatus = "available",
     storageCheckedAt = null,
     storageMissingAt = null,
-    ownerUsername = ownerUserId,
+    ownerStorageId = ownerUserId,
   }: {
     ownerUserId: string;
     folderId: string | null;
@@ -127,13 +131,13 @@ const createMemoryRepository = () => {
     storageStatus?: StoredFile["storageStatus"];
     storageCheckedAt?: Date | null;
     storageMissingAt?: Date | null;
-    ownerUsername?: string;
+    ownerStorageId?: string;
   }) => {
     const now = nextDate();
     const file: StoredFile = {
       id: nextId("file"),
       ownerUserId,
-      ownerUsername,
+      ownerStorageId,
       folderId,
       name,
       storageKey,
@@ -168,7 +172,7 @@ const createMemoryRepository = () => {
         parentId: null,
         name: "Files",
         isFilesRoot: true,
-        ownerUsername: ownerUserId,
+        ownerStorageId: ownerUserId,
       });
 
       return cloneFolder(folder);
@@ -271,7 +275,7 @@ const createMemoryRepository = () => {
       const file: StoredFile = {
         id: params.id ?? nextId("file"),
         ownerUserId: params.ownerUserId,
-        ownerUsername: params.ownerUserId,
+        ownerStorageId: params.ownerUserId,
         folderId: params.folderId,
         name: params.name,
         storageKey: params.storageKey,

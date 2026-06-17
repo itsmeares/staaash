@@ -29,7 +29,7 @@ export type ShareTargetSummary =
       targetType: "file";
       id: string;
       ownerUserId: string;
-      ownerUsername: string;
+      ownerStorageId: string;
       name: string;
       folderId: string | null;
       mimeType: string;
@@ -41,7 +41,7 @@ export type ShareTargetSummary =
       targetType: "folder";
       id: string;
       ownerUserId: string;
-      ownerUsername: string;
+      ownerStorageId: string;
       name: string;
       parentId: string | null;
       isFilesRoot: boolean;

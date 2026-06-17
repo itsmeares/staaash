@@ -5,6 +5,7 @@ import { scheduleDerivativeGenerate } from "@staaash/db/media-derivatives";
 
 import { canAccessPrivateNamespace } from "@/server/access";
 import { getSystemSettings } from "@/server/settings";
+import { assertUserStorageQuotaAvailable } from "@/server/user-storage";
 import { FilesError } from "@/server/files/errors";
 import {
   buildFileStorageKey,
@@ -142,7 +143,7 @@ const toFileSummary = (
     StoredFile,
     | "id"
     | "ownerUserId"
-    | "ownerUsername"
+    | "ownerStorageId"
     | "folderId"
     | "name"
     | "mimeType"
@@ -155,7 +156,7 @@ const toFileSummary = (
 ): FileSummary => ({
   id: file.id,
   ownerUserId: file.ownerUserId,
-  ownerUsername: file.ownerUsername,
+  ownerStorageId: file.ownerStorageId,
   folderId: file.folderId,
   name: file.name,
   mimeType: file.mimeType,
@@ -358,7 +359,7 @@ export const createFilesService = ({
   const ensureFilesRoot = async (ownerUserId: string) => {
     const activeRepo = await resolveRepo();
     const filesRoot = await activeRepo.ensureFilesRoot(ownerUserId);
-    await ensureUserCommittedStorageDirectories(filesRoot.ownerUsername);
+    await ensureUserCommittedStorageDirectories(filesRoot.ownerStorageId);
     await createFolderDirectory(
       buildFolderStorageKey({
         folder: filesRoot,
@@ -1100,7 +1101,7 @@ export const createFilesService = ({
       const virtualFolder: FolderSummary = {
         id: `pending-${randomUUID()}`,
         ownerUserId: parentFolder.ownerUserId,
-        ownerUsername: parentFolder.ownerUsername,
+        ownerStorageId: parentFolder.ownerStorageId,
         parentId: parentFolder.id,
         name: normalizedName,
         isFilesRoot: false,
@@ -1584,7 +1585,7 @@ export const createFilesService = ({
         for (const descendantFile of descendantFiles) {
           const restoredStorageKey = buildFileStorageKey({
             file: {
-              ownerUsername: descendantFile.ownerUsername,
+              ownerStorageId: descendantFile.ownerStorageId,
               folderId: descendantFile.folderId,
               name: descendantFile.name,
             },
@@ -1952,6 +1953,10 @@ export const createFilesService = ({
             folderId,
           })
         : await ensureFilesRoot(actorUserId);
+      await assertUserStorageQuotaAvailable(
+        targetFolder.ownerUserId,
+        items.reduce((total, item) => total + BigInt(item.file.size), 0n),
+      );
       const activeRepo = await resolveRepo();
       const filesRoot = await ensureFilesRoot(targetFolder.ownerUserId);
       const folderMap = buildFolderMap(
@@ -2064,7 +2069,7 @@ export const createFilesService = ({
 
               const storageKey = buildFileStorageKey({
                 file: {
-                  ownerUsername: targetFolder.ownerUsername,
+                  ownerStorageId: targetFolder.ownerStorageId,
                   folderId: targetFolder.id,
                   name: finalName,
                 },
@@ -2171,6 +2176,10 @@ export const createFilesService = ({
       const targetFolder = folderId
         ? await getActiveOwnedFolder({ actorRole, actorUserId, folderId })
         : await ensureFilesRoot(actorUserId);
+      await assertUserStorageQuotaAvailable(
+        targetFolder.ownerUserId,
+        BigInt(totalSizeBytes),
+      );
       const activeRepo = await resolveRepo();
       const filesRoot = await ensureFilesRoot(targetFolder.ownerUserId);
       const folderMap = buildFolderMap(
@@ -2249,7 +2258,7 @@ export const createFilesService = ({
 
           const storageKey = buildFileStorageKey({
             file: {
-              ownerUsername: targetFolder.ownerUsername,
+              ownerStorageId: targetFolder.ownerStorageId,
               folderId: targetFolder.id,
               name: finalName,
             },

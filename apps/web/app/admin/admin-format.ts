@@ -50,7 +50,9 @@ export const getAdminStatusClassName = (status: string) =>
             ? ""
             : status === "owner"
               ? "status-owner"
-              : status === "member"
-                ? "status-member"
-                : "status-error"
+              : status === "admin"
+                ? "status-healthy"
+                : status === "member"
+                  ? "status-member"
+                  : "status-error"
   }`;

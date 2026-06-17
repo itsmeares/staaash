@@ -3,84 +3,64 @@ import { randomBytes } from "node:crypto";
 import {
   Prisma,
   getPrisma,
-  type Invite,
-  type PasswordReset,
   type Session,
   type User,
   type UserPreference,
-  type UserRole,
 } from "@staaash/db/client";
 
 import { AuthError } from "@/server/auth/errors";
-import {
-  getInviteStatus,
-  getPasswordResetStatus,
-  toStoredInvite,
-  toStoredPasswordReset,
-  toInviteSummary,
-  toPasswordResetSummary,
-} from "@/server/auth/summaries";
 import type {
   AuthSession,
   AuthUser,
-  InviteSummary,
-  PasswordResetSummary,
+  SessionMetadata,
   SetupState,
   StoredAuthSession,
   StoredAuthUser,
-  StoredInvite,
-  StoredPasswordReset,
   UserPreferences,
 } from "@/server/auth/types";
 
 type CreateBootstrapParams = {
   instanceName: string;
   email: string;
-  username: string;
+  storageId: string;
   displayName?: string;
   passwordHash: string;
   createdAt: Date;
+};
+
+type CreateUserParams = {
+  email: string;
+  storageId: string;
+  passwordHash: string;
+  isAdmin: boolean;
+  storageLimitBytes: bigint | null;
+  passwordChangeRequiredAt: Date | null;
+  temporaryPasswordIssuedAt: Date;
+  temporaryPasswordIssuedByUserId: string;
+};
+
+type UpdateUserParams = {
+  userId: string;
+  email?: string;
+  displayName?: string | null;
+  storageLimitBytes?: bigint | null;
+  isAdmin?: boolean;
 };
 
 type CreateSessionParams = {
   userId: string;
   tokenHash: string;
   expiresAt: Date;
-};
-
-type CreateInviteParams = {
-  email: string;
-  role: UserRole;
-  invitedByUserId: string;
-  tokenHash: string;
-  expiresAt: Date;
-};
-
-type RedeemInviteParams = {
-  inviteId: string;
-  username: string;
-  displayName?: string;
-  passwordHash: string;
+  metadata?: SessionMetadata;
   now: Date;
 };
 
-type CreatePasswordResetParams = {
+type SetTemporaryPasswordParams = {
   userId: string;
   issuedByUserId: string;
-  tokenHash: string;
-  expiresAt: Date;
-  now: Date;
-};
-
-type ConsumePasswordResetParams = {
-  resetId: string;
   passwordHash: string;
+  requirePasswordChange: boolean;
   now: Date;
-};
-
-type StoredPasswordResetLookup = {
-  reset: StoredPasswordReset;
-  user: AuthUser;
 };
 
 type SavePreferencesParams = {
@@ -96,62 +76,52 @@ type SavePreferencesParams = {
 
 type AuthPrismaClient = Pick<
   ReturnType<typeof getPrisma>,
-  | "folder"
-  | "instance"
-  | "invite"
-  | "passwordReset"
-  | "session"
-  | "user"
-  | "userPreference"
-  | "$transaction"
+  "folder" | "instance" | "session" | "user" | "userPreference" | "$transaction"
 >;
 
 export type AuthRepository = {
   getSetupState(): Promise<SetupState>;
   createBootstrap(params: CreateBootstrapParams): Promise<AuthUser>;
+  createUser(params: CreateUserParams): Promise<AuthUser>;
+  updateUser(params: UpdateUserParams): Promise<AuthUser | null>;
   findUserByEmail(email: string): Promise<StoredAuthUser | null>;
-  findUserByUsername(username: string): Promise<StoredAuthUser | null>;
   findUserById(id: string): Promise<AuthUser | null>;
   listUsers(): Promise<AuthUser[]>;
   setUserStorageLimit(
     userId: string,
     limitBytes: bigint | null,
   ): Promise<AuthUser | null>;
+  setTemporaryPassword(params: SetTemporaryPasswordParams): Promise<AuthUser>;
+  changeRequiredPassword(
+    userId: string,
+    passwordHash: string,
+    now: Date,
+  ): Promise<AuthUser | null>;
   createSession(params: CreateSessionParams): Promise<AuthSession>;
   findSessionByTokenHash(tokenHash: string): Promise<StoredAuthSession | null>;
+  listUserSessions(userId: string): Promise<AuthSession[]>;
   revokeSessionById(id: string, revokedAt: Date): Promise<void>;
-  findActiveInviteByEmail(
-    email: string,
-    now: Date,
-  ): Promise<InviteSummary | null>;
-  listInvites(now: Date): Promise<InviteSummary[]>;
-  findInviteById(id: string): Promise<StoredInvite | null>;
-  findInviteByTokenHash(tokenHash: string): Promise<StoredInvite | null>;
-  createInvite(params: CreateInviteParams, now: Date): Promise<InviteSummary>;
-  revokeInvite(id: string, revokedAt: Date, now: Date): Promise<InviteSummary>;
-  consumeInvite(params: RedeemInviteParams): Promise<AuthUser | null>;
-  createPasswordReset(
-    params: CreatePasswordResetParams,
-    now: Date,
-  ): Promise<PasswordResetSummary>;
-  findPasswordResetByTokenHash(
-    tokenHash: string,
-  ): Promise<StoredPasswordResetLookup | null>;
-  consumePasswordReset(
-    params: ConsumePasswordResetParams,
-  ): Promise<AuthUser | null>;
+  revokeUserSessions(userId: string, revokedAt: Date): Promise<void>;
+  touchSessionLastSeen(id: string, seenAt: Date): Promise<void>;
   savePreferences(params: SavePreferencesParams): Promise<UserPreferences>;
 };
+
+const toUserRole = (user: Pick<User, "isOwner" | "isAdmin">) =>
+  user.isOwner ? "owner" : user.isAdmin ? "admin" : "member";
 
 const toAuthUser = (
   user: Pick<
     User,
     | "id"
     | "email"
-    | "username"
+    | "storageId"
     | "displayName"
     | "avatarUrl"
-    | "role"
+    | "isOwner"
+    | "isAdmin"
+    | "passwordChangeRequiredAt"
+    | "temporaryPasswordIssuedAt"
+    | "temporaryPasswordIssuedByUserId"
     | "storageLimitBytes"
     | "createdAt"
     | "updatedAt"
@@ -159,10 +129,15 @@ const toAuthUser = (
 ): AuthUser => ({
   id: user.id,
   email: user.email,
-  username: user.username,
+  storageId: user.storageId,
   displayName: user.displayName,
   avatarUrl: user.avatarUrl,
-  role: user.role,
+  isOwner: user.isOwner,
+  isAdmin: user.isAdmin,
+  role: toUserRole(user),
+  passwordChangeRequiredAt: user.passwordChangeRequiredAt,
+  temporaryPasswordIssuedAt: user.temporaryPasswordIssuedAt,
+  temporaryPasswordIssuedByUserId: user.temporaryPasswordIssuedByUserId,
   storageLimitBytes: user.storageLimitBytes,
   preferences: user.preferences
     ? {
@@ -189,6 +164,9 @@ const toAuthSession = (
 ): AuthSession => ({
   id: session.id,
   expiresAt: session.expiresAt,
+  userAgent: session.userAgent,
+  ipAddress: session.ipAddress,
+  lastSeenAt: session.lastSeenAt,
   createdAt: session.createdAt,
   updatedAt: session.updatedAt,
   user: toAuthUser(session.user),
@@ -228,6 +206,18 @@ const getUniqueConstraintTargets = (error: unknown): string[] => {
   return typeof target === "string" ? [target] : [];
 };
 
+const mapUniqueError = (error: unknown) => {
+  if (!isUniqueConstraintError(error)) return null;
+
+  const targets = getUniqueConstraintTargets(error);
+
+  if (targets.includes("storageId")) {
+    return new AuthError("STORAGE_ID_COLLISION");
+  }
+
+  return new AuthError("USER_ALREADY_EXISTS");
+};
+
 const createPrismaAuthRepository = (
   client?: AuthPrismaClient,
 ): AuthRepository => {
@@ -245,7 +235,7 @@ const createPrismaAuthRepository = (
         }),
         client.user.findFirst({
           where: {
-            role: "owner",
+            isOwner: true,
           },
           select: {
             id: true,
@@ -277,10 +267,11 @@ const createPrismaAuthRepository = (
             const user = await tx.user.create({
               data: {
                 email: params.email,
-                username: params.username,
+                storageId: params.storageId,
                 displayName: params.displayName ?? null,
                 passwordHash: params.passwordHash,
-                role: "owner",
+                isOwner: true,
+                isAdmin: true,
               },
             });
 
@@ -307,25 +298,91 @@ const createPrismaAuthRepository = (
       }
     },
 
+    async createUser(params) {
+      const client = getClient();
+
+      try {
+        return await client.$transaction(
+          async (tx: Prisma.TransactionClient) => {
+            const user = await tx.user.create({
+              data: {
+                email: params.email,
+                storageId: params.storageId,
+                passwordHash: params.passwordHash,
+                isAdmin: params.isAdmin,
+                storageLimitBytes: params.storageLimitBytes,
+                passwordChangeRequiredAt: params.passwordChangeRequiredAt,
+                temporaryPasswordIssuedAt: params.temporaryPasswordIssuedAt,
+                temporaryPasswordIssuedByUserId:
+                  params.temporaryPasswordIssuedByUserId,
+              },
+            });
+
+            await tx.folder.create({
+              data: {
+                ownerUserId: user.id,
+                name: "Files",
+                isFilesRoot: true,
+              },
+              select: {
+                id: true,
+              },
+            });
+
+            return toAuthUser(user);
+          },
+        );
+      } catch (error) {
+        const authError = mapUniqueError(error);
+        if (authError) throw authError;
+        throw error;
+      }
+    },
+
+    async updateUser(params) {
+      const client = getClient();
+
+      try {
+        const user = await client.user.update({
+          where: { id: params.userId },
+          data: {
+            ...(params.email !== undefined ? { email: params.email } : {}),
+            ...(params.displayName !== undefined
+              ? { displayName: params.displayName || null }
+              : {}),
+            ...(params.storageLimitBytes !== undefined
+              ? { storageLimitBytes: params.storageLimitBytes }
+              : {}),
+            ...(params.isAdmin !== undefined
+              ? { isAdmin: params.isAdmin }
+              : {}),
+          },
+          include: {
+            preferences: true,
+          },
+        });
+
+        return toAuthUser(user);
+      } catch (error) {
+        const authError = mapUniqueError(error);
+        if (authError) throw authError;
+
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2025"
+        ) {
+          return null;
+        }
+
+        throw error;
+      }
+    },
+
     async findUserByEmail(email) {
       const client = getClient();
       const user = await client.user.findUnique({
         where: {
           email,
-        },
-        include: {
-          preferences: true,
-        },
-      });
-
-      return user ? toStoredAuthUser(user) : null;
-    },
-
-    async findUserByUsername(username) {
-      const client = getClient();
-      const user = await client.user.findUnique({
-        where: {
-          username,
         },
         include: {
           preferences: true,
@@ -341,6 +398,9 @@ const createPrismaAuthRepository = (
         where: {
           id,
         },
+        include: {
+          preferences: true,
+        },
       });
 
       return user ? toAuthUser(user) : null;
@@ -349,8 +409,9 @@ const createPrismaAuthRepository = (
     async listUsers() {
       const client = getClient();
       const users = await client.user.findMany({
-        orderBy: {
-          createdAt: "asc",
+        orderBy: [{ isOwner: "desc" }, { createdAt: "asc" }],
+        include: {
+          preferences: true,
         },
       });
 
@@ -359,12 +420,103 @@ const createPrismaAuthRepository = (
 
     async setUserStorageLimit(userId, limitBytes) {
       const client = getClient();
-      const user = await client.user.update({
-        where: { id: userId },
-        data: { storageLimitBytes: limitBytes },
-      });
 
-      return user ? toAuthUser(user) : null;
+      try {
+        const user = await client.user.update({
+          where: { id: userId },
+          data: { storageLimitBytes: limitBytes },
+          include: {
+            preferences: true,
+          },
+        });
+
+        return toAuthUser(user);
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2025"
+        ) {
+          return null;
+        }
+
+        throw error;
+      }
+    },
+
+    async setTemporaryPassword(params) {
+      const client = getClient();
+
+      try {
+        return await client.$transaction(
+          async (tx: Prisma.TransactionClient) => {
+            const user = await tx.user.update({
+              where: { id: params.userId },
+              data: {
+                passwordHash: params.passwordHash,
+                passwordChangeRequiredAt: params.requirePasswordChange
+                  ? params.now
+                  : null,
+                temporaryPasswordIssuedAt: params.now,
+                temporaryPasswordIssuedByUserId: params.issuedByUserId,
+              },
+              include: {
+                preferences: true,
+              },
+            });
+
+            await tx.session.updateMany({
+              where: {
+                userId: params.userId,
+                revokedAt: null,
+              },
+              data: {
+                revokedAt: params.now,
+              },
+            });
+
+            return toAuthUser(user);
+          },
+        );
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2025"
+        ) {
+          throw new AuthError("USER_NOT_FOUND");
+        }
+        throw error;
+      }
+    },
+
+    async changeRequiredPassword(userId, passwordHash, now) {
+      const client = getClient();
+
+      try {
+        const user = await client.user.update({
+          where: { id: userId },
+          data: {
+            passwordHash,
+            passwordChangeRequiredAt: null,
+            temporaryPasswordIssuedAt: null,
+            temporaryPasswordIssuedByUserId: null,
+            updatedAt: now,
+          },
+          include: {
+            preferences: true,
+          },
+        });
+
+        return toAuthUser(user);
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2025"
+        ) {
+          return null;
+        }
+
+        throw error;
+      }
     },
 
     async createSession(params) {
@@ -374,6 +526,9 @@ const createPrismaAuthRepository = (
           userId: params.userId,
           tokenHash: params.tokenHash,
           expiresAt: params.expiresAt,
+          userAgent: params.metadata?.userAgent ?? null,
+          ipAddress: params.metadata?.ipAddress ?? null,
+          lastSeenAt: params.now,
         },
         include: {
           user: { include: { preferences: true } },
@@ -397,6 +552,27 @@ const createPrismaAuthRepository = (
       return session ? toStoredAuthSession(session) : null;
     },
 
+    async listUserSessions(userId) {
+      const client = getClient();
+      const sessions = await client.session.findMany({
+        where: {
+          userId,
+          revokedAt: null,
+          expiresAt: {
+            gt: new Date(),
+          },
+        },
+        orderBy: {
+          lastSeenAt: "desc",
+        },
+        include: {
+          user: { include: { preferences: true } },
+        },
+      });
+
+      return sessions.map(toAuthSession);
+    },
+
     async revokeSessionById(id, revokedAt) {
       const client = getClient();
 
@@ -411,256 +587,31 @@ const createPrismaAuthRepository = (
       });
     },
 
-    async findActiveInviteByEmail(email, now) {
+    async revokeUserSessions(userId, revokedAt) {
       const client = getClient();
-      const invite = await client.invite.findFirst({
+
+      await client.session.updateMany({
         where: {
-          email,
-          acceptedAt: null,
+          userId,
           revokedAt: null,
-          expiresAt: {
-            gt: now,
-          },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-
-      return invite ? toInviteSummary(invite, now) : null;
-    },
-
-    async listInvites(now) {
-      const client = getClient();
-      const invites = await client.invite.findMany({
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-
-      return invites.map((invite: Invite) => toInviteSummary(invite, now));
-    },
-
-    async findInviteById(id) {
-      const client = getClient();
-      const invite = await client.invite.findUnique({
-        where: {
-          id,
-        },
-      });
-
-      return invite ? toStoredInvite(invite) : null;
-    },
-
-    async findInviteByTokenHash(tokenHash) {
-      const client = getClient();
-      const invite = await client.invite.findUnique({
-        where: {
-          tokenHash,
-        },
-      });
-
-      return invite ? toStoredInvite(invite) : null;
-    },
-
-    async createInvite(params, now) {
-      const client = getClient();
-      const invite = await client.invite.create({
-        data: {
-          email: params.email,
-          role: params.role,
-          tokenHash: params.tokenHash,
-          invitedByUserId: params.invitedByUserId,
-          expiresAt: params.expiresAt,
-        },
-      });
-
-      return toInviteSummary(invite, now);
-    },
-
-    async revokeInvite(id, revokedAt, now) {
-      const client = getClient();
-      const invite = await client.invite.update({
-        where: {
-          id,
         },
         data: {
           revokedAt,
         },
       });
-
-      return toInviteSummary(invite, now);
     },
 
-    async consumeInvite(params) {
+    async touchSessionLastSeen(id, seenAt) {
       const client = getClient();
 
-      try {
-        return await client.$transaction(
-          async (tx: Prisma.TransactionClient) => {
-            const invite = await tx.invite.findFirst({
-              where: {
-                id: params.inviteId,
-                acceptedAt: null,
-                revokedAt: null,
-                expiresAt: {
-                  gt: params.now,
-                },
-              },
-            });
-
-            if (!invite) {
-              return null;
-            }
-
-            const user = await tx.user.create({
-              data: {
-                email: invite.email,
-                username: params.username,
-                displayName: params.displayName ?? null,
-                passwordHash: params.passwordHash,
-                role: invite.role,
-              },
-            });
-
-            await tx.folder.create({
-              data: {
-                ownerUserId: user.id,
-                name: "Files",
-                isFilesRoot: true,
-              },
-              select: {
-                id: true,
-              },
-            });
-
-            await tx.invite.update({
-              where: {
-                id: invite.id,
-              },
-              data: {
-                acceptedAt: params.now,
-                acceptedByUserId: user.id,
-              },
-            });
-
-            return toAuthUser(user);
-          },
-        );
-      } catch (error) {
-        if (isUniqueConstraintError(error)) {
-          if (getUniqueConstraintTargets(error).includes("username")) {
-            throw new AuthError("USERNAME_ALREADY_EXISTS");
-          }
-
-          throw new AuthError("USER_ALREADY_EXISTS");
-        }
-
-        throw error;
-      }
-    },
-
-    async createPasswordReset(params, now) {
-      const client = getClient();
-      const reset = await client.$transaction(
-        async (tx: Prisma.TransactionClient) => {
-          await tx.passwordReset.updateMany({
-            where: {
-              userId: params.userId,
-              redeemedAt: null,
-              revokedAt: null,
-              expiresAt: {
-                gt: params.now,
-              },
-            },
-            data: {
-              revokedAt: params.now,
-            },
-          });
-
-          return tx.passwordReset.create({
-            data: {
-              userId: params.userId,
-              issuedByUserId: params.issuedByUserId,
-              tokenHash: params.tokenHash,
-              expiresAt: params.expiresAt,
-            },
-          });
-        },
-      );
-
-      return toPasswordResetSummary(reset, now);
-    },
-
-    async findPasswordResetByTokenHash(tokenHash) {
-      const client = getClient();
-      const reset = await client.passwordReset.findUnique({
+      await client.session.updateMany({
         where: {
-          tokenHash,
+          id,
+          revokedAt: null,
         },
-        include: {
-          user: { include: { preferences: true } },
+        data: {
+          lastSeenAt: seenAt,
         },
-      });
-
-      if (!reset) {
-        return null;
-      }
-
-      return {
-        reset: toStoredPasswordReset(reset),
-        user: toAuthUser(reset.user),
-      };
-    },
-
-    async consumePasswordReset(params) {
-      const client = getClient();
-
-      return client.$transaction(async (tx: Prisma.TransactionClient) => {
-        const reset = await tx.passwordReset.findFirst({
-          where: {
-            id: params.resetId,
-            redeemedAt: null,
-            revokedAt: null,
-            expiresAt: {
-              gt: params.now,
-            },
-          },
-        });
-
-        if (!reset) {
-          return null;
-        }
-
-        const user = await tx.user.update({
-          where: {
-            id: reset.userId,
-          },
-          data: {
-            passwordHash: params.passwordHash,
-          },
-        });
-
-        await tx.session.updateMany({
-          where: {
-            userId: reset.userId,
-            revokedAt: null,
-          },
-          data: {
-            revokedAt: params.now,
-          },
-        });
-
-        await tx.passwordReset.update({
-          where: {
-            id: reset.id,
-          },
-          data: {
-            redeemedAt: params.now,
-          },
-        });
-
-        return toAuthUser(user);
       });
     },
 

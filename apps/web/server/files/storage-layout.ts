@@ -125,11 +125,11 @@ export const buildFolderStorageKey = ({
 
   return trashed
     ? getTrashedFolderStorageKey({
-        username: folder.ownerUsername,
+        storageId: folder.ownerStorageId,
         folderPathSegments,
       })
     : getActiveFolderStorageKey({
-        username: folder.ownerUsername,
+        storageId: folder.ownerStorageId,
         folderPathSegments,
       });
 };
@@ -140,7 +140,7 @@ export const buildFileStorageKey = ({
   filesRoot,
   trashed,
 }: {
-  file: Pick<StoredFile, "ownerUsername" | "folderId" | "name">;
+  file: Pick<StoredFile, "ownerStorageId" | "folderId" | "name">;
   folderMap: Map<string, FolderSummary>;
   filesRoot: FolderSummary;
   trashed: boolean;
@@ -156,12 +156,12 @@ export const buildFileStorageKey = ({
 
   return trashed
     ? getTrashedCommittedStorageKey({
-        username: file.ownerUsername,
+        storageId: file.ownerStorageId,
         folderPathSegments,
         fileName: file.name,
       })
     : getActiveCommittedStorageKey({
-        username: file.ownerUsername,
+        storageId: file.ownerStorageId,
         folderPathSegments,
         fileName: file.name,
       });

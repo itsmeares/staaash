@@ -56,9 +56,9 @@ export function SettingsForm({ settings }: SettingsFormProps) {
       "max upload size upload timeout staging retention preview source max preview text max",
     ),
     sessions: matchesSearch(
-      "sessions invites",
-      "session invite password reset share expiry",
-      "session max age invite max age password reset max age share max age",
+      "sessions",
+      "session share expiry",
+      "session max age share max age",
     ),
     updates: matchesSearch(
       "update checks",
@@ -164,8 +164,8 @@ export function SettingsForm({ settings }: SettingsFormProps) {
         </SettingsPanel>
 
         <SettingsPanel
-          title="Sessions & invites"
-          description="Session, invite, password reset, and share expiry"
+          title="Sessions"
+          description="Session and share expiry"
           hidden={!visiblePanels.sessions}
         >
           <dl className="settings-list">
@@ -173,22 +173,6 @@ export function SettingsForm({ settings }: SettingsFormProps) {
               <SettingsNumberInput
                 name="sessionMaxAgeDays"
                 defaultValue={settings.sessionMaxAgeDays}
-                min={1}
-                className="settings-input"
-              />
-            </SettingRow>
-            <SettingRow label="Invite max age (days)">
-              <SettingsNumberInput
-                name="inviteMaxAgeDays"
-                defaultValue={settings.inviteMaxAgeDays}
-                min={1}
-                className="settings-input"
-              />
-            </SettingRow>
-            <SettingRow label="Password reset max age (hours)">
-              <SettingsNumberInput
-                name="passwordResetMaxAgeHours"
-                defaultValue={settings.passwordResetMaxAgeHours}
                 min={1}
                 className="settings-input"
               />

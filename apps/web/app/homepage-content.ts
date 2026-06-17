@@ -33,7 +33,7 @@ export function getHomePageContent({
       },
       title: "Bring this Staaash instance online.",
       description:
-        "Create the first owner account once. After that, this Staaash stays private and invite-only.",
+        "Create the first owner account once. After that, this Staaash stays private.",
     };
   }
 

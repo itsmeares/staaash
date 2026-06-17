@@ -20,7 +20,8 @@ export type FilesErrorCode =
   | "FOLDER_NAME_RESERVED"
   | "FOLDER_NAME_TRAILING_SPACE_OR_DOT"
   | "FOLDER_NOT_FOUND"
-  | "FOLDER_ROOT_IMMUTABLE";
+  | "FOLDER_ROOT_IMMUTABLE"
+  | "USER_STORAGE_QUOTA_EXCEEDED";
 
 const filesErrorMessages: Record<FilesErrorCode, string> = {
   ACCESS_DENIED: "You do not have access to that folder.",
@@ -56,6 +57,8 @@ const filesErrorMessages: Record<FilesErrorCode, string> = {
   FOLDER_NOT_FOUND: "That folder does not exist.",
   FOLDER_ROOT_IMMUTABLE:
     "The files root cannot be renamed, moved, trashed, or restored.",
+  USER_STORAGE_QUOTA_EXCEEDED:
+    "This upload would exceed the user's storage quota.",
 };
 
 const filesErrorStatuses: Record<FilesErrorCode, number> = {
@@ -81,6 +84,7 @@ const filesErrorStatuses: Record<FilesErrorCode, number> = {
   FOLDER_NAME_TRAILING_SPACE_OR_DOT: 400,
   FOLDER_NOT_FOUND: 404,
   FOLDER_ROOT_IMMUTABLE: 409,
+  USER_STORAGE_QUOTA_EXCEEDED: 413,
 };
 
 export class FilesError extends Error {

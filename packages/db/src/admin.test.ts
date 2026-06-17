@@ -6,9 +6,10 @@ const { getAdminStorageUsageSummary, listAdminBackgroundJobs } =
 type MemoryUser = {
   id: string;
   email: string;
-  username: string;
+  storageId: string;
   displayName: string | null;
-  role: "owner" | "member";
+  isOwner: boolean;
+  isAdmin: boolean;
   createdAt: Date;
 };
 
@@ -214,17 +215,19 @@ describe("admin db helpers", () => {
           {
             id: "owner-1",
             email: "owner@example.com",
-            username: "owner",
+            storageId: "owner",
             displayName: "Owner",
-            role: "owner",
+            isOwner: true,
+            isAdmin: true,
             createdAt: new Date("2026-04-01T09:00:00.000Z"),
           },
           {
             id: "member-1",
             email: "member@example.com",
-            username: "member",
+            storageId: "member",
             displayName: null,
-            role: "member",
+            isOwner: false,
+            isAdmin: false,
             createdAt: new Date("2026-04-02T09:00:00.000Z"),
           },
         ],

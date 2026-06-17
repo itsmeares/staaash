@@ -14,3 +14,18 @@ export function getShareBaseUrl(headers: {
 }): string {
   return env.STAAASH_PUBLIC_URL ?? getBaseUrl(headers);
 }
+
+export function getRequestSessionMetadata(headers: {
+  get(name: string): string | null;
+}) {
+  const forwardedFor = headers.get("x-forwarded-for");
+  const ipAddress =
+    forwardedFor?.split(",")[0]?.trim() ||
+    headers.get("x-real-ip")?.trim() ||
+    null;
+
+  return {
+    userAgent: headers.get("user-agent"),
+    ipAddress,
+  };
+}

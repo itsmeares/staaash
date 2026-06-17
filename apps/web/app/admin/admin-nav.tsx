@@ -18,10 +18,6 @@ const adminItems: AdminNavItem[] = [
     label: "Users",
   },
   {
-    href: "/admin/invites",
-    label: "Invites",
-  },
-  {
     href: "/admin/storage",
     label: "Storage",
   },

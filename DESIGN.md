@@ -237,6 +237,7 @@ Staaash is flat by default. Depth comes from tonal surfaces, 1px borders, separa
 - **Shadow Strategy:** Flat by default; use shadow only for overlays and floating panels.
 - **Border:** 1px borders are normal. Colored side stripes are prohibited.
 - **Internal Padding:** Major panels use `24px`; compact admin rows use `10px` to `18px`; file rows stay dense.
+- **Rows Before Cards:** Admin and workspace surfaces should use rows, strips, dividers, and flat sections before cards. Cards are only for genuinely separate objects, dialogs, overlays, or repeated items that need their own frame.
 
 ### Inputs / Fields
 

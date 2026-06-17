@@ -51,7 +51,7 @@ const makeFile = (
 ) => ({
   id: "file-1",
   ownerUserId: "alice",
-  ownerUsername: "alice",
+  ownerStorageId: "alice",
   folderId: null,
   name: "notes.txt",
   mimeType: "text/plain",

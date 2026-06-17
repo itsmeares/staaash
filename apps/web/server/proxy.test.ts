@@ -40,10 +40,7 @@ describe("proxy onboarding cookie guard", () => {
     expect(response.status).toBe(200);
   });
 
-  it("does not gate public invite or share paths", () => {
-    expect(
-      proxy(requestForPath("/invite/token", "staaash_session=token")).status,
-    ).toBe(200);
+  it("does not gate public share paths", () => {
     expect(
       proxy(requestForPath("/s/token", "staaash_session=token")).status,
     ).toBe(200);

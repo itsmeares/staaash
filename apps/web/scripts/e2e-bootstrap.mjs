@@ -16,15 +16,15 @@ const workspaceMarker = "pnpm-workspace.yaml";
 
 const OWNER_EMAIL = "owner-e2e@staaash.test";
 const OWNER_ID = "e2e-owner";
-const OWNER_USERNAME = "owner";
+const OWNER_STORAGE_ID = "e2e-owner";
 const OWNER_PASSWORD = "staaash-owner-pass";
 const MEMBER_EMAIL = "member-e2e@staaash.test";
 const MEMBER_ID = "e2e-member";
-const MEMBER_USERNAME = "member";
+const MEMBER_STORAGE_ID = "e2e-member";
 const MEMBER_PASSWORD = "staaash-member-pass";
 const ONBOARDING_EMAIL = "onboarding-e2e@staaash.test";
 const ONBOARDING_ID = "e2e-onboarding";
-const ONBOARDING_USERNAME = "onboarding";
+const ONBOARDING_STORAGE_ID = "e2e-onboarding";
 const ONBOARDING_PASSWORD = "staaash-onboarding-pass";
 const OWNER_ROOT_ID = "e2e-owner-root";
 const MEMBER_ROOT_ID = "e2e-member-root";
@@ -202,30 +202,27 @@ const seedE2EData = async ({ filesRoot, authSecret, databaseUrl }) => {
     );
 
     await client.query(
-      `INSERT INTO "User" ("id", "email", "username", "displayName", "passwordHash", "role", "createdAt", "updatedAt")
+      `INSERT INTO "User" ("id", "email", "storageId", "displayName", "passwordHash", "isOwner", "isAdmin", "createdAt", "updatedAt")
        VALUES
-       ($1, $2, $3, $4, $5, $6::"UserRole", NOW(), NOW()),
-       ($7, $8, $9, $10, $11, $12::"UserRole", NOW(), NOW()),
-       ($13, $14, $15, $16, $17, $18::"UserRole", NOW(), NOW())`,
+       ($1, $2, $3, $4, $5, TRUE, TRUE, NOW(), NOW()),
+       ($6, $7, $8, $9, $10, FALSE, FALSE, NOW(), NOW()),
+       ($11, $12, $13, $14, $15, TRUE, TRUE, NOW(), NOW())`,
       [
         OWNER_ID,
         OWNER_EMAIL,
-        OWNER_USERNAME,
+        OWNER_STORAGE_ID,
         "E2E Owner",
         ownerPasswordHash,
-        "owner",
         MEMBER_ID,
         MEMBER_EMAIL,
-        MEMBER_USERNAME,
+        MEMBER_STORAGE_ID,
         "E2E Member",
         memberPasswordHash,
-        "member",
         ONBOARDING_ID,
         ONBOARDING_EMAIL,
-        ONBOARDING_USERNAME,
+        ONBOARDING_STORAGE_ID,
         "E2E Onboarding",
         onboardingPasswordHash,
-        "owner",
       ],
     );
 
@@ -264,7 +261,7 @@ const seedE2EData = async ({ filesRoot, authSecret, databaseUrl }) => {
       ],
     );
 
-    const storageKey = `library/${OWNER_ID}/${SHARE_FILE_NAME}`;
+    const storageKey = `files/${OWNER_STORAGE_ID}/${SHARE_FILE_NAME}`;
     const absoluteShareFilePath = path.join(
       filesRoot,
       ...storageKey.split("/"),
@@ -308,11 +305,11 @@ const seedE2EData = async ({ filesRoot, authSecret, databaseUrl }) => {
       stateFilePath,
       JSON.stringify(
         {
-          ownerIdentifier: OWNER_USERNAME,
+          ownerIdentifier: OWNER_EMAIL,
           ownerPassword: OWNER_PASSWORD,
-          memberIdentifier: MEMBER_USERNAME,
+          memberIdentifier: MEMBER_EMAIL,
           memberPassword: MEMBER_PASSWORD,
-          onboardingIdentifier: ONBOARDING_USERNAME,
+          onboardingIdentifier: ONBOARDING_EMAIL,
           onboardingPassword: ONBOARDING_PASSWORD,
           shareUrl: `/s/${encodeURIComponent(shareToken)}`,
         },

@@ -77,13 +77,21 @@ export default async function AdminStoragePage() {
                         {row.displayName ?? row.email}
                       </strong>
                       <span className="muted" style={{ fontSize: "0.8125rem" }}>
-                        @{row.username}
+                        {row.email}
                       </span>
                     </div>
                   </td>
                   <td>
-                    <span className={`status-chip status-${row.role}`}>
-                      {row.role}
+                    <span
+                      className={`status-chip status-${
+                        row.isOwner
+                          ? "owner"
+                          : row.isAdmin
+                            ? "healthy"
+                            : "member"
+                      }`}
+                    >
+                      {row.isOwner ? "owner" : row.isAdmin ? "admin" : "member"}
                     </span>
                   </td>
                   <td>{formatAdminBytes(row.retainedBytes)}</td>

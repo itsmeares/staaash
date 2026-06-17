@@ -2,8 +2,6 @@
 
 import React, { useEffect, useRef, useState } from "react";
 
-import { USERNAME_INPUT_PATTERN } from "@/lib/user";
-
 export type Phase =
   | "intro"
   | "intro-return"
@@ -24,7 +22,7 @@ const config = {
   setup: {
     title: "Bring your Staaash online.",
     description:
-      "Create the first owner account. After this, your instance is private and invite-only.",
+      "Create the first owner account. After this, your instance is private.",
     endpoint: "/api/auth/setup",
     successMessage: "Welcome to your Staaash.",
   },
@@ -205,26 +203,6 @@ export function EntryExperience({
             </div>
 
             <div className="entry-form__field">
-              <label className="entry-form__label" htmlFor="username">
-                Username
-              </label>
-              <input
-                className="entry-form__input"
-                id="username"
-                name="username"
-                autoComplete="username"
-                maxLength={32}
-                minLength={3}
-                pattern={USERNAME_INPUT_PATTERN}
-                placeholder="johndoe"
-                required
-              />
-              <span className="entry-form__help">
-                Lowercase letters, numbers, and single hyphens.
-              </span>
-            </div>
-
-            <div className="entry-form__field">
               <label className="entry-form__label" htmlFor="email">
                 Email
               </label>
@@ -259,13 +237,14 @@ export function EntryExperience({
           <>
             <div className="entry-form__field">
               <label className="entry-form__label" htmlFor="email">
-                Username or email
+                Email
               </label>
               <input
                 ref={firstFieldRef}
                 className="entry-form__input"
                 id="email"
-                name="identifier"
+                name="email"
+                type="email"
                 autoComplete="email"
                 required
               />

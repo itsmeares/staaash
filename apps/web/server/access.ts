@@ -1,6 +1,9 @@
 import type { UserRole } from "@/server/types";
 
-export const canAccessAdminSurface = (role: UserRole) => role === "owner";
+export const canAccessAdminSurface = (role: UserRole) =>
+  role === "owner" || role === "admin";
+
+export const canMutateUsers = (input: { isOwner: boolean }) => input.isOwner;
 
 export const canOwnerBrowseMemberPrivateContent = () => false;
 

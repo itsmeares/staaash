@@ -7,10 +7,11 @@ import { STAAASH_BRONZE_HEX } from "@/lib/brand";
 import { EntryExperience, type Phase } from "./entry-experience";
 import { EntryShell } from "./entry-shell";
 import { OnboardingExperience } from "./onboarding-experience";
+import { PasswordChangeExperience } from "./password-change-experience";
 import { SilkBackground } from "./silk-background";
 
 type EntryRootProps = {
-  mode: "setup" | "signin" | "onboarding";
+  mode: "setup" | "signin" | "onboarding" | "password-change";
   instanceName?: string;
   next?: string;
   isOwner?: boolean;
@@ -55,6 +56,27 @@ export function EntryRoot({
           isOwner={isOwner}
           initialMediaPreviewEnabled={initialMediaPreviewEnabled}
         />
+      </EntryShell>
+    );
+  }
+
+  if (mode === "password-change") {
+    return (
+      <EntryShell
+        background={
+          <SilkBackground
+            color={STAAASH_BRONZE_HEX}
+            noiseIntensity={1.1}
+            opacity={0.56}
+            rotation={0.1}
+            scale={1.08}
+            speed={4.2}
+          />
+        }
+        contentClassName="justify-center"
+        scrimVariant="setup"
+      >
+        <PasswordChangeExperience />
       </EntryShell>
     );
   }

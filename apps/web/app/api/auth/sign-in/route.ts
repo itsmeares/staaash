@@ -14,7 +14,7 @@ import {
   readRequestBody,
   wantsJson,
 } from "@/server/auth/http";
-import { getBaseUrl } from "@/server/request";
+import { getBaseUrl, getRequestSessionMetadata } from "@/server/request";
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
@@ -34,10 +34,13 @@ export async function POST(request: NextRequest) {
   const next = getSafeRedirectTarget(body.next, "/files");
 
   try {
-    const result = await authService.signIn({
-      identifier: body.identifier,
-      password: body.password,
-    });
+    const result = await authService.signIn(
+      {
+        email: body.email,
+        password: body.password,
+      },
+      getRequestSessionMetadata(request.headers),
+    );
     const response = wantsJson(request)
       ? NextResponse.json({ user: { preferences: result.user.preferences } })
       : NextResponse.redirect(new URL(next, getBaseUrl(request.headers)), 303);

@@ -38,6 +38,7 @@ COPY --from=build /app/apps/web/.next/static ./apps/web/.next/static
 # Prisma schema + migrations + config
 COPY --from=build /app/packages/db/prisma ./prisma
 COPY --from=build /app/packages/db/prisma.config.ts ./
+COPY --from=build /app/scripts ./scripts
 
 # Worker (self-contained via pnpm deploy)
 COPY --from=build /deploy/worker /worker

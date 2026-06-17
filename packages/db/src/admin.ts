@@ -4,9 +4,10 @@ import type { BackgroundJobRecord } from "./jobs";
 type UserRecord = {
   id: string;
   email: string;
-  username: string;
+  storageId: string;
   displayName: string | null;
-  role: "owner" | "member";
+  isOwner: boolean;
+  isAdmin: boolean;
   createdAt: Date;
 };
 
@@ -66,9 +67,10 @@ type AdminClient = {
 export type AdminUserStorageRow = {
   userId: string;
   email: string;
-  username: string;
+  storageId: string;
   displayName: string | null;
-  role: "owner" | "member";
+  isOwner: boolean;
+  isAdmin: boolean;
   createdAt: Date;
   retainedFileCount: number;
   retainedFolderCount: number;
@@ -129,9 +131,10 @@ export const getAdminStorageUsageSummary = async (
       select: {
         id: true,
         email: true,
-        username: true,
+        storageId: true,
         displayName: true,
-        role: true,
+        isOwner: true,
+        isAdmin: true,
         createdAt: true,
       },
     }),
@@ -175,9 +178,10 @@ export const getAdminStorageUsageSummary = async (
     return {
       userId: user.id,
       email: user.email,
-      username: user.username,
+      storageId: user.storageId,
       displayName: user.displayName,
-      role: user.role,
+      isOwner: user.isOwner,
+      isAdmin: user.isAdmin,
       createdAt: user.createdAt,
       retainedFileCount: fileUsage?._count.id ?? 0,
       retainedFolderCount: folderUsage?._count.id ?? 0,

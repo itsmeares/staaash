@@ -1,4 +1,4 @@
-export type UserRole = "owner" | "member";
+export type UserRole = "owner" | "admin" | "member";
 
 export type SearchMatchKind = "exact" | "prefix" | "substring";
 

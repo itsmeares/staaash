@@ -44,7 +44,7 @@ const addDays = (days: number) =>
 const filesRoot: FolderSummary = {
   id: "root",
   ownerUserId: "user-1",
-  ownerUsername: "alice",
+  ownerStorageId: "alice",
   parentId: null,
   name: "Files",
   isFilesRoot: true,
@@ -56,7 +56,7 @@ const filesRoot: FolderSummary = {
 const sharedFolder: FolderSummary = {
   id: "folder-shared",
   ownerUserId: "user-1",
-  ownerUsername: "alice",
+  ownerStorageId: "alice",
   parentId: "root",
   name: "Projects",
   isFilesRoot: false,
@@ -68,7 +68,7 @@ const sharedFolder: FolderSummary = {
 const childFolder: FolderSummary = {
   id: "folder-child",
   ownerUserId: "user-1",
-  ownerUsername: "alice",
+  ownerStorageId: "alice",
   parentId: "folder-shared",
   name: "2026",
   isFilesRoot: false,
@@ -80,7 +80,7 @@ const childFolder: FolderSummary = {
 const siblingFolder: FolderSummary = {
   id: "folder-sibling",
   ownerUserId: "user-1",
-  ownerUsername: "alice",
+  ownerStorageId: "alice",
   parentId: "root",
   name: "Private",
   isFilesRoot: false,
@@ -92,7 +92,7 @@ const siblingFolder: FolderSummary = {
 const sharedFile: StoredFile = {
   id: "file-shared",
   ownerUserId: "user-1",
-  ownerUsername: "alice",
+  ownerStorageId: "alice",
   folderId: "folder-shared",
   name: "plan.txt",
   storageKey: "files/alice/Projects/plan.txt",
@@ -111,7 +111,7 @@ const sharedFile: StoredFile = {
 const childFile: StoredFile = {
   id: "file-child",
   ownerUserId: "user-1",
-  ownerUsername: "alice",
+  ownerStorageId: "alice",
   folderId: "folder-child",
   name: "notes.txt",
   storageKey: "files/alice/Projects/2026/notes.txt",
@@ -130,7 +130,7 @@ const childFile: StoredFile = {
 const smallVideoFile: StoredFile = {
   id: "file-small-video",
   ownerUserId: "user-1",
-  ownerUsername: "alice",
+  ownerStorageId: "alice",
   folderId: "folder-shared",
   name: "clip.mp4",
   storageKey: "files/alice/Projects/clip.mp4",

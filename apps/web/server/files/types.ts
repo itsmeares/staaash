@@ -9,7 +9,7 @@ export type FilesActor = {
 export type FolderSummary = {
   id: string;
   ownerUserId: string;
-  ownerUsername: string;
+  ownerStorageId: string;
   parentId: string | null;
   name: string;
   isFilesRoot: boolean;
@@ -21,7 +21,7 @@ export type FolderSummary = {
 export type FileSummary = {
   id: string;
   ownerUserId: string;
-  ownerUsername: string;
+  ownerStorageId: string;
   folderId: string | null;
   name: string;
   mimeType: string;

@@ -47,7 +47,7 @@ type WorkspaceMobileNavProps = {
   updateStatus: UpdateStatus;
   usedBytes: string;
   userLabel: string | null;
-  username: string;
+  email: string;
 };
 
 const primaryItems = [
@@ -142,11 +142,9 @@ export function WorkspaceMobileNav(props: WorkspaceMobileNavProps) {
             </span>
             <div>
               <span className="workspace-more-profile-name">
-                {props.userLabel ?? props.username}
+                {props.userLabel ?? props.email}
               </span>
-              <span className="workspace-more-profile-meta">
-                @{props.username}
-              </span>
+              <span className="workspace-more-profile-meta">{props.email}</span>
             </div>
           </div>
 

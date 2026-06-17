@@ -1,5 +1,5 @@
 import { getInitials } from "@/lib/user";
-import { requireOwnerPageSession } from "@/server/auth/guards";
+import { requireAdminPageSession } from "@/server/auth/guards";
 
 import { AdminNav } from "./admin-nav";
 import { AdminTopbarActions } from "./admin-topbar-actions";
@@ -9,9 +9,9 @@ export const dynamic = "force-dynamic";
 export default async function AdminLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const session = await requireOwnerPageSession();
+  const session = await requireAdminPageSession();
   const userLabel = session.user.displayName ?? session.user.email;
-  const initials = getInitials(session.user.displayName, session.user.username);
+  const initials = getInitials(session.user.displayName, session.user.email);
 
   return (
     <>
@@ -30,7 +30,7 @@ export default async function AdminLayout({
           <header className="admin-topbar">
             <AdminTopbarActions
               userLabel={userLabel}
-              username={session.user.username}
+              email={session.user.email}
               initials={initials}
               avatarUrl={session.user.avatarUrl ?? null}
               initialTheme={

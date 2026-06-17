@@ -28,6 +28,15 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   );
 
   if (session) {
+    if (session.user.passwordChangeRequiredAt) {
+      return (
+        <EntryRoot
+          mode="password-change"
+          instanceName={setupState.instanceName ?? undefined}
+        />
+      );
+    }
+
     if (session.user.preferences?.onboardingCompletedAt) {
       redirect("/api/auth/rehydrate");
     }
@@ -35,7 +44,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       <EntryRoot
         mode="onboarding"
         instanceName={setupState.instanceName ?? undefined}
-        isOwner={session.user.role === "owner"}
+        isOwner={session.user.isOwner}
         initialMediaPreviewEnabled={systemSettings.mediaPreviewEnabled}
       />
     );

@@ -1,581 +1,328 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AuthCrypto } from "@/server/auth/crypto";
 import { AuthError } from "@/server/auth/errors";
-import type { AuthRepository } from "@/server/auth/repository";
-import {
-  getInviteStatus,
-  getPasswordResetStatus,
-  toInviteSummary,
-} from "@/server/auth/summaries";
 import { createAuthService } from "@/server/auth/service";
 import type {
   AuthSession,
   AuthUser,
-  InviteSummary,
-  PasswordResetSummary,
-  SetupState,
   StoredAuthSession,
   StoredAuthUser,
-  StoredInvite,
-  StoredPasswordReset,
+  UserPreferences,
 } from "@/server/auth/types";
+import type { AuthRepository } from "@/server/auth/repository";
 
-type MemoryState = {
-  instanceName: string | null;
+vi.mock("@/server/storage", () => ({
+  ensureUserCommittedStorageDirectories: vi.fn(),
+}));
+
+const now = new Date("2026-06-16T10:00:00.000Z");
+
+type State = {
   users: StoredAuthUser[];
   sessions: StoredAuthSession[];
-  invites: Array<StoredInvite & { tokenHash: string }>;
-  resets: Array<StoredPasswordReset & { tokenHash: string }>;
-  ids: number;
 };
 
-const createMemoryRepository = (): AuthRepository => {
-  const state: MemoryState = {
-    instanceName: null,
-    users: [],
-    sessions: [],
-    invites: [],
-    resets: [],
-    ids: 0,
-  };
+const prefs: UserPreferences = {
+  theme: "system",
+  timeZone: "UTC",
+  showUpdateNotifications: true,
+  enableVersionChecks: true,
+  onboardingCompletedAt: now,
+};
 
-  const nextId = (prefix: string) => `${prefix}-${++state.ids}`;
+let idCounter = 0;
+const nextId = (prefix: string) => `${prefix}-${++idCounter}`;
 
-  const toUser = (user: StoredAuthUser): AuthUser => ({
-    id: user.id,
-    email: user.email,
-    username: user.username,
-    displayName: user.displayName,
-    avatarUrl: user.avatarUrl,
-    role: user.role,
-    storageLimitBytes: user.storageLimitBytes,
-    preferences: user.preferences,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
-  });
+const toAuthUser = (user: StoredAuthUser): AuthUser => {
+  const { passwordHash: _passwordHash, ...authUser } = user;
+  return authUser;
+};
 
-  const toSession = (session: StoredAuthSession): AuthSession => ({
-    id: session.id,
-    expiresAt: session.expiresAt,
-    createdAt: session.createdAt,
-    updatedAt: session.updatedAt,
-    user: session.user,
-  });
-
-  const toPasswordResetSummary = (
-    reset: StoredPasswordReset,
-    now: Date,
-  ): PasswordResetSummary => ({
-    ...reset,
-    status: getPasswordResetStatus(reset, now),
-  });
+const makeUser = (overrides: Partial<StoredAuthUser>): StoredAuthUser => {
+  const isOwner = overrides.isOwner ?? false;
+  const isAdmin = overrides.isAdmin ?? isOwner;
 
   return {
-    async getSetupState(): Promise<SetupState> {
-      return {
-        isBootstrapped:
-          state.instanceName !== null ||
-          state.users.some((user) => user.role === "owner"),
-        instanceName: state.instanceName,
-      };
-    },
-
-    async createBootstrap(params) {
-      if (state.instanceName) {
-        throw new AuthError("SETUP_ALREADY_COMPLETED");
-      }
-
-      const user: StoredAuthUser = {
-        id: nextId("user"),
-        email: params.email,
-        username: params.username,
-        displayName: params.displayName ?? null,
-        avatarUrl: null,
-        passwordHash: params.passwordHash,
-        role: "owner",
-        storageLimitBytes: null,
-        preferences: null,
-        createdAt: params.createdAt,
-        updatedAt: params.createdAt,
-      };
-
-      state.instanceName = params.instanceName;
-      state.users.push(user);
-
-      return toUser(user);
-    },
-
-    async findUserByEmail(email) {
-      return state.users.find((user) => user.email === email) ?? null;
-    },
-
-    async findUserByUsername(username) {
-      return state.users.find((user) => user.username === username) ?? null;
-    },
-
-    async findUserById(id) {
-      const user = state.users.find((candidate) => candidate.id === id);
-      return user ? toUser(user) : null;
-    },
-
-    async listUsers() {
-      return state.users.map(toUser);
-    },
-
-    async setUserStorageLimit(userId, limitBytes) {
-      const user = state.users.find((u) => u.id === userId);
-      if (!user) return null;
-      user.storageLimitBytes = limitBytes;
-      return toUser(user);
-    },
-
-    async createSession(params) {
-      const user = state.users.find(
-        (candidate) => candidate.id === params.userId,
-      );
-
-      if (!user) {
-        throw new AuthError("USER_NOT_FOUND");
-      }
-
-      const session: StoredAuthSession = {
-        id: nextId("session"),
-        tokenHash: params.tokenHash,
-        revokedAt: null,
-        expiresAt: params.expiresAt,
-        createdAt: params.expiresAt,
-        updatedAt: params.expiresAt,
-        user: toUser(user),
-      };
-
-      state.sessions.push(session);
-      return toSession(session);
-    },
-
-    async findSessionByTokenHash(tokenHash) {
-      return (
-        state.sessions.find((session) => session.tokenHash === tokenHash) ??
-        null
-      );
-    },
-
-    async revokeSessionById(id, revokedAt) {
-      const session = state.sessions.find((candidate) => candidate.id === id);
-
-      if (session) {
-        session.revokedAt = revokedAt;
-      }
-    },
-
-    async findActiveInviteByEmail(email, now) {
-      const invite = state.invites.find(
-        (candidate) =>
-          candidate.email === email &&
-          candidate.acceptedAt === null &&
-          candidate.revokedAt === null &&
-          candidate.expiresAt > now,
-      );
-
-      return invite ? toInviteSummary(invite, now) : null;
-    },
-
-    async listInvites(now) {
-      return state.invites.map((invite) => toInviteSummary(invite, now));
-    },
-
-    async findInviteById(id) {
-      return state.invites.find((invite) => invite.id === id) ?? null;
-    },
-
-    async findInviteByTokenHash(tokenHash) {
-      return (
-        state.invites.find((invite) => invite.tokenHash === tokenHash) ?? null
-      );
-    },
-
-    async createInvite(params, now) {
-      const invite: StoredInvite & { tokenHash: string } = {
-        id: nextId("invite"),
-        email: params.email,
-        role: params.role,
-        tokenHash: params.tokenHash,
-        invitedByUserId: params.invitedByUserId,
-        acceptedByUserId: null,
-        acceptedAt: null,
-        expiresAt: params.expiresAt,
-        revokedAt: null,
-        createdAt: now,
-        updatedAt: now,
-      };
-
-      state.invites.push(invite);
-      return toInviteSummary(invite, now);
-    },
-
-    async revokeInvite(id, revokedAt, now) {
-      const invite = state.invites.find((candidate) => candidate.id === id);
-
-      if (!invite) {
-        throw new AuthError("INVITE_INVALID");
-      }
-
-      invite.revokedAt = revokedAt;
-      invite.updatedAt = revokedAt;
-
-      return toInviteSummary(invite, now);
-    },
-
-    async consumeInvite(params) {
-      const invite = state.invites.find(
-        (candidate) =>
-          candidate.id === params.inviteId &&
-          candidate.acceptedAt === null &&
-          candidate.revokedAt === null &&
-          candidate.expiresAt > params.now,
-      );
-
-      if (!invite) {
-        return null;
-      }
-
-      if (state.users.some((user) => user.email === invite.email)) {
-        throw new AuthError("USER_ALREADY_EXISTS");
-      }
-
-      const user: StoredAuthUser = {
-        id: nextId("user"),
-        email: invite.email,
-        username: params.username,
-        displayName: params.displayName ?? null,
-        avatarUrl: null,
-        passwordHash: params.passwordHash,
-        role: invite.role,
-        storageLimitBytes: null,
-        preferences: null,
-        createdAt: params.now,
-        updatedAt: params.now,
-      };
-
-      invite.acceptedAt = params.now;
-      invite.acceptedByUserId = user.id;
-      invite.updatedAt = params.now;
-      state.users.push(user);
-
-      return toUser(user);
-    },
-
-    async createPasswordReset(params, now) {
-      for (const reset of state.resets) {
-        if (
-          reset.userId === params.userId &&
-          reset.redeemedAt === null &&
-          reset.revokedAt === null &&
-          reset.expiresAt > params.now
-        ) {
-          reset.revokedAt = params.now;
-          reset.updatedAt = params.now;
-        }
-      }
-
-      const reset: StoredPasswordReset & { tokenHash: string } = {
-        id: nextId("reset"),
-        userId: params.userId,
-        issuedByUserId: params.issuedByUserId,
-        tokenHash: params.tokenHash,
-        expiresAt: params.expiresAt,
-        redeemedAt: null,
-        revokedAt: null,
-        createdAt: now,
-        updatedAt: now,
-      };
-
-      state.resets.push(reset);
-      return toPasswordResetSummary(reset, now);
-    },
-
-    async findPasswordResetByTokenHash(tokenHash) {
-      const reset = state.resets.find(
-        (candidate) => candidate.tokenHash === tokenHash,
-      );
-
-      if (!reset) {
-        return null;
-      }
-
-      const user = state.users.find(
-        (candidate) => candidate.id === reset.userId,
-      );
-
-      if (!user) {
-        return null;
-      }
-
-      return {
-        reset,
-        user: toUser(user),
-      };
-    },
-
-    async consumePasswordReset(params) {
-      const reset = state.resets.find(
-        (candidate) =>
-          candidate.id === params.resetId &&
-          candidate.redeemedAt === null &&
-          candidate.revokedAt === null &&
-          candidate.expiresAt > params.now,
-      );
-
-      if (!reset) {
-        return null;
-      }
-
-      const user = state.users.find(
-        (candidate) => candidate.id === reset.userId,
-      );
-
-      if (!user) {
-        return null;
-      }
-
-      user.passwordHash = params.passwordHash;
-      user.updatedAt = params.now;
-      reset.redeemedAt = params.now;
-      reset.updatedAt = params.now;
-
-      for (const session of state.sessions) {
-        if (session.user.id === user.id && session.revokedAt === null) {
-          session.revokedAt = params.now;
-        }
-      }
-
-      return toUser(user);
-    },
-
-    async savePreferences(params) {
-      return {
-        theme: params.theme,
-        timeZone: params.timeZone,
-        showUpdateNotifications: params.showUpdateNotifications,
-        enableVersionChecks: params.enableVersionChecks,
-        onboardingCompletedAt: params.onboardingCompletedAt ?? new Date(),
-      };
-    },
+    id: overrides.id ?? nextId("user"),
+    email: overrides.email ?? "member@example.com",
+    storageId: overrides.storageId ?? nextId("user-storage"),
+    displayName: overrides.displayName ?? null,
+    avatarUrl: overrides.avatarUrl ?? null,
+    isOwner,
+    isAdmin,
+    role: isOwner ? "owner" : isAdmin ? "admin" : "member",
+    passwordChangeRequiredAt: overrides.passwordChangeRequiredAt ?? null,
+    temporaryPasswordIssuedAt: overrides.temporaryPasswordIssuedAt ?? null,
+    temporaryPasswordIssuedByUserId:
+      overrides.temporaryPasswordIssuedByUserId ?? null,
+    storageLimitBytes: overrides.storageLimitBytes ?? null,
+    preferences: overrides.preferences ?? prefs,
+    passwordHash: overrides.passwordHash ?? "hash",
+    createdAt: overrides.createdAt ?? now,
+    updatedAt: overrides.updatedAt ?? now,
   };
 };
 
-const createFakeCrypto = (): AuthCrypto => {
-  let tokenCounter = 0;
+const createRepo = (state: State): AuthRepository => ({
+  async getSetupState() {
+    return {
+      isBootstrapped: state.users.some((user) => user.isOwner),
+      instanceName: "Test Staaash",
+    };
+  },
+  async createBootstrap(params) {
+    const user = makeUser({
+      email: params.email,
+      storageId: params.storageId,
+      displayName: params.displayName ?? null,
+      passwordHash: params.passwordHash,
+      isOwner: true,
+      isAdmin: true,
+      preferences: null,
+      createdAt: params.createdAt,
+      updatedAt: params.createdAt,
+    });
+    state.users.push(user);
+    return toAuthUser(user);
+  },
+  async createUser(params) {
+    if (state.users.some((user) => user.email === params.email)) {
+      throw new AuthError("USER_ALREADY_EXISTS");
+    }
 
-  return {
-    hashOpaqueToken(token) {
-      return `hash:${token}`;
-    },
-    issueOpaqueToken() {
-      tokenCounter += 1;
-      const token = `token-${tokenCounter}`;
-      return {
-        token,
-        tokenHash: `hash:${token}`,
-      };
-    },
-    async hashPassword(password) {
-      return `password:${password}`;
-    },
-    async verifyPassword(password, passwordHash) {
-      return passwordHash === `password:${password}`;
-    },
-  };
-};
+    const user = makeUser({
+      email: params.email,
+      storageId: params.storageId,
+      passwordHash: params.passwordHash,
+      isAdmin: params.isAdmin,
+      preferences: null,
+      storageLimitBytes: params.storageLimitBytes,
+      passwordChangeRequiredAt: params.passwordChangeRequiredAt,
+      temporaryPasswordIssuedAt: params.temporaryPasswordIssuedAt,
+      temporaryPasswordIssuedByUserId: params.temporaryPasswordIssuedByUserId,
+    });
+    state.users.push(user);
+    return toAuthUser(user);
+  },
+  async updateUser(params) {
+    const user = state.users.find(
+      (candidate) => candidate.id === params.userId,
+    );
+    if (!user) return null;
+    if (params.email !== undefined) user.email = params.email;
+    if (params.displayName !== undefined) {
+      user.displayName = params.displayName;
+    }
+    if (params.storageLimitBytes !== undefined) {
+      user.storageLimitBytes = params.storageLimitBytes;
+    }
+    if (params.isAdmin !== undefined) {
+      user.isAdmin = params.isAdmin;
+      user.role = user.isOwner ? "owner" : user.isAdmin ? "admin" : "member";
+    }
+    return toAuthUser(user);
+  },
+  async findUserByEmail(email) {
+    return state.users.find((user) => user.email === email) ?? null;
+  },
+  async findUserById(id) {
+    const user = state.users.find((candidate) => candidate.id === id);
+    return user ? toAuthUser(user) : null;
+  },
+  async listUsers() {
+    return state.users.map(toAuthUser);
+  },
+  async setUserStorageLimit(userId, limitBytes) {
+    const user = state.users.find((candidate) => candidate.id === userId);
+    if (!user) return null;
+    user.storageLimitBytes = limitBytes;
+    return toAuthUser(user);
+  },
+  async setTemporaryPassword(params) {
+    const user = state.users.find(
+      (candidate) => candidate.id === params.userId,
+    );
+    if (!user) throw new AuthError("USER_NOT_FOUND");
+    user.passwordHash = params.passwordHash;
+    user.passwordChangeRequiredAt = params.requirePasswordChange
+      ? params.now
+      : null;
+    user.temporaryPasswordIssuedAt = params.now;
+    user.temporaryPasswordIssuedByUserId = params.issuedByUserId;
+    for (const session of state.sessions) {
+      if (session.user.id === user.id) session.revokedAt = params.now;
+    }
+    return toAuthUser(user);
+  },
+  async changeRequiredPassword(userId, passwordHash) {
+    const user = state.users.find((candidate) => candidate.id === userId);
+    if (!user) return null;
+    user.passwordHash = passwordHash;
+    user.passwordChangeRequiredAt = null;
+    user.temporaryPasswordIssuedAt = null;
+    user.temporaryPasswordIssuedByUserId = null;
+    return toAuthUser(user);
+  },
+  async createSession(params) {
+    const user = state.users.find(
+      (candidate) => candidate.id === params.userId,
+    );
+    if (!user) throw new AuthError("USER_NOT_FOUND");
+    const session: StoredAuthSession = {
+      id: nextId("session"),
+      user: toAuthUser(user),
+      tokenHash: params.tokenHash,
+      expiresAt: params.expiresAt,
+      revokedAt: null,
+      userAgent: params.metadata?.userAgent ?? null,
+      ipAddress: params.metadata?.ipAddress ?? null,
+      lastSeenAt: params.now,
+      createdAt: params.now,
+      updatedAt: params.now,
+    };
+    state.sessions.push(session);
+    return session;
+  },
+  async findSessionByTokenHash(tokenHash) {
+    return (
+      state.sessions.find((session) => session.tokenHash === tokenHash) ?? null
+    );
+  },
+  async listUserSessions(userId) {
+    return state.sessions.filter(
+      (session) => session.user.id === userId && !session.revokedAt,
+    );
+  },
+  async revokeSessionById(id, revokedAt) {
+    const session = state.sessions.find((candidate) => candidate.id === id);
+    if (session) session.revokedAt = revokedAt;
+  },
+  async revokeUserSessions(userId, revokedAt) {
+    for (const session of state.sessions) {
+      if (session.user.id === userId) session.revokedAt = revokedAt;
+    }
+  },
+  async touchSessionLastSeen(id, seenAt) {
+    const session = state.sessions.find((candidate) => candidate.id === id);
+    if (session) session.lastSeenAt = seenAt;
+  },
+  async savePreferences() {
+    return prefs;
+  },
+});
 
 describe("auth service", () => {
-  it("bootstraps the instance exactly once", async () => {
-    const service = createAuthService({
-      repo: createMemoryRepository(),
-      crypto: createFakeCrypto(),
-      now: () => new Date("2026-03-30T12:00:00.000Z"),
-    });
-
-    const firstBootstrap = await service.bootstrap({
-      instanceName: "Home Drive",
-      email: "owner@example.com",
-      username: "owner",
-      displayName: "Owner",
-      password: "super-secure-password",
-    });
-
-    expect(firstBootstrap.user.role).toBe("owner");
-    expect((await service.getSetupState()).isBootstrapped).toBe(true);
-
-    await expect(
-      service.bootstrap({
-        instanceName: "Second Attempt",
-        email: "other@example.com",
-        username: "other",
-        displayName: "Other",
-        password: "another-super-secure-password",
-      }),
-    ).rejects.toMatchObject({
-      code: "SETUP_ALREADY_COMPLETED",
-    });
+  beforeEach(() => {
+    idCounter = 0;
   });
 
-  it("signs in, exposes the current session, and revokes it on sign out", async () => {
+  it("bootstraps an owner/admin account and signs in by email", async () => {
+    const state: State = { users: [], sessions: [] };
     const service = createAuthService({
-      repo: createMemoryRepository(),
-      crypto: createFakeCrypto(),
-      now: () => new Date("2026-03-30T12:00:00.000Z"),
+      repo: createRepo(state),
+      now: () => now,
+      sessionMaxAgeDays: 30,
     });
 
-    await service.bootstrap({
-      instanceName: "Home Drive",
+    const bootstrap = await service.bootstrap({
+      instanceName: "Test Staaash",
       email: "owner@example.com",
-      username: "owner",
-      password: "super-secure-password",
+      password: "long-owner-password",
     });
 
-    await expect(
-      service.signIn({
-        identifier: "owner@example.com",
-        password: "wrong-password",
-      }),
-    ).rejects.toMatchObject({
-      code: "INVALID_CREDENTIALS",
+    expect(bootstrap.user).toMatchObject({
+      email: "owner@example.com",
+      storageId: "owner",
+      isOwner: true,
+      isAdmin: true,
+      role: "owner",
     });
 
     const signIn = await service.signIn({
-      identifier: "owner",
-      password: "super-secure-password",
+      email: "owner@example.com",
+      password: "long-owner-password",
     });
 
-    const currentSession = await service.getSession(signIn.sessionToken);
-    expect(currentSession?.user.email).toBe("owner@example.com");
-
-    await service.revokeSession(signIn.sessionToken);
-
-    await expect(service.getSession(signIn.sessionToken)).resolves.toBeNull();
+    expect(signIn.user.email).toBe("owner@example.com");
   });
 
-  it("rejects revoked and expired sessions", async () => {
-    let currentTime = new Date("2026-03-30T12:00:00.000Z");
+  it("creates users with a temporary password and required password change", async () => {
+    const state: State = {
+      users: [
+        makeUser({
+          id: "owner-1",
+          email: "owner@example.com",
+          isOwner: true,
+          isAdmin: true,
+        }),
+      ],
+      sessions: [],
+    };
     const service = createAuthService({
-      repo: createMemoryRepository(),
-      crypto: createFakeCrypto(),
-      now: () => currentTime,
-      sessionMaxAgeDays: 1,
+      repo: createRepo(state),
+      now: () => now,
+      sessionMaxAgeDays: 30,
     });
 
-    await service.bootstrap({
-      instanceName: "Home Drive",
-      email: "owner@example.com",
-      username: "owner",
-      password: "super-secure-password",
+    const result = await service.createUser("owner-1", {
+      email: "new@example.com",
+      generateTemporaryPassword: true,
+      requirePasswordChange: true,
+      isAdmin: true,
     });
 
-    const revokedSignIn = await service.signIn({
-      identifier: "owner",
-      password: "super-secure-password",
-    });
-    await service.revokeSession(revokedSignIn.sessionToken);
-    await expect(
-      service.getSession(revokedSignIn.sessionToken),
-    ).resolves.toBeNull();
-
-    const expiringSignIn = await service.signIn({
-      identifier: "owner",
-      password: "super-secure-password",
-    });
-    currentTime = new Date("2026-03-31T12:00:00.001Z");
-
-    await expect(
-      service.getSession(expiringSignIn.sessionToken),
-    ).resolves.toBeNull();
-    await expect(
-      service.getSession(expiringSignIn.sessionToken),
-    ).resolves.toBeNull();
-  });
-
-  it("issues and redeems member invites", async () => {
-    const service = createAuthService({
-      repo: createMemoryRepository(),
-      crypto: createFakeCrypto(),
-      now: () => new Date("2026-03-30T12:00:00.000Z"),
-    });
-
-    const bootstrap = await service.bootstrap({
-      instanceName: "Home Drive",
-      email: "owner@example.com",
-      username: "owner",
-      password: "super-secure-password",
-    });
-
-    const invite = await service.createInvite(bootstrap.user.id, {
-      email: "member@example.com",
-    });
-
-    expect(invite.invite.status).toBe("active");
-
-    const redeemed = await service.redeemInvite({
-      token: invite.token,
-      username: "member",
-      displayName: "Member",
-      password: "member-secure-password",
-    });
-
-    expect(redeemed.user.role).toBe("member");
-    expect(redeemed.user.email).toBe("member@example.com");
-
-    const inviteState = await service.getInviteRedemptionState(invite.token);
-    expect(inviteState).toMatchObject({
-      isRedeemable: false,
-      reason: "accepted",
+    expect(result.temporaryPassword).toHaveLength(12);
+    expect(result.user).toMatchObject({
+      email: "new@example.com",
+      storageId: "new",
+      isAdmin: true,
+      passwordChangeRequiredAt: now,
     });
   });
 
-  it("revokes prior live sessions after password reset redemption", async () => {
+  it("resets temporary passwords and revokes existing sessions", async () => {
+    const state: State = {
+      users: [
+        makeUser({
+          id: "owner-1",
+          email: "owner@example.com",
+          isOwner: true,
+          isAdmin: true,
+        }),
+        makeUser({
+          id: "member-1",
+          email: "member@example.com",
+        }),
+      ],
+      sessions: [],
+    };
     const service = createAuthService({
-      repo: createMemoryRepository(),
-      crypto: createFakeCrypto(),
-      now: () => new Date("2026-03-30T12:00:00.000Z"),
+      repo: createRepo(state),
+      now: () => now,
+      sessionMaxAgeDays: 30,
+    });
+    state.sessions.push({
+      id: "session-1",
+      user: toAuthUser(state.users[1]!),
+      tokenHash: "hash",
+      expiresAt: new Date("2026-07-16T10:00:00.000Z"),
+      revokedAt: null,
+      userAgent: "Firefox",
+      ipAddress: "127.0.0.1",
+      lastSeenAt: now,
+      createdAt: now,
+      updatedAt: now,
     });
 
-    const bootstrap = await service.bootstrap({
-      instanceName: "Home Drive",
-      email: "owner@example.com",
-      username: "owner",
-      password: "super-secure-password",
-    });
-    const invite = await service.createInvite(bootstrap.user.id, {
-      email: "member@example.com",
-    });
-    const redeemedInvite = await service.redeemInvite({
-      token: invite.token,
-      username: "member",
-      password: "member-secure-password",
-    });
-    const priorSession = await service.signIn({
-      identifier: "member",
-      password: "member-secure-password",
-    });
-    const reset = await service.issuePasswordReset(
-      bootstrap.user.id,
-      redeemedInvite.user.id,
-    );
-
-    const redeemedReset = await service.redeemPasswordReset({
-      token: reset.token,
-      password: "new-member-secure-password",
+    const result = await service.resetTemporaryPassword("owner-1", "member-1", {
+      generateTemporaryPassword: false,
+      temporaryPassword: "new-member-pass",
+      confirmTemporaryPassword: "new-member-pass",
+      requirePasswordChange: true,
     });
 
-    await expect(
-      service.getSession(priorSession.sessionToken),
-    ).resolves.toBeNull();
-    await expect(
-      service.getSession(redeemedReset.sessionToken),
-    ).resolves.toMatchObject({
-      user: {
-        id: redeemedInvite.user.id,
-      },
-    });
+    expect(result.temporaryPassword).toBe("new-member-pass");
+    expect(result.user.passwordChangeRequiredAt).toEqual(now);
+    expect(state.sessions[0]?.revokedAt).toEqual(now);
   });
 });

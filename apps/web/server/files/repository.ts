@@ -8,7 +8,7 @@ const folderSelect = {
   ownerUserId: true,
   owner: {
     select: {
-      username: true,
+      storageId: true,
     },
   },
   parentId: true,
@@ -24,7 +24,7 @@ const fileSelect = {
   ownerUserId: true,
   owner: {
     select: {
-      username: true,
+      storageId: true,
     },
   },
   folderId: true,
@@ -161,7 +161,7 @@ const toFolderSummary = (
 ): FolderSummary => ({
   id: folder.id,
   ownerUserId: folder.ownerUserId,
-  ownerUsername: folder.owner.username,
+  ownerStorageId: folder.owner.storageId,
   parentId: folder.parentId,
   name: folder.name,
   isFilesRoot: folder.isFilesRoot,
@@ -173,7 +173,7 @@ const toFolderSummary = (
 const toStoredFile = (file: FileRecord): StoredFile => ({
   id: file.id,
   ownerUserId: file.ownerUserId,
-  ownerUsername: file.owner.username,
+  ownerStorageId: file.owner.storageId,
   folderId: file.folderId,
   name: file.originalName,
   storageKey: file.storageKey,

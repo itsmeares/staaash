@@ -56,8 +56,6 @@ export const ModelName = {
   User: 'User',
   UserPreference: 'UserPreference',
   Session: 'Session',
-  Invite: 'Invite',
-  PasswordReset: 'PasswordReset',
   Folder: 'Folder',
   File: 'File',
   FavoriteFile: 'FavoriteFile',
@@ -109,8 +107,6 @@ export type InstanceScalarFieldEnum = (typeof InstanceScalarFieldEnum)[keyof typ
 export const SystemSettingsScalarFieldEnum = {
   id: 'id',
   sessionMaxAgeDays: 'sessionMaxAgeDays',
-  inviteMaxAgeDays: 'inviteMaxAgeDays',
-  passwordResetMaxAgeHours: 'passwordResetMaxAgeHours',
   shareMaxAgeDays: 'shareMaxAgeDays',
   maxUploadBytes: 'maxUploadBytes',
   uploadTimeoutMinutes: 'uploadTimeoutMinutes',
@@ -140,11 +136,15 @@ export type SystemSettingsScalarFieldEnum = (typeof SystemSettingsScalarFieldEnu
 export const UserScalarFieldEnum = {
   id: 'id',
   email: 'email',
-  username: 'username',
+  storageId: 'storageId',
   displayName: 'displayName',
   avatarUrl: 'avatarUrl',
   passwordHash: 'passwordHash',
-  role: 'role',
+  isOwner: 'isOwner',
+  isAdmin: 'isAdmin',
+  passwordChangeRequiredAt: 'passwordChangeRequiredAt',
+  temporaryPasswordIssuedAt: 'temporaryPasswordIssuedAt',
+  temporaryPasswordIssuedByUserId: 'temporaryPasswordIssuedByUserId',
   storageLimitBytes: 'storageLimitBytes',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -174,43 +174,14 @@ export const SessionScalarFieldEnum = {
   tokenHash: 'tokenHash',
   expiresAt: 'expiresAt',
   revokedAt: 'revokedAt',
+  userAgent: 'userAgent',
+  ipAddress: 'ipAddress',
+  lastSeenAt: 'lastSeenAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type SessionScalarFieldEnum = (typeof SessionScalarFieldEnum)[keyof typeof SessionScalarFieldEnum]
-
-
-export const InviteScalarFieldEnum = {
-  id: 'id',
-  email: 'email',
-  role: 'role',
-  tokenHash: 'tokenHash',
-  invitedByUserId: 'invitedByUserId',
-  acceptedByUserId: 'acceptedByUserId',
-  acceptedAt: 'acceptedAt',
-  expiresAt: 'expiresAt',
-  revokedAt: 'revokedAt',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-} as const
-
-export type InviteScalarFieldEnum = (typeof InviteScalarFieldEnum)[keyof typeof InviteScalarFieldEnum]
-
-
-export const PasswordResetScalarFieldEnum = {
-  id: 'id',
-  userId: 'userId',
-  issuedByUserId: 'issuedByUserId',
-  tokenHash: 'tokenHash',
-  expiresAt: 'expiresAt',
-  redeemedAt: 'redeemedAt',
-  revokedAt: 'revokedAt',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-} as const
-
-export type PasswordResetScalarFieldEnum = (typeof PasswordResetScalarFieldEnum)[keyof typeof PasswordResetScalarFieldEnum]
 
 
 export const FolderScalarFieldEnum = {

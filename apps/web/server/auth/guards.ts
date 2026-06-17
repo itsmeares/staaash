@@ -9,7 +9,10 @@ import { authService } from "@/server/auth/service";
 import type { AuthSession } from "@/server/auth/types";
 
 const hasCompletedOnboarding = (session: AuthSession | null) =>
-  Boolean(session?.user.preferences?.onboardingCompletedAt);
+  Boolean(
+    session?.user.preferences?.onboardingCompletedAt &&
+    !session.user.passwordChangeRequiredAt,
+  );
 
 export const requireSignedInPageSession = async (redirectTo = "/") => {
   const session = await getCurrentSession();
@@ -25,11 +28,21 @@ export const requireSignedInPageSession = async (redirectTo = "/") => {
   return session;
 };
 
-export const requireOwnerPageSession = async () => {
+export const requireAdminPageSession = async () => {
   const session = await requireSignedInPageSession("/?next=/admin");
 
   if (!canAccessAdminSurface(session.user.role)) {
     redirect("/settings?error=admin");
+  }
+
+  return session;
+};
+
+export const requireOwnerPageSession = async () => {
+  const session = await requireAdminPageSession();
+
+  if (!session.user.isOwner) {
+    redirect("/admin?error=owner");
   }
 
   return session;

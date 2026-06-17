@@ -12,6 +12,7 @@ import {
   readRequestBody,
   wantsJson,
 } from "@/server/auth/http";
+import { getRequestSessionMetadata } from "@/server/request";
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
@@ -29,13 +30,15 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await readRequestBody(request);
-    const result = await authService.bootstrap({
-      instanceName: body.instanceName,
-      email: body.email,
-      username: body.username,
-      displayName: body.displayName,
-      password: body.password,
-    });
+    const result = await authService.bootstrap(
+      {
+        instanceName: body.instanceName,
+        email: body.email,
+        displayName: body.displayName,
+        password: body.password,
+      },
+      getRequestSessionMetadata(request.headers),
+    );
     const response = wantsJson(request)
       ? NextResponse.json(
           { user: result.user, session: result.session },
