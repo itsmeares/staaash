@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomInt } from "node:crypto";
 
 import { canAccessAdminSurface } from "@/server/access";
 import {
@@ -54,11 +54,10 @@ const addDays = (date: Date, days: number) =>
   new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 
 const generateTokenFromAlphabet = (length: number, alphabet: string) => {
-  const bytes = randomBytes(length);
   let value = "";
 
-  for (const byte of bytes) {
-    value += alphabet[byte % alphabet.length];
+  for (let i = 0; i < length; i += 1) {
+    value += alphabet[randomInt(alphabet.length)]!;
   }
 
   return value;
@@ -66,10 +65,9 @@ const generateTokenFromAlphabet = (length: number, alphabet: string) => {
 
 const shuffle = (value: string) => {
   const chars = [...value];
-  const bytes = randomBytes(chars.length);
 
   for (let i = chars.length - 1; i > 0; i -= 1) {
-    const j = bytes[i] % (i + 1);
+    const j = randomInt(i + 1);
     [chars[i], chars[j]] = [chars[j]!, chars[i]!];
   }
 
