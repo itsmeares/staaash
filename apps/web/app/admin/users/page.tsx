@@ -1,3 +1,6 @@
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+
 import { getSingleSearchParam } from "@/app/auth-ui";
 import {
   PAGE_SIZE,
@@ -5,11 +8,10 @@ import {
   buildPageHref,
   parsePage,
 } from "@/app/pagination-controls";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
-import { requireOwnerPageSession } from "@/server/auth/guards";
-import { getBaseUrl } from "@/server/request";
+import { requireAdminPageSession } from "@/server/auth/guards";
 import { authService } from "@/server/auth/service";
+import { getBaseUrl } from "@/server/request";
+import { getUserStorageUsed } from "@/server/user-storage";
 
 import { UsersAdminConsole } from "../users-admin-console";
 
@@ -24,7 +26,7 @@ export default async function AdminUsersPage({
 }: AdminUsersPageProps) {
   const [resolvedSearchParams, session, h] = await Promise.all([
     searchParams,
-    requireOwnerPageSession(),
+    requireAdminPageSession(),
     headers(),
   ]);
   const baseUrl = getBaseUrl(h);
@@ -36,27 +38,35 @@ export default async function AdminUsersPage({
   if (totalPages > 0 && page > totalPages) redirect(buildHref(1));
 
   const users = allUsers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const usageByUserId = new Map(
+    await Promise.all(
+      users.map(async (user) => {
+        const usage = await getUserStorageUsed(user.id);
+        return [user.id, usage.usedBytes] as const;
+      }),
+    ),
+  );
 
   return (
-    <main className="stack" style={{ gap: "40px" }}>
-      <section>
-        <h1 style={{ marginBottom: "8px" }}>User management</h1>
-        <p className="muted" style={{ maxWidth: "56ch" }}>
-          Inventory and password reset issuance. Role changes and moderation
-          controls are out of scope for this release.
-        </p>
-      </section>
-
+    <main className="stack" style={{ gap: "32px" }}>
       <UsersAdminConsole
         appUrl={baseUrl}
+        canMutateUsers={session.user.isOwner}
         initialUsers={users.map((user) => ({
           id: user.id,
           email: user.email,
-          username: user.username,
+          storageId: user.storageId,
           displayName: user.displayName,
-          role: user.role,
+          isOwner: user.isOwner,
+          isAdmin: user.isAdmin,
           createdAt: user.createdAt.toISOString(),
+          updatedAt: user.updatedAt.toISOString(),
           storageLimitBytes: user.storageLimitBytes?.toString() ?? null,
+          storageUsedBytes: (usageByUserId.get(user.id) ?? 0n).toString(),
+          passwordChangeRequiredAt:
+            user.passwordChangeRequiredAt?.toISOString() ?? null,
+          onboardingCompletedAt:
+            user.preferences?.onboardingCompletedAt?.toISOString() ?? null,
         }))}
       />
 

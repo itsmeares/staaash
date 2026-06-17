@@ -33,8 +33,6 @@ export type {
   File,
   FileStorageStatus,
   Folder,
-  Invite,
-  PasswordReset,
   PrismaClient,
   Session,
   ShareLink,
@@ -42,5 +40,4 @@ export type {
   SystemSettings,
   User,
   UserPreference,
-  UserRole,
 } from "./generated/prisma/client";

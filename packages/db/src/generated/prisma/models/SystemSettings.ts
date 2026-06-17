@@ -28,8 +28,6 @@ export type AggregateSystemSettings = {
 
 export type SystemSettingsAvgAggregateOutputType = {
   sessionMaxAgeDays: number | null
-  inviteMaxAgeDays: number | null
-  passwordResetMaxAgeHours: number | null
   shareMaxAgeDays: number | null
   maxUploadBytes: number | null
   uploadTimeoutMinutes: number | null
@@ -48,8 +46,6 @@ export type SystemSettingsAvgAggregateOutputType = {
 
 export type SystemSettingsSumAggregateOutputType = {
   sessionMaxAgeDays: number | null
-  inviteMaxAgeDays: number | null
-  passwordResetMaxAgeHours: number | null
   shareMaxAgeDays: number | null
   maxUploadBytes: bigint | null
   uploadTimeoutMinutes: number | null
@@ -69,8 +65,6 @@ export type SystemSettingsSumAggregateOutputType = {
 export type SystemSettingsMinAggregateOutputType = {
   id: string | null
   sessionMaxAgeDays: number | null
-  inviteMaxAgeDays: number | null
-  passwordResetMaxAgeHours: number | null
   shareMaxAgeDays: number | null
   maxUploadBytes: bigint | null
   uploadTimeoutMinutes: number | null
@@ -97,8 +91,6 @@ export type SystemSettingsMinAggregateOutputType = {
 export type SystemSettingsMaxAggregateOutputType = {
   id: string | null
   sessionMaxAgeDays: number | null
-  inviteMaxAgeDays: number | null
-  passwordResetMaxAgeHours: number | null
   shareMaxAgeDays: number | null
   maxUploadBytes: bigint | null
   uploadTimeoutMinutes: number | null
@@ -125,8 +117,6 @@ export type SystemSettingsMaxAggregateOutputType = {
 export type SystemSettingsCountAggregateOutputType = {
   id: number
   sessionMaxAgeDays: number
-  inviteMaxAgeDays: number
-  passwordResetMaxAgeHours: number
   shareMaxAgeDays: number
   maxUploadBytes: number
   uploadTimeoutMinutes: number
@@ -154,8 +144,6 @@ export type SystemSettingsCountAggregateOutputType = {
 
 export type SystemSettingsAvgAggregateInputType = {
   sessionMaxAgeDays?: true
-  inviteMaxAgeDays?: true
-  passwordResetMaxAgeHours?: true
   shareMaxAgeDays?: true
   maxUploadBytes?: true
   uploadTimeoutMinutes?: true
@@ -174,8 +162,6 @@ export type SystemSettingsAvgAggregateInputType = {
 
 export type SystemSettingsSumAggregateInputType = {
   sessionMaxAgeDays?: true
-  inviteMaxAgeDays?: true
-  passwordResetMaxAgeHours?: true
   shareMaxAgeDays?: true
   maxUploadBytes?: true
   uploadTimeoutMinutes?: true
@@ -195,8 +181,6 @@ export type SystemSettingsSumAggregateInputType = {
 export type SystemSettingsMinAggregateInputType = {
   id?: true
   sessionMaxAgeDays?: true
-  inviteMaxAgeDays?: true
-  passwordResetMaxAgeHours?: true
   shareMaxAgeDays?: true
   maxUploadBytes?: true
   uploadTimeoutMinutes?: true
@@ -223,8 +207,6 @@ export type SystemSettingsMinAggregateInputType = {
 export type SystemSettingsMaxAggregateInputType = {
   id?: true
   sessionMaxAgeDays?: true
-  inviteMaxAgeDays?: true
-  passwordResetMaxAgeHours?: true
   shareMaxAgeDays?: true
   maxUploadBytes?: true
   uploadTimeoutMinutes?: true
@@ -251,8 +233,6 @@ export type SystemSettingsMaxAggregateInputType = {
 export type SystemSettingsCountAggregateInputType = {
   id?: true
   sessionMaxAgeDays?: true
-  inviteMaxAgeDays?: true
-  passwordResetMaxAgeHours?: true
   shareMaxAgeDays?: true
   maxUploadBytes?: true
   uploadTimeoutMinutes?: true
@@ -366,8 +346,6 @@ export type SystemSettingsGroupByArgs<ExtArgs extends runtime.Types.Extensions.I
 export type SystemSettingsGroupByOutputType = {
   id: string
   sessionMaxAgeDays: number
-  inviteMaxAgeDays: number
-  passwordResetMaxAgeHours: number
   shareMaxAgeDays: number
   maxUploadBytes: bigint
   uploadTimeoutMinutes: number
@@ -417,8 +395,6 @@ export type SystemSettingsWhereInput = {
   NOT?: Prisma.SystemSettingsWhereInput | Prisma.SystemSettingsWhereInput[]
   id?: Prisma.StringFilter<"SystemSettings"> | string
   sessionMaxAgeDays?: Prisma.IntFilter<"SystemSettings"> | number
-  inviteMaxAgeDays?: Prisma.IntFilter<"SystemSettings"> | number
-  passwordResetMaxAgeHours?: Prisma.IntFilter<"SystemSettings"> | number
   shareMaxAgeDays?: Prisma.IntFilter<"SystemSettings"> | number
   maxUploadBytes?: Prisma.BigIntFilter<"SystemSettings"> | bigint | number
   uploadTimeoutMinutes?: Prisma.IntFilter<"SystemSettings"> | number
@@ -445,8 +421,6 @@ export type SystemSettingsWhereInput = {
 export type SystemSettingsOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   sessionMaxAgeDays?: Prisma.SortOrder
-  inviteMaxAgeDays?: Prisma.SortOrder
-  passwordResetMaxAgeHours?: Prisma.SortOrder
   shareMaxAgeDays?: Prisma.SortOrder
   maxUploadBytes?: Prisma.SortOrder
   uploadTimeoutMinutes?: Prisma.SortOrder
@@ -476,8 +450,6 @@ export type SystemSettingsWhereUniqueInput = Prisma.AtLeast<{
   OR?: Prisma.SystemSettingsWhereInput[]
   NOT?: Prisma.SystemSettingsWhereInput | Prisma.SystemSettingsWhereInput[]
   sessionMaxAgeDays?: Prisma.IntFilter<"SystemSettings"> | number
-  inviteMaxAgeDays?: Prisma.IntFilter<"SystemSettings"> | number
-  passwordResetMaxAgeHours?: Prisma.IntFilter<"SystemSettings"> | number
   shareMaxAgeDays?: Prisma.IntFilter<"SystemSettings"> | number
   maxUploadBytes?: Prisma.BigIntFilter<"SystemSettings"> | bigint | number
   uploadTimeoutMinutes?: Prisma.IntFilter<"SystemSettings"> | number
@@ -504,8 +476,6 @@ export type SystemSettingsWhereUniqueInput = Prisma.AtLeast<{
 export type SystemSettingsOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   sessionMaxAgeDays?: Prisma.SortOrder
-  inviteMaxAgeDays?: Prisma.SortOrder
-  passwordResetMaxAgeHours?: Prisma.SortOrder
   shareMaxAgeDays?: Prisma.SortOrder
   maxUploadBytes?: Prisma.SortOrder
   uploadTimeoutMinutes?: Prisma.SortOrder
@@ -540,8 +510,6 @@ export type SystemSettingsScalarWhereWithAggregatesInput = {
   NOT?: Prisma.SystemSettingsScalarWhereWithAggregatesInput | Prisma.SystemSettingsScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"SystemSettings"> | string
   sessionMaxAgeDays?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
-  inviteMaxAgeDays?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
-  passwordResetMaxAgeHours?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
   shareMaxAgeDays?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
   maxUploadBytes?: Prisma.BigIntWithAggregatesFilter<"SystemSettings"> | bigint | number
   uploadTimeoutMinutes?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
@@ -568,8 +536,6 @@ export type SystemSettingsScalarWhereWithAggregatesInput = {
 export type SystemSettingsCreateInput = {
   id?: string
   sessionMaxAgeDays?: number
-  inviteMaxAgeDays?: number
-  passwordResetMaxAgeHours?: number
   shareMaxAgeDays?: number
   maxUploadBytes?: bigint | number
   uploadTimeoutMinutes?: number
@@ -596,8 +562,6 @@ export type SystemSettingsCreateInput = {
 export type SystemSettingsUncheckedCreateInput = {
   id?: string
   sessionMaxAgeDays?: number
-  inviteMaxAgeDays?: number
-  passwordResetMaxAgeHours?: number
   shareMaxAgeDays?: number
   maxUploadBytes?: bigint | number
   uploadTimeoutMinutes?: number
@@ -624,8 +588,6 @@ export type SystemSettingsUncheckedCreateInput = {
 export type SystemSettingsUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   sessionMaxAgeDays?: Prisma.IntFieldUpdateOperationsInput | number
-  inviteMaxAgeDays?: Prisma.IntFieldUpdateOperationsInput | number
-  passwordResetMaxAgeHours?: Prisma.IntFieldUpdateOperationsInput | number
   shareMaxAgeDays?: Prisma.IntFieldUpdateOperationsInput | number
   maxUploadBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   uploadTimeoutMinutes?: Prisma.IntFieldUpdateOperationsInput | number
@@ -652,8 +614,6 @@ export type SystemSettingsUpdateInput = {
 export type SystemSettingsUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   sessionMaxAgeDays?: Prisma.IntFieldUpdateOperationsInput | number
-  inviteMaxAgeDays?: Prisma.IntFieldUpdateOperationsInput | number
-  passwordResetMaxAgeHours?: Prisma.IntFieldUpdateOperationsInput | number
   shareMaxAgeDays?: Prisma.IntFieldUpdateOperationsInput | number
   maxUploadBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   uploadTimeoutMinutes?: Prisma.IntFieldUpdateOperationsInput | number
@@ -680,8 +640,6 @@ export type SystemSettingsUncheckedUpdateInput = {
 export type SystemSettingsCreateManyInput = {
   id?: string
   sessionMaxAgeDays?: number
-  inviteMaxAgeDays?: number
-  passwordResetMaxAgeHours?: number
   shareMaxAgeDays?: number
   maxUploadBytes?: bigint | number
   uploadTimeoutMinutes?: number
@@ -708,8 +666,6 @@ export type SystemSettingsCreateManyInput = {
 export type SystemSettingsUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   sessionMaxAgeDays?: Prisma.IntFieldUpdateOperationsInput | number
-  inviteMaxAgeDays?: Prisma.IntFieldUpdateOperationsInput | number
-  passwordResetMaxAgeHours?: Prisma.IntFieldUpdateOperationsInput | number
   shareMaxAgeDays?: Prisma.IntFieldUpdateOperationsInput | number
   maxUploadBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   uploadTimeoutMinutes?: Prisma.IntFieldUpdateOperationsInput | number
@@ -736,8 +692,6 @@ export type SystemSettingsUpdateManyMutationInput = {
 export type SystemSettingsUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   sessionMaxAgeDays?: Prisma.IntFieldUpdateOperationsInput | number
-  inviteMaxAgeDays?: Prisma.IntFieldUpdateOperationsInput | number
-  passwordResetMaxAgeHours?: Prisma.IntFieldUpdateOperationsInput | number
   shareMaxAgeDays?: Prisma.IntFieldUpdateOperationsInput | number
   maxUploadBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   uploadTimeoutMinutes?: Prisma.IntFieldUpdateOperationsInput | number
@@ -764,8 +718,6 @@ export type SystemSettingsUncheckedUpdateManyInput = {
 export type SystemSettingsCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   sessionMaxAgeDays?: Prisma.SortOrder
-  inviteMaxAgeDays?: Prisma.SortOrder
-  passwordResetMaxAgeHours?: Prisma.SortOrder
   shareMaxAgeDays?: Prisma.SortOrder
   maxUploadBytes?: Prisma.SortOrder
   uploadTimeoutMinutes?: Prisma.SortOrder
@@ -791,8 +743,6 @@ export type SystemSettingsCountOrderByAggregateInput = {
 
 export type SystemSettingsAvgOrderByAggregateInput = {
   sessionMaxAgeDays?: Prisma.SortOrder
-  inviteMaxAgeDays?: Prisma.SortOrder
-  passwordResetMaxAgeHours?: Prisma.SortOrder
   shareMaxAgeDays?: Prisma.SortOrder
   maxUploadBytes?: Prisma.SortOrder
   uploadTimeoutMinutes?: Prisma.SortOrder
@@ -812,8 +762,6 @@ export type SystemSettingsAvgOrderByAggregateInput = {
 export type SystemSettingsMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   sessionMaxAgeDays?: Prisma.SortOrder
-  inviteMaxAgeDays?: Prisma.SortOrder
-  passwordResetMaxAgeHours?: Prisma.SortOrder
   shareMaxAgeDays?: Prisma.SortOrder
   maxUploadBytes?: Prisma.SortOrder
   uploadTimeoutMinutes?: Prisma.SortOrder
@@ -840,8 +788,6 @@ export type SystemSettingsMaxOrderByAggregateInput = {
 export type SystemSettingsMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   sessionMaxAgeDays?: Prisma.SortOrder
-  inviteMaxAgeDays?: Prisma.SortOrder
-  passwordResetMaxAgeHours?: Prisma.SortOrder
   shareMaxAgeDays?: Prisma.SortOrder
   maxUploadBytes?: Prisma.SortOrder
   uploadTimeoutMinutes?: Prisma.SortOrder
@@ -867,8 +813,6 @@ export type SystemSettingsMinOrderByAggregateInput = {
 
 export type SystemSettingsSumOrderByAggregateInput = {
   sessionMaxAgeDays?: Prisma.SortOrder
-  inviteMaxAgeDays?: Prisma.SortOrder
-  passwordResetMaxAgeHours?: Prisma.SortOrder
   shareMaxAgeDays?: Prisma.SortOrder
   maxUploadBytes?: Prisma.SortOrder
   uploadTimeoutMinutes?: Prisma.SortOrder
@@ -910,8 +854,6 @@ export type BoolFieldUpdateOperationsInput = {
 export type SystemSettingsSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   sessionMaxAgeDays?: boolean
-  inviteMaxAgeDays?: boolean
-  passwordResetMaxAgeHours?: boolean
   shareMaxAgeDays?: boolean
   maxUploadBytes?: boolean
   uploadTimeoutMinutes?: boolean
@@ -938,8 +880,6 @@ export type SystemSettingsSelect<ExtArgs extends runtime.Types.Extensions.Intern
 export type SystemSettingsSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   sessionMaxAgeDays?: boolean
-  inviteMaxAgeDays?: boolean
-  passwordResetMaxAgeHours?: boolean
   shareMaxAgeDays?: boolean
   maxUploadBytes?: boolean
   uploadTimeoutMinutes?: boolean
@@ -966,8 +906,6 @@ export type SystemSettingsSelectCreateManyAndReturn<ExtArgs extends runtime.Type
 export type SystemSettingsSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   sessionMaxAgeDays?: boolean
-  inviteMaxAgeDays?: boolean
-  passwordResetMaxAgeHours?: boolean
   shareMaxAgeDays?: boolean
   maxUploadBytes?: boolean
   uploadTimeoutMinutes?: boolean
@@ -994,8 +932,6 @@ export type SystemSettingsSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
 export type SystemSettingsSelectScalar = {
   id?: boolean
   sessionMaxAgeDays?: boolean
-  inviteMaxAgeDays?: boolean
-  passwordResetMaxAgeHours?: boolean
   shareMaxAgeDays?: boolean
   maxUploadBytes?: boolean
   uploadTimeoutMinutes?: boolean
@@ -1019,7 +955,7 @@ export type SystemSettingsSelectScalar = {
   updatedAt?: boolean
 }
 
-export type SystemSettingsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionMaxAgeDays" | "inviteMaxAgeDays" | "passwordResetMaxAgeHours" | "shareMaxAgeDays" | "maxUploadBytes" | "uploadTimeoutMinutes" | "uploadStagingRetentionHours" | "previewMaxSourceBytes" | "previewTextMaxBytes" | "workerHeartbeatMaxAgeSeconds" | "updateCheckIntervalHours" | "updateCheckRepository" | "timeZone" | "maintenanceRunTime" | "mediaPreviewEnabled" | "mediaPreviewGenerateOnUpload" | "mediaPreviewThresholdBytes" | "mediaPreviewRetentionDays" | "mediaPreviewMaxHeight" | "zipArchiveRetentionDays" | "mediaPreviewCrf" | "mediaPreviewMaxConcurrentJobs" | "createdAt" | "updatedAt", ExtArgs["result"]["systemSettings"]>
+export type SystemSettingsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionMaxAgeDays" | "shareMaxAgeDays" | "maxUploadBytes" | "uploadTimeoutMinutes" | "uploadStagingRetentionHours" | "previewMaxSourceBytes" | "previewTextMaxBytes" | "workerHeartbeatMaxAgeSeconds" | "updateCheckIntervalHours" | "updateCheckRepository" | "timeZone" | "maintenanceRunTime" | "mediaPreviewEnabled" | "mediaPreviewGenerateOnUpload" | "mediaPreviewThresholdBytes" | "mediaPreviewRetentionDays" | "mediaPreviewMaxHeight" | "zipArchiveRetentionDays" | "mediaPreviewCrf" | "mediaPreviewMaxConcurrentJobs" | "createdAt" | "updatedAt", ExtArgs["result"]["systemSettings"]>
 
 export type $SystemSettingsPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "SystemSettings"
@@ -1027,8 +963,6 @@ export type $SystemSettingsPayload<ExtArgs extends runtime.Types.Extensions.Inte
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     sessionMaxAgeDays: number
-    inviteMaxAgeDays: number
-    passwordResetMaxAgeHours: number
     shareMaxAgeDays: number
     maxUploadBytes: bigint
     uploadTimeoutMinutes: number
@@ -1475,8 +1409,6 @@ export interface Prisma__SystemSettingsClient<T, Null = never, ExtArgs extends r
 export interface SystemSettingsFieldRefs {
   readonly id: Prisma.FieldRef<"SystemSettings", 'String'>
   readonly sessionMaxAgeDays: Prisma.FieldRef<"SystemSettings", 'Int'>
-  readonly inviteMaxAgeDays: Prisma.FieldRef<"SystemSettings", 'Int'>
-  readonly passwordResetMaxAgeHours: Prisma.FieldRef<"SystemSettings", 'Int'>
   readonly shareMaxAgeDays: Prisma.FieldRef<"SystemSettings", 'Int'>
   readonly maxUploadBytes: Prisma.FieldRef<"SystemSettings", 'BigInt'>
   readonly uploadTimeoutMinutes: Prisma.FieldRef<"SystemSettings", 'Int'>

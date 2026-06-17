@@ -16,7 +16,7 @@ export const getAdminStorageSummary = async () => {
           ? 1
           : right.retainedBytes < left.retainedBytes
             ? -1
-            : 0) || left.username.localeCompare(right.username),
+            : 0) || left.email.localeCompare(right.email),
     ),
   } satisfies AdminStorageUsageSummary;
 };

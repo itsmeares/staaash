@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+
 import { canAccessAdminSurface } from "@/server/access";
 import {
   authCrypto,
@@ -6,55 +8,33 @@ import {
 } from "@/server/auth/crypto";
 import { AuthError } from "@/server/auth/errors";
 import {
+  adminCreateUserInputSchema,
+  adminUpdateUserInputSchema,
   bootstrapInputSchema,
-  createInviteInputSchema,
-  isEmailIdentifier,
-  normalizeAuthIdentifier,
-  parseUsernameIdentifier,
-  issuePasswordResetInputSchema,
-  redeemInviteInputSchema,
-  redeemPasswordResetInputSchema,
+  requiredPasswordChangeInputSchema,
   signInInputSchema,
+  temporaryPasswordInputSchema,
 } from "@/server/auth/schema";
-import {
-  getInviteStatus,
-  getPasswordResetStatus,
-  toInviteSummary,
-} from "@/server/auth/summaries";
 import type {
+  AdminCreateUserInput,
+  AdminUpdateUserInput,
   AuthSession,
   AuthUser,
   BootstrapInput,
-  CreateInviteInput,
-  InviteRedemptionState,
-  PasswordResetSummary,
-  InviteSummary,
-  PasswordResetState,
-  RedeemInviteInput,
-  RedeemPasswordResetInput,
+  SessionMetadata,
   SetupState,
   SignInInput,
+  TemporaryPasswordInput,
+  TemporaryPasswordResult,
 } from "@/server/auth/types";
 import { getSystemSettings } from "@/server/settings";
+import { ensureUserCommittedStorageDirectories } from "@/server/storage";
 
 import type { AuthRepository } from "./repository";
-
-const SESSION_ROLE = "member" as const;
 
 type AuthResult = {
   session: AuthSession;
   sessionToken: string;
-  user: AuthUser;
-};
-
-type InviteIssueResult = {
-  invite: InviteSummary;
-  token: string;
-};
-
-type PasswordResetIssueResult = {
-  reset: PasswordResetSummary;
-  token: string;
   user: AuthUser;
 };
 
@@ -63,43 +43,93 @@ type CreateAuthServiceOptions = {
   crypto?: AuthCrypto;
   now?: () => Date;
   sessionMaxAgeDays?: number;
-  inviteMaxAgeDays?: number;
-  passwordResetMaxAgeHours?: number;
 };
+
+const TEMP_PASSWORD_SYMBOLS = "!@#$%?*-_";
+const TEMP_PASSWORD_ALPHABET =
+  "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789" +
+  TEMP_PASSWORD_SYMBOLS;
 
 const addDays = (date: Date, days: number) =>
   new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
-const addHours = (date: Date, hours: number) =>
-  new Date(date.getTime() + hours * 60 * 60 * 1000);
 
-const inviteFailureReasonToError = (
-  reason: "invalid" | "accepted" | "expired" | "revoked",
-) => {
-  switch (reason) {
-    case "accepted":
-      return new AuthError("INVITE_ACCEPTED");
-    case "expired":
-      return new AuthError("INVITE_EXPIRED");
-    case "revoked":
-      return new AuthError("INVITE_REVOKED");
-    default:
-      return new AuthError("INVITE_INVALID");
+const generateTokenFromAlphabet = (length: number, alphabet: string) => {
+  const bytes = randomBytes(length);
+  let value = "";
+
+  for (const byte of bytes) {
+    value += alphabet[byte % alphabet.length];
   }
+
+  return value;
 };
 
-const passwordResetFailureReasonToError = (
-  reason: "invalid" | "expired" | "redeemed" | "revoked",
-) => {
-  switch (reason) {
-    case "expired":
-      return new AuthError("RESET_EXPIRED");
-    case "redeemed":
-      return new AuthError("RESET_REDEEMED");
-    case "revoked":
-      return new AuthError("RESET_REVOKED");
-    default:
-      return new AuthError("RESET_INVALID");
+const shuffle = (value: string) => {
+  const chars = [...value];
+  const bytes = randomBytes(chars.length);
+
+  for (let i = chars.length - 1; i > 0; i -= 1) {
+    const j = bytes[i] % (i + 1);
+    [chars[i], chars[j]] = [chars[j]!, chars[i]!];
   }
+
+  return chars.join("");
+};
+
+const getEmailStorageBase = (email: string) => {
+  const localPart = email.split("@")[0] ?? "";
+  const sanitized = localPart
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^[.-]+|[.-]+$/g, "");
+
+  return sanitized.length > 0 ? sanitized : "user";
+};
+
+const generateStorageId = (email: string, attempt = 0) => {
+  const base = getEmailStorageBase(email);
+  return attempt === 0
+    ? base
+    : `${base}-${generateTokenFromAlphabet(6, "abcdefghijklmnopqrstuvwxyz0123456789")}`;
+};
+
+export const generateTemporaryPassword = () =>
+  shuffle(
+    [
+      generateTokenFromAlphabet(1, "abcdefghijkmnopqrstuvwxyz"),
+      generateTokenFromAlphabet(1, "ABCDEFGHJKLMNPQRSTUVWXYZ"),
+      generateTokenFromAlphabet(1, "23456789"),
+      generateTokenFromAlphabet(1, TEMP_PASSWORD_SYMBOLS),
+      generateTokenFromAlphabet(8, TEMP_PASSWORD_ALPHABET),
+    ].join(""),
+  );
+
+const normalizeTemporaryPasswordInput = (
+  input: TemporaryPasswordInput,
+): { password: string; requirePasswordChange: boolean } => {
+  const parsed = temporaryPasswordInputSchema.parse(input);
+  const password = parsed.generateTemporaryPassword
+    ? generateTemporaryPassword()
+    : (parsed.temporaryPassword ?? "");
+
+  if (password.length < 12 || password.length > 128) {
+    throw new AuthError(
+      "PASSWORD_INVALID",
+      "Temporary password must be 12-128 characters.",
+    );
+  }
+
+  if (
+    !parsed.generateTemporaryPassword &&
+    password !== parsed.confirmTemporaryPassword
+  ) {
+    throw new AuthError("PASSWORD_CONFIRMATION_MISMATCH");
+  }
+
+  return {
+    password,
+    requirePasswordChange: parsed.requirePasswordChange ?? true,
+  };
 };
 
 export const createAuthService = ({
@@ -107,8 +137,6 @@ export const createAuthService = ({
   crypto = authCrypto,
   now = () => new Date(),
   sessionMaxAgeDays,
-  inviteMaxAgeDays,
-  passwordResetMaxAgeHours,
 }: CreateAuthServiceOptions = {}) => {
   const resolveRepo = async (): Promise<AuthRepository> =>
     repo ?? (await import("./repository")).prismaAuthRepository;
@@ -117,13 +145,10 @@ export const createAuthService = ({
     const s = await getSystemSettings();
     return {
       sessionMaxAgeDays: sessionMaxAgeDays ?? s.sessionMaxAgeDays,
-      inviteMaxAgeDays: inviteMaxAgeDays ?? s.inviteMaxAgeDays,
-      passwordResetMaxAgeHours:
-        passwordResetMaxAgeHours ?? s.passwordResetMaxAgeHours,
     };
   };
 
-  const requireOwner = async (actorUserId: string) => {
+  const requireAdmin = async (actorUserId: string) => {
     const activeRepo = await resolveRepo();
     const actor = await activeRepo.findUserById(actorUserId);
 
@@ -134,7 +159,20 @@ export const createAuthService = ({
     return actor;
   };
 
-  const createSessionForUser = async (user: AuthUser): Promise<AuthResult> => {
+  const requireOwner = async (actorUserId: string) => {
+    const actor = await requireAdmin(actorUserId);
+
+    if (!actor.isOwner) {
+      throw new AuthError("ACCESS_DENIED", "Owner access required.");
+    }
+
+    return actor;
+  };
+
+  const createSessionForUser = async (
+    user: AuthUser,
+    metadata?: SessionMetadata,
+  ): Promise<AuthResult> => {
     const issuedAt = now();
     await getAuthSecret();
     const tokenPair = crypto.issueOpaqueToken();
@@ -144,6 +182,8 @@ export const createAuthService = ({
       userId: user.id,
       tokenHash: tokenPair.tokenHash,
       expiresAt: addDays(issuedAt, maxDays),
+      metadata,
+      now: issuedAt,
     });
 
     return {
@@ -153,127 +193,44 @@ export const createAuthService = ({
     };
   };
 
-  const getInviteRedemptionState = async (
-    rawToken: string,
-  ): Promise<InviteRedemptionState> => {
-    if (!rawToken) {
-      return {
-        isRedeemable: false,
-        invite: null,
-        reason: "invalid",
-      };
-    }
-
-    await getAuthSecret();
-    const tokenHash = crypto.hashOpaqueToken(rawToken);
+  const createUserWithStorageId = async (
+    params: Omit<AdminCreateUserInput, "temporaryPassword"> & {
+      passwordHash: string;
+      temporaryPasswordIssuedAt: Date;
+      temporaryPasswordIssuedByUserId: string;
+      passwordChangeRequiredAt: Date | null;
+    },
+  ) => {
     const activeRepo = await resolveRepo();
-    const invite = await activeRepo.findInviteByTokenHash(tokenHash);
+    let lastError: unknown = null;
 
-    if (!invite) {
-      return {
-        isRedeemable: false,
-        invite: null,
-        reason: "invalid",
-      };
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        return await activeRepo.createUser({
+          email: params.email,
+          storageId: generateStorageId(params.email, attempt),
+          passwordHash: params.passwordHash,
+          isAdmin: params.isAdmin ?? false,
+          storageLimitBytes: params.storageLimitBytes ?? null,
+          passwordChangeRequiredAt: params.passwordChangeRequiredAt,
+          temporaryPasswordIssuedAt: params.temporaryPasswordIssuedAt,
+          temporaryPasswordIssuedByUserId:
+            params.temporaryPasswordIssuedByUserId,
+        });
+      } catch (error) {
+        if (
+          error instanceof AuthError &&
+          error.code === "STORAGE_ID_COLLISION"
+        ) {
+          lastError = error;
+          continue;
+        }
+
+        throw error;
+      }
     }
 
-    const summary = toInviteSummary(invite, now());
-
-    if (summary.status !== "active") {
-      return {
-        isRedeemable: false,
-        invite: summary,
-        reason: summary.status,
-      };
-    }
-
-    return {
-      isRedeemable: true,
-      invite: summary,
-    };
-  };
-
-  const getPasswordResetState = async (
-    rawToken: string,
-  ): Promise<PasswordResetState> => {
-    if (!rawToken) {
-      return {
-        isRedeemable: false,
-        reset: null,
-        user: null,
-        reason: "invalid",
-      };
-    }
-
-    await getAuthSecret();
-    const tokenHash = crypto.hashOpaqueToken(rawToken);
-    const activeRepo = await resolveRepo();
-    const record = await activeRepo.findPasswordResetByTokenHash(tokenHash);
-
-    if (!record) {
-      return {
-        isRedeemable: false,
-        reset: null,
-        user: null,
-        reason: "invalid",
-      };
-    }
-
-    const summary = {
-      ...record.reset,
-      status: getPasswordResetStatus(record.reset, now()),
-    };
-
-    if (summary.status !== "active") {
-      return {
-        isRedeemable: false,
-        reset: summary,
-        user: record.user,
-        reason: summary.status,
-      };
-    }
-
-    return {
-      isRedeemable: true,
-      reset: summary,
-      user: record.user,
-    };
-  };
-
-  const createInviteForActor = async (
-    actorUserId: string,
-    input: CreateInviteInput,
-  ): Promise<InviteIssueResult> => {
-    await requireOwner(actorUserId);
-    const parsed = createInviteInputSchema.parse(input);
-    const activeRepo = await resolveRepo();
-
-    if (await activeRepo.findUserByEmail(parsed.email)) {
-      throw new AuthError("USER_ALREADY_EXISTS");
-    }
-
-    if (await activeRepo.findActiveInviteByEmail(parsed.email, now())) {
-      throw new AuthError("ACTIVE_INVITE_EXISTS");
-    }
-
-    const issuedAt = now();
-    const tokenPair = crypto.issueOpaqueToken();
-    const { inviteMaxAgeDays: maxDays } = await resolveSettings();
-    const invite = await activeRepo.createInvite(
-      {
-        email: parsed.email,
-        role: SESSION_ROLE,
-        invitedByUserId: actorUserId,
-        tokenHash: tokenPair.tokenHash,
-        expiresAt: addDays(issuedAt, maxDays),
-      },
-      issuedAt,
-    );
-
-    return {
-      invite,
-      token: tokenPair.token,
-    };
+    throw lastError ?? new AuthError("STORAGE_ID_COLLISION");
   };
 
   return {
@@ -281,7 +238,10 @@ export const createAuthService = ({
       return (await resolveRepo()).getSetupState();
     },
 
-    async bootstrap(input: BootstrapInput): Promise<AuthResult> {
+    async bootstrap(
+      input: BootstrapInput,
+      metadata?: SessionMetadata,
+    ): Promise<AuthResult> {
       const parsed = bootstrapInputSchema.parse(input);
       const activeRepo = await resolveRepo();
       const setupState = await activeRepo.getSetupState();
@@ -290,25 +250,25 @@ export const createAuthService = ({
         throw new AuthError("SETUP_ALREADY_COMPLETED");
       }
 
-      if (await activeRepo.findUserByUsername(parsed.username)) {
-        throw new AuthError("USERNAME_ALREADY_EXISTS");
-      }
-
       const createdAt = now();
       const passwordHash = await crypto.hashPassword(parsed.password);
       const user = await activeRepo.createBootstrap({
         instanceName: parsed.instanceName,
         email: parsed.email,
-        username: parsed.username,
+        storageId: generateStorageId(parsed.email),
         displayName: parsed.displayName,
         passwordHash,
         createdAt,
       });
 
-      return createSessionForUser(user);
+      await ensureUserCommittedStorageDirectories(user.storageId);
+      return createSessionForUser(user, metadata);
     },
 
-    async signIn(input: SignInInput): Promise<AuthResult> {
+    async signIn(
+      input: SignInInput,
+      metadata?: SessionMetadata,
+    ): Promise<AuthResult> {
       const parsed = signInInputSchema.parse(input);
       const activeRepo = await resolveRepo();
       const setupState = await activeRepo.getSetupState();
@@ -317,22 +277,7 @@ export const createAuthService = ({
         throw new AuthError("SETUP_REQUIRED");
       }
 
-      const normalizedIdentifier = normalizeAuthIdentifier(parsed.identifier);
-      let user = null;
-
-      if (isEmailIdentifier(normalizedIdentifier)) {
-        user = await activeRepo.findUserByEmail(
-          normalizedIdentifier.toLowerCase(),
-        );
-      } else {
-        const parsedUsername = parseUsernameIdentifier(normalizedIdentifier);
-
-        if (!parsedUsername.success) {
-          throw new AuthError("INVALID_IDENTIFIER");
-        }
-
-        user = await activeRepo.findUserByUsername(parsedUsername.data);
-      }
+      const user = await activeRepo.findUserByEmail(parsed.email);
 
       if (
         !user ||
@@ -341,7 +286,7 @@ export const createAuthService = ({
         throw new AuthError("INVALID_CREDENTIALS");
       }
 
-      return createSessionForUser(user);
+      return createSessionForUser(user, metadata);
     },
 
     async getSession(rawToken: string | null | undefined) {
@@ -358,17 +303,24 @@ export const createAuthService = ({
         return null;
       }
 
-      if (session.revokedAt || session.expiresAt <= now()) {
+      const seenAt = now();
+
+      if (session.revokedAt || session.expiresAt <= seenAt) {
         if (!session.revokedAt) {
-          await activeRepo.revokeSessionById(session.id, now());
+          await activeRepo.revokeSessionById(session.id, seenAt);
         }
 
         return null;
       }
 
+      await activeRepo.touchSessionLastSeen(session.id, seenAt);
+
       return {
         id: session.id,
         expiresAt: session.expiresAt,
+        userAgent: session.userAgent,
+        ipAddress: session.ipAddress,
+        lastSeenAt: seenAt,
         createdAt: session.createdAt,
         updatedAt: session.updatedAt,
         user: session.user,
@@ -390,8 +342,92 @@ export const createAuthService = ({
     },
 
     async listUsers(actorUserId: string) {
-      await requireOwner(actorUserId);
+      await requireAdmin(actorUserId);
       return (await resolveRepo()).listUsers();
+    },
+
+    async getUser(actorUserId: string, targetUserId: string) {
+      await requireAdmin(actorUserId);
+      const user = await (await resolveRepo()).findUserById(targetUserId);
+
+      if (!user) {
+        throw new AuthError("USER_NOT_FOUND");
+      }
+
+      return user;
+    },
+
+    async listUserSessions(actorUserId: string, targetUserId: string) {
+      await requireAdmin(actorUserId);
+      const user = await (await resolveRepo()).findUserById(targetUserId);
+
+      if (!user) {
+        throw new AuthError("USER_NOT_FOUND");
+      }
+
+      return (await resolveRepo()).listUserSessions(targetUserId);
+    },
+
+    async createUser(
+      actorUserId: string,
+      input: AdminCreateUserInput,
+    ): Promise<TemporaryPasswordResult> {
+      await requireOwner(actorUserId);
+      const parsed = adminCreateUserInputSchema.parse(input);
+
+      if (await (await resolveRepo()).findUserByEmail(parsed.email)) {
+        throw new AuthError("USER_ALREADY_EXISTS");
+      }
+
+      const { password, requirePasswordChange } =
+        normalizeTemporaryPasswordInput(parsed);
+      const issuedAt = now();
+      const passwordHash = await crypto.hashPassword(password);
+      const user = await createUserWithStorageId({
+        email: parsed.email,
+        passwordHash,
+        isAdmin: parsed.isAdmin ?? false,
+        storageLimitBytes: parsed.storageLimitBytes,
+        temporaryPasswordIssuedAt: issuedAt,
+        temporaryPasswordIssuedByUserId: actorUserId,
+        passwordChangeRequiredAt: requirePasswordChange ? issuedAt : null,
+      });
+
+      await ensureUserCommittedStorageDirectories(user.storageId);
+
+      return {
+        user,
+        temporaryPassword: password,
+      };
+    },
+
+    async updateUser(
+      actorUserId: string,
+      targetUserId: string,
+      input: AdminUpdateUserInput,
+    ) {
+      await requireOwner(actorUserId);
+      const activeRepo = await resolveRepo();
+      const existing = await activeRepo.findUserById(targetUserId);
+
+      if (!existing) {
+        throw new AuthError("USER_NOT_FOUND");
+      }
+
+      const parsed = adminUpdateUserInputSchema.parse(input);
+      const user = await activeRepo.updateUser({
+        userId: targetUserId,
+        email: parsed.email,
+        displayName: parsed.displayName,
+        storageLimitBytes: parsed.storageLimitBytes,
+        isAdmin: existing.isOwner ? true : parsed.isAdmin,
+      });
+
+      if (!user) {
+        throw new AuthError("USER_NOT_FOUND");
+      }
+
+      return user;
     },
 
     async setStorageLimit(
@@ -411,174 +447,107 @@ export const createAuthService = ({
       return user;
     },
 
-    async listInvites(actorUserId: string) {
-      await requireOwner(actorUserId);
-      return (await resolveRepo()).listInvites(now());
-    },
-
-    async createInvite(
+    async resetTemporaryPassword(
       actorUserId: string,
-      input: CreateInviteInput,
-    ): Promise<InviteIssueResult> {
-      return createInviteForActor(actorUserId, input);
-    },
-
-    async revokeInvite(actorUserId: string, inviteId: string) {
+      targetUserId: string,
+      input: TemporaryPasswordInput,
+    ): Promise<TemporaryPasswordResult> {
       await requireOwner(actorUserId);
       const activeRepo = await resolveRepo();
-      const invite = await activeRepo.findInviteById(inviteId);
+      const existing = await activeRepo.findUserById(targetUserId);
 
-      if (!invite) {
-        throw new AuthError("INVITE_INVALID");
+      if (!existing) {
+        throw new AuthError("USER_NOT_FOUND");
       }
 
-      const inviteStatus = getInviteStatus(invite, now());
-
-      if (inviteStatus === "accepted") {
-        throw new AuthError("INVITE_ACCEPTED");
-      }
-
-      if (inviteStatus === "revoked") {
-        return toInviteSummary(invite, now());
-      }
-
-      return activeRepo.revokeInvite(invite.id, now(), now());
-    },
-
-    async reissueInvite(
-      actorUserId: string,
-      inviteId: string,
-    ): Promise<InviteIssueResult> {
-      await requireOwner(actorUserId);
-      const activeRepo = await resolveRepo();
-      const invite = await activeRepo.findInviteById(inviteId);
-
-      if (!invite) {
-        throw new AuthError("INVITE_INVALID");
-      }
-
-      if (getInviteStatus(invite, now()) === "accepted") {
-        throw new AuthError("INVITE_ACCEPTED");
-      }
-
-      if (await activeRepo.findUserByEmail(invite.email)) {
-        throw new AuthError("USER_ALREADY_EXISTS");
-      }
-
-      if (getInviteStatus(invite, now()) === "active") {
-        await activeRepo.revokeInvite(invite.id, now(), now());
-      }
-
-      return createInviteForActor(actorUserId, {
-        email: invite.email,
-      });
-    },
-
-    async getInviteRedemptionState(
-      rawToken: string,
-    ): Promise<InviteRedemptionState> {
-      return getInviteRedemptionState(rawToken);
-    },
-
-    async redeemInvite(input: RedeemInviteInput): Promise<AuthResult> {
-      const parsed = redeemInviteInputSchema.parse(input);
-      const redemptionState = await getInviteRedemptionState(parsed.token);
-
-      if (!redemptionState.isRedeemable) {
-        throw inviteFailureReasonToError(redemptionState.reason);
-      }
-
-      const activeRepo = await resolveRepo();
-
-      if (await activeRepo.findUserByEmail(redemptionState.invite.email)) {
-        throw new AuthError("USER_ALREADY_EXISTS");
-      }
-
-      if (await activeRepo.findUserByUsername(parsed.username)) {
-        throw new AuthError("USERNAME_ALREADY_EXISTS");
-      }
-
-      const passwordHash = await crypto.hashPassword(parsed.password);
-      const user = await activeRepo.consumeInvite({
-        inviteId: redemptionState.invite.id,
-        username: parsed.username,
-        displayName: parsed.displayName,
+      const { password, requirePasswordChange } =
+        normalizeTemporaryPasswordInput(input);
+      const passwordHash = await crypto.hashPassword(password);
+      const user = await activeRepo.setTemporaryPassword({
+        userId: targetUserId,
+        issuedByUserId: actorUserId,
         passwordHash,
+        requirePasswordChange,
         now: now(),
       });
 
-      if (!user) {
-        throw new AuthError("INVITE_INVALID");
-      }
-
-      return createSessionForUser(user);
+      return {
+        user,
+        temporaryPassword: password,
+      };
     },
 
-    async issuePasswordReset(
-      actorUserId: string,
+    async changeRequiredPassword(
       userId: string,
-    ): Promise<PasswordResetIssueResult> {
-      await requireOwner(actorUserId);
-      const parsed = issuePasswordResetInputSchema.parse({
-        userId,
-      });
-      const activeRepo = await resolveRepo();
+      input: { password: string; confirmPassword: string },
+    ) {
+      const parsed = requiredPasswordChangeInputSchema.parse(input);
 
-      const user = await activeRepo.findUserById(parsed.userId);
+      if (parsed.password !== parsed.confirmPassword) {
+        throw new AuthError("PASSWORD_CONFIRMATION_MISMATCH");
+      }
+
+      const activeRepo = await resolveRepo();
+      const user = await activeRepo.findUserById(userId);
 
       if (!user) {
         throw new AuthError("USER_NOT_FOUND");
       }
 
-      const issuedAt = now();
-      const tokenPair = crypto.issueOpaqueToken();
-      const { passwordResetMaxAgeHours: maxHours } = await resolveSettings();
-      const reset = await activeRepo.createPasswordReset(
-        {
-          userId: parsed.userId,
-          issuedByUserId: actorUserId,
-          tokenHash: tokenPair.tokenHash,
-          expiresAt: addHours(issuedAt, maxHours),
-          now: issuedAt,
-        },
-        issuedAt,
-      );
-
-      return {
-        reset,
-        token: tokenPair.token,
-        user,
-      };
-    },
-
-    async getPasswordResetState(rawToken: string): Promise<PasswordResetState> {
-      return getPasswordResetState(rawToken);
-    },
-
-    async redeemPasswordReset(
-      input: RedeemPasswordResetInput,
-    ): Promise<AuthResult> {
-      const parsed = redeemPasswordResetInputSchema.parse(input);
-      const resetState = await getPasswordResetState(parsed.token);
-
-      if (!resetState.isRedeemable) {
-        throw passwordResetFailureReasonToError(resetState.reason);
+      if (!user.passwordChangeRequiredAt) {
+        return user;
       }
 
       const passwordHash = await crypto.hashPassword(parsed.password);
-      const user = await (
-        await resolveRepo()
-      ).consumePasswordReset({
-        resetId: resetState.reset.id,
+      const updated = await activeRepo.changeRequiredPassword(
+        userId,
         passwordHash,
-        now: now(),
-      });
+        now(),
+      );
 
-      if (!user) {
-        throw new AuthError("RESET_INVALID");
+      if (!updated) {
+        throw new AuthError("USER_NOT_FOUND");
       }
 
-      return createSessionForUser(user);
+      return updated;
+    },
+
+    async revokeUserSession(
+      actorUserId: string,
+      targetUserId: string,
+      sessionId: string,
+      currentSessionId: string,
+    ) {
+      await requireOwner(actorUserId);
+
+      if (sessionId === currentSessionId) {
+        throw new AuthError("CURRENT_SESSION_REVOKE_BLOCKED");
+      }
+
+      const activeRepo = await resolveRepo();
+      const user = await activeRepo.findUserById(targetUserId);
+
+      if (!user) {
+        throw new AuthError("USER_NOT_FOUND");
+      }
+
+      await activeRepo.revokeSessionById(sessionId, now());
+    },
+
+    async revokeAllUserSessions(
+      actorUserId: string,
+      targetUserId: string,
+      currentSessionId: string,
+    ) {
+      await requireOwner(actorUserId);
+      const activeRepo = await resolveRepo();
+      const sessions = await activeRepo.listUserSessions(targetUserId);
+
+      if (sessions.some((session) => session.id === currentSessionId)) {
+        throw new AuthError("CURRENT_SESSION_REVOKE_BLOCKED");
+      }
+
+      await activeRepo.revokeUserSessions(targetUserId, now());
     },
 
     async savePreferences(

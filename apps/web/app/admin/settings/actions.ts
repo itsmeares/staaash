@@ -15,8 +15,6 @@ import { requireOwnerPageSession } from "@/server/auth/guards";
 
 const updateSettingsSchema = z.object({
   sessionMaxAgeDays: z.coerce.number().int().positive(),
-  inviteMaxAgeDays: z.coerce.number().int().positive(),
-  passwordResetMaxAgeHours: z.coerce.number().int().positive(),
   shareMaxAgeDays: z.coerce.number().int().positive(),
   maxUploadBytes: z.coerce.bigint().positive(),
   uploadTimeoutMinutes: z.coerce.number().int().positive(),

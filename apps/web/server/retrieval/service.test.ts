@@ -52,7 +52,7 @@ const createMemoryRepository = () => {
     deletedAt = null,
     createdAt,
     updatedAt,
-    ownerUsername = ownerUserId,
+    ownerStorageId = ownerUserId,
   }: {
     ownerUserId: string;
     parentId: string | null;
@@ -61,13 +61,13 @@ const createMemoryRepository = () => {
     deletedAt?: Date | null;
     createdAt?: Date;
     updatedAt?: Date;
-    ownerUsername?: string;
+    ownerStorageId?: string;
   }) => {
     const timestamp = createdAt ?? updatedAt ?? nextDate();
     const folder: FolderSummary = {
       id: nextId("folder"),
       ownerUserId,
-      ownerUsername,
+      ownerStorageId,
       parentId,
       name,
       isFilesRoot,
@@ -89,7 +89,7 @@ const createMemoryRepository = () => {
     deletedAt = null,
     createdAt,
     updatedAt,
-    ownerUsername = ownerUserId,
+    ownerStorageId = ownerUserId,
   }: {
     ownerUserId: string;
     folderId: string | null;
@@ -99,13 +99,13 @@ const createMemoryRepository = () => {
     deletedAt?: Date | null;
     createdAt?: Date;
     updatedAt?: Date;
-    ownerUsername?: string;
+    ownerStorageId?: string;
   }) => {
     const timestamp = createdAt ?? updatedAt ?? nextDate();
     const file: FileSummary = {
       id: nextId("file"),
       ownerUserId,
-      ownerUsername,
+      ownerStorageId,
       folderId,
       name,
       mimeType,

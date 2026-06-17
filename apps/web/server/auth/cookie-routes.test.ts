@@ -1,27 +1,19 @@
 import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const {
-  bootstrap,
-  getSession,
-  redeemInvite,
-  revokeSession,
-  savePreferences,
-  signIn,
-} = vi.hoisted(() => ({
-  bootstrap: vi.fn(),
-  getSession: vi.fn(),
-  redeemInvite: vi.fn(),
-  revokeSession: vi.fn(),
-  savePreferences: vi.fn(),
-  signIn: vi.fn(),
-}));
+const { bootstrap, getSession, revokeSession, savePreferences, signIn } =
+  vi.hoisted(() => ({
+    bootstrap: vi.fn(),
+    getSession: vi.fn(),
+    revokeSession: vi.fn(),
+    savePreferences: vi.fn(),
+    signIn: vi.fn(),
+  }));
 
 vi.mock("@/server/auth/service", () => ({
   authService: {
     bootstrap,
     getSession,
-    redeemInvite,
     revokeSession,
     savePreferences,
     signIn,
@@ -50,10 +42,15 @@ const makeAuthResult = (sessionToken: string, preferences: unknown = null) => {
 const makeAuthUser = (preferences: unknown = null) => ({
   id: "user-1",
   email: "owner@example.com",
-  username: "owner",
+  storageId: "owner",
   displayName: "Owner",
   avatarUrl: null,
+  isOwner: true,
+  isAdmin: true,
   role: "owner",
+  passwordChangeRequiredAt: null,
+  temporaryPasswordIssuedAt: null,
+  temporaryPasswordIssuedByUserId: null,
   storageLimitBytes: null,
   preferences,
   createdAt: new Date("2026-05-10T12:00:00.000Z"),
@@ -63,6 +60,9 @@ const makeAuthUser = (preferences: unknown = null) => ({
 const makeSession = (user = makeAuthUser(completedPreferences)) => ({
   id: "session-1",
   expiresAt,
+  userAgent: null,
+  ipAddress: null,
+  lastSeenAt: new Date("2026-05-10T12:00:00.000Z"),
   createdAt: new Date("2026-05-10T12:00:00.000Z"),
   updatedAt: new Date("2026-05-10T12:00:00.000Z"),
   user,
@@ -156,7 +156,6 @@ describe("auth cookie routes", () => {
       httpJsonRequest("/api/auth/setup", {
         instanceName: "Home Drive",
         email: "owner@example.com",
-        username: "owner",
         password: "super-secure-password",
       }),
     );
@@ -175,7 +174,6 @@ describe("auth cookie routes", () => {
       forwardedHttpsJsonRequest("/api/auth/setup", {
         instanceName: "Home Drive",
         email: "owner@example.com",
-        username: "owner",
         password: "super-secure-password",
       }),
     );
@@ -194,7 +192,7 @@ describe("auth cookie routes", () => {
 
     const response = await POST(
       httpJsonRequest("/api/auth/sign-in", {
-        identifier: "owner",
+        email: "owner@example.com",
         password: "super-secure-password",
       }),
     );
@@ -215,7 +213,7 @@ describe("auth cookie routes", () => {
 
     const response = await POST(
       forwardedHttpsJsonRequest("/api/auth/sign-in", {
-        identifier: "owner",
+        email: "owner@example.com",
         password: "super-secure-password",
       }),
     );
@@ -329,42 +327,6 @@ describe("auth cookie routes", () => {
     const setCookie = response.headers.get("set-cookie") ?? "";
     expect(setCookie).toContain("staaash_session=");
     expect(setCookie).toContain("Max-Age=0");
-    expectCookieSecure(setCookie, true);
-  });
-
-  it("sets non-secure invite redemption cookies over plain HTTP", async () => {
-    redeemInvite.mockResolvedValueOnce(makeAuthResult("invite-token"));
-    const { POST } = await import("@/app/api/auth/invites/redeem/route");
-
-    const response = await POST(
-      httpJsonRequest("/api/auth/invites/redeem", {
-        token: "invite-token",
-        username: "member",
-        password: "super-secure-password",
-      }),
-    );
-
-    expect(response.status).toBe(201);
-    const setCookie = response.headers.get("set-cookie") ?? "";
-    expect(setCookie).toContain("staaash_session=invite-token");
-    expectCookieSecure(setCookie, false);
-  });
-
-  it("sets secure invite redemption cookies behind forwarded HTTPS", async () => {
-    redeemInvite.mockResolvedValueOnce(makeAuthResult("invite-token"));
-    const { POST } = await import("@/app/api/auth/invites/redeem/route");
-
-    const response = await POST(
-      forwardedHttpsJsonRequest("/api/auth/invites/redeem", {
-        token: "invite-token",
-        username: "member",
-        password: "super-secure-password",
-      }),
-    );
-
-    expect(response.status).toBe(201);
-    const setCookie = response.headers.get("set-cookie") ?? "";
-    expect(setCookie).toContain("staaash_session=invite-token");
     expectCookieSecure(setCookie, true);
   });
 });

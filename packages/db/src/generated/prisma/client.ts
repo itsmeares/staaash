@@ -67,16 +67,6 @@ export type UserPreference = Prisma.UserPreferenceModel
  */
 export type Session = Prisma.SessionModel
 /**
- * Model Invite
- * 
- */
-export type Invite = Prisma.InviteModel
-/**
- * Model PasswordReset
- * 
- */
-export type PasswordReset = Prisma.PasswordResetModel
-/**
  * Model Folder
  * 
  */

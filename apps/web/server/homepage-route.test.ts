@@ -43,7 +43,7 @@ describe("HomePage route", () => {
 
     expect(markup).toContain("Bring your Staaash online.");
     expect(markup).toContain(
-      "Create the first owner account. After this, your instance is private and invite-only.",
+      "Create the first owner account. After this, your instance is private.",
     );
   });
 

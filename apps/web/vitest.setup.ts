@@ -3,8 +3,6 @@ import { vi } from "vitest";
 const defaultSystemSettings = {
   id: "singleton",
   sessionMaxAgeDays: 30,
-  inviteMaxAgeDays: 7,
-  passwordResetMaxAgeHours: 4,
   shareMaxAgeDays: 30,
   maxUploadBytes: BigInt(10737418240),
   uploadTimeoutMinutes: 60,

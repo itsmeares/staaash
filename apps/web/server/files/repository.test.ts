@@ -6,7 +6,7 @@ type MemoryFolderRecord = {
   id: string;
   ownerUserId: string;
   owner: {
-    username: string;
+    storageId: string;
   };
   parentId: string | null;
   name: string;
@@ -44,7 +44,7 @@ const createFakePrismaClient = () => {
       id: nextId(),
       ownerUserId,
       owner: {
-        username: ownerUserId,
+        storageId: ownerUserId,
       },
       parentId,
       name,
@@ -148,7 +148,7 @@ const createFakePrismaClient = () => {
 
       if ("ownerUserId" in args.data && args.data.ownerUserId !== undefined) {
         folder.ownerUserId = args.data.ownerUserId;
-        folder.owner.username = args.data.ownerUserId;
+        folder.owner.storageId = args.data.ownerUserId;
       }
 
       if ("parentId" in args.data) {

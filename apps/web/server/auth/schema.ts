@@ -1,60 +1,68 @@
 import { z } from "zod";
 
-import { USERNAME_PATTERN } from "@/lib/user";
-
 const normalizeEmail = (value: string) => value.trim().toLowerCase();
-const normalizeUsername = (value: string) => value.trim().toLowerCase();
+
 const optionalDisplayName = z
   .string()
   .trim()
-  .min(1)
   .max(80)
   .optional()
-  .transform((value) => value || undefined);
-const usernameSchema = z
-  .string()
-  .trim()
-  .min(1, "Username is required.")
-  .transform(normalizeUsername)
-  .refine((value) => USERNAME_PATTERN.test(value), {
-    message:
-      "Username must be 3-32 characters using lowercase letters, numbers, and single hyphens.",
+  .transform((value) => (value ? value : undefined));
+
+const optionalNullableDisplayName = z
+  .union([z.string().trim().max(80), z.null()])
+  .optional()
+  .transform((value) => (value === "" ? null : value));
+
+const passwordSchema = z.string().min(12).max(128);
+
+const storageLimitSchema = z
+  .union([z.bigint(), z.string(), z.number(), z.null()])
+  .optional()
+  .transform((value) => {
+    if (value === undefined || value === null || value === "") return null;
+    const parsed = BigInt(value);
+    if (parsed < 0n) throw new Error("Storage quota cannot be negative.");
+    return parsed;
   });
 
 export const bootstrapInputSchema = z.object({
   instanceName: z.string().trim().min(1).max(80),
   email: z.string().trim().email().transform(normalizeEmail),
-  username: usernameSchema,
   displayName: optionalDisplayName,
-  password: z.string().min(12).max(128),
+  password: passwordSchema,
 });
 
 export const signInInputSchema = z.object({
-  identifier: z.string().trim().min(1).max(128),
+  email: z.string().trim().email().transform(normalizeEmail),
   password: z.string().min(1).max(128),
 });
 
-export const createInviteInputSchema = z.object({
+export const adminCreateUserInputSchema = z.object({
   email: z.string().trim().email().transform(normalizeEmail),
+  temporaryPassword: z.string().optional(),
+  confirmTemporaryPassword: z.string().optional(),
+  generateTemporaryPassword: z.boolean().optional(),
+  storageLimitBytes: storageLimitSchema,
+  isAdmin: z.boolean().optional(),
+  requirePasswordChange: z.boolean().optional(),
 });
 
-export const redeemInviteInputSchema = z.object({
-  token: z.string().trim().min(1),
-  username: usernameSchema,
-  displayName: optionalDisplayName,
-  password: z.string().min(12).max(128),
+export const adminUpdateUserInputSchema = z.object({
+  email: z.string().trim().email().transform(normalizeEmail).optional(),
+  displayName: optionalNullableDisplayName,
+  storageLimitBytes: storageLimitSchema,
+  isAdmin: z.boolean().optional(),
 });
 
-export const normalizeAuthIdentifier = (value: string) => value.trim();
-export const isEmailIdentifier = (value: string) => value.includes("@");
-export const parseUsernameIdentifier = (value: string) =>
-  usernameSchema.safeParse(value);
-
-export const issuePasswordResetInputSchema = z.object({
-  userId: z.string().trim().min(1),
+export const temporaryPasswordInputSchema = z.object({
+  temporaryPassword: z.string().optional(),
+  confirmTemporaryPassword: z.string().optional(),
+  generateTemporaryPassword: z.boolean().optional(),
+  requirePasswordChange: z.boolean().optional(),
 });
 
-export const redeemPasswordResetInputSchema = z.object({
-  token: z.string().trim().min(1),
-  password: z.string().min(12).max(128),
+export const requiredPasswordChangeInputSchema = z.object({
+  password: passwordSchema,
+  confirmPassword: z.string().min(1).max(128),
 });

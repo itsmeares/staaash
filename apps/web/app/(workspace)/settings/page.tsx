@@ -24,9 +24,7 @@ export default async function SettingsPage({
   const error = getSingleSearchParam(resolvedSearchParams, "error");
   const success = getSingleSearchParam(resolvedSearchParams, "success");
   const errorMessage =
-    error === "admin"
-      ? "Admin access is restricted to the instance owner."
-      : error;
+    error === "admin" ? "Admin access is restricted to admins." : error;
 
   const prefs = session.user.preferences;
 
@@ -56,7 +54,7 @@ export default async function SettingsPage({
           />
         </SettingsPanel>
 
-        <SettingsPanel title="Account" description="Identity and access role">
+        <SettingsPanel title="Account" description="Identity and access">
           <dl className="settings-list">
             <div className="settings-row">
               <dt className="settings-row-label">Display name</dt>
@@ -69,12 +67,14 @@ export default async function SettingsPage({
               <dd className="settings-row-value">{session.user.email}</dd>
             </div>
             <div className="settings-row">
-              <dt className="settings-row-label">Username</dt>
-              <dd className="settings-row-value">@{session.user.username}</dd>
-            </div>
-            <div className="settings-row">
-              <dt className="settings-row-label">Role</dt>
-              <dd className="settings-row-value">{session.user.role}</dd>
+              <dt className="settings-row-label">Access</dt>
+              <dd className="settings-row-value">
+                {session.user.isOwner
+                  ? "Owner"
+                  : session.user.isAdmin
+                    ? "Admin"
+                    : "Member"}
+              </dd>
             </div>
           </dl>
         </SettingsPanel>

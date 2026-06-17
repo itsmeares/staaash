@@ -9,14 +9,6 @@
 * 🟢 You can import this file directly.
 */
 
-export const UserRole = {
-  owner: 'owner',
-  member: 'member'
-} as const
-
-export type UserRole = (typeof UserRole)[keyof typeof UserRole]
-
-
 export const JobStatus = {
   queued: 'queued',
   running: 'running',

@@ -12,7 +12,7 @@ import type { FolderSummary } from "./types";
 const filesRoot: FolderSummary = {
   id: "root",
   ownerUserId: "user-1",
-  ownerUsername: "johnsmith",
+  ownerStorageId: "johnsmith",
   parentId: null,
   name: "Files",
   isFilesRoot: true,
@@ -24,7 +24,7 @@ const filesRoot: FolderSummary = {
 const photosFolder: FolderSummary = {
   id: "photos",
   ownerUserId: "user-1",
-  ownerUsername: "johnsmith",
+  ownerStorageId: "johnsmith",
   parentId: "root",
   name: "Photos",
   isFilesRoot: false,
@@ -36,7 +36,7 @@ const photosFolder: FolderSummary = {
 const tripsFolder: FolderSummary = {
   id: "trips",
   ownerUserId: "user-1",
-  ownerUsername: "johnsmith",
+  ownerStorageId: "johnsmith",
   parentId: "photos",
   name: "Trips",
   isFilesRoot: false,
@@ -100,7 +100,7 @@ describe("files storage layout", () => {
     expect(
       buildFileStorageKey({
         file: {
-          ownerUsername: "johnsmith",
+          ownerStorageId: "johnsmith",
           folderId: "trips",
           name: "my-photo.jpg",
         },
@@ -113,7 +113,7 @@ describe("files storage layout", () => {
     expect(
       buildFileStorageKey({
         file: {
-          ownerUsername: "johnsmith",
+          ownerStorageId: "johnsmith",
           folderId: "trips",
           name: "my-photo.jpg",
         },

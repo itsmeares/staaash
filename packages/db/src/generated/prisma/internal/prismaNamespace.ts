@@ -389,8 +389,6 @@ export const ModelName = {
   User: 'User',
   UserPreference: 'UserPreference',
   Session: 'Session',
-  Invite: 'Invite',
-  PasswordReset: 'PasswordReset',
   Folder: 'Folder',
   File: 'File',
   FavoriteFile: 'FavoriteFile',
@@ -420,7 +418,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "instance" | "systemSettings" | "user" | "userPreference" | "session" | "invite" | "passwordReset" | "folder" | "file" | "favoriteFile" | "favoriteFolder" | "recentFile" | "recentFolder" | "shareLink" | "backgroundJob" | "workerInstance" | "backgroundJobEvent" | "restoreReconciliationRun" | "mediaDerivative" | "zipArchive" | "uploadSession"
+    modelProps: "instance" | "systemSettings" | "user" | "userPreference" | "session" | "folder" | "file" | "favoriteFile" | "favoriteFolder" | "recentFile" | "recentFolder" | "shareLink" | "backgroundJob" | "workerInstance" | "backgroundJobEvent" | "restoreReconciliationRun" | "mediaDerivative" | "zipArchive" | "uploadSession"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -791,154 +789,6 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.SessionCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.SessionCountAggregateOutputType> | number
-        }
-      }
-    }
-    Invite: {
-      payload: Prisma.$InvitePayload<ExtArgs>
-      fields: Prisma.InviteFieldRefs
-      operations: {
-        findUnique: {
-          args: Prisma.InviteFindUniqueArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$InvitePayload> | null
-        }
-        findUniqueOrThrow: {
-          args: Prisma.InviteFindUniqueOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$InvitePayload>
-        }
-        findFirst: {
-          args: Prisma.InviteFindFirstArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$InvitePayload> | null
-        }
-        findFirstOrThrow: {
-          args: Prisma.InviteFindFirstOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$InvitePayload>
-        }
-        findMany: {
-          args: Prisma.InviteFindManyArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$InvitePayload>[]
-        }
-        create: {
-          args: Prisma.InviteCreateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$InvitePayload>
-        }
-        createMany: {
-          args: Prisma.InviteCreateManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        createManyAndReturn: {
-          args: Prisma.InviteCreateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$InvitePayload>[]
-        }
-        delete: {
-          args: Prisma.InviteDeleteArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$InvitePayload>
-        }
-        update: {
-          args: Prisma.InviteUpdateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$InvitePayload>
-        }
-        deleteMany: {
-          args: Prisma.InviteDeleteManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        updateMany: {
-          args: Prisma.InviteUpdateManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        updateManyAndReturn: {
-          args: Prisma.InviteUpdateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$InvitePayload>[]
-        }
-        upsert: {
-          args: Prisma.InviteUpsertArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$InvitePayload>
-        }
-        aggregate: {
-          args: Prisma.InviteAggregateArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.AggregateInvite>
-        }
-        groupBy: {
-          args: Prisma.InviteGroupByArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.InviteGroupByOutputType>[]
-        }
-        count: {
-          args: Prisma.InviteCountArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.InviteCountAggregateOutputType> | number
-        }
-      }
-    }
-    PasswordReset: {
-      payload: Prisma.$PasswordResetPayload<ExtArgs>
-      fields: Prisma.PasswordResetFieldRefs
-      operations: {
-        findUnique: {
-          args: Prisma.PasswordResetFindUniqueArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$PasswordResetPayload> | null
-        }
-        findUniqueOrThrow: {
-          args: Prisma.PasswordResetFindUniqueOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$PasswordResetPayload>
-        }
-        findFirst: {
-          args: Prisma.PasswordResetFindFirstArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$PasswordResetPayload> | null
-        }
-        findFirstOrThrow: {
-          args: Prisma.PasswordResetFindFirstOrThrowArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$PasswordResetPayload>
-        }
-        findMany: {
-          args: Prisma.PasswordResetFindManyArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$PasswordResetPayload>[]
-        }
-        create: {
-          args: Prisma.PasswordResetCreateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$PasswordResetPayload>
-        }
-        createMany: {
-          args: Prisma.PasswordResetCreateManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        createManyAndReturn: {
-          args: Prisma.PasswordResetCreateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$PasswordResetPayload>[]
-        }
-        delete: {
-          args: Prisma.PasswordResetDeleteArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$PasswordResetPayload>
-        }
-        update: {
-          args: Prisma.PasswordResetUpdateArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$PasswordResetPayload>
-        }
-        deleteMany: {
-          args: Prisma.PasswordResetDeleteManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        updateMany: {
-          args: Prisma.PasswordResetUpdateManyArgs<ExtArgs>
-          result: BatchPayload
-        }
-        updateManyAndReturn: {
-          args: Prisma.PasswordResetUpdateManyAndReturnArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$PasswordResetPayload>[]
-        }
-        upsert: {
-          args: Prisma.PasswordResetUpsertArgs<ExtArgs>
-          result: runtime.Types.Utils.PayloadToResult<Prisma.$PasswordResetPayload>
-        }
-        aggregate: {
-          args: Prisma.PasswordResetAggregateArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.AggregatePasswordReset>
-        }
-        groupBy: {
-          args: Prisma.PasswordResetGroupByArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.PasswordResetGroupByOutputType>[]
-        }
-        count: {
-          args: Prisma.PasswordResetCountArgs<ExtArgs>
-          result: runtime.Types.Utils.Optional<Prisma.PasswordResetCountAggregateOutputType> | number
         }
       }
     }
@@ -2036,8 +1886,6 @@ export type InstanceScalarFieldEnum = (typeof InstanceScalarFieldEnum)[keyof typ
 export const SystemSettingsScalarFieldEnum = {
   id: 'id',
   sessionMaxAgeDays: 'sessionMaxAgeDays',
-  inviteMaxAgeDays: 'inviteMaxAgeDays',
-  passwordResetMaxAgeHours: 'passwordResetMaxAgeHours',
   shareMaxAgeDays: 'shareMaxAgeDays',
   maxUploadBytes: 'maxUploadBytes',
   uploadTimeoutMinutes: 'uploadTimeoutMinutes',
@@ -2067,11 +1915,15 @@ export type SystemSettingsScalarFieldEnum = (typeof SystemSettingsScalarFieldEnu
 export const UserScalarFieldEnum = {
   id: 'id',
   email: 'email',
-  username: 'username',
+  storageId: 'storageId',
   displayName: 'displayName',
   avatarUrl: 'avatarUrl',
   passwordHash: 'passwordHash',
-  role: 'role',
+  isOwner: 'isOwner',
+  isAdmin: 'isAdmin',
+  passwordChangeRequiredAt: 'passwordChangeRequiredAt',
+  temporaryPasswordIssuedAt: 'temporaryPasswordIssuedAt',
+  temporaryPasswordIssuedByUserId: 'temporaryPasswordIssuedByUserId',
   storageLimitBytes: 'storageLimitBytes',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -2101,43 +1953,14 @@ export const SessionScalarFieldEnum = {
   tokenHash: 'tokenHash',
   expiresAt: 'expiresAt',
   revokedAt: 'revokedAt',
+  userAgent: 'userAgent',
+  ipAddress: 'ipAddress',
+  lastSeenAt: 'lastSeenAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type SessionScalarFieldEnum = (typeof SessionScalarFieldEnum)[keyof typeof SessionScalarFieldEnum]
-
-
-export const InviteScalarFieldEnum = {
-  id: 'id',
-  email: 'email',
-  role: 'role',
-  tokenHash: 'tokenHash',
-  invitedByUserId: 'invitedByUserId',
-  acceptedByUserId: 'acceptedByUserId',
-  acceptedAt: 'acceptedAt',
-  expiresAt: 'expiresAt',
-  revokedAt: 'revokedAt',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-} as const
-
-export type InviteScalarFieldEnum = (typeof InviteScalarFieldEnum)[keyof typeof InviteScalarFieldEnum]
-
-
-export const PasswordResetScalarFieldEnum = {
-  id: 'id',
-  userId: 'userId',
-  issuedByUserId: 'issuedByUserId',
-  tokenHash: 'tokenHash',
-  expiresAt: 'expiresAt',
-  redeemedAt: 'redeemedAt',
-  revokedAt: 'revokedAt',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-} as const
-
-export type PasswordResetScalarFieldEnum = (typeof PasswordResetScalarFieldEnum)[keyof typeof PasswordResetScalarFieldEnum]
 
 
 export const FolderScalarFieldEnum = {
@@ -2496,20 +2319,6 @@ export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel,
 
 
 /**
- * Reference to a field of type 'UserRole'
- */
-export type EnumUserRoleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'UserRole'>
-    
-
-
-/**
- * Reference to a field of type 'UserRole[]'
- */
-export type ListEnumUserRoleFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'UserRole[]'>
-    
-
-
-/**
  * Reference to a field of type 'FileStorageStatus'
  */
 export type EnumFileStorageStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'FileStorageStatus'>
@@ -2707,8 +2516,6 @@ export type GlobalOmitConfig = {
   user?: Prisma.UserOmit
   userPreference?: Prisma.UserPreferenceOmit
   session?: Prisma.SessionOmit
-  invite?: Prisma.InviteOmit
-  passwordReset?: Prisma.PasswordResetOmit
   folder?: Prisma.FolderOmit
   file?: Prisma.FileOmit
   favoriteFile?: Prisma.FavoriteFileOmit

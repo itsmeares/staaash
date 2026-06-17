@@ -24,7 +24,7 @@ const makeFile = (
   overrides: Partial<{
     id: string;
     ownerUserId: string;
-    ownerUsername: string;
+    ownerStorageId: string;
     folderId: string | null;
     name: string;
     mimeType: string;
@@ -42,7 +42,7 @@ const makeFile = (
 ) => ({
   id: "file-1",
   ownerUserId: "member-1",
-  ownerUsername: "member-1",
+  ownerStorageId: "member-1",
   folderId: null,
   name: "clip.mp4",
   mimeType: "video/mp4",

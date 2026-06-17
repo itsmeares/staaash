@@ -37,80 +37,80 @@ export const getStorageLockDirectoryPath = () =>
 export const getPendingDeleteDirectoryPath = () =>
   resolveWithinRoot(STORAGE_DIRECTORIES.pendingDelete);
 
-export const getUserFilesRootStorageKey = (username: string) =>
-  path.posix.join(STORAGE_DIRECTORIES.files, username);
+export const getUserFilesRootStorageKey = (storageId: string) =>
+  path.posix.join(STORAGE_DIRECTORIES.files, storageId);
 
-export const getUserTrashRootStorageKey = (username: string) =>
-  path.posix.join(STORAGE_DIRECTORIES.trash, username);
+export const getUserTrashRootStorageKey = (storageId: string) =>
+  path.posix.join(STORAGE_DIRECTORIES.trash, storageId);
 
 const buildCommittedStorageKey = ({
-  username,
+  storageId,
   folderPathSegments,
   fileName,
   trashed,
 }: {
-  username: string;
+  storageId: string;
   folderPathSegments: string[];
   fileName: string;
   trashed: boolean;
 }) =>
   path.posix.join(
     trashed
-      ? getUserTrashRootStorageKey(username)
-      : getUserFilesRootStorageKey(username),
+      ? getUserTrashRootStorageKey(storageId)
+      : getUserFilesRootStorageKey(storageId),
     ...folderPathSegments,
     fileName,
   );
 
 export const getActiveCommittedStorageKey = ({
-  username,
+  storageId,
   folderPathSegments,
   fileName,
 }: {
-  username: string;
+  storageId: string;
   folderPathSegments: string[];
   fileName: string;
 }) =>
   buildCommittedStorageKey({
-    username,
+    storageId,
     folderPathSegments,
     fileName,
     trashed: false,
   });
 
 export const getTrashedCommittedStorageKey = ({
-  username,
+  storageId,
   folderPathSegments,
   fileName,
 }: {
-  username: string;
+  storageId: string;
   folderPathSegments: string[];
   fileName: string;
 }) =>
   buildCommittedStorageKey({
-    username,
+    storageId,
     folderPathSegments,
     fileName,
     trashed: true,
   });
 
 export const getActiveFolderStorageKey = ({
-  username,
+  storageId,
   folderPathSegments,
 }: {
-  username: string;
+  storageId: string;
   folderPathSegments: string[];
 }) =>
-  path.posix.join(getUserFilesRootStorageKey(username), ...folderPathSegments);
+  path.posix.join(getUserFilesRootStorageKey(storageId), ...folderPathSegments);
 
 export const getTrashedFolderStorageKey = ({
-  username,
+  storageId,
   folderPathSegments,
 }: {
-  username: string;
+  storageId: string;
   folderPathSegments: string[];
 }) =>
-  path.posix.join(getUserTrashRootStorageKey(username), ...folderPathSegments);
+  path.posix.join(getUserTrashRootStorageKey(storageId), ...folderPathSegments);
 
 const getDerivativePath = (storageKey: string) => resolveWithinRoot(storageKey);
 
@@ -136,13 +136,13 @@ export const getWorkerHeartbeatPath = () =>
   resolveWithinRoot(STORAGE_DIRECTORIES.tmp, "worker-heartbeat.json");
 
 export const ensureUserCommittedStorageDirectories = async (
-  username: string,
+  storageId: string,
 ) => {
   await Promise.all([
-    mkdir(resolveWithinRoot(getUserFilesRootStorageKey(username)), {
+    mkdir(resolveWithinRoot(getUserFilesRootStorageKey(storageId)), {
       recursive: true,
     }),
-    mkdir(resolveWithinRoot(getUserTrashRootStorageKey(username)), {
+    mkdir(resolveWithinRoot(getUserTrashRootStorageKey(storageId)), {
       recursive: true,
     }),
   ]);

@@ -46,7 +46,7 @@ const fixedNow = new Date("2026-05-31T12:00:00.000Z");
 const makeFile = () => ({
   id: "file-1",
   ownerUserId: "user-1",
-  ownerUsername: "alice",
+  ownerStorageId: "alice",
   folderId: "folder-1",
   name: "clip.mp4",
   mimeType: "video/mp4",

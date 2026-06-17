@@ -8,19 +8,16 @@ import type { AdminOverviewSummary } from "./types";
 export const getAdminOverviewSummary = async (
   actorUserId: string,
 ): Promise<AdminOverviewSummary> => {
-  const [health, storage, updates, users, invites] = await Promise.all([
+  const [health, storage, updates, users] = await Promise.all([
     getAdminHealthSummary(),
     getAdminStorageSummary(),
     getAdminUpdateStatus(),
     authService.listUsers(actorUserId),
-    authService.listInvites(actorUserId),
   ]);
 
-  const owners = users.filter((user) => user.role === "owner").length;
-  const members = users.length - owners;
-  const activeInvites = invites.filter(
-    (invite) => invite.status === "active",
-  ).length;
+  const owners = users.filter((user) => user.isOwner).length;
+  const admins = users.filter((user) => user.isAdmin && !user.isOwner).length;
+  const members = users.length - owners - admins;
 
   return {
     health,
@@ -42,8 +39,8 @@ export const getAdminOverviewSummary = async (
     users: {
       total: users.length,
       owners,
+      admins,
       members,
-      activeInvites,
     },
     updates,
   };

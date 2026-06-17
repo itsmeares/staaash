@@ -384,7 +384,8 @@ export default async function HomePage() {
       baseUrl,
     }),
   ]);
-  const displayName = session.user.displayName ?? session.user.username;
+  const displayName =
+    session.user.displayName ?? session.user.email.split("@")[0] ?? "there";
   const greeting = getHomeGreeting(new Date().getHours());
   const currentPath = "/home";
 

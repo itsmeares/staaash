@@ -7,11 +7,6 @@ datasource db {
   provider = "postgresql"
 }
 
-enum UserRole {
-  owner
-  member
-}
-
 enum JobStatus {
   queued
   running
@@ -54,8 +49,6 @@ model Instance {
 model SystemSettings {
   id                            String   @id @default("singleton")
   sessionMaxAgeDays             Int      @default(30)
-  inviteMaxAgeDays              Int      @default(7)
-  passwordResetMaxAgeHours      Int      @default(4)
   shareMaxAgeDays               Int      @default(30)
   maxUploadBytes                BigInt   @default(10737418240)
   uploadTimeoutMinutes          Int      @default(60)
@@ -82,20 +75,20 @@ model SystemSettings {
 model User {
   id                        String                     @id @default(cuid())
   email                     String                     @unique
-  username                  String                     @unique
+  storageId                 String                     @unique
   displayName               String?
   avatarUrl                 String?
   passwordHash              String
-  role                      UserRole                   @default(member)
+  isOwner                   Boolean                    @default(false)
+  isAdmin                   Boolean                    @default(false)
+  passwordChangeRequiredAt  DateTime?
+  temporaryPasswordIssuedAt DateTime?
+  temporaryPasswordIssuedByUserId String?
   storageLimitBytes         BigInt?
   createdAt                 DateTime                   @default(now())
   updatedAt                 DateTime                   @updatedAt
   sessions                  Session[]
   preferences               UserPreference?
-  invitesIssued             Invite[]                   @relation("InviteIssuer")
-  invitesAccepted           Invite[]                   @relation("InviteAcceptor")
-  passwordResetsIssued      PasswordReset[]            @relation("PasswordResetIssuer")
-  passwordResetsForUser     PasswordReset[]            @relation("PasswordResetUser")
   folders                   Folder[]                   @relation("FolderOwner")
   files                     File[]                     @relation("FileOwner")
   favoriteFiles             FavoriteFile[]
@@ -105,6 +98,9 @@ model User {
   shareLinks                ShareLink[]                @relation("ShareLinkCreator")
   restoreReconciliationRuns RestoreReconciliationRun[] @relation("RestoreReconciliationTrigger")
   zipArchives               ZipArchive[]
+
+  @@index([isOwner])
+  @@index([isAdmin])
 }
 
 model UserPreference {
@@ -121,50 +117,19 @@ model UserPreference {
 }
 
 model Session {
-  id        String    @id @default(cuid())
-  userId    String
-  tokenHash String    @unique
-  expiresAt DateTime
-  revokedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  userAgent  String?
+  ipAddress  String?
+  lastSeenAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, expiresAt])
-}
-
-model Invite {
-  id               String    @id @default(cuid())
-  email            String
-  role             UserRole  @default(member)
-  tokenHash        String    @unique
-  invitedByUserId  String
-  acceptedByUserId String?
-  acceptedAt       DateTime?
-  expiresAt        DateTime
-  revokedAt        DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  invitedBy        User      @relation("InviteIssuer", fields: [invitedByUserId], references: [id], onDelete: Restrict)
-  acceptedBy       User?     @relation("InviteAcceptor", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
-
-  @@index([email, revokedAt, expiresAt])
-}
-
-model PasswordReset {
-  id             String    @id @default(cuid())
-  userId         String
-  issuedByUserId String
-  tokenHash      String    @unique
-  expiresAt      DateTime
-  redeemedAt     DateTime?
-  revokedAt      DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  user           User      @relation("PasswordResetUser", fields: [userId], references: [id], onDelete: Cascade)
-  issuedBy       User      @relation("PasswordResetIssuer", fields: [issuedByUserId], references: [id], onDelete: Restrict)
-
-  @@index([userId, revokedAt, expiresAt])
 }
 
 model Folder {

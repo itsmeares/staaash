@@ -44,7 +44,7 @@ export default async function AdminMediaPage() {
           select: {
             originalName: true,
             sizeBytes: true,
-            owner: { select: { username: true, displayName: true } },
+            owner: { select: { email: true, displayName: true } },
           },
         },
       },
@@ -120,8 +120,7 @@ export default async function AdminMediaPage() {
                         )}
                       </div>
                       <span className="muted" style={{ fontSize: "0.8rem" }}>
-                        {d.file.owner.displayName ??
-                          `@${d.file.owner.username}`}
+                        {d.file.owner.displayName ?? d.file.owner.email}
                       </span>
                     </div>
                   </td>

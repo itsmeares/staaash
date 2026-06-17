@@ -11,7 +11,7 @@ import { applyThemeWithTransition, type Theme } from "@/lib/theme";
 
 interface AdminTopbarActionsProps {
   userLabel: string | null;
-  username: string;
+  email: string;
   initials: string;
   avatarUrl: string | null;
   initialTheme: Theme;
@@ -22,7 +22,7 @@ const THEME_ICONS = { system: SunMoon, light: Sun, dark: Moon } as const;
 
 export function AdminTopbarActions({
   userLabel,
-  username,
+  email,
   initials,
   avatarUrl,
   initialTheme,
@@ -92,7 +92,7 @@ export function AdminTopbarActions({
             {userLabel && (
               <span className="topbar-profile-card-name">{userLabel}</span>
             )}
-            <span className="topbar-profile-card-username">@{username}</span>
+            <span className="topbar-profile-card-email">{email}</span>
           </div>
 
           <div className="flex flex-col p-1.5">

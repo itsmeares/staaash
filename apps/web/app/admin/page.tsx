@@ -1,13 +1,13 @@
 import Link from "next/link";
 
 import { formatAdminBytes } from "@/app/admin/admin-format";
-import { requireOwnerPageSession } from "@/server/auth/guards";
+import { requireAdminPageSession } from "@/server/auth/guards";
 import { getAdminOverviewSummary } from "@/server/admin/overview";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminOverviewPage() {
-  const session = await requireOwnerPageSession();
+  const session = await requireAdminPageSession();
   const summary = await getAdminOverviewSummary(session.user.id);
 
   const updateStatus = summary.updates.updateCheckStatus;
@@ -36,12 +36,10 @@ export default async function AdminOverviewPage() {
             <dt className="admin-kv-label">Users</dt>
             <dd className="admin-kv-value">{summary.users.total}</dd>
             <dd className="admin-kv-sub">
-              {summary.users.owners} owner · {summary.users.members} member
+              {summary.users.owners} owner · {summary.users.admins} admin
+              {summary.users.admins !== 1 ? "s" : ""} · {summary.users.members}{" "}
+              member
               {summary.users.members !== 1 ? "s" : ""}
-            </dd>
-            <dd className="admin-kv-sub">
-              {summary.users.activeInvites} active invite
-              {summary.users.activeInvites !== 1 ? "s" : ""}
             </dd>
             <dd>
               <Link className="admin-kv-link" href="/admin/users">

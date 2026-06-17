@@ -37,11 +37,15 @@ export type UserSumAggregateOutputType = {
 export type UserMinAggregateOutputType = {
   id: string | null
   email: string | null
-  username: string | null
+  storageId: string | null
   displayName: string | null
   avatarUrl: string | null
   passwordHash: string | null
-  role: $Enums.UserRole | null
+  isOwner: boolean | null
+  isAdmin: boolean | null
+  passwordChangeRequiredAt: Date | null
+  temporaryPasswordIssuedAt: Date | null
+  temporaryPasswordIssuedByUserId: string | null
   storageLimitBytes: bigint | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -50,11 +54,15 @@ export type UserMinAggregateOutputType = {
 export type UserMaxAggregateOutputType = {
   id: string | null
   email: string | null
-  username: string | null
+  storageId: string | null
   displayName: string | null
   avatarUrl: string | null
   passwordHash: string | null
-  role: $Enums.UserRole | null
+  isOwner: boolean | null
+  isAdmin: boolean | null
+  passwordChangeRequiredAt: Date | null
+  temporaryPasswordIssuedAt: Date | null
+  temporaryPasswordIssuedByUserId: string | null
   storageLimitBytes: bigint | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -63,11 +71,15 @@ export type UserMaxAggregateOutputType = {
 export type UserCountAggregateOutputType = {
   id: number
   email: number
-  username: number
+  storageId: number
   displayName: number
   avatarUrl: number
   passwordHash: number
-  role: number
+  isOwner: number
+  isAdmin: number
+  passwordChangeRequiredAt: number
+  temporaryPasswordIssuedAt: number
+  temporaryPasswordIssuedByUserId: number
   storageLimitBytes: number
   createdAt: number
   updatedAt: number
@@ -86,11 +98,15 @@ export type UserSumAggregateInputType = {
 export type UserMinAggregateInputType = {
   id?: true
   email?: true
-  username?: true
+  storageId?: true
   displayName?: true
   avatarUrl?: true
   passwordHash?: true
-  role?: true
+  isOwner?: true
+  isAdmin?: true
+  passwordChangeRequiredAt?: true
+  temporaryPasswordIssuedAt?: true
+  temporaryPasswordIssuedByUserId?: true
   storageLimitBytes?: true
   createdAt?: true
   updatedAt?: true
@@ -99,11 +115,15 @@ export type UserMinAggregateInputType = {
 export type UserMaxAggregateInputType = {
   id?: true
   email?: true
-  username?: true
+  storageId?: true
   displayName?: true
   avatarUrl?: true
   passwordHash?: true
-  role?: true
+  isOwner?: true
+  isAdmin?: true
+  passwordChangeRequiredAt?: true
+  temporaryPasswordIssuedAt?: true
+  temporaryPasswordIssuedByUserId?: true
   storageLimitBytes?: true
   createdAt?: true
   updatedAt?: true
@@ -112,11 +132,15 @@ export type UserMaxAggregateInputType = {
 export type UserCountAggregateInputType = {
   id?: true
   email?: true
-  username?: true
+  storageId?: true
   displayName?: true
   avatarUrl?: true
   passwordHash?: true
-  role?: true
+  isOwner?: true
+  isAdmin?: true
+  passwordChangeRequiredAt?: true
+  temporaryPasswordIssuedAt?: true
+  temporaryPasswordIssuedByUserId?: true
   storageLimitBytes?: true
   createdAt?: true
   updatedAt?: true
@@ -212,11 +236,15 @@ export type UserGroupByArgs<ExtArgs extends runtime.Types.Extensions.InternalArg
 export type UserGroupByOutputType = {
   id: string
   email: string
-  username: string
+  storageId: string
   displayName: string | null
   avatarUrl: string | null
   passwordHash: string
-  role: $Enums.UserRole
+  isOwner: boolean
+  isAdmin: boolean
+  passwordChangeRequiredAt: Date | null
+  temporaryPasswordIssuedAt: Date | null
+  temporaryPasswordIssuedByUserId: string | null
   storageLimitBytes: bigint | null
   createdAt: Date
   updatedAt: Date
@@ -248,20 +276,20 @@ export type UserWhereInput = {
   NOT?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
   id?: Prisma.StringFilter<"User"> | string
   email?: Prisma.StringFilter<"User"> | string
-  username?: Prisma.StringFilter<"User"> | string
+  storageId?: Prisma.StringFilter<"User"> | string
   displayName?: Prisma.StringNullableFilter<"User"> | string | null
   avatarUrl?: Prisma.StringNullableFilter<"User"> | string | null
   passwordHash?: Prisma.StringFilter<"User"> | string
-  role?: Prisma.EnumUserRoleFilter<"User"> | $Enums.UserRole
+  isOwner?: Prisma.BoolFilter<"User"> | boolean
+  isAdmin?: Prisma.BoolFilter<"User"> | boolean
+  passwordChangeRequiredAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.StringNullableFilter<"User"> | string | null
   storageLimitBytes?: Prisma.BigIntNullableFilter<"User"> | bigint | number | null
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"User"> | Date | string
   sessions?: Prisma.SessionListRelationFilter
   preferences?: Prisma.XOR<Prisma.UserPreferenceNullableScalarRelationFilter, Prisma.UserPreferenceWhereInput> | null
-  invitesIssued?: Prisma.InviteListRelationFilter
-  invitesAccepted?: Prisma.InviteListRelationFilter
-  passwordResetsIssued?: Prisma.PasswordResetListRelationFilter
-  passwordResetsForUser?: Prisma.PasswordResetListRelationFilter
   folders?: Prisma.FolderListRelationFilter
   files?: Prisma.FileListRelationFilter
   favoriteFiles?: Prisma.FavoriteFileListRelationFilter
@@ -276,20 +304,20 @@ export type UserWhereInput = {
 export type UserOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   email?: Prisma.SortOrder
-  username?: Prisma.SortOrder
+  storageId?: Prisma.SortOrder
   displayName?: Prisma.SortOrderInput | Prisma.SortOrder
   avatarUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
-  role?: Prisma.SortOrder
+  isOwner?: Prisma.SortOrder
+  isAdmin?: Prisma.SortOrder
+  passwordChangeRequiredAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  temporaryPasswordIssuedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  temporaryPasswordIssuedByUserId?: Prisma.SortOrderInput | Prisma.SortOrder
   storageLimitBytes?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   sessions?: Prisma.SessionOrderByRelationAggregateInput
   preferences?: Prisma.UserPreferenceOrderByWithRelationInput
-  invitesIssued?: Prisma.InviteOrderByRelationAggregateInput
-  invitesAccepted?: Prisma.InviteOrderByRelationAggregateInput
-  passwordResetsIssued?: Prisma.PasswordResetOrderByRelationAggregateInput
-  passwordResetsForUser?: Prisma.PasswordResetOrderByRelationAggregateInput
   folders?: Prisma.FolderOrderByRelationAggregateInput
   files?: Prisma.FileOrderByRelationAggregateInput
   favoriteFiles?: Prisma.FavoriteFileOrderByRelationAggregateInput
@@ -304,23 +332,23 @@ export type UserOrderByWithRelationInput = {
 export type UserWhereUniqueInput = Prisma.AtLeast<{
   id?: string
   email?: string
-  username?: string
+  storageId?: string
   AND?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
   OR?: Prisma.UserWhereInput[]
   NOT?: Prisma.UserWhereInput | Prisma.UserWhereInput[]
   displayName?: Prisma.StringNullableFilter<"User"> | string | null
   avatarUrl?: Prisma.StringNullableFilter<"User"> | string | null
   passwordHash?: Prisma.StringFilter<"User"> | string
-  role?: Prisma.EnumUserRoleFilter<"User"> | $Enums.UserRole
+  isOwner?: Prisma.BoolFilter<"User"> | boolean
+  isAdmin?: Prisma.BoolFilter<"User"> | boolean
+  passwordChangeRequiredAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.StringNullableFilter<"User"> | string | null
   storageLimitBytes?: Prisma.BigIntNullableFilter<"User"> | bigint | number | null
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"User"> | Date | string
   sessions?: Prisma.SessionListRelationFilter
   preferences?: Prisma.XOR<Prisma.UserPreferenceNullableScalarRelationFilter, Prisma.UserPreferenceWhereInput> | null
-  invitesIssued?: Prisma.InviteListRelationFilter
-  invitesAccepted?: Prisma.InviteListRelationFilter
-  passwordResetsIssued?: Prisma.PasswordResetListRelationFilter
-  passwordResetsForUser?: Prisma.PasswordResetListRelationFilter
   folders?: Prisma.FolderListRelationFilter
   files?: Prisma.FileListRelationFilter
   favoriteFiles?: Prisma.FavoriteFileListRelationFilter
@@ -330,16 +358,20 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   shareLinks?: Prisma.ShareLinkListRelationFilter
   restoreReconciliationRuns?: Prisma.RestoreReconciliationRunListRelationFilter
   zipArchives?: Prisma.ZipArchiveListRelationFilter
-}, "id" | "email" | "username">
+}, "id" | "email" | "storageId">
 
 export type UserOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   email?: Prisma.SortOrder
-  username?: Prisma.SortOrder
+  storageId?: Prisma.SortOrder
   displayName?: Prisma.SortOrderInput | Prisma.SortOrder
   avatarUrl?: Prisma.SortOrderInput | Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
-  role?: Prisma.SortOrder
+  isOwner?: Prisma.SortOrder
+  isAdmin?: Prisma.SortOrder
+  passwordChangeRequiredAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  temporaryPasswordIssuedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  temporaryPasswordIssuedByUserId?: Prisma.SortOrderInput | Prisma.SortOrder
   storageLimitBytes?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -356,11 +388,15 @@ export type UserScalarWhereWithAggregatesInput = {
   NOT?: Prisma.UserScalarWhereWithAggregatesInput | Prisma.UserScalarWhereWithAggregatesInput[]
   id?: Prisma.StringWithAggregatesFilter<"User"> | string
   email?: Prisma.StringWithAggregatesFilter<"User"> | string
-  username?: Prisma.StringWithAggregatesFilter<"User"> | string
+  storageId?: Prisma.StringWithAggregatesFilter<"User"> | string
   displayName?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   avatarUrl?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   passwordHash?: Prisma.StringWithAggregatesFilter<"User"> | string
-  role?: Prisma.EnumUserRoleWithAggregatesFilter<"User"> | $Enums.UserRole
+  isOwner?: Prisma.BoolWithAggregatesFilter<"User"> | boolean
+  isAdmin?: Prisma.BoolWithAggregatesFilter<"User"> | boolean
+  passwordChangeRequiredAt?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   storageLimitBytes?: Prisma.BigIntNullableWithAggregatesFilter<"User"> | bigint | number | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
@@ -369,20 +405,20 @@ export type UserScalarWhereWithAggregatesInput = {
 export type UserCreateInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
   preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
   favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
@@ -397,20 +433,20 @@ export type UserCreateInput = {
 export type UserUncheckedCreateInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
   preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
   favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
@@ -425,20 +461,20 @@ export type UserUncheckedCreateInput = {
 export type UserUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
   preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
   favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
@@ -453,20 +489,20 @@ export type UserUpdateInput = {
 export type UserUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
   preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
   favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
@@ -481,11 +517,15 @@ export type UserUncheckedUpdateInput = {
 export type UserCreateManyInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -494,11 +534,15 @@ export type UserCreateManyInput = {
 export type UserUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -507,11 +551,15 @@ export type UserUpdateManyMutationInput = {
 export type UserUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -520,11 +568,15 @@ export type UserUncheckedUpdateManyInput = {
 export type UserCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   email?: Prisma.SortOrder
-  username?: Prisma.SortOrder
+  storageId?: Prisma.SortOrder
   displayName?: Prisma.SortOrder
   avatarUrl?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
-  role?: Prisma.SortOrder
+  isOwner?: Prisma.SortOrder
+  isAdmin?: Prisma.SortOrder
+  passwordChangeRequiredAt?: Prisma.SortOrder
+  temporaryPasswordIssuedAt?: Prisma.SortOrder
+  temporaryPasswordIssuedByUserId?: Prisma.SortOrder
   storageLimitBytes?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -537,11 +589,15 @@ export type UserAvgOrderByAggregateInput = {
 export type UserMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   email?: Prisma.SortOrder
-  username?: Prisma.SortOrder
+  storageId?: Prisma.SortOrder
   displayName?: Prisma.SortOrder
   avatarUrl?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
-  role?: Prisma.SortOrder
+  isOwner?: Prisma.SortOrder
+  isAdmin?: Prisma.SortOrder
+  passwordChangeRequiredAt?: Prisma.SortOrder
+  temporaryPasswordIssuedAt?: Prisma.SortOrder
+  temporaryPasswordIssuedByUserId?: Prisma.SortOrder
   storageLimitBytes?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -550,11 +606,15 @@ export type UserMaxOrderByAggregateInput = {
 export type UserMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   email?: Prisma.SortOrder
-  username?: Prisma.SortOrder
+  storageId?: Prisma.SortOrder
   displayName?: Prisma.SortOrder
   avatarUrl?: Prisma.SortOrder
   passwordHash?: Prisma.SortOrder
-  role?: Prisma.SortOrder
+  isOwner?: Prisma.SortOrder
+  isAdmin?: Prisma.SortOrder
+  passwordChangeRequiredAt?: Prisma.SortOrder
+  temporaryPasswordIssuedAt?: Prisma.SortOrder
+  temporaryPasswordIssuedByUserId?: Prisma.SortOrder
   storageLimitBytes?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -572,10 +632,6 @@ export type UserScalarRelationFilter = {
 export type UserNullableScalarRelationFilter = {
   is?: Prisma.UserWhereInput | null
   isNot?: Prisma.UserWhereInput | null
-}
-
-export type EnumUserRoleFieldUpdateOperationsInput = {
-  set?: $Enums.UserRole
 }
 
 export type NullableBigIntFieldUpdateOperationsInput = {
@@ -612,64 +668,6 @@ export type UserUpdateOneRequiredWithoutSessionsNestedInput = {
   upsert?: Prisma.UserUpsertWithoutSessionsInput
   connect?: Prisma.UserWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutSessionsInput, Prisma.UserUpdateWithoutSessionsInput>, Prisma.UserUncheckedUpdateWithoutSessionsInput>
-}
-
-export type UserCreateNestedOneWithoutInvitesIssuedInput = {
-  create?: Prisma.XOR<Prisma.UserCreateWithoutInvitesIssuedInput, Prisma.UserUncheckedCreateWithoutInvitesIssuedInput>
-  connectOrCreate?: Prisma.UserCreateOrConnectWithoutInvitesIssuedInput
-  connect?: Prisma.UserWhereUniqueInput
-}
-
-export type UserCreateNestedOneWithoutInvitesAcceptedInput = {
-  create?: Prisma.XOR<Prisma.UserCreateWithoutInvitesAcceptedInput, Prisma.UserUncheckedCreateWithoutInvitesAcceptedInput>
-  connectOrCreate?: Prisma.UserCreateOrConnectWithoutInvitesAcceptedInput
-  connect?: Prisma.UserWhereUniqueInput
-}
-
-export type UserUpdateOneRequiredWithoutInvitesIssuedNestedInput = {
-  create?: Prisma.XOR<Prisma.UserCreateWithoutInvitesIssuedInput, Prisma.UserUncheckedCreateWithoutInvitesIssuedInput>
-  connectOrCreate?: Prisma.UserCreateOrConnectWithoutInvitesIssuedInput
-  upsert?: Prisma.UserUpsertWithoutInvitesIssuedInput
-  connect?: Prisma.UserWhereUniqueInput
-  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutInvitesIssuedInput, Prisma.UserUpdateWithoutInvitesIssuedInput>, Prisma.UserUncheckedUpdateWithoutInvitesIssuedInput>
-}
-
-export type UserUpdateOneWithoutInvitesAcceptedNestedInput = {
-  create?: Prisma.XOR<Prisma.UserCreateWithoutInvitesAcceptedInput, Prisma.UserUncheckedCreateWithoutInvitesAcceptedInput>
-  connectOrCreate?: Prisma.UserCreateOrConnectWithoutInvitesAcceptedInput
-  upsert?: Prisma.UserUpsertWithoutInvitesAcceptedInput
-  disconnect?: Prisma.UserWhereInput | boolean
-  delete?: Prisma.UserWhereInput | boolean
-  connect?: Prisma.UserWhereUniqueInput
-  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutInvitesAcceptedInput, Prisma.UserUpdateWithoutInvitesAcceptedInput>, Prisma.UserUncheckedUpdateWithoutInvitesAcceptedInput>
-}
-
-export type UserCreateNestedOneWithoutPasswordResetsForUserInput = {
-  create?: Prisma.XOR<Prisma.UserCreateWithoutPasswordResetsForUserInput, Prisma.UserUncheckedCreateWithoutPasswordResetsForUserInput>
-  connectOrCreate?: Prisma.UserCreateOrConnectWithoutPasswordResetsForUserInput
-  connect?: Prisma.UserWhereUniqueInput
-}
-
-export type UserCreateNestedOneWithoutPasswordResetsIssuedInput = {
-  create?: Prisma.XOR<Prisma.UserCreateWithoutPasswordResetsIssuedInput, Prisma.UserUncheckedCreateWithoutPasswordResetsIssuedInput>
-  connectOrCreate?: Prisma.UserCreateOrConnectWithoutPasswordResetsIssuedInput
-  connect?: Prisma.UserWhereUniqueInput
-}
-
-export type UserUpdateOneRequiredWithoutPasswordResetsForUserNestedInput = {
-  create?: Prisma.XOR<Prisma.UserCreateWithoutPasswordResetsForUserInput, Prisma.UserUncheckedCreateWithoutPasswordResetsForUserInput>
-  connectOrCreate?: Prisma.UserCreateOrConnectWithoutPasswordResetsForUserInput
-  upsert?: Prisma.UserUpsertWithoutPasswordResetsForUserInput
-  connect?: Prisma.UserWhereUniqueInput
-  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutPasswordResetsForUserInput, Prisma.UserUpdateWithoutPasswordResetsForUserInput>, Prisma.UserUncheckedUpdateWithoutPasswordResetsForUserInput>
-}
-
-export type UserUpdateOneRequiredWithoutPasswordResetsIssuedNestedInput = {
-  create?: Prisma.XOR<Prisma.UserCreateWithoutPasswordResetsIssuedInput, Prisma.UserUncheckedCreateWithoutPasswordResetsIssuedInput>
-  connectOrCreate?: Prisma.UserCreateOrConnectWithoutPasswordResetsIssuedInput
-  upsert?: Prisma.UserUpsertWithoutPasswordResetsIssuedInput
-  connect?: Prisma.UserWhereUniqueInput
-  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutPasswordResetsIssuedInput, Prisma.UserUpdateWithoutPasswordResetsIssuedInput>, Prisma.UserUncheckedUpdateWithoutPasswordResetsIssuedInput>
 }
 
 export type UserCreateNestedOneWithoutFoldersInput = {
@@ -803,19 +801,19 @@ export type UserUpdateOneRequiredWithoutZipArchivesNestedInput = {
 export type UserCreateWithoutPreferencesInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
-  invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
   favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
@@ -830,19 +828,19 @@ export type UserCreateWithoutPreferencesInput = {
 export type UserUncheckedCreateWithoutPreferencesInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
-  invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
   favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
@@ -873,19 +871,19 @@ export type UserUpdateToOneWithWhereWithoutPreferencesInput = {
 export type UserUpdateWithoutPreferencesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
   favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
@@ -900,19 +898,19 @@ export type UserUpdateWithoutPreferencesInput = {
 export type UserUncheckedUpdateWithoutPreferencesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
   favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
@@ -927,19 +925,19 @@ export type UserUncheckedUpdateWithoutPreferencesInput = {
 export type UserCreateWithoutSessionsInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
   favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
@@ -954,19 +952,19 @@ export type UserCreateWithoutSessionsInput = {
 export type UserUncheckedCreateWithoutSessionsInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
   favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
@@ -997,19 +995,19 @@ export type UserUpdateToOneWithWhereWithoutSessionsInput = {
 export type UserUpdateWithoutSessionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
   favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
@@ -1024,515 +1022,19 @@ export type UserUpdateWithoutSessionsInput = {
 export type UserUncheckedUpdateWithoutSessionsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
-  folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
-  files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
-  favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
-  favoriteFolders?: Prisma.FavoriteFolderUncheckedUpdateManyWithoutUserNestedInput
-  recentFiles?: Prisma.RecentFileUncheckedUpdateManyWithoutUserNestedInput
-  recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
-  shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
-  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedUpdateManyWithoutTriggeredByNestedInput
-  zipArchives?: Prisma.ZipArchiveUncheckedUpdateManyWithoutUserNestedInput
-}
-
-export type UserCreateWithoutInvitesIssuedInput = {
-  id?: string
-  email: string
-  username: string
-  displayName?: string | null
-  avatarUrl?: string | null
-  passwordHash: string
-  role?: $Enums.UserRole
-  storageLimitBytes?: bigint | number | null
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
-  preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
-  invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
-  folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
-  files?: Prisma.FileCreateNestedManyWithoutOwnerInput
-  favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
-  favoriteFolders?: Prisma.FavoriteFolderCreateNestedManyWithoutUserInput
-  recentFiles?: Prisma.RecentFileCreateNestedManyWithoutUserInput
-  recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
-  shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
-  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunCreateNestedManyWithoutTriggeredByInput
-  zipArchives?: Prisma.ZipArchiveCreateNestedManyWithoutUserInput
-}
-
-export type UserUncheckedCreateWithoutInvitesIssuedInput = {
-  id?: string
-  email: string
-  username: string
-  displayName?: string | null
-  avatarUrl?: string | null
-  passwordHash: string
-  role?: $Enums.UserRole
-  storageLimitBytes?: bigint | number | null
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
-  preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
-  invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
-  folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
-  files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
-  favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
-  favoriteFolders?: Prisma.FavoriteFolderUncheckedCreateNestedManyWithoutUserInput
-  recentFiles?: Prisma.RecentFileUncheckedCreateNestedManyWithoutUserInput
-  recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
-  shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
-  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedCreateNestedManyWithoutTriggeredByInput
-  zipArchives?: Prisma.ZipArchiveUncheckedCreateNestedManyWithoutUserInput
-}
-
-export type UserCreateOrConnectWithoutInvitesIssuedInput = {
-  where: Prisma.UserWhereUniqueInput
-  create: Prisma.XOR<Prisma.UserCreateWithoutInvitesIssuedInput, Prisma.UserUncheckedCreateWithoutInvitesIssuedInput>
-}
-
-export type UserCreateWithoutInvitesAcceptedInput = {
-  id?: string
-  email: string
-  username: string
-  displayName?: string | null
-  avatarUrl?: string | null
-  passwordHash: string
-  role?: $Enums.UserRole
-  storageLimitBytes?: bigint | number | null
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
-  preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
-  passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
-  folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
-  files?: Prisma.FileCreateNestedManyWithoutOwnerInput
-  favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
-  favoriteFolders?: Prisma.FavoriteFolderCreateNestedManyWithoutUserInput
-  recentFiles?: Prisma.RecentFileCreateNestedManyWithoutUserInput
-  recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
-  shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
-  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunCreateNestedManyWithoutTriggeredByInput
-  zipArchives?: Prisma.ZipArchiveCreateNestedManyWithoutUserInput
-}
-
-export type UserUncheckedCreateWithoutInvitesAcceptedInput = {
-  id?: string
-  email: string
-  username: string
-  displayName?: string | null
-  avatarUrl?: string | null
-  passwordHash: string
-  role?: $Enums.UserRole
-  storageLimitBytes?: bigint | number | null
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
-  preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
-  folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
-  files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
-  favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
-  favoriteFolders?: Prisma.FavoriteFolderUncheckedCreateNestedManyWithoutUserInput
-  recentFiles?: Prisma.RecentFileUncheckedCreateNestedManyWithoutUserInput
-  recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
-  shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
-  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedCreateNestedManyWithoutTriggeredByInput
-  zipArchives?: Prisma.ZipArchiveUncheckedCreateNestedManyWithoutUserInput
-}
-
-export type UserCreateOrConnectWithoutInvitesAcceptedInput = {
-  where: Prisma.UserWhereUniqueInput
-  create: Prisma.XOR<Prisma.UserCreateWithoutInvitesAcceptedInput, Prisma.UserUncheckedCreateWithoutInvitesAcceptedInput>
-}
-
-export type UserUpsertWithoutInvitesIssuedInput = {
-  update: Prisma.XOR<Prisma.UserUpdateWithoutInvitesIssuedInput, Prisma.UserUncheckedUpdateWithoutInvitesIssuedInput>
-  create: Prisma.XOR<Prisma.UserCreateWithoutInvitesIssuedInput, Prisma.UserUncheckedCreateWithoutInvitesIssuedInput>
-  where?: Prisma.UserWhereInput
-}
-
-export type UserUpdateToOneWithWhereWithoutInvitesIssuedInput = {
-  where?: Prisma.UserWhereInput
-  data: Prisma.XOR<Prisma.UserUpdateWithoutInvitesIssuedInput, Prisma.UserUncheckedUpdateWithoutInvitesIssuedInput>
-}
-
-export type UserUpdateWithoutInvitesIssuedInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
-  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-  storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
-  preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
-  invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
-  folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
-  files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
-  favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
-  favoriteFolders?: Prisma.FavoriteFolderUpdateManyWithoutUserNestedInput
-  recentFiles?: Prisma.RecentFileUpdateManyWithoutUserNestedInput
-  recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
-  shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
-  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUpdateManyWithoutTriggeredByNestedInput
-  zipArchives?: Prisma.ZipArchiveUpdateManyWithoutUserNestedInput
-}
-
-export type UserUncheckedUpdateWithoutInvitesIssuedInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
-  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-  storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
-  preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
-  invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
-  folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
-  files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
-  favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
-  favoriteFolders?: Prisma.FavoriteFolderUncheckedUpdateManyWithoutUserNestedInput
-  recentFiles?: Prisma.RecentFileUncheckedUpdateManyWithoutUserNestedInput
-  recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
-  shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
-  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedUpdateManyWithoutTriggeredByNestedInput
-  zipArchives?: Prisma.ZipArchiveUncheckedUpdateManyWithoutUserNestedInput
-}
-
-export type UserUpsertWithoutInvitesAcceptedInput = {
-  update: Prisma.XOR<Prisma.UserUpdateWithoutInvitesAcceptedInput, Prisma.UserUncheckedUpdateWithoutInvitesAcceptedInput>
-  create: Prisma.XOR<Prisma.UserCreateWithoutInvitesAcceptedInput, Prisma.UserUncheckedCreateWithoutInvitesAcceptedInput>
-  where?: Prisma.UserWhereInput
-}
-
-export type UserUpdateToOneWithWhereWithoutInvitesAcceptedInput = {
-  where?: Prisma.UserWhereInput
-  data: Prisma.XOR<Prisma.UserUpdateWithoutInvitesAcceptedInput, Prisma.UserUncheckedUpdateWithoutInvitesAcceptedInput>
-}
-
-export type UserUpdateWithoutInvitesAcceptedInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
-  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-  storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
-  preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
-  folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
-  files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
-  favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
-  favoriteFolders?: Prisma.FavoriteFolderUpdateManyWithoutUserNestedInput
-  recentFiles?: Prisma.RecentFileUpdateManyWithoutUserNestedInput
-  recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
-  shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
-  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUpdateManyWithoutTriggeredByNestedInput
-  zipArchives?: Prisma.ZipArchiveUpdateManyWithoutUserNestedInput
-}
-
-export type UserUncheckedUpdateWithoutInvitesAcceptedInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
-  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-  storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
-  preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
-  folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
-  files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
-  favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
-  favoriteFolders?: Prisma.FavoriteFolderUncheckedUpdateManyWithoutUserNestedInput
-  recentFiles?: Prisma.RecentFileUncheckedUpdateManyWithoutUserNestedInput
-  recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
-  shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
-  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedUpdateManyWithoutTriggeredByNestedInput
-  zipArchives?: Prisma.ZipArchiveUncheckedUpdateManyWithoutUserNestedInput
-}
-
-export type UserCreateWithoutPasswordResetsForUserInput = {
-  id?: string
-  email: string
-  username: string
-  displayName?: string | null
-  avatarUrl?: string | null
-  passwordHash: string
-  role?: $Enums.UserRole
-  storageLimitBytes?: bigint | number | null
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
-  preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
-  folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
-  files?: Prisma.FileCreateNestedManyWithoutOwnerInput
-  favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
-  favoriteFolders?: Prisma.FavoriteFolderCreateNestedManyWithoutUserInput
-  recentFiles?: Prisma.RecentFileCreateNestedManyWithoutUserInput
-  recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
-  shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
-  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunCreateNestedManyWithoutTriggeredByInput
-  zipArchives?: Prisma.ZipArchiveCreateNestedManyWithoutUserInput
-}
-
-export type UserUncheckedCreateWithoutPasswordResetsForUserInput = {
-  id?: string
-  email: string
-  username: string
-  displayName?: string | null
-  avatarUrl?: string | null
-  passwordHash: string
-  role?: $Enums.UserRole
-  storageLimitBytes?: bigint | number | null
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
-  preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
-  folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
-  files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
-  favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
-  favoriteFolders?: Prisma.FavoriteFolderUncheckedCreateNestedManyWithoutUserInput
-  recentFiles?: Prisma.RecentFileUncheckedCreateNestedManyWithoutUserInput
-  recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
-  shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
-  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedCreateNestedManyWithoutTriggeredByInput
-  zipArchives?: Prisma.ZipArchiveUncheckedCreateNestedManyWithoutUserInput
-}
-
-export type UserCreateOrConnectWithoutPasswordResetsForUserInput = {
-  where: Prisma.UserWhereUniqueInput
-  create: Prisma.XOR<Prisma.UserCreateWithoutPasswordResetsForUserInput, Prisma.UserUncheckedCreateWithoutPasswordResetsForUserInput>
-}
-
-export type UserCreateWithoutPasswordResetsIssuedInput = {
-  id?: string
-  email: string
-  username: string
-  displayName?: string | null
-  avatarUrl?: string | null
-  passwordHash: string
-  role?: $Enums.UserRole
-  storageLimitBytes?: bigint | number | null
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
-  preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
-  passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
-  folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
-  files?: Prisma.FileCreateNestedManyWithoutOwnerInput
-  favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
-  favoriteFolders?: Prisma.FavoriteFolderCreateNestedManyWithoutUserInput
-  recentFiles?: Prisma.RecentFileCreateNestedManyWithoutUserInput
-  recentFolders?: Prisma.RecentFolderCreateNestedManyWithoutUserInput
-  shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutCreatedByInput
-  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunCreateNestedManyWithoutTriggeredByInput
-  zipArchives?: Prisma.ZipArchiveCreateNestedManyWithoutUserInput
-}
-
-export type UserUncheckedCreateWithoutPasswordResetsIssuedInput = {
-  id?: string
-  email: string
-  username: string
-  displayName?: string | null
-  avatarUrl?: string | null
-  passwordHash: string
-  role?: $Enums.UserRole
-  storageLimitBytes?: bigint | number | null
-  createdAt?: Date | string
-  updatedAt?: Date | string
-  sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
-  preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
-  folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
-  files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
-  favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
-  favoriteFolders?: Prisma.FavoriteFolderUncheckedCreateNestedManyWithoutUserInput
-  recentFiles?: Prisma.RecentFileUncheckedCreateNestedManyWithoutUserInput
-  recentFolders?: Prisma.RecentFolderUncheckedCreateNestedManyWithoutUserInput
-  shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutCreatedByInput
-  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedCreateNestedManyWithoutTriggeredByInput
-  zipArchives?: Prisma.ZipArchiveUncheckedCreateNestedManyWithoutUserInput
-}
-
-export type UserCreateOrConnectWithoutPasswordResetsIssuedInput = {
-  where: Prisma.UserWhereUniqueInput
-  create: Prisma.XOR<Prisma.UserCreateWithoutPasswordResetsIssuedInput, Prisma.UserUncheckedCreateWithoutPasswordResetsIssuedInput>
-}
-
-export type UserUpsertWithoutPasswordResetsForUserInput = {
-  update: Prisma.XOR<Prisma.UserUpdateWithoutPasswordResetsForUserInput, Prisma.UserUncheckedUpdateWithoutPasswordResetsForUserInput>
-  create: Prisma.XOR<Prisma.UserCreateWithoutPasswordResetsForUserInput, Prisma.UserUncheckedCreateWithoutPasswordResetsForUserInput>
-  where?: Prisma.UserWhereInput
-}
-
-export type UserUpdateToOneWithWhereWithoutPasswordResetsForUserInput = {
-  where?: Prisma.UserWhereInput
-  data: Prisma.XOR<Prisma.UserUpdateWithoutPasswordResetsForUserInput, Prisma.UserUncheckedUpdateWithoutPasswordResetsForUserInput>
-}
-
-export type UserUpdateWithoutPasswordResetsForUserInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
-  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-  storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
-  preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
-  folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
-  files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
-  favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
-  favoriteFolders?: Prisma.FavoriteFolderUpdateManyWithoutUserNestedInput
-  recentFiles?: Prisma.RecentFileUpdateManyWithoutUserNestedInput
-  recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
-  shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
-  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUpdateManyWithoutTriggeredByNestedInput
-  zipArchives?: Prisma.ZipArchiveUpdateManyWithoutUserNestedInput
-}
-
-export type UserUncheckedUpdateWithoutPasswordResetsForUserInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
-  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-  storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
-  preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
-  folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
-  files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
-  favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
-  favoriteFolders?: Prisma.FavoriteFolderUncheckedUpdateManyWithoutUserNestedInput
-  recentFiles?: Prisma.RecentFileUncheckedUpdateManyWithoutUserNestedInput
-  recentFolders?: Prisma.RecentFolderUncheckedUpdateManyWithoutUserNestedInput
-  shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutCreatedByNestedInput
-  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUncheckedUpdateManyWithoutTriggeredByNestedInput
-  zipArchives?: Prisma.ZipArchiveUncheckedUpdateManyWithoutUserNestedInput
-}
-
-export type UserUpsertWithoutPasswordResetsIssuedInput = {
-  update: Prisma.XOR<Prisma.UserUpdateWithoutPasswordResetsIssuedInput, Prisma.UserUncheckedUpdateWithoutPasswordResetsIssuedInput>
-  create: Prisma.XOR<Prisma.UserCreateWithoutPasswordResetsIssuedInput, Prisma.UserUncheckedCreateWithoutPasswordResetsIssuedInput>
-  where?: Prisma.UserWhereInput
-}
-
-export type UserUpdateToOneWithWhereWithoutPasswordResetsIssuedInput = {
-  where?: Prisma.UserWhereInput
-  data: Prisma.XOR<Prisma.UserUpdateWithoutPasswordResetsIssuedInput, Prisma.UserUncheckedUpdateWithoutPasswordResetsIssuedInput>
-}
-
-export type UserUpdateWithoutPasswordResetsIssuedInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
-  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-  storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
-  preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
-  folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
-  files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
-  favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
-  favoriteFolders?: Prisma.FavoriteFolderUpdateManyWithoutUserNestedInput
-  recentFiles?: Prisma.RecentFileUpdateManyWithoutUserNestedInput
-  recentFolders?: Prisma.RecentFolderUpdateManyWithoutUserNestedInput
-  shareLinks?: Prisma.ShareLinkUpdateManyWithoutCreatedByNestedInput
-  restoreReconciliationRuns?: Prisma.RestoreReconciliationRunUpdateManyWithoutTriggeredByNestedInput
-  zipArchives?: Prisma.ZipArchiveUpdateManyWithoutUserNestedInput
-}
-
-export type UserUncheckedUpdateWithoutPasswordResetsIssuedInput = {
-  id?: Prisma.StringFieldUpdateOperationsInput | string
-  email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
-  displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
-  storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
-  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
-  sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
-  preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
   favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
@@ -1547,20 +1049,20 @@ export type UserUncheckedUpdateWithoutPasswordResetsIssuedInput = {
 export type UserCreateWithoutFoldersInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
   preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
   favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
   favoriteFolders?: Prisma.FavoriteFolderCreateNestedManyWithoutUserInput
@@ -1574,20 +1076,20 @@ export type UserCreateWithoutFoldersInput = {
 export type UserUncheckedCreateWithoutFoldersInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
   preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
   favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
   favoriteFolders?: Prisma.FavoriteFolderUncheckedCreateNestedManyWithoutUserInput
@@ -1617,20 +1119,20 @@ export type UserUpdateToOneWithWhereWithoutFoldersInput = {
 export type UserUpdateWithoutFoldersInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
   preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
   favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
   favoriteFolders?: Prisma.FavoriteFolderUpdateManyWithoutUserNestedInput
@@ -1644,20 +1146,20 @@ export type UserUpdateWithoutFoldersInput = {
 export type UserUncheckedUpdateWithoutFoldersInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
   preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
   favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
   favoriteFolders?: Prisma.FavoriteFolderUncheckedUpdateManyWithoutUserNestedInput
@@ -1671,20 +1173,20 @@ export type UserUncheckedUpdateWithoutFoldersInput = {
 export type UserCreateWithoutFilesInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
   preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
   favoriteFolders?: Prisma.FavoriteFolderCreateNestedManyWithoutUserInput
@@ -1698,20 +1200,20 @@ export type UserCreateWithoutFilesInput = {
 export type UserUncheckedCreateWithoutFilesInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
   preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
   favoriteFolders?: Prisma.FavoriteFolderUncheckedCreateNestedManyWithoutUserInput
@@ -1741,20 +1243,20 @@ export type UserUpdateToOneWithWhereWithoutFilesInput = {
 export type UserUpdateWithoutFilesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
   preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
   favoriteFolders?: Prisma.FavoriteFolderUpdateManyWithoutUserNestedInput
@@ -1768,20 +1270,20 @@ export type UserUpdateWithoutFilesInput = {
 export type UserUncheckedUpdateWithoutFilesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
   preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
   favoriteFolders?: Prisma.FavoriteFolderUncheckedUpdateManyWithoutUserNestedInput
@@ -1795,20 +1297,20 @@ export type UserUncheckedUpdateWithoutFilesInput = {
 export type UserCreateWithoutFavoriteFilesInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
   preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
   favoriteFolders?: Prisma.FavoriteFolderCreateNestedManyWithoutUserInput
@@ -1822,20 +1324,20 @@ export type UserCreateWithoutFavoriteFilesInput = {
 export type UserUncheckedCreateWithoutFavoriteFilesInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
   preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
   favoriteFolders?: Prisma.FavoriteFolderUncheckedCreateNestedManyWithoutUserInput
@@ -1865,20 +1367,20 @@ export type UserUpdateToOneWithWhereWithoutFavoriteFilesInput = {
 export type UserUpdateWithoutFavoriteFilesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
   preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
   favoriteFolders?: Prisma.FavoriteFolderUpdateManyWithoutUserNestedInput
@@ -1892,20 +1394,20 @@ export type UserUpdateWithoutFavoriteFilesInput = {
 export type UserUncheckedUpdateWithoutFavoriteFilesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
   preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
   favoriteFolders?: Prisma.FavoriteFolderUncheckedUpdateManyWithoutUserNestedInput
@@ -1919,20 +1421,20 @@ export type UserUncheckedUpdateWithoutFavoriteFilesInput = {
 export type UserCreateWithoutFavoriteFoldersInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
   preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
   favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
@@ -1946,20 +1448,20 @@ export type UserCreateWithoutFavoriteFoldersInput = {
 export type UserUncheckedCreateWithoutFavoriteFoldersInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
   preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
   favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
@@ -1989,20 +1491,20 @@ export type UserUpdateToOneWithWhereWithoutFavoriteFoldersInput = {
 export type UserUpdateWithoutFavoriteFoldersInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
   preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
   favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
@@ -2016,20 +1518,20 @@ export type UserUpdateWithoutFavoriteFoldersInput = {
 export type UserUncheckedUpdateWithoutFavoriteFoldersInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
   preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
   favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
@@ -2043,20 +1545,20 @@ export type UserUncheckedUpdateWithoutFavoriteFoldersInput = {
 export type UserCreateWithoutRecentFilesInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
   preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
   favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
@@ -2070,20 +1572,20 @@ export type UserCreateWithoutRecentFilesInput = {
 export type UserUncheckedCreateWithoutRecentFilesInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
   preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
   favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
@@ -2113,20 +1615,20 @@ export type UserUpdateToOneWithWhereWithoutRecentFilesInput = {
 export type UserUpdateWithoutRecentFilesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
   preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
   favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
@@ -2140,20 +1642,20 @@ export type UserUpdateWithoutRecentFilesInput = {
 export type UserUncheckedUpdateWithoutRecentFilesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
   preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
   favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
@@ -2167,20 +1669,20 @@ export type UserUncheckedUpdateWithoutRecentFilesInput = {
 export type UserCreateWithoutRecentFoldersInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
   preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
   favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
@@ -2194,20 +1696,20 @@ export type UserCreateWithoutRecentFoldersInput = {
 export type UserUncheckedCreateWithoutRecentFoldersInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
   preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
   favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
@@ -2237,20 +1739,20 @@ export type UserUpdateToOneWithWhereWithoutRecentFoldersInput = {
 export type UserUpdateWithoutRecentFoldersInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
   preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
   favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
@@ -2264,20 +1766,20 @@ export type UserUpdateWithoutRecentFoldersInput = {
 export type UserUncheckedUpdateWithoutRecentFoldersInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
   preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
   favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
@@ -2291,20 +1793,20 @@ export type UserUncheckedUpdateWithoutRecentFoldersInput = {
 export type UserCreateWithoutShareLinksInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
   preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
   favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
@@ -2318,20 +1820,20 @@ export type UserCreateWithoutShareLinksInput = {
 export type UserUncheckedCreateWithoutShareLinksInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
   preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
   favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
@@ -2361,20 +1863,20 @@ export type UserUpdateToOneWithWhereWithoutShareLinksInput = {
 export type UserUpdateWithoutShareLinksInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
   preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
   favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
@@ -2388,20 +1890,20 @@ export type UserUpdateWithoutShareLinksInput = {
 export type UserUncheckedUpdateWithoutShareLinksInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
   preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
   favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
@@ -2415,20 +1917,20 @@ export type UserUncheckedUpdateWithoutShareLinksInput = {
 export type UserCreateWithoutRestoreReconciliationRunsInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
   preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
   favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
@@ -2442,20 +1944,20 @@ export type UserCreateWithoutRestoreReconciliationRunsInput = {
 export type UserUncheckedCreateWithoutRestoreReconciliationRunsInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
   preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
   favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
@@ -2485,20 +1987,20 @@ export type UserUpdateToOneWithWhereWithoutRestoreReconciliationRunsInput = {
 export type UserUpdateWithoutRestoreReconciliationRunsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
   preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
   favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
@@ -2512,20 +2014,20 @@ export type UserUpdateWithoutRestoreReconciliationRunsInput = {
 export type UserUncheckedUpdateWithoutRestoreReconciliationRunsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
   preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
   favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
@@ -2539,20 +2041,20 @@ export type UserUncheckedUpdateWithoutRestoreReconciliationRunsInput = {
 export type UserCreateWithoutZipArchivesInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
   preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileCreateNestedManyWithoutOwnerInput
   favoriteFiles?: Prisma.FavoriteFileCreateNestedManyWithoutUserInput
@@ -2566,20 +2068,20 @@ export type UserCreateWithoutZipArchivesInput = {
 export type UserUncheckedCreateWithoutZipArchivesInput = {
   id?: string
   email: string
-  username: string
+  storageId: string
   displayName?: string | null
   avatarUrl?: string | null
   passwordHash: string
-  role?: $Enums.UserRole
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: Date | string | null
+  temporaryPasswordIssuedAt?: Date | string | null
+  temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
   preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
-  invitesIssued?: Prisma.InviteUncheckedCreateNestedManyWithoutInvitedByInput
-  invitesAccepted?: Prisma.InviteUncheckedCreateNestedManyWithoutAcceptedByInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutIssuedByInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedCreateNestedManyWithoutUserInput
   folders?: Prisma.FolderUncheckedCreateNestedManyWithoutOwnerInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutOwnerInput
   favoriteFiles?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutUserInput
@@ -2609,20 +2111,20 @@ export type UserUpdateToOneWithWhereWithoutZipArchivesInput = {
 export type UserUpdateWithoutZipArchivesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
   preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUpdateManyWithoutOwnerNestedInput
   favoriteFiles?: Prisma.FavoriteFileUpdateManyWithoutUserNestedInput
@@ -2636,20 +2138,20 @@ export type UserUpdateWithoutZipArchivesInput = {
 export type UserUncheckedUpdateWithoutZipArchivesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   email?: Prisma.StringFieldUpdateOperationsInput | string
-  username?: Prisma.StringFieldUpdateOperationsInput | string
+  storageId?: Prisma.StringFieldUpdateOperationsInput | string
   displayName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   avatarUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
-  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  isOwner?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  isAdmin?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  passwordChangeRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
   preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
-  invitesIssued?: Prisma.InviteUncheckedUpdateManyWithoutInvitedByNestedInput
-  invitesAccepted?: Prisma.InviteUncheckedUpdateManyWithoutAcceptedByNestedInput
-  passwordResetsIssued?: Prisma.PasswordResetUncheckedUpdateManyWithoutIssuedByNestedInput
-  passwordResetsForUser?: Prisma.PasswordResetUncheckedUpdateManyWithoutUserNestedInput
   folders?: Prisma.FolderUncheckedUpdateManyWithoutOwnerNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutOwnerNestedInput
   favoriteFiles?: Prisma.FavoriteFileUncheckedUpdateManyWithoutUserNestedInput
@@ -2667,10 +2169,6 @@ export type UserUncheckedUpdateWithoutZipArchivesInput = {
 
 export type UserCountOutputType = {
   sessions: number
-  invitesIssued: number
-  invitesAccepted: number
-  passwordResetsIssued: number
-  passwordResetsForUser: number
   folders: number
   files: number
   favoriteFiles: number
@@ -2684,10 +2182,6 @@ export type UserCountOutputType = {
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   sessions?: boolean | UserCountOutputTypeCountSessionsArgs
-  invitesIssued?: boolean | UserCountOutputTypeCountInvitesIssuedArgs
-  invitesAccepted?: boolean | UserCountOutputTypeCountInvitesAcceptedArgs
-  passwordResetsIssued?: boolean | UserCountOutputTypeCountPasswordResetsIssuedArgs
-  passwordResetsForUser?: boolean | UserCountOutputTypeCountPasswordResetsForUserArgs
   folders?: boolean | UserCountOutputTypeCountFoldersArgs
   files?: boolean | UserCountOutputTypeCountFilesArgs
   favoriteFiles?: boolean | UserCountOutputTypeCountFavoriteFilesArgs
@@ -2714,34 +2208,6 @@ export type UserCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensi
  */
 export type UserCountOutputTypeCountSessionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.SessionWhereInput
-}
-
-/**
- * UserCountOutputType without action
- */
-export type UserCountOutputTypeCountInvitesIssuedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.InviteWhereInput
-}
-
-/**
- * UserCountOutputType without action
- */
-export type UserCountOutputTypeCountInvitesAcceptedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.InviteWhereInput
-}
-
-/**
- * UserCountOutputType without action
- */
-export type UserCountOutputTypeCountPasswordResetsIssuedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.PasswordResetWhereInput
-}
-
-/**
- * UserCountOutputType without action
- */
-export type UserCountOutputTypeCountPasswordResetsForUserArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  where?: Prisma.PasswordResetWhereInput
 }
 
 /**
@@ -2811,20 +2277,20 @@ export type UserCountOutputTypeCountZipArchivesArgs<ExtArgs extends runtime.Type
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   email?: boolean
-  username?: boolean
+  storageId?: boolean
   displayName?: boolean
   avatarUrl?: boolean
   passwordHash?: boolean
-  role?: boolean
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: boolean
+  temporaryPasswordIssuedAt?: boolean
+  temporaryPasswordIssuedByUserId?: boolean
   storageLimitBytes?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   sessions?: boolean | Prisma.User$sessionsArgs<ExtArgs>
   preferences?: boolean | Prisma.User$preferencesArgs<ExtArgs>
-  invitesIssued?: boolean | Prisma.User$invitesIssuedArgs<ExtArgs>
-  invitesAccepted?: boolean | Prisma.User$invitesAcceptedArgs<ExtArgs>
-  passwordResetsIssued?: boolean | Prisma.User$passwordResetsIssuedArgs<ExtArgs>
-  passwordResetsForUser?: boolean | Prisma.User$passwordResetsForUserArgs<ExtArgs>
   folders?: boolean | Prisma.User$foldersArgs<ExtArgs>
   files?: boolean | Prisma.User$filesArgs<ExtArgs>
   favoriteFiles?: boolean | Prisma.User$favoriteFilesArgs<ExtArgs>
@@ -2840,11 +2306,15 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
 export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   email?: boolean
-  username?: boolean
+  storageId?: boolean
   displayName?: boolean
   avatarUrl?: boolean
   passwordHash?: boolean
-  role?: boolean
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: boolean
+  temporaryPasswordIssuedAt?: boolean
+  temporaryPasswordIssuedByUserId?: boolean
   storageLimitBytes?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -2853,11 +2323,15 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
 export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   email?: boolean
-  username?: boolean
+  storageId?: boolean
   displayName?: boolean
   avatarUrl?: boolean
   passwordHash?: boolean
-  role?: boolean
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: boolean
+  temporaryPasswordIssuedAt?: boolean
+  temporaryPasswordIssuedByUserId?: boolean
   storageLimitBytes?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -2866,24 +2340,24 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
 export type UserSelectScalar = {
   id?: boolean
   email?: boolean
-  username?: boolean
+  storageId?: boolean
   displayName?: boolean
   avatarUrl?: boolean
   passwordHash?: boolean
-  role?: boolean
+  isOwner?: boolean
+  isAdmin?: boolean
+  passwordChangeRequiredAt?: boolean
+  temporaryPasswordIssuedAt?: boolean
+  temporaryPasswordIssuedByUserId?: boolean
   storageLimitBytes?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "username" | "displayName" | "avatarUrl" | "passwordHash" | "role" | "storageLimitBytes" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "storageId" | "displayName" | "avatarUrl" | "passwordHash" | "isOwner" | "isAdmin" | "passwordChangeRequiredAt" | "temporaryPasswordIssuedAt" | "temporaryPasswordIssuedByUserId" | "storageLimitBytes" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   sessions?: boolean | Prisma.User$sessionsArgs<ExtArgs>
   preferences?: boolean | Prisma.User$preferencesArgs<ExtArgs>
-  invitesIssued?: boolean | Prisma.User$invitesIssuedArgs<ExtArgs>
-  invitesAccepted?: boolean | Prisma.User$invitesAcceptedArgs<ExtArgs>
-  passwordResetsIssued?: boolean | Prisma.User$passwordResetsIssuedArgs<ExtArgs>
-  passwordResetsForUser?: boolean | Prisma.User$passwordResetsForUserArgs<ExtArgs>
   folders?: boolean | Prisma.User$foldersArgs<ExtArgs>
   files?: boolean | Prisma.User$filesArgs<ExtArgs>
   favoriteFiles?: boolean | Prisma.User$favoriteFilesArgs<ExtArgs>
@@ -2903,10 +2377,6 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   objects: {
     sessions: Prisma.$SessionPayload<ExtArgs>[]
     preferences: Prisma.$UserPreferencePayload<ExtArgs> | null
-    invitesIssued: Prisma.$InvitePayload<ExtArgs>[]
-    invitesAccepted: Prisma.$InvitePayload<ExtArgs>[]
-    passwordResetsIssued: Prisma.$PasswordResetPayload<ExtArgs>[]
-    passwordResetsForUser: Prisma.$PasswordResetPayload<ExtArgs>[]
     folders: Prisma.$FolderPayload<ExtArgs>[]
     files: Prisma.$FilePayload<ExtArgs>[]
     favoriteFiles: Prisma.$FavoriteFilePayload<ExtArgs>[]
@@ -2920,11 +2390,15 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     email: string
-    username: string
+    storageId: string
     displayName: string | null
     avatarUrl: string | null
     passwordHash: string
-    role: $Enums.UserRole
+    isOwner: boolean
+    isAdmin: boolean
+    passwordChangeRequiredAt: Date | null
+    temporaryPasswordIssuedAt: Date | null
+    temporaryPasswordIssuedByUserId: string | null
     storageLimitBytes: bigint | null
     createdAt: Date
     updatedAt: Date
@@ -3324,10 +2798,6 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   readonly [Symbol.toStringTag]: "PrismaPromise"
   sessions<T extends Prisma.User$sessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$sessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$SessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   preferences<T extends Prisma.User$preferencesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$preferencesArgs<ExtArgs>>): Prisma.Prisma__UserPreferenceClient<runtime.Types.Result.GetResult<Prisma.$UserPreferencePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
-  invitesIssued<T extends Prisma.User$invitesIssuedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$invitesIssuedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$InvitePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  invitesAccepted<T extends Prisma.User$invitesAcceptedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$invitesAcceptedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$InvitePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  passwordResetsIssued<T extends Prisma.User$passwordResetsIssuedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$passwordResetsIssuedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PasswordResetPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
-  passwordResetsForUser<T extends Prisma.User$passwordResetsForUserArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$passwordResetsForUserArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PasswordResetPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   folders<T extends Prisma.User$foldersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$foldersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FolderPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   files<T extends Prisma.User$filesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$filesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FilePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   favoriteFiles<T extends Prisma.User$favoriteFilesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$favoriteFilesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FavoriteFilePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -3368,11 +2838,15 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
 export interface UserFieldRefs {
   readonly id: Prisma.FieldRef<"User", 'String'>
   readonly email: Prisma.FieldRef<"User", 'String'>
-  readonly username: Prisma.FieldRef<"User", 'String'>
+  readonly storageId: Prisma.FieldRef<"User", 'String'>
   readonly displayName: Prisma.FieldRef<"User", 'String'>
   readonly avatarUrl: Prisma.FieldRef<"User", 'String'>
   readonly passwordHash: Prisma.FieldRef<"User", 'String'>
-  readonly role: Prisma.FieldRef<"User", 'UserRole'>
+  readonly isOwner: Prisma.FieldRef<"User", 'Boolean'>
+  readonly isAdmin: Prisma.FieldRef<"User", 'Boolean'>
+  readonly passwordChangeRequiredAt: Prisma.FieldRef<"User", 'DateTime'>
+  readonly temporaryPasswordIssuedAt: Prisma.FieldRef<"User", 'DateTime'>
+  readonly temporaryPasswordIssuedByUserId: Prisma.FieldRef<"User", 'String'>
   readonly storageLimitBytes: Prisma.FieldRef<"User", 'BigInt'>
   readonly createdAt: Prisma.FieldRef<"User", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"User", 'DateTime'>
@@ -3809,102 +3283,6 @@ export type User$preferencesArgs<ExtArgs extends runtime.Types.Extensions.Intern
    */
   include?: Prisma.UserPreferenceInclude<ExtArgs> | null
   where?: Prisma.UserPreferenceWhereInput
-}
-
-/**
- * User.invitesIssued
- */
-export type User$invitesIssuedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the Invite
-   */
-  select?: Prisma.InviteSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the Invite
-   */
-  omit?: Prisma.InviteOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.InviteInclude<ExtArgs> | null
-  where?: Prisma.InviteWhereInput
-  orderBy?: Prisma.InviteOrderByWithRelationInput | Prisma.InviteOrderByWithRelationInput[]
-  cursor?: Prisma.InviteWhereUniqueInput
-  take?: number
-  skip?: number
-  distinct?: Prisma.InviteScalarFieldEnum | Prisma.InviteScalarFieldEnum[]
-}
-
-/**
- * User.invitesAccepted
- */
-export type User$invitesAcceptedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the Invite
-   */
-  select?: Prisma.InviteSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the Invite
-   */
-  omit?: Prisma.InviteOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.InviteInclude<ExtArgs> | null
-  where?: Prisma.InviteWhereInput
-  orderBy?: Prisma.InviteOrderByWithRelationInput | Prisma.InviteOrderByWithRelationInput[]
-  cursor?: Prisma.InviteWhereUniqueInput
-  take?: number
-  skip?: number
-  distinct?: Prisma.InviteScalarFieldEnum | Prisma.InviteScalarFieldEnum[]
-}
-
-/**
- * User.passwordResetsIssued
- */
-export type User$passwordResetsIssuedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the PasswordReset
-   */
-  select?: Prisma.PasswordResetSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the PasswordReset
-   */
-  omit?: Prisma.PasswordResetOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.PasswordResetInclude<ExtArgs> | null
-  where?: Prisma.PasswordResetWhereInput
-  orderBy?: Prisma.PasswordResetOrderByWithRelationInput | Prisma.PasswordResetOrderByWithRelationInput[]
-  cursor?: Prisma.PasswordResetWhereUniqueInput
-  take?: number
-  skip?: number
-  distinct?: Prisma.PasswordResetScalarFieldEnum | Prisma.PasswordResetScalarFieldEnum[]
-}
-
-/**
- * User.passwordResetsForUser
- */
-export type User$passwordResetsForUserArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
-  /**
-   * Select specific fields to fetch from the PasswordReset
-   */
-  select?: Prisma.PasswordResetSelect<ExtArgs> | null
-  /**
-   * Omit specific fields from the PasswordReset
-   */
-  omit?: Prisma.PasswordResetOmit<ExtArgs> | null
-  /**
-   * Choose, which related nodes to fetch as well
-   */
-  include?: Prisma.PasswordResetInclude<ExtArgs> | null
-  where?: Prisma.PasswordResetWhereInput
-  orderBy?: Prisma.PasswordResetOrderByWithRelationInput | Prisma.PasswordResetOrderByWithRelationInput[]
-  cursor?: Prisma.PasswordResetWhereUniqueInput
-  take?: number
-  skip?: number
-  distinct?: Prisma.PasswordResetScalarFieldEnum | Prisma.PasswordResetScalarFieldEnum[]
 }
 
 /**

@@ -19,7 +19,7 @@ describe("storage layout", () => {
   it("stores committed originals under the visible library tree", () => {
     expect(
       getActiveCommittedStorageKey({
-        username: "johnsmith",
+        storageId: "johnsmith",
         folderPathSegments: ["Photos", "Trips", "Paris"],
         fileName: "my-photo.jpg",
       }),
@@ -29,25 +29,25 @@ describe("storage layout", () => {
   it("stores trashed originals under the hidden trash tree", () => {
     expect(
       getTrashedCommittedStorageKey({
-        username: "johnsmith",
+        storageId: "johnsmith",
         folderPathSegments: ["Photos", "Trips", "Paris"],
         fileName: "my-photo.jpg",
       }),
     ).toBe(".trash/johnsmith/Photos/Trips/Paris/my-photo.jpg");
   });
 
-  it("builds active and hidden folder roots per username", () => {
+  it("builds active and hidden folder roots per storage id", () => {
     expect(getUserFilesRootStorageKey("johnsmith")).toBe("files/johnsmith");
     expect(getUserTrashRootStorageKey("johnsmith")).toBe(".trash/johnsmith");
     expect(
       getActiveFolderStorageKey({
-        username: "johnsmith",
+        storageId: "johnsmith",
         folderPathSegments: ["Photos", "Trips"],
       }),
     ).toBe("files/johnsmith/Photos/Trips");
     expect(
       getTrashedFolderStorageKey({
-        username: "johnsmith",
+        storageId: "johnsmith",
         folderPathSegments: ["Photos", "Trips"],
       }),
     ).toBe(".trash/johnsmith/Photos/Trips");
