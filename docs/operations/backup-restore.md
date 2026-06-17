@@ -11,6 +11,10 @@ By default these folders sit next to `docker-compose.yml`. If you changed `UPLOA
 
 Fresh installs use Postgres 18. The default `postgres` folder is still the folder you back up, but the Postgres 18 container stores the actual database cluster under its versioned directory inside the container.
 
+For the username removal upgrade, also follow
+[`user-storage-id-migration.md`](./user-storage-id-migration.md) after the
+database migration runs.
+
 ## Backup Checklist
 
 1. Stop writes for a moment.
