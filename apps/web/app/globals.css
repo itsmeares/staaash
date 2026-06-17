@@ -878,10 +878,41 @@ h3 {
   gap: 10px;
 }
 
+.admin-users-panel .table-wrap {
+  overflow: visible;
+}
+
 .admin-users-table {
-  min-width: 820px;
+  min-width: 0;
   border-collapse: separate;
   border-spacing: 0 10px;
+  table-layout: fixed;
+}
+
+.admin-users-table th:nth-child(1),
+.admin-users-table td:nth-child(1) {
+  width: 26%;
+}
+
+.admin-users-table th:nth-child(2),
+.admin-users-table td:nth-child(2) {
+  width: 36%;
+  overflow-wrap: anywhere;
+}
+
+.admin-users-table th:nth-child(3),
+.admin-users-table td:nth-child(3) {
+  width: 14%;
+}
+
+.admin-users-table th:nth-child(4),
+.admin-users-table td:nth-child(4) {
+  width: 12%;
+}
+
+.admin-users-table th:nth-child(5),
+.admin-users-table td:nth-child(5) {
+  width: 56px;
 }
 
 .admin-users-table th {
@@ -889,7 +920,7 @@ h3 {
   border-top: 1px solid color-mix(in oklab, var(--foreground) 9%, transparent);
   border-bottom: 1px solid
     color-mix(in oklab, var(--foreground) 9%, transparent);
-  background: color-mix(in oklab, var(--card) 86%, black);
+  background: color-mix(in oklab, var(--card) 83%, black);
   color: color-mix(in oklab, var(--foreground) 78%, var(--primary) 22%);
   font-size: 0.92rem;
   font-weight: 650;
@@ -903,6 +934,8 @@ h3 {
 .admin-users-table th:last-child {
   border-right: 1px solid color-mix(in oklab, var(--foreground) 9%, transparent);
   border-radius: 0 6px 6px 0;
+  padding-right: 10px;
+  padding-left: 10px;
 }
 
 .admin-users-table td {
@@ -921,8 +954,9 @@ h3 {
 }
 
 .admin-users-table td:last-child {
-  width: 64px;
   border-radius: 0 6px 6px 0;
+  padding-right: 10px;
+  padding-left: 10px;
   text-align: right;
 }
 
@@ -990,12 +1024,16 @@ h3 {
 .admin-user-menu-panel {
   display: grid;
   gap: 4px;
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  right: 0;
   min-width: 172px;
-  margin-top: 8px;
   padding: 6px;
   border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
   border-radius: 8px;
   background: color-mix(in oklab, var(--popover) 92%, black);
+  box-shadow: 0 10px 24px color-mix(in oklab, black 28%, transparent);
   text-align: left;
 }
 
