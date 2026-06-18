@@ -42,34 +42,24 @@ export default async function AdminJobsPage() {
     );
 
   return (
-    <main className="stack" style={{ gap: "40px" }}>
-      <section>
-        <h1 style={{ marginBottom: "8px" }}>Workers</h1>
-        <p className="muted" style={{ maxWidth: "56ch" }}>
-          Run and monitor background operations on this instance.
-        </p>
-      </section>
-
-      <section>
-        <JobOperations
-          initialLastRuns={initialLastRuns}
-          initialSummary={{
-            ...queueSummary,
-            nextQueuedRunAt:
-              queueSummary.nextQueuedRunAt?.toISOString() ?? null,
-            workers: queueSummary.workers.map((worker) => ({
-              ...worker,
-              startedAt: worker.startedAt.toISOString(),
-              lastHeartbeatAt: worker.lastHeartbeatAt.toISOString(),
-              stoppedAt: worker.stoppedAt?.toISOString() ?? null,
-              createdAt: worker.createdAt.toISOString(),
-              updatedAt: worker.updatedAt.toISOString(),
-            })),
-          }}
-          jobKinds={[...ALL_SUPPORTED_JOB_KINDS]}
-          instanceTimeZone={settings.timeZone}
-        />
-      </section>
+    <main>
+      <JobOperations
+        initialLastRuns={initialLastRuns}
+        initialSummary={{
+          ...queueSummary,
+          nextQueuedRunAt: queueSummary.nextQueuedRunAt?.toISOString() ?? null,
+          workers: queueSummary.workers.map((worker) => ({
+            ...worker,
+            startedAt: worker.startedAt.toISOString(),
+            lastHeartbeatAt: worker.lastHeartbeatAt.toISOString(),
+            stoppedAt: worker.stoppedAt?.toISOString() ?? null,
+            createdAt: worker.createdAt.toISOString(),
+            updatedAt: worker.updatedAt.toISOString(),
+          })),
+        }}
+        jobKinds={[...ALL_SUPPORTED_JOB_KINDS]}
+        instanceTimeZone={settings.timeZone}
+      />
     </main>
   );
 }
