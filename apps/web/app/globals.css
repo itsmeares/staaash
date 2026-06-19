@@ -916,10 +916,39 @@ h3 {
 
 /* ---- Admin: jobs card grid ---- */
 .admin-jobs-page {
+  --admin-job-success: oklch(46% 0.12 145);
+  --admin-job-running: color-mix(
+    in oklab,
+    var(--primary) 86%,
+    var(--foreground)
+  );
+  --admin-job-queued: oklch(48% 0.1 78);
+  --admin-job-failed: color-mix(
+    in oklab,
+    var(--destructive) 86%,
+    var(--foreground)
+  );
+  --admin-job-cancelled: color-mix(
+    in oklab,
+    var(--muted-foreground) 88%,
+    var(--foreground)
+  );
   display: grid;
   width: min(1120px, 100%);
   margin-inline: auto;
   gap: 24px;
+}
+
+.dark .admin-jobs-page {
+  --admin-job-success: oklch(76% 0.13 145);
+  --admin-job-running: oklch(78% 0.1 210);
+  --admin-job-queued: oklch(82% 0.1 78);
+  --admin-job-failed: oklch(78% 0.16 25);
+  --admin-job-cancelled: color-mix(
+    in oklab,
+    var(--muted-foreground) 86%,
+    var(--foreground)
+  );
 }
 
 .admin-jobs-header {
@@ -979,15 +1008,15 @@ h3 {
 
 .admin-jobs-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr));
   gap: 14px;
   align-items: stretch;
 }
 
 .admin-jobs-card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 92px;
-  min-height: 126px;
+  grid-template-columns: minmax(0, 1fr) 104px;
+  min-height: 142px;
   overflow: hidden;
   border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
   border-radius: 10px;
@@ -1001,40 +1030,25 @@ h3 {
   border-color: color-mix(in oklab, var(--primary) 24%, var(--border));
 }
 
-.admin-jobs-card-failed {
-  background: color-mix(in oklab, var(--destructive) 5%, var(--card));
-}
-
-.admin-jobs-card-running {
-  background: oklch(64% 0.11 145 / 0.055);
-}
-
-.admin-jobs-card-queued {
-  background: color-mix(in oklab, var(--primary) 5%, var(--card));
-}
-
-.admin-jobs-card-cancelled {
-  background: color-mix(in oklab, var(--foreground) 4%, var(--card));
-}
-
 .admin-jobs-card-body {
   display: grid;
   min-width: 0;
   align-content: center;
-  justify-items: center;
-  gap: 12px;
-  padding: 22px 24px;
+  gap: 13px;
+  padding: 18px 22px;
 }
 
 .admin-jobs-card-head {
   display: grid;
-  justify-items: center;
-  gap: 9px;
-  text-align: center;
+  width: 100%;
+  justify-items: start;
+  gap: 8px;
+  text-align: left;
 }
 
 .admin-jobs-card-head h2 {
   margin: 0;
+  min-width: 0;
   overflow-wrap: anywhere;
   font-family: var(--font-switzer), "Segoe UI", sans-serif;
   font-size: 1.02rem;
@@ -1042,25 +1056,61 @@ h3 {
   line-height: 1.2;
 }
 
+.admin-jobs-card-title-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+}
+
+.admin-jobs-card-desc {
+  width: 100%;
+  margin: 0;
+  max-width: 62ch;
+  color: var(--muted-foreground);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  text-align: left;
+  text-wrap: pretty;
+}
+
+.admin-jobs-card-facts {
+  display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+  align-items: baseline;
+  gap: 5px 14px;
+  text-align: left;
+}
+
 .admin-jobs-card-state {
   margin: 0;
   color: var(--muted-foreground);
-  font-size: 0.86rem;
+  font-size: 0.8rem;
   font-weight: 650;
   line-height: 1.35;
+  text-align: inherit;
   text-wrap: pretty;
 }
 
 .admin-jobs-card-state-failed {
-  color: color-mix(in oklab, var(--destructive) 86%, var(--foreground));
+  color: var(--admin-job-failed);
 }
 
 .admin-jobs-card-state-running {
-  color: oklch(43% 0.1 145);
+  color: var(--admin-job-running);
 }
 
 .admin-jobs-card-state-queued {
-  color: color-mix(in oklab, var(--primary) 78%, var(--foreground));
+  color: var(--admin-job-queued);
+}
+
+.admin-jobs-card-state-succeeded {
+  color: var(--admin-job-success);
+}
+
+.admin-jobs-card-state-cancelled {
+  color: var(--admin-job-cancelled);
 }
 
 .admin-jobs-card-dot,
@@ -1076,19 +1126,31 @@ h3 {
 .admin-jobs-card-dot-failed,
 .admin-jobs-state-failed .admin-jobs-state-dot,
 .admin-jobs-run-dot-failed {
-  background: color-mix(in oklab, var(--destructive) 86%, var(--foreground));
+  background: var(--admin-job-failed);
 }
 
 .admin-jobs-card-dot-running,
 .admin-jobs-state-running .admin-jobs-state-dot,
 .admin-jobs-run-dot-running {
-  background: oklch(43% 0.1 145);
+  background: var(--admin-job-running);
 }
 
 .admin-jobs-card-dot-queued,
 .admin-jobs-state-queued .admin-jobs-state-dot,
 .admin-jobs-run-dot-queued {
-  background: color-mix(in oklab, var(--primary) 78%, var(--foreground));
+  background: var(--admin-job-queued);
+}
+
+.admin-jobs-card-dot-succeeded,
+.admin-jobs-state-succeeded .admin-jobs-state-dot,
+.admin-jobs-run-dot-succeeded {
+  background: var(--admin-job-success);
+}
+
+.admin-jobs-card-dot-cancelled,
+.admin-jobs-state-cancelled .admin-jobs-state-dot,
+.admin-jobs-run-dot-cancelled {
+  background: var(--admin-job-cancelled);
 }
 
 .admin-jobs-card-error {
@@ -1096,11 +1158,11 @@ h3 {
   color: color-mix(in oklab, var(--destructive) 84%, var(--foreground));
   font-size: 0.78rem;
   line-height: 1.35;
-  text-align: center;
 }
 
 .admin-jobs-card-actions {
   display: grid;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
   border-left: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent);
   background: color-mix(in oklab, var(--foreground) 4%, transparent);
 }
@@ -1108,6 +1170,7 @@ h3 {
 .admin-jobs-rail-action {
   display: grid;
   place-items: center;
+  min-height: 54px;
   border: 0;
   border-bottom: 1px solid
     color-mix(in oklab, var(--foreground) 7%, transparent);
@@ -1124,7 +1187,25 @@ h3 {
     opacity 140ms ease;
 }
 
+.admin-jobs-rail-note {
+  display: grid;
+  place-items: center;
+  min-height: 54px;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 7%, transparent);
+  padding: 0 10px;
+  color: color-mix(in oklab, var(--foreground) 66%, transparent);
+  font-size: 0.72rem;
+  font-weight: 750;
+  line-height: 1.25;
+  text-align: center;
+}
+
 .admin-jobs-rail-action:last-child {
+  border-bottom: 0;
+}
+
+.admin-jobs-rail-note:last-child {
   border-bottom: 0;
 }
 
@@ -1147,6 +1228,10 @@ h3 {
 }
 
 .admin-jobs-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  grid-template-columns: none;
   width: min(920px, calc(100vw - 32px));
   max-width: none;
   max-height: min(760px, calc(100dvh - 48px));
@@ -1156,12 +1241,17 @@ h3 {
 }
 
 .admin-jobs-modal-head {
+  flex: 0 0 auto;
   display: flex;
   justify-content: space-between;
   gap: 18px;
   align-items: flex-start;
   border-bottom: 1px solid var(--border);
-  padding: 22px 24px 18px;
+  padding: 22px 64px 18px 24px;
+}
+
+.admin-jobs-modal-head > div {
+  min-width: 0;
 }
 
 .admin-jobs-modal-head p {
@@ -1195,6 +1285,7 @@ h3 {
 .admin-jobs-modal-layout {
   display: grid;
   grid-template-columns: minmax(210px, 0.38fr) minmax(0, 1fr);
+  flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
 }
@@ -1233,7 +1324,7 @@ h3 {
   align-items: center;
   gap: 10px;
   width: 100%;
-  min-height: 42px;
+  min-height: 44px;
   border: 0;
   border-radius: 8px;
   padding: 8px 9px;
@@ -1356,7 +1447,7 @@ h3 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 36px;
+  min-height: 40px;
   border: 0;
   border-radius: 8px;
   padding: 0 12px;
@@ -1406,47 +1497,70 @@ h3 {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .admin-jobs-card-body {
+    gap: 14px;
+    padding: 18px;
+  }
+
+  .admin-jobs-card-facts {
+    gap: 6px;
+  }
+
   .admin-jobs-card-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: none;
     min-height: 44px;
     border-top: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent);
     border-left: 0;
   }
 
-  .admin-jobs-rail-action {
+  .admin-jobs-rail-action,
+  .admin-jobs-rail-note {
     min-height: 44px;
     border-right: 1px solid
       color-mix(in oklab, var(--foreground) 7%, transparent);
     border-bottom: 0;
   }
 
-  .admin-jobs-rail-action:last-child {
+  .admin-jobs-rail-action:last-child,
+  .admin-jobs-rail-note:last-child {
     border-right: 0;
   }
 
   .admin-jobs-modal {
     width: calc(100vw - 20px);
-    max-height: calc(100dvh - 32px);
+    max-height: calc(100dvh - 24px);
   }
 
   .admin-jobs-modal-head {
     flex-direction: column;
-    padding: 20px 18px 16px;
+    padding: 20px 56px 16px 18px;
   }
 
   .admin-jobs-modal-layout {
     grid-template-columns: 1fr;
+    overflow-y: auto;
   }
 
   .admin-jobs-run-list {
     max-height: 220px;
+    overflow-y: auto;
     border-right: 0;
     border-bottom: 1px solid var(--border);
   }
 
   .admin-jobs-run-list,
   .admin-jobs-run-detail {
+    overflow: visible;
     padding: 16px;
+  }
+
+  .admin-jobs-run-detail {
+    padding-bottom: 28px;
+  }
+
+  .admin-jobs-button {
+    min-height: 44px;
   }
 
   .admin-jobs-event-row {

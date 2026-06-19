@@ -68,7 +68,13 @@ type JsonJobEvent = {
   createdAt: string;
 };
 
-type JobTone = "idle" | "queued" | "running" | "failed" | "cancelled";
+type JobTone =
+  | "idle"
+  | "queued"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "cancelled";
 
 const JOB_META: Record<string, { name: string; desc: string }> = {
   "staging.cleanup": {
@@ -248,6 +254,10 @@ function formatJobKind(kind: string) {
   );
 }
 
+function getJobDescription(kind: string) {
+  return JOB_META[kind]?.desc ?? "Background maintenance job.";
+}
+
 function isFinishedJob(job: Pick<JsonBackgroundJob, "status">) {
   return (
     job.status === "succeeded" ||
@@ -286,6 +296,7 @@ function getJobTone(status: JsonBackgroundJob["status"] | null): JobTone {
   if (status === "failed" || status === "dead") return "failed";
   if (status === "running") return "running";
   if (status === "queued") return "queued";
+  if (status === "succeeded") return "succeeded";
   if (status === "cancelled") return "cancelled";
   return "idle";
 }
@@ -347,6 +358,48 @@ function getJobStateLine({
   )}`;
 }
 
+function getJobLastFact({
+  job,
+  nowMs,
+  status,
+}: {
+  job: JsonBackgroundJob | null;
+  nowMs: number | null;
+  status: JsonBackgroundJob["status"] | null;
+}) {
+  if (!job || !status) return "Never run";
+
+  if (status === "running") {
+    return `Started ${formatRelativeTime(
+      job.startedAt ?? job.lockedAt ?? job.updatedAt,
+      nowMs,
+    )}`;
+  }
+
+  if (status === "queued") {
+    return `Queued ${formatRelativeTime(job.createdAt, nowMs)}`;
+  }
+
+  if (status === "failed" || status === "dead") {
+    return `Failed ${formatRelativeTime(
+      job.completedAt ?? job.updatedAt,
+      nowMs,
+    )}`;
+  }
+
+  if (status === "cancelled") {
+    return `Cancelled ${formatRelativeTime(
+      job.cancelledAt ?? job.updatedAt,
+      nowMs,
+    )}`;
+  }
+
+  return `Succeeded ${formatRelativeTime(
+    job.completedAt ?? job.updatedAt,
+    nowMs,
+  )}`;
+}
+
 function getPrimaryActionLabel({
   canRunManually,
   lastRun,
@@ -363,11 +416,15 @@ function getPrimaryActionLabel({
     return "Retry";
   }
 
+  if (status === "running") {
+    return "Running";
+  }
+
   if (canRunManually) {
     return "Run now";
   }
 
-  return "Run now";
+  return "Auto-run only";
 }
 
 function JsonBlock({ value }: { value: Record<string, unknown> | null }) {
@@ -611,6 +668,7 @@ function JobTaskCard({
   workerRunningJobIds: Set<string>;
 }) {
   const jobName = formatJobKind(kind);
+  const jobDescription = getJobDescription(kind);
   const canRunManually = MANUAL_RUN_JOB_KINDS.has(kind);
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
@@ -632,6 +690,8 @@ function JobTaskCard({
     lastRun,
     status: displayStatus,
   });
+  const primaryActionIsCommand =
+    primaryActionLabel === "Run now" || primaryActionLabel === "Retry";
 
   useEffect(() => {
     if (!detailsOpen || !selectedHistoryJobId) return;
@@ -767,40 +827,40 @@ function JobTaskCard({
     <article className={`admin-jobs-card admin-jobs-card-${tone}`}>
       <div className="admin-jobs-card-body">
         <div className="admin-jobs-card-head">
-          <span
-            aria-hidden
-            className={`admin-jobs-card-dot admin-jobs-card-dot-${tone}`}
-          />
-          <h2>{jobName}</h2>
-          <p className={`admin-jobs-card-state admin-jobs-card-state-${tone}`}>
-            {getJobStateLine({
-              job: lastRun,
-              nowMs,
-              status: displayStatus,
-              timeZone: instanceTimeZone,
-            })}
-          </p>
+          <div className="admin-jobs-card-title-row">
+            <span
+              aria-hidden
+              className={`admin-jobs-card-dot admin-jobs-card-dot-${tone}`}
+            />
+            <h2>{jobName}</h2>
+          </div>
+          <p className="admin-jobs-card-desc">{jobDescription}</p>
         </div>
 
-        {runError ? <p className="admin-jobs-card-error">{runError}</p> : null}
+        <div className="admin-jobs-card-facts">
+          <p className={`admin-jobs-card-state admin-jobs-card-state-${tone}`}>
+            {getJobLastFact({ job: lastRun, nowMs, status: displayStatus })}
+          </p>
+
+          {runError ? (
+            <p className="admin-jobs-card-error">{runError}</p>
+          ) : null}
+        </div>
       </div>
 
       <div className="admin-jobs-card-actions">
-        <button
-          className="admin-jobs-rail-action admin-jobs-rail-action-primary"
-          disabled={
-            running ||
-            (primaryActionLabel === "Run now" &&
-              (!canRunManually || displayStatus === "running"))
-          }
-          onClick={() => void handlePrimaryAction()}
-          title={
-            !canRunManually ? "Created by uploads or archives." : undefined
-          }
-          type="button"
-        >
-          {running ? "..." : primaryActionLabel}
-        </button>
+        {primaryActionIsCommand ? (
+          <button
+            className="admin-jobs-rail-action admin-jobs-rail-action-primary"
+            disabled={running}
+            onClick={() => void handlePrimaryAction()}
+            type="button"
+          >
+            {running ? "..." : primaryActionLabel}
+          </button>
+        ) : (
+          <span className="admin-jobs-rail-note">{primaryActionLabel}</span>
+        )}
         <button
           className="admin-jobs-rail-action"
           onClick={() => void openDetails()}
