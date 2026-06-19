@@ -54,6 +54,11 @@ type JsonJobSummary = {
   workers: JsonWorker[];
 };
 
+type JsonJobState = {
+  summary: JsonJobSummary;
+  lastRuns: Record<string, JsonBackgroundJob | null>;
+};
+
 type JsonJobEvent = {
   id: string;
   type: string;
@@ -107,7 +112,6 @@ const MANUAL_RUN_JOB_KINDS = new Set([
   "restore.reconcile",
 ]);
 
-const JOB_POLL_MS = 5000;
 const CLOCK_TICK_MS = 1000;
 const HISTORY_VISIBLE_RUNS = 12;
 
@@ -244,7 +248,7 @@ function formatJobKind(kind: string) {
   );
 }
 
-function isFinishedJob(job: JsonBackgroundJob) {
+function isFinishedJob(job: Pick<JsonBackgroundJob, "status">) {
   return (
     job.status === "succeeded" ||
     job.status === "failed" ||
@@ -272,7 +276,9 @@ function getJobDisplayStatus(
   job: Pick<JsonBackgroundJob, "id" | "status" | "lastError">,
   workerRunningJobIds: Set<string>,
 ): JsonBackgroundJob["status"] {
-  if (workerRunningJobIds.has(job.id)) return "running";
+  if (!isFinishedJob(job) && workerRunningJobIds.has(job.id)) {
+    return "running";
+  }
   return effectiveStatus(job);
 }
 
@@ -590,23 +596,22 @@ function JobDetailsModal({
 }
 
 function JobTaskCard({
-  initialLastRun,
   instanceTimeZone,
   kind,
+  lastRun,
   nowMs,
+  onLastRunChange,
   workerRunningJobIds,
 }: {
-  initialLastRun: JsonBackgroundJob | null;
   instanceTimeZone: string;
   kind: string;
+  lastRun: JsonBackgroundJob | null;
   nowMs: number | null;
+  onLastRunChange: (kind: string, job: JsonBackgroundJob | null) => void;
   workerRunningJobIds: Set<string>;
 }) {
   const jobName = formatJobKind(kind);
   const canRunManually = MANUAL_RUN_JOB_KINDS.has(kind);
-  const [lastRun, setLastRun] = useState<JsonBackgroundJob | null>(
-    initialLastRun,
-  );
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -629,36 +634,6 @@ function JobTaskCard({
   });
 
   useEffect(() => {
-    let cancelled = false;
-    const poll = async () => {
-      try {
-        const res = await fetch(
-          `/api/admin/jobs?kind=${encodeURIComponent(kind)}&limit=100`,
-        );
-        if (!res.ok || cancelled) return;
-        const data = await res.json();
-        const jobs: JsonBackgroundJob[] = data.items ?? [];
-        const latest = selectRepresentativeJob(jobs, workerRunningJobIds);
-        if (!cancelled) {
-          setLastRun(latest);
-          if (detailsOpen) {
-            setHistory(jobs);
-            setSelectedHistoryJobId((current) => current ?? latest?.id ?? null);
-          }
-        }
-      } catch {
-        // network error — ignore, retry next tick
-      }
-    };
-    void poll();
-    const id = setInterval(() => void poll(), JOB_POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [kind, detailsOpen, workerRunningJobIds]);
-
-  useEffect(() => {
     if (!detailsOpen || !selectedHistoryJobId) return;
 
     let cancelled = false;
@@ -678,6 +653,21 @@ function JobTaskCard({
     };
   }, [detailsOpen, selectedHistoryJobId]);
 
+  useEffect(() => {
+    if (!detailsOpen || !lastRun) return;
+
+    setHistory((current) => {
+      if (!current) return current;
+      const withoutLatest = current.filter((job) => job.id !== lastRun.id);
+      return [lastRun, ...withoutLatest].sort(
+        (left, right) =>
+          new Date(right.updatedAt).getTime() -
+          new Date(left.updatedAt).getTime(),
+      );
+    });
+    setSelectedHistoryJobId((current) => current ?? lastRun.id);
+  }, [detailsOpen, lastRun]);
+
   const refreshJobs = async () => {
     const updated = await fetch(
       `/api/admin/jobs?kind=${encodeURIComponent(kind)}&limit=100`,
@@ -687,7 +677,7 @@ function JobTaskCard({
     const data = await updated.json();
     const jobs: JsonBackgroundJob[] = data.items ?? [];
     setHistory(jobs);
-    setLastRun(selectRepresentativeJob(jobs, workerRunningJobIds));
+    onLastRunChange(kind, selectRepresentativeJob(jobs, workerRunningJobIds));
     setSelectedHistoryJobId((current) => current ?? jobs[0]?.id ?? null);
   };
 
@@ -853,6 +843,7 @@ export function JobOperations({
   instanceTimeZone,
 }: Props) {
   const [summary, setSummary] = useState(initialSummary);
+  const [lastRuns, setLastRuns] = useState(initialLastRuns);
   const [nowMs, setNowMs] = useState<number | null>(null);
   const activeQueueCount =
     summary.statusCounts.queued + summary.statusCounts.running;
@@ -871,16 +862,19 @@ export function JobOperations({
   );
 
   useEffect(() => {
-    let cancelled = false;
-    const poll = async () => {
-      const res = await fetch("/api/admin/jobs/summary");
-      if (!res.ok || cancelled) return;
-      setSummary(await res.json());
+    const source = new EventSource("/api/admin/jobs/state/stream");
+    const onState = (event: Event) => {
+      const state = JSON.parse(
+        (event as MessageEvent<string>).data,
+      ) as JsonJobState;
+      setSummary(state.summary);
+      setLastRuns(state.lastRuns);
     };
-    const id = setInterval(() => void poll(), JOB_POLL_MS);
+    source.addEventListener("state", onState);
+
     return () => {
-      cancelled = true;
-      clearInterval(id);
+      source.removeEventListener("state", onState);
+      source.close();
     };
   }, []);
 
@@ -923,14 +917,20 @@ export function JobOperations({
 
       <section className="admin-jobs-grid" aria-label="Background jobs">
         {jobKinds.map((kind) => {
-          const lastRun = initialLastRuns[kind] ?? null;
+          const lastRun = lastRuns[kind] ?? null;
           return (
             <JobTaskCard
-              initialLastRun={lastRun}
               instanceTimeZone={instanceTimeZone}
               key={kind}
               kind={kind}
+              lastRun={lastRun}
               nowMs={nowMs}
+              onLastRunChange={(updatedKind, job) => {
+                setLastRuns((current) => ({
+                  ...current,
+                  [updatedKind]: job,
+                }));
+              }}
               workerRunningJobIds={workerRunningJobIds}
             />
           );

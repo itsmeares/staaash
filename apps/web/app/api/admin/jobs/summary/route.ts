@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { enforceSameOrigin, requireOwnerApiSession } from "@/server/admin/http";
-import { getAdminJobSummary } from "@/server/admin/jobs";
+import { getAdminJobSummary, toJsonAdminJobSummary } from "@/server/admin/jobs";
 
 export async function GET(request: NextRequest) {
   const sameOriginError = enforceSameOrigin(request);
@@ -12,16 +12,5 @@ export async function GET(request: NextRequest) {
 
   const summary = await getAdminJobSummary();
 
-  return NextResponse.json({
-    ...summary,
-    nextQueuedRunAt: summary.nextQueuedRunAt?.toISOString() ?? null,
-    workers: summary.workers.map((worker) => ({
-      ...worker,
-      startedAt: worker.startedAt.toISOString(),
-      lastHeartbeatAt: worker.lastHeartbeatAt.toISOString(),
-      stoppedAt: worker.stoppedAt?.toISOString() ?? null,
-      createdAt: worker.createdAt.toISOString(),
-      updatedAt: worker.updatedAt.toISOString(),
-    })),
-  });
+  return NextResponse.json(toJsonAdminJobSummary(summary));
 }
