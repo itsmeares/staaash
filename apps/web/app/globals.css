@@ -497,7 +497,7 @@ h3 {
 
   .admin-sidebar .workspace-nav-link {
     flex: 0 0 auto;
-    min-height: 36px;
+    min-height: 44px;
     padding: 0 12px;
   }
 
@@ -989,7 +989,7 @@ h3 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 38px;
+  min-height: 44px;
   border-radius: 8px;
   padding: 0 14px;
   background: color-mix(in oklab, var(--foreground) 5%, transparent);
@@ -1551,8 +1551,11 @@ h3 {
 
   .admin-jobs-run-list,
   .admin-jobs-run-detail {
-    overflow: visible;
     padding: 16px;
+  }
+
+  .admin-jobs-run-list {
+    overflow-y: auto;
   }
 
   .admin-jobs-run-detail {

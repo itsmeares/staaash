@@ -907,9 +907,21 @@ export function JobOperations({
   const [nowMs, setNowMs] = useState<number | null>(null);
   const activeQueueCount =
     summary.statusCounts.queued + summary.statusCounts.running;
+  const failedCount = summary.failed + summary.dead;
+  const oldestDueLabel = formatDuration(summary.oldestDueQueuedAgeSeconds);
   const onlineWorkers = summary.workers.filter(
     (worker) => worker.status !== "stopped" && worker.status !== "stale",
   ).length;
+  const workerNoun = onlineWorkers === 1 ? "worker" : "workers";
+  const workerLabel = `${onlineWorkers} ${workerNoun}`;
+  const queueSummaryLabel = [
+    `${summary.statusCounts.running} running`,
+    `${summary.statusCounts.queued} queued`,
+    `${failedCount} failed`,
+    workerLabel,
+    `oldest due ${oldestDueLabel}`,
+    `active ${activeQueueCount}`,
+  ].join(", ");
   const workerRunningJobIds = useMemo(
     () =>
       new Set(
@@ -948,7 +960,10 @@ export function JobOperations({
     <div className="admin-jobs-page">
       <header className="admin-jobs-header">
         <h1>Jobs</h1>
-        <div className="admin-jobs-summary" aria-label="Queue summary">
+        <div
+          className="admin-jobs-summary"
+          aria-label={`Queue summary: ${queueSummaryLabel}.`}
+        >
           <span>
             <strong>{summary.statusCounts.running}</strong> running
           </span>
@@ -956,15 +971,13 @@ export function JobOperations({
             <strong>{summary.statusCounts.queued}</strong> queued
           </span>
           <span className="admin-jobs-summary-danger">
-            <strong>{summary.failed + summary.dead}</strong> failed
+            <strong>{failedCount}</strong> failed
           </span>
           <span>
-            <strong>{onlineWorkers}</strong> worker
-            {onlineWorkers === 1 ? "" : "s"}
+            <strong>{onlineWorkers}</strong> {workerNoun}
           </span>
           <span>
-            oldest due{" "}
-            <strong>{formatDuration(summary.oldestDueQueuedAgeSeconds)}</strong>
+            oldest due <strong>{oldestDueLabel}</strong>
           </span>
           <span>
             active <strong>{activeQueueCount}</strong>
