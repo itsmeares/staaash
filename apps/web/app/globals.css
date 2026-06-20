@@ -41,6 +41,24 @@
   --sidebar-accent-foreground: oklch(0.22 0.015 72);
   --sidebar-border: oklch(0.9 0.009 78);
   --sidebar-ring: oklch(0.68 0.06 80);
+  --status-succeeded: oklch(0.46 0.12 145);
+  --status-succeeded-bg: oklch(0.64 0.11 145 / 0.14);
+  --status-running: oklch(0.43 0.1 210);
+  --status-running-bg: oklch(0.65 0.1 210 / 0.14);
+  --status-queued: oklch(0.48 0.1 78);
+  --status-queued-bg: oklch(0.74 0.1 78 / 0.16);
+  --status-failed: color-mix(
+    in oklab,
+    var(--destructive) 86%,
+    var(--foreground)
+  );
+  --status-failed-bg: oklch(0.62 0.16 25 / 0.14);
+  --status-cancelled: color-mix(
+    in oklab,
+    var(--muted-foreground) 88%,
+    var(--foreground)
+  );
+  --status-cancelled-bg: color-mix(in oklab, var(--foreground) 7%, transparent);
 }
 
 * {
@@ -328,26 +346,32 @@ h3 {
 
 .status-active,
 .status-healthy {
-  background: oklch(64% 0.11 145 / 0.14);
-  color: oklch(43% 0.1 145);
+  background: var(--status-succeeded-bg);
+  color: var(--status-succeeded);
+}
+
+.status-running {
+  background: var(--status-running-bg);
+  color: var(--status-running);
 }
 
 .status-accepted,
 .status-warning {
-  background: oklch(74% 0.1 78 / 0.16);
-  color: oklch(44% 0.08 78);
+  background: var(--status-queued-bg);
+  color: var(--status-queued);
 }
 
 .status-expired,
 .status-revoked,
 .status-error {
-  background: oklch(62% 0.16 25 / 0.14);
-  color: oklch(47% 0.16 25);
+  background: var(--status-failed-bg);
+  color: var(--status-failed);
 }
 
-.status-muted {
-  background: color-mix(in oklab, var(--foreground) 7%, transparent);
-  color: color-mix(in oklab, var(--foreground) 58%, transparent);
+.status-muted,
+.status-cancelled {
+  background: var(--status-cancelled-bg);
+  color: var(--status-cancelled);
 }
 
 .status-owner {
@@ -362,26 +386,32 @@ h3 {
 
 .dark .status-active,
 .dark .status-healthy {
-  background: oklch(67% 0.12 145 / 0.16);
-  color: oklch(78% 0.1 145);
+  background: var(--status-succeeded-bg);
+  color: var(--status-succeeded);
+}
+
+.dark .status-running {
+  background: var(--status-running-bg);
+  color: var(--status-running);
 }
 
 .dark .status-accepted,
 .dark .status-warning {
-  background: oklch(74% 0.1 78 / 0.17);
-  color: oklch(82% 0.09 78);
+  background: var(--status-queued-bg);
+  color: var(--status-queued);
 }
 
 .dark .status-expired,
 .dark .status-revoked,
 .dark .status-error {
-  background: oklch(62% 0.16 25 / 0.16);
-  color: oklch(76% 0.13 25);
+  background: var(--status-failed-bg);
+  color: var(--status-failed);
 }
 
-.dark .status-muted {
-  background: color-mix(in oklab, var(--foreground) 8%, transparent);
-  color: color-mix(in oklab, var(--foreground) 54%, transparent);
+.dark .status-muted,
+.dark .status-cancelled {
+  background: var(--status-cancelled-bg);
+  color: var(--status-cancelled);
 }
 
 .inline-form {
@@ -916,39 +946,10 @@ h3 {
 
 /* ---- Admin: jobs card grid ---- */
 .admin-jobs-page {
-  --admin-job-success: oklch(46% 0.12 145);
-  --admin-job-running: color-mix(
-    in oklab,
-    var(--primary) 86%,
-    var(--foreground)
-  );
-  --admin-job-queued: oklch(48% 0.1 78);
-  --admin-job-failed: color-mix(
-    in oklab,
-    var(--destructive) 86%,
-    var(--foreground)
-  );
-  --admin-job-cancelled: color-mix(
-    in oklab,
-    var(--muted-foreground) 88%,
-    var(--foreground)
-  );
   display: grid;
   width: min(1120px, 100%);
   margin-inline: auto;
   gap: 24px;
-}
-
-.dark .admin-jobs-page {
-  --admin-job-success: oklch(76% 0.13 145);
-  --admin-job-running: oklch(78% 0.1 210);
-  --admin-job-queued: oklch(82% 0.1 78);
-  --admin-job-failed: oklch(78% 0.16 25);
-  --admin-job-cancelled: color-mix(
-    in oklab,
-    var(--muted-foreground) 86%,
-    var(--foreground)
-  );
 }
 
 .admin-jobs-header {
@@ -1094,23 +1095,23 @@ h3 {
 }
 
 .admin-jobs-card-state-failed {
-  color: var(--admin-job-failed);
+  color: var(--status-failed);
 }
 
 .admin-jobs-card-state-running {
-  color: var(--admin-job-running);
+  color: var(--status-running);
 }
 
 .admin-jobs-card-state-queued {
-  color: var(--admin-job-queued);
+  color: var(--status-queued);
 }
 
 .admin-jobs-card-state-succeeded {
-  color: var(--admin-job-success);
+  color: var(--status-succeeded);
 }
 
 .admin-jobs-card-state-cancelled {
-  color: var(--admin-job-cancelled);
+  color: var(--status-cancelled);
 }
 
 .admin-jobs-card-dot,
@@ -1126,31 +1127,31 @@ h3 {
 .admin-jobs-card-dot-failed,
 .admin-jobs-state-failed .admin-jobs-state-dot,
 .admin-jobs-run-dot-failed {
-  background: var(--admin-job-failed);
+  background: var(--status-failed);
 }
 
 .admin-jobs-card-dot-running,
 .admin-jobs-state-running .admin-jobs-state-dot,
 .admin-jobs-run-dot-running {
-  background: var(--admin-job-running);
+  background: var(--status-running);
 }
 
 .admin-jobs-card-dot-queued,
 .admin-jobs-state-queued .admin-jobs-state-dot,
 .admin-jobs-run-dot-queued {
-  background: var(--admin-job-queued);
+  background: var(--status-queued);
 }
 
 .admin-jobs-card-dot-succeeded,
 .admin-jobs-state-succeeded .admin-jobs-state-dot,
 .admin-jobs-run-dot-succeeded {
-  background: var(--admin-job-success);
+  background: var(--status-succeeded);
 }
 
 .admin-jobs-card-dot-cancelled,
 .admin-jobs-state-cancelled .admin-jobs-state-dot,
 .admin-jobs-run-dot-cancelled {
-  background: var(--admin-job-cancelled);
+  background: var(--status-cancelled);
 }
 
 .admin-jobs-card-error {
@@ -1227,6 +1228,264 @@ h3 {
   background: color-mix(in oklab, var(--primary) 88%, black);
 }
 
+.admin-jobs-activity {
+  display: grid;
+  gap: 14px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  border-radius: 10px;
+  padding: 18px;
+  background: color-mix(in oklab, var(--card) 94%, var(--background) 6%);
+}
+
+.admin-jobs-activity-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.admin-jobs-activity-head > div:first-child {
+  min-width: 0;
+}
+
+.admin-jobs-activity-head h2 {
+  margin: 0;
+  font-family: var(--font-switzer), "Segoe UI", sans-serif;
+  font-size: 1.02rem;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.admin-jobs-activity-head p {
+  margin: 5px 0 0;
+  color: var(--muted-foreground);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.admin-jobs-activity-controls {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.admin-jobs-activity-tabs {
+  display: inline-flex;
+  min-height: 40px;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--foreground) 3%, transparent);
+}
+
+.admin-jobs-activity-tabs button {
+  min-width: 66px;
+  border: 0;
+  border-right: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  padding: 0 11px;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.admin-jobs-activity-tabs button:last-child {
+  border-right: 0;
+}
+
+.admin-jobs-activity-tabs button:hover,
+.admin-jobs-activity-tabs .admin-jobs-activity-tab-active {
+  background: color-mix(in oklab, var(--primary) 10%, transparent);
+  color: color-mix(in oklab, var(--primary) 78%, var(--foreground));
+}
+
+.admin-jobs-kind-filter {
+  display: grid;
+  flex: 0 0 196px;
+  width: min(196px, 100%);
+  color: var(--muted-foreground);
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
+.admin-jobs-kind-select-trigger {
+  width: 100%;
+  border-color: color-mix(in oklab, var(--foreground) 8%, transparent);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--foreground) 3%, transparent);
+  padding: 0 10px;
+  color: var(--foreground);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.admin-jobs-kind-select-trigger[data-size="default"] {
+  height: 40px;
+}
+
+.admin-jobs-kind-select-trigger:hover,
+.admin-jobs-kind-select-trigger[data-popup-open] {
+  background: color-mix(in oklab, var(--foreground) 5%, transparent);
+}
+
+.admin-jobs-kind-select-content {
+  width: max-content;
+  min-width: 196px;
+  max-width: min(260px, calc(100vw - 24px));
+  border-radius: 8px;
+  padding: 4px;
+  font-size: 0.8125rem;
+}
+
+.admin-jobs-kind-select-item {
+  min-height: 34px;
+  border-radius: 5px;
+  padding: 0 32px 0 10px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.admin-jobs-kind-select-item:hover,
+.admin-jobs-kind-select-item[data-highlighted] {
+  background: color-mix(in oklab, var(--foreground) 15%, transparent);
+  color: var(--foreground);
+}
+
+.admin-jobs-activity-error {
+  margin: 0;
+  border-radius: 9px;
+  padding: 10px 11px;
+  background: color-mix(in oklab, var(--destructive) 10%, transparent);
+  color: color-mix(in oklab, var(--destructive) 84%, var(--foreground));
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.admin-jobs-activity-list {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--foreground) 6%, transparent);
+  border-radius: 8px;
+  min-height: 54px;
+}
+
+.admin-jobs-activity-updating {
+  margin: 0;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 6%, transparent);
+  padding: 7px 12px;
+  background: color-mix(in oklab, var(--primary) 6%, transparent);
+  color: var(--muted-foreground);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.admin-jobs-activity-row {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 1.1fr) 88px 72px minmax(180px, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 54px;
+  border: 0;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 6%, transparent);
+  padding: 10px 12px;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.admin-jobs-activity-row:last-child {
+  border-bottom: 0;
+}
+
+.admin-jobs-activity-row:hover {
+  background: color-mix(in oklab, var(--primary) 7%, transparent);
+}
+
+.admin-jobs-activity-main {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.admin-jobs-activity-main strong {
+  overflow: hidden;
+  font-size: 0.82rem;
+  font-weight: 750;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-jobs-activity-main small {
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-jobs-activity-status {
+  font-size: 0.76rem;
+  font-weight: 750;
+  text-transform: capitalize;
+}
+
+.admin-jobs-activity-attempt {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.admin-jobs-activity-detail {
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-jobs-activity-empty {
+  margin: 0;
+  padding: 18px;
+  color: var(--muted-foreground);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.admin-jobs-activity-more {
+  justify-self: center;
+  min-height: 40px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 14px;
+  background: color-mix(in oklab, var(--foreground) 6%, transparent);
+  color: var(--foreground);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 750;
+}
+
+.admin-jobs-activity-more:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .admin-jobs-modal {
   display: flex;
   flex-direction: column;
@@ -1271,15 +1530,23 @@ h3 {
 }
 
 .admin-jobs-state-failed {
-  color: color-mix(in oklab, var(--destructive) 86%, var(--foreground));
+  color: var(--status-failed);
 }
 
 .admin-jobs-state-running {
-  color: oklch(43% 0.1 145);
+  color: var(--status-running);
 }
 
 .admin-jobs-state-queued {
-  color: color-mix(in oklab, var(--primary) 78%, var(--foreground));
+  color: var(--status-queued);
+}
+
+.admin-jobs-state-succeeded {
+  color: var(--status-succeeded);
+}
+
+.admin-jobs-state-cancelled {
+  color: var(--status-cancelled);
 }
 
 .admin-jobs-modal-layout {
@@ -1491,6 +1758,48 @@ h3 {
   .admin-jobs-summary {
     gap: 8px 12px;
     font-size: 0.8125rem;
+  }
+
+  .admin-jobs-activity {
+    padding: 14px;
+  }
+
+  .admin-jobs-activity-head,
+  .admin-jobs-activity-controls {
+    display: grid;
+    justify-content: stretch;
+  }
+
+  .admin-jobs-activity-tabs {
+    width: 100%;
+  }
+
+  .admin-jobs-activity-tabs button {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .admin-jobs-kind-filter {
+    width: 100%;
+  }
+
+  .admin-jobs-activity-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px 10px;
+    min-height: 68px;
+  }
+
+  .admin-jobs-activity-status {
+    justify-self: end;
+  }
+
+  .admin-jobs-activity-attempt {
+    grid-column: 2 / 3;
+  }
+
+  .admin-jobs-activity-detail {
+    grid-column: 2 / 4;
+    white-space: normal;
   }
 
   .admin-jobs-card {
@@ -5766,6 +6075,20 @@ h3 {
   --sidebar-accent-foreground: oklch(0.94 0.008 78);
   --sidebar-border: oklch(0.38 0.014 76 / 0.55);
   --sidebar-ring: oklch(0.82 0.06 80);
+  --status-succeeded: oklch(0.78 0.1 145);
+  --status-succeeded-bg: oklch(0.67 0.12 145 / 0.16);
+  --status-running: oklch(0.78 0.1 210);
+  --status-running-bg: oklch(0.68 0.1 210 / 0.16);
+  --status-queued: oklch(0.82 0.1 78);
+  --status-queued-bg: oklch(0.74 0.1 78 / 0.17);
+  --status-failed: oklch(0.78 0.16 25);
+  --status-failed-bg: oklch(0.62 0.16 25 / 0.16);
+  --status-cancelled: color-mix(
+    in oklab,
+    var(--muted-foreground) 86%,
+    var(--foreground)
+  );
+  --status-cancelled-bg: color-mix(in oklab, var(--foreground) 8%, transparent);
 }
 
 html.dark {
@@ -5811,6 +6134,24 @@ html.light {
     --sidebar-accent-foreground: oklch(0.94 0.008 78);
     --sidebar-border: oklch(0.38 0.014 76 / 0.55);
     --sidebar-ring: oklch(0.82 0.06 80);
+    --status-succeeded: oklch(0.78 0.1 145);
+    --status-succeeded-bg: oklch(0.67 0.12 145 / 0.16);
+    --status-running: oklch(0.78 0.1 210);
+    --status-running-bg: oklch(0.68 0.1 210 / 0.16);
+    --status-queued: oklch(0.82 0.1 78);
+    --status-queued-bg: oklch(0.74 0.1 78 / 0.17);
+    --status-failed: oklch(0.78 0.16 25);
+    --status-failed-bg: oklch(0.62 0.16 25 / 0.16);
+    --status-cancelled: color-mix(
+      in oklab,
+      var(--muted-foreground) 86%,
+      var(--foreground)
+    );
+    --status-cancelled-bg: color-mix(
+      in oklab,
+      var(--foreground) 8%,
+      transparent
+    );
   }
 
   body {
@@ -8641,6 +8982,24 @@ main.share-locked-page {
   --sidebar-accent-foreground: oklch(0.22 0.015 72);
   --sidebar-border: oklch(0.9 0.009 78);
   --sidebar-ring: oklch(0.68 0.06 80);
+  --status-succeeded: oklch(0.46 0.12 145);
+  --status-succeeded-bg: oklch(0.64 0.11 145 / 0.14);
+  --status-running: oklch(0.43 0.1 210);
+  --status-running-bg: oklch(0.65 0.1 210 / 0.14);
+  --status-queued: oklch(0.48 0.1 78);
+  --status-queued-bg: oklch(0.74 0.1 78 / 0.16);
+  --status-failed: color-mix(
+    in oklab,
+    var(--destructive) 86%,
+    var(--foreground)
+  );
+  --status-failed-bg: oklch(0.62 0.16 25 / 0.14);
+  --status-cancelled: color-mix(
+    in oklab,
+    var(--muted-foreground) 88%,
+    var(--foreground)
+  );
+  --status-cancelled-bg: color-mix(in oklab, var(--foreground) 7%, transparent);
 }
 
 .light body {

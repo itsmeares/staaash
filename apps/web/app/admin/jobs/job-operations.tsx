@@ -4,6 +4,14 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { formatAdminDateTime } from "@/app/admin/admin-format";
 
@@ -120,6 +128,30 @@ const MANUAL_RUN_JOB_KINDS = new Set([
 
 const CLOCK_TICK_MS = 1000;
 const HISTORY_VISIBLE_RUNS = 12;
+const ACTIVITY_PAGE_SIZE = 25;
+
+type ActivityFilter = "all" | "active" | "failed" | "done";
+
+type JsonJobListResponse = {
+  items: JsonBackgroundJob[];
+  nextCursor: string | null;
+};
+
+const ACTIVITY_FILTER_LABELS: Record<ActivityFilter, string> = {
+  all: "All",
+  active: "Active",
+  failed: "Failed",
+  done: "Done",
+};
+
+const ACTIVITY_FILTER_STATUSES: Record<
+  Exclude<ActivityFilter, "all">,
+  JsonBackgroundJob["status"][]
+> = {
+  active: ["queued", "running"],
+  failed: ["failed", "dead"],
+  done: ["succeeded", "cancelled"],
+};
 
 function effectiveStatus(
   job: Pick<JsonBackgroundJob, "status" | "lastError">,
@@ -425,6 +457,98 @@ function getPrimaryActionLabel({
   }
 
   return "Auto-run only";
+}
+
+function buildJobsUrl({
+  cursor,
+  kind,
+  limit = ACTIVITY_PAGE_SIZE,
+  status,
+}: {
+  cursor?: string | null;
+  kind?: string | null;
+  limit?: number;
+  status?: JsonBackgroundJob["status"] | null;
+}) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (cursor) params.set("cursor", cursor);
+  if (kind) params.set("kind", kind);
+  if (status) params.set("status", status);
+  return `/api/admin/jobs?${params.toString()}`;
+}
+
+function sortJobsByUpdatedAt(jobs: JsonBackgroundJob[]) {
+  return [...jobs].sort(
+    (left, right) =>
+      new Date(right.updatedAt).getTime() -
+        new Date(left.updatedAt).getTime() || right.id.localeCompare(left.id),
+  );
+}
+
+function mergeJobsById(
+  current: JsonBackgroundJob[],
+  incoming: JsonBackgroundJob[],
+) {
+  const byId = new Map<string, JsonBackgroundJob>();
+  for (const job of [...current, ...incoming]) {
+    byId.set(job.id, job);
+  }
+  return sortJobsByUpdatedAt([...byId.values()]);
+}
+
+async function fetchActivityJobs({
+  cursor = null,
+  filter,
+  kind,
+}: {
+  cursor?: string | null;
+  filter: ActivityFilter;
+  kind: string | null;
+}) {
+  if (filter === "all") {
+    const res = await fetch(buildJobsUrl({ cursor, kind }));
+    if (!res.ok) throw new Error(`Request failed (${res.status}).`);
+    return (await res.json()) as JsonJobListResponse;
+  }
+
+  const pages = await Promise.all(
+    ACTIVITY_FILTER_STATUSES[filter].map(async (status) => {
+      const res = await fetch(
+        buildJobsUrl({ kind, limit: ACTIVITY_PAGE_SIZE, status }),
+      );
+      if (!res.ok) throw new Error(`Request failed (${res.status}).`);
+      return (await res.json()) as JsonJobListResponse;
+    }),
+  );
+
+  return {
+    items: sortJobsByUpdatedAt(pages.flatMap((page) => page.items)).slice(
+      0,
+      ACTIVITY_PAGE_SIZE,
+    ),
+    nextCursor: null,
+  } satisfies JsonJobListResponse;
+}
+
+function getActivityDetail(job: JsonBackgroundJob) {
+  if (job.lastError) return job.lastError;
+  if (job.fileName) return job.fileName;
+  if (job.dedupeKey) return job.dedupeKey;
+  return job.id;
+}
+
+function jobMatchesActivityView({
+  filter,
+  job,
+  kind,
+}: {
+  filter: ActivityFilter;
+  job: JsonBackgroundJob;
+  kind: string | null;
+}) {
+  if (kind && job.kind !== kind) return false;
+  if (filter === "all") return true;
+  return ACTIVITY_FILTER_STATUSES[filter].includes(effectiveStatus(job));
 }
 
 function JsonBlock({ value }: { value: Record<string, unknown> | null }) {
@@ -889,6 +1013,352 @@ function JobTaskCard({
   );
 }
 
+function JobActivityPanel({
+  instanceTimeZone,
+  jobKinds,
+  liveJobs,
+  nowMs,
+  onLastRunChange,
+  workerRunningJobIds,
+}: {
+  instanceTimeZone: string;
+  jobKinds: string[];
+  liveJobs: JsonBackgroundJob[];
+  nowMs: number | null;
+  onLastRunChange: (kind: string, job: JsonBackgroundJob | null) => void;
+  workerRunningJobIds: Set<string>;
+}) {
+  const [filter, setFilter] = useState<ActivityFilter>("all");
+  const [kindFilter, setKindFilter] = useState("all");
+  const [items, setItems] = useState<JsonBackgroundJob[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selectedKind, setSelectedKind] = useState<string | null>(null);
+  const [history, setHistory] = useState<JsonBackgroundJob[] | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [selectedHistoryJobId, setSelectedHistoryJobId] = useState<
+    string | null
+  >(null);
+  const [events, setEvents] = useState<JsonJobEvent[] | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const selectedHistoryJob =
+    history?.find((job) => job.id === selectedHistoryJobId) ??
+    history?.[0] ??
+    items.find((job) => job.id === selectedHistoryJobId) ??
+    null;
+
+  const kindFilterOptions = useMemo(
+    () => [
+      { label: "All jobs", value: "all" },
+      ...jobKinds.map((kind) => ({ label: formatJobKind(kind), value: kind })),
+    ],
+    [jobKinds],
+  );
+  const activityKind = kindFilter === "all" ? null : kindFilter;
+  const isInitialActivityLoad = loading && items.length === 0;
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+    setNextCursor(null);
+
+    void fetchActivityJobs({ filter, kind: activityKind })
+      .then((data) => {
+        if (cancelled) return;
+        setItems(data.items);
+        setNextCursor(data.nextCursor);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setLoadError(
+            error instanceof Error ? error.message : "Failed to load jobs.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activityKind, filter]);
+
+  useEffect(() => {
+    if (liveJobs.length === 0) return;
+
+    setItems((current) => {
+      const liveJobIds = new Set(liveJobs.map((job) => job.id));
+      const visibleLiveJobs = liveJobs.filter((job) =>
+        jobMatchesActivityView({ filter, job, kind: activityKind }),
+      );
+      const visibleLiveJobIds = new Set(visibleLiveJobs.map((job) => job.id));
+
+      return mergeJobsById(
+        current.filter(
+          (job) => !liveJobIds.has(job.id) || visibleLiveJobIds.has(job.id),
+        ),
+        visibleLiveJobs,
+      );
+    });
+  }, [activityKind, filter, liveJobs]);
+
+  useEffect(() => {
+    if (!selectedHistoryJobId || liveJobs.length === 0) return;
+    const liveSelectedJob = liveJobs.find(
+      (job) => job.id === selectedHistoryJobId,
+    );
+    if (!liveSelectedJob) return;
+
+    setHistory((current) =>
+      current ? mergeJobsById(current, [liveSelectedJob]) : current,
+    );
+  }, [liveJobs, selectedHistoryJobId]);
+
+  useEffect(() => {
+    if (!detailsOpen || !selectedHistoryJobId) return;
+
+    let cancelled = false;
+    setEvents(null);
+    void fetch(`/api/admin/jobs/${selectedHistoryJobId}/events`)
+      .then(async (res) => {
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        setEvents(data.items ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setEvents([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [detailsOpen, selectedHistoryJobId]);
+
+  const refreshActivity = async () => {
+    const data = await fetchActivityJobs({ filter, kind: activityKind });
+    setItems(data.items);
+    setNextCursor(data.nextCursor);
+  };
+
+  const refreshHistory = async (kind: string, selectedJobId?: string) => {
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(buildJobsUrl({ kind, limit: 100 }));
+      if (!res.ok) return;
+      const data = (await res.json()) as JsonJobListResponse;
+      const nextSelectedJobId =
+        selectedJobId && data.items.some((job) => job.id === selectedJobId)
+          ? selectedJobId
+          : (data.items[0]?.id ?? null);
+
+      setHistory(data.items);
+      onLastRunChange(
+        kind,
+        selectRepresentativeJob(data.items, workerRunningJobIds),
+      );
+      setSelectedHistoryJobId(nextSelectedJobId);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const openDetails = async (job: JsonBackgroundJob) => {
+    setActionError(null);
+    setDetailsOpen(true);
+    setSelectedKind(job.kind);
+    setHistory([job]);
+    setSelectedHistoryJobId(job.id);
+    await refreshHistory(job.kind, job.id);
+  };
+
+  const postJobAction = async (jobId: string, action: "retry" | "cancel") => {
+    if (!selectedKind) return;
+    setActionError(null);
+    const res = await fetch(`/api/admin/jobs/${jobId}/${action}`, {
+      method: "POST",
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      setActionError(body?.error ?? `Request failed (${res.status}).`);
+      return;
+    }
+    await Promise.all([refreshActivity(), refreshHistory(selectedKind, jobId)]);
+  };
+
+  const loadMore = async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    setLoadError(null);
+    try {
+      const data = await fetchActivityJobs({
+        cursor: nextCursor,
+        filter,
+        kind: activityKind,
+      });
+      setItems((current) => mergeJobsById(current, data.items));
+      setNextCursor(data.nextCursor);
+    } catch (error) {
+      setLoadError(
+        error instanceof Error ? error.message : "Failed to load jobs.",
+      );
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  return (
+    <section className="admin-jobs-activity" aria-label="Job activity">
+      <div className="admin-jobs-activity-head">
+        <div>
+          <h2>Job activity</h2>
+          <p>Recent queued, running, failed, and completed work.</p>
+        </div>
+        <div className="admin-jobs-activity-controls">
+          <div className="admin-jobs-activity-tabs">
+            {(Object.keys(ACTIVITY_FILTER_LABELS) as ActivityFilter[]).map(
+              (value) => (
+                <button
+                  aria-pressed={filter === value}
+                  className={
+                    filter === value ? "admin-jobs-activity-tab-active" : ""
+                  }
+                  key={value}
+                  onClick={() => setFilter(value)}
+                  type="button"
+                >
+                  {ACTIVITY_FILTER_LABELS[value]}
+                </button>
+              ),
+            )}
+          </div>
+          <div className="admin-jobs-kind-filter">
+            <Select
+              items={kindFilterOptions}
+              onValueChange={(value) => setKindFilter(value ?? "all")}
+              value={kindFilter}
+            >
+              <SelectTrigger
+                aria-label="Kind"
+                className="admin-jobs-kind-select-trigger"
+              >
+                <SelectValue placeholder="Kind" />
+              </SelectTrigger>
+              <SelectContent
+                align="end"
+                alignItemWithTrigger={false}
+                className="admin-jobs-kind-select-content"
+              >
+                <SelectGroup>
+                  {kindFilterOptions.map((option) => (
+                    <SelectItem
+                      className="admin-jobs-kind-select-item"
+                      key={option.value}
+                      value={option.value}
+                    >
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
+      {loadError ? (
+        <p className="admin-jobs-activity-error">{loadError}</p>
+      ) : null}
+
+      <div className="admin-jobs-activity-list">
+        {isInitialActivityLoad ? (
+          <p className="admin-jobs-activity-empty">Loading activity...</p>
+        ) : items.length > 0 ? (
+          <>
+            {loading ? (
+              <p className="admin-jobs-activity-updating">Updating...</p>
+            ) : null}
+            {items.map((job) => {
+              const status = getJobDisplayStatus(job, workerRunningJobIds);
+              const tone = getJobTone(status);
+
+              return (
+                <button
+                  className="admin-jobs-activity-row"
+                  key={job.id}
+                  onClick={() => void openDetails(job)}
+                  type="button"
+                >
+                  <span
+                    aria-hidden
+                    className={`admin-jobs-run-dot admin-jobs-run-dot-${tone}`}
+                  />
+                  <span className="admin-jobs-activity-main">
+                    <strong>{formatJobKind(job.kind)}</strong>
+                    <small>
+                      {getJobStateLine({
+                        job,
+                        nowMs,
+                        status,
+                        timeZone: instanceTimeZone,
+                      })}
+                    </small>
+                  </span>
+                  <span
+                    className={`admin-jobs-activity-status admin-jobs-state-${tone}`}
+                  >
+                    {status}
+                  </span>
+                  <span className="admin-jobs-activity-attempt">
+                    {job.attemptCount}/{job.maxAttempts}
+                  </span>
+                  <span className="admin-jobs-activity-detail">
+                    {getActivityDetail(job)}
+                  </span>
+                </button>
+              );
+            })}
+          </>
+        ) : (
+          <p className="admin-jobs-activity-empty">No jobs match this view.</p>
+        )}
+      </div>
+
+      {nextCursor ? (
+        <button
+          className="admin-jobs-activity-more"
+          disabled={loadingMore}
+          onClick={() => void loadMore()}
+          type="button"
+        >
+          {loadingMore ? "Loading..." : "Load more"}
+        </button>
+      ) : null}
+
+      <JobDetailsModal
+        actionError={actionError}
+        events={events}
+        history={history}
+        historyLoading={historyLoading}
+        instanceTimeZone={instanceTimeZone}
+        jobName={selectedKind ? formatJobKind(selectedKind) : "Job"}
+        nowMs={nowMs}
+        onJobAction={(jobId, action) => void postJobAction(jobId, action)}
+        onSelectHistoryJob={setSelectedHistoryJobId}
+        open={detailsOpen}
+        selectedHistoryJob={selectedHistoryJob}
+        setOpen={setDetailsOpen}
+        workerRunningJobIds={workerRunningJobIds}
+      />
+    </section>
+  );
+}
+
 type Props = {
   initialLastRuns: Record<string, JsonBackgroundJob | null>;
   initialSummary: JsonJobSummary;
@@ -931,6 +1401,13 @@ export function JobOperations({
           .filter((jobId): jobId is string => Boolean(jobId)),
       ),
     [summary.workers],
+  );
+  const liveJobs = useMemo(
+    () =>
+      Object.values(lastRuns).filter(
+        (job): job is JsonBackgroundJob => job !== null,
+      ),
+    [lastRuns],
   );
 
   useEffect(() => {
@@ -1009,6 +1486,20 @@ export function JobOperations({
           );
         })}
       </section>
+
+      <JobActivityPanel
+        instanceTimeZone={instanceTimeZone}
+        jobKinds={jobKinds}
+        liveJobs={liveJobs}
+        nowMs={nowMs}
+        onLastRunChange={(updatedKind, job) => {
+          setLastRuns((current) => ({
+            ...current,
+            [updatedKind]: job,
+          }));
+        }}
+        workerRunningJobIds={workerRunningJobIds}
+      />
     </div>
   );
 }
