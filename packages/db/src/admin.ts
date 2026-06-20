@@ -288,3 +288,17 @@ export const listAdminBackgroundJobs = async (
     statusCounts,
   };
 };
+
+export const listAdminBackgroundJobItems = async (
+  filters: Pick<AdminBackgroundJobListFilters, "kind" | "limit"> = {},
+  client?: AdminClient,
+): Promise<BackgroundJobRecord[]> => {
+  const activeClient = client ?? (getPrisma() as unknown as AdminClient);
+  const limit = normalizeJobListLimit(filters.limit);
+
+  return activeClient.backgroundJob.findMany({
+    where: buildJobWhere({ kind: filters.kind, status: null }),
+    orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+    take: limit,
+  }) as Promise<BackgroundJobRecord[]>;
+};

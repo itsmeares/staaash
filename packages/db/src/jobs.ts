@@ -14,6 +14,7 @@ export const STAGING_CLEANUP_SCHEDULE_WINDOW_MS = 15 * 60 * 1000;
 export const BACKGROUND_JOB_LEASE_MS = 60_000;
 export const BACKGROUND_JOB_RETRY_DELAY_MS = 30_000;
 export const BACKGROUND_JOB_RETRY_DELAY_MAX_MS = 15 * 60 * 1000;
+export const BACKGROUND_JOB_STATE_CHANGED_CHANNEL = "staaash_job_state_changed";
 
 export type SupportedBackgroundJobKind =
   | typeof STAGING_CLEANUP_JOB_KIND
@@ -132,6 +133,7 @@ type BackgroundJobClient = {
       isolationLevel?: Prisma.TransactionIsolationLevel;
     },
   ): Promise<T>;
+  $executeRawUnsafe?(query: string, ...values: unknown[]): Promise<unknown>;
 };
 
 const BACKGROUND_JOB_SCHEDULE_MAX_RETRIES = 3;
@@ -139,6 +141,18 @@ const MAX_STORED_ERROR_LENGTH = 2000;
 
 const getClient = (client?: BackgroundJobClient) =>
   client ?? (getPrisma() as unknown as BackgroundJobClient);
+
+const notifyBackgroundJobStateChanged = async (
+  client: BackgroundJobClient,
+  jobId: string | null = null,
+) => {
+  await client
+    .$executeRawUnsafe?.(
+      `SELECT pg_notify('${BACKGROUND_JOB_STATE_CHANGED_CHANNEL}', $1)`,
+      jobId ?? "",
+    )
+    .catch(() => undefined);
+};
 
 const truncateJobError = (value: string) =>
   value.length > MAX_STORED_ERROR_LENGTH
@@ -304,6 +318,7 @@ export const ensureBackgroundJobScheduled = async ({
               metadataJson: { source: "scheduler" },
             },
           });
+          await notifyBackgroundJobStateChanged(tx, job.id);
 
           return { created: true, job };
         },
@@ -410,6 +425,7 @@ export const claimDueBackgroundJob = async ({
         metadataJson: { leaseExpiresAt: leaseExpiresAt.toISOString() },
       },
     });
+    await notifyBackgroundJobStateChanged(tx, job.id);
 
     return tx.backgroundJob.findUnique({ where: { id: job.id } });
   });
@@ -500,6 +516,7 @@ export const markBackgroundJobSucceeded = async ({
       metadataJson: {},
     },
   });
+  await notifyBackgroundJobStateChanged(activeClient, jobId);
 
   return activeClient.backgroundJob.findUnique({ where: { id: jobId } });
 };
@@ -549,6 +566,7 @@ export const markBackgroundJobTerminal = async ({
       metadataJson: { errorCode, terminal: true },
     },
   });
+  await notifyBackgroundJobStateChanged(activeClient, jobId);
 
   return activeClient.backgroundJob.findUnique({ where: { id: jobId } });
 };
@@ -624,6 +642,7 @@ export const markBackgroundJobFailed = async ({
         },
       },
     });
+    await notifyBackgroundJobStateChanged(tx, jobId);
 
     return updated;
   });
@@ -672,6 +691,7 @@ export const cancelBackgroundJob = async ({
         metadataJson: { actorUserId },
       },
     });
+    await notifyBackgroundJobStateChanged(tx, jobId);
 
     return updated;
   });
@@ -726,6 +746,7 @@ export const retryBackgroundJob = async ({
         metadataJson: { actorUserId },
       },
     });
+    await notifyBackgroundJobStateChanged(tx, jobId);
 
     return updated;
   });
@@ -762,8 +783,9 @@ export const registerWorkerInstance = async ({
   metadataJson?: Record<string, unknown>;
   now?: Date;
   client?: BackgroundJobClient;
-}) =>
-  getClient(client).workerInstance.upsert({
+}) => {
+  const activeClient = getClient(client);
+  const worker = await activeClient.workerInstance.upsert({
     where: { id },
     create: {
       id,
@@ -787,6 +809,9 @@ export const registerWorkerInstance = async ({
       metadataJson,
     },
   });
+  await notifyBackgroundJobStateChanged(activeClient);
+  return worker;
+};
 
 export const heartbeatWorkerInstance = async ({
   id,
@@ -821,8 +846,9 @@ export const markWorkerInstanceStopped = async ({
   id: string;
   now?: Date;
   client?: BackgroundJobClient;
-}) =>
-  getClient(client).workerInstance.update({
+}) => {
+  const activeClient = getClient(client);
+  const worker = await activeClient.workerInstance.update({
     where: { id },
     data: {
       status: "stopped",
@@ -831,6 +857,9 @@ export const markWorkerInstanceStopped = async ({
       lastHeartbeatAt: now,
     },
   });
+  await notifyBackgroundJobStateChanged(activeClient);
+  return worker;
+};
 
 export const listWorkerInstances = async ({
   limit = 25,

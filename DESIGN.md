@@ -24,6 +24,26 @@ colors:
   dark-popover: "oklch(0.23 0.012 72)"
   dark-primary: "oklch(0.74 0.08 78)"
   dark-border: "oklch(0.38 0.014 76 / 0.55)"
+  status-succeeded: "oklch(0.46 0.12 145)"
+  status-succeeded-bg: "oklch(0.64 0.11 145 / 0.14)"
+  status-running: "oklch(0.43 0.1 210)"
+  status-running-bg: "oklch(0.65 0.1 210 / 0.14)"
+  status-queued: "oklch(0.48 0.1 78)"
+  status-queued-bg: "oklch(0.74 0.1 78 / 0.16)"
+  status-failed: "color-mix(in oklab, var(--destructive) 86%, var(--foreground))"
+  status-failed-bg: "oklch(0.62 0.16 25 / 0.14)"
+  status-cancelled: "color-mix(in oklab, var(--muted-foreground) 88%, var(--foreground))"
+  status-cancelled-bg: "color-mix(in oklab, var(--foreground) 7%, transparent)"
+  dark-status-succeeded: "oklch(0.78 0.1 145)"
+  dark-status-succeeded-bg: "oklch(0.67 0.12 145 / 0.16)"
+  dark-status-running: "oklch(0.78 0.1 210)"
+  dark-status-running-bg: "oklch(0.68 0.1 210 / 0.16)"
+  dark-status-queued: "oklch(0.82 0.1 78)"
+  dark-status-queued-bg: "oklch(0.74 0.1 78 / 0.17)"
+  dark-status-failed: "oklch(0.78 0.16 25)"
+  dark-status-failed-bg: "oklch(0.62 0.16 25 / 0.16)"
+  dark-status-cancelled: "color-mix(in oklab, var(--muted-foreground) 86%, var(--foreground))"
+  dark-status-cancelled-bg: "color-mix(in oklab, var(--foreground) 8%, transparent)"
 typography:
   display:
     fontFamily: "var(--font-cabinet), sans-serif"
@@ -173,6 +193,14 @@ The palette is a warm neutral system with a low-noise bronze primary. OKLCH is c
 **The Warm Neutral Rule.** Warm neutrals are structural, not nostalgic. They make the file content readable and owned, not paper-themed or cute.
 
 **The Honest Red Rule.** Destructive red appears only when an action or state can harm, block, or permanently remove something.
+
+### Status Semantics
+
+- **Succeeded / healthy** (`--status-succeeded`, `--status-succeeded-bg`): green; completed successfully, ready, healthy, or active.
+- **Running** (`--status-running`, `--status-running-bg`): blue; currently processing, worker-held, or in-flight.
+- **Queued / warning** (`--status-queued`, `--status-queued-bg`): amber; waiting, scheduled, stale, accepted, or needs attention without failure.
+- **Failed / error** (`--status-failed`, `--status-failed-bg`): red; failed, dead, revoked, expired, destructive, or blocked.
+- **Cancelled / muted** (`--status-cancelled`, `--status-cancelled-bg`): neutral; stopped, idle, cancelled, inactive, or deliberately no-op.
 
 ## 3. Typography
 

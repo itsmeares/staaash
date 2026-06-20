@@ -63,6 +63,8 @@ Files, folders, previews, shares, and operational state are the content. UI chro
 
 Owners need honest status: database, file volume, worker heartbeat, queue backlog, disk warnings, updates, restore reconciliation, and beta upgrade caveats. Do not hide uncertainty behind green-looking summaries.
 
+Use status color consistently across admin and workspace operations: green for succeeded or healthy, blue for running, amber for queued or warning, red for failed or blocked, and neutral for cancelled, idle, or stopped. The same semantic status token should drive dots, text, chips, and badges so operational state never looks arbitrary.
+
 ### Small Architecture, Clear Boundaries
 
 Keep the v1 shape focused: web app, worker, PostgreSQL metadata, and local file storage. Treat microservices, desktop sync, native mobile, S3-compatible storage, and complex collaboration permissions as post-v1 work unless a clear product decision changes that.

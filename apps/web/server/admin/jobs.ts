@@ -1,4 +1,5 @@
 import {
+  listAdminBackgroundJobItems,
   listAdminBackgroundJobs,
   type AdminBackgroundJobListFilters,
   type AdminBackgroundJobListResult,
@@ -13,6 +14,7 @@ import {
   listBackgroundJobEvents,
   retryBackgroundJob,
   type BackgroundJobRecord,
+  type QueueOperationalSummary,
 } from "@staaash/db/jobs";
 
 import type { JsonAdminJobListResponse } from "./types";
@@ -65,6 +67,15 @@ export const getAdminJobList = async (
 
 export const getAdminJobSummary = async () => getQueueOperationalSummary();
 
+export const getAdminJobStateSnapshot = async () => {
+  const [lastRuns, summary] = await Promise.all([
+    getLastRunPerKind(),
+    getAdminJobSummary(),
+  ]);
+
+  return { lastRuns, summary };
+};
+
 export const getAdminJobEvents = async (jobId: string) =>
   listBackgroundJobEvents({ jobId });
 
@@ -112,8 +123,8 @@ export const getLastRunPerKind = async () => {
   const now = new Date();
   const results = await Promise.all(
     ALL_SUPPORTED_JOB_KINDS.map(async (kind) => {
-      const res = await listAdminBackgroundJobs({ kind, limit: 100 });
-      return { kind, job: selectRepresentativeAdminJob(res.items, now) };
+      const jobs = await listAdminBackgroundJobItems({ kind, limit: 100 });
+      return { kind, job: selectRepresentativeAdminJob(jobs, now) };
     }),
   );
   return Object.fromEntries(
@@ -125,16 +136,44 @@ export const toJsonAdminJobListResponse = (
   response: AdminBackgroundJobListResult,
 ): JsonAdminJobListResponse => ({
   ...response,
-  items: response.items.map((item) => ({
-    ...item,
-    runAt: item.runAt.toISOString(),
-    lockedAt: item.lockedAt?.toISOString() ?? null,
-    leaseExpiresAt: item.leaseExpiresAt?.toISOString() ?? null,
-    timeoutAt: item.timeoutAt?.toISOString() ?? null,
-    startedAt: item.startedAt?.toISOString() ?? null,
-    completedAt: item.completedAt?.toISOString() ?? null,
-    cancelledAt: item.cancelledAt?.toISOString() ?? null,
-    createdAt: item.createdAt.toISOString(),
-    updatedAt: item.updatedAt.toISOString(),
+  items: response.items.map(toJsonAdminJob),
+});
+
+export const toJsonAdminJob = (item: BackgroundJobRecord) => ({
+  ...item,
+  payloadJson: item.payloadJson as Record<string, unknown> | null,
+  runAt: item.runAt.toISOString(),
+  lockedAt: item.lockedAt?.toISOString() ?? null,
+  leaseExpiresAt: item.leaseExpiresAt?.toISOString() ?? null,
+  timeoutAt: item.timeoutAt?.toISOString() ?? null,
+  startedAt: item.startedAt?.toISOString() ?? null,
+  completedAt: item.completedAt?.toISOString() ?? null,
+  cancelledAt: item.cancelledAt?.toISOString() ?? null,
+  createdAt: item.createdAt.toISOString(),
+  updatedAt: item.updatedAt.toISOString(),
+});
+
+export const toJsonAdminJobSummary = (summary: QueueOperationalSummary) => ({
+  ...summary,
+  nextQueuedRunAt: summary.nextQueuedRunAt?.toISOString() ?? null,
+  workers: summary.workers.map((worker) => ({
+    ...worker,
+    startedAt: worker.startedAt.toISOString(),
+    lastHeartbeatAt: worker.lastHeartbeatAt.toISOString(),
+    stoppedAt: worker.stoppedAt?.toISOString() ?? null,
+    createdAt: worker.createdAt.toISOString(),
+    updatedAt: worker.updatedAt.toISOString(),
   })),
+});
+
+export const toJsonAdminJobStateSnapshot = (
+  snapshot: Awaited<ReturnType<typeof getAdminJobStateSnapshot>>,
+) => ({
+  summary: toJsonAdminJobSummary(snapshot.summary),
+  lastRuns: Object.fromEntries(
+    Object.entries(snapshot.lastRuns).map(([kind, job]) => [
+      kind,
+      job ? toJsonAdminJob(job) : null,
+    ]),
+  ),
 });
