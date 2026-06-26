@@ -10,7 +10,7 @@ overrides:
   esbuild@>=0.17.0 <0.28.1: ^0.28.1
   esbuild@>=0.27.3 <0.28.1: ^0.28.1
   fast-uri: 4.0.0
-  hono: 4.12.26
+  hono: 4.12.27
   ip-address: 10.2.0
   postcss: 8.5.15
   vite: 8.0.16
@@ -600,7 +600,7 @@ packages:
     resolution: {integrity: sha512-yQFvDmyDo3y6rEOJZDUYPJ49DIKTPpIk4kGvm40xx4Ejne0Pu9a1+exxPN+C1UppWK/WGZX9F++/Xs231tE86g==}
     engines: {node: '>=20'}
     peerDependencies:
-      hono: 4.12.26
+      hono: 4.12.27
 
   '@img/colour@1.1.0':
     resolution: {integrity: sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ==}
@@ -2132,8 +2132,8 @@ packages:
     resolution: {integrity: sha512-0fB3O3WMk38+PScbHLVp66jcNhsZ/ErtQ6u2lMYu/YxXgbBtl+oKOhGQHa4RpvE68k8IzbWkABzHnyAIjR758A==}
     engines: {node: '>=8.0.0'}
 
-  hono@4.12.26:
-    resolution: {integrity: sha512-uyZtpnYxM9CmQ7QsQknM4zN8EftNqhON1qYeIKM0Se67CCEe2c44xyGURwB0axX2fBDu1dqHrHAc1hmNT8ITkw==}
+  hono@4.12.27:
+    resolution: {integrity: sha512-1yrb/+w6HWQJrUCLkJ2IF5jNIPvvFkblV5RNOYl6bV+OA6p9GLcMpHFFGTosSvHvcAUibuUukRqhlYI4z32C7Q==}
     engines: {node: '>=16.9.0'}
 
   http-errors@2.0.1:
@@ -3850,9 +3850,9 @@ snapshots:
 
   '@floating-ui/utils@0.2.11': {}
 
-  '@hono/node-server@2.0.5(hono@4.12.26)':
+  '@hono/node-server@2.0.5(hono@4.12.27)':
     dependencies:
-      hono: 4.12.26
+      hono: 4.12.27
 
   '@img/colour@1.1.0':
     optional: true
@@ -3974,7 +3974,7 @@ snapshots:
 
   '@modelcontextprotocol/sdk@1.29.0(zod@3.25.76)':
     dependencies:
-      '@hono/node-server': 2.0.5(hono@4.12.26)
+      '@hono/node-server': 2.0.5(hono@4.12.27)
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
@@ -3984,7 +3984,7 @@ snapshots:
       eventsource-parser: 3.1.0
       express: 5.2.1
       express-rate-limit: 8.5.2(express@5.2.1)
-      hono: 4.12.26
+      hono: 4.12.27
       jose: 6.2.3
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
@@ -4089,13 +4089,13 @@ snapshots:
       '@electric-sql/pglite': 0.4.1
       '@electric-sql/pglite-socket': 0.1.1(@electric-sql/pglite@0.4.1)
       '@electric-sql/pglite-tools': 0.3.1(@electric-sql/pglite@0.4.1)
-      '@hono/node-server': 2.0.5(hono@4.12.26)
+      '@hono/node-server': 2.0.5(hono@4.12.27)
       '@prisma/get-platform': 7.2.0
       '@prisma/query-plan-executor': 7.2.0
       '@prisma/streams-local': 0.1.2
       foreground-child: 3.3.1
       get-port-please: 3.2.0
-      hono: 4.12.26
+      hono: 4.12.27
       http-status-codes: 2.3.0
       pathe: 2.0.3
       proper-lockfile: 4.1.2
@@ -5162,7 +5162,7 @@ snapshots:
     dependencies:
       libheif-js: 1.19.8
 
-  hono@4.12.26: {}
+  hono@4.12.27: {}
 
   http-errors@2.0.1:
     dependencies:
