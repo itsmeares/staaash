@@ -1,5 +1,5 @@
 FROM node:24.18.0-alpine AS base
-RUN npm install -g pnpm@10.33.0 --no-fund --no-audit
+RUN corepack enable
 
 # ── Install dependencies ──────────────────────────────────────────────────────
 FROM base AS install
@@ -9,7 +9,7 @@ COPY apps/web/package.json ./apps/web/
 COPY apps/worker/package.json ./apps/worker/
 COPY packages/config/package.json ./packages/config/
 COPY packages/db/package.json ./packages/db/
-RUN pnpm install --frozen-lockfile
+RUN corepack install && pnpm install --frozen-lockfile
 
 # ── Build ─────────────────────────────────────────────────────────────────────
 FROM base AS build
