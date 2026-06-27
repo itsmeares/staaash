@@ -9,11 +9,7 @@ import {
 } from "@/components/ui/dialog";
 
 type UpdateStatus =
-  | "up-to-date"
-  | "update-available"
-  | "unavailable"
-  | "error"
-  | null;
+  "up-to-date" | "update-available" | "unavailable" | "error" | null;
 
 type InstanceBadgeProps = {
   appVersion: string;

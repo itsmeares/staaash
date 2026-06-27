@@ -19,11 +19,7 @@ import {
 import { applyThemeWithTransition, type Theme } from "@/lib/theme";
 
 type UpdateStatus =
-  | "up-to-date"
-  | "update-available"
-  | "unavailable"
-  | "error"
-  | null;
+  "up-to-date" | "update-available" | "unavailable" | "error" | null;
 
 interface TopbarActionsProps {
   userLabel: string | null;

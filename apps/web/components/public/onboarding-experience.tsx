@@ -14,13 +14,7 @@ import { TimeZonePicker } from "@/components/time-zone-picker";
 
 type Theme = "light" | "dark" | "system";
 type OnboardingStep =
-  | "welcome"
-  | "theme"
-  | "timezone"
-  | "profile"
-  | "privacy"
-  | "media"
-  | "done";
+  "welcome" | "theme" | "timezone" | "profile" | "privacy" | "media" | "done";
 
 type Prefs = {
   theme: Theme;

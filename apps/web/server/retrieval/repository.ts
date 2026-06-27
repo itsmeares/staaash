@@ -73,14 +73,12 @@ const createPrismaRetrievalRepository = ({
         orderBy: [{ createdAt: "desc" }, { fileId: "asc" }],
       });
 
-      return favorites.map(
-        (favorite): FavoriteFileRecord => ({
-          userId: favorite.userId,
-          fileId: favorite.fileId,
-          createdAt: favorite.createdAt,
-          quickAccessPinnedAt: favorite.quickAccessPinnedAt,
-        }),
-      );
+      return favorites.map((favorite): FavoriteFileRecord => ({
+        userId: favorite.userId,
+        fileId: favorite.fileId,
+        createdAt: favorite.createdAt,
+        quickAccessPinnedAt: favorite.quickAccessPinnedAt,
+      }));
     },
 
     async listFavoriteFolders(userId) {
@@ -92,14 +90,12 @@ const createPrismaRetrievalRepository = ({
         orderBy: [{ createdAt: "desc" }, { folderId: "asc" }],
       });
 
-      return favorites.map(
-        (favorite): FavoriteFolderRecord => ({
-          userId: favorite.userId,
-          folderId: favorite.folderId,
-          createdAt: favorite.createdAt,
-          quickAccessPinnedAt: favorite.quickAccessPinnedAt,
-        }),
-      );
+      return favorites.map((favorite): FavoriteFolderRecord => ({
+        userId: favorite.userId,
+        folderId: favorite.folderId,
+        createdAt: favorite.createdAt,
+        quickAccessPinnedAt: favorite.quickAccessPinnedAt,
+      }));
     },
 
     async listRecentFiles(userId) {
@@ -111,13 +107,11 @@ const createPrismaRetrievalRepository = ({
         orderBy: [{ lastInteractedAt: "desc" }, { fileId: "asc" }],
       });
 
-      return recents.map(
-        (recent): RecentFileRecord => ({
-          userId: recent.userId,
-          fileId: recent.fileId,
-          lastInteractedAt: recent.lastInteractedAt,
-        }),
-      );
+      return recents.map((recent): RecentFileRecord => ({
+        userId: recent.userId,
+        fileId: recent.fileId,
+        lastInteractedAt: recent.lastInteractedAt,
+      }));
     },
 
     async listRecentFolders(userId) {
@@ -129,13 +123,11 @@ const createPrismaRetrievalRepository = ({
         orderBy: [{ lastInteractedAt: "desc" }, { folderId: "asc" }],
       });
 
-      return recents.map(
-        (recent): RecentFolderRecord => ({
-          userId: recent.userId,
-          folderId: recent.folderId,
-          lastInteractedAt: recent.lastInteractedAt,
-        }),
-      );
+      return recents.map((recent): RecentFolderRecord => ({
+        userId: recent.userId,
+        folderId: recent.folderId,
+        lastInteractedAt: recent.lastInteractedAt,
+      }));
     },
 
     async upsertFileFavorite({ userId, fileId, createdAt }) {

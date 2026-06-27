@@ -82,9 +82,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       totalSizeBytes: uploadSession.totalSizeBytes,
       contentChecksum: uploadSession.expectedChecksum,
       conflictStrategy: uploadSession.conflictStrategy as
-        | "fail"
-        | "safeRename"
-        | "replace",
+        "fail" | "safeRename" | "replace",
     });
   } catch (error) {
     if (error instanceof FilesError) {

@@ -77,12 +77,7 @@ type JsonJobEvent = {
 };
 
 type JobTone =
-  | "idle"
-  | "queued"
-  | "running"
-  | "succeeded"
-  | "failed"
-  | "cancelled";
+  "idle" | "queued" | "running" | "succeeded" | "failed" | "cancelled";
 
 const JOB_META: Record<string, { name: string; desc: string }> = {
   "staging.cleanup": {

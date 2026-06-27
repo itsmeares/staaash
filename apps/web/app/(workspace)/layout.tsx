@@ -135,9 +135,7 @@ export default async function WorkspaceLayout({
                 avatarUrl={session.user.avatarUrl ?? null}
                 initialTheme={
                   (session.user.preferences?.theme as
-                    | "light"
-                    | "dark"
-                    | "system") ?? "system"
+                    "light" | "dark" | "system") ?? "system"
                 }
                 initialShowUpdateNotifications={
                   session.user.preferences?.showUpdateNotifications ?? true

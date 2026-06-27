@@ -73,9 +73,7 @@ type QuarantineDeleteWithLockOptions = {
 };
 
 type StorageMutationErrorCode =
-  | "STORAGE_LOCK_TIMEOUT"
-  | "STORAGE_TARGET_EXISTS"
-  | "STORAGE_TARGET_MISSING";
+  "STORAGE_LOCK_TIMEOUT" | "STORAGE_TARGET_EXISTS" | "STORAGE_TARGET_MISSING";
 
 const storageMutationStatuses: Record<StorageMutationErrorCode, number> = {
   STORAGE_LOCK_TIMEOUT: 409,
