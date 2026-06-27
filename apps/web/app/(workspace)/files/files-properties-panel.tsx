@@ -67,12 +67,7 @@ function formatBytes(bytes: number): string {
 // ---------------------------------------------------------------------------
 
 type DerivativeStatus =
-  | "none"
-  | "queued"
-  | "processing"
-  | "ready"
-  | "failed"
-  | "stale";
+  "none" | "queued" | "processing" | "ready" | "failed" | "stale";
 
 type DerivativeState = {
   status: DerivativeStatus;
@@ -177,8 +172,7 @@ function MediaPreviewSection({ fileId }: { fileId: string }) {
 // ---------------------------------------------------------------------------
 
 type PropertiesItem =
-  | { kind: "folder"; data: FolderSummary }
-  | { kind: "file"; data: FileSummary };
+  { kind: "folder"; data: FolderSummary } | { kind: "file"; data: FileSummary };
 
 type FilesPropertiesPanelProps = {
   item: PropertiesItem | null;
