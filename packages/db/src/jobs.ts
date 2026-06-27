@@ -38,12 +38,7 @@ export const ALL_SUPPORTED_JOB_KINDS: SupportedBackgroundJobKind[] = [
 ];
 
 export type BackgroundJobStatus =
-  | "queued"
-  | "running"
-  | "succeeded"
-  | "failed"
-  | "dead"
-  | "cancelled";
+  "queued" | "running" | "succeeded" | "failed" | "dead" | "cancelled";
 
 export type BackgroundJobRecord = {
   id: string;

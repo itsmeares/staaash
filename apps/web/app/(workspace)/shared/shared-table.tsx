@@ -25,14 +25,7 @@ type SharedTableProps = {
 };
 
 type SharedFilterType =
-  | "all"
-  | "archive"
-  | "audio"
-  | "folder"
-  | "image"
-  | "pdf"
-  | "text"
-  | "video";
+  "all" | "archive" | "audio" | "folder" | "image" | "pdf" | "text" | "video";
 
 const FILTERS: { id: SharedFilterType; label: string }[] = [
   { id: "all", label: "All" },

@@ -17,11 +17,9 @@ export const DERIVATIVE_STATUS_FAILED = "failed" as const;
 export const DERIVATIVE_STATUS_STALE = "stale" as const;
 
 export type DerivativeKind =
-  | typeof DERIVATIVE_KIND_PREVIEW
-  | typeof DERIVATIVE_KIND_POSTER;
+  typeof DERIVATIVE_KIND_PREVIEW | typeof DERIVATIVE_KIND_POSTER;
 export type DerivativeProfile =
-  | typeof DERIVATIVE_PROFILE_1080P
-  | typeof DERIVATIVE_PROFILE_SOCIAL_JPEG;
+  typeof DERIVATIVE_PROFILE_1080P | typeof DERIVATIVE_PROFILE_SOCIAL_JPEG;
 export type DerivativeStatus =
   | typeof DERIVATIVE_STATUS_QUEUED
   | typeof DERIVATIVE_STATUS_PROCESSING
@@ -30,10 +28,7 @@ export type DerivativeStatus =
   | typeof DERIVATIVE_STATUS_STALE;
 
 export type DerivativeGenerateReason =
-  | "share-created"
-  | "upload"
-  | "first-view"
-  | "manual-regenerate";
+  "share-created" | "upload" | "first-view" | "manual-regenerate";
 
 export type MediaDerivativeRecord = {
   id: string;

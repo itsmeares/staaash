@@ -88,8 +88,7 @@ const createMockPrisma = ({
       }),
       findUnique: vi.fn(async (args: object) => {
         const id = ((args as { where?: { id?: string } }).where?.id ?? null) as
-          | string
-          | null;
+          string | null;
 
         return files.find((file) => file.id === id) ?? null;
       }),
@@ -155,8 +154,7 @@ const createMockPrisma = ({
       }),
       findUnique: vi.fn(async (args: object) => {
         const id = ((args as { where?: { id?: string } }).where?.id ?? null) as
-          | string
-          | null;
+          string | null;
         const baseFolder = folders.find((folder) => folder.id === id) ?? null;
 
         if (id && revalidateFolderById.has(id)) {
