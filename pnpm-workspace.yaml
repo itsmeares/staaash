@@ -9,7 +9,7 @@ overrides:
   fast-uri: 4.0.0
   hono: 4.12.27
   ip-address: 10.2.0
-  postcss: 8.5.15
+  postcss: 8.5.16
   vite: 8.1.0
 allowBuilds:
   "@prisma/engines": true
