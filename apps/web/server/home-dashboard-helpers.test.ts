@@ -7,6 +7,7 @@ import {
   formatHomeRelativeTime,
   getHomeGreeting,
   getHomeItemVisual,
+  isHomeDashboardEmpty,
 } from "@/app/(workspace)/home/home-helpers";
 
 describe("home dashboard helpers", () => {
@@ -76,5 +77,25 @@ describe("home dashboard helpers", () => {
     expect(getHomeItemVisual("file", "application/octet-stream").kind).toBe(
       "file",
     );
+  });
+
+  it("detects the first-run empty dashboard", () => {
+    expect(
+      isHomeDashboardEmpty({
+        favoriteCount: 0,
+        folderCount: 0,
+        recentCount: 0,
+        shareCount: 0,
+      }),
+    ).toBe(true);
+
+    expect(
+      isHomeDashboardEmpty({
+        favoriteCount: 0,
+        folderCount: 1,
+        recentCount: 0,
+        shareCount: 0,
+      }),
+    ).toBe(false);
   });
 });

@@ -11,13 +11,6 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Download, FolderPlus, RefreshCw, Upload } from "lucide-react";
 
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { FlashMessage } from "@/app/auth-ui";
 import { DashboardPageContextMenu } from "@/app/dashboard-context-menu";
@@ -28,6 +21,7 @@ import type { ShareFilesLookup } from "@/server/sharing";
 import { FilesRow } from "./files-row";
 import { FilesPropertiesPanel } from "./files-properties-panel";
 import { ShareDialog } from "./share-dialog";
+import { CreateFolderDialog } from "../create-folder-dialog";
 import {
   useTransferContext,
   type UploadingFile,
@@ -229,9 +223,8 @@ export function FilesView({
     share: ShareLinkSummary | null;
   } | null>(null);
 
-  // ---- New folder popover ----
+  // ---- New folder dialog ----
   const [newFolderOpen, setNewFolderOpen] = useState(false);
-  const [newFolderName, setNewFolderName] = useState("");
 
   // ---- Flash messages ----
   const error =
@@ -662,22 +655,6 @@ export function FilesView({
     startTransition(() => router.refresh());
   };
 
-  const handleCreateFolder = async () => {
-    const name = newFolderName.trim();
-    if (!name) return;
-    setNewFolderOpen(false);
-    setNewFolderName("");
-    await fetch("/api/files/folders", {
-      method: "POST",
-      body: new URLSearchParams({
-        name,
-        parentId: listing.currentFolder.id,
-        redirectTo: currentPath,
-      }),
-    });
-    startTransition(() => router.refresh());
-  };
-
   // ---------------------------------------------------------------------------
   // Folder icons
   // ---------------------------------------------------------------------------
@@ -1088,38 +1065,14 @@ export function FilesView({
             </div>
 
             <div className="explorer-header-actions">
-              {/* New folder */}
-              <Popover open={newFolderOpen} onOpenChange={setNewFolderOpen}>
-                <PopoverTrigger
-                  className={buttonVariants({ variant: "outline", size: "sm" })}
-                >
-                  <FolderPlus />
-                  New folder
-                </PopoverTrigger>
-                <PopoverContent side="bottom" align="end" className="w-64">
-                  <form
-                    className="new-folder-form"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleCreateFolder();
-                    }}
-                  >
-                    <Input
-                      autoFocus
-                      placeholder="Folder name"
-                      value={newFolderName}
-                      onChange={(e) => setNewFolderName(e.target.value)}
-                    />
-                    <Button
-                      type="submit"
-                      size="sm"
-                      disabled={!newFolderName.trim()}
-                    >
-                      Create
-                    </Button>
-                  </form>
-                </PopoverContent>
-              </Popover>
+              <button
+                className="button button-secondary"
+                type="button"
+                onClick={() => setNewFolderOpen(true)}
+              >
+                <FolderPlus size={15} aria-hidden />
+                New folder
+              </button>
 
               <input
                 ref={fileInputRef}
@@ -1518,6 +1471,13 @@ export function FilesView({
             }}
           />
         )}
+
+        <CreateFolderDialog
+          open={newFolderOpen}
+          onOpenChange={setNewFolderOpen}
+          parentId={listing.currentFolder.id}
+          redirectTo={currentPath}
+        />
 
         {/* ---- Keyboard shortcut legend ---- */}
         {showShortcutLegend && (

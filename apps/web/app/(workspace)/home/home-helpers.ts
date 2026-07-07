@@ -83,6 +83,25 @@ export function formatHomeChildCount(count: number): string {
   return `${count} items`;
 }
 
+export function isHomeDashboardEmpty({
+  favoriteCount,
+  folderCount,
+  recentCount,
+  shareCount,
+}: {
+  favoriteCount: number;
+  folderCount: number;
+  recentCount: number;
+  shareCount: number;
+}): boolean {
+  return (
+    favoriteCount === 0 &&
+    folderCount === 0 &&
+    recentCount === 0 &&
+    shareCount === 0
+  );
+}
+
 export function getHomeItemVisual(
   kind: "file" | "folder",
   mimeType?: string | null,

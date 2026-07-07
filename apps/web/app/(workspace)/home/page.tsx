@@ -1,13 +1,20 @@
 import Link from "next/link";
 import { headers } from "next/headers";
-import { ArrowRight, Share2, Video } from "lucide-react";
+import {
+  ArrowRight,
+  Clock,
+  FolderPlus,
+  Heart,
+  Share2,
+  type LucideIcon,
+} from "lucide-react";
 
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { filesService } from "@/server/files/service";
 import type { FolderSummary } from "@/server/files/types";
 import { ItemContextMenu } from "@/app/item-context-menu";
 import { WorkspacePresetPageContextMenu } from "@/app/dashboard-context-menu";
-import { ItemTypeIcon, itemVisualIconMap } from "@/app/item-type-icon";
+import { ItemTypeIcon } from "@/app/item-type-icon";
 import { retrievalService } from "@/server/retrieval/service";
 import type { RetrievalItem } from "@/server/retrieval/types";
 import { getShareBaseUrl } from "@/server/request";
@@ -21,8 +28,10 @@ import {
   formatHomeRelativeTime,
   getHomeGreeting,
   getHomeItemVisual,
+  isHomeDashboardEmpty,
   type HomeItemVisual,
 } from "./home-helpers";
+import { HomePrimaryActions } from "./home-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -58,11 +67,41 @@ function SectionHeader({
 }
 
 function HomeIcon({ visual }: { visual: HomeItemVisual }) {
-  return <ItemTypeIcon className="home-item-icon" visual={visual} />;
+  return <ItemTypeIcon className="home-item-icon" size={16} visual={visual} />;
 }
 
-function EmptyLine({ children }: { children: React.ReactNode }) {
-  return <p className="home-empty-line">{children}</p>;
+function HomeEmptyBlock({
+  icon: Icon,
+  title,
+}: {
+  icon: LucideIcon;
+  title: string;
+}) {
+  return (
+    <div className="home-empty-block">
+      <span className="home-empty-icon" aria-hidden>
+        <Icon size={17} strokeWidth={1.8} />
+      </span>
+      <span className="home-empty-copy">
+        <strong>{title}</strong>
+      </span>
+    </div>
+  );
+}
+
+function HomeFirstRunState() {
+  return (
+    <section className="home-first-run" aria-label="Start your drive">
+      <span className="home-first-run-icon" aria-hidden>
+        <FolderPlus size={24} strokeWidth={1.7} />
+      </span>
+      <div className="home-first-run-copy">
+        <h2>Add your first file</h2>
+        <p>Upload something now, or create a folder first.</p>
+      </div>
+      <HomePrimaryActions />
+    </section>
+  );
 }
 
 function PinnedList({
@@ -73,7 +112,7 @@ function PinnedList({
   redirectTo: string;
 }) {
   if (items.length === 0) {
-    return <EmptyLine>No pinned files yet</EmptyLine>;
+    return <HomeEmptyBlock icon={Heart} title="Nothing pinned" />;
   }
 
   return (
@@ -116,93 +155,7 @@ function PinnedList({
   );
 }
 
-function PreviewLines() {
-  return (
-    <span className="home-doc-preview-lines" aria-hidden>
-      {[82, 65, 90, 50, 76, 60].map((width, index) => (
-        <span
-          key={`${width}-${index}`}
-          style={{
-            width: `${width}%`,
-          }}
-        />
-      ))}
-    </span>
-  );
-}
-
-function AudioBars({ color }: { color: string }) {
-  const bars = [5, 9, 14, 10, 18, 22, 16, 12, 20, 24, 18, 14, 10, 16, 20, 14];
-
-  return (
-    <span className="home-audio-bars" aria-hidden>
-      {bars.map((height, index) => (
-        <span
-          key={`${height}-${index}`}
-          style={{
-            background: color,
-            height: `${height}px`,
-          }}
-        />
-      ))}
-    </span>
-  );
-}
-
-function RecentPreview({ item }: { item: RetrievalItem }) {
-  const visual = getHomeItemVisual(
-    item.kind,
-    item.kind === "file" ? item.mimeType : null,
-  );
-  const Icon = itemVisualIconMap[visual.kind];
-
-  if (visual.kind === "video") {
-    return (
-      <span className="home-recent-preview home-recent-preview-video">
-        <span className="home-video-strips" aria-hidden />
-        <span className="home-video-play" aria-hidden>
-          <Video size={14} strokeWidth={1.8} />
-        </span>
-      </span>
-    );
-  }
-
-  if (visual.kind === "audio") {
-    return (
-      <span
-        className="home-recent-preview"
-        style={{ background: visual.background }}
-      >
-        <AudioBars color={visual.color} />
-      </span>
-    );
-  }
-
-  if (visual.kind === "pdf" || visual.kind === "text") {
-    return (
-      <span
-        className="home-recent-preview home-recent-preview-document"
-        style={{ background: visual.background }}
-      >
-        <PreviewLines />
-        <span className="home-preview-type" style={{ color: visual.color }}>
-          {visual.kind === "pdf" ? "PDF" : "TXT"}
-        </span>
-      </span>
-    );
-  }
-
-  return (
-    <span
-      className="home-recent-preview"
-      style={{ background: visual.background }}
-    >
-      <Icon size={24} strokeWidth={1.7} color={visual.color} aria-hidden />
-    </span>
-  );
-}
-
-function RecentGrid({
+function RecentList({
   items,
   redirectTo,
 }: {
@@ -210,16 +163,20 @@ function RecentGrid({
   redirectTo: string;
 }) {
   if (items.length === 0) {
-    return <EmptyLine>Nothing recent yet</EmptyLine>;
+    return <HomeEmptyBlock icon={Clock} title="Nothing recent" />;
   }
 
   return (
-    <div className="home-recent-grid">
+    <div className="home-recent-list">
       {items.map((item) => {
+        const visual = getHomeItemVisual(
+          item.kind,
+          item.kind === "file" ? item.mimeType : null,
+        );
         const content = (
           <>
-            <RecentPreview item={item} />
-            <span className="home-recent-body">
+            <HomeIcon visual={visual} />
+            <span className="home-recent-main">
               <span className="home-recent-name" title={item.name}>
                 {item.name}
               </span>
@@ -241,11 +198,11 @@ function RecentGrid({
             redirectTo={redirectTo}
           >
             {item.kind === "folder" ? (
-              <Link className="home-recent-card" href={item.href}>
+              <Link className="home-recent-row" href={item.href}>
                 {content}
               </Link>
             ) : (
-              <a className="home-recent-card" href={item.href}>
+              <a className="home-recent-row" href={item.href}>
                 {content}
               </a>
             )}
@@ -264,7 +221,7 @@ function FolderList({
   redirectTo: string;
 }) {
   if (folders.length === 0) {
-    return <EmptyLine>No folders yet</EmptyLine>;
+    return <HomeEmptyBlock icon={FolderPlus} title="No folders" />;
   }
 
   return (
@@ -297,7 +254,7 @@ function FolderList({
 
 function SharedList({ shares }: { shares: ShareLinkSummary[] }) {
   if (shares.length === 0) {
-    return <EmptyLine>No active links yet</EmptyLine>;
+    return <HomeEmptyBlock icon={Share2} title="No links" />;
   }
 
   return (
@@ -388,60 +345,71 @@ export default async function HomePage() {
     session.user.displayName ?? session.user.email.split("@")[0] ?? "there";
   const greeting = getHomeGreeting(new Date().getHours());
   const currentPath = "/home";
+  const pinnedItems = favoriteItems.slice(0, 6);
+  const recentHomeItems = recentItems.slice(0, 6);
+  const activeShares = shares.active.slice(0, 3);
+  const dashboardEmpty = isHomeDashboardEmpty({
+    favoriteCount: favoriteItems.length,
+    recentCount: recentItems.length,
+    folderCount: folders.length,
+    shareCount: shares.active.length,
+  });
 
   return (
     <WorkspacePresetPageContextMenu
-      className="workspace-page home-page"
+      className={`workspace-page home-page${dashboardEmpty ? " home-page-empty" : ""}`}
       preset="home"
     >
-      <header className="home-greeting">
-        <h1>{`${greeting}, ${displayName}.`}</h1>
+      <header className="home-hero">
+        <div className="home-greeting">
+          <h1>{`${greeting}, ${displayName}.`}</h1>
+        </div>
+        {dashboardEmpty ? null : <HomePrimaryActions />}
       </header>
 
-      <div className="home-top-grid">
-        <section className="home-section" aria-labelledby="home-pinned-title">
-          <SectionHeader title="Pinned" titleId="home-pinned-title" />
-          <PinnedList
-            items={favoriteItems.slice(0, 6)}
-            redirectTo={currentPath}
-          />
-        </section>
+      {dashboardEmpty ? (
+        <HomeFirstRunState />
+      ) : (
+        <div className="home-sections-grid">
+          <section className="home-section" aria-labelledby="home-pinned-title">
+            <SectionHeader title="Pinned" titleId="home-pinned-title" />
+            <PinnedList items={pinnedItems} redirectTo={currentPath} />
+          </section>
 
-        <section className="home-section" aria-labelledby="home-recent-title">
-          <SectionHeader
-            actionHref="/files"
-            actionLabel="All files"
-            title="Recent"
-            titleId="home-recent-title"
-          />
-          <RecentGrid
-            items={recentItems.slice(0, 6)}
-            redirectTo={currentPath}
-          />
-        </section>
-      </div>
+          <section className="home-section" aria-labelledby="home-recent-title">
+            <SectionHeader
+              actionHref="/files"
+              actionLabel="All files"
+              title="Recent"
+              titleId="home-recent-title"
+            />
+            <RecentList items={recentHomeItems} redirectTo={currentPath} />
+          </section>
 
-      <div className="home-bottom-grid">
-        <section className="home-section" aria-labelledby="home-folders-title">
-          <SectionHeader
-            actionHref="/files"
-            actionLabel="View all"
-            title="Folders"
-            titleId="home-folders-title"
-          />
-          <FolderList folders={folders} redirectTo={currentPath} />
-        </section>
+          <section
+            className="home-section"
+            aria-labelledby="home-folders-title"
+          >
+            <SectionHeader
+              actionHref="/files"
+              actionLabel="View all"
+              title="Folders"
+              titleId="home-folders-title"
+            />
+            <FolderList folders={folders} redirectTo={currentPath} />
+          </section>
 
-        <section className="home-section" aria-labelledby="home-shared-title">
-          <SectionHeader
-            actionHref="/shared"
-            actionLabel="Manage"
-            title="Shared links"
-            titleId="home-shared-title"
-          />
-          <SharedList shares={shares.active.slice(0, 3)} />
-        </section>
-      </div>
+          <section className="home-section" aria-labelledby="home-shared-title">
+            <SectionHeader
+              actionHref="/shared"
+              actionLabel="Manage"
+              title="Shared links"
+              titleId="home-shared-title"
+            />
+            <SharedList shares={activeShares} />
+          </section>
+        </div>
+      )}
     </WorkspacePresetPageContextMenu>
   );
 }
