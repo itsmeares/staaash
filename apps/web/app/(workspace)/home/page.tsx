@@ -5,6 +5,7 @@ import {
   Clock,
   FolderPlus,
   Heart,
+  Link2 as LinkIcon,
   Share2,
   type LucideIcon,
 } from "lucide-react";
@@ -67,24 +68,31 @@ function SectionHeader({
 }
 
 function HomeIcon({ visual }: { visual: HomeItemVisual }) {
-  return <ItemTypeIcon className="home-item-icon" size={16} visual={visual} />;
+  return (
+    <ItemTypeIcon
+      className="home-item-icon"
+      size={16}
+      tone="plain"
+      visual={visual}
+    />
+  );
 }
 
 function HomeEmptyBlock({
   icon: Icon,
+  tone = "neutral",
   title,
 }: {
   icon: LucideIcon;
+  tone?: "favorite" | "folder" | "recent" | "share" | "neutral";
   title: string;
 }) {
   return (
     <div className="home-empty-block">
-      <span className="home-empty-icon" aria-hidden>
+      <span className={`home-empty-icon home-empty-icon-${tone}`} aria-hidden>
         <Icon size={17} strokeWidth={1.8} />
       </span>
-      <span className="home-empty-copy">
-        <strong>{title}</strong>
-      </span>
+      <span className="home-empty-copy">{title}</span>
     </div>
   );
 }
@@ -112,7 +120,9 @@ function PinnedList({
   redirectTo: string;
 }) {
   if (items.length === 0) {
-    return <HomeEmptyBlock icon={Heart} title="Nothing pinned" />;
+    return (
+      <HomeEmptyBlock icon={Heart} title="Nothing pinned yet" tone="favorite" />
+    );
   }
 
   return (
@@ -163,7 +173,9 @@ function RecentList({
   redirectTo: string;
 }) {
   if (items.length === 0) {
-    return <HomeEmptyBlock icon={Clock} title="Nothing recent" />;
+    return (
+      <HomeEmptyBlock icon={Clock} title="Nothing recent yet" tone="recent" />
+    );
   }
 
   return (
@@ -221,7 +233,9 @@ function FolderList({
   redirectTo: string;
 }) {
   if (folders.length === 0) {
-    return <HomeEmptyBlock icon={FolderPlus} title="No folders" />;
+    return (
+      <HomeEmptyBlock icon={FolderPlus} title="No folders yet" tone="folder" />
+    );
   }
 
   return (
@@ -254,7 +268,9 @@ function FolderList({
 
 function SharedList({ shares }: { shares: ShareLinkSummary[] }) {
   if (shares.length === 0) {
-    return <HomeEmptyBlock icon={Share2} title="No links" />;
+    return (
+      <HomeEmptyBlock icon={LinkIcon} title="No shared links" tone="share" />
+    );
   }
 
   return (
@@ -279,7 +295,7 @@ function SharedList({ shares }: { shares: ShareLinkSummary[] }) {
                 <span className="home-shared-name">{share.target.name}</span>
                 <span className="home-shared-meta">
                   {share.downloadDisabled ? "Downloads off" : "Downloads on"}
-                  {" · expires "}
+                  {", expires "}
                   {formatHomeExpiryTime(share.expiresAt)}
                 </span>
               </span>

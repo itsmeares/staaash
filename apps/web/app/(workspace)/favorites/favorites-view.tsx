@@ -101,13 +101,16 @@ function SortIcon({
 function FavoriteIcon({
   item,
   size = 14,
+  tone = "filled",
 }: {
   item: FavoriteClientItem;
   size?: number;
+  tone?: "filled" | "plain";
 }) {
   return (
     <ItemTypeIcon
       size={size}
+      tone={tone}
       visual={getItemVisual(
         item.kind,
         item.kind === "file" ? item.mimeType : null,
@@ -1082,7 +1085,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
                     onPointerUp={clearLongPressTimer}
                   >
                     <span className="favorites-row-thumb">
-                      <FavoriteIcon item={item} />
+                      <FavoriteIcon item={item} tone="plain" />
                     </span>
                     <span className="favorites-row-name" title={item.name}>
                       {item.name}

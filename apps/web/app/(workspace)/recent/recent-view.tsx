@@ -108,13 +108,16 @@ function SortIcon({
 function ItemIcon({
   item,
   size = 14,
+  tone = "filled",
 }: {
   item: RecentClientItem;
   size?: number;
+  tone?: "filled" | "plain";
 }) {
   return (
     <ItemTypeIcon
       size={size}
+      tone={tone}
       visual={getItemVisual(
         item.kind,
         item.kind === "file" ? item.mimeType : null,
@@ -972,7 +975,7 @@ export function RecentView({ error, items, success }: RecentViewProps) {
                       onPointerUp={clearLongPressTimer}
                     >
                       <span className="recent-row-thumb">
-                        <ItemIcon item={item} />
+                        <ItemIcon item={item} tone="plain" />
                       </span>
                       <span className="recent-row-name" title={item.name}>
                         {item.name}

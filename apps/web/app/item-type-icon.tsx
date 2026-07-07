@@ -8,6 +8,7 @@ import {
   Video,
   type LucideIcon,
 } from "lucide-react";
+import type { CSSProperties } from "react";
 
 import type { ItemVisual, ItemVisualKind } from "@/app/item-visuals";
 
@@ -26,23 +27,31 @@ export function ItemTypeIcon({
   className = "item-type-icon",
   icon,
   size = 14,
+  tone = "filled",
   visual,
 }: {
   className?: string;
   icon?: LucideIcon;
   size?: number;
+  tone?: "filled" | "plain";
   visual: ItemVisual;
 }) {
   const Icon = icon ?? itemVisualIconMap[visual.kind];
+  const filled = tone === "filled";
+  const style = {
+    "--item-type-icon-color": visual.color,
+    color: visual.color,
+    ...(filled ? { background: visual.background } : {}),
+  } as CSSProperties & { "--item-type-icon-color": string };
 
   return (
     <span
       aria-label={visual.label}
       className={className}
-      style={{ background: visual.background }}
+      style={style}
       title={visual.label}
     >
-      <Icon size={size} strokeWidth={1.8} color={visual.color} aria-hidden />
+      <Icon size={size} strokeWidth={1.8} color="currentColor" aria-hidden />
     </span>
   );
 }
