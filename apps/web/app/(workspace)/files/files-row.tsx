@@ -357,6 +357,7 @@ export function FilesRow(props: FilesRowProps) {
             <ItemTypeIcon
               icon={props.kind === "folder" ? IconComponent : undefined}
               size={16}
+              tone="plain"
               visual={visual}
             />
           </div>

@@ -57,6 +57,7 @@ export function RetrievalItemList({
           <article className="retrieval-row">
             <div className="retrieval-row-main">
               <ItemTypeIcon
+                tone="plain"
                 visual={getItemVisual(
                   item.kind,
                   item.kind === "file" ? item.mimeType : null,
