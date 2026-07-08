@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { ContextMenu as ContextMenuPrimitive } from "@base-ui/react/context-menu";
-import { mergeProps } from "@base-ui/react/merge-props";
 
 import { cn } from "@/lib/utils";
 import { ChevronRightIcon } from "lucide-react";
@@ -16,39 +15,13 @@ function ContextMenuTrigger({
   render,
   ...props
 }: ContextMenuPrimitive.Trigger.Props) {
-  const triggerClassName = cn("select-none", className);
+  const triggerClassName = render ? className : cn("select-none", className);
 
   return (
     <ContextMenuPrimitive.Trigger
       data-slot="context-menu-trigger"
       className={triggerClassName}
-      render={
-        render
-          ? (triggerProps, state) => {
-              const element =
-                typeof render === "function"
-                  ? render(triggerProps, state)
-                  : render;
-              const elementProps = React.isValidElement<{
-                className?: string;
-              }>(element)
-                ? element.props
-                : null;
-
-              return elementProps
-                ? React.cloneElement(
-                    element,
-                    mergeProps(elementProps, triggerProps, {
-                      className: cn(
-                        elementProps.className,
-                        triggerProps.className,
-                      ),
-                    }),
-                  )
-                : element;
-            }
-          : undefined
-      }
+      render={render}
       {...props}
     />
   );

@@ -110,7 +110,7 @@ const TIME_ZONE_PICKER_CSS = `
 .time-zone-picker__offset {
   color: var(--muted-foreground);
   flex: 0 0 auto;
-  font-size: 0.78rem;
+  font-size: var(--app-font-meta, 0.9375rem);
   font-variant-numeric: tabular-nums;
 }
 
@@ -158,8 +158,8 @@ const TIME_ZONE_PICKER_CSS = `
   border-radius: 6px;
   color: var(--foreground);
   font: inherit;
-  font-size: 0.86rem;
-  min-height: 36px;
+  font-size: var(--app-font-body, 1.0625rem);
+  min-height: var(--app-control-height-compact, 44px);
   padding: 8px 10px 8px 32px;
   width: 100%;
 }
@@ -187,10 +187,10 @@ const TIME_ZONE_PICKER_CSS = `
   cursor: pointer;
   display: grid;
   font: inherit;
-  font-size: 0.86rem;
+  font-size: var(--app-font-body, 1.0625rem);
   gap: 8px;
   grid-template-columns: minmax(0, 1fr) auto auto;
-  min-height: 34px;
+  min-height: var(--app-control-height-compact, 44px);
   padding: 0 8px;
   text-align: left;
 }
@@ -210,7 +210,7 @@ const TIME_ZONE_PICKER_CSS = `
 
 .time-zone-picker__empty {
   color: var(--muted-foreground);
-  font-size: 0.82rem;
+  font-size: var(--app-font-meta, 0.9375rem);
   margin: 0;
   padding: 12px 8px;
 }
