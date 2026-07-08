@@ -3818,6 +3818,10 @@ h3 {
   display: contents;
 }
 
+[data-slot="context-menu-trigger"] {
+  user-select: none;
+}
+
 .home-pinned-row,
 .home-recent-row,
 .home-folder-row,
