@@ -106,8 +106,8 @@ export function WorkspaceNav() {
               >
                 <Icon
                   className="workspace-nav-icon"
-                  size={15}
-                  strokeWidth={1.8}
+                  size={20}
+                  strokeWidth={1.9}
                 />
                 <span>{item.label}</span>
               </Link>

@@ -33,6 +33,19 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.45rem;
+  --app-sidebar-width: 270px;
+  --app-admin-sidebar-width: 300px;
+  --app-row-height: 50px;
+  --app-home-row-height: 60px;
+  --app-row-height-compact: 46px;
+  --app-control-height: 48px;
+  --app-control-height-compact: 44px;
+  --app-font-body: 1.0625rem;
+  --app-font-control: 1rem;
+  --app-font-meta: 0.9375rem;
+  --app-font-label: 0.8125rem;
+  --app-settings-max-width: 920px;
+  --app-admin-settings-max-width: 980px;
   --sidebar: oklch(0.975 0.006 78);
   --sidebar-foreground: oklch(0.19 0.015 72);
   --sidebar-primary: oklch(0.48 0.09 78);
@@ -422,7 +435,7 @@ h3 {
   height: 100vh;
   overflow: hidden;
   display: grid;
-  grid-template-columns: 216px minmax(0, 1fr);
+  grid-template-columns: var(--app-sidebar-width) minmax(0, 1fr);
   grid-template-rows: 100vh;
   background: var(--background);
 }
@@ -431,7 +444,7 @@ h3 {
   height: 100vh;
   overflow: hidden;
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: var(--app-admin-sidebar-width) minmax(0, 1fr);
 }
 
 .admin-sidebar {
@@ -2345,7 +2358,9 @@ h3 {
 }
 
 .workspace-nav-icon {
-  flex-shrink: 0;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
   opacity: 0.7;
 }
 
@@ -3735,7 +3750,7 @@ h3 {
 
 .home-section-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   min-height: 18px;
@@ -10148,6 +10163,499 @@ main.share-locked-page {
 
 .st-card-list {
   display: none;
+}
+
+/* ---- Workspace/admin comfort scale ---- */
+@media (min-width: 721px) {
+  .admin-sidebar {
+    padding: 30px 18px 22px;
+  }
+
+  .admin-sidebar .workspace-brand {
+    font-size: 32px;
+  }
+
+  .admin-sidebar .workspace-nav-link {
+    min-height: var(--app-control-height);
+    padding: 0 14px;
+    font-size: var(--app-font-control);
+  }
+
+  .admin-sidebar .workspace-nav-icon {
+    width: 20px;
+    height: 20px;
+    stroke-width: 1.9;
+  }
+
+  .admin-topbar {
+    min-height: 62px;
+    padding: 14px 36px;
+  }
+
+  .admin-main-content,
+  .admin-main > main.admin-main-content {
+    padding: 50px 64px 84px;
+  }
+
+  .admin-kv-item {
+    min-width: 200px;
+    padding: 26px 28px;
+  }
+
+  .admin-kv-label,
+  .admin-eyebrow,
+  .admin-job-history-head,
+  .admin-jobs-kind-filter,
+  .admin-jobs-run-list h3,
+  .admin-jobs-modal-section h3,
+  .admin-users-table th,
+  .instance-badge-row dt {
+    font-size: var(--app-font-label);
+    color: color-mix(
+      in oklab,
+      var(--muted-foreground) 88%,
+      var(--foreground) 12%
+    );
+  }
+
+  .admin-kv-link,
+  .admin-kv-sub,
+  .admin-check-msg,
+  .admin-op-desc,
+  .admin-op-last,
+  .admin-worker-archive,
+  .admin-worker-row,
+  .admin-job-detail-error,
+  .admin-job-events-empty,
+  .admin-history-row,
+  .admin-jobs-summary,
+  .admin-jobs-schedule-link,
+  .admin-jobs-card-desc,
+  .admin-jobs-card-state,
+  .admin-jobs-card-error,
+  .admin-jobs-rail-action,
+  .admin-jobs-rail-note,
+  .admin-jobs-activity-head p,
+  .admin-jobs-kind-select-trigger,
+  .admin-jobs-kind-select-content,
+  .admin-jobs-kind-select-item,
+  .admin-jobs-activity-error,
+  .admin-jobs-activity-main small,
+  .admin-jobs-activity-status,
+  .admin-jobs-activity-attempt,
+  .admin-jobs-activity-detail,
+  .admin-jobs-activity-empty,
+  .admin-jobs-activity-more,
+  .admin-jobs-modal-head p,
+  .admin-jobs-state,
+  .admin-jobs-run-button small,
+  .admin-jobs-modal-error,
+  .admin-jobs-modal-empty,
+  .admin-jobs-event-row,
+  .admin-jobs-payload,
+  .admin-jobs-button,
+  .admin-user-row-note,
+  .admin-users-count,
+  .admin-user-menu-panel a,
+  .admin-user-menu-panel button,
+  .admin-user-dialog .field > span:first-child,
+  .admin-user-toggle-row,
+  .admin-user-result-list dt,
+  .admin-user-result-list dd,
+  .admin-inline-link,
+  .settings-panel-description,
+  .settings-row-help,
+  .settings-field-note,
+  .settings-form-status {
+    font-size: var(--app-font-meta);
+  }
+
+  .admin-check-name,
+  .admin-setting-key,
+  .admin-setting-val,
+  .admin-op-name,
+  .admin-job-detail-title,
+  .admin-jobs-activity-main strong,
+  .admin-jobs-run-button strong,
+  .settings-page-head p,
+  .settings-row-label,
+  .settings-row-value,
+  .settings-input,
+  .settings-action {
+    font-size: var(--app-font-body);
+  }
+
+  .admin-worker-row,
+  .admin-job-run-button,
+  .admin-jobs-activity-row,
+  .admin-jobs-kind-select-trigger[data-size="default"],
+  .admin-jobs-activity-more,
+  .admin-jobs-button,
+  .admin-user-toggle-row,
+  .settings-input,
+  .settings-action {
+    min-height: var(--app-control-height);
+  }
+
+  .admin-jobs-kind-select-item,
+  .settings-segment {
+    min-height: var(--app-control-height-compact);
+  }
+
+  .admin-jobs-page {
+    width: min(1240px, 100%);
+  }
+
+  .admin-settings-page {
+    --settings-max-width: var(--app-admin-settings-max-width);
+  }
+
+  .settings-page {
+    --settings-max-width: var(--app-settings-max-width);
+  }
+
+  .settings-panel-summary {
+    min-height: 76px;
+    padding: 18px 20px;
+  }
+
+  .settings-panel-body {
+    gap: 18px;
+    padding: 0 20px 20px;
+  }
+
+  .settings-row {
+    min-height: 70px;
+    padding: 18px 0;
+  }
+
+  .settings-segment {
+    padding: 0 16px;
+    font-size: var(--app-font-meta);
+  }
+}
+
+@media (min-width: 1024px) {
+  .workspace-sidebar {
+    padding: 30px 18px 22px;
+  }
+
+  .workspace-brand-area {
+    padding: 0 8px 28px;
+  }
+
+  .workspace-brand {
+    font-size: 32px;
+  }
+
+  .workspace-nav {
+    gap: 4px;
+  }
+
+  .workspace-nav-group {
+    gap: 3px;
+    margin-bottom: 18px;
+  }
+
+  .workspace-nav-link {
+    min-height: var(--app-control-height);
+    gap: 12px;
+    padding: 0 14px;
+    font-size: var(--app-font-control);
+  }
+
+  .workspace-nav-icon {
+    width: 20px;
+    height: 20px;
+    stroke-width: 1.9;
+  }
+
+  .workspace-nav-label,
+  .workspace-storage-label,
+  .instance-badge-row dt,
+  .explorer-col-header,
+  .recent-col-head-cell,
+  .recent-group-header span,
+  .recent-grid-group-header span,
+  .favorites-col-head-cell {
+    font-size: var(--app-font-label);
+    color: color-mix(
+      in oklab,
+      var(--muted-foreground) 88%,
+      var(--foreground) 12%
+    );
+  }
+
+  .workspace-nav-label {
+    padding: 6px 12px 8px;
+  }
+
+  .workspace-storage-text,
+  .workspace-user-meta,
+  .workspace-user-action-link,
+  .instance-badge-version,
+  .instance-badge-row dd,
+  .instance-badge-releases-link,
+  .workspace-search input,
+  .topbar-icon-btn,
+  .topbar-notif-title,
+  .topbar-notif-link,
+  .topbar-notif-empty,
+  .topbar-profile-card-email,
+  .topbar-profile-action,
+  .view-toggle button,
+  .home-section-link,
+  .home-empty-copy,
+  .home-recent-meta,
+  .home-folder-meta,
+  .home-shared-meta,
+  .recent-row-location,
+  .recent-row-size,
+  .recent-row-time,
+  .favorites-row-location,
+  .favorites-row-size,
+  .favorites-row-time,
+  .explorer-row-meta {
+    font-size: var(--app-font-meta);
+  }
+
+  .workspace-user-name,
+  .topbar-profile-card-name,
+  .home-action,
+  .home-section-title,
+  .home-pinned-name,
+  .home-recent-name,
+  .home-folder-name,
+  .home-shared-name,
+  .recent-row-name,
+  .favorites-row-name,
+  .favorites-grid-name,
+  .explorer-row-name,
+  .explorer-row-rename {
+    font-size: var(--app-font-body);
+  }
+
+  .workspace-avatar {
+    width: 44px;
+    height: 44px;
+  }
+
+  .workspace-avatar-initials {
+    font-size: var(--app-font-meta);
+  }
+
+  .workspace-user-action-link,
+  .instance-badge-trigger {
+    min-height: 40px;
+  }
+
+  .workspace-topbar {
+    min-height: 66px;
+    padding: 14px 40px;
+  }
+
+  .workspace-search {
+    min-height: var(--app-control-height);
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 10px;
+  }
+
+  .workspace-search-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .workspace-topbar-tools {
+    gap: 8px;
+  }
+
+  .topbar-icon-btn {
+    height: 42px;
+    padding: 0 14px;
+  }
+
+  .view-toggle button {
+    min-height: 42px;
+    padding: 0 16px;
+  }
+
+  .workspace-content,
+  .workspace-main > main.workspace-content {
+    padding: 34px 40px 72px;
+  }
+
+  .home-page {
+    --home-row-gap: 12px;
+    --home-row-height: var(--app-home-row-height);
+    --home-row-icon-size: 30px;
+    --home-row-inset-x: 9px;
+    --home-row-inset-y: 8px;
+    gap: 30px;
+  }
+
+  .home-page-empty {
+    gap: 38px;
+  }
+
+  .home-hero {
+    gap: 24px;
+    padding-bottom: 8px;
+  }
+
+  .home-greeting h1 {
+    font-size: clamp(2.35rem, 3.45vw, 3.75rem);
+  }
+
+  .home-actions {
+    gap: 10px;
+  }
+
+  .home-action {
+    min-height: var(--app-control-height);
+    gap: 10px;
+    padding: 0 18px;
+  }
+
+  .home-sections-grid {
+    gap: 34px;
+  }
+
+  .home-section-head {
+    align-items: center;
+    min-height: 24px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+  }
+
+  .home-section-title,
+  .home-section-link {
+    min-height: 24px;
+    line-height: 24px;
+  }
+
+  .home-empty-copy {
+    line-height: 1.35;
+  }
+
+  .item-type-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .home-item-icon svg,
+  .home-empty-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .explorer-row,
+  .explorer-col-header {
+    grid-template-columns: 36px minmax(0, 1fr) 104px 170px;
+    gap: 0 14px;
+  }
+
+  .explorer-row {
+    height: var(--app-row-height);
+    padding: 0 12px 0 8px;
+  }
+
+  .explorer-col-header {
+    min-height: 48px;
+    padding: 6px 12px 12px 8px;
+  }
+
+  .explorer-row-icon .item-type-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .explorer-row-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .explorer-row-rename {
+    height: 40px;
+    padding: 5px 10px;
+  }
+
+  .recent-col-head,
+  .recent-row {
+    grid-template-columns:
+      36px minmax(225px, 1fr) minmax(175px, 225px) minmax(90px, 104px)
+      minmax(108px, 138px);
+    gap: 0 14px;
+  }
+
+  .favorites-col-head,
+  .favorites-row {
+    grid-template-columns:
+      36px minmax(225px, 1fr) minmax(175px, 235px) minmax(90px, 104px)
+      minmax(108px, 138px);
+    gap: 0 14px;
+  }
+
+  .trash-col-head,
+  .trash-row {
+    grid-template-columns:
+      36px minmax(225px, 1fr) minmax(175px, 225px) minmax(90px, 104px)
+      minmax(108px, 138px) minmax(84px, 104px);
+    gap: 0 14px;
+  }
+
+  .recent-col-head,
+  .favorites-col-head,
+  .trash-col-head {
+    min-height: 48px;
+    padding: 6px 12px 12px 8px;
+  }
+
+  .recent-row,
+  .favorites-row,
+  .trash-row {
+    min-height: var(--app-row-height);
+    padding: 0 12px 0 8px;
+  }
+
+  .recent-group-header,
+  .recent-grid-group-header {
+    gap: 10px;
+    padding: 26px 6px 12px;
+  }
+
+  .recent-group-section:first-of-type .recent-group-header,
+  .recent-grid-group:first-of-type .recent-grid-group-header {
+    padding-top: 10px;
+  }
+
+  .recent-group-header span,
+  .recent-grid-group-header span,
+  .recent-group-header small,
+  .recent-grid-group-header small {
+    font-size: var(--app-font-label);
+    color: color-mix(
+      in oklab,
+      var(--muted-foreground) 82%,
+      var(--foreground) 18%
+    );
+  }
+
+  .recent-action-btn,
+  .favorites-action-btn,
+  .explorer-row-mobile-action {
+    width: 42px;
+    height: 42px;
+  }
+
+  .workspace-selection-bar span,
+  .workspace-selection-bar button {
+    font-size: var(--app-font-meta);
+  }
+
+  .workspace-selection-bar button {
+    min-height: var(--app-control-height-compact);
+  }
 }
 
 @media (max-width: 1023px) {

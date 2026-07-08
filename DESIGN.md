@@ -65,19 +65,19 @@ typography:
     letterSpacing: "0"
   body:
     fontFamily: "var(--font-switzer), Segoe UI, sans-serif"
-    fontSize: "0.875rem"
+    fontSize: "1.0625rem"
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: "0"
   label:
     fontFamily: "var(--font-switzer), Segoe UI, sans-serif"
-    fontSize: "0.75rem"
+    fontSize: "0.8125rem"
     fontWeight: 600
     lineHeight: 1.25
     letterSpacing: "0.04em"
   mono:
     fontFamily: "var(--font-jetbrains-mono), monospace"
-    fontSize: "0.75rem"
+    fontSize: "0.8125rem"
     fontWeight: 400
     lineHeight: 1.4
     letterSpacing: "0"
@@ -95,35 +95,36 @@ spacing:
   md: "12px"
   lg: "16px"
   xl: "24px"
-  page-x: "32px"
-  page-y: "24px"
+  page-x: "40px"
+  page-y: "34px"
 components:
   button-primary:
     backgroundColor: "{colors.primary}"
     textColor: "{colors.primary-foreground}"
     rounded: "{rounded.xl}"
     padding: "0 18px"
-    height: "44px"
+    height: "48px"
     typography: "{typography.body}"
   button-secondary:
     backgroundColor: "{colors.secondary}"
     textColor: "{colors.foreground}"
     rounded: "{rounded.xl}"
     padding: "0 18px"
-    height: "44px"
+    height: "48px"
     typography: "{typography.body}"
   input-default:
     backgroundColor: "{colors.card}"
     textColor: "{colors.foreground}"
     rounded: "{rounded.xl}"
     padding: "12px 14px"
-    height: "44px"
+    height: "48px"
     typography: "{typography.body}"
   nav-link-active:
     backgroundColor: "{colors.accent}"
     textColor: "{colors.primary}"
     rounded: "{rounded.md}"
-    padding: "7px 10px"
+    padding: "0 14px"
+    height: "48px"
     typography: "{typography.body}"
   panel:
     backgroundColor: "{colors.card}"
@@ -215,13 +216,16 @@ The palette is a warm neutral system with a low-noise bronze primary. OKLCH is c
 - **Display** (400, `clamp(2.6rem, 5.5vw, 5rem)`, 1.06): Entry and onboarding moments only. Not for workspace panels or admin pages.
 - **Headline** (500, `1.45rem`, 1.15): Workspace page titles, breadcrumbs, and primary content headings.
 - **Title** (650, `1.05rem`, 1.2): Bottom sheets, dialogs, compact panel titles, and admin operation names.
-- **Body** (400 to 600, `0.8125rem` to `0.9375rem`, 1.4 to 1.6): File rows, settings, admin content, helper copy, and table-like surfaces.
-- **Label** (600 to 700, `0.625rem` to `0.75rem`, letter-spaced only when short): Section labels, sidebar groups, status metadata, and compact admin labels.
-- **Mono** (400 to 600, `0.6875rem` to `0.75rem`, 1.4): IDs, URLs, checksums, code, archive IDs, and technical values.
+- **Body** (400 to 600, `1.0625rem`, 1.4 to 1.6): File rows, settings, admin content, and other primary task text.
+- **Metadata** (400 to 600, `0.9375rem`, 1.35 to 1.5): timestamps, sizes, helper copy, secondary row values, and compact admin detail.
+- **Label** (600 to 700, `0.8125rem`, letter-spaced only when short): Section labels, sidebar groups, status metadata, and compact admin labels.
+- **Mono** (400 to 600, `0.8125rem` to `0.9375rem`, 1.4): IDs, URLs, checksums, code, archive IDs, and technical values.
 
 ### Named Rules
 
 **The Product Type Rule.** Workspace and admin UI use fixed rem sizes. Fluid type belongs to entry/onboarding moments, not file lists, buttons, or settings.
+
+**The Comfort Baseline Rule.** Workspace and admin should feel like the previous interface at roughly `125%` browser zoom while the browser remains at `100%`. Scale type, chrome, rows, spacing, and icons together. Preserve the existing workspace anchoring; do not globally center Home, Files, Recent, Favorites, Shared, Search, or Trash pages. Center only smaller form/settings-style surfaces.
 
 **The Label Restraint Rule.** Uppercase labels are allowed only for short structural labels. Never use uppercase body copy.
 
@@ -275,11 +279,11 @@ Staaash is flat by default. Depth comes from tonal surfaces, 1px borders, separa
 
 ### Navigation
 
-The workspace shell uses a quiet left sidebar on desktop, a compact topbar search, and a bottom navigation plus bottom sheets on mobile. Active nav is bronze-tinted, inactive nav is muted, hover is tonal. Mobile actions use minimum `44px` touch targets and bottom-sheet grouping.
+The workspace shell uses a quiet `270px` left sidebar on desktop, a compact topbar search, and a bottom navigation plus bottom sheets on mobile. Active nav is bronze-tinted, inactive nav is muted, hover is tonal. Desktop nav links and mobile actions use minimum `48px` targets.
 
 ### File Rows
 
-Rows are the core workspace component. They should feel like file-system rows, not cards: icon, name, metadata, state badges, and actions aligned for scanning. Hover and selected state use tonal fills. Selection and action affordances must not cover file metadata.
+Rows are the core workspace component. They should feel like file-system rows, not cards: icon, name, metadata, state badges, and actions aligned for scanning. Desktop file rows target `50px`; Home dashboard rows target `60px`; mobile rows may be taller for touch. Hover and selected state use tonal fills. Selection and action affordances must not cover file metadata.
 
 ### Share Dialog
 
