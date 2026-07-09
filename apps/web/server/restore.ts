@@ -25,7 +25,7 @@ export const buildRestoreReconciliationHealthSummary = (
       lastCompletedAt: null,
       missingOriginalCount: 0,
       orphanedStorageCount: 0,
-      message: "Restore reconciliation has not completed yet.",
+      message: "Restore check has not completed yet.",
     };
   }
 
@@ -36,7 +36,7 @@ export const buildRestoreReconciliationHealthSummary = (
       lastCompletedAt: run.completedAt?.toISOString() ?? null,
       missingOriginalCount: run.missingOriginalCount,
       orphanedStorageCount: run.orphanedStorageCount,
-      message: "Restore reconciliation is queued.",
+      message: "Restore check is queued.",
     };
   }
 
@@ -47,7 +47,7 @@ export const buildRestoreReconciliationHealthSummary = (
       lastCompletedAt: run.completedAt?.toISOString() ?? null,
       missingOriginalCount: run.missingOriginalCount,
       orphanedStorageCount: run.orphanedStorageCount,
-      message: "Restore reconciliation is running.",
+      message: "Restore check is running.",
     };
   }
 
@@ -58,7 +58,7 @@ export const buildRestoreReconciliationHealthSummary = (
       lastCompletedAt: run.completedAt?.toISOString() ?? null,
       missingOriginalCount: run.missingOriginalCount,
       orphanedStorageCount: run.orphanedStorageCount,
-      message: run.lastError ?? "Restore reconciliation failed.",
+      message: run.lastError ?? "Restore check failed.",
     };
   }
 
@@ -69,7 +69,7 @@ export const buildRestoreReconciliationHealthSummary = (
       lastCompletedAt: run.completedAt?.toISOString() ?? null,
       missingOriginalCount: run.missingOriginalCount,
       orphanedStorageCount: run.orphanedStorageCount,
-      message: `Latest reconciliation found ${run.missingOriginalCount} missing originals and ${run.orphanedStorageCount} orphaned storage files.`,
+      message: `Latest restore check found ${run.missingOriginalCount} missing originals and ${run.orphanedStorageCount} orphaned storage files.`,
     };
   }
 
@@ -79,6 +79,6 @@ export const buildRestoreReconciliationHealthSummary = (
     lastCompletedAt: run.completedAt?.toISOString() ?? null,
     missingOriginalCount: 0,
     orphanedStorageCount: 0,
-    message: "Latest reconciliation completed without integrity issues.",
+    message: "Latest restore check completed without issues.",
   };
 };

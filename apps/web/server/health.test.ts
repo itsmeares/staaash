@@ -20,7 +20,7 @@ const baseReconciliation = {
   lastCompletedAt: "2026-04-09T10:00:00.000Z",
   missingOriginalCount: 0,
   orphanedStorageCount: 0,
-  message: "Latest reconciliation completed without integrity issues.",
+  message: "Latest restore check completed without issues.",
 };
 
 describe("health summaries", () => {

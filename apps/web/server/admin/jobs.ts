@@ -35,14 +35,13 @@ export const parseAdminJobFilters = (params: {
   kind?: string | null;
   cursor?: string | null;
   limit?: string | null;
+  page?: string | null;
 }) => {
-  const status = params.status?.trim() ?? "";
+  const statuses = parseAdminJobStatusFilter(params.status);
   const kind = params.kind?.trim() ?? "";
 
   return {
-    status: ADMIN_JOB_STATUSES.includes(status as AdminJobStatusFilter)
-      ? (status as AdminJobStatusFilter)
-      : null,
+    status: statuses,
     kind: ALL_SUPPORTED_JOB_KINDS.includes(
       kind as (typeof ALL_SUPPORTED_JOB_KINDS)[number],
     )
@@ -50,15 +49,38 @@ export const parseAdminJobFilters = (params: {
       : null,
     cursor: params.cursor?.trim() || null,
     limit: normalizeAdminJobLimit(params.limit),
+    page: normalizeAdminJobPage(params.page),
   } satisfies Pick<
     AdminBackgroundJobListFilters,
-    "status" | "kind" | "cursor" | "limit"
+    "status" | "kind" | "cursor" | "limit" | "page"
   >;
+};
+
+const parseAdminJobStatusFilter = (status?: string | null) => {
+  const values = [
+    ...new Set(
+      (status ?? "")
+        .split(",")
+        .map((value) => value.trim())
+        .filter((value): value is AdminJobStatusFilter =>
+          ADMIN_JOB_STATUSES.includes(value as AdminJobStatusFilter),
+        ),
+    ),
+  ];
+
+  if (values.length === 0) return null;
+  if (values.length === 1) return values[0]!;
+  return values;
 };
 
 const normalizeAdminJobLimit = (limit?: string | null) => {
   const parsed = Number.parseInt(limit ?? "", 10);
   return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 100) : 25;
+};
+
+const normalizeAdminJobPage = (page?: string | null) => {
+  const parsed = Number.parseInt(page ?? "", 10);
+  return Number.isFinite(parsed) ? Math.max(parsed, 1) : 1;
 };
 
 export const getAdminJobList = async (

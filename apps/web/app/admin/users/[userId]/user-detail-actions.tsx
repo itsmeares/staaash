@@ -36,6 +36,42 @@ const fromGibInput = (value: string, unlimited: boolean) =>
     ? null
     : (BigInt(value) * BYTES_PER_GIB).toString();
 
+function ToggleField({
+  checked,
+  defaultChecked,
+  disabled,
+  label,
+  name,
+  onChange,
+}: {
+  checked?: boolean;
+  defaultChecked?: boolean;
+  disabled?: boolean;
+  label: string;
+  name?: string;
+  onChange?: (checked: boolean) => void;
+}) {
+  return (
+    <label className="admin-user-toggle-row">
+      <span className="settings-toggle">
+        <input
+          className="settings-toggle-input"
+          type="checkbox"
+          name={name}
+          checked={checked}
+          defaultChecked={defaultChecked}
+          disabled={disabled}
+          onChange={(event) => onChange?.(event.currentTarget.checked)}
+        />
+        <span className="settings-toggle-track">
+          <span className="settings-toggle-thumb" />
+        </span>
+      </span>
+      <span>{label}</span>
+    </label>
+  );
+}
+
 export function UserDetailActions({
   user,
   canMutate,
@@ -161,26 +197,18 @@ export function UserDetailActions({
                   placeholder="Unlimited"
                 />
               </label>
-              <label className="admin-user-checkbox">
-                <input
-                  type="checkbox"
-                  checked={quotaUnlimited}
-                  onChange={(event) =>
-                    setQuotaUnlimited(event.currentTarget.checked)
-                  }
-                />
-                <span>Unlimited</span>
-              </label>
-            </div>
-            <label className="admin-user-checkbox">
-              <input
-                name="isAdmin"
-                type="checkbox"
-                defaultChecked={user.isAdmin}
-                disabled={user.isOwner}
+              <ToggleField
+                checked={quotaUnlimited}
+                label="Unlimited"
+                onChange={setQuotaUnlimited}
               />
-              <span>Admin user</span>
-            </label>
+            </div>
+            <ToggleField
+              name="isAdmin"
+              defaultChecked={user.isAdmin}
+              disabled={user.isOwner}
+              label="Admin user"
+            />
             <div className="admin-user-dialog-actions">
               <button
                 type="button"
@@ -206,14 +234,11 @@ export function UserDetailActions({
           <DialogTitle>Reset password</DialogTitle>
           <form className="form-grid" onSubmit={handleReset}>
             <p className="muted">Existing sessions are revoked immediately.</p>
-            <label className="admin-user-checkbox">
-              <input
-                type="checkbox"
-                checked={generated}
-                onChange={(event) => setGenerated(event.currentTarget.checked)}
-              />
-              <span>Generate temporary password</span>
-            </label>
+            <ToggleField
+              checked={generated}
+              label="Generate temporary password"
+              onChange={setGenerated}
+            />
             {!generated ? (
               <>
                 <label className="field">
@@ -234,14 +259,11 @@ export function UserDetailActions({
                 </label>
               </>
             ) : null}
-            <label className="admin-user-checkbox">
-              <input
-                name="requirePasswordChange"
-                type="checkbox"
-                defaultChecked
-              />
-              <span>Require password change on next login</span>
-            </label>
+            <ToggleField
+              name="requirePasswordChange"
+              defaultChecked
+              label="Require password change on next login"
+            />
             <div className="admin-user-dialog-actions">
               <button
                 type="button"

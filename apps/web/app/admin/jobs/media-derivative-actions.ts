@@ -6,15 +6,20 @@ import { revalidatePath } from "next/cache";
 
 import { getPrisma } from "@staaash/db/client";
 import {
-  scheduleDerivativeGenerate,
-  markDerivativeStale,
   buildDerivativeDedupeKey,
   DERIVATIVE_KIND_PREVIEW,
   DERIVATIVE_PROFILE_1080P,
+  markDerivativeStale,
+  scheduleDerivativeGenerate,
 } from "@staaash/db/media-derivatives";
 
 import { requireOwnerPageSession } from "@/server/auth/guards";
 import { getStoragePath } from "@/server/storage";
+
+const revalidateDerivativeViews = () => {
+  revalidatePath("/admin/jobs");
+  revalidatePath("/admin");
+};
 
 export async function regenerateDerivative(
   _prevState: { error?: string; success?: boolean },
@@ -24,7 +29,7 @@ export async function regenerateDerivative(
 
   const fileId = formData.get("fileId");
   if (typeof fileId !== "string") {
-    return { error: "Missing fileId." };
+    return { error: "Missing file ID." };
   }
 
   try {
@@ -34,10 +39,10 @@ export async function regenerateDerivative(
       profile: DERIVATIVE_PROFILE_1080P,
       reason: "manual-regenerate",
     });
-    revalidatePath("/admin/media");
+    revalidateDerivativeViews();
     return { success: true };
   } catch {
-    return { error: "Failed to schedule regeneration." };
+    return { error: "Failed to queue preview file." };
   }
 }
 
@@ -51,7 +56,7 @@ export async function setPinDerivative(
   const pinned = formData.get("pinned") === "true";
 
   if (typeof id !== "string") {
-    return { error: "Missing id." };
+    return { error: "Missing preview file ID." };
   }
 
   const db = getPrisma();
@@ -60,7 +65,7 @@ export async function setPinDerivative(
     data: { pinnedByAdmin: pinned },
   });
 
-  revalidatePath("/admin/media");
+  revalidateDerivativeViews();
   return { success: true };
 }
 
@@ -71,16 +76,19 @@ export async function cancelDerivative(
   await requireOwnerPageSession();
 
   const id = formData.get("id");
-  if (typeof id !== "string") return { error: "Missing id." };
+  if (typeof id !== "string") return { error: "Missing preview file ID." };
 
   const db = getPrisma();
   const derivative = await db.mediaDerivative.findUnique({
     where: { id },
     select: { fileId: true, status: true },
   });
-  if (!derivative) return { error: "Derivative not found." };
-  if (derivative.status !== "queued" && derivative.status !== "processing")
-    return { error: "Only queued or processing derivatives can be cancelled." };
+  if (!derivative) return { error: "Preview file not found." };
+  if (derivative.status !== "queued" && derivative.status !== "processing") {
+    return {
+      error: "Only queued or processing preview files can be cancelled.",
+    };
+  }
 
   const dedupeKey = buildDerivativeDedupeKey(
     derivative.fileId,
@@ -94,9 +102,6 @@ export async function cancelDerivative(
       data: { status: "dead", lastError: "Cancelled by admin." },
     });
   } else {
-    // Mark the running job dead immediately so:
-    // 1. The UI shows "dead" without waiting for the worker
-    // 2. The job can't be re-claimed after its 60s lease expires
     await db.backgroundJob.updateMany({
       where: { dedupeKey, status: "running" },
       data: {
@@ -109,7 +114,7 @@ export async function cancelDerivative(
   }
 
   await markDerivativeStale(id);
-  revalidatePath("/admin/media");
+  revalidateDerivativeViews();
   return { success: true };
 }
 
@@ -121,13 +126,13 @@ export async function removeDerivative(
 
   const id = formData.get("id");
   if (typeof id !== "string") {
-    return { error: "Missing id." };
+    return { error: "Missing preview file ID." };
   }
 
   const db = getPrisma();
   const derivative = await db.mediaDerivative.findUnique({ where: { id } });
   if (!derivative) {
-    return { error: "Derivative not found." };
+    return { error: "Preview file not found." };
   }
 
   if (derivative.storageKey) {
@@ -135,7 +140,6 @@ export async function removeDerivative(
   }
 
   await markDerivativeStale(id);
-
-  revalidatePath("/admin/media");
+  revalidateDerivativeViews();
   return { success: true };
 }

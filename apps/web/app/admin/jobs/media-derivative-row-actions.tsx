@@ -2,12 +2,23 @@
 
 import { useActionState } from "react";
 
-type ActionFn = (
+export type MediaDerivativeAction = (
   prev: { error?: string; success?: boolean },
   formData: FormData,
 ) => Promise<{ error?: string; success?: boolean }>;
 
-export function DerivativeActions({
+type MediaDerivativeRowActionsProps = {
+  id: string;
+  fileId: string;
+  status: string;
+  pinnedByAdmin: boolean;
+  regenerateAction: MediaDerivativeAction;
+  setPinAction: MediaDerivativeAction;
+  removeAction: MediaDerivativeAction;
+  cancelAction: MediaDerivativeAction;
+};
+
+export function MediaDerivativeRowActions({
   id,
   fileId,
   status,
@@ -16,16 +27,7 @@ export function DerivativeActions({
   setPinAction,
   removeAction,
   cancelAction,
-}: {
-  id: string;
-  fileId: string;
-  status: string;
-  pinnedByAdmin: boolean;
-  regenerateAction: ActionFn;
-  setPinAction: ActionFn;
-  removeAction: ActionFn;
-  cancelAction: ActionFn;
-}) {
+}: MediaDerivativeRowActionsProps) {
   const [regenState, regenAction, regenPending] = useActionState(
     regenerateAction,
     {},
@@ -41,22 +43,22 @@ export function DerivativeActions({
   );
 
   const isActive = status === "queued" || status === "processing";
+  const canCancel = isActive;
   const canRemove =
     status === "ready" || status === "failed" || status === "stale";
-  const canCancel = status === "queued" || status === "processing";
   const anyError = regenState.error ?? removeState.error ?? cancelState.error;
 
   return (
-    <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+    <div className="admin-derivative-actions">
       <form action={regenAction}>
         <input type="hidden" name="fileId" value={fileId} />
         <button
           type="submit"
-          className="btn btn-sm"
+          className="admin-jobs-button"
           disabled={regenPending || isActive}
-          title="Re-queue derivative generation"
+          title="Queue preview file again"
         >
-          {regenPending ? "…" : "Regenerate"}
+          {regenPending ? "..." : "Create again"}
         </button>
       </form>
 
@@ -69,58 +71,51 @@ export function DerivativeActions({
         />
         <button
           type="submit"
-          className="btn btn-sm"
+          className="admin-jobs-button"
           disabled={pinPending}
           title={
             pinnedByAdmin
-              ? "Remove pin — allow cleanup"
-              : "Pin — exclude from cleanup"
+              ? "Remove pin - allow cleanup"
+              : "Pin - exclude from cleanup"
           }
         >
-          {pinPending ? "…" : pinnedByAdmin ? "Unpin" : "Pin"}
+          {pinPending ? "..." : pinnedByAdmin ? "Unpin" : "Pin"}
         </button>
       </form>
 
-      {canCancel && (
+      {canCancel ? (
         <form action={cancelFormAction}>
           <input type="hidden" name="id" value={id} />
           <button
             type="submit"
-            className="btn btn-sm"
+            className="admin-jobs-button"
             disabled={cancelPending}
-            title="Cancel queued generation"
+            title="Cancel queued preview file"
           >
-            {cancelPending ? "…" : "Cancel"}
+            {cancelPending ? "..." : "Cancel"}
           </button>
         </form>
-      )}
+      ) : null}
 
-      {canRemove && (
+      {canRemove ? (
         <form action={removeFormAction}>
           <input type="hidden" name="id" value={id} />
           <button
             type="submit"
-            className="btn btn-sm btn-danger"
+            className="admin-jobs-button admin-jobs-button-danger"
             disabled={removePending}
-            title="Delete derivative file from disk"
+            title="Delete preview file from disk"
           >
-            {removePending ? "…" : "Delete"}
+            {removePending ? "..." : "Delete"}
           </button>
         </form>
-      )}
+      ) : null}
 
-      {anyError && (
-        <span
-          title={anyError}
-          style={{
-            cursor: "help",
-            fontSize: "0.875rem",
-            color: "var(--color-error)",
-          }}
-        >
-          ⚠
+      {anyError ? (
+        <span className="admin-derivative-error" title={anyError}>
+          Error
         </span>
-      )}
+      ) : null}
     </div>
   );
 }

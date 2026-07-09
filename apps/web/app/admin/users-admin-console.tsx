@@ -40,6 +40,16 @@ type UsersAdminConsoleProps = {
   initialUsers: AdminUser[];
   appUrl: string;
   canMutateUsers: boolean;
+  summary: AdminUsersSummary;
+};
+
+type AdminUsersSummary = {
+  total: number;
+  owners: number;
+  admins: number;
+  members: number;
+  pendingOnboarding: number;
+  passwordChangeRequired: number;
 };
 
 type PasswordResult = {
@@ -65,6 +75,27 @@ const quotaLabel = (user: AdminUser) =>
 
 const roleLabel = (user: AdminUser) =>
   user.isOwner ? "owner" : user.isAdmin ? "admin" : "member";
+
+const plural = (
+  count: number,
+  singular: string,
+  pluralLabel = `${singular}s`,
+) => `${count} ${count === 1 ? singular : pluralLabel}`;
+
+const roleSummaryLabel = (summary: AdminUsersSummary) =>
+  [
+    plural(summary.owners, "owner"),
+    plural(summary.admins, "admin"),
+    plural(summary.members, "member"),
+  ].join(", ");
+
+const onboardingSummaryLabel = (count: number) =>
+  count === 0 ? "No pending setup" : `${plural(count, "user")} pending setup`;
+
+const passwordSummaryLabel = (count: number) =>
+  count === 0
+    ? "No forced password changes"
+    : `${plural(count, "user")} must change password`;
 
 const buildUserWarnings = (user: AdminUser) => [
   ...(user.passwordChangeRequiredAt ? ["password change required"] : []),
@@ -176,6 +207,7 @@ export function UsersAdminConsole({
   initialUsers,
   appUrl,
   canMutateUsers,
+  summary,
 }: UsersAdminConsoleProps) {
   const router = useRouter();
   const [isRefreshing, startTransition] = useTransition();
@@ -383,6 +415,24 @@ export function UsersAdminConsole({
       </section>
 
       <section className="admin-users-panel">
+        <div className="admin-users-summary-strip" aria-label="User summary">
+          <div className="admin-users-summary-card">
+            <span>Accounts</span>
+            <strong>{summary.total}</strong>
+            <p>{roleSummaryLabel(summary)}</p>
+          </div>
+          <div className="admin-users-summary-card">
+            <span>Onboarding</span>
+            <strong>{summary.pendingOnboarding}</strong>
+            <p>{onboardingSummaryLabel(summary.pendingOnboarding)}</p>
+          </div>
+          <div className="admin-users-summary-card">
+            <span>Password changes</span>
+            <strong>{summary.passwordChangeRequired}</strong>
+            <p>{passwordSummaryLabel(summary.passwordChangeRequired)}</p>
+          </div>
+        </div>
+
         <div className="table-wrap">
           <table className="table admin-users-table">
             <thead>

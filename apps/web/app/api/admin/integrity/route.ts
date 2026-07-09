@@ -36,8 +36,8 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     message: result.created
-      ? "Restore reconciliation queued."
-      : "An active restore reconciliation is already queued or running.",
+      ? "Restore check queued."
+      : "A restore check is already queued or running.",
     jobId: result.job.id,
     runId: result.run?.id ?? null,
   });
