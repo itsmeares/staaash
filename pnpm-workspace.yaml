@@ -21,3 +21,12 @@ minimumReleaseAgeExclude:
   - esbuild@0.28.1
   - prettier@3.9.0
   - shadcn@4.12.0
+  - "@fallow-cli/darwin-arm64@3.3.0"
+  - "@fallow-cli/darwin-x64@3.3.0"
+  - "@fallow-cli/linux-arm64-gnu@3.3.0"
+  - "@fallow-cli/linux-arm64-musl@3.3.0"
+  - "@fallow-cli/linux-x64-gnu@3.3.0"
+  - "@fallow-cli/linux-x64-musl@3.3.0"
+  - "@fallow-cli/win32-arm64-msvc@3.3.0"
+  - "@fallow-cli/win32-x64-msvc@3.3.0"
+  - fallow@3.3.0

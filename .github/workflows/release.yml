@@ -39,7 +39,7 @@ jobs:
           tags: |
             type=semver,pattern={{raw}}
             type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' }}
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ (github.event_name == 'workflow_dispatch' && (inputs.version == '' || !contains(inputs.version, '-'))) || (github.event_name == 'push' && !contains(github.ref_name, '-')) }}
 
       - name: Build and push
         uses: docker/build-push-action@v7

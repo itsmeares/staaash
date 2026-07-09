@@ -7,10 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { ShareLinkSummary } from "@/server/sharing";
-
-// ---------------------------------------------------------------------------
-// Local type — normalised from raw API response (StoredShareLink has no status/shareUrl/hasPassword)
-// ---------------------------------------------------------------------------
+import type { ManagedShareView } from "@/server/sharing/mutation-response";
 
 type DialogShare = {
   id: string;
@@ -21,15 +18,6 @@ type DialogShare = {
   revokedAt: Date | null;
   status: "active" | "expired" | "revoked";
 };
-
-function computeStatus(
-  revokedAt: Date | null,
-  expiresAt: Date,
-): "active" | "expired" | "revoked" {
-  if (revokedAt) return "revoked";
-  if (expiresAt <= new Date()) return "expired";
-  return "active";
-}
 
 function fromSummary(s: ShareLinkSummary): DialogShare {
   return {
@@ -43,17 +31,18 @@ function fromSummary(s: ShareLinkSummary): DialogShare {
   };
 }
 
-function fromRaw(raw: any, fallbackShareUrl: string): DialogShare {
-  const expiresAt = new Date(raw.expiresAt);
-  const revokedAt = raw.revokedAt ? new Date(raw.revokedAt) : null;
+function fromMutation(
+  share: ManagedShareView,
+  fallbackShareUrl: string,
+): DialogShare {
   return {
-    id: raw.id,
-    shareUrl: raw.shareUrl ?? fallbackShareUrl,
-    hasPassword: raw.hasPassword ?? Boolean(raw.passwordHash),
-    downloadDisabled: Boolean(raw.downloadDisabled),
-    expiresAt,
-    revokedAt,
-    status: computeStatus(revokedAt, expiresAt),
+    id: share.id,
+    shareUrl: share.shareUrl ?? fallbackShareUrl,
+    hasPassword: share.hasPassword,
+    downloadDisabled: share.downloadDisabled,
+    expiresAt: new Date(share.expiresAt),
+    revokedAt: share.revokedAt ? new Date(share.revokedAt) : null,
+    status: share.status,
   };
 }
 
@@ -127,7 +116,7 @@ export function ShareDialog({
   const callApi = async (
     url: string,
     body: Record<string, string>,
-  ): Promise<{ rawShare: any; shareUrl?: string } | null> => {
+  ): Promise<ManagedShareView | null> => {
     setIsBusy(true);
     try {
       const res = await fetch(url, {
@@ -135,12 +124,15 @@ export function ShareDialog({
         headers: { Accept: "application/json" },
         body: new URLSearchParams(body),
       });
-      const data = await res.json().catch(() => ({}));
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        share?: ManagedShareView;
+      };
       if (!res.ok) {
         toast.error(data.error ?? "Something went wrong");
         return null;
       }
-      return { rawShare: data.share, shareUrl: data.shareUrl };
+      return data.share ?? null;
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Something went wrong");
       return null;
@@ -149,16 +141,8 @@ export function ShareDialog({
     }
   };
 
-  const applyResult = (
-    result: { rawShare: any; shareUrl?: string },
-    successMsg?: string,
-  ) => {
-    const fallbackUrl = result.shareUrl ?? dialogShare?.shareUrl ?? "";
-    const merged = {
-      ...result.rawShare,
-      shareUrl: result.shareUrl ?? result.rawShare.shareUrl,
-    };
-    setDialogShare(fromRaw(merged, fallbackUrl));
+  const applyResult = (result: ManagedShareView, successMsg?: string) => {
+    setDialogShare(fromMutation(result, dialogShare?.shareUrl ?? ""));
     if (successMsg) toast.success(successMsg);
   };
 
@@ -171,7 +155,7 @@ export function ShareDialog({
       targetType,
       [targetType === "file" ? "fileId" : "folderId"]: targetId,
     });
-    if (result?.rawShare) applyResult(result, "Link created");
+    if (result) applyResult(result, "Link created");
   };
 
   const reissueLink = async () => {
@@ -180,7 +164,7 @@ export function ShareDialog({
       mode: "reissue",
       shareId: dialogShare.id,
     });
-    if (result?.rawShare) applyResult(result, "Link reissued");
+    if (result) applyResult(result, "Link reissued");
   };
 
   // Set expiry to N days from now
@@ -191,7 +175,7 @@ export function ShareDialog({
       expiresAt: newExpiry.toISOString(),
       downloadDisabled: String(dialogShare.downloadDisabled),
     });
-    if (result?.rawShare) applyResult(result, "Expiry updated");
+    if (result) applyResult(result, "Expiry updated");
   };
 
   const saveCustomExpiry = async () => {
@@ -205,7 +189,7 @@ export function ShareDialog({
       expiresAt: combined.toISOString(),
       downloadDisabled: String(dialogShare.downloadDisabled),
     });
-    if (result?.rawShare) applyResult(result, "Expiry updated");
+    if (result) applyResult(result, "Expiry updated");
   };
 
   const toggleDownloads = async () => {
@@ -215,7 +199,7 @@ export function ShareDialog({
       expiresAt: dialogShare.expiresAt.toISOString(),
       downloadDisabled: String(newVal),
     });
-    if (result?.rawShare) {
+    if (result) {
       applyResult(result);
       newVal
         ? toast.error("Downloads disabled")
@@ -228,7 +212,7 @@ export function ShareDialog({
     const result = await callApi(`/api/shares/${dialogShare.id}/password`, {
       password: passwordValue,
     });
-    if (result?.rawShare) {
+    if (result) {
       applyResult(result, "Password set");
       setPasswordValue("");
       setShowPasswordField(false);
@@ -240,7 +224,7 @@ export function ShareDialog({
     const result = await callApi(`/api/shares/${dialogShare.id}/password`, {
       clear: "true",
     });
-    if (result?.rawShare) {
+    if (result) {
       applyResult(result);
       toast.error("Password removed");
       setShowPasswordField(false);
@@ -250,7 +234,7 @@ export function ShareDialog({
   const revokeLink = async () => {
     if (!dialogShare) return;
     const result = await callApi(`/api/shares/${dialogShare.id}/revoke`, {});
-    if (result?.rawShare) {
+    if (result) {
       applyResult(result);
       toast.error("Link revoked");
     }

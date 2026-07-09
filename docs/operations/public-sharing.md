@@ -25,12 +25,14 @@ SECURE_COOKIES=true
 ```
 
 The reverse proxy or tunnel should forward traffic to Staaash on port `2113` and
-send:
+preserve the original `Host` header. It should also send:
 
 ```text
 X-Forwarded-Proto: https
-X-Forwarded-Host: drive.example.com
 ```
+
+`X-Forwarded-Host` is not used. If your proxy rewrites `Host`, configure it to
+preserve the public host or set `STAAASH_PUBLIC_URL`.
 
 With `STAAASH_PUBLIC_URL` set, generated share links and Open Graph metadata use
 that HTTPS address. Existing HTTP access still works if your network exposes it,

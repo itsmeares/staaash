@@ -2,13 +2,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const originalPublicUrl = process.env.STAAASH_PUBLIC_URL;
 
-const headers = {
+const makeHeaders = (values: Record<string, string> = {}) => ({
   get(name: string) {
-    if (name === "x-forwarded-proto") return "http";
-    if (name === "host") return "46.1.113.7:2113";
-    return null;
+    return values[name] ?? null;
   },
-};
+});
+
+const directIpHeaders = makeHeaders({
+  "x-forwarded-proto": "http",
+  host: "46.1.113.7:2113",
+});
 
 describe("request base URLs", () => {
   afterEach(() => {
@@ -25,7 +28,7 @@ describe("request base URLs", () => {
     vi.resetModules();
     const { getShareBaseUrl } = await import("./request");
 
-    expect(getShareBaseUrl(headers)).toBe("http://46.1.113.7:2113");
+    expect(getShareBaseUrl(directIpHeaders)).toBe("http://46.1.113.7:2113");
   });
 
   it("uses the canonical public URL for share URLs when configured", async () => {
@@ -33,6 +36,55 @@ describe("request base URLs", () => {
     vi.resetModules();
     const { getShareBaseUrl } = await import("./request");
 
-    expect(getShareBaseUrl(headers)).toBe("https://drive.example.com");
+    expect(getShareBaseUrl(directIpHeaders)).toBe("https://drive.example.com");
+  });
+
+  it("accepts a canonical HTTP URL for IP-only installs", async () => {
+    process.env.STAAASH_PUBLIC_URL = "http://46.1.113.7:2113/";
+    vi.resetModules();
+    const { getShareBaseUrl } = await import("./request");
+
+    expect(getShareBaseUrl(directIpHeaders)).toBe("http://46.1.113.7:2113");
+  });
+
+  it("uses the preserved host and forwarded HTTPS protocol for Caddy", async () => {
+    delete process.env.STAAASH_PUBLIC_URL;
+    vi.resetModules();
+    const { getBaseUrl } = await import("./request");
+
+    expect(
+      getBaseUrl(
+        makeHeaders({
+          host: "drive.example.com",
+          "x-forwarded-proto": "https",
+        }),
+      ),
+    ).toBe("https://drive.example.com");
+  });
+
+  it("ignores forwarded hosts and malformed forwarded protocols", async () => {
+    delete process.env.STAAASH_PUBLIC_URL;
+    vi.resetModules();
+    const { getBaseUrl } = await import("./request");
+
+    expect(
+      getBaseUrl(
+        makeHeaders({
+          host: "drive.example.com",
+          "x-forwarded-host": "attacker.example",
+          "x-forwarded-proto": "https, http",
+        }),
+      ),
+    ).toBe("http://drive.example.com");
+  });
+
+  it("falls back to localhost for malformed host headers", async () => {
+    delete process.env.STAAASH_PUBLIC_URL;
+    vi.resetModules();
+    const { getBaseUrl } = await import("./request");
+
+    expect(getBaseUrl(makeHeaders({ host: "drive.example.com/path" }))).toBe(
+      "http://localhost",
+    );
   });
 });

@@ -18,6 +18,7 @@ import { startValidatedDownload } from "@/lib/transfers/download";
 import type { FilesListing } from "@/server/files/types";
 import type { ShareFilesLookup } from "@/server/sharing";
 
+import { RubberBandRect, type RubberBand } from "../rubber-band-rect";
 import { FilesRow } from "./files-row";
 import { FilesPropertiesPanel } from "./files-properties-panel";
 import { ShareDialog } from "./share-dialog";
@@ -71,17 +72,6 @@ const persistCutItems = (items: CutItem[]) => {
 };
 
 const clearCutItems = () => sessionStorage.removeItem(CUT_STATE_KEY);
-
-// ---------------------------------------------------------------------------
-// Rubber-band state
-// ---------------------------------------------------------------------------
-
-type RubberBand = {
-  startX: number;
-  startY: number;
-  currentX: number;
-  currentY: number;
-};
 
 // ---------------------------------------------------------------------------
 // Props
@@ -1111,19 +1101,7 @@ export function FilesView({
                 <span>Modified</span>
               </div>
             )}
-            {/* Rubber-band rect */}
-            {rubberBand && (
-              <div
-                className="rubber-band-rect"
-                style={{
-                  left: Math.min(rubberBand.startX, rubberBand.currentX),
-                  top: Math.min(rubberBand.startY, rubberBand.currentY),
-                  width: Math.abs(rubberBand.currentX - rubberBand.startX),
-                  height: Math.abs(rubberBand.currentY - rubberBand.startY),
-                }}
-                aria-hidden
-              />
-            )}
+            <RubberBandRect rubberBand={rubberBand} />
 
             {/* ---- Folders ---- */}
             {visibleFolders.map((folder) => {
@@ -1266,7 +1244,6 @@ export function FilesView({
                   <GhostUploadRow
                     key={entry.storageKey}
                     name={entry.name}
-                    size={entry.size}
                     onDismiss={() => {
                       localStorage.removeItem(entry.storageKey);
                       setResumableSessions((prev) =>
@@ -1565,12 +1542,10 @@ function UploadingRow({
 
 function GhostUploadRow({
   name,
-  size,
   onDismiss,
   onDoubleClick,
 }: {
   name: string;
-  size: number;
   onDismiss: () => void;
   onDoubleClick: () => void;
 }) {

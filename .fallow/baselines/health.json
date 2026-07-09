@@ -1,0 +1,1136 @@
+{
+  "finding_counts": {
+    "apps/web/app/(workspace)/create-folder-dialog.tsx": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/(workspace)/favorites/favorites-helpers.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/web/app/(workspace)/favorites/favorites-view.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 4
+      },
+      "crap_high": {
+        "count": 4
+      },
+      "crap_moderate": {
+        "count": 5
+      }
+    },
+    "apps/web/app/(workspace)/files/files-properties-panel.tsx": {
+      "crap_critical": {
+        "count": 2
+      }
+    },
+    "apps/web/app/(workspace)/files/files-row.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/web/app/(workspace)/files/files-view.tsx": {
+      "complexity_critical": {
+        "count": 3
+      },
+      "crap_critical": {
+        "count": 4
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 6
+      }
+    },
+    "apps/web/app/(workspace)/files/share-dialog.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "apps/web/app/(workspace)/files/view/[fileId]/page.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/app/(workspace)/home/home-helpers.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/(workspace)/home/page.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/(workspace)/instance-badge.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/(workspace)/layout.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/app/(workspace)/recent/recent-helpers.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/web/app/(workspace)/recent/recent-view.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 7
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 4
+      }
+    },
+    "apps/web/app/(workspace)/retrieval-item-list.tsx": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/app/(workspace)/search/page.tsx": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/app/(workspace)/settings/page.tsx": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/app/(workspace)/shared/page.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/(workspace)/shared/shared-table.tsx": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/app/(workspace)/topbar-actions.tsx": {
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/(workspace)/transfer-context.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/(workspace)/transfer-panel.tsx": {
+      "complexity_critical": {
+        "count": 3
+      },
+      "crap_critical": {
+        "count": 3
+      }
+    },
+    "apps/web/app/(workspace)/trash/trash-helpers.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/(workspace)/trash/trash-view.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/(workspace)/workspace-action-sheet.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/(workspace)/workspace-item-helpers.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/(workspace)/workspace-storage.tsx": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/app/account/page.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/admin/admin-format.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/admin/jobs/job-operations.tsx": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 4
+      },
+      "crap_high": {
+        "count": 6
+      },
+      "crap_moderate": {
+        "count": 13
+      }
+    },
+    "apps/web/app/admin/jobs/media-derivative-actions.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/admin/jobs/media-derivative-row-actions.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/app/admin/layout.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/admin/page.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/admin/settings/settings-form.tsx": {
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/admin/update-check-console.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/admin/users-admin-console.tsx": {
+      "complexity_high": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 2
+      }
+    },
+    "apps/web/app/admin/users/[userId]/authorized-devices-panel.tsx": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/app/admin/users/[userId]/page.tsx": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/admin/users/[userId]/user-detail-actions.tsx": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/web/app/admin/users/[userId]/user-detail-copy-button.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/admin/users/page.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/admin/integrity/route.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/admin/jobs/[jobId]/cancel/route.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/admin/jobs/[jobId]/retry/route.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/admin/jobs/route.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/web/app/api/admin/jobs/run/route.ts": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/admin/jobs/state/stream/route.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/admin/users/[userId]/password-reset/route.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/admin/users/[userId]/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/admin/users/[userId]/storage-limit/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/admin/users/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/auth/password-change-required/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/auth/setup/route.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/auth/sign-in/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/auth/sign-out/route.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/files/archives/[archiveId]/download/route.ts": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/files/archives/[archiveId]/route.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/files/archives/route.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/files/files/[fileId]/content/route.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/files/files/[fileId]/delete/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/files/files/[fileId]/derivative/route.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/web/app/api/files/files/[fileId]/download/route.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/files/files/[fileId]/favorite/route.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/files/files/[fileId]/move/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/files/files/[fileId]/preview/route.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/files/files/[fileId]/rename/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/files/files/[fileId]/restore/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/files/files/[fileId]/trash/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/files/files/route.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/files/folders/[folderId]/favorite/route.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/files/folders/[folderId]/move/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/files/folders/[folderId]/rename/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/files/folders/[folderId]/restore/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/files/folders/[folderId]/trash/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/files/folders/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/files/trash/clear/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/shares/[shareId]/delete/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/shares/[shareId]/password/route.ts": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/shares/[shareId]/revoke/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/shares/[shareId]/update/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/shares/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/uploads/sessions/[id]/complete/route.ts": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/uploads/sessions/[id]/route.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/uploads/sessions/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/api/user/preferences/route.ts": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/app/dashboard-context-menu.tsx": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "apps/web/app/item-context-menu.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/item-visuals.ts": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/app/layout.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/page.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/s/[token]/content/route.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/s/[token]/f/[folderId]/page.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/s/[token]/files/[fileId]/content/route.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/s/[token]/files/[fileId]/page.tsx": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/app/s/[token]/files/[fileId]/poster/route.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/s/[token]/files/[fileId]/preview/route.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/s/[token]/page.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/s/[token]/poster/route.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/s/[token]/preview/route.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/s/[token]/unlock/route.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/s/poster-response.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/app/s/share-audio-player.tsx": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/app/s/share-view.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/components/public/entry-experience.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/components/public/entry-shell.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/components/public/onboarding-experience.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/web/components/public/password-change-experience.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/components/public/silk-background.tsx": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/components/time-zone-picker.tsx": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 6
+      }
+    },
+    "apps/web/components/ui/dialog.tsx": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/web/lib/env.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/web/lib/transfers/download.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/lib/transfers/file-checksum.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/lib/transfers/request-queue.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/proxy.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/scripts/e2e-bootstrap.mjs": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/server/admin/integrity.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/server/admin/jobs.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/server/admin/updates.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/server/auth/crypto.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/server/auth/http.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/server/auth/repository.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/web/server/auth/schema.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/server/auth/service.ts": {
+      "crap_high": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/web/server/auth/session.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/server/downloads/range-response.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/server/files/repository.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/web/server/files/service.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 5
+      },
+      "crap_moderate": {
+        "count": 7
+      }
+    },
+    "apps/web/server/files/storage-layout.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/server/health.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/web/server/media/content-response.ts": {
+      "crap_critical": {
+        "count": 2
+      }
+    },
+    "apps/web/server/media/derivative-content-response.ts": {
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/web/server/restore.ts": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "apps/web/server/retrieval/service.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/server/search.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/server/settings.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/server/sharing/access-cookie.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/server/sharing/metadata.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 4
+      }
+    },
+    "apps/web/server/sharing/repository.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/web/server/sharing/schema.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/server/sharing/service.ts": {
+      "complexity_critical": {
+        "count": 2
+      },
+      "crap_critical": {
+        "count": 3
+      },
+      "crap_high": {
+        "count": 5
+      },
+      "crap_moderate": {
+        "count": 7
+      }
+    },
+    "apps/web/server/storage-mutations.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/web/server/uploads.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/worker/src/ffmpeg.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/worker/src/handlers/media-derivative-cleanup.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "apps/worker/src/handlers/media-derivative.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/worker/src/handlers/restore-reconciliation.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/worker/src/handlers/trash-retention.ts": {
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/worker/src/handlers/update-check.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/worker/src/handlers/zip-archive-cleanup.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/worker/src/handlers/zip-archive.ts": {
+      "complexity_critical": {
+        "count": 1
+      },
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/worker/src/job-registry.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "apps/worker/src/runner.ts": {
+      "crap_critical": {
+        "count": 2
+      },
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/worker/src/storage-maintenance.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "packages/db/src/admin.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 3
+      }
+    },
+    "packages/db/src/health.ts": {
+      "crap_critical": {
+        "count": 1
+      }
+    },
+    "packages/db/src/instance.ts": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "packages/db/src/jobs.ts": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "packages/db/src/reconciliation.ts": {
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "packages/db/src/viewer-contract.ts": {
+      "crap_high": {
+        "count": 1
+      }
+    },
+    "scripts/clear-caches.mjs": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "scripts/migrate-user-storage-ids.mjs": {
+      "crap_critical": {
+        "count": 1
+      },
+      "crap_high": {
+        "count": 1
+      },
+      "crap_moderate": {
+        "count": 2
+      }
+    },
+    "scripts/reset-local-data.mjs": {
+      "crap_moderate": {
+        "count": 1
+      }
+    }
+  },
+  "runtime_coverage_findings": [],
+  "target_keys": [
+    "apps/web/server/sharing/index.ts:dead code",
+    "apps/web/app/admin/admin-format.ts:complexity",
+    "apps/web/server/auth/service.ts:dead code",
+    "apps/web/server/access.ts:dead code",
+    "apps/web/app/(workspace)/layout.tsx:complexity",
+    "apps/web/server/restore.ts:dead code",
+    "apps/worker/src/handlers/restore-reconciliation.ts:dead code",
+    "apps/web/app/(workspace)/files/files-view.tsx:complexity",
+    "apps/web/app/(workspace)/files/files-row.tsx:complexity",
+    "apps/web/app/(workspace)/home/home-helpers.ts:untested risk",
+    "apps/web/app/(workspace)/recent/recent-view.tsx:complexity",
+    "apps/worker/src/handlers/media-derivative.ts:complexity",
+    "apps/web/app/(workspace)/favorites/favorites-view.tsx:complexity",
+    "apps/web/app/admin/jobs/job-operations.tsx:complexity",
+    "apps/worker/src/handlers/zip-archive.ts:complexity",
+    "apps/web/app/(workspace)/transfer-context.tsx:complexity",
+    "apps/web/components/public/onboarding-experience.tsx:complexity",
+    "apps/web/components/time-zone-picker.tsx:complexity"
+  ]
+}

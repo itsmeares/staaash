@@ -38,7 +38,9 @@ playwright-report/
 .stylelintcache
 .parcel-cache/
 .vite/
-.fallow/
+.fallow/*
+!.fallow/baselines/
+!.fallow/baselines/health.json
 
 # OS and editor noise
 .DS_Store

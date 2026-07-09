@@ -12,6 +12,7 @@ import {
 } from "@/server/auth/http";
 import { getRequestSession } from "@/server/auth/guards";
 import { getShareBaseUrl } from "@/server/request";
+import { toManagedShareView } from "@/server/sharing/mutation-response";
 import { createShareSchema } from "@/server/sharing/schema";
 import { sharingService } from "@/server/sharing/service";
 
@@ -62,8 +63,7 @@ export async function POST(request: NextRequest) {
     return wantsJson(request)
       ? NextResponse.json(
           {
-            share: result.share,
-            shareUrl: result.shareUrl,
+            share: toManagedShareView(result.share, result.shareUrl),
           },
           { status: body.mode === "reissue" ? 200 : 201 },
         )

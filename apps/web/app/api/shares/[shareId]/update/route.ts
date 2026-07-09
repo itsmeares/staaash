@@ -11,6 +11,7 @@ import {
   wantsJson,
 } from "@/server/auth/http";
 import { getRequestSession } from "@/server/auth/guards";
+import { toManagedShareView } from "@/server/sharing/mutation-response";
 import { updateShareSchema } from "@/server/sharing/schema";
 import { sharingService } from "@/server/sharing/service";
 
@@ -54,7 +55,7 @@ export async function POST(
     });
 
     return wantsJson(request)
-      ? NextResponse.json({ share })
+      ? NextResponse.json({ share: toManagedShareView(share) })
       : redirectWithMessage(
           request,
           redirectTo,

@@ -18,7 +18,14 @@ overrides:
 importers:
 
   .:
+    dependencies:
+      pg:
+        specifier: ^8.22.0
+        version: 8.22.0
     devDependencies:
+      fallow:
+        specifier: 3.3.0
+        version: 3.3.0
       husky:
         specifier: 9.1.7
         version: 9.1.7
@@ -122,9 +129,6 @@ importers:
       '@types/yazl':
         specifier: ^3.3.1
         version: 3.3.1
-      pg:
-        specifier: ^8.22.0
-        version: 8.22.0
       tailwindcss:
         specifier: ^4.3.1
         version: 4.3.1
@@ -578,6 +582,46 @@ packages:
   '@esbuild/win32-x64@0.28.1':
     resolution: {integrity: sha512-bm4Mowrv+GXMlpWX++EcXw/iLyd1o3+bJkC2DkWXYVvgZCqD/bSj9ctZeAMC3cIxgjRVR2Dufaiu4YPxr5gW1A==}
     engines: {node: '>=18'}
+    cpu: [x64]
+    os: [win32]
+
+  '@fallow-cli/darwin-arm64@3.3.0':
+    resolution: {integrity: sha512-QAABM8MzV9P5JCJZHnenxTosqjuWur+w+owlS3cIrG4LqHRPSW1/4C2wJ5z1Q7vKIe4f+O2TuW2yOLwExFrDyQ==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@fallow-cli/darwin-x64@3.3.0':
+    resolution: {integrity: sha512-jc5k6nWfDwF8DW0+3m8BNWAFu7l0K6sIkDtPN/IlYvw3iNgBhYyAJlzsugTppuBNvbL2QisqOaa0h4lehdJmJA==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@fallow-cli/linux-arm64-gnu@3.3.0':
+    resolution: {integrity: sha512-AhOo9+L20GOeljbzK5kgrjv/BXP7esvR2jEpcg2p1PgkbY2NB23jFfEEJGdWsL0kf4V6Gyq3adtTieLSDFJ3YQ==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@fallow-cli/linux-arm64-musl@3.3.0':
+    resolution: {integrity: sha512-bG/6fD1jMf7x0XOkDyKSSGB3RYCIbZIXjpCyrmFm7icAMJBpZbD6v+JsEjnHezsBox83AduT9GKL6jDEhUlpOQ==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@fallow-cli/linux-x64-gnu@3.3.0':
+    resolution: {integrity: sha512-N29jZebN880Vgl2MGFlykiBM+jdy95sEJNwBVIjp4HnvWDvr5IavDsPI6bW4eTy8ccij4OJ12IRUlouBtR4cZQ==}
+    cpu: [x64]
+    os: [linux]
+
+  '@fallow-cli/linux-x64-musl@3.3.0':
+    resolution: {integrity: sha512-4I9X01ZpBTSPBZFpI5V1fogu6AGKyF4FsmA5bStop3jnes9kmJlxjSCCCaaO9gLUGZ6Lfh8/j7vu2AN1uNPY8A==}
+    cpu: [x64]
+    os: [linux]
+
+  '@fallow-cli/win32-arm64-msvc@3.3.0':
+    resolution: {integrity: sha512-ATaWkzs9+jO+AZYDv5LhTnIuv4qzLjI5l7gGWNWrp7frPWe737w7IgDXnxeQNmmNds5NygKYYMUxS6VoLANUnw==}
+    cpu: [arm64]
+    os: [win32]
+
+  '@fallow-cli/win32-x64-msvc@3.3.0':
+    resolution: {integrity: sha512-u1SVmKFJeSZyfIKjX85sZ7C+GQe/0TcXSaanD5cdFM9GVmEXrHa4cGFjtQVh7u6Up34iSmYXCNJi0DdUkIvhJA==}
     cpu: [x64]
     os: [win32]
 
@@ -1972,6 +2016,11 @@ packages:
 
   exsolve@1.0.8:
     resolution: {integrity: sha512-LmDxfWXwcTArk8fUEnOfSZpHOJ6zOMUJKOtFLFqJLoKJetuQG874Uc7/Kki7zFLzYybmZhp1M7+98pfMqeX8yA==}
+
+  fallow@3.3.0:
+    resolution: {integrity: sha512-R26TBsoJaZw3hUN1FD8HlLfU4peTwxgED7aMh5ho7H4U/LqgZsxCQmchljCQp9J8kpvI1EtUINvOSp6woXtvRw==}
+    engines: {node: '>=16'}
+    hasBin: true
 
   fast-check@3.23.2:
     resolution: {integrity: sha512-h5+1OzzfCC3Ef7VbtKdcv7zsstUQwUDlYpUTvjeUsJAssPgLn7QzbboPtL5ro04Mq0rPOsMzl7q5hIbRs2wD1A==}
@@ -3818,6 +3867,30 @@ snapshots:
   '@esbuild/win32-x64@0.28.1':
     optional: true
 
+  '@fallow-cli/darwin-arm64@3.3.0':
+    optional: true
+
+  '@fallow-cli/darwin-x64@3.3.0':
+    optional: true
+
+  '@fallow-cli/linux-arm64-gnu@3.3.0':
+    optional: true
+
+  '@fallow-cli/linux-arm64-musl@3.3.0':
+    optional: true
+
+  '@fallow-cli/linux-x64-gnu@3.3.0':
+    optional: true
+
+  '@fallow-cli/linux-x64-musl@3.3.0':
+    optional: true
+
+  '@fallow-cli/win32-arm64-msvc@3.3.0':
+    optional: true
+
+  '@fallow-cli/win32-x64-msvc@3.3.0':
+    optional: true
+
   '@floating-ui/core@1.7.5':
     dependencies:
       '@floating-ui/utils': 0.2.11
@@ -4990,6 +5063,19 @@ snapshots:
       - supports-color
 
   exsolve@1.0.8: {}
+
+  fallow@3.3.0:
+    dependencies:
+      detect-libc: 2.1.2
+    optionalDependencies:
+      '@fallow-cli/darwin-arm64': 3.3.0
+      '@fallow-cli/darwin-x64': 3.3.0
+      '@fallow-cli/linux-arm64-gnu': 3.3.0
+      '@fallow-cli/linux-arm64-musl': 3.3.0
+      '@fallow-cli/linux-x64-gnu': 3.3.0
+      '@fallow-cli/linux-x64-musl': 3.3.0
+      '@fallow-cli/win32-arm64-msvc': 3.3.0
+      '@fallow-cli/win32-x64-msvc': 3.3.0
 
   fast-check@3.23.2:
     dependencies:

@@ -12,13 +12,13 @@ export const getUserStorageUsed = async (
   userId: string,
 ): Promise<UserStorageUsage> => {
   const client = getPrisma();
-  const result = await (client.file as any).aggregate({
+  const result = await client.file.aggregate({
     where: { ownerUserId: userId },
     _sum: { sizeBytes: true },
   });
 
   return {
-    usedBytes: (result._sum.sizeBytes as bigint | null) ?? 0n,
+    usedBytes: result._sum.sizeBytes ?? 0n,
   };
 };
 
@@ -46,11 +46,11 @@ export const assertUserStorageQuotaAvailable = async (
 // fallow-ignore-next-line unused-export
 export const getInstanceStorageUsed = async (): Promise<bigint> => {
   const client = getPrisma();
-  const result = await (client.file as any).aggregate({
+  const result = await client.file.aggregate({
     _sum: { sizeBytes: true },
   });
 
-  return (result._sum.sizeBytes as bigint | null) ?? 0n;
+  return result._sum.sizeBytes ?? 0n;
 };
 
 export type DiskInfo = {
