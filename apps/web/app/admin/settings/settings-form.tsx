@@ -12,14 +12,21 @@ import { SearchIcon } from "lucide-react";
 
 import type { SystemSettings } from "@staaash/db/client";
 
-import { formatAdminBytes } from "@/app/admin/admin-format";
+import {
+  formatAdminBytes,
+  formatAdminDateTime,
+  getAdminStatusClassName,
+} from "@/app/admin/admin-format";
 import { SettingsPanel } from "@/components/settings-panel";
 import { TimeZonePicker } from "@/components/time-zone-picker";
+import type { JsonAdminUpdateStatus } from "@/server/admin/types";
 
 import { updateSystemSettings } from "./actions";
+import { UpdateCheckConsole } from "../update-check-console";
 
 type SettingsFormProps = {
   settings: SystemSettings;
+  updateStatus: JsonAdminUpdateStatus;
 };
 
 type SettingRowProps = {
@@ -36,7 +43,7 @@ type SettingsNumberInputProps = Omit<
   defaultValue: number | string | bigint;
 };
 
-export function SettingsForm({ settings }: SettingsFormProps) {
+export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
   const [state, action, pending] = useActionState(updateSystemSettings, {});
   const [searchQuery, setSearchQuery] = useState("");
   const normalizedSearch = searchQuery.trim().toLowerCase();
@@ -191,10 +198,40 @@ export function SettingsForm({ settings }: SettingsFormProps) {
 
         <SettingsPanel
           title="Update checks"
-          description="Repository source and release check interval"
+          description="Repository source, cadence, and release status"
           hidden={!visiblePanels.updates}
         >
-          <dl className="settings-list">
+          <dl className="settings-list settings-update-list">
+            <SettingRow label="Current version">
+              <span className="settings-row-value-text">
+                {updateStatus.currentVersion ?? "n/a"}
+              </span>
+            </SettingRow>
+            <SettingRow label="Latest published">
+              <span className="settings-row-value-text">
+                {updateStatus.latestAvailableVersion ?? "n/a"}
+              </span>
+            </SettingRow>
+            <SettingRow label="Check status">
+              <span
+                className={getAdminStatusClassName(
+                  updateStatus.updateCheckStatus ?? "error",
+                )}
+              >
+                {updateStatus.updateCheckStatus ?? "not checked"}
+              </span>
+            </SettingRow>
+            <SettingRow label="Last checked">
+              <span className="settings-row-value-text">
+                {formatAdminDateTime(updateStatus.lastUpdateCheckAt)}
+              </span>
+            </SettingRow>
+            <SettingRow label="Last message">
+              <span className="settings-row-value-text">
+                {updateStatus.updateCheckMessage ??
+                  "No update check has run yet."}
+              </span>
+            </SettingRow>
             <SettingRow label="Repository">
               <input
                 name="updateCheckRepository"
@@ -213,6 +250,9 @@ export function SettingsForm({ settings }: SettingsFormProps) {
               />
             </SettingRow>
           </dl>
+          <div className="settings-update-console">
+            <UpdateCheckConsole />
+          </div>
           <SettingsPanelActions pending={pending} state={state} />
         </SettingsPanel>
 

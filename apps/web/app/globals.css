@@ -11198,3 +11198,1025 @@ main.share-locked-page {
     transform: none;
   }
 }
+
+/* ---- Admin polish: overview, storage, derivatives ---- */
+.admin-overview-page,
+.admin-storage-page {
+  display: grid;
+  width: min(1180px, 100%);
+  margin-inline: auto;
+  gap: 28px;
+}
+
+.admin-storage-table-wrap {
+  overflow-x: auto;
+  border: 1px solid color-mix(in oklab, var(--foreground) 9%, transparent);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--card) 94%, var(--background) 6%);
+}
+
+.admin-storage-table {
+  width: 100%;
+  min-width: 780px;
+  border-collapse: collapse;
+}
+
+.admin-storage-table th,
+.admin-storage-table td {
+  padding: 15px 16px;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 7%, transparent);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.admin-storage-table th {
+  background: color-mix(in oklab, var(--foreground) 4%, transparent);
+  color: color-mix(in oklab, var(--foreground) 72%, var(--muted-foreground));
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.admin-storage-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.admin-storage-table tbody tr:hover td {
+  background: color-mix(in oklab, var(--primary) 6%, transparent);
+}
+
+.admin-storage-user {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-storage-user strong {
+  overflow: hidden;
+  color: var(--foreground);
+  font-size: 0.9rem;
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-storage-user span,
+.admin-storage-counts {
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.admin-storage-usage {
+  display: grid;
+  gap: 7px;
+  min-width: 160px;
+}
+
+.admin-storage-usage strong {
+  font-size: 0.9rem;
+  font-weight: 740;
+}
+
+.admin-storage-usage > span {
+  position: relative;
+  overflow: hidden;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--foreground) 8%, transparent);
+}
+
+.admin-storage-usage > span::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--admin-storage-usage);
+  border-radius: inherit;
+  background: color-mix(in oklab, var(--primary) 62%, var(--foreground) 18%);
+  content: "";
+}
+
+.admin-derivative-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-derivative-note {
+  margin: 0;
+  border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: color-mix(in oklab, var(--foreground) 4%, transparent);
+  color: var(--muted-foreground);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.admin-derivative-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.85fr) minmax(260px, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  border-radius: 8px;
+  padding: 12px;
+  background: color-mix(in oklab, var(--card) 92%, var(--background) 8%);
+}
+
+.admin-derivative-row-compact {
+  grid-template-columns: 1fr;
+}
+
+.admin-derivative-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.admin-derivative-title {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-derivative-title strong,
+.admin-derivative-title small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-derivative-title strong {
+  color: var(--foreground);
+  font-size: 0.86rem;
+  font-weight: 760;
+}
+
+.admin-derivative-title small,
+.admin-derivative-meta,
+.admin-derivative-message {
+  color: var(--muted-foreground);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.admin-derivative-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px 10px;
+}
+
+.admin-derivative-message {
+  grid-column: 1 / -1;
+  margin: 0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: color-mix(in oklab, var(--destructive) 8%, transparent);
+  color: color-mix(in oklab, var(--destructive) 76%, var(--foreground));
+}
+
+.admin-derivative-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.admin-derivative-actions .admin-jobs-button {
+  min-height: 34px;
+  padding-inline: 10px;
+  font-size: 0.76rem;
+}
+
+.admin-derivative-error {
+  align-self: center;
+  color: color-mix(in oklab, var(--destructive) 82%, var(--foreground));
+  font-size: 0.76rem;
+  font-weight: 760;
+}
+
+.settings-row-value-text {
+  color: color-mix(in oklab, var(--foreground) 82%, transparent);
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+
+.settings-update-console {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.settings-update-console .stack {
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.settings-update-console .button {
+  min-height: 40px;
+}
+
+.admin-users-table td,
+.admin-users-table tbody tr:nth-child(even) td {
+  background: color-mix(in oklab, var(--card) 90%, var(--background) 10%);
+}
+
+.admin-users-table tbody tr:hover td {
+  background: color-mix(in oklab, var(--primary) 6%, var(--card));
+}
+
+@media (max-width: 1020px) {
+  .admin-derivative-row {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-derivative-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-main > main.admin-main-content:has(.admin-overview-page),
+  .admin-main > main.admin-main-content:has(.admin-storage-page) {
+    padding: 28px 16px 60px;
+  }
+
+  .admin-overview-page,
+  .admin-storage-page {
+    gap: 18px;
+  }
+
+  .admin-storage-table-wrap {
+    margin-inline: -6px;
+  }
+
+  .settings-update-console,
+  .settings-update-console .stack {
+    align-items: stretch;
+    justify-content: stretch;
+  }
+}
+
+/* ---- Admin correction: compact ops layout ---- */
+.admin-overview-page,
+.admin-storage-page {
+  width: min(1120px, 100%);
+  gap: 16px;
+}
+
+.admin-ops-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 8%, transparent);
+}
+
+.admin-ops-header h1 {
+  margin: 0;
+  font-family: var(--font-switzer), "Segoe UI", sans-serif;
+  font-size: 1.55rem;
+  font-weight: 760;
+  letter-spacing: 0;
+  line-height: 1.1;
+}
+
+.admin-ops-header p {
+  max-width: 64ch;
+  margin: 5px 0 0;
+  color: var(--muted-foreground);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.admin-ops-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-ops-header-actions a,
+.admin-overview-rail-card a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: color-mix(in oklab, var(--foreground) 4%, transparent);
+  color: var(--foreground);
+  font-size: 0.8rem;
+  font-weight: 740;
+  text-decoration: none;
+}
+
+.admin-ops-header-actions a:hover,
+.admin-overview-rail-card a:hover {
+  background: color-mix(in oklab, var(--primary) 9%, transparent);
+  color: color-mix(in oklab, var(--primary) 78%, var(--foreground));
+}
+
+.admin-overview-status-grid,
+.admin-storage-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-overview-status-card,
+.admin-storage-card,
+.admin-storage-total-compact {
+  display: grid;
+  min-width: 0;
+  min-height: 92px;
+  align-content: start;
+  gap: 7px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  border-radius: 8px;
+  padding: 13px 14px;
+  background: color-mix(in oklab, var(--card) 92%, var(--background) 8%);
+  color: inherit;
+  text-decoration: none;
+}
+
+.admin-overview-status-card:hover {
+  border-color: color-mix(in oklab, var(--primary) 24%, transparent);
+  background: color-mix(in oklab, var(--primary) 6%, var(--card));
+}
+
+.admin-overview-status-card span,
+.admin-storage-card span,
+.admin-storage-total-compact span {
+  color: var(--muted-foreground);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.admin-overview-status-card strong,
+.admin-storage-card strong,
+.admin-storage-total-compact strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--foreground);
+  font-family: var(--font-cabinet), var(--font-switzer), sans-serif;
+  font-size: 1.45rem;
+  font-weight: 760;
+  letter-spacing: 0;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-overview-status-card small {
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-overview-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 290px;
+  align-items: start;
+  gap: 14px;
+}
+
+.admin-overview-health-panel,
+.admin-overview-rail-card,
+.admin-storage-matrix {
+  display: grid;
+  gap: 12px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  border-radius: 8px;
+  padding: 14px;
+  background: color-mix(in oklab, var(--card) 94%, var(--background) 6%);
+}
+
+.admin-overview-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.admin-overview-panel-head h2 {
+  margin: 0;
+  color: var(--foreground);
+  font-family: var(--font-switzer), "Segoe UI", sans-serif;
+  font-size: 0.98rem;
+  font-weight: 760;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.admin-overview-panel-head p {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.admin-overview-health-list {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--foreground) 6%, transparent);
+  border-radius: 8px;
+}
+
+.admin-overview-health-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.32fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 9px 11px;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 6%, transparent);
+}
+
+.admin-overview-health-row:last-child {
+  border-bottom: 0;
+}
+
+.admin-overview-health-name {
+  color: var(--foreground);
+  font-size: 0.82rem;
+  font-weight: 720;
+}
+
+.admin-overview-health-message {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-overview-rail {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-overview-rail-card dl {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.admin-overview-rail-card dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 6%, transparent);
+}
+
+.admin-overview-rail-card dl div:last-child {
+  border-bottom: 0;
+}
+
+.admin-overview-rail-card dt,
+.admin-overview-rail-card p {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.admin-overview-rail-card dd {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 0.85rem;
+  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-overview-rail-card a {
+  justify-self: start;
+}
+
+.admin-storage-total-compact {
+  min-height: 0;
+  min-width: 190px;
+  justify-self: end;
+}
+
+.admin-storage-total-compact strong {
+  font-size: 1.3rem;
+}
+
+.admin-storage-card {
+  min-height: 78px;
+}
+
+.admin-storage-card strong {
+  font-size: 1.35rem;
+}
+
+.admin-storage-matrix {
+  padding: 14px;
+}
+
+@media (max-width: 1020px) {
+  .admin-overview-workbench {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-overview-rail {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-overview-status-grid,
+  .admin-storage-cards,
+  .admin-overview-rail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-overview-health-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .admin-overview-health-message {
+    grid-column: 1 / -1;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-ops-header {
+    display: grid;
+  }
+
+  .admin-ops-header-actions {
+    justify-content: stretch;
+  }
+
+  .admin-ops-header-actions a {
+    flex: 1;
+  }
+
+  .admin-storage-total-compact {
+    justify-self: stretch;
+  }
+
+  .admin-overview-status-grid,
+  .admin-storage-cards,
+  .admin-overview-rail {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---- Admin correction: readable 100% zoom scale ---- */
+.admin-overview-page,
+.admin-storage-page,
+.admin-users-page {
+  width: min(1420px, 100%);
+}
+
+.admin-overview-page,
+.admin-storage-page {
+  gap: 20px;
+}
+
+.admin-users-page {
+  gap: 24px;
+}
+
+.admin-ops-header,
+.admin-users-head {
+  gap: 24px;
+  padding-bottom: 20px;
+}
+
+.admin-ops-header h1,
+.admin-users-head h1 {
+  font-size: 1.95rem;
+  line-height: 1.08;
+}
+
+.admin-ops-header p,
+.admin-users-head p {
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.admin-ops-header-actions a,
+.admin-overview-rail-card a {
+  min-height: 44px;
+  padding-inline: 16px;
+  font-size: 0.95rem;
+}
+
+.admin-overview-page .status-chip,
+.admin-storage-page .status-chip,
+.admin-users-page .status-chip {
+  min-height: 26px;
+  padding-inline: 11px;
+  font-size: 0.84rem;
+}
+
+.admin-overview-status-grid,
+.admin-storage-cards {
+  gap: 14px;
+}
+
+.admin-overview-status-card,
+.admin-storage-card,
+.admin-storage-total-compact {
+  min-height: 116px;
+  gap: 9px;
+  padding: 18px 20px;
+}
+
+.admin-overview-status-card span,
+.admin-storage-card span,
+.admin-storage-total-compact span {
+  font-size: 0.8rem;
+}
+
+.admin-overview-status-card strong,
+.admin-storage-card strong,
+.admin-storage-total-compact strong {
+  font-size: 1.8rem;
+}
+
+.admin-overview-status-card small {
+  font-size: 0.92rem;
+}
+
+.admin-overview-workbench {
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 18px;
+}
+
+.admin-overview-health-panel,
+.admin-overview-rail-card,
+.admin-storage-matrix {
+  gap: 15px;
+  padding: 18px;
+}
+
+.admin-overview-panel-head h2 {
+  font-size: 1.18rem;
+}
+
+.admin-overview-panel-head p {
+  font-size: 0.92rem;
+}
+
+.admin-overview-health-row {
+  grid-template-columns: minmax(190px, 0.32fr) auto minmax(0, 1fr);
+  min-height: 62px;
+  gap: 14px;
+  padding: 13px 15px;
+}
+
+.admin-overview-health-name {
+  font-size: 0.98rem;
+}
+
+.admin-overview-health-message {
+  font-size: 0.95rem;
+}
+
+.admin-overview-rail {
+  gap: 14px;
+}
+
+.admin-overview-rail-card dl div {
+  padding-block: 10px;
+}
+
+.admin-overview-rail-card dt,
+.admin-overview-rail-card p {
+  font-size: 0.95rem;
+}
+
+.admin-overview-rail-card dd {
+  font-size: 1rem;
+}
+
+.admin-storage-total-compact {
+  min-width: 230px;
+}
+
+.admin-storage-card {
+  min-height: 104px;
+}
+
+.admin-storage-card strong,
+.admin-storage-total-compact strong {
+  font-size: 1.7rem;
+}
+
+.admin-storage-table {
+  min-width: 920px;
+}
+
+.admin-storage-table th,
+.admin-storage-table td {
+  padding: 18px 20px;
+  font-size: 0.98rem;
+}
+
+.admin-storage-table th {
+  font-size: 0.86rem;
+}
+
+.admin-storage-user strong,
+.admin-storage-usage strong {
+  font-size: 1.05rem;
+}
+
+.admin-storage-user span,
+.admin-storage-counts {
+  font-size: 0.95rem;
+}
+
+.admin-storage-usage {
+  min-width: 190px;
+  gap: 9px;
+}
+
+.admin-storage-usage > span {
+  height: 7px;
+}
+
+.admin-users-head {
+  align-items: center;
+}
+
+.admin-users-panel {
+  gap: 14px;
+}
+
+.admin-users-table {
+  border-spacing: 0 12px;
+}
+
+.admin-users-table th {
+  padding: 18px 22px;
+  font-size: 1rem;
+}
+
+.admin-users-table td {
+  padding: 22px;
+  font-size: 1rem;
+  line-height: 1.42;
+}
+
+.admin-user-name-cell {
+  gap: 6px;
+}
+
+.admin-user-name-cell a {
+  font-size: 1.04rem;
+}
+
+.admin-user-row-note {
+  font-size: 0.92rem;
+}
+
+.admin-user-quota-cell {
+  font-size: 1.25rem;
+}
+
+.admin-users-count {
+  font-size: 0.92rem;
+}
+
+.admin-user-row-menu summary {
+  width: 42px;
+  height: 42px;
+}
+
+.admin-user-menu-panel {
+  min-width: 206px;
+  padding: 8px;
+}
+
+.admin-user-menu-panel a,
+.admin-user-menu-panel button {
+  min-height: 38px;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 1020px) {
+  .admin-overview-workbench {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-overview-rail {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-ops-header h1,
+  .admin-users-head h1 {
+    font-size: 1.7rem;
+  }
+
+  .admin-overview-status-card,
+  .admin-storage-card,
+  .admin-storage-total-compact {
+    min-height: 100px;
+    padding: 16px;
+  }
+
+  .admin-overview-health-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    min-height: 58px;
+  }
+
+  .admin-overview-health-message {
+    grid-column: 1 / -1;
+    white-space: normal;
+  }
+}
+
+/* ---- Admin correction: centered users management surface ---- */
+.admin-users-route {
+  gap: 28px;
+}
+
+.admin-users-page,
+.admin-users-pagination {
+  width: min(1180px, 100%);
+  margin-inline: auto;
+}
+
+.admin-users-page {
+  gap: 22px;
+}
+
+.admin-users-head {
+  align-items: end;
+  gap: 28px;
+  padding-bottom: 18px;
+}
+
+.admin-users-head h1 {
+  margin-bottom: 8px;
+  font-size: 2rem;
+}
+
+.admin-users-head .button {
+  min-height: 44px;
+  padding-inline: 18px;
+  white-space: nowrap;
+}
+
+.admin-users-panel {
+  gap: 16px;
+}
+
+.admin-users-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-users-summary-card {
+  min-height: 92px;
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--card) 88%, var(--background) 12%);
+}
+
+.admin-users-summary-card span {
+  color: color-mix(in oklab, var(--muted-foreground) 86%, var(--foreground));
+  font-size: 0.86rem;
+  font-weight: 720;
+}
+
+.admin-users-summary-card strong {
+  color: var(--foreground);
+  font-size: 1.5rem;
+  line-height: 1;
+  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-users-summary-card p {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.92rem;
+  line-height: 1.38;
+}
+
+.admin-users-panel .table-wrap {
+  overflow-x: auto;
+  border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--card) 90%, var(--background) 10%);
+}
+
+.admin-users-table {
+  min-width: 820px;
+  border-spacing: 0;
+}
+
+.admin-users-table th {
+  padding: 16px 20px;
+  border: 0;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 8%, transparent);
+  border-radius: 0;
+  background: color-mix(in oklab, var(--card) 74%, var(--foreground) 8%);
+  font-size: 0.95rem;
+}
+
+.admin-users-table th:first-child,
+.admin-users-table th:last-child,
+.admin-users-table td:first-child,
+.admin-users-table td:last-child {
+  border-radius: 0;
+}
+
+.admin-users-table td {
+  padding: 20px;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 6%, transparent);
+  background: transparent;
+  font-size: 1rem;
+  line-height: 1.42;
+}
+
+.admin-users-table tbody tr:nth-child(even) td {
+  background: transparent;
+}
+
+.admin-users-table tbody tr:hover td {
+  background: color-mix(in oklab, var(--primary) 5%, var(--card));
+}
+
+.admin-users-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.admin-users-table th:last-child,
+.admin-users-table td:last-child {
+  padding-right: 16px;
+  padding-left: 12px;
+  text-align: right;
+}
+
+.admin-users-count {
+  padding-inline: 2px;
+}
+
+.admin-users-pagination {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 900px) {
+  .admin-users-summary-strip {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-users-page,
+  .admin-users-pagination {
+    width: 100%;
+  }
+
+  .admin-users-head {
+    align-items: stretch;
+    display: grid;
+    gap: 16px;
+  }
+
+  .admin-users-head .button {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .admin-users-summary-card {
+    min-height: 0;
+  }
+}

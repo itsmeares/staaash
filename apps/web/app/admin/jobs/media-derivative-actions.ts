@@ -6,15 +6,20 @@ import { revalidatePath } from "next/cache";
 
 import { getPrisma } from "@staaash/db/client";
 import {
-  scheduleDerivativeGenerate,
-  markDerivativeStale,
   buildDerivativeDedupeKey,
   DERIVATIVE_KIND_PREVIEW,
   DERIVATIVE_PROFILE_1080P,
+  markDerivativeStale,
+  scheduleDerivativeGenerate,
 } from "@staaash/db/media-derivatives";
 
 import { requireOwnerPageSession } from "@/server/auth/guards";
 import { getStoragePath } from "@/server/storage";
+
+const revalidateDerivativeViews = () => {
+  revalidatePath("/admin/jobs");
+  revalidatePath("/admin");
+};
 
 export async function regenerateDerivative(
   _prevState: { error?: string; success?: boolean },
@@ -34,7 +39,7 @@ export async function regenerateDerivative(
       profile: DERIVATIVE_PROFILE_1080P,
       reason: "manual-regenerate",
     });
-    revalidatePath("/admin/media");
+    revalidateDerivativeViews();
     return { success: true };
   } catch {
     return { error: "Failed to schedule regeneration." };
@@ -60,7 +65,7 @@ export async function setPinDerivative(
     data: { pinnedByAdmin: pinned },
   });
 
-  revalidatePath("/admin/media");
+  revalidateDerivativeViews();
   return { success: true };
 }
 
@@ -79,8 +84,9 @@ export async function cancelDerivative(
     select: { fileId: true, status: true },
   });
   if (!derivative) return { error: "Derivative not found." };
-  if (derivative.status !== "queued" && derivative.status !== "processing")
+  if (derivative.status !== "queued" && derivative.status !== "processing") {
     return { error: "Only queued or processing derivatives can be cancelled." };
+  }
 
   const dedupeKey = buildDerivativeDedupeKey(
     derivative.fileId,
@@ -94,9 +100,6 @@ export async function cancelDerivative(
       data: { status: "dead", lastError: "Cancelled by admin." },
     });
   } else {
-    // Mark the running job dead immediately so:
-    // 1. The UI shows "dead" without waiting for the worker
-    // 2. The job can't be re-claimed after its 60s lease expires
     await db.backgroundJob.updateMany({
       where: { dedupeKey, status: "running" },
       data: {
@@ -109,7 +112,7 @@ export async function cancelDerivative(
   }
 
   await markDerivativeStale(id);
-  revalidatePath("/admin/media");
+  revalidateDerivativeViews();
   return { success: true };
 }
 
@@ -135,7 +138,6 @@ export async function removeDerivative(
   }
 
   await markDerivativeStale(id);
-
-  revalidatePath("/admin/media");
+  revalidateDerivativeViews();
   return { success: true };
 }

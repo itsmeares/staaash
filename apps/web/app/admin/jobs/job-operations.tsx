@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -13,7 +14,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { formatAdminDateTime } from "@/app/admin/admin-format";
+import {
+  formatAdminBytes,
+  formatAdminDateTime,
+} from "@/app/admin/admin-format";
+import type {
+  JsonAdminMediaDerivativeRow,
+  JsonAdminMediaDerivativeSummary,
+} from "@/server/admin/media-derivatives";
+
+import {
+  MediaDerivativeRowActions,
+  type MediaDerivativeAction,
+} from "./media-derivative-row-actions";
 
 export type JsonBackgroundJob = {
   id: string;
@@ -126,6 +139,14 @@ const HISTORY_VISIBLE_RUNS = 12;
 const ACTIVITY_PAGE_SIZE = 25;
 
 type ActivityFilter = "all" | "active" | "failed" | "done";
+type ActivityView = "jobs" | "derivatives";
+
+type MediaDerivativeActions = {
+  regenerateDerivative: MediaDerivativeAction;
+  setPinDerivative: MediaDerivativeAction;
+  removeDerivative: MediaDerivativeAction;
+  cancelDerivative: MediaDerivativeAction;
+};
 
 type JsonJobListResponse = {
   items: JsonBackgroundJob[];
@@ -532,6 +553,24 @@ function getActivityDetail(job: JsonBackgroundJob) {
   return job.id;
 }
 
+function getPayloadFileId(job: JsonBackgroundJob | null) {
+  const payload = job?.payloadJson;
+  if (!payload || typeof payload !== "object") return null;
+  const fileId = (payload as { fileId?: unknown }).fileId;
+  return typeof fileId === "string" ? fileId : null;
+}
+
+function formatBytesString(value: string | null) {
+  return value ? formatAdminBytes(BigInt(value)) : "n/a";
+}
+
+function getDerivativeTone(status: string) {
+  if (status === "ready") return "succeeded";
+  if (status === "queued" || status === "processing") return "running";
+  if (status === "failed") return "failed";
+  return "idle";
+}
+
 function jobMatchesActivityView({
   filter,
   job,
@@ -553,6 +592,68 @@ function JsonBlock({ value }: { value: Record<string, unknown> | null }) {
 
   return (
     <pre className="admin-jobs-payload">{JSON.stringify(value, null, 2)}</pre>
+  );
+}
+
+function MediaDerivativeCard({
+  actions,
+  compact = false,
+  derivative,
+}: {
+  actions: MediaDerivativeActions;
+  compact?: boolean;
+  derivative: JsonAdminMediaDerivativeRow;
+}) {
+  const tone = getDerivativeTone(derivative.status);
+
+  return (
+    <article
+      className={`admin-derivative-row${
+        compact ? " admin-derivative-row-compact" : ""
+      }`}
+    >
+      <div className="admin-derivative-main">
+        <span
+          aria-hidden
+          className={`admin-jobs-run-dot admin-jobs-run-dot-${tone}`}
+        />
+        <div className="admin-derivative-title">
+          <strong>{derivative.originalName}</strong>
+          <small>{derivative.ownerLabel}</small>
+        </div>
+      </div>
+
+      <div className="admin-derivative-meta">
+        <span className={`admin-jobs-state admin-jobs-state-${tone}`}>
+          {derivative.status}
+        </span>
+        {derivative.pinnedByAdmin ? (
+          <span className="status-chip">pinned</span>
+        ) : null}
+        <span>{formatBytesString(derivative.originalSizeBytes)} original</span>
+        <span>{formatBytesString(derivative.sizeBytes)} preview</span>
+        <span>{formatAdminDateTime(derivative.generatedAt)}</span>
+      </div>
+
+      {derivative.error ? (
+        <p className="admin-derivative-message" title={derivative.error}>
+          {derivative.error.length > 120
+            ? `${derivative.error.slice(0, 120)}...`
+            : derivative.error}
+        </p>
+      ) : null}
+
+      <MediaDerivativeRowActions
+        cancelAction={actions.cancelDerivative}
+        fileId={derivative.fileId}
+        id={derivative.id}
+        pinnedByAdmin={derivative.pinnedByAdmin}
+        regenerateAction={actions.regenerateDerivative}
+        removeAction={actions.removeDerivative}
+        setPinAction={actions.setPinDerivative}
+        status={derivative.status}
+      />
+    </article>
   );
 }
 
@@ -594,6 +695,8 @@ function JobEventList({
 
 function JobDetailsModal({
   actionError,
+  derivativeActions,
+  derivatives,
   events,
   history,
   historyLoading,
@@ -608,6 +711,8 @@ function JobDetailsModal({
   workerRunningJobIds,
 }: {
   actionError: string | null;
+  derivativeActions: MediaDerivativeActions;
+  derivatives: JsonAdminMediaDerivativeRow[];
   events: JsonJobEvent[] | null;
   history: JsonBackgroundJob[] | null;
   historyLoading: boolean;
@@ -625,6 +730,10 @@ function JobDetailsModal({
     ? getJobDisplayStatus(selectedHistoryJob, workerRunningJobIds)
     : null;
   const selectedTone = getJobTone(selectedStatus);
+  const selectedFileId = getPayloadFileId(selectedHistoryJob);
+  const selectedDerivative = selectedFileId
+    ? (derivatives.find((row) => row.fileId === selectedFileId) ?? null)
+    : null;
 
   return (
     <Dialog onOpenChange={setOpen} open={open}>
@@ -719,6 +828,23 @@ function JobDetailsModal({
                   />
                 </div>
 
+                {selectedFileId ? (
+                  <div className="admin-jobs-modal-section">
+                    <h3>Derivative file</h3>
+                    {selectedDerivative ? (
+                      <MediaDerivativeCard
+                        actions={derivativeActions}
+                        compact
+                        derivative={selectedDerivative}
+                      />
+                    ) : (
+                      <p className="admin-jobs-modal-empty">
+                        No derivative record found for this file.
+                      </p>
+                    )}
+                  </div>
+                ) : null}
+
                 <div className="admin-jobs-modal-section">
                   <h3>Payload</h3>
                   <JsonBlock value={selectedHistoryJob.payloadJson} />
@@ -772,6 +898,8 @@ function JobDetailsModal({
 }
 
 function JobTaskCard({
+  derivativeActions,
+  derivatives,
   instanceTimeZone,
   kind,
   lastRun,
@@ -779,6 +907,8 @@ function JobTaskCard({
   onLastRunChange,
   workerRunningJobIds,
 }: {
+  derivativeActions: MediaDerivativeActions;
+  derivatives: JsonAdminMediaDerivativeRow[];
   instanceTimeZone: string;
   kind: string;
   lastRun: JsonBackgroundJob | null;
@@ -991,6 +1121,8 @@ function JobTaskCard({
 
       <JobDetailsModal
         actionError={actionError}
+        derivativeActions={derivativeActions}
+        derivatives={derivatives}
         events={events}
         history={history}
         historyLoading={historyLoading}
@@ -1009,6 +1141,8 @@ function JobTaskCard({
 }
 
 function JobActivityPanel({
+  derivativeActions,
+  derivatives,
   instanceTimeZone,
   jobKinds,
   liveJobs,
@@ -1016,6 +1150,8 @@ function JobActivityPanel({
   onLastRunChange,
   workerRunningJobIds,
 }: {
+  derivativeActions: MediaDerivativeActions;
+  derivatives: JsonAdminMediaDerivativeSummary;
   instanceTimeZone: string;
   jobKinds: string[];
   liveJobs: JsonBackgroundJob[];
@@ -1023,6 +1159,8 @@ function JobActivityPanel({
   onLastRunChange: (kind: string, job: JsonBackgroundJob | null) => void;
   workerRunningJobIds: Set<string>;
 }) {
+  const router = useRouter();
+  const [view, setView] = useState<ActivityView>("jobs");
   const [filter, setFilter] = useState<ActivityFilter>("all");
   const [kindFilter, setKindFilter] = useState("all");
   const [items, setItems] = useState<JsonBackgroundJob[]>([]);
@@ -1211,132 +1349,200 @@ function JobActivityPanel({
     <section className="admin-jobs-activity" aria-label="Job activity">
       <div className="admin-jobs-activity-head">
         <div>
-          <h2>Job activity</h2>
-          <p>Recent queued, running, failed, and completed work.</p>
+          <h2>{view === "jobs" ? "Job activity" : "Derivative files"}</h2>
+          <p>
+            {view === "jobs"
+              ? "Recent queued, running, failed, and completed work."
+              : "Generated preview files, pins, cleanup state, and manual recovery."}
+          </p>
         </div>
         <div className="admin-jobs-activity-controls">
-          <div className="admin-jobs-activity-tabs">
-            {(Object.keys(ACTIVITY_FILTER_LABELS) as ActivityFilter[]).map(
-              (value) => (
-                <button
-                  aria-pressed={filter === value}
-                  className={
-                    filter === value ? "admin-jobs-activity-tab-active" : ""
-                  }
-                  key={value}
-                  onClick={() => setFilter(value)}
-                  type="button"
-                >
-                  {ACTIVITY_FILTER_LABELS[value]}
-                </button>
-              ),
-            )}
-          </div>
-          <div className="admin-jobs-kind-filter">
-            <Select
-              items={kindFilterOptions}
-              onValueChange={(value) => setKindFilter(value ?? "all")}
-              value={kindFilter}
+          <div className="admin-jobs-activity-tabs admin-jobs-view-tabs">
+            <button
+              aria-pressed={view === "jobs"}
+              className={
+                view === "jobs" ? "admin-jobs-activity-tab-active" : ""
+              }
+              onClick={() => setView("jobs")}
+              type="button"
             >
-              <SelectTrigger
-                aria-label="Kind"
-                className="admin-jobs-kind-select-trigger"
-              >
-                <SelectValue placeholder="Kind" />
-              </SelectTrigger>
-              <SelectContent
-                align="end"
-                alignItemWithTrigger={false}
-                className="admin-jobs-kind-select-content"
-              >
-                <SelectGroup>
-                  {kindFilterOptions.map((option) => (
-                    <SelectItem
-                      className="admin-jobs-kind-select-item"
-                      key={option.value}
-                      value={option.value}
-                    >
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+              Jobs
+            </button>
+            <button
+              aria-pressed={view === "derivatives"}
+              className={
+                view === "derivatives" ? "admin-jobs-activity-tab-active" : ""
+              }
+              onClick={() => setView("derivatives")}
+              type="button"
+            >
+              Derivatives
+            </button>
           </div>
+
+          {view === "jobs" ? (
+            <>
+              <div className="admin-jobs-activity-tabs">
+                {(Object.keys(ACTIVITY_FILTER_LABELS) as ActivityFilter[]).map(
+                  (value) => (
+                    <button
+                      aria-pressed={filter === value}
+                      className={
+                        filter === value ? "admin-jobs-activity-tab-active" : ""
+                      }
+                      key={value}
+                      onClick={() => setFilter(value)}
+                      type="button"
+                    >
+                      {ACTIVITY_FILTER_LABELS[value]}
+                    </button>
+                  ),
+                )}
+              </div>
+              <div className="admin-jobs-kind-filter">
+                <Select
+                  items={kindFilterOptions}
+                  onValueChange={(value) => setKindFilter(value ?? "all")}
+                  value={kindFilter}
+                >
+                  <SelectTrigger
+                    aria-label="Kind"
+                    className="admin-jobs-kind-select-trigger"
+                  >
+                    <SelectValue placeholder="Kind" />
+                  </SelectTrigger>
+                  <SelectContent
+                    align="end"
+                    alignItemWithTrigger={false}
+                    className="admin-jobs-kind-select-content"
+                  >
+                    <SelectGroup>
+                      {kindFilterOptions.map((option) => (
+                        <SelectItem
+                          className="admin-jobs-kind-select-item"
+                          key={option.value}
+                          value={option.value}
+                        >
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          ) : (
+            <button
+              className="admin-jobs-activity-more"
+              onClick={() => router.refresh()}
+              type="button"
+            >
+              Refresh
+            </button>
+          )}
         </div>
       </div>
 
-      {loadError ? (
-        <p className="admin-jobs-activity-error">{loadError}</p>
-      ) : null}
+      {view === "derivatives" ? (
+        <div className="admin-derivative-list">
+          {derivatives.deletedCount > 0 ? (
+            <p className="admin-derivative-note">
+              {derivatives.deletedCount} derivative
+              {derivatives.deletedCount === 1 ? "" : "s"} for deleted files are
+              hidden and will be cleaned up automatically.
+            </p>
+          ) : null}
+          {derivatives.rows.length > 0 ? (
+            derivatives.rows.map((derivative) => (
+              <MediaDerivativeCard
+                actions={derivativeActions}
+                derivative={derivative}
+                key={derivative.id}
+              />
+            ))
+          ) : (
+            <p className="admin-jobs-activity-empty">No derivatives yet.</p>
+          )}
+        </div>
+      ) : (
+        <>
+          {loadError ? (
+            <p className="admin-jobs-activity-error">{loadError}</p>
+          ) : null}
 
-      <div className="admin-jobs-activity-list">
-        {isInitialActivityLoad ? (
-          <p className="admin-jobs-activity-empty">Loading activity...</p>
-        ) : items.length > 0 ? (
-          <>
-            {loading ? (
-              <p className="admin-jobs-activity-updating">Updating...</p>
-            ) : null}
-            {items.map((job) => {
-              const status = getJobDisplayStatus(job, workerRunningJobIds);
-              const tone = getJobTone(status);
+          <div className="admin-jobs-activity-list">
+            {isInitialActivityLoad ? (
+              <p className="admin-jobs-activity-empty">Loading activity...</p>
+            ) : items.length > 0 ? (
+              <>
+                {loading ? (
+                  <p className="admin-jobs-activity-updating">Updating...</p>
+                ) : null}
+                {items.map((job) => {
+                  const status = getJobDisplayStatus(job, workerRunningJobIds);
+                  const tone = getJobTone(status);
 
-              return (
-                <button
-                  className="admin-jobs-activity-row"
-                  key={job.id}
-                  onClick={() => void openDetails(job)}
-                  type="button"
-                >
-                  <span
-                    aria-hidden
-                    className={`admin-jobs-run-dot admin-jobs-run-dot-${tone}`}
-                  />
-                  <span className="admin-jobs-activity-main">
-                    <strong>{formatJobKind(job.kind)}</strong>
-                    <small>
-                      {getJobStateLine({
-                        job,
-                        nowMs,
-                        status,
-                        timeZone: instanceTimeZone,
-                      })}
-                    </small>
-                  </span>
-                  <span
-                    className={`admin-jobs-activity-status admin-jobs-state-${tone}`}
-                  >
-                    {status}
-                  </span>
-                  <span className="admin-jobs-activity-attempt">
-                    {job.attemptCount}/{job.maxAttempts}
-                  </span>
-                  <span className="admin-jobs-activity-detail">
-                    {getActivityDetail(job)}
-                  </span>
-                </button>
-              );
-            })}
-          </>
-        ) : (
-          <p className="admin-jobs-activity-empty">No jobs match this view.</p>
-        )}
-      </div>
+                  return (
+                    <button
+                      className="admin-jobs-activity-row"
+                      key={job.id}
+                      onClick={() => void openDetails(job)}
+                      type="button"
+                    >
+                      <span
+                        aria-hidden
+                        className={`admin-jobs-run-dot admin-jobs-run-dot-${tone}`}
+                      />
+                      <span className="admin-jobs-activity-main">
+                        <strong>{formatJobKind(job.kind)}</strong>
+                        <small>
+                          {getJobStateLine({
+                            job,
+                            nowMs,
+                            status,
+                            timeZone: instanceTimeZone,
+                          })}
+                        </small>
+                      </span>
+                      <span
+                        className={`admin-jobs-activity-status admin-jobs-state-${tone}`}
+                      >
+                        {status}
+                      </span>
+                      <span className="admin-jobs-activity-attempt">
+                        {job.attemptCount}/{job.maxAttempts}
+                      </span>
+                      <span className="admin-jobs-activity-detail">
+                        {getActivityDetail(job)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </>
+            ) : (
+              <p className="admin-jobs-activity-empty">
+                No jobs match this view.
+              </p>
+            )}
+          </div>
 
-      {nextCursor ? (
-        <button
-          className="admin-jobs-activity-more"
-          disabled={loadingMore}
-          onClick={() => void loadMore()}
-          type="button"
-        >
-          {loadingMore ? "Loading..." : "Load more"}
-        </button>
-      ) : null}
+          {nextCursor ? (
+            <button
+              className="admin-jobs-activity-more"
+              disabled={loadingMore}
+              onClick={() => void loadMore()}
+              type="button"
+            >
+              {loadingMore ? "Loading..." : "Load more"}
+            </button>
+          ) : null}
+        </>
+      )}
 
       <JobDetailsModal
         actionError={actionError}
+        derivativeActions={derivativeActions}
+        derivatives={derivatives.rows}
         events={events}
         history={history}
         historyLoading={historyLoading}
@@ -1355,6 +1561,8 @@ function JobActivityPanel({
 }
 
 type Props = {
+  derivativeActions: MediaDerivativeActions;
+  initialDerivatives: JsonAdminMediaDerivativeSummary;
   initialLastRuns: Record<string, JsonBackgroundJob | null>;
   initialSummary: JsonJobSummary;
   jobKinds: string[];
@@ -1362,6 +1570,8 @@ type Props = {
 };
 
 export function JobOperations({
+  derivativeActions,
+  initialDerivatives,
   initialLastRuns,
   initialSummary,
   jobKinds,
@@ -1465,6 +1675,8 @@ export function JobOperations({
           const lastRun = lastRuns[kind] ?? null;
           return (
             <JobTaskCard
+              derivativeActions={derivativeActions}
+              derivatives={initialDerivatives.rows}
               instanceTimeZone={instanceTimeZone}
               key={kind}
               kind={kind}
@@ -1483,6 +1695,8 @@ export function JobOperations({
       </section>
 
       <JobActivityPanel
+        derivativeActions={derivativeActions}
+        derivatives={initialDerivatives}
         instanceTimeZone={instanceTimeZone}
         jobKinds={jobKinds}
         liveJobs={liveJobs}

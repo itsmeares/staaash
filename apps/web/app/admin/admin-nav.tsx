@@ -26,14 +26,6 @@ const adminItems: AdminNavItem[] = [
     label: "Jobs",
   },
   {
-    href: "/admin/media",
-    label: "Media",
-  },
-  {
-    href: "/admin/updates",
-    label: "Updates",
-  },
-  {
     href: "/admin/settings",
     label: "Settings",
   },

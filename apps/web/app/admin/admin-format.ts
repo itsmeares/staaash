@@ -34,9 +34,10 @@ export const getAdminStatusClassName = (status: string) =>
     status === "healthy" ||
     status === "active" ||
     status === "up-to-date" ||
-    status === "succeeded"
+    status === "succeeded" ||
+    status === "ready"
       ? "status-healthy"
-      : status === "running"
+      : status === "running" || status === "processing"
         ? "status-running"
         : status === "warning" ||
             status === "accepted" ||

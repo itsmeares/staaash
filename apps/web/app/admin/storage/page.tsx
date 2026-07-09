@@ -1,105 +1,136 @@
+import type { CSSProperties } from "react";
+
 import {
   formatAdminBytes,
   formatAdminDateTime,
+  getAdminStatusClassName,
 } from "@/app/admin/admin-format";
 import { getAdminStorageSummary } from "@/server/admin/storage";
 
 export const dynamic = "force-dynamic";
 
+const getUsagePercent = (value: bigint, maxValue: bigint) => {
+  if (maxValue <= 0n) return 0;
+  return Number((value * 10000n) / maxValue) / 100;
+};
+
 export default async function AdminStoragePage() {
   const summary = await getAdminStorageSummary();
+  const topUsage = summary.rows[0]?.retainedBytes ?? 0n;
+  const activeUsers = summary.rows.filter(
+    (row) => row.retainedBytes > 0n,
+  ).length;
+
+  const cards = [
+    {
+      label: "Retained",
+      value: formatAdminBytes(summary.retainedBytes),
+    },
+    {
+      label: "Users",
+      value: `${activeUsers}/${summary.totalUsers}`,
+    },
+    {
+      label: "Files",
+      value: String(summary.retainedFileCount),
+    },
+    {
+      label: "Folders",
+      value: String(summary.retainedFolderCount),
+    },
+  ];
 
   return (
-    <main className="stack" style={{ gap: "40px" }}>
-      <section>
-        <h1 style={{ marginBottom: "8px" }}>Storage usage</h1>
-        <p className="muted" style={{ maxWidth: "56ch" }}>
-          Retained usage counts everything still present in metadata and local
-          storage, including trashed content that has not yet been deleted.
-        </p>
+    <main className="admin-storage-page">
+      <header className="admin-ops-header">
+        <div>
+          <h1>Storage</h1>
+          <p>
+            Retained metadata and local storage, including trashed content still
+            inside retention.
+          </p>
+        </div>
+        <div className="admin-storage-total-compact">
+          <span>Total retained</span>
+          <strong>{formatAdminBytes(summary.retainedBytes)}</strong>
+        </div>
+      </header>
+
+      <section className="admin-storage-cards" aria-label="Storage summary">
+        {cards.map((card) => (
+          <article className="admin-storage-card" key={card.label}>
+            <span>{card.label}</span>
+            <strong>{card.value}</strong>
+          </article>
+        ))}
       </section>
 
-      <section>
-        <p className="admin-eyebrow">Summary</p>
-        <dl className="admin-kv-strip">
-          <div className="admin-kv-item">
-            <dt className="admin-kv-label">Retained bytes</dt>
-            <dd className="admin-kv-value">
-              {formatAdminBytes(summary.retainedBytes)}
-            </dd>
-          </div>
-          <div className="admin-kv-item">
-            <dt className="admin-kv-label">Users</dt>
-            <dd className="admin-kv-value">{summary.totalUsers}</dd>
-          </div>
-          <div className="admin-kv-item">
-            <dt className="admin-kv-label">Retained files</dt>
-            <dd className="admin-kv-value">{summary.retainedFileCount}</dd>
-          </div>
-          <div className="admin-kv-item">
-            <dt className="admin-kv-label">Retained folders</dt>
-            <dd className="admin-kv-value">{summary.retainedFolderCount}</dd>
-          </div>
-        </dl>
-      </section>
-
-      <section>
-        <div className="admin-section-head" style={{ marginBottom: "0" }}>
-          <div>
-            <h2 style={{ fontSize: "1rem" }}>Per-user retained usage</h2>
-            <p
-              className="muted"
-              style={{ fontSize: "0.8125rem", marginTop: "4px" }}
-            >
-              Aggregate only — does not allow browsing member private content.
-            </p>
-          </div>
+      <section className="admin-storage-matrix">
+        <div className="admin-overview-panel-head">
+          <h2>Per-user retained usage</h2>
+          <p>Aggregate only. Private member content is not browsable here.</p>
         </div>
 
-        <div className="table-wrap">
-          <table className="table">
+        <div className="admin-storage-table-wrap">
+          <table className="admin-storage-table">
             <thead>
               <tr>
                 <th>User</th>
                 <th>Role</th>
                 <th>Retained</th>
-                <th>Files</th>
-                <th>Folders</th>
+                <th>Items</th>
                 <th>Last activity</th>
               </tr>
             </thead>
             <tbody>
-              {summary.rows.map((row) => (
-                <tr key={row.userId}>
-                  <td>
-                    <div style={{ display: "grid", gap: "2px" }}>
-                      <strong style={{ fontSize: "0.875rem" }}>
-                        {row.displayName ?? row.email}
-                      </strong>
-                      <span className="muted" style={{ fontSize: "0.8125rem" }}>
-                        {row.email}
+              {summary.rows.map((row) => {
+                const role = row.isOwner
+                  ? "owner"
+                  : row.isAdmin
+                    ? "admin"
+                    : "member";
+                const usagePercent = getUsagePercent(
+                  row.retainedBytes,
+                  topUsage,
+                );
+
+                return (
+                  <tr key={row.userId}>
+                    <td>
+                      <div className="admin-storage-user">
+                        <strong>{row.displayName ?? row.email}</strong>
+                        <span>{row.email}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={getAdminStatusClassName(role)}>
+                        {role}
                       </span>
-                    </div>
-                  </td>
-                  <td>
-                    <span
-                      className={`status-chip status-${
-                        row.isOwner
-                          ? "owner"
-                          : row.isAdmin
-                            ? "healthy"
-                            : "member"
-                      }`}
-                    >
-                      {row.isOwner ? "owner" : row.isAdmin ? "admin" : "member"}
-                    </span>
-                  </td>
-                  <td>{formatAdminBytes(row.retainedBytes)}</td>
-                  <td>{row.retainedFileCount}</td>
-                  <td>{row.retainedFolderCount}</td>
-                  <td>{formatAdminDateTime(row.lastContentActivityAt)}</td>
-                </tr>
-              ))}
+                    </td>
+                    <td>
+                      <div className="admin-storage-usage">
+                        <strong>{formatAdminBytes(row.retainedBytes)}</strong>
+                        <span
+                          aria-hidden
+                          style={
+                            {
+                              "--admin-storage-usage": `${usagePercent}%`,
+                            } as CSSProperties
+                          }
+                        />
+                      </div>
+                    </td>
+                    <td>
+                      <span className="admin-storage-counts">
+                        {row.retainedFileCount} files
+                        <br />
+                        {row.retainedFolderCount} folders
+                      </span>
+                    </td>
+                    <td>{formatAdminDateTime(row.lastContentActivityAt)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

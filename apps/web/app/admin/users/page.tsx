@@ -37,6 +37,19 @@ export default async function AdminUsersPage({
 
   if (totalPages > 0 && page > totalPages) redirect(buildHref(1));
 
+  const summary = {
+    total: allUsers.length,
+    owners: allUsers.filter((user) => user.isOwner).length,
+    admins: allUsers.filter((user) => !user.isOwner && user.isAdmin).length,
+    members: allUsers.filter((user) => !user.isOwner && !user.isAdmin).length,
+    pendingOnboarding: allUsers.filter(
+      (user) => !user.preferences?.onboardingCompletedAt,
+    ).length,
+    passwordChangeRequired: allUsers.filter(
+      (user) => user.passwordChangeRequiredAt,
+    ).length,
+  };
+
   const users = allUsers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const usageByUserId = new Map(
     await Promise.all(
@@ -48,7 +61,7 @@ export default async function AdminUsersPage({
   );
 
   return (
-    <main className="stack" style={{ gap: "32px" }}>
+    <main className="stack admin-users-route">
       <UsersAdminConsole
         appUrl={baseUrl}
         canMutateUsers={session.user.isOwner}
@@ -68,13 +81,18 @@ export default async function AdminUsersPage({
           onboardingCompletedAt:
             user.preferences?.onboardingCompletedAt?.toISOString() ?? null,
         }))}
+        summary={summary}
       />
 
-      <PaginationControls
-        buildHref={buildHref}
-        page={page}
-        totalPages={totalPages}
-      />
+      {totalPages > 1 ? (
+        <div className="admin-users-pagination">
+          <PaginationControls
+            buildHref={buildHref}
+            page={page}
+            totalPages={totalPages}
+          />
+        </div>
+      ) : null}
     </main>
   );
 }
