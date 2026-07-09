@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { CSSProperties } from "react";
 
 import {
@@ -23,7 +24,7 @@ export default async function AdminStoragePage() {
 
   const cards = [
     {
-      label: "Retained",
+      label: "Total used",
       value: formatAdminBytes(summary.retainedBytes),
     },
     {
@@ -45,14 +46,7 @@ export default async function AdminStoragePage() {
       <header className="admin-ops-header">
         <div>
           <h1>Storage</h1>
-          <p>
-            Retained metadata and local storage, including trashed content still
-            inside retention.
-          </p>
-        </div>
-        <div className="admin-storage-total-compact">
-          <span>Total retained</span>
-          <strong>{formatAdminBytes(summary.retainedBytes)}</strong>
+          <p>Storage used by files and folders, including items in trash.</p>
         </div>
       </header>
 
@@ -67,8 +61,7 @@ export default async function AdminStoragePage() {
 
       <section className="admin-storage-matrix">
         <div className="admin-overview-panel-head">
-          <h2>Per-user retained usage</h2>
-          <p>Aggregate only. Private member content is not browsable here.</p>
+          <h2>Used storage per user</h2>
         </div>
 
         <div className="admin-storage-table-wrap">
@@ -77,7 +70,7 @@ export default async function AdminStoragePage() {
               <tr>
                 <th>User</th>
                 <th>Role</th>
-                <th>Retained</th>
+                <th>Used</th>
                 <th>Items</th>
                 <th>Last activity</th>
               </tr>
@@ -95,10 +88,15 @@ export default async function AdminStoragePage() {
                 );
 
                 return (
-                  <tr key={row.userId}>
+                  <tr className="admin-storage-link-row" key={row.userId}>
                     <td>
                       <div className="admin-storage-user">
-                        <strong>{row.displayName ?? row.email}</strong>
+                        <Link
+                          className="admin-storage-row-link"
+                          href={`/admin/users/${row.userId}`}
+                        >
+                          {row.displayName ?? row.email}
+                        </Link>
                         <span>{row.email}</span>
                       </div>
                     </td>

@@ -2169,56 +2169,286 @@ h3 {
 }
 
 .admin-user-detail {
-  gap: 28px;
+  display: grid;
+  width: min(1420px, 100%);
+  margin-inline: auto;
+  gap: 18px;
 }
 
-.admin-user-detail-head {
+.admin-user-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 20px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 9%, transparent);
+  border-radius: 10px;
+  padding: 20px;
+  background: color-mix(in oklab, var(--card) 94%, var(--background) 6%);
+}
+
+.admin-user-hero-copy {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.admin-user-back-link {
+  justify-self: start;
+}
+
+.admin-user-hero-main {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 18px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid
-    color-mix(in oklab, var(--foreground) 7%, transparent);
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.admin-user-hero-avatar {
+  width: 54px;
+  height: 54px;
+  color: color-mix(in oklab, var(--primary) 76%, var(--foreground) 24%);
+  font-family: var(--font-cabinet), sans-serif;
+  font-size: 1.2rem;
+  font-weight: 760;
+}
+
+.admin-user-identity {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.admin-user-identity h1 {
+  overflow: hidden;
+  color: var(--foreground);
+  font-family: var(--font-switzer), "Segoe UI", sans-serif;
+  font-size: 2rem;
+  font-weight: 760;
+  letter-spacing: 0;
+  line-height: 1.08;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-user-identity p {
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 0.98rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-user-status-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
 }
 
 .admin-detail-actions {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: flex-end;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.admin-user-detail-sheet {
+.admin-user-stat-grid {
   display: grid;
-  border-top: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
-  border-bottom: 1px solid
-    color-mix(in oklab, var(--foreground) 8%, transparent);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
 }
 
-.admin-user-detail-section {
+.admin-user-stat-card {
+  display: grid;
+  min-width: 0;
+  min-height: 104px;
+  align-content: start;
+  gap: 8px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  border-radius: 10px;
+  padding: 17px 18px;
+  background: color-mix(in oklab, var(--card) 92%, var(--background) 8%);
+}
+
+.admin-user-stat-card span,
+.admin-user-panel-head span {
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.admin-user-stat-card strong {
+  overflow: hidden;
+  color: var(--foreground);
+  font-family: var(--font-cabinet), var(--font-switzer), sans-serif;
+  font-size: 1.7rem;
+  font-weight: 760;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-user-stat-card small {
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 0.9rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-user-detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.38fr);
+  align-items: start;
+  gap: 18px;
+}
+
+.admin-user-detail-main,
+.admin-user-detail-side {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.admin-user-panel {
   display: grid;
   gap: 14px;
-  padding: 22px 0;
-  border-bottom: 1px solid
-    color-mix(in oklab, var(--foreground) 8%, transparent);
+  min-width: 0;
+  border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  border-radius: 10px;
+  padding: 18px;
+  background: color-mix(in oklab, var(--card) 94%, var(--background) 6%);
 }
 
-.admin-user-detail-section:last-child {
+.admin-user-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-user-panel-head h2 {
+  margin: 0;
+  color: var(--foreground);
+  font-family: var(--font-switzer), "Segoe UI", sans-serif;
+  font-size: 1.08rem;
+  font-weight: 760;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+
+.admin-user-fact-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.admin-user-fact-row {
+  display: grid;
+  grid-template-columns: minmax(145px, 0.3fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 7%, transparent);
+}
+
+.admin-user-fact-row:last-child {
   border-bottom: 0;
 }
 
-.admin-user-detail-section h2 {
-  color: color-mix(in oklab, var(--primary) 74%, var(--foreground) 26%);
-  font-size: 1rem;
+.admin-user-fact-row dt {
+  color: var(--muted-foreground);
+  font-size: 0.84rem;
+  font-weight: 680;
+  line-height: 1.35;
 }
 
-.admin-user-detail-section .meta-list {
-  gap: 0;
+.admin-user-fact-row dd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+  margin: 0;
+  color: var(--foreground);
+  font-size: 0.95rem;
+  line-height: 1.35;
 }
 
-.admin-user-detail-section .meta-row {
-  padding: 11px 0;
+.admin-user-fact-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 650;
+}
+
+.admin-user-fact-value code {
+  white-space: normal;
+}
+
+.admin-user-fact-row small {
+  flex-basis: 100%;
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.admin-user-copy-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
+  border-radius: 7px;
+  padding: 0 8px;
+  background: color-mix(in oklab, var(--foreground) 4%, transparent);
+  color: color-mix(in oklab, var(--foreground) 74%, var(--primary) 26%);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 720;
+}
+
+.admin-user-copy-button:hover,
+.admin-user-copy-button-copied {
+  border-color: color-mix(in oklab, var(--primary) 26%, transparent);
+  background: color-mix(in oklab, var(--primary) 9%, transparent);
+  color: color-mix(in oklab, var(--primary) 78%, var(--foreground) 22%);
+}
+
+.admin-user-quota-meter {
+  display: grid;
+  gap: 7px;
+  padding-top: 2px;
+}
+
+.admin-user-quota-meter > span {
+  position: relative;
+  overflow: hidden;
+  height: 7px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--foreground) 8%, transparent);
+}
+
+.admin-user-quota-meter > span::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--admin-user-quota);
+  border-radius: inherit;
+  background: color-mix(in oklab, var(--primary) 62%, var(--foreground) 18%);
+  content: "";
+}
+
+.admin-user-quota-meter p {
+  color: var(--muted-foreground);
+  font-size: 0.8rem;
+  line-height: 1.35;
 }
 
 .admin-device-list {
@@ -2240,6 +2470,20 @@ h3 {
 .admin-device-row > div {
   display: grid;
   gap: 4px;
+  min-width: 0;
+}
+
+.admin-device-row strong {
+  color: var(--foreground);
+  font-size: 0.95rem;
+  font-weight: 720;
+  line-height: 1.25;
+}
+
+.admin-device-row .button {
+  min-height: 36px;
+  border-radius: 8px;
+  padding-inline: 12px;
 }
 
 .admin-inline-link {
@@ -2258,11 +2502,54 @@ h3 {
     grid-template-columns: 1fr;
   }
 
+  .admin-user-hero,
+  .admin-user-detail-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-detail-actions {
+    justify-content: flex-start;
+  }
+
+  .admin-user-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-user-fact-row {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
   .admin-device-row {
     grid-template-columns: 1fr;
   }
 
   .admin-worker-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-user-hero,
+  .admin-user-panel,
+  .admin-user-stat-card {
+    padding: 16px;
+  }
+
+  .admin-user-hero-main {
+    align-items: flex-start;
+  }
+
+  .admin-user-identity h1 {
+    font-size: 1.65rem;
+    white-space: normal;
+  }
+
+  .admin-user-identity p {
+    white-space: normal;
+  }
+
+  .admin-user-stat-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -11247,19 +11534,59 @@ main.share-locked-page {
   background: color-mix(in oklab, var(--primary) 6%, transparent);
 }
 
+.admin-storage-link-row {
+  position: relative;
+  cursor: pointer;
+}
+
+.admin-storage-link-row:focus-within td {
+  background: color-mix(in oklab, var(--primary) 7%, transparent);
+}
+
 .admin-storage-user {
   display: grid;
   gap: 3px;
   min-width: 0;
 }
 
-.admin-storage-user strong {
+.admin-storage-user strong,
+.admin-storage-row-link {
   overflow: hidden;
   color: var(--foreground);
   font-size: 0.9rem;
   font-weight: 720;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.admin-storage-row-link {
+  display: inline-block;
+  max-width: 100%;
+  text-decoration: none;
+}
+
+.admin-storage-row-link::after {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  content: "";
+}
+
+.admin-storage-row-link:focus-visible {
+  outline: none;
+}
+
+.admin-storage-row-link:focus-visible::after {
+  border-radius: 8px;
+  outline: 2px solid color-mix(in oklab, var(--ring) 78%, transparent);
+  outline-offset: -2px;
+}
+
+.admin-storage-link-row:hover .admin-storage-row-link {
+  color: color-mix(in oklab, var(--primary) 78%, var(--foreground) 22%);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, var(--primary) 52%, transparent);
+  text-underline-offset: 3px;
 }
 
 .admin-storage-user span,
@@ -11942,6 +12269,7 @@ main.share-locked-page {
 }
 
 .admin-storage-user strong,
+.admin-storage-row-link,
 .admin-storage-usage strong {
   font-size: 1.05rem;
 }

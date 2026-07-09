@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import {
   formatAdminBytes,
@@ -12,10 +13,10 @@ import { authService } from "@/server/auth/service";
 import { getAdminStorageSummary } from "@/server/admin/storage";
 import { getBaseUrl } from "@/server/request";
 import { getUserStorageUsed } from "@/server/user-storage";
-import { headers } from "next/headers";
 
 import { AuthorizedDevicesPanel } from "./authorized-devices-panel";
 import { UserDetailActions } from "./user-detail-actions";
+import { UserDetailCopyButton } from "./user-detail-copy-button";
 
 export const dynamic = "force-dynamic";
 
@@ -53,8 +54,16 @@ const parseDeviceLabel = (userAgent: string | null) => {
           ? "Safari"
           : "Browser";
 
-  return `${os} · ${browser}`;
+  return `${os} - ${browser}`;
 };
+
+const getQuotaPercent = (usedBytes: bigint, quotaBytes: bigint | null) => {
+  if (!quotaBytes || quotaBytes <= 0n) return null;
+  return Number((usedBytes * 1000n) / quotaBytes) / 10;
+};
+
+const formatPercent = (value: number) =>
+  `${value.toFixed(value >= 100 || Number.isInteger(value) ? 0 : 1)}%`;
 
 export default async function AdminUserDetailsPage({
   params,
@@ -77,23 +86,51 @@ export default async function AdminUserDetailsPage({
   const storageRow = storageSummary.rows.find((row) => row.userId === user.id);
   const signInUrl = new URL("/", getBaseUrl(h)).toString();
   const role = roleLabel(user);
+  const initials =
+    user.displayName?.slice(0, 1).toUpperCase() ??
+    user.email.slice(0, 1).toUpperCase();
+  const storageUsedLabel = formatAdminBytes(usage.usedBytes);
+  const quotaPercent = getQuotaPercent(usage.usedBytes, user.storageLimitBytes);
+  const quotaPercentLabel =
+    quotaPercent === null ? null : formatPercent(quotaPercent);
+  const quotaBarPercent =
+    quotaPercent === null ? 0 : Math.max(0, Math.min(quotaPercent, 100));
+  const mostRecentSession = sessions[0] ?? null;
+  const lastSeenAt = mostRecentSession
+    ? formatAdminDateTime(
+        mostRecentSession.lastSeenAt ?? mostRecentSession.createdAt,
+      )
+    : "n/a";
+  const accountReady = Boolean(
+    !user.passwordChangeRequiredAt && user.preferences?.onboardingCompletedAt,
+  );
 
   return (
-    <main className="stack admin-user-detail">
-      <section className="admin-user-detail-head">
-        <div className="stack" style={{ gap: "10px" }}>
-          <Link className="admin-kv-link" href="/admin/users">
-            User management
+    <main className="admin-user-detail">
+      <section className="admin-user-hero" aria-label="User profile summary">
+        <div className="admin-user-hero-copy">
+          <Link
+            className="admin-kv-link admin-user-back-link"
+            href="/admin/users"
+          >
+            Users
           </Link>
-          <div className="cluster">
-            <span className="workspace-avatar" aria-hidden>
-              {user.displayName?.slice(0, 1).toUpperCase() ??
-                user.email.slice(0, 1).toUpperCase()}
+          <div className="admin-user-hero-main">
+            <span
+              className="workspace-avatar admin-user-hero-avatar"
+              aria-hidden
+            >
+              {initials}
             </span>
-            <div>
+            <div className="admin-user-identity">
               <h1>{user.displayName ?? "No name yet"}</h1>
-              <div className="cluster" style={{ gap: "6px", marginTop: "8px" }}>
-                <span className={getAdminStatusClassName(role)}>{role}</span>
+              <p>{user.email}</p>
+              <div className="admin-user-status-row">
+                {accountReady ? (
+                  <span className={getAdminStatusClassName("ready")}>
+                    ready
+                  </span>
+                ) : null}
                 {user.passwordChangeRequiredAt ? (
                   <span className={getAdminStatusClassName("error")}>
                     password change required
@@ -122,105 +159,167 @@ export default async function AdminUserDetailsPage({
         />
       </section>
 
-      <dl className="admin-kv-strip">
-        <div className="admin-kv-item">
-          <dt className="admin-kv-label">Files</dt>
-          <dd className="admin-kv-value">
-            {storageRow?.retainedFileCount ?? 0}
-          </dd>
-        </div>
-        <div className="admin-kv-item">
-          <dt className="admin-kv-label">Folders</dt>
-          <dd className="admin-kv-value">
-            {storageRow?.retainedFolderCount ?? 0}
-          </dd>
-        </div>
-        <div className="admin-kv-item">
-          <dt className="admin-kv-label">Storage used</dt>
-          <dd className="admin-kv-value">
-            {formatAdminBytes(usage.usedBytes)}
-          </dd>
-          <dd className="admin-kv-sub">
-            {user.storageLimitBytes
+      <section className="admin-user-stat-grid" aria-label="User summary">
+        <SummaryStat
+          label="Total used"
+          value={storageUsedLabel}
+          detail={
+            user.storageLimitBytes
               ? `${formatAdminBytes(user.storageLimitBytes)} quota`
-              : "Unlimited quota"}
-          </dd>
-        </div>
-      </dl>
-
-      <section className="admin-user-detail-sheet">
-        <DetailSection title="Profile">
-          <dl className="meta-list">
-            <MetaRow label="Name" value={user.displayName ?? "No name yet"} />
-            <MetaRow label="Email" value={user.email} />
-            <MetaRow
-              label="Created"
-              value={formatAdminDateTime(user.createdAt)}
-            />
-            <MetaRow
-              label="Updated"
-              value={formatAdminDateTime(user.updatedAt)}
-            />
-            <MetaRow label="User ID" value={user.id} code />
-            <MetaRow label="Storage ID" value={user.storageId} code />
-          </dl>
-        </DetailSection>
-
-        <DetailSection title="Access">
-          <dl className="meta-list">
-            <MetaRow label="Owner" value={user.isOwner ? "Yes" : "No"} />
-            <MetaRow label="Admin" value={user.isAdmin ? "Yes" : "No"} />
-            <MetaRow
-              label="Password change"
-              value={
-                user.passwordChangeRequiredAt
-                  ? formatAdminDateTime(user.passwordChangeRequiredAt)
-                  : "Not required"
-              }
-            />
-            <MetaRow
-              label="Onboarding"
-              value={
-                user.preferences?.onboardingCompletedAt
-                  ? formatAdminDateTime(user.preferences.onboardingCompletedAt)
-                  : "Incomplete"
-              }
-            />
-          </dl>
-        </DetailSection>
-
-        <DetailSection title="Storage quota">
-          <dl className="meta-list">
-            <MetaRow
-              label="Quota"
-              value={
-                user.storageLimitBytes
-                  ? formatAdminBytes(user.storageLimitBytes)
-                  : "Unlimited"
-              }
-            />
-            <MetaRow label="Used" value={formatAdminBytes(usage.usedBytes)} />
-          </dl>
-        </DetailSection>
-
-        <AuthorizedDevicesPanel
-          userId={user.id}
-          sessions={sessions.map((deviceSession) => ({
-            id: deviceSession.id,
-            label: parseDeviceLabel(deviceSession.userAgent),
-            ipAddress: deviceSession.ipAddress,
-            lastSeenAt: deviceSession.lastSeenAt?.toISOString() ?? null,
-            createdAt: deviceSession.createdAt.toISOString(),
-            isCurrent: deviceSession.id === session.id,
-          }))}
-          canRevoke={session.user.isOwner}
+              : "Unlimited quota"
+          }
+        />
+        <SummaryStat
+          label="Files"
+          value={String(storageRow?.retainedFileCount ?? 0)}
+          detail="stored files"
+        />
+        <SummaryStat
+          label="Folders"
+          value={String(storageRow?.retainedFolderCount ?? 0)}
+          detail="stored folders"
+        />
+        <SummaryStat
+          label="Active devices"
+          value={String(sessions.length)}
+          detail={`Last seen ${lastSeenAt}`}
         />
       </section>
+
+      <div className="admin-user-detail-layout">
+        <div className="admin-user-detail-main">
+          <DetailPanel title="Account">
+            <dl className="admin-user-fact-list">
+              <FactRow label="Name" value={user.displayName ?? "No name yet"} />
+              <FactRow
+                label="Role"
+                value={
+                  <span className={getAdminStatusClassName(role)}>{role}</span>
+                }
+              />
+              <FactRow
+                label="Email"
+                value={user.email}
+                copyValue={user.email}
+              />
+              <FactRow
+                label="Created"
+                value={formatAdminDateTime(user.createdAt)}
+              />
+              <FactRow
+                label="Updated"
+                value={formatAdminDateTime(user.updatedAt)}
+              />
+              <FactRow
+                label="User ID"
+                value={user.id}
+                copyValue={user.id}
+                code
+              />
+              <FactRow
+                label="Storage ID"
+                value={user.storageId}
+                copyValue={user.storageId}
+                code
+              />
+            </dl>
+          </DetailPanel>
+
+          <DetailPanel title="Storage">
+            <dl className="admin-user-fact-list">
+              <FactRow
+                label="Quota"
+                value={
+                  user.storageLimitBytes
+                    ? formatAdminBytes(user.storageLimitBytes)
+                    : "Unlimited"
+                }
+                detail={
+                  quotaPercentLabel ? `${quotaPercentLabel} used` : undefined
+                }
+              />
+              <FactRow
+                label="Last content activity"
+                value={formatAdminDateTime(
+                  storageRow?.lastContentActivityAt ?? null,
+                )}
+              />
+            </dl>
+            {quotaPercentLabel ? (
+              <div className="admin-user-quota-meter">
+                <span
+                  aria-hidden
+                  style={
+                    {
+                      "--admin-user-quota": `${quotaBarPercent}%`,
+                    } as CSSProperties
+                  }
+                />
+                <p>{quotaPercentLabel} of quota used</p>
+              </div>
+            ) : null}
+          </DetailPanel>
+        </div>
+
+        <aside className="admin-user-detail-side">
+          <DetailPanel title="Security">
+            <dl className="admin-user-fact-list">
+              <FactRow label="Active devices" value={String(sessions.length)} />
+              <FactRow label="Last seen" value={lastSeenAt} />
+              <FactRow
+                label="Password change"
+                value={user.passwordChangeRequiredAt ? "Required" : "Clear"}
+              />
+              <FactRow
+                label="Onboarding"
+                value={
+                  user.preferences?.onboardingCompletedAt
+                    ? `Complete, ${formatAdminDateTime(
+                        user.preferences.onboardingCompletedAt,
+                      )}`
+                    : "Incomplete"
+                }
+              />
+            </dl>
+          </DetailPanel>
+
+          <AuthorizedDevicesPanel
+            userId={user.id}
+            sessions={sessions.map((deviceSession) => ({
+              id: deviceSession.id,
+              label: parseDeviceLabel(deviceSession.userAgent),
+              ipAddress: deviceSession.ipAddress,
+              lastSeenAt: deviceSession.lastSeenAt?.toISOString() ?? null,
+              createdAt: deviceSession.createdAt.toISOString(),
+              isCurrent: deviceSession.id === session.id,
+            }))}
+            canRevoke={session.user.isOwner}
+          />
+        </aside>
+      </div>
     </main>
   );
 }
 
-function DetailSection({
+function SummaryStat({
+  detail,
+  label,
+  value,
+}: {
+  detail: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <article className="admin-user-stat-card">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{detail}</small>
+    </article>
+  );
+}
+
+function DetailPanel({
   children,
   title,
 }: {
@@ -228,26 +327,40 @@ function DetailSection({
   title: string;
 }) {
   return (
-    <section className="admin-user-detail-section">
-      <h2>{title}</h2>
+    <section className="admin-user-panel">
+      <div className="admin-user-panel-head">
+        <h2>{title}</h2>
+      </div>
       {children}
     </section>
   );
 }
 
-function MetaRow({
+function FactRow({
+  copyValue,
+  detail,
   label,
   value,
   code,
 }: {
+  copyValue?: string;
+  detail?: string;
   label: string;
-  value: string;
+  value: ReactNode;
   code?: boolean;
 }) {
   return (
-    <div className="meta-row">
+    <div className="admin-user-fact-row">
       <dt>{label}</dt>
-      <dd>{code ? <code>{value}</code> : value}</dd>
+      <dd>
+        <span className="admin-user-fact-value">
+          {code && typeof value === "string" ? <code>{value}</code> : value}
+        </span>
+        {copyValue ? (
+          <UserDetailCopyButton label={label} value={copyValue} />
+        ) : null}
+        {detail ? <small>{detail}</small> : null}
+      </dd>
     </div>
   );
 }

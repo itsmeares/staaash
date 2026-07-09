@@ -57,8 +57,11 @@ export function AuthorizedDevicesPanel({
   };
 
   return (
-    <section className="admin-user-detail-section">
-      <h2>Authorized devices</h2>
+    <section className="admin-user-panel admin-user-devices-panel">
+      <div className="admin-user-panel-head">
+        <h2>Authorized devices</h2>
+        <span>{sessions.length} active</span>
+      </div>
       {error ? <div className="banner banner-error">{error}</div> : null}
       {sessions.length === 0 ? (
         <p className="muted">No active sessions.</p>
@@ -71,7 +74,7 @@ export function AuthorizedDevicesPanel({
                 <span className="muted">
                   Last seen{" "}
                   {formatAdminDateTime(session.lastSeenAt ?? session.createdAt)}
-                  {session.isCurrent ? " · current session" : ""}
+                  {session.isCurrent ? " - current session" : ""}
                 </span>
                 <span className="muted">
                   IP{" "}
