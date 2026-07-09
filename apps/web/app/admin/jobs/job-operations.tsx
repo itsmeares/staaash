@@ -100,28 +100,28 @@ type JobTone =
 
 const JOB_META: Record<string, { name: string; desc: string }> = {
   "staging.cleanup": {
-    name: "Staging Cleanup",
-    desc: "Remove expired upload staging files from temporary storage.",
+    name: "Clean temporary uploads",
+    desc: "Remove expired temporary upload files from storage.",
   },
   "trash.retention": {
-    name: "Trash Retention",
-    desc: "Permanently delete files that have exceeded their trash retention period.",
+    name: "Empty trash",
+    desc: "Permanently delete files that stayed in trash past the cleanup window.",
   },
   "update.check": {
-    name: "Update Check",
+    name: "Check for updates",
     desc: "Check GitHub for a new Staaash release.",
   },
   "restore.reconcile": {
-    name: "Restore Reconciliation",
-    desc: "Verify database metadata against committed originals in file storage. Run after a restore.",
+    name: "Restore check",
+    desc: "Check restored files against database records. Run after a restore.",
   },
   "media.derivative.generate": {
-    name: "Derivative Generate",
-    desc: "Generate preview derivatives for video files. One job is queued per file.",
+    name: "Create preview files",
+    desc: "Create video preview files. One job is queued per file.",
   },
   "media.derivative.cleanup": {
-    name: "Derivative Cleanup",
-    desc: "Remove stale or orphaned derivative files from storage.",
+    name: "Clean preview files",
+    desc: "Remove stale or orphaned preview files from storage.",
   },
   "zip.archive.generate": {
     name: "Archive Generate",
@@ -875,7 +875,7 @@ function JobDetailsModal({
 
                 {selectedFileId ? (
                   <div className="admin-jobs-modal-section">
-                    <h3>Derivative file</h3>
+                    <h3>Preview file</h3>
                     {selectedDerivative ? (
                       <MediaDerivativeCard
                         actions={derivativeActions}
@@ -884,7 +884,7 @@ function JobDetailsModal({
                       />
                     ) : (
                       <p className="admin-jobs-modal-empty">
-                        No derivative record found for this file.
+                        No preview file record found for this file.
                       </p>
                     )}
                   </div>
@@ -1487,7 +1487,7 @@ function JobActivityPanel({
     <section className="admin-jobs-activity" aria-label="Job activity">
       <div className="admin-jobs-activity-head">
         <div>
-          <h2>{view === "jobs" ? "Job activity" : "Derivative files"}</h2>
+          <h2>{view === "jobs" ? "Job activity" : "Preview files"}</h2>
           <p>
             {view === "jobs"
               ? "Recent queued, running, failed, and completed work."
@@ -1514,7 +1514,7 @@ function JobActivityPanel({
               onClick={() => setView("derivatives")}
               type="button"
             >
-              Derivatives
+              Preview files
             </button>
           </div>
 
@@ -1550,10 +1550,10 @@ function JobActivityPanel({
                   value={kindFilter}
                 >
                   <SelectTrigger
-                    aria-label="Kind"
+                    aria-label="Job type"
                     className="admin-jobs-kind-select-trigger"
                   >
-                    <SelectValue placeholder="Kind" />
+                    <SelectValue placeholder="Job type" />
                   </SelectTrigger>
                   <SelectContent
                     align="end"
@@ -1591,7 +1591,7 @@ function JobActivityPanel({
         <div className="admin-derivative-list">
           {derivatives.deletedCount > 0 ? (
             <p className="admin-derivative-note">
-              {derivatives.deletedCount} derivative
+              {derivatives.deletedCount} preview file
               {derivatives.deletedCount === 1 ? "" : "s"} for deleted files are
               hidden and will be cleaned up automatically.
             </p>
@@ -1605,7 +1605,7 @@ function JobActivityPanel({
               />
             ))
           ) : (
-            <p className="admin-jobs-activity-empty">No derivatives yet.</p>
+            <p className="admin-jobs-activity-empty">No preview files yet.</p>
           )}
         </div>
       ) : (

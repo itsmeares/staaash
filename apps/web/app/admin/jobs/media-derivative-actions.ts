@@ -29,7 +29,7 @@ export async function regenerateDerivative(
 
   const fileId = formData.get("fileId");
   if (typeof fileId !== "string") {
-    return { error: "Missing fileId." };
+    return { error: "Missing file ID." };
   }
 
   try {
@@ -42,7 +42,7 @@ export async function regenerateDerivative(
     revalidateDerivativeViews();
     return { success: true };
   } catch {
-    return { error: "Failed to schedule regeneration." };
+    return { error: "Failed to queue preview file." };
   }
 }
 
@@ -56,7 +56,7 @@ export async function setPinDerivative(
   const pinned = formData.get("pinned") === "true";
 
   if (typeof id !== "string") {
-    return { error: "Missing id." };
+    return { error: "Missing preview file ID." };
   }
 
   const db = getPrisma();
@@ -76,16 +76,18 @@ export async function cancelDerivative(
   await requireOwnerPageSession();
 
   const id = formData.get("id");
-  if (typeof id !== "string") return { error: "Missing id." };
+  if (typeof id !== "string") return { error: "Missing preview file ID." };
 
   const db = getPrisma();
   const derivative = await db.mediaDerivative.findUnique({
     where: { id },
     select: { fileId: true, status: true },
   });
-  if (!derivative) return { error: "Derivative not found." };
+  if (!derivative) return { error: "Preview file not found." };
   if (derivative.status !== "queued" && derivative.status !== "processing") {
-    return { error: "Only queued or processing derivatives can be cancelled." };
+    return {
+      error: "Only queued or processing preview files can be cancelled.",
+    };
   }
 
   const dedupeKey = buildDerivativeDedupeKey(
@@ -124,13 +126,13 @@ export async function removeDerivative(
 
   const id = formData.get("id");
   if (typeof id !== "string") {
-    return { error: "Missing id." };
+    return { error: "Missing preview file ID." };
   }
 
   const db = getPrisma();
   const derivative = await db.mediaDerivative.findUnique({ where: { id } });
   if (!derivative) {
-    return { error: "Derivative not found." };
+    return { error: "Preview file not found." };
   }
 
   if (derivative.storageKey) {

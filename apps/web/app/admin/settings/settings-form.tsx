@@ -59,8 +59,8 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
   const visiblePanels = {
     uploads: matchesSearch(
       "uploads",
-      "upload limits staging cleanup file preview limits",
-      "max upload size upload timeout staging retention preview source max preview text max",
+      "upload limits temporary upload cleanup file preview limits",
+      "max upload size upload timeout temporary uploads preview source max preview text max",
     ),
     sessions: matchesSearch(
       "sessions",
@@ -85,12 +85,12 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
     media: matchesSearch(
       "media previews",
       "video preview generation cleanup quality",
-      "enable media previews generate on upload threshold retention max height crf quality max concurrent jobs",
+      "enable media previews generate on upload threshold keep previews max height crf quality max preview tasks",
     ),
     downloads: matchesSearch(
       "downloads",
       "generated archive cleanup window",
-      "zip archive retention",
+      "zip archive keep cleanup",
     ),
   };
   const hasVisiblePanels = Object.values(visiblePanels).some(Boolean);
@@ -116,7 +116,7 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
       <div className="settings-accordion" aria-label="Settings sections">
         <SettingsPanel
           title="Uploads"
-          description="Upload limits, staging cleanup, and file preview limits"
+          description="Upload limits, temporary upload cleanup, and file preview limits"
           hidden={!visiblePanels.uploads}
         >
           <dl className="settings-list">
@@ -139,7 +139,7 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
                 className="settings-input"
               />
             </SettingRow>
-            <SettingRow label="Staging retention (hours)">
+            <SettingRow label="Keep temporary uploads for (hours)">
               <SettingsNumberInput
                 name="uploadStagingRetentionHours"
                 defaultValue={settings.uploadStagingRetentionHours}
@@ -330,7 +330,7 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
                 {formatAdminBytes(Number(settings.mediaPreviewThresholdBytes))}
               </span>
             </SettingRow>
-            <SettingRow label="Retention (days, 0 = never)">
+            <SettingRow label="Keep previews for (days, 0 = never)">
               <SettingsNumberInput
                 name="mediaPreviewRetentionDays"
                 defaultValue={settings.mediaPreviewRetentionDays}
@@ -355,7 +355,7 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
                 className="settings-input"
               />
             </SettingRow>
-            <SettingRow label="Max concurrent jobs">
+            <SettingRow label="Max preview tasks at once">
               <SettingsNumberInput
                 name="mediaPreviewMaxConcurrentJobs"
                 defaultValue={settings.mediaPreviewMaxConcurrentJobs}
@@ -373,7 +373,7 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
           hidden={!visiblePanels.downloads}
         >
           <dl className="settings-list">
-            <SettingRow label="Zip archive retention (days, 0 = never)">
+            <SettingRow label="Keep zip archives for (days, 0 = never)">
               <SettingsNumberInput
                 name="zipArchiveRetentionDays"
                 defaultValue={settings.zipArchiveRetentionDays}

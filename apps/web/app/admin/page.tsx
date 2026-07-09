@@ -33,7 +33,7 @@ export default async function AdminOverviewPage() {
     },
     {
       href: "/admin/jobs",
-      label: "Work queue",
+      label: "Jobs",
       value: String(activeWork),
       detail: `${summary.jobs.queued} queued, ${summary.jobs.running} running`,
     },
@@ -75,7 +75,7 @@ export default async function AdminOverviewPage() {
       status: summary.health.storageWarnings.status,
     },
     {
-      label: "Restore integrity",
+      label: "Restore check",
       message: summary.health.reconciliation.message,
       status: summary.health.reconciliation.status,
     },
@@ -86,7 +86,7 @@ export default async function AdminOverviewPage() {
       <header className="admin-ops-header">
         <div>
           <h1>Overview</h1>
-          <p>Instance health, storage, jobs, and update state.</p>
+          <p>Health, storage, jobs, and updates.</p>
         </div>
         <div className="admin-ops-header-actions">
           <Link href="/admin/jobs">Jobs</Link>
@@ -113,7 +113,7 @@ export default async function AdminOverviewPage() {
         <div className="admin-overview-health-panel">
           <div className="admin-overview-panel-head">
             <h2>System health</h2>
-            <p>Current checks by failure domain.</p>
+            <p>Current system checks.</p>
           </div>
           <div className="admin-overview-health-list">
             {healthRows.map((row) => (
@@ -159,10 +159,10 @@ export default async function AdminOverviewPage() {
               <p>{retainedBytes}</p>
             </div>
             <p>
-              {summary.storage.retainedFileCount} files retained across{" "}
+              {summary.storage.retainedFileCount} files across{" "}
               {summary.storage.totalUsers} users.
             </p>
-            <Link href="/admin/storage">Open usage matrix</Link>
+            <Link href="/admin/storage">Open storage</Link>
           </section>
 
           <section className="admin-overview-rail-card">

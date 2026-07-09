@@ -76,7 +76,7 @@ describe("admin integrity route", () => {
     expect(requireOwnerApiSession).not.toHaveBeenCalled();
   });
 
-  it("queues reconciliation for owners and reports dedupe", async () => {
+  it("queues restore checks for owners and reports dedupe", async () => {
     const { POST } = await import("@/app/api/admin/integrity/route");
     enforceSameOrigin.mockReturnValueOnce(null).mockReturnValueOnce(null);
     requireOwnerApiSession
@@ -124,7 +124,7 @@ describe("admin integrity route", () => {
       }),
     );
     await expect(createdResponse.json()).resolves.toEqual({
-      message: "Restore reconciliation queued.",
+      message: "Restore check queued.",
       jobId: "job-1",
       runId: "run-1",
     });
@@ -135,7 +135,7 @@ describe("admin integrity route", () => {
       }),
     );
     await expect(dedupedResponse.json()).resolves.toEqual({
-      message: "An active restore reconciliation is already queued or running.",
+      message: "A restore check is already queued or running.",
       jobId: "job-1",
       runId: "run-1",
     });

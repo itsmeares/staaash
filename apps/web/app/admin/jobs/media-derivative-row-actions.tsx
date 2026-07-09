@@ -56,9 +56,9 @@ export function MediaDerivativeRowActions({
           type="submit"
           className="admin-jobs-button"
           disabled={regenPending || isActive}
-          title="Re-queue derivative generation"
+          title="Queue preview file again"
         >
-          {regenPending ? "..." : "Regenerate"}
+          {regenPending ? "..." : "Create again"}
         </button>
       </form>
 
@@ -90,7 +90,7 @@ export function MediaDerivativeRowActions({
             type="submit"
             className="admin-jobs-button"
             disabled={cancelPending}
-            title="Cancel queued generation"
+            title="Cancel queued preview file"
           >
             {cancelPending ? "..." : "Cancel"}
           </button>
@@ -104,7 +104,7 @@ export function MediaDerivativeRowActions({
             type="submit"
             className="admin-jobs-button admin-jobs-button-danger"
             disabled={removePending}
-            title="Delete derivative file from disk"
+            title="Delete preview file from disk"
           >
             {removePending ? "..." : "Delete"}
           </button>
