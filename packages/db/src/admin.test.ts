@@ -30,7 +30,7 @@ type MemoryFolder = {
 type MemoryJob = {
   id: string;
   kind: string;
-  status: "queued" | "running" | "succeeded" | "failed" | "dead";
+  status: "queued" | "running" | "succeeded" | "failed" | "dead" | "cancelled";
   payloadJson: unknown;
   dedupeKey: string | null;
   runAt: Date;
@@ -128,11 +128,13 @@ const createClient = ({
       },
     },
     backgroundJob: {
-      async count() {
-        return jobs.length;
+      async count(args?: {
+        where?: { status?: string | { in: string[] }; kind?: string };
+      }) {
+        return filterJobs(jobs, args?.where).length;
       },
       async findMany(args: {
-        where?: { status?: string; kind?: string };
+        where?: { status?: string | { in: string[] }; kind?: string };
         distinct?: string[];
         orderBy?: Array<{ updatedAt?: "desc"; id?: "desc" }> | { kind: "asc" };
         take?: number;
@@ -146,17 +148,7 @@ const createClient = ({
             .map((kind) => ({ kind }));
         }
 
-        let filtered = jobs.filter((job) => {
-          if (args.where?.status && job.status !== args.where.status) {
-            return false;
-          }
-
-          if (args.where?.kind && job.kind !== args.where.kind) {
-            return false;
-          }
-
-          return true;
-        });
+        let filtered = filterJobs(jobs, args.where);
 
         filtered = [...filtered].sort(
           (left, right) =>
@@ -170,6 +162,8 @@ const createClient = ({
           if (index >= 0) {
             filtered = filtered.slice(index + (args.skip ?? 0));
           }
+        } else if (args.skip) {
+          filtered = filtered.slice(args.skip);
         }
 
         return filtered.slice(0, args.take ?? filtered.length);
@@ -190,6 +184,31 @@ const createClient = ({
       },
     },
   }) as const;
+
+const filterJobs = (
+  jobs: MemoryJob[],
+  where?: { status?: string | { in: string[] }; kind?: string },
+) =>
+  jobs.filter((job) => {
+    if (typeof where?.status === "string" && job.status !== where.status) {
+      return false;
+    }
+
+    if (
+      where?.status &&
+      typeof where.status === "object" &&
+      "in" in where.status &&
+      !where.status.in.includes(job.status)
+    ) {
+      return false;
+    }
+
+    if (where?.kind && job.kind !== where.kind) {
+      return false;
+    }
+
+    return true;
+  });
 
 const createJob = (overrides: Partial<MemoryJob>): MemoryJob => ({
   id: overrides.id ?? "job-1",
@@ -317,7 +336,13 @@ describe("admin db helpers", () => {
 
     expect(result.items).toHaveLength(1);
     expect(result.items[0]?.id).toBe("job-1");
-    expect(result.nextCursor).toBe("job-3");
+    expect(result.nextCursor).toBe("job-1");
+    expect(result.page).toBe(1);
+    expect(result.pageCount).toBe(2);
+    expect(result.pageSize).toBe(1);
+    expect(result.totalCount).toBe(2);
+    expect(result.hasNextPage).toBe(true);
+    expect(result.hasPreviousPage).toBe(false);
     expect(result.availableKinds).toEqual(["trash.retention", "update.check"]);
     expect(result.statusCounts).toMatchObject({
       queued: 1,
@@ -327,5 +352,44 @@ describe("admin db helpers", () => {
       dead: 0,
       total: 3,
     });
+  });
+
+  it("returns requested numbered background job pages", async () => {
+    const result = await listAdminBackgroundJobs(
+      {
+        status: ["queued", "running"],
+        limit: 1,
+        page: 2,
+      },
+      createClient({
+        users: [],
+        files: [],
+        folders: [],
+        jobs: [
+          createJob({
+            id: "job-1",
+            status: "running",
+            updatedAt: new Date("2026-04-06T10:00:00.000Z"),
+          }),
+          createJob({
+            id: "job-2",
+            status: "failed",
+            updatedAt: new Date("2026-04-06T09:00:00.000Z"),
+          }),
+          createJob({
+            id: "job-3",
+            status: "queued",
+            updatedAt: new Date("2026-04-06T08:00:00.000Z"),
+          }),
+        ],
+      }),
+    );
+
+    expect(result.items.map((job) => job.id)).toEqual(["job-3"]);
+    expect(result.page).toBe(2);
+    expect(result.pageCount).toBe(2);
+    expect(result.totalCount).toBe(2);
+    expect(result.hasNextPage).toBe(false);
+    expect(result.hasPreviousPage).toBe(true);
   });
 });

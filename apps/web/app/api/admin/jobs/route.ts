@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
     kind: request.nextUrl.searchParams.get("kind"),
     cursor: request.nextUrl.searchParams.get("cursor"),
     limit: request.nextUrl.searchParams.get("limit"),
+    page: request.nextUrl.searchParams.get("page"),
   });
 
   const jobList = await getAdminJobList(filters);

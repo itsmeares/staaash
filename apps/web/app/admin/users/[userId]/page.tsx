@@ -2,6 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { CSSProperties, ReactNode } from "react";
+import { ArrowLeft } from "lucide-react";
 
 import {
   formatAdminBytes,
@@ -101,47 +102,50 @@ export default async function AdminUserDetailsPage({
         mostRecentSession.lastSeenAt ?? mostRecentSession.createdAt,
       )
     : "n/a";
-  const accountReady = Boolean(
-    !user.passwordChangeRequiredAt && user.preferences?.onboardingCompletedAt,
+  const hasStatusAlerts = Boolean(
+    user.passwordChangeRequiredAt || !user.preferences?.onboardingCompletedAt,
   );
 
   return (
     <main className="admin-user-detail">
       <section className="admin-user-hero" aria-label="User profile summary">
         <div className="admin-user-hero-copy">
-          <Link
-            className="admin-kv-link admin-user-back-link"
-            href="/admin/users"
-          >
-            Users
+          <Link className="admin-user-back-button" href="/admin/users">
+            <ArrowLeft size={15} aria-hidden />
+            Back to users
           </Link>
           <div className="admin-user-hero-main">
             <span
               className="workspace-avatar admin-user-hero-avatar"
               aria-hidden
             >
-              {initials}
+              {user.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt=""
+                  className="workspace-avatar-img"
+                />
+              ) : (
+                <span className="workspace-avatar-initials">{initials}</span>
+              )}
             </span>
             <div className="admin-user-identity">
               <h1>{user.displayName ?? "No name yet"}</h1>
               <p>{user.email}</p>
-              <div className="admin-user-status-row">
-                {accountReady ? (
-                  <span className={getAdminStatusClassName("ready")}>
-                    ready
-                  </span>
-                ) : null}
-                {user.passwordChangeRequiredAt ? (
-                  <span className={getAdminStatusClassName("error")}>
-                    password change required
-                  </span>
-                ) : null}
-                {!user.preferences?.onboardingCompletedAt ? (
-                  <span className={getAdminStatusClassName("warning")}>
-                    onboarding incomplete
-                  </span>
-                ) : null}
-              </div>
+              {hasStatusAlerts ? (
+                <div className="admin-user-status-row">
+                  {user.passwordChangeRequiredAt ? (
+                    <span className={getAdminStatusClassName("error")}>
+                      password change required
+                    </span>
+                  ) : null}
+                  {!user.preferences?.onboardingCompletedAt ? (
+                    <span className={getAdminStatusClassName("warning")}>
+                      onboarding incomplete
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

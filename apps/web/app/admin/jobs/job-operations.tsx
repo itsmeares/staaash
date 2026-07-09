@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -151,6 +157,12 @@ type MediaDerivativeActions = {
 type JsonJobListResponse = {
   items: JsonBackgroundJob[];
   nextCursor: string | null;
+  page: number;
+  pageCount: number;
+  pageSize: number;
+  totalCount: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
 };
 
 const ACTIVITY_FILTER_LABELS: Record<ActivityFilter, string> = {
@@ -479,17 +491,28 @@ function buildJobsUrl({
   cursor,
   kind,
   limit = ACTIVITY_PAGE_SIZE,
+  page = 1,
   status,
+  statuses,
 }: {
   cursor?: string | null;
   kind?: string | null;
   limit?: number;
+  page?: number;
   status?: JsonBackgroundJob["status"] | null;
+  statuses?: JsonBackgroundJob["status"][] | null;
 }) {
-  const params = new URLSearchParams({ limit: String(limit) });
+  const params = new URLSearchParams({
+    limit: String(limit),
+    page: String(page),
+  });
   if (cursor) params.set("cursor", cursor);
   if (kind) params.set("kind", kind);
-  if (status) params.set("status", status);
+  if (statuses?.length) {
+    params.set("status", statuses.join(","));
+  } else if (status) {
+    params.set("status", status);
+  }
   return `/api/admin/jobs?${params.toString()}`;
 }
 
@@ -513,37 +536,23 @@ function mergeJobsById(
 }
 
 async function fetchActivityJobs({
-  cursor = null,
   filter,
   kind,
+  page,
 }: {
-  cursor?: string | null;
   filter: ActivityFilter;
   kind: string | null;
+  page: number;
 }) {
-  if (filter === "all") {
-    const res = await fetch(buildJobsUrl({ cursor, kind }));
-    if (!res.ok) throw new Error(`Request failed (${res.status}).`);
-    return (await res.json()) as JsonJobListResponse;
-  }
-
-  const pages = await Promise.all(
-    ACTIVITY_FILTER_STATUSES[filter].map(async (status) => {
-      const res = await fetch(
-        buildJobsUrl({ kind, limit: ACTIVITY_PAGE_SIZE, status }),
-      );
-      if (!res.ok) throw new Error(`Request failed (${res.status}).`);
-      return (await res.json()) as JsonJobListResponse;
+  const res = await fetch(
+    buildJobsUrl({
+      kind,
+      page,
+      statuses: filter === "all" ? null : ACTIVITY_FILTER_STATUSES[filter],
     }),
   );
-
-  return {
-    items: sortJobsByUpdatedAt(pages.flatMap((page) => page.items)).slice(
-      0,
-      ACTIVITY_PAGE_SIZE,
-    ),
-    nextCursor: null,
-  } satisfies JsonJobListResponse;
+  if (!res.ok) throw new Error(`Request failed (${res.status}).`);
+  return (await res.json()) as JsonJobListResponse;
 }
 
 function getActivityDetail(job: JsonBackgroundJob) {
@@ -583,6 +592,42 @@ function jobMatchesActivityView({
   if (kind && job.kind !== kind) return false;
   if (filter === "all") return true;
   return ACTIVITY_FILTER_STATUSES[filter].includes(effectiveStatus(job));
+}
+
+type PaginationMarker = "start-ellipsis" | "end-ellipsis";
+type PaginationItem = number | PaginationMarker;
+
+function getPaginationItems(page: number, pageCount: number): PaginationItem[] {
+  if (pageCount <= 7) {
+    return Array.from({ length: pageCount }, (_, index) => index + 1);
+  }
+
+  const items: PaginationItem[] = [1];
+  const start = Math.max(2, page - 1);
+  const end = Math.min(pageCount - 1, page + 1);
+
+  if (start > 2) {
+    items.push("start-ellipsis");
+  } else {
+    for (let pageNumber = 2; pageNumber < start; pageNumber += 1) {
+      items.push(pageNumber);
+    }
+  }
+
+  for (let pageNumber = start; pageNumber <= end; pageNumber += 1) {
+    items.push(pageNumber);
+  }
+
+  if (end < pageCount - 1) {
+    items.push("end-ellipsis");
+  } else {
+    for (let pageNumber = end + 1; pageNumber < pageCount; pageNumber += 1) {
+      items.push(pageNumber);
+    }
+  }
+
+  items.push(pageCount);
+  return items;
 }
 
 function JsonBlock({ value }: { value: Record<string, unknown> | null }) {
@@ -1140,6 +1185,93 @@ function JobTaskCard({
   );
 }
 
+function ActivityPagination({
+  disabled,
+  pagination,
+  onPageChange,
+}: {
+  disabled: boolean;
+  pagination: Omit<JsonJobListResponse, "items" | "nextCursor">;
+  onPageChange: (page: number) => void;
+}) {
+  const safePageCount = Math.max(pagination.pageCount, 1);
+  const page = Math.min(Math.max(pagination.page, 1), safePageCount);
+  const firstItem =
+    pagination.totalCount === 0 ? 0 : (page - 1) * pagination.pageSize + 1;
+  const lastItem = Math.min(pagination.totalCount, page * pagination.pageSize);
+  const pageItems = getPaginationItems(page, pagination.pageCount);
+  const canGoBack = pagination.hasPreviousPage && !disabled;
+  const canGoForward = pagination.hasNextPage && !disabled;
+
+  return (
+    <nav className="admin-jobs-pagination" aria-label="Activity pagination">
+      <p>
+        Showing {firstItem}-{lastItem} of {pagination.totalCount} logs
+      </p>
+      {pagination.pageCount > 1 ? (
+        <div className="admin-jobs-pagination-controls">
+          <button
+            aria-label="First page"
+            disabled={!canGoBack}
+            onClick={() => onPageChange(1)}
+            title="First page"
+            type="button"
+          >
+            <ChevronsLeft size={15} aria-hidden />
+          </button>
+          <button
+            aria-label="Previous page"
+            disabled={!canGoBack}
+            onClick={() => onPageChange(page - 1)}
+            title="Previous page"
+            type="button"
+          >
+            <ChevronLeft size={15} aria-hidden />
+          </button>
+          {pageItems.map((item) =>
+            typeof item === "number" ? (
+              <button
+                aria-current={item === page ? "page" : undefined}
+                className={
+                  item === page ? "admin-jobs-pagination-page-active" : ""
+                }
+                disabled={disabled || item === page}
+                key={item}
+                onClick={() => onPageChange(item)}
+                type="button"
+              >
+                {item}
+              </button>
+            ) : (
+              <span aria-hidden key={item}>
+                ...
+              </span>
+            ),
+          )}
+          <button
+            aria-label="Next page"
+            disabled={!canGoForward}
+            onClick={() => onPageChange(page + 1)}
+            title="Next page"
+            type="button"
+          >
+            <ChevronRight size={15} aria-hidden />
+          </button>
+          <button
+            aria-label="Last page"
+            disabled={!canGoForward}
+            onClick={() => onPageChange(pagination.pageCount)}
+            title="Last page"
+            type="button"
+          >
+            <ChevronsRight size={15} aria-hidden />
+          </button>
+        </div>
+      ) : null}
+    </nav>
+  );
+}
+
 function JobActivityPanel({
   derivativeActions,
   derivatives,
@@ -1164,9 +1296,18 @@ function JobActivityPanel({
   const [filter, setFilter] = useState<ActivityFilter>("all");
   const [kindFilter, setKindFilter] = useState("all");
   const [items, setItems] = useState<JsonBackgroundJob[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [activityPage, setActivityPage] = useState(1);
+  const [pagination, setPagination] = useState<
+    Omit<JsonJobListResponse, "items" | "nextCursor">
+  >({
+    page: 1,
+    pageCount: 0,
+    pageSize: ACTIVITY_PAGE_SIZE,
+    totalCount: 0,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  });
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedKind, setSelectedKind] = useState<string | null>(null);
@@ -1193,18 +1334,33 @@ function JobActivityPanel({
   );
   const activityKind = kindFilter === "all" ? null : kindFilter;
   const isInitialActivityLoad = loading && items.length === 0;
+  const applyActivityData = useCallback(
+    (data: JsonJobListResponse) => {
+      setItems(data.items);
+      setPagination({
+        page: data.page,
+        pageCount: data.pageCount,
+        pageSize: data.pageSize,
+        totalCount: data.totalCount,
+        hasNextPage: data.hasNextPage,
+        hasPreviousPage: data.hasPreviousPage,
+      });
+      if (data.page !== activityPage) {
+        setActivityPage(data.page);
+      }
+    },
+    [activityPage],
+  );
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setLoadError(null);
-    setNextCursor(null);
 
-    void fetchActivityJobs({ filter, kind: activityKind })
+    void fetchActivityJobs({ filter, kind: activityKind, page: activityPage })
       .then((data) => {
         if (cancelled) return;
-        setItems(data.items);
-        setNextCursor(data.nextCursor);
+        applyActivityData(data);
       })
       .catch((error: unknown) => {
         if (!cancelled) {
@@ -1220,10 +1376,10 @@ function JobActivityPanel({
     return () => {
       cancelled = true;
     };
-  }, [activityKind, filter]);
+  }, [activityKind, activityPage, applyActivityData, filter]);
 
   useEffect(() => {
-    if (liveJobs.length === 0) return;
+    if (activityPage !== 1 || liveJobs.length === 0) return;
 
     setItems((current) => {
       const liveJobIds = new Set(liveJobs.map((job) => job.id));
@@ -1237,9 +1393,9 @@ function JobActivityPanel({
           (job) => !liveJobIds.has(job.id) || visibleLiveJobIds.has(job.id),
         ),
         visibleLiveJobs,
-      );
+      ).slice(0, pagination.pageSize);
     });
-  }, [activityKind, filter, liveJobs]);
+  }, [activityKind, activityPage, filter, liveJobs, pagination.pageSize]);
 
   useEffect(() => {
     if (!selectedHistoryJobId || liveJobs.length === 0) return;
@@ -1274,9 +1430,12 @@ function JobActivityPanel({
   }, [detailsOpen, selectedHistoryJobId]);
 
   const refreshActivity = async () => {
-    const data = await fetchActivityJobs({ filter, kind: activityKind });
-    setItems(data.items);
-    setNextCursor(data.nextCursor);
+    const data = await fetchActivityJobs({
+      filter,
+      kind: activityKind,
+      page: activityPage,
+    });
+    applyActivityData(data);
   };
 
   const refreshHistory = async (kind: string, selectedJobId?: string) => {
@@ -1322,27 +1481,6 @@ function JobActivityPanel({
       return;
     }
     await Promise.all([refreshActivity(), refreshHistory(selectedKind, jobId)]);
-  };
-
-  const loadMore = async () => {
-    if (!nextCursor || loadingMore) return;
-    setLoadingMore(true);
-    setLoadError(null);
-    try {
-      const data = await fetchActivityJobs({
-        cursor: nextCursor,
-        filter,
-        kind: activityKind,
-      });
-      setItems((current) => mergeJobsById(current, data.items));
-      setNextCursor(data.nextCursor);
-    } catch (error) {
-      setLoadError(
-        error instanceof Error ? error.message : "Failed to load jobs.",
-      );
-    } finally {
-      setLoadingMore(false);
-    }
   };
 
   return (
@@ -1391,7 +1529,10 @@ function JobActivityPanel({
                         filter === value ? "admin-jobs-activity-tab-active" : ""
                       }
                       key={value}
-                      onClick={() => setFilter(value)}
+                      onClick={() => {
+                        setFilter(value);
+                        setActivityPage(1);
+                      }}
                       type="button"
                     >
                       {ACTIVITY_FILTER_LABELS[value]}
@@ -1402,7 +1543,10 @@ function JobActivityPanel({
               <div className="admin-jobs-kind-filter">
                 <Select
                   items={kindFilterOptions}
-                  onValueChange={(value) => setKindFilter(value ?? "all")}
+                  onValueChange={(value) => {
+                    setKindFilter(value ?? "all");
+                    setActivityPage(1);
+                  }}
                   value={kindFilter}
                 >
                   <SelectTrigger
@@ -1526,15 +1670,12 @@ function JobActivityPanel({
             )}
           </div>
 
-          {nextCursor ? (
-            <button
-              className="admin-jobs-activity-more"
-              disabled={loadingMore}
-              onClick={() => void loadMore()}
-              type="button"
-            >
-              {loadingMore ? "Loading..." : "Load more"}
-            </button>
+          {pagination.totalCount > 0 ? (
+            <ActivityPagination
+              disabled={loading}
+              onPageChange={setActivityPage}
+              pagination={pagination}
+            />
           ) : null}
         </>
       )}

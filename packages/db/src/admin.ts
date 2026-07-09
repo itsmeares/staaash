@@ -87,10 +87,12 @@ export type AdminStorageUsageSummary = {
 };
 
 export type AdminBackgroundJobListFilters = {
-  status?: BackgroundJobRecord["status"] | null;
+  status?:
+    BackgroundJobRecord["status"] | BackgroundJobRecord["status"][] | null;
   kind?: string | null;
   limit?: number;
   cursor?: string | null;
+  page?: number | null;
 };
 
 export type AdminBackgroundJobStatusCounts = Record<
@@ -103,6 +105,12 @@ export type AdminBackgroundJobStatusCounts = Record<
 export type AdminBackgroundJobListResult = {
   items: BackgroundJobRecord[];
   nextCursor: string | null;
+  page: number;
+  pageCount: number;
+  pageSize: number;
+  totalCount: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
   availableKinds: string[];
   statusCounts: AdminBackgroundJobStatusCounts;
 };
@@ -216,11 +224,25 @@ const normalizeJobListLimit = (value: number | undefined) => {
   return Math.min(Math.max(value, 1), 100);
 };
 
+const normalizeJobListPage = (value: number | null | undefined) => {
+  if (!value) {
+    return 1;
+  }
+
+  return Math.max(value, 1);
+};
+
 const buildJobWhere = ({
   status,
   kind,
 }: Pick<AdminBackgroundJobListFilters, "status" | "kind">) => ({
-  ...(status ? { status } : {}),
+  ...(Array.isArray(status)
+    ? status.length > 0
+      ? { status: { in: status } }
+      : {}
+    : status
+      ? { status }
+      : {}),
   ...(kind ? { kind } : {}),
 });
 
@@ -230,22 +252,10 @@ export const listAdminBackgroundJobs = async (
 ): Promise<AdminBackgroundJobListResult> => {
   const activeClient = client ?? (getPrisma() as unknown as AdminClient);
   const limit = normalizeJobListLimit(filters.limit);
+  const requestedPage = normalizeJobListPage(filters.page);
   const where = buildJobWhere(filters);
 
-  const [items, kindRows, statusGroups, total] = await Promise.all([
-    activeClient.backgroundJob.findMany({
-      where,
-      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-      take: limit + 1,
-      ...(filters.cursor
-        ? {
-            cursor: {
-              id: filters.cursor,
-            },
-            skip: 1,
-          }
-        : {}),
-    }) as Promise<BackgroundJobRecord[]>,
+  const [kindRows, statusGroups, totalCount, statusTotal] = await Promise.all([
     activeClient.backgroundJob.findMany({
       select: {
         kind: true,
@@ -261,11 +271,37 @@ export const listAdminBackgroundJobs = async (
         status: true,
       },
     }),
+    activeClient.backgroundJob.count({ where }),
     activeClient.backgroundJob.count(),
   ]);
 
-  const nextCursor = items.length > limit ? items[limit]!.id : null;
-  const pageItems = items.slice(0, limit);
+  const pageCount = Math.ceil(totalCount / limit);
+  const page = filters.cursor
+    ? requestedPage
+    : Math.min(requestedPage, Math.max(pageCount, 1));
+  const items = (await activeClient.backgroundJob.findMany({
+    where,
+    orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+    take: filters.cursor ? limit + 1 : limit,
+    ...(filters.cursor
+      ? {
+          cursor: {
+            id: filters.cursor,
+          },
+          skip: 1,
+        }
+      : {
+          skip: (page - 1) * limit,
+        }),
+  })) as BackgroundJobRecord[];
+
+  const pageItems = filters.cursor ? items.slice(0, limit) : items;
+  const hasPreviousPage = filters.cursor ? false : page > 1;
+  const hasNextPage = filters.cursor ? items.length > limit : page < pageCount;
+  const nextCursor =
+    hasNextPage && pageItems.length > 0
+      ? pageItems[pageItems.length - 1]!.id
+      : null;
 
   const statusCounts: AdminBackgroundJobStatusCounts = {
     queued: 0,
@@ -274,7 +310,7 @@ export const listAdminBackgroundJobs = async (
     failed: 0,
     dead: 0,
     cancelled: 0,
-    total,
+    total: statusTotal,
   };
 
   for (const group of statusGroups) {
@@ -284,6 +320,12 @@ export const listAdminBackgroundJobs = async (
   return {
     items: pageItems,
     nextCursor,
+    page,
+    pageCount,
+    pageSize: limit,
+    totalCount,
+    hasNextPage,
+    hasPreviousPage,
     availableKinds: kindRows.map((row) => row.kind),
     statusCounts,
   };
