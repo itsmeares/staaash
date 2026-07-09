@@ -43,9 +43,10 @@ COPY --from=build /app/scripts ./scripts
 # Worker (self-contained via pnpm deploy)
 COPY --from=build /deploy/worker /worker
 
-# Next.js standalone copies node_modules to /app — symlink global prisma in so
-# prisma.config.ts can resolve "prisma/config" when migrate runs
-RUN ln -sf "$(npm root -g)/prisma" /app/node_modules/prisma
+# Next.js standalone copies node_modules to /app. Expose Prisma for migrations
+# and pg for the documented operator migration script in /app/scripts.
+RUN ln -sf "$(npm root -g)/prisma" /app/node_modules/prisma \
+    && ln -sf .pnpm/node_modules/pg /app/node_modules/pg
 
 EXPOSE 2113
 CMD ["sh", "-c", "prisma migrate deploy && node apps/web/server.js"]

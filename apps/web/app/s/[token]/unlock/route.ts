@@ -11,6 +11,7 @@ import {
 import { buildShareAccessCookie } from "@/server/sharing/access-cookie";
 import { unlockShareSchema } from "@/server/sharing/schema";
 import { sharingService } from "@/server/sharing/service";
+import { getBaseUrl } from "@/server/request";
 
 export async function POST(
   request: NextRequest,
@@ -40,11 +41,12 @@ export async function POST(
       token,
       password: body.password,
     });
-    const host = request.headers.get("host") ?? new URL(request.url).host;
-    const proto = request.headers.get("x-forwarded-proto") ?? "http";
     const response = wantsJson(request)
       ? NextResponse.json({ ok: true })
-      : NextResponse.redirect(new URL(redirectTo, `${proto}://${host}`), 303);
+      : NextResponse.redirect(
+          new URL(redirectTo, getBaseUrl(request.headers)),
+          303,
+        );
 
     response.cookies.set(
       buildShareAccessCookie({

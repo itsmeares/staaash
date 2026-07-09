@@ -44,6 +44,7 @@ import {
   WORKSPACE_ITEM_FILTERS,
 } from "../workspace-item-helpers";
 import { WorkspaceActionSheet } from "../workspace-action-sheet";
+import { RubberBandRect, type RubberBand } from "../rubber-band-rect";
 import {
   filterFavoriteItems,
   formatFavoriteFileSize,
@@ -63,13 +64,6 @@ type FavoritesViewProps = {
   error?: string | null;
   items: FavoriteClientItem[];
   success?: string | null;
-};
-
-type RubberBand = {
-  currentX: number;
-  currentY: number;
-  startX: number;
-  startY: number;
 };
 
 const VIEW_STORAGE_KEY = "staaash:favorites:view";
@@ -899,19 +893,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
     },
   ];
 
-  const renderRubberBand = () =>
-    rubberBand ? (
-      <div
-        className="rubber-band-rect"
-        style={{
-          left: Math.min(rubberBand.startX, rubberBand.currentX),
-          top: Math.min(rubberBand.startY, rubberBand.currentY),
-          width: Math.abs(rubberBand.currentX - rubberBand.startX),
-          height: Math.abs(rubberBand.currentY - rubberBand.startY),
-        }}
-        aria-hidden
-      />
-    ) : null;
+  const renderRubberBand = () => <RubberBandRect rubberBand={rubberBand} />;
 
   return (
     <DashboardPageContextMenu

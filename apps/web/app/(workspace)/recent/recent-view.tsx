@@ -10,6 +10,7 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
+  type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -44,6 +45,8 @@ import {
   WORKSPACE_ITEM_FILTERS,
 } from "../workspace-item-helpers";
 import { WorkspaceActionSheet } from "../workspace-action-sheet";
+import { RubberBandRect, type RubberBand } from "../rubber-band-rect";
+import { RecentGroupSections } from "./recent-group-sections";
 import {
   filterRecentItems,
   formatRecentFileSize,
@@ -62,13 +65,6 @@ type RecentViewProps = {
   error?: string | null;
   items: RecentClientItem[];
   success?: string | null;
-};
-
-type RubberBand = {
-  currentX: number;
-  currentY: number;
-  startX: number;
-  startY: number;
 };
 
 const DRAG_THRESHOLD = 5;
@@ -783,6 +779,47 @@ export function RecentView({ error, items, success }: RecentViewProps) {
     ];
   };
 
+  const renderRecentItemShell = ({
+    item,
+    selected,
+    deleted,
+    className,
+    children,
+  }: {
+    item: RecentClientItem;
+    selected: boolean;
+    deleted: boolean;
+    className: string;
+    children: ReactNode;
+  }) => (
+    <DashboardItemContextMenu
+      groups={getRecentItemContextGroups(item)}
+      key={`${item.kind}-${item.id}`}
+    >
+      <article
+        data-recent-active={deleted ? undefined : "true"}
+        data-recent-item={item.id}
+        tabIndex={deleted ? -1 : 0}
+        role={deleted ? undefined : "button"}
+        aria-pressed={deleted ? undefined : selected}
+        className={className}
+        onKeyDown={(event) => handleRecentItemKeyDown(item, event)}
+        onClick={(event) => handleItemClick(item, event)}
+        onDoubleClick={(event) => {
+          event.stopPropagation();
+          if (deleted) return;
+          openItem(item);
+        }}
+        onPointerCancel={clearLongPressTimer}
+        onPointerDown={(event) => handleRecentPointerDown(item, event)}
+        onPointerLeave={clearLongPressTimer}
+        onPointerUp={clearLongPressTimer}
+      >
+        {children}
+      </article>
+    </DashboardItemContextMenu>
+  );
+
   const backgroundMenuGroups: DashboardContextMenuGroup[] = [
     {
       actions: [
@@ -923,101 +960,63 @@ export function RecentView({ error, items, success }: RecentViewProps) {
             {renderSortButton("uploadedAt", "Uploaded", "right")}
           </div>
 
-          {rubberBand ? (
-            <div
-              className="rubber-band-rect"
-              style={{
-                left: Math.min(rubberBand.startX, rubberBand.currentX),
-                top: Math.min(rubberBand.startY, rubberBand.currentY),
-                width: Math.abs(rubberBand.currentX - rubberBand.startX),
-                height: Math.abs(rubberBand.currentY - rubberBand.startY),
-              }}
-              aria-hidden
-            />
-          ) : null}
+          <RubberBandRect rubberBand={rubberBand} />
 
-          {groups.map((group) => (
-            <section className="recent-group-section" key={group.label}>
-              <div className="recent-group-header">
-                <span>{group.label}</span>
-                <small>{group.items.length}</small>
-              </div>
-
-              {group.items.map((item) => {
-                const deleted = Boolean(item.deletedAt);
-                const selected = !deleted && selectedIds.has(item.id);
-                return (
-                  <DashboardItemContextMenu
-                    groups={getRecentItemContextGroups(item)}
-                    key={`${item.kind}-${item.id}`}
-                  >
-                    <article
-                      data-recent-active={deleted ? undefined : "true"}
-                      data-recent-item={item.id}
-                      tabIndex={deleted ? -1 : 0}
-                      role={deleted ? undefined : "button"}
-                      aria-pressed={deleted ? undefined : selected}
-                      className={`recent-row${selected ? " is-selected" : ""}${deleted ? " is-deleted" : ""}`}
-                      onKeyDown={(event) =>
-                        handleRecentItemKeyDown(item, event)
-                      }
-                      onClick={(event) => handleItemClick(item, event)}
-                      onDoubleClick={(event) => {
-                        event.stopPropagation();
-                        if (deleted) return;
-                        openItem(item);
-                      }}
-                      onPointerCancel={clearLongPressTimer}
-                      onPointerDown={(event) =>
-                        handleRecentPointerDown(item, event)
-                      }
-                      onPointerLeave={clearLongPressTimer}
-                      onPointerUp={clearLongPressTimer}
+          <RecentGroupSections
+            groups={groups}
+            renderItem={(item) => {
+              const deleted = Boolean(item.deletedAt);
+              const selected = !deleted && selectedIds.has(item.id);
+              return renderRecentItemShell({
+                item,
+                selected,
+                deleted,
+                className: `recent-row${selected ? " is-selected" : ""}${deleted ? " is-deleted" : ""}`,
+                children: (
+                  <>
+                    <span className="recent-row-thumb">
+                      <ItemIcon item={item} tone="plain" />
+                    </span>
+                    <span className="recent-row-name" title={item.name}>
+                      {item.name}
+                      {item.isFavorite ? (
+                        <span
+                          aria-label="Favorited"
+                          className="recent-favorite-dot"
+                        />
+                      ) : null}
+                      {deleted ? (
+                        <span className="recent-deleted-badge">Deleted</span>
+                      ) : null}
+                    </span>
+                    <span
+                      className="recent-row-location"
+                      title={item.locationLabel}
                     >
-                      <span className="recent-row-thumb">
-                        <ItemIcon item={item} tone="plain" />
-                      </span>
-                      <span className="recent-row-name" title={item.name}>
-                        {item.name}
-                        {item.isFavorite ? (
-                          <span
-                            aria-label="Favorited"
-                            className="recent-favorite-dot"
-                          />
-                        ) : null}
-                        {deleted ? (
-                          <span className="recent-deleted-badge">Deleted</span>
-                        ) : null}
-                      </span>
-                      <span
-                        className="recent-row-location"
-                        title={item.locationLabel}
-                      >
-                        {item.locationLabel}
-                      </span>
-                      <span className="recent-row-size">
-                        {formatRecentFileSize(item.sizeBytes)}
-                      </span>
-                      <span className="recent-row-time">
-                        {deleted ? (
-                          <span className="recent-row-inline-actions">
-                            {renderItemActions(item)}
-                          </span>
-                        ) : (
-                          formatRecentRelativeTime(item.uploadedAt)
-                        )}
-                      </span>
-                      {!deleted ? (
-                        <span className="recent-row-actions">
+                      {item.locationLabel}
+                    </span>
+                    <span className="recent-row-size">
+                      {formatRecentFileSize(item.sizeBytes)}
+                    </span>
+                    <span className="recent-row-time">
+                      {deleted ? (
+                        <span className="recent-row-inline-actions">
                           {renderItemActions(item)}
                         </span>
-                      ) : null}
-                    </article>
-                  </DashboardItemContextMenu>
-                );
-              })}
-            </section>
-          ))}
+                      ) : (
+                        formatRecentRelativeTime(item.uploadedAt)
+                      )}
+                    </span>
+                    {!deleted ? (
+                      <span className="recent-row-actions">
+                        {renderItemActions(item)}
+                      </span>
+                    ) : null}
+                  </>
+                ),
+              });
+            }}
+          />
         </div>
       ) : (
         <div
@@ -1026,18 +1025,7 @@ export function RecentView({ error, items, success }: RecentViewProps) {
           onClick={handleRecentListClick}
           onMouseDown={handleRecentMouseDown}
         >
-          {rubberBand ? (
-            <div
-              className="rubber-band-rect"
-              style={{
-                left: Math.min(rubberBand.startX, rubberBand.currentX),
-                top: Math.min(rubberBand.startY, rubberBand.currentY),
-                width: Math.abs(rubberBand.currentX - rubberBand.startX),
-                height: Math.abs(rubberBand.currentY - rubberBand.startY),
-              }}
-              aria-hidden
-            />
-          ) : null}
+          <RubberBandRect rubberBand={rubberBand} />
 
           {groups.map((group) => (
             <section className="recent-grid-group" key={group.label}>
@@ -1054,34 +1042,13 @@ export function RecentView({ error, items, success }: RecentViewProps) {
                     item.kind,
                     item.kind === "file" ? item.mimeType : null,
                   );
-                  return (
-                    <DashboardItemContextMenu
-                      groups={getRecentItemContextGroups(item)}
-                      key={`${item.kind}-${item.id}`}
-                    >
-                      <article
-                        data-recent-active={deleted ? undefined : "true"}
-                        data-recent-item={item.id}
-                        tabIndex={deleted ? -1 : 0}
-                        role={deleted ? undefined : "button"}
-                        aria-pressed={deleted ? undefined : selected}
-                        className={`recent-grid-card${selected ? " is-selected" : ""}${deleted ? " is-deleted" : ""}`}
-                        onKeyDown={(event) =>
-                          handleRecentItemKeyDown(item, event)
-                        }
-                        onClick={(event) => handleItemClick(item, event)}
-                        onDoubleClick={(event) => {
-                          event.stopPropagation();
-                          if (deleted) return;
-                          openItem(item);
-                        }}
-                        onPointerCancel={clearLongPressTimer}
-                        onPointerDown={(event) =>
-                          handleRecentPointerDown(item, event)
-                        }
-                        onPointerLeave={clearLongPressTimer}
-                        onPointerUp={clearLongPressTimer}
-                      >
+                  return renderRecentItemShell({
+                    item,
+                    selected,
+                    deleted,
+                    className: `recent-grid-card${selected ? " is-selected" : ""}${deleted ? " is-deleted" : ""}`,
+                    children: (
+                      <>
                         <div
                           className="recent-grid-card-preview"
                           style={{ background: visual.background }}
@@ -1110,9 +1077,9 @@ export function RecentView({ error, items, success }: RecentViewProps) {
                         <span className="recent-grid-card-actions">
                           {renderItemActions(item)}
                         </span>
-                      </article>
-                    </DashboardItemContextMenu>
-                  );
+                      </>
+                    ),
+                  });
                 })}
               </div>
             </section>

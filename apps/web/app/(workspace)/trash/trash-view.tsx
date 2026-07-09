@@ -10,6 +10,7 @@ import {
   formatRecentFileSize,
   formatRecentRelativeTime,
 } from "../recent/recent-helpers";
+import { RecentGroupSections } from "../recent/recent-group-sections";
 import { EmptyTrashAction } from "./trash-file-actions";
 import {
   filterTrashItems,
@@ -234,18 +235,12 @@ export function TrashView({ error, items, success }: TrashViewProps) {
             </span>
           </div>
 
-          {groups.map((group) => (
-            <section className="recent-group-section" key={group.label}>
-              <div className="recent-group-header">
-                <span>{group.label}</span>
-                <small>{group.items.length}</small>
-              </div>
-
-              {group.items.map((item) => (
-                <TrashRow item={item} key={`${item.kind}-${item.id}`} />
-              ))}
-            </section>
-          ))}
+          <RecentGroupSections
+            groups={groups}
+            renderItem={(item) => (
+              <TrashRow item={item} key={`${item.kind}-${item.id}`} />
+            )}
+          />
         </div>
       )}
     </>

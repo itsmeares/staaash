@@ -28,12 +28,17 @@
     "db:generate": "pnpm --filter @staaash/db db:generate",
     "db:push": "pnpm --filter @staaash/db exec prisma db push",
     "app:clear-caches": "node scripts/clear-caches.mjs",
-    "app:reset-local-data": "node scripts/reset-local-data.mjs"
+    "app:reset-local-data": "node scripts/reset-local-data.mjs",
+    "quality:fallow": "fallow audit --base origin/main --gate new-only --production-dead-code --production-health --production-dupes --no-css --max-crap 60 --health-baseline .fallow/baselines/health.json"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,cjs,json,md,yml,yaml,css}": "prettier --write --ignore-unknown"
   },
+  "dependencies": {
+    "pg": "^8.22.0"
+  },
   "devDependencies": {
+    "fallow": "3.3.0",
     "husky": "9.1.7",
     "lint-staged": "17.0.8",
     "prettier": "3.9.0",
