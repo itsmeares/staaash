@@ -26,16 +26,11 @@ services:
 
     restart: always
 
-    networks:
-      - staaash_net
-
   worker:
     container_name: staaash_worker
     image: ghcr.io/itsmeares/staaash:${STAAASH_VERSION:-latest}
 
-    command:
-      - node
-      - /worker/dist/index.js
+    command: node /worker/dist/index.js
 
     environment:
       NODE_ENV: production
@@ -44,6 +39,7 @@ services:
       UPLOAD_LOCATION: /data/files
 
     volumes:
+      # Do not edit the next line. To change where files are stored, edit UPLOAD_LOCATION in the .env file
       - ${UPLOAD_LOCATION:-./library}:/data/files
 
     depends_on:
@@ -51,9 +47,6 @@ services:
         condition: service_healthy
 
     restart: always
-
-    networks:
-      - staaash_net
 
   db:
     container_name: staaash_postgres
@@ -65,25 +58,21 @@ services:
       POSTGRES_DB: ${DB_DATABASE_NAME:-staaash}
 
     volumes:
+      # Do not edit the next line. To change where files are stored, edit UPLOAD_LOCATION in the .env file
       - ${DB_DATA_LOCATION:-./postgres}:/var/lib/postgresql
 
     healthcheck:
       test:
-        - CMD-SHELL
-        - pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_DATABASE_NAME:-staaash}
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_DATABASE_NAME:-staaash}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 10s
 
     restart: always
-
-    networks:
-      - staaash_net
-
-networks:
-  staaash_net:
-    driver: bridge
 
 x-casaos:
   id: io.github.itsmeares.staaash
