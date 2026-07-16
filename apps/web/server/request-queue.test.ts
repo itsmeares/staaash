@@ -4,6 +4,7 @@ import { queuedXhrUpload } from "@/lib/transfers/request-queue";
 
 class MockXMLHttpRequest {
   static instances: MockXMLHttpRequest[] = [];
+  static responses: Array<{ status: number; responseText: string }> = [];
 
   upload: Pick<XMLHttpRequestUpload, "onprogress"> = { onprogress: null };
   onload: XMLHttpRequest["onload"] = null;
@@ -29,6 +30,11 @@ class MockXMLHttpRequest {
   }
 
   send() {
+    const response = MockXMLHttpRequest.responses.shift();
+    if (response) {
+      this.status = response.status;
+      this.responseText = response.responseText;
+    }
     const onProgress = this.upload.onprogress as
       ((event: ProgressEvent) => void) | null;
     const onLoad = this.onload as ((event: ProgressEvent) => void) | null;
@@ -50,7 +56,9 @@ const originalXMLHttpRequest = globalThis.XMLHttpRequest;
 
 afterEach(() => {
   MockXMLHttpRequest.instances = [];
+  MockXMLHttpRequest.responses = [];
   globalThis.XMLHttpRequest = originalXMLHttpRequest;
+  vi.restoreAllMocks();
 });
 
 describe("queuedXhrUpload", () => {
@@ -76,5 +84,26 @@ describe("queuedXhrUpload", () => {
       status: 200,
       responseText: '{"receivedBytes":10}',
     });
+  });
+
+  it("retries server failures without leaving the upload lane", async () => {
+    globalThis.XMLHttpRequest =
+      MockXMLHttpRequest as unknown as typeof XMLHttpRequest;
+    MockXMLHttpRequest.responses = [
+      { status: 503, responseText: '{"error":"unavailable"}' },
+      { status: 200, responseText: '{"receivedBytes":10}' },
+    ];
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const result = await queuedXhrUpload({
+      url: "/api/uploads/sessions/session-1",
+      method: "PATCH",
+      body: new ArrayBuffer(10),
+      retries: 1,
+      backoffMs: 0,
+    });
+
+    expect(MockXMLHttpRequest.instances).toHaveLength(2);
+    expect(result.status).toBe(200);
   });
 });

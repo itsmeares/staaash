@@ -191,38 +191,47 @@ export function queuedXhrUpload(
 ): Promise<XhrUploadResult> {
   return withTransferSlot(
     "upload",
-    async () => {
-      const retries = opts.retries ?? 0;
-      const backoffMs = opts.backoffMs ?? DEFAULT_BACKOFF_MS;
-      let attempt = 0;
-
-      for (;;) {
-        throwIfAborted(opts.signal);
-
-        let result: XhrUploadResult;
-        try {
-          result = await runXhrUpload(opts);
-        } catch (error) {
-          if (opts.signal?.aborted) throw error;
-          if (!(error instanceof TypeError) || attempt >= retries) {
-            throw error;
-          }
-          await delay(backoffFor(backoffMs, attempt), opts.signal);
-          attempt++;
-          continue;
-        }
-
-        const retryable = result.status >= 500 && result.status < 600;
-        if (retryable && attempt < retries) {
-          await delay(backoffFor(backoffMs, attempt), opts.signal);
-          attempt++;
-          continue;
-        }
-        return result;
-      }
-    },
+    () => runXhrUploadWithRetry(opts),
     opts.signal,
   );
+}
+
+async function runXhrUploadWithRetry(
+  opts: XhrUploadOptions,
+  attempt = 0,
+): Promise<XhrUploadResult> {
+  throwIfAborted(opts.signal);
+  const retries = opts.retries ?? 0;
+
+  try {
+    const result = await runXhrUpload(opts);
+    if (!shouldRetryXhrStatus(result.status, attempt, retries)) return result;
+  } catch (error) {
+    if (!shouldRetryXhrError(error, opts.signal, attempt, retries)) throw error;
+  }
+
+  await delay(
+    backoffFor(opts.backoffMs ?? DEFAULT_BACKOFF_MS, attempt),
+    opts.signal,
+  );
+  return runXhrUploadWithRetry(opts, attempt + 1);
+}
+
+function shouldRetryXhrStatus(
+  status: number,
+  attempt: number,
+  retries: number,
+) {
+  return status >= 500 && status < 600 && attempt < retries;
+}
+
+function shouldRetryXhrError(
+  error: unknown,
+  signal: AbortSignal | undefined,
+  attempt: number,
+  retries: number,
+) {
+  return !signal?.aborted && error instanceof TypeError && attempt < retries;
 }
 
 function runXhrUpload(opts: XhrUploadOptions): Promise<XhrUploadResult> {
