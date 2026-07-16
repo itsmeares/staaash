@@ -14,6 +14,8 @@ import { Download, FolderPlus, RefreshCw, Upload } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { FlashMessage } from "@/app/auth-ui";
 import { DashboardPageContextMenu } from "@/app/dashboard-context-menu";
+import { ItemTypeIcon } from "@/app/item-type-icon";
+import { getItemVisual } from "@/app/item-visuals";
 import { startValidatedDownload } from "@/lib/transfers/download";
 import type {
   BatchMoveItem,
@@ -1640,9 +1642,8 @@ function UploadingRow({
   onDismiss: () => void;
   onRetry?: () => void;
 }) {
-  const { File: FileIcon } = { File: require("lucide-react").File };
-
   const eta = formatEta(file.size, file.progress, file.speed);
+  const visual = getItemVisual("file", file.fileRef?.type);
   const statusText =
     file.status === "error"
       ? (file.error ?? "Upload failed")
@@ -1655,13 +1656,18 @@ function UploadingRow({
             : `${file.progress}% · ${formatSpeed(file.speed)}${eta ? ` · ${eta}` : ""}`;
 
   return (
-    <div className="uploading-row" role="row">
+    <div className="explorer-row uploading-row" role="row">
       <div className="explorer-row-icon" role="gridcell">
-        <FileIcon size={16} style={{ color: "var(--muted-foreground)" }} />
+        <ItemTypeIcon size={16} tone="plain" visual={visual} />
       </div>
-      <span className="uploading-row-name" role="gridcell" title={file.name}>
-        {file.name}
-      </span>
+      <div className="explorer-row-name-cell" role="gridcell">
+        <span
+          className="explorer-row-name uploading-row-name"
+          title={file.name}
+        >
+          {file.name}
+        </span>
+      </div>
       <span className="uploading-row-size explorer-row-meta" role="gridcell">
         {formatBytes(file.size)}
       </span>
@@ -1718,19 +1724,21 @@ function GhostUploadRow({
   onDismiss: () => void;
   onDoubleClick: () => void;
 }) {
-  const { File: FileIcon } = { File: require("lucide-react").File };
+  const visual = getItemVisual("file");
   return (
     <div
-      className="uploading-row ghost-upload-row"
+      className="explorer-row uploading-row ghost-upload-row"
       onDoubleClick={onDoubleClick}
       role="row"
     >
       <div className="explorer-row-icon" role="gridcell">
-        <FileIcon size={16} style={{ color: "var(--muted-foreground)" }} />
+        <ItemTypeIcon size={16} tone="plain" visual={visual} />
       </div>
-      <span className="uploading-row-name" role="gridcell" title={name}>
-        {name}
-      </span>
+      <div className="explorer-row-name-cell" role="gridcell">
+        <span className="explorer-row-name uploading-row-name" title={name}>
+          {name}
+        </span>
+      </div>
       <span className="uploading-row-size explorer-row-meta" role="gridcell">
         {formatBytes(size)}
       </span>
