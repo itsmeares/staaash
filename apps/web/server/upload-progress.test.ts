@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  calculateLiveUploadedBytes,
   calculateUploadProgress,
   UploadRateTracker,
 } from "@/lib/transfers/upload-progress";
@@ -18,5 +19,10 @@ describe("upload progress", () => {
     expect(tracker.record(10_000, 1_000)).toBe(10_000);
     expect(tracker.record(30_000, 3_000)).toBe(10_000);
     expect(tracker.record(90_000, 9_000)).toBe(10_000);
+  });
+
+  it("includes live bytes from parallel chunks without exceeding file size", () => {
+    expect(calculateLiveUploadedBytes(20, [10, 15, 5], 100)).toBe(50);
+    expect(calculateLiveUploadedBytes(90, [10, 15], 100)).toBe(100);
   });
 });

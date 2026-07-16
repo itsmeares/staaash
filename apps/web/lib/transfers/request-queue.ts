@@ -172,10 +172,13 @@ export function queuedFetch(
 
 export type XhrUploadOptions = {
   url: string;
+  method?: string;
   body: XMLHttpRequestBodyInit | Document;
   signal?: AbortSignal;
   onProgress?: (loaded: number, total: number) => void;
   headers?: Record<string, string>;
+  retries?: number;
+  backoffMs?: number;
 };
 
 export type XhrUploadResult = {
@@ -188,45 +191,77 @@ export function queuedXhrUpload(
 ): Promise<XhrUploadResult> {
   return withTransferSlot(
     "upload",
-    () =>
-      new Promise<XhrUploadResult>((resolve, reject) => {
-        if (opts.signal?.aborted) {
-          reject(abortError());
-          return;
-        }
-        const xhr = new XMLHttpRequest();
-        const onAbort = () => xhr.abort();
-        opts.signal?.addEventListener("abort", onAbort, { once: true });
+    async () => {
+      const retries = opts.retries ?? 0;
+      const backoffMs = opts.backoffMs ?? DEFAULT_BACKOFF_MS;
+      let attempt = 0;
 
-        xhr.upload.onprogress = (ev) => {
-          if (ev.lengthComputable && opts.onProgress) {
-            opts.onProgress(ev.loaded, ev.total);
-          }
-        };
-        xhr.onload = () => {
-          opts.signal?.removeEventListener("abort", onAbort);
-          resolve({ status: xhr.status, responseText: xhr.responseText });
-        };
-        xhr.onerror = () => {
-          opts.signal?.removeEventListener("abort", onAbort);
-          reject(new TypeError("Network request failed"));
-        };
-        xhr.onabort = () => {
-          opts.signal?.removeEventListener("abort", onAbort);
-          reject(abortError());
-        };
+      for (;;) {
+        throwIfAborted(opts.signal);
 
-        xhr.open("POST", opts.url);
-        xhr.setRequestHeader("Accept", "application/json");
-        if (opts.headers) {
-          for (const [k, v] of Object.entries(opts.headers)) {
-            xhr.setRequestHeader(k, v);
+        let result: XhrUploadResult;
+        try {
+          result = await runXhrUpload(opts);
+        } catch (error) {
+          if (opts.signal?.aborted) throw error;
+          if (!(error instanceof TypeError) || attempt >= retries) {
+            throw error;
           }
+          await delay(backoffFor(backoffMs, attempt), opts.signal);
+          attempt++;
+          continue;
         }
-        xhr.send(opts.body);
-      }),
+
+        const retryable = result.status >= 500 && result.status < 600;
+        if (retryable && attempt < retries) {
+          await delay(backoffFor(backoffMs, attempt), opts.signal);
+          attempt++;
+          continue;
+        }
+        return result;
+      }
+    },
     opts.signal,
   );
+}
+
+function runXhrUpload(opts: XhrUploadOptions): Promise<XhrUploadResult> {
+  return new Promise<XhrUploadResult>((resolve, reject) => {
+    if (opts.signal?.aborted) {
+      reject(abortError());
+      return;
+    }
+    const xhr = new XMLHttpRequest();
+    const onAbort = () => xhr.abort();
+    opts.signal?.addEventListener("abort", onAbort, { once: true });
+
+    xhr.upload.onprogress = (ev) => {
+      if (ev.lengthComputable && opts.onProgress) {
+        opts.onProgress(ev.loaded, ev.total);
+      }
+    };
+    xhr.onload = () => {
+      opts.signal?.removeEventListener("abort", onAbort);
+      resolve({ status: xhr.status, responseText: xhr.responseText });
+    };
+    xhr.onerror = () => {
+      opts.signal?.removeEventListener("abort", onAbort);
+      reject(new TypeError("Network request failed"));
+    };
+    xhr.onabort = () => {
+      opts.signal?.removeEventListener("abort", onAbort);
+      reject(abortError());
+    };
+
+    xhr.open(opts.method ?? "POST", opts.url);
+    xhr.setRequestHeader("Accept", "application/json");
+    if (opts.headers) {
+      for (const [k, v] of Object.entries(opts.headers)) {
+        xhr.setRequestHeader(k, v);
+      }
+    }
+    xhr.send(opts.body);
+  });
 }
 
 // ---------------------------------------------------------------------------
