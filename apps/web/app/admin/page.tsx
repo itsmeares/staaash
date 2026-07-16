@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatVersionLabel } from "@staaash/config/version";
 
 import {
   formatAdminBytes,
@@ -6,6 +7,7 @@ import {
 } from "@/app/admin/admin-format";
 import { requireAdminPageSession } from "@/server/auth/guards";
 import { getAdminOverviewSummary } from "@/server/admin/overview";
+import { getUpdateStatusLabel } from "@/lib/update-status";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +15,11 @@ export default async function AdminOverviewPage() {
   const session = await requireAdminPageSession();
   const summary = await getAdminOverviewSummary(session.user.id);
 
-  const updateStatus = summary.updates.updateCheckStatus ?? "not checked";
+  const updateStatus = summary.updates.updateCheckStatus;
+  const updateStatusLabel = getUpdateStatusLabel(
+    updateStatus,
+    summary.updates.latestAvailableVersion,
+  );
   const retainedBytes = formatAdminBytes(summary.storage.retainedBytes);
   const failedWork = summary.jobs.failed + summary.jobs.dead;
   const activeWork = summary.jobs.queued + summary.jobs.running;
@@ -40,10 +46,10 @@ export default async function AdminOverviewPage() {
     {
       href: "/admin/settings",
       label: "Version",
-      value: summary.updates.currentVersion ?? "n/a",
+      value: formatVersionLabel(summary.updates.currentVersion),
       detail: summary.updates.latestAvailableVersion
-        ? `Latest ${summary.updates.latestAvailableVersion}`
-        : updateStatus,
+        ? `Latest ${formatVersionLabel(summary.updates.latestAvailableVersion)}`
+        : updateStatusLabel,
     },
   ];
 
@@ -168,7 +174,7 @@ export default async function AdminOverviewPage() {
           <section className="admin-overview-rail-card">
             <div className="admin-overview-panel-head">
               <h2>Updates</h2>
-              <p>{updateStatus}</p>
+              <p>{updateStatusLabel}</p>
             </div>
             <p>
               {summary.updates.updateCheckMessage ??

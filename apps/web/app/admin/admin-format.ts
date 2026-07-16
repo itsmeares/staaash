@@ -42,11 +42,13 @@ export const getAdminStatusClassName = (status: string) =>
         : status === "warning" ||
             status === "accepted" ||
             status === "update-available" ||
-            status === "unavailable" ||
             status === "queued" ||
             status === "stale"
           ? "status-warning"
-          : status === "idle" || status === "stopped"
+          : status === "idle" ||
+              status === "stopped" ||
+              status === "unavailable" ||
+              status === "not checked"
             ? "status-muted"
             : status === "cancelled"
               ? "status-cancelled"

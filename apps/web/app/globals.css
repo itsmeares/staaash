@@ -2971,6 +2971,11 @@ h3 {
   background: oklch(60% 0.2 27);
 }
 
+.instance-dot--muted {
+  background: var(--muted-foreground);
+  opacity: 0.65;
+}
+
 /* About dialog — overrides shadcn DialogContent defaults */
 .instance-about-dialog {
   max-width: 420px !important;

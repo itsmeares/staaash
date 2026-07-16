@@ -18,6 +18,10 @@
     "./time-zone": {
       "types": "./dist/time-zone.d.ts",
       "default": "./dist/time-zone.js"
+    },
+    "./version": {
+      "types": "./dist/version.d.ts",
+      "default": "./dist/version.js"
     }
   },
   "types": "./dist/index.d.ts",

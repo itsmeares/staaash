@@ -10,3 +10,12 @@ export {
   normalizeTimeZone,
   parseMaintenanceRunTime,
 } from "./time-zone.js";
+export {
+  compareSemanticVersions,
+  findReleaseVersionMismatches,
+  formatVersionLabel,
+  isPrereleaseVersion,
+  normalizeSemanticVersion,
+  parseSemanticVersion,
+  resolveRuntimeVersion,
+} from "./version.js";

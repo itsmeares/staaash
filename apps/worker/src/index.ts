@@ -5,6 +5,9 @@ import {
   markWorkerInstanceStopped,
   registerWorkerInstance,
 } from "@staaash/db/jobs";
+import { resolveRuntimeVersion } from "@staaash/config/version";
+
+import { version as packageVersion } from "../package.json" with { type: "json" };
 
 import {
   getWorkerStoragePaths,
@@ -17,8 +20,10 @@ import { WorkerRunner } from "./runner.js";
 
 const storagePaths = getWorkerStoragePaths();
 const workerId = `${os.hostname()}-${process.pid}-${Date.now()}`;
-const workerVersion =
-  process.env.STAAASH_VERSION ?? process.env.APP_VERSION ?? null;
+const workerVersion = resolveRuntimeVersion({
+  packageVersion,
+  appVersion: process.env.APP_VERSION,
+});
 const workerHeartbeatMs = 30_000;
 const maintenanceMs = 60_000;
 
