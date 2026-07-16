@@ -1,6 +1,6 @@
 import { createSHA256, type IHasher } from "hash-wasm";
 
-export const CHECKSUM_CHUNK_SIZE = 10 * 1024 * 1024;
+const CHECKSUM_CHUNK_SIZE = 10 * 1024 * 1024;
 
 export async function createFileSha256Hasher(): Promise<IHasher> {
   const hasher = await createSHA256();

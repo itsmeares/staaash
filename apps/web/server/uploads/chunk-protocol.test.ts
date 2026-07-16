@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  getExpectedUploadChunkCount,
   getUploadChunkIndex,
   hasCompleteUploadChunkSet,
 } from "./chunk-protocol";
@@ -45,7 +44,6 @@ describe("parallel upload chunk protocol", () => {
   });
 
   it("requires every exact chunk before completion", () => {
-    expect(getExpectedUploadChunkCount(totalSizeBytes, chunkSizeBytes)).toBe(3);
     expect(
       hasCompleteUploadChunkSet({
         totalSizeBytes,

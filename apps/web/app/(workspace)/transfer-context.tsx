@@ -99,6 +99,119 @@ type ResumableSessionResponse = {
   completedChunks: CompletedUploadChunk[];
 };
 
+const isAbortError = (error: unknown) =>
+  error instanceof DOMException && error.name === "AbortError";
+
+const readResponseError = async (response: Response, fallback: string) => {
+  const data = (await response.json().catch(() => ({}))) as {
+    error?: string;
+  };
+  return data.error ?? fallback;
+};
+
+const createResumableUploadSession = async ({
+  folderId,
+  file,
+  signal,
+}: {
+  folderId: string;
+  file: File;
+  signal: AbortSignal;
+}): Promise<ResumableSessionResponse> => {
+  const response = await queuedFetch(
+    "upload",
+    "/api/uploads/sessions",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        folderId,
+        originalName: file.name,
+        mimeType: file.type || "application/octet-stream",
+        totalSizeBytes: file.size,
+        conflictStrategy: "safeRename",
+      }),
+    },
+    { retries: 3, backoffMs: 500, signal },
+  );
+  if (!response.ok) {
+    throw new Error(
+      await readResponseError(response, "Failed to start upload"),
+    );
+  }
+  return (await response.json()) as ResumableSessionResponse;
+};
+
+const uploadResumableChunk = async ({
+  sessionId,
+  startByte,
+  endByte,
+  totalSizeBytes,
+  buffer,
+  signal,
+}: {
+  sessionId: string;
+  startByte: number;
+  endByte: number;
+  totalSizeBytes: number;
+  buffer: ArrayBuffer;
+  signal: AbortSignal;
+}): Promise<{ receivedBytes: number }> => {
+  const response = await queuedFetch(
+    "upload",
+    `/api/uploads/sessions/${sessionId}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "Content-Range": `bytes ${startByte}-${endByte - 1}/${totalSizeBytes}`,
+        Accept: "application/json",
+      },
+      body: buffer,
+    },
+    { retries: 3, backoffMs: 500, signal },
+  );
+  if (!response.ok) {
+    throw new Error(await readResponseError(response, "Chunk upload failed"));
+  }
+  return (await response.json()) as { receivedBytes: number };
+};
+
+const completeResumableUploadSession = async ({
+  sessionId,
+  expectedChecksum,
+  signal,
+}: {
+  sessionId: string;
+  expectedChecksum?: string;
+  signal: AbortSignal;
+}): Promise<{ id?: string }> => {
+  const response = await queuedFetch(
+    "upload",
+    `/api/uploads/sessions/${sessionId}/complete`,
+    {
+      method: "POST",
+      headers: expectedChecksum
+        ? {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          }
+        : { Accept: "application/json" },
+      body: expectedChecksum ? JSON.stringify({ expectedChecksum }) : undefined,
+    },
+    { retries: 3, backoffMs: 500, signal },
+  );
+  if (!response.ok) {
+    throw new Error(
+      await readResponseError(response, "Failed to complete upload"),
+    );
+  }
+  return (await response.json()) as { id?: string };
+};
+
 // ---------------------------------------------------------------------------
 // Helpers (also exported for use in display components)
 // ---------------------------------------------------------------------------
@@ -173,6 +286,54 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
   const [currentFilesViewFolderId, setCurrentFilesViewFolderId] = useState<
     string | null
   >(null);
+
+  const updateUploadingFile = (
+    clientKey: string,
+    update: Partial<UploadingFile>,
+  ) => {
+    setUploadingFiles((current) =>
+      current.map((upload) =>
+        upload.clientKey === clientKey ? { ...upload, ...update } : upload,
+      ),
+    );
+  };
+
+  const markUploadFailed = (clientKey: string, error: unknown) => {
+    updateUploadingFile(clientKey, {
+      status: "error",
+      error: error instanceof Error ? error.message : "Upload failed",
+      statusLabel: undefined,
+    });
+  };
+
+  const markUploadComplete = ({
+    clientKey,
+    file,
+    fileId,
+    sessionStorageKeys = [],
+  }: {
+    clientKey: string;
+    file: File;
+    fileId?: string;
+    sessionStorageKeys?: string[];
+  }) => {
+    for (const storageKey of sessionStorageKeys) {
+      localStorage.removeItem(storageKey);
+    }
+    updateUploadingFile(clientKey, {
+      status: "done",
+      progress: 100,
+      transferredBytes: file.size,
+      fileId,
+      statusLabel: undefined,
+    });
+    setTimeout(() => {
+      setUploadingFiles((current) =>
+        current.filter((upload) => upload.clientKey !== clientKey),
+      );
+    }, 1800);
+    startTransition(() => router.refresh());
+  };
 
   const registerFileInput = useCallback(
     (el: HTMLInputElement | null, folderId?: string) => {
@@ -394,25 +555,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
         } catch {
           /* ignore */
         }
-        setUploadingFiles((prev) =>
-          prev.map((f) =>
-            f.clientKey === clientKey
-              ? {
-                  ...f,
-                  status: "done",
-                  progress: 100,
-                  transferredBytes: file.size,
-                  fileId,
-                }
-              : f,
-          ),
-        );
-        setTimeout(() => {
-          setUploadingFiles((prev) =>
-            prev.filter((f) => f.clientKey !== clientKey),
-          );
-        }, 1800);
-        startTransition(() => router.refresh());
+        markUploadComplete({ clientKey, file, fileId });
       } else {
         let msg = "Upload failed";
         try {
@@ -420,23 +563,11 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
         } catch {
           /* ignore */
         }
-        setUploadingFiles((prev) =>
-          prev.map((f) =>
-            f.clientKey === clientKey
-              ? { ...f, status: "error", error: msg }
-              : f,
-          ),
-        );
+        markUploadFailed(clientKey, new Error(msg));
       }
     } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      setUploadingFiles((prev) =>
-        prev.map((f) =>
-          f.clientKey === clientKey
-            ? { ...f, status: "error", error: "Connection failed" }
-            : f,
-        ),
-      );
+      if (isAbortError(err)) return;
+      markUploadFailed(clientKey, new Error("Connection failed"));
     } finally {
       uploadAbortControllers.current.delete(clientKey);
     }
@@ -550,32 +681,11 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
 
     if (!sessionId) {
       try {
-        const res = await queuedFetch(
-          "upload",
-          "/api/uploads/sessions",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            body: JSON.stringify({
-              folderId,
-              originalName: file.name,
-              mimeType: file.type || "application/octet-stream",
-              totalSizeBytes: file.size,
-              conflictStrategy: "safeRename",
-            }),
-          },
-          { retries: 3, backoffMs: 500, signal },
-        );
-        if (!res.ok) {
-          const data = (await res.json().catch(() => ({}))) as {
-            error?: string;
-          };
-          throw new Error(data.error ?? "Failed to start upload");
-        }
-        const data = (await res.json()) as ResumableSessionResponse;
+        const data = await createResumableUploadSession({
+          folderId,
+          file,
+          signal,
+        });
         sessionId = data.id;
         receivedBytes = data.receivedBytes;
         protocolVersion = data.protocolVersion;
@@ -591,23 +701,11 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
           }),
         );
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") {
+        if (isAbortError(error)) {
           uploadAbortControllers.current.delete(clientKey);
           return;
         }
-        setUploadingFiles((prev) =>
-          prev.map((f) =>
-            f.clientKey === clientKey
-              ? {
-                  ...f,
-                  status: "error",
-                  error:
-                    error instanceof Error ? error.message : "Upload failed",
-                  statusLabel: undefined,
-                }
-              : f,
-          ),
-        );
+        markUploadFailed(clientKey, error);
         uploadAbortControllers.current.delete(clientKey);
         return;
       }
@@ -637,27 +735,14 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
           const buffer = await file
             .slice(receivedBytes, chunkEnd)
             .arrayBuffer();
-          const res = await queuedFetch(
-            "upload",
-            `/api/uploads/sessions/${sessionId}`,
-            {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/octet-stream",
-                "Content-Range": `bytes ${receivedBytes}-${chunkEnd - 1}/${file.size}`,
-                Accept: "application/json",
-              },
-              body: buffer,
-            },
-            { retries: 3, backoffMs: 500, signal },
-          );
-          if (!res.ok) {
-            const data = (await res.json().catch(() => ({}))) as {
-              error?: string;
-            };
-            throw new Error(data.error ?? "Chunk upload failed");
-          }
-          const data = (await res.json()) as { receivedBytes: number };
+          const data = await uploadResumableChunk({
+            sessionId,
+            startByte: receivedBytes,
+            endByte: chunkEnd,
+            totalSizeBytes: file.size,
+            buffer,
+            signal,
+          });
           receivedBytes = data.receivedBytes;
           const elapsed = (Date.now() - uploadStartTime) / 1000;
           const speed =
@@ -678,60 +763,18 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
           );
         }
 
-        const completeRes = await queuedFetch(
-          "upload",
-          `/api/uploads/sessions/${sessionId}/complete`,
-          {
-            method: "POST",
-            headers: { Accept: "application/json" },
-          },
-          { retries: 3, backoffMs: 500, signal },
-        );
-        if (!completeRes.ok) {
-          const data = (await completeRes.json().catch(() => ({}))) as {
-            error?: string;
-          };
-          throw new Error(data.error ?? "Failed to complete upload");
-        }
-        const data = (await completeRes.json()) as { id?: string };
-        localStorage.removeItem(sessionStorageKey);
-        localStorage.removeItem(legacySessionStorageKey);
-        setUploadingFiles((prev) =>
-          prev.map((f) =>
-            f.clientKey === clientKey
-              ? {
-                  ...f,
-                  status: "done",
-                  progress: 100,
-                  transferredBytes: file.size,
-                  fileId: data.id,
-                  statusLabel: undefined,
-                }
-              : f,
-          ),
-        );
-        setTimeout(() => {
-          setUploadingFiles((prev) =>
-            prev.filter((f) => f.clientKey !== clientKey),
-          );
-        }, 1800);
-        startTransition(() => router.refresh());
+        const data = await completeResumableUploadSession({
+          sessionId,
+          signal,
+        });
+        markUploadComplete({
+          clientKey,
+          file,
+          fileId: data.id,
+          sessionStorageKeys: [sessionStorageKey, legacySessionStorageKey],
+        });
       } catch (error) {
-        if (!(error instanceof DOMException && error.name === "AbortError")) {
-          setUploadingFiles((prev) =>
-            prev.map((f) =>
-              f.clientKey === clientKey
-                ? {
-                    ...f,
-                    status: "error",
-                    error:
-                      error instanceof Error ? error.message : "Upload failed",
-                    statusLabel: undefined,
-                  }
-                : f,
-            ),
-          );
-        }
+        if (!isAbortError(error)) markUploadFailed(clientKey, error);
       } finally {
         uploadAbortControllers.current.delete(clientKey);
       }
@@ -770,30 +813,14 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
         if (completedIndexes.has(chunkIndex)) continue;
 
         taskPool.start(async () => {
-          const res = await queuedFetch(
-            "upload",
-            `/api/uploads/sessions/${sessionId}`,
-            {
-              method: "PATCH",
-              headers: {
-                "Content-Type": "application/octet-stream",
-                "Content-Range": `bytes ${startByte}-${endByte - 1}/${file.size}`,
-                Accept: "application/json",
-              },
-              body: buffer,
-            },
-            {
-              retries: 3,
-              backoffMs: 500,
-              signal: pipelineController.signal,
-            },
-          );
-          if (!res.ok) {
-            const data = (await res.json().catch(() => ({}))) as {
-              error?: string;
-            };
-            throw new Error(data.error ?? "Chunk upload failed");
-          }
+          await uploadResumableChunk({
+            sessionId,
+            startByte,
+            endByte,
+            totalSizeBytes: file.size,
+            buffer,
+            signal: pipelineController.signal,
+          });
 
           acknowledgedBytes += buffer.byteLength;
           uploadedThisRun += buffer.byteLength;
@@ -833,65 +860,20 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
             : f,
         ),
       );
-      const completeRes = await queuedFetch(
-        "upload",
-        `/api/uploads/sessions/${sessionId}/complete`,
-        {
-          method: "POST",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ expectedChecksum }),
-        },
-        { retries: 3, backoffMs: 500, signal },
-      );
-
-      if (!completeRes.ok) {
-        const data = (await completeRes.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        throw new Error(data.error ?? "Failed to complete upload");
-      }
-
-      const data = (await completeRes.json()) as { id?: string };
-      localStorage.removeItem(sessionStorageKey);
-      localStorage.removeItem(legacySessionStorageKey);
-
-      setUploadingFiles((prev) =>
-        prev.map((f) =>
-          f.clientKey === clientKey
-            ? {
-                ...f,
-                status: "done",
-                progress: 100,
-                transferredBytes: file.size,
-                fileId: data.id,
-                statusLabel: undefined,
-              }
-            : f,
-        ),
-      );
-      setTimeout(() => {
-        setUploadingFiles((prev) =>
-          prev.filter((f) => f.clientKey !== clientKey),
-        );
-      }, 1800);
-      startTransition(() => router.refresh());
+      const data = await completeResumableUploadSession({
+        sessionId,
+        expectedChecksum,
+        signal,
+      });
+      markUploadComplete({
+        clientKey,
+        file,
+        fileId: data.id,
+        sessionStorageKeys: [sessionStorageKey, legacySessionStorageKey],
+      });
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      setUploadingFiles((prev) =>
-        prev.map((f) =>
-          f.clientKey === clientKey
-            ? {
-                ...f,
-                status: "error",
-                error: error instanceof Error ? error.message : "Upload failed",
-                statusLabel: undefined,
-              }
-            : f,
-        ),
-      );
+      if (isAbortError(error)) return;
+      markUploadFailed(clientKey, error);
     } finally {
       signal.removeEventListener("abort", abortPipeline);
       pipelineController.abort();

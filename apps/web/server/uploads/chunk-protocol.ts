@@ -3,7 +3,7 @@ export type UploadByteRange = {
   end: number;
 };
 
-export const getExpectedUploadChunkCount = (
+const getExpectedUploadChunkCount = (
   totalSizeBytes: number,
   chunkSizeBytes: number,
 ) => Math.ceil(totalSizeBytes / chunkSizeBytes);
@@ -17,14 +17,15 @@ export const getUploadChunkIndex = ({
   totalSizeBytes: number;
   chunkSizeBytes: number;
 }): number | null => {
-  if (
-    !Number.isSafeInteger(range.start) ||
-    !Number.isSafeInteger(range.end) ||
-    range.start < 0 ||
-    range.start > range.end ||
-    range.end >= totalSizeBytes ||
-    range.start % chunkSizeBytes !== 0
-  ) {
+  const rangeIsValid = [
+    Number.isSafeInteger(range.start),
+    Number.isSafeInteger(range.end),
+    range.start >= 0,
+    range.start <= range.end,
+    range.end < totalSizeBytes,
+    range.start % chunkSizeBytes === 0,
+  ].every(Boolean);
+  if (!rangeIsValid) {
     return null;
   }
 

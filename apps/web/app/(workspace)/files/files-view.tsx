@@ -54,6 +54,11 @@ const UPLOAD_SESSION_KEY_PREFIX = "staaash:upload-session";
 const INTERNAL_ITEM_DRAG_TYPE = "application/x-staaash-items";
 
 type CutItem = { id: string; kind: "folder" | "file"; name: string };
+type ResumableSessionSummary = {
+  name: string;
+  size: number;
+  storageKey: string;
+};
 
 const loadFolderIcons = (): Record<string, string> => {
   try {
@@ -84,6 +89,60 @@ const persistCutItems = (items: CutItem[]) => {
 };
 
 const clearCutItems = () => sessionStorage.removeItem(CUT_STATE_KEY);
+
+const parseStoredUploadSession = (
+  storageKey: string,
+): ResumableSessionSummary | null => {
+  try {
+    const stored = JSON.parse(localStorage.getItem(storageKey) ?? "null") as {
+      fileName?: unknown;
+      fileSize?: unknown;
+    } | null;
+    if (
+      typeof stored?.fileName !== "string" ||
+      typeof stored.fileSize !== "number"
+    ) {
+      return null;
+    }
+    return {
+      name: stored.fileName,
+      size: stored.fileSize,
+      storageKey,
+    };
+  } catch {
+    return null;
+  }
+};
+
+const parseLegacyUploadSession = (
+  storageKey: string,
+  prefix: string,
+): ResumableSessionSummary | null => {
+  const legacyValue = storageKey.slice(prefix.length);
+  const separatorIndex = legacyValue.lastIndexOf(":");
+  if (separatorIndex <= 0) return null;
+
+  const name = legacyValue.slice(0, separatorIndex);
+  const size = Number.parseInt(legacyValue.slice(separatorIndex + 1), 10);
+  return name && !Number.isNaN(size) ? { name, size, storageKey } : null;
+};
+
+const loadResumableSessions = (folderId: string): ResumableSessionSummary[] => {
+  const prefix = `${UPLOAD_SESSION_KEY_PREFIX}:${folderId}:`;
+  const sessions: ResumableSessionSummary[] = [];
+
+  for (let index = 0; index < localStorage.length; index++) {
+    const storageKey = localStorage.key(index);
+    if (!storageKey?.startsWith(prefix)) continue;
+
+    const session =
+      parseStoredUploadSession(storageKey) ??
+      parseLegacyUploadSession(storageKey, prefix);
+    if (session) sessions.push(session);
+  }
+
+  return sessions;
+};
 
 // ---------------------------------------------------------------------------
 // Props
@@ -305,42 +364,7 @@ export function FilesView({
   // ---- Scan for resumable upload sessions in this folder ----
   // Re-run when listing changes (router.refresh clears completed sessions from localStorage)
   useEffect(() => {
-    const folderId = listing.currentFolder.id;
-    const prefix = `${UPLOAD_SESSION_KEY_PREFIX}:${folderId}:`;
-    const sessions: { name: string; size: number; storageKey: string }[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith(prefix)) {
-        try {
-          const stored = JSON.parse(localStorage.getItem(key) ?? "null") as {
-            fileName?: unknown;
-            fileSize?: unknown;
-          } | null;
-          if (
-            typeof stored?.fileName === "string" &&
-            typeof stored.fileSize === "number"
-          ) {
-            sessions.push({
-              name: stored.fileName,
-              size: stored.fileSize,
-              storageKey: key,
-            });
-            continue;
-          }
-        } catch {
-          // Fall through to parsing legacy session keys.
-        }
-        const rest = key.slice(prefix.length);
-        const lastColon = rest.lastIndexOf(":");
-        if (lastColon > 0) {
-          const name = rest.slice(0, lastColon);
-          const size = parseInt(rest.slice(lastColon + 1), 10);
-          if (name && !isNaN(size))
-            sessions.push({ name, size, storageKey: key });
-        }
-      }
-    }
-    setResumableSessions(sessions);
+    setResumableSessions(loadResumableSessions(listing.currentFolder.id));
   }, [listing, pathname]);
 
   // ---------------------------------------------------------------------------
