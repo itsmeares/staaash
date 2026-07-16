@@ -35,6 +35,7 @@ import {
   useTransferContext,
   type UploadingFile,
   CHUNKED_UPLOAD_THRESHOLD,
+  formatBytes,
   formatSpeed,
   formatEta,
 } from "../transfer-context";
@@ -1402,6 +1403,7 @@ export function FilesView({
                   <GhostUploadRow
                     key={entry.storageKey}
                     name={entry.name}
+                    size={entry.size}
                     onDismiss={() => {
                       localStorage.removeItem(entry.storageKey);
                       setResumableSessions((prev) =>
@@ -1653,37 +1655,42 @@ function UploadingRow({
             : `${file.progress}% · ${formatSpeed(file.speed)}${eta ? ` · ${eta}` : ""}`;
 
   return (
-    <div className="uploading-row">
-      <div className="uploading-row-top">
-        <div className="explorer-row-icon">
-          <FileIcon size={16} style={{ color: "var(--muted-foreground)" }} />
-        </div>
-        <span className="uploading-row-name">{file.name}</span>
-        <span
-          className={`uploading-row-status${file.status === "error" ? " is-error" : ""}`}
-        >
-          {statusText}
-          {file.status === "error" && onRetry && (
-            <button
-              type="button"
-              className="uploading-row-retry"
-              onClick={onRetry}
-            >
-              Retry
-            </button>
-          )}
-          {file.status !== "uploading" && (
-            <button
-              type="button"
-              className="uploading-row-dismiss"
-              onClick={onDismiss}
-              aria-label="Dismiss"
-            >
-              ✕
-            </button>
-          )}
-        </span>
+    <div className="uploading-row" role="row">
+      <div className="explorer-row-icon" role="gridcell">
+        <FileIcon size={16} style={{ color: "var(--muted-foreground)" }} />
       </div>
+      <span className="uploading-row-name" role="gridcell" title={file.name}>
+        {file.name}
+      </span>
+      <span className="uploading-row-size explorer-row-meta" role="gridcell">
+        {formatBytes(file.size)}
+      </span>
+      <span
+        className={`uploading-row-status${file.status === "error" ? " is-error" : ""}`}
+        role="gridcell"
+        title={statusText}
+      >
+        <span className="uploading-row-status-text">{statusText}</span>
+        {file.status === "error" && onRetry && (
+          <button
+            type="button"
+            className="uploading-row-retry"
+            onClick={onRetry}
+          >
+            Retry
+          </button>
+        )}
+        {file.status !== "uploading" && (
+          <button
+            type="button"
+            className="uploading-row-dismiss"
+            onClick={onDismiss}
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        )}
+      </span>
       {file.status === "uploading" && (
         <div className="uploading-row-progress-track">
           <div
@@ -1702,10 +1709,12 @@ function UploadingRow({
 
 function GhostUploadRow({
   name,
+  size,
   onDismiss,
   onDoubleClick,
 }: {
   name: string;
+  size: number;
   onDismiss: () => void;
   onDoubleClick: () => void;
 }) {
@@ -1714,37 +1723,44 @@ function GhostUploadRow({
     <div
       className="uploading-row ghost-upload-row"
       onDoubleClick={onDoubleClick}
+      role="row"
     >
-      <div className="uploading-row-top">
-        <div className="explorer-row-icon">
-          <FileIcon size={16} style={{ color: "var(--muted-foreground)" }} />
-        </div>
-        <span className="uploading-row-name">{name}</span>
-        <span className="uploading-row-status ghost-upload-row-status">
-          Incomplete ·
-          <button
-            type="button"
-            className="uploading-row-retry"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDoubleClick();
-            }}
-          >
-            resume
-          </button>
-          <button
-            type="button"
-            className="uploading-row-dismiss"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDismiss();
-            }}
-            aria-label="Dismiss"
-          >
-            ✕
-          </button>
-        </span>
+      <div className="explorer-row-icon" role="gridcell">
+        <FileIcon size={16} style={{ color: "var(--muted-foreground)" }} />
       </div>
+      <span className="uploading-row-name" role="gridcell" title={name}>
+        {name}
+      </span>
+      <span className="uploading-row-size explorer-row-meta" role="gridcell">
+        {formatBytes(size)}
+      </span>
+      <span
+        className="uploading-row-status ghost-upload-row-status"
+        role="gridcell"
+      >
+        <span className="uploading-row-status-text">Incomplete</span>
+        <button
+          type="button"
+          className="uploading-row-retry"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDoubleClick();
+          }}
+        >
+          Resume
+        </button>
+        <button
+          type="button"
+          className="uploading-row-dismiss"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDismiss();
+          }}
+          aria-label="Dismiss"
+        >
+          ✕
+        </button>
+      </span>
       <div className="uploading-row-progress-track ghost-upload-row-track">
         <div className="ghost-upload-row-fill" />
       </div>
