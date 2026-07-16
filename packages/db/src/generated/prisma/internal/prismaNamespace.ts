@@ -402,7 +402,8 @@ export const ModelName = {
   RestoreReconciliationRun: 'RestoreReconciliationRun',
   MediaDerivative: 'MediaDerivative',
   ZipArchive: 'ZipArchive',
-  UploadSession: 'UploadSession'
+  UploadSession: 'UploadSession',
+  UploadChunk: 'UploadChunk'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -418,7 +419,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "instance" | "systemSettings" | "user" | "userPreference" | "session" | "folder" | "file" | "favoriteFile" | "favoriteFolder" | "recentFile" | "recentFolder" | "shareLink" | "backgroundJob" | "workerInstance" | "backgroundJobEvent" | "restoreReconciliationRun" | "mediaDerivative" | "zipArchive" | "uploadSession"
+    modelProps: "instance" | "systemSettings" | "user" | "userPreference" | "session" | "folder" | "file" | "favoriteFile" | "favoriteFolder" | "recentFile" | "recentFolder" | "shareLink" | "backgroundJob" | "workerInstance" | "backgroundJobEvent" | "restoreReconciliationRun" | "mediaDerivative" | "zipArchive" | "uploadSession" | "uploadChunk"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1828,6 +1829,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    UploadChunk: {
+      payload: Prisma.$UploadChunkPayload<ExtArgs>
+      fields: Prisma.UploadChunkFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.UploadChunkFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UploadChunkPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.UploadChunkFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UploadChunkPayload>
+        }
+        findFirst: {
+          args: Prisma.UploadChunkFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UploadChunkPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.UploadChunkFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UploadChunkPayload>
+        }
+        findMany: {
+          args: Prisma.UploadChunkFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UploadChunkPayload>[]
+        }
+        create: {
+          args: Prisma.UploadChunkCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UploadChunkPayload>
+        }
+        createMany: {
+          args: Prisma.UploadChunkCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.UploadChunkCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UploadChunkPayload>[]
+        }
+        delete: {
+          args: Prisma.UploadChunkDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UploadChunkPayload>
+        }
+        update: {
+          args: Prisma.UploadChunkUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UploadChunkPayload>
+        }
+        deleteMany: {
+          args: Prisma.UploadChunkDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.UploadChunkUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.UploadChunkUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UploadChunkPayload>[]
+        }
+        upsert: {
+          args: Prisma.UploadChunkUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UploadChunkPayload>
+        }
+        aggregate: {
+          args: Prisma.UploadChunkAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateUploadChunk>
+        }
+        groupBy: {
+          args: Prisma.UploadChunkGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.UploadChunkGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.UploadChunkCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.UploadChunkCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -2190,6 +2265,8 @@ export const UploadSessionScalarFieldEnum = {
   totalSizeBytes: 'totalSizeBytes',
   receivedBytes: 'receivedBytes',
   expectedChecksum: 'expectedChecksum',
+  protocolVersion: 'protocolVersion',
+  chunkSizeBytes: 'chunkSizeBytes',
   tmpPath: 'tmpPath',
   conflictStrategy: 'conflictStrategy',
   status: 'status',
@@ -2199,6 +2276,19 @@ export const UploadSessionScalarFieldEnum = {
 } as const
 
 export type UploadSessionScalarFieldEnum = (typeof UploadSessionScalarFieldEnum)[keyof typeof UploadSessionScalarFieldEnum]
+
+
+export const UploadChunkScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  chunkIndex: 'chunkIndex',
+  startByte: 'startByte',
+  endByte: 'endByte',
+  sizeBytes: 'sizeBytes',
+  completedAt: 'completedAt'
+} as const
+
+export type UploadChunkScalarFieldEnum = (typeof UploadChunkScalarFieldEnum)[keyof typeof UploadChunkScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -2530,6 +2620,7 @@ export type GlobalOmitConfig = {
   mediaDerivative?: Prisma.MediaDerivativeOmit
   zipArchive?: Prisma.ZipArchiveOmit
   uploadSession?: Prisma.UploadSessionOmit
+  uploadChunk?: Prisma.UploadChunkOmit
 }
 
 /* Types for Logging */

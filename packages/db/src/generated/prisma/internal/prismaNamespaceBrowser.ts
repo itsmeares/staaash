@@ -69,7 +69,8 @@ export const ModelName = {
   RestoreReconciliationRun: 'RestoreReconciliationRun',
   MediaDerivative: 'MediaDerivative',
   ZipArchive: 'ZipArchive',
-  UploadSession: 'UploadSession'
+  UploadSession: 'UploadSession',
+  UploadChunk: 'UploadChunk'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -411,6 +412,8 @@ export const UploadSessionScalarFieldEnum = {
   totalSizeBytes: 'totalSizeBytes',
   receivedBytes: 'receivedBytes',
   expectedChecksum: 'expectedChecksum',
+  protocolVersion: 'protocolVersion',
+  chunkSizeBytes: 'chunkSizeBytes',
   tmpPath: 'tmpPath',
   conflictStrategy: 'conflictStrategy',
   status: 'status',
@@ -420,6 +423,19 @@ export const UploadSessionScalarFieldEnum = {
 } as const
 
 export type UploadSessionScalarFieldEnum = (typeof UploadSessionScalarFieldEnum)[keyof typeof UploadSessionScalarFieldEnum]
+
+
+export const UploadChunkScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  chunkIndex: 'chunkIndex',
+  startByte: 'startByte',
+  endByte: 'endByte',
+  sizeBytes: 'sizeBytes',
+  completedAt: 'completedAt'
+} as const
+
+export type UploadChunkScalarFieldEnum = (typeof UploadChunkScalarFieldEnum)[keyof typeof UploadChunkScalarFieldEnum]
 
 
 export const SortOrder = {

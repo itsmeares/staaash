@@ -145,7 +145,7 @@ function PanelUploadRow({
   onDismiss: () => void;
   onRetry?: () => void;
 }) {
-  const eta = formatEta(file.size, file.progress, file.speed);
+  const eta = formatEta(file.size, file.transferredBytes, file.speed);
   const statusText =
     file.status === "error"
       ? (file.error ?? "Upload failed")

@@ -5,6 +5,10 @@ import { POST } from "@/app/api/files/move/route";
 import { getRequestSession } from "@/server/auth/guards";
 import { FilesError } from "@/server/files/errors";
 import { filesService } from "@/server/files/service";
+import {
+  recordFileAccessBestEffort,
+  recordFolderAccessBestEffort,
+} from "@/server/retrieval/recent-tracking";
 
 vi.mock("@/server/auth/guards", () => ({
   getRequestSession: vi.fn(),
@@ -112,6 +116,26 @@ describe("batch move route", () => {
       ],
     });
     expect(filesService.moveFile).toHaveBeenCalledOnce();
+  });
+
+  it("does not wait for best-effort recent tracking", async () => {
+    const pending = new Promise<void>(() => {});
+    vi.mocked(recordFolderAccessBestEffort).mockReturnValueOnce(pending);
+    vi.mocked(recordFileAccessBestEffort).mockReturnValueOnce(pending);
+
+    const response = await POST(
+      request({
+        destinationFolderId: "folder-destination",
+        items: [
+          { id: "folder-1", kind: "folder" },
+          { id: "file-1", kind: "file" },
+        ],
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(recordFolderAccessBestEffort).toHaveBeenCalledOnce();
+    expect(recordFileAccessBestEffort).toHaveBeenCalledOnce();
   });
 
   it("rejects malformed and cross-origin requests", async () => {

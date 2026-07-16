@@ -85,6 +85,9 @@ export async function POST(request: NextRequest) {
     {
       id: uploadSession.id,
       receivedBytes: uploadSession.receivedBytes,
+      protocolVersion: uploadSession.protocolVersion,
+      chunkSizeBytes: uploadSession.chunkSizeBytes,
+      completedChunks: uploadSession.completedChunks,
       expiresAt: uploadSession.expiresAt.toISOString(),
     },
     { status: 201 },

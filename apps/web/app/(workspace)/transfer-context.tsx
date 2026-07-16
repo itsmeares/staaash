@@ -11,12 +11,20 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { randomClientId } from "@/lib/client-id";
-import { computeFileSha256 } from "@/lib/transfers/file-checksum";
+import {
+  computeFileSha256,
+  createFileSha256Hasher,
+} from "@/lib/transfers/file-checksum";
 import {
   fetchWithRetry,
   queuedFetch,
   queuedXhrUpload,
 } from "@/lib/transfers/request-queue";
+import {
+  calculateUploadProgress,
+  UploadRateTracker,
+} from "@/lib/transfers/upload-progress";
+import { UploadTaskPool } from "@/lib/transfers/upload-task-pool";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -28,6 +36,7 @@ export type UploadingFile = {
   size: number;
   status: "uploading" | "done" | "error";
   progress: number;
+  transferredBytes: number;
   speed: number;
   error?: string;
   resumeHint?: string;
@@ -64,10 +73,143 @@ const ACTIVE_DOWNLOAD_KEY = "staaash:active-download";
 // fallow-ignore-next-line unused-export
 export const CHUNKED_UPLOAD_THRESHOLD = 100 * 1024 * 1024;
 const CHUNK_SIZE = 10 * 1024 * 1024;
+const PARALLEL_UPLOAD_CHUNKS = 3;
 
 type StoredUploadSession = {
   sessionId: string;
   expectedChecksum?: string;
+  fileName?: string;
+  fileSize?: number;
+  lastModified?: number;
+};
+
+type CompletedUploadChunk = {
+  chunkIndex: number;
+  startByte: number;
+  endByte: number;
+  sizeBytes: number;
+};
+
+type ResumableSessionResponse = {
+  id: string;
+  receivedBytes: number;
+  totalSizeBytes?: number;
+  protocolVersion: number;
+  chunkSizeBytes: number | null;
+  completedChunks: CompletedUploadChunk[];
+};
+
+const isAbortError = (error: unknown) =>
+  error instanceof DOMException && error.name === "AbortError";
+
+const readResponseError = async (response: Response, fallback: string) => {
+  const data = (await response.json().catch(() => ({}))) as {
+    error?: string;
+  };
+  return data.error ?? fallback;
+};
+
+const createResumableUploadSession = async ({
+  folderId,
+  file,
+  signal,
+}: {
+  folderId: string;
+  file: File;
+  signal: AbortSignal;
+}): Promise<ResumableSessionResponse> => {
+  const response = await queuedFetch(
+    "upload",
+    "/api/uploads/sessions",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        folderId,
+        originalName: file.name,
+        mimeType: file.type || "application/octet-stream",
+        totalSizeBytes: file.size,
+        conflictStrategy: "safeRename",
+      }),
+    },
+    { retries: 3, backoffMs: 500, signal },
+  );
+  if (!response.ok) {
+    throw new Error(
+      await readResponseError(response, "Failed to start upload"),
+    );
+  }
+  return (await response.json()) as ResumableSessionResponse;
+};
+
+const uploadResumableChunk = async ({
+  sessionId,
+  startByte,
+  endByte,
+  totalSizeBytes,
+  buffer,
+  signal,
+}: {
+  sessionId: string;
+  startByte: number;
+  endByte: number;
+  totalSizeBytes: number;
+  buffer: ArrayBuffer;
+  signal: AbortSignal;
+}): Promise<{ receivedBytes: number }> => {
+  const response = await queuedFetch(
+    "upload",
+    `/api/uploads/sessions/${sessionId}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "Content-Range": `bytes ${startByte}-${endByte - 1}/${totalSizeBytes}`,
+        Accept: "application/json",
+      },
+      body: buffer,
+    },
+    { retries: 3, backoffMs: 500, signal },
+  );
+  if (!response.ok) {
+    throw new Error(await readResponseError(response, "Chunk upload failed"));
+  }
+  return (await response.json()) as { receivedBytes: number };
+};
+
+const completeResumableUploadSession = async ({
+  sessionId,
+  expectedChecksum,
+  signal,
+}: {
+  sessionId: string;
+  expectedChecksum?: string;
+  signal: AbortSignal;
+}): Promise<{ id?: string }> => {
+  const response = await queuedFetch(
+    "upload",
+    `/api/uploads/sessions/${sessionId}/complete`,
+    {
+      method: "POST",
+      headers: expectedChecksum
+        ? {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          }
+        : { Accept: "application/json" },
+      body: expectedChecksum ? JSON.stringify({ expectedChecksum }) : undefined,
+    },
+    { retries: 3, backoffMs: 500, signal },
+  );
+  if (!response.ok) {
+    throw new Error(
+      await readResponseError(response, "Failed to complete upload"),
+    );
+  }
+  return (await response.json()) as { id?: string };
 };
 
 // ---------------------------------------------------------------------------
@@ -89,11 +231,11 @@ export function formatBytes(bytes: number): string {
 
 export function formatEta(
   totalBytes: number,
-  progress: number,
+  transferredBytes: number,
   speed: number,
 ): string {
-  if (speed <= 0 || progress >= 100) return "";
-  const remainingBytes = totalBytes * (1 - progress / 100);
+  if (speed <= 0 || transferredBytes >= totalBytes) return "";
+  const remainingBytes = totalBytes - transferredBytes;
   const seconds = Math.round(remainingBytes / speed);
   if (seconds < 60)
     return `(${seconds} ${seconds === 1 ? "second" : "seconds"} left)`;
@@ -144,6 +286,54 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
   const [currentFilesViewFolderId, setCurrentFilesViewFolderId] = useState<
     string | null
   >(null);
+
+  const updateUploadingFile = (
+    clientKey: string,
+    update: Partial<UploadingFile>,
+  ) => {
+    setUploadingFiles((current) =>
+      current.map((upload) =>
+        upload.clientKey === clientKey ? { ...upload, ...update } : upload,
+      ),
+    );
+  };
+
+  const markUploadFailed = (clientKey: string, error: unknown) => {
+    updateUploadingFile(clientKey, {
+      status: "error",
+      error: error instanceof Error ? error.message : "Upload failed",
+      statusLabel: undefined,
+    });
+  };
+
+  const markUploadComplete = ({
+    clientKey,
+    file,
+    fileId,
+    sessionStorageKeys = [],
+  }: {
+    clientKey: string;
+    file: File;
+    fileId?: string;
+    sessionStorageKeys?: string[];
+  }) => {
+    for (const storageKey of sessionStorageKeys) {
+      localStorage.removeItem(storageKey);
+    }
+    updateUploadingFile(clientKey, {
+      status: "done",
+      progress: 100,
+      transferredBytes: file.size,
+      fileId,
+      statusLabel: undefined,
+    });
+    setTimeout(() => {
+      setUploadingFiles((current) =>
+        current.filter((upload) => upload.clientKey !== clientKey),
+      );
+    }, 1800);
+    startTransition(() => router.refresh());
+  };
 
   const registerFileInput = useCallback(
     (el: HTMLInputElement | null, folderId?: string) => {
@@ -350,7 +540,9 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
           const speed = elapsed > 0 ? loaded / elapsed : 0;
           setUploadingFiles((prev) =>
             prev.map((f) =>
-              f.clientKey === clientKey ? { ...f, progress, speed } : f,
+              f.clientKey === clientKey
+                ? { ...f, progress, transferredBytes: loaded, speed }
+                : f,
             ),
           );
         },
@@ -363,19 +555,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
         } catch {
           /* ignore */
         }
-        setUploadingFiles((prev) =>
-          prev.map((f) =>
-            f.clientKey === clientKey
-              ? { ...f, status: "done", progress: 100, fileId }
-              : f,
-          ),
-        );
-        setTimeout(() => {
-          setUploadingFiles((prev) =>
-            prev.filter((f) => f.clientKey !== clientKey),
-          );
-        }, 1800);
-        startTransition(() => router.refresh());
+        markUploadComplete({ clientKey, file, fileId });
       } else {
         let msg = "Upload failed";
         try {
@@ -383,23 +563,11 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
         } catch {
           /* ignore */
         }
-        setUploadingFiles((prev) =>
-          prev.map((f) =>
-            f.clientKey === clientKey
-              ? { ...f, status: "error", error: msg }
-              : f,
-          ),
-        );
+        markUploadFailed(clientKey, new Error(msg));
       }
     } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
-      setUploadingFiles((prev) =>
-        prev.map((f) =>
-          f.clientKey === clientKey
-            ? { ...f, status: "error", error: "Connection failed" }
-            : f,
-        ),
-      );
+      if (isAbortError(err)) return;
+      markUploadFailed(clientKey, new Error("Connection failed"));
     } finally {
       uploadAbortControllers.current.delete(clientKey);
     }
@@ -411,81 +579,88 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
     folderId: string,
     signal: AbortSignal,
   ) => {
-    const sessionStorageKey = `${UPLOAD_SESSION_KEY_PREFIX}:${folderId}:${file.name}:${file.size}`;
+    const sessionStorageKey = `${UPLOAD_SESSION_KEY_PREFIX}:${folderId}:${file.name}:${file.size}:${file.lastModified}`;
+    const legacySessionStorageKey = `${UPLOAD_SESSION_KEY_PREFIX}:${folderId}:${file.name}:${file.size}`;
     let sessionId: string | null = null;
     let receivedBytes = 0;
-    let expectedChecksum: string;
+    let protocolVersion = 2;
+    let chunkSizeBytes = CHUNK_SIZE;
+    let completedChunks: CompletedUploadChunk[] = [];
+    let legacyExpectedChecksum: string | undefined;
 
     try {
-      setUploadingFiles((prev) =>
-        prev.map((f) =>
-          f.clientKey === clientKey
-            ? {
-                ...f,
-                progress: 0,
-                speed: 0,
-                resumeHint: undefined,
-                statusLabel: "Checking file...",
-              }
-            : f,
-        ),
-      );
-      expectedChecksum = await computeFileSha256(file, signal);
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        uploadAbortControllers.current.delete(clientKey);
-        return;
-      }
-      setUploadingFiles((prev) =>
-        prev.map((f) =>
-          f.clientKey === clientKey
-            ? {
-                ...f,
-                status: "error",
-                error: "Could not check file integrity",
-                statusLabel: undefined,
-              }
-            : f,
-        ),
-      );
-      uploadAbortControllers.current.delete(clientKey);
-      return;
-    }
-
-    try {
+      const storedRaw =
+        localStorage.getItem(sessionStorageKey) ??
+        localStorage.getItem(legacySessionStorageKey);
       const stored = JSON.parse(
-        localStorage.getItem(sessionStorageKey) ?? "null",
+        storedRaw ?? "null",
       ) as StoredUploadSession | null;
       if (stored?.sessionId) {
-        if (stored.expectedChecksum !== expectedChecksum) {
-          localStorage.removeItem(sessionStorageKey);
-        } else {
-          const res = await queuedFetch(
-            "upload",
-            `/api/uploads/sessions/${stored.sessionId}`,
-            { headers: { Accept: "application/json" } },
-            { retries: 3, backoffMs: 500, signal },
+        if (stored.expectedChecksum) {
+          setUploadingFiles((prev) =>
+            prev.map((f) =>
+              f.clientKey === clientKey
+                ? {
+                    ...f,
+                    statusLabel: "Checking existing upload...",
+                    resumeHint: undefined,
+                  }
+                : f,
+            ),
           );
-          if (res.ok) {
-            const data = (await res.json()) as { receivedBytes: number };
-            sessionId = stored.sessionId;
-            receivedBytes = data.receivedBytes;
-            if (receivedBytes > 0) {
-              setUploadingFiles((prev) =>
-                prev.map((f) =>
-                  f.clientKey === clientKey
-                    ? {
-                        ...f,
-                        resumeHint: `Resuming from ${formatBytes(receivedBytes)}`,
-                        statusLabel: undefined,
-                      }
-                    : f,
-                ),
-              );
-            }
-          } else {
+          const selectedChecksum = await computeFileSha256(file, signal);
+          if (selectedChecksum !== stored.expectedChecksum) {
             localStorage.removeItem(sessionStorageKey);
+            localStorage.removeItem(legacySessionStorageKey);
+            throw new Error("LEGACY_UPLOAD_FILE_MISMATCH");
           }
+          legacyExpectedChecksum = stored.expectedChecksum;
+        }
+        const res = await queuedFetch(
+          "upload",
+          `/api/uploads/sessions/${stored.sessionId}`,
+          { headers: { Accept: "application/json" } },
+          { retries: 3, backoffMs: 500, signal },
+        );
+        if (res.ok) {
+          const data = (await res.json()) as ResumableSessionResponse;
+          sessionId = stored.sessionId;
+          receivedBytes = data.receivedBytes;
+          protocolVersion = data.protocolVersion ?? 1;
+          chunkSizeBytes = data.chunkSizeBytes ?? CHUNK_SIZE;
+          completedChunks = data.completedChunks ?? [];
+          localStorage.setItem(
+            sessionStorageKey,
+            JSON.stringify({
+              sessionId,
+              expectedChecksum: stored.expectedChecksum,
+              fileName: file.name,
+              fileSize: file.size,
+              lastModified: file.lastModified,
+            }),
+          );
+          localStorage.removeItem(legacySessionStorageKey);
+          if (receivedBytes > 0) {
+            setUploadingFiles((prev) =>
+              prev.map((f) =>
+                f.clientKey === clientKey
+                  ? {
+                      ...f,
+                      progress: calculateUploadProgress(
+                        receivedBytes,
+                        file.size,
+                      ),
+                      transferredBytes: receivedBytes,
+                      resumeHint: `Resuming from ${formatBytes(receivedBytes)}`,
+                      statusLabel: undefined,
+                    }
+                  : f,
+              ),
+            );
+          }
+        } else {
+          localStorage.removeItem(sessionStorageKey);
+          localStorage.removeItem(legacySessionStorageKey);
         }
       }
     } catch (err) {
@@ -494,167 +669,214 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       localStorage.removeItem(sessionStorageKey);
+      localStorage.removeItem(legacySessionStorageKey);
+      setUploadingFiles((prev) =>
+        prev.map((f) =>
+          f.clientKey === clientKey
+            ? { ...f, statusLabel: undefined, resumeHint: undefined }
+            : f,
+        ),
+      );
     }
 
     if (!sessionId) {
       try {
-        const res = await queuedFetch(
-          "upload",
-          "/api/uploads/sessions",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            body: JSON.stringify({
-              folderId,
-              originalName: file.name,
-              mimeType: file.type || "application/octet-stream",
-              totalSizeBytes: file.size,
-              conflictStrategy: "safeRename",
-              expectedChecksum,
-            }),
-          },
-          { retries: 3, backoffMs: 500, signal },
-        );
-        if (!res.ok) {
-          const data = (await res.json().catch(() => ({}))) as {
-            error?: string;
-          };
-          throw new Error(data.error ?? "Failed to start upload");
-        }
-        const data = (await res.json()) as { id: string };
+        const data = await createResumableUploadSession({
+          folderId,
+          file,
+          signal,
+        });
         sessionId = data.id;
-        receivedBytes = 0;
+        receivedBytes = data.receivedBytes;
+        protocolVersion = data.protocolVersion;
+        chunkSizeBytes = data.chunkSizeBytes ?? CHUNK_SIZE;
+        completedChunks = data.completedChunks;
         localStorage.setItem(
           sessionStorageKey,
-          JSON.stringify({ sessionId, expectedChecksum }),
+          JSON.stringify({
+            sessionId,
+            fileName: file.name,
+            fileSize: file.size,
+            lastModified: file.lastModified,
+          }),
         );
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") {
+        if (isAbortError(error)) {
           uploadAbortControllers.current.delete(clientKey);
           return;
         }
-        setUploadingFiles((prev) =>
-          prev.map((f) =>
-            f.clientKey === clientKey
-              ? {
-                  ...f,
-                  status: "error",
-                  error:
-                    error instanceof Error ? error.message : "Upload failed",
-                  statusLabel: undefined,
-                }
-              : f,
-          ),
-        );
+        markUploadFailed(clientKey, error);
         uploadAbortControllers.current.delete(clientKey);
         return;
       }
     }
 
-    const sessionStartBytes = receivedBytes;
-    const uploadStartTime = Date.now();
-    try {
-      while (receivedBytes < file.size) {
-        const chunkEnd = Math.min(receivedBytes + CHUNK_SIZE, file.size);
-        const chunk = file.slice(receivedBytes, chunkEnd);
-        const buffer = await chunk.arrayBuffer();
+    if (protocolVersion < 2) {
+      try {
+        if (!legacyExpectedChecksum) {
+          setUploadingFiles((prev) =>
+            prev.map((f) =>
+              f.clientKey === clientKey
+                ? {
+                    ...f,
+                    statusLabel: "Checking existing upload...",
+                    resumeHint: undefined,
+                  }
+                : f,
+            ),
+          );
+          await computeFileSha256(file, signal);
+        }
+        const sessionStartBytes = receivedBytes;
+        const uploadStartTime = Date.now();
 
-        const res = await queuedFetch(
-          "upload",
-          `/api/uploads/sessions/${sessionId}`,
-          {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/octet-stream",
-              "Content-Range": `bytes ${receivedBytes}-${chunkEnd - 1}/${file.size}`,
-              Accept: "application/json",
-            },
-            body: buffer,
-          },
-          { retries: 3, backoffMs: 500, signal },
-        );
-
-        if (!res.ok) {
-          const data = (await res.json().catch(() => ({}))) as {
-            error?: string;
-          };
-          throw new Error(data.error ?? "Chunk upload failed");
+        while (receivedBytes < file.size) {
+          const chunkEnd = Math.min(receivedBytes + CHUNK_SIZE, file.size);
+          const buffer = await file
+            .slice(receivedBytes, chunkEnd)
+            .arrayBuffer();
+          const data = await uploadResumableChunk({
+            sessionId,
+            startByte: receivedBytes,
+            endByte: chunkEnd,
+            totalSizeBytes: file.size,
+            buffer,
+            signal,
+          });
+          receivedBytes = data.receivedBytes;
+          const elapsed = (Date.now() - uploadStartTime) / 1000;
+          const speed =
+            elapsed > 0 ? (receivedBytes - sessionStartBytes) / elapsed : 0;
+          setUploadingFiles((prev) =>
+            prev.map((f) =>
+              f.clientKey === clientKey
+                ? {
+                    ...f,
+                    progress: calculateUploadProgress(receivedBytes, file.size),
+                    transferredBytes: receivedBytes,
+                    speed,
+                    resumeHint: undefined,
+                    statusLabel: undefined,
+                  }
+                : f,
+            ),
+          );
         }
 
-        const data = (await res.json()) as { receivedBytes: number };
-        receivedBytes = data.receivedBytes;
-
-        const progress = Math.round((receivedBytes / file.size) * 100);
-        const elapsed = (Date.now() - uploadStartTime) / 1000;
-        const sessionBytes = receivedBytes - sessionStartBytes;
-        const speed = elapsed > 0 ? sessionBytes / elapsed : 0;
-
-        setUploadingFiles((prev) =>
-          prev.map((f) =>
-            f.clientKey === clientKey
-              ? {
-                  ...f,
-                  progress,
-                  speed,
-                  resumeHint: undefined,
-                  statusLabel: undefined,
-                }
-              : f,
-          ),
-        );
+        const data = await completeResumableUploadSession({
+          sessionId,
+          signal,
+        });
+        markUploadComplete({
+          clientKey,
+          file,
+          fileId: data.id,
+          sessionStorageKeys: [sessionStorageKey, legacySessionStorageKey],
+        });
+      } catch (error) {
+        if (!isAbortError(error)) markUploadFailed(clientKey, error);
+      } finally {
+        uploadAbortControllers.current.delete(clientKey);
       }
+      return;
+    }
 
-      const completeRes = await queuedFetch(
-        "upload",
-        `/api/uploads/sessions/${sessionId}/complete`,
-        {
-          method: "POST",
-          headers: { Accept: "application/json" },
-        },
-        { retries: 3, backoffMs: 500, signal },
-      );
+    const completedIndexes = new Set(
+      completedChunks.map((chunk) => chunk.chunkIndex),
+    );
+    let acknowledgedBytes = completedChunks.reduce(
+      (total, chunk) => total + chunk.sizeBytes,
+      0,
+    );
+    let uploadedThisRun = 0;
+    const rateTracker = new UploadRateTracker();
+    const pipelineController = new AbortController();
+    const abortPipeline = () => pipelineController.abort();
+    signal.addEventListener("abort", abortPipeline, { once: true });
+    const taskPool = new UploadTaskPool(PARALLEL_UPLOAD_CHUNKS, abortPipeline);
 
-      if (!completeRes.ok) {
-        const data = (await completeRes.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        throw new Error(data.error ?? "Failed to complete upload");
+    try {
+      const hasher = await createFileSha256Hasher();
+      for (
+        let startByte = 0, chunkIndex = 0;
+        startByte < file.size;
+        startByte += chunkSizeBytes, chunkIndex++
+      ) {
+        if (signal.aborted) {
+          throw new DOMException("Upload cancelled", "AbortError");
+        }
+        await taskPool.waitForSlot();
+        const endByte = Math.min(startByte + chunkSizeBytes, file.size);
+        const buffer = await file.slice(startByte, endByte).arrayBuffer();
+        hasher.update(new Uint8Array(buffer));
+
+        if (completedIndexes.has(chunkIndex)) continue;
+
+        taskPool.start(async () => {
+          await uploadResumableChunk({
+            sessionId,
+            startByte,
+            endByte,
+            totalSizeBytes: file.size,
+            buffer,
+            signal: pipelineController.signal,
+          });
+
+          acknowledgedBytes += buffer.byteLength;
+          uploadedThisRun += buffer.byteLength;
+          const speed = rateTracker.record(uploadedThisRun);
+          setUploadingFiles((prev) =>
+            prev.map((f) =>
+              f.clientKey === clientKey
+                ? {
+                    ...f,
+                    progress: calculateUploadProgress(
+                      acknowledgedBytes,
+                      file.size,
+                    ),
+                    transferredBytes: acknowledgedBytes,
+                    speed,
+                    resumeHint: undefined,
+                    statusLabel: undefined,
+                  }
+                : f,
+            ),
+          );
+        });
       }
+      await taskPool.drain();
+      const expectedChecksum = hasher.digest("hex");
 
-      const data = (await completeRes.json()) as { id?: string };
-      localStorage.removeItem(sessionStorageKey);
-
-      setUploadingFiles((prev) =>
-        prev.map((f) =>
-          f.clientKey === clientKey
-            ? { ...f, status: "done", progress: 100, fileId: data.id }
-            : f,
-        ),
-      );
-      setTimeout(() => {
-        setUploadingFiles((prev) =>
-          prev.filter((f) => f.clientKey !== clientKey),
-        );
-      }, 1800);
-      startTransition(() => router.refresh());
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
       setUploadingFiles((prev) =>
         prev.map((f) =>
           f.clientKey === clientKey
             ? {
                 ...f,
-                status: "error",
-                error: error instanceof Error ? error.message : "Upload failed",
-                statusLabel: undefined,
+                progress: 100,
+                transferredBytes: file.size,
+                speed: 0,
+                statusLabel: "Verifying upload...",
               }
             : f,
         ),
       );
+      const data = await completeResumableUploadSession({
+        sessionId,
+        expectedChecksum,
+        signal,
+      });
+      markUploadComplete({
+        clientKey,
+        file,
+        fileId: data.id,
+        sessionStorageKeys: [sessionStorageKey, legacySessionStorageKey],
+      });
+    } catch (error) {
+      if (isAbortError(error)) return;
+      markUploadFailed(clientKey, error);
     } finally {
+      signal.removeEventListener("abort", abortPipeline);
+      pipelineController.abort();
       uploadAbortControllers.current.delete(clientKey);
     }
   };
@@ -697,6 +919,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
           size: file.size,
           status: "uploading",
           progress: 0,
+          transferredBytes: 0,
           speed: 0,
           fileRef: file,
           folderId,
@@ -727,6 +950,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
               ...f,
               status: "uploading",
               progress: 0,
+              transferredBytes: 0,
               speed: 0,
               error: undefined,
               statusLabel: undefined,
