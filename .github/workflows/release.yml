@@ -4,13 +4,6 @@ on:
   push:
     tags:
       - "v*"
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Version tag for the Docker image (e.g. v0.2.0-beta.1). Leave empty to push :latest only."
-        required: false
-        default: ""
-
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
@@ -36,10 +29,11 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ghcr.io/itsmeares/staaash
+          flavor: |
+            latest=false
           tags: |
-            type=semver,pattern={{raw}}
-            type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' }}
-            type=raw,value=latest,enable=${{ (github.event_name == 'workflow_dispatch' && (inputs.version == '' || !contains(inputs.version, '-'))) || (github.event_name == 'push' && !contains(github.ref_name, '-')) }}
+            type=ref,event=tag
+            type=raw,value=latest
 
       - name: Build and push
         uses: docker/build-push-action@v7
@@ -53,7 +47,6 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Create GitHub Release
-        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
