@@ -3902,6 +3902,14 @@ h3 {
   text-decoration: none;
 }
 
+.workspace-breadcrumbs a.is-drop-target {
+  color: var(--foreground);
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
+  border-radius: 5px;
+  outline: 1px solid color-mix(in oklab, var(--primary) 45%, transparent);
+  outline-offset: 3px;
+}
+
 .workspace-breadcrumbs a::after {
   content: "/";
   padding: 0 7px;
@@ -7117,6 +7125,20 @@ html.light {
 
 .explorer-row.is-selected:hover {
   background: color-mix(in oklab, var(--primary) 10%, var(--card));
+}
+
+.explorer-row[draggable="true"] {
+  cursor: grab;
+}
+
+.explorer-row[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.explorer-row.is-drop-target {
+  background: color-mix(in oklab, var(--primary) 13%, var(--card));
+  outline: 1px solid color-mix(in oklab, var(--primary) 50%, transparent);
+  outline-offset: -1px;
 }
 
 .explorer-row:focus-visible {

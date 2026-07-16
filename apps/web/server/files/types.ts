@@ -53,6 +53,27 @@ export type MoveTarget = {
   isFilesRoot: boolean;
 };
 
+export type BatchMoveItem = {
+  id: string;
+  kind: "file" | "folder";
+};
+
+export type BatchMoveResult =
+  | (BatchMoveItem & {
+      status: "moved";
+    })
+  | (BatchMoveItem & {
+      status: "failed";
+      code: string;
+      error: string;
+    });
+
+export type BatchMoveResponse = {
+  movedCount: number;
+  failedCount: number;
+  results: BatchMoveResult[];
+};
+
 export type FilesListing = {
   ownerUserId: string;
   currentFolder: FolderSummary;
