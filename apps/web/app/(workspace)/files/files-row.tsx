@@ -66,6 +66,7 @@ type BaseFolderRowProps = {
   onRenameSubmit: () => void;
   onRenameCancel: () => void;
   onClick: (e: React.MouseEvent) => void;
+  onContextMenu: () => void;
   onLongPress: () => void;
   onOpen: () => void;
   onStartRename: () => void;
@@ -101,6 +102,7 @@ type BaseFileRowProps = {
   onRenameSubmit: () => void;
   onRenameCancel: () => void;
   onClick: (e: React.MouseEvent) => void;
+  onContextMenu: () => void;
   onLongPress: () => void;
   onOpen: () => void;
   onStartRename: () => void;
@@ -136,6 +138,7 @@ export function FilesRow(props: FilesRowProps) {
     onRenameSubmit,
     onRenameCancel,
     onClick,
+    onContextMenu,
     onLongPress,
     onOpen,
     onStartRename,
@@ -355,6 +358,7 @@ export function FilesRow(props: FilesRowProps) {
           className={rowClasses}
           draggable={!touchMode && !isRenaming}
           onClick={handleRowClick}
+          onContextMenu={onContextMenu}
           onDoubleClick={touchMode ? undefined : onOpen}
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
@@ -443,6 +447,7 @@ export function FilesRow(props: FilesRowProps) {
             type="button"
             onClick={(event) => {
               event.stopPropagation();
+              onContextMenu();
               setActionSheetOpen(true);
             }}
           >

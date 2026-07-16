@@ -166,6 +166,7 @@ export function FilesView({
   const dragCounterRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const draggedItemsRef = useRef<BatchMoveItem[]>([]);
+  const contextMoveItemsRef = useRef<BatchMoveItem[]>([]);
   const dragPreviewRef = useRef<HTMLDivElement | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
@@ -264,6 +265,20 @@ export function FilesView({
       selectedIds: selectedIdsRef.current,
       target: { id, kind },
     });
+
+  const handleItemContextMenu = (id: string, kind: BatchMoveItem["kind"]) => {
+    const current = selectedIdsRef.current;
+    contextMoveItemsRef.current = getMoveItemsForInteraction({
+      allItems,
+      selectedIds: current,
+      target: { id, kind },
+    });
+    if (current.has(id)) return;
+    const next = new Set([id]);
+    selectedIdsRef.current = next;
+    setSelectedIds(next);
+    setLastSelectedId(id);
+  };
 
   // ---- Load persisted state ----
   useEffect(() => {
@@ -752,9 +767,30 @@ export function FilesView({
     draggedItemsRef.current.length > 0 ||
     event.dataTransfer.types.includes(INTERNAL_ITEM_DRAG_TYPE);
 
+  const positionDragPreview = (clientX: number, clientY: number) => {
+    const preview = dragPreviewRef.current;
+    if (!preview || (clientX === 0 && clientY === 0)) return;
+    const left = Math.min(
+      clientX + 18,
+      window.innerWidth - preview.offsetWidth - 12,
+    );
+    const top = Math.min(
+      clientY + 18,
+      window.innerHeight - preview.offsetHeight - 12,
+    );
+    preview.style.left = `${Math.max(12, left)}px`;
+    preview.style.top = `${Math.max(12, top)}px`;
+  };
+
+  const clearDragPreview = () => {
+    dragPreviewRef.current?.remove();
+    dragPreviewRef.current = null;
+  };
+
   const handleDragEnter = (e: React.DragEvent) => {
     if (isInternalItemDrag(e)) {
       e.preventDefault();
+      positionDragPreview(e.clientX, e.clientY);
       return;
     }
     e.preventDefault();
@@ -774,6 +810,7 @@ export function FilesView({
   const handleDragOver = (e: React.DragEvent) => {
     if (isInternalItemDrag(e)) {
       e.preventDefault();
+      positionDragPreview(e.clientX, e.clientY);
       e.dataTransfer.dropEffect = "none";
       return;
     }
@@ -784,6 +821,7 @@ export function FilesView({
     if (isInternalItemDrag(e)) {
       e.preventDefault();
       draggedItemsRef.current = [];
+      clearDragPreview();
       setDropTargetId(null);
       return;
     }
@@ -810,47 +848,63 @@ export function FilesView({
     event.dataTransfer.setData(INTERNAL_ITEM_DRAG_TYPE, JSON.stringify(items));
     event.dataTransfer.setData("text/plain", `${items.length} Staaash item(s)`);
 
-    dragPreviewRef.current?.remove();
-    dragPreviewRef.current = null;
+    clearDragPreview();
+    const preview = document.createElement("div");
+    preview.className = "explorer-drag-preview";
+    preview.dataset.stackDepth = String(Math.min(items.length, 3));
+    preview.setAttribute("aria-hidden", "true");
+
+    const stackDepth = Math.min(items.length, 3);
+    for (let layerIndex = stackDepth - 1; layerIndex >= 1; layerIndex--) {
+      const layer = document.createElement("div");
+      layer.className = "explorer-drag-preview-layer";
+      layer.dataset.layer = String(layerIndex);
+      preview.append(layer);
+    }
+
+    const row = document.createElement("div");
+    row.className = "explorer-drag-preview-row";
+    const icon = event.currentTarget
+      .querySelector(".explorer-row-icon")
+      ?.cloneNode(true);
+    const name = event.currentTarget
+      .querySelector(".explorer-row-name-cell")
+      ?.cloneNode(true);
+    if (icon) row.append(icon);
+    if (name) row.append(name);
+
+    preview.append(row);
     if (items.length > 1) {
-      const preview = document.createElement("div");
-      preview.className = "explorer-drag-preview";
-      preview.setAttribute("aria-hidden", "true");
-
-      const row = document.createElement("div");
-      row.className = "explorer-drag-preview-row";
-      const icon = event.currentTarget
-        .querySelector(".explorer-row-icon")
-        ?.cloneNode(true);
-      const name = event.currentTarget
-        .querySelector(".explorer-row-name-cell")
-        ?.cloneNode(true);
-      if (icon) row.append(icon);
-      if (name) row.append(name);
-
+      preview.classList.add("has-count");
       const count = document.createElement("span");
       count.className = "explorer-drag-preview-count";
-      count.textContent = String(items.length);
-
-      preview.append(row, count);
-      preview.style.left = `${event.clientX}px`;
-      preview.style.top = `${event.clientY}px`;
-      preview.style.transform = "none";
-      document.body.append(preview);
-      dragPreviewRef.current = preview;
-      event.dataTransfer.setDragImage(preview, 22, 22);
-      requestAnimationFrame(() => {
-        if (dragPreviewRef.current !== preview) return;
-        preview.remove();
-        dragPreviewRef.current = null;
-      });
+      count.textContent = `${items.length} items`;
+      preview.append(count);
     }
+
+    preview.style.transform = "none";
+    document.body.append(preview);
+    dragPreviewRef.current = preview;
+
+    positionDragPreview(event.clientX, event.clientY);
+
+    const transparentDragImage = document.createElement("canvas");
+    transparentDragImage.width = 1;
+    transparentDragImage.height = 1;
+    transparentDragImage.style.position = "fixed";
+    transparentDragImage.style.top = "0";
+    transparentDragImage.style.left = "0";
+    transparentDragImage.style.opacity = "0";
+    document.body.append(transparentDragImage);
+    event.dataTransfer.setDragImage(transparentDragImage, 0, 0);
+    requestAnimationFrame(() => {
+      transparentDragImage.remove();
+    });
   };
 
   const handleItemDragEnd = () => {
     draggedItemsRef.current = [];
-    dragPreviewRef.current?.remove();
-    dragPreviewRef.current = null;
+    clearDragPreview();
     setDropTargetId(null);
   };
 
@@ -861,6 +915,7 @@ export function FilesView({
     if (!isInternalItemDrag(event)) return;
     event.preventDefault();
     event.stopPropagation();
+    positionDragPreview(event.clientX, event.clientY);
     event.dataTransfer.dropEffect = "move";
     setDropTargetId(destinationFolderId);
   };
@@ -883,6 +938,7 @@ export function FilesView({
     event.stopPropagation();
     const items = draggedItemsRef.current;
     draggedItemsRef.current = [];
+    clearDragPreview();
     setDropTargetId(null);
     if (
       items.length === 0 ||
@@ -1081,6 +1137,10 @@ export function FilesView({
     persistCutItems(cut);
   };
 
+  const backgroundMoveTargets = listing.moveTargets.filter(
+    (target) => target.id !== listing.currentFolder.id,
+  );
+
   const backgroundMenuGroups = [
     {
       actions: [
@@ -1129,6 +1189,19 @@ export function FilesView({
           label: `Cut ${selectedIds.size} item${selectedIds.size !== 1 ? "s" : ""}`,
           shortcut: "⌘X",
           onSelect: cutSelectedItems,
+        },
+        {
+          disabled: backgroundMoveTargets.length === 0,
+          hidden: selectedIds.size === 0,
+          label: `Move ${selectedIds.size} item${selectedIds.size !== 1 ? "s" : ""} to…`,
+          subActions: backgroundMoveTargets.map((target) => ({
+            label: target.pathLabel,
+            onSelect: () =>
+              void moveItems(
+                allItems.filter((item) => selectedIdsRef.current.has(item.id)),
+                target.id,
+              ),
+          })),
         },
         {
           destructive: true,
@@ -1199,7 +1272,9 @@ export function FilesView({
                         }
                         onDrop={(event) => handleMoveDrop(crumb.id, event)}
                       >
-                        {label}
+                        <span className="workspace-breadcrumb-label">
+                          {label}
+                        </span>
                       </Link>
                     );
                   })}
@@ -1327,6 +1402,9 @@ export function FilesView({
                   onRenameSubmit={() => submitRename(folder.id, "folder")}
                   onRenameCancel={cancelRename}
                   onClick={(e) => handleRowClick(folder.id, e)}
+                  onContextMenu={() =>
+                    handleItemContextMenu(folder.id, "folder")
+                  }
                   onLongPress={() => selectSingleItem(folder.id)}
                   onOpen={() => openItem(folder.id)}
                   onStartRename={() => beginRename(folder.id, folder.name)}
@@ -1373,10 +1451,12 @@ export function FilesView({
                     }
                   }}
                   onMoveTo={(dest) => {
-                    void moveItems(
-                      getInteractionItems(folder.id, "folder"),
-                      dest,
-                    );
+                    const items =
+                      contextMoveItemsRef.current.length > 0
+                        ? [...contextMoveItemsRef.current]
+                        : getInteractionItems(folder.id, "folder");
+                    contextMoveItemsRef.current = [];
+                    void moveItems(items, dest);
                   }}
                   onDownload={() => {
                     const current = selectedIdsRef.current;
@@ -1513,6 +1593,7 @@ export function FilesView({
                   onRenameSubmit={() => submitRename(file.id, "file")}
                   onRenameCancel={cancelRename}
                   onClick={(e) => handleRowClick(file.id, e)}
+                  onContextMenu={() => handleItemContextMenu(file.id, "file")}
                   onLongPress={() => selectSingleItem(file.id)}
                   onOpen={() => openItem(file.id)}
                   onStartRename={() => beginRename(file.id, file.name)}
@@ -1559,7 +1640,12 @@ export function FilesView({
                     }
                   }}
                   onMoveTo={(dest) => {
-                    void moveItems(getInteractionItems(file.id, "file"), dest);
+                    const items =
+                      contextMoveItemsRef.current.length > 0
+                        ? [...contextMoveItemsRef.current]
+                        : getInteractionItems(file.id, "file");
+                    contextMoveItemsRef.current = [];
+                    void moveItems(items, dest);
                   }}
                   onDownload={() => {
                     const current = selectedIdsRef.current;

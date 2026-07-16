@@ -109,31 +109,93 @@ function DashboardFloatingMenuItems({
   onActionSelected,
 }: DashboardContextMenuItemsProps) {
   const visibleGroups = getVisibleDashboardMenuGroups(groups);
+  const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelSubmenuClose = () => {
+    if (!closeTimerRef.current) return;
+    clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = null;
+  };
+
+  const openSubmenuNow = (label: string) => {
+    cancelSubmenuClose();
+    setOpenSubmenu(label);
+  };
+
+  const scheduleSubmenuClose = () => {
+    cancelSubmenuClose();
+    closeTimerRef.current = setTimeout(() => {
+      setOpenSubmenu(null);
+      closeTimerRef.current = null;
+    }, 180);
+  };
+
+  useEffect(() => {
+    return () => cancelSubmenuClose();
+  }, []);
 
   return (
     <>
       {visibleGroups.map((group, groupIndex) => (
         <div key={groupIndex}>
           {groupIndex > 0 ? <div className="bg-ctx-sep" /> : null}
-          {group.actions.map((action) => (
-            <button
-              className={`bg-ctx-item${action.destructive ? " bg-ctx-item--danger" : ""}`}
-              disabled={action.disabled}
-              key={action.label}
-              type="button"
-              onClick={() => {
-                if (action.disabled) return;
-                action.onSelect?.();
-                onActionSelected?.();
-              }}
-            >
-              {action.icon}
-              {action.label}
-              {action.shortcut ? (
-                <span className="bg-ctx-shortcut">{action.shortcut}</span>
-              ) : null}
-            </button>
-          ))}
+          {group.actions.map((action) =>
+            action.subActions && action.subActions.length > 0 ? (
+              <div
+                className="bg-ctx-sub"
+                key={action.label}
+                onPointerEnter={() => openSubmenuNow(action.label)}
+                onPointerLeave={scheduleSubmenuClose}
+              >
+                <button
+                  className="bg-ctx-item bg-ctx-sub-trigger"
+                  disabled={action.disabled}
+                  onFocus={() => openSubmenuNow(action.label)}
+                  onPointerDown={(event) => {
+                    event.stopPropagation();
+                    openSubmenuNow(action.label);
+                  }}
+                  type="button"
+                >
+                  {action.icon}
+                  {action.label}
+                  <span className="bg-ctx-sub-arrow" aria-hidden="true">
+                    ›
+                  </span>
+                </button>
+                <div
+                  className={`bg-ctx-menu bg-ctx-sub-content${openSubmenu === action.label ? " is-open" : ""}`}
+                  onPointerEnter={cancelSubmenuClose}
+                  onPointerLeave={scheduleSubmenuClose}
+                  onPointerDown={(event) => event.stopPropagation()}
+                >
+                  <DashboardFloatingMenuItems
+                    groups={[{ actions: action.subActions }]}
+                    onActionSelected={onActionSelected}
+                  />
+                </div>
+              </div>
+            ) : (
+              <button
+                className={`bg-ctx-item${action.destructive ? " bg-ctx-item--danger" : ""}`}
+                disabled={action.disabled}
+                key={action.label}
+                type="button"
+                onClick={() => {
+                  if (action.disabled) return;
+                  action.onSelect?.();
+                  onActionSelected?.();
+                }}
+              >
+                {action.icon}
+                {action.label}
+                {action.shortcut ? (
+                  <span className="bg-ctx-shortcut">{action.shortcut}</span>
+                ) : null}
+              </button>
+            ),
+          )}
         </div>
       ))}
     </>
@@ -199,9 +261,13 @@ export function DashboardPageContextMenu({
 
   useEffect(() => {
     if (!position) return;
-    const close = () => setPosition(null);
+    const close = (event: PointerEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (target?.closest(".bg-ctx-menu")) return;
+      setPosition(null);
+    };
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
+      if (event.key === "Escape") setPosition(null);
     };
     window.addEventListener("pointerdown", close);
     window.addEventListener("keydown", onKey);

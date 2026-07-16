@@ -3904,10 +3904,17 @@ h3 {
 
 .workspace-breadcrumbs a.is-drop-target {
   color: var(--foreground);
-  background: color-mix(in oklab, var(--primary) 12%, transparent);
+}
+
+.workspace-breadcrumb-label {
   border-radius: 5px;
-  outline: 1px solid color-mix(in oklab, var(--primary) 45%, transparent);
-  outline-offset: 3px;
+}
+
+.workspace-breadcrumbs a.is-drop-target .workspace-breadcrumb-label {
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
+  box-shadow:
+    0 0 0 3px color-mix(in oklab, var(--primary) 12%, transparent),
+    0 0 0 4px color-mix(in oklab, var(--primary) 45%, transparent);
 }
 
 .workspace-breadcrumbs a::after {
@@ -7127,48 +7134,40 @@ html.light {
   background: color-mix(in oklab, var(--primary) 10%, var(--card));
 }
 
-.explorer-row[draggable="true"] {
-  cursor: grab;
-}
-
-.explorer-row[draggable="true"]:active {
-  cursor: grabbing;
-}
-
 .explorer-drag-preview {
   position: fixed;
   top: 0;
   left: 0;
   z-index: 100;
-  width: min(320px, calc(100vw - 48px));
-  height: 56px;
+  width: min(300px, calc(100vw - 48px));
+  height: 64px;
   pointer-events: none;
   transform: translate(-200%, -200%);
   isolation: isolate;
+  opacity: 1;
 }
 
-.explorer-drag-preview::before,
-.explorer-drag-preview::after {
+.explorer-drag-preview-layer {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  bottom: 8px;
+  top: 10px;
   left: 0;
-  z-index: -1;
-  content: "";
-  border: 1px solid color-mix(in oklab, var(--foreground) 10%, var(--border));
+  width: calc(100% - 10px);
+  height: 44px;
+  border: 2px solid color-mix(in oklab, var(--primary) 45%, transparent);
   border-radius: 8px;
-  background: color-mix(in oklab, var(--card) 94%, var(--accent));
+  background: color-mix(in oklab, var(--primary) 18%, transparent);
 }
 
-.explorer-drag-preview::before {
-  transform: translate(8px, 8px);
+.explorer-drag-preview-layer[data-layer="1"] {
+  z-index: -1;
+  transform: translate(5px, 5px);
+  opacity: 0.72;
+}
+
+.explorer-drag-preview-layer[data-layer="2"] {
+  z-index: -2;
+  transform: translate(10px, 10px);
   opacity: 0.55;
-}
-
-.explorer-drag-preview::after {
-  transform: translate(4px, 4px);
-  opacity: 0.78;
 }
 
 .explorer-drag-preview-row {
@@ -7176,32 +7175,51 @@ html.light {
   grid-template-columns: 28px minmax(0, 1fr);
   align-items: center;
   gap: 10px;
-  width: calc(100% - 8px);
-  height: 40px;
-  margin-top: 8px;
-  padding: 0 36px 0 4px;
+  width: 100%;
+  height: 44px;
+  margin-top: 10px;
+  padding: 0 12px 0 6px;
   overflow: hidden;
-  border: 1px solid color-mix(in oklab, var(--foreground) 14%, var(--border));
+  border: 2px solid color-mix(in oklab, var(--primary) 55%, transparent);
   border-radius: 8px;
-  background: var(--card);
+  background: color-mix(in oklab, var(--card) 36%, transparent);
   color: var(--foreground);
+}
+
+.explorer-drag-preview[data-stack-depth="2"] .explorer-drag-preview-layer,
+.explorer-drag-preview[data-stack-depth="2"] .explorer-drag-preview-row {
+  width: calc(100% - 5px);
+}
+
+.explorer-drag-preview[data-stack-depth="3"] .explorer-drag-preview-row {
+  width: calc(100% - 10px);
+}
+
+.explorer-drag-preview.has-count .explorer-drag-preview-row {
+  padding-right: 94px;
+}
+
+.explorer-drag-preview .explorer-row-name {
+  color: color-mix(in oklab, var(--foreground) 78%, transparent);
+  font-weight: 300;
+  opacity: 1;
 }
 
 .explorer-drag-preview-count {
   position: absolute;
-  top: 0;
-  right: 0;
+  top: 16px;
+  right: 18px;
   display: grid;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 6px;
+  min-width: 68px;
+  height: 30px;
+  padding: 0 10px;
   place-items: center;
-  border: 2px solid var(--card);
+  border: 2px solid color-mix(in oklab, var(--background) 58%, transparent);
   border-radius: 999px;
-  background: var(--primary);
-  color: var(--primary-foreground);
-  font-size: 12px;
-  font-weight: 700;
+  background: color-mix(in oklab, var(--foreground) 58%, transparent);
+  color: color-mix(in oklab, var(--background) 92%, transparent);
+  font-size: 13px;
+  font-weight: 750;
   line-height: 1;
 }
 
@@ -7382,6 +7400,34 @@ html.light {
   font-size: 11px;
   color: var(--muted-foreground);
   pointer-events: none;
+}
+
+.bg-ctx-sub {
+  position: relative;
+}
+
+.bg-ctx-sub-trigger {
+  padding-right: 6px;
+}
+
+.bg-ctx-sub-arrow {
+  margin-left: auto;
+  color: var(--muted-foreground);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.bg-ctx-sub-content {
+  position: absolute;
+  top: -4px;
+  left: calc(100% - 1px);
+  display: none;
+}
+
+.bg-ctx-sub:hover > .bg-ctx-sub-content,
+.bg-ctx-sub:focus-within > .bg-ctx-sub-content,
+.bg-ctx-sub-content.is-open {
+  display: block;
 }
 
 /* ---- Drag-to-upload overlay ---- */
