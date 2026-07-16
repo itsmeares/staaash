@@ -136,3 +136,8 @@ export type ZipArchive = Prisma.ZipArchiveModel
  * 
  */
 export type UploadSession = Prisma.UploadSessionModel
+/**
+ * Model UploadChunk
+ *
+ */
+export type UploadChunk = Prisma.UploadChunkModel

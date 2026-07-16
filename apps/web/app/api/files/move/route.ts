@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
             folderId: item.id,
             destinationFolderId: body.destinationFolderId,
           });
-          await recordFolderAccessBestEffort({
+          void recordFolderAccessBestEffort({
             actorUserId: session.user.id,
             actorRole: session.user.role,
             folderId: item.id,
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
             fileId: item.id,
             destinationFolderId: body.destinationFolderId,
           });
-          await recordFileAccessBestEffort({
+          void recordFileAccessBestEffort({
             actorUserId: session.user.id,
             actorRole: session.user.role,
             fileId: item.id,

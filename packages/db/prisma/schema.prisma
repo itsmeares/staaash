@@ -390,21 +390,38 @@ model ZipArchive {
 }
 
 model UploadSession {
-  id               String   @id @default(cuid())
+  id               String        @id @default(cuid())
   ownerUserId      String
   folderId         String?
   originalName     String
   mimeType         String
   totalSizeBytes   BigInt
-  receivedBytes    BigInt   @default(0)
+  receivedBytes    BigInt        @default(0)
   expectedChecksum String?
+  protocolVersion  Int           @default(1)
+  chunkSizeBytes   BigInt?
   tmpPath          String
   conflictStrategy String
   status           String
   expiresAt        DateTime
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  chunks           UploadChunk[]
 
   @@index([ownerUserId, status])
   @@index([expiresAt, status])
+}
+
+model UploadChunk {
+  id          String        @id @default(cuid())
+  sessionId   String
+  chunkIndex  Int
+  startByte   BigInt
+  endByte     BigInt
+  sizeBytes   BigInt
+  completedAt DateTime      @default(now())
+  session     UploadSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, chunkIndex])
+  @@index([sessionId])
 }

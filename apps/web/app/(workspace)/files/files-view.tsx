@@ -134,10 +134,23 @@ export function FilesView({
   // refresh comes back so the list visually updates instantly. Cleared once
   // the new listing arrives (the server response no longer contains them).
   const [trashedIds, setTrashedIds] = useState<Set<string>>(new Set());
+  const [movingIds, setMovingIds] = useState<Set<string>>(new Set());
   const [trashError, setTrashError] = useState<string | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
   useEffect(() => {
     setTrashedIds(new Set());
+  }, [listing]);
+  useEffect(() => {
+    const listedIds = new Set([
+      ...listing.childFolders.map((folder) => folder.id),
+      ...listing.files.map((file) => file.id),
+    ]);
+    setMovingIds((current) => {
+      const pending = new Set(
+        Array.from(current).filter((id) => listedIds.has(id)),
+      );
+      return pending.size === current.size ? current : pending;
+    });
   }, [listing]);
   useEffect(() => {
     if (!trashError) return;
@@ -240,9 +253,11 @@ export function FilesView({
   const favoriteFileSet = new Set(favoriteFileIds);
   const favoriteFolderSet = new Set(favoriteFolderIds);
   const visibleFolders = listing.childFolders.filter(
-    (f) => !trashedIds.has(f.id),
+    (f) => !trashedIds.has(f.id) && !movingIds.has(f.id),
   );
-  const visibleFiles = listing.files.filter((f) => !trashedIds.has(f.id));
+  const visibleFiles = listing.files.filter(
+    (f) => !trashedIds.has(f.id) && !movingIds.has(f.id),
+  );
 
   // Flat ordered list of all items (folders first, then files)
   const allItems: BatchMoveItem[] = [
@@ -296,6 +311,25 @@ export function FilesView({
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key?.startsWith(prefix)) {
+        try {
+          const stored = JSON.parse(localStorage.getItem(key) ?? "null") as {
+            fileName?: unknown;
+            fileSize?: unknown;
+          } | null;
+          if (
+            typeof stored?.fileName === "string" &&
+            typeof stored.fileSize === "number"
+          ) {
+            sessions.push({
+              name: stored.fileName,
+              size: stored.fileSize,
+              storageKey: key,
+            });
+            continue;
+          }
+        } catch {
+          // Fall through to parsing legacy session keys.
+        }
         const rest = key.slice(prefix.length);
         const lastColon = rest.lastIndexOf(":");
         if (lastColon > 0) {
@@ -661,6 +695,14 @@ export function FilesView({
   ): Promise<BatchMoveResponse | null> => {
     if (items.length === 0) return null;
     setMoveError(null);
+    const itemIds = new Set(items.map((item) => item.id));
+    setMovingIds((current) => new Set([...current, ...itemIds]));
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      for (const id of itemIds) next.delete(id);
+      return next;
+    });
+    setLastSelectedId(null);
 
     try {
       const response = await fetch("/api/files/move", {
@@ -688,6 +730,12 @@ export function FilesView({
       const failures = data.results.filter(
         (result) => result.status === "failed",
       );
+      const failedIds = new Set(failures.map((result) => result.id));
+      setMovingIds((current) => {
+        const next = new Set(current);
+        for (const id of failedIds) next.delete(id);
+        return next;
+      });
       setSelectedIds(new Set(failures.map((result) => result.id)));
       setLastSelectedId(failures.at(-1)?.id ?? null);
 
@@ -706,6 +754,11 @@ export function FilesView({
 
       return data;
     } catch (error) {
+      setMovingIds((current) => {
+        const next = new Set(current);
+        for (const id of itemIds) next.delete(id);
+        return next;
+      });
       setSelectedIds(new Set(items.map((item) => item.id)));
       setMoveError(
         error instanceof Error ? error.message : "Items could not be moved.",
@@ -1284,8 +1337,20 @@ export function FilesView({
                     ? "No items selected"
                     : `${selectedIds.size} item${selectedIds.size === 1 ? "" : "s"} selected`}
                 </p>
-                {(selectedIds.size > 0 || cutItems.length > 0) && (
+                {(selectedIds.size > 0 ||
+                  cutItems.length > 0 ||
+                  movingIds.size > 0) && (
                   <div className="explorer-badges">
+                    {movingIds.size > 0 && (
+                      <span
+                        className="move-status-badge"
+                        role="status"
+                        aria-live="polite"
+                      >
+                        Moving {movingIds.size} item
+                        {movingIds.size === 1 ? "" : "s"}…
+                      </span>
+                    )}
                     {selectedIds.size > 0 && (
                       <>
                         <span className="selection-badge">
@@ -1771,7 +1836,7 @@ function UploadingRow({
   onDismiss: () => void;
   onRetry?: () => void;
 }) {
-  const eta = formatEta(file.size, file.progress, file.speed);
+  const eta = formatEta(file.size, file.transferredBytes, file.speed);
   const visual = getItemVisual("file", file.fileRef?.type);
   const statusText =
     file.status === "error"
