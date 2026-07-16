@@ -21,6 +21,7 @@ import {
   queuedXhrUpload,
 } from "@/lib/transfers/request-queue";
 import {
+  calculateLiveUploadedBytes,
   calculateUploadProgress,
   UploadRateTracker,
 } from "@/lib/transfers/upload-progress";
@@ -152,6 +153,7 @@ const uploadResumableChunk = async ({
   totalSizeBytes,
   buffer,
   signal,
+  onProgress,
 }: {
   sessionId: string;
   startByte: number;
@@ -159,25 +161,31 @@ const uploadResumableChunk = async ({
   totalSizeBytes: number;
   buffer: ArrayBuffer;
   signal: AbortSignal;
+  onProgress?: (loaded: number, total: number) => void;
 }): Promise<{ receivedBytes: number }> => {
-  const response = await queuedFetch(
-    "upload",
-    `/api/uploads/sessions/${sessionId}`,
-    {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/octet-stream",
-        "Content-Range": `bytes ${startByte}-${endByte - 1}/${totalSizeBytes}`,
-        Accept: "application/json",
-      },
-      body: buffer,
+  const result = await queuedXhrUpload({
+    url: `/api/uploads/sessions/${sessionId}`,
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/octet-stream",
+      "Content-Range": `bytes ${startByte}-${endByte - 1}/${totalSizeBytes}`,
     },
-    { retries: 3, backoffMs: 500, signal },
-  );
-  if (!response.ok) {
-    throw new Error(await readResponseError(response, "Chunk upload failed"));
+    body: buffer,
+    signal,
+    onProgress,
+    retries: 3,
+    backoffMs: 500,
+  });
+  if (result.status < 200 || result.status >= 300) {
+    let message = "Chunk upload failed";
+    try {
+      message = JSON.parse(result.responseText)?.error ?? message;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(message);
   }
-  return (await response.json()) as { receivedBytes: number };
+  return JSON.parse(result.responseText) as { receivedBytes: number };
 };
 
 const completeResumableUploadSession = async ({
@@ -788,12 +796,37 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
       (total, chunk) => total + chunk.sizeBytes,
       0,
     );
-    let uploadedThisRun = 0;
+    const initialAcknowledgedBytes = acknowledgedBytes;
+    const inFlightChunkBytes = new Map<number, number>();
     const rateTracker = new UploadRateTracker();
     const pipelineController = new AbortController();
     const abortPipeline = () => pipelineController.abort();
     signal.addEventListener("abort", abortPipeline, { once: true });
     const taskPool = new UploadTaskPool(PARALLEL_UPLOAD_CHUNKS, abortPipeline);
+    const publishParallelProgress = () => {
+      const transferredBytes = calculateLiveUploadedBytes(
+        acknowledgedBytes,
+        inFlightChunkBytes.values(),
+        file.size,
+      );
+      const speed = rateTracker.record(
+        transferredBytes - initialAcknowledgedBytes,
+      );
+      setUploadingFiles((prev) =>
+        prev.map((f) =>
+          f.clientKey === clientKey
+            ? {
+                ...f,
+                progress: calculateUploadProgress(transferredBytes, file.size),
+                transferredBytes,
+                speed,
+                resumeHint: undefined,
+                statusLabel: undefined,
+              }
+            : f,
+        ),
+      );
+    };
 
     try {
       const hasher = await createFileSha256Hasher();
@@ -813,35 +846,27 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
         if (completedIndexes.has(chunkIndex)) continue;
 
         taskPool.start(async () => {
-          await uploadResumableChunk({
-            sessionId,
-            startByte,
-            endByte,
-            totalSizeBytes: file.size,
-            buffer,
-            signal: pipelineController.signal,
-          });
+          try {
+            await uploadResumableChunk({
+              sessionId,
+              startByte,
+              endByte,
+              totalSizeBytes: file.size,
+              buffer,
+              signal: pipelineController.signal,
+              onProgress: (loaded) => {
+                inFlightChunkBytes.set(chunkIndex, loaded);
+                publishParallelProgress();
+              },
+            });
 
-          acknowledgedBytes += buffer.byteLength;
-          uploadedThisRun += buffer.byteLength;
-          const speed = rateTracker.record(uploadedThisRun);
-          setUploadingFiles((prev) =>
-            prev.map((f) =>
-              f.clientKey === clientKey
-                ? {
-                    ...f,
-                    progress: calculateUploadProgress(
-                      acknowledgedBytes,
-                      file.size,
-                    ),
-                    transferredBytes: acknowledgedBytes,
-                    speed,
-                    resumeHint: undefined,
-                    statusLabel: undefined,
-                  }
-                : f,
-            ),
-          );
+            inFlightChunkBytes.delete(chunkIndex);
+            acknowledgedBytes += buffer.byteLength;
+            publishParallelProgress();
+          } catch (error) {
+            inFlightChunkBytes.delete(chunkIndex);
+            throw error;
+          }
         });
       }
       await taskPool.drain();

@@ -172,10 +172,13 @@ export function queuedFetch(
 
 export type XhrUploadOptions = {
   url: string;
+  method?: string;
   body: XMLHttpRequestBodyInit | Document;
   signal?: AbortSignal;
   onProgress?: (loaded: number, total: number) => void;
   headers?: Record<string, string>;
+  retries?: number;
+  backoffMs?: number;
 };
 
 export type XhrUploadResult = {
@@ -188,45 +191,86 @@ export function queuedXhrUpload(
 ): Promise<XhrUploadResult> {
   return withTransferSlot(
     "upload",
-    () =>
-      new Promise<XhrUploadResult>((resolve, reject) => {
-        if (opts.signal?.aborted) {
-          reject(abortError());
-          return;
-        }
-        const xhr = new XMLHttpRequest();
-        const onAbort = () => xhr.abort();
-        opts.signal?.addEventListener("abort", onAbort, { once: true });
-
-        xhr.upload.onprogress = (ev) => {
-          if (ev.lengthComputable && opts.onProgress) {
-            opts.onProgress(ev.loaded, ev.total);
-          }
-        };
-        xhr.onload = () => {
-          opts.signal?.removeEventListener("abort", onAbort);
-          resolve({ status: xhr.status, responseText: xhr.responseText });
-        };
-        xhr.onerror = () => {
-          opts.signal?.removeEventListener("abort", onAbort);
-          reject(new TypeError("Network request failed"));
-        };
-        xhr.onabort = () => {
-          opts.signal?.removeEventListener("abort", onAbort);
-          reject(abortError());
-        };
-
-        xhr.open("POST", opts.url);
-        xhr.setRequestHeader("Accept", "application/json");
-        if (opts.headers) {
-          for (const [k, v] of Object.entries(opts.headers)) {
-            xhr.setRequestHeader(k, v);
-          }
-        }
-        xhr.send(opts.body);
-      }),
+    () => runXhrUploadWithRetry(opts),
     opts.signal,
   );
+}
+
+async function runXhrUploadWithRetry(
+  opts: XhrUploadOptions,
+  attempt = 0,
+): Promise<XhrUploadResult> {
+  throwIfAborted(opts.signal);
+  const retries = opts.retries ?? 0;
+
+  try {
+    const result = await runXhrUpload(opts);
+    if (!shouldRetryXhrStatus(result.status, attempt, retries)) return result;
+  } catch (error) {
+    if (!shouldRetryXhrError(error, opts.signal, attempt, retries)) throw error;
+  }
+
+  await delay(
+    backoffFor(opts.backoffMs ?? DEFAULT_BACKOFF_MS, attempt),
+    opts.signal,
+  );
+  return runXhrUploadWithRetry(opts, attempt + 1);
+}
+
+function shouldRetryXhrStatus(
+  status: number,
+  attempt: number,
+  retries: number,
+) {
+  return status >= 500 && status < 600 && attempt < retries;
+}
+
+function shouldRetryXhrError(
+  error: unknown,
+  signal: AbortSignal | undefined,
+  attempt: number,
+  retries: number,
+) {
+  return !signal?.aborted && error instanceof TypeError && attempt < retries;
+}
+
+function runXhrUpload(opts: XhrUploadOptions): Promise<XhrUploadResult> {
+  return new Promise<XhrUploadResult>((resolve, reject) => {
+    if (opts.signal?.aborted) {
+      reject(abortError());
+      return;
+    }
+    const xhr = new XMLHttpRequest();
+    const onAbort = () => xhr.abort();
+    opts.signal?.addEventListener("abort", onAbort, { once: true });
+
+    xhr.upload.onprogress = (ev) => {
+      if (ev.lengthComputable && opts.onProgress) {
+        opts.onProgress(ev.loaded, ev.total);
+      }
+    };
+    xhr.onload = () => {
+      opts.signal?.removeEventListener("abort", onAbort);
+      resolve({ status: xhr.status, responseText: xhr.responseText });
+    };
+    xhr.onerror = () => {
+      opts.signal?.removeEventListener("abort", onAbort);
+      reject(new TypeError("Network request failed"));
+    };
+    xhr.onabort = () => {
+      opts.signal?.removeEventListener("abort", onAbort);
+      reject(abortError());
+    };
+
+    xhr.open(opts.method ?? "POST", opts.url);
+    xhr.setRequestHeader("Accept", "application/json");
+    if (opts.headers) {
+      for (const [k, v] of Object.entries(opts.headers)) {
+        xhr.setRequestHeader(k, v);
+      }
+    }
+    xhr.send(opts.body);
+  });
 }
 
 // ---------------------------------------------------------------------------

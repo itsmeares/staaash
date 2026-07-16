@@ -43,3 +43,17 @@ export const calculateUploadProgress = (
   totalBytes > 0
     ? Math.min(100, Math.round((acknowledgedBytes / totalBytes) * 100))
     : 100;
+
+export const calculateLiveUploadedBytes = (
+  acknowledgedBytes: number,
+  inFlightChunkBytes: Iterable<number>,
+  totalBytes: number,
+) =>
+  Math.min(
+    totalBytes,
+    acknowledgedBytes +
+      Array.from(inFlightChunkBytes).reduce(
+        (total, chunkBytes) => total + chunkBytes,
+        0,
+      ),
+  );
