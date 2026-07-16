@@ -10,6 +10,7 @@ import {
 } from "react";
 import { SearchIcon } from "lucide-react";
 
+import { formatVersionLabel } from "@staaash/config/version";
 import type { SystemSettings } from "@staaash/db/client";
 
 import {
@@ -19,6 +20,7 @@ import {
 } from "@/app/admin/admin-format";
 import { SettingsPanel } from "@/components/settings-panel";
 import { TimeZonePicker } from "@/components/time-zone-picker";
+import { getUpdateStatusLabel } from "@/lib/update-status";
 import type { JsonAdminUpdateStatus } from "@/server/admin/types";
 
 import { updateSystemSettings } from "./actions";
@@ -204,21 +206,25 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
           <dl className="settings-list settings-update-list">
             <SettingRow label="Current version">
               <span className="settings-row-value-text">
-                {updateStatus.currentVersion ?? "n/a"}
+                {updateStatus.currentVersion
+                  ? formatVersionLabel(updateStatus.currentVersion)
+                  : "n/a"}
               </span>
             </SettingRow>
             <SettingRow label="Latest published">
               <span className="settings-row-value-text">
-                {updateStatus.latestAvailableVersion ?? "n/a"}
+                {updateStatus.latestAvailableVersion
+                  ? formatVersionLabel(updateStatus.latestAvailableVersion)
+                  : "n/a"}
               </span>
             </SettingRow>
             <SettingRow label="Check status">
               <span
                 className={getAdminStatusClassName(
-                  updateStatus.updateCheckStatus ?? "error",
+                  updateStatus.updateCheckStatus ?? "not checked",
                 )}
               >
-                {updateStatus.updateCheckStatus ?? "not checked"}
+                {getUpdateStatusLabel(updateStatus.updateCheckStatus)}
               </span>
             </SettingRow>
             <SettingRow label="Last checked">

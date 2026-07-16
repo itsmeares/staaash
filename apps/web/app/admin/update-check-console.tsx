@@ -3,38 +3,57 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { waitForUpdateCheck } from "@/lib/update-check-client";
+
 export function UpdateCheckConsole() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
 
   const handleCheckNow = async () => {
     setError(null);
     setSuccess(null);
+    setChecking(true);
 
-    const response = await fetch("/api/admin/updates/check", {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-      },
-    });
+    try {
+      const response = await fetch("/api/admin/updates/check", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+        },
+      });
 
-    if (!response.ok) {
-      try {
-        const body = (await response.json()) as { error?: string };
-        setError(body.error ?? "Request failed.");
-      } catch {
-        setError("Request failed.");
+      if (!response.ok) {
+        let message = "Request failed.";
+        try {
+          const body = (await response.json()) as { error?: string };
+          message = body.error ?? message;
+        } catch {}
+        throw new Error(message);
       }
-      return;
-    }
 
-    const body = (await response.json()) as { message?: string };
-    setSuccess(body.message ?? "Update check queued.");
-    startTransition(() => {
-      router.refresh();
-    });
+      const body = (await response.json()) as { jobId: string };
+      setSuccess("Checking for updates…");
+
+      const result = await waitForUpdateCheck({ jobId: body.jobId });
+      setSuccess(
+        result.updateStatus.updateCheckMessage ?? "Update check completed.",
+      );
+      startTransition(() => {
+        router.refresh();
+      });
+    } catch (requestError) {
+      setSuccess(null);
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Update check failed.",
+      );
+    } finally {
+      setChecking(false);
+    }
   };
 
   return (
@@ -43,11 +62,11 @@ export function UpdateCheckConsole() {
       {success ? <div className="banner banner-success">{success}</div> : null}
       <button
         className="button"
-        disabled={isPending}
+        disabled={checking || isPending}
         onClick={handleCheckNow}
         type="button"
       >
-        Check now
+        {checking || isPending ? "Checking…" : "Check now"}
       </button>
     </div>
   );

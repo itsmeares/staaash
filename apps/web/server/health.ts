@@ -9,8 +9,7 @@ import { readInstanceUpdateCheck } from "@staaash/db/instance";
 import { listWorkerInstances } from "@staaash/db/jobs";
 import { readLatestRestoreReconciliationRun } from "@staaash/db/reconciliation";
 
-import { version as packageVersion } from "../package.json";
-
+import { resolveAppVersion } from "@/server/app-version";
 import { getSystemSettings } from "@/server/settings";
 import { buildRestoreReconciliationHealthSummary } from "@/server/restore";
 import {
@@ -63,6 +62,7 @@ const toStorageWarningSummary = (
   };
 };
 
+// fallow-ignore-next-line unused-export
 export const getWorkerHeartbeatStatus = (
   lastSeenAt: Date | null,
   now = new Date(),
@@ -145,6 +145,7 @@ const writeWorkerHeartbeat = async (timestamp = new Date()) => {
   );
 };
 
+// fallow-ignore-next-line unused-export
 export const buildInstanceHealthSummary = ({
   databaseStatus,
   databaseMessage,
@@ -241,9 +242,7 @@ export const getReadiness = async () => {
       currentVersion:
         process.env.NODE_ENV !== "production"
           ? "development"
-          : (process.env.STAAASH_VERSION ??
-            process.env.APP_VERSION ??
-            packageVersion),
+          : resolveAppVersion(),
       lastUpdateCheckAt:
         instanceState?.lastUpdateCheckAt?.toISOString() ?? null,
       updateCheckStatus: instanceState?.updateCheckStatus ?? null,

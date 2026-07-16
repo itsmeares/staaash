@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { formatVersionLabel } from "@staaash/config/version";
 import {
   Upload,
   Sun,
@@ -118,7 +119,9 @@ export function TopbarActions({
           {hasUpdate ? (
             <div className="topbar-notif-item">
               <span className="topbar-notif-title">
-                v{latestVersion} available
+                {latestVersion
+                  ? `${formatVersionLabel(latestVersion)} available`
+                  : "Update available"}
               </span>
               {releaseUrl && (
                 <a

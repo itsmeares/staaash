@@ -1,15 +1,19 @@
 "use client";
 
 import { ExternalLink } from "lucide-react";
+import { formatVersionLabel } from "@staaash/config/version";
+
 import {
   Dialog,
   DialogContent,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-
-type UpdateStatus =
-  "up-to-date" | "update-available" | "unavailable" | "error" | null;
+import {
+  getUpdateStatusDotClassName,
+  getUpdateStatusLabel,
+  type UpdateStatus,
+} from "@/lib/update-status";
 
 type InstanceBadgeProps = {
   appVersion: string;
@@ -20,13 +24,7 @@ type InstanceBadgeProps = {
 };
 
 function StatusDot({ status }: { status: UpdateStatus }) {
-  const cls =
-    status === "update-available"
-      ? "instance-dot instance-dot--update"
-      : status === "error"
-        ? "instance-dot instance-dot--error"
-        : "instance-dot instance-dot--online";
-  return <span className={cls} aria-hidden />;
+  return <span className={getUpdateStatusDotClassName(status)} aria-hidden />;
 }
 
 export function InstanceBadge({
@@ -36,14 +34,8 @@ export function InstanceBadge({
   latestVersion,
   repository,
 }: InstanceBadgeProps) {
-  const updateLabel =
-    updateStatus === "up-to-date"
-      ? "Up to date"
-      : updateStatus === "update-available"
-        ? `v${latestVersion} available`
-        : updateStatus === "error"
-          ? "Check failed"
-          : "Not checked";
+  const updateLabel = getUpdateStatusLabel(updateStatus, latestVersion);
+  const versionLabel = formatVersionLabel(appVersion);
 
   const releaseUrl = repository
     ? `https://github.com/${repository}/releases`
@@ -53,7 +45,7 @@ export function InstanceBadge({
     <Dialog>
       <DialogTrigger className="instance-badge-trigger">
         <StatusDot status={updateStatus} />
-        <span className="instance-badge-version">v{appVersion}</span>
+        <span className="instance-badge-version">{versionLabel}</span>
       </DialogTrigger>
       <DialogContent className="instance-about-dialog">
         <div className="instance-dialog-header">
@@ -66,7 +58,7 @@ export function InstanceBadge({
         <dl className="instance-badge-dl">
           <div className="instance-badge-row">
             <dt>Version</dt>
-            <dd>v{appVersion}</dd>
+            <dd>{versionLabel}</dd>
           </div>
           <div className="instance-badge-row">
             <dt>Runtime</dt>

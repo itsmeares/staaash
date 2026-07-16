@@ -5,15 +5,15 @@ import { version as packageVersion } from "../package.json";
 import { resolveAppVersion } from "./app-version";
 
 describe("resolveAppVersion", () => {
-  it("prefers the explicit Staaash version override", () => {
-    expect(resolveAppVersion("1.2.3", "2.0.0")).toBe("1.2.3");
+  it("uses a valid app version override", () => {
+    expect(resolveAppVersion("2.0.0")).toBe("2.0.0");
   });
 
-  it("uses the app version override when the Staaash version is unset", () => {
-    expect(resolveAppVersion(undefined, "2.0.0")).toBe("2.0.0");
+  it("ignores moving tag aliases", () => {
+    expect(resolveAppVersion("latest")).toBe(packageVersion);
   });
 
-  it("falls back to the package version", () => {
-    expect(resolveAppVersion(undefined, undefined)).toBe(packageVersion);
+  it("falls back to packaged version", () => {
+    expect(resolveAppVersion(undefined)).toBe(packageVersion);
   });
 });

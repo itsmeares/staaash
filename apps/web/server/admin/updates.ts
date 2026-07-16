@@ -1,11 +1,11 @@
 import {
   ensureBackgroundJobScheduled,
+  findBackgroundJobById,
   UPDATE_CHECK_JOB_KIND,
 } from "@staaash/db/jobs";
 import { readInstanceUpdateCheck } from "@staaash/db/instance";
 
-import { version as packageVersion } from "../../package.json";
-
+import { resolveAppVersion } from "@/server/app-version";
 import { getSystemSettings } from "@/server/settings";
 
 import type { AdminUpdateStatus, JsonAdminUpdateStatus } from "./types";
@@ -20,9 +20,7 @@ export const getAdminUpdateStatus = async (): Promise<AdminUpdateStatus> => {
     currentVersion:
       process.env.NODE_ENV !== "production"
         ? "development"
-        : (process.env.STAAASH_VERSION ??
-          process.env.APP_VERSION ??
-          packageVersion),
+        : resolveAppVersion(),
     repository: settings.updateCheckRepository || null,
     lastUpdateCheckAt: state.lastUpdateCheckAt,
     updateCheckStatus: state.updateCheckStatus,
@@ -41,6 +39,11 @@ export const enqueueAdminUpdateCheck = async (now = new Date()) =>
     windowEnd: now,
     now,
   });
+
+export const getAdminUpdateCheckJob = async (jobId: string) => {
+  const job = await findBackgroundJobById({ jobId });
+  return job?.kind === UPDATE_CHECK_JOB_KIND ? job : null;
+};
 
 export const toJsonAdminUpdateStatus = (
   status: AdminUpdateStatus,
