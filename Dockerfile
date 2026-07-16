@@ -34,6 +34,7 @@ RUN npm install -g "prisma@$(node -e "process.stdout.write(JSON.parse(require('f
 # Next.js standalone server
 COPY --from=build /app/apps/web/.next/standalone ./
 COPY --from=build /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=build /app/apps/web/public ./apps/web/public
 
 # Prisma schema + migrations + config
 COPY --from=build /app/packages/db/prisma ./prisma

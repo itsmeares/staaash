@@ -66,6 +66,7 @@ type BaseFolderRowProps = {
   onRenameSubmit: () => void;
   onRenameCancel: () => void;
   onClick: (e: React.MouseEvent) => void;
+  onContextMenu: () => void;
   onLongPress: () => void;
   onOpen: () => void;
   onStartRename: () => void;
@@ -75,6 +76,12 @@ type BaseFolderRowProps = {
   onCut: () => void;
   onMoveTo: (destinationId: string) => void;
   onDownload: () => void;
+  onDragStart: (event: React.DragEvent<HTMLDivElement>) => void;
+  onDragEnd: () => void;
+  isDropTarget: boolean;
+  onMoveDragOver: (event: React.DragEvent<HTMLDivElement>) => void;
+  onMoveDragLeave: (event: React.DragEvent<HTMLDivElement>) => void;
+  onMoveDrop: (event: React.DragEvent<HTMLDivElement>) => void;
   rowRef: (el: HTMLDivElement | null) => void;
   touchMode: boolean;
 };
@@ -95,6 +102,7 @@ type BaseFileRowProps = {
   onRenameSubmit: () => void;
   onRenameCancel: () => void;
   onClick: (e: React.MouseEvent) => void;
+  onContextMenu: () => void;
   onLongPress: () => void;
   onOpen: () => void;
   onStartRename: () => void;
@@ -104,6 +112,8 @@ type BaseFileRowProps = {
   onCut: () => void;
   onMoveTo: (destinationId: string) => void;
   onDownload: () => void;
+  onDragStart: (event: React.DragEvent<HTMLDivElement>) => void;
+  onDragEnd: () => void;
   rowRef: (el: HTMLDivElement | null) => void;
   touchMode: boolean;
 };
@@ -128,6 +138,7 @@ export function FilesRow(props: FilesRowProps) {
     onRenameSubmit,
     onRenameCancel,
     onClick,
+    onContextMenu,
     onLongPress,
     onOpen,
     onStartRename,
@@ -136,6 +147,8 @@ export function FilesRow(props: FilesRowProps) {
     onProperties,
     onCut,
     onMoveTo,
+    onDragStart,
+    onDragEnd,
     rowRef,
   } = props;
 
@@ -159,6 +172,7 @@ export function FilesRow(props: FilesRowProps) {
     isSelected ? "is-selected" : "",
     isCut ? "is-cut" : "",
     isJustMoved ? "just-moved" : "",
+    props.kind === "folder" && props.isDropTarget ? "is-drop-target" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -342,8 +356,19 @@ export function FilesRow(props: FilesRowProps) {
           ref={rowRef}
           data-file-row={props.data.id}
           className={rowClasses}
+          draggable={!touchMode && !isRenaming}
           onClick={handleRowClick}
+          onContextMenu={onContextMenu}
           onDoubleClick={touchMode ? undefined : onOpen}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          onDragOver={
+            props.kind === "folder" ? props.onMoveDragOver : undefined
+          }
+          onDragLeave={
+            props.kind === "folder" ? props.onMoveDragLeave : undefined
+          }
+          onDrop={props.kind === "folder" ? props.onMoveDrop : undefined}
           onPointerCancel={clearLongPressTimer}
           onPointerDown={handlePointerDown}
           onPointerLeave={clearLongPressTimer}
@@ -422,6 +447,7 @@ export function FilesRow(props: FilesRowProps) {
             type="button"
             onClick={(event) => {
               event.stopPropagation();
+              onContextMenu();
               setActionSheetOpen(true);
             }}
           >

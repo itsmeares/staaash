@@ -14,12 +14,22 @@ import { Download, FolderPlus, RefreshCw, Upload } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { FlashMessage } from "@/app/auth-ui";
 import { DashboardPageContextMenu } from "@/app/dashboard-context-menu";
+import { ItemTypeIcon } from "@/app/item-type-icon";
+import { getItemVisual } from "@/app/item-visuals";
 import { startValidatedDownload } from "@/lib/transfers/download";
-import type { FilesListing } from "@/server/files/types";
+import type {
+  BatchMoveItem,
+  BatchMoveResponse,
+  FilesListing,
+} from "@/server/files/types";
 import type { ShareFilesLookup } from "@/server/sharing";
 
 import { RubberBandRect, type RubberBand } from "../rubber-band-rect";
 import { FilesRow } from "./files-row";
+import {
+  buildBatchMoveFailureMessage,
+  getMoveItemsForInteraction,
+} from "./files-move";
 import { FilesPropertiesPanel } from "./files-properties-panel";
 import { ShareDialog } from "./share-dialog";
 import { CreateFolderDialog } from "../create-folder-dialog";
@@ -27,6 +37,7 @@ import {
   useTransferContext,
   type UploadingFile,
   CHUNKED_UPLOAD_THRESHOLD,
+  formatBytes,
   formatSpeed,
   formatEta,
 } from "../transfer-context";
@@ -40,6 +51,7 @@ import type { ShareLinkSummary } from "@/server/sharing";
 const FOLDER_ICON_KEY = "staaash:folder-icons";
 const CUT_STATE_KEY = "staaash:cut-items";
 const UPLOAD_SESSION_KEY_PREFIX = "staaash:upload-session";
+const INTERNAL_ITEM_DRAG_TYPE = "application/x-staaash-items";
 
 type CutItem = { id: string; kind: "folder" | "file"; name: string };
 
@@ -123,6 +135,7 @@ export function FilesView({
   // the new listing arrives (the server response no longer contains them).
   const [trashedIds, setTrashedIds] = useState<Set<string>>(new Set());
   const [trashError, setTrashError] = useState<string | null>(null);
+  const [moveError, setMoveError] = useState<string | null>(null);
   useEffect(() => {
     setTrashedIds(new Set());
   }, [listing]);
@@ -152,6 +165,10 @@ export function FilesView({
   >([]);
   const dragCounterRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const draggedItemsRef = useRef<BatchMoveItem[]>([]);
+  const contextMoveItemsRef = useRef<BatchMoveItem[]>([]);
+  const dragPreviewRef = useRef<HTMLDivElement | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
   // Register fileInputRef + current folder ID with TransferProvider so the
   // topbar Upload button can trigger it and the panel can scope uploads by folder.
@@ -159,6 +176,10 @@ export function FilesView({
     registerFileInput(fileInputRef.current, listing.currentFolder.id);
     return () => registerFileInput(null);
   }, [listing.currentFolder.id, registerFileInput]);
+
+  useEffect(() => {
+    return () => dragPreviewRef.current?.remove();
+  }, []);
 
   // Auto-open file picker when navigated here via Upload button from another route.
   useEffect(() => {
@@ -178,13 +199,6 @@ export function FilesView({
   const rubberBandStart = useRef<{ startX: number; startY: number } | null>(
     null,
   );
-  // Tracks where a mousedown originated so we can convert to rubber-band
-  // after the drag threshold when the drag started on a row.
-  const dragOrigin = useRef<{
-    x: number;
-    y: number;
-    onRow: boolean;
-  } | null>(null);
   // True from the moment rubber-band is committed until after the next click
   // event fires, so we can suppress spurious row-click / deselect callbacks.
   const didRubberBand = useRef(false);
@@ -231,12 +245,40 @@ export function FilesView({
   const visibleFiles = listing.files.filter((f) => !trashedIds.has(f.id));
 
   // Flat ordered list of all items (folders first, then files)
-  type AnyItem = { kind: "folder"; id: string } | { kind: "file"; id: string };
-
-  const allItems: AnyItem[] = [
+  const allItems: BatchMoveItem[] = [
     ...visibleFolders.map((f) => ({ kind: "folder" as const, id: f.id })),
     ...visibleFiles.map((f) => ({ kind: "file" as const, id: f.id })),
   ];
+
+  const getItemName = (item: BatchMoveItem) =>
+    item.kind === "folder"
+      ? (listing.childFolders.find((folder) => folder.id === item.id)?.name ??
+        item.id)
+      : (listing.files.find((file) => file.id === item.id)?.name ?? item.id);
+
+  const getInteractionItems = (
+    id: string,
+    kind: BatchMoveItem["kind"],
+  ): BatchMoveItem[] =>
+    getMoveItemsForInteraction({
+      allItems,
+      selectedIds: selectedIdsRef.current,
+      target: { id, kind },
+    });
+
+  const handleItemContextMenu = (id: string, kind: BatchMoveItem["kind"]) => {
+    const current = selectedIdsRef.current;
+    contextMoveItemsRef.current = getMoveItemsForInteraction({
+      allItems,
+      selectedIds: current,
+      target: { id, kind },
+    });
+    if (current.has(id)) return;
+    const next = new Set([id]);
+    selectedIdsRef.current = next;
+    setSelectedIds(next);
+    setLastSelectedId(id);
+  };
 
   // ---- Load persisted state ----
   useEffect(() => {
@@ -613,36 +655,91 @@ export function FilesView({
     if (succeeded) startTransition(() => router.refresh());
   };
 
-  const moveItem = async (
-    id: string,
-    kind: "folder" | "file",
+  const moveItems = async (
+    items: BatchMoveItem[],
     destinationFolderId: string,
-  ) => {
-    const endpoint =
-      kind === "folder"
-        ? `/api/files/folders/${id}/move`
-        : `/api/files/files/${id}/move`;
-    await fetch(endpoint, {
-      method: "POST",
-      body: new URLSearchParams({
-        destinationFolderId,
-        redirectTo: currentPath,
-      }),
-    });
+  ): Promise<BatchMoveResponse | null> => {
+    if (items.length === 0) return null;
+    setMoveError(null);
+
+    try {
+      const response = await fetch("/api/files/move", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          items,
+          destinationFolderId,
+        }),
+      });
+      const data = (await response.json().catch(() => ({}))) as
+        BatchMoveResponse | { error?: string };
+
+      if (!response.ok || !("results" in data)) {
+        throw new Error(
+          "error" in data && data.error
+            ? data.error
+            : `Move failed (${response.status})`,
+        );
+      }
+
+      const failures = data.results.filter(
+        (result) => result.status === "failed",
+      );
+      setSelectedIds(new Set(failures.map((result) => result.id)));
+      setLastSelectedId(failures.at(-1)?.id ?? null);
+
+      if (failures.length > 0) {
+        setMoveError(
+          buildBatchMoveFailureMessage({
+            response: data,
+            getItemName,
+          }),
+        );
+      }
+
+      if (data.movedCount > 0) {
+        startTransition(() => router.refresh());
+      }
+
+      return data;
+    } catch (error) {
+      setSelectedIds(new Set(items.map((item) => item.id)));
+      setMoveError(
+        error instanceof Error ? error.message : "Items could not be moved.",
+      );
+      return null;
+    }
   };
 
   const handlePaste = async () => {
     if (cutItems.length === 0) return;
     const dest = listing.currentFolder.id;
-    await Promise.all(
-      cutItems.map((item) => moveItem(item.id, item.kind, dest)),
+    const result = await moveItems(
+      cutItems.map(({ id, kind }) => ({ id, kind })),
+      dest,
     );
-    const moved = new Set(cutItems.map((i) => i.id));
-    setCutItems([]);
-    clearCutItems();
+    if (!result) return;
+
+    const failedIds = new Set(
+      result.results
+        .filter((item) => item.status === "failed")
+        .map((item) => item.id),
+    );
+    const remainingCutItems = cutItems.filter((item) => failedIds.has(item.id));
+    setCutItems(remainingCutItems);
+    if (remainingCutItems.length > 0) persistCutItems(remainingCutItems);
+    else clearCutItems();
+
+    const moved = new Set(
+      result.results
+        .filter((item) => item.status === "moved")
+        .map((item) => item.id),
+    );
     setJustMovedIds(moved);
     setTimeout(() => setJustMovedIds(new Set()), 800);
-    startTransition(() => router.refresh());
   };
 
   // ---------------------------------------------------------------------------
@@ -666,13 +763,43 @@ export function FilesView({
   // Upload
   // ---------------------------------------------------------------------------
 
+  const isInternalItemDrag = (event: React.DragEvent) =>
+    draggedItemsRef.current.length > 0 ||
+    event.dataTransfer.types.includes(INTERNAL_ITEM_DRAG_TYPE);
+
+  const positionDragPreview = (clientX: number, clientY: number) => {
+    const preview = dragPreviewRef.current;
+    if (!preview || (clientX === 0 && clientY === 0)) return;
+    const left = Math.min(
+      clientX + 18,
+      window.innerWidth - preview.offsetWidth - 12,
+    );
+    const top = Math.min(
+      clientY + 18,
+      window.innerHeight - preview.offsetHeight - 12,
+    );
+    preview.style.left = `${Math.max(12, left)}px`;
+    preview.style.top = `${Math.max(12, top)}px`;
+  };
+
+  const clearDragPreview = () => {
+    dragPreviewRef.current?.remove();
+    dragPreviewRef.current = null;
+  };
+
   const handleDragEnter = (e: React.DragEvent) => {
+    if (isInternalItemDrag(e)) {
+      e.preventDefault();
+      positionDragPreview(e.clientX, e.clientY);
+      return;
+    }
     e.preventDefault();
     dragCounterRef.current++;
     if (e.dataTransfer.types.includes("Files")) setIsDragOver(true);
   };
 
-  const handleDragLeave = () => {
+  const handleDragLeave = (event: React.DragEvent) => {
+    if (isInternalItemDrag(event)) return;
     dragCounterRef.current--;
     if (dragCounterRef.current <= 0) {
       dragCounterRef.current = 0;
@@ -680,15 +807,146 @@ export function FilesView({
     }
   };
 
-  const handleDragOver = (e: React.DragEvent) => e.preventDefault();
+  const handleDragOver = (e: React.DragEvent) => {
+    if (isInternalItemDrag(e)) {
+      e.preventDefault();
+      positionDragPreview(e.clientX, e.clientY);
+      e.dataTransfer.dropEffect = "none";
+      return;
+    }
+    e.preventDefault();
+  };
 
   const handleDrop = (e: React.DragEvent) => {
+    if (isInternalItemDrag(e)) {
+      e.preventDefault();
+      draggedItemsRef.current = [];
+      clearDragPreview();
+      setDropTargetId(null);
+      return;
+    }
     e.preventDefault();
     dragCounterRef.current = 0;
     setIsDragOver(false);
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0)
       beginUpload(listing.currentFolder.id, currentPath, files);
+  };
+
+  const handleItemDragStart = (
+    id: string,
+    kind: BatchMoveItem["kind"],
+    event: React.DragEvent<HTMLDivElement>,
+  ) => {
+    const items = getInteractionItems(id, kind);
+    draggedItemsRef.current = items;
+    if (!selectedIdsRef.current.has(id)) {
+      setSelectedIds(new Set([id]));
+      setLastSelectedId(id);
+    }
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData(INTERNAL_ITEM_DRAG_TYPE, JSON.stringify(items));
+    event.dataTransfer.setData("text/plain", `${items.length} Staaash item(s)`);
+
+    clearDragPreview();
+    const preview = document.createElement("div");
+    preview.className = "explorer-drag-preview";
+    preview.dataset.stackDepth = String(Math.min(items.length, 3));
+    preview.setAttribute("aria-hidden", "true");
+
+    const stackDepth = Math.min(items.length, 3);
+    for (let layerIndex = stackDepth - 1; layerIndex >= 1; layerIndex--) {
+      const layer = document.createElement("div");
+      layer.className = "explorer-drag-preview-layer";
+      layer.dataset.layer = String(layerIndex);
+      preview.append(layer);
+    }
+
+    const row = document.createElement("div");
+    row.className = "explorer-drag-preview-row";
+    const icon = event.currentTarget
+      .querySelector(".explorer-row-icon")
+      ?.cloneNode(true);
+    const name = event.currentTarget
+      .querySelector(".explorer-row-name-cell")
+      ?.cloneNode(true);
+    if (icon) row.append(icon);
+    if (name) row.append(name);
+
+    preview.append(row);
+    if (items.length > 1) {
+      preview.classList.add("has-count");
+      const count = document.createElement("span");
+      count.className = "explorer-drag-preview-count";
+      count.textContent = `${items.length} items`;
+      preview.append(count);
+    }
+
+    preview.style.transform = "none";
+    document.body.append(preview);
+    dragPreviewRef.current = preview;
+
+    positionDragPreview(event.clientX, event.clientY);
+
+    const transparentDragImage = document.createElement("canvas");
+    transparentDragImage.width = 1;
+    transparentDragImage.height = 1;
+    transparentDragImage.style.position = "fixed";
+    transparentDragImage.style.top = "0";
+    transparentDragImage.style.left = "0";
+    transparentDragImage.style.opacity = "0";
+    document.body.append(transparentDragImage);
+    event.dataTransfer.setDragImage(transparentDragImage, 0, 0);
+    requestAnimationFrame(() => {
+      transparentDragImage.remove();
+    });
+  };
+
+  const handleItemDragEnd = () => {
+    draggedItemsRef.current = [];
+    clearDragPreview();
+    setDropTargetId(null);
+  };
+
+  const handleMoveDragOver = (
+    destinationFolderId: string,
+    event: React.DragEvent,
+  ) => {
+    if (!isInternalItemDrag(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    positionDragPreview(event.clientX, event.clientY);
+    event.dataTransfer.dropEffect = "move";
+    setDropTargetId(destinationFolderId);
+  };
+
+  const handleMoveDragLeave = (
+    destinationFolderId: string,
+    event: React.DragEvent,
+  ) => {
+    const nextTarget = event.relatedTarget as Node | null;
+    if (nextTarget && event.currentTarget.contains(nextTarget)) return;
+    if (dropTargetId === destinationFolderId) setDropTargetId(null);
+  };
+
+  const handleMoveDrop = (
+    destinationFolderId: string,
+    event: React.DragEvent,
+  ) => {
+    if (!isInternalItemDrag(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const items = draggedItemsRef.current;
+    draggedItemsRef.current = [];
+    clearDragPreview();
+    setDropTargetId(null);
+    if (
+      items.length === 0 ||
+      destinationFolderId === listing.currentFolder.id
+    ) {
+      return;
+    }
+    void moveItems(items, destinationFolderId);
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -702,9 +960,6 @@ export function FilesView({
   // Rubber-band
   // ---------------------------------------------------------------------------
 
-  // px of movement required before a row-origin drag becomes a rubber-band
-  const DRAG_THRESHOLD = 5;
-
   const handleListMouseDown = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (isCoarsePointer) return;
@@ -715,23 +970,19 @@ export function FilesView({
       // Never start rubber-band from the header toolbar
       if (target.closest(".explorer-header")) return;
 
-      const onRow = !!target.closest("[data-file-row]");
+      if (target.closest("[data-file-row]")) return;
+
       const container = listRef.current!;
       const rect = container.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
 
-      dragOrigin.current = { x, y, onRow };
-
-      if (!onRow) {
-        // Empty-space click: activate rubber-band immediately
-        e.preventDefault(); // also suppresses the upcoming click event
-        rubberBandStart.current = { startX: x, startY: y };
-        isRubberBanding.current = true;
-        setRubberBand({ startX: x, startY: y, currentX: x, currentY: y });
-        if (!e.shiftKey && !e.ctrlKey && !e.metaKey) setSelectedIds(new Set());
-      }
-      // Row click: wait for drag threshold in the window mousemove handler
+      // Rubber-band starts from empty list space. Row drags move items.
+      e.preventDefault();
+      rubberBandStart.current = { startX: x, startY: y };
+      isRubberBanding.current = true;
+      setRubberBand({ startX: x, startY: y, currentX: x, currentY: y });
+      if (!e.shiftKey && !e.ctrlKey && !e.metaKey) setSelectedIds(new Set());
     },
     [isCoarsePointer],
   );
@@ -749,26 +1000,7 @@ export function FilesView({
       const currentX = e.clientX - rect.left;
       const currentY = e.clientY - rect.top;
 
-      // If not yet rubber-banding, check whether a row-origin drag has
-      // exceeded the threshold and should be promoted to rubber-band mode.
-      if (!isRubberBanding.current) {
-        const origin = dragOrigin.current;
-        if (!origin || !origin.onRow) return;
-        const dist = Math.hypot(currentX - origin.x, currentY - origin.y);
-        if (dist < DRAG_THRESHOLD) return;
-        // Promote to rubber-band
-        isRubberBanding.current = true;
-        didRubberBand.current = true;
-        rubberBandStart.current = { startX: origin.x, startY: origin.y };
-        setRubberBand({
-          startX: origin.x,
-          startY: origin.y,
-          currentX,
-          currentY,
-        });
-        setSelectedIds(new Set());
-        return;
-      }
+      if (!isRubberBanding.current) return;
 
       const start = rubberBandStart.current;
       if (!start) return;
@@ -815,7 +1047,6 @@ export function FilesView({
     };
 
     const onUp = () => {
-      dragOrigin.current = null;
       if (!isRubberBanding.current) return;
       isRubberBanding.current = false;
       rubberBandStart.current = null;
@@ -906,6 +1137,10 @@ export function FilesView({
     persistCutItems(cut);
   };
 
+  const backgroundMoveTargets = listing.moveTargets.filter(
+    (target) => target.id !== listing.currentFolder.id,
+  );
+
   const backgroundMenuGroups = [
     {
       actions: [
@@ -956,6 +1191,19 @@ export function FilesView({
           onSelect: cutSelectedItems,
         },
         {
+          disabled: backgroundMoveTargets.length === 0,
+          hidden: selectedIds.size === 0,
+          label: `Move ${selectedIds.size} item${selectedIds.size !== 1 ? "s" : ""} to…`,
+          subActions: backgroundMoveTargets.map((target) => ({
+            label: target.pathLabel,
+            onSelect: () =>
+              void moveItems(
+                allItems.filter((item) => selectedIdsRef.current.has(item.id)),
+                target.id,
+              ),
+          })),
+        },
+        {
           destructive: true,
           hidden: selectedIds.size === 0,
           label: "Move to trash",
@@ -977,6 +1225,7 @@ export function FilesView({
         {error ? <FlashMessage>{error}</FlashMessage> : null}
         {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
         {trashError ? <FlashMessage>{trashError}</FlashMessage> : null}
+        {moveError ? <FlashMessage>{moveError}</FlashMessage> : null}
 
         <DashboardPageContextMenu
           className="explorer-root"
@@ -1007,8 +1256,25 @@ export function FilesView({
                       );
                     }
                     return (
-                      <Link key={crumb.id} href={crumb.href}>
-                        {label}
+                      <Link
+                        key={crumb.id}
+                        className={
+                          dropTargetId === crumb.id
+                            ? "is-drop-target"
+                            : undefined
+                        }
+                        href={crumb.href}
+                        onDragOver={(event) =>
+                          handleMoveDragOver(crumb.id, event)
+                        }
+                        onDragLeave={(event) =>
+                          handleMoveDragLeave(crumb.id, event)
+                        }
+                        onDrop={(event) => handleMoveDrop(crumb.id, event)}
+                      >
+                        <span className="workspace-breadcrumb-label">
+                          {label}
+                        </span>
                       </Link>
                     );
                   })}
@@ -1136,6 +1402,9 @@ export function FilesView({
                   onRenameSubmit={() => submitRename(folder.id, "folder")}
                   onRenameCancel={cancelRename}
                   onClick={(e) => handleRowClick(folder.id, e)}
+                  onContextMenu={() =>
+                    handleItemContextMenu(folder.id, "folder")
+                  }
                   onLongPress={() => selectSingleItem(folder.id)}
                   onOpen={() => openItem(folder.id)}
                   onStartRename={() => beginRename(folder.id, folder.name)}
@@ -1182,9 +1451,12 @@ export function FilesView({
                     }
                   }}
                   onMoveTo={(dest) => {
-                    moveItem(folder.id, "folder", dest).then(() =>
-                      startTransition(() => router.refresh()),
-                    );
+                    const items =
+                      contextMoveItemsRef.current.length > 0
+                        ? [...contextMoveItemsRef.current]
+                        : getInteractionItems(folder.id, "folder");
+                    contextMoveItemsRef.current = [];
+                    void moveItems(items, dest);
                   }}
                   onDownload={() => {
                     const current = selectedIdsRef.current;
@@ -1198,6 +1470,18 @@ export function FilesView({
                     if (el) rowRefs.current.set(folder.id, el);
                     else rowRefs.current.delete(folder.id);
                   }}
+                  onDragStart={(event) =>
+                    handleItemDragStart(folder.id, "folder", event)
+                  }
+                  onDragEnd={handleItemDragEnd}
+                  isDropTarget={dropTargetId === folder.id}
+                  onMoveDragOver={(event) =>
+                    handleMoveDragOver(folder.id, event)
+                  }
+                  onMoveDragLeave={(event) =>
+                    handleMoveDragLeave(folder.id, event)
+                  }
+                  onMoveDrop={(event) => handleMoveDrop(folder.id, event)}
                   touchMode={isCoarsePointer}
                 />
               );
@@ -1244,6 +1528,7 @@ export function FilesView({
                   <GhostUploadRow
                     key={entry.storageKey}
                     name={entry.name}
+                    size={entry.size}
                     onDismiss={() => {
                       localStorage.removeItem(entry.storageKey);
                       setResumableSessions((prev) =>
@@ -1308,6 +1593,7 @@ export function FilesView({
                   onRenameSubmit={() => submitRename(file.id, "file")}
                   onRenameCancel={cancelRename}
                   onClick={(e) => handleRowClick(file.id, e)}
+                  onContextMenu={() => handleItemContextMenu(file.id, "file")}
                   onLongPress={() => selectSingleItem(file.id)}
                   onOpen={() => openItem(file.id)}
                   onStartRename={() => beginRename(file.id, file.name)}
@@ -1354,9 +1640,12 @@ export function FilesView({
                     }
                   }}
                   onMoveTo={(dest) => {
-                    moveItem(file.id, "file", dest).then(() =>
-                      startTransition(() => router.refresh()),
-                    );
+                    const items =
+                      contextMoveItemsRef.current.length > 0
+                        ? [...contextMoveItemsRef.current]
+                        : getInteractionItems(file.id, "file");
+                    contextMoveItemsRef.current = [];
+                    void moveItems(items, dest);
                   }}
                   onDownload={() => {
                     const current = selectedIdsRef.current;
@@ -1370,6 +1659,10 @@ export function FilesView({
                     if (el) rowRefs.current.set(file.id, el);
                     else rowRefs.current.delete(file.id);
                   }}
+                  onDragStart={(event) =>
+                    handleItemDragStart(file.id, "file", event)
+                  }
+                  onDragEnd={handleItemDragEnd}
                   touchMode={isCoarsePointer}
                 />
               );
@@ -1478,9 +1771,8 @@ function UploadingRow({
   onDismiss: () => void;
   onRetry?: () => void;
 }) {
-  const { File: FileIcon } = { File: require("lucide-react").File };
-
   const eta = formatEta(file.size, file.progress, file.speed);
+  const visual = getItemVisual("file", file.fileRef?.type);
   const statusText =
     file.status === "error"
       ? (file.error ?? "Upload failed")
@@ -1493,37 +1785,47 @@ function UploadingRow({
             : `${file.progress}% · ${formatSpeed(file.speed)}${eta ? ` · ${eta}` : ""}`;
 
   return (
-    <div className="uploading-row">
-      <div className="uploading-row-top">
-        <div className="explorer-row-icon">
-          <FileIcon size={16} style={{ color: "var(--muted-foreground)" }} />
-        </div>
-        <span className="uploading-row-name">{file.name}</span>
+    <div className="explorer-row uploading-row" role="row">
+      <div className="explorer-row-icon" role="gridcell">
+        <ItemTypeIcon size={16} tone="plain" visual={visual} />
+      </div>
+      <div className="explorer-row-name-cell" role="gridcell">
         <span
-          className={`uploading-row-status${file.status === "error" ? " is-error" : ""}`}
+          className="explorer-row-name uploading-row-name"
+          title={file.name}
         >
-          {statusText}
-          {file.status === "error" && onRetry && (
-            <button
-              type="button"
-              className="uploading-row-retry"
-              onClick={onRetry}
-            >
-              Retry
-            </button>
-          )}
-          {file.status !== "uploading" && (
-            <button
-              type="button"
-              className="uploading-row-dismiss"
-              onClick={onDismiss}
-              aria-label="Dismiss"
-            >
-              ✕
-            </button>
-          )}
+          {file.name}
         </span>
       </div>
+      <span className="uploading-row-size explorer-row-meta" role="gridcell">
+        {formatBytes(file.size)}
+      </span>
+      <span
+        className={`uploading-row-status${file.status === "error" ? " is-error" : ""}`}
+        role="gridcell"
+        title={statusText}
+      >
+        <span className="uploading-row-status-text">{statusText}</span>
+        {file.status === "error" && onRetry && (
+          <button
+            type="button"
+            className="uploading-row-retry"
+            onClick={onRetry}
+          >
+            Retry
+          </button>
+        )}
+        {file.status !== "uploading" && (
+          <button
+            type="button"
+            className="uploading-row-dismiss"
+            onClick={onDismiss}
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        )}
+      </span>
       {file.status === "uploading" && (
         <div className="uploading-row-progress-track">
           <div
@@ -1542,49 +1844,60 @@ function UploadingRow({
 
 function GhostUploadRow({
   name,
+  size,
   onDismiss,
   onDoubleClick,
 }: {
   name: string;
+  size: number;
   onDismiss: () => void;
   onDoubleClick: () => void;
 }) {
-  const { File: FileIcon } = { File: require("lucide-react").File };
+  const visual = getItemVisual("file");
   return (
     <div
-      className="uploading-row ghost-upload-row"
+      className="explorer-row uploading-row ghost-upload-row"
       onDoubleClick={onDoubleClick}
+      role="row"
     >
-      <div className="uploading-row-top">
-        <div className="explorer-row-icon">
-          <FileIcon size={16} style={{ color: "var(--muted-foreground)" }} />
-        </div>
-        <span className="uploading-row-name">{name}</span>
-        <span className="uploading-row-status ghost-upload-row-status">
-          Incomplete ·
-          <button
-            type="button"
-            className="uploading-row-retry"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDoubleClick();
-            }}
-          >
-            resume
-          </button>
-          <button
-            type="button"
-            className="uploading-row-dismiss"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDismiss();
-            }}
-            aria-label="Dismiss"
-          >
-            ✕
-          </button>
+      <div className="explorer-row-icon" role="gridcell">
+        <ItemTypeIcon size={16} tone="plain" visual={visual} />
+      </div>
+      <div className="explorer-row-name-cell" role="gridcell">
+        <span className="explorer-row-name uploading-row-name" title={name}>
+          {name}
         </span>
       </div>
+      <span className="uploading-row-size explorer-row-meta" role="gridcell">
+        {formatBytes(size)}
+      </span>
+      <span
+        className="uploading-row-status ghost-upload-row-status"
+        role="gridcell"
+      >
+        <span className="uploading-row-status-text">Incomplete</span>
+        <button
+          type="button"
+          className="uploading-row-retry"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDoubleClick();
+          }}
+        >
+          Resume
+        </button>
+        <button
+          type="button"
+          className="uploading-row-dismiss"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDismiss();
+          }}
+          aria-label="Dismiss"
+        >
+          ✕
+        </button>
+      </span>
       <div className="uploading-row-progress-track ghost-upload-row-track">
         <div className="ghost-upload-row-fill" />
       </div>
