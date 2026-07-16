@@ -166,6 +166,7 @@ export function FilesView({
   const dragCounterRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const draggedItemsRef = useRef<BatchMoveItem[]>([]);
+  const dragPreviewRef = useRef<HTMLDivElement | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
   // Register fileInputRef + current folder ID with TransferProvider so the
@@ -174,6 +175,10 @@ export function FilesView({
     registerFileInput(fileInputRef.current, listing.currentFolder.id);
     return () => registerFileInput(null);
   }, [listing.currentFolder.id, registerFileInput]);
+
+  useEffect(() => {
+    return () => dragPreviewRef.current?.remove();
+  }, []);
 
   // Auto-open file picker when navigated here via Upload button from another route.
   useEffect(() => {
@@ -804,10 +809,48 @@ export function FilesView({
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData(INTERNAL_ITEM_DRAG_TYPE, JSON.stringify(items));
     event.dataTransfer.setData("text/plain", `${items.length} Staaash item(s)`);
+
+    dragPreviewRef.current?.remove();
+    dragPreviewRef.current = null;
+    if (items.length > 1) {
+      const preview = document.createElement("div");
+      preview.className = "explorer-drag-preview";
+      preview.setAttribute("aria-hidden", "true");
+
+      const row = document.createElement("div");
+      row.className = "explorer-drag-preview-row";
+      const icon = event.currentTarget
+        .querySelector(".explorer-row-icon")
+        ?.cloneNode(true);
+      const name = event.currentTarget
+        .querySelector(".explorer-row-name-cell")
+        ?.cloneNode(true);
+      if (icon) row.append(icon);
+      if (name) row.append(name);
+
+      const count = document.createElement("span");
+      count.className = "explorer-drag-preview-count";
+      count.textContent = String(items.length);
+
+      preview.append(row, count);
+      preview.style.left = `${event.clientX}px`;
+      preview.style.top = `${event.clientY}px`;
+      preview.style.transform = "none";
+      document.body.append(preview);
+      dragPreviewRef.current = preview;
+      event.dataTransfer.setDragImage(preview, 22, 22);
+      requestAnimationFrame(() => {
+        if (dragPreviewRef.current !== preview) return;
+        preview.remove();
+        dragPreviewRef.current = null;
+      });
+    }
   };
 
   const handleItemDragEnd = () => {
     draggedItemsRef.current = [];
+    dragPreviewRef.current?.remove();
+    dragPreviewRef.current = null;
     setDropTargetId(null);
   };
 

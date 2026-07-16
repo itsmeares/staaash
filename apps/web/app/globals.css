@@ -7135,6 +7135,76 @@ html.light {
   cursor: grabbing;
 }
 
+.explorer-drag-preview {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  width: min(320px, calc(100vw - 48px));
+  height: 56px;
+  pointer-events: none;
+  transform: translate(-200%, -200%);
+  isolation: isolate;
+}
+
+.explorer-drag-preview::before,
+.explorer-drag-preview::after {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  bottom: 8px;
+  left: 0;
+  z-index: -1;
+  content: "";
+  border: 1px solid color-mix(in oklab, var(--foreground) 10%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--card) 94%, var(--accent));
+}
+
+.explorer-drag-preview::before {
+  transform: translate(8px, 8px);
+  opacity: 0.55;
+}
+
+.explorer-drag-preview::after {
+  transform: translate(4px, 4px);
+  opacity: 0.78;
+}
+
+.explorer-drag-preview-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  width: calc(100% - 8px);
+  height: 40px;
+  margin-top: 8px;
+  padding: 0 36px 0 4px;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--foreground) 14%, var(--border));
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--foreground);
+}
+
+.explorer-drag-preview-count {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  place-items: center;
+  border: 2px solid var(--card);
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .explorer-row.is-drop-target {
   background: color-mix(in oklab, var(--primary) 13%, var(--card));
   outline: 1px solid color-mix(in oklab, var(--primary) 50%, transparent);
