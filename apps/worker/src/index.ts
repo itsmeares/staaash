@@ -5,9 +5,6 @@ import {
   markWorkerInstanceStopped,
   registerWorkerInstance,
 } from "@staaash/db/jobs";
-import { resolveRuntimeVersion } from "@staaash/config/version";
-
-import { version as packageVersion } from "../package.json" with { type: "json" };
 
 import {
   getWorkerStoragePaths,
@@ -17,13 +14,11 @@ import {
 import { detectFfmpeg } from "./ffmpeg.js";
 import { schedulePeriodicJobs } from "./job-registry.js";
 import { WorkerRunner } from "./runner.js";
+import { resolveWorkerVersion } from "./runtime-version.js";
 
 const storagePaths = getWorkerStoragePaths();
 const workerId = `${os.hostname()}-${process.pid}-${Date.now()}`;
-const workerVersion = resolveRuntimeVersion({
-  packageVersion,
-  appVersion: process.env.APP_VERSION,
-});
+const workerVersion = resolveWorkerVersion();
 const workerHeartbeatMs = 30_000;
 const maintenanceMs = 60_000;
 
