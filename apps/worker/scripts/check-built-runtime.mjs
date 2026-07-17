@@ -1,6 +1,7 @@
 import packageMetadata from "../package.json" with { type: "json" };
 
-const builtRuntimeUrl = new URL("../dist/runtime-version.js", import.meta.url);
+const builtRuntimePath = ["..", "dist", "runtime-version.js"].join("/");
+const builtRuntimeUrl = new URL(builtRuntimePath, import.meta.url);
 const { resolveWorkerVersion } = await import(builtRuntimeUrl.href);
 const resolvedVersion = resolveWorkerVersion(null);
 
