@@ -4,8 +4,9 @@ import {
   compareSemanticVersions,
   isPrereleaseVersion,
   normalizeSemanticVersion,
-  resolveRuntimeVersion,
 } from "@staaash/config/version";
+
+import { resolveWorkerVersion } from "../runtime-version.js";
 
 type GitHubReleaseResponse = {
   tag_name?: string;
@@ -111,19 +112,13 @@ export const handleUpdateCheck = async (
 ): Promise<void> => {
   if (process.env.NODE_ENV !== "production") return;
 
-  const { version } = await import("../../package.json", {
-    with: { type: "json" },
-  });
   const { getPrisma } = await import("@staaash/db/client");
   const db = getPrisma();
   const settings = await db.systemSettings.findUnique({
     where: { id: "singleton" },
   });
   const repository = settings?.updateCheckRepository?.trim();
-  const currentVersion = resolveRuntimeVersion({
-    packageVersion: version,
-    appVersion: process.env.APP_VERSION,
-  });
+  const currentVersion = resolveWorkerVersion();
 
   if (!repository) {
     await writeInstanceUpdateCheck({

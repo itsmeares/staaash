@@ -55,7 +55,7 @@ describe("update check handler", () => {
     originalStaaashVersion = process.env.STAAASH_VERSION;
     originalUpdateCheckToken = process.env.UPDATE_CHECK_TOKEN;
     process.env.NODE_ENV = "production";
-    process.env.APP_VERSION = "0.3.0-beta.1";
+    delete process.env.APP_VERSION;
     delete process.env.STAAASH_VERSION;
     delete process.env.UPDATE_CHECK_TOKEN;
   });
@@ -86,6 +86,7 @@ describe("update check handler", () => {
   });
 
   it("marks an update as available when the release version is newer", async () => {
+    process.env.APP_VERSION = "0.3.0-beta.1";
     mockFindUnique.mockResolvedValue({
       updateCheckRepository: "itsmeares/staaash",
     });
@@ -112,6 +113,36 @@ describe("update check handler", () => {
       expect.objectContaining({
         updateCheckStatus: "update-available",
         latestAvailableVersion: "0.3.0",
+      }),
+    );
+  });
+
+  it("uses packaged metadata when APP_VERSION is absent", async () => {
+    mockFindUnique.mockResolvedValue({
+      updateCheckRepository: "itsmeares/staaash",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => [
+          {
+            tag_name: "v999.0.0-rc.1",
+            draft: false,
+            prerelease: true,
+          },
+        ],
+      }),
+    );
+
+    const { handleUpdateCheck } = await import("./update-check.js");
+    await handleUpdateCheck(createJob());
+
+    expect(writeInstanceUpdateCheck).toHaveBeenCalledWith(
+      expect.objectContaining({
+        updateCheckStatus: "update-available",
+        latestAvailableVersion: "999.0.0-rc.1",
       }),
     );
   });
