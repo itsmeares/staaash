@@ -5,10 +5,9 @@
     "mergeConfidence:all-badges",
     "security:minimumReleaseAgeNpm"
   ],
-  "dependencyDashboard": true,
+  "dependencyDashboard": false,
   "timezone": "Europe/London",
   "schedule": ["before 8am every weekday"],
-  "prCreation": "not-pending",
   "rangeStrategy": "bump",
   "lockFileMaintenance": {
     "enabled": true,
