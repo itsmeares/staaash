@@ -9,6 +9,7 @@
   "timezone": "Europe/London",
   "schedule": ["before 8am every weekday"],
   "rangeStrategy": "bump",
+  "prCreation": "immediate",
   "lockFileMaintenance": {
     "enabled": true,
     "schedule": ["before 8am on monday"]
