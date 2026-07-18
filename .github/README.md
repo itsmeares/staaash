@@ -183,7 +183,13 @@ That does not change the quality bar. Generated code or generated docs still nee
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=itsmeares/staaash&type=Date)](https://star-history.com/#itsmeares/staaash&Date)
+<a href="https://www.star-history.com/?repos=itsmeares%2Fstaaash&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=itsmeares/staaash&type=date&theme=dark&legend=top-left&sealed_token=UHRaESlFsL6wEjhGWmYcPJqvZFoZK-N_xIHVWOWy4kKhq8ZYJuKTMpJi09dAvcpieHap5Zd34rDwLcRB8J76DtihUUNdF0dL5HlDf8Z4wmKmwjXWpCsxhSOyLkOiK3RMtbfbdO7mhyoa992eaK6nXCAGca6VDfWzzqEchSs1aGe72bBJ2njHIAWEeGm9" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=itsmeares/staaash&type=date&legend=top-left&sealed_token=UHRaESlFsL6wEjhGWmYcPJqvZFoZK-N_xIHVWOWy4kKhq8ZYJuKTMpJi09dAvcpieHap5Zd34rDwLcRB8J76DtihUUNdF0dL5HlDf8Z4wmKmwjXWpCsxhSOyLkOiK3RMtbfbdO7mhyoa992eaK6nXCAGca6VDfWzzqEchSs1aGe72bBJ2njHIAWEeGm9" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=itsmeares/staaash&type=date&legend=top-left&sealed_token=UHRaESlFsL6wEjhGWmYcPJqvZFoZK-N_xIHVWOWy4kKhq8ZYJuKTMpJi09dAvcpieHap5Zd34rDwLcRB8J76DtihUUNdF0dL5HlDf8Z4wmKmwjXWpCsxhSOyLkOiK3RMtbfbdO7mhyoa992eaK6nXCAGca6VDfWzzqEchSs1aGe72bBJ2njHIAWEeGm9" />
+ </picture>
+</a>
 
 ## License
 
