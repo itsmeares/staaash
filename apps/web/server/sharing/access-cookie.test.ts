@@ -1,14 +1,39 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  buildShareAccessFingerprint,
-  buildClearedShareAccessCookie,
-  buildShareAccessCookie,
-  verifyShareAccessCookie,
-} from "@/server/sharing/access-cookie";
+const loadAccessCookieModule = async ({
+  nodeEnv = "test",
+  secureCookies,
+}: {
+  nodeEnv?: "development" | "test" | "production";
+  secureCookies?: boolean;
+} = {}) => {
+  vi.resetModules();
+  vi.doMock("@/lib/env", () => ({
+    env: {
+      NODE_ENV: nodeEnv,
+      SECURE_COOKIES: secureCookies,
+    },
+  }));
+
+  return import("@/server/sharing/access-cookie");
+};
+
+const requestContext = (url: string, headers?: HeadersInit) => ({
+  url,
+  headers: new Headers(headers),
+});
 
 describe("share access cookies", () => {
-  it("verifies cookies against the current share fingerprint without storing the hash", () => {
+  afterEach(() => {
+    vi.doUnmock("@/lib/env");
+  });
+
+  it("verifies cookies against the current share fingerprint without storing the hash", async () => {
+    const {
+      buildShareAccessCookie,
+      buildShareAccessFingerprint,
+      verifyShareAccessCookie,
+    } = await loadAccessCookieModule();
     const cookie = buildShareAccessCookie({
       shareId: "share-1",
       tokenLookupKey: "lookup-1",
@@ -42,10 +67,114 @@ describe("share access cookies", () => {
     expect(decodedPayload).toContain("accessFingerprint");
   });
 
-  it("clears the cookie on the scoped share path", () => {
-    const cookie = buildClearedShareAccessCookie("lookup-1.signature");
+  it("uses non-secure cookies for production plain HTTP without an override", async () => {
+    const { buildShareAccessCookie } = await loadAccessCookieModule({
+      nodeEnv: "production",
+    });
 
-    expect(cookie.maxAge).toBe(0);
-    expect(cookie.path).toBe("/s/lookup-1.signature");
+    expect(
+      buildShareAccessCookie(
+        {
+          shareId: "share-1",
+          tokenLookupKey: "lookup-1",
+          accessFingerprint: "fingerprint-1",
+          token: "lookup-1.signature",
+        },
+        requestContext("http://46.1.113.7:2113/s/lookup-1.signature/unlock"),
+      ),
+    ).toMatchObject({ secure: false });
+  });
+
+  it("uses secure cookies for production forwarded HTTPS without an override", async () => {
+    const { buildShareAccessCookie } = await loadAccessCookieModule({
+      nodeEnv: "production",
+    });
+
+    expect(
+      buildShareAccessCookie(
+        {
+          shareId: "share-1",
+          tokenLookupKey: "lookup-1",
+          accessFingerprint: "fingerprint-1",
+          token: "lookup-1.signature",
+        },
+        requestContext("http://staaash:2113/s/lookup-1.signature/unlock", {
+          "x-forwarded-proto": "https",
+        }),
+      ),
+    ).toMatchObject({ secure: true });
+  });
+
+  it("lets SECURE_COOKIES=true override plain HTTP requests", async () => {
+    const { buildShareAccessCookie } = await loadAccessCookieModule({
+      nodeEnv: "production",
+      secureCookies: true,
+    });
+
+    expect(
+      buildShareAccessCookie(
+        {
+          shareId: "share-1",
+          tokenLookupKey: "lookup-1",
+          accessFingerprint: "fingerprint-1",
+          token: "lookup-1.signature",
+        },
+        requestContext("http://46.1.113.7:2113/s/lookup-1.signature/unlock"),
+      ),
+    ).toMatchObject({ secure: true });
+  });
+
+  it("lets SECURE_COOKIES=false override forwarded HTTPS requests", async () => {
+    const { buildShareAccessCookie } = await loadAccessCookieModule({
+      nodeEnv: "production",
+      secureCookies: false,
+    });
+
+    expect(
+      buildShareAccessCookie(
+        {
+          shareId: "share-1",
+          tokenLookupKey: "lookup-1",
+          accessFingerprint: "fingerprint-1",
+          token: "lookup-1.signature",
+        },
+        requestContext("http://staaash:2113/s/lookup-1.signature/unlock", {
+          "x-forwarded-proto": "https",
+        }),
+      ),
+    ).toMatchObject({ secure: false });
+  });
+
+  it("clears the scoped cookie with the same request-aware policy", async () => {
+    const { buildClearedShareAccessCookie } = await loadAccessCookieModule({
+      nodeEnv: "production",
+    });
+    const directHttpCookie = buildClearedShareAccessCookie(
+      "lookup-1.signature",
+      requestContext("http://46.1.113.7:2113/s/lookup-1.signature"),
+    );
+    const forwardedHttpsCookie = buildClearedShareAccessCookie(
+      "lookup-1.signature",
+      requestContext("http://staaash:2113/s/lookup-1.signature", {
+        "x-forwarded-proto": "https",
+      }),
+    );
+
+    expect(directHttpCookie).toMatchObject({
+      maxAge: 0,
+      path: "/s/lookup-1.signature",
+      secure: false,
+    });
+    expect(forwardedHttpsCookie).toMatchObject({ secure: true });
+  });
+
+  it("keeps the secure production fallback without request context", async () => {
+    const { buildClearedShareAccessCookie } = await loadAccessCookieModule({
+      nodeEnv: "production",
+    });
+
+    expect(buildClearedShareAccessCookie("lookup-1.signature")).toMatchObject({
+      secure: true,
+    });
   });
 });
