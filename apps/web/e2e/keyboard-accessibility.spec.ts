@@ -56,8 +56,8 @@ test("sign-in intro opens and submits with keyboard", async ({ page }) => {
   ).not.toBeFocused();
   await page.keyboard.press("Enter");
 
-  await expect(page.getByLabel("Username or email")).toBeFocused();
-  await page.getByLabel("Username or email").fill(credentials.identifier);
+  await expect(page.getByLabel("Email", { exact: true })).toBeFocused();
+  await page.getByLabel("Email", { exact: true }).fill(credentials.identifier);
   await page.getByLabel("Password").fill(credentials.password);
   await page.getByRole("button", { name: "Sign in" }).press("Enter");
 
@@ -76,7 +76,7 @@ test("incomplete-onboarding user can finish setup with keyboard", async ({
     page.getByRole("button", { name: /Click anywhere to begin/i }),
   ).not.toBeFocused();
   await page.keyboard.press("Enter");
-  await page.getByLabel("Username or email").fill(credentials.identifier);
+  await page.getByLabel("Email", { exact: true }).fill(credentials.identifier);
   await page.getByLabel("Password").fill(credentials.password);
   await page.getByRole("button", { name: "Sign in" }).press("Enter");
 

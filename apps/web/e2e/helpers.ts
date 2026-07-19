@@ -95,7 +95,7 @@ export const signIn = async (
   await page.goto(`/?next=${encodeURIComponent(next)}`);
   await page.keyboard.press("Enter");
   await page.waitForSelector(".entry-form");
-  await page.getByLabel("Username or email").fill(identifier);
+  await page.getByLabel("Email", { exact: true }).fill(identifier);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).press("Enter");
   await page.waitForURL((url) => url.pathname === next, { timeout: 20_000 });
