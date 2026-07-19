@@ -49,12 +49,15 @@ export async function POST(
         );
 
     response.cookies.set(
-      buildShareAccessCookie({
-        shareId: result.share.id,
-        tokenLookupKey: result.share.tokenLookupKey,
-        accessFingerprint: result.accessFingerprint,
-        token,
-      }),
+      buildShareAccessCookie(
+        {
+          shareId: result.share.id,
+          tokenLookupKey: result.share.tokenLookupKey,
+          accessFingerprint: result.accessFingerprint,
+          token,
+        },
+        request,
+      ),
     );
 
     return response;

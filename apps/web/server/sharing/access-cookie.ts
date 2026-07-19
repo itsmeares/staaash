@@ -1,6 +1,9 @@
 import { createHmac } from "node:crypto";
 
-import { env } from "@/lib/env";
+import {
+  type CookieRequestContext,
+  resolveSecureCookie,
+} from "@/server/cookie-security";
 import { getAuthSecretSync } from "@/server/settings";
 
 export const SHARE_ACCESS_COOKIE_NAME = "staaash_share_access";
@@ -29,12 +32,12 @@ export const buildShareAccessFingerprint = ({
     .update(passwordHash)
     .digest("base64url");
 
-const baseCookie = {
+const baseCookie = (context?: CookieRequestContext) => ({
   name: SHARE_ACCESS_COOKIE_NAME,
   httpOnly: true,
   sameSite: "lax" as const,
-  secure: env.NODE_ENV === "production",
-};
+  secure: resolveSecureCookie(context),
+});
 
 type ShareCookiePayload = {
   shareId: string;
@@ -69,14 +72,17 @@ const deserializePayload = (value: string): ShareCookiePayload | null => {
   }
 };
 
-export const buildShareAccessCookie = ({
-  shareId,
-  tokenLookupKey,
-  accessFingerprint,
-  token,
-}: ShareCookiePayload & {
-  token: string;
-}) => {
+export const buildShareAccessCookie = (
+  {
+    shareId,
+    tokenLookupKey,
+    accessFingerprint,
+    token,
+  }: ShareCookiePayload & {
+    token: string;
+  },
+  context?: CookieRequestContext,
+) => {
   const payload = serializePayload({
     shareId,
     tokenLookupKey,
@@ -84,14 +90,17 @@ export const buildShareAccessCookie = ({
   });
 
   return {
-    ...baseCookie,
+    ...baseCookie(context),
     path: `/s/${encodeURIComponent(token)}`,
     value: `${payload}.${signValue(payload)}`,
   };
 };
 
-export const buildClearedShareAccessCookie = (token: string) => ({
-  ...baseCookie,
+export const buildClearedShareAccessCookie = (
+  token: string,
+  context?: CookieRequestContext,
+) => ({
+  ...baseCookie(context),
   path: `/s/${encodeURIComponent(token)}`,
   value: "",
   expires: new Date(0),
