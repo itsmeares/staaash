@@ -117,7 +117,7 @@ export const collectOrphanedStorageKeys = async ({
 }): Promise<string[]> => {
   const committedStorageKeys = [
     ...(await walkCommittedStorageTree(
-      path.resolve(filesRoot, "library"),
+      path.resolve(filesRoot, "files"),
       filesRoot,
     )),
     ...(await walkCommittedStorageTree(
@@ -209,7 +209,7 @@ const markReconciledStorageStatus = async ({
  * The worker checks DB-tracked originals for missing blobs and scans the
  * committed storage namespaces for files that do not map back to metadata.
  * It intentionally ignores transient tmp infrastructure by only walking the
- * committed `library/` and `.trash/` trees.
+ * committed `files/` and `.trash/` trees.
  */
 export const handleRestoreReconciliation = async (
   job: BackgroundJobRecord,
