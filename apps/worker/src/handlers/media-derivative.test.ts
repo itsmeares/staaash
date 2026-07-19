@@ -108,7 +108,7 @@ describe("media derivative handler", () => {
     );
     const filesRoot = path.join(tempRoot, "files");
     const tmpRoot = path.join(tempRoot, "tmp");
-    const sourcePath = path.join(filesRoot, "library", "owner-1", "clip.mov");
+    const sourcePath = path.join(filesRoot, "files", "owner-1", "clip.mov");
     await mkdir(path.dirname(sourcePath), { recursive: true });
     await writeFile(sourcePath, "source", "utf8");
 
@@ -127,7 +127,7 @@ describe("media derivative handler", () => {
           ownerUserId: "owner-1",
           mimeType: "video/quicktime",
           sizeBytes: 10_000n,
-          storageKey: "library/owner-1/clip.mov",
+          storageKey: "files/owner-1/clip.mov",
           deletedAt: null,
         })),
       },
@@ -217,7 +217,7 @@ describe("media derivative handler", () => {
     tempRoot = await mkdtemp(path.join(os.tmpdir(), "staaash-media-poster-"));
     const filesRoot = path.join(tempRoot, "files");
     const tmpRoot = path.join(tempRoot, "tmp");
-    const sourcePath = path.join(filesRoot, "library", "owner-1", "clip.mp4");
+    const sourcePath = path.join(filesRoot, "files", "owner-1", "clip.mp4");
     await mkdir(path.dirname(sourcePath), { recursive: true });
     await writeFile(sourcePath, "source", "utf8");
 
@@ -244,7 +244,7 @@ describe("media derivative handler", () => {
           ownerUserId: "owner-1",
           mimeType: "video/mp4",
           sizeBytes: 10_000n,
-          storageKey: "library/owner-1/clip.mp4",
+          storageKey: "files/owner-1/clip.mp4",
           deletedAt: null,
         })),
       },

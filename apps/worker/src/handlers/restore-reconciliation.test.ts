@@ -35,11 +35,11 @@ const createTempFilesRoot = () =>
 describe("restore reconciliation worker handler", () => {
   it("detects missing originals from DB metadata", async () => {
     const filesRoot = createTempFilesRoot();
-    await mkdir(path.join(filesRoot, "library", "member"), {
+    await mkdir(path.join(filesRoot, "files", "member"), {
       recursive: true,
     });
     await writeFile(
-      path.join(filesRoot, "library", "member", "present.txt"),
+      path.join(filesRoot, "files", "member", "present.txt"),
       "ok",
       "utf8",
     );
@@ -49,11 +49,11 @@ describe("restore reconciliation worker handler", () => {
         [
           {
             id: "file-1",
-            storageKey: "library/member/present.txt",
+            storageKey: "files/member/present.txt",
           },
           {
             id: "file-2",
-            storageKey: "library/member/missing.txt",
+            storageKey: "files/member/missing.txt",
           },
         ],
         filesRoot,
@@ -61,7 +61,7 @@ describe("restore reconciliation worker handler", () => {
     ).resolves.toEqual([
       {
         fileId: "file-2",
-        storageKey: "library/member/missing.txt",
+        storageKey: "files/member/missing.txt",
       },
     ]);
 
@@ -70,7 +70,7 @@ describe("restore reconciliation worker handler", () => {
 
   it("detects orphans only inside committed storage trees", async () => {
     const filesRoot = createTempFilesRoot();
-    await mkdir(path.join(filesRoot, "library", "member"), {
+    await mkdir(path.join(filesRoot, "files", "member"), {
       recursive: true,
     });
     await mkdir(path.join(filesRoot, ".trash", "member"), {
@@ -79,13 +79,19 @@ describe("restore reconciliation worker handler", () => {
     await mkdir(path.join(filesRoot, "tmp", "pending-delete"), {
       recursive: true,
     });
+    await mkdir(path.join(filesRoot, "tmp", "locks"), {
+      recursive: true,
+    });
+    await mkdir(path.join(filesRoot, "tmp", "derivatives"), {
+      recursive: true,
+    });
     await writeFile(
-      path.join(filesRoot, "library", "member", "known.txt"),
+      path.join(filesRoot, "files", "member", "known.txt"),
       "ok",
       "utf8",
     );
     await writeFile(
-      path.join(filesRoot, "library", "member", "orphan.txt"),
+      path.join(filesRoot, "files", "member", "orphan.txt"),
       "orphan",
       "utf8",
     );
@@ -99,14 +105,29 @@ describe("restore reconciliation worker handler", () => {
       "ignore me",
       "utf8",
     );
+    await writeFile(
+      path.join(filesRoot, "tmp", "locks", "ignored.lock"),
+      "ignore me",
+      "utf8",
+    );
+    await writeFile(
+      path.join(filesRoot, "tmp", "ignored.upload"),
+      "ignore me",
+      "utf8",
+    );
+    await writeFile(
+      path.join(filesRoot, "tmp", "derivatives", "ignored.tmp"),
+      "ignore me",
+      "utf8",
+    );
 
     await expect(
       collectOrphanedStorageKeys({
         filesRoot,
-        knownStorageKeys: new Set(["library/member/known.txt"]),
+        knownStorageKeys: new Set(["files/member/known.txt"]),
       }),
     ).resolves.toEqual([
-      "library/member/orphan.txt",
+      "files/member/orphan.txt",
       ".trash/member/trashed-orphan.txt",
     ]);
 
@@ -115,16 +136,16 @@ describe("restore reconciliation worker handler", () => {
 
   it("collects both missing originals and orphans", async () => {
     const filesRoot = createTempFilesRoot();
-    await mkdir(path.join(filesRoot, "library", "member"), {
+    await mkdir(path.join(filesRoot, "files", "member"), {
       recursive: true,
     });
     await writeFile(
-      path.join(filesRoot, "library", "member", "known.txt"),
+      path.join(filesRoot, "files", "member", "known.txt"),
       "ok",
       "utf8",
     );
     await writeFile(
-      path.join(filesRoot, "library", "member", "orphan.txt"),
+      path.join(filesRoot, "files", "member", "orphan.txt"),
       "orphan",
       "utf8",
     );
@@ -135,11 +156,11 @@ describe("restore reconciliation worker handler", () => {
         fileRecords: [
           {
             id: "file-1",
-            storageKey: "library/member/known.txt",
+            storageKey: "files/member/known.txt",
           },
           {
             id: "file-2",
-            storageKey: "library/member/missing.txt",
+            storageKey: "files/member/missing.txt",
           },
         ],
       }),
@@ -147,10 +168,10 @@ describe("restore reconciliation worker handler", () => {
       missingOriginals: [
         {
           fileId: "file-2",
-          storageKey: "library/member/missing.txt",
+          storageKey: "files/member/missing.txt",
         },
       ],
-      orphanedStorageKeys: ["library/member/orphan.txt"],
+      orphanedStorageKeys: ["files/member/orphan.txt"],
     });
 
     await rm(filesRoot, { recursive: true, force: true });
@@ -159,11 +180,11 @@ describe("restore reconciliation worker handler", () => {
   it("creates, runs, and completes reconciliation jobs", async () => {
     const filesRoot = createTempFilesRoot();
     const updateMany = vi.fn(async () => ({ count: 1 }));
-    await mkdir(path.join(filesRoot, "library", "member"), {
+    await mkdir(path.join(filesRoot, "files", "member"), {
       recursive: true,
     });
     await writeFile(
-      path.join(filesRoot, "library", "member", "known.txt"),
+      path.join(filesRoot, "files", "member", "known.txt"),
       "ok",
       "utf8",
     );
@@ -199,7 +220,7 @@ describe("restore reconciliation worker handler", () => {
             return [
               {
                 id: "file-1",
-                storageKey: "library/member/known.txt",
+                storageKey: "files/member/known.txt",
               },
             ];
           },
@@ -244,12 +265,25 @@ describe("restore reconciliation worker handler", () => {
   it("marks missing originals and restores available status when bytes exist again", async () => {
     const filesRoot = createTempFilesRoot();
     const updateMany = vi.fn(async () => ({ count: 1 }));
-    await mkdir(path.join(filesRoot, "library", "member"), {
+    await mkdir(path.join(filesRoot, "files", "member"), {
+      recursive: true,
+    });
+    await mkdir(path.join(filesRoot, ".trash", "member"), {
       recursive: true,
     });
     await writeFile(
-      path.join(filesRoot, "library", "member", "restored.txt"),
+      path.join(filesRoot, "files", "member", "restored.txt"),
       "ok",
+      "utf8",
+    );
+    await writeFile(
+      path.join(filesRoot, "files", "member", "orphan.txt"),
+      "orphan",
+      "utf8",
+    );
+    await writeFile(
+      path.join(filesRoot, ".trash", "member", "trashed-orphan.txt"),
+      "orphan",
       "utf8",
     );
 
@@ -282,11 +316,11 @@ describe("restore reconciliation worker handler", () => {
             return [
               {
                 id: "file-restored",
-                storageKey: "library/member/restored.txt",
+                storageKey: "files/member/restored.txt",
               },
               {
                 id: "file-missing",
-                storageKey: "library/member/missing.txt",
+                storageKey: "files/member/missing.txt",
               },
             ];
           },
@@ -325,10 +359,13 @@ describe("restore reconciliation worker handler", () => {
         missingOriginals: [
           {
             fileId: "file-missing",
-            storageKey: "library/member/missing.txt",
+            storageKey: "files/member/missing.txt",
           },
         ],
-        orphanedStorageKeys: [],
+        orphanedStorageKeys: [
+          "files/member/orphan.txt",
+          ".trash/member/trashed-orphan.txt",
+        ],
       },
     });
 

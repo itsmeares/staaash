@@ -176,10 +176,10 @@ describe("restore reconciliation db helpers", () => {
             missingOriginals: [
               {
                 fileId: "file-1",
-                storageKey: "library/member/file-1.txt",
+                storageKey: "files/member/file-1.txt",
               },
             ],
-            orphanedStorageKeys: ["library/member/orphan.txt"],
+            orphanedStorageKeys: ["files/member/orphan.txt"],
           },
         },
         client,
@@ -192,10 +192,10 @@ describe("restore reconciliation db helpers", () => {
         missingOriginals: [
           {
             fileId: "file-1",
-            storageKey: "library/member/file-1.txt",
+            storageKey: "files/member/file-1.txt",
           },
         ],
-        orphanedStorageKeys: ["library/member/orphan.txt"],
+        orphanedStorageKeys: ["files/member/orphan.txt"],
       },
     });
 

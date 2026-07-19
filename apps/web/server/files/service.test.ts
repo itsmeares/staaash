@@ -509,13 +509,13 @@ describe.sequential("files service", () => {
       ownerUserId: "member-1",
       folderId: root.id,
       name: "available.txt",
-      storageKey: "library/member-1/available.txt",
+      storageKey: "files/member-1/available.txt",
     });
     addFile({
       ownerUserId: "member-1",
       folderId: root.id,
       name: "missing.txt",
-      storageKey: "library/member-1/missing.txt",
+      storageKey: "files/member-1/missing.txt",
       storageStatus: "missing",
       storageCheckedAt: new Date("2026-05-20T10:00:00.000Z"),
       storageMissingAt: new Date("2026-05-20T10:00:00.000Z"),
