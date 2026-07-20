@@ -22,6 +22,9 @@ type TestUploadSession = {
   terminalAt: Date | null;
   stagingReleasedAt: Date | null;
   cleanupAttemptCount: number;
+  cleanupLastAttemptAt?: Date | null;
+  cleanupLastError?: string | null;
+  committedFileId?: string | null;
 };
 
 const fixedNow = new Date("2026-04-06T12:00:00.000Z");
@@ -53,6 +56,11 @@ const createSessionClient = (sessions: TestUploadSession[]) => {
       const statuses = new Set(query.where.status.in);
       matches = matches.filter((session) => statuses.has(session.status));
     }
+    if (typeof query.where?.status === "string") {
+      matches = matches.filter(
+        (session) => session.status === query.where.status,
+      );
+    }
     if (query.where?.expiresAt?.lte) {
       matches = matches.filter(
         (session) => session.expiresAt <= query.where.expiresAt.lte,
@@ -71,9 +79,15 @@ const createSessionClient = (sessions: TestUploadSession[]) => {
           session.terminalAt <= query.where.terminalAt.lte,
       );
     }
+    if (query.where?.committedFileId === null) {
+      matches = matches.filter(
+        (session) => (session.committedFileId ?? null) === null,
+      );
+    }
     return matches.map((session) => ({
       id: session.id,
       tmpPath: session.tmpPath,
+      committedFileId: session.committedFileId ?? null,
     }));
   });
 
@@ -88,13 +102,47 @@ const createSessionClient = (sessions: TestUploadSession[]) => {
     ) {
       return { count: 0 };
     }
+    if (
+      typeof query.where.status === "string" &&
+      query.where.status !== session.status
+    ) {
+      return { count: 0 };
+    }
+    if (
+      query.where.expiresAt?.lte &&
+      session.expiresAt > query.where.expiresAt.lte
+    ) {
+      return { count: 0 };
+    }
+    if (
+      query.where.stagingReleasedAt === null &&
+      session.stagingReleasedAt !== null
+    ) {
+      return { count: 0 };
+    }
+    if (
+      query.where.committedFileId === null &&
+      (session.committedFileId ?? null) !== null
+    ) {
+      return { count: 0 };
+    }
     if (query.data.status) session.status = query.data.status;
+    if (query.data.expiresAt) session.expiresAt = query.data.expiresAt;
     if (query.data.terminalAt) session.terminalAt = query.data.terminalAt;
     if (query.data.stagingReleasedAt) {
       session.stagingReleasedAt = query.data.stagingReleasedAt;
     }
     if (query.data.cleanupAttemptCount?.increment) {
       session.cleanupAttemptCount += query.data.cleanupAttemptCount.increment;
+    }
+    if (query.data.cleanupLastAttemptAt) {
+      session.cleanupLastAttemptAt = query.data.cleanupLastAttemptAt;
+    }
+    if (typeof query.data.cleanupLastError === "string") {
+      session.cleanupLastError = query.data.cleanupLastError;
+    }
+    if (query.data.cleanupLastError === null) {
+      session.cleanupLastError = null;
     }
     return { count: 1 };
   });
@@ -321,6 +369,78 @@ describe("staging cleanup handler", () => {
       }),
     ).rejects.toThrow("session lookup failed");
     await expectPathToExist(staleUpload);
+
+    await rm(filesRoot, { recursive: true, force: true });
+  });
+
+  it("recovers stale commits only when original staging still exists", async () => {
+    const filesRoot = createTempRoot();
+    const tmpRoot = path.join(filesRoot, "tmp");
+    const presentPath = path.join(tmpRoot, "present.upload");
+    const missingPath = path.join(tmpRoot, "missing.upload");
+    await mkdir(tmpRoot, { recursive: true });
+    await writeFile(presentPath, "complete upload", "utf8");
+    const staleExpiry = new Date(fixedNow.getTime() - 1);
+    const sessions: TestUploadSession[] = [
+      {
+        id: "present",
+        status: "committing",
+        expiresAt: staleExpiry,
+        tmpPath: presentPath,
+        terminalAt: null,
+        stagingReleasedAt: null,
+        cleanupAttemptCount: 0,
+        committedFileId: null,
+      },
+      {
+        id: "missing",
+        status: "committing",
+        expiresAt: staleExpiry,
+        tmpPath: missingPath,
+        terminalAt: null,
+        stagingReleasedAt: null,
+        cleanupAttemptCount: 0,
+        committedFileId: null,
+      },
+    ];
+    const { client } = createSessionClient(sessions);
+    const { cleanupUploadSessionLifecycle } =
+      await import("./staging-cleanup.js");
+
+    const warnings = await cleanupUploadSessionLifecycle({
+      client,
+      storagePaths: {
+        filesRoot,
+        tmpRoot,
+        heartbeatPath: path.join(tmpRoot, "worker-heartbeat.json"),
+        pendingDeleteRoot: path.join(tmpRoot, "pending-delete"),
+        uploadStagingTtlMs: stagingTtlMs,
+      },
+      now: fixedNow,
+    });
+
+    expect(sessions[0]).toMatchObject({
+      status: "receiving",
+      stagingReleasedAt: null,
+      cleanupAttemptCount: 1,
+      cleanupLastError:
+        "Recovered stale committing session: original staging file is present.",
+    });
+    expect(sessions[0]!.expiresAt.getTime()).toBeGreaterThan(
+      fixedNow.getTime(),
+    );
+    expect(sessions[1]).toMatchObject({
+      status: "committing",
+      terminalAt: null,
+      stagingReleasedAt: null,
+      cleanupAttemptCount: 1,
+      cleanupLastError:
+        "Commit outcome ambiguous: original staging path is missing.",
+    });
+    expect(warnings).toEqual([
+      "present: Recovered stale committing session: original staging file is present.",
+      "missing: Commit outcome ambiguous: original staging path is missing.",
+    ]);
 
     await rm(filesRoot, { recursive: true, force: true });
   });

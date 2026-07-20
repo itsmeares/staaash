@@ -3,7 +3,7 @@ import path from "node:path";
 import {
   access,
   mkdir,
-  open,
+  readFile,
   rename,
   rm,
   utimes,
@@ -12,10 +12,32 @@ import {
 
 import { getPrisma } from "@staaash/db/client";
 import { UPLOAD_TERMINAL_RETENTION_MS } from "@staaash/db/upload-sessions";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { NextRequest } from "next/server";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  inject,
+  it,
+  vi,
+} from "vitest";
 
-import { FilesError } from "@/server/files/errors";
-import { getStorageRoot, getTmpUploadPath } from "@/server/storage";
+import { PATCH as patchUpload } from "@/app/api/uploads/sessions/[id]/route";
+import { getRequestSession } from "@/server/auth/guards";
+import { FilesError, ResumableCompletionError } from "@/server/files/errors";
+import {
+  createPrismaFilesRepository,
+  type FilesRepository,
+} from "@/server/files/repository";
+import { createFilesService } from "@/server/files/service";
+import { buildFileStorageKey } from "@/server/files/storage-layout";
+import { getStoragePath, getStorageRoot } from "@/server/storage";
+import {
+  type commitResumableUploadWithLock as commitResumableStorageUpload,
+  ResumableStorageCommitError,
+} from "@/server/storage-mutations";
 import { getUserStorageUsed, withUserQuotaWrite } from "@/server/user-storage";
 import {
   reserveResumableSession,
@@ -28,7 +50,12 @@ import {
   createResumableSession,
   recordCompletedUploadChunk,
 } from "@/server/uploads/session-service";
+import { assertIsolatedPostgresTestTarget } from "../../vitest.postgres.global";
 import { cleanupUploadSessionLifecycle } from "../../../worker/src/handlers/staging-cleanup.js";
+
+vi.mock("@/server/auth/guards", () => ({
+  getRequestSession: vi.fn(),
+}));
 
 const db = getPrisma();
 const storageRoot = getStorageRoot();
@@ -42,6 +69,13 @@ const storagePaths = {
   heartbeatPath: path.join(tmpRoot, "worker-heartbeat.json"),
   pendingDeleteRoot: path.join(tmpRoot, "pending-delete"),
   uploadStagingTtlMs: 2 * 60 * 60 * 1000,
+};
+
+const assertTestIsolation = () => {
+  const databaseName = inject("postgresDatabaseName");
+  const databaseUrl = inject("postgresDatabaseUrl");
+  expect(process.env.UPLOAD_LOCATION).toBe(inject("postgresStorageRoot"));
+  assertIsolatedPostgresTestTarget({ databaseUrl, databaseName });
 };
 
 const createUser = async (storageLimitBytes: bigint | null = null) => {
@@ -180,6 +214,99 @@ const createTerminalSession = async ({
   return { id, tmpPath };
 };
 
+const filesRepo = createPrismaFilesRepository();
+
+const getCommittedTarget = async ({
+  ownerUserId,
+  ownerStorageId,
+  name,
+}: {
+  ownerUserId: string;
+  ownerStorageId: string;
+  name: string;
+}) => {
+  const filesRoot = await filesRepo.ensureFilesRoot(ownerUserId);
+  const storageKey = buildFileStorageKey({
+    file: {
+      ownerStorageId,
+      folderId: filesRoot.id,
+      name,
+    },
+    folderMap: new Map([[filesRoot.id, filesRoot]]),
+    filesRoot,
+    trashed: false,
+  });
+  return { filesRoot, storageKey, targetPath: getStoragePath(storageKey) };
+};
+
+const createReadyToCommitSession = async ({
+  ownerUserId,
+  name,
+  bytes = Buffer.from("0123456789"),
+  conflictStrategy = "safeRename" as const,
+}: {
+  ownerUserId: string;
+  name: string;
+  bytes?: Buffer;
+  conflictStrategy?: "safeRename" | "replace";
+}) => {
+  const session = await createResumableSession(
+    {
+      ownerUserId,
+      folderId: null,
+      originalName: name,
+      mimeType: "application/octet-stream",
+      totalSizeBytes: bytes.length,
+      expectedChecksum: null,
+      conflictStrategy,
+      chunkSizeBytes: bytes.length,
+    },
+    fixedNow,
+  );
+  await writeFile(session.tmpPath, bytes);
+  await recordCompletedUploadChunk({
+    sessionId: session.id,
+    chunkIndex: 0,
+    startByte: 0,
+    endByte: bytes.length - 1,
+    sizeBytes: bytes.length,
+  });
+  await beginSessionCommit({
+    id: session.id,
+    ownerUserId,
+    expectedChecksum: null,
+    now: fixedNow,
+  });
+  return session;
+};
+
+const commitInput = ({
+  ownerUserId,
+  sessionId,
+  tmpPath,
+  name,
+  totalSizeBytes,
+  conflictStrategy = "safeRename" as const,
+}: {
+  ownerUserId: string;
+  sessionId: string;
+  tmpPath: string;
+  name: string;
+  totalSizeBytes: number;
+  conflictStrategy?: "safeRename" | "replace";
+}) => ({
+  actorRole: "owner" as const,
+  actorUserId: ownerUserId,
+  uploadSessionId: sessionId,
+  tmpPath,
+  folderId: null,
+  originalName: name,
+  mimeType: "application/octet-stream",
+  totalSizeBytes,
+  contentChecksum: null,
+  conflictStrategy,
+});
+
 const runCleanup = (
   options: {
     now?: Date;
@@ -194,10 +321,13 @@ const runCleanup = (
   });
 
 beforeAll(async () => {
+  assertTestIsolation();
   await mkdir(tmpRoot, { recursive: true });
 });
 
 beforeEach(async () => {
+  assertTestIsolation();
+  vi.clearAllMocks();
   await db.uploadChunk.deleteMany();
   await db.uploadSession.deleteMany();
   await db.file.deleteMany();
@@ -221,10 +351,24 @@ beforeEach(async () => {
 
 afterAll(async () => {
   await db.$disconnect();
-  await rm(storageRoot, { recursive: true, force: true });
 });
 
 describe("UPL-01 PostgreSQL admission control", () => {
+  it("refuses a PostgreSQL target without a generated isolated database", () => {
+    expect(() =>
+      assertIsolatedPostgresTestTarget({
+        databaseUrl: "postgresql://localhost/staaash",
+        databaseName: "staaash",
+      }),
+    ).toThrow("Refusing non-generated PostgreSQL test database.");
+    expect(() =>
+      assertIsolatedPostgresTestTarget({
+        databaseUrl: "postgresql://localhost/staaash",
+        databaseName: "staaash_test_00000000000000000000000000000000",
+      }),
+    ).toThrow("PostgreSQL test URL is not bound to generated database.");
+  });
+
   it("serializes the final per-user and instance session slots", async () => {
     const firstUser = await createUser();
     const secondUser = await createUser();
@@ -416,6 +560,304 @@ describe("UPL-01 PostgreSQL lifecycle and cleanup", () => {
     });
   });
 
+  it("recovers a stale commit when the original staging file is present", async () => {
+    const user = await createUser();
+    const bytes = Buffer.from("recover-me");
+    const session = await createReadyToCommitSession({
+      ownerUserId: user.id,
+      name: "recover.bin",
+      bytes,
+    });
+    await db.uploadSession.update({
+      where: { id: session.id },
+      data: { expiresAt: new Date(fixedNow.getTime() - 1) },
+    });
+
+    const warnings = await runCleanup({ now: fixedNow });
+
+    expect(warnings).toEqual([
+      `${session.id}: Recovered stale committing session: original staging file is present.`,
+    ]);
+    expect(
+      await db.uploadSession.findUniqueOrThrow({ where: { id: session.id } }),
+    ).toMatchObject({
+      status: "receiving",
+      terminalAt: null,
+      stagingReleasedAt: null,
+      committedFileId: null,
+      cleanupLastError:
+        "Recovered stale committing session: original staging file is present.",
+    });
+    expect(await readFile(session.tmpPath)).toEqual(bytes);
+    expect(
+      await db.uploadChunk.count({ where: { sessionId: session.id } }),
+    ).toBe(1);
+  });
+
+  it("retains ambiguous stale commits and their full capacity liability", async () => {
+    const user = await createUser(10n);
+    await setLimits({
+      maxUploadBytes: 10n,
+      perUserBytes: 10n,
+      instanceBytes: 10n,
+    });
+    const session = await createReadyToCommitSession({
+      ownerUserId: user.id,
+      name: "ambiguous.bin",
+    });
+    const unknownTarget = path.join(storageRoot, "unknown", "ambiguous.bin");
+    await mkdir(path.dirname(unknownTarget), { recursive: true });
+    await rename(session.tmpPath, unknownTarget);
+    await db.uploadSession.update({
+      where: { id: session.id },
+      data: { expiresAt: new Date(fixedNow.getTime() - 1) },
+    });
+
+    const warnings = await runCleanup({ now: fixedNow });
+    expect(warnings).toEqual([
+      `${session.id}: Commit outcome ambiguous: original staging path is missing.`,
+    ]);
+    const retained = await db.uploadSession.findUniqueOrThrow({
+      where: { id: session.id },
+    });
+    expect(retained).toMatchObject({
+      status: "committing",
+      terminalAt: null,
+      stagingReleasedAt: null,
+      committedFileId: null,
+      cleanupAttemptCount: 1,
+      cleanupLastError:
+        "Commit outcome ambiguous: original staging path is missing.",
+    });
+    expect(await getUserStorageUsed(user.id)).toMatchObject({
+      reservedBytes: 10n,
+      usedBytes: 10n,
+    });
+    await expectAdmissionCode(
+      reserve({ ownerUserId: user.id, sizeBytes: 1 }),
+      "RESUMABLE_USER_RESERVED_BYTES_LIMIT_EXCEEDED",
+    );
+
+    await runCleanup({
+      now: new Date(fixedNow.getTime() + UPLOAD_TERMINAL_RETENTION_MS * 2),
+    });
+    expect(
+      await db.uploadSession.findUnique({ where: { id: session.id } }),
+    ).not.toBeNull();
+    await expect(access(unknownTarget)).resolves.toBeUndefined();
+  });
+
+  it("rolls a transient new-file metadata failure back to staging and retries", async () => {
+    const user = await createUser();
+    const bytes = Buffer.from("new-upload");
+    const name = "retry.bin";
+    const session = await createReadyToCommitSession({
+      ownerUserId: user.id,
+      name,
+      bytes,
+    });
+    const { targetPath } = await getCommittedTarget({
+      ownerUserId: user.id,
+      ownerStorageId: user.storageId,
+      name,
+    });
+    let failMetadata = true;
+    const flakyRepo: FilesRepository = {
+      ...filesRepo,
+      createFile: async (...args) => {
+        if (failMetadata) {
+          failMetadata = false;
+          throw new Error("transient metadata failure");
+        }
+        return filesRepo.createFile(...args);
+      },
+    };
+    const service = createFilesService({ repo: flakyRepo });
+    const input = commitInput({
+      ownerUserId: user.id,
+      sessionId: session.id,
+      tmpPath: session.tmpPath,
+      name,
+      totalSizeBytes: bytes.length,
+    });
+
+    await expect(service.commitResumableUpload(input)).rejects.toMatchObject({
+      name: "ResumableCompletionError",
+      code: "RESUMABLE_COMMIT_RETRYABLE",
+    });
+    expect(await readFile(session.tmpPath)).toEqual(bytes);
+    await expect(access(targetPath)).rejects.toBeDefined();
+    expect(
+      await db.uploadSession.findUniqueOrThrow({ where: { id: session.id } }),
+    ).toMatchObject({
+      status: "receiving",
+      stagingReleasedAt: null,
+      committedFileId: null,
+    });
+    expect(
+      await db.uploadChunk.count({ where: { sessionId: session.id } }),
+    ).toBe(1);
+
+    await beginSessionCommit({
+      id: session.id,
+      ownerUserId: user.id,
+      expectedChecksum: null,
+    });
+    await expect(service.commitResumableUpload(input)).resolves.toMatchObject({
+      name,
+      sizeBytes: bytes.length,
+    });
+    expect(await readFile(targetPath)).toEqual(bytes);
+    await expect(access(session.tmpPath)).rejects.toBeDefined();
+    expect(
+      await db.uploadSession.findUniqueOrThrow({ where: { id: session.id } }),
+    ).toMatchObject({
+      status: "completed",
+      stagingReleasedAt: expect.any(Date),
+      committedFileId: expect.any(String),
+    });
+    expect(
+      await db.uploadChunk.count({ where: { sessionId: session.id } }),
+    ).toBe(0);
+  });
+
+  it("keeps an ambiguous failed rollback committing and capacity reserved", async () => {
+    const user = await createUser(10n);
+    await setLimits({
+      maxUploadBytes: 10n,
+      perUserBytes: 10n,
+      instanceBytes: 10n,
+    });
+    const bytes = Buffer.from("0123456789");
+    const name = "unknown.bin";
+    const session = await createReadyToCommitSession({
+      ownerUserId: user.id,
+      name,
+      bytes,
+    });
+    const { targetPath } = await getCommittedTarget({
+      ownerUserId: user.id,
+      ownerStorageId: user.storageId,
+      name,
+    });
+    const ambiguousCommit: typeof commitResumableStorageUpload = async ({
+      stagedPath,
+      targetPath: requestedTarget,
+    }) => {
+      await mkdir(path.dirname(requestedTarget), { recursive: true });
+      await rename(stagedPath, requestedTarget);
+      throw new ResumableStorageCommitError({
+        outcome: "ambiguous",
+        originalError: new Error("metadata unavailable"),
+        rollbackError: new Error("rollback unavailable"),
+      });
+    };
+    const service = createFilesService({
+      repo: filesRepo,
+      commitResumableStorageUpload: ambiguousCommit,
+    });
+
+    await expect(
+      service.commitResumableUpload(
+        commitInput({
+          ownerUserId: user.id,
+          sessionId: session.id,
+          tmpPath: session.tmpPath,
+          name,
+          totalSizeBytes: bytes.length,
+        }),
+      ),
+    ).rejects.toMatchObject({
+      name: "ResumableCompletionError",
+      code: "RESUMABLE_COMMIT_AMBIGUOUS",
+    } satisfies Partial<ResumableCompletionError>);
+    await expect(access(session.tmpPath)).rejects.toBeDefined();
+    expect(await readFile(targetPath)).toEqual(bytes);
+    expect(
+      await db.uploadSession.findUniqueOrThrow({ where: { id: session.id } }),
+    ).toMatchObject({
+      status: "committing",
+      stagingReleasedAt: null,
+      committedFileId: null,
+      cleanupLastError: expect.stringContaining("Commit ambiguous"),
+    });
+    expect(await getUserStorageUsed(user.id)).toMatchObject({
+      reservedBytes: 10n,
+    });
+  });
+
+  it("rolls resumable replacement back to staging and restores old content", async () => {
+    const user = await createUser();
+    const name = "replace.bin";
+    const oldBytes = Buffer.from("old-content");
+    const newBytes = Buffer.from("new-content");
+    const { filesRoot, storageKey, targetPath } = await getCommittedTarget({
+      ownerUserId: user.id,
+      ownerStorageId: user.storageId,
+      name,
+    });
+    await mkdir(path.dirname(targetPath), { recursive: true });
+    await writeFile(targetPath, oldBytes);
+    const existing = await filesRepo.createFile({
+      ownerUserId: user.id,
+      folderId: filesRoot.id,
+      name,
+      storageKey,
+      mimeType: "application/octet-stream",
+      sizeBytes: oldBytes.length,
+      contentChecksum: null,
+    });
+    const session = await createReadyToCommitSession({
+      ownerUserId: user.id,
+      name,
+      bytes: newBytes,
+      conflictStrategy: "replace",
+    });
+    let failMetadata = true;
+    const flakyRepo: FilesRepository = {
+      ...filesRepo,
+      updateFile: async (...args) => {
+        if (failMetadata) {
+          failMetadata = false;
+          throw new Error("transient replacement metadata failure");
+        }
+        return filesRepo.updateFile(...args);
+      },
+    };
+    const service = createFilesService({ repo: flakyRepo });
+
+    await expect(
+      service.commitResumableUpload(
+        commitInput({
+          ownerUserId: user.id,
+          sessionId: session.id,
+          tmpPath: session.tmpPath,
+          name,
+          totalSizeBytes: newBytes.length,
+          conflictStrategy: "replace",
+        }),
+      ),
+    ).rejects.toMatchObject({
+      name: "ResumableCompletionError",
+      code: "RESUMABLE_COMMIT_RETRYABLE",
+    });
+    expect(await readFile(session.tmpPath)).toEqual(newBytes);
+    expect(await readFile(targetPath)).toEqual(oldBytes);
+    expect(
+      await db.file.findUniqueOrThrow({ where: { id: existing.id } }),
+    ).toMatchObject({ sizeBytes: BigInt(oldBytes.length) });
+    expect(
+      await db.uploadSession.findUniqueOrThrow({ where: { id: session.id } }),
+    ).toMatchObject({
+      status: "receiving",
+      stagingReleasedAt: null,
+      committedFileId: null,
+    });
+    expect(
+      await db.uploadChunk.count({ where: { sessionId: session.id } }),
+    ).toBe(1);
+  });
+
   it("atomically transfers a committing reservation to committed usage", async () => {
     const user = await createUser(100n);
     const session = await createResumableSession(
@@ -582,18 +1024,38 @@ describe("UPL-01 PostgreSQL lifecycle and cleanup", () => {
     await runCleanup({ now: fixedNow });
     await expect(access(session.tmpPath)).resolves.toBeUndefined();
 
-    const handle = await open(session.tmpPath, "r+");
-    await handle.write(Buffer.alloc(5, 2), 0, 5, 5);
-    await handle.close();
-    await expect(
-      recordCompletedUploadChunk({
-        sessionId: session.id,
-        chunkIndex: 1,
-        startByte: 5,
-        endByte: 9,
-        sizeBytes: 5,
-      }),
-    ).resolves.toBe(10);
+    vi.mocked(getRequestSession).mockResolvedValue({
+      user: { id: user.id, role: "owner" },
+    } as Awaited<ReturnType<typeof getRequestSession>>);
+    const request = new NextRequest(
+      `http://localhost:3000/api/uploads/sessions/${session.id}`,
+      {
+        method: "PATCH",
+        headers: {
+          "content-length": "5",
+          "content-range": "bytes 5-9/10",
+          "content-type": "application/octet-stream",
+          host: "localhost:3000",
+          origin: "http://localhost:3000",
+        },
+        body: Buffer.alloc(5, 2),
+      },
+    );
+    const response = await patchUpload(request, {
+      params: Promise.resolve({ id: session.id }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      receivedBytes: 10,
+      chunkIndex: 1,
+    });
+    expect(await readFile(session.tmpPath)).toEqual(
+      Buffer.concat([Buffer.alloc(5, 1), Buffer.alloc(5, 2)]),
+    );
+    expect(
+      await db.uploadChunk.count({ where: { sessionId: session.id } }),
+    ).toBe(2);
   });
 
   it("retains failed staging liability, retries it, and stops at the byte boundary", async () => {

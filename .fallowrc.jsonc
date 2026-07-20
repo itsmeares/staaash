@@ -1,6 +1,10 @@
 {
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
   "entry": ["apps/web/vitest.postgres.config.ts"],
+  "dynamicallyLoaded": [
+    "apps/web/vitest.postgres.global.ts",
+    "apps/web/vitest.postgres.setup.ts",
+  ],
   "ignorePatterns": ["packages/db/src/generated/prisma/**"],
   "ignoreDependencies": ["@staaash/config"],
 }

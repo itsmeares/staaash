@@ -4,13 +4,15 @@ import { z } from "zod";
 import { getRequestSession } from "@/server/auth/guards";
 import { isSameOrigin, notSignedInResponse } from "@/server/auth/http";
 import { filesService } from "@/server/files/service";
-import { FilesError } from "@/server/files/errors";
+import { FilesError, ResumableCompletionError } from "@/server/files/errors";
 import { computeFileSha256 } from "@/server/uploads";
 import { hasCompleteUploadChunkSet } from "@/server/uploads/chunk-protocol";
 import {
   beginSessionCommit,
   failAndCleanupResumableSession,
   findActiveResumableSession,
+  recordResumableCommitRecoveryError,
+  restoreResumableSessionAfterCommitRollback,
   type ResumableSession,
 } from "@/server/uploads/session-service";
 
@@ -73,18 +75,38 @@ const verifyUploadedFile = async (
 ): Promise<Response | null> => {
   if (!expectedChecksum) return null;
 
-  const actualChecksum = await computeFileSha256(uploadSession.tmpPath).catch(
-    () => null,
-  );
-  if (!actualChecksum) {
-    await failAndCleanupResumableSession({
-      id: uploadSession.id,
-      ownerUserId: uploadSession.ownerUserId,
-      tmpPath: uploadSession.tmpPath,
-    });
+  let actualChecksum: string;
+  try {
+    actualChecksum = await computeFileSha256(uploadSession.tmpPath);
+  } catch (error) {
+    try {
+      await restoreResumableSessionAfterCommitRollback({
+        id: uploadSession.id,
+        ownerUserId: uploadSession.ownerUserId,
+        error: new Error("Could not read staging for checksum verification.", {
+          cause: error,
+        }),
+      });
+    } catch (restoreError) {
+      await recordResumableCommitRecoveryError({
+        id: uploadSession.id,
+        ownerUserId: uploadSession.ownerUserId,
+        error: restoreError,
+      }).catch(() => undefined);
+      return Response.json(
+        {
+          error: "Upload completion requires storage reconciliation.",
+          code: "RESUMABLE_COMMIT_AMBIGUOUS",
+        },
+        { status: 500 },
+      );
+    }
     return Response.json(
-      { error: "Could not read uploaded file." },
-      { status: 500 },
+      {
+        error: "Could not read uploaded file. Retry completion.",
+        code: "UPLOAD_STAGING_READ_FAILED",
+      },
+      { status: 503, headers: { "retry-after": "1" } },
     );
   }
   if (actualChecksum === expectedChecksum) return null;
@@ -121,18 +143,47 @@ const commitUploadedFile = async (
     });
     return Response.json(file, { status: 201 });
   } catch (error) {
-    await failAndCleanupResumableSession({
-      id: uploadSession.id,
-      ownerUserId: uploadSession.ownerUserId,
-      tmpPath: uploadSession.tmpPath,
-    });
+    if (error instanceof ResumableCompletionError) {
+      return Response.json(
+        { error: error.message, code: error.code },
+        {
+          status: error.status,
+          headers:
+            error.code === "RESUMABLE_COMMIT_RETRYABLE"
+              ? { "retry-after": "1" }
+              : undefined,
+        },
+      );
+    }
     if (error instanceof FilesError) {
+      await failAndCleanupResumableSession({
+        id: uploadSession.id,
+        ownerUserId: uploadSession.ownerUserId,
+        tmpPath: uploadSession.tmpPath,
+      });
       return Response.json(
         { error: error.message, code: error.code },
         { status: error.status },
       );
     }
-    throw error;
+    await recordResumableCommitRecoveryError({
+      id: uploadSession.id,
+      ownerUserId: uploadSession.ownerUserId,
+      error,
+    }).catch((recordError) => {
+      console.error(
+        "[uploads] Failed to record unknown resumable commit outcome.",
+        recordError,
+      );
+    });
+    console.error("[uploads] Resumable commit outcome is unknown.", error);
+    return Response.json(
+      {
+        error: "Upload completion requires storage reconciliation.",
+        code: "RESUMABLE_COMMIT_AMBIGUOUS",
+      },
+      { status: 500 },
+    );
   }
 };
 
@@ -187,7 +238,14 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         { status: 409 },
       );
     }
-    throw error;
+    console.error("[uploads] Could not begin resumable commit.", error);
+    return Response.json(
+      {
+        error: "Upload completion is temporarily unavailable.",
+        code: "RESUMABLE_COMMIT_RETRYABLE",
+      },
+      { status: 503, headers: { "retry-after": "1" } },
+    );
   }
 
   const verificationError = await verifyUploadedFile(

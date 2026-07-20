@@ -8,6 +8,8 @@ import {
   TERMINAL_UPLOAD_SESSION_STATUSES,
   UPLOAD_SESSION_STATUS_COMMITTING,
   UPLOAD_SESSION_STATUS_EXPIRED,
+  UPLOAD_SESSION_STATUS_RECEIVING,
+  UPLOAD_SESSION_TTL_MS,
   UPLOAD_TERMINAL_RETENTION_MS,
 } from "@staaash/db/upload-sessions";
 
@@ -23,6 +25,7 @@ type UploadSessionCleanupClient = {
         tmpPath: string;
         ownerUserId?: string;
         status?: string;
+        committedFileId?: string | null;
       }>
     >;
     updateMany(args: object): Promise<{ count: number }>;
@@ -61,6 +64,18 @@ const pathIsAbsent = async (targetPath: string) => {
   }
 };
 
+const getPathPresence = async (targetPath: string) => {
+  try {
+    await access(targetPath);
+    return "present" as const;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return "absent" as const;
+    }
+    throw error;
+  }
+};
+
 const recordSessionCleanupFailure = async ({
   client,
   sessionId,
@@ -89,10 +104,7 @@ const expireStaleSessions = async ({
   client: UploadSessionCleanupClient;
   now: Date;
 }) => {
-  const expirableStatuses = [
-    ...ACTIVE_UPLOAD_SESSION_STATUSES,
-    UPLOAD_SESSION_STATUS_COMMITTING,
-  ];
+  const expirableStatuses = [...ACTIVE_UPLOAD_SESSION_STATUSES];
   const sessions = await client.uploadSession.findMany({
     where: {
       status: { in: expirableStatuses },
@@ -120,6 +132,74 @@ const expireStaleSessions = async ({
       }
     });
   }
+};
+
+const recoverStaleCommittingSessions = async ({
+  client,
+  tmpRoot,
+  now,
+}: {
+  client: UploadSessionCleanupClient;
+  tmpRoot: string;
+  now: Date;
+}) => {
+  const sessions = await client.uploadSession.findMany({
+    where: {
+      status: UPLOAD_SESSION_STATUS_COMMITTING,
+      expiresAt: { lte: now },
+      stagingReleasedAt: null,
+      committedFileId: null,
+    },
+    select: { id: true, tmpPath: true, committedFileId: true },
+    take: CLEANUP_BATCH_SIZE,
+  });
+  const warnings: string[] = [];
+
+  for (const session of sessions) {
+    let message: string;
+    try {
+      if (!pathIsInside(tmpRoot, session.tmpPath)) {
+        throw new Error("Session staging path is outside the temporary root.");
+      }
+      const presence = await getPathPresence(session.tmpPath);
+      if (presence === "absent") {
+        throw new Error(
+          "Commit outcome ambiguous: original staging path is missing.",
+        );
+      }
+
+      message =
+        "Recovered stale committing session: original staging file is present.";
+      const result = await client.uploadSession.updateMany({
+        where: {
+          id: session.id,
+          status: UPLOAD_SESSION_STATUS_COMMITTING,
+          expiresAt: { lte: now },
+          stagingReleasedAt: null,
+          committedFileId: null,
+        },
+        data: {
+          status: UPLOAD_SESSION_STATUS_RECEIVING,
+          expiresAt: new Date(now.getTime() + UPLOAD_SESSION_TTL_MS),
+          cleanupAttemptCount: { increment: 1 },
+          cleanupLastAttemptAt: now,
+          cleanupLastError: message,
+        },
+      });
+      if (result.count > 0) warnings.push(`${session.id}: ${message}`);
+    } catch (error) {
+      message = errorMessage(error);
+      warnings.push(`${session.id}: ${message}`);
+      await recordSessionCleanupFailure({
+        client,
+        sessionId: session.id,
+        error,
+        now,
+      }).catch(() => undefined);
+    }
+  }
+
+  return warnings;
 };
 
 const deleteTerminalChunks = async (client: UploadSessionCleanupClient) => {
@@ -239,9 +319,16 @@ export const cleanupUploadSessionLifecycle = async ({
   removeStagingPath?: (targetPath: string) => Promise<void>;
   deleteTerminalRows?: (sessionIds: string[]) => Promise<unknown>;
 }) => {
+  const warnings: string[] = [];
+  warnings.push(
+    ...(await recoverStaleCommittingSessions({
+      client,
+      tmpRoot: storagePaths.tmpRoot,
+      now,
+    })),
+  );
   await expireStaleSessions({ client, now });
 
-  const warnings: string[] = [];
   try {
     await deleteTerminalChunks(client);
   } catch (error) {

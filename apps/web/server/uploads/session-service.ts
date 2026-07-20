@@ -2,8 +2,7 @@ import { randomUUID } from "node:crypto";
 import { access, mkdir, open, rm } from "node:fs/promises";
 import path from "node:path";
 
-import { getPrisma } from "@staaash/db/client";
-import type { Prisma } from "@staaash/db/client";
+import { getPrisma, Prisma } from "@staaash/db/client";
 
 import { getTmpUploadPath } from "@/server/storage";
 import {
@@ -16,6 +15,7 @@ import {
   RECEIVABLE_UPLOAD_SESSION_STATUSES,
   UPLOAD_ALLOCATION_LEASE_MS,
   UPLOAD_SESSION_STATUS_CANCELLED,
+  UPLOAD_SESSION_STATUS_COMMITTING,
   UPLOAD_SESSION_STATUS_COMPLETED,
   UPLOAD_SESSION_STATUS_CREATED,
   UPLOAD_SESSION_STATUS_FAILED,
@@ -413,6 +413,33 @@ export const beginSessionCommit = async ({
     });
   });
 
+const lockCommittingSession = async ({
+  tx,
+  id,
+  ownerUserId,
+  requireUnreleasedReservation = false,
+}: {
+  tx: Prisma.TransactionClient;
+  id: string;
+  ownerUserId: string;
+  requireUnreleasedReservation?: boolean;
+}) => {
+  await lockUploadCapacityRows(tx, ownerUserId);
+  const unreleasedConditions = requireUnreleasedReservation
+    ? Prisma.sql`AND "stagingReleasedAt" IS NULL AND "committedFileId" IS NULL`
+    : Prisma.empty;
+  const rows = await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    SELECT "id"
+    FROM "UploadSession"
+    WHERE "id" = ${id}
+      AND "ownerUserId" = ${ownerUserId}
+      AND "status" = 'committing'
+      ${unreleasedConditions}
+    FOR UPDATE
+  `);
+  if (!rows[0]) throw new Error("UPLOAD_SESSION_NOT_COMMITTING");
+};
+
 export const completeResumableSessionWithFile = async <T>({
   id,
   ownerUserId,
@@ -427,16 +454,7 @@ export const completeResumableSessionWithFile = async <T>({
   now?: Date;
 }) =>
   runUploadTransaction(async (tx) => {
-    await lockUploadCapacityRows(tx, ownerUserId);
-    const rows = await tx.$queryRaw<Array<{ id: string }>>`
-      SELECT "id"
-      FROM "UploadSession"
-      WHERE "id" = ${id}
-        AND "ownerUserId" = ${ownerUserId}
-        AND "status" = 'committing'
-      FOR UPDATE
-    `;
-    if (!rows[0]) throw new Error("UPLOAD_SESSION_NOT_COMMITTING");
+    await lockCommittingSession({ tx, id, ownerUserId });
 
     const result = await callback(tx);
     await tx.uploadChunk.deleteMany({ where: { sessionId: id } });
@@ -451,6 +469,67 @@ export const completeResumableSessionWithFile = async <T>({
       },
     });
     return result;
+  });
+
+const resumableRecoveryErrorMessage = (error: unknown) =>
+  (error instanceof Error ? error.message : "Unknown commit recovery error.")
+    .slice(0, 2_000)
+    .trim();
+
+export const recordResumableCommitRecoveryError = async ({
+  id,
+  ownerUserId,
+  error,
+  now = new Date(),
+}: {
+  id: string;
+  ownerUserId: string;
+  error: unknown;
+  now?: Date;
+}) =>
+  getPrisma().uploadSession.updateMany({
+    where: {
+      id,
+      ownerUserId,
+      status: UPLOAD_SESSION_STATUS_COMMITTING,
+      stagingReleasedAt: null,
+    },
+    data: {
+      cleanupAttemptCount: { increment: 1 },
+      cleanupLastAttemptAt: now,
+      cleanupLastError: resumableRecoveryErrorMessage(error),
+    },
+  });
+
+export const restoreResumableSessionAfterCommitRollback = async ({
+  id,
+  ownerUserId,
+  error,
+  now = new Date(),
+}: {
+  id: string;
+  ownerUserId: string;
+  error: unknown;
+  now?: Date;
+}) =>
+  runUploadTransaction(async (tx) => {
+    await lockCommittingSession({
+      tx,
+      id,
+      ownerUserId,
+      requireUnreleasedReservation: true,
+    });
+
+    await tx.uploadSession.update({
+      where: { id },
+      data: {
+        status: UPLOAD_SESSION_STATUS_RECEIVING,
+        expiresAt: new Date(now.getTime() + UPLOAD_SESSION_TTL_MS),
+        cleanupAttemptCount: { increment: 1 },
+        cleanupLastAttemptAt: now,
+        cleanupLastError: resumableRecoveryErrorMessage(error),
+      },
+    });
   });
 
 const transitionResumableSessionToTerminal = async ({
