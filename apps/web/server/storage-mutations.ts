@@ -64,6 +64,13 @@ type MoveStorageEntryWithLockOptions = {
   deadline?: StorageDeadline;
 };
 
+type MoveStorageEntriesWithLockOptions<T> = {
+  entries: Array<Pick<MoveStorageEntryWithLockOptions, "fromPath" | "toPath">>;
+  lockKeys: string[];
+  deadline?: StorageDeadline;
+  applyMetadataUpdate: () => Promise<T>;
+};
+
 type QuarantineDeleteWithLockOptions = {
   fileId: string;
   originalStorageKey: string;
@@ -300,6 +307,49 @@ export const moveStorageEntryWithLock = async ({
       await assertPathMissing(toPath);
       await mkdir(path.dirname(toPath), { recursive: true });
       await rename(fromPath, toPath);
+    },
+  });
+
+export const moveStorageEntriesWithLock = async <T>({
+  entries,
+  lockKeys,
+  deadline,
+  applyMetadataUpdate,
+}: MoveStorageEntriesWithLockOptions<T>) =>
+  withStorageLocks({
+    lockKeys,
+    deadline,
+    callback: async () => {
+      const pendingEntries = entries.filter(
+        ({ fromPath, toPath }) => fromPath !== toPath,
+      );
+      const movedEntries: typeof pendingEntries = [];
+
+      for (const { fromPath, toPath } of pendingEntries) {
+        await assertPathPresent(fromPath);
+        await assertPathMissing(toPath);
+      }
+
+      try {
+        for (const entry of pendingEntries) {
+          await mkdir(path.dirname(entry.toPath), { recursive: true });
+          await rename(entry.fromPath, entry.toPath);
+          movedEntries.push(entry);
+        }
+
+        return await applyMetadataUpdate();
+      } catch (error) {
+        for (const entry of [...movedEntries].reverse()) {
+          try {
+            await mkdir(path.dirname(entry.fromPath), { recursive: true });
+            await rename(entry.toPath, entry.fromPath);
+          } catch {
+            // Preserve the original storage or metadata error.
+          }
+        }
+
+        throw error;
+      }
     },
   });
 

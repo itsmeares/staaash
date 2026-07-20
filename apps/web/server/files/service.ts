@@ -37,6 +37,7 @@ import {
   finalizePendingDelete,
   getDirectoryMutationLockKey,
   getEntryMutationLockKey,
+  moveStorageEntriesWithLock,
   moveStorageEntryWithLock,
   quarantineDeleteWithLock,
   rollbackPendingDelete,
@@ -1131,73 +1132,117 @@ export const createFilesService = ({
       });
       const previousFileStates: Array<Pick<StoredFile, "id" | "storageKey">> =
         [];
-      const fromStorageKey = buildFolderStorageKey({
+      const activeFromStorageKey = buildFolderStorageKey({
         folder,
         folderMap: currentFolderMap,
         filesRoot,
         trashed: false,
       });
-      const toStorageKey = buildFolderStorageKey({
+      const activeToStorageKey = buildFolderStorageKey({
         folder: nextFolder,
         folderMap: nextFolderMap,
         filesRoot,
         trashed: false,
       });
+      const storageMoves = [
+        {
+          fromPath: getStoragePath(activeFromStorageKey),
+          toPath: getStoragePath(activeToStorageKey),
+        },
+      ];
+      const hasTrashedDescendants =
+        descendants.some((item) => item.deletedAt !== null) ||
+        descendantFiles.some((item) => item.deletedAt !== null);
 
-      await moveStorageEntry({
-        fromStorageKey,
-        toStorageKey,
-      });
-
-      try {
-        const updatedFolder = await activeRepo.updateFolder({
-          id: folder.id,
-          name: normalizedName,
+      if (hasTrashedDescendants) {
+        const trashFromStorageKey = buildFolderStorageKey({
+          folder,
+          folderMap: currentFolderMap,
+          filesRoot,
+          trashed: true,
+        });
+        const trashToStorageKey = buildFolderStorageKey({
+          folder: nextFolder,
+          folderMap: nextFolderMap,
+          filesRoot,
+          trashed: true,
         });
 
-        for (const descendantFile of descendantFiles) {
-          const nextStorageKey = buildFileStorageKey({
-            file: descendantFile,
-            folderMap: nextFolderMap,
-            filesRoot,
-            trashed: false,
-          });
-
-          if (nextStorageKey === descendantFile.storageKey) {
-            continue;
-          }
-
-          previousFileStates.push({
-            id: descendantFile.id,
-            storageKey: descendantFile.storageKey,
-          });
-          await activeRepo.updateFile({
-            id: descendantFile.id,
-            storageKey: nextStorageKey,
-          });
-        }
-
-        return {
-          folder: updatedFolder,
-        };
-      } catch (error) {
-        for (const previousFileState of previousFileStates.reverse()) {
-          await activeRepo.updateFile({
-            id: previousFileState.id,
-            storageKey: previousFileState.storageKey,
-          });
-        }
-
-        await activeRepo.updateFolder({
-          id: folder.id,
-          name: folder.name,
+        storageMoves.push({
+          fromPath: getStoragePath(trashFromStorageKey),
+          toPath: getStoragePath(trashToStorageKey),
         });
-        await moveStorageEntry({
-          fromStorageKey: toStorageKey,
-          toStorageKey: fromStorageKey,
-        });
-        throw error;
       }
+
+      return moveStorageEntriesWithLock({
+        entries: storageMoves,
+        lockKeys: storageMoves.flatMap(({ fromPath, toPath }) => [
+          getEntryMutationLockKey(fromPath),
+          getDirectoryMutationLockKey(fromPath),
+          getDirectoryMutationLockKey(toPath),
+        ]),
+        applyMetadataUpdate: async () => {
+          let folderUpdated = false;
+
+          try {
+            const updatedFolder = await activeRepo.updateFolder({
+              id: folder.id,
+              name: normalizedName,
+            });
+            folderUpdated = true;
+
+            for (const descendantFile of descendantFiles) {
+              const nextStorageKey = buildFileStorageKey({
+                file: descendantFile,
+                folderMap: nextFolderMap,
+                filesRoot,
+                trashed: descendantFile.deletedAt !== null,
+              });
+
+              if (nextStorageKey === descendantFile.storageKey) {
+                continue;
+              }
+
+              previousFileStates.push({
+                id: descendantFile.id,
+                storageKey: descendantFile.storageKey,
+              });
+              await activeRepo.updateFile({
+                id: descendantFile.id,
+                storageKey: nextStorageKey,
+              });
+            }
+
+            return {
+              folder: updatedFolder,
+            };
+          } catch (error) {
+            for (const previousFileState of [...previousFileStates].reverse()) {
+              try {
+                await activeRepo.updateFile({
+                  id: previousFileState.id,
+                  storageKey: previousFileState.storageKey,
+                });
+              } catch {
+                // Preserve the original metadata error.
+              }
+            }
+
+            if (folderUpdated) {
+              try {
+                await activeRepo.updateFolder({
+                  id: folder.id,
+                  name: folder.name,
+                });
+              } catch {
+                // Preserve the original metadata error.
+              }
+            }
+
+            throw error;
+          }
+        },
+      });
     },
 
     async moveFolder({

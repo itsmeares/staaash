@@ -576,6 +576,387 @@ describe.sequential("files service", () => {
     });
   });
 
+  it("renames an active ancestor without stranding a standalone trashed descendant file", async () => {
+    await cleanDataRoot();
+    const { repo, state } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureFilesRoot("member-1");
+    const parent = await service.createFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: root.id,
+      name: "Parent",
+    });
+    const child = await service.createFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: parent.folder.id,
+      name: "Child",
+    });
+    const activeUpload = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: child.folder.id,
+      items: [
+        {
+          clientKey: "active",
+          originalName: "active.txt",
+          conflictStrategy: "fail",
+          file: new File(["active contents"], "active.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+    const trashedUpload = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: child.folder.id,
+      items: [
+        {
+          clientKey: "trashed",
+          originalName: "trashed.txt",
+          conflictStrategy: "fail",
+          file: new File(["trashed contents"], "trashed.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+    const otherRoot = await service.ensureFilesRoot("member-2");
+    const otherUpload = await service.uploadFiles({
+      actorUserId: "member-2",
+      actorRole: "member",
+      folderId: otherRoot.id,
+      items: [
+        {
+          clientKey: "other-user",
+          originalName: "untouched.txt",
+          conflictStrategy: "fail",
+          file: new File(["other contents"], "untouched.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+
+    await service.trashFile({
+      actorUserId: "member-1",
+      actorRole: "member",
+      fileId: trashedUpload.uploadedFiles[0]!.id,
+    });
+    await service.renameFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: parent.folder.id,
+      name: "Renamed",
+    });
+
+    const activeFile = state.files.find(
+      (file) => file.id === activeUpload.uploadedFiles[0]!.id,
+    );
+    const trashedFile = state.files.find(
+      (file) => file.id === trashedUpload.uploadedFiles[0]!.id,
+    );
+    const otherFile = state.files.find(
+      (file) => file.id === otherUpload.uploadedFiles[0]!.id,
+    );
+
+    expect(activeFile?.storageKey).toBe(
+      "files/member-1/Renamed/Child/active.txt",
+    );
+    expect(trashedFile).toMatchObject({
+      folderId: child.folder.id,
+      storageKey: ".trash/member-1/Renamed/Child/trashed.txt",
+    });
+    expect(trashedFile?.deletedAt).not.toBeNull();
+    expect(trashedFile?.storageKey.startsWith("files/")).toBe(false);
+    await expect(
+      access(getStoragePath("files/member-1/Renamed/Child")),
+    ).resolves.toBeUndefined();
+    await expect(
+      access(getStoragePath(".trash/member-1/Parent/Child/trashed.txt")),
+    ).rejects.toBeDefined();
+    await expect(
+      readFile(getStoragePath(trashedFile!.storageKey), "utf8"),
+    ).resolves.toBe("trashed contents");
+    await expect(
+      readFile(getStoragePath(activeFile!.storageKey), "utf8"),
+    ).resolves.toBe("active contents");
+    await expect(
+      access(getStoragePath("files/member-1/Renamed/Child/trashed.txt")),
+    ).rejects.toBeDefined();
+    expect(otherFile?.storageKey).toBe("files/member-2/untouched.txt");
+    await expect(
+      readFile(getStoragePath(otherFile!.storageKey), "utf8"),
+    ).resolves.toBe("other contents");
+
+    const trash = await service.listTrashFolders({
+      actorUserId: "member-1",
+      actorRole: "member",
+    });
+    expect(trash.files).toHaveLength(1);
+    expect(trash.files[0]).toMatchObject({
+      originalPathLabel: "Files / Renamed / Child / trashed.txt",
+      restoreLocation: {
+        kind: "original-parent",
+        folderId: child.folder.id,
+        pathLabel: "Files / Renamed / Child",
+      },
+    });
+
+    const restored = await service.restoreFile({
+      actorUserId: "member-1",
+      actorRole: "member",
+      fileId: trashedUpload.uploadedFiles[0]!.id,
+    });
+    const restoredFile = state.files.find(
+      (file) => file.id === trashedUpload.uploadedFiles[0]!.id,
+    );
+
+    expect(restored.restoredTo).toMatchObject({
+      kind: "original-parent",
+      folderId: child.folder.id,
+    });
+    expect(restoredFile).toMatchObject({
+      folderId: child.folder.id,
+      storageKey: "files/member-1/Renamed/Child/trashed.txt",
+      deletedAt: null,
+    });
+    await expect(
+      readFile(getStoragePath(restoredFile!.storageKey), "utf8"),
+    ).resolves.toBe("trashed contents");
+  });
+
+  it("renames an active ancestor without stranding a trashed descendant folder tree", async () => {
+    await cleanDataRoot();
+    const { repo, state } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureFilesRoot("member-1");
+    const parent = await service.createFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: root.id,
+      name: "Parent",
+    });
+    const child = await service.createFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: parent.folder.id,
+      name: "Child",
+    });
+    const trashedTree = await service.createFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: child.folder.id,
+      name: "TrashedTree",
+    });
+    const nested = await service.createFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: trashedTree.folder.id,
+      name: "Nested",
+    });
+    const upload = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: nested.folder.id,
+      items: [
+        {
+          clientKey: "nested-file",
+          originalName: "inside.txt",
+          conflictStrategy: "fail",
+          file: new File(["folder tree contents"], "inside.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+
+    await service.trashFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: trashedTree.folder.id,
+    });
+    await service.renameFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: parent.folder.id,
+      name: "Renamed",
+    });
+
+    const trashedFolder = state.folders.find(
+      (folder) => folder.id === trashedTree.folder.id,
+    );
+    const trashedNestedFolder = state.folders.find(
+      (folder) => folder.id === nested.folder.id,
+    );
+    const trashedFile = state.files.find(
+      (file) => file.id === upload.uploadedFiles[0]!.id,
+    );
+
+    expect(trashedFolder?.deletedAt).not.toBeNull();
+    expect(trashedNestedFolder?.deletedAt).not.toBeNull();
+    expect(trashedFile).toMatchObject({
+      storageKey: ".trash/member-1/Renamed/Child/TrashedTree/Nested/inside.txt",
+    });
+    expect(trashedFile?.deletedAt).not.toBeNull();
+    await expect(
+      access(getStoragePath(".trash/member-1/Parent/Child/TrashedTree")),
+    ).rejects.toBeDefined();
+    await expect(
+      readFile(getStoragePath(trashedFile!.storageKey), "utf8"),
+    ).resolves.toBe("folder tree contents");
+    await expect(
+      access(
+        getStoragePath(
+          "files/member-1/Renamed/Child/TrashedTree/Nested/inside.txt",
+        ),
+      ),
+    ).rejects.toBeDefined();
+
+    const trash = await service.listTrashFolders({
+      actorUserId: "member-1",
+      actorRole: "member",
+    });
+    expect(trash.items).toHaveLength(1);
+    expect(trash.items[0]).toMatchObject({
+      originalPathLabel: "Files / Renamed / Child / TrashedTree",
+      restoreLocation: {
+        kind: "original-parent",
+        folderId: child.folder.id,
+        pathLabel: "Files / Renamed / Child",
+      },
+    });
+
+    const restored = await service.restoreFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: trashedTree.folder.id,
+    });
+    const restoredFolder = state.folders.find(
+      (folder) => folder.id === trashedTree.folder.id,
+    );
+    const restoredNestedFolder = state.folders.find(
+      (folder) => folder.id === nested.folder.id,
+    );
+    const restoredFile = state.files.find(
+      (file) => file.id === upload.uploadedFiles[0]!.id,
+    );
+
+    expect(restored.restoredTo).toMatchObject({
+      kind: "original-parent",
+      folderId: child.folder.id,
+    });
+    expect(restoredFolder).toMatchObject({
+      parentId: child.folder.id,
+      deletedAt: null,
+    });
+    expect(restoredNestedFolder?.deletedAt).toBeNull();
+    expect(restoredFile).toMatchObject({
+      storageKey: "files/member-1/Renamed/Child/TrashedTree/Nested/inside.txt",
+      deletedAt: null,
+    });
+    await expect(
+      readFile(getStoragePath(restoredFile!.storageKey), "utf8"),
+    ).resolves.toBe("folder tree contents");
+  });
+
+  it("rolls back active and trash paths when folder rename metadata updating fails", async () => {
+    await cleanDataRoot();
+    const { repo, state, failNextUpdateFile } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureFilesRoot("member-1");
+    const parent = await service.createFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: root.id,
+      name: "Parent",
+    });
+    const child = await service.createFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: parent.folder.id,
+      name: "Child",
+    });
+    const activeUpload = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: child.folder.id,
+      items: [
+        {
+          clientKey: "active",
+          originalName: "active.txt",
+          conflictStrategy: "fail",
+          file: new File(["active contents"], "active.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+    const trashedUpload = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: child.folder.id,
+      items: [
+        {
+          clientKey: "trashed",
+          originalName: "trashed.txt",
+          conflictStrategy: "fail",
+          file: new File(["trashed contents"], "trashed.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+
+    await service.trashFile({
+      actorUserId: "member-1",
+      actorRole: "member",
+      fileId: trashedUpload.uploadedFiles[0]!.id,
+    });
+    failNextUpdateFile(new Error("rename metadata failed"));
+
+    await expect(
+      service.renameFolder({
+        actorUserId: "member-1",
+        actorRole: "member",
+        folderId: parent.folder.id,
+        name: "Renamed",
+      }),
+    ).rejects.toThrow("rename metadata failed");
+
+    expect(
+      state.folders.find((folder) => folder.id === parent.folder.id)?.name,
+    ).toBe("Parent");
+    expect(
+      state.files.find((file) => file.id === activeUpload.uploadedFiles[0]!.id)
+        ?.storageKey,
+    ).toBe("files/member-1/Parent/Child/active.txt");
+    expect(
+      state.files.find((file) => file.id === trashedUpload.uploadedFiles[0]!.id)
+        ?.storageKey,
+    ).toBe(".trash/member-1/Parent/Child/trashed.txt");
+    await expect(
+      readFile(
+        getStoragePath("files/member-1/Parent/Child/active.txt"),
+        "utf8",
+      ),
+    ).resolves.toBe("active contents");
+    await expect(
+      readFile(
+        getStoragePath(".trash/member-1/Parent/Child/trashed.txt"),
+        "utf8",
+      ),
+    ).resolves.toBe("trashed contents");
+    await expect(
+      access(getStoragePath("files/member-1/Renamed")),
+    ).rejects.toBeDefined();
+    await expect(
+      access(getStoragePath(".trash/member-1/Renamed")),
+    ).rejects.toBeDefined();
+  });
+
   it("moves, trashes, restores, and permanently deletes files", async () => {
     await cleanDataRoot();
     const { repo, addFolder } = createMemoryRepository();
