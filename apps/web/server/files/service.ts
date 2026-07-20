@@ -1150,19 +1150,38 @@ export const createFilesService = ({
           toPath: getStoragePath(activeToStorageKey),
         },
       ];
-      const hasTrashedDescendants =
-        descendants.some((item) => item.deletedAt !== null) ||
-        descendantFiles.some((item) => item.deletedAt !== null);
+      const topLevelTrashedFolders = descendants.filter((item) => {
+        if (!item.deletedAt) {
+          return false;
+        }
 
-      if (hasTrashedDescendants) {
+        const parent = item.parentId
+          ? currentFolderMap.get(item.parentId)
+          : null;
+
+        return !parent?.deletedAt;
+      });
+      const standaloneTrashedFiles = descendantFiles.filter((item) => {
+        if (!item.deletedAt) {
+          return false;
+        }
+
+        const parent = item.folderId
+          ? currentFolderMap.get(item.folderId)
+          : null;
+
+        return !parent?.deletedAt;
+      });
+
+      for (const trashedFolder of topLevelTrashedFolders) {
         const trashFromStorageKey = buildFolderStorageKey({
-          folder,
+          folder: trashedFolder,
           folderMap: currentFolderMap,
           filesRoot,
           trashed: true,
         });
         const trashToStorageKey = buildFolderStorageKey({
-          folder: nextFolder,
+          folder: trashedFolder,
           folderMap: nextFolderMap,
           filesRoot,
           trashed: true,
@@ -1170,6 +1189,20 @@ export const createFilesService = ({
 
         storageMoves.push({
           fromPath: getStoragePath(trashFromStorageKey),
+          toPath: getStoragePath(trashToStorageKey),
+        });
+      }
+
+      for (const trashedFile of standaloneTrashedFiles) {
+        const trashToStorageKey = buildFileStorageKey({
+          file: trashedFile,
+          folderMap: nextFolderMap,
+          filesRoot,
+          trashed: true,
+        });
+
+        storageMoves.push({
+          fromPath: getStoragePath(trashedFile.storageKey),
           toPath: getStoragePath(trashToStorageKey),
         });
       }

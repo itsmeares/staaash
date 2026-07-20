@@ -728,6 +728,193 @@ describe.sequential("files service", () => {
     ).resolves.toBe("trashed contents");
   });
 
+  it("does not move an unrelated same-name trashed folder when renaming an active folder", async () => {
+    await cleanDataRoot();
+    const { repo, state } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureFilesRoot("member-1");
+    const oldParent = await service.createFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: root.id,
+      name: "Parent",
+    });
+    const oldUpload = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: oldParent.folder.id,
+      items: [
+        {
+          clientKey: "old-file",
+          originalName: "old.txt",
+          conflictStrategy: "fail",
+          file: new File(["old parent contents"], "old.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+
+    await service.trashFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: oldParent.folder.id,
+    });
+
+    const activeParent = await service.createFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: root.id,
+      name: "Parent",
+    });
+    const child = await service.createFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: activeParent.folder.id,
+      name: "Child",
+    });
+    const activeUpload = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: child.folder.id,
+      items: [
+        {
+          clientKey: "active-file",
+          originalName: "active.txt",
+          conflictStrategy: "fail",
+          file: new File(["active child contents"], "active.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+    const descendantUpload = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: child.folder.id,
+      items: [
+        {
+          clientKey: "descendant-file",
+          originalName: "trashed.txt",
+          conflictStrategy: "fail",
+          file: new File(["active parent trash"], "trashed.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+
+    await service.trashFile({
+      actorUserId: "member-1",
+      actorRole: "member",
+      fileId: descendantUpload.uploadedFiles[0]!.id,
+    });
+    const oldTrashedFileBeforeRename = state.files.find(
+      (file) => file.id === oldUpload.uploadedFiles[0]!.id,
+    );
+
+    expect(oldTrashedFileBeforeRename?.storageKey).toBe(
+      ".trash/member-1/Parent/old.txt",
+    );
+
+    await service.renameFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: activeParent.folder.id,
+      name: "Renamed",
+    });
+
+    const oldTrashedFile = state.files.find(
+      (file) => file.id === oldUpload.uploadedFiles[0]!.id,
+    );
+    const oldTrashedFolder = state.folders.find(
+      (folder) => folder.id === oldParent.folder.id,
+    );
+    const affectedTrashedFile = state.files.find(
+      (file) => file.id === descendantUpload.uploadedFiles[0]!.id,
+    );
+    const activeFile = state.files.find(
+      (file) => file.id === activeUpload.uploadedFiles[0]!.id,
+    );
+
+    expect(oldTrashedFile).toMatchObject({
+      storageKey: ".trash/member-1/Parent/old.txt",
+    });
+    expect(oldTrashedFile?.deletedAt).not.toBeNull();
+    expect(oldTrashedFolder).toMatchObject({
+      name: "Parent",
+      parentId: root.id,
+    });
+    expect(oldTrashedFolder?.deletedAt).not.toBeNull();
+    await expect(
+      readFile(getStoragePath(oldTrashedFile!.storageKey), "utf8"),
+    ).resolves.toBe("old parent contents");
+    await expect(
+      access(getStoragePath(".trash/member-1/Renamed/old.txt")),
+    ).rejects.toBeDefined();
+
+    expect(affectedTrashedFile).toMatchObject({
+      storageKey: ".trash/member-1/Renamed/Child/trashed.txt",
+    });
+    expect(affectedTrashedFile?.deletedAt).not.toBeNull();
+    await expect(
+      readFile(getStoragePath(affectedTrashedFile!.storageKey), "utf8"),
+    ).resolves.toBe("active parent trash");
+    await expect(
+      access(getStoragePath(".trash/member-1/Parent/Child/trashed.txt")),
+    ).rejects.toBeDefined();
+
+    expect(activeFile?.storageKey).toBe(
+      "files/member-1/Renamed/Child/active.txt",
+    );
+    await expect(
+      readFile(getStoragePath(activeFile!.storageKey), "utf8"),
+    ).resolves.toBe("active child contents");
+
+    await service.restoreFile({
+      actorUserId: "member-1",
+      actorRole: "member",
+      fileId: descendantUpload.uploadedFiles[0]!.id,
+    });
+    const restoredAffectedFile = state.files.find(
+      (file) => file.id === descendantUpload.uploadedFiles[0]!.id,
+    );
+    expect(restoredAffectedFile).toMatchObject({
+      folderId: child.folder.id,
+      storageKey: "files/member-1/Renamed/Child/trashed.txt",
+      deletedAt: null,
+    });
+    await expect(
+      readFile(getStoragePath(restoredAffectedFile!.storageKey), "utf8"),
+    ).resolves.toBe("active parent trash");
+    await expect(
+      access(getStoragePath(".trash/member-1/Renamed/Child/trashed.txt")),
+    ).rejects.toBeDefined();
+
+    const restoredOldParent = await service.restoreFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: oldParent.folder.id,
+    });
+    const restoredOldFile = state.files.find(
+      (file) => file.id === oldUpload.uploadedFiles[0]!.id,
+    );
+    expect(restoredOldParent.restoredTo).toMatchObject({
+      kind: "original-parent",
+      folderId: root.id,
+    });
+    expect(restoredOldFile).toMatchObject({
+      storageKey: "files/member-1/Parent/old.txt",
+      deletedAt: null,
+    });
+    await expect(
+      readFile(getStoragePath(restoredOldFile!.storageKey), "utf8"),
+    ).resolves.toBe("old parent contents");
+    await expect(
+      access(getStoragePath(".trash/member-1/Parent/old.txt")),
+    ).rejects.toBeDefined();
+  });
+
   it("renames an active ancestor without stranding a trashed descendant folder tree", async () => {
     await cleanDataRoot();
     const { repo, state } = createMemoryRepository();
@@ -909,11 +1096,37 @@ describe.sequential("files service", () => {
         },
       ],
     });
+    const trashedTree = await service.createFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: child.folder.id,
+      name: "TrashedTree",
+    });
+    const treeUpload = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: trashedTree.folder.id,
+      items: [
+        {
+          clientKey: "tree-file",
+          originalName: "inside.txt",
+          conflictStrategy: "fail",
+          file: new File(["tree contents"], "inside.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
 
     await service.trashFile({
       actorUserId: "member-1",
       actorRole: "member",
       fileId: trashedUpload.uploadedFiles[0]!.id,
+    });
+    await service.trashFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: trashedTree.folder.id,
     });
     failNextUpdateFile(new Error("rename metadata failed"));
 
@@ -937,6 +1150,10 @@ describe.sequential("files service", () => {
       state.files.find((file) => file.id === trashedUpload.uploadedFiles[0]!.id)
         ?.storageKey,
     ).toBe(".trash/member-1/Parent/Child/trashed.txt");
+    expect(
+      state.files.find((file) => file.id === treeUpload.uploadedFiles[0]!.id)
+        ?.storageKey,
+    ).toBe(".trash/member-1/Parent/Child/TrashedTree/inside.txt");
     await expect(
       readFile(
         getStoragePath("files/member-1/Parent/Child/active.txt"),
@@ -950,10 +1167,19 @@ describe.sequential("files service", () => {
       ),
     ).resolves.toBe("trashed contents");
     await expect(
+      readFile(
+        getStoragePath(".trash/member-1/Parent/Child/TrashedTree/inside.txt"),
+        "utf8",
+      ),
+    ).resolves.toBe("tree contents");
+    await expect(
       access(getStoragePath("files/member-1/Renamed")),
     ).rejects.toBeDefined();
     await expect(
-      access(getStoragePath(".trash/member-1/Renamed")),
+      access(getStoragePath(".trash/member-1/Renamed/Child/trashed.txt")),
+    ).rejects.toBeDefined();
+    await expect(
+      access(getStoragePath(".trash/member-1/Renamed/Child/TrashedTree")),
     ).rejects.toBeDefined();
   });
 
