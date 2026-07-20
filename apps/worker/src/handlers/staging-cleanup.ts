@@ -224,6 +224,7 @@ const deleteRetainedTerminalSessions = async ({
   }
 };
 
+// fallow-ignore-next-line unused-export
 export const cleanupUploadSessionLifecycle = async ({
   client,
   storagePaths,

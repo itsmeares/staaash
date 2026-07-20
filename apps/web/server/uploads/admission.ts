@@ -127,24 +127,36 @@ const toBigInt = (value: unknown): bigint => {
 
 const MAX_TRANSACTION_ATTEMPTS = 3;
 
+const firstString = (...values: unknown[]) =>
+  values.find((value): value is string => typeof value === "string");
+
+const readNestedErrorCode = (value: unknown) => {
+  if (!value || typeof value !== "object") return undefined;
+  const code = (value as { code?: unknown }).code;
+  return typeof code === "string" ? code : undefined;
+};
+
 const getErrorCode = (error: unknown) => {
-  if (!error || typeof error !== "object") return null;
+  if (typeof error !== "object") return null;
+  if (error === null) return null;
   const candidate = error as {
-    code?: string;
-    meta?: { code?: string };
-    cause?: { code?: string };
-    name?: string;
-    message?: string;
+    code?: unknown;
+    meta?: unknown;
+    cause?: unknown;
+    name?: unknown;
+    message?: unknown;
   };
-  return (
-    candidate.code ??
-    candidate.meta?.code ??
-    candidate.cause?.code ??
-    candidate.name ??
-    (candidate.message?.includes("TransactionWriteConflict")
-      ? "TransactionWriteConflict"
-      : null)
+  const directCode = firstString(
+    candidate.code,
+    readNestedErrorCode(candidate.meta),
+    readNestedErrorCode(candidate.cause),
+    candidate.name,
   );
+  if (directCode) return directCode;
+  if (typeof candidate.message !== "string") return null;
+  return candidate.message.includes("TransactionWriteConflict")
+    ? "TransactionWriteConflict"
+    : null;
 };
 
 const isRetryableTransactionConflict = (error: unknown) =>
@@ -327,20 +339,19 @@ const assertPhysicalHeadroom = async (
   }
 };
 
-const assertAdmissionAllowed = async ({
-  settings,
-  user,
-  stats,
-  requestedBytes,
-}: {
-  settings: LockedSettings;
-  user: LockedUser;
-  stats: AdmissionStats;
-  requestedBytes: bigint;
-}) => {
+const assertUploadSizeAllowed = (
+  settings: LockedSettings,
+  requestedBytes: bigint,
+) => {
   if (requestedBytes > settings.maxUploadBytes) {
     throw new UploadAdmissionError("UPLOAD_SIZE_LIMIT_EXCEEDED");
   }
+};
+
+const assertActiveSessionCapacity = (
+  settings: LockedSettings,
+  stats: AdmissionStats,
+) => {
   if (
     stats.userActiveCount >= BigInt(settings.resumableMaxActiveSessionsPerUser)
   ) {
@@ -352,7 +363,12 @@ const assertAdmissionAllowed = async ({
   ) {
     throw new UploadAdmissionError("RESUMABLE_INSTANCE_SESSION_LIMIT_EXCEEDED");
   }
+};
 
+const assertTerminalBacklogCapacity = (
+  settings: LockedSettings,
+  stats: AdmissionStats,
+) => {
   const backlogLimits = getTerminalBacklogLimits({
     perUserActiveLimit: settings.resumableMaxActiveSessionsPerUser,
     instanceActiveLimit: settings.resumableMaxActiveSessionsInstance,
@@ -375,7 +391,13 @@ const assertAdmissionAllowed = async ({
       },
     );
   }
+};
 
+const assertStagingCapacity = (
+  settings: LockedSettings,
+  stats: AdmissionStats,
+  requestedBytes: bigint,
+) => {
   if (
     stats.userStagingLiabilityBytes + requestedBytes >
     settings.resumableMaxReservedBytesPerUser
@@ -392,6 +414,13 @@ const assertAdmissionAllowed = async ({
       "RESUMABLE_INSTANCE_RESERVED_BYTES_LIMIT_EXCEEDED",
     );
   }
+};
+
+const assertUserQuotaCapacity = (
+  user: LockedUser,
+  stats: AdmissionStats,
+  requestedBytes: bigint,
+) => {
   if (
     user.storageLimitBytes !== null &&
     user.storageLimitBytes > 0n &&
@@ -400,6 +429,24 @@ const assertAdmissionAllowed = async ({
   ) {
     throw new UploadAdmissionError("USER_STORAGE_QUOTA_EXCEEDED");
   }
+};
+
+const assertAdmissionAllowed = async ({
+  settings,
+  user,
+  stats,
+  requestedBytes,
+}: {
+  settings: LockedSettings;
+  user: LockedUser;
+  stats: AdmissionStats;
+  requestedBytes: bigint;
+}) => {
+  assertUploadSizeAllowed(settings, requestedBytes);
+  assertActiveSessionCapacity(settings, stats);
+  assertTerminalBacklogCapacity(settings, stats);
+  assertStagingCapacity(settings, stats, requestedBytes);
+  assertUserQuotaCapacity(user, stats, requestedBytes);
   await assertPhysicalHeadroom(
     stats.instanceOutstandingGrowthBytes,
     requestedBytes,

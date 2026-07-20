@@ -132,10 +132,7 @@ const allocateEmptyStagingFile = async (tmpPath: string) => {
   await handle.close();
 };
 
-export const markResumableStagingReleased = async (
-  id: string,
-  now = new Date(),
-) => {
+const markResumableStagingReleased = async (id: string, now = new Date()) => {
   await getPrisma().uploadSession.updateMany({
     where: { id, stagingReleasedAt: null },
     data: {
@@ -146,7 +143,7 @@ export const markResumableStagingReleased = async (
   });
 };
 
-export const cleanupResumableSessionStaging = async ({
+const cleanupResumableSessionStaging = async ({
   id,
   tmpPath,
 }: {
@@ -167,6 +164,58 @@ export const cleanupResumableSessionStaging = async ({
     await recordCleanupFailure(id, error);
     return false;
   }
+};
+
+const activateResumableSession = async ({
+  id,
+  ownerUserId,
+  now,
+}: {
+  id: string;
+  ownerUserId: string;
+  now: Date;
+}) => {
+  const db = getPrisma();
+  const expiresAt = new Date(now.getTime() + UPLOAD_SESSION_TTL_MS);
+  const updated = await db.uploadSession.updateMany({
+    where: { id, ownerUserId, status: "allocating" },
+    data: { status: UPLOAD_SESSION_STATUS_CREATED, expiresAt },
+  });
+  if (updated.count !== 1) {
+    throw new Error("Upload reservation is no longer allocatable.");
+  }
+  const row = await db.uploadSession.findUniqueOrThrow({ where: { id } });
+  return toSession(row);
+};
+
+const recoverFailedResumableAllocation = async ({
+  id,
+  ownerUserId,
+  tmpPath,
+}: {
+  id: string;
+  ownerUserId: string;
+  tmpPath: string;
+}) => {
+  try {
+    await transitionResumableSessionToTerminal({
+      id,
+      ownerUserId,
+      status: UPLOAD_SESSION_STATUS_FAILED,
+    });
+    await cleanupResumableSessionStaging({ id, tmpPath });
+  } catch {
+    // Keep the database reservation and owned path for worker recovery.
+  }
+};
+
+const toStagingAllocationError = (error: unknown) => {
+  const code = (error as NodeJS.ErrnoException).code ?? "";
+  return new UploadAdmissionError(
+    ["EDQUOT", "ENOSPC"].includes(code)
+      ? "UPLOAD_STORAGE_CAPACITY_EXCEEDED"
+      : "UPLOAD_STORAGE_CAPACITY_UNAVAILABLE",
+  );
 };
 
 export const createResumableSession = async (
@@ -196,7 +245,6 @@ export const createResumableSession = async (
     tmpPath: string,
   ) => Promise<void> = allocateEmptyStagingFile,
 ): Promise<ResumableSession> => {
-  const db = getPrisma();
   const id = randomUUID();
   const tmpPath = getTmpUploadPath(`rs-${id}`);
   const allocationExpiresAt = new Date(
@@ -222,37 +270,10 @@ export const createResumableSession = async (
   try {
     await allocateStagingFile(tmpPath);
     allocatingFilesystem = false;
-
-    const expiresAt = new Date(now.getTime() + UPLOAD_SESSION_TTL_MS);
-    const updated = await db.uploadSession.updateMany({
-      where: { id, ownerUserId, status: "allocating" },
-      data: { status: UPLOAD_SESSION_STATUS_CREATED, expiresAt },
-    });
-    if (updated.count !== 1) {
-      throw new Error("Upload reservation is no longer allocatable.");
-    }
-    const row = await db.uploadSession.findUniqueOrThrow({ where: { id } });
-    return toSession(row);
+    return await activateResumableSession({ id, ownerUserId, now });
   } catch (error) {
-    try {
-      await transitionResumableSessionToTerminal({
-        id,
-        ownerUserId,
-        status: UPLOAD_SESSION_STATUS_FAILED,
-      });
-      await cleanupResumableSessionStaging({ id, tmpPath });
-    } catch {
-      // Keep the database reservation and owned path for worker recovery.
-    }
-    if (
-      allocatingFilesystem &&
-      ["EDQUOT", "ENOSPC"].includes((error as NodeJS.ErrnoException).code ?? "")
-    ) {
-      throw new UploadAdmissionError("UPLOAD_STORAGE_CAPACITY_EXCEEDED");
-    }
-    if (allocatingFilesystem) {
-      throw new UploadAdmissionError("UPLOAD_STORAGE_CAPACITY_UNAVAILABLE");
-    }
+    await recoverFailedResumableAllocation({ id, ownerUserId, tmpPath });
+    if (allocatingFilesystem) throw toStagingAllocationError(error);
     throw error;
   }
 };
@@ -432,7 +453,7 @@ export const completeResumableSessionWithFile = async <T>({
     return result;
   });
 
-export const transitionResumableSessionToTerminal = async ({
+const transitionResumableSessionToTerminal = async ({
   id,
   ownerUserId,
   status,
