@@ -4,23 +4,7 @@ import type { Readable } from "node:stream";
 import { getStoragePath } from "@/server/storage";
 import { prismaFilesRepository } from "@/server/files/repository";
 import type { StoredFile } from "@/server/files/types";
-
-const HEIC_MIME_TYPES = new Set([
-  "image/heic",
-  "image/heif",
-  "image/heic-sequence",
-  "image/heif-sequence",
-]);
-const HEIC_EXTENSIONS = new Set(["heic", "heif"]);
-
-const isHeicFile = (file: Pick<StoredFile, "mimeType" | "name">): boolean => {
-  if (
-    HEIC_MIME_TYPES.has(file.mimeType.split(";")[0]?.trim().toLowerCase() ?? "")
-  )
-    return true;
-  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-  return HEIC_EXTENSIONS.has(ext);
-};
+import { convertHeicToJpeg, isHeicFile } from "./heic-converter";
 
 const buildInlineDisposition = (fileName: string) =>
   `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`;
@@ -157,14 +141,22 @@ const isMissingStorageObject = (error: unknown) => {
 // Readable.toWeb() does not guard controller.enqueue/close against ERR_INVALID_STATE
 // when the consumer cancels mid-stream (common with video range requests).
 // Using pull() + pause/resume to avoid unbounded memory growth with large files.
-const toWebStream = (
+const createMediaBodyStream = (
   readable: Readable,
   signal: AbortSignal,
-  extraCleanup?: () => void,
+  extraCleanup?: () => Promise<void> | void,
 ): ReadableStream<Uint8Array> => {
-  const destroy = () => {
+  let cleanupPromise: Promise<void> | null = null;
+  const cleanup = () => {
+    cleanupPromise ??= Promise.resolve()
+      .then(() => extraCleanup?.())
+      .then(() => undefined)
+      .catch(() => undefined);
+    return cleanupPromise;
+  };
+  const destroy = async () => {
     readable.destroy();
-    extraCleanup?.();
+    await cleanup();
   };
 
   return new ReadableStream<Uint8Array>(
@@ -176,7 +168,7 @@ const toWebStream = (
               new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength),
             );
           } catch {
-            destroy();
+            void destroy();
             return;
           }
           if ((controller.desiredSize ?? 1) <= 0) {
@@ -189,6 +181,7 @@ const toWebStream = (
           } catch {
             // already closed
           }
+          void cleanup();
         });
         readable.on("error", (err) => {
           try {
@@ -196,14 +189,24 @@ const toWebStream = (
           } catch {
             // already closed/errored
           }
+          void cleanup();
         });
-        signal.addEventListener("abort", destroy, { once: true });
+        readable.on("close", () => {
+          void cleanup();
+        });
+        signal.addEventListener(
+          "abort",
+          () => {
+            void destroy();
+          },
+          { once: true },
+        );
       },
       pull() {
         readable.resume();
       },
       cancel() {
-        destroy();
+        return destroy();
       },
     },
     new ByteLengthQueuingStrategy({ highWaterMark: 512 * 1024 }),
@@ -249,28 +252,17 @@ export const createInlineOriginalContentResponse = async ({
         highWaterMark: 512 * 1024,
       });
       streamCreated = true;
-      nodeStream.on("close", () => {
-        fileHandle.close().catch(() => {});
-      });
-      return toWebStream(nodeStream, request.signal);
+      return createMediaBodyStream(nodeStream, request.signal, () =>
+        fileHandle.close().catch(() => {}),
+      );
     };
 
     if (file.viewerKind === "image") {
       if (isHeicFile(file)) {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const heicConvert = require("heic-convert") as (options: {
-          buffer: Buffer;
-          format: "JPEG";
-          quality: number;
-        }) => Promise<ArrayBuffer>;
         const inputBuffer = await fileHandle.readFile();
         streamCreated = true;
         await fileHandle.close().catch(() => {});
-        const outputBuffer = await heicConvert({
-          buffer: inputBuffer,
-          format: "JPEG",
-          quality: 0.92,
-        });
+        const outputBuffer = await convertHeicToJpeg(inputBuffer);
         return new Response(outputBuffer, {
           status: 200,
           headers: {

@@ -94,6 +94,10 @@ export type PublicShareResolution =
       listing: SharedFolderListing;
     };
 
+export type PublicShareFilePreview = {
+  safeInlineMimeType: string | null;
+};
+
 export type ShareFilesLookup = {
   currentFolderShare: ShareLinkSummary | null;
   sharesByFolderId: Record<string, ShareLinkSummary>;

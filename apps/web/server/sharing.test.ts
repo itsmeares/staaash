@@ -143,6 +143,35 @@ const lockedFolderResolution: PublicShareResolution = {
   },
 };
 
+const makeUnlockedFileResolution = ({
+  downloadDisabled = false,
+  mimeType,
+  name,
+  viewerKind,
+}: {
+  downloadDisabled?: boolean;
+  mimeType: string;
+  name: string;
+  viewerKind: "audio" | "image" | "pdf" | "text" | "video" | null;
+}): PublicShareResolution => ({
+  ...lockedFileResolution,
+  share: {
+    ...lockedFileResolution.share,
+    hasPassword: false,
+    downloadDisabled,
+  },
+  access: {
+    requiresPassword: false,
+    isUnlocked: true,
+  },
+  file: {
+    ...lockedFileResolution.file,
+    mimeType,
+    name,
+    viewerKind,
+  },
+});
+
 describe("folder public link behavior", () => {
   it("allows traversal across the full linked subtree", () => {
     expect(
@@ -223,5 +252,274 @@ describe("folder public link behavior", () => {
     expect(markup).not.toContain("Projects");
     expect(markup).not.toContain("2026");
     expect(markup).not.toContain("Breadcrumb");
+  });
+
+  it("renders active HTML as fetched escaped-text UI, not a native embed", async () => {
+    const resolution: PublicShareResolution = {
+      ...lockedFileResolution,
+      share: {
+        ...lockedFileResolution.share,
+        hasPassword: false,
+      },
+      access: {
+        requiresPassword: false,
+        isUnlocked: true,
+      },
+      file: {
+        ...lockedFileResolution.file,
+        name: "payload.html",
+        mimeType: "text/html; charset=UTF-8",
+        viewerKind: "text",
+      },
+    };
+
+    const markup = await renderMarkup(
+      createElement(ShareView, {
+        resolution,
+        searchParams: {},
+        token: "token",
+      }),
+    );
+
+    expect(markup).toContain("Loading…");
+    expect(markup).not.toMatch(/<(?:audio|embed|iframe|img|object|video)\b/u);
+  });
+
+  it("does not fetch active text source when downloads are disabled", async () => {
+    const resolution: PublicShareResolution = {
+      ...lockedFileResolution,
+      share: {
+        ...lockedFileResolution.share,
+        hasPassword: false,
+        downloadDisabled: true,
+      },
+      access: {
+        requiresPassword: false,
+        isUnlocked: true,
+      },
+      file: {
+        ...lockedFileResolution.file,
+        name: "payload.html",
+        mimeType: "text/html",
+        viewerKind: "text",
+      },
+    };
+
+    const markup = await renderMarkup(
+      createElement(ShareView, {
+        resolution,
+        searchParams: {},
+        token: "token",
+      }),
+    );
+
+    expect(markup).not.toContain("Loading…");
+    expect(markup).not.toMatch(/<(?:audio|embed|iframe|img|object|video)\b/u);
+  });
+
+  it("does not native-embed a shared SVG classified as an image", async () => {
+    const resolution: PublicShareResolution = {
+      ...lockedFileResolution,
+      share: {
+        ...lockedFileResolution.share,
+        hasPassword: false,
+      },
+      access: {
+        requiresPassword: false,
+        isUnlocked: true,
+      },
+      file: {
+        ...lockedFileResolution.file,
+        name: "payload.svg",
+        mimeType: "image/svg+xml",
+        viewerKind: "image",
+      },
+    };
+
+    const markup = await renderMarkup(
+      createElement(ShareView, {
+        resolution,
+        searchParams: {},
+        token: "token",
+      }),
+    );
+
+    expect(markup).toContain("payload.svg");
+    expect(markup).not.toMatch(/<(?:audio|embed|iframe|img|object|video)\b/u);
+  });
+
+  it("keeps an allowlisted raster image native-inline", async () => {
+    const resolution: PublicShareResolution = {
+      ...lockedFileResolution,
+      share: {
+        ...lockedFileResolution.share,
+        hasPassword: false,
+      },
+      access: {
+        requiresPassword: false,
+        isUnlocked: true,
+      },
+      file: {
+        ...lockedFileResolution.file,
+        name: "safe.png",
+        mimeType: "image/png",
+        viewerKind: "image",
+      },
+    };
+
+    const markup = await renderMarkup(
+      createElement(ShareView, {
+        resolution,
+        searchParams: {},
+        token: "token",
+      }),
+    );
+
+    expect(markup).toContain('<img alt="safe.png" src="/s/token/content"');
+  });
+
+  it.each([
+    ["image/heic", "photo.heic"],
+    ["image/heif", "photo.heif"],
+  ])("keeps converted %s images native-inline", async (mimeType, name) => {
+    const resolution: PublicShareResolution = {
+      ...lockedFileResolution,
+      share: {
+        ...lockedFileResolution.share,
+        hasPassword: false,
+      },
+      access: {
+        requiresPassword: false,
+        isUnlocked: true,
+      },
+      file: {
+        ...lockedFileResolution.file,
+        name,
+        mimeType,
+        viewerKind: "image",
+      },
+    };
+
+    const markup = await renderMarkup(
+      createElement(ShareView, {
+        resolution,
+        searchParams: {},
+        token: "token",
+      }),
+    );
+
+    expect(markup).toContain(`<img alt="${name}" src="/s/token/content"`);
+  });
+
+  it("renders a ready safe preview for a non-allowlisted original video", async () => {
+    const resolution = makeUnlockedFileResolution({
+      downloadDisabled: true,
+      mimeType: "video/quicktime",
+      name: "source.mov",
+      viewerKind: "video",
+    });
+
+    const markup = await renderMarkup(
+      createElement(ShareView, {
+        filePreview: { safeInlineMimeType: "video/mp4" },
+        resolution,
+        searchParams: {},
+        token: "token",
+      }),
+    );
+
+    expect(markup).toContain('<video controls="" playsInline=""');
+    expect(markup).toContain('src="/s/token/content"');
+    expect(markup).toContain("Downloads off");
+  });
+
+  it("does not native-embed a non-allowlisted video without a ready preview", async () => {
+    const markup = await renderMarkup(
+      createElement(ShareView, {
+        filePreview: null,
+        resolution: makeUnlockedFileResolution({
+          mimeType: "video/quicktime",
+          name: "source.mov",
+          viewerKind: "video",
+        }),
+        searchParams: {},
+        token: "token",
+      }),
+    );
+
+    expect(markup).not.toContain("<video");
+  });
+
+  it("does not native-embed an unsafe ready preview over a safe original", async () => {
+    const markup = await renderMarkup(
+      createElement(ShareView, {
+        filePreview: { safeInlineMimeType: null },
+        resolution: makeUnlockedFileResolution({
+          mimeType: "video/mp4",
+          name: "source.mp4",
+          viewerKind: "video",
+        }),
+        searchParams: {},
+        token: "token",
+      }),
+    );
+
+    expect(markup).not.toContain("<video");
+  });
+
+  it("keeps an allowlisted original MP4 native-inline", async () => {
+    const markup = await renderMarkup(
+      createElement(ShareView, {
+        resolution: makeUnlockedFileResolution({
+          mimeType: "video/mp4",
+          name: "source.mp4",
+          viewerKind: "video",
+        }),
+        searchParams: {},
+        token: "token",
+      }),
+    );
+
+    expect(markup).toContain('src="/s/token/content"');
+    expect(markup).toContain("<video");
+  });
+
+  it.each([
+    ["application/pdf", "document.pdf", "pdf", "<embed"],
+    ["text/plain", "notes.txt", "text", "Loading…"],
+    ["audio/mpeg", "track.mp3", "audio", "<audio"],
+  ] as const)(
+    "preserves native public rendering for %s",
+    async (mimeType, name, viewerKind, expectedMarkup) => {
+      const markup = await renderMarkup(
+        createElement(ShareView, {
+          resolution: makeUnlockedFileResolution({
+            mimeType,
+            name,
+            viewerKind,
+          }),
+          searchParams: {},
+          token: "token",
+        }),
+      );
+
+      expect(markup).toContain(expectedMarkup);
+    },
+  );
+
+  it("keeps an unknown file out of all native viewers", async () => {
+    const markup = await renderMarkup(
+      createElement(ShareView, {
+        resolution: makeUnlockedFileResolution({
+          mimeType: "application/x-unknown",
+          name: "unknown.bin",
+          viewerKind: null,
+        }),
+        searchParams: {},
+        token: "token",
+      }),
+    );
+
+    expect(markup).not.toMatch(/<(?:audio|embed|iframe|img|object|video)\b/u);
   });
 });

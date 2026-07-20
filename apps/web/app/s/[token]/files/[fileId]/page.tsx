@@ -11,6 +11,7 @@ import { getShareBaseUrl } from "@/server/request";
 import { SHARE_ACCESS_COOKIE_NAME } from "@/server/sharing/access-cookie";
 import { ShareError, isShareError } from "@/server/sharing/errors";
 import { getSharePageMetadata } from "@/server/sharing/metadata";
+import { getPublicShareFilePreview } from "@/server/sharing/public-file-preview";
 import { sharingService } from "@/server/sharing/service";
 
 export const dynamic = "force-dynamic";
@@ -80,6 +81,7 @@ export default async function SharedNestedFilePage({
     if (!file.viewerKind) {
       notFound();
     }
+    const preview = await getPublicShareFilePreview(file);
 
     const backHref =
       file.folderId === resolution.listing.rootFolder.id
@@ -94,6 +96,7 @@ export default async function SharedNestedFilePage({
         downloadHref={`/s/${encodeURIComponent(token)}/files/${file.id}/download`}
         file={file}
         headerLabel="Shared file"
+        preview={preview}
         searchParams={resolvedSearchParams}
         share={resolution.share}
       />
