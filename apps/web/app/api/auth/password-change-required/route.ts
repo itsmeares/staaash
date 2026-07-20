@@ -32,10 +32,14 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await readRequestBody(request);
-    const user = await authService.changeRequiredPassword(session.user.id, {
-      password: body.password,
-      confirmPassword: body.confirmPassword,
-    });
+    const user = await authService.changeRequiredPassword(
+      session.user.id,
+      session.id,
+      {
+        password: body.password,
+        confirmPassword: body.confirmPassword,
+      },
+    );
     const onboardingCompleted = Boolean(
       user.preferences?.onboardingCompletedAt,
     );

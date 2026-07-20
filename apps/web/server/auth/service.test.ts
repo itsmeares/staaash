@@ -154,13 +154,26 @@ const createRepo = (state: State): AuthRepository => ({
     }
     return toAuthUser(user);
   },
-  async changeRequiredPassword(userId, passwordHash) {
-    const user = state.users.find((candidate) => candidate.id === userId);
+  async changeRequiredPassword(params) {
+    const user = state.users.find(
+      (candidate) => candidate.id === params.userId,
+    );
     if (!user) return null;
-    user.passwordHash = passwordHash;
+    user.passwordHash = params.passwordHash;
     user.passwordChangeRequiredAt = null;
     user.temporaryPasswordIssuedAt = null;
     user.temporaryPasswordIssuedByUserId = null;
+
+    for (const session of state.sessions) {
+      if (
+        session.user.id === params.userId &&
+        !session.revokedAt &&
+        session.id !== params.currentSessionId
+      ) {
+        session.revokedAt = params.now;
+      }
+    }
+
     return toAuthUser(user);
   },
   async createSession(params) {
@@ -324,5 +337,225 @@ describe("auth service", () => {
     expect(result.temporaryPassword).toBe("new-member-pass");
     expect(result.user.passwordChangeRequiredAt).toEqual(now);
     expect(state.sessions[0]?.revokedAt).toEqual(now);
+  });
+
+  it("changes a required password while preserving only the current session", async () => {
+    const alreadyRevokedAt = new Date("2026-06-15T10:00:00.000Z");
+    const unchangedUpdatedAt = new Date("2026-06-14T10:00:00.000Z");
+    const state: State = {
+      users: [
+        makeUser({
+          id: "owner-1",
+          email: "owner@example.com",
+          isOwner: true,
+          isAdmin: true,
+        }),
+        makeUser({
+          id: "member-1",
+          email: "member@example.com",
+        }),
+        makeUser({
+          id: "other-1",
+          email: "other@example.com",
+        }),
+      ],
+      sessions: [],
+    };
+    const service = createAuthService({
+      repo: createRepo(state),
+      now: () => now,
+      sessionMaxAgeDays: 30,
+    });
+
+    await service.resetTemporaryPassword("owner-1", "member-1", {
+      temporaryPassword: "temporary-pass-1",
+      confirmTemporaryPassword: "temporary-pass-1",
+      requirePasswordChange: true,
+    });
+    const temporaryPasswordHash = state.users[1]!.passwordHash;
+    const sessionA = await service.signIn({
+      email: "member@example.com",
+      password: "temporary-pass-1",
+    });
+    const sessionB = await service.signIn({
+      email: "member@example.com",
+      password: "temporary-pass-1",
+    });
+    expect(state.users[1]!.passwordChangeRequiredAt).toEqual(now);
+    expect(
+      state.sessions
+        .filter((session) => session.user.id === "member-1")
+        .map((session) => session.revokedAt),
+    ).toEqual([null, null]);
+    const otherUserSession: StoredAuthSession = {
+      id: "other-session",
+      user: toAuthUser(state.users[2]!),
+      tokenHash: "other-token-hash",
+      expiresAt: new Date("2026-07-16T10:00:00.000Z"),
+      revokedAt: null,
+      userAgent: null,
+      ipAddress: null,
+      lastSeenAt: now,
+      createdAt: now,
+      updatedAt: unchangedUpdatedAt,
+    };
+    const alreadyRevokedSession: StoredAuthSession = {
+      id: "already-revoked-session",
+      user: toAuthUser(state.users[1]!),
+      tokenHash: "already-revoked-token-hash",
+      expiresAt: new Date("2026-07-16T10:00:00.000Z"),
+      revokedAt: alreadyRevokedAt,
+      userAgent: null,
+      ipAddress: null,
+      lastSeenAt: unchangedUpdatedAt,
+      createdAt: unchangedUpdatedAt,
+      updatedAt: unchangedUpdatedAt,
+    };
+    state.sessions.push(otherUserSession, alreadyRevokedSession);
+
+    const updated = await service.changeRequiredPassword(
+      "member-1",
+      sessionA.session.id,
+      {
+        password: "replacement-pass-1",
+        confirmPassword: "replacement-pass-1",
+      },
+    );
+
+    expect(state.users[1]!.passwordHash).not.toBe(temporaryPasswordHash);
+    expect(updated).toMatchObject({
+      passwordChangeRequiredAt: null,
+      temporaryPasswordIssuedAt: null,
+      temporaryPasswordIssuedByUserId: null,
+    });
+    expect(
+      state.sessions.find((session) => session.id === sessionA.session.id)
+        ?.revokedAt,
+    ).toBeNull();
+    expect(
+      state.sessions.find((session) => session.id === sessionB.session.id)
+        ?.revokedAt,
+    ).toEqual(now);
+    expect(otherUserSession).toMatchObject({
+      revokedAt: null,
+      updatedAt: unchangedUpdatedAt,
+    });
+    expect(alreadyRevokedSession).toMatchObject({
+      revokedAt: alreadyRevokedAt,
+      lastSeenAt: unchangedUpdatedAt,
+      updatedAt: unchangedUpdatedAt,
+    });
+
+    await expect(
+      service.getSession(sessionA.sessionToken),
+    ).resolves.toMatchObject({ id: sessionA.session.id });
+    await expect(service.getSession(sessionB.sessionToken)).resolves.toBeNull();
+    await expect(
+      service.signIn({
+        email: "member@example.com",
+        password: "temporary-pass-1",
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_CREDENTIALS" });
+    await expect(
+      service.signIn({
+        email: "member@example.com",
+        password: "replacement-pass-1",
+      }),
+    ).resolves.toMatchObject({ user: { id: "member-1" } });
+  });
+
+  it("does not change the password or revoke sessions when no change is required", async () => {
+    const member = makeUser({
+      id: "member-1",
+      email: "member@example.com",
+      passwordHash: "unchanged-password-hash",
+    });
+    const state: State = {
+      users: [member],
+      sessions: [
+        {
+          id: "session-a",
+          user: toAuthUser(member),
+          tokenHash: "token-a",
+          expiresAt: new Date("2026-07-16T10:00:00.000Z"),
+          revokedAt: null,
+          userAgent: null,
+          ipAddress: null,
+          lastSeenAt: now,
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: "session-b",
+          user: toAuthUser(member),
+          tokenHash: "token-b",
+          expiresAt: new Date("2026-07-16T10:00:00.000Z"),
+          revokedAt: null,
+          userAgent: null,
+          ipAddress: null,
+          lastSeenAt: now,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+    };
+    const service = createAuthService({
+      repo: createRepo(state),
+      now: () => now,
+      sessionMaxAgeDays: 30,
+    });
+
+    const result = await service.changeRequiredPassword(
+      "member-1",
+      "session-a",
+      {
+        password: "replacement-pass-1",
+        confirmPassword: "replacement-pass-1",
+      },
+    );
+
+    expect(result.id).toBe("member-1");
+    expect(member.passwordHash).toBe("unchanged-password-hash");
+    expect(state.sessions.map((session) => session.revokedAt)).toEqual([
+      null,
+      null,
+    ]);
+  });
+
+  it("preserves required password change validation and missing-user errors", async () => {
+    const member = makeUser({
+      id: "member-1",
+      passwordHash: "unchanged-password-hash",
+      passwordChangeRequiredAt: now,
+      temporaryPasswordIssuedAt: now,
+      temporaryPasswordIssuedByUserId: "owner-1",
+    });
+    const state: State = { users: [member], sessions: [] };
+    const service = createAuthService({
+      repo: createRepo(state),
+      now: () => now,
+      sessionMaxAgeDays: 30,
+    });
+
+    await expect(
+      service.changeRequiredPassword("member-1", "session-a", {
+        password: "short",
+        confirmPassword: "short",
+      }),
+    ).rejects.toMatchObject({ name: "ZodError" });
+    await expect(
+      service.changeRequiredPassword("member-1", "session-a", {
+        password: "replacement-pass-1",
+        confirmPassword: "different-pass-12",
+      }),
+    ).rejects.toMatchObject({ code: "PASSWORD_CONFIRMATION_MISMATCH" });
+    await expect(
+      service.changeRequiredPassword("missing-user", "session-a", {
+        password: "replacement-pass-1",
+        confirmPassword: "replacement-pass-1",
+      }),
+    ).rejects.toMatchObject({ code: "USER_NOT_FOUND" });
+    expect(member.passwordHash).toBe("unchanged-password-hash");
+    expect(member.passwordChangeRequiredAt).toEqual(now);
   });
 });

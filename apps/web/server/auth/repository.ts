@@ -63,6 +63,13 @@ type SetTemporaryPasswordParams = {
   now: Date;
 };
 
+type ChangeRequiredPasswordParams = {
+  userId: string;
+  currentSessionId: string;
+  passwordHash: string;
+  now: Date;
+};
+
 type SavePreferencesParams = {
   userId: string;
   theme: string;
@@ -93,9 +100,7 @@ export type AuthRepository = {
   ): Promise<AuthUser | null>;
   setTemporaryPassword(params: SetTemporaryPasswordParams): Promise<AuthUser>;
   changeRequiredPassword(
-    userId: string,
-    passwordHash: string,
-    now: Date,
+    params: ChangeRequiredPasswordParams,
   ): Promise<AuthUser | null>;
   createSession(params: CreateSessionParams): Promise<AuthSession>;
   findSessionByTokenHash(tokenHash: string): Promise<StoredAuthSession | null>;
@@ -488,25 +493,42 @@ const createPrismaAuthRepository = (
       }
     },
 
-    async changeRequiredPassword(userId, passwordHash, now) {
+    async changeRequiredPassword(params) {
       const client = getClient();
 
       try {
-        const user = await client.user.update({
-          where: { id: userId },
-          data: {
-            passwordHash,
-            passwordChangeRequiredAt: null,
-            temporaryPasswordIssuedAt: null,
-            temporaryPasswordIssuedByUserId: null,
-            updatedAt: now,
-          },
-          include: {
-            preferences: true,
-          },
-        });
+        return await client.$transaction(
+          async (tx: Prisma.TransactionClient) => {
+            const user = await tx.user.update({
+              where: { id: params.userId },
+              data: {
+                passwordHash: params.passwordHash,
+                passwordChangeRequiredAt: null,
+                temporaryPasswordIssuedAt: null,
+                temporaryPasswordIssuedByUserId: null,
+                updatedAt: params.now,
+              },
+              include: {
+                preferences: true,
+              },
+            });
 
-        return toAuthUser(user);
+            await tx.session.updateMany({
+              where: {
+                userId: params.userId,
+                revokedAt: null,
+                id: {
+                  not: params.currentSessionId,
+                },
+              },
+              data: {
+                revokedAt: params.now,
+              },
+            });
+
+            return toAuthUser(user);
+          },
+        );
       } catch (error) {
         if (
           error instanceof Prisma.PrismaClientKnownRequestError &&
