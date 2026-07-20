@@ -46,7 +46,8 @@ This separation is one of the main architectural choices in the repo. It keeps l
 ## Locked Behavior Rules
 
 - physical storage uses immutable IDs, not logical paths
-- uploads stage first, then verify checksum, then commit atomically
+- resumable uploads reserve bounded database capacity before staging, then
+  verify checksum and transfer the reservation to committed metadata atomically
 - share links bind to files or folders by stable IDs
 - search is case-insensitive, accent-insensitive, and path-token aware
 - `/admin` health includes DB reachability, storage writability, worker heartbeat, queue backlog, disk warnings, and version or update status
@@ -66,3 +67,4 @@ This separation is one of the main architectural choices in the repo. It keeps l
 
 - [`../README.md`](../README.md) for install and local development steps
 - [`operations/backup-restore.md`](./operations/backup-restore.md) for backup and restore expectations
+- [`operations/resumable-uploads.md`](./operations/resumable-uploads.md) for resumable admission, quota, and cleanup behavior

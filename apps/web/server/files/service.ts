@@ -5,7 +5,10 @@ import { scheduleDerivativeGenerate } from "@staaash/db/media-derivatives";
 
 import { canAccessPrivateNamespace } from "@/server/access";
 import { getSystemSettings } from "@/server/settings";
-import { assertUserStorageQuotaAvailable } from "@/server/user-storage";
+import {
+  assertUserStorageQuotaAvailable,
+  withUserQuotaWrite,
+} from "@/server/user-storage";
 import { FilesError } from "@/server/files/errors";
 import {
   buildFileStorageKey,
@@ -57,6 +60,8 @@ import type {
 } from "@/server/uploads";
 
 import type { FilesRepository } from "./repository";
+import type { FilesTransactionClient } from "./repository";
+import { completeResumableSessionWithFile } from "@/server/uploads/session-service";
 import {
   buildFilePathLabel,
   buildFolderMap,
@@ -132,6 +137,7 @@ type UploadFilesResult = {
 };
 
 type CommitResumableUploadInput = FilesActor & {
+  uploadSessionId: string;
   tmpPath: string;
   folderId: string | null;
   originalName: string;
@@ -2041,14 +2047,28 @@ export const createFilesService = ({
                     targetPath: getStoragePath(activeConflict.item.storageKey),
                     deadline: uploadDeadline,
                     applyMetadataUpdate: () =>
-                      activeRepo.updateFile({
-                        id: activeConflict.item.id,
-                        name: activeConflict.item.name,
-                        mimeType: stagedFile.mimeType,
-                        sizeBytes: stagedFile.sizeBytes,
-                        contentChecksum: stagedFile.actualChecksum,
-                        deletedAt: null,
-                        folderId: targetFolder.id,
+                      withUserQuotaWrite({
+                        ownerUserId: targetFolder.ownerUserId,
+                        additionalBytes: BigInt(
+                          Math.max(
+                            0,
+                            stagedFile.sizeBytes -
+                              activeConflict.item.sizeBytes,
+                          ),
+                        ),
+                        callback: (tx) =>
+                          activeRepo.updateFile(
+                            {
+                              id: activeConflict.item.id,
+                              name: activeConflict.item.name,
+                              mimeType: stagedFile.mimeType,
+                              sizeBytes: stagedFile.sizeBytes,
+                              contentChecksum: stagedFile.actualChecksum,
+                              deletedAt: null,
+                              folderId: targetFolder.id,
+                            },
+                            tx as unknown as FilesTransactionClient,
+                          ),
                       }),
                   });
 
@@ -2114,15 +2134,23 @@ export const createFilesService = ({
               }
 
               try {
-                const createdFile = await activeRepo.createFile({
-                  id: fileId,
+                const createdFile = await withUserQuotaWrite({
                   ownerUserId: targetFolder.ownerUserId,
-                  folderId: targetFolder.id,
-                  name: finalName,
-                  storageKey,
-                  mimeType: stagedFile.mimeType,
-                  sizeBytes: stagedFile.sizeBytes,
-                  contentChecksum: stagedFile.actualChecksum,
+                  additionalBytes: BigInt(stagedFile.sizeBytes),
+                  callback: (tx) =>
+                    activeRepo.createFile(
+                      {
+                        id: fileId,
+                        ownerUserId: targetFolder.ownerUserId,
+                        folderId: targetFolder.id,
+                        name: finalName,
+                        storageKey,
+                        mimeType: stagedFile.mimeType,
+                        sizeBytes: stagedFile.sizeBytes,
+                        contentChecksum: stagedFile.actualChecksum,
+                      },
+                      tx as unknown as FilesTransactionClient,
+                    ),
                 });
 
                 uploadedFiles.push(toFileSummary(createdFile));
@@ -2189,6 +2217,7 @@ export const createFilesService = ({
     async commitResumableUpload({
       actorRole,
       actorUserId,
+      uploadSessionId,
       tmpPath,
       folderId,
       originalName,
@@ -2200,10 +2229,6 @@ export const createFilesService = ({
       const targetFolder = folderId
         ? await getActiveOwnedFolder({ actorRole, actorUserId, folderId })
         : await ensureFilesRoot(actorUserId);
-      await assertUserStorageQuotaAvailable(
-        targetFolder.ownerUserId,
-        BigInt(totalSizeBytes),
-      );
       const activeRepo = await resolveRepo();
       const filesRoot = await ensureFilesRoot(targetFolder.ownerUserId);
       const folderMap = buildFolderMap(
@@ -2245,14 +2270,23 @@ export const createFilesService = ({
                 stagedFile: { tmpPath, uploadId: randomUUID() },
                 targetPath: getStoragePath(activeConflict.item.storageKey),
                 applyMetadataUpdate: () =>
-                  activeRepo.updateFile({
-                    id: activeConflict.item.id,
-                    name: activeConflict.item.name,
-                    mimeType,
-                    sizeBytes: totalSizeBytes,
-                    contentChecksum,
-                    deletedAt: null,
-                    folderId: targetFolder.id,
+                  completeResumableSessionWithFile({
+                    id: uploadSessionId,
+                    ownerUserId: targetFolder.ownerUserId,
+                    committedFileId: activeConflict.item.id,
+                    callback: (tx) =>
+                      activeRepo.updateFile(
+                        {
+                          id: activeConflict.item.id,
+                          name: activeConflict.item.name,
+                          mimeType,
+                          sizeBytes: totalSizeBytes,
+                          contentChecksum,
+                          deletedAt: null,
+                          folderId: targetFolder.id,
+                        },
+                        tx as unknown as FilesTransactionClient,
+                      ),
                   }),
               });
               return toFileSummary(updated);
@@ -2297,15 +2331,24 @@ export const createFilesService = ({
 
           let createdFile: StoredFile;
           try {
-            createdFile = await activeRepo.createFile({
-              id: fileId,
+            createdFile = await completeResumableSessionWithFile({
+              id: uploadSessionId,
               ownerUserId: targetFolder.ownerUserId,
-              folderId: targetFolder.id,
-              name: finalName,
-              storageKey,
-              mimeType,
-              sizeBytes: totalSizeBytes,
-              contentChecksum,
+              committedFileId: fileId,
+              callback: (tx) =>
+                activeRepo.createFile(
+                  {
+                    id: fileId,
+                    ownerUserId: targetFolder.ownerUserId,
+                    folderId: targetFolder.id,
+                    name: finalName,
+                    storageKey,
+                    mimeType,
+                    sizeBytes: totalSizeBytes,
+                    contentChecksum,
+                  },
+                  tx as unknown as FilesTransactionClient,
+                ),
             });
           } catch (error) {
             await rm(targetPath, { force: true });

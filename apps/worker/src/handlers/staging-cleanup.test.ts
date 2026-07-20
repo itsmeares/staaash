@@ -19,14 +19,9 @@ type TestUploadSession = {
   status: string;
   expiresAt: Date;
   tmpPath: string;
-};
-
-type ActiveSessionQuery = {
-  where: {
-    status: { in: string[] };
-    expiresAt: { gt: Date };
-  };
-  select: { tmpPath: true };
+  terminalAt: Date | null;
+  stagingReleasedAt: Date | null;
+  cleanupAttemptCount: number;
 };
 
 const fixedNow = new Date("2026-04-06T12:00:00.000Z");
@@ -52,19 +47,76 @@ const createJob = (): BackgroundJobRecord => ({
 });
 
 const createSessionClient = (sessions: TestUploadSession[]) => {
-  const findMany = vi.fn(async (query: ActiveSessionQuery) => {
-    const activeStatuses = new Set(query.where.status.in);
-    return sessions
-      .filter(
+  const findMany = vi.fn(async (query: any) => {
+    let matches = [...sessions];
+    if (query.where?.status?.in) {
+      const statuses = new Set(query.where.status.in);
+      matches = matches.filter((session) => statuses.has(session.status));
+    }
+    if (query.where?.expiresAt?.lte) {
+      matches = matches.filter(
+        (session) => session.expiresAt <= query.where.expiresAt.lte,
+      );
+    }
+    if (query.where?.stagingReleasedAt === null) {
+      matches = matches.filter((session) => session.stagingReleasedAt === null);
+    }
+    if (query.where?.stagingReleasedAt?.not === null) {
+      matches = matches.filter((session) => session.stagingReleasedAt !== null);
+    }
+    if (query.where?.terminalAt?.lte) {
+      matches = matches.filter(
         (session) =>
-          activeStatuses.has(session.status) &&
-          session.expiresAt > query.where.expiresAt.gt,
-      )
-      .map((session) => ({ tmpPath: session.tmpPath }));
+          session.terminalAt !== null &&
+          session.terminalAt <= query.where.terminalAt.lte,
+      );
+    }
+    return matches.map((session) => ({
+      id: session.id,
+      tmpPath: session.tmpPath,
+    }));
   });
 
+  const updateMany = vi.fn(async (query: any) => {
+    const session = sessions.find(
+      (candidate) => candidate.id === query.where.id,
+    );
+    if (!session) return { count: 0 };
+    if (
+      query.where.status?.in &&
+      !query.where.status.in.includes(session.status)
+    ) {
+      return { count: 0 };
+    }
+    if (query.data.status) session.status = query.data.status;
+    if (query.data.terminalAt) session.terminalAt = query.data.terminalAt;
+    if (query.data.stagingReleasedAt) {
+      session.stagingReleasedAt = query.data.stagingReleasedAt;
+    }
+    if (query.data.cleanupAttemptCount?.increment) {
+      session.cleanupAttemptCount += query.data.cleanupAttemptCount.increment;
+    }
+    return { count: 1 };
+  });
+
+  const deleteMany = vi.fn(async (query: any) => {
+    const ids = new Set(query.where?.id?.in ?? []);
+    const before = sessions.length;
+    for (let index = sessions.length - 1; index >= 0; index -= 1) {
+      if (ids.has(sessions[index]!.id)) sessions.splice(index, 1);
+    }
+    return { count: before - sessions.length };
+  });
+
+  const client: any = {
+    uploadSession: { findMany, updateMany, deleteMany },
+    uploadChunk: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+  };
+  client.$transaction = (callback: (tx: unknown) => Promise<unknown>) =>
+    callback(client);
+
   return {
-    client: { uploadSession: { findMany } },
+    client,
     findMany,
   };
 };
@@ -127,48 +179,72 @@ describe("staging cleanup handler", () => {
         status: "created",
         expiresAt: futureExpiry,
         tmpPath: filePaths.created,
+        terminalAt: null,
+        stagingReleasedAt: null,
+        cleanupAttemptCount: 0,
       },
       {
         id: "receiving",
         status: "receiving",
         expiresAt: futureExpiry,
         tmpPath: filePaths.receiving,
+        terminalAt: null,
+        stagingReleasedAt: null,
+        cleanupAttemptCount: 0,
       },
       {
         id: "persisted-custom",
         status: "created",
         expiresAt: futureExpiry,
         tmpPath: filePaths.persistedCustom,
+        terminalAt: null,
+        stagingReleasedAt: null,
+        cleanupAttemptCount: 0,
       },
       {
         id: "expired",
         status: "created",
         expiresAt: new Date(fixedNow.getTime() - 1),
         tmpPath: filePaths.expired,
+        terminalAt: null,
+        stagingReleasedAt: null,
+        cleanupAttemptCount: 0,
       },
       {
         id: "boundary",
         status: "receiving",
         expiresAt: fixedNow,
         tmpPath: filePaths.boundary,
+        terminalAt: null,
+        stagingReleasedAt: null,
+        cleanupAttemptCount: 0,
       },
       {
         id: "completed",
         status: "completed",
         expiresAt: futureExpiry,
         tmpPath: filePaths.completed,
+        terminalAt: fixedNow,
+        stagingReleasedAt: null,
+        cleanupAttemptCount: 0,
       },
       {
         id: "cancelled",
         status: "cancelled",
         expiresAt: futureExpiry,
         tmpPath: filePaths.cancelled,
+        terminalAt: fixedNow,
+        stagingReleasedAt: null,
+        cleanupAttemptCount: 0,
       },
       {
         id: "failed",
         status: "failed",
         expiresAt: futureExpiry,
         tmpPath: filePaths.failed,
+        terminalAt: fixedNow,
+        stagingReleasedAt: null,
+        cleanupAttemptCount: 0,
       },
     ];
     const { client, findMany } = createSessionClient(sessions);
@@ -189,12 +265,14 @@ describe("staging cleanup handler", () => {
       uploadStagingTtlMs: stagingTtlMs,
     });
 
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ expiresAt: { lte: fixedNow } }),
+      }),
+    );
     expect(findMany).toHaveBeenCalledWith({
-      where: {
-        status: { in: ["created", "receiving"] },
-        expiresAt: { gt: fixedNow },
-      },
-      select: { tmpPath: true },
+      where: { stagingReleasedAt: null },
+      select: { id: true, tmpPath: true },
     });
     await expectPathToExist(filePaths.created);
     await expectPathToExist(filePaths.receiving);

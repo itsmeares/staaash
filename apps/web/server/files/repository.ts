@@ -136,7 +136,7 @@ type DeleteManyResult = {
   count: number;
 };
 
-type FilesTransactionClient = {
+export type FilesTransactionClient = {
   folder: FolderDelegate;
   file: FileDelegate;
 };
@@ -279,9 +279,15 @@ export type FilesRepository = {
     folderIds: string[],
   ): Promise<StoredFile[]>;
   createFolder(params: CreateFolderParams): Promise<FolderSummary>;
-  createFile(params: CreateFileParams): Promise<StoredFile>;
+  createFile(
+    params: CreateFileParams,
+    transaction?: FilesTransactionClient,
+  ): Promise<StoredFile>;
   updateFolder(params: UpdateFolderParams): Promise<FolderSummary>;
-  updateFile(params: UpdateFileParams): Promise<StoredFile>;
+  updateFile(
+    params: UpdateFileParams,
+    transaction?: FilesTransactionClient,
+  ): Promise<StoredFile>;
   updateFolders(params: UpdateFoldersParams): Promise<void>;
   updateFiles(params: UpdateFilesParams): Promise<void>;
   markFileStorageMissing(fileId: string, checkedAt?: Date): Promise<void>;
@@ -516,8 +522,8 @@ export const createPrismaFilesRepository = (
       return toFolderSummary(folder);
     },
 
-    async createFile(params) {
-      const client = getClient();
+    async createFile(params, transaction) {
+      const client = transaction ?? getClient();
       const file = await client.file.create({
         data: {
           id: params.id,
@@ -565,8 +571,8 @@ export const createPrismaFilesRepository = (
       return toFolderSummary(folder);
     },
 
-    async updateFile(params) {
-      const client = getClient();
+    async updateFile(params, transaction) {
+      const client = transaction ?? getClient();
       const data: Prisma.FileUncheckedUpdateInput = {};
 
       if ("name" in params) {

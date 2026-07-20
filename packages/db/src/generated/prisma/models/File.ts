@@ -294,6 +294,7 @@ export type FileWhereInput = {
   recents?: Prisma.RecentFileListRelationFilter
   shareLink?: Prisma.XOR<Prisma.ShareLinkNullableScalarRelationFilter, Prisma.ShareLinkWhereInput> | null
   derivatives?: Prisma.MediaDerivativeListRelationFilter
+  committedUploadSessions?: Prisma.UploadSessionListRelationFilter
 }
 
 export type FileOrderByWithRelationInput = {
@@ -317,6 +318,7 @@ export type FileOrderByWithRelationInput = {
   recents?: Prisma.RecentFileOrderByRelationAggregateInput
   shareLink?: Prisma.ShareLinkOrderByWithRelationInput
   derivatives?: Prisma.MediaDerivativeOrderByRelationAggregateInput
+  committedUploadSessions?: Prisma.UploadSessionOrderByRelationAggregateInput
 }
 
 export type FileWhereUniqueInput = Prisma.AtLeast<{
@@ -343,6 +345,7 @@ export type FileWhereUniqueInput = Prisma.AtLeast<{
   recents?: Prisma.RecentFileListRelationFilter
   shareLink?: Prisma.XOR<Prisma.ShareLinkNullableScalarRelationFilter, Prisma.ShareLinkWhereInput> | null
   derivatives?: Prisma.MediaDerivativeListRelationFilter
+  committedUploadSessions?: Prisma.UploadSessionListRelationFilter
 }, "id" | "storageKey">
 
 export type FileOrderByWithAggregationInput = {
@@ -406,6 +409,7 @@ export type FileCreateInput = {
   recents?: Prisma.RecentFileCreateNestedManyWithoutFileInput
   shareLink?: Prisma.ShareLinkCreateNestedOneWithoutFileInput
   derivatives?: Prisma.MediaDerivativeCreateNestedManyWithoutFileInput
+  committedUploadSessions?: Prisma.UploadSessionCreateNestedManyWithoutCommittedFileInput
 }
 
 export type FileUncheckedCreateInput = {
@@ -427,6 +431,7 @@ export type FileUncheckedCreateInput = {
   recents?: Prisma.RecentFileUncheckedCreateNestedManyWithoutFileInput
   shareLink?: Prisma.ShareLinkUncheckedCreateNestedOneWithoutFileInput
   derivatives?: Prisma.MediaDerivativeUncheckedCreateNestedManyWithoutFileInput
+  committedUploadSessions?: Prisma.UploadSessionUncheckedCreateNestedManyWithoutCommittedFileInput
 }
 
 export type FileUpdateInput = {
@@ -448,6 +453,7 @@ export type FileUpdateInput = {
   recents?: Prisma.RecentFileUpdateManyWithoutFileNestedInput
   shareLink?: Prisma.ShareLinkUpdateOneWithoutFileNestedInput
   derivatives?: Prisma.MediaDerivativeUpdateManyWithoutFileNestedInput
+  committedUploadSessions?: Prisma.UploadSessionUpdateManyWithoutCommittedFileNestedInput
 }
 
 export type FileUncheckedUpdateInput = {
@@ -469,6 +475,7 @@ export type FileUncheckedUpdateInput = {
   recents?: Prisma.RecentFileUncheckedUpdateManyWithoutFileNestedInput
   shareLink?: Prisma.ShareLinkUncheckedUpdateOneWithoutFileNestedInput
   derivatives?: Prisma.MediaDerivativeUncheckedUpdateManyWithoutFileNestedInput
+  committedUploadSessions?: Prisma.UploadSessionUncheckedUpdateManyWithoutCommittedFileNestedInput
 }
 
 export type FileCreateManyInput = {
@@ -745,6 +752,22 @@ export type FileUpdateOneRequiredWithoutDerivativesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.FileUpdateToOneWithWhereWithoutDerivativesInput, Prisma.FileUpdateWithoutDerivativesInput>, Prisma.FileUncheckedUpdateWithoutDerivativesInput>
 }
 
+export type FileCreateNestedOneWithoutCommittedUploadSessionsInput = {
+  create?: Prisma.XOR<Prisma.FileCreateWithoutCommittedUploadSessionsInput, Prisma.FileUncheckedCreateWithoutCommittedUploadSessionsInput>
+  connectOrCreate?: Prisma.FileCreateOrConnectWithoutCommittedUploadSessionsInput
+  connect?: Prisma.FileWhereUniqueInput
+}
+
+export type FileUpdateOneWithoutCommittedUploadSessionsNestedInput = {
+  create?: Prisma.XOR<Prisma.FileCreateWithoutCommittedUploadSessionsInput, Prisma.FileUncheckedCreateWithoutCommittedUploadSessionsInput>
+  connectOrCreate?: Prisma.FileCreateOrConnectWithoutCommittedUploadSessionsInput
+  upsert?: Prisma.FileUpsertWithoutCommittedUploadSessionsInput
+  disconnect?: Prisma.FileWhereInput | boolean
+  delete?: Prisma.FileWhereInput | boolean
+  connect?: Prisma.FileWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.FileUpdateToOneWithWhereWithoutCommittedUploadSessionsInput, Prisma.FileUpdateWithoutCommittedUploadSessionsInput>, Prisma.FileUncheckedUpdateWithoutCommittedUploadSessionsInput>
+}
+
 export type FileCreateWithoutOwnerInput = {
   id?: string
   originalName: string
@@ -763,6 +786,7 @@ export type FileCreateWithoutOwnerInput = {
   recents?: Prisma.RecentFileCreateNestedManyWithoutFileInput
   shareLink?: Prisma.ShareLinkCreateNestedOneWithoutFileInput
   derivatives?: Prisma.MediaDerivativeCreateNestedManyWithoutFileInput
+  committedUploadSessions?: Prisma.UploadSessionCreateNestedManyWithoutCommittedFileInput
 }
 
 export type FileUncheckedCreateWithoutOwnerInput = {
@@ -783,6 +807,7 @@ export type FileUncheckedCreateWithoutOwnerInput = {
   recents?: Prisma.RecentFileUncheckedCreateNestedManyWithoutFileInput
   shareLink?: Prisma.ShareLinkUncheckedCreateNestedOneWithoutFileInput
   derivatives?: Prisma.MediaDerivativeUncheckedCreateNestedManyWithoutFileInput
+  committedUploadSessions?: Prisma.UploadSessionUncheckedCreateNestedManyWithoutCommittedFileInput
 }
 
 export type FileCreateOrConnectWithoutOwnerInput = {
@@ -849,6 +874,7 @@ export type FileCreateWithoutFolderInput = {
   recents?: Prisma.RecentFileCreateNestedManyWithoutFileInput
   shareLink?: Prisma.ShareLinkCreateNestedOneWithoutFileInput
   derivatives?: Prisma.MediaDerivativeCreateNestedManyWithoutFileInput
+  committedUploadSessions?: Prisma.UploadSessionCreateNestedManyWithoutCommittedFileInput
 }
 
 export type FileUncheckedCreateWithoutFolderInput = {
@@ -869,6 +895,7 @@ export type FileUncheckedCreateWithoutFolderInput = {
   recents?: Prisma.RecentFileUncheckedCreateNestedManyWithoutFileInput
   shareLink?: Prisma.ShareLinkUncheckedCreateNestedOneWithoutFileInput
   derivatives?: Prisma.MediaDerivativeUncheckedCreateNestedManyWithoutFileInput
+  committedUploadSessions?: Prisma.UploadSessionUncheckedCreateNestedManyWithoutCommittedFileInput
 }
 
 export type FileCreateOrConnectWithoutFolderInput = {
@@ -915,6 +942,7 @@ export type FileCreateWithoutFavoritesInput = {
   recents?: Prisma.RecentFileCreateNestedManyWithoutFileInput
   shareLink?: Prisma.ShareLinkCreateNestedOneWithoutFileInput
   derivatives?: Prisma.MediaDerivativeCreateNestedManyWithoutFileInput
+  committedUploadSessions?: Prisma.UploadSessionCreateNestedManyWithoutCommittedFileInput
 }
 
 export type FileUncheckedCreateWithoutFavoritesInput = {
@@ -935,6 +963,7 @@ export type FileUncheckedCreateWithoutFavoritesInput = {
   recents?: Prisma.RecentFileUncheckedCreateNestedManyWithoutFileInput
   shareLink?: Prisma.ShareLinkUncheckedCreateNestedOneWithoutFileInput
   derivatives?: Prisma.MediaDerivativeUncheckedCreateNestedManyWithoutFileInput
+  committedUploadSessions?: Prisma.UploadSessionUncheckedCreateNestedManyWithoutCommittedFileInput
 }
 
 export type FileCreateOrConnectWithoutFavoritesInput = {
@@ -971,6 +1000,7 @@ export type FileUpdateWithoutFavoritesInput = {
   recents?: Prisma.RecentFileUpdateManyWithoutFileNestedInput
   shareLink?: Prisma.ShareLinkUpdateOneWithoutFileNestedInput
   derivatives?: Prisma.MediaDerivativeUpdateManyWithoutFileNestedInput
+  committedUploadSessions?: Prisma.UploadSessionUpdateManyWithoutCommittedFileNestedInput
 }
 
 export type FileUncheckedUpdateWithoutFavoritesInput = {
@@ -991,6 +1021,7 @@ export type FileUncheckedUpdateWithoutFavoritesInput = {
   recents?: Prisma.RecentFileUncheckedUpdateManyWithoutFileNestedInput
   shareLink?: Prisma.ShareLinkUncheckedUpdateOneWithoutFileNestedInput
   derivatives?: Prisma.MediaDerivativeUncheckedUpdateManyWithoutFileNestedInput
+  committedUploadSessions?: Prisma.UploadSessionUncheckedUpdateManyWithoutCommittedFileNestedInput
 }
 
 export type FileCreateWithoutRecentsInput = {
@@ -1011,6 +1042,7 @@ export type FileCreateWithoutRecentsInput = {
   favorites?: Prisma.FavoriteFileCreateNestedManyWithoutFileInput
   shareLink?: Prisma.ShareLinkCreateNestedOneWithoutFileInput
   derivatives?: Prisma.MediaDerivativeCreateNestedManyWithoutFileInput
+  committedUploadSessions?: Prisma.UploadSessionCreateNestedManyWithoutCommittedFileInput
 }
 
 export type FileUncheckedCreateWithoutRecentsInput = {
@@ -1031,6 +1063,7 @@ export type FileUncheckedCreateWithoutRecentsInput = {
   favorites?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutFileInput
   shareLink?: Prisma.ShareLinkUncheckedCreateNestedOneWithoutFileInput
   derivatives?: Prisma.MediaDerivativeUncheckedCreateNestedManyWithoutFileInput
+  committedUploadSessions?: Prisma.UploadSessionUncheckedCreateNestedManyWithoutCommittedFileInput
 }
 
 export type FileCreateOrConnectWithoutRecentsInput = {
@@ -1067,6 +1100,7 @@ export type FileUpdateWithoutRecentsInput = {
   favorites?: Prisma.FavoriteFileUpdateManyWithoutFileNestedInput
   shareLink?: Prisma.ShareLinkUpdateOneWithoutFileNestedInput
   derivatives?: Prisma.MediaDerivativeUpdateManyWithoutFileNestedInput
+  committedUploadSessions?: Prisma.UploadSessionUpdateManyWithoutCommittedFileNestedInput
 }
 
 export type FileUncheckedUpdateWithoutRecentsInput = {
@@ -1087,6 +1121,7 @@ export type FileUncheckedUpdateWithoutRecentsInput = {
   favorites?: Prisma.FavoriteFileUncheckedUpdateManyWithoutFileNestedInput
   shareLink?: Prisma.ShareLinkUncheckedUpdateOneWithoutFileNestedInput
   derivatives?: Prisma.MediaDerivativeUncheckedUpdateManyWithoutFileNestedInput
+  committedUploadSessions?: Prisma.UploadSessionUncheckedUpdateManyWithoutCommittedFileNestedInput
 }
 
 export type FileCreateWithoutShareLinkInput = {
@@ -1107,6 +1142,7 @@ export type FileCreateWithoutShareLinkInput = {
   favorites?: Prisma.FavoriteFileCreateNestedManyWithoutFileInput
   recents?: Prisma.RecentFileCreateNestedManyWithoutFileInput
   derivatives?: Prisma.MediaDerivativeCreateNestedManyWithoutFileInput
+  committedUploadSessions?: Prisma.UploadSessionCreateNestedManyWithoutCommittedFileInput
 }
 
 export type FileUncheckedCreateWithoutShareLinkInput = {
@@ -1127,6 +1163,7 @@ export type FileUncheckedCreateWithoutShareLinkInput = {
   favorites?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutFileInput
   recents?: Prisma.RecentFileUncheckedCreateNestedManyWithoutFileInput
   derivatives?: Prisma.MediaDerivativeUncheckedCreateNestedManyWithoutFileInput
+  committedUploadSessions?: Prisma.UploadSessionUncheckedCreateNestedManyWithoutCommittedFileInput
 }
 
 export type FileCreateOrConnectWithoutShareLinkInput = {
@@ -1163,6 +1200,7 @@ export type FileUpdateWithoutShareLinkInput = {
   favorites?: Prisma.FavoriteFileUpdateManyWithoutFileNestedInput
   recents?: Prisma.RecentFileUpdateManyWithoutFileNestedInput
   derivatives?: Prisma.MediaDerivativeUpdateManyWithoutFileNestedInput
+  committedUploadSessions?: Prisma.UploadSessionUpdateManyWithoutCommittedFileNestedInput
 }
 
 export type FileUncheckedUpdateWithoutShareLinkInput = {
@@ -1183,6 +1221,7 @@ export type FileUncheckedUpdateWithoutShareLinkInput = {
   favorites?: Prisma.FavoriteFileUncheckedUpdateManyWithoutFileNestedInput
   recents?: Prisma.RecentFileUncheckedUpdateManyWithoutFileNestedInput
   derivatives?: Prisma.MediaDerivativeUncheckedUpdateManyWithoutFileNestedInput
+  committedUploadSessions?: Prisma.UploadSessionUncheckedUpdateManyWithoutCommittedFileNestedInput
 }
 
 export type FileCreateWithoutDerivativesInput = {
@@ -1203,6 +1242,7 @@ export type FileCreateWithoutDerivativesInput = {
   favorites?: Prisma.FavoriteFileCreateNestedManyWithoutFileInput
   recents?: Prisma.RecentFileCreateNestedManyWithoutFileInput
   shareLink?: Prisma.ShareLinkCreateNestedOneWithoutFileInput
+  committedUploadSessions?: Prisma.UploadSessionCreateNestedManyWithoutCommittedFileInput
 }
 
 export type FileUncheckedCreateWithoutDerivativesInput = {
@@ -1223,6 +1263,7 @@ export type FileUncheckedCreateWithoutDerivativesInput = {
   favorites?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutFileInput
   recents?: Prisma.RecentFileUncheckedCreateNestedManyWithoutFileInput
   shareLink?: Prisma.ShareLinkUncheckedCreateNestedOneWithoutFileInput
+  committedUploadSessions?: Prisma.UploadSessionUncheckedCreateNestedManyWithoutCommittedFileInput
 }
 
 export type FileCreateOrConnectWithoutDerivativesInput = {
@@ -1259,6 +1300,7 @@ export type FileUpdateWithoutDerivativesInput = {
   favorites?: Prisma.FavoriteFileUpdateManyWithoutFileNestedInput
   recents?: Prisma.RecentFileUpdateManyWithoutFileNestedInput
   shareLink?: Prisma.ShareLinkUpdateOneWithoutFileNestedInput
+  committedUploadSessions?: Prisma.UploadSessionUpdateManyWithoutCommittedFileNestedInput
 }
 
 export type FileUncheckedUpdateWithoutDerivativesInput = {
@@ -1279,6 +1321,107 @@ export type FileUncheckedUpdateWithoutDerivativesInput = {
   favorites?: Prisma.FavoriteFileUncheckedUpdateManyWithoutFileNestedInput
   recents?: Prisma.RecentFileUncheckedUpdateManyWithoutFileNestedInput
   shareLink?: Prisma.ShareLinkUncheckedUpdateOneWithoutFileNestedInput
+  committedUploadSessions?: Prisma.UploadSessionUncheckedUpdateManyWithoutCommittedFileNestedInput
+}
+
+export type FileCreateWithoutCommittedUploadSessionsInput = {
+  id?: string
+  originalName: string
+  storageKey: string
+  storageStatus?: $Enums.FileStorageStatus
+  storageCheckedAt?: Date | string | null
+  storageMissingAt?: Date | string | null
+  mimeType: string
+  sizeBytes: bigint | number
+  contentChecksum?: string | null
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  owner: Prisma.UserCreateNestedOneWithoutFilesInput
+  folder?: Prisma.FolderCreateNestedOneWithoutFilesInput
+  favorites?: Prisma.FavoriteFileCreateNestedManyWithoutFileInput
+  recents?: Prisma.RecentFileCreateNestedManyWithoutFileInput
+  shareLink?: Prisma.ShareLinkCreateNestedOneWithoutFileInput
+  derivatives?: Prisma.MediaDerivativeCreateNestedManyWithoutFileInput
+}
+
+export type FileUncheckedCreateWithoutCommittedUploadSessionsInput = {
+  id?: string
+  ownerUserId: string
+  folderId?: string | null
+  originalName: string
+  storageKey: string
+  storageStatus?: $Enums.FileStorageStatus
+  storageCheckedAt?: Date | string | null
+  storageMissingAt?: Date | string | null
+  mimeType: string
+  sizeBytes: bigint | number
+  contentChecksum?: string | null
+  deletedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  favorites?: Prisma.FavoriteFileUncheckedCreateNestedManyWithoutFileInput
+  recents?: Prisma.RecentFileUncheckedCreateNestedManyWithoutFileInput
+  shareLink?: Prisma.ShareLinkUncheckedCreateNestedOneWithoutFileInput
+  derivatives?: Prisma.MediaDerivativeUncheckedCreateNestedManyWithoutFileInput
+}
+
+export type FileCreateOrConnectWithoutCommittedUploadSessionsInput = {
+  where: Prisma.FileWhereUniqueInput
+  create: Prisma.XOR<Prisma.FileCreateWithoutCommittedUploadSessionsInput, Prisma.FileUncheckedCreateWithoutCommittedUploadSessionsInput>
+}
+
+export type FileUpsertWithoutCommittedUploadSessionsInput = {
+  update: Prisma.XOR<Prisma.FileUpdateWithoutCommittedUploadSessionsInput, Prisma.FileUncheckedUpdateWithoutCommittedUploadSessionsInput>
+  create: Prisma.XOR<Prisma.FileCreateWithoutCommittedUploadSessionsInput, Prisma.FileUncheckedCreateWithoutCommittedUploadSessionsInput>
+  where?: Prisma.FileWhereInput
+}
+
+export type FileUpdateToOneWithWhereWithoutCommittedUploadSessionsInput = {
+  where?: Prisma.FileWhereInput
+  data: Prisma.XOR<Prisma.FileUpdateWithoutCommittedUploadSessionsInput, Prisma.FileUncheckedUpdateWithoutCommittedUploadSessionsInput>
+}
+
+export type FileUpdateWithoutCommittedUploadSessionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  originalName?: Prisma.StringFieldUpdateOperationsInput | string
+  storageKey?: Prisma.StringFieldUpdateOperationsInput | string
+  storageStatus?: Prisma.EnumFileStorageStatusFieldUpdateOperationsInput | $Enums.FileStorageStatus
+  storageCheckedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  storageMissingAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mimeType?: Prisma.StringFieldUpdateOperationsInput | string
+  sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  owner?: Prisma.UserUpdateOneRequiredWithoutFilesNestedInput
+  folder?: Prisma.FolderUpdateOneWithoutFilesNestedInput
+  favorites?: Prisma.FavoriteFileUpdateManyWithoutFileNestedInput
+  recents?: Prisma.RecentFileUpdateManyWithoutFileNestedInput
+  shareLink?: Prisma.ShareLinkUpdateOneWithoutFileNestedInput
+  derivatives?: Prisma.MediaDerivativeUpdateManyWithoutFileNestedInput
+}
+
+export type FileUncheckedUpdateWithoutCommittedUploadSessionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
+  folderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  originalName?: Prisma.StringFieldUpdateOperationsInput | string
+  storageKey?: Prisma.StringFieldUpdateOperationsInput | string
+  storageStatus?: Prisma.EnumFileStorageStatusFieldUpdateOperationsInput | $Enums.FileStorageStatus
+  storageCheckedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  storageMissingAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  mimeType?: Prisma.StringFieldUpdateOperationsInput | string
+  sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
+  contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  favorites?: Prisma.FavoriteFileUncheckedUpdateManyWithoutFileNestedInput
+  recents?: Prisma.RecentFileUncheckedUpdateManyWithoutFileNestedInput
+  shareLink?: Prisma.ShareLinkUncheckedUpdateOneWithoutFileNestedInput
+  derivatives?: Prisma.MediaDerivativeUncheckedUpdateManyWithoutFileNestedInput
 }
 
 export type FileCreateManyOwnerInput = {
@@ -1315,6 +1458,7 @@ export type FileUpdateWithoutOwnerInput = {
   recents?: Prisma.RecentFileUpdateManyWithoutFileNestedInput
   shareLink?: Prisma.ShareLinkUpdateOneWithoutFileNestedInput
   derivatives?: Prisma.MediaDerivativeUpdateManyWithoutFileNestedInput
+  committedUploadSessions?: Prisma.UploadSessionUpdateManyWithoutCommittedFileNestedInput
 }
 
 export type FileUncheckedUpdateWithoutOwnerInput = {
@@ -1335,6 +1479,7 @@ export type FileUncheckedUpdateWithoutOwnerInput = {
   recents?: Prisma.RecentFileUncheckedUpdateManyWithoutFileNestedInput
   shareLink?: Prisma.ShareLinkUncheckedUpdateOneWithoutFileNestedInput
   derivatives?: Prisma.MediaDerivativeUncheckedUpdateManyWithoutFileNestedInput
+  committedUploadSessions?: Prisma.UploadSessionUncheckedUpdateManyWithoutCommittedFileNestedInput
 }
 
 export type FileUncheckedUpdateManyWithoutOwnerInput = {
@@ -1387,6 +1532,7 @@ export type FileUpdateWithoutFolderInput = {
   recents?: Prisma.RecentFileUpdateManyWithoutFileNestedInput
   shareLink?: Prisma.ShareLinkUpdateOneWithoutFileNestedInput
   derivatives?: Prisma.MediaDerivativeUpdateManyWithoutFileNestedInput
+  committedUploadSessions?: Prisma.UploadSessionUpdateManyWithoutCommittedFileNestedInput
 }
 
 export type FileUncheckedUpdateWithoutFolderInput = {
@@ -1407,6 +1553,7 @@ export type FileUncheckedUpdateWithoutFolderInput = {
   recents?: Prisma.RecentFileUncheckedUpdateManyWithoutFileNestedInput
   shareLink?: Prisma.ShareLinkUncheckedUpdateOneWithoutFileNestedInput
   derivatives?: Prisma.MediaDerivativeUncheckedUpdateManyWithoutFileNestedInput
+  committedUploadSessions?: Prisma.UploadSessionUncheckedUpdateManyWithoutCommittedFileNestedInput
 }
 
 export type FileUncheckedUpdateManyWithoutFolderInput = {
@@ -1434,12 +1581,14 @@ export type FileCountOutputType = {
   favorites: number
   recents: number
   derivatives: number
+  committedUploadSessions: number
 }
 
 export type FileCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   favorites?: boolean | FileCountOutputTypeCountFavoritesArgs
   recents?: boolean | FileCountOutputTypeCountRecentsArgs
   derivatives?: boolean | FileCountOutputTypeCountDerivativesArgs
+  committedUploadSessions?: boolean | FileCountOutputTypeCountCommittedUploadSessionsArgs
 }
 
 /**
@@ -1473,6 +1622,13 @@ export type FileCountOutputTypeCountDerivativesArgs<ExtArgs extends runtime.Type
   where?: Prisma.MediaDerivativeWhereInput
 }
 
+/**
+ * FileCountOutputType without action
+ */
+export type FileCountOutputTypeCountCommittedUploadSessionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.UploadSessionWhereInput
+}
+
 
 export type FileSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1495,6 +1651,7 @@ export type FileSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   recents?: boolean | Prisma.File$recentsArgs<ExtArgs>
   shareLink?: boolean | Prisma.File$shareLinkArgs<ExtArgs>
   derivatives?: boolean | Prisma.File$derivativesArgs<ExtArgs>
+  committedUploadSessions?: boolean | Prisma.File$committedUploadSessionsArgs<ExtArgs>
   _count?: boolean | Prisma.FileCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["file"]>
 
@@ -1561,6 +1718,7 @@ export type FileInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   recents?: boolean | Prisma.File$recentsArgs<ExtArgs>
   shareLink?: boolean | Prisma.File$shareLinkArgs<ExtArgs>
   derivatives?: boolean | Prisma.File$derivativesArgs<ExtArgs>
+  committedUploadSessions?: boolean | Prisma.File$committedUploadSessionsArgs<ExtArgs>
   _count?: boolean | Prisma.FileCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type FileIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1581,6 +1739,7 @@ export type $FilePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     recents: Prisma.$RecentFilePayload<ExtArgs>[]
     shareLink: Prisma.$ShareLinkPayload<ExtArgs> | null
     derivatives: Prisma.$MediaDerivativePayload<ExtArgs>[]
+    committedUploadSessions: Prisma.$UploadSessionPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1997,6 +2156,7 @@ export interface Prisma__FileClient<T, Null = never, ExtArgs extends runtime.Typ
   recents<T extends Prisma.File$recentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.File$recentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RecentFilePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   shareLink<T extends Prisma.File$shareLinkArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.File$shareLinkArgs<ExtArgs>>): Prisma.Prisma__ShareLinkClient<runtime.Types.Result.GetResult<Prisma.$ShareLinkPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   derivatives<T extends Prisma.File$derivativesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.File$derivativesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$MediaDerivativePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  committedUploadSessions<T extends Prisma.File$committedUploadSessionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.File$committedUploadSessionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$UploadSessionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2548,6 +2708,30 @@ export type File$derivativesArgs<ExtArgs extends runtime.Types.Extensions.Intern
   take?: number
   skip?: number
   distinct?: Prisma.MediaDerivativeScalarFieldEnum | Prisma.MediaDerivativeScalarFieldEnum[]
+}
+
+/**
+ * File.committedUploadSessions
+ */
+export type File$committedUploadSessionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the UploadSession
+   */
+  select?: Prisma.UploadSessionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the UploadSession
+   */
+  omit?: Prisma.UploadSessionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.UploadSessionInclude<ExtArgs> | null
+  where?: Prisma.UploadSessionWhereInput
+  orderBy?: Prisma.UploadSessionOrderByWithRelationInput | Prisma.UploadSessionOrderByWithRelationInput[]
+  cursor?: Prisma.UploadSessionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.UploadSessionScalarFieldEnum | Prisma.UploadSessionScalarFieldEnum[]
 }
 
 /**

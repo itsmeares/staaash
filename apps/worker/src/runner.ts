@@ -295,5 +295,17 @@ export class WorkerRunner {
         error: errorMessage,
       });
     }
+
+    if (updatedJob?.status === "dead" || updatedJob?.status === "failed") {
+      await scheduleNextPeriodicRun(job.kind as never).catch(
+        (scheduleError) => {
+          console.warn("[worker] Failed to schedule the next periodic run.", {
+            jobId: job.id,
+            kind: job.kind,
+            error: getErrorMessage(scheduleError),
+          });
+        },
+      );
+    }
   }
 }

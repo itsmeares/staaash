@@ -1,5 +1,3 @@
-import { rm } from "node:fs/promises";
-
 import { NextRequest } from "next/server";
 import { z } from "zod";
 
@@ -10,10 +8,9 @@ import { FilesError } from "@/server/files/errors";
 import { computeFileSha256 } from "@/server/uploads";
 import { hasCompleteUploadChunkSet } from "@/server/uploads/chunk-protocol";
 import {
+  beginSessionCommit,
+  failAndCleanupResumableSession,
   findActiveResumableSession,
-  markSessionCompleted,
-  markSessionCancelled,
-  setSessionExpectedChecksum,
   type ResumableSession,
 } from "@/server/uploads/session-service";
 
@@ -67,7 +64,6 @@ const resolveExpectedChecksum = async (
   }
 
   const expectedChecksum = parsed.data.expectedChecksum.toLowerCase();
-  await setSessionExpectedChecksum(uploadSession.id, expectedChecksum);
   return { expectedChecksum };
 };
 
@@ -81,7 +77,11 @@ const verifyUploadedFile = async (
     () => null,
   );
   if (!actualChecksum) {
-    await markSessionCancelled(uploadSession.id);
+    await failAndCleanupResumableSession({
+      id: uploadSession.id,
+      ownerUserId: uploadSession.ownerUserId,
+      tmpPath: uploadSession.tmpPath,
+    });
     return Response.json(
       { error: "Could not read uploaded file." },
       { status: 500 },
@@ -89,10 +89,11 @@ const verifyUploadedFile = async (
   }
   if (actualChecksum === expectedChecksum) return null;
 
-  await Promise.all([
-    rm(uploadSession.tmpPath, { force: true }),
-    markSessionCancelled(uploadSession.id),
-  ]);
+  await failAndCleanupResumableSession({
+    id: uploadSession.id,
+    ownerUserId: uploadSession.ownerUserId,
+    tmpPath: uploadSession.tmpPath,
+  });
   return Response.json(
     { error: "Checksum mismatch.", code: "CHECKSUM_MISMATCH" },
     { status: 400 },
@@ -108,6 +109,7 @@ const commitUploadedFile = async (
     const file = await filesService.commitResumableUpload({
       actorUserId: session.user.id,
       actorRole: session.user.role,
+      uploadSessionId: uploadSession.id,
       tmpPath: uploadSession.tmpPath,
       folderId: uploadSession.folderId,
       originalName: uploadSession.originalName,
@@ -117,9 +119,13 @@ const commitUploadedFile = async (
       conflictStrategy: uploadSession.conflictStrategy as
         "fail" | "safeRename" | "replace",
     });
-    await markSessionCompleted(uploadSession.id);
     return Response.json(file, { status: 201 });
   } catch (error) {
+    await failAndCleanupResumableSession({
+      id: uploadSession.id,
+      ownerUserId: uploadSession.ownerUserId,
+      tmpPath: uploadSession.tmpPath,
+    });
     if (error instanceof FilesError) {
       return Response.json(
         { error: error.message, code: error.code },
@@ -164,6 +170,25 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
 
   const checksumResult = await resolveExpectedChecksum(request, uploadSession);
   if (checksumResult.errorResponse) return checksumResult.errorResponse;
+
+  try {
+    await beginSessionCommit({
+      id: uploadSession.id,
+      ownerUserId: session.user.id,
+      expectedChecksum: checksumResult.expectedChecksum,
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "UPLOAD_SESSION_NOT_RECEIVABLE"
+    ) {
+      return Response.json(
+        { error: "Upload session is no longer available." },
+        { status: 409 },
+      );
+    }
+    throw error;
+  }
 
   const verificationError = await verifyUploadedFile(
     uploadSession,

@@ -12,10 +12,11 @@ import { getRequestSession } from "@/server/auth/guards";
 import { filesService } from "@/server/files/service";
 import { computeFileSha256 } from "@/server/uploads";
 import {
+  beginSessionCommit,
+  failAndCleanupResumableSession,
   findActiveResumableSession,
   findCompletedUploadChunk,
   recordCompletedUploadChunk,
-  setSessionExpectedChecksum,
 } from "@/server/uploads/session-service";
 
 vi.mock("@/server/auth/guards", () => ({
@@ -29,12 +30,11 @@ vi.mock("@/server/storage-mutations", () => ({
 }));
 
 vi.mock("@/server/uploads/session-service", () => ({
+  beginSessionCommit: vi.fn(),
+  failAndCleanupResumableSession: vi.fn(),
   findActiveResumableSession: vi.fn(),
   findCompletedUploadChunk: vi.fn(),
-  markSessionCancelled: vi.fn(),
-  markSessionCompleted: vi.fn(),
   recordCompletedUploadChunk: vi.fn(),
-  setSessionExpectedChecksum: vi.fn(),
   updateSessionProgress: vi.fn(),
 }));
 
@@ -234,12 +234,58 @@ describe("parallel upload route", () => {
     );
 
     expect(response.status).toBe(201);
-    expect(setSessionExpectedChecksum).toHaveBeenCalledWith(
-      "session-1",
+    expect(beginSessionCommit).toHaveBeenCalledWith({
+      id: "session-1",
+      ownerUserId: "user-1",
       expectedChecksum,
-    );
+    });
+    expect(failAndCleanupResumableSession).not.toHaveBeenCalled();
     expect(filesService.commitResumableUpload).toHaveBeenCalledWith(
-      expect.objectContaining({ contentChecksum: expectedChecksum }),
+      expect.objectContaining({
+        uploadSessionId: "session-1",
+        contentChecksum: expectedChecksum,
+      }),
     );
+  });
+
+  it("terminalizes and cleans staging after a checksum mismatch", async () => {
+    const tmpPath = await createTempUpload(10);
+    const expectedChecksum = "a".repeat(64);
+    vi.mocked(findActiveResumableSession).mockResolvedValue({
+      ...uploadSession(tmpPath, 10),
+      completedChunks: [
+        { chunkIndex: 0, startByte: 0, endByte: 3, sizeBytes: 4 },
+        { chunkIndex: 1, startByte: 4, endByte: 7, sizeBytes: 4 },
+        { chunkIndex: 2, startByte: 8, endByte: 9, sizeBytes: 2 },
+      ],
+    });
+    vi.mocked(computeFileSha256).mockResolvedValue("b".repeat(64));
+
+    const response = await completeUpload(
+      new NextRequest(
+        "http://localhost:3000/api/uploads/sessions/session-1/complete",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            host: "localhost:3000",
+            origin: "http://localhost:3000",
+          },
+          body: JSON.stringify({ expectedChecksum }),
+        },
+      ),
+      { params: Promise.resolve({ id: "session-1" }) },
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "CHECKSUM_MISMATCH",
+    });
+    expect(failAndCleanupResumableSession).toHaveBeenCalledWith({
+      id: "session-1",
+      ownerUserId: "user-1",
+      tmpPath,
+    });
+    expect(filesService.commitResumableUpload).not.toHaveBeenCalled();
   });
 });

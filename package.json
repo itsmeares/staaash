@@ -22,6 +22,7 @@
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
+    "test:postgres": "pnpm --filter web test:postgres",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky",
