@@ -1,9 +1,10 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Download, type Page } from "@playwright/test";
 
 import { getMemberCredentials, getOwnerCredentials, signIn } from "./helpers";
 
 type ActiveFixture = {
   body: string;
+  downloadDisabled: boolean;
   mimeType: string;
   name: string;
 };
@@ -86,7 +87,7 @@ const uploadAndShareActiveFixture = async (
     .context()
     .request.post(`${origin}/api/shares`, {
       data: {
-        downloadDisabled: false,
+        downloadDisabled: fixture.downloadDisabled,
         expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
         fileId,
         targetType: "file",
@@ -131,6 +132,35 @@ const expectDirectContentDownload = async ({
   await download.delete();
 };
 
+const expectDirectContentBlocked = async ({
+  page,
+  contentUrl,
+}: {
+  page: Page;
+  contentUrl: string;
+}) => {
+  const downloads: string[] = [];
+  const onDownload = (download: Download) => {
+    downloads.push(download.suggestedFilename());
+  };
+  page.on("download", onDownload);
+
+  try {
+    const response = await page.goto(contentUrl);
+    expect(response?.status()).toBe(403);
+    await expect(page.locator("body")).toHaveText(
+      "Downloads are disabled for this shared link.",
+    );
+    expect(downloads).toEqual([]);
+    expect(await readExecutionMarkers(page)).toEqual({
+      html: false,
+      svg: false,
+    });
+  } finally {
+    page.off("download", onDownload);
+  }
+};
+
 test("public active files cannot execute on authenticated app origin", async ({
   page,
 }, testInfo) => {
@@ -155,6 +185,7 @@ window.__staaashSec01HtmlExecuted = true;
 fetch("/api/files/files?sec01-probe=html");
 </script>
 <p>SEC-01 inert HTML fixture</p>`,
+    downloadDisabled: false,
     mimeType: "text/html",
     name: `sec01-active-${fixtureSuffix}.html`,
   } satisfies ActiveFixture;
@@ -162,6 +193,7 @@ fetch("/api/files/files?sec01-probe=html");
     body: `<svg xmlns="http://www.w3.org/2000/svg" onload="window.__staaashSec01SvgExecuted = true">
   <text x="10" y="20">SEC-01 inert SVG fixture</text>
 </svg>`,
+    downloadDisabled: true,
     mimeType: "image/svg+xml",
     name: `sec01-active-${fixtureSuffix}.svg`,
   } satisfies ActiveFixture;
@@ -218,14 +250,13 @@ fetch("/api/files/files?sec01-probe=html");
     page.getByRole("heading", { name: svgFixture.name }),
   ).toBeVisible();
   await expect(page.locator(activeEmbedSelector)).toHaveCount(0);
+  await expect(page.getByText("Downloads off")).toBeVisible();
   expect(await readExecutionMarkers(page)).toEqual({ html: false, svg: false });
 
   const svgPageUrl = page.url();
-  await expectDirectContentDownload({
+  await expectDirectContentBlocked({
     page,
     contentUrl: `${svgPageUrl}/content`,
-    expectedFileName: svgFixture.name,
-    expectedPageUrl: svgPageUrl,
   });
 
   expect(probeRequests).toEqual([]);

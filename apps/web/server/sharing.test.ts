@@ -256,6 +256,38 @@ describe("folder public link behavior", () => {
     expect(markup).not.toMatch(/<(?:audio|embed|iframe|img|object|video)\b/u);
   });
 
+  it("does not fetch active text source when downloads are disabled", async () => {
+    const resolution: PublicShareResolution = {
+      ...lockedFileResolution,
+      share: {
+        ...lockedFileResolution.share,
+        hasPassword: false,
+        downloadDisabled: true,
+      },
+      access: {
+        requiresPassword: false,
+        isUnlocked: true,
+      },
+      file: {
+        ...lockedFileResolution.file,
+        name: "payload.html",
+        mimeType: "text/html",
+        viewerKind: "text",
+      },
+    };
+
+    const markup = await renderMarkup(
+      createElement(ShareView, {
+        resolution,
+        searchParams: {},
+        token: "token",
+      }),
+    );
+
+    expect(markup).not.toContain("Loading…");
+    expect(markup).not.toMatch(/<(?:audio|embed|iframe|img|object|video)\b/u);
+  });
+
   it("does not native-embed a shared SVG classified as an image", async () => {
     const resolution: PublicShareResolution = {
       ...lockedFileResolution,
@@ -315,5 +347,38 @@ describe("folder public link behavior", () => {
     );
 
     expect(markup).toContain('<img alt="safe.png" src="/s/token/content"');
+  });
+
+  it.each([
+    ["image/heic", "photo.heic"],
+    ["image/heif", "photo.heif"],
+  ])("keeps converted %s images native-inline", async (mimeType, name) => {
+    const resolution: PublicShareResolution = {
+      ...lockedFileResolution,
+      share: {
+        ...lockedFileResolution.share,
+        hasPassword: false,
+      },
+      access: {
+        requiresPassword: false,
+        isUnlocked: true,
+      },
+      file: {
+        ...lockedFileResolution.file,
+        name,
+        mimeType,
+        viewerKind: "image",
+      },
+    };
+
+    const markup = await renderMarkup(
+      createElement(ShareView, {
+        resolution,
+        searchParams: {},
+        token: "token",
+      }),
+    );
+
+    expect(markup).toContain(`<img alt="${name}" src="/s/token/content"`);
   });
 });

@@ -67,5 +67,6 @@ export const createSharePosterResponse = async ({
     request,
     derivative,
     fileName: createPosterFileName(file.name),
+    downloadDisabled: resolution.share.downloadDisabled,
   });
 };

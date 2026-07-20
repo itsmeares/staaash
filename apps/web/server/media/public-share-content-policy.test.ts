@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyPublicShareContentPolicy,
   getPublicShareResponseMimeType,
-  isPublicShareMimeSafeInline,
+  isPublicShareFileNativeViewSafe,
 } from "./public-share-content-policy";
 
 const applyPolicy = (mimeType: string, fileName = "fixture.file") =>
@@ -22,7 +22,9 @@ describe("public share browser content policy", () => {
     expect(
       applyPolicy('text/plain; charset="utf-8"').headers.get("content-type"),
     ).toBe("text/plain");
-    expect(isPublicShareMimeSafeInline("VIDEO/MP4; codecs=avc1")).toBe(true);
+    expect(
+      applyPolicy("VIDEO/MP4; codecs=avc1").headers.get("content-disposition"),
+    ).toMatch(/^inline;/u);
   });
 
   it.each([
@@ -40,7 +42,6 @@ describe("public share browser content policy", () => {
   ])("forces active MIME %s to a non-executable attachment", (mimeType) => {
     const headers = applyPolicy(mimeType, "active file.html").headers;
 
-    expect(isPublicShareMimeSafeInline(mimeType)).toBe(false);
     expect(headers.get("content-disposition")).toBe(
       "attachment; filename*=UTF-8''active%20file.html",
     );
@@ -63,7 +64,6 @@ describe("public share browser content policy", () => {
     "image/png\r\ntext/html",
     "application/x-unknown",
   ])("fails closed for unknown, empty, or malformed MIME %j", (mimeType) => {
-    expect(isPublicShareMimeSafeInline(mimeType)).toBe(false);
     const headers = applyPolicy(mimeType, "unknown.bin").headers;
     expect(headers.get("content-disposition")).toBe(
       "attachment; filename*=UTF-8''unknown.bin",
@@ -100,5 +100,31 @@ describe("public share browser content policy", () => {
         "sandbox; default-src 'none'; form-action 'none'; base-uri 'none'",
       );
     }
+  });
+
+  it("models HEIC and HEIF as safe JPEG output without allowlisting raw MIME", () => {
+    for (const [mimeType, name] of [
+      ["image/heic", "photo.heic"],
+      ["image/heif", "photo.heif"],
+    ]) {
+      expect(applyPolicy(mimeType).headers.get("content-disposition")).toMatch(
+        /^attachment;/u,
+      );
+      expect(
+        isPublicShareFileNativeViewSafe({
+          mimeType,
+          name,
+          viewerKind: "image",
+        }),
+      ).toBe(true);
+    }
+
+    expect(
+      isPublicShareFileNativeViewSafe({
+        mimeType: "image/svg+xml",
+        name: "active.svg",
+        viewerKind: "image",
+      }),
+    ).toBe(false);
   });
 });

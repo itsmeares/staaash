@@ -464,6 +464,86 @@ describe("sharing service", () => {
     });
   });
 
+  it("preserves content password, expiry, revocation, and containment checks", async () => {
+    const passwordRepo = createFakeSharingRepository();
+    const passwordService = createSharingService({
+      repo: passwordRepo.repo,
+      filesRepo: fakeFilesRepo,
+      now: () => fixedNow,
+    });
+    const passwordShare = await passwordService.createOrReissueShare({
+      actorUserId: "user-1",
+      actorRole: "member",
+      targetType: "file",
+      fileId: sharedFile.id,
+      expiresAt: addDays(5),
+      password: "secret-pass",
+    });
+    await expect(
+      passwordService.getSharedFileContent({ token: passwordShare.token }),
+    ).rejects.toMatchObject({ code: "SHARE_PASSWORD_REQUIRED" });
+
+    const expiredRepo = createFakeSharingRepository();
+    const expiredService = createSharingService({
+      repo: expiredRepo.repo,
+      filesRepo: fakeFilesRepo,
+      now: () => fixedNow,
+    });
+    const expiredShare = await expiredService.createOrReissueShare({
+      actorUserId: "user-1",
+      actorRole: "member",
+      targetType: "file",
+      fileId: sharedFile.id,
+      expiresAt: addDays(1),
+    });
+    expiredRepo.state[0]!.expiresAt = fixedNow;
+    await expect(
+      expiredService.getSharedFileContent({ token: expiredShare.token }),
+    ).rejects.toMatchObject({ code: "SHARE_EXPIRED" });
+
+    const revokedRepo = createFakeSharingRepository();
+    const revokedService = createSharingService({
+      repo: revokedRepo.repo,
+      filesRepo: fakeFilesRepo,
+      now: () => fixedNow,
+    });
+    const revokedShare = await revokedService.createOrReissueShare({
+      actorUserId: "user-1",
+      actorRole: "member",
+      targetType: "file",
+      fileId: sharedFile.id,
+      expiresAt: addDays(5),
+    });
+    await revokedService.revokeShare({
+      actorUserId: "user-1",
+      actorRole: "member",
+      shareId: revokedShare.share.id,
+    });
+    await expect(
+      revokedService.getSharedFileContent({ token: revokedShare.token }),
+    ).rejects.toMatchObject({ code: "SHARE_INVALID" });
+
+    const containmentRepo = createFakeSharingRepository();
+    const containmentService = createSharingService({
+      repo: containmentRepo.repo,
+      filesRepo: fakeFilesRepo,
+      now: () => fixedNow,
+    });
+    const containmentShare = await containmentService.createOrReissueShare({
+      actorUserId: "user-1",
+      actorRole: "member",
+      targetType: "folder",
+      folderId: sharedFolder.id,
+      expiresAt: addDays(5),
+    });
+    await expect(
+      containmentService.getSharedNestedFileContent({
+        token: containmentShare.token,
+        fileId: "outside-file",
+      }),
+    ).rejects.toMatchObject({ code: "SHARE_ACCESS_DENIED" });
+  });
+
   it("schedules a social poster for small shared videos below preview threshold", async () => {
     const sharingRepo = createFakeSharingRepository();
     const videoFilesRepo = {

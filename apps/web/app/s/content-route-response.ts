@@ -33,8 +33,16 @@ export const createPublicShareContentRouteResponse = async ({
           token,
           shareAccessCookieValue,
         });
+    const resolution = await sharingService.resolvePublicShare({
+      token,
+      shareAccessCookieValue,
+    });
 
-    return await createPublicShareContentResponse({ request, file });
+    return await createPublicShareContentResponse({
+      request,
+      file,
+      downloadDisabled: resolution.share.downloadDisabled,
+    });
   } catch (error) {
     if (error instanceof MediaContentError) {
       return createMediaErrorResponse(error);

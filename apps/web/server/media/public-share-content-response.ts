@@ -1,4 +1,5 @@
 import type { StoredFile } from "@/server/files/types";
+import { ShareError } from "@/server/sharing/errors";
 
 import {
   createInlineContentResponse,
@@ -7,14 +8,39 @@ import {
 import {
   applyPublicShareContentPolicy,
   getPublicShareResponseMimeType,
+  isPublicShareResponseAttachment,
 } from "./public-share-content-policy";
+
+const applyAndEnforcePublicShareContentPolicy = async ({
+  response,
+  fileName,
+  downloadDisabled,
+}: {
+  response: Response;
+  fileName: string;
+  downloadDisabled: boolean;
+}): Promise<Response> => {
+  const publicResponse = applyPublicShareContentPolicy(response, fileName);
+
+  if (downloadDisabled && isPublicShareResponseAttachment(publicResponse)) {
+    try {
+      await publicResponse.body?.cancel();
+    } finally {
+      throw new ShareError("SHARE_DOWNLOAD_DISABLED");
+    }
+  }
+
+  return publicResponse;
+};
 
 export const createPublicShareContentResponse = async ({
   request,
   file,
+  downloadDisabled,
 }: {
   request: Request;
   file: StoredFile;
+  downloadDisabled: boolean;
 }): Promise<Response> => {
   const publicFile = {
     ...file,
@@ -26,20 +52,31 @@ export const createPublicShareContentResponse = async ({
     file: publicFile,
   });
 
-  return applyPublicShareContentPolicy(response, file.name);
+  return applyAndEnforcePublicShareContentPolicy({
+    response,
+    fileName: file.name,
+    downloadDisabled,
+  });
 };
 
 export const createPublicReadyDerivativeContentResponse = async (
-  input: Parameters<typeof createReadyDerivativeContentResponse>[0],
+  input: Parameters<typeof createReadyDerivativeContentResponse>[0] & {
+    downloadDisabled: boolean;
+  },
 ): Promise<Response> => {
+  const { downloadDisabled, ...responseInput } = input;
   const response = await createReadyDerivativeContentResponse({
-    ...input,
+    ...responseInput,
     derivative: {
-      ...input.derivative,
+      ...responseInput.derivative,
       mimeType: getPublicShareResponseMimeType(
-        input.derivative.mimeType ?? "application/octet-stream",
+        responseInput.derivative.mimeType ?? "application/octet-stream",
       ),
     },
   });
-  return applyPublicShareContentPolicy(response, input.fileName);
+  return applyAndEnforcePublicShareContentPolicy({
+    response,
+    fileName: responseInput.fileName,
+    downloadDisabled,
+  });
 };

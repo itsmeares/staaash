@@ -13,6 +13,7 @@ import {
 } from "vitest";
 
 import type { StoredFile } from "@/server/files/types";
+import { ShareError, type ShareErrorCode } from "@/server/sharing/errors";
 
 const PUBLIC_SHARE_CONTENT_SECURITY_POLICY =
   "sandbox; default-src 'none'; form-action 'none'; base-uri 'none'";
@@ -21,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   cookieGet: vi.fn(),
   getSharedFileContent: vi.fn(),
   getSharedNestedFileContent: vi.fn(),
+  resolvePublicShare: vi.fn(),
   getStoragePath: vi.fn(),
   markFileStorageMissing: vi.fn(),
 }));
@@ -33,6 +35,7 @@ vi.mock("@/server/sharing/service", () => ({
   sharingService: {
     getSharedFileContent: mocks.getSharedFileContent,
     getSharedNestedFileContent: mocks.getSharedNestedFileContent,
+    resolvePublicShare: mocks.resolvePublicShare,
   },
 }));
 
@@ -85,6 +88,16 @@ const expectPublicSecurityHeaders = (
   );
 };
 
+const expectDownloadDisabledResponse = async (response: Response) => {
+  expect(response.status).toBe(403);
+  expect(response.headers.get("content-type")).toBe(
+    "text/plain; charset=utf-8",
+  );
+  expect(await response.text()).toBe(
+    "Downloads are disabled for this shared link.",
+  );
+};
+
 describe("public share content routes", () => {
   let tempDir = "";
   const paths = new Map<string, string>();
@@ -109,6 +122,9 @@ describe("public share content routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.cookieGet.mockReturnValue(null);
+    mocks.resolvePublicShare.mockResolvedValue({
+      share: { downloadDisabled: false },
+    });
     mocks.getStoragePath.mockImplementation((storageKey: string) =>
       paths.get(storageKey),
     );
@@ -222,6 +238,71 @@ describe("public share content routes", () => {
     expect(await response.text()).toBe("unknown-bytes");
   });
 
+  it("blocks top-level unknown attachment bytes when downloads are disabled", async () => {
+    const file = makeFile({
+      mimeType: "application/x-unknown",
+      name: "unknown.bin",
+      storageKey: "unknown",
+      viewerKind: null,
+    });
+    mocks.getSharedFileContent.mockResolvedValue({ file });
+    mocks.resolvePublicShare.mockResolvedValue({
+      share: { downloadDisabled: true },
+    });
+    const { GET } = await import("@/app/s/[token]/content/route");
+
+    const response = await GET(
+      new Request("http://localhost/s/token/content"),
+      { params: Promise.resolve({ token: "token" }) },
+    );
+
+    await expectDownloadDisabledResponse(response);
+  });
+
+  it("blocks top-level active HTML bytes when downloads are disabled", async () => {
+    const file = makeFile({
+      mimeType: "text/html",
+      name: "payload.html",
+      storageKey: "html",
+      viewerKind: "text",
+    });
+    mocks.getSharedFileContent.mockResolvedValue({ file });
+    mocks.resolvePublicShare.mockResolvedValue({
+      share: { downloadDisabled: true },
+    });
+    const { GET } = await import("@/app/s/[token]/content/route");
+
+    const response = await GET(
+      new Request("http://localhost/s/token/content"),
+      { params: Promise.resolve({ token: "token" }) },
+    );
+
+    await expectDownloadDisabledResponse(response);
+  });
+
+  it("blocks nested active SVG bytes when downloads are disabled", async () => {
+    const file = makeFile({
+      id: "svg-1",
+      mimeType: "image/svg+xml",
+      name: "payload.svg",
+      storageKey: "svg",
+      viewerKind: "image",
+    });
+    mocks.getSharedNestedFileContent.mockResolvedValue({ file });
+    mocks.resolvePublicShare.mockResolvedValue({
+      share: { downloadDisabled: true },
+    });
+    const { GET } =
+      await import("@/app/s/[token]/files/[fileId]/content/route");
+
+    const response = await GET(
+      new Request("http://localhost/s/token/files/svg-1/content"),
+      { params: Promise.resolve({ token: "token", fileId: "svg-1" }) },
+    );
+
+    await expectDownloadDisabledResponse(response);
+  });
+
   it.each(["", "image/png; charset", "image/png\r\ntext/html"])(
     "fails empty or malformed route MIME %j closed without emitting it",
     async (mimeType) => {
@@ -256,6 +337,9 @@ describe("public share content routes", () => {
       viewerKind: "image",
     });
     mocks.getSharedFileContent.mockResolvedValue({ file });
+    mocks.resolvePublicShare.mockResolvedValue({
+      share: { downloadDisabled: true },
+    });
     const { GET } = await import("@/app/s/[token]/content/route");
 
     const response = await GET(
@@ -282,6 +366,9 @@ describe("public share content routes", () => {
       viewerKind: "audio",
     });
     mocks.getSharedNestedFileContent.mockResolvedValue({ file });
+    mocks.resolvePublicShare.mockResolvedValue({
+      share: { downloadDisabled: true },
+    });
     const { GET } =
       await import("@/app/s/[token]/files/[fileId]/content/route");
 
@@ -347,5 +434,47 @@ describe("public share content routes", () => {
       "http://localhost/s/token/files/svg-1/content",
     );
     expect(await response.text()).toBe("");
+  });
+
+  it.each([
+    ["SHARE_PASSWORD_REQUIRED", 401],
+    ["SHARE_EXPIRED", 410],
+    ["SHARE_INVALID", 404],
+  ] satisfies Array<[ShareErrorCode, number]>)(
+    "preserves top-level %s resolution errors",
+    async (code, status) => {
+      mocks.getSharedFileContent.mockRejectedValue(new ShareError(code));
+      const { GET } = await import("@/app/s/[token]/content/route");
+
+      const response = await GET(
+        new Request("http://localhost/s/token/content"),
+        { params: Promise.resolve({ token: "token" }) },
+      );
+
+      expect(response.status).toBe(status);
+      expect(await response.text()).toBe(new ShareError(code).message);
+      expect(mocks.getStoragePath).not.toHaveBeenCalled();
+    },
+  );
+
+  it("preserves nested containment rejection", async () => {
+    mocks.getSharedNestedFileContent.mockRejectedValue(
+      new ShareError("SHARE_ACCESS_DENIED"),
+    );
+    const { GET } =
+      await import("@/app/s/[token]/files/[fileId]/content/route");
+
+    const response = await GET(
+      new Request("http://localhost/s/token/files/outside/content"),
+      {
+        params: Promise.resolve({ token: "token", fileId: "outside" }),
+      },
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.text()).toBe(
+      "That shared item is not available from this location.",
+    );
+    expect(mocks.getStoragePath).not.toHaveBeenCalled();
   });
 });

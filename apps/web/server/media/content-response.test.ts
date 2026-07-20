@@ -21,9 +21,14 @@ vi.mock("@/server/files/repository", () => ({
   },
 }));
 
-vi.mock("@/server/media/heic-converter", () => ({
-  convertHeicToJpeg: convertHeicToJpegMock,
-}));
+vi.mock("@/server/media/heic-converter", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/server/media/heic-converter")>();
+  return {
+    ...actual,
+    convertHeicToJpeg: convertHeicToJpegMock,
+  };
+});
 
 const makeFile = (
   overrides: Partial<{
@@ -123,7 +128,7 @@ describe("media content response", () => {
     expect(getStoragePathMock).not.toHaveBeenCalled();
   });
 
-  it("still streams successfully after handing the file descriptor to the stream", async () => {
+  it("streams successfully and closes the handed-off file descriptor", async () => {
     const fakeHandle = {
       stat: vi.fn().mockResolvedValue({ size: 11 }),
       close: vi.fn().mockResolvedValue(undefined),
@@ -147,7 +152,9 @@ describe("media content response", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-length")).toBe("11");
     await expect(response.text()).resolves.toBe("hello world");
-    expect(fakeHandle.close).not.toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(fakeHandle.close).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("keeps private authenticated response behavior unchanged", async () => {
@@ -198,6 +205,7 @@ describe("media content response", () => {
       await import("@/server/media/public-share-content-response");
     const response = await createPublicShareContentResponse({
       request: new Request("http://localhost/content"),
+      downloadDisabled: false,
       file: makeFile({
         name: "photo.heic",
         mimeType: "image/heic",
@@ -214,10 +222,83 @@ describe("media content response", () => {
     expect(response.headers.get("content-security-policy")).toBe(
       "sandbox; default-src 'none'; form-action 'none'; base-uri 'none'",
     );
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(jpegBytes);
     expect(convertHeicToJpegMock).toHaveBeenCalledWith(
       Buffer.from("heic-source"),
     );
+  });
+
+  it("does not fall back to original HEIC bytes when conversion fails", async () => {
+    const fakeHandle = {
+      stat: vi.fn().mockResolvedValue({ size: 12 }),
+      readFile: vi.fn().mockResolvedValue(Buffer.from("heic-source")),
+      close: vi.fn().mockResolvedValue(undefined),
+      createReadStream: vi.fn(),
+    };
+    openMock.mockResolvedValueOnce(fakeHandle);
+    getStoragePathMock.mockReturnValueOnce("C:\\temp\\photo.heif");
+    convertHeicToJpegMock.mockRejectedValueOnce(
+      new Error("HEIF conversion failed"),
+    );
+
+    const { createPublicShareContentResponse } =
+      await import("@/server/media/public-share-content-response");
+
+    await expect(
+      createPublicShareContentResponse({
+        request: new Request("http://localhost/content"),
+        downloadDisabled: false,
+        file: makeFile({
+          name: "photo.heif",
+          mimeType: "image/heif",
+          sizeBytes: 12,
+          viewerKind: "image",
+        }),
+      }),
+    ).rejects.toThrow("HEIF conversion failed");
+
+    expect(fakeHandle.readFile).toHaveBeenCalledTimes(1);
+    expect(fakeHandle.createReadStream).not.toHaveBeenCalled();
+    expect(fakeHandle.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("cancels and closes an attachment stream blocked by download policy", async () => {
+    const nodeStream = new Readable({
+      read() {
+        // Keep stream open until policy cancellation.
+      },
+    });
+    const destroySpy = vi.spyOn(nodeStream, "destroy");
+    const fakeHandle = {
+      stat: vi.fn().mockResolvedValue({ size: 16 }),
+      close: vi.fn().mockResolvedValue(undefined),
+      createReadStream: vi.fn(() => nodeStream),
+    };
+    openMock.mockResolvedValueOnce(fakeHandle);
+    getStoragePathMock.mockReturnValueOnce("C:\\temp\\payload.html");
+
+    const { createPublicShareContentResponse } =
+      await import("@/server/media/public-share-content-response");
+
+    await expect(
+      createPublicShareContentResponse({
+        request: new Request("http://localhost/content"),
+        downloadDisabled: true,
+        file: makeFile({
+          name: "payload.html",
+          mimeType: "text/html",
+          sizeBytes: 16,
+          viewerKind: "text",
+        }),
+      }),
+    ).rejects.toMatchObject({
+      code: "SHARE_DOWNLOAD_DISABLED",
+      status: 403,
+    });
+
+    expect(destroySpy).toHaveBeenCalledTimes(1);
+    expect(fakeHandle.close).toHaveBeenCalledTimes(1);
   });
 
   it("marks the file missing when original bytes are gone", async () => {

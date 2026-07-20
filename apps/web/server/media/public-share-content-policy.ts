@@ -1,3 +1,7 @@
+import type { FileSummary } from "@/server/files/types";
+
+import { isHeicFile } from "./heic-converter";
+
 const MIME_TOKEN = "[!#$%&'*+\\-.^_`|~0-9A-Za-z]+";
 const MIME_QUOTED_VALUE = '"(?:[\\t !#-\\[\\]-~]|\\\\[\\t !-~])*"';
 const MIME_TYPE_PATTERN = new RegExp(
@@ -47,13 +51,24 @@ const normalizePublicShareMimeType = (mimeType: string): string | null => {
   return `${match[1].toLowerCase()}/${match[2].toLowerCase()}`;
 };
 
-export const isPublicShareMimeSafeInline = (mimeType: string): boolean => {
+const isPublicShareMimeSafeInline = (mimeType: string): boolean => {
   const normalized = normalizePublicShareMimeType(mimeType);
   return normalized !== null && safeInlineMimeTypes.has(normalized);
 };
 
 export const getPublicShareResponseMimeType = (mimeType: string): string =>
   normalizePublicShareMimeType(mimeType) ?? "application/octet-stream";
+
+export const isPublicShareFileNativeViewSafe = (
+  file: Pick<FileSummary, "mimeType" | "name" | "viewerKind">,
+): boolean => {
+  const emittedMimeType =
+    file.viewerKind === "image" && isHeicFile(file)
+      ? "image/jpeg"
+      : getPublicShareResponseMimeType(file.mimeType);
+
+  return isPublicShareMimeSafeInline(emittedMimeType);
+};
 
 const createPublicShareContentHeaders = ({
   emittedMimeType,
@@ -92,3 +107,9 @@ export const applyPublicShareContentPolicy = (
 
   return response;
 };
+
+export const isPublicShareResponseAttachment = (response: Response): boolean =>
+  response.headers
+    .get("content-disposition")
+    ?.toLowerCase()
+    .startsWith("attachment;") ?? true;

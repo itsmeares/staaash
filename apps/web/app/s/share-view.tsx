@@ -14,7 +14,7 @@ import { authService } from "@/server/auth/service";
 import { ShareAudioPlayer } from "./share-audio-player";
 import type { FileSummary } from "@/server/files/types";
 import { ShareError } from "@/server/sharing/errors";
-import { isPublicShareMimeSafeInline } from "@/server/media/public-share-content-policy";
+import { isPublicShareFileNativeViewSafe } from "@/server/media/public-share-content-policy";
 import type {
   PublicShareResolution,
   ShareLinkSummary,
@@ -174,7 +174,9 @@ export function ShareFilePage({
     ? file.name.split(".").pop()?.toLowerCase()
     : null;
   const formatLabel = ext ?? file.mimeType;
-  const safeNativeInline = isPublicShareMimeSafeInline(file.mimeType);
+  const safeNativeInline = isPublicShareFileNativeViewSafe(file);
+  const canViewTextSource =
+    file.viewerKind === "text" && (safeNativeInline || !share.downloadDisabled);
 
   return (
     <main className="share-page sp-file-layout">
@@ -203,7 +205,7 @@ export function ShareFilePage({
           type="application/pdf"
           style={{ width: "100%", height: "75vh" }}
         />
-      ) : file.viewerKind === "text" ? (
+      ) : canViewTextSource ? (
         <TextFileViewer contentHref={contentHref} />
       ) : (file.viewerKind === "image" || file.viewerKind === "video") &&
         safeNativeInline ? (

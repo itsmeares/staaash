@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -115,6 +115,7 @@ describe("public derivative content responses", () => {
       request: new Request("http://localhost/poster", {
         headers: { range: "bytes=2-5" },
       }),
+      downloadDisabled: false,
       derivative: {
         storageKey: "derivative",
         sizeBytes: 10n,
@@ -138,6 +139,7 @@ describe("public derivative content responses", () => {
       await import("./public-share-content-response");
     const response = await createPublicReadyDerivativeContentResponse({
       request: new Request("http://localhost/poster"),
+      downloadDisabled: false,
       derivative: {
         storageKey: "unsafeDerivative",
         sizeBytes: 21n,
@@ -159,6 +161,32 @@ describe("public derivative content responses", () => {
     expect(await response.text()).toBe("<svg><script /></svg>");
   });
 
+  it("cancels an unsafe derivative blocked by download policy", async () => {
+    const { createPublicReadyDerivativeContentResponse } =
+      await import("./public-share-content-response");
+
+    await expect(
+      createPublicReadyDerivativeContentResponse({
+        request: new Request("http://localhost/poster"),
+        downloadDisabled: true,
+        derivative: {
+          storageKey: "unsafeDerivative",
+          sizeBytes: 21n,
+          mimeType: "image/svg+xml",
+        },
+        fileName: "generated.svg",
+      }),
+    ).rejects.toMatchObject({
+      code: "SHARE_DOWNLOAD_DISABLED",
+      status: 403,
+    });
+
+    const originalPath = paths.get("unsafeDerivative")!;
+    const movedPath = `${originalPath}.moved`;
+    await rename(originalPath, movedPath);
+    await rename(movedPath, originalPath);
+  });
+
   it("re-evaluates original MIME when derivative lookup falls back", async () => {
     mocks.findFirst
       .mockResolvedValueOnce(null)
@@ -167,6 +195,7 @@ describe("public derivative content responses", () => {
       await import("./public-share-content-response");
     const response = await createPublicShareContentResponse({
       request: new Request("http://localhost/content"),
+      downloadDisabled: false,
       file: makeVideoFile({
         name: "disguised.html",
         mimeType: "text/html; charset=UTF-8",
