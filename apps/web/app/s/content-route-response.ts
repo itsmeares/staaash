@@ -23,7 +23,7 @@ export const createPublicShareContentRouteResponse = async ({
     cookieStore.get(SHARE_ACCESS_COOKIE_NAME)?.value ?? null;
 
   try {
-    const { file } = fileId
+    const { file, downloadDisabled } = fileId
       ? await sharingService.getSharedNestedFileContent({
           token,
           fileId,
@@ -33,15 +33,10 @@ export const createPublicShareContentRouteResponse = async ({
           token,
           shareAccessCookieValue,
         });
-    const resolution = await sharingService.resolvePublicShare({
-      token,
-      shareAccessCookieValue,
-    });
-
     return await createPublicShareContentResponse({
       request,
       file,
-      downloadDisabled: resolution.share.downloadDisabled,
+      downloadDisabled,
     });
   } catch (error) {
     if (error instanceof MediaContentError) {

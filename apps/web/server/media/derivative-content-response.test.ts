@@ -99,6 +99,7 @@ describe("public derivative content responses", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.touchDerivativeViewed.mockResolvedValue(undefined);
     mocks.getStoragePath.mockImplementation((storageKey: string) =>
       paths.get(storageKey),
     );
@@ -132,6 +133,61 @@ describe("public derivative content responses", () => {
       PUBLIC_SHARE_CONTENT_SECURITY_POLICY,
     );
     expect(await response.text()).toBe("2345");
+  });
+
+  it("serves a ready MP4 preview inline for an unsafe original when downloads are disabled", async () => {
+    mocks.findFirst.mockResolvedValue({
+      id: "derivative-1",
+      status: "ready",
+      storageKey: "derivative",
+      sizeBytes: 10n,
+      mimeType: "video/mp4",
+    });
+    const { createPublicShareContentResponse } =
+      await import("./public-share-content-response");
+
+    const response = await createPublicShareContentResponse({
+      request: new Request("http://localhost/content"),
+      downloadDisabled: true,
+      file: makeVideoFile({
+        name: "source.mov",
+        mimeType: "video/quicktime",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("video/mp4");
+    expect(response.headers.get("content-disposition")).toMatch(/^inline;/u);
+    expect(response.headers.get("content-security-policy")).toBe(
+      PUBLIC_SHARE_CONTENT_SECURITY_POLICY,
+    );
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(await response.text()).toBe("0123456789");
+  });
+
+  it("fails a ready derivative with missing MIME closed", async () => {
+    mocks.findFirst.mockResolvedValue({
+      id: "derivative-1",
+      status: "ready",
+      storageKey: "unsafeDerivative",
+      sizeBytes: 21n,
+      mimeType: null,
+    });
+    const { createPublicShareContentResponse } =
+      await import("./public-share-content-response");
+
+    const response = await createPublicShareContentResponse({
+      request: new Request("http://localhost/content"),
+      downloadDisabled: false,
+      file: makeVideoFile(),
+    });
+
+    expect(response.headers.get("content-type")).toBe(
+      "application/octet-stream",
+    );
+    expect(response.headers.get("content-disposition")).toMatch(
+      /^attachment;/u,
+    );
   });
 
   it("forces a non-allowlisted derivative MIME to attachment", async () => {

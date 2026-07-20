@@ -544,6 +544,90 @@ describe("sharing service", () => {
     ).rejects.toMatchObject({ code: "SHARE_ACCESS_DENIED" });
   });
 
+  it("returns top-level content policy from its single share resolution", async () => {
+    const sharingRepo = createFakeSharingRepository();
+    const service = createSharingService({
+      repo: sharingRepo.repo,
+      filesRepo: fakeFilesRepo,
+      now: () => fixedNow,
+    });
+    const created = await service.createOrReissueShare({
+      actorUserId: "user-1",
+      actorRole: "member",
+      targetType: "file",
+      fileId: sharedFile.id,
+      expiresAt: addDays(5),
+      downloadDisabled: true,
+    });
+    const resolveSpy = vi.spyOn(service, "resolvePublicShare");
+
+    const result = await service.getSharedFileContent({
+      token: created.token,
+    });
+
+    expect(resolveSpy).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ file: sharedFile, downloadDisabled: true });
+  });
+
+  it("returns nested content policy from its single share resolution", async () => {
+    const sharingRepo = createFakeSharingRepository();
+    const service = createSharingService({
+      repo: sharingRepo.repo,
+      filesRepo: fakeFilesRepo,
+      now: () => fixedNow,
+    });
+    const created = await service.createOrReissueShare({
+      actorUserId: "user-1",
+      actorRole: "member",
+      targetType: "folder",
+      folderId: sharedFolder.id,
+      expiresAt: addDays(5),
+      downloadDisabled: true,
+    });
+    const resolveSpy = vi.spyOn(service, "resolvePublicShare");
+
+    const result = await service.getSharedNestedFileContent({
+      token: created.token,
+      fileId: childFile.id,
+    });
+
+    expect(resolveSpy).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ file: childFile, downloadDisabled: true });
+  });
+
+  it("preserves unavailable-target rejection for public content", async () => {
+    const sharingRepo = createFakeSharingRepository();
+    let targetAvailable = true;
+    const filesRepo = {
+      ...fakeFilesRepo,
+      async findFileById(fileId: string) {
+        if (fileId === sharedFile.id && !targetAvailable) return null;
+        return fakeFilesRepo.findFileById(fileId);
+      },
+      async listFilesByOwner() {
+        return targetAvailable ? [sharedFile, childFile] : [childFile];
+      },
+    } as unknown as FilesRepository;
+    const service = createSharingService({
+      repo: sharingRepo.repo,
+      filesRepo,
+      now: () => fixedNow,
+    });
+    const created = await service.createOrReissueShare({
+      actorUserId: "user-1",
+      actorRole: "member",
+      targetType: "file",
+      fileId: sharedFile.id,
+      expiresAt: addDays(5),
+    });
+
+    targetAvailable = false;
+
+    await expect(
+      service.getSharedFileContent({ token: created.token }),
+    ).rejects.toMatchObject({ code: "SHARE_TARGET_UNAVAILABLE" });
+  });
+
   it("schedules a social poster for small shared videos below preview threshold", async () => {
     const sharingRepo = createFakeSharingRepository();
     const videoFilesRepo = {

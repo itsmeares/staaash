@@ -122,9 +122,6 @@ describe("public share content routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.cookieGet.mockReturnValue(null);
-    mocks.resolvePublicShare.mockResolvedValue({
-      share: { downloadDisabled: false },
-    });
     mocks.getStoragePath.mockImplementation((storageKey: string) =>
       paths.get(storageKey),
     );
@@ -141,7 +138,10 @@ describe("public share content routes", () => {
       storageKey: "html",
       viewerKind: "text",
     });
-    mocks.getSharedFileContent.mockResolvedValue({ file });
+    mocks.getSharedFileContent.mockResolvedValue({
+      file,
+      downloadDisabled: false,
+    });
     const { GET } = await import("@/app/s/[token]/content/route");
 
     const response = await GET(
@@ -159,6 +159,8 @@ describe("public share content routes", () => {
     expect(await response.text()).toBe(
       "<!doctype html><script>window.executed = true</script>",
     );
+    expect(mocks.getSharedFileContent).toHaveBeenCalledTimes(1);
+    expect(mocks.resolvePublicShare).not.toHaveBeenCalled();
   });
 
   it("applies the same policy to nested shared SVG", async () => {
@@ -169,7 +171,10 @@ describe("public share content routes", () => {
       storageKey: "svg",
       viewerKind: "image",
     });
-    mocks.getSharedNestedFileContent.mockResolvedValue({ file });
+    mocks.getSharedNestedFileContent.mockResolvedValue({
+      file,
+      downloadDisabled: false,
+    });
     const { GET } =
       await import("@/app/s/[token]/files/[fileId]/content/route");
 
@@ -184,6 +189,8 @@ describe("public share content routes", () => {
       contentType: "application/octet-stream",
     });
     expect(await response.text()).toContain("<svg");
+    expect(mocks.getSharedNestedFileContent).toHaveBeenCalledTimes(1);
+    expect(mocks.resolvePublicShare).not.toHaveBeenCalled();
   });
 
   it("keeps public security headers on partial active content", async () => {
@@ -193,7 +200,10 @@ describe("public share content routes", () => {
       storageKey: "html",
       viewerKind: "text",
     });
-    mocks.getSharedFileContent.mockResolvedValue({ file });
+    mocks.getSharedFileContent.mockResolvedValue({
+      file,
+      downloadDisabled: false,
+    });
     const { GET } = await import("@/app/s/[token]/content/route");
 
     const response = await GET(
@@ -220,7 +230,10 @@ describe("public share content routes", () => {
       storageKey: "unknown",
       viewerKind: null,
     });
-    mocks.getSharedFileContent.mockResolvedValue({ file });
+    mocks.getSharedFileContent.mockResolvedValue({
+      file,
+      downloadDisabled: false,
+    });
     const { GET } = await import("@/app/s/[token]/content/route");
 
     const response = await GET(
@@ -245,9 +258,9 @@ describe("public share content routes", () => {
       storageKey: "unknown",
       viewerKind: null,
     });
-    mocks.getSharedFileContent.mockResolvedValue({ file });
-    mocks.resolvePublicShare.mockResolvedValue({
-      share: { downloadDisabled: true },
+    mocks.getSharedFileContent.mockResolvedValue({
+      file,
+      downloadDisabled: true,
     });
     const { GET } = await import("@/app/s/[token]/content/route");
 
@@ -257,6 +270,7 @@ describe("public share content routes", () => {
     );
 
     await expectDownloadDisabledResponse(response);
+    expect(mocks.resolvePublicShare).not.toHaveBeenCalled();
   });
 
   it("blocks top-level active HTML bytes when downloads are disabled", async () => {
@@ -266,9 +280,9 @@ describe("public share content routes", () => {
       storageKey: "html",
       viewerKind: "text",
     });
-    mocks.getSharedFileContent.mockResolvedValue({ file });
-    mocks.resolvePublicShare.mockResolvedValue({
-      share: { downloadDisabled: true },
+    mocks.getSharedFileContent.mockResolvedValue({
+      file,
+      downloadDisabled: true,
     });
     const { GET } = await import("@/app/s/[token]/content/route");
 
@@ -288,9 +302,9 @@ describe("public share content routes", () => {
       storageKey: "svg",
       viewerKind: "image",
     });
-    mocks.getSharedNestedFileContent.mockResolvedValue({ file });
-    mocks.resolvePublicShare.mockResolvedValue({
-      share: { downloadDisabled: true },
+    mocks.getSharedNestedFileContent.mockResolvedValue({
+      file,
+      downloadDisabled: true,
     });
     const { GET } =
       await import("@/app/s/[token]/files/[fileId]/content/route");
@@ -312,7 +326,10 @@ describe("public share content routes", () => {
         storageKey: "unknown",
         viewerKind: null,
       });
-      mocks.getSharedFileContent.mockResolvedValue({ file });
+      mocks.getSharedFileContent.mockResolvedValue({
+        file,
+        downloadDisabled: false,
+      });
       const { GET } = await import("@/app/s/[token]/content/route");
 
       const response = await GET(
@@ -336,9 +353,9 @@ describe("public share content routes", () => {
       storageKey: "png",
       viewerKind: "image",
     });
-    mocks.getSharedFileContent.mockResolvedValue({ file });
-    mocks.resolvePublicShare.mockResolvedValue({
-      share: { downloadDisabled: true },
+    mocks.getSharedFileContent.mockResolvedValue({
+      file,
+      downloadDisabled: true,
     });
     const { GET } = await import("@/app/s/[token]/content/route");
 
@@ -365,9 +382,9 @@ describe("public share content routes", () => {
       storageKey: "audio",
       viewerKind: "audio",
     });
-    mocks.getSharedNestedFileContent.mockResolvedValue({ file });
-    mocks.resolvePublicShare.mockResolvedValue({
-      share: { downloadDisabled: true },
+    mocks.getSharedNestedFileContent.mockResolvedValue({
+      file,
+      downloadDisabled: true,
     });
     const { GET } =
       await import("@/app/s/[token]/files/[fileId]/content/route");
@@ -386,6 +403,8 @@ describe("public share content routes", () => {
       contentType: "audio/mpeg",
     });
     expect(await response.text()).toBe("2345");
+    expect(mocks.getSharedNestedFileContent).toHaveBeenCalledTimes(1);
+    expect(mocks.resolvePublicShare).not.toHaveBeenCalled();
   });
 
   it("redirects active public previews only to the fail-closed content route", async () => {
@@ -395,7 +414,10 @@ describe("public share content routes", () => {
       storageKey: "html",
       viewerKind: "text",
     });
-    mocks.getSharedFileContent.mockResolvedValue({ file });
+    mocks.getSharedFileContent.mockResolvedValue({
+      file,
+      downloadDisabled: false,
+    });
     const { GET } = await import("@/app/s/[token]/preview/route");
 
     const response = await GET(
@@ -420,7 +442,10 @@ describe("public share content routes", () => {
       storageKey: "svg",
       viewerKind: "image",
     });
-    mocks.getSharedNestedFileContent.mockResolvedValue({ file });
+    mocks.getSharedNestedFileContent.mockResolvedValue({
+      file,
+      downloadDisabled: false,
+    });
     const { GET } =
       await import("@/app/s/[token]/files/[fileId]/preview/route");
 

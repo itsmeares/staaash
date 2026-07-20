@@ -51,17 +51,32 @@ const normalizePublicShareMimeType = (mimeType: string): string | null => {
   return `${match[1].toLowerCase()}/${match[2].toLowerCase()}`;
 };
 
-const isPublicShareMimeSafeInline = (mimeType: string): boolean => {
+export const getPublicShareSafeInlineMimeType = (
+  mimeType: string,
+): string | null => {
   const normalized = normalizePublicShareMimeType(mimeType);
-  return normalized !== null && safeInlineMimeTypes.has(normalized);
+  return normalized !== null && safeInlineMimeTypes.has(normalized)
+    ? normalized
+    : null;
 };
+
+const isPublicShareMimeSafeInline = (mimeType: string): boolean =>
+  getPublicShareSafeInlineMimeType(mimeType) !== null;
 
 export const getPublicShareResponseMimeType = (mimeType: string): string =>
   normalizePublicShareMimeType(mimeType) ?? "application/octet-stream";
 
 export const isPublicShareFileNativeViewSafe = (
   file: Pick<FileSummary, "mimeType" | "name" | "viewerKind">,
+  preview?: { safeInlineMimeType: string | null } | null,
 ): boolean => {
+  if (file.viewerKind === "video" && preview) {
+    return (
+      preview.safeInlineMimeType !== null &&
+      isPublicShareMimeSafeInline(preview.safeInlineMimeType)
+    );
+  }
+
   const emittedMimeType =
     file.viewerKind === "image" && isHeicFile(file)
       ? "image/jpeg"
@@ -77,16 +92,15 @@ const createPublicShareContentHeaders = ({
   emittedMimeType: string;
   fileName: string;
 }) => {
-  const normalized = normalizePublicShareMimeType(emittedMimeType);
-  const safeInline = normalized !== null && safeInlineMimeTypes.has(normalized);
+  const safeInlineMimeType = getPublicShareSafeInlineMimeType(emittedMimeType);
 
   return {
     "content-disposition": buildContentDisposition(
-      safeInline ? "inline" : "attachment",
+      safeInlineMimeType ? "inline" : "attachment",
       fileName,
     ),
     "content-security-policy": PUBLIC_SHARE_CONTENT_SECURITY_POLICY,
-    "content-type": safeInline ? normalized : "application/octet-stream",
+    "content-type": safeInlineMimeType ?? "application/octet-stream",
     "x-content-type-options": "nosniff",
   };
 };

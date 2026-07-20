@@ -16,6 +16,7 @@ import type { FileSummary } from "@/server/files/types";
 import { ShareError } from "@/server/sharing/errors";
 import { isPublicShareFileNativeViewSafe } from "@/server/media/public-share-content-policy";
 import type {
+  PublicShareFilePreview,
   PublicShareResolution,
   ShareLinkSummary,
 } from "@/server/sharing/types";
@@ -155,6 +156,7 @@ export function ShareFilePage({
   downloadHref,
   file,
   headerLabel,
+  preview,
   searchParams,
   share,
 }: {
@@ -164,6 +166,7 @@ export function ShareFilePage({
   downloadHref?: string;
   file: FileSummary;
   headerLabel: string;
+  preview?: PublicShareFilePreview | null;
   searchParams: Record<string, string | string[] | undefined>;
   share: Pick<ShareLinkSummary, "downloadDisabled" | "expiresAt">;
 }) {
@@ -174,7 +177,7 @@ export function ShareFilePage({
     ? file.name.split(".").pop()?.toLowerCase()
     : null;
   const formatLabel = ext ?? file.mimeType;
-  const safeNativeInline = isPublicShareFileNativeViewSafe(file);
+  const safeNativeInline = isPublicShareFileNativeViewSafe(file, preview);
   const canViewTextSource =
     file.viewerKind === "text" && (safeNativeInline || !share.downloadDisabled);
 
@@ -281,12 +284,18 @@ export function ShareFilePage({
 }
 
 type ShareViewProps = {
+  filePreview?: PublicShareFilePreview | null;
   resolution: PublicShareResolution;
   token: string;
   searchParams: Record<string, string | string[] | undefined>;
 };
 
-export function ShareView({ resolution, token, searchParams }: ShareViewProps) {
+export function ShareView({
+  filePreview,
+  resolution,
+  token,
+  searchParams,
+}: ShareViewProps) {
   const error = getSingleSearchParam(searchParams, "error");
   const success = getSingleSearchParam(searchParams, "success");
   const isLocked =
@@ -316,6 +325,7 @@ export function ShareView({ resolution, token, searchParams }: ShareViewProps) {
         downloadHref={`/s/${encodeURIComponent(token)}/download`}
         file={resolution.file}
         headerLabel="Shared file"
+        preview={filePreview}
         searchParams={searchParams}
         share={resolution.share}
       />

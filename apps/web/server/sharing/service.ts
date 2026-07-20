@@ -1205,7 +1205,7 @@ export const createSharingService = ({
     }: {
       token: string;
       shareAccessCookieValue?: string | null;
-    }): Promise<{ file: StoredFile }> {
+    }): Promise<{ file: StoredFile; downloadDisabled: boolean }> {
       const resolved = await this.resolvePublicShare({
         token,
         shareAccessCookieValue,
@@ -1225,7 +1225,7 @@ export const createSharingService = ({
         await resolveFilesRepo()
       ).findFileById(resolved.file.id))!;
 
-      return { file };
+      return { file, downloadDisabled: resolved.share.downloadDisabled };
     },
 
     async getSharedNestedFileContent({
@@ -1236,7 +1236,7 @@ export const createSharingService = ({
       token: string;
       fileId: string;
       shareAccessCookieValue?: string | null;
-    }): Promise<{ file: StoredFile }> {
+    }): Promise<{ file: StoredFile; downloadDisabled: boolean }> {
       const resolved = await this.resolvePublicShare({
         token,
         shareAccessCookieValue,
@@ -1274,7 +1274,7 @@ export const createSharingService = ({
         throw new ShareError("SHARE_ACCESS_DENIED");
       }
 
-      return { file };
+      return { file, downloadDisabled: resolved.share.downloadDisabled };
     },
   };
 };

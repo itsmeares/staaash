@@ -209,7 +209,7 @@ export const createInlineContentResponse = async ({
       request,
       derivative.storageKey,
       Number(derivative.sizeBytes),
-      derivative.mimeType ?? "video/mp4",
+      derivative.mimeType ?? "application/octet-stream",
       file.name,
     );
 
