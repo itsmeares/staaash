@@ -84,7 +84,7 @@ importers:
         specifier: 19.2.7
         version: 19.2.7(react@19.2.7)
       shadcn:
-        specifier: ^4.13.0
+        specifier: ^4.13.1
         version: 4.13.1(typescript@6.0.3)
       sonner:
         specifier: ^2.0.7
