@@ -477,6 +477,7 @@ export const createAuthService = ({
 
     async changeRequiredPassword(
       userId: string,
+      currentSessionId: string,
       input: { password: string; confirmPassword: string },
     ) {
       const parsed = requiredPasswordChangeInputSchema.parse(input);
@@ -497,11 +498,12 @@ export const createAuthService = ({
       }
 
       const passwordHash = await crypto.hashPassword(parsed.password);
-      const updated = await activeRepo.changeRequiredPassword(
+      const updated = await activeRepo.changeRequiredPassword({
         userId,
+        currentSessionId,
         passwordHash,
-        now(),
-      );
+        now: now(),
+      });
 
       if (!updated) {
         throw new AuthError("USER_NOT_FOUND");
