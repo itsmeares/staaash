@@ -10,7 +10,7 @@ overrides:
   hono: 4.12.30
   ip-address: 10.2.0
   postcss: 8.5.19
-  vite: 8.1.0
+  vite: 8.1.5
 allowBuilds:
   "@prisma/engines": true
   esbuild: true
