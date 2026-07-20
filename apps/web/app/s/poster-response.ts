@@ -4,7 +4,7 @@ import {
   createMediaErrorResponse,
   MediaContentError,
 } from "@/server/media/content-response";
-import { createReadyDerivativeContentResponse } from "@/server/media/derivative-content-response";
+import { createPublicReadyDerivativeContentResponse } from "@/server/media/public-share-content-response";
 import type { FileSummary } from "@/server/files/types";
 import { sharingService } from "@/server/sharing/service";
 
@@ -63,7 +63,7 @@ export const createSharePosterResponse = async ({
   const derivative = await findReadyPosterDerivative(file.id);
   if (!derivative) throw posterNotFound();
 
-  return createReadyDerivativeContentResponse({
+  return createPublicReadyDerivativeContentResponse({
     request,
     derivative,
     fileName: createPosterFileName(file.name),

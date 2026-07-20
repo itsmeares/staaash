@@ -4,6 +4,7 @@ import type { Readable } from "node:stream";
 import { getStoragePath } from "@/server/storage";
 import { prismaFilesRepository } from "@/server/files/repository";
 import type { StoredFile } from "@/server/files/types";
+import { convertHeicToJpeg } from "./heic-converter";
 
 const HEIC_MIME_TYPES = new Set([
   "image/heic",
@@ -257,20 +258,10 @@ export const createInlineOriginalContentResponse = async ({
 
     if (file.viewerKind === "image") {
       if (isHeicFile(file)) {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const heicConvert = require("heic-convert") as (options: {
-          buffer: Buffer;
-          format: "JPEG";
-          quality: number;
-        }) => Promise<ArrayBuffer>;
         const inputBuffer = await fileHandle.readFile();
         streamCreated = true;
         await fileHandle.close().catch(() => {});
-        const outputBuffer = await heicConvert({
-          buffer: inputBuffer,
-          format: "JPEG",
-          quality: 0.92,
-        });
+        const outputBuffer = await convertHeicToJpeg(inputBuffer);
         return new Response(outputBuffer, {
           status: 200,
           headers: {

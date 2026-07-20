@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const openMock = vi.fn();
 const getStoragePathMock = vi.fn();
 const markFileStorageMissingMock = vi.fn();
+const convertHeicToJpegMock = vi.fn();
 
 vi.mock("node:fs/promises", () => ({
   open: openMock,
@@ -20,6 +21,10 @@ vi.mock("@/server/files/repository", () => ({
   },
 }));
 
+vi.mock("@/server/media/heic-converter", () => ({
+  convertHeicToJpeg: convertHeicToJpegMock,
+}));
+
 const makeFile = (
   overrides: Partial<{
     id: string;
@@ -29,7 +34,7 @@ const makeFile = (
     name: string;
     mimeType: string;
     sizeBytes: number;
-    viewerKind: "image" | "video" | null;
+    viewerKind: "audio" | "image" | "pdf" | "text" | "video" | null;
     deletedAt: Date | null;
     createdAt: Date;
     updatedAt: Date;
@@ -143,6 +148,76 @@ describe("media content response", () => {
     expect(response.headers.get("content-length")).toBe("11");
     await expect(response.text()).resolves.toBe("hello world");
     expect(fakeHandle.close).not.toHaveBeenCalled();
+  });
+
+  it("keeps private authenticated response behavior unchanged", async () => {
+    const fakeHandle = {
+      stat: vi.fn().mockResolvedValue({ size: 16 }),
+      close: vi.fn().mockResolvedValue(undefined),
+      createReadStream: vi.fn(() =>
+        Readable.from([Buffer.from("<h1>private</h1>")]),
+      ),
+    };
+    openMock.mockResolvedValueOnce(fakeHandle);
+    getStoragePathMock.mockReturnValueOnce("C:\\temp\\private.html");
+
+    const { createInlineOriginalContentResponse } =
+      await import("@/server/media/content-response");
+    const response = await createInlineOriginalContentResponse({
+      request: new Request("http://localhost/content"),
+      file: makeFile({
+        name: "private.html",
+        mimeType: "text/html",
+        sizeBytes: 16,
+        viewerKind: "text",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/html");
+    expect(response.headers.get("content-disposition")).toBe(
+      "inline; filename*=UTF-8''private.html",
+    );
+    expect(response.headers.has("content-security-policy")).toBe(false);
+    expect(await response.text()).toBe("<h1>private</h1>");
+  });
+
+  it("applies public policy to emitted JPEG after HEIC conversion", async () => {
+    const jpegBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xd9]);
+    const fakeHandle = {
+      stat: vi.fn().mockResolvedValue({ size: 12 }),
+      readFile: vi.fn().mockResolvedValue(Buffer.from("heic-source")),
+      close: vi.fn().mockResolvedValue(undefined),
+      createReadStream: vi.fn(),
+    };
+    openMock.mockResolvedValueOnce(fakeHandle);
+    getStoragePathMock.mockReturnValueOnce("C:\\temp\\photo.heic");
+    convertHeicToJpegMock.mockResolvedValueOnce(jpegBytes.buffer);
+
+    const { createPublicShareContentResponse } =
+      await import("@/server/media/public-share-content-response");
+    const response = await createPublicShareContentResponse({
+      request: new Request("http://localhost/content"),
+      file: makeFile({
+        name: "photo.heic",
+        mimeType: "image/heic",
+        sizeBytes: 12,
+        viewerKind: "image",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/jpeg");
+    expect(response.headers.get("content-disposition")).toBe(
+      "inline; filename*=UTF-8''photo.heic",
+    );
+    expect(response.headers.get("content-security-policy")).toBe(
+      "sandbox; default-src 'none'; form-action 'none'; base-uri 'none'",
+    );
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(jpegBytes);
+    expect(convertHeicToJpegMock).toHaveBeenCalledWith(
+      Buffer.from("heic-source"),
+    );
   });
 
   it("marks the file missing when original bytes are gone", async () => {

@@ -108,6 +108,11 @@ describe("public share poster route", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("image/jpeg");
     expect(response.headers.get("content-length")).toBe("12");
+    expect(response.headers.get("content-disposition")).toMatch(/^inline;/u);
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.get("content-security-policy")).toBe(
+      "sandbox; default-src 'none'; form-action 'none'; base-uri 'none'",
+    );
     expect(await response.text()).toBe("poster-bytes");
   });
 

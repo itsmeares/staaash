@@ -224,4 +224,96 @@ describe("folder public link behavior", () => {
     expect(markup).not.toContain("2026");
     expect(markup).not.toContain("Breadcrumb");
   });
+
+  it("renders active HTML as fetched escaped-text UI, not a native embed", async () => {
+    const resolution: PublicShareResolution = {
+      ...lockedFileResolution,
+      share: {
+        ...lockedFileResolution.share,
+        hasPassword: false,
+      },
+      access: {
+        requiresPassword: false,
+        isUnlocked: true,
+      },
+      file: {
+        ...lockedFileResolution.file,
+        name: "payload.html",
+        mimeType: "text/html; charset=UTF-8",
+        viewerKind: "text",
+      },
+    };
+
+    const markup = await renderMarkup(
+      createElement(ShareView, {
+        resolution,
+        searchParams: {},
+        token: "token",
+      }),
+    );
+
+    expect(markup).toContain("Loading…");
+    expect(markup).not.toMatch(/<(?:audio|embed|iframe|img|object|video)\b/u);
+  });
+
+  it("does not native-embed a shared SVG classified as an image", async () => {
+    const resolution: PublicShareResolution = {
+      ...lockedFileResolution,
+      share: {
+        ...lockedFileResolution.share,
+        hasPassword: false,
+      },
+      access: {
+        requiresPassword: false,
+        isUnlocked: true,
+      },
+      file: {
+        ...lockedFileResolution.file,
+        name: "payload.svg",
+        mimeType: "image/svg+xml",
+        viewerKind: "image",
+      },
+    };
+
+    const markup = await renderMarkup(
+      createElement(ShareView, {
+        resolution,
+        searchParams: {},
+        token: "token",
+      }),
+    );
+
+    expect(markup).toContain("payload.svg");
+    expect(markup).not.toMatch(/<(?:audio|embed|iframe|img|object|video)\b/u);
+  });
+
+  it("keeps an allowlisted raster image native-inline", async () => {
+    const resolution: PublicShareResolution = {
+      ...lockedFileResolution,
+      share: {
+        ...lockedFileResolution.share,
+        hasPassword: false,
+      },
+      access: {
+        requiresPassword: false,
+        isUnlocked: true,
+      },
+      file: {
+        ...lockedFileResolution.file,
+        name: "safe.png",
+        mimeType: "image/png",
+        viewerKind: "image",
+      },
+    };
+
+    const markup = await renderMarkup(
+      createElement(ShareView, {
+        resolution,
+        searchParams: {},
+        token: "token",
+      }),
+    );
+
+    expect(markup).toContain('<img alt="safe.png" src="/s/token/content"');
+  });
 });
