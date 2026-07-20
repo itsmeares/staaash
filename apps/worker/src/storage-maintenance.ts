@@ -1,11 +1,11 @@
 import path from "node:path";
 import {
+  lstat,
   mkdir,
   opendir,
   readFile,
   rename,
   rm,
-  stat,
   writeFile,
 } from "node:fs/promises";
 import { z } from "zod";
@@ -93,31 +93,84 @@ export const writeHeartbeat = async (
   );
 };
 
-export const shouldCleanupStagedUpload = (
+const shouldCleanupStagedUpload = (
   createdAt: Date,
   ttlMs: number,
   now = new Date(),
 ) => now.getTime() - createdAt.getTime() >= ttlMs;
 
+const canonicalStoragePath = (candidatePath: string) => {
+  const resolvedPath = path.resolve(candidatePath);
+  return process.platform === "win32"
+    ? resolvedPath.toLowerCase()
+    : resolvedPath;
+};
+
+const isPathInsideRoot = (rootPath: string, candidatePath: string) => {
+  const relativePath = path.relative(rootPath, candidatePath);
+  return (
+    relativePath !== "" &&
+    !relativePath.startsWith("..") &&
+    !path.isAbsolute(relativePath)
+  );
+};
+
+const getStagingCleanupCandidate = ({
+  tmpRoot,
+  entryName,
+  protectedPaths,
+}: {
+  tmpRoot: string;
+  entryName: string;
+  protectedPaths: Set<string>;
+}) => {
+  const absolutePath = path.resolve(tmpRoot, entryName);
+  if (!isPathInsideRoot(tmpRoot, absolutePath)) {
+    return null;
+  }
+  if (protectedPaths.has(canonicalStoragePath(absolutePath))) {
+    return null;
+  }
+  return absolutePath;
+};
+
 export const cleanupExpiredStagingFiles = async ({
   tmpRoot,
   ttlMs,
+  protectedPaths,
   now = new Date(),
 }: {
   tmpRoot: string;
   ttlMs: number;
+  protectedPaths: Iterable<string>;
   now?: Date;
 }) => {
-  await mkdir(tmpRoot, { recursive: true });
-  const directory = await opendir(tmpRoot);
+  const resolvedTmpRoot = path.resolve(tmpRoot);
+  const canonicalProtectedPaths = new Set(
+    Array.from(protectedPaths, canonicalStoragePath),
+  );
+
+  await mkdir(resolvedTmpRoot, { recursive: true });
+  const directory = await opendir(resolvedTmpRoot);
 
   for await (const entry of directory) {
     if (!entry.isFile() || !entry.name.endsWith(".upload")) {
       continue;
     }
 
-    const absolutePath = path.join(tmpRoot, entry.name);
-    const stats = await stat(absolutePath);
+    const absolutePath = getStagingCleanupCandidate({
+      tmpRoot: resolvedTmpRoot,
+      entryName: entry.name,
+      protectedPaths: canonicalProtectedPaths,
+    });
+    if (!absolutePath) {
+      continue;
+    }
+
+    const stats = await lstat(absolutePath);
+    if (!stats.isFile()) {
+      continue;
+    }
 
     if (!shouldCleanupStagedUpload(stats.mtime, ttlMs, now)) {
       continue;
