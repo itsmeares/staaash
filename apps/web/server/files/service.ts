@@ -37,6 +37,7 @@ import {
   finalizePendingDelete,
   getDirectoryMutationLockKey,
   getEntryMutationLockKey,
+  moveStorageEntriesWithLock,
   moveStorageEntryWithLock,
   quarantineDeleteWithLock,
   rollbackPendingDelete,
@@ -1131,73 +1132,150 @@ export const createFilesService = ({
       });
       const previousFileStates: Array<Pick<StoredFile, "id" | "storageKey">> =
         [];
-      const fromStorageKey = buildFolderStorageKey({
+      const activeFromStorageKey = buildFolderStorageKey({
         folder,
         folderMap: currentFolderMap,
         filesRoot,
         trashed: false,
       });
-      const toStorageKey = buildFolderStorageKey({
+      const activeToStorageKey = buildFolderStorageKey({
         folder: nextFolder,
         folderMap: nextFolderMap,
         filesRoot,
         trashed: false,
       });
+      const storageMoves = [
+        {
+          fromPath: getStoragePath(activeFromStorageKey),
+          toPath: getStoragePath(activeToStorageKey),
+        },
+      ];
+      const topLevelTrashedFolders = descendants.filter((item) => {
+        if (!item.deletedAt) {
+          return false;
+        }
 
-      await moveStorageEntry({
-        fromStorageKey,
-        toStorageKey,
+        const parent = item.parentId
+          ? currentFolderMap.get(item.parentId)
+          : null;
+
+        return !parent?.deletedAt;
+      });
+      const standaloneTrashedFiles = descendantFiles.filter((item) => {
+        if (!item.deletedAt) {
+          return false;
+        }
+
+        const parent = item.folderId
+          ? currentFolderMap.get(item.folderId)
+          : null;
+
+        return !parent?.deletedAt;
       });
 
-      try {
-        const updatedFolder = await activeRepo.updateFolder({
-          id: folder.id,
-          name: normalizedName,
+      for (const trashedFolder of topLevelTrashedFolders) {
+        const trashFromStorageKey = buildFolderStorageKey({
+          folder: trashedFolder,
+          folderMap: currentFolderMap,
+          filesRoot,
+          trashed: true,
+        });
+        const trashToStorageKey = buildFolderStorageKey({
+          folder: trashedFolder,
+          folderMap: nextFolderMap,
+          filesRoot,
+          trashed: true,
         });
 
-        for (const descendantFile of descendantFiles) {
-          const nextStorageKey = buildFileStorageKey({
-            file: descendantFile,
-            folderMap: nextFolderMap,
-            filesRoot,
-            trashed: false,
-          });
-
-          if (nextStorageKey === descendantFile.storageKey) {
-            continue;
-          }
-
-          previousFileStates.push({
-            id: descendantFile.id,
-            storageKey: descendantFile.storageKey,
-          });
-          await activeRepo.updateFile({
-            id: descendantFile.id,
-            storageKey: nextStorageKey,
-          });
-        }
-
-        return {
-          folder: updatedFolder,
-        };
-      } catch (error) {
-        for (const previousFileState of previousFileStates.reverse()) {
-          await activeRepo.updateFile({
-            id: previousFileState.id,
-            storageKey: previousFileState.storageKey,
-          });
-        }
-
-        await activeRepo.updateFolder({
-          id: folder.id,
-          name: folder.name,
+        storageMoves.push({
+          fromPath: getStoragePath(trashFromStorageKey),
+          toPath: getStoragePath(trashToStorageKey),
         });
-        await moveStorageEntry({
-          fromStorageKey: toStorageKey,
-          toStorageKey: fromStorageKey,
-        });
-        throw error;
       }
+
+      for (const trashedFile of standaloneTrashedFiles) {
+        const trashToStorageKey = buildFileStorageKey({
+          file: trashedFile,
+          folderMap: nextFolderMap,
+          filesRoot,
+          trashed: true,
+        });
+
+        storageMoves.push({
+          fromPath: getStoragePath(trashedFile.storageKey),
+          toPath: getStoragePath(trashToStorageKey),
+        });
+      }
+
+      return moveStorageEntriesWithLock({
+        entries: storageMoves,
+        lockKeys: storageMoves.flatMap(({ fromPath, toPath }) => [
+          getEntryMutationLockKey(fromPath),
+          getDirectoryMutationLockKey(fromPath),
+          getDirectoryMutationLockKey(toPath),
+        ]),
+        applyMetadataUpdate: async () => {
+          let folderUpdated = false;
+
+          try {
+            const updatedFolder = await activeRepo.updateFolder({
+              id: folder.id,
+              name: normalizedName,
+            });
+            folderUpdated = true;
+
+            for (const descendantFile of descendantFiles) {
+              const nextStorageKey = buildFileStorageKey({
+                file: descendantFile,
+                folderMap: nextFolderMap,
+                filesRoot,
+                trashed: descendantFile.deletedAt !== null,
+              });
+
+              if (nextStorageKey === descendantFile.storageKey) {
+                continue;
+              }
+
+              previousFileStates.push({
+                id: descendantFile.id,
+                storageKey: descendantFile.storageKey,
+              });
+              await activeRepo.updateFile({
+                id: descendantFile.id,
+                storageKey: nextStorageKey,
+              });
+            }
+
+            return {
+              folder: updatedFolder,
+            };
+          } catch (error) {
+            for (const previousFileState of [...previousFileStates].reverse()) {
+              try {
+                await activeRepo.updateFile({
+                  id: previousFileState.id,
+                  storageKey: previousFileState.storageKey,
+                });
+              } catch {
+                // Preserve the original metadata error.
+              }
+            }
+
+            if (folderUpdated) {
+              try {
+                await activeRepo.updateFolder({
+                  id: folder.id,
+                  name: folder.name,
+                });
+              } catch {
+                // Preserve the original metadata error.
+              }
+            }
+
+            throw error;
+          }
+        },
+      });
     },
 
     async moveFolder({
