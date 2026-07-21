@@ -112,6 +112,10 @@ export const SystemSettingsScalarFieldEnum = {
   maxUploadBytes: 'maxUploadBytes',
   uploadTimeoutMinutes: 'uploadTimeoutMinutes',
   uploadStagingRetentionHours: 'uploadStagingRetentionHours',
+  resumableMaxActiveSessionsPerUser: 'resumableMaxActiveSessionsPerUser',
+  resumableMaxActiveSessionsInstance: 'resumableMaxActiveSessionsInstance',
+  resumableMaxReservedBytesPerUser: 'resumableMaxReservedBytesPerUser',
+  resumableMaxReservedBytesInstance: 'resumableMaxReservedBytesInstance',
   previewMaxSourceBytes: 'previewMaxSourceBytes',
   previewTextMaxBytes: 'previewTextMaxBytes',
   workerHeartbeatMaxAgeSeconds: 'workerHeartbeatMaxAgeSeconds',
@@ -418,6 +422,12 @@ export const UploadSessionScalarFieldEnum = {
   conflictStrategy: 'conflictStrategy',
   status: 'status',
   expiresAt: 'expiresAt',
+  terminalAt: 'terminalAt',
+  stagingReleasedAt: 'stagingReleasedAt',
+  cleanupAttemptCount: 'cleanupAttemptCount',
+  cleanupLastAttemptAt: 'cleanupLastAttemptAt',
+  cleanupLastError: 'cleanupLastError',
+  committedFileId: 'committedFileId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

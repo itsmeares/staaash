@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getRequestSession } from "@/server/auth/guards";
 import { isSameOrigin, notSignedInResponse } from "@/server/auth/http";
 import { assertUploadSizeAllowed, UploadError } from "@/server/uploads";
+import { UploadAdmissionError } from "@/server/uploads/admission";
 import { createResumableSession } from "@/server/uploads/session-service";
 
 const createSessionSchema = z.object({
@@ -71,15 +72,26 @@ export async function POST(request: NextRequest) {
     throw error;
   }
 
-  const uploadSession = await createResumableSession({
-    ownerUserId: session.user.id,
-    folderId,
-    originalName,
-    mimeType,
-    totalSizeBytes,
-    expectedChecksum,
-    conflictStrategy,
-  });
+  let uploadSession;
+  try {
+    uploadSession = await createResumableSession({
+      ownerUserId: session.user.id,
+      folderId,
+      originalName,
+      mimeType,
+      totalSizeBytes,
+      expectedChecksum,
+      conflictStrategy,
+    });
+  } catch (error) {
+    if (error instanceof UploadAdmissionError) {
+      return Response.json(
+        { error: error.message, code: error.code, details: error.details },
+        { status: error.status },
+      );
+    }
+    throw error;
+  }
 
   return Response.json(
     {

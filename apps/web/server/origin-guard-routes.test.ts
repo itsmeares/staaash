@@ -11,6 +11,7 @@ import {
 import { POST as createUploadSession } from "@/app/api/uploads/sessions/route";
 import { scheduleZipArchiveGenerate } from "@staaash/db/jobs";
 import { createResumableSession } from "@/server/uploads/session-service";
+import { UploadAdmissionError } from "@/server/uploads/admission";
 
 vi.mock("@/server/auth/guards", () => ({
   getRequestSession: vi.fn(),
@@ -28,8 +29,6 @@ vi.mock("@/server/uploads", () => ({
 vi.mock("@/server/uploads/session-service", () => ({
   createResumableSession: vi.fn(),
   findActiveResumableSession: vi.fn(),
-  markSessionCancelled: vi.fn(),
-  markSessionCompleted: vi.fn(),
   updateSessionProgress: vi.fn(),
 }));
 
@@ -216,5 +215,26 @@ describe("upload session creation", () => {
 
     expect(response.status).toBe(400);
     expect(createResumableSession).not.toHaveBeenCalled();
+  });
+
+  it("returns stable admission error codes and status", async () => {
+    vi.mocked(createResumableSession).mockRejectedValue(
+      new UploadAdmissionError("RESUMABLE_INSTANCE_SESSION_LIMIT_EXCEEDED"),
+    );
+
+    const response = await createUploadSession(
+      sameOriginJsonRequest("/api/uploads/sessions", "POST", {
+        folderId: null,
+        originalName: "video.mp4",
+        mimeType: "video/mp4",
+        totalSizeBytes: 123,
+        expectedChecksum: null,
+      }),
+    );
+
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "RESUMABLE_INSTANCE_SESSION_LIMIT_EXCEEDED",
+    });
   });
 });

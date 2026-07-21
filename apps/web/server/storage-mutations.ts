@@ -57,6 +57,17 @@ type ReplaceCommittedUploadWithLockOptions<T> = {
   applyMetadataUpdate: () => Promise<T>;
 };
 
+type CommitResumableUploadWithLockOptions<T> = {
+  stagedPath: string;
+  targetPath: string;
+  lockKeys: string[];
+  deadline?: StorageDeadline;
+  applyMetadataUpdate: () => Promise<T>;
+};
+
+type ReplaceResumableUploadWithLockOptions<T> =
+  ReplaceCommittedUploadWithLockOptions<T>;
+
 type MoveStorageEntryWithLockOptions = {
   fromPath: string;
   toPath: string;
@@ -107,6 +118,35 @@ class StorageMutationError extends Error {
     this.name = "StorageMutationError";
     this.code = code;
     this.status = storageMutationStatuses[code];
+  }
+}
+
+export type ResumableStorageCommitOutcome = "rolled-back" | "ambiguous";
+
+export class ResumableStorageCommitError extends Error {
+  readonly outcome: ResumableStorageCommitOutcome;
+  readonly originalError: unknown;
+  readonly rollbackError?: unknown;
+
+  constructor({
+    outcome,
+    originalError,
+    rollbackError,
+  }: {
+    outcome: ResumableStorageCommitOutcome;
+    originalError: unknown;
+    rollbackError?: unknown;
+  }) {
+    super(
+      outcome === "rolled-back"
+        ? "Resumable commit rolled back to staging."
+        : "Resumable commit outcome is ambiguous.",
+      { cause: originalError },
+    );
+    this.name = "ResumableStorageCommitError";
+    this.outcome = outcome;
+    this.originalError = originalError;
+    this.rollbackError = rollbackError;
   }
 }
 
@@ -240,6 +280,44 @@ export const commitStagedUploadWithLock = async ({
     },
   });
 
+export const commitResumableUploadWithLock = async <T>({
+  stagedPath,
+  targetPath,
+  lockKeys,
+  deadline,
+  applyMetadataUpdate,
+}: CommitResumableUploadWithLockOptions<T>) =>
+  withStorageLocks({
+    lockKeys,
+    deadline,
+    callback: async () => {
+      await assertPathMissing(targetPath);
+      await mkdir(path.dirname(targetPath), { recursive: true });
+      await rename(stagedPath, targetPath);
+
+      try {
+        return await applyMetadataUpdate();
+      } catch (originalError) {
+        try {
+          await assertPathMissing(stagedPath);
+          await assertPathPresent(targetPath);
+          await rename(targetPath, stagedPath);
+        } catch (rollbackError) {
+          throw new ResumableStorageCommitError({
+            outcome: "ambiguous",
+            originalError,
+            rollbackError,
+          });
+        }
+
+        throw new ResumableStorageCommitError({
+          outcome: "rolled-back",
+          originalError,
+        });
+      }
+    },
+  });
+
 export const replaceCommittedUploadWithLock = async <T>({
   stagedPath,
   targetPath,
@@ -286,6 +364,84 @@ export const replaceCommittedUploadWithLock = async <T>({
 
         throw error;
       }
+    },
+  });
+
+export const replaceResumableUploadWithLock = async <T>({
+  stagedPath,
+  targetPath,
+  uploadId,
+  lockKeys,
+  deadline,
+  applyMetadataUpdate,
+}: ReplaceResumableUploadWithLockOptions<T>) =>
+  withStorageLocks({
+    lockKeys,
+    deadline,
+    callback: async () => {
+      const backupPath = `${targetPath}.backup-${uploadId}`;
+      let targetBackedUp = false;
+
+      await mkdir(path.dirname(targetPath), { recursive: true });
+      await assertPathPresent(targetPath);
+      await assertPathMissing(backupPath);
+
+      try {
+        await rename(targetPath, backupPath);
+        targetBackedUp = true;
+        await rename(stagedPath, targetPath);
+      } catch (originalError) {
+        if (!targetBackedUp) {
+          throw new ResumableStorageCommitError({
+            outcome: "rolled-back",
+            originalError,
+          });
+        }
+
+        try {
+          await assertPathPresent(stagedPath);
+          await assertPathMissing(targetPath);
+          await rename(backupPath, targetPath);
+        } catch (rollbackError) {
+          throw new ResumableStorageCommitError({
+            outcome: "ambiguous",
+            originalError,
+            rollbackError,
+          });
+        }
+
+        throw new ResumableStorageCommitError({
+          outcome: "rolled-back",
+          originalError,
+        });
+      }
+
+      let result: T;
+      try {
+        result = await applyMetadataUpdate();
+      } catch (originalError) {
+        try {
+          await assertPathMissing(stagedPath);
+          await assertPathPresent(targetPath);
+          await assertPathPresent(backupPath);
+          await rename(targetPath, stagedPath);
+          await rename(backupPath, targetPath);
+        } catch (rollbackError) {
+          throw new ResumableStorageCommitError({
+            outcome: "ambiguous",
+            originalError,
+            rollbackError,
+          });
+        }
+
+        throw new ResumableStorageCommitError({
+          outcome: "rolled-back",
+          originalError,
+        });
+      }
+
+      await rm(backupPath, { force: true }).catch(() => undefined);
+      return result;
     },
   });
 

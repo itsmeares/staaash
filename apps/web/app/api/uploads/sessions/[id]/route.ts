@@ -1,6 +1,5 @@
 import { open, mkdir, type FileHandle } from "node:fs/promises";
 import path from "node:path";
-import { rm } from "node:fs/promises";
 import { Readable } from "node:stream";
 
 import { NextRequest } from "next/server";
@@ -12,7 +11,7 @@ import { getUploadChunkIndex } from "@/server/uploads/chunk-protocol";
 import {
   findCompletedUploadChunk,
   findActiveResumableSession,
-  markSessionCancelled,
+  cancelAndCleanupResumableSession,
   recordCompletedUploadChunk,
   type ResumableSession,
   updateSessionProgress,
@@ -363,10 +362,11 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
     );
   }
 
-  await Promise.all([
-    rm(uploadSession.tmpPath, { force: true }),
-    markSessionCancelled(id),
-  ]);
+  await cancelAndCleanupResumableSession({
+    id,
+    ownerUserId: session.user.id,
+    tmpPath: uploadSession.tmpPath,
+  });
 
   return new Response(null, { status: 204 });
 }

@@ -5,8 +5,11 @@ import { scheduleDerivativeGenerate } from "@staaash/db/media-derivatives";
 
 import { canAccessPrivateNamespace } from "@/server/access";
 import { getSystemSettings } from "@/server/settings";
-import { assertUserStorageQuotaAvailable } from "@/server/user-storage";
-import { FilesError } from "@/server/files/errors";
+import {
+  assertUserStorageQuotaAvailable,
+  withUserQuotaWrite,
+} from "@/server/user-storage";
+import { FilesError, ResumableCompletionError } from "@/server/files/errors";
 import {
   buildFileStorageKey,
   buildFolderStorageKey,
@@ -35,12 +38,15 @@ import {
 } from "@/server/storage";
 import {
   finalizePendingDelete,
+  commitResumableUploadWithLock as commitResumableStorageUpload,
   getDirectoryMutationLockKey,
   getEntryMutationLockKey,
   moveStorageEntriesWithLock,
   moveStorageEntryWithLock,
   quarantineDeleteWithLock,
   rollbackPendingDelete,
+  replaceResumableUploadWithLock as replaceResumableStorageUpload,
+  ResumableStorageCommitError,
   withStorageLocks,
 } from "@/server/storage-mutations";
 import {
@@ -57,6 +63,12 @@ import type {
 } from "@/server/uploads";
 
 import type { FilesRepository } from "./repository";
+import type { FilesTransactionClient } from "./repository";
+import {
+  completeResumableSessionWithFile,
+  recordResumableCommitRecoveryError,
+  restoreResumableSessionAfterCommitRollback,
+} from "@/server/uploads/session-service";
 import {
   buildFilePathLabel,
   buildFolderMap,
@@ -67,6 +79,8 @@ type CreateFilesServiceOptions = {
   repo?: FilesRepository;
   now?: () => Date;
   scheduleStagingCleanupJob?: (runAt: Date) => Promise<void>;
+  commitResumableStorageUpload?: typeof commitResumableStorageUpload;
+  replaceResumableStorageUpload?: typeof replaceResumableStorageUpload;
 };
 
 type FolderLookupInput = FilesActor & {
@@ -132,6 +146,7 @@ type UploadFilesResult = {
 };
 
 type CommitResumableUploadInput = FilesActor & {
+  uploadSessionId: string;
   tmpPath: string;
   folderId: string | null;
   originalName: string;
@@ -299,6 +314,10 @@ export const createFilesService = ({
   repo,
   now = () => new Date(),
   scheduleStagingCleanupJob,
+  commitResumableStorageUpload:
+    activeCommitResumableStorageUpload = commitResumableStorageUpload,
+  replaceResumableStorageUpload:
+    activeReplaceResumableStorageUpload = replaceResumableStorageUpload,
 }: CreateFilesServiceOptions = {}) => {
   const resolveRepo = async (): Promise<FilesRepository> =>
     repo ?? (await import("./repository")).prismaFilesRepository;
@@ -2041,14 +2060,28 @@ export const createFilesService = ({
                     targetPath: getStoragePath(activeConflict.item.storageKey),
                     deadline: uploadDeadline,
                     applyMetadataUpdate: () =>
-                      activeRepo.updateFile({
-                        id: activeConflict.item.id,
-                        name: activeConflict.item.name,
-                        mimeType: stagedFile.mimeType,
-                        sizeBytes: stagedFile.sizeBytes,
-                        contentChecksum: stagedFile.actualChecksum,
-                        deletedAt: null,
-                        folderId: targetFolder.id,
+                      withUserQuotaWrite({
+                        ownerUserId: targetFolder.ownerUserId,
+                        additionalBytes: BigInt(
+                          Math.max(
+                            0,
+                            stagedFile.sizeBytes -
+                              activeConflict.item.sizeBytes,
+                          ),
+                        ),
+                        callback: (tx) =>
+                          activeRepo.updateFile(
+                            {
+                              id: activeConflict.item.id,
+                              name: activeConflict.item.name,
+                              mimeType: stagedFile.mimeType,
+                              sizeBytes: stagedFile.sizeBytes,
+                              contentChecksum: stagedFile.actualChecksum,
+                              deletedAt: null,
+                              folderId: targetFolder.id,
+                            },
+                            tx as unknown as FilesTransactionClient,
+                          ),
                       }),
                   });
 
@@ -2114,15 +2147,23 @@ export const createFilesService = ({
               }
 
               try {
-                const createdFile = await activeRepo.createFile({
-                  id: fileId,
+                const createdFile = await withUserQuotaWrite({
                   ownerUserId: targetFolder.ownerUserId,
-                  folderId: targetFolder.id,
-                  name: finalName,
-                  storageKey,
-                  mimeType: stagedFile.mimeType,
-                  sizeBytes: stagedFile.sizeBytes,
-                  contentChecksum: stagedFile.actualChecksum,
+                  additionalBytes: BigInt(stagedFile.sizeBytes),
+                  callback: (tx) =>
+                    activeRepo.createFile(
+                      {
+                        id: fileId,
+                        ownerUserId: targetFolder.ownerUserId,
+                        folderId: targetFolder.id,
+                        name: finalName,
+                        storageKey,
+                        mimeType: stagedFile.mimeType,
+                        sizeBytes: stagedFile.sizeBytes,
+                        contentChecksum: stagedFile.actualChecksum,
+                      },
+                      tx as unknown as FilesTransactionClient,
+                    ),
                 });
 
                 uploadedFiles.push(toFileSummary(createdFile));
@@ -2189,6 +2230,7 @@ export const createFilesService = ({
     async commitResumableUpload({
       actorRole,
       actorUserId,
+      uploadSessionId,
       tmpPath,
       folderId,
       originalName,
@@ -2200,10 +2242,6 @@ export const createFilesService = ({
       const targetFolder = folderId
         ? await getActiveOwnedFolder({ actorRole, actorUserId, folderId })
         : await ensureFilesRoot(actorUserId);
-      await assertUserStorageQuotaAvailable(
-        targetFolder.ownerUserId,
-        BigInt(totalSizeBytes),
-      );
       const activeRepo = await resolveRepo();
       const filesRoot = await ensureFilesRoot(targetFolder.ownerUserId);
       const folderMap = buildFolderMap(
@@ -2241,21 +2279,49 @@ export const createFilesService = ({
               conflictStrategy === "replace" &&
               activeConflict.kind === "file"
             ) {
-              const updated = await replaceCommittedUpload({
-                stagedFile: { tmpPath, uploadId: randomUUID() },
-                targetPath: getStoragePath(activeConflict.item.storageKey),
-                applyMetadataUpdate: () =>
-                  activeRepo.updateFile({
-                    id: activeConflict.item.id,
-                    name: activeConflict.item.name,
-                    mimeType,
-                    sizeBytes: totalSizeBytes,
-                    contentChecksum,
-                    deletedAt: null,
-                    folderId: targetFolder.id,
-                  }),
-              });
-              return toFileSummary(updated);
+              try {
+                const updated = await activeReplaceResumableStorageUpload({
+                  stagedPath: tmpPath,
+                  uploadId: randomUUID(),
+                  targetPath: getStoragePath(activeConflict.item.storageKey),
+                  lockKeys: [
+                    getEntryMutationLockKey(tmpPath),
+                    getDirectoryMutationLockKey(tmpPath),
+                    getEntryMutationLockKey(
+                      getStoragePath(activeConflict.item.storageKey),
+                    ),
+                    getDirectoryMutationLockKey(
+                      getStoragePath(activeConflict.item.storageKey),
+                    ),
+                  ],
+                  applyMetadataUpdate: () =>
+                    completeResumableSessionWithFile({
+                      id: uploadSessionId,
+                      ownerUserId: targetFolder.ownerUserId,
+                      committedFileId: activeConflict.item.id,
+                      callback: (tx) =>
+                        activeRepo.updateFile(
+                          {
+                            id: activeConflict.item.id,
+                            name: activeConflict.item.name,
+                            mimeType,
+                            sizeBytes: totalSizeBytes,
+                            contentChecksum,
+                            deletedAt: null,
+                            folderId: targetFolder.id,
+                          },
+                          tx as unknown as FilesTransactionClient,
+                        ),
+                    }),
+                });
+                return toFileSummary(updated);
+              } catch (error) {
+                return recoverResumableCompletionFailure({
+                  error,
+                  uploadSessionId,
+                  ownerUserId: targetFolder.ownerUserId,
+                });
+              }
             }
 
             if (conflictStrategy === "safeRename") {
@@ -2293,23 +2359,44 @@ export const createFilesService = ({
           const fileId = randomUUID();
           const targetPath = getStoragePath(storageKey);
 
-          await commitStagedUpload({ tmpPath }, targetPath);
-
           let createdFile: StoredFile;
           try {
-            createdFile = await activeRepo.createFile({
-              id: fileId,
-              ownerUserId: targetFolder.ownerUserId,
-              folderId: targetFolder.id,
-              name: finalName,
-              storageKey,
-              mimeType,
-              sizeBytes: totalSizeBytes,
-              contentChecksum,
+            createdFile = await activeCommitResumableStorageUpload({
+              stagedPath: tmpPath,
+              targetPath,
+              lockKeys: [
+                getEntryMutationLockKey(tmpPath),
+                getDirectoryMutationLockKey(tmpPath),
+                getEntryMutationLockKey(targetPath),
+                getDirectoryMutationLockKey(targetPath),
+              ],
+              applyMetadataUpdate: () =>
+                completeResumableSessionWithFile({
+                  id: uploadSessionId,
+                  ownerUserId: targetFolder.ownerUserId,
+                  committedFileId: fileId,
+                  callback: (tx) =>
+                    activeRepo.createFile(
+                      {
+                        id: fileId,
+                        ownerUserId: targetFolder.ownerUserId,
+                        folderId: targetFolder.id,
+                        name: finalName,
+                        storageKey,
+                        mimeType,
+                        sizeBytes: totalSizeBytes,
+                        contentChecksum,
+                      },
+                      tx as unknown as FilesTransactionClient,
+                    ),
+                }),
             });
           } catch (error) {
-            await rm(targetPath, { force: true });
-            throw error;
+            return recoverResumableCompletionFailure({
+              error,
+              uploadSessionId,
+              ownerUserId: targetFolder.ownerUserId,
+            });
           }
 
           const summary = toFileSummary(createdFile);
@@ -2340,6 +2427,80 @@ export const createFilesService = ({
       });
     },
   };
+};
+
+const errorText = (error: unknown) =>
+  error instanceof Error ? error.message : "Unknown error.";
+
+const resumableRecoveryDiagnostic = (error: unknown) => {
+  if (!(error instanceof ResumableStorageCommitError)) {
+    return new Error(`Commit outcome unknown: ${errorText(error)}`);
+  }
+  const rollback = error.rollbackError
+    ? ` Rollback error: ${errorText(error.rollbackError)}`
+    : "";
+  return new Error(
+    `Commit ${error.outcome}: ${errorText(error.originalError)}${rollback}`,
+  );
+};
+
+const recoverResumableCompletionFailure = async ({
+  error,
+  uploadSessionId,
+  ownerUserId,
+}: {
+  error: unknown;
+  uploadSessionId: string;
+  ownerUserId: string;
+}): Promise<never> => {
+  const diagnostic = resumableRecoveryDiagnostic(error);
+  if (
+    !(error instanceof ResumableStorageCommitError) ||
+    error.outcome === "ambiguous"
+  ) {
+    await recordResumableCommitRecoveryError({
+      id: uploadSessionId,
+      ownerUserId,
+      error: diagnostic,
+    }).catch((recordError) => {
+      console.error(
+        "[uploads] Failed to record ambiguous resumable commit.",
+        recordError,
+      );
+    });
+    throw new ResumableCompletionError("RESUMABLE_COMMIT_AMBIGUOUS", {
+      cause: error,
+    });
+  }
+
+  try {
+    await restoreResumableSessionAfterCommitRollback({
+      id: uploadSessionId,
+      ownerUserId,
+      error: diagnostic,
+    });
+  } catch (restoreError) {
+    const combinedDiagnostic = new Error(
+      `${diagnostic.message} Session restore error: ${errorText(restoreError)}`,
+    );
+    await recordResumableCommitRecoveryError({
+      id: uploadSessionId,
+      ownerUserId,
+      error: combinedDiagnostic,
+    }).catch((recordError) => {
+      console.error(
+        "[uploads] Failed to record resumable session restore ambiguity.",
+        recordError,
+      );
+    });
+    throw new ResumableCompletionError("RESUMABLE_COMMIT_AMBIGUOUS", {
+      cause: restoreError,
+    });
+  }
+
+  throw new ResumableCompletionError("RESUMABLE_COMMIT_RETRYABLE", {
+    cause: error,
+  });
 };
 
 export const filesService = createFilesService();

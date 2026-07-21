@@ -42,6 +42,10 @@
     "./zip-archives": {
       "types": "./dist/zip-archives.d.ts",
       "default": "./dist/zip-archives.js"
+    },
+    "./upload-sessions": {
+      "types": "./dist/upload-sessions.d.ts",
+      "default": "./dist/upload-sessions.js"
     }
   },
   "scripts": {
