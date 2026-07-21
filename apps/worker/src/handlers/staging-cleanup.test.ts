@@ -25,6 +25,7 @@ type TestUploadSession = {
   cleanupLastAttemptAt?: Date | null;
   cleanupLastError?: string | null;
   committedFileId?: string | null;
+  conflictStrategy?: string;
 };
 
 const fixedNow = new Date("2026-04-06T12:00:00.000Z");
@@ -88,6 +89,7 @@ const createSessionClient = (sessions: TestUploadSession[]) => {
       id: session.id,
       tmpPath: session.tmpPath,
       committedFileId: session.committedFileId ?? null,
+      conflictStrategy: session.conflictStrategy ?? "safeRename",
     }));
   });
 
@@ -378,8 +380,10 @@ describe("staging cleanup handler", () => {
     const tmpRoot = path.join(filesRoot, "tmp");
     const presentPath = path.join(tmpRoot, "present.upload");
     const missingPath = path.join(tmpRoot, "missing.upload");
+    const replacementPath = path.join(tmpRoot, "replacement.upload");
     await mkdir(tmpRoot, { recursive: true });
     await writeFile(presentPath, "complete upload", "utf8");
+    await writeFile(replacementPath, "replacement upload", "utf8");
     const staleExpiry = new Date(fixedNow.getTime() - 1);
     const sessions: TestUploadSession[] = [
       {
@@ -401,6 +405,17 @@ describe("staging cleanup handler", () => {
         stagingReleasedAt: null,
         cleanupAttemptCount: 0,
         committedFileId: null,
+      },
+      {
+        id: "replacement",
+        status: "committing",
+        expiresAt: staleExpiry,
+        tmpPath: replacementPath,
+        terminalAt: null,
+        stagingReleasedAt: null,
+        cleanupAttemptCount: 0,
+        committedFileId: null,
+        conflictStrategy: "replace",
       },
     ];
     const { client } = createSessionClient(sessions);
@@ -437,9 +452,19 @@ describe("staging cleanup handler", () => {
       cleanupLastError:
         "Commit outcome ambiguous: original staging path is missing.",
     });
+    expect(sessions[2]).toMatchObject({
+      status: "committing",
+      terminalAt: null,
+      stagingReleasedAt: null,
+      cleanupAttemptCount: 1,
+      cleanupLastError:
+        "Commit outcome ambiguous: replacement storage state requires reconciliation.",
+    });
+    await expectPathToExist(replacementPath);
     expect(warnings).toEqual([
       "present: Recovered stale committing session: original staging file is present.",
       "missing: Commit outcome ambiguous: original staging path is missing.",
+      "replacement: Commit outcome ambiguous: replacement storage state requires reconciliation.",
     ]);
 
     await rm(filesRoot, { recursive: true, force: true });

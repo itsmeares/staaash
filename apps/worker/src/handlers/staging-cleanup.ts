@@ -26,6 +26,7 @@ type UploadSessionCleanupClient = {
         ownerUserId?: string;
         status?: string;
         committedFileId?: string | null;
+        conflictStrategy?: string;
       }>
     >;
     updateMany(args: object): Promise<{ count: number }>;
@@ -150,7 +151,12 @@ const recoverStaleCommittingSessions = async ({
       stagingReleasedAt: null,
       committedFileId: null,
     },
-    select: { id: true, tmpPath: true, committedFileId: true },
+    select: {
+      id: true,
+      tmpPath: true,
+      committedFileId: true,
+      conflictStrategy: true,
+    },
     take: CLEANUP_BATCH_SIZE,
   });
   const warnings: string[] = [];
@@ -158,6 +164,11 @@ const recoverStaleCommittingSessions = async ({
   for (const session of sessions) {
     let message: string;
     try {
+      if (session.conflictStrategy === "replace") {
+        throw new Error(
+          "Commit outcome ambiguous: replacement storage state requires reconciliation.",
+        );
+      }
       if (!pathIsInside(tmpRoot, session.tmpPath)) {
         throw new Error("Session staging path is outside the temporary root.");
       }

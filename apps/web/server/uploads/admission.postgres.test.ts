@@ -594,6 +594,160 @@ describe("UPL-01 PostgreSQL lifecycle and cleanup", () => {
     ).toBe(1);
   });
 
+  it("retains a stale replacement when the old target is backed up", async () => {
+    const user = await createUser();
+    await setLimits({
+      maxUploadBytes: 10n,
+      perUserBytes: 10n,
+      instanceBytes: 10n,
+    });
+    const name = "replace-before-install.bin";
+    const oldBytes = Buffer.from("old-target");
+    const newBytes = Buffer.from("new-upload");
+    const { filesRoot, storageKey, targetPath } = await getCommittedTarget({
+      ownerUserId: user.id,
+      ownerStorageId: user.storageId,
+      name,
+    });
+    await mkdir(path.dirname(targetPath), { recursive: true });
+    await writeFile(targetPath, oldBytes);
+    await filesRepo.createFile({
+      ownerUserId: user.id,
+      folderId: filesRoot.id,
+      name,
+      storageKey,
+      mimeType: "application/octet-stream",
+      sizeBytes: oldBytes.length,
+      contentChecksum: null,
+    });
+    const session = await createReadyToCommitSession({
+      ownerUserId: user.id,
+      name,
+      bytes: newBytes,
+      conflictStrategy: "replace",
+    });
+    const backupPath = `${targetPath}.backup-${session.id}`;
+    await rename(targetPath, backupPath);
+    await db.uploadSession.update({
+      where: { id: session.id },
+      data: { expiresAt: new Date(fixedNow.getTime() - 1) },
+    });
+
+    const expectedWarning = `${session.id}: Commit outcome ambiguous: replacement storage state requires reconciliation.`;
+    expect(await runCleanup({ now: fixedNow })).toEqual([expectedWarning]);
+    expect(
+      await db.uploadSession.findUniqueOrThrow({ where: { id: session.id } }),
+    ).toMatchObject({
+      status: "committing",
+      terminalAt: null,
+      stagingReleasedAt: null,
+      committedFileId: null,
+      cleanupAttemptCount: 1,
+      cleanupLastError:
+        "Commit outcome ambiguous: replacement storage state requires reconciliation.",
+    });
+    expect(await getUserStorageUsed(user.id)).toMatchObject({
+      reservedBytes: 10n,
+    });
+    expect(await readFile(session.tmpPath)).toEqual(newBytes);
+    expect(await readFile(backupPath)).toEqual(oldBytes);
+    await expect(access(targetPath)).rejects.toBeDefined();
+    await expectAdmissionCode(
+      reserve({ ownerUserId: user.id, sizeBytes: 1 }),
+      "RESUMABLE_USER_RESERVED_BYTES_LIMIT_EXCEEDED",
+    );
+
+    const afterRetention = new Date(
+      fixedNow.getTime() + UPLOAD_TERMINAL_RETENTION_MS * 2,
+    );
+    expect(await runCleanup({ now: afterRetention })).toEqual([
+      expectedWarning,
+    ]);
+    expect(
+      await db.uploadSession.findUniqueOrThrow({ where: { id: session.id } }),
+    ).toMatchObject({
+      status: "committing",
+      terminalAt: null,
+      stagingReleasedAt: null,
+      cleanupAttemptCount: 2,
+    });
+    expect(await readFile(session.tmpPath)).toEqual(newBytes);
+    expect(await readFile(backupPath)).toEqual(oldBytes);
+    await expect(access(targetPath)).rejects.toBeDefined();
+  });
+
+  it("retains a stale replacement midway through rollback", async () => {
+    const user = await createUser();
+    const name = "replace-mid-rollback.bin";
+    const oldBytes = Buffer.from("old-target");
+    const newBytes = Buffer.from("new-upload");
+    const { filesRoot, storageKey, targetPath } = await getCommittedTarget({
+      ownerUserId: user.id,
+      ownerStorageId: user.storageId,
+      name,
+    });
+    await mkdir(path.dirname(targetPath), { recursive: true });
+    await writeFile(targetPath, oldBytes);
+    await filesRepo.createFile({
+      ownerUserId: user.id,
+      folderId: filesRoot.id,
+      name,
+      storageKey,
+      mimeType: "application/octet-stream",
+      sizeBytes: oldBytes.length,
+      contentChecksum: null,
+    });
+    const session = await createReadyToCommitSession({
+      ownerUserId: user.id,
+      name,
+      bytes: newBytes,
+      conflictStrategy: "replace",
+    });
+    const backupPath = `${targetPath}.backup-${session.id}`;
+    await rename(targetPath, backupPath);
+    await rename(session.tmpPath, targetPath);
+    await rename(targetPath, session.tmpPath);
+    await db.uploadSession.update({
+      where: { id: session.id },
+      data: { expiresAt: new Date(fixedNow.getTime() - 1) },
+    });
+
+    const expectedWarning = `${session.id}: Commit outcome ambiguous: replacement storage state requires reconciliation.`;
+    expect(await runCleanup({ now: fixedNow })).toEqual([expectedWarning]);
+    expect(
+      await db.uploadSession.findUniqueOrThrow({ where: { id: session.id } }),
+    ).toMatchObject({
+      status: "committing",
+      terminalAt: null,
+      stagingReleasedAt: null,
+      committedFileId: null,
+      cleanupLastError:
+        "Commit outcome ambiguous: replacement storage state requires reconciliation.",
+    });
+    expect(await getUserStorageUsed(user.id)).toMatchObject({
+      reservedBytes: BigInt(newBytes.length),
+    });
+    expect(await readFile(session.tmpPath)).toEqual(newBytes);
+    expect(await readFile(backupPath)).toEqual(oldBytes);
+    await expect(access(targetPath)).rejects.toBeDefined();
+
+    expect(
+      await runCleanup({
+        now: new Date(fixedNow.getTime() + UPLOAD_TERMINAL_RETENTION_MS * 2),
+      }),
+    ).toEqual([expectedWarning]);
+    expect(
+      await db.uploadSession.findUniqueOrThrow({ where: { id: session.id } }),
+    ).toMatchObject({
+      status: "committing",
+      terminalAt: null,
+      stagingReleasedAt: null,
+    });
+    expect(await readFile(session.tmpPath)).toEqual(newBytes);
+    expect(await readFile(backupPath)).toEqual(oldBytes);
+    await expect(access(targetPath)).rejects.toBeDefined();
+  });
+
   it("retains ambiguous stale commits and their full capacity liability", async () => {
     const user = await createUser(10n);
     await setLimits({
