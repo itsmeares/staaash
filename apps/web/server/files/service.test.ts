@@ -16,6 +16,10 @@ import type {
 
 vi.mock("@/server/user-storage", () => ({
   assertUserStorageQuotaAvailable: vi.fn().mockResolvedValue(undefined),
+  withUserQuotaWrite: vi.fn(
+    async ({ callback }: { callback: (tx: unknown) => Promise<unknown> }) =>
+      callback({}),
+  ),
 }));
 
 type MemoryFolderRecord = FolderSummary & {};

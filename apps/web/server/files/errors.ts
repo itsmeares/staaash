@@ -101,3 +101,32 @@ export class FilesError extends Error {
 
 export const isFilesError = (error: unknown): error is FilesError =>
   error instanceof FilesError;
+
+export type ResumableCompletionErrorCode =
+  "RESUMABLE_COMMIT_RETRYABLE" | "RESUMABLE_COMMIT_AMBIGUOUS";
+
+const resumableCompletionErrorDetails: Record<
+  ResumableCompletionErrorCode,
+  { status: number; message: string }
+> = {
+  RESUMABLE_COMMIT_RETRYABLE: {
+    status: 503,
+    message: "Upload completion was rolled back safely. Retry completion.",
+  },
+  RESUMABLE_COMMIT_AMBIGUOUS: {
+    status: 500,
+    message: "Upload completion requires storage reconciliation.",
+  },
+};
+
+export class ResumableCompletionError extends Error {
+  readonly code: ResumableCompletionErrorCode;
+  readonly status: number;
+
+  constructor(code: ResumableCompletionErrorCode, options?: ErrorOptions) {
+    super(resumableCompletionErrorDetails[code].message, options);
+    this.name = "ResumableCompletionError";
+    this.code = code;
+    this.status = resumableCompletionErrorDetails[code].status;
+  }
+}

@@ -61,8 +61,8 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
   const visiblePanels = {
     uploads: matchesSearch(
       "uploads",
-      "upload limits temporary upload cleanup file preview limits",
-      "max upload size upload timeout temporary uploads preview source max preview text max",
+      "upload limits resumable sessions staging reserved bytes temporary upload cleanup file preview limits",
+      "max upload size active resumable uploads user instance staged bytes upload timeout temporary uploads preview source max preview text max",
     ),
     sessions: matchesSearch(
       "sessions",
@@ -148,6 +148,62 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
                 min={1}
                 className="settings-input"
               />
+            </SettingRow>
+            <SettingRow
+              label="Active resumable uploads per user"
+              hint="Maximum concurrent resumable sessions owned by one user."
+            >
+              <SettingsNumberInput
+                name="resumableMaxActiveSessionsPerUser"
+                defaultValue={settings.resumableMaxActiveSessionsPerUser}
+                min={1}
+                className="settings-input"
+              />
+            </SettingRow>
+            <SettingRow
+              label="Active resumable uploads instance-wide"
+              hint="Maximum concurrent resumable sessions across all users."
+            >
+              <SettingsNumberInput
+                name="resumableMaxActiveSessionsInstance"
+                defaultValue={settings.resumableMaxActiveSessionsInstance}
+                min={1}
+                className="settings-input"
+              />
+            </SettingRow>
+            <SettingRow
+              label="Resumable staged bytes per user"
+              hint="Includes active reservations and terminal staging files awaiting deletion."
+            >
+              <SettingsNumberInput
+                name="resumableMaxReservedBytesPerUser"
+                defaultValue={String(settings.resumableMaxReservedBytesPerUser)}
+                min={1}
+                className="settings-input"
+              />
+              <span className="settings-field-note">
+                {formatAdminBytes(
+                  Number(settings.resumableMaxReservedBytesPerUser),
+                )}
+              </span>
+            </SettingRow>
+            <SettingRow
+              label="Resumable staged bytes instance-wide"
+              hint="Hard staging-liability ceiling across all users."
+            >
+              <SettingsNumberInput
+                name="resumableMaxReservedBytesInstance"
+                defaultValue={String(
+                  settings.resumableMaxReservedBytesInstance,
+                )}
+                min={1}
+                className="settings-input"
+              />
+              <span className="settings-field-note">
+                {formatAdminBytes(
+                  Number(settings.resumableMaxReservedBytesInstance),
+                )}
+              </span>
             </SettingRow>
             <SettingRow label="Preview source max (bytes)">
               <SettingsNumberInput

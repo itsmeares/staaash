@@ -16,6 +16,11 @@ export default defineConfig({
     environment: "node",
     setupFiles: ["./vitest.setup.ts"],
     include: ["server/**/*.test.ts"],
+    exclude: [
+      "**/node_modules/**",
+      "**/.git/**",
+      "server/**/*.postgres.test.ts",
+    ],
     // Storage-backed integration tests share an isolated fixture tree.
     // Run files serially to avoid cross-file races on Windows filesystem ops.
     fileParallelism: false,

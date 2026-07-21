@@ -47,57 +47,61 @@ model Instance {
 }
 
 model SystemSettings {
-  id                            String   @id @default("singleton")
-  sessionMaxAgeDays             Int      @default(30)
-  shareMaxAgeDays               Int      @default(30)
-  maxUploadBytes                BigInt   @default(10737418240)
-  uploadTimeoutMinutes          Int      @default(60)
-  uploadStagingRetentionHours   Int      @default(2)
-  previewMaxSourceBytes         Int      @default(26214400)
-  previewTextMaxBytes           Int      @default(65536)
-  workerHeartbeatMaxAgeSeconds  Int      @default(120)
-  updateCheckIntervalHours      Int      @default(24)
-  updateCheckRepository         String   @default("itsmeares/staaash")
-  timeZone                      String   @default("UTC")
-  maintenanceRunTime            String   @default("02:00")
-  mediaPreviewEnabled           Boolean  @default(true)
-  mediaPreviewGenerateOnUpload  Boolean  @default(false)
-  mediaPreviewThresholdBytes    BigInt   @default(367001600)
-  mediaPreviewRetentionDays     Int      @default(14)
-  mediaPreviewMaxHeight         Int      @default(1080)
-  zipArchiveRetentionDays       Int      @default(7)
-  mediaPreviewCrf               Int      @default(22)
-  mediaPreviewMaxConcurrentJobs Int      @default(1)
-  createdAt                     DateTime @default(now())
-  updatedAt                     DateTime @updatedAt
+  id                                 String   @id @default("singleton")
+  sessionMaxAgeDays                  Int      @default(30)
+  shareMaxAgeDays                    Int      @default(30)
+  maxUploadBytes                     BigInt   @default(10737418240)
+  uploadTimeoutMinutes               Int      @default(60)
+  uploadStagingRetentionHours        Int      @default(2)
+  resumableMaxActiveSessionsPerUser  Int      @default(4)
+  resumableMaxActiveSessionsInstance Int      @default(32)
+  resumableMaxReservedBytesPerUser   BigInt   @default(21474836480)
+  resumableMaxReservedBytesInstance  BigInt   @default(107374182400)
+  previewMaxSourceBytes              Int      @default(26214400)
+  previewTextMaxBytes                Int      @default(65536)
+  workerHeartbeatMaxAgeSeconds       Int      @default(120)
+  updateCheckIntervalHours           Int      @default(24)
+  updateCheckRepository              String   @default("itsmeares/staaash")
+  timeZone                           String   @default("UTC")
+  maintenanceRunTime                 String   @default("02:00")
+  mediaPreviewEnabled                Boolean  @default(true)
+  mediaPreviewGenerateOnUpload       Boolean  @default(false)
+  mediaPreviewThresholdBytes         BigInt   @default(367001600)
+  mediaPreviewRetentionDays          Int      @default(14)
+  mediaPreviewMaxHeight              Int      @default(1080)
+  zipArchiveRetentionDays            Int      @default(7)
+  mediaPreviewCrf                    Int      @default(22)
+  mediaPreviewMaxConcurrentJobs      Int      @default(1)
+  createdAt                          DateTime @default(now())
+  updatedAt                          DateTime @updatedAt
 }
 
 model User {
-  id                        String                     @id @default(cuid())
-  email                     String                     @unique
-  storageId                 String                     @unique
-  displayName               String?
-  avatarUrl                 String?
-  passwordHash              String
-  isOwner                   Boolean                    @default(false)
-  isAdmin                   Boolean                    @default(false)
-  passwordChangeRequiredAt  DateTime?
-  temporaryPasswordIssuedAt DateTime?
+  id                              String                     @id @default(cuid())
+  email                           String                     @unique
+  storageId                       String                     @unique
+  displayName                     String?
+  avatarUrl                       String?
+  passwordHash                    String
+  isOwner                         Boolean                    @default(false)
+  isAdmin                         Boolean                    @default(false)
+  passwordChangeRequiredAt        DateTime?
+  temporaryPasswordIssuedAt       DateTime?
   temporaryPasswordIssuedByUserId String?
-  storageLimitBytes         BigInt?
-  createdAt                 DateTime                   @default(now())
-  updatedAt                 DateTime                   @updatedAt
-  sessions                  Session[]
-  preferences               UserPreference?
-  folders                   Folder[]                   @relation("FolderOwner")
-  files                     File[]                     @relation("FileOwner")
-  favoriteFiles             FavoriteFile[]
-  favoriteFolders           FavoriteFolder[]
-  recentFiles               RecentFile[]
-  recentFolders             RecentFolder[]
-  shareLinks                ShareLink[]                @relation("ShareLinkCreator")
-  restoreReconciliationRuns RestoreReconciliationRun[] @relation("RestoreReconciliationTrigger")
-  zipArchives               ZipArchive[]
+  storageLimitBytes               BigInt?
+  createdAt                       DateTime                   @default(now())
+  updatedAt                       DateTime                   @updatedAt
+  sessions                        Session[]
+  preferences                     UserPreference?
+  folders                         Folder[]                   @relation("FolderOwner")
+  files                           File[]                     @relation("FileOwner")
+  favoriteFiles                   FavoriteFile[]
+  favoriteFolders                 FavoriteFolder[]
+  recentFiles                     RecentFile[]
+  recentFolders                   RecentFolder[]
+  shareLinks                      ShareLink[]                @relation("ShareLinkCreator")
+  restoreReconciliationRuns       RestoreReconciliationRun[] @relation("RestoreReconciliationTrigger")
+  zipArchives                     ZipArchive[]
 
   @@index([isOwner])
   @@index([isAdmin])
@@ -155,26 +159,27 @@ model Folder {
 }
 
 model File {
-  id               String            @id @default(cuid())
-  ownerUserId      String
-  folderId         String?
-  originalName     String
-  storageKey       String            @unique
-  storageStatus    FileStorageStatus @default(available)
-  storageCheckedAt DateTime?
-  storageMissingAt DateTime?
-  mimeType         String
-  sizeBytes        BigInt
-  contentChecksum  String?
-  deletedAt        DateTime?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  owner            User              @relation("FileOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
-  folder           Folder?           @relation(fields: [folderId], references: [id], onDelete: SetNull)
-  favorites        FavoriteFile[]
-  recents          RecentFile[]
-  shareLink        ShareLink?        @relation("ShareLinkFile")
-  derivatives      MediaDerivative[]
+  id                      String            @id @default(cuid())
+  ownerUserId             String
+  folderId                String?
+  originalName            String
+  storageKey              String            @unique
+  storageStatus           FileStorageStatus @default(available)
+  storageCheckedAt        DateTime?
+  storageMissingAt        DateTime?
+  mimeType                String
+  sizeBytes               BigInt
+  contentChecksum         String?
+  deletedAt               DateTime?
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+  owner                   User              @relation("FileOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  folder                  Folder?           @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  favorites               FavoriteFile[]
+  recents                 RecentFile[]
+  shareLink               ShareLink?        @relation("ShareLinkFile")
+  derivatives             MediaDerivative[]
+  committedUploadSessions UploadSession[]   @relation("UploadSessionCommittedFile")
 
   @@index([ownerUserId, folderId, deletedAt])
   @@index([ownerUserId, folderId, deletedAt, storageStatus])
@@ -390,26 +395,37 @@ model ZipArchive {
 }
 
 model UploadSession {
-  id               String        @id @default(cuid())
-  ownerUserId      String
-  folderId         String?
-  originalName     String
-  mimeType         String
-  totalSizeBytes   BigInt
-  receivedBytes    BigInt        @default(0)
-  expectedChecksum String?
-  protocolVersion  Int           @default(1)
-  chunkSizeBytes   BigInt?
-  tmpPath          String
-  conflictStrategy String
-  status           String
-  expiresAt        DateTime
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  chunks           UploadChunk[]
+  id                   String        @id @default(cuid())
+  ownerUserId          String
+  folderId             String?
+  originalName         String
+  mimeType             String
+  totalSizeBytes       BigInt
+  receivedBytes        BigInt        @default(0)
+  expectedChecksum     String?
+  protocolVersion      Int           @default(1)
+  chunkSizeBytes       BigInt?
+  tmpPath              String        @unique
+  conflictStrategy     String
+  status               String
+  expiresAt            DateTime
+  terminalAt           DateTime?
+  stagingReleasedAt    DateTime?
+  cleanupAttemptCount  Int           @default(0)
+  cleanupLastAttemptAt DateTime?
+  cleanupLastError     String?
+  committedFileId      String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  chunks               UploadChunk[]
+  committedFile        File?         @relation("UploadSessionCommittedFile", fields: [committedFileId], references: [id], onDelete: SetNull)
 
-  @@index([ownerUserId, status])
-  @@index([expiresAt, status])
+  @@index([ownerUserId, status, expiresAt])
+  @@index([status, expiresAt])
+  @@index([ownerUserId, status, terminalAt])
+  @@index([status, terminalAt])
+  @@index([stagingReleasedAt])
+  @@index([committedFileId])
 }
 
 model UploadChunk {
