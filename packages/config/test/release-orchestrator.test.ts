@@ -18,7 +18,7 @@ import {
   ensureReleaseState,
   getReleaseById,
   markGitHubReleaseLatest,
-  publishDraftRelease,
+  publishRelease,
   readPackageVersions,
   readReleaseTemplates,
   reconcileDraftProvenance,
@@ -471,6 +471,26 @@ describe("exact release resolution", () => {
     expect(createRelease).not.toHaveBeenCalled();
   });
 
+  it("manual recovery accepts a published placeholder with complete provenance", () => {
+    const placeholder = {
+      ...release,
+      draft: false,
+      tag_name: "untagged-bea735233c6cf5fc799e",
+      target_commitish: "main",
+    };
+    const fetchRelease = vi.fn(() => placeholder);
+
+    expect(
+      ensureReleaseState({
+        context,
+        eventName: "workflow_dispatch",
+        provenance: complete,
+        recoveryReleaseId: release.id,
+        fetchRelease,
+      }),
+    ).toEqual(expect.objectContaining({ release: placeholder }));
+  });
+
   it("accepts a live-shaped placeholder response after tag-push creation", () => {
     const placeholder = {
       ...release,
@@ -590,7 +610,7 @@ describe("exact release resolution", () => {
     const fetchRelease = vi.fn(() => ({ ...published }));
 
     expect(
-      publishDraftRelease({
+      publishRelease({
         context,
         release,
         updateRelease,
@@ -598,6 +618,7 @@ describe("exact release resolution", () => {
       }),
     ).toEqual(published);
     expect(updateRelease).toHaveBeenCalledWith(context.repository, release.id, {
+      tag_name: context.release.tag,
       draft: false,
       make_latest: "false",
     });
@@ -620,7 +641,7 @@ describe("exact release resolution", () => {
     const fetchRelease = vi.fn();
 
     expect(() =>
-      publishDraftRelease({
+      publishRelease({
         context,
         release,
         updateRelease: () => placeholder,
@@ -630,13 +651,41 @@ describe("exact release resolution", () => {
     expect(fetchRelease).not.toHaveBeenCalled();
 
     expect(() =>
-      publishDraftRelease({
+      publishRelease({
         context,
         release,
         updateRelease: () => ({ ...release, draft: false }),
         fetchRelease: () => placeholder,
       }),
     ).toThrow("Published release tag is untagged-");
+  });
+
+  it("repairs a published placeholder with the same minimal binding patch", () => {
+    const placeholder = {
+      ...release,
+      draft: false,
+      tag_name: "untagged-bea735233c6cf5fc799e",
+      target_commitish: "main",
+    };
+    const published = {
+      ...placeholder,
+      tag_name: context.release.tag,
+    };
+    const updateRelease = vi.fn(() => published);
+
+    expect(
+      publishRelease({
+        context,
+        release: placeholder,
+        updateRelease,
+        fetchRelease: () => published,
+      }),
+    ).toEqual(published);
+    expect(updateRelease).toHaveBeenCalledWith(context.repository, release.id, {
+      tag_name: context.release.tag,
+      draft: false,
+      make_latest: "false",
+    });
   });
 
   it("marks a stable published release latest with one minimal field", () => {

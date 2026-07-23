@@ -511,6 +511,17 @@ const validateResolvedRelease = ({ release, context, releaseId }) => {
       releaseId,
     });
   }
+  if (DRAFT_TAG_PLACEHOLDER_PATTERN.test(release?.tag_name ?? "")) {
+    verifyResolvedReleaseId({ release, releaseId });
+    verifyReleasePrerelease({ release, context });
+    const identity = validateReleaseProvenance({ release, context });
+    if (identity.provenance.imageDigest === "pending") {
+      throw new Error(
+        "Published placeholder release still has pending image provenance.",
+      );
+    }
+    return identity;
+  }
   return validateResolvedPublishedRelease({ release, context, releaseId });
 };
 
@@ -603,14 +614,19 @@ const ensureReleaseState = ({
   return { release, ...identity };
 };
 
-const publishDraftRelease = ({
+const publishRelease = ({
   context,
   release,
   updateRelease = patchRelease,
   fetchRelease = getReleaseById,
 }) => {
   const releaseId = release.id;
+  if (!release.draft && release.tag_name === context.release.tag) {
+    validateResolvedPublishedRelease({ release, context, releaseId });
+    return release;
+  }
   const updated = updateRelease(context.repository, releaseId, {
+    tag_name: context.release.tag,
     draft: false,
     make_latest: "false",
   });
@@ -1472,9 +1488,7 @@ const commandPublish = async () => {
   await verifyRemoteAssets({ context, release, localAssets });
   verifyRecordedTagIdentity(context);
 
-  const published = release.draft
-    ? publishDraftRelease({ context, release })
-    : release;
+  const published = publishRelease({ context, release });
   await verifyRemoteAssets({ context, release: published, localAssets });
   verifyImage({ context, digest: imageDigest });
   verifyRecordedTagIdentity(context);
@@ -1654,7 +1668,7 @@ export {
   ensureReleaseState,
   getReleaseById,
   markGitHubReleaseLatest,
-  publishDraftRelease,
+  publishRelease,
   readPackageVersions,
   readReleaseTemplates,
   reconcileReleaseAssets,
