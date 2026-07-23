@@ -84,9 +84,10 @@ docker compose pull
 docker compose up -d
 ```
 
-Migrations run automatically on startup.
+Migrations run automatically on startup. These commands support upgrades between compatible releases in the Postgres 18 RC/current release line.
 
-Postgres major upgrades need extra care. Fresh installs use Postgres 18. Do not point the Postgres 18 container at an old Postgres 16 `postgres` folder by only changing the image tag. To keep beta data across this baseline change, use the Postgres 18 upgrade path in [`docs/operations/backup-restore.md`](../docs/operations/backup-restore.md).
+> [!WARNING]
+> Alpha and beta releases cannot be upgraded to the RC or v1 release line. Use a fresh installation of the current release. Do not reuse an alpha/beta deployment's internal database or storage directories as the data directories for the current installation.
 
 ### Data locations
 
