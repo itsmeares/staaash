@@ -28,6 +28,7 @@ import {
   serializeSha256Sums,
 } from "../../packages/config/dist/release.js";
 
+const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const PACKAGE_FILES = {
   root: "package.json",
@@ -42,6 +43,7 @@ const REQUIRED_ASSET_NAMES = [
   "release-manifest.json",
   "SHA256SUMS",
 ];
+const GITHUB_API_VERSION = "2022-11-28";
 const MISSING_IMAGE_PATTERN =
   /manifest unknown|not found|no such manifest|does not exist/iu;
 
@@ -632,7 +634,7 @@ const fetchAssetBytes = async (asset) => {
     headers: {
       Accept: "application/octet-stream",
       Authorization: `Bearer ${token}`,
-      "X-GitHub-Api-Version": "2022-11-28",
+      "X-GitHub-Api-Version": GITHUB_API_VERSION,
     },
   });
   if (!response.ok) {
@@ -641,6 +643,114 @@ const fetchAssetBytes = async (asset) => {
     );
   }
   return Buffer.from(await response.arrayBuffer());
+};
+
+const encodeQueryValue = (value) =>
+  encodeURIComponent(value).replace(
+    /[!'()*]/gu,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+
+const isValidReleaseAssetUploadUrl = ({ url, releaseId }) =>
+  [
+    url.protocol === "https:",
+    url.hostname === "uploads.github.com",
+    url.username === "",
+    url.password === "",
+    url.hash === "",
+    url.search === "",
+    url.pathname.endsWith(`/releases/${releaseId}/assets`),
+  ].every(Boolean);
+
+const releaseAssetUploadUrl = ({ release, name }) => {
+  if (!release.upload_url) {
+    throw new Error(`Release ${release.id} has no asset upload URL.`);
+  }
+  const url = new URL(release.upload_url.split("{", 1)[0]);
+  if (!isValidReleaseAssetUploadUrl({ url, releaseId: release.id })) {
+    throw new Error(`Release ${release.id} has an invalid asset upload URL.`);
+  }
+  url.search = `?name=${encodeQueryValue(name)}`;
+  return url.href;
+};
+
+const safeGitHubResponseText = (text) =>
+  text
+    .replace(/\p{Cc}/gu, " ")
+    .trim()
+    .slice(0, 1000);
+
+const uploadFailure = ({ name, status, detail }) =>
+  new Error(
+    [`Uploading release asset ${name} failed: HTTP ${status}`, detail]
+      .filter(Boolean)
+      .join(" "),
+  );
+
+const hasExpectedUploadMetadata = ({ uploaded, name, size }) => {
+  const metadata = Object(uploaded);
+  const expected = { name, state: "uploaded", size };
+  const valuesMatch = Object.entries(expected).every(
+    ([key, value]) => metadata[key] === value,
+  );
+  const identifiersExist = ["id", "url"].every((key) => Boolean(metadata[key]));
+  return valuesMatch && identifiersExist;
+};
+
+const parseUploadedAsset = ({ response, responseText, name, size }) => {
+  if (response.status !== 201) {
+    throw uploadFailure({
+      name,
+      status: response.status,
+      detail: safeGitHubResponseText(responseText),
+    });
+  }
+
+  let uploaded;
+  try {
+    uploaded = JSON.parse(responseText);
+  } catch {
+    throw uploadFailure({
+      name,
+      status: response.status,
+      detail: "returned invalid JSON.",
+    });
+  }
+  if (!hasExpectedUploadMetadata({ uploaded, name, size })) {
+    throw uploadFailure({
+      name,
+      status: response.status,
+      detail: "returned invalid asset metadata.",
+    });
+  }
+  return uploaded;
+};
+
+const uploadReleaseAsset = async ({
+  release,
+  name,
+  filePath,
+  token = requiredEnv("GH_TOKEN"),
+  fetchImpl = fetch,
+  readAsset = readFile,
+}) => {
+  const content = await readAsset(filePath);
+  const response = await fetchImpl(releaseAssetUploadUrl({ release, name }), {
+    method: "POST",
+    headers: {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/octet-stream",
+      "X-GitHub-Api-Version": GITHUB_API_VERSION,
+    },
+    body: content,
+  });
+  return parseUploadedAsset({
+    response,
+    responseText: await response.text(),
+    name,
+    size: content.byteLength,
+  });
 };
 
 const observedAssetsWithDigests = async (repository, releaseId) => {
@@ -917,26 +1027,30 @@ const reconcileDraftProvenance = ({
   return release;
 };
 
-const uploadMissingDraftAssets = async ({ context, release, localAssets }) => {
+const uploadMissingDraftAssets = async ({
+  context,
+  release,
+  localAssets,
+  observeAssets = observedAssetsWithDigests,
+  uploadAsset = uploadReleaseAsset,
+  refreshRelease = getRelease,
+}) => {
   const plan = planReleaseAssets({
     expected: expectedAssetDigests(localAssets),
-    observed: await observedAssetsWithDigests(context.repository, release.id),
+    observed: await observeAssets(context.repository, release.id),
     published: false,
   });
   if (plan.conflicts.length > 0) {
     throw new Error(`Draft assets conflict:\n${plan.conflicts.join("\n")}`);
   }
   for (const name of plan.upload) {
-    run("gh", [
-      "release",
-      "upload",
-      context.release.tag,
-      path.join(assetDirectory(), name),
-      "--repo",
-      context.repository,
-    ]);
+    await uploadAsset({
+      release,
+      name,
+      filePath: path.join(assetDirectory(), name),
+    });
   }
-  const refreshed = getRelease(context.repository, context.release.tag);
+  const refreshed = refreshRelease(context.repository, context.release.tag);
   if (!refreshed)
     throw new Error("Draft release disappeared after asset upload.");
   return refreshed;
@@ -948,6 +1062,7 @@ const reconcileDraftRelease = async ({
   provenance,
   complete,
   localAssets,
+  uploadOptions,
 }) => {
   const updated = reconcileDraftProvenance({
     context,
@@ -959,6 +1074,7 @@ const reconcileDraftRelease = async ({
     context,
     release: updated,
     localAssets,
+    ...uploadOptions,
   });
 };
 
@@ -969,12 +1085,38 @@ const verifyCompleteProvenance = ({ provenance, complete, published }) => {
   );
 };
 
+const reconcileReleaseAssets = async ({
+  context,
+  release,
+  provenance,
+  complete,
+  localAssets,
+  uploadOptions,
+  verifyAssets = verifyRemoteAssets,
+}) => {
+  let reconciled = release;
+  if (release.draft) {
+    reconciled = await reconcileDraftRelease({
+      context,
+      release,
+      provenance,
+      complete,
+      localAssets,
+      uploadOptions,
+    });
+  } else {
+    verifyCompleteProvenance({ provenance, complete, published: true });
+  }
+  await verifyAssets({ context, release: reconciled, localAssets });
+  return reconciled;
+};
+
 const commandReconcileRelease = async () => {
   const context = releaseContextFromEnv();
   const imageDigest = requiredEnv("IMAGE_DIGEST");
   verifyRecordedTagIdentity(context);
   const localAssets = await generatedAssets();
-  let release = getRelease(context.repository, context.release.tag);
+  const release = getRelease(context.repository, context.release.tag);
   if (!release) throw new Error("Draft release is missing.");
   const { provenance } = validateReleaseIdentity({ release, context });
   const complete = expectedCompleteProvenance({
@@ -983,18 +1125,13 @@ const commandReconcileRelease = async () => {
     assets: localAssets,
   });
 
-  if (release.draft) {
-    release = await reconcileDraftRelease({
-      context,
-      release,
-      provenance,
-      complete,
-      localAssets,
-    });
-  } else {
-    verifyCompleteProvenance({ provenance, complete, published: true });
-  }
-  await verifyRemoteAssets({ context, release, localAssets });
+  await reconcileReleaseAssets({
+    context,
+    release,
+    provenance,
+    complete,
+    localAssets,
+  });
 };
 
 const commandPublish = async () => {
@@ -1166,18 +1303,27 @@ const commands = {
   summary: commandSummary,
 };
 
-const command = process.argv[2];
-if (!command || !(command in commands)) {
-  throw new Error(`Unknown release command: ${command ?? "missing"}`);
-}
+export {
+  reconcileReleaseAssets,
+  releaseAssetUploadUrl,
+  uploadMissingDraftAssets,
+  uploadReleaseAsset,
+};
 
-try {
-  await commands[command]();
-} catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(message);
-  await writeSummary(
-    `## REL-01 failure\n\n\`\`\`text\n${message}\n\`\`\`\n\nRetry matching partial state with **Run workflow** and the same existing tag. Do not move/delete the tag, clobber assets, or overwrite a conflicting image. Conflicts require manual comparison of reported expected and actual SHA/digest values.`,
-  );
-  process.exitCode = 1;
+if (process.argv[1] && path.resolve(process.argv[1]) === SCRIPT_PATH) {
+  const command = process.argv[2];
+  if (!command || !(command in commands)) {
+    throw new Error(`Unknown release command: ${command ?? "missing"}`);
+  }
+
+  try {
+    await commands[command]();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(message);
+    await writeSummary(
+      `## REL-01 failure\n\n\`\`\`text\n${message}\n\`\`\`\n\nRetry matching partial state with **Run workflow** and the same existing tag. Do not move/delete the tag, clobber assets, or overwrite a conflicting image. Conflicts require manual comparison of reported expected and actual SHA/digest values.`,
+    );
+    process.exitCode = 1;
+  }
 }
