@@ -1,12 +1,23 @@
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  assetDirectory,
+  readPackageVersions,
+  readReleaseTemplates,
   reconcileReleaseAssets,
   releaseAssetUploadUrl,
+  resolveTagIdentity,
   uploadMissingDraftAssets,
   uploadReleaseAsset,
+  verifyPreflightToolingIdentity,
+  waitForRequiredCi,
 } from "../../../scripts/release/index.mjs";
 
 const localAssets = {
@@ -39,6 +50,163 @@ const complete = {
   immutableImage: `ghcr.io/itsmeares/staaash:v1.0.0-rc.7@sha256:${"a".repeat(64)}`,
   assetChecksums: {},
 };
+
+const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
+
+const git = (cwd: string, ...args: string[]) => {
+  const result = spawnSync("git", args, { cwd, encoding: "utf8" });
+  if (result.status !== 0) throw new Error(result.stderr || result.stdout);
+  return result.stdout.trim();
+};
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+describe("release trust roots", () => {
+  it("reads package versions and templates only from release source", async () => {
+    const sourceRoot = await mkdtemp(path.join(os.tmpdir(), "release-source-"));
+    try {
+      const packageFiles = [
+        "package.json",
+        "apps/web/package.json",
+        "apps/worker/package.json",
+        "packages/config/package.json",
+        "packages/db/package.json",
+      ];
+      await Promise.all(
+        packageFiles.map(async (file, index) => {
+          const target = path.join(sourceRoot, file);
+          await mkdir(path.dirname(target), { recursive: true });
+          await writeFile(
+            target,
+            JSON.stringify({ version: `source-${index}` }),
+          );
+        }),
+      );
+      await writeFile(
+        path.join(sourceRoot, "docker-compose.yml"),
+        "source compose\n",
+      );
+      await writeFile(path.join(sourceRoot, "example.env"), "source env\n");
+
+      await expect(readPackageVersions(sourceRoot)).resolves.toEqual({
+        root: "source-0",
+        web: "source-1",
+        worker: "source-2",
+        config: "source-3",
+        db: "source-4",
+      });
+      await expect(readReleaseTemplates(sourceRoot)).resolves.toEqual({
+        compose: "source compose\n",
+        environment: "source env\n",
+      });
+    } finally {
+      await rm(sourceRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("runs release Git identity against release source checkout", async () => {
+    const sourceRoot = await mkdtemp(path.join(os.tmpdir(), "release-git-"));
+    try {
+      git(sourceRoot, "init");
+      git(sourceRoot, "config", "user.name", "Release Test");
+      git(sourceRoot, "config", "user.email", "release@example.com");
+      await writeFile(path.join(sourceRoot, "source.txt"), "tagged source\n");
+      git(sourceRoot, "add", "source.txt");
+      git(sourceRoot, "commit", "-m", "tagged source");
+      git(sourceRoot, "tag", "-a", "v1.2.3", "-m", "v1.2.3");
+      vi.stubEnv("RELEASE_SOURCE_ROOT", sourceRoot);
+
+      expect(resolveTagIdentity("v1.2.3")).toEqual({
+        tagObject: git(sourceRoot, "rev-parse", "refs/tags/v1.2.3"),
+        releaseSha: git(sourceRoot, "rev-parse", "HEAD"),
+        tagType: "annotated",
+      });
+    } finally {
+      await rm(sourceRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("requires exact CI for release and distinct recovery tooling commits", async () => {
+    const waitForCi = vi.fn(async ({ releaseSha }: { releaseSha: string }) => ({
+      id: releaseSha,
+    }));
+
+    await expect(
+      waitForRequiredCi({
+        repository: "itsmeares/staaash",
+        releaseSha: "1".repeat(40),
+        toolingSha: "2".repeat(40),
+        waitForCi,
+      }),
+    ).resolves.toEqual({
+      releaseCiRun: { id: "1".repeat(40) },
+      toolingCiRun: { id: "2".repeat(40) },
+    });
+    expect(waitForCi).toHaveBeenCalledTimes(2);
+
+    waitForCi.mockClear();
+    await waitForRequiredCi({
+      repository: "itsmeares/staaash",
+      releaseSha: "1".repeat(40),
+      toolingSha: "1".repeat(40),
+      waitForCi,
+    });
+    expect(waitForCi).toHaveBeenCalledOnce();
+  });
+
+  it("requires absolute asset output and exact main recovery tooling", () => {
+    vi.stubEnv("ASSET_DIR", "relative-assets");
+    expect(() => assetDirectory()).toThrow(
+      "ASSET_DIR must be an absolute path",
+    );
+
+    const absoluteAssets = path.join(repositoryRoot, "release-assets");
+    vi.stubEnv("ASSET_DIR", absoluteAssets);
+    expect(assetDirectory()).toBe(path.normalize(absoluteAssets));
+
+    const toolingSha = git(repositoryRoot, "rev-parse", "HEAD");
+    vi.stubEnv("TOOLING_ROOT", repositoryRoot);
+    vi.stubEnv("RELEASE_EVENT_NAME", "workflow_dispatch");
+    vi.stubEnv("RECOVERY_REF", "refs/heads/main");
+    vi.stubEnv("EXPECTED_TOOLING_SHA", toolingSha);
+    expect(() =>
+      verifyPreflightToolingIdentity({
+        toolingSha,
+        releaseSha: "1".repeat(40),
+      }),
+    ).not.toThrow();
+
+    vi.stubEnv("RECOVERY_REF", "refs/heads/hotfix");
+    expect(() =>
+      verifyPreflightToolingIdentity({
+        toolingSha,
+        releaseSha: "1".repeat(40),
+      }),
+    ).toThrow("expected refs/heads/main");
+
+    vi.stubEnv("RECOVERY_REF", "refs/heads/main");
+    vi.stubEnv("EXPECTED_TOOLING_SHA", "2".repeat(40));
+    expect(() =>
+      verifyPreflightToolingIdentity({
+        toolingSha,
+        releaseSha: "1".repeat(40),
+      }),
+    ).toThrow("Recovery tooling is");
+
+    vi.stubEnv("RELEASE_EVENT_NAME", "push");
+    expect(() =>
+      verifyPreflightToolingIdentity({ toolingSha, releaseSha: toolingSha }),
+    ).not.toThrow();
+    expect(() =>
+      verifyPreflightToolingIdentity({
+        toolingSha,
+        releaseSha: "1".repeat(40),
+      }),
+    ).toThrow("Tag-push tooling is");
+  });
+});
 
 describe("release asset upload orchestration", () => {
   it("constructs a release-specific upload URL with RFC 3986 encoding", () => {
@@ -141,6 +309,7 @@ describe("release asset upload orchestration", () => {
         ],
         uploadAsset,
         refreshRelease,
+        assetRoot: () => repositoryRoot,
       }),
     ).resolves.toBe(refreshed);
 
@@ -177,6 +346,46 @@ describe("release asset upload orchestration", () => {
     );
   });
 
+  it("wraps network failures with sanitized asset context", async () => {
+    const token = "secret-token";
+    await expect(
+      uploadReleaseAsset({
+        release,
+        name: "example.env",
+        filePath: "unused",
+        token,
+        fetchImpl: async () => {
+          throw new Error(`socket${String.fromCharCode(0)} failed ${token}`);
+        },
+        readAsset: async () => Buffer.from("content"),
+      }),
+    ).rejects.toThrow(
+      "Uploading release asset example.env failed during network request: socket  failed [redacted]",
+    );
+  });
+
+  it("wraps response body read failures with asset context", async () => {
+    const response = {
+      status: 502,
+      text: async () => {
+        throw new Error("body stream aborted");
+      },
+    } as unknown as Response;
+
+    await expect(
+      uploadReleaseAsset({
+        release,
+        name: "SHA256SUMS",
+        filePath: "unused",
+        token: "token",
+        fetchImpl: async () => response,
+        readAsset: async () => Buffer.from("content"),
+      }),
+    ).rejects.toThrow(
+      "Uploading release asset SHA256SUMS failed during response body read: body stream aborted",
+    );
+  });
+
   it("verifies remote assets after successful missing-asset upload", async () => {
     const events: string[] = [];
     const refreshed = { ...release, body: "refreshed" };
@@ -202,6 +411,7 @@ describe("release asset upload orchestration", () => {
             events.push("refresh");
             return refreshed;
           },
+          assetRoot: () => repositoryRoot,
         },
         verifyAssets: async ({ release: verifiedRelease }) => {
           expect(verifiedRelease).toBe(refreshed);

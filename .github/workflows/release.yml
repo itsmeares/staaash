@@ -30,19 +30,53 @@ jobs:
       tag_object: ${{ steps.preflight.outputs.tag_object }}
       tag_type: ${{ steps.preflight.outputs.tag_type }}
       image_repository: ${{ steps.preflight.outputs.image_repository }}
+      release_ci_run_id: ${{ steps.preflight.outputs.release_ci_run_id }}
+      tooling_sha: ${{ steps.preflight.outputs.tooling_sha }}
+      tooling_ci_run_id: ${{ steps.preflight.outputs.tooling_ci_run_id }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
       EXPECTED_RELEASE_SHA: ${{ github.event_name == 'push' && github.sha || '' }}
       EXPECTED_TAG_OBJECT: ${{ github.event_name == 'push' && github.event.after || '' }}
+      EXPECTED_TOOLING_SHA: ${{ github.event_name == 'workflow_dispatch' && github.sha || '' }}
+      RELEASE_EVENT_NAME: ${{ github.event_name }}
+      RECOVERY_REF: ${{ github.ref }}
+      TOOLING_ROOT: ${{ github.workspace }}/tooling
+      RELEASE_SOURCE_ROOT: ${{ github.workspace }}/release-source
       CI_WAIT_SECONDS: "1800"
       CI_POLL_SECONDS: "15"
 
     steps:
-      - uses: actions/checkout@v7
+      - name: Require recovery dispatch from main
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        run: |
+          echo "Release recovery must be dispatched from refs/heads/main." >&2
+          exit 1
+
+      - name: Check out exact release tooling
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          path: tooling
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || env.RELEASE_TAG }}
+
+      - name: Check out immutable release source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          path: release-source
           ref: ${{ env.RELEASE_TAG }}
+
+      - name: Capture exact tooling commit
+        id: tooling
+        shell: bash
+        run: |
+          SHA="$(git -C "$TOOLING_ROOT" rev-parse HEAD)"
+          if [[ ! "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Invalid tooling commit: $SHA" >&2
+            exit 1
+          fi
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v7
         with:
@@ -52,17 +86,22 @@ jobs:
         run: corepack enable
 
       - name: Install pinned pnpm
+        working-directory: tooling
         run: corepack install
 
-      - name: Install dependencies
+      - name: Install tooling dependencies
+        working-directory: tooling
         run: pnpm install --frozen-lockfile
 
       - name: Build release policy
+        working-directory: tooling
         run: pnpm --filter @staaash/config build
 
-      - name: Verify tag, packages, and exact CI
+      - name: Verify tag, packages, tooling, and exact CI
         id: preflight
-        run: node scripts/release/index.mjs preflight
+        env:
+          TOOLING_SHA: ${{ steps.tooling.outputs.sha }}
+        run: node tooling/scripts/release/index.mjs preflight
 
   publish:
     needs: preflight
@@ -81,13 +120,34 @@ jobs:
       TAG_OBJECT_SHA: ${{ needs.preflight.outputs.tag_object }}
       TAG_TYPE: ${{ needs.preflight.outputs.tag_type }}
       IMAGE_REPOSITORY: ${{ needs.preflight.outputs.image_repository }}
-      ASSET_DIR: .release-assets
+      TOOLING_SHA: ${{ needs.preflight.outputs.tooling_sha }}
+      TOOLING_ROOT: ${{ github.workspace }}/tooling
+      RELEASE_SOURCE_ROOT: ${{ github.workspace }}/release-source
+      ASSET_DIR: ${{ github.workspace }}/release-assets
 
     steps:
-      - uses: actions/checkout@v7
+      - name: Check out verified release tooling
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          path: tooling
+          ref: ${{ needs.preflight.outputs.tooling_sha }}
+
+      - name: Check out immutable release source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          path: release-source
           ref: ${{ env.RELEASE_TAG }}
+
+      - name: Verify exact tooling checkout
+        shell: bash
+        run: |
+          ACTUAL="$(git -C "$TOOLING_ROOT" rev-parse HEAD)"
+          if [[ "$ACTUAL" != "$TOOLING_SHA" ]]; then
+            echo "Tooling checkout is $ACTUAL; expected $TOOLING_SHA." >&2
+            exit 1
+          fi
 
       - uses: actions/setup-node@v7
         with:
@@ -97,19 +157,22 @@ jobs:
         run: corepack enable
 
       - name: Install pinned pnpm
+        working-directory: tooling
         run: corepack install
 
-      - name: Install dependencies
+      - name: Install tooling dependencies
+        working-directory: tooling
         run: pnpm install --frozen-lockfile
 
       - name: Build release policy
+        working-directory: tooling
         run: pnpm --filter @staaash/config build
 
-      - name: Recheck immutable tag identity
-        run: node scripts/release/index.mjs verify-tag
+      - name: Recheck immutable tooling and tag identity
+        run: node tooling/scripts/release/index.mjs verify-tag
 
       - name: Create or verify draft release
-        run: node scripts/release/index.mjs ensure-draft
+        run: node tooling/scripts/release/index.mjs ensure-draft
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -123,14 +186,14 @@ jobs:
 
       - name: Inspect existing versioned image
         id: image
-        run: node scripts/release/index.mjs inspect-image
+        run: node tooling/scripts/release/index.mjs inspect-image
 
       - name: Build and push exact versioned image
         id: build
         if: steps.image.outputs.exists != 'true'
         uses: docker/build-push-action@v7
         with:
-          context: .
+          context: ${{ env.RELEASE_SOURCE_ROOT }}
           push: true
           platforms: linux/amd64
           tags: ${{ env.IMAGE_REPOSITORY }}:${{ env.RELEASE_TAG }}
@@ -162,36 +225,36 @@ jobs:
       - name: Verify exact image digest and runtime versions
         env:
           IMAGE_DIGEST: ${{ steps.digest.outputs.value }}
-        run: node scripts/release/index.mjs verify-image
+        run: node tooling/scripts/release/index.mjs verify-image
 
       - name: Generate release-specific installation assets
         env:
           IMAGE_DIGEST: ${{ steps.digest.outputs.value }}
-        run: node scripts/release/index.mjs generate-assets
+        run: node tooling/scripts/release/index.mjs generate-assets
 
       - name: Reconcile draft notes and assets
         env:
           IMAGE_DIGEST: ${{ steps.digest.outputs.value }}
-        run: node scripts/release/index.mjs reconcile-release
+        run: node tooling/scripts/release/index.mjs reconcile-release
 
       - name: Publish verified GitHub Release
         env:
           IMAGE_DIGEST: ${{ steps.digest.outputs.value }}
-        run: node scripts/release/index.mjs publish
+        run: node tooling/scripts/release/index.mjs publish
 
       - name: Promote stable digest to latest
         env:
           IMAGE_DIGEST: ${{ steps.digest.outputs.value }}
-        run: node scripts/release/index.mjs promote-latest
+        run: node tooling/scripts/release/index.mjs promote-latest
 
       - name: Clean runner release assets
         if: always()
         shell: bash
-        run: rm -rf .release-assets
+        run: rm -rf "$ASSET_DIR"
 
       - name: Write retry and investigation summary
         if: always()
         continue-on-error: true
         env:
           RELEASE_RESULT: ${{ job.status }}
-        run: node scripts/release/index.mjs summary
+        run: node tooling/scripts/release/index.mjs summary
