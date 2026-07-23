@@ -46,6 +46,7 @@ const REQUIRED_ASSET_NAMES = [
 const GITHUB_API_VERSION = "2022-11-28";
 const MISSING_IMAGE_PATTERN =
   /manifest unknown|not found|no such manifest|does not exist/iu;
+const DRAFT_TAG_PLACEHOLDER_PATTERN = /^untagged-[0-9a-f]{20}$/u;
 
 const sleep = (milliseconds) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -58,16 +59,28 @@ const requiredEnv = (name) => {
 
 const optionalEnv = (name) => process.env[name]?.trim() ?? "";
 
-const requiredReleaseId = () => {
-  const value = requiredEnv("RELEASE_ID");
+const parseRequiredReleaseId = (name, value) => {
   if (!/^[1-9][0-9]*$/u.test(value)) {
-    throw new Error("RELEASE_ID must be a canonical positive integer.");
+    throw new Error(`${name} must be a canonical positive integer.`);
   }
   const releaseId = Number(value);
   if (!Number.isSafeInteger(releaseId)) {
-    throw new Error("RELEASE_ID must be a safe positive integer.");
+    throw new Error(`${name} must be a safe positive integer.`);
   }
   return releaseId;
+};
+
+const requiredReleaseId = () =>
+  parseRequiredReleaseId("RELEASE_ID", requiredEnv("RELEASE_ID"));
+
+const requiredRecoveryReleaseId = () => {
+  const value = optionalEnv("RECOVERY_RELEASE_ID");
+  if (!value) {
+    throw new Error(
+      "Manual recovery requires explicit canonical RECOVERY_RELEASE_ID; compatible drafts are never auto-selected.",
+    );
+  }
+  return parseRequiredReleaseId("RECOVERY_RELEASE_ID", value);
 };
 
 const requiredAbsolutePath = (name) => {
@@ -392,19 +405,6 @@ const waitForExactCi = async ({ repository, releaseSha }) => {
   }
 };
 
-const getReleases = (repository) =>
-  ghApiPaginated(`repos/${repository}/releases?per_page=100`);
-
-const findReleaseByTag = (repository, tag) => {
-  const releases = getReleases(repository).filter(
-    (release) => release.tag_name === tag,
-  );
-  if (releases.length > 1) {
-    throw new Error(`Multiple GitHub Releases exist for ${tag}.`);
-  }
-  return releases[0] ?? null;
-};
-
 const getReleaseById = (
   repository,
   releaseId,
@@ -422,15 +422,42 @@ const getReleaseAssets = (repository, releaseId) =>
     `repos/${repository}/releases/${releaseId}/assets?per_page=100`,
   );
 
-const verifyReleaseMetadata = ({ release, context }) => {
-  if (release.tag_name !== context.release.tag) {
-    throw new Error(
-      `Release tag is ${release.tag_name}; expected ${context.release.tag}.`,
-    );
+const verifyResolvedReleaseId = ({ release, releaseId }) => {
+  if (!Number.isSafeInteger(release?.id) || release.id <= 0) {
+    throw new Error("GitHub Release returned an invalid numeric ID.");
   }
-  if (Boolean(release.prerelease) !== context.release.prerelease) {
+  if (release.id !== releaseId) {
+    throw new Error(`Release ID is ${release.id}; expected ${releaseId}.`);
+  }
+};
+
+const verifyReleasePrerelease = ({ release, context }) => {
+  if (release.prerelease !== context.release.prerelease) {
     throw new Error(
       `Release prerelease flag is ${String(release.prerelease)}; expected ${String(context.release.prerelease)}.`,
+    );
+  }
+};
+
+const verifyDraftTag = ({ release, context }) => {
+  if (
+    release.tag_name !== context.release.tag &&
+    !DRAFT_TAG_PLACEHOLDER_PATTERN.test(release.tag_name ?? "")
+  ) {
+    throw new Error(
+      `Draft release tag is ${release.tag_name}; expected ${context.release.tag} or a strict untagged placeholder.`,
+    );
+  }
+};
+
+const verifyDraftTarget = ({ release, context, allowLegacyTarget }) => {
+  const compatible =
+    release.target_commitish === context.releaseSha ||
+    release.target_commitish === context.release.tag ||
+    (allowLegacyTarget && release.target_commitish === "main");
+  if (!compatible) {
+    throw new Error(
+      `Draft target is ${release.target_commitish}; expected ${context.releaseSha}.`,
     );
   }
 };
@@ -454,24 +481,61 @@ const verifyReleaseProvenanceIdentity = ({ provenance, context }) => {
   }
 };
 
-const validateReleaseIdentity = ({ release, context }) => {
-  verifyReleaseMetadata({ release, context });
+const validateReleaseProvenance = ({ release, context }) => {
   const parsed = requireReleaseProvenance(release.body);
   verifyReleaseProvenanceIdentity({ provenance: parsed.provenance, context });
-  if (!release.draft && parsed.provenance.imageDigest === "pending") {
-    throw new Error("Published release still has pending image provenance.");
-  }
   return { parsed, provenance: parsed.provenance };
 };
 
-const validateResolvedRelease = ({ release, context, releaseId }) => {
-  if (!Number.isSafeInteger(release?.id) || release.id <= 0) {
-    throw new Error("GitHub Release returned an invalid numeric ID.");
+const validateResolvedDraftRelease = ({
+  release,
+  context,
+  releaseId,
+  allowLegacyTarget = false,
+}) => {
+  verifyResolvedReleaseId({ release, releaseId });
+  if (release.draft !== true) {
+    throw new Error(`GitHub Release ID ${releaseId} is not a draft.`);
   }
-  if (release.id !== releaseId) {
-    throw new Error(`Release ID is ${release.id}; expected ${releaseId}.`);
+  verifyDraftTag({ release, context });
+  verifyReleasePrerelease({ release, context });
+  verifyDraftTarget({ release, context, allowLegacyTarget });
+  return validateReleaseProvenance({ release, context });
+};
+
+const validateResolvedPublishedRelease = ({ release, context, releaseId }) => {
+  verifyResolvedReleaseId({ release, releaseId });
+  if (release.draft !== false) {
+    throw new Error(`GitHub Release ID ${releaseId} is still a draft.`);
   }
-  return validateReleaseIdentity({ release, context });
+  if (release.tag_name !== context.release.tag) {
+    throw new Error(
+      `Published release tag is ${release.tag_name}; expected ${context.release.tag}.`,
+    );
+  }
+  verifyReleasePrerelease({ release, context });
+  const identity = validateReleaseProvenance({ release, context });
+  if (identity.provenance.imageDigest === "pending") {
+    throw new Error("Published release still has pending image provenance.");
+  }
+  return identity;
+};
+
+const validateResolvedRelease = ({
+  release,
+  context,
+  releaseId,
+  allowLegacyTarget = false,
+}) => {
+  if (release?.draft === true) {
+    return validateResolvedDraftRelease({
+      release,
+      context,
+      releaseId,
+      allowLegacyTarget,
+    });
+  }
+  return validateResolvedPublishedRelease({ release, context, releaseId });
 };
 
 const resolveReleaseById = ({
@@ -484,31 +548,63 @@ const resolveReleaseById = ({
   return { release, ...identity };
 };
 
+const resolveDraftReleaseById = ({
+  context,
+  releaseId = requiredReleaseId(),
+  fetchRelease = getReleaseById,
+  allowLegacyTarget = false,
+}) => {
+  const release = fetchRelease(context.repository, releaseId);
+  const identity = validateResolvedDraftRelease({
+    release,
+    context,
+    releaseId,
+    allowLegacyTarget,
+  });
+  return { release, ...identity };
+};
+
+const resolvePublishedReleaseById = ({
+  context,
+  releaseId = requiredReleaseId(),
+  fetchRelease = getReleaseById,
+}) => {
+  const release = fetchRelease(context.repository, releaseId);
+  const identity = validateResolvedPublishedRelease({
+    release,
+    context,
+    releaseId,
+  });
+  return { release, ...identity };
+};
+
 const generateReleaseNotes = (repository, tag) =>
   ghApi(`repos/${repository}/releases/generate-notes`, {
     method: "POST",
     input: { tag_name: tag },
   });
 
+const createDraftInput = ({ context, generated, provenance }) => ({
+  tag_name: context.release.tag,
+  target_commitish: context.releaseSha,
+  name: generated.name || context.release.tag,
+  body: appendReleaseProvenance({
+    body: generated.body ?? "",
+    provenance,
+  }),
+  draft: true,
+  prerelease: context.release.prerelease,
+  make_latest: "false",
+});
+
 const createDraft = ({ context, provenance }) => {
   const generated = generateReleaseNotes(
     context.repository,
     context.release.tag,
   );
-  const body = appendReleaseProvenance({
-    body: generated.body ?? "",
-    provenance,
-  });
   return ghApi(`repos/${context.repository}/releases`, {
     method: "POST",
-    input: {
-      tag_name: context.release.tag,
-      name: generated.name || context.release.tag,
-      body,
-      draft: true,
-      prerelease: context.release.prerelease,
-      make_latest: "false",
-    },
+    input: createDraftInput({ context, generated, provenance }),
   });
 };
 
@@ -517,6 +613,99 @@ const patchRelease = (repository, releaseId, input) =>
     method: "PATCH",
     input,
   });
+
+const draftReleaseInput = ({
+  context,
+  release,
+  body = release.body ?? "",
+}) => ({
+  tag_name: context.release.tag,
+  target_commitish: context.releaseSha,
+  name: release.name || context.release.tag,
+  body,
+  draft: true,
+  prerelease: context.release.prerelease,
+  make_latest: "false",
+});
+
+const publishedReleaseInput = ({ context, release, makeLatest = "false" }) => ({
+  tag_name: context.release.tag,
+  target_commitish: context.releaseSha,
+  name: release.name || context.release.tag,
+  body: release.body ?? "",
+  draft: false,
+  prerelease: context.release.prerelease,
+  make_latest: makeLatest,
+});
+
+const ensureDraftRelease = ({
+  context,
+  eventName,
+  provenance,
+  recoveryReleaseId,
+  fetchRelease = getReleaseById,
+  createRelease = createDraft,
+  updateRelease = patchRelease,
+}) => {
+  if (eventName === "push") {
+    const release = createRelease({ context, provenance });
+    const identity = validateResolvedDraftRelease({
+      release,
+      context,
+      releaseId: release?.id,
+    });
+    return { release, ...identity };
+  }
+  if (eventName !== "workflow_dispatch") {
+    throw new Error(`Unsupported release event: ${eventName}.`);
+  }
+
+  const releaseId = recoveryReleaseId ?? requiredRecoveryReleaseId();
+  const resolved = fetchRelease(context.repository, releaseId);
+  validateResolvedDraftRelease({
+    release: resolved,
+    context,
+    releaseId,
+    allowLegacyTarget: true,
+  });
+  const release = updateRelease(
+    context.repository,
+    releaseId,
+    draftReleaseInput({ context, release: resolved }),
+  );
+  const identity = validateResolvedDraftRelease({
+    release,
+    context,
+    releaseId,
+  });
+  return { release, ...identity };
+};
+
+const publishDraftRelease = ({
+  context,
+  release,
+  updateRelease = patchRelease,
+  fetchRelease = getReleaseById,
+}) => {
+  const releaseId = release.id;
+  const updated = updateRelease(
+    context.repository,
+    releaseId,
+    publishedReleaseInput({ context, release }),
+  );
+  validateResolvedPublishedRelease({
+    release: updated,
+    context,
+    releaseId,
+  });
+  const published = fetchRelease(context.repository, releaseId);
+  validateResolvedPublishedRelease({
+    release: published,
+    context,
+    releaseId,
+  });
+  return published;
+};
 
 const runImageInspection = (reference, allowMissing) => {
   const result = run(
@@ -1075,17 +1264,12 @@ const commandEnsureDraft = async () => {
     immutableImage: "pending",
     assetChecksums: null,
   });
-  let release = findReleaseByTag(context.repository, context.release.tag);
-  if (!release) release = createDraft({ context, provenance: pending });
-  if (!Number.isSafeInteger(release?.id) || release.id <= 0) {
-    throw new Error("GitHub Release returned an invalid numeric ID.");
-  }
-  const { provenance } = validateResolvedRelease({
-    release,
+  const { release, provenance } = ensureDraftRelease({
     context,
-    releaseId: release.id,
+    eventName: requiredEnv("RELEASE_EVENT_NAME"),
+    provenance: pending,
   });
-  if (release.draft && provenance.imageDigest !== "pending") {
+  if (provenance.imageDigest !== "pending") {
     console.info(
       "Compatible draft already contains complete image provenance.",
     );
@@ -1093,14 +1277,14 @@ const commandEnsureDraft = async () => {
 
   await writeOutputs([
     ["release_id", release.id],
-    ["published", !release.draft],
+    ["published", false],
   ]);
 };
 
 const commandInspectImage = async () => {
   const context = releaseContextFromEnv();
   verifyRecordedTagIdentity(context);
-  const { release, provenance } = resolveReleaseById({ context });
+  const { release, provenance } = resolveDraftReleaseById({ context });
   const exactReference = `${context.imageRepository}:${context.release.tag}`;
   const inspected = inspectImage(exactReference, { allowMissing: true });
   if (!inspected) {
@@ -1219,8 +1403,12 @@ const reconcileDraftProvenance = ({
       expected: provenance,
       next: complete,
     });
-    const updated = patchRelease(context.repository, release.id, { body });
-    validateResolvedRelease({
+    const updated = patchRelease(
+      context.repository,
+      release.id,
+      draftReleaseInput({ context, release, body }),
+    );
+    validateResolvedDraftRelease({
       release: updated,
       context,
       releaseId: release.id,
@@ -1265,7 +1453,7 @@ const uploadMissingDraftAssets = async ({
       `GitHub Release ID ${release.id} is missing after asset upload.`,
     );
   }
-  validateResolvedRelease({
+  validateResolvedDraftRelease({
     release: refreshed,
     context,
     releaseId: release.id,
@@ -1333,7 +1521,7 @@ const commandReconcileRelease = async () => {
   const imageDigest = requiredEnv("IMAGE_DIGEST");
   verifyRecordedTagIdentity(context);
   const localAssets = await generatedAssets();
-  const { release, provenance } = resolveReleaseById({ context });
+  const { release, provenance } = resolveDraftReleaseById({ context });
   const complete = expectedCompleteProvenance({
     context,
     imageDigest,
@@ -1356,7 +1544,10 @@ const commandPublish = async () => {
   verifyImage({ context, digest: imageDigest });
   const localAssets = await generatedAssets();
   const releaseId = requiredReleaseId();
-  let { release, provenance } = resolveReleaseById({ context, releaseId });
+  const { release, provenance } = resolveDraftReleaseById({
+    context,
+    releaseId,
+  });
   const complete = expectedCompleteProvenance({
     context,
     imageDigest,
@@ -1368,16 +1559,9 @@ const commandPublish = async () => {
   await verifyRemoteAssets({ context, release, localAssets });
   verifyRecordedTagIdentity(context);
 
-  if (release.draft) {
-    release = patchRelease(context.repository, release.id, {
-      draft: false,
-      prerelease: context.release.prerelease,
-      make_latest: "false",
-    });
-  }
-  if (release.draft) throw new Error("GitHub Release remained a draft.");
-  validateResolvedRelease({ release, context, releaseId });
-  await verifyRemoteAssets({ context, release, localAssets });
+  const published = publishDraftRelease({ context, release });
+  await verifyRemoteAssets({ context, release: published, localAssets });
+  verifyImage({ context, digest: imageDigest });
   verifyRecordedTagIdentity(context);
 };
 
@@ -1395,10 +1579,7 @@ const handlePrereleaseLatest = async ({ context, imageDigest }) => {
 };
 
 const requirePublishedRelease = (context, releaseId) => {
-  const { release } = resolveReleaseById({ context, releaseId });
-  if (release.draft) {
-    throw new Error("Stable GitHub Release must be published before latest.");
-  }
+  const { release } = resolvePublishedReleaseById({ context, releaseId });
   return release;
 };
 
@@ -1446,11 +1627,19 @@ const verifyLatestResult = ({
 
 const markGitHubReleaseLatest = ({ context, release, plan }) => {
   if (plan.action === "superseded") return;
-  const updated = patchRelease(context.repository, release.id, {
-    make_latest: "true",
-  });
-  validateResolvedRelease({
+  const updated = patchRelease(
+    context.repository,
+    release.id,
+    publishedReleaseInput({ context, release, makeLatest: "true" }),
+  );
+  validateResolvedPublishedRelease({
     release: updated,
+    context,
+    releaseId: release.id,
+  });
+  const refreshed = getReleaseById(context.repository, release.id);
+  validateResolvedPublishedRelease({
+    release: refreshed,
     context,
     releaseId: release.id,
   });
@@ -1529,16 +1718,26 @@ const commands = {
 
 export {
   assetDirectory,
+  createDraftInput,
+  draftReleaseInput,
+  ensureDraftRelease,
   getReleaseById,
+  publishDraftRelease,
+  publishedReleaseInput,
   readPackageVersions,
   readReleaseTemplates,
   reconcileReleaseAssets,
   releaseAssetUploadUrl,
+  requiredRecoveryReleaseId,
   requiredReleaseId,
+  resolveDraftReleaseById,
+  resolvePublishedReleaseById,
   resolveReleaseById,
   resolveTagIdentity,
   uploadMissingDraftAssets,
   uploadReleaseAsset,
+  validateResolvedDraftRelease,
+  validateResolvedPublishedRelease,
   validateResolvedRelease,
   verifyPreflightToolingIdentity,
   waitForRequiredCi,

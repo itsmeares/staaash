@@ -102,16 +102,32 @@ describe("release workflow recovery topology", () => {
     expect(inspectImage).toBeGreaterThan(captureReleaseId);
   });
 
-  it("uses tag discovery only for ensure-draft, then stays on exact ID", async () => {
+  it("requires an explicit exact ID for manual recovery", async () => {
+    const workflow = await readWorkflow();
+
+    expect(workflow).toContain(
+      "release_id:\n        description: Exact existing draft release ID to resume\n        required: true",
+    );
+    expect(workflow).toContain(
+      "RECOVERY_RELEASE_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.release_id || '' }}",
+    );
+    expect(workflow).toContain(
+      'if [[ ! "$RECOVERY_RELEASE_ID" =~ ^[1-9][0-9]*$ ]]; then',
+    );
+    expect(workflow).toContain("RELEASE_EVENT_NAME: ${{ github.event_name }}");
+  });
+
+  it("never discovers a draft by release collection or tag", async () => {
     const orchestrator = await readOrchestrator();
     const postResolution = orchestrator.slice(
       orchestrator.indexOf("const commandInspectImage"),
     );
 
-    expect(orchestrator.match(/findReleaseByTag\(/gu)).toHaveLength(1);
-    expect(orchestrator).toContain("const findReleaseByTag =");
+    expect(orchestrator).not.toContain("findReleaseByTag");
+    expect(orchestrator).not.toContain("getReleases");
+    expect(orchestrator).not.toMatch(/releases\?per_page/u);
     expect(orchestrator).toContain(
-      "let release = findReleaseByTag(context.repository, context.release.tag);",
+      "const resolved = fetchRelease(context.repository, releaseId);",
     );
     expect(postResolution).not.toContain("findReleaseByTag(");
     expect(postResolution).not.toContain("getReleases(");
@@ -119,7 +135,7 @@ describe("release workflow recovery topology", () => {
       "const refreshed = await refreshRelease(context.repository, release.id);",
     );
     expect(postResolution).toContain(
-      "let { release, provenance } = resolveReleaseById({ context, releaseId });",
+      "const { release, provenance } = resolveDraftReleaseById({",
     );
     expect(postResolution).toContain(
       "const release = requirePublishedRelease(context, releaseId);",

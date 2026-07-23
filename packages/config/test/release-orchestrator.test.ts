@@ -14,16 +14,26 @@ import {
 
 import {
   assetDirectory,
+  createDraftInput,
+  draftReleaseInput,
+  ensureDraftRelease,
   getReleaseById,
+  publishDraftRelease,
+  publishedReleaseInput,
   readPackageVersions,
   readReleaseTemplates,
   reconcileReleaseAssets,
   releaseAssetUploadUrl,
+  requiredRecoveryReleaseId,
   requiredReleaseId,
+  resolveDraftReleaseById,
+  resolvePublishedReleaseById,
   resolveReleaseById,
   resolveTagIdentity,
   uploadMissingDraftAssets,
   uploadReleaseAsset,
+  validateResolvedDraftRelease,
+  validateResolvedPublishedRelease,
   validateResolvedRelease,
   verifyPreflightToolingIdentity,
   waitForRequiredCi,
@@ -58,6 +68,8 @@ const complete = buildReleaseProvenance({
 const release = {
   id: 42,
   tag_name: context.release.tag,
+  target_commitish: context.releaseSha,
+  name: context.release.tag,
   draft: true,
   prerelease: true,
   body: appendReleaseProvenance({
@@ -254,6 +266,18 @@ describe("exact release resolution", () => {
     expect(fetchRelease).not.toHaveBeenCalled();
   });
 
+  it("requires a canonical explicit release ID for manual recovery", () => {
+    vi.stubEnv("RECOVERY_RELEASE_ID", "358962791");
+    expect(requiredRecoveryReleaseId()).toBe(358962791);
+
+    for (const value of ["", "0", "-1", "01", "draft-42"]) {
+      vi.stubEnv("RECOVERY_RELEASE_ID", value);
+      expect(() => requiredRecoveryReleaseId()).toThrow(
+        /RECOVERY_RELEASE_ID|never auto-selected/u,
+      );
+    }
+  });
+
   it("loads the exact release endpoint without collection or tag lookup", () => {
     const request = vi.fn(() => release);
 
@@ -284,9 +308,76 @@ describe("exact release resolution", () => {
     ).toThrow(failure);
   });
 
+  it("accepts a strict untagged placeholder only for a compatible draft", () => {
+    const orphan = {
+      ...release,
+      tag_name: "untagged-2e5ab47a7bad2083661e",
+      target_commitish: "main",
+    };
+
+    expect(
+      validateResolvedDraftRelease({
+        release: orphan,
+        context,
+        releaseId: release.id,
+        allowLegacyTarget: true,
+      }),
+    ).toEqual(expect.objectContaining({ provenance: complete }));
+    expect(() =>
+      validateResolvedDraftRelease({
+        release: orphan,
+        context,
+        releaseId: release.id,
+      }),
+    ).toThrow(`Draft target is main; expected ${context.releaseSha}.`);
+    expect(() =>
+      validateResolvedDraftRelease({
+        release: { ...orphan, tag_name: "untagged-ABC" },
+        context,
+        releaseId: release.id,
+        allowLegacyTarget: true,
+      }),
+    ).toThrow("strict untagged placeholder");
+  });
+
+  it("keeps provenance authoritative when a draft has an exact ID", () => {
+    const placeholder = {
+      ...release,
+      tag_name: "untagged-2e5ab47a7bad2083661e",
+      body: appendReleaseProvenance({
+        body: "Generated release notes.\n",
+        provenance: { ...complete, tagObject: "3".repeat(40) },
+      }),
+    };
+
+    expect(() =>
+      validateResolvedDraftRelease({
+        release: placeholder,
+        context,
+        releaseId: release.id,
+      }),
+    ).toThrow("Release provenance tag identity conflicts with current tag.");
+  });
+
+  it("rejects untagged placeholders after publication", () => {
+    expect(() =>
+      validateResolvedPublishedRelease({
+        release: {
+          ...release,
+          draft: false,
+          tag_name: "untagged-2e5ab47a7bad2083661e",
+        },
+        context,
+        releaseId: release.id,
+      }),
+    ).toThrow(
+      "Published release tag is untagged-2e5ab47a7bad2083661e; expected v1.0.0-rc.7.",
+    );
+  });
+
   it("validates exact ID, tag, prerelease state, and provenance identity", () => {
     expect(
-      resolveReleaseById({
+      resolveDraftReleaseById({
         context,
         releaseId: release.id,
         fetchRelease: () => release,
@@ -306,7 +397,9 @@ describe("exact release resolution", () => {
         releaseId: release.id,
         fetchRelease: () => ({ ...release, tag_name: "v1.0.0-rc.6" }),
       }),
-    ).toThrow("Release tag is v1.0.0-rc.6; expected v1.0.0-rc.7.");
+    ).toThrow(
+      "Draft release tag is v1.0.0-rc.6; expected v1.0.0-rc.7 or a strict untagged placeholder.",
+    );
     expect(() =>
       resolveReleaseById({
         context,
@@ -344,6 +437,186 @@ describe("exact release resolution", () => {
         releaseId: release.id,
       }),
     ).toThrow("Release ID is 43; expected 42.");
+  });
+
+  it("manual recovery exact-fetches, validates, then normalizes one draft", () => {
+    const orphan = {
+      ...release,
+      tag_name: "untagged-2e5ab47a7bad2083661e",
+      target_commitish: "main",
+    };
+    const normalized = {
+      ...orphan,
+      target_commitish: context.releaseSha,
+    };
+    const fetchRelease = vi.fn(() => orphan);
+    const updateRelease = vi.fn(() => normalized);
+    const createRelease = vi.fn();
+
+    expect(
+      ensureDraftRelease({
+        context,
+        eventName: "workflow_dispatch",
+        provenance: complete,
+        recoveryReleaseId: release.id,
+        fetchRelease,
+        updateRelease,
+        createRelease,
+      }),
+    ).toEqual(expect.objectContaining({ release: normalized }));
+    expect(fetchRelease).toHaveBeenCalledWith(context.repository, release.id);
+    expect(createRelease).not.toHaveBeenCalled();
+    expect(updateRelease).toHaveBeenCalledWith(
+      context.repository,
+      release.id,
+      expect.objectContaining({
+        tag_name: context.release.tag,
+        target_commitish: context.releaseSha,
+        name: context.release.tag,
+        body: orphan.body,
+        draft: true,
+        prerelease: true,
+        make_latest: "false",
+      }),
+    );
+  });
+
+  it("fails closed instead of selecting among compatible orphan drafts", () => {
+    const compatibleDrafts = [
+      release,
+      { ...release, id: 43, tag_name: "untagged-aaaaaaaaaaaaaaaaaaaa" },
+    ];
+    const fetchRelease = vi.fn((_repository: string, releaseId: number) =>
+      compatibleDrafts.find((candidate) => candidate.id === releaseId),
+    );
+    const updateRelease = vi.fn();
+    const createRelease = vi.fn();
+    vi.stubEnv("RECOVERY_RELEASE_ID", "");
+
+    expect(() =>
+      ensureDraftRelease({
+        context,
+        eventName: "workflow_dispatch",
+        provenance: complete,
+        fetchRelease,
+        updateRelease,
+        createRelease,
+      }),
+    ).toThrow("compatible drafts are never auto-selected");
+    expect(fetchRelease).not.toHaveBeenCalled();
+    expect(updateRelease).not.toHaveBeenCalled();
+    expect(createRelease).not.toHaveBeenCalled();
+  });
+
+  it("creates tag-push drafts against the exact peeled commit", () => {
+    expect(
+      createDraftInput({
+        context,
+        generated: { name: "Release candidate", body: "Notes.\n" },
+        provenance: complete,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        tag_name: context.release.tag,
+        target_commitish: context.releaseSha,
+        name: "Release candidate",
+        draft: true,
+        prerelease: true,
+        make_latest: "false",
+      }),
+    );
+  });
+
+  it("preserves intended targeting in draft and published PATCH inputs", () => {
+    expect(draftReleaseInput({ context, release })).toEqual(
+      expect.objectContaining({
+        tag_name: context.release.tag,
+        target_commitish: context.releaseSha,
+        name: context.release.tag,
+        body: release.body,
+        draft: true,
+        prerelease: true,
+        make_latest: "false",
+      }),
+    );
+    expect(publishedReleaseInput({ context, release })).toEqual(
+      expect.objectContaining({
+        tag_name: context.release.tag,
+        target_commitish: context.releaseSha,
+        name: context.release.tag,
+        body: release.body,
+        draft: false,
+        prerelease: true,
+        make_latest: "false",
+      }),
+    );
+  });
+
+  it("publishes and exact-fetches the same ID bound to real tag and commit", () => {
+    const published = {
+      ...release,
+      draft: false,
+      tag_name: context.release.tag,
+      target_commitish: context.releaseSha,
+    };
+    const updateRelease = vi.fn(() => published);
+    const fetchRelease = vi.fn(() => ({ ...published }));
+
+    expect(
+      publishDraftRelease({
+        context,
+        release,
+        updateRelease,
+        fetchRelease,
+      }),
+    ).toEqual(published);
+    expect(updateRelease).toHaveBeenCalledWith(
+      context.repository,
+      release.id,
+      expect.objectContaining({
+        tag_name: context.release.tag,
+        target_commitish: context.releaseSha,
+        draft: false,
+        prerelease: true,
+        make_latest: "false",
+      }),
+    );
+    expect(fetchRelease).toHaveBeenCalledWith(context.repository, release.id);
+    expect(
+      resolvePublishedReleaseById({
+        context,
+        releaseId: release.id,
+        fetchRelease,
+      }).release.id,
+    ).toBe(release.id);
+  });
+
+  it("requires both publication response and subsequent GET to expose real tag", () => {
+    const placeholder = {
+      ...release,
+      draft: false,
+      tag_name: "untagged-2e5ab47a7bad2083661e",
+    };
+    const fetchRelease = vi.fn();
+
+    expect(() =>
+      publishDraftRelease({
+        context,
+        release,
+        updateRelease: () => placeholder,
+        fetchRelease,
+      }),
+    ).toThrow("Published release tag is untagged-");
+    expect(fetchRelease).not.toHaveBeenCalled();
+
+    expect(() =>
+      publishDraftRelease({
+        context,
+        release,
+        updateRelease: () => ({ ...release, draft: false }),
+        fetchRelease: () => placeholder,
+      }),
+    ).toThrow("Published release tag is untagged-");
   });
 });
 
