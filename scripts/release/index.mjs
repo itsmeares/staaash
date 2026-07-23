@@ -450,18 +450,6 @@ const verifyDraftTag = ({ release, context }) => {
   }
 };
 
-const verifyDraftTarget = ({ release, context, allowLegacyTarget }) => {
-  const compatible =
-    release.target_commitish === context.releaseSha ||
-    release.target_commitish === context.release.tag ||
-    (allowLegacyTarget && release.target_commitish === "main");
-  if (!compatible) {
-    throw new Error(
-      `Draft target is ${release.target_commitish}; expected ${context.releaseSha}.`,
-    );
-  }
-};
-
 const requireReleaseProvenance = (body) => {
   const parsed = parseReleaseProvenance(body ?? "");
   if (parsed.status === "valid") return parsed;
@@ -487,19 +475,13 @@ const validateReleaseProvenance = ({ release, context }) => {
   return { parsed, provenance: parsed.provenance };
 };
 
-const validateResolvedDraftRelease = ({
-  release,
-  context,
-  releaseId,
-  allowLegacyTarget = false,
-}) => {
+const validateResolvedDraftRelease = ({ release, context, releaseId }) => {
   verifyResolvedReleaseId({ release, releaseId });
   if (release.draft !== true) {
     throw new Error(`GitHub Release ID ${releaseId} is not a draft.`);
   }
   verifyDraftTag({ release, context });
   verifyReleasePrerelease({ release, context });
-  verifyDraftTarget({ release, context, allowLegacyTarget });
   return validateReleaseProvenance({ release, context });
 };
 
@@ -521,18 +503,12 @@ const validateResolvedPublishedRelease = ({ release, context, releaseId }) => {
   return identity;
 };
 
-const validateResolvedRelease = ({
-  release,
-  context,
-  releaseId,
-  allowLegacyTarget = false,
-}) => {
+const validateResolvedRelease = ({ release, context, releaseId }) => {
   if (release?.draft === true) {
     return validateResolvedDraftRelease({
       release,
       context,
       releaseId,
-      allowLegacyTarget,
     });
   }
   return validateResolvedPublishedRelease({ release, context, releaseId });
@@ -545,22 +521,6 @@ const resolveReleaseById = ({
 }) => {
   const release = fetchRelease(context.repository, releaseId);
   const identity = validateResolvedRelease({ release, context, releaseId });
-  return { release, ...identity };
-};
-
-const resolveDraftReleaseById = ({
-  context,
-  releaseId = requiredReleaseId(),
-  fetchRelease = getReleaseById,
-  allowLegacyTarget = false,
-}) => {
-  const release = fetchRelease(context.repository, releaseId);
-  const identity = validateResolvedDraftRelease({
-    release,
-    context,
-    releaseId,
-    allowLegacyTarget,
-  });
   return { release, ...identity };
 };
 
@@ -586,7 +546,6 @@ const generateReleaseNotes = (repository, tag) =>
 
 const createDraftInput = ({ context, generated, provenance }) => ({
   tag_name: context.release.tag,
-  target_commitish: context.releaseSha,
   name: generated.name || context.release.tag,
   body: appendReleaseProvenance({
     body: generated.body ?? "",
@@ -594,7 +553,6 @@ const createDraftInput = ({ context, generated, provenance }) => ({
   }),
   draft: true,
   prerelease: context.release.prerelease,
-  make_latest: "false",
 });
 
 const createDraft = ({ context, provenance }) => {
@@ -614,38 +572,13 @@ const patchRelease = (repository, releaseId, input) =>
     input,
   });
 
-const draftReleaseInput = ({
-  context,
-  release,
-  body = release.body ?? "",
-}) => ({
-  tag_name: context.release.tag,
-  target_commitish: context.releaseSha,
-  name: release.name || context.release.tag,
-  body,
-  draft: true,
-  prerelease: context.release.prerelease,
-  make_latest: "false",
-});
-
-const publishedReleaseInput = ({ context, release, makeLatest = "false" }) => ({
-  tag_name: context.release.tag,
-  target_commitish: context.releaseSha,
-  name: release.name || context.release.tag,
-  body: release.body ?? "",
-  draft: false,
-  prerelease: context.release.prerelease,
-  make_latest: makeLatest,
-});
-
-const ensureDraftRelease = ({
+const ensureReleaseState = ({
   context,
   eventName,
   provenance,
   recoveryReleaseId,
   fetchRelease = getReleaseById,
   createRelease = createDraft,
-  updateRelease = patchRelease,
 }) => {
   if (eventName === "push") {
     const release = createRelease({ context, provenance });
@@ -661,19 +594,8 @@ const ensureDraftRelease = ({
   }
 
   const releaseId = recoveryReleaseId ?? requiredRecoveryReleaseId();
-  const resolved = fetchRelease(context.repository, releaseId);
-  validateResolvedDraftRelease({
-    release: resolved,
-    context,
-    releaseId,
-    allowLegacyTarget: true,
-  });
-  const release = updateRelease(
-    context.repository,
-    releaseId,
-    draftReleaseInput({ context, release: resolved }),
-  );
-  const identity = validateResolvedDraftRelease({
+  const release = fetchRelease(context.repository, releaseId);
+  const identity = validateResolvedRelease({
     release,
     context,
     releaseId,
@@ -688,11 +610,10 @@ const publishDraftRelease = ({
   fetchRelease = getReleaseById,
 }) => {
   const releaseId = release.id;
-  const updated = updateRelease(
-    context.repository,
-    releaseId,
-    publishedReleaseInput({ context, release }),
-  );
+  const updated = updateRelease(context.repository, releaseId, {
+    draft: false,
+    make_latest: "false",
+  });
   validateResolvedPublishedRelease({
     release: updated,
     context,
@@ -1240,9 +1161,7 @@ const commandPreflight = async () => {
     ["tag_object", identity.tagObject],
     ["tag_type", identity.tagType],
     ["image_repository", imageRepository],
-    ["release_ci_run_id", releaseCiRun.id],
     ["tooling_sha", toolingSha],
-    ["tooling_ci_run_id", toolingCiRun.id],
   ]);
   await writeSummary(
     `## REL-01 preflight\n\n- Tag: \`${release.tag}\`\n- Tag object: \`${identity.tagObject}\`\n- Release commit: \`${identity.releaseSha}\`\n- Release CI run: \`${releaseCiRun.id}\`\n- Tooling commit: \`${toolingSha}\`\n- Tooling CI run: \`${toolingCiRun.id}\`\n- Channel: ${release.prerelease ? "prerelease" : "stable"}`,
@@ -1253,7 +1172,7 @@ const commandVerifyTag = async () => {
   verifyRecordedTagIdentity(releaseContextFromEnv());
 };
 
-const commandEnsureDraft = async () => {
+const commandEnsureRelease = async () => {
   const context = releaseContextFromEnv();
   verifyRecordedTagIdentity(context);
   const pending = buildReleaseProvenance({
@@ -1264,27 +1183,24 @@ const commandEnsureDraft = async () => {
     immutableImage: "pending",
     assetChecksums: null,
   });
-  const { release, provenance } = ensureDraftRelease({
+  const { release, provenance } = ensureReleaseState({
     context,
     eventName: requiredEnv("RELEASE_EVENT_NAME"),
     provenance: pending,
   });
   if (provenance.imageDigest !== "pending") {
     console.info(
-      "Compatible draft already contains complete image provenance.",
+      "Compatible release already contains complete image provenance.",
     );
   }
 
-  await writeOutputs([
-    ["release_id", release.id],
-    ["published", false],
-  ]);
+  await writeOutput("release_id", release.id);
 };
 
 const commandInspectImage = async () => {
   const context = releaseContextFromEnv();
   verifyRecordedTagIdentity(context);
-  const { release, provenance } = resolveDraftReleaseById({ context });
+  const { release, provenance } = resolveReleaseById({ context });
   const exactReference = `${context.imageRepository}:${context.release.tag}`;
   const inspected = inspectImage(exactReference, { allowMissing: true });
   if (!inspected) {
@@ -1396,6 +1312,7 @@ const reconcileDraftProvenance = ({
   release,
   provenance,
   complete,
+  updateRelease = patchRelease,
 }) => {
   if (provenance.imageDigest === "pending") {
     const body = replaceReleaseProvenance({
@@ -1403,11 +1320,7 @@ const reconcileDraftProvenance = ({
       expected: provenance,
       next: complete,
     });
-    const updated = patchRelease(
-      context.repository,
-      release.id,
-      draftReleaseInput({ context, release, body }),
-    );
+    const updated = updateRelease(context.repository, release.id, { body });
     validateResolvedDraftRelease({
       release: updated,
       context,
@@ -1521,7 +1434,7 @@ const commandReconcileRelease = async () => {
   const imageDigest = requiredEnv("IMAGE_DIGEST");
   verifyRecordedTagIdentity(context);
   const localAssets = await generatedAssets();
-  const { release, provenance } = resolveDraftReleaseById({ context });
+  const { release, provenance } = resolveReleaseById({ context });
   const complete = expectedCompleteProvenance({
     context,
     imageDigest,
@@ -1544,7 +1457,7 @@ const commandPublish = async () => {
   verifyImage({ context, digest: imageDigest });
   const localAssets = await generatedAssets();
   const releaseId = requiredReleaseId();
-  const { release, provenance } = resolveDraftReleaseById({
+  const { release, provenance } = resolveReleaseById({
     context,
     releaseId,
   });
@@ -1559,7 +1472,9 @@ const commandPublish = async () => {
   await verifyRemoteAssets({ context, release, localAssets });
   verifyRecordedTagIdentity(context);
 
-  const published = publishDraftRelease({ context, release });
+  const published = release.draft
+    ? publishDraftRelease({ context, release })
+    : release;
   await verifyRemoteAssets({ context, release: published, localAssets });
   verifyImage({ context, digest: imageDigest });
   verifyRecordedTagIdentity(context);
@@ -1625,25 +1540,31 @@ const verifyLatestResult = ({
   }
 };
 
-const markGitHubReleaseLatest = ({ context, release, plan }) => {
+const markGitHubReleaseLatest = ({
+  context,
+  release,
+  plan,
+  updateRelease = patchRelease,
+  fetchRelease = getReleaseById,
+  fetchLatestRelease = (repository) =>
+    ghApi(`repos/${repository}/releases/latest`),
+}) => {
   if (plan.action === "superseded") return;
-  const updated = patchRelease(
-    context.repository,
-    release.id,
-    publishedReleaseInput({ context, release, makeLatest: "true" }),
-  );
+  const updated = updateRelease(context.repository, release.id, {
+    make_latest: "true",
+  });
   validateResolvedPublishedRelease({
     release: updated,
     context,
     releaseId: release.id,
   });
-  const refreshed = getReleaseById(context.repository, release.id);
+  const refreshed = fetchRelease(context.repository, release.id);
   validateResolvedPublishedRelease({
     release: refreshed,
     context,
     releaseId: release.id,
   });
-  const latestRelease = ghApi(`repos/${context.repository}/releases/latest`);
+  const latestRelease = fetchLatestRelease(context.repository);
   if (latestRelease.tag_name !== context.release.tag) {
     throw new Error(
       `GitHub latest release is ${latestRelease.tag_name}; expected ${context.release.tag}.`,
@@ -1692,21 +1613,32 @@ const commandPromoteLatest = async () => {
     : promoteStableLatest({ context, imageDigest, releaseId });
 };
 
+const recoveryRetryGuidance = (releaseId) =>
+  releaseId === "unresolved"
+    ? "- Inspect release inventory, select one exact compatible release ID, then retry with **Run workflow** from `main` and the same existing tag."
+    : "- Retry matching partial state with **Run workflow** from `main`, the same existing tag, and the exact release ID above.";
+
+const summaryReleaseId = () =>
+  optionalEnv("RELEASE_ID") ||
+  optionalEnv("RECOVERY_RELEASE_ID") ||
+  "unresolved";
+
 const commandSummary = async () => {
   const tag = optionalEnv("RELEASE_TAG") || "unknown";
   const releaseSha = optionalEnv("RELEASE_SHA") || "unknown";
   const tagObject = optionalEnv("TAG_OBJECT_SHA") || "unknown";
   const toolingSha = optionalEnv("TOOLING_SHA") || "unknown";
+  const releaseId = summaryReleaseId();
   const result = optionalEnv("RELEASE_RESULT") || "unknown";
   await writeSummary(
-    `## Release recovery\n\nResult: **${result}**\n\n- Tag: \`${tag}\`\n- Tag object: \`${tagObject}\`\n- Release commit: \`${releaseSha}\`\n- Tooling commit: \`${toolingSha}\`\n\n- Retry matching partial state with **Run workflow** from \`main\` and the same existing tag.\n- Do not move/delete the tag, clobber assets, or overwrite a conflicting image.\n- Conflicts require manual comparison of reported expected and actual SHA/digest values.`,
+    `## Release recovery\n\nResult: **${result}**\n\n- Tag: \`${tag}\`\n- Release ID: \`${releaseId}\`\n- Tag object: \`${tagObject}\`\n- Release commit: \`${releaseSha}\`\n- Tooling commit: \`${toolingSha}\`\n\n${recoveryRetryGuidance(releaseId)}\n- Do not move/delete the tag, clobber assets, or overwrite a conflicting image.\n- Conflicts require manual comparison of reported expected and actual SHA/digest values.`,
   );
 };
 
 const commands = {
   preflight: commandPreflight,
   "verify-tag": commandVerifyTag,
-  "ensure-draft": commandEnsureDraft,
+  "ensure-release": commandEnsureRelease,
   "inspect-image": commandInspectImage,
   "verify-image": commandVerifyImage,
   "generate-assets": commandGenerateAssets,
@@ -1719,18 +1651,17 @@ const commands = {
 export {
   assetDirectory,
   createDraftInput,
-  draftReleaseInput,
-  ensureDraftRelease,
+  ensureReleaseState,
   getReleaseById,
+  markGitHubReleaseLatest,
   publishDraftRelease,
-  publishedReleaseInput,
   readPackageVersions,
   readReleaseTemplates,
   reconcileReleaseAssets,
+  reconcileDraftProvenance,
   releaseAssetUploadUrl,
   requiredRecoveryReleaseId,
   requiredReleaseId,
-  resolveDraftReleaseById,
   resolvePublishedReleaseById,
   resolveReleaseById,
   resolveTagIdentity,
@@ -1754,9 +1685,10 @@ if (process.argv[1] && path.resolve(process.argv[1]) === SCRIPT_PATH) {
     await commands[command]();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    const releaseId = summaryReleaseId();
     console.error(message);
     await writeSummary(
-      `## REL-01 failure\n\n\`\`\`text\n${message}\n\`\`\`\n\nRetry matching partial state with **Run workflow** from \`main\` and the same existing tag. Do not move/delete the tag, clobber assets, or overwrite a conflicting image. Conflicts require manual comparison of reported expected and actual SHA/digest values.`,
+      `## REL-01 failure\n\n\`\`\`text\n${message}\n\`\`\`\n\nRelease ID: \`${releaseId}\`\n\n${recoveryRetryGuidance(releaseId)}\n- Do not move/delete the tag, clobber assets, or overwrite a conflicting image.\n- Conflicts require manual comparison of reported expected and actual SHA/digest values.`,
     );
     process.exitCode = 1;
   }

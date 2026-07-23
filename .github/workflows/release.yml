@@ -11,7 +11,7 @@ on:
         required: true
         type: string
       release_id:
-        description: Exact existing draft release ID to resume
+        description: Exact existing release ID to resume
         required: true
         type: string
 
@@ -34,9 +34,7 @@ jobs:
       tag_object: ${{ steps.preflight.outputs.tag_object }}
       tag_type: ${{ steps.preflight.outputs.tag_type }}
       image_repository: ${{ steps.preflight.outputs.image_repository }}
-      release_ci_run_id: ${{ steps.preflight.outputs.release_ci_run_id }}
       tooling_sha: ${{ steps.preflight.outputs.tooling_sha }}
-      tooling_ci_run_id: ${{ steps.preflight.outputs.tooling_ci_run_id }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
@@ -188,9 +186,9 @@ jobs:
       - name: Recheck immutable tooling and tag identity
         run: node tooling/scripts/release/index.mjs verify-tag
 
-      - name: Create or verify draft release
+      - name: Create or resolve release
         id: release
-        run: node tooling/scripts/release/index.mjs ensure-draft
+        run: node tooling/scripts/release/index.mjs ensure-release
 
       - name: Capture exact release ID
         shell: bash

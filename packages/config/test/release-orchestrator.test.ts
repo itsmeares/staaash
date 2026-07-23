@@ -15,18 +15,17 @@ import {
 import {
   assetDirectory,
   createDraftInput,
-  draftReleaseInput,
-  ensureDraftRelease,
+  ensureReleaseState,
   getReleaseById,
+  markGitHubReleaseLatest,
   publishDraftRelease,
-  publishedReleaseInput,
   readPackageVersions,
   readReleaseTemplates,
+  reconcileDraftProvenance,
   reconcileReleaseAssets,
   releaseAssetUploadUrl,
   requiredRecoveryReleaseId,
   requiredReleaseId,
-  resolveDraftReleaseById,
   resolvePublishedReleaseById,
   resolveReleaseById,
   resolveTagIdentity,
@@ -308,7 +307,7 @@ describe("exact release resolution", () => {
     ).toThrow(failure);
   });
 
-  it("accepts a strict untagged placeholder only for a compatible draft", () => {
+  it("accepts a strict untagged placeholder without trusting draft target", () => {
     const orphan = {
       ...release,
       tag_name: "untagged-2e5ab47a7bad2083661e",
@@ -320,22 +319,13 @@ describe("exact release resolution", () => {
         release: orphan,
         context,
         releaseId: release.id,
-        allowLegacyTarget: true,
       }),
     ).toEqual(expect.objectContaining({ provenance: complete }));
-    expect(() =>
-      validateResolvedDraftRelease({
-        release: orphan,
-        context,
-        releaseId: release.id,
-      }),
-    ).toThrow(`Draft target is main; expected ${context.releaseSha}.`);
     expect(() =>
       validateResolvedDraftRelease({
         release: { ...orphan, tag_name: "untagged-ABC" },
         context,
         releaseId: release.id,
-        allowLegacyTarget: true,
       }),
     ).toThrow("strict untagged placeholder");
   });
@@ -377,7 +367,7 @@ describe("exact release resolution", () => {
 
   it("validates exact ID, tag, prerelease state, and provenance identity", () => {
     expect(
-      resolveDraftReleaseById({
+      resolveReleaseById({
         context,
         releaseId: release.id,
         fetchRelease: () => release,
@@ -439,46 +429,71 @@ describe("exact release resolution", () => {
     ).toThrow("Release ID is 43; expected 42.");
   });
 
-  it("manual recovery exact-fetches, validates, then normalizes one draft", () => {
+  it("manual recovery exact-fetches and does not mutate one draft", () => {
     const orphan = {
       ...release,
       tag_name: "untagged-2e5ab47a7bad2083661e",
       target_commitish: "main",
     };
-    const normalized = {
-      ...orphan,
-      target_commitish: context.releaseSha,
-    };
     const fetchRelease = vi.fn(() => orphan);
-    const updateRelease = vi.fn(() => normalized);
     const createRelease = vi.fn();
 
     expect(
-      ensureDraftRelease({
+      ensureReleaseState({
         context,
         eventName: "workflow_dispatch",
         provenance: complete,
         recoveryReleaseId: release.id,
         fetchRelease,
-        updateRelease,
         createRelease,
       }),
-    ).toEqual(expect.objectContaining({ release: normalized }));
+    ).toEqual(expect.objectContaining({ release: orphan }));
     expect(fetchRelease).toHaveBeenCalledWith(context.repository, release.id);
     expect(createRelease).not.toHaveBeenCalled();
-    expect(updateRelease).toHaveBeenCalledWith(
-      context.repository,
-      release.id,
-      expect.objectContaining({
-        tag_name: context.release.tag,
-        target_commitish: context.releaseSha,
-        name: context.release.tag,
-        body: orphan.body,
-        draft: true,
-        prerelease: true,
-        make_latest: "false",
+  });
+
+  it("manual recovery accepts an already-published exact release", () => {
+    const published = { ...release, draft: false };
+    const fetchRelease = vi.fn(() => published);
+    const createRelease = vi.fn();
+
+    expect(
+      ensureReleaseState({
+        context,
+        eventName: "workflow_dispatch",
+        provenance: complete,
+        recoveryReleaseId: release.id,
+        fetchRelease,
+        createRelease,
       }),
-    );
+    ).toEqual(expect.objectContaining({ release: published }));
+    expect(fetchRelease).toHaveBeenCalledWith(context.repository, release.id);
+    expect(createRelease).not.toHaveBeenCalled();
+  });
+
+  it("accepts a live-shaped placeholder response after tag-push creation", () => {
+    const placeholder = {
+      ...release,
+      tag_name: "untagged-2e5ab47a7bad2083661e",
+      target_commitish: "main",
+    };
+    const fetchRelease = vi.fn();
+    const createRelease = vi.fn(() => placeholder);
+
+    expect(
+      ensureReleaseState({
+        context,
+        eventName: "push",
+        provenance: complete,
+        fetchRelease,
+        createRelease,
+      }),
+    ).toEqual(expect.objectContaining({ release: placeholder }));
+    expect(createRelease).toHaveBeenCalledWith({
+      context,
+      provenance: complete,
+    });
+    expect(fetchRelease).not.toHaveBeenCalled();
   });
 
   it("fails closed instead of selecting among compatible orphan drafts", () => {
@@ -489,67 +504,79 @@ describe("exact release resolution", () => {
     const fetchRelease = vi.fn((_repository: string, releaseId: number) =>
       compatibleDrafts.find((candidate) => candidate.id === releaseId),
     );
-    const updateRelease = vi.fn();
     const createRelease = vi.fn();
     vi.stubEnv("RECOVERY_RELEASE_ID", "");
 
     expect(() =>
-      ensureDraftRelease({
+      ensureReleaseState({
         context,
         eventName: "workflow_dispatch",
         provenance: complete,
         fetchRelease,
-        updateRelease,
         createRelease,
       }),
     ).toThrow("compatible drafts are never auto-selected");
     expect(fetchRelease).not.toHaveBeenCalled();
-    expect(updateRelease).not.toHaveBeenCalled();
     expect(createRelease).not.toHaveBeenCalled();
   });
 
-  it("creates tag-push drafts against the exact peeled commit", () => {
-    expect(
-      createDraftInput({
-        context,
-        generated: { name: "Release candidate", body: "Notes.\n" },
-        provenance: complete,
-      }),
-    ).toEqual(
+  it("creates tag-push drafts without redundant target or latest fields", () => {
+    const input = createDraftInput({
+      context,
+      generated: { name: "Release candidate", body: "Notes.\n" },
+      provenance: complete,
+    });
+
+    expect(input).toEqual(
       expect.objectContaining({
         tag_name: context.release.tag,
-        target_commitish: context.releaseSha,
         name: "Release candidate",
         draft: true,
         prerelease: true,
-        make_latest: "false",
       }),
     );
+    expect(input).not.toHaveProperty("target_commitish");
+    expect(input).not.toHaveProperty("make_latest");
+    expect(Object.keys(input).sort()).toEqual([
+      "body",
+      "draft",
+      "name",
+      "prerelease",
+      "tag_name",
+    ]);
   });
 
-  it("preserves intended targeting in draft and published PATCH inputs", () => {
-    expect(draftReleaseInput({ context, release })).toEqual(
-      expect.objectContaining({
-        tag_name: context.release.tag,
-        target_commitish: context.releaseSha,
-        name: context.release.tag,
-        body: release.body,
-        draft: true,
-        prerelease: true,
-        make_latest: "false",
-      }),
-    );
-    expect(publishedReleaseInput({ context, release })).toEqual(
-      expect.objectContaining({
-        tag_name: context.release.tag,
-        target_commitish: context.releaseSha,
-        name: context.release.tag,
-        body: release.body,
-        draft: false,
-        prerelease: true,
-        make_latest: "false",
-      }),
-    );
+  it("patches only the body when completing draft provenance", () => {
+    const pending = buildReleaseProvenance({
+      tag: context.release.tag,
+      commit: context.releaseSha,
+      tagObject: context.tagObject,
+      imageDigest: "pending",
+      immutableImage: "pending",
+      assetChecksums: null,
+    });
+    const pendingRelease = {
+      ...release,
+      tag_name: "untagged-2e5ab47a7bad2083661e",
+      target_commitish: "main",
+      body: appendReleaseProvenance({ body: "Notes.\n", provenance: pending }),
+    };
+    const updateRelease = vi.fn((_repository, _releaseId, input) => ({
+      ...pendingRelease,
+      body: input.body,
+    }));
+
+    reconcileDraftProvenance({
+      context,
+      release: pendingRelease,
+      provenance: pending,
+      complete,
+      updateRelease,
+    });
+
+    expect(updateRelease).toHaveBeenCalledWith(context.repository, release.id, {
+      body: expect.any(String),
+    });
   });
 
   it("publishes and exact-fetches the same ID bound to real tag and commit", () => {
@@ -557,7 +584,7 @@ describe("exact release resolution", () => {
       ...release,
       draft: false,
       tag_name: context.release.tag,
-      target_commitish: context.releaseSha,
+      target_commitish: "main",
     };
     const updateRelease = vi.fn(() => published);
     const fetchRelease = vi.fn(() => ({ ...published }));
@@ -570,17 +597,10 @@ describe("exact release resolution", () => {
         fetchRelease,
       }),
     ).toEqual(published);
-    expect(updateRelease).toHaveBeenCalledWith(
-      context.repository,
-      release.id,
-      expect.objectContaining({
-        tag_name: context.release.tag,
-        target_commitish: context.releaseSha,
-        draft: false,
-        prerelease: true,
-        make_latest: "false",
-      }),
-    );
+    expect(updateRelease).toHaveBeenCalledWith(context.repository, release.id, {
+      draft: false,
+      make_latest: "false",
+    });
     expect(fetchRelease).toHaveBeenCalledWith(context.repository, release.id);
     expect(
       resolvePublishedReleaseById({
@@ -617,6 +637,49 @@ describe("exact release resolution", () => {
         fetchRelease: () => placeholder,
       }),
     ).toThrow("Published release tag is untagged-");
+  });
+
+  it("marks a stable published release latest with one minimal field", () => {
+    const stableContext = {
+      ...context,
+      release: { tag: "v1.0.0", prerelease: false },
+    };
+    const stableProvenance = buildReleaseProvenance({
+      tag: stableContext.release.tag,
+      commit: stableContext.releaseSha,
+      tagObject: stableContext.tagObject,
+      imageDigest: `sha256:${"b".repeat(64)}`,
+      immutableImage: `ghcr.io/itsmeares/staaash:v1.0.0@sha256:${"b".repeat(64)}`,
+      assetChecksums: {},
+    });
+    const stableRelease = {
+      ...release,
+      tag_name: stableContext.release.tag,
+      draft: false,
+      prerelease: false,
+      body: appendReleaseProvenance({
+        body: "Stable notes.\n",
+        provenance: stableProvenance,
+      }),
+    };
+    const updateRelease = vi.fn(() => stableRelease);
+    const fetchRelease = vi.fn(() => stableRelease);
+    const fetchLatestRelease = vi.fn(() => stableRelease);
+
+    markGitHubReleaseLatest({
+      context: stableContext,
+      release: stableRelease,
+      plan: { action: "promote" },
+      updateRelease,
+      fetchRelease,
+      fetchLatestRelease,
+    });
+
+    expect(updateRelease).toHaveBeenCalledWith(
+      stableContext.repository,
+      stableRelease.id,
+      { make_latest: "true" },
+    );
   });
 });
 
