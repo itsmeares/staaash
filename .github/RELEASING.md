@@ -26,7 +26,7 @@ Alpha and beta releases remain unsupported development history. Their prerelease
 1. Select immutable tooling and source checkouts. Tag pushes use tooling committed in the release tag. Manual recovery uses the exact reviewed `main` commit that defined the dispatched workflow. Release source always comes from the requested tag.
 2. Resolve the tag object and peeled commit; require the commit on current `main`.
 3. Verify all package versions plus successful exact-SHA `CI` main-push runs for the release commit and, when different during recovery, the tooling commit.
-4. Create or verify a hidden draft GitHub Release with generated notes and managed provenance.
+4. Create a hidden draft GitHub Release for a tag push, or resolve the exact release ID supplied for manual recovery, then validate managed provenance.
 5. Build the exact versioned image once, or reuse a matching existing image.
 6. Capture and remotely verify the top-level OCI index digest, OCI labels, and final web/worker runtime versions.
 7. Generate release-specific `docker-compose.yml`, `example.env`, `release-manifest.json`, and `SHA256SUMS`.
@@ -38,7 +38,9 @@ Every SemVer prerelease skips both latest-channel mutations. A stable release is
 
 ## Recovery
 
-Use **Actions → Release → Run workflow** from `main` with the same existing tag. Never dispatch recovery from another branch, and never move or recreate the tag to retry.
+Use **Actions → Release → Run workflow** from `main` with the same existing tag and exact existing GitHub Release ID. Never dispatch recovery from another branch, and never move or recreate the tag to retry.
+
+GitHub may expose a draft release through an `untagged-<20 lowercase hex>` placeholder and report `target_commitish` as `main`, including when the real tag already exists. Those draft fields are not release identity. Recovery binds to the explicit numeric release ID, prerelease state, and managed provenance containing the expected tag, peeled commit, and annotated tag object. The workflow does not rewrite draft tag or target metadata; publication lets GitHub expose the real tag, then validates it through the exact release ID.
 
 Manual recovery records the exact `main` commit selected by GitHub as the recovery-tooling SHA and requires a successful exact-SHA `CI` main-push run for it. The orchestrator and compiled release policy run from that immutable tooling checkout. Package versions, Git identity, templates, Docker build context, generated assets, image labels, and release provenance remain sourced from the separate immutable release-tag checkout. Workflow summaries report both the tag object/peeled release commit and the recovery-tooling commit.
 
@@ -71,7 +73,7 @@ Do not use asset clobbering, force-push tags, delete releases, or overwrite imag
 - Publication failure: complete draft remains retryable; `latest` cannot change.
 - Stable `latest` failure: exact GitHub Release remains complete, tag-selected, and digest-verified. Retry performs verification and pending promotion without rebuilding.
 
-Each failed workflow writes retry and investigation guidance to its job summary.
+Each failed workflow writes the exact release ID, when resolved, plus retry and investigation guidance to its job summary.
 
 ## Release assets
 

@@ -31,9 +31,7 @@ describe("release workflow recovery topology", () => {
       "ref: ${{ needs.preflight.outputs.tooling_sha }}",
     );
     expect(workflow).toContain("TOOLING_SHA: ${{ steps.tooling.outputs.sha }}");
-    expect(workflow).toContain(
-      "tooling_ci_run_id: ${{ steps.preflight.outputs.tooling_ci_run_id }}",
-    );
+    expect(workflow).not.toContain("tooling_ci_run_id:");
   });
 
   it("keeps release source separate and tied to requested tag", async () => {
@@ -68,16 +66,12 @@ describe("release workflow recovery topology", () => {
     expect(workflow).toContain(
       "tooling_sha: ${{ steps.preflight.outputs.tooling_sha }}",
     );
-    expect(workflow).toContain(
-      "release_ci_run_id: ${{ steps.preflight.outputs.release_ci_run_id }}",
-    );
+    expect(workflow).not.toContain("release_ci_run_id:");
   });
 
-  it("propagates the resolved draft release ID to every later step", async () => {
+  it("propagates the resolved release ID to every later step", async () => {
     const workflow = await readWorkflow();
-    const ensureDraft = workflow.indexOf(
-      "- name: Create or verify draft release",
-    );
+    const ensureRelease = workflow.indexOf("- name: Create or resolve release");
     const captureReleaseId = workflow.indexOf(
       "- name: Capture exact release ID",
     );
@@ -86,7 +80,7 @@ describe("release workflow recovery topology", () => {
     );
 
     expect(workflow).toContain(
-      "- name: Create or verify draft release\n        id: release",
+      "- name: Create or resolve release\n        id: release",
     );
     expect(workflow).toContain(
       "RESOLVED_RELEASE_ID: ${{ steps.release.outputs.release_id }}",
@@ -97,8 +91,8 @@ describe("release workflow recovery topology", () => {
     expect(workflow).toContain(
       'echo "RELEASE_ID=$RESOLVED_RELEASE_ID" >> "$GITHUB_ENV"',
     );
-    expect(ensureDraft).toBeGreaterThan(-1);
-    expect(captureReleaseId).toBeGreaterThan(ensureDraft);
+    expect(ensureRelease).toBeGreaterThan(-1);
+    expect(captureReleaseId).toBeGreaterThan(ensureRelease);
     expect(inspectImage).toBeGreaterThan(captureReleaseId);
   });
 
@@ -106,7 +100,7 @@ describe("release workflow recovery topology", () => {
     const workflow = await readWorkflow();
 
     expect(workflow).toContain(
-      "release_id:\n        description: Exact existing draft release ID to resume\n        required: true",
+      "release_id:\n        description: Exact existing release ID to resume\n        required: true",
     );
     expect(workflow).toContain(
       "RECOVERY_RELEASE_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.release_id || '' }}",
@@ -127,16 +121,14 @@ describe("release workflow recovery topology", () => {
     expect(orchestrator).not.toContain("getReleases");
     expect(orchestrator).not.toMatch(/releases\?per_page/u);
     expect(orchestrator).toContain(
-      "const resolved = fetchRelease(context.repository, releaseId);",
+      "const release = fetchRelease(context.repository, releaseId);",
     );
     expect(postResolution).not.toContain("findReleaseByTag(");
     expect(postResolution).not.toContain("getReleases(");
     expect(postResolution).toContain(
       "const refreshed = await refreshRelease(context.repository, release.id);",
     );
-    expect(postResolution).toContain(
-      "const { release, provenance } = resolveDraftReleaseById({",
-    );
+    expect(postResolution).toContain("resolveReleaseById({ context })");
     expect(postResolution).toContain(
       "const release = requirePublishedRelease(context, releaseId);",
     );
