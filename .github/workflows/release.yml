@@ -10,6 +10,10 @@ on:
         description: Existing release tag to verify or resume
         required: true
         type: string
+      release_id:
+        description: Exact existing draft release ID to resume
+        required: true
+        type: string
 
 concurrency:
   group: staaash-release
@@ -52,6 +56,17 @@ jobs:
         run: |
           echo "Release recovery must be dispatched from refs/heads/main." >&2
           exit 1
+
+      - name: Require exact recovery release ID
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          RECOVERY_RELEASE_ID: ${{ inputs.release_id }}
+        run: |
+          if [[ ! "$RECOVERY_RELEASE_ID" =~ ^[1-9][0-9]*$ ]]; then
+            echo "Recovery release ID must be a canonical positive integer." >&2
+            exit 1
+          fi
 
       - name: Check out exact release tooling
         uses: actions/checkout@v7
@@ -121,6 +136,8 @@ jobs:
       TAG_TYPE: ${{ needs.preflight.outputs.tag_type }}
       IMAGE_REPOSITORY: ${{ needs.preflight.outputs.image_repository }}
       TOOLING_SHA: ${{ needs.preflight.outputs.tooling_sha }}
+      RELEASE_EVENT_NAME: ${{ github.event_name }}
+      RECOVERY_RELEASE_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.release_id || '' }}
       TOOLING_ROOT: ${{ github.workspace }}/tooling
       RELEASE_SOURCE_ROOT: ${{ github.workspace }}/release-source
       ASSET_DIR: ${{ github.workspace }}/release-assets
