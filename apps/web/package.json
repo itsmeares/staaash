@@ -1,6 +1,6 @@
 {
   "name": "web",
-  "version": "1.0.0-rc.6",
+  "version": "1.0.0-rc.7",
   "private": true,
   "scripts": {
     "build:deps": "pnpm --filter @staaash/config build && pnpm --filter @staaash/db build",
