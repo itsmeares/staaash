@@ -28,7 +28,8 @@ import {
   serializeSha256Sums,
 } from "../../packages/config/dist/release.js";
 
-const ROOT = fileURLToPath(new URL("../../", import.meta.url));
+const SCRIPT_PATH = fileURLToPath(import.meta.url);
+const TOOLING_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const PACKAGE_FILES = {
   root: "package.json",
   web: "apps/web/package.json",
@@ -42,6 +43,7 @@ const REQUIRED_ASSET_NAMES = [
   "release-manifest.json",
   "SHA256SUMS",
 ];
+const GITHUB_API_VERSION = "2022-11-28";
 const MISSING_IMAGE_PATTERN =
   /manifest unknown|not found|no such manifest|does not exist/iu;
 
@@ -56,12 +58,22 @@ const requiredEnv = (name) => {
 
 const optionalEnv = (name) => process.env[name]?.trim() ?? "";
 
+const requiredAbsolutePath = (name) => {
+  const value = requiredEnv(name);
+  if (!path.isAbsolute(value)) {
+    throw new Error(`${name} must be an absolute path.`);
+  }
+  return path.normalize(value);
+};
+
+const releaseSourceRoot = () => requiredAbsolutePath("RELEASE_SOURCE_ROOT");
+
 const run = (
   command,
   args,
   {
     allowFailure = false,
-    cwd = ROOT,
+    cwd = TOOLING_ROOT,
     input,
     encoding = "utf8",
     environment = process.env,
@@ -84,7 +96,11 @@ const run = (
   return result;
 };
 
-const git = (...args) => run("git", args).stdout.trim();
+const gitAt = (cwd, ...args) => run("git", args, { cwd }).stdout.trim();
+
+const git = (...args) => gitAt(releaseSourceRoot(), ...args);
+
+const toolingGit = (...args) => gitAt(TOOLING_ROOT, ...args);
 
 const ghApi = (endpoint, { method = "GET", input } = {}) => {
   const args = ["api", endpoint, "--method", method];
@@ -124,7 +140,29 @@ const writeSummary = async (content) => {
 const sha256 = (content) =>
   `sha256:${createHash("sha256").update(content).digest("hex")}`;
 
+const verifyToolingRoot = () => {
+  const expectedRoot = optionalEnv("TOOLING_ROOT");
+  if (
+    expectedRoot &&
+    path.resolve(expectedRoot) !== path.resolve(TOOLING_ROOT)
+  ) {
+    throw new Error(
+      `Tooling root is ${TOOLING_ROOT}; expected ${path.resolve(expectedRoot)}.`,
+    );
+  }
+};
+
+const verifyToolingCheckout = (toolingSha) => {
+  verifyToolingRoot();
+  const head = toolingGit("rev-parse", "HEAD");
+  if (head !== toolingSha) {
+    throw new Error(`Tooling HEAD is ${head}; expected ${toolingSha}.`);
+  }
+};
+
 const releaseContextFromEnv = () => {
+  const toolingSha = requiredEnv("TOOLING_SHA");
+  verifyToolingCheckout(toolingSha);
   const tag = requiredEnv("RELEASE_TAG");
   const release = parseReleaseTag(tag);
   if (!release) throw new Error(`Invalid release tag: ${tag}`);
@@ -140,15 +178,16 @@ const releaseContextFromEnv = () => {
     releaseSha: requiredEnv("RELEASE_SHA"),
     tagObject: requiredEnv("TAG_OBJECT_SHA"),
     tagType: requiredEnv("TAG_TYPE"),
+    toolingSha,
   };
 };
 
-const readPackageVersions = async () =>
+const readPackageVersions = async (sourceRoot = releaseSourceRoot()) =>
   Object.fromEntries(
     await Promise.all(
       Object.entries(PACKAGE_FILES).map(async ([name, file]) => {
         const metadata = JSON.parse(
-          await readFile(path.join(ROOT, file), "utf8"),
+          await readFile(path.join(sourceRoot, file), "utf8"),
         );
         return [name, metadata.version];
       }),
@@ -156,7 +195,9 @@ const readPackageVersions = async () =>
   );
 
 const readRemoteTagObject = (tag) => {
-  const result = run("git", ["ls-remote", "origin", `refs/tags/${tag}`]);
+  const result = run("git", ["ls-remote", "origin", `refs/tags/${tag}`], {
+    cwd: releaseSourceRoot(),
+  });
   const line = result.stdout.trim();
   if (!line) throw new Error(`Remote tag ${tag} does not exist.`);
   const [objectSha] = line.split(/\s+/u);
@@ -220,11 +261,18 @@ const verifyCheckedOutTag = (releaseSha) => {
 };
 
 const verifyMainAncestry = (releaseSha) => {
-  run("git", ["fetch", "--no-tags", "origin", "main:refs/remotes/origin/main"]);
+  const cwd = releaseSourceRoot();
+  run(
+    "git",
+    ["fetch", "--no-tags", "origin", "main:refs/remotes/origin/main"],
+    {
+      cwd,
+    },
+  );
   const ancestry = run(
     "git",
     ["merge-base", "--is-ancestor", releaseSha, "origin/main"],
-    { allowFailure: true },
+    { allowFailure: true, cwd },
   );
   if (ancestry.status !== 0) {
     throw new Error(`Release commit ${releaseSha} is not on current main.`);
@@ -523,8 +571,7 @@ const verifyImage = ({ context, digest }) => {
   return { observed, immutableReference };
 };
 
-const assetDirectory = () =>
-  path.resolve(ROOT, optionalEnv("ASSET_DIR") || ".release-assets");
+const assetDirectory = () => requiredAbsolutePath("ASSET_DIR");
 
 const generatedAssets = async () => {
   const directory = assetDirectory();
@@ -632,7 +679,7 @@ const fetchAssetBytes = async (asset) => {
     headers: {
       Accept: "application/octet-stream",
       Authorization: `Bearer ${token}`,
-      "X-GitHub-Api-Version": "2022-11-28",
+      "X-GitHub-Api-Version": GITHUB_API_VERSION,
     },
   });
   if (!response.ok) {
@@ -641,6 +688,146 @@ const fetchAssetBytes = async (asset) => {
     );
   }
   return Buffer.from(await response.arrayBuffer());
+};
+
+const encodeQueryValue = (value) =>
+  encodeURIComponent(value).replace(
+    /[!'()*]/gu,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+
+const isValidReleaseAssetUploadUrl = ({ url, releaseId }) =>
+  [
+    url.protocol === "https:",
+    url.hostname === "uploads.github.com",
+    url.username === "",
+    url.password === "",
+    url.hash === "",
+    url.search === "",
+    url.pathname.endsWith(`/releases/${releaseId}/assets`),
+  ].every(Boolean);
+
+const releaseAssetUploadUrl = ({ release, name }) => {
+  if (!release.upload_url) {
+    throw new Error(`Release ${release.id} has no asset upload URL.`);
+  }
+  const url = new URL(release.upload_url.split("{", 1)[0]);
+  if (!isValidReleaseAssetUploadUrl({ url, releaseId: release.id })) {
+    throw new Error(`Release ${release.id} has an invalid asset upload URL.`);
+  }
+  url.search = `?name=${encodeQueryValue(name)}`;
+  return url.href;
+};
+
+const safeGitHubResponseText = (text) =>
+  text
+    .replace(/\p{Cc}/gu, " ")
+    .trim()
+    .slice(0, 1000);
+
+const uploadFailure = ({ name, status, detail }) =>
+  new Error(
+    [`Uploading release asset ${name} failed: HTTP ${status}`, detail]
+      .filter(Boolean)
+      .join(" "),
+  );
+
+const uploadNetworkFailure = ({ name, operation, error, token }) => {
+  const rawDetail = error instanceof Error ? error.message : String(error);
+  const detail = safeGitHubResponseText(
+    rawDetail.replaceAll(token, "[redacted]"),
+  );
+  return new Error(
+    `Uploading release asset ${name} failed during ${operation}${detail ? `: ${detail}` : "."}`,
+  );
+};
+
+const hasExpectedUploadMetadata = ({ uploaded, name, size }) => {
+  const metadata = Object(uploaded);
+  const expected = { name, state: "uploaded", size };
+  const valuesMatch = Object.entries(expected).every(
+    ([key, value]) => metadata[key] === value,
+  );
+  const identifiersExist = ["id", "url"].every((key) => Boolean(metadata[key]));
+  return valuesMatch && identifiersExist;
+};
+
+const parseUploadedAsset = ({ response, responseText, name, size }) => {
+  if (response.status !== 201) {
+    throw uploadFailure({
+      name,
+      status: response.status,
+      detail: safeGitHubResponseText(responseText),
+    });
+  }
+
+  let uploaded;
+  try {
+    uploaded = JSON.parse(responseText);
+  } catch {
+    throw uploadFailure({
+      name,
+      status: response.status,
+      detail: "returned invalid JSON.",
+    });
+  }
+  if (!hasExpectedUploadMetadata({ uploaded, name, size })) {
+    throw uploadFailure({
+      name,
+      status: response.status,
+      detail: "returned invalid asset metadata.",
+    });
+  }
+  return uploaded;
+};
+
+const uploadReleaseAsset = async ({
+  release,
+  name,
+  filePath,
+  token = requiredEnv("GH_TOKEN"),
+  fetchImpl = fetch,
+  readAsset = readFile,
+}) => {
+  const content = await readAsset(filePath);
+  let response;
+  try {
+    response = await fetchImpl(releaseAssetUploadUrl({ release, name }), {
+      method: "POST",
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/octet-stream",
+        "X-GitHub-Api-Version": GITHUB_API_VERSION,
+      },
+      body: content,
+    });
+  } catch (error) {
+    throw uploadNetworkFailure({
+      name,
+      operation: "network request",
+      error,
+      token,
+    });
+  }
+
+  let responseText;
+  try {
+    responseText = await response.text();
+  } catch (error) {
+    throw uploadNetworkFailure({
+      name,
+      operation: "response body read",
+      error,
+      token,
+    });
+  }
+  return parseUploadedAsset({
+    response,
+    responseText,
+    name,
+    size: content.byteLength,
+  });
 };
 
 const observedAssetsWithDigests = async (repository, releaseId) => {
@@ -725,21 +912,69 @@ const expectedCompleteProvenance = ({ context, imageDigest, assets }) => {
   });
 };
 
+const verifyPreflightToolingIdentity = ({ toolingSha, releaseSha }) => {
+  verifyToolingCheckout(toolingSha);
+  const eventName = requiredEnv("RELEASE_EVENT_NAME");
+  if (eventName === "push") {
+    if (toolingSha !== releaseSha) {
+      throw new Error(
+        `Tag-push tooling is ${toolingSha}; expected release commit ${releaseSha}.`,
+      );
+    }
+    return;
+  }
+  if (eventName !== "workflow_dispatch") {
+    throw new Error(`Unsupported release event: ${eventName}.`);
+  }
+  const recoveryRef = requiredEnv("RECOVERY_REF");
+  if (recoveryRef !== "refs/heads/main") {
+    throw new Error(
+      `Recovery dispatch ref is ${recoveryRef}; expected refs/heads/main.`,
+    );
+  }
+  const expectedToolingSha = requiredEnv("EXPECTED_TOOLING_SHA");
+  if (toolingSha !== expectedToolingSha) {
+    throw new Error(
+      `Recovery tooling is ${toolingSha}; expected ${expectedToolingSha}.`,
+    );
+  }
+};
+
+const waitForRequiredCi = async ({
+  repository,
+  releaseSha,
+  toolingSha,
+  waitForCi = waitForExactCi,
+}) => {
+  const releaseCiRun = await waitForCi({ repository, releaseSha });
+  const toolingCiRun =
+    toolingSha === releaseSha
+      ? releaseCiRun
+      : await waitForCi({ repository, releaseSha: toolingSha });
+  return { releaseCiRun, toolingCiRun };
+};
+
 const commandPreflight = async () => {
   const tag = requiredEnv("RELEASE_TAG");
   const repository = requiredEnv("GITHUB_REPOSITORY");
+  const toolingSha = requiredEnv("TOOLING_SHA");
   const identity = inspectTagIdentity({
     tag,
     expectedReleaseSha: optionalEnv("EXPECTED_RELEASE_SHA"),
     expectedTagObject: optionalEnv("EXPECTED_TAG_OBJECT"),
   });
+  verifyPreflightToolingIdentity({
+    toolingSha,
+    releaseSha: identity.releaseSha,
+  });
   const packageVersions = await readPackageVersions();
   const errors = findCanonicalReleaseVersionErrors({ tag, packageVersions });
   if (errors.length > 0) throw new Error(errors.join("\n"));
   const release = parseReleaseTag(tag);
-  const ciRun = await waitForExactCi({
+  const { releaseCiRun, toolingCiRun } = await waitForRequiredCi({
     repository,
     releaseSha: identity.releaseSha,
+    toolingSha,
   });
   const imageRepository = `ghcr.io/${repository.toLowerCase()}`;
 
@@ -751,10 +986,12 @@ const commandPreflight = async () => {
     ["tag_object", identity.tagObject],
     ["tag_type", identity.tagType],
     ["image_repository", imageRepository],
-    ["ci_run_id", ciRun.id],
+    ["release_ci_run_id", releaseCiRun.id],
+    ["tooling_sha", toolingSha],
+    ["tooling_ci_run_id", toolingCiRun.id],
   ]);
   await writeSummary(
-    `## REL-01 preflight\n\n- Tag: \`${release.tag}\`\n- Commit: \`${identity.releaseSha}\`\n- Exact CI run: \`${ciRun.id}\`\n- Channel: ${release.prerelease ? "prerelease" : "stable"}`,
+    `## REL-01 preflight\n\n- Tag: \`${release.tag}\`\n- Tag object: \`${identity.tagObject}\`\n- Release commit: \`${identity.releaseSha}\`\n- Release CI run: \`${releaseCiRun.id}\`\n- Tooling commit: \`${toolingSha}\`\n- Tooling CI run: \`${toolingCiRun.id}\`\n- Channel: ${release.prerelease ? "prerelease" : "stable"}`,
   );
 };
 
@@ -839,6 +1076,11 @@ const commandVerifyImage = async () => {
   await writeOutput("immutable_reference", immutableReference);
 };
 
+const readReleaseTemplates = async (sourceRoot = releaseSourceRoot()) => ({
+  compose: await readFile(path.join(sourceRoot, "docker-compose.yml"), "utf8"),
+  environment: await readFile(path.join(sourceRoot, "example.env"), "utf8"),
+});
+
 const commandGenerateAssets = async () => {
   const context = releaseContextFromEnv();
   const imageDigest = requiredEnv("IMAGE_DIGEST");
@@ -847,13 +1089,14 @@ const commandGenerateAssets = async () => {
   await rm(directory, { recursive: true, force: true });
   await mkdir(directory, { recursive: true });
 
+  const templates = await readReleaseTemplates();
   const compose = renderReleaseCompose({
-    source: await readFile(path.join(ROOT, "docker-compose.yml"), "utf8"),
+    source: templates.compose,
     imageRepository: context.imageRepository,
     releaseTag: context.release.tag,
   });
   const environment = renderReleaseEnv({
-    source: await readFile(path.join(ROOT, "example.env"), "utf8"),
+    source: templates.environment,
     releaseTag: context.release.tag,
   });
   const manifestObject = buildReleaseManifest({
@@ -917,26 +1160,31 @@ const reconcileDraftProvenance = ({
   return release;
 };
 
-const uploadMissingDraftAssets = async ({ context, release, localAssets }) => {
+const uploadMissingDraftAssets = async ({
+  context,
+  release,
+  localAssets,
+  observeAssets = observedAssetsWithDigests,
+  uploadAsset = uploadReleaseAsset,
+  refreshRelease = getRelease,
+  assetRoot = assetDirectory,
+}) => {
   const plan = planReleaseAssets({
     expected: expectedAssetDigests(localAssets),
-    observed: await observedAssetsWithDigests(context.repository, release.id),
+    observed: await observeAssets(context.repository, release.id),
     published: false,
   });
   if (plan.conflicts.length > 0) {
     throw new Error(`Draft assets conflict:\n${plan.conflicts.join("\n")}`);
   }
   for (const name of plan.upload) {
-    run("gh", [
-      "release",
-      "upload",
-      context.release.tag,
-      path.join(assetDirectory(), name),
-      "--repo",
-      context.repository,
-    ]);
+    await uploadAsset({
+      release,
+      name,
+      filePath: path.join(assetRoot(), name),
+    });
   }
-  const refreshed = getRelease(context.repository, context.release.tag);
+  const refreshed = refreshRelease(context.repository, context.release.tag);
   if (!refreshed)
     throw new Error("Draft release disappeared after asset upload.");
   return refreshed;
@@ -948,6 +1196,7 @@ const reconcileDraftRelease = async ({
   provenance,
   complete,
   localAssets,
+  uploadOptions,
 }) => {
   const updated = reconcileDraftProvenance({
     context,
@@ -959,6 +1208,7 @@ const reconcileDraftRelease = async ({
     context,
     release: updated,
     localAssets,
+    ...uploadOptions,
   });
 };
 
@@ -969,12 +1219,38 @@ const verifyCompleteProvenance = ({ provenance, complete, published }) => {
   );
 };
 
+const reconcileReleaseAssets = async ({
+  context,
+  release,
+  provenance,
+  complete,
+  localAssets,
+  uploadOptions,
+  verifyAssets = verifyRemoteAssets,
+}) => {
+  let reconciled = release;
+  if (release.draft) {
+    reconciled = await reconcileDraftRelease({
+      context,
+      release,
+      provenance,
+      complete,
+      localAssets,
+      uploadOptions,
+    });
+  } else {
+    verifyCompleteProvenance({ provenance, complete, published: true });
+  }
+  await verifyAssets({ context, release: reconciled, localAssets });
+  return reconciled;
+};
+
 const commandReconcileRelease = async () => {
   const context = releaseContextFromEnv();
   const imageDigest = requiredEnv("IMAGE_DIGEST");
   verifyRecordedTagIdentity(context);
   const localAssets = await generatedAssets();
-  let release = getRelease(context.repository, context.release.tag);
+  const release = getRelease(context.repository, context.release.tag);
   if (!release) throw new Error("Draft release is missing.");
   const { provenance } = validateReleaseIdentity({ release, context });
   const complete = expectedCompleteProvenance({
@@ -983,18 +1259,13 @@ const commandReconcileRelease = async () => {
     assets: localAssets,
   });
 
-  if (release.draft) {
-    release = await reconcileDraftRelease({
-      context,
-      release,
-      provenance,
-      complete,
-      localAssets,
-    });
-  } else {
-    verifyCompleteProvenance({ provenance, complete, published: true });
-  }
-  await verifyRemoteAssets({ context, release, localAssets });
+  await reconcileReleaseAssets({
+    context,
+    release,
+    provenance,
+    complete,
+    localAssets,
+  });
 };
 
 const commandPublish = async () => {
@@ -1147,9 +1418,12 @@ const commandPromoteLatest = async () => {
 
 const commandSummary = async () => {
   const tag = optionalEnv("RELEASE_TAG") || "unknown";
+  const releaseSha = optionalEnv("RELEASE_SHA") || "unknown";
+  const tagObject = optionalEnv("TAG_OBJECT_SHA") || "unknown";
+  const toolingSha = optionalEnv("TOOLING_SHA") || "unknown";
   const result = optionalEnv("RELEASE_RESULT") || "unknown";
   await writeSummary(
-    `## Release recovery\n\nResult: **${result}**\n\nTag: \`${tag}\`\n\n- Retry matching partial state with **Run workflow** and the same existing tag.\n- Do not move/delete the tag, clobber assets, or overwrite a conflicting image.\n- Conflicts require manual comparison of reported expected and actual SHA/digest values.`,
+    `## Release recovery\n\nResult: **${result}**\n\n- Tag: \`${tag}\`\n- Tag object: \`${tagObject}\`\n- Release commit: \`${releaseSha}\`\n- Tooling commit: \`${toolingSha}\`\n\n- Retry matching partial state with **Run workflow** from \`main\` and the same existing tag.\n- Do not move/delete the tag, clobber assets, or overwrite a conflicting image.\n- Conflicts require manual comparison of reported expected and actual SHA/digest values.`,
   );
 };
 
@@ -1166,18 +1440,34 @@ const commands = {
   summary: commandSummary,
 };
 
-const command = process.argv[2];
-if (!command || !(command in commands)) {
-  throw new Error(`Unknown release command: ${command ?? "missing"}`);
-}
+export {
+  assetDirectory,
+  readPackageVersions,
+  readReleaseTemplates,
+  reconcileReleaseAssets,
+  releaseAssetUploadUrl,
+  resolveTagIdentity,
+  uploadMissingDraftAssets,
+  uploadReleaseAsset,
+  verifyPreflightToolingIdentity,
+  waitForRequiredCi,
+  verifyToolingCheckout,
+};
 
-try {
-  await commands[command]();
-} catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(message);
-  await writeSummary(
-    `## REL-01 failure\n\n\`\`\`text\n${message}\n\`\`\`\n\nRetry matching partial state with **Run workflow** and the same existing tag. Do not move/delete the tag, clobber assets, or overwrite a conflicting image. Conflicts require manual comparison of reported expected and actual SHA/digest values.`,
-  );
-  process.exitCode = 1;
+if (process.argv[1] && path.resolve(process.argv[1]) === SCRIPT_PATH) {
+  const command = process.argv[2];
+  if (!command || !(command in commands)) {
+    throw new Error(`Unknown release command: ${command ?? "missing"}`);
+  }
+
+  try {
+    await commands[command]();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(message);
+    await writeSummary(
+      `## REL-01 failure\n\n\`\`\`text\n${message}\n\`\`\`\n\nRetry matching partial state with **Run workflow** from \`main\` and the same existing tag. Do not move/delete the tag, clobber assets, or overwrite a conflicting image. Conflicts require manual comparison of reported expected and actual SHA/digest values.`,
+    );
+    process.exitCode = 1;
+  }
 }
