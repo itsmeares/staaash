@@ -55,8 +55,8 @@ Requirements: [Docker](https://docs.docker.com/get-docker/) with the Compose plu
 
 ### Windows and Linux
 
-1. Go to the [releases page](https://github.com/itsmeares/staaash/releases) and download `docker-compose.yml` and `example.env` into the same folder. Use the latest release, or pick a specific version if you need one. Files on `main` may include unreleased changes.
-2. Rename `example.env` to `.env`, open it, set `DB_PASSWORD` to a secure value (you can use something like pwgen), and change any other values you want.
+1. Go to the [releases page](https://github.com/itsmeares/staaash/releases) and download `docker-compose.yml`, `example.env`, `release-manifest.json`, and `SHA256SUMS` into the same folder. Use the latest release, or pick a specific version if you need one. Release files pin Staaash to that release's verified image digest; files on `main` may include unreleased changes.
+2. Verify the downloaded files against `SHA256SUMS`. Rename `example.env` to `.env`, open it, set `DB_PASSWORD` to a secure value (you can use something like pwgen), and change any other values you want. Keep the release-provided `STAAASH_VERSION` value unless you intentionally select another image.
 3. Run:
 
    ```console
@@ -79,12 +79,14 @@ Use one public address consistently. Loading the app from `https://staaash.examp
 
 ### Upgrading
 
+Download and verify the target release's new `docker-compose.yml`, `example.env`, `release-manifest.json`, and `SHA256SUMS`. Replace your Compose file, then copy the target release's `STAAASH_VERSION` value from `example.env` into your existing `.env` without overwriting your password or other settings.
+
 ```console
 docker compose pull
 docker compose up -d
 ```
 
-Migrations run automatically on startup. These commands support upgrades between compatible releases in the Postgres 18 RC/current release line.
+Migrations run automatically on startup. These commands support upgrades between compatible releases in the Postgres 18 RC/current release line. The digest-pinned `STAAASH_VERSION` ensures the image pulled matches the selected GitHub Release.
 
 > [!WARNING]
 > Alpha and beta releases cannot be upgraded to the RC or v1 release line. Use a fresh installation of the current release. Do not reuse an alpha/beta deployment's internal database or storage directories as the data directories for the current installation.

@@ -4,42 +4,112 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to verify or resume
+        required: true
+        type: string
+
+concurrency:
+  group: staaash-release
+  queue: max
+
 jobs:
-  build-and-push:
+  preflight:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     permissions:
-      contents: write
-      packages: write
+      actions: read
+      contents: read
+    outputs:
+      tag: ${{ steps.preflight.outputs.tag }}
+      version: ${{ steps.preflight.outputs.version }}
+      prerelease: ${{ steps.preflight.outputs.prerelease }}
+      release_sha: ${{ steps.preflight.outputs.release_sha }}
+      tag_object: ${{ steps.preflight.outputs.tag_object }}
+      tag_type: ${{ steps.preflight.outputs.tag_type }}
+      image_repository: ${{ steps.preflight.outputs.image_repository }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      EXPECTED_RELEASE_SHA: ${{ github.event_name == 'push' && github.sha || '' }}
+      EXPECTED_TAG_OBJECT: ${{ github.event_name == 'push' && github.event.after || '' }}
+      CI_WAIT_SECONDS: "1800"
+      CI_POLL_SECONDS: "15"
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ env.RELEASE_TAG }}
 
-      - name: Verify release versions
-        shell: bash
-        run: |
-          node <<'NODE'
-          const fs = require("node:fs");
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.18.0
 
-          const tagVersion = process.env.GITHUB_REF_NAME.replace(/^v/, "");
-          const packageFiles = [
-            "package.json",
-            "apps/web/package.json",
-            "apps/worker/package.json",
-            "packages/config/package.json",
-            "packages/db/package.json",
-          ];
-          const mismatches = packageFiles.flatMap((file) => {
-            const version = JSON.parse(fs.readFileSync(file, "utf8")).version;
-            return version === tagVersion
-              ? []
-              : [`${file} has ${version}; expected ${tagVersion}`];
-          });
+      - name: Enable Corepack
+        run: corepack enable
 
-          if (mismatches.length > 0) {
-            console.error(mismatches.join("\n"));
-            process.exit(1);
-          }
-          NODE
+      - name: Install pinned pnpm
+        run: corepack install
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build release policy
+        run: pnpm --filter @staaash/config build
+
+      - name: Verify tag, packages, and exact CI
+        id: preflight
+        run: node scripts/release/index.mjs preflight
+
+  publish:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      actions: read
+      contents: write
+      packages: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+      RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+      RELEASE_PRERELEASE: ${{ needs.preflight.outputs.prerelease }}
+      RELEASE_SHA: ${{ needs.preflight.outputs.release_sha }}
+      TAG_OBJECT_SHA: ${{ needs.preflight.outputs.tag_object }}
+      TAG_TYPE: ${{ needs.preflight.outputs.tag_type }}
+      IMAGE_REPOSITORY: ${{ needs.preflight.outputs.image_repository }}
+      ASSET_DIR: .release-assets
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ env.RELEASE_TAG }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.18.0
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install pinned pnpm
+        run: corepack install
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build release policy
+        run: pnpm --filter @staaash/config build
+
+      - name: Recheck immutable tag identity
+        run: node scripts/release/index.mjs verify-tag
+
+      - name: Create or verify draft release
+        run: node scripts/release/index.mjs ensure-draft
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -51,42 +121,77 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ghcr.io/itsmeares/staaash
-          flavor: |
-            latest=false
-          tags: |
-            type=ref,event=tag
-            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
+      - name: Inspect existing versioned image
+        id: image
+        run: node scripts/release/index.mjs inspect-image
 
-      - name: Build and push
+      - name: Build and push exact versioned image
+        id: build
+        if: steps.image.outputs.exists != 'true'
         uses: docker/build-push-action@v7
         with:
           context: .
           push: true
           platforms: linux/amd64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ env.IMAGE_REPOSITORY }}:${{ env.RELEASE_TAG }}
+          labels: |
+            org.opencontainers.image.title=staaash
+            org.opencontainers.image.description=Self-hosted personal cloud drive built with Next.js, Prisma, PostgreSQL, and a worker runtime.
+            org.opencontainers.image.licenses=AGPL-3.0-only
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ env.RELEASE_TAG }}
+            org.opencontainers.image.revision=${{ env.RELEASE_SHA }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Create GitHub Release
+      - name: Select immutable image digest
+        id: digest
+        shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXISTING_DIGEST: ${{ steps.image.outputs.digest }}
+          BUILT_DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          TAG="${{ github.ref_name }}"
-          PRERELEASE_FLAG=""
-          if [[ "$TAG" == *"-alpha"* ]] || [[ "$TAG" == *"-beta"* ]] || [[ "$TAG" == *"-rc"* ]]; then
-            PRERELEASE_FLAG="--prerelease"
+          DIGEST="${EXISTING_DIGEST:-$BUILT_DIGEST}"
+          if [[ ! "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "Missing or invalid OCI index digest: $DIGEST" >&2
+            exit 1
           fi
-          gh release view "$TAG" >/dev/null 2>&1 && echo "Release already exists, skipping." || \
-          gh release create "$TAG" \
-            --title "$TAG" \
-            --generate-notes \
-            --draft \
-            $PRERELEASE_FLAG \
-            docker-compose.yml \
-            example.env
+          echo "value=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Verify exact image digest and runtime versions
+        env:
+          IMAGE_DIGEST: ${{ steps.digest.outputs.value }}
+        run: node scripts/release/index.mjs verify-image
+
+      - name: Generate release-specific installation assets
+        env:
+          IMAGE_DIGEST: ${{ steps.digest.outputs.value }}
+        run: node scripts/release/index.mjs generate-assets
+
+      - name: Reconcile draft notes and assets
+        env:
+          IMAGE_DIGEST: ${{ steps.digest.outputs.value }}
+        run: node scripts/release/index.mjs reconcile-release
+
+      - name: Publish verified GitHub Release
+        env:
+          IMAGE_DIGEST: ${{ steps.digest.outputs.value }}
+        run: node scripts/release/index.mjs publish
+
+      - name: Promote stable digest to latest
+        env:
+          IMAGE_DIGEST: ${{ steps.digest.outputs.value }}
+        run: node scripts/release/index.mjs promote-latest
+
+      - name: Clean runner release assets
+        if: always()
+        shell: bash
+        run: rm -rf .release-assets
+
+      - name: Write retry and investigation summary
+        if: always()
+        continue-on-error: true
+        env:
+          RELEASE_RESULT: ${{ job.status }}
+        run: node scripts/release/index.mjs summary
