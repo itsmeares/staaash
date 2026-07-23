@@ -13,7 +13,7 @@ The main audience is broader than the maintainer now: solo users, households, fa
 There are two user contexts:
 
 - Workspace users manage their own files, folders, favorites, recent items, trash, preferences, and shared links.
-- Owners also manage the instance: invites, storage state, worker jobs, update checks, restore reconciliation, health, and beta upgrade risk.
+- Owners also manage the instance: invites, storage state, worker jobs, update checks, restore reconciliation, health, and fresh-install boundaries for unsupported alpha and beta releases.
 
 Owner authority is operational. It should not make the owner a normal-app superuser who can casually browse member private files.
 
@@ -61,7 +61,7 @@ Files, folders, previews, shares, and operational state are the content. UI chro
 
 ### Operational Clarity Is Part Of The Product
 
-Owners need honest status: database, file volume, worker heartbeat, queue backlog, disk warnings, updates, restore reconciliation, and beta upgrade caveats. Do not hide uncertainty behind green-looking summaries.
+Owners need honest status: database, file volume, worker heartbeat, queue backlog, disk warnings, updates, restore reconciliation, and warnings that unsupported alpha and beta releases require a fresh install. Do not hide uncertainty behind green-looking summaries.
 
 Use status color consistently across admin and workspace operations: green for succeeded or healthy, blue for running, amber for queued or warning, red for failed or blocked, and neutral for cancelled, idle, or stopped. The same semantic status token should drive dots, text, chips, and badges so operational state never looks arbitrary.
 

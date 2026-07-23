@@ -35,9 +35,6 @@
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,cjs,json,md,yml,yaml,css}": "prettier --write --ignore-unknown"
   },
-  "dependencies": {
-    "pg": "^8.22.0"
-  },
   "devDependencies": {
     "fallow": "3.6.0",
     "husky": "9.1.7",

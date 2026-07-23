@@ -65,13 +65,21 @@ const buildUrls = (baseUrl: string, databaseName: string) => {
   };
 };
 
-const runMigrations = async (databaseUrl: string) => {
+const runPrismaMigrationCommand = async (
+  databaseUrl: string,
+  command: "deploy" | "status",
+) => {
   const workspaceRoot = fileURLToPath(new URL("../../", import.meta.url));
   const isWindows = process.platform === "win32";
   const executable = isWindows ? (process.env.ComSpec ?? "cmd.exe") : "pnpm";
   const args = isWindows
-    ? ["/d", "/s", "/c", "pnpm --filter @staaash/db exec prisma migrate deploy"]
-    : ["--filter", "@staaash/db", "exec", "prisma", "migrate", "deploy"];
+    ? [
+        "/d",
+        "/s",
+        "/c",
+        `pnpm --filter @staaash/db exec prisma migrate ${command}`,
+      ]
+    : ["--filter", "@staaash/db", "exec", "prisma", "migrate", command];
   await new Promise<void>((resolve, reject) => {
     const child = spawn(executable, args, {
       cwd: workspaceRoot,
@@ -84,12 +92,40 @@ const runMigrations = async (databaseUrl: string) => {
       else {
         reject(
           new Error(
-            `Prisma migration failed (${signal ?? `exit ${String(code)}`}).`,
+            `Prisma migrate ${command} failed (${signal ?? `exit ${String(code)}`}).`,
           ),
         );
       }
     });
   });
+};
+
+const migrationHistorySnapshot = async (databaseUrl: string) => {
+  const client = new Client({ connectionString: databaseUrl });
+  await client.connect();
+  try {
+    const result = await client.query(`
+      SELECT "migration_name", "checksum", "finished_at", "rolled_back_at", "applied_steps_count"
+      FROM "_prisma_migrations"
+      ORDER BY "started_at" ASC, "migration_name" ASC
+    `);
+    return JSON.stringify(result.rows);
+  } finally {
+    await client.end();
+  }
+};
+
+const runMigrations = async (databaseUrl: string) => {
+  await runPrismaMigrationCommand(databaseUrl, "deploy");
+  const firstHistory = await migrationHistorySnapshot(databaseUrl);
+  await runPrismaMigrationCommand(databaseUrl, "deploy");
+  const secondHistory = await migrationHistorySnapshot(databaseUrl);
+  if (secondHistory !== firstHistory) {
+    throw new Error(
+      "Second Prisma migration deploy changed migration history.",
+    );
+  }
+  await runPrismaMigrationCommand(databaseUrl, "status");
 };
 
 const dropGeneratedDatabase = async ({
@@ -142,6 +178,14 @@ export default async function setup(project: GlobalSetupProject) {
 
   try {
     await client.connect();
+    const versionResult = await client.query("SHOW server_version_num");
+    const versionNumber = Number(versionResult.rows[0]?.server_version_num);
+    if (
+      !Number.isInteger(versionNumber) ||
+      Math.floor(versionNumber / 10_000) !== 18
+    ) {
+      throw new Error("PostgreSQL integration tests require PostgreSQL 18.");
+    }
     await client.query(
       `CREATE DATABASE ${databaseIdentifier(databaseName)} TEMPLATE template0`,
     );

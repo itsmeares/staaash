@@ -39,13 +39,12 @@ COPY --from=build /app/apps/web/public ./apps/web/public
 # Prisma schema + migrations + config
 COPY --from=build /app/packages/db/prisma ./prisma
 COPY --from=build /app/packages/db/prisma.config.ts ./
-COPY --from=build /app/scripts ./scripts
 
 # Worker (self-contained via pnpm deploy)
 COPY --from=build /deploy/worker /worker
 
 # Next.js standalone copies node_modules to /app. Expose Prisma for migrations
-# and pg for the documented operator migration script in /app/scripts.
+# and pg for the web runtime's direct database event stream import.
 RUN ln -sf "$(npm root -g)/prisma" /app/node_modules/prisma \
     && ln -sf .pnpm/node_modules/pg /app/node_modules/pg
 
