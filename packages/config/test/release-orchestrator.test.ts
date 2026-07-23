@@ -8,14 +8,23 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  appendReleaseProvenance,
+  buildReleaseProvenance,
+} from "../src/release.js";
+
+import {
   assetDirectory,
+  getReleaseById,
   readPackageVersions,
   readReleaseTemplates,
   reconcileReleaseAssets,
   releaseAssetUploadUrl,
+  requiredReleaseId,
+  resolveReleaseById,
   resolveTagIdentity,
   uploadMissingDraftAssets,
   uploadReleaseAsset,
+  validateResolvedRelease,
   verifyPreflightToolingIdentity,
   waitForRequiredCi,
 } from "../../../scripts/release/index.mjs";
@@ -32,23 +41,31 @@ const digest = (content: string) =>
 
 const context = {
   repository: "itsmeares/staaash",
-  release: { tag: "v1.0.0-rc.7" },
-};
-
-const release = {
-  id: 42,
-  draft: true,
-  upload_url:
-    "https://uploads.github.com/repos/itsmeares/staaash/releases/42/assets{?name,label}",
-};
-
-const complete = {
-  tag: "v1.0.0-rc.7",
-  commit: "1".repeat(40),
+  release: { tag: "v1.0.0-rc.7", prerelease: true },
+  releaseSha: "1".repeat(40),
   tagObject: "2".repeat(40),
+};
+
+const complete = buildReleaseProvenance({
+  tag: "v1.0.0-rc.7",
+  commit: context.releaseSha,
+  tagObject: context.tagObject,
   imageDigest: `sha256:${"a".repeat(64)}`,
   immutableImage: `ghcr.io/itsmeares/staaash:v1.0.0-rc.7@sha256:${"a".repeat(64)}`,
   assetChecksums: {},
+});
+
+const release = {
+  id: 42,
+  tag_name: context.release.tag,
+  draft: true,
+  prerelease: true,
+  body: appendReleaseProvenance({
+    body: "Generated release notes.\n",
+    provenance: complete,
+  }),
+  upload_url:
+    "https://uploads.github.com/repos/itsmeares/staaash/releases/42/assets{?name,label}",
 };
 
 const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
@@ -208,6 +225,128 @@ describe("release trust roots", () => {
   });
 });
 
+describe("exact release resolution", () => {
+  it("accepts only canonical safe positive RELEASE_ID values", () => {
+    vi.stubEnv("RELEASE_ID", "42");
+    expect(requiredReleaseId()).toBe(42);
+
+    for (const value of [
+      "",
+      "0",
+      "-1",
+      "01",
+      "1.5",
+      "release-42",
+      "9".repeat(20),
+    ]) {
+      vi.stubEnv("RELEASE_ID", value);
+      expect(() => requiredReleaseId()).toThrow(/RELEASE_ID/u);
+    }
+  });
+
+  it("rejects an invalid RELEASE_ID before any exact lookup", () => {
+    const fetchRelease = vi.fn();
+    vi.stubEnv("RELEASE_ID", "0042");
+
+    expect(() => resolveReleaseById({ context, fetchRelease })).toThrow(
+      "RELEASE_ID must be a canonical positive integer.",
+    );
+    expect(fetchRelease).not.toHaveBeenCalled();
+  });
+
+  it("loads the exact release endpoint without collection or tag lookup", () => {
+    const request = vi.fn(() => release);
+
+    expect(getReleaseById(context.repository, release.id, { request })).toBe(
+      release,
+    );
+    expect(request).toHaveBeenCalledOnce();
+    expect(request).toHaveBeenCalledWith("repos/itsmeares/staaash/releases/42");
+  });
+
+  it("reports a missing exact-ID release clearly", () => {
+    expect(() =>
+      getReleaseById(context.repository, release.id, {
+        request: () => null,
+      }),
+    ).toThrow("GitHub Release ID 42 is missing.");
+  });
+
+  it("preserves non-missing API failures", () => {
+    const failure = new Error("GitHub API failed with HTTP 500");
+
+    expect(() =>
+      getReleaseById(context.repository, release.id, {
+        request: () => {
+          throw failure;
+        },
+      }),
+    ).toThrow(failure);
+  });
+
+  it("validates exact ID, tag, prerelease state, and provenance identity", () => {
+    expect(
+      resolveReleaseById({
+        context,
+        releaseId: release.id,
+        fetchRelease: () => release,
+      }),
+    ).toEqual(expect.objectContaining({ release, provenance: complete }));
+
+    expect(() =>
+      resolveReleaseById({
+        context,
+        releaseId: release.id,
+        fetchRelease: () => ({ ...release, id: 43 }),
+      }),
+    ).toThrow("Release ID is 43; expected 42.");
+    expect(() =>
+      resolveReleaseById({
+        context,
+        releaseId: release.id,
+        fetchRelease: () => ({ ...release, tag_name: "v1.0.0-rc.6" }),
+      }),
+    ).toThrow("Release tag is v1.0.0-rc.6; expected v1.0.0-rc.7.");
+    expect(() =>
+      resolveReleaseById({
+        context,
+        releaseId: release.id,
+        fetchRelease: () => ({ ...release, prerelease: false }),
+      }),
+    ).toThrow("Release prerelease flag is false; expected true.");
+    expect(() =>
+      resolveReleaseById({
+        context,
+        releaseId: release.id,
+        fetchRelease: () => ({
+          ...release,
+          body: appendReleaseProvenance({
+            body: "Generated release notes.\n",
+            provenance: { ...complete, commit: "3".repeat(40) },
+          }),
+        }),
+      }),
+    ).toThrow("Release provenance tag identity conflicts with current tag.");
+  });
+
+  it("rejects invalid and switched IDs in mutation responses", () => {
+    expect(() =>
+      validateResolvedRelease({
+        release: { ...release, id: "42" },
+        context,
+        releaseId: release.id,
+      }),
+    ).toThrow("GitHub Release returned an invalid numeric ID.");
+    expect(() =>
+      validateResolvedRelease({
+        release: { ...release, id: 43 },
+        context,
+        releaseId: release.id,
+      }),
+    ).toThrow("Release ID is 43; expected 42.");
+  });
+});
+
 describe("release asset upload orchestration", () => {
   it("constructs a release-specific upload URL with RFC 3986 encoding", () => {
     expect(
@@ -286,7 +425,7 @@ describe("release asset upload orchestration", () => {
 
   it("uploads only missing assets without clobbering or deleting", async () => {
     const uploaded: string[] = [];
-    const refreshed = { ...release, body: "refreshed" };
+    const refreshed = { ...release };
     const uploadAsset = vi.fn(async ({ name }: { name: string }) => {
       uploaded.push(name);
     });
@@ -316,6 +455,7 @@ describe("release asset upload orchestration", () => {
     expect(uploaded).toEqual(["example.env", "SHA256SUMS"]);
     expect(uploadAsset).toHaveBeenCalledTimes(2);
     expect(refreshRelease).toHaveBeenCalledOnce();
+    expect(refreshRelease).toHaveBeenCalledWith(context.repository, release.id);
   });
 
   it("keeps HTTP upload failures fail-closed with useful diagnostics", async () => {
@@ -388,7 +528,7 @@ describe("release asset upload orchestration", () => {
 
   it("verifies remote assets after successful missing-asset upload", async () => {
     const events: string[] = [];
-    const refreshed = { ...release, body: "refreshed" };
+    const refreshed = { ...release };
 
     await expect(
       reconcileReleaseAssets({
@@ -426,6 +566,42 @@ describe("release asset upload orchestration", () => {
       "refresh",
       "verify",
     ]);
+  });
+
+  it("resumes safely when every asset already exists on an unpublished draft", async () => {
+    const uploadAsset = vi.fn();
+    const refreshRelease = vi.fn(() => ({ ...release }));
+    const verifyAssets = vi.fn();
+
+    await expect(
+      reconcileReleaseAssets({
+        context,
+        release,
+        provenance: complete,
+        complete,
+        localAssets,
+        uploadOptions: {
+          observeAssets: async () =>
+            Object.entries(localAssets).map(([name, content]) => ({
+              name,
+              digest: digest(content),
+            })),
+          uploadAsset,
+          refreshRelease,
+        },
+        verifyAssets,
+      }),
+    ).resolves.toEqual(release);
+
+    expect(uploadAsset).not.toHaveBeenCalled();
+    expect(refreshRelease).toHaveBeenCalledOnce();
+    expect(refreshRelease).toHaveBeenCalledWith(context.repository, release.id);
+    expect(verifyAssets).toHaveBeenCalledOnce();
+    expect(verifyAssets).toHaveBeenCalledWith({
+      context,
+      release: expect.objectContaining({ id: release.id, draft: true }),
+      localAssets,
+    });
   });
 
   it("blocks conflicting assets before upload, refresh, or verification", async () => {

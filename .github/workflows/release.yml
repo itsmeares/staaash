@@ -172,7 +172,19 @@ jobs:
         run: node tooling/scripts/release/index.mjs verify-tag
 
       - name: Create or verify draft release
+        id: release
         run: node tooling/scripts/release/index.mjs ensure-draft
+
+      - name: Capture exact release ID
+        shell: bash
+        env:
+          RESOLVED_RELEASE_ID: ${{ steps.release.outputs.release_id }}
+        run: |
+          if [[ ! "$RESOLVED_RELEASE_ID" =~ ^[1-9][0-9]*$ ]]; then
+            echo "Invalid release ID: $RESOLVED_RELEASE_ID" >&2
+            exit 1
+          fi
+          echo "RELEASE_ID=$RESOLVED_RELEASE_ID" >> "$GITHUB_ENV"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4

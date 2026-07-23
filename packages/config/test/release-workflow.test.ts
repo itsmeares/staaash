@@ -6,8 +6,13 @@ const workflowUrl = new URL(
   "../../../.github/workflows/release.yml",
   import.meta.url,
 );
+const orchestratorUrl = new URL(
+  "../../../scripts/release/index.mjs",
+  import.meta.url,
+);
 
 const readWorkflow = () => readFile(workflowUrl, "utf8");
+const readOrchestrator = () => readFile(orchestratorUrl, "utf8");
 
 describe("release workflow recovery topology", () => {
   it("pins manual recovery tooling to exact main workflow commit", async () => {
@@ -66,5 +71,59 @@ describe("release workflow recovery topology", () => {
     expect(workflow).toContain(
       "release_ci_run_id: ${{ steps.preflight.outputs.release_ci_run_id }}",
     );
+  });
+
+  it("propagates the resolved draft release ID to every later step", async () => {
+    const workflow = await readWorkflow();
+    const ensureDraft = workflow.indexOf(
+      "- name: Create or verify draft release",
+    );
+    const captureReleaseId = workflow.indexOf(
+      "- name: Capture exact release ID",
+    );
+    const inspectImage = workflow.indexOf(
+      "- name: Inspect existing versioned image",
+    );
+
+    expect(workflow).toContain(
+      "- name: Create or verify draft release\n        id: release",
+    );
+    expect(workflow).toContain(
+      "RESOLVED_RELEASE_ID: ${{ steps.release.outputs.release_id }}",
+    );
+    expect(workflow).toContain(
+      'if [[ ! "$RESOLVED_RELEASE_ID" =~ ^[1-9][0-9]*$ ]]; then',
+    );
+    expect(workflow).toContain(
+      'echo "RELEASE_ID=$RESOLVED_RELEASE_ID" >> "$GITHUB_ENV"',
+    );
+    expect(ensureDraft).toBeGreaterThan(-1);
+    expect(captureReleaseId).toBeGreaterThan(ensureDraft);
+    expect(inspectImage).toBeGreaterThan(captureReleaseId);
+  });
+
+  it("uses tag discovery only for ensure-draft, then stays on exact ID", async () => {
+    const orchestrator = await readOrchestrator();
+    const postResolution = orchestrator.slice(
+      orchestrator.indexOf("const commandInspectImage"),
+    );
+
+    expect(orchestrator.match(/findReleaseByTag\(/gu)).toHaveLength(1);
+    expect(orchestrator).toContain("const findReleaseByTag =");
+    expect(orchestrator).toContain(
+      "let release = findReleaseByTag(context.repository, context.release.tag);",
+    );
+    expect(postResolution).not.toContain("findReleaseByTag(");
+    expect(postResolution).not.toContain("getReleases(");
+    expect(postResolution).toContain(
+      "const refreshed = await refreshRelease(context.repository, release.id);",
+    );
+    expect(postResolution).toContain(
+      "let { release, provenance } = resolveReleaseById({ context, releaseId });",
+    );
+    expect(postResolution).toContain(
+      "const release = requirePublishedRelease(context, releaseId);",
+    );
+    expect(orchestrator.match(/releases\/latest/gu)).toHaveLength(1);
   });
 });
