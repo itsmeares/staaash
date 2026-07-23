@@ -11,6 +11,7 @@ import {
   classifyImageState,
   findCanonicalReleaseVersionErrors,
   findReleaseImageIndexErrors,
+  findResolvedReleaseImageErrors,
   parseReleaseProvenance,
   parseReleaseTag,
   planLatestPromotion,
@@ -245,69 +246,105 @@ describe("release policy", () => {
     ).toBe(`${IMAGE_REPOSITORY}:v1.2.3-rc.1@${DIGEST_A}`);
   });
 
-  it("generates exact Compose and env assets for both services", () => {
-    const composeSource = [
-      "services:",
-      "  web:",
-      "    image: ghcr.io/itsmeares/staaash:${STAAASH_VERSION:-latest}",
-      "  worker:",
-      "    image: ghcr.io/itsmeares/staaash:${STAAASH_VERSION:-latest}",
-      "",
-    ].join("\n");
-    const envSource = "DB_PASSWORD=change-me\nSTAAASH_VERSION=latest\n";
-    const versionReference = `v1.2.3-rc.1@${DIGEST_A}`;
+  it.each(["v1.2.3", "v1.2.3-rc.1", "v1.2.3-beta.1"])(
+    "generates readable %s Compose and env defaults",
+    (releaseTag) => {
+      const composeSource = [
+        "services:",
+        "  web:",
+        "    image: ghcr.io/itsmeares/staaash:${STAAASH_VERSION:-latest}",
+        "  worker:",
+        "    image: ghcr.io/itsmeares/staaash:${STAAASH_VERSION:-latest}",
+        "",
+      ].join("\n");
+      const envSource = "DB_PASSWORD=change-me\nSTAAASH_VERSION=latest\n";
 
-    const compose = renderReleaseCompose({
-      source: composeSource,
-      imageRepository: "ghcr.io/scratch/staaash",
-      versionReference,
-    });
-    const env = renderReleaseEnv({ source: envSource, versionReference });
+      const compose = renderReleaseCompose({
+        source: composeSource,
+        imageRepository: "ghcr.io/scratch/staaash",
+        releaseTag,
+      });
+      const environment = renderReleaseEnv({ source: envSource, releaseTag });
 
-    expect(compose.match(/v1\.2\.3-rc\.1@sha256:/gu)).toHaveLength(2);
-    expect(compose).not.toContain("latest");
-    expect(compose).toContain("ghcr.io/scratch/staaash:${STAAASH_VERSION:-");
-    expect(env).toContain(`STAAASH_VERSION=${versionReference}`);
-    expect(env).not.toContain("STAAASH_VERSION=latest");
-  });
+      expect(compose.match(new RegExp(releaseTag, "gu"))).toHaveLength(2);
+      expect(compose).toContain(
+        `ghcr.io/scratch/staaash:\${STAAASH_VERSION:-${releaseTag}}`,
+      );
+      expect(environment).toContain(`STAAASH_VERSION=${releaseTag}`);
+      expect(compose).not.toContain("latest");
+      expect(environment).not.toContain("STAAASH_VERSION=latest");
+      expect(compose).not.toContain("@sha256:");
+      expect(environment).not.toContain("@sha256:");
+    },
+  );
 
   it("renders the repository release templates before publication", async () => {
-    const versionReference = `v1.2.3@${DIGEST_A}`;
+    const releaseTag = "v1.2.3";
     const compose = renderReleaseCompose({
       source: await readFile(
         new URL("../../../docker-compose.yml", import.meta.url),
         "utf8",
       ),
       imageRepository: IMAGE_REPOSITORY,
-      versionReference,
+      releaseTag,
     });
     const environment = renderReleaseEnv({
       source: await readFile(
         new URL("../../../example.env", import.meta.url),
         "utf8",
       ),
-      versionReference,
+      releaseTag,
     });
 
-    expect(compose.match(/v1\.2\.3@sha256:/gu)).toHaveLength(2);
+    expect(compose.match(/v1\.2\.3/gu)).toHaveLength(2);
     expect(compose).not.toContain("${STAAASH_VERSION:-latest}");
-    expect(environment).toContain(`STAAASH_VERSION=${versionReference}`);
+    expect(compose).not.toContain("@sha256:");
+    expect(environment).toContain(`STAAASH_VERSION=${releaseTag}`);
   });
 
-  it("fails closed when source asset anchors drift", () => {
+  it("accepts normal tags and optional immutable Compose resolutions", () => {
+    const tagReference = `${IMAGE_REPOSITORY}:v1.2.3`;
+    const immutableReference = `${tagReference}@${DIGEST_A}`;
+    expect(
+      findResolvedReleaseImageErrors({
+        images: [tagReference, tagReference],
+        expectedReference: tagReference,
+      }),
+    ).toEqual([]);
+    expect(
+      findResolvedReleaseImageErrors({
+        images: [immutableReference, immutableReference],
+        expectedReference: immutableReference,
+      }),
+    ).toEqual([]);
+  });
+
+  it("fails closed when generated tags or source anchors drift", () => {
     expect(() =>
       renderReleaseCompose({
         source: "services: {}\n",
         imageRepository: IMAGE_REPOSITORY,
-        versionReference: `v1.2.3@${DIGEST_A}`,
+        releaseTag: "v1.2.3",
       }),
     ).toThrow("Expected 2 Staaash image fallbacks");
     expect(() =>
       renderReleaseEnv({
         source: "STAAASH_VERSION=v1.2.2\n",
-        versionReference: `v1.2.3@${DIGEST_A}`,
+        releaseTag: "v1.2.3",
       }),
     ).toThrow("Expected 1 STAAASH_VERSION=latest entry");
+    expect(() =>
+      renderReleaseEnv({
+        source: "STAAASH_VERSION=latest\n",
+        releaseTag: "latest",
+      }),
+    ).toThrow("Invalid generated release tag");
+    expect(() =>
+      renderReleaseEnv({
+        source: "STAAASH_VERSION=latest\n",
+        releaseTag: `v1.2.3@${DIGEST_A}`,
+      }),
+    ).toThrow("Invalid generated release tag");
   });
 
   it("serializes deterministic manifest and checksums", () => {

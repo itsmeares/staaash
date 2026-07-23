@@ -33,7 +33,7 @@ Alpha and beta releases remain unsupported development history. Their prerelease
 8. Publish the GitHub Release after every exact artifact check passes.
 9. For stable releases only, copy the verified OCI index digest to `latest` without rebuilding, verify it, then mark the same GitHub Release as latest.
 
-Every SemVer prerelease skips both latest-channel mutations. A stable release is complete and installable through its digest-pinned assets before `latest` promotion starts.
+Every SemVer prerelease skips both latest-channel mutations. A stable release is complete and installable through exact-tag assets before `latest` promotion starts; its verified digest remains recorded in manifest and provenance metadata.
 
 ## Recovery
 
@@ -64,19 +64,19 @@ Do not use asset clobbering, force-push tags, delete releases, or overwrite imag
 - Image build/push failure: draft remains hidden; retry inspects whether the exact tag is absent, matching, or conflicting.
 - Asset failure: exact image may be pullable, but release remains a draft and `latest` cannot change.
 - Publication failure: complete draft remains retryable; `latest` cannot change.
-- Stable `latest` failure: exact GitHub Release remains complete and digest-pinned. Retry performs verification and pending promotion without rebuilding.
+- Stable `latest` failure: exact GitHub Release remains complete, tag-selected, and digest-verified. Retry performs verification and pending promotion without rebuilding.
 
 Each failed workflow writes retry and investigation guidance to its job summary.
 
 ## Release assets
 
-Release-generated Compose and env files both select:
+Release-generated Compose and env files select the exact readable tag:
 
 ```text
-ghcr.io/itsmeares/staaash:<tag>@sha256:<OCI-index-digest>
+ghcr.io/itsmeares/staaash:<tag>
 ```
 
-`release-manifest.json` records tag object, commit SHA, image repository, index digest, immutable reference, platform, and OCI labels. `SHA256SUMS` covers Compose, env, and manifest files. Source files on `main` remain templates and are never uploaded directly as release assets.
+`release-manifest.json` records tag object, commit SHA, image repository, verified OCI index digest, full immutable reference, platform, and OCI labels. `SHA256SUMS` covers Compose, env, and manifest files. The workflow validates both the normal tag selection and an optional `STAAASH_VERSION=<tag>@sha256:<digest>` override. Source files on `main` remain templates and are never uploaded directly as release assets.
 
 ## Controlled rehearsal
 

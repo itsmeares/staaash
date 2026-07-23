@@ -14,6 +14,7 @@ import {
   classifyImageState,
   findCanonicalReleaseVersionErrors,
   findReleaseImageIndexErrors,
+  findResolvedReleaseImageErrors,
   hashReleaseContent,
   parseReleaseProvenance,
   parseReleaseTag,
@@ -58,11 +59,17 @@ const optionalEnv = (name) => process.env[name]?.trim() ?? "";
 const run = (
   command,
   args,
-  { allowFailure = false, cwd = ROOT, input, encoding = "utf8" } = {},
+  {
+    allowFailure = false,
+    cwd = ROOT,
+    input,
+    encoding = "utf8",
+    environment = process.env,
+  } = {},
 ) => {
   const result = spawnSync(command, args, {
     cwd,
-    env: process.env,
+    env: environment,
     encoding,
     input,
     maxBuffer: 20 * 1024 * 1024,
@@ -538,34 +545,85 @@ const expectedAssetDigests = (assets) =>
     ]),
   );
 
+const withoutStaaashVersion = () =>
+  Object.fromEntries(
+    Object.entries(process.env).filter(
+      ([name]) => name.toUpperCase() !== "STAAASH_VERSION",
+    ),
+  );
+
+const resolveComposeImages = ({ directory, environment }) => {
+  const result = run(
+    "docker",
+    [
+      "compose",
+      "--env-file",
+      path.join(directory, "example.env"),
+      "-f",
+      path.join(directory, "docker-compose.yml"),
+      "config",
+      "--images",
+    ],
+    { environment },
+  );
+  return result.stdout
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter(Boolean);
+};
+
+const requireResolvedReleaseImages = ({
+  images,
+  imageRepository,
+  expectedReference,
+  mode,
+}) => {
+  const applicationImages = images.filter((image) =>
+    image.startsWith(`${imageRepository}:`),
+  );
+  const errors = findResolvedReleaseImageErrors({
+    images: applicationImages,
+    expectedReference,
+  });
+  if (errors.length > 0) {
+    throw new Error(
+      `Generated Compose ${mode} resolution failed:\n${errors.join("\n")}`,
+    );
+  }
+};
+
 const validateRenderedAssets = ({
   directory,
   imageRepository,
+  releaseTag,
   immutableReference,
 }) => {
-  const composePath = path.join(directory, "docker-compose.yml");
-  const envPath = path.join(directory, "example.env");
-  const result = run("docker", [
-    "compose",
-    "--env-file",
-    envPath,
-    "-f",
-    composePath,
-    "config",
-    "--images",
-  ]);
-  const applicationImages = result.stdout
-    .split(/\r?\n/u)
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith(`${imageRepository}:`));
-  if (
-    applicationImages.length !== 2 ||
-    applicationImages.some((image) => image !== immutableReference)
-  ) {
-    throw new Error(
-      `Generated Compose resolves unexpected Staaash images: ${applicationImages.join(", ")}`,
-    );
-  }
+  const baseEnvironment = withoutStaaashVersion();
+  requireResolvedReleaseImages({
+    images: resolveComposeImages({
+      directory,
+      environment: baseEnvironment,
+    }),
+    imageRepository,
+    expectedReference: `${imageRepository}:${releaseTag}`,
+    mode: "tag default",
+  });
+
+  const immutableVersion = immutableReference.slice(
+    `${imageRepository}:`.length,
+  );
+  requireResolvedReleaseImages({
+    images: resolveComposeImages({
+      directory,
+      environment: {
+        ...baseEnvironment,
+        STAAASH_VERSION: immutableVersion,
+      },
+    }),
+    imageRepository,
+    expectedReference: immutableReference,
+    mode: "immutable override",
+  });
 };
 
 const fetchAssetBytes = async (asset) => {
@@ -643,11 +701,12 @@ const verifyRemoteAssets = async ({ context, release, localAssets }) => {
         );
       }
     }
+    const manifest = JSON.parse(downloaded["release-manifest.json"]);
     validateRenderedAssets({
       directory: temporaryDirectory,
       imageRepository: context.imageRepository,
-      immutableReference: JSON.parse(downloaded["release-manifest.json"]).image
-        .immutableReference,
+      releaseTag: manifest.tag,
+      immutableReference: manifest.image.immutableReference,
     });
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });
@@ -788,27 +847,25 @@ const commandGenerateAssets = async () => {
   await rm(directory, { recursive: true, force: true });
   await mkdir(directory, { recursive: true });
 
-  const versionReference = `${context.release.tag}@${imageDigest}`;
   const compose = renderReleaseCompose({
     source: await readFile(path.join(ROOT, "docker-compose.yml"), "utf8"),
     imageRepository: context.imageRepository,
-    versionReference,
+    releaseTag: context.release.tag,
   });
   const environment = renderReleaseEnv({
     source: await readFile(path.join(ROOT, "example.env"), "utf8"),
-    versionReference,
+    releaseTag: context.release.tag,
   });
-  const manifest = serializeReleaseManifest(
-    buildReleaseManifest({
-      release: context.release,
-      repository: context.repository,
-      commit: context.releaseSha,
-      tagObject: context.tagObject,
-      tagType: context.tagType,
-      imageRepository: context.imageRepository,
-      imageDigest,
-    }),
-  );
+  const manifestObject = buildReleaseManifest({
+    release: context.release,
+    repository: context.repository,
+    commit: context.releaseSha,
+    tagObject: context.tagObject,
+    tagType: context.tagType,
+    imageRepository: context.imageRepository,
+    imageDigest,
+  });
+  const manifest = serializeReleaseManifest(manifestObject);
   const checksums = buildAssetChecksums({
     "docker-compose.yml": compose,
     "example.env": environment,
@@ -825,10 +882,16 @@ const commandGenerateAssets = async () => {
   validateRenderedAssets({
     directory,
     imageRepository: context.imageRepository,
-    immutableReference: `${context.imageRepository}:${versionReference}`,
+    releaseTag: context.release.tag,
+    immutableReference: manifestObject.image.immutableReference,
   });
-  if (compose.includes(`${context.imageRepository}:latest`)) {
-    throw new Error("Generated Compose contains mutable latest image.");
+  if (
+    compose.includes("${STAAASH_VERSION:-latest}") ||
+    environment.includes("STAAASH_VERSION=latest")
+  ) {
+    throw new Error(
+      "Generated release assets contain mutable latest defaults.",
+    );
   }
 };
 

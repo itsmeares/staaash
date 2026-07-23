@@ -330,15 +330,22 @@ export const buildImmutableImageReference = ({
   return `${imageRepository}:${tag}@${digest}`;
 };
 
+const requireReleaseTag = (releaseTag: string) => {
+  if (!parseReleaseTag(releaseTag)) {
+    throw new Error(`Invalid generated release tag: ${releaseTag}`);
+  }
+};
+
 export const renderReleaseCompose = ({
   source,
   imageRepository,
-  versionReference,
+  releaseTag,
 }: {
   source: string;
   imageRepository: string;
-  versionReference: string;
+  releaseTag: string;
 }) => {
+  requireReleaseTag(releaseTag);
   const count = countMatches(source, RELEASE_IMAGE_FALLBACK_PATTERN);
   if (count !== 2) {
     throw new Error(
@@ -348,17 +355,18 @@ export const renderReleaseCompose = ({
 
   return source.replaceAll(
     "ghcr.io/itsmeares/staaash:${STAAASH_VERSION:-latest}",
-    `${imageRepository}:\${STAAASH_VERSION:-${versionReference}}`,
+    `${imageRepository}:\${STAAASH_VERSION:-${releaseTag}}`,
   );
 };
 
 export const renderReleaseEnv = ({
   source,
-  versionReference,
+  releaseTag,
 }: {
   source: string;
-  versionReference: string;
+  releaseTag: string;
 }) => {
+  requireReleaseTag(releaseTag);
   const count = countMatches(source, RELEASE_ENV_VERSION_PATTERN);
   if (count !== 1) {
     throw new Error(
@@ -368,8 +376,25 @@ export const renderReleaseEnv = ({
 
   return source.replace(
     RELEASE_ENV_VERSION_PATTERN,
-    `STAAASH_VERSION=${versionReference}`,
+    `STAAASH_VERSION=${releaseTag}`,
   );
+};
+
+export const findResolvedReleaseImageErrors = ({
+  images,
+  expectedReference,
+}: {
+  images: string[];
+  expectedReference: string;
+}): string[] => {
+  if (images.length !== 2) {
+    return [`resolved ${images.length} Staaash images; expected 2`];
+  }
+  return images.every((image) => image === expectedReference)
+    ? []
+    : [
+        `resolved Staaash images ${images.join(", ")}; expected ${expectedReference}`,
+      ];
 };
 
 export const buildReleaseManifest = ({
