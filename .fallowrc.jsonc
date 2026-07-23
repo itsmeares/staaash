@@ -1,6 +1,10 @@
 {
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
-  "entry": ["apps/web/vitest.postgres.config.ts"],
+  "entry": [
+    "apps/web/vitest.postgres.config.ts",
+    "packages/config/src/release.ts",
+    "scripts/release/index.mjs",
+  ],
   "dynamicallyLoaded": [
     "apps/web/vitest.postgres.global.ts",
     "apps/web/vitest.postgres.setup.ts",

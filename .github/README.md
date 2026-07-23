@@ -55,9 +55,10 @@ Requirements: [Docker](https://docs.docker.com/get-docker/) with the Compose plu
 
 ### Windows and Linux
 
-1. Go to the [releases page](https://github.com/itsmeares/staaash/releases) and download `docker-compose.yml` and `example.env` into the same folder. Use the latest release, or pick a specific version if you need one. Files on `main` may include unreleased changes.
-2. Rename `example.env` to `.env`, open it, set `DB_PASSWORD` to a secure value (you can use something like pwgen), and change any other values you want.
-3. Run:
+1. Go to the [releases page](https://github.com/itsmeares/staaash/releases) and download `docker-compose.yml` and `example.env` from the release you want into the same folder. Release files select that exact version tag; files on `main` may include unreleased changes.
+2. Rename `example.env` to `.env`.
+3. Open `.env`, set `DB_PASSWORD` to a secure value (you can use something like pwgen), and change any other settings you want.
+4. Run:
 
    ```console
    docker compose up -d
@@ -66,6 +67,12 @@ Requirements: [Docker](https://docs.docker.com/get-docker/) with the Compose plu
 Staaash is now running at `http://localhost:2113`.
 
 The first account you register becomes the owner. Subsequent accounts require an invite from the owner.
+
+### Optional release verification
+
+Advanced users can also download `release-manifest.json` and `SHA256SUMS` from the same release to verify the files. The manifest records the workflow-verified immutable image reference. To pin that digest, set `STAAASH_VERSION` to its `v1.2.3@sha256:...` value instead of the normal `v1.2.3` tag.
+
+If you use CasaOS or another container UI, select the same readable release normally, for example `ghcr.io/itsmeares/staaash:v1.2.3`.
 
 ### Reverse proxies
 
@@ -79,12 +86,21 @@ Use one public address consistently. Loading the app from `https://staaash.examp
 
 ### Upgrading
 
+Change the exact release tag in your existing `.env`:
+
+```diff
+- STAAASH_VERSION=v1.2.3
++ STAAASH_VERSION=v1.2.4
+```
+
+Then run:
+
 ```console
 docker compose pull
 docker compose up -d
 ```
 
-Migrations run automatically on startup. These commands support upgrades between compatible releases in the Postgres 18 RC/current release line.
+Replace or update `docker-compose.yml` only when the target release notes say its Compose definition changed. Migrations run automatically on startup. These commands support upgrades between compatible releases in the Postgres 18 RC/current release line.
 
 > [!WARNING]
 > Alpha and beta releases cannot be upgraded to the RC or v1 release line. Use a fresh installation of the current release. Do not reuse an alpha/beta deployment's internal database or storage directories as the data directories for the current installation.
