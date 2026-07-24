@@ -7,41 +7,128 @@
   ],
   "dependencyDashboard": false,
   "timezone": "Europe/London",
-  "schedule": ["before 8am every weekday"],
+  "schedule": ["* 0-7 * * 1-5"],
   "rangeStrategy": "bump",
   "prCreation": "immediate",
   "lockFileMaintenance": {
+    "enabled": false
+  },
+  "vulnerabilityAlerts": {
     "enabled": true,
-    "schedule": ["before 8am on monday"]
+    "addLabels": ["security"],
+    "groupName": null,
+    "schedule": [],
+    "minimumReleaseAge": null,
+    "prCreation": "immediate",
+    "vulnerabilityFixStrategy": "lowest"
   },
   "packageRules": [
     {
+      "description": "Keep unrelated major updates separate",
+      "matchUpdateTypes": ["major"],
+      "groupName": null
+    },
+    {
+      "description": "Batch routine npm patch updates on Thursdays",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["patch"],
+      "groupName": "routine patch updates",
+      "groupSlug": "routine-patches",
+      "schedule": ["* 0-7 * * 4"]
+    },
+    {
+      "description": "Group runtime dependency minor updates",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["dependencies"],
+      "matchUpdateTypes": ["minor"],
+      "groupName": "runtime dependencies"
+    },
+    {
+      "description": "Group development dependency minor updates",
+      "matchManagers": ["npm"],
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor"],
+      "groupName": "development dependencies"
+    },
+    {
+      "description": "Group workspace tooling minor updates",
+      "matchManagers": ["npm"],
+      "matchPackageNames": [
+        "pnpm",
+        "turbo",
+        "typescript",
+        "tsup",
+        "tsx"
+      ],
+      "matchUpdateTypes": ["minor"],
+      "groupName": "workspace tooling"
+    },
+    {
+      "description": "Group test tooling minor updates",
+      "matchManagers": ["npm"],
+      "matchPackageNames": [
+        "vitest",
+        "@playwright/test",
+        "@axe-core/playwright"
+      ],
+      "matchUpdateTypes": ["minor"],
+      "groupName": "test tooling"
+    },
+    {
+      "description": "Group type definition minor updates",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["@types/**"],
+      "matchUpdateTypes": ["minor"],
+      "groupName": "type definitions"
+    },
+    {
+      "description": "Group non-major GitHub Actions updates",
       "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["patch", "minor"],
       "groupName": "GitHub Actions"
     },
     {
+      "description": "Update React and React DOM only together",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["react", "react-dom"],
+      "matchUpdateTypes": ["patch", "minor", "major"],
+      "groupName": "React",
+      "minimumGroupSize": 2,
+      "schedule": ["* 0-7 * * 1-5"]
+    },
+    {
+      "description": "Update all Prisma packages only together",
+      "matchManagers": ["npm"],
+      "matchPackageNames": [
+        "@prisma/client",
+        "@prisma/adapter-pg",
+        "prisma"
+      ],
+      "matchUpdateTypes": ["patch", "minor", "major"],
+      "groupName": "Prisma",
+      "minimumGroupSize": 3,
+      "schedule": ["* 0-7 * * 1-5"]
+    },
+    {
+      "description": "Update Tailwind packages only together",
+      "matchManagers": ["npm"],
+      "matchPackageNames": [
+        "tailwindcss",
+        "@tailwindcss/postcss"
+      ],
+      "matchUpdateTypes": ["patch", "minor", "major"],
+      "groupName": "Tailwind CSS",
+      "minimumGroupSize": 2,
+      "schedule": ["* 0-7 * * 1-5"]
+    },
+    {
+      "description": "Keep the Docker Node image on Node 24",
       "matchDatasources": ["docker"],
       "matchPackageNames": ["node"],
       "allowedVersions": "24"
     },
     {
-      "matchPackageNames": ["next", "react", "react-dom"],
-      "groupName": "Next and React"
-    },
-    {
-      "matchPackageNames": ["@prisma/client", "prisma", "@prisma/adapter-pg"],
-      "groupName": "Prisma"
-    },
-    {
-      "matchPackageNames": ["typescript", "vitest", "@types/node"],
-      "groupName": "TypeScript tooling"
-    },
-    {
-      "matchDepTypes": ["devDependencies"],
-      "matchUpdateTypes": ["patch", "minor"],
-      "groupName": "dev dependencies"
-    },
-    {
+      "description": "Require manual PostgreSQL major upgrades",
       "matchDatasources": ["docker"],
       "matchPackageNames": ["postgres"],
       "matchUpdateTypes": ["major"],
