@@ -53,13 +53,7 @@
     {
       "description": "Group workspace tooling minor updates",
       "matchManagers": ["npm"],
-      "matchPackageNames": [
-        "pnpm",
-        "turbo",
-        "typescript",
-        "tsup",
-        "tsx"
-      ],
+      "matchPackageNames": ["pnpm", "turbo", "typescript", "tsup", "tsx"],
       "matchUpdateTypes": ["minor"],
       "groupName": "workspace tooling"
     },
@@ -99,11 +93,7 @@
     {
       "description": "Update all Prisma packages only together",
       "matchManagers": ["npm"],
-      "matchPackageNames": [
-        "@prisma/client",
-        "@prisma/adapter-pg",
-        "prisma"
-      ],
+      "matchPackageNames": ["@prisma/client", "@prisma/adapter-pg", "prisma"],
       "matchUpdateTypes": ["patch", "minor", "major"],
       "groupName": "Prisma",
       "minimumGroupSize": 3,
@@ -112,10 +102,7 @@
     {
       "description": "Update Tailwind packages only together",
       "matchManagers": ["npm"],
-      "matchPackageNames": [
-        "tailwindcss",
-        "@tailwindcss/postcss"
-      ],
+      "matchPackageNames": ["tailwindcss", "@tailwindcss/postcss"],
       "matchUpdateTypes": ["patch", "minor", "major"],
       "groupName": "Tailwind CSS",
       "minimumGroupSize": 2,
