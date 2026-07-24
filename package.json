@@ -36,7 +36,7 @@
     "*.{js,jsx,ts,tsx,mjs,cjs,json,md,yml,yaml,css}": "prettier --write --ignore-unknown"
   },
   "devDependencies": {
-    "fallow": "3.6.0",
+    "fallow": "3.7.1",
     "husky": "9.1.7",
     "lint-staged": "17.1.0",
     "prettier": "3.9.5",
