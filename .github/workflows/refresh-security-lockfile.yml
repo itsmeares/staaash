@@ -1,0 +1,48 @@
+name: Refresh security lockfile
+
+on:
+  pull_request:
+    types: [opened]
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    if: >-
+      github.head_ref == 'fix/dependabot-alert-30' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.18.0
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install pinned pnpm
+        run: corepack install
+
+      - name: Regenerate lockfile
+        run: pnpm install --lockfile-only
+
+      - name: Commit regenerated lockfile
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pnpm-lock.yaml
+          if git diff --cached --quiet; then
+            echo "pnpm-lock.yaml did not change." >&2
+            exit 1
+          fi
+          git commit -m "fix(deps): refresh valibot lockfile"
+          git push origin "HEAD:${{ github.head_ref }}"
