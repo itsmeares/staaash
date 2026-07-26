@@ -7,9 +7,11 @@ overrides:
   esbuild@>=0.17.0 <0.28.1: ^0.28.1
   esbuild@>=0.27.3 <0.28.1: ^0.28.1
   fast-uri: 4.1.1
+  find-my-way: 9.7.0
   hono: 4.12.31
   ip-address: 10.2.0
   postcss: 8.5.20
+  sharp: 0.35.3
   vite: 8.1.5
 allowBuilds:
   "@prisma/engines": true
