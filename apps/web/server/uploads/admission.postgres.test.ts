@@ -323,6 +323,15 @@ const runCleanup = (
 beforeAll(async () => {
   assertTestIsolation();
   await mkdir(tmpRoot, { recursive: true });
+  await db.instance.upsert({
+    where: { id: "singleton" },
+    update: { storageProtocolVersion: 2 },
+    create: {
+      id: "singleton",
+      name: "PostgreSQL test",
+      storageProtocolVersion: 2,
+    },
+  });
 });
 
 beforeEach(async () => {
