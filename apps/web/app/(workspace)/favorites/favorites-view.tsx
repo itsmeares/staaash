@@ -193,13 +193,16 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
     [activeItems],
   );
   const visibleKeys = useMemo(
-    () => visibleItems.map((item) => getItemKey(item)),
+    () =>
+      visibleItems
+        .filter((item) => !item.storageMutationStatus)
+        .map((item) => getItemKey(item)),
     [visibleItems],
   );
   const allVisibleSelected =
     visibleKeys.length > 0 && visibleKeys.every((key) => selectedKeys.has(key));
-  const selectedItems = visibleItems.filter((item) =>
-    selectedKeys.has(getItemKey(item)),
+  const selectedItems = visibleItems.filter(
+    (item) => !item.storageMutationStatus && selectedKeys.has(getItemKey(item)),
   );
   const visibleItemByKey = useMemo(
     () => new Map(visibleItems.map((item) => [getItemKey(item), item])),
@@ -250,6 +253,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
   const selectItem = (key: string, event: MouseEvent<HTMLElement>) => {
     event.preventDefault();
     event.stopPropagation();
+    if (!visibleKeys.includes(key)) return;
 
     if (event.ctrlKey || event.metaKey) {
       setSelectedKeys((current) => {
@@ -282,6 +286,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
   ) => {
     event.preventDefault();
     event.stopPropagation();
+    if (!visibleKeys.includes(key)) return;
 
     if (event.ctrlKey || event.metaKey) {
       setSelectedKeys((current) => {
@@ -513,6 +518,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
     const key = item?.dataset.favoriteItem;
     if (key && visibleItemByKey.has(key)) {
       const favorite = visibleItemByKey.get(key)!;
+      if (favorite.storageMutationStatus) return;
       if (isCoarsePointer) {
         if (selectedKeys.size === 0) {
           openItem(favorite);

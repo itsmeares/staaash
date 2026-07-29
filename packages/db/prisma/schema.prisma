@@ -537,6 +537,8 @@ model TrashEntry {
   rootKind       String
   rootEntityId   String
   deletedAt      DateTime
+  /// Migration 20260726000000 enforces uniqueness only for isolated roots;
+  /// Prisma schema syntax cannot represent that partial PostgreSQL index.
   storageRootKey String?
   treeManifestDigest String?
   layoutVersion  String

@@ -1,6 +1,7 @@
 import os from "node:os";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
+import { lstat } from "node:fs/promises";
 
 import type { Prisma } from "@staaash/db/client";
 import {
@@ -16,7 +17,10 @@ import {
 } from "@staaash/db/storage-mutations";
 import {
   assertStorageFilesystemSupported,
+  calculateStorageFileChecksum,
   claimAndExecuteStorageMutation,
+  resolveMutationStoragePath,
+  StorageMutationAmbiguityError,
 } from "@staaash/db/storage-mutation-executor";
 
 import type { WorkerStoragePaths } from "./storage-maintenance.js";
@@ -30,6 +34,25 @@ export class StorageMutationOwnedError extends Error {
     this.mutationId = mutationId;
   }
 }
+
+export const calculateStorageChecksumIfPresent = async (
+  filesRoot: string,
+  storageKey: string,
+) => {
+  try {
+    return await calculateStorageFileChecksum(filesRoot, storageKey);
+  } catch (error) {
+    if (!(error instanceof StorageMutationAmbiguityError)) throw error;
+    try {
+      await lstat(resolveMutationStoragePath(filesRoot, storageKey));
+    } catch (stateError) {
+      if ((stateError as NodeJS.ErrnoException).code === "ENOENT") {
+        return undefined;
+      }
+    }
+    throw error;
+  }
+};
 
 export const assertWorkerMutationMayStart = async (mutationId: string) => {
   const existing = await findStorageMutation(mutationId);

@@ -31,6 +31,8 @@ export type FileSummary = {
   mimeType: string;
   sizeBytes: number;
   viewerKind: ViewerKind | null;
+  storageRevision?: number;
+  trashEntryId?: string | null;
   storageMutation?: StorageMutationState | null;
   deletedAt: Date | null;
   createdAt: Date;
@@ -43,8 +45,6 @@ export type StoredFile = FileSummary & {
   storageCheckedAt: Date | null;
   storageMissingAt: Date | null;
   contentChecksum: string | null;
-  storageRevision?: number;
-  trashEntryId?: string | null;
   storageMutation?: StorageMutationState | null;
 };
 

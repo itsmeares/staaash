@@ -12,7 +12,6 @@ import {
 import { filesService } from "@/server/files/service";
 import { recordFileAccessBestEffort } from "@/server/retrieval/recent-tracking";
 import { pairUploadRequestItems, parseUploadManifest } from "@/server/uploads";
-import { getPrisma } from "@staaash/db/client";
 import {
   attachStorageMutationHeader,
   readStorageIdempotencyKey,
@@ -59,10 +58,6 @@ export async function POST(request: NextRequest) {
       items: pairUploadRequestItems(manifest, files),
       idempotencyKey,
     });
-    const firstMutation = await getPrisma().storageMutation.findUnique({
-      where: { idempotencyKey: `${idempotencyKey}:0` },
-      select: { id: true },
-    });
     await Promise.all(
       result.uploadedFiles.map((file) =>
         recordFileAccessBestEffort({
@@ -75,19 +70,18 @@ export async function POST(request: NextRequest) {
     );
 
     if (result.conflicts.length > 0) {
-      return NextResponse.json(
-        {
-          error:
-            "One or more files conflicted with existing names in this folder.",
-          code: "FILE_NAME_CONFLICT",
-          ...result,
-        },
-        {
-          status: 409,
-          headers: firstMutation
-            ? { "X-Storage-Mutation-Id": firstMutation.id }
-            : undefined,
-        },
+      return attachStorageMutationHeader(
+        NextResponse.json(
+          {
+            error:
+              "One or more files conflicted with existing names in this folder.",
+            code: "FILE_NAME_CONFLICT",
+            ...result,
+          },
+          { status: 409 },
+        ),
+        `${idempotencyKey}:0`,
+        session.user.id,
       );
     }
 
@@ -99,18 +93,18 @@ export async function POST(request: NextRequest) {
         "success",
         `Uploaded ${count} file${count === 1 ? "" : "s"}.`,
       );
-      if (firstMutation) {
-        response.headers.set("X-Storage-Mutation-Id", firstMutation.id);
-      }
-      return response;
+      return attachStorageMutationHeader(
+        response,
+        `${idempotencyKey}:0`,
+        session.user.id,
+      );
     }
 
-    return NextResponse.json(result, {
-      status: 201,
-      headers: firstMutation
-        ? { "X-Storage-Mutation-Id": firstMutation.id }
-        : undefined,
-    });
+    return attachStorageMutationHeader(
+      NextResponse.json(result, { status: 201 }),
+      `${idempotencyKey}:0`,
+      session.user.id,
+    );
   } catch (error) {
     return attachStorageMutationHeader(
       wantsJson(request)
@@ -140,6 +134,7 @@ export async function POST(request: NextRequest) {
           )
         : formErrorResponse(request, redirectTo, error),
       idempotencyKey ? `${idempotencyKey}:0` : null,
+      session.user.id,
       error,
     );
   }

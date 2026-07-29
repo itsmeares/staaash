@@ -212,6 +212,7 @@ export const createInlineContentResponse = async ({
   const derivative = await findReadyDerivativeForFile(file.id);
 
   if (derivative?.storageKey && derivative.sizeBytes !== null) {
+    await assertStorageEntityReadable("derivative", derivative.id);
     const response = await serveDerivativeBytes(
       request,
       derivative.storageKey,

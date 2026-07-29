@@ -345,6 +345,19 @@ export const toJsonInstanceHealthSummary = (
   summary: InstanceHealthSummary,
 ): JsonInstanceHealthSummary => ({
   ...summary,
+  storageMutations: {
+    ...summary.storageMutations,
+    oldest: summary.storageMutations.oldest
+      ? {
+          ...summary.storageMutations.oldest,
+          createdAt: summary.storageMutations.oldest.createdAt.toISOString(),
+        }
+      : null,
+    active: summary.storageMutations.active.map((mutation) => ({
+      ...mutation,
+      createdAt: mutation.createdAt.toISOString(),
+    })),
+  },
   storageWarnings: {
     ...summary.storageWarnings,
     freeBytes: summary.storageWarnings.freeBytes?.toString() ?? null,

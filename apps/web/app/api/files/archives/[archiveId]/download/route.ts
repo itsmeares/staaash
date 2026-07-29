@@ -9,7 +9,6 @@ import { canAccessPrivateNamespace } from "@/server/access";
 import { getRequestSession } from "@/server/auth/guards";
 import { notSignedInResponse, jsonErrorResponse } from "@/server/auth/http";
 import { FilesError } from "@/server/files/errors";
-import { prismaFilesRepository } from "@/server/files/repository";
 import { getStoragePath } from "@/server/storage";
 import { createRangeResponseFromPath } from "@/server/downloads/range-response";
 import {
@@ -58,43 +57,6 @@ const assertArchiveOwnerAccessible = (
   }
 };
 
-const assertArchiveFileAccessible = async (
-  fileId: string,
-  actor: ArchiveActor,
-) => {
-  const file = await prismaFilesRepository.findFileById(fileId);
-  if (!file) throw new FilesError("ACCESS_DENIED");
-  assertArchiveOwnerAccessible(file.ownerUserId, actor);
-};
-
-const assertArchiveFolderAccessible = async (
-  folderId: string,
-  actor: ArchiveActor,
-) => {
-  const folder = await prismaFilesRepository.findFolderById(folderId);
-  if (!folder) throw new FilesError("ACCESS_DENIED");
-  assertArchiveOwnerAccessible(folder.ownerUserId, actor);
-};
-
-const assertArchiveSelectionAccessible = async (
-  archive: ReadyArchive,
-  actor: ArchiveActor,
-) => {
-  const idsJson = archive.idsJson as {
-    fileIds: string[];
-    folderIds: string[];
-  };
-  const firstFileId = idsJson.fileIds[0];
-  if (firstFileId) {
-    await assertArchiveFileAccessible(firstFileId, actor);
-    return;
-  }
-  const firstFolderId = idsJson.folderIds[0];
-  if (firstFolderId) {
-    await assertArchiveFolderAccessible(firstFolderId, actor);
-  }
-};
-
 const createArchiveDownloadResponse = async (
   request: NextRequest,
   archive: ReadyArchive,
@@ -138,7 +100,7 @@ export async function GET(
 
   try {
     const archive = await requireReadyArchive(archiveId);
-    await assertArchiveSelectionAccessible(archive, session.user);
+    assertArchiveOwnerAccessible(archive.userId, session.user);
     return createArchiveDownloadResponse(request, archive);
   } catch (error) {
     if (error instanceof StorageEntityUnavailableError) {

@@ -33,6 +33,7 @@ import {
   getStorageMutationStateMap,
   StorageEntityUnavailableError,
 } from "@/server/storage-read-guard";
+import { StorageProtocolNotReadyError } from "@/server/durable-storage-mutation";
 
 import { createSharedFolderArchive } from "./archive";
 import {
@@ -341,7 +342,7 @@ export const createSharingService = ({
         includeDeleted: true,
       }),
     ]);
-    if (!filesRoot) throw new Error("Files root requires storage recovery.");
+    if (!filesRoot) throw new StorageProtocolNotReadyError();
 
     return {
       filesRoot,

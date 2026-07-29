@@ -1,6 +1,5 @@
 import os from "node:os";
 import { mkdir } from "node:fs/promises";
-import { setTimeout as delay } from "node:timers/promises";
 
 import {
   markWorkerInstanceStopped,
@@ -21,9 +20,9 @@ import { recoverStorageMutations } from "./handlers/storage-mutation-recovery.js
 import {
   finalizeStorageProtocol,
   initializeStorageProtocol,
-  isStorageProtocolReady,
   recoverUnjournaledUserStorageProvisioning,
 } from "./storage-protocol-cutover.js";
+import { waitForStorageProtocolReady } from "./startup-readiness.js";
 
 const storagePaths = getWorkerStoragePaths();
 const workerId = `${os.hostname()}-${process.pid}-${Date.now()}`;
@@ -45,6 +44,16 @@ const runMaintenance = async () => {
   await finalizeStorageProtocol({ storagePaths });
 };
 
+const runMaintenanceSafely = async () => {
+  try {
+    await runMaintenance();
+  } catch (error) {
+    console.warn("[worker] Maintenance failed; retrying later.", {
+      error: error instanceof Error ? error.message : "Unknown error.",
+    });
+  }
+};
+
 const main = async () => {
   await mkdir(storagePaths.tmpRoot, { recursive: true });
   await writeHeartbeat(storagePaths.heartbeatPath);
@@ -60,13 +69,10 @@ const main = async () => {
     },
   });
 
-  while (!(await isStorageProtocolReady())) {
-    await runMaintenance();
-    if (!(await isStorageProtocolReady())) {
-      await writeHeartbeat(storagePaths.heartbeatPath);
-      await delay(5_000);
-    }
-  }
+  await waitForStorageProtocolReady({
+    runMaintenance: runMaintenanceSafely,
+    heartbeatPath: storagePaths.heartbeatPath,
+  });
 
   const ffmpegHealth = await detectFfmpeg();
   if (!ffmpegHealth.available) {
@@ -82,18 +88,14 @@ const main = async () => {
   }
 
   await schedulePeriodicJobs(new Date(), { runMissingImmediately: true });
-  await runMaintenance();
+  await runMaintenanceSafely();
 
   const heartbeatTimer = setInterval(() => {
     void writeHeartbeat(storagePaths.heartbeatPath);
   }, workerHeartbeatMs);
 
   const maintenanceTimer = setInterval(() => {
-    void runMaintenance().catch((error) => {
-      console.warn("[worker] Maintenance failed.", {
-        error: error instanceof Error ? error.message : "Unknown error.",
-      });
-    });
+    void runMaintenanceSafely();
   }, maintenanceMs);
 
   const runner = new WorkerRunner({ workerId, storagePaths });

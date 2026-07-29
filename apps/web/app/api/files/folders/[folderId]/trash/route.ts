@@ -75,6 +75,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
             `Moved ${result.folder.name} to trash.`,
           ),
       idempotencyKey,
+      session.user.id,
     );
   } catch (error) {
     return attachStorageMutationHeader(
@@ -82,6 +83,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         ? jsonErrorResponse(error)
         : formErrorResponse(request, redirectTo, error),
       idempotencyKey ?? request.headers.get("Idempotency-Key"),
+      session.user.id,
       error,
     );
   }

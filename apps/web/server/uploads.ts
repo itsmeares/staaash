@@ -126,18 +126,22 @@ const getUploadPolicy = async () => {
   return _uploadPolicy;
 };
 
-const uploadManifestSchema = z.array(
-  z.object({
-    clientKey: z.string().trim().min(1),
-    originalName: z.string().trim().min(1),
-    expectedChecksum: z
-      .string()
-      .trim()
-      .regex(/^[a-f0-9]{64}$/i)
-      .optional(),
-    conflictStrategy: z.enum(["fail", "safeRename", "replace"]).default("fail"),
-  }),
-);
+const uploadManifestSchema = z
+  .array(
+    z.object({
+      clientKey: z.string().trim().min(1),
+      originalName: z.string().trim().min(1),
+      expectedChecksum: z
+        .string()
+        .trim()
+        .regex(/^[a-f0-9]{64}$/i)
+        .optional(),
+      conflictStrategy: z
+        .enum(["fail", "safeRename", "replace"])
+        .default("fail"),
+    }),
+  )
+  .nonempty();
 
 export const getDefaultUploadConflictStrategy = (
   surface: UploadSurface,

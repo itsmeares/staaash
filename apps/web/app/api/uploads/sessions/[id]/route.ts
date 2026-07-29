@@ -55,20 +55,17 @@ const parseContentRange = (
   return { start, end };
 };
 
-const writeRequestBodyAtOffset = async ({
+const readRequestBody = async ({
   request,
-  fileHandle,
-  startByte,
   expectedLength,
 }: {
   request: NextRequest;
-  fileHandle: FileHandle;
-  startByte: number;
   expectedLength: number;
 }) => {
-  if (!request.body) return 0;
+  if (!request.body) return Buffer.alloc(0);
 
   let receivedLength = 0;
+  const chunks: Buffer[] = [];
   const input = Readable.fromWeb(request.body as never);
   for await (const rawChunk of input) {
     const chunk = Buffer.isBuffer(rawChunk)
@@ -77,20 +74,27 @@ const writeRequestBodyAtOffset = async ({
     if (receivedLength + chunk.length > expectedLength) {
       throw new Error("CHUNK_LENGTH_MISMATCH");
     }
-
-    let chunkOffset = 0;
-    while (chunkOffset < chunk.length) {
-      const { bytesWritten } = await fileHandle.write(
-        chunk,
-        chunkOffset,
-        chunk.length - chunkOffset,
-        startByte + receivedLength + chunkOffset,
-      );
-      chunkOffset += bytesWritten;
-    }
+    chunks.push(chunk);
     receivedLength += chunk.length;
   }
-  return receivedLength;
+  return Buffer.concat(chunks, receivedLength);
+};
+
+const writeBufferAtOffset = async (
+  fileHandle: FileHandle,
+  body: Buffer,
+  startByte: number,
+) => {
+  let offset = 0;
+  while (offset < body.length) {
+    const { bytesWritten } = await fileHandle.write(
+      body,
+      offset,
+      body.length - offset,
+      startByte + offset,
+    );
+    offset += bytesWritten;
+  }
 };
 
 const validateContentLength = (
@@ -124,8 +128,9 @@ const writeParallelUploadChunk = async ({
   range: UploadRange;
   chunkIndex: number;
   expectedLength: number;
-}) =>
-  writeAndRecordUploadChunk({
+}) => {
+  const body = await readRequestBody({ request, expectedLength });
+  return writeAndRecordUploadChunk({
     sessionId: uploadSession.id,
     ownerUserId,
     chunkIndex,
@@ -136,12 +141,8 @@ const writeParallelUploadChunk = async ({
       await mkdir(path.dirname(uploadSession.tmpPath), { recursive: true });
       const fileHandle = await open(uploadSession.tmpPath, "r+");
       try {
-        const writtenLength = await writeRequestBodyAtOffset({
-          request,
-          fileHandle,
-          startByte: range.start,
-          expectedLength,
-        });
+        await writeBufferAtOffset(fileHandle, body, range.start);
+        const writtenLength = body.length;
         if (writtenLength === expectedLength) await fileHandle.sync();
         return writtenLength;
       } finally {
@@ -149,6 +150,7 @@ const writeParallelUploadChunk = async ({
       }
     },
   });
+};
 
 const chunkConflictResponse = (
   error: unknown,

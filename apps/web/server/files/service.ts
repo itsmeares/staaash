@@ -1,7 +1,7 @@
 // Storage mutations deliberately mirror phase ordering across entity kinds.
 // fallow-ignore-file code-duplication
 import { createHash, randomUUID } from "node:crypto";
-import { access, lstat, mkdir, rm } from "node:fs/promises";
+import { lstat, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 
 import { scheduleDerivativeGenerate } from "@staaash/db/media-derivatives";
@@ -17,6 +17,7 @@ import { FilesError, ResumableCompletionError } from "@/server/files/errors";
 import {
   buildFileStorageKey,
   buildFolderStorageKey,
+  buildIsolatedTrashStorageKey,
   normalizeFileName,
   normalizeFolderName,
 } from "@/server/files/storage-layout";
@@ -69,6 +70,7 @@ import type {
 
 import type { FilesRepository } from "./repository";
 import type { FilesTransactionClient } from "./repository";
+import { assertClearTrashChildReplayIdentity } from "./clear-trash-child";
 import {
   assertStorageProtocolReady,
   hashDurableStorageRequest,
@@ -125,6 +127,9 @@ type DurableRequest = {
   storageMutationOrderedItems?: Array<{
     kind: "file" | "folder";
     id: string;
+    deletedAt: string;
+    storageRevision: number;
+    trashEntryId: string | null;
   }>;
   storageMutationPriorChildren?: Array<{
     ordinal: number;
@@ -232,6 +237,8 @@ const toFileSummary = (
     | "mimeType"
     | "sizeBytes"
     | "viewerKind"
+    | "storageRevision"
+    | "trashEntryId"
     | "deletedAt"
     | "createdAt"
     | "updatedAt"
@@ -245,6 +252,8 @@ const toFileSummary = (
   mimeType: file.mimeType,
   sizeBytes: file.sizeBytes,
   viewerKind: file.viewerKind,
+  storageRevision: file.storageRevision,
+  trashEntryId: file.trashEntryId,
   deletedAt: file.deletedAt,
   createdAt: file.createdAt,
   updatedAt: file.updatedAt,
@@ -376,40 +385,6 @@ const toMetadataJson = (value: unknown) =>
       typeof item === "bigint" ? item.toString() : item,
     ),
   ) as Record<string, string | number | boolean | null>;
-
-const buildIsolatedTrashKey = async ({
-  ownerStorageId,
-  kind,
-  name,
-  deletedAt,
-}: {
-  ownerStorageId: string;
-  kind: "file" | "folder";
-  name: string;
-  deletedAt: Date;
-}) => {
-  const timestamp = deletedAt
-    .toISOString()
-    .replace("T", " ")
-    .replaceAll(":", "-")
-    .replace("Z", " UTC");
-  const base = path.posix.join(
-    ".trash",
-    ownerStorageId,
-    kind === "file" ? "files" : "folders",
-    `${timestamp} - ${name}`,
-  );
-  for (let suffix = 1; suffix < 10_000; suffix += 1) {
-    const candidate = suffix === 1 ? base : `${base} (${suffix})`;
-    try {
-      await access(getStoragePath(candidate));
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return candidate;
-      throw error;
-    }
-  }
-  throw new Error("Unable to allocate isolated trash storage path.");
-};
 
 const relativeStorageKeyWithin = (rootKey: string, storageKey: string) => {
   const relative = path.posix.relative(rootKey, storageKey);
@@ -1986,7 +1961,13 @@ export const createFilesService = ({
     });
   };
 
-  type ClearTrashPlannedItem = { kind: "file" | "folder"; id: string };
+  type ClearTrashPlannedItem = {
+    kind: "file" | "folder";
+    id: string;
+    deletedAt: string;
+    storageRevision: number;
+    trashEntryId: string | null;
+  };
   type ClearTrashChildResult = Record<string, unknown> & {
     deletedFolderCount?: number;
     deletedFileCount?: number;
@@ -2026,6 +2007,57 @@ export const createFilesService = ({
     ),
   });
 
+  const skippedClearTrashItem = (planned: ClearTrashPlannedItem) => ({
+    kind: planned.kind,
+    id: planned.id,
+    status: "skipped",
+    deletedFolderCount: 0,
+    deletedFileCount: 0,
+  });
+
+  const clearTrashIdentityMatches = (
+    planned: ClearTrashPlannedItem,
+    current: {
+      deletedAt: Date | null;
+      storageRevision?: number;
+      trashEntryId?: string | null;
+    },
+  ) =>
+    current.deletedAt?.toISOString() === planned.deletedAt &&
+    (current.storageRevision ?? 0) === planned.storageRevision &&
+    (current.trashEntryId ?? null) === planned.trashEntryId;
+
+  const isCanonicalIsoDate = (value: string) => {
+    const timestamp = Date.parse(value);
+    return (
+      Number.isFinite(timestamp) && new Date(timestamp).toISOString() === value
+    );
+  };
+
+  const isValidClearTrashKind = (kind: string) =>
+    kind === "file" || kind === "folder";
+
+  const isValidStorageRevision = (revision: number) =>
+    Number.isSafeInteger(revision) && revision >= 0;
+
+  const isValidTrashEntryId = (trashEntryId: string | null) =>
+    trashEntryId === null || trashEntryId.length > 0;
+
+  const isValidClearTrashItem = (item: ClearTrashPlannedItem) =>
+    item.id.length > 0 &&
+    isValidClearTrashKind(item.kind) &&
+    isCanonicalIsoDate(item.deletedAt) &&
+    isValidStorageRevision(item.storageRevision) &&
+    isValidTrashEntryId(item.trashEntryId);
+
+  const assertClearTrashPlan = (items: ClearTrashPlannedItem[]) => {
+    for (const item of items) {
+      if (!isValidClearTrashItem(item)) {
+        throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
+      }
+    }
+  };
+
   const recordClearTrashChild = async ({
     lease,
     childId,
@@ -2054,18 +2086,44 @@ export const createFilesService = ({
     planned,
     ordinal,
     lease,
+    actorUserId,
   }: {
     childKey?: string;
     planned: ClearTrashPlannedItem;
     ordinal: number;
     lease: ClearTrashLease;
+    actorUserId: string;
   }): Promise<ClearTrashChildResult | null> => {
     if (!childKey || !lease.parentId) return null;
     const child = await getPrisma().storageMutation.findUnique({
       where: { idempotencyKey: childKey },
-      select: { id: true, status: true, resultJson: true },
+      select: {
+        id: true,
+        parentId: true,
+        kind: true,
+        ownerUserId: true,
+        requestHash: true,
+        status: true,
+        resultJson: true,
+      },
     });
-    if (child?.status !== "succeeded") return null;
+    if (!child) return null;
+    const expectedKind =
+      planned.kind === "file" ? "file_purge" : "folder_purge";
+    const requestHash = hashDurableStorageRequest(
+      buildStorageMutationChildRequestHashPayload({
+        operation: "clear_trash",
+        item: { id: planned.id, kind: planned.kind },
+      }),
+    );
+    assertClearTrashChildReplayIdentity({
+      child,
+      parentId: lease.parentId,
+      ownerUserId: actorUserId,
+      expectedKind,
+      requestHash,
+    });
+    if (child.status !== "succeeded") return null;
     const durableCounts =
       child.resultJson &&
       typeof child.resultJson === "object" &&
@@ -2109,8 +2167,8 @@ export const createFilesService = ({
   }): Promise<ClearTrashChildResult> => {
     if (planned.kind === "file") {
       const item = currentFiles.get(planned.id);
-      if (!item) {
-        throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
+      if (!item || !clearTrashIdentityMatches(planned, item.file)) {
+        return skippedClearTrashItem(planned);
       }
       await deleteFile({
         ...actor,
@@ -2127,8 +2185,8 @@ export const createFilesService = ({
       };
     }
     const item = currentFolders.get(planned.id);
-    if (!item) {
-      throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
+    if (!item || !clearTrashIdentityMatches(planned, item.folder)) {
+      return skippedClearTrashItem(planned);
     }
     const counts = await deleteTrashedFolderTree({
       folder: item.folder,
@@ -2165,6 +2223,7 @@ export const createFilesService = ({
     filesRoot: FolderSummary;
     deleteFile(input: FileLookupInput): Promise<FileMutationResult>;
   }): Promise<TrashClearResult> => {
+    assertClearTrashPlan(orderedItems);
     let deletedFolderCount = 0;
     let deletedFileCount = 0;
     const addResult = (
@@ -2190,6 +2249,7 @@ export const createFilesService = ({
         planned,
         ordinal,
         lease,
+        actorUserId: actor.actorUserId,
       });
       if (completed) {
         addResult(completed, planned);
@@ -2490,10 +2550,16 @@ export const createFilesService = ({
         ...listing.files.map((item) => ({
           kind: "file" as const,
           id: item.file.id,
+          deletedAt: item.file.deletedAt!.toISOString(),
+          storageRevision: item.file.storageRevision ?? 0,
+          trashEntryId: item.file.trashEntryId ?? null,
         })),
         ...listing.items.map((item) => ({
           kind: "folder" as const,
           id: item.folder.id,
+          deletedAt: item.folder.deletedAt!.toISOString(),
+          storageRevision: item.folder.storageRevision ?? 0,
+          trashEntryId: item.folder.trashEntryId ?? null,
         })),
       ];
       const priorChildren = new Map(
@@ -3311,11 +3377,12 @@ export const createFilesService = ({
             filesRoot,
             trashed: true,
           })
-        : await buildIsolatedTrashKey({
+        : buildIsolatedTrashStorageKey({
             ownerStorageId: folder.ownerStorageId,
             kind: "folder",
             name: folder.name,
             deletedAt,
+            trashEntryId,
           });
 
       if (!repo) {
@@ -4039,11 +4106,12 @@ export const createFilesService = ({
             filesRoot,
             trashed: true,
           })
-        : await buildIsolatedTrashKey({
+        : buildIsolatedTrashStorageKey({
             ownerStorageId: file.ownerStorageId,
             kind: "file",
             name: file.name,
             deletedAt,
+            trashEntryId,
           });
 
       const durableTrash = await durablyUpdateFile({

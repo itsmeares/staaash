@@ -8,6 +8,9 @@ import type { BackgroundJobRecord } from "@staaash/db/jobs";
 const getPrismaMock = vi.fn();
 const durableMocks = vi.hoisted(() => ({
   claimStorageMutation: vi.fn(),
+  hashWorkerStorageRequest: vi.fn<(value: unknown) => string>(
+    () => "request-hash",
+  ),
   prepareStorageMutationParent: vi.fn(),
   recoverStorageMutationParent: vi.fn(),
 }));
@@ -26,7 +29,7 @@ vi.mock("@staaash/db/storage-mutation-executor", async (importOriginal) => ({
   assertStorageFilesystemSupported: vi.fn(async () => undefined),
 }));
 vi.mock("../durable-storage-mutation.js", () => ({
-  hashWorkerStorageRequest: vi.fn(() => "request-hash"),
+  hashWorkerStorageRequest: durableMocks.hashWorkerStorageRequest,
 }));
 vi.mock("./storage-mutation-parent-recovery.js", () => ({
   recoverStorageMutationParent: durableMocks.recoverStorageMutationParent,
@@ -38,6 +41,8 @@ type TestFileRecord = {
   folderId: string | null;
   storageKey: string;
   deletedAt: Date | null;
+  storageRevision?: number;
+  trashEntryId?: string | null;
 };
 
 type TestFolderRecord = {
@@ -45,6 +50,7 @@ type TestFolderRecord = {
   ownerUserId: string;
   parentId: string | null;
   deletedAt: Date | null;
+  storageRevision?: number;
   trashEntryId?: string | null;
 };
 
@@ -76,6 +82,14 @@ const createMockPrisma = ({
   folders: TestFolderRecord[];
   revalidateFolderById?: Map<string, TestFolderRecord | null>;
 }) => {
+  for (const file of files) {
+    file.storageRevision ??= 0;
+    file.trashEntryId ??= null;
+  }
+  for (const folder of folders) {
+    folder.storageRevision ??= 0;
+    folder.trashEntryId ??= null;
+  }
   const client = {
     storageMutation: {},
     file: {
@@ -221,6 +235,7 @@ describe("trash retention handler", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(fixedNow);
+    durableMocks.hashWorkerStorageRequest.mockReturnValue("request-hash");
     durableMocks.prepareStorageMutationParent.mockImplementation(
       async (input: { intentJson: object }) => ({
         mutation: {
@@ -377,7 +392,16 @@ describe("trash retention handler", () => {
     expect(durableMocks.prepareStorageMutationParent).toHaveBeenCalledWith(
       expect.objectContaining({
         intentJson: expect.objectContaining({
-          orderedItems: [{ id: "expired-child", kind: "folder" }],
+          cutoff: cutoffDate.toISOString(),
+          orderedItems: [
+            {
+              id: "expired-child",
+              kind: "folder",
+              deletedAt: cutoffDate.toISOString(),
+              storageRevision: 0,
+              trashEntryId: "trash-child",
+            },
+          ],
         }),
       }),
     );
@@ -425,6 +449,56 @@ describe("trash retention handler", () => {
     expect(files).toEqual([]);
     expect(folders).toEqual([]);
 
+    await rm(filesRoot, { recursive: true, force: true });
+  });
+
+  it("reuses the same retention intent hash when the same job retries later", async () => {
+    const filesRoot = await mkdtemp(
+      path.join(os.tmpdir(), "staaash-trash-retention-"),
+    );
+    const folders: TestFolderRecord[] = [];
+    const files: TestFileRecord[] = [
+      {
+        id: "expired-file-b",
+        ownerUserId: "member-1",
+        folderId: null,
+        storageKey: ".trash/member-1/expired-file-b.txt",
+        deletedAt: cutoffDate,
+      },
+      {
+        id: "expired-file-a",
+        ownerUserId: "member-1",
+        folderId: null,
+        storageKey: ".trash/member-1/expired-file-a.txt",
+        deletedAt: cutoffDate,
+      },
+    ];
+    getPrismaMock.mockReturnValue(createMockPrisma({ files, folders }));
+    durableMocks.hashWorkerStorageRequest.mockImplementation((value) =>
+      JSON.stringify(value),
+    );
+    const { handleTrashRetention } = await import("./trash-retention.js");
+    const job = createJob();
+
+    await handleTrashRetention(job, {
+      UPLOAD_LOCATION: filesRoot,
+      TRASH_RETENTION_DAYS: "30",
+    });
+    vi.setSystemTime(new Date("2026-05-06T12:00:00.000Z"));
+    files.reverse();
+    await handleTrashRetention(
+      { ...job, runAt: new Date("2026-05-06T12:00:00.000Z") },
+      {
+        UPLOAD_LOCATION: filesRoot,
+        TRASH_RETENTION_DAYS: "30",
+      },
+    );
+
+    const first = durableMocks.prepareStorageMutationParent.mock.calls[0]![0];
+    const second = durableMocks.prepareStorageMutationParent.mock.calls[1]![0];
+    expect(second.idempotencyKey).toBe(first.idempotencyKey);
+    expect(second.requestHash).toBe(first.requestHash);
+    expect(second.intentJson).toEqual(first.intentJson);
     await rm(filesRoot, { recursive: true, force: true });
   });
 

@@ -26,11 +26,43 @@ import {
   hashWorkerStorageRequest,
   runWorkerStorageMutation,
 } from "../durable-storage-mutation.js";
+import {
+  assertTrashItemEligible,
+  parseClearTrashIntent,
+  parseTrashRetentionIntent,
+  TrashItemIdentityChangedError,
+  type TrashItemIdentity,
+} from "./trash-retention-eligibility.js";
+import { buildTrashPurgeChildRequestHashPayload } from "./trash-purge-child-request.js";
 
 type ParentChild = {
   ordinal: number;
   childId: string | null;
   result: Record<string, unknown>;
+};
+
+type TrashPurgeItem = {
+  id: string;
+  kind: "file" | "folder";
+  identity: TrashItemIdentity & { cutoff?: Date };
+};
+
+const assertRetentionEligibility = (
+  parent: ClaimedStorageMutation,
+  item: TrashPurgeItem,
+  current: {
+    ownerUserId: string;
+    deletedAt: Date | null;
+    storageRevision: number;
+    trashEntryId: string | null;
+  },
+) => {
+  assertTrashItemEligible({
+    ownerUserId: parent.ownerUserId,
+    expected: item.identity,
+    current,
+    cutoff: item.identity.cutoff,
+  });
 };
 
 const checksumIfPresent = async (filesRoot: string, storageKey: string) => {
@@ -552,10 +584,19 @@ const clearTrashResult = (
   deletedFolderCount: number,
   deletedFileCount: number,
 ) => ({
-  ...item,
+  id: item.id,
+  kind: item.kind,
   status: "purged",
   deletedFolderCount,
   deletedFileCount,
+});
+
+const skippedTrashResult = (item: { id: string; kind: "file" | "folder" }) => ({
+  id: item.id,
+  kind: item.kind,
+  status: "skipped",
+  deletedFolderCount: 0,
+  deletedFileCount: 0,
 });
 
 const clearTrashReplayResult = (
@@ -584,7 +625,7 @@ const resolveExistingClearTrashChild = async ({
   childKey: string;
   expectedKind: "file_purge" | "folder_purge";
   requestHashPayload: unknown;
-  item: { id: string; kind: "file" | "folder" };
+  item: TrashPurgeItem;
 }) => {
   const existing = await getPrisma().storageMutation.findUnique({
     where: { idempotencyKey: childKey },
@@ -674,12 +715,13 @@ const buildClearTrashFilePlan = async ({
 }: {
   parent: ClaimedStorageMutation;
   ordinal: number;
-  item: { id: string; kind: "file" | "folder" };
+  item: TrashPurgeItem;
   storagePaths: WorkerStoragePaths;
 }) => {
   const prisma = getPrisma();
   const file = await prisma.file.findUnique({ where: { id: item.id } });
   if (!file) return { replay: await resolvePriorFilePurge(item) };
+  assertRetentionEligibility(parent, item, file);
   if (file.ownerUserId !== parent.ownerUserId || !file.deletedAt) {
     throw new Error("Clear-trash file is no longer deleted.");
   }
@@ -969,7 +1011,7 @@ const buildClearTrashFolderPlan = async ({
 }: {
   parent: ClaimedStorageMutation;
   ordinal: number;
-  item: { id: string; kind: "file" | "folder" };
+  item: TrashPurgeItem;
   storagePaths: WorkerStoragePaths;
 }) => {
   const prisma = getPrisma();
@@ -978,6 +1020,7 @@ const buildClearTrashFolderPlan = async ({
     include: { trashEntry: true },
   });
   if (!root) return { replay: await resolvePriorFolderPurge(item) };
+  assertRetentionEligibility(parent, item, root);
   const validIdentity = [
     root.ownerUserId === parent.ownerUserId,
     Boolean(root.deletedAt),
@@ -1062,15 +1105,12 @@ const runClearTrashChild = async ({
   parent: ClaimedStorageMutation;
   leaseOwner: string;
   ordinal: number;
-  item: { id: string; kind: "file" | "folder" };
+  item: TrashPurgeItem;
   storagePaths: WorkerStoragePaths;
 }) => {
   const childKey = `${parent.idempotencyKey}:${ordinal}`;
   const expectedKind = item.kind === "file" ? "file_purge" : "folder_purge";
-  const requestHashPayload = buildStorageMutationChildRequestHashPayload({
-    operation: "clear_trash",
-    item,
-  });
+  const requestHashPayload = buildTrashPurgeChildRequestHashPayload(item);
   const replay = await resolveExistingClearTrashChild({
     parent,
     childKey,
@@ -1129,6 +1169,7 @@ const recoverStorageMutationParentInternal = async ({
   storagePaths: WorkerStoragePaths;
 }) => {
   const intent = parent.intentJson as {
+    cutoff?: unknown;
     destinationFolderId?: unknown;
     items?: unknown;
     orderedItems?: unknown;
@@ -1224,27 +1265,30 @@ const recoverStorageMutationParentInternal = async ({
     (parent.kind === "clear_trash" || parent.kind === "trash_retention") &&
     Array.isArray(intent.orderedItems)
   ) {
+    const orderedItems: TrashPurgeItem[] =
+      parent.kind === "trash_retention"
+        ? parseTrashRetentionIntent(intent.cutoff, intent.orderedItems)
+        : parseClearTrashIntent(intent.orderedItems);
     let deletedFolderCount = 0;
     let deletedFileCount = 0;
-    for (const [ordinal, raw] of intent.orderedItems.entries()) {
-      const item = raw as { id?: unknown; kind?: unknown };
-      if (
-        typeof item.id !== "string" ||
-        (item.kind !== "file" && item.kind !== "folder")
-      ) {
-        throw new Error("Invalid durable clear-trash intent.");
-      }
+    for (const [ordinal, item] of orderedItems.entries()) {
       const prior = existing.get(ordinal);
-      const child =
-        prior ??
-        (await runClearTrashChild({
-          parent,
-          leaseOwner,
-          ordinal,
-          item: { id: item.id, kind: item.kind },
-          storagePaths,
-        }));
-      if (!prior) {
+      let child: Pick<ParentChild, "childId" | "result">;
+      if (prior) {
+        child = { childId: prior.childId, result: prior.result };
+      } else {
+        try {
+          child = await runClearTrashChild({
+            parent,
+            leaseOwner,
+            ordinal,
+            item,
+            storagePaths,
+          });
+        } catch (error) {
+          if (!(error instanceof TrashItemIdentityChangedError)) throw error;
+          child = { childId: null, result: skippedTrashResult(item) };
+        }
         await recordChild({
           parent,
           leaseOwner,

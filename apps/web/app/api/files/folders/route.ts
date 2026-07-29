@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
             `Created folder ${result.folder.name}.`,
           ),
       idempotencyKey,
+      session.user.id,
     );
   } catch (error) {
     return attachStorageMutationHeader(
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
         ? jsonErrorResponse(error)
         : formErrorResponse(request, redirectTo, error),
       idempotencyKey ?? request.headers.get("Idempotency-Key"),
+      session.user.id,
       error,
     );
   }

@@ -55,10 +55,16 @@ const buildClearTrashItems = (
   ...listing.files.map((item) => ({
     kind: "file" as const,
     id: item.file.id,
+    deletedAt: item.file.deletedAt!.toISOString(),
+    storageRevision: item.file.storageRevision ?? 0,
+    trashEntryId: item.file.trashEntryId ?? null,
   })),
   ...listing.items.map((item) => ({
     kind: "folder" as const,
     id: item.folder.id,
+    deletedAt: item.folder.deletedAt!.toISOString(),
+    storageRevision: item.folder.storageRevision ?? 0,
+    trashEntryId: item.folder.trashEntryId ?? null,
   })),
 ];
 
@@ -256,6 +262,7 @@ export async function POST(request: NextRequest) {
     return attachStorageMutationHeader(
       clearTrashErrorResponse({ request, redirectTo, error }),
       idempotencyKey ?? request.headers.get("Idempotency-Key"),
+      session.user.id,
       error,
     );
   }

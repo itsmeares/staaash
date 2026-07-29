@@ -18,7 +18,10 @@ import {
 } from "../storage-key-tracking.js";
 import { recoverPendingDeletes } from "../storage-maintenance.js";
 import { recoverStorageMutations } from "./storage-mutation-recovery.js";
-import { calculateStorageFileChecksum } from "@staaash/db/storage-mutation-executor";
+import {
+  calculateStorageFileChecksum,
+  StorageMutationAmbiguityError,
+} from "@staaash/db/storage-mutation-executor";
 
 type ReconciliationFileRecord = {
   id: string;
@@ -150,27 +153,39 @@ const collectLiveCapabilityProbeKeys = async (
   }
 };
 
-export const collectMissingOriginals = async (
+const collectOriginalIntegrityIssues = async (
   fileRecords: ReconciliationFileRecord[],
   filesRoot: string,
   ignoredFileIds = new Set<string>(),
-): Promise<RestoreReconciliationIssueDetails["missingOriginals"]> => {
+): Promise<{
+  missingOriginals: RestoreReconciliationIssueDetails["missingOriginals"];
+  checksumMismatches: NonNullable<
+    RestoreReconciliationIssueDetails["checksumMismatches"]
+  >;
+}> => {
   const missingOriginals: RestoreReconciliationIssueDetails["missingOriginals"] =
     [];
+  const checksumMismatches: NonNullable<
+    RestoreReconciliationIssueDetails["checksumMismatches"]
+  > = [];
 
   for (const file of fileRecords) {
     if (ignoredFileIds.has(file.id)) continue;
-    let originalExists = false;
     try {
       // Checksum traversal validates every ancestor plus final node with lstat,
       // so symlinks and non-files fail closed even for legacy null checksums.
-      await calculateStorageFileChecksum(filesRoot, file.storageKey);
-      originalExists = true;
-    } catch {
-      originalExists = false;
-    }
-
-    if (!originalExists) {
+      const checksum = await calculateStorageFileChecksum(
+        filesRoot,
+        file.storageKey,
+      );
+      if (file.contentChecksum && checksum !== file.contentChecksum) {
+        checksumMismatches.push({
+          fileId: file.id,
+          storageKey: safeStorageLabel(file.storageKey),
+        });
+      }
+    } catch (error) {
+      if (!(error instanceof StorageMutationAmbiguityError)) throw error;
       missingOriginals.push({
         fileId: file.id,
         storageKey: safeStorageLabel(file.storageKey),
@@ -178,8 +193,17 @@ export const collectMissingOriginals = async (
     }
   }
 
-  return missingOriginals;
+  return { missingOriginals, checksumMismatches };
 };
+
+// fallow-ignore-next-line unused-export
+export const collectMissingOriginals = async (
+  fileRecords: ReconciliationFileRecord[],
+  filesRoot: string,
+  ignoredFileIds = new Set<string>(),
+): Promise<RestoreReconciliationIssueDetails["missingOriginals"]> =>
+  (await collectOriginalIntegrityIssues(fileRecords, filesRoot, ignoredFileIds))
+    .missingOriginals;
 
 export const collectOrphanedStorageKeys = async ({
   filesRoot,
@@ -242,37 +266,19 @@ export const collectRestoreReconciliationIssues = async ({
     ...fileRecords.map((file) => file.storageKey),
     ...additionalKnownStorageKeys,
   ]);
-  const [missingOriginals, orphanedStorageKeys] = await Promise.all([
-    collectMissingOriginals(fileRecords, filesRoot, new Set(unresolvedFileIds)),
+  const [integrityIssues, orphanedStorageKeys] = await Promise.all([
+    collectOriginalIntegrityIssues(
+      fileRecords,
+      filesRoot,
+      new Set(unresolvedFileIds),
+    ),
     collectOrphanedStorageKeys({
       filesRoot,
       knownStorageKeys,
       knownStoragePrefixes: new Set(additionalKnownStoragePrefixes),
     }),
   ]);
-  const checksumMismatches: NonNullable<
-    RestoreReconciliationIssueDetails["checksumMismatches"]
-  > = [];
-  for (const file of fileRecords) {
-    if (!file.contentChecksum || unresolvedFileIds.includes(file.id)) continue;
-    try {
-      const checksum = await calculateStorageFileChecksum(
-        filesRoot,
-        file.storageKey,
-      );
-      if (checksum === file.contentChecksum) continue;
-    } catch {
-      checksumMismatches.push({
-        fileId: file.id,
-        storageKey: safeStorageLabel(file.storageKey),
-      });
-      continue;
-    }
-    checksumMismatches.push({
-      fileId: file.id,
-      storageKey: safeStorageLabel(file.storageKey),
-    });
-  }
+  const { missingOriginals, checksumMismatches } = integrityIssues;
 
   return {
     missingOriginals,

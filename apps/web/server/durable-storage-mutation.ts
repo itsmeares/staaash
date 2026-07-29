@@ -221,9 +221,31 @@ const prepareDurableStorageMutation = async (
   }
 };
 
+const replayExistingIdempotentMutation = async (
+  input: DurableStorageMutationInput,
+) => {
+  if (!input.idempotencyKey) return null;
+  const { requestHash } = buildDurableMutationPlan(input);
+  const existing = await findStorageMutationByIdempotencyKey(
+    input.idempotencyKey,
+  );
+  if (!existing) return null;
+  if (
+    existing.ownerUserId !== input.ownerUserId ||
+    existing.kind !== input.kind ||
+    existing.requestHash !== requestHash
+  ) {
+    throw new StorageMutationConflictError("STORAGE_IDEMPOTENCY_KEY_REUSED");
+  }
+  if (existing.status === "succeeded") return existing;
+  throw mutationStateConflict(existing);
+};
+
 export const runDurableStorageMutation = async (
   input: DurableStorageMutationInput,
 ) => {
+  const replay = await replayExistingIdempotentMutation(input);
+  if (replay) return replay;
   await assertStorageMutationMayStart();
   const { mutation, replayed } = await prepareDurableStorageMutation(input);
   if (!replayed) {

@@ -89,17 +89,5 @@ export const getStorageMutationStateMap = async (
     entityType,
     entityIds,
   });
-  const result = new Map(direct.map((row) => [row.entityId, row.mutation]));
-  await Promise.all(
-    entityIds
-      .filter((entityId) => !result.has(entityId))
-      .map(async (entityId) => {
-        const row = await findBlockingStorageMutationForEntity({
-          entityType,
-          entityId,
-        });
-        if (row) result.set(entityId, row.mutation);
-      }),
-  );
-  return result;
+  return new Map(direct.map((row) => [row.entityId, row.mutation]));
 };

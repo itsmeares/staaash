@@ -482,7 +482,10 @@ export const initializeStorageProtocol = async ({
 
   await assertStorageFilesystemSupported(storagePaths.filesRoot);
 
-  await prisma.$transaction(backfillLegacyTrash);
+  await prisma.$transaction(backfillLegacyTrash, {
+    maxWait: 60_000,
+    timeout: 60 * 60 * 1_000,
+  });
 
   // Old runtimes are stopped by upgrade procedure before worker v2 starts.
   // Legacy lock files have no durable owner and are obsolete under protocol v2.

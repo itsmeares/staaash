@@ -1,7 +1,6 @@
 // Generated-artifact cleanup handlers intentionally share journaled purge flow.
 // fallow-ignore-file code-duplication
 import { getPrisma } from "@staaash/db/client";
-import { lstat } from "node:fs/promises";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
 import {
   DERIVATIVE_STATUS_PROCESSING,
@@ -11,12 +10,10 @@ import {
 } from "@staaash/db/media-derivatives";
 
 import type { WorkerStoragePaths } from "../storage-maintenance.js";
-import { safeResolveStoragePath } from "../storage-maintenance.js";
 import {
-  calculateStorageFileChecksum,
-  resolveMutationStoragePath,
-} from "@staaash/db/storage-mutation-executor";
-import { runWorkerStorageMutation } from "../durable-storage-mutation.js";
+  calculateStorageChecksumIfPresent,
+  runWorkerStorageMutation,
+} from "../durable-storage-mutation.js";
 
 type MediaDerivativeRecord = {
   id: string;
@@ -70,27 +67,6 @@ type PrismaClient = {
 };
 
 const DEFAULT_RETENTION_DAYS = 14;
-
-const calculateChecksumIfPresent = async (
-  filesRoot: string,
-  storageKey: string,
-) => {
-  const target = resolveMutationStoragePath(filesRoot, storageKey);
-  try {
-    await lstat(target);
-  } catch (error) {
-    if (
-      error &&
-      typeof error === "object" &&
-      "code" in error &&
-      error.code === "ENOENT"
-    ) {
-      return undefined;
-    }
-    throw error;
-  }
-  return calculateStorageFileChecksum(filesRoot, storageKey);
-};
 
 const isFileProtectedByFolderShare = async (
   prisma: PrismaClient,
@@ -182,7 +158,7 @@ const purgeDerivative = async ({
     select: { id: true, ownerUserId: true, folderId: true } as object,
   });
   if (!file) return;
-  const checksum = await calculateChecksumIfPresent(
+  const checksum = await calculateStorageChecksumIfPresent(
     storagePaths.filesRoot,
     derivative.storageKey,
   );

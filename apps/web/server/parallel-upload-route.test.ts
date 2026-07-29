@@ -119,14 +119,21 @@ describe("parallel upload route", () => {
 
   it("writes an aligned chunk at its offset even when it arrives first", async () => {
     const tmpPath = await createTempUpload(10);
+    const request = patchRequest("bytes 4-7/10", new Uint8Array([1, 2, 3, 4]));
     vi.mocked(findActiveResumableSession).mockResolvedValue(
       uploadSession(tmpPath),
     );
-
-    const response = await patchUpload(
-      patchRequest("bytes 4-7/10", new Uint8Array([1, 2, 3, 4])),
-      { params: Promise.resolve({ id: "session-1" }) },
+    vi.mocked(writeAndRecordUploadChunk).mockImplementationOnce(
+      async ({ writeBytes }) => {
+        expect(request.bodyUsed).toBe(true);
+        await writeBytes();
+        return 4;
+      },
     );
+
+    const response = await patchUpload(request, {
+      params: Promise.resolve({ id: "session-1" }),
+    });
 
     expect(response.status).toBe(200);
     expect(writeAndRecordUploadChunk).toHaveBeenCalledWith({

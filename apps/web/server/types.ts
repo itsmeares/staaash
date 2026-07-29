@@ -1,3 +1,5 @@
+import type { StorageMutationStatus } from "@staaash/db/storage-mutations";
+
 export type UserRole = "owner" | "admin" | "member";
 
 export type SearchMatchKind = "exact" | "prefix" | "substring";
@@ -83,7 +85,7 @@ export type InstanceHealthSummary = {
     oldest: {
       id: string;
       kind: string;
-      status: string;
+      status: StorageMutationStatus;
       ownerUserId: string;
       createdAt: Date;
       ageMs: number;
@@ -91,11 +93,12 @@ export type InstanceHealthSummary = {
     active: Array<{
       id: string;
       kind: string;
-      status: string;
+      status: StorageMutationStatus;
       ownerUserId: string;
       createdAt: Date;
       ageMs: number;
       lastError: string | null;
+      canRetryNow: boolean;
       safePathLabels: string[];
     }>;
   };
@@ -120,7 +123,24 @@ export type JsonStorageWarningSummary = Omit<
 
 export type JsonInstanceHealthSummary = Omit<
   InstanceHealthSummary,
-  "storageWarnings"
+  "storageWarnings" | "storageMutations"
 > & {
   storageWarnings: JsonStorageWarningSummary;
+  storageMutations: Omit<
+    InstanceHealthSummary["storageMutations"],
+    "oldest" | "active"
+  > & {
+    oldest:
+      | (Omit<
+          NonNullable<InstanceHealthSummary["storageMutations"]["oldest"]>,
+          "createdAt"
+        > & { createdAt: string })
+      | null;
+    active: Array<
+      Omit<
+        InstanceHealthSummary["storageMutations"]["active"][number],
+        "createdAt"
+      > & { createdAt: string }
+    >;
+  };
 };

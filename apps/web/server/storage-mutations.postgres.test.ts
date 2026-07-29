@@ -946,6 +946,20 @@ afterAll(async () => {
 });
 
 describe("STO-02 durable PostgreSQL protocol", () => {
+  it("keeps the isolated trash-root partial unique index installed", async () => {
+    const rows = await db.$queryRaw<Array<{ indexdef: string }>>`
+      SELECT indexdef
+      FROM pg_indexes
+      WHERE schemaname = current_schema()
+        AND indexname = 'TrashEntry_isolated_storageRootKey_key'
+    `;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.indexdef).toContain("UNIQUE INDEX");
+    expect(rows[0]!.indexdef).toContain('"storageRootKey"');
+    expect(rows[0]!.indexdef).toContain('"layoutVersion"');
+    expect(rows[0]!.indexdef).toContain("isolated");
+  });
+
   it("bulk-commits generated metadata with null casts under a non-UTC session", async () => {
     const user = await createUser();
     const folder = await db.folder.create({

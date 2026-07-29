@@ -386,6 +386,7 @@ export async function POST(request: NextRequest) {
     return attachStorageMutationHeader(
       jsonErrorResponse(error),
       idempotencyKey ?? request.headers.get("Idempotency-Key"),
+      session.user.id,
       error,
     );
   }

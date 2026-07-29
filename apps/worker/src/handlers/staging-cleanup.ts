@@ -124,9 +124,30 @@ type GeneratedArchive =
       : never
     : never;
 
+const listGeneratedEntityIds = async (storagePaths: WorkerStoragePaths) => {
+  const ids = { derivatives: [] as string[], archives: [] as string[] };
+  for (const namespace of ["derivatives", "archives"] as const) {
+    const root = path.resolve(storagePaths.tmpRoot, namespace);
+    let directory;
+    try {
+      directory = await opendir(root);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+      throw error;
+    }
+    for await (const entry of directory) {
+      const id = generatedEntityId(namespace, entry.name);
+      if (id) ids[namespace].push(id);
+    }
+  }
+  return ids;
+};
+
 const loadGeneratedCleanupContext = async (
   client: UploadSessionCleanupClient,
+  storagePaths: WorkerStoragePaths,
 ) => {
+  const entityIds = await listGeneratedEntityIds(storagePaths);
   const [activeJobs, derivatives, archives] = await Promise.all([
     client.backgroundJob?.findMany({
       where: {
@@ -136,6 +157,7 @@ const loadGeneratedCleanupContext = async (
       select: { kind: true, dedupeKey: true },
     }) ?? [],
     client.mediaDerivative?.findMany({
+      where: { id: { in: entityIds.derivatives } },
       select: {
         id: true,
         fileId: true,
@@ -145,6 +167,7 @@ const loadGeneratedCleanupContext = async (
       },
     }) ?? [],
     client.zipArchive?.findMany({
+      where: { id: { in: entityIds.archives } },
       select: { id: true, userId: true },
     }) ?? [],
   ]);
@@ -330,7 +353,7 @@ const classifyAbandonedGeneratedTemps = async ({
     global: boolean;
   }) => Promise<void>;
 }) => {
-  const context = await loadGeneratedCleanupContext(client);
+  const context = await loadGeneratedCleanupContext(client, storagePaths);
   const activeKeys = new Set(
     context.activeJobs.flatMap((job) => job.dedupeKey ?? []),
   );
@@ -700,15 +723,19 @@ export const cleanupUploadSessionLifecycle = async ({
         : [],
     ),
   ]);
-  warnings.push(
-    ...(await classifyAbandonedGeneratedTemps({
-      client,
-      storagePaths,
-      protectedPaths,
-      now,
-      classifyResidue,
-    })),
-  );
+  try {
+    warnings.push(
+      ...(await classifyAbandonedGeneratedTemps({
+        client,
+        storagePaths,
+        protectedPaths,
+        now,
+        classifyResidue,
+      })),
+    );
+  } catch (error) {
+    warnings.push(`generated temp: ${errorMessage(error)}`);
+  }
   try {
     await cleanupExpiredStagingFiles({
       tmpRoot: storagePaths.tmpRoot,

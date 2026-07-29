@@ -465,7 +465,9 @@ const durableMkdirWithinRoot = async ({
   }
 };
 
-export const assertStorageFilesystemSupported = async (filesRoot: string) => {
+const supportedFilesystemRoots = new Map<string, Promise<void>>();
+
+const probeStorageFilesystemSupport = async (filesRoot: string) => {
   const probeRoot = path.resolve(filesRoot, "tmp", "capability");
   const source = path.resolve(
     probeRoot,
@@ -491,6 +493,18 @@ export const assertStorageFilesystemSupported = async (filesRoot: string) => {
       }`,
     );
   }
+};
+
+export const assertStorageFilesystemSupported = async (filesRoot: string) => {
+  const resolvedRoot = path.resolve(filesRoot);
+  const existing = supportedFilesystemRoots.get(resolvedRoot);
+  if (existing) return existing;
+  const probe = probeStorageFilesystemSupport(resolvedRoot).catch((error) => {
+    supportedFilesystemRoots.delete(resolvedRoot);
+    throw error;
+  });
+  supportedFilesystemRoots.set(resolvedRoot, probe);
+  return probe;
 };
 
 const assertRenamePaths = (step: StorageMutationStep) => {

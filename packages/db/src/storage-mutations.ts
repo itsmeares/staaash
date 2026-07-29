@@ -1058,12 +1058,20 @@ const acquireStorageMutationResources = async (
   resourceKeys: string[],
 ) => {
   if (resourceKeys.length === 0) return;
-  await tx.$executeRaw`
-    SELECT pg_advisory_xact_lock(
-      hashtext('staaash:storage-mutation-resource-acquisition')
-    )
-  `;
   const globalRequested = resourceKeys.includes("storage:global-recovery");
+  if (globalRequested) {
+    await tx.$executeRaw`
+      SELECT pg_advisory_xact_lock(
+        hashtext('staaash:storage-mutation-resource-acquisition')
+      )
+    `;
+  } else {
+    await tx.$executeRaw`
+      SELECT pg_advisory_xact_lock_shared(
+        hashtext('staaash:storage-mutation-resource-acquisition')
+      )
+    `;
+  }
   const conflictingResource = await tx.storageMutationResource.findFirst({
     where: {
       releasedAt: null,
@@ -1951,6 +1959,105 @@ export const findBlockingStorageMutationForEntity = async ({
   return legacy ? { mutation: legacy } : null;
 };
 
+type BlockingEntityOwner = { id: string; ownerUserId: string };
+
+const listBlockingEntityOwners = async ({
+  entityType,
+  entityIds,
+}: {
+  entityType: string;
+  entityIds: string[];
+}): Promise<BlockingEntityOwner[]> => {
+  const prisma = getPrisma();
+  switch (entityType) {
+    case "file":
+      return prisma.file.findMany({
+        where: { id: { in: entityIds } },
+        select: { id: true, ownerUserId: true },
+      });
+    case "folder":
+      return prisma.folder.findMany({
+        where: { id: { in: entityIds } },
+        select: { id: true, ownerUserId: true },
+      });
+    case "derivative":
+      return (
+        await prisma.mediaDerivative.findMany({
+          where: { id: { in: entityIds } },
+          select: { id: true, file: { select: { ownerUserId: true } } },
+        })
+      ).map((row) => ({ id: row.id, ownerUserId: row.file.ownerUserId }));
+    case "archive":
+      return (
+        await prisma.zipArchive.findMany({
+          where: { id: { in: entityIds } },
+          select: { id: true, userId: true },
+        })
+      ).map((row) => ({ id: row.id, ownerUserId: row.userId }));
+    case "upload_session":
+      return prisma.uploadSession.findMany({
+        where: { id: { in: entityIds } },
+        select: { id: true, ownerUserId: true },
+      });
+    case "trash_entry":
+      return prisma.trashEntry.findMany({
+        where: { id: { in: entityIds } },
+        select: { id: true, ownerUserId: true },
+      });
+    default:
+      return [];
+  }
+};
+
+const listLegacyBlockingMutations = async (owners: BlockingEntityOwner[]) => {
+  const ownerIds = Array.from(new Set(owners.map((row) => row.ownerUserId)));
+  const mutations = await getPrisma().storageMutation.findMany({
+    where: {
+      kind: "legacy_recovery",
+      status: "recovery_required",
+      OR: [
+        { ownerUserId: { in: ownerIds } },
+        {
+          resources: {
+            some: {
+              resourceKey: "storage:global-recovery",
+              releasedAt: null,
+            },
+          },
+        },
+      ],
+    },
+    select: {
+      id: true,
+      kind: true,
+      status: true,
+      ownerUserId: true,
+      resources: {
+        where: {
+          resourceKey: "storage:global-recovery",
+          releasedAt: null,
+        },
+        select: { mutationId: true },
+      },
+    },
+  });
+  const global = mutations.find((mutation) => mutation.resources.length);
+  const byOwner = new Map(
+    mutations.map((mutation) => [mutation.ownerUserId, mutation]),
+  );
+  return owners
+    .map((owner) => ({
+      entityId: owner.id,
+      mutation: global ?? byOwner.get(owner.ownerUserId),
+    }))
+    .filter(
+      (
+        row,
+      ): row is { entityId: string; mutation: NonNullable<typeof global> } =>
+        Boolean(row.mutation),
+    );
+};
+
 export const listBlockingStorageMutationsForEntities = async ({
   entityType,
   entityIds,
@@ -1959,7 +2066,8 @@ export const listBlockingStorageMutationsForEntities = async ({
   entityIds: string[];
 }) => {
   if (entityIds.length === 0) return [];
-  return getPrisma().storageMutationEntity.findMany({
+  const prisma = getPrisma();
+  const direct = await prisma.storageMutationEntity.findMany({
     where: {
       entityType,
       entityId: { in: entityIds },
@@ -1981,6 +2089,15 @@ export const listBlockingStorageMutationsForEntities = async ({
       mutation: { select: { id: true, kind: true, status: true } },
     },
   });
+  const blockedIds = new Set(direct.map((row) => row.entityId));
+  const missingIds = entityIds.filter((id) => !blockedIds.has(id));
+  if (missingIds.length === 0) return direct;
+  const owners = await listBlockingEntityOwners({
+    entityType,
+    entityIds: missingIds,
+  });
+  if (owners.length === 0) return direct;
+  return [...direct, ...(await listLegacyBlockingMutations(owners))];
 };
 
 export const getStorageMutationHealth = async (now = new Date()) => {
@@ -2026,12 +2143,16 @@ export const getStorageMutationHealth = async (now = new Date()) => {
       grouped.map((item) => [item.status, item._count._all]),
     ),
     oldest: oldest
-      ? { ...oldest, ageMs: now.getTime() - oldest.createdAt.getTime() }
+      ? {
+          ...oldest,
+          status: oldest.status as StorageMutationStatus,
+          ageMs: now.getTime() - oldest.createdAt.getTime(),
+        }
       : null,
     active: active.map((mutation) => ({
       id: mutation.id,
       kind: mutation.kind,
-      status: mutation.status,
+      status: mutation.status as StorageMutationStatus,
       ownerUserId: mutation.ownerUserId,
       createdAt: mutation.createdAt,
       ageMs: now.getTime() - mutation.createdAt.getTime(),

@@ -68,6 +68,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
             "Permanently deleted file.",
           ),
       idempotencyKey,
+      session.user.id,
     );
   } catch (error) {
     return attachStorageMutationHeader(
@@ -75,6 +76,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         ? jsonErrorResponse(error)
         : formErrorResponse(request, redirectTo, error),
       idempotencyKey ?? request.headers.get("Idempotency-Key"),
+      session.user.id,
       error,
     );
   }

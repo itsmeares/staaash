@@ -27,10 +27,13 @@ const getErrorMutationId = (error: unknown) => {
   return error.mutationId;
 };
 
-const findStorageMutationId = async (idempotencyKey: string) => {
+const findStorageMutationId = async (
+  idempotencyKey: string,
+  ownerUserId: string,
+) => {
   try {
-    const mutation = await getPrisma().storageMutation.findUnique({
-      where: { idempotencyKey },
+    const mutation = await getPrisma().storageMutation.findFirst({
+      where: { idempotencyKey, ownerUserId },
       select: { id: true },
     });
     return mutation?.id ?? null;
@@ -48,6 +51,7 @@ const setStorageMutationHeader = (response: Response, mutationId: string) => {
 export const attachStorageMutationHeader = async (
   response: Response,
   idempotencyKey: string | null | undefined,
+  ownerUserId: string,
   error?: unknown,
 ) => {
   const errorMutationId = getErrorMutationId(error);
@@ -57,6 +61,6 @@ export const attachStorageMutationHeader = async (
   // A failed request must never discover a mutation by a globally unique
   // caller-controlled key: the key may belong to another owner.
   if (error || !idempotencyKey) return response;
-  const mutationId = await findStorageMutationId(idempotencyKey);
+  const mutationId = await findStorageMutationId(idempotencyKey, ownerUserId);
   return mutationId ? setStorageMutationHeader(response, mutationId) : response;
 };

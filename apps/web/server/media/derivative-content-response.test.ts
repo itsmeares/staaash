@@ -19,6 +19,7 @@ const PUBLIC_SHARE_CONTENT_SECURITY_POLICY =
 
 const mocks = vi.hoisted(() => ({
   findFirst: vi.fn(),
+  assertStorageEntityReadable: vi.fn(async () => undefined),
   getStoragePath: vi.fn(),
   markFileStorageMissing: vi.fn(),
   scheduleDerivativeGenerate: vi.fn(),
@@ -26,7 +27,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/server/storage-read-guard", () => ({
-  assertStorageEntityReadable: vi.fn(async () => undefined),
+  assertStorageEntityReadable: mocks.assertStorageEntityReadable,
 }));
 
 vi.mock("@staaash/db/client", () => ({
@@ -166,6 +167,10 @@ describe("public derivative content responses", () => {
       PUBLIC_SHARE_CONTENT_SECURITY_POLICY,
     );
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(mocks.assertStorageEntityReadable).toHaveBeenCalledWith(
+      "derivative",
+      "derivative-1",
+    );
     expect(await response.text()).toBe("0123456789");
   });
 
