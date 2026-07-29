@@ -78,6 +78,27 @@ export type InstanceHealthSummary = {
   worker: WorkerHeartbeatStatus;
   queue: QueueBacklogSummary;
   reconciliation: RestoreReconciliationHealthSummary;
+  storageMutations: {
+    counts: Record<string, number>;
+    oldest: {
+      id: string;
+      kind: string;
+      status: string;
+      ownerUserId: string;
+      createdAt: Date;
+      ageMs: number;
+    } | null;
+    active: Array<{
+      id: string;
+      kind: string;
+      status: string;
+      ownerUserId: string;
+      createdAt: Date;
+      ageMs: number;
+      lastError: string | null;
+      safePathLabels: string[];
+    }>;
+  };
   storageWarnings: StorageWarningSummary;
   version: {
     currentVersion: string;

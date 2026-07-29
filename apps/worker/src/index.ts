@@ -1,10 +1,12 @@
 import os from "node:os";
 import { mkdir } from "node:fs/promises";
+import { setTimeout as delay } from "node:timers/promises";
 
 import {
   markWorkerInstanceStopped,
   registerWorkerInstance,
 } from "@staaash/db/jobs";
+import { pruneSucceededStorageMutationResults } from "@staaash/db/storage-mutations";
 
 import {
   getWorkerStoragePaths,
@@ -15,6 +17,13 @@ import { detectFfmpeg } from "./ffmpeg.js";
 import { schedulePeriodicJobs } from "./job-registry.js";
 import { WorkerRunner } from "./runner.js";
 import { resolveWorkerVersion } from "./runtime-version.js";
+import { recoverStorageMutations } from "./handlers/storage-mutation-recovery.js";
+import {
+  finalizeStorageProtocol,
+  initializeStorageProtocol,
+  isStorageProtocolReady,
+  recoverUnjournaledUserStorageProvisioning,
+} from "./storage-protocol-cutover.js";
 
 const storagePaths = getWorkerStoragePaths();
 const workerId = `${os.hostname()}-${process.pid}-${Date.now()}`;
@@ -24,8 +33,16 @@ const maintenanceMs = 60_000;
 
 const runMaintenance = async () => {
   await recoverPendingDeletes({
+    filesRoot: storagePaths.filesRoot,
     pendingDeleteRoot: storagePaths.pendingDeleteRoot,
   });
+  await initializeStorageProtocol({ storagePaths });
+  await recoverUnjournaledUserStorageProvisioning({ storagePaths });
+  await recoverStorageMutations({ storagePaths });
+  await pruneSucceededStorageMutationResults(
+    new Date(Date.now() - 7 * 24 * 60 * 60 * 1_000),
+  );
+  await finalizeStorageProtocol({ storagePaths });
 };
 
 const main = async () => {
@@ -42,6 +59,14 @@ const main = async () => {
       node: process.version,
     },
   });
+
+  while (!(await isStorageProtocolReady())) {
+    await runMaintenance();
+    if (!(await isStorageProtocolReady())) {
+      await writeHeartbeat(storagePaths.heartbeatPath);
+      await delay(5_000);
+    }
+  }
 
   const ffmpegHealth = await detectFfmpeg();
   if (!ffmpegHealth.available) {

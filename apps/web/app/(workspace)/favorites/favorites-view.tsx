@@ -1,5 +1,7 @@
 "use client";
 
+// Favorites intentionally mirrors recent-item storage guards and downloads.
+// fallow-ignore-file code-duplication
 import {
   useCallback,
   useEffect,
@@ -307,6 +309,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
   };
 
   const openItem = (item: FavoriteClientItem) => {
+    if (item.storageMutationStatus) return;
     if (item.href.startsWith("/files/")) {
       router.push(item.href);
       return;
@@ -316,6 +319,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
   };
 
   const downloadItem = async (item: FavoriteClientItem) => {
+    if (item.storageMutationStatus) return;
     if (item.kind === "folder") {
       await handleDownload([item.id]);
       return;
@@ -716,6 +720,15 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
   );
 
   const renderItemActions = (item: FavoriteClientItem) => {
+    if (item.storageMutationStatus) {
+      return (
+        <span className="pill pill-sm">
+          {item.storageMutationStatus === "recovery_required"
+            ? "Recovery required"
+            : "Finishing storage operation"}
+        </span>
+      );
+    }
     const pinned = item.quickAccessPinnedAt != null;
 
     if (isCoarsePointer) {
@@ -795,6 +808,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
   const getFavoriteItemContextGroups = (
     item: FavoriteClientItem,
   ): DashboardContextMenuGroup[] => {
+    if (item.storageMutationStatus) return [];
     const pinned = item.quickAccessPinnedAt != null;
     const key = getItemKey(item);
     const targets =

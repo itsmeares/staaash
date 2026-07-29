@@ -1,5 +1,6 @@
 import type { FileSummary, FolderSummary } from "@/server/files/types";
 import type { SearchMatchKind } from "@/server/types";
+import type { StorageMutationState } from "@/server/storage-read-guard";
 
 export type RetrievalItem =
   | {
@@ -13,6 +14,7 @@ export type RetrievalItem =
       isFavorite: boolean;
       matchKind?: SearchMatchKind;
       parentId: string | null;
+      storageMutation?: StorageMutationState | null;
     }
   | {
       kind: "file";
@@ -27,6 +29,7 @@ export type RetrievalItem =
       folderId: string | null;
       mimeType: string;
       sizeBytes: number;
+      storageMutation?: StorageMutationState | null;
     };
 
 export type FavoriteRetrievalItem = RetrievalItem & {

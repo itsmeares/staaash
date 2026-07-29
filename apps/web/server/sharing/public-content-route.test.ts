@@ -27,6 +27,14 @@ const mocks = vi.hoisted(() => ({
   markFileStorageMissing: vi.fn(),
 }));
 
+vi.mock("@/server/storage-read-guard", () => ({
+  assertStorageEntityReadable: vi.fn(async () => undefined),
+  StorageEntityUnavailableError: class StorageEntityUnavailableError extends Error {
+    mutationId = "mutation-test";
+    status = 503;
+  },
+}));
+
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({ get: mocks.cookieGet })),
 }));

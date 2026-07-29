@@ -6,19 +6,40 @@ import { NextRequest } from "next/server";
 
 import { getRequestSession } from "@/server/auth/guards";
 import { isSameOrigin, notSignedInResponse } from "@/server/auth/http";
-import { withStorageLocks } from "@/server/storage-mutations";
+import {
+  assertStorageProtocolReady,
+  StorageProtocolNotReadyError,
+} from "@/server/durable-storage-mutation";
 import { getUploadChunkIndex } from "@/server/uploads/chunk-protocol";
 import {
-  findCompletedUploadChunk,
   findActiveResumableSession,
   cancelAndCleanupResumableSession,
-  recordCompletedUploadChunk,
   type ResumableSession,
   updateSessionProgress,
+  writeAndRecordUploadChunk,
 } from "@/server/uploads/session-service";
 
 type RouteContext = { params: Promise<{ id: string }> };
 type UploadRange = { start: number; end: number };
+
+const storageProtocolUnavailableResponse = (error: unknown) =>
+  error instanceof StorageProtocolNotReadyError
+    ? Response.json(
+        { error: error.message, code: error.code },
+        { status: error.status },
+      )
+    : null;
+
+const requireStorageProtocol = async () => {
+  try {
+    await assertStorageProtocolReady();
+    return null;
+  } catch (error) {
+    const response = storageProtocolUnavailableResponse(error);
+    if (response) return response;
+    throw error;
+  }
+};
 
 const parseContentRange = (
   header: string,
@@ -104,53 +125,28 @@ const writeParallelUploadChunk = async ({
   chunkIndex: number;
   expectedLength: number;
 }) =>
-  withStorageLocks({
-    lockKeys: [`upload-chunk:${uploadSession.id}:${chunkIndex}`],
-    deadline: Date.now() + 5 * 60_000,
-    callback: async () => {
-      const completed = await findCompletedUploadChunk(
-        uploadSession.id,
-        chunkIndex,
-      );
-      if (completed) {
-        const completedRangeMatches = [
-          completed.startByte === range.start,
-          completed.endByte === range.end,
-          completed.sizeBytes === expectedLength,
-        ].every(Boolean);
-        if (!completedRangeMatches) throw new Error("CHUNK_RANGE_CONFLICT");
-
-        const current = await findActiveResumableSession(
-          uploadSession.id,
-          ownerUserId,
-        );
-        return current?.receivedBytes ?? uploadSession.receivedBytes;
-      }
-
+  writeAndRecordUploadChunk({
+    sessionId: uploadSession.id,
+    ownerUserId,
+    chunkIndex,
+    startByte: range.start,
+    endByte: range.end,
+    sizeBytes: expectedLength,
+    writeBytes: async () => {
       await mkdir(path.dirname(uploadSession.tmpPath), { recursive: true });
       const fileHandle = await open(uploadSession.tmpPath, "r+");
-      let writtenLength = 0;
       try {
-        writtenLength = await writeRequestBodyAtOffset({
+        const writtenLength = await writeRequestBodyAtOffset({
           request,
           fileHandle,
           startByte: range.start,
           expectedLength,
         });
+        if (writtenLength === expectedLength) await fileHandle.sync();
+        return writtenLength;
       } finally {
         await fileHandle.close();
       }
-      if (writtenLength !== expectedLength) {
-        throw new Error("CHUNK_LENGTH_MISMATCH");
-      }
-
-      return recordCompletedUploadChunk({
-        sessionId: uploadSession.id,
-        chunkIndex,
-        startByte: range.start,
-        endByte: range.end,
-        sizeBytes: expectedLength,
-      });
     },
   });
 
@@ -254,6 +250,7 @@ const handleLegacyChunkUpload = async ({
   try {
     if (range.start > 0) await fileHandle.truncate(range.start);
     await fileHandle.write(buffer, 0, buffer.length, range.start);
+    await fileHandle.sync();
   } finally {
     await fileHandle.close();
   }
@@ -289,6 +286,8 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   });
 }
 
+// Chunk PATCH and DELETE share session authorization and error translation.
+// fallow-ignore-next-line code-duplication
 export async function PATCH(request: NextRequest, { params }: RouteContext) {
   const { id } = await params;
   if (!isSameOrigin(request)) {
@@ -301,6 +300,9 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
   const session = await getRequestSession(request);
   if (!session)
     return notSignedInResponse(request, `/api/uploads/sessions/${id}`);
+
+  const protocolResponse = await requireStorageProtocol();
+  if (protocolResponse) return protocolResponse;
 
   const uploadSession = await findActiveResumableSession(id, session.user.id);
   if (!uploadSession) {
@@ -353,6 +355,9 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
   const session = await getRequestSession(request);
   if (!session)
     return notSignedInResponse(request, `/api/uploads/sessions/${id}`);
+
+  const protocolResponse = await requireStorageProtocol();
+  if (protocolResponse) return protocolResponse;
 
   const uploadSession = await findActiveResumableSession(id, session.user.id);
   if (!uploadSession) {

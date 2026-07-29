@@ -6,9 +6,30 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
 
 const getPrismaMock = vi.fn();
+const durableMocks = vi.hoisted(() => ({
+  claimStorageMutation: vi.fn(),
+  prepareStorageMutationParent: vi.fn(),
+  recoverStorageMutationParent: vi.fn(),
+}));
 
 vi.mock("@staaash/db/client", () => ({
   getPrisma: getPrismaMock,
+}));
+vi.mock("@staaash/db/storage-mutations", () => ({
+  claimStorageMutation: durableMocks.claimStorageMutation,
+  prepareStorageMutationParent: durableMocks.prepareStorageMutationParent,
+}));
+vi.mock("@staaash/db/storage-mutation-executor", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@staaash/db/storage-mutation-executor")
+  >()),
+  assertStorageFilesystemSupported: vi.fn(async () => undefined),
+}));
+vi.mock("../durable-storage-mutation.js", () => ({
+  hashWorkerStorageRequest: vi.fn(() => "request-hash"),
+}));
+vi.mock("./storage-mutation-parent-recovery.js", () => ({
+  recoverStorageMutationParent: durableMocks.recoverStorageMutationParent,
 }));
 
 type TestFileRecord = {
@@ -24,6 +45,7 @@ type TestFolderRecord = {
   ownerUserId: string;
   parentId: string | null;
   deletedAt: Date | null;
+  trashEntryId?: string | null;
 };
 
 const fixedNow = new Date("2026-04-06T12:00:00.000Z");
@@ -55,6 +77,7 @@ const createMockPrisma = ({
   revalidateFolderById?: Map<string, TestFolderRecord | null>;
 }) => {
   const client = {
+    storageMutation: {},
     file: {
       findMany: vi.fn(async (args: object) => {
         const where = (args as { where?: Record<string, unknown> }).where ?? {};
@@ -198,6 +221,24 @@ describe("trash retention handler", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(fixedNow);
+    durableMocks.prepareStorageMutationParent.mockImplementation(
+      async (input: { intentJson: object }) => ({
+        mutation: {
+          id: "retention-parent-1",
+          status: "prepared",
+          intentJson: input.intentJson,
+        },
+      }),
+    );
+    durableMocks.claimStorageMutation.mockImplementation(async () => ({
+      id: "retention-parent-1",
+      status: "running",
+      intentJson:
+        durableMocks.prepareStorageMutationParent.mock.calls.at(-1)?.[0]
+          .intentJson,
+      leaseToken: 1n,
+    }));
+    durableMocks.recoverStorageMutationParent.mockResolvedValue(true);
   });
 
   afterEach(() => {
@@ -235,6 +276,12 @@ describe("trash retention handler", () => {
     ];
     const blobPath = await createBlob(filesRoot, files[0]!.storageKey, "child");
     getPrismaMock.mockReturnValue(createMockPrisma({ files, folders }));
+    durableMocks.recoverStorageMutationParent.mockImplementation(async () => {
+      await rm(blobPath);
+      files.splice(0, files.length);
+      folders.splice(1);
+      return true;
+    });
 
     const { handleTrashRetention } = await import("./trash-retention.js");
 
@@ -297,6 +344,46 @@ describe("trash retention handler", () => {
     await rm(filesRoot, { recursive: true, force: true });
   });
 
+  it("retains an independent child TrashEntry schedule under a trashed parent", async () => {
+    const filesRoot = await mkdtemp(
+      path.join(os.tmpdir(), "staaash-trash-retention-"),
+    );
+    const folders: TestFolderRecord[] = [
+      {
+        id: "recent-parent",
+        ownerUserId: "member-1",
+        parentId: null,
+        deletedAt: new Date("2026-03-20T12:00:00.000Z"),
+        trashEntryId: "trash-parent",
+      },
+      {
+        id: "expired-child",
+        ownerUserId: "member-1",
+        parentId: "recent-parent",
+        deletedAt: cutoffDate,
+        trashEntryId: "trash-child",
+      },
+    ];
+    const files: TestFileRecord[] = [];
+    getPrismaMock.mockReturnValue(createMockPrisma({ files, folders }));
+    durableMocks.recoverStorageMutationParent.mockResolvedValue(true);
+    const { handleTrashRetention } = await import("./trash-retention.js");
+
+    await handleTrashRetention(createJob(), {
+      UPLOAD_LOCATION: filesRoot,
+      TRASH_RETENTION_DAYS: "30",
+    });
+
+    expect(durableMocks.prepareStorageMutationParent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intentJson: expect.objectContaining({
+          orderedItems: [{ id: "expired-child", kind: "folder" }],
+        }),
+      }),
+    );
+    await rm(filesRoot, { recursive: true, force: true });
+  });
+
   it("still deletes expired top-level trashed roots", async () => {
     const filesRoot = await mkdtemp(
       path.join(os.tmpdir(), "staaash-trash-retention-"),
@@ -320,6 +407,12 @@ describe("trash retention handler", () => {
     ];
     const blobPath = await createBlob(filesRoot, files[0]!.storageKey, "root");
     getPrismaMock.mockReturnValue(createMockPrisma({ files, folders }));
+    durableMocks.recoverStorageMutationParent.mockImplementation(async () => {
+      await rm(blobPath);
+      files.splice(0, files.length);
+      folders.splice(0, folders.length);
+      return true;
+    });
 
     const { handleTrashRetention } = await import("./trash-retention.js");
 

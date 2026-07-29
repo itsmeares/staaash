@@ -1,6 +1,6 @@
 import os from "node:os";
 import path from "node:path";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, symlink, writeFile } from "node:fs/promises";
 
 import { describe, expect, it, vi } from "vitest";
 
@@ -61,14 +61,38 @@ describe("restore reconciliation worker handler", () => {
     ).resolves.toEqual([
       {
         fileId: "file-2",
-        storageKey: "files/member/missing.txt",
+        storageKey: "files/…/missing.txt",
       },
     ]);
 
     await rm(filesRoot, { recursive: true, force: true });
   });
 
-  it("detects orphans only inside committed storage trees", async () => {
+  it("treats a symlinked original as missing even without a checksum", async () => {
+    const filesRoot = createTempFilesRoot();
+    const outside = `${filesRoot}-outside.txt`;
+    await mkdir(path.join(filesRoot, "files", "member"), { recursive: true });
+    await writeFile(outside, "private", "utf8");
+    await symlink(
+      outside,
+      path.join(filesRoot, "files", "member", "linked.txt"),
+      "file",
+    );
+
+    await expect(
+      collectMissingOriginals(
+        [{ id: "file-link", storageKey: "files/member/linked.txt" }],
+        filesRoot,
+      ),
+    ).resolves.toEqual([
+      { fileId: "file-link", storageKey: "files/…/linked.txt" },
+    ]);
+
+    await rm(filesRoot, { recursive: true, force: true });
+    await rm(outside, { force: true });
+  });
+
+  it("detects unexplained files across committed and transitional namespaces", async () => {
     const filesRoot = createTempFilesRoot();
     await mkdir(path.join(filesRoot, "files", "member"), {
       recursive: true,
@@ -120,15 +144,54 @@ describe("restore reconciliation worker handler", () => {
       "ignore me",
       "utf8",
     );
+    await mkdir(path.join(filesRoot, "tmp", "quarantine", "mutation", "tree"), {
+      recursive: true,
+    });
+    await writeFile(
+      path.join(
+        filesRoot,
+        "tmp",
+        "quarantine",
+        "mutation",
+        "tree",
+        "nested.bin",
+      ),
+      "tracked",
+      "utf8",
+    );
+    await mkdir(
+      path.join(filesRoot, "tmp", "quarantine", "mutation", "tree2"),
+      {
+        recursive: true,
+      },
+    );
+    await writeFile(
+      path.join(
+        filesRoot,
+        "tmp",
+        "quarantine",
+        "mutation",
+        "tree2",
+        "not-tracked.bin",
+      ),
+      "orphan",
+      "utf8",
+    );
 
     await expect(
       collectOrphanedStorageKeys({
         filesRoot,
         knownStorageKeys: new Set(["files/member/known.txt"]),
+        knownStoragePrefixes: new Set(["tmp/quarantine/mutation/tree"]),
       }),
     ).resolves.toEqual([
-      "files/member/orphan.txt",
-      ".trash/member/trashed-orphan.txt",
+      "files/…/orphan.txt",
+      ".trash/…/trashed-orphan.txt",
+      "tmp/…/ignored.tmp",
+      "tmp/ignored.upload",
+      "tmp/…/ignored.lock",
+      "tmp/…/ignored.txt",
+      "tmp/…/not-tracked.bin",
     ]);
 
     await rm(filesRoot, { recursive: true, force: true });
@@ -168,10 +231,10 @@ describe("restore reconciliation worker handler", () => {
       missingOriginals: [
         {
           fileId: "file-2",
-          storageKey: "files/member/missing.txt",
+          storageKey: "files/…/missing.txt",
         },
       ],
-      orphanedStorageKeys: ["files/member/orphan.txt"],
+      orphanedStorageKeys: ["files/…/orphan.txt"],
     });
 
     await rm(filesRoot, { recursive: true, force: true });
@@ -256,6 +319,8 @@ describe("restore reconciliation worker handler", () => {
       details: {
         missingOriginals: [],
         orphanedStorageKeys: [],
+        mutationTrackedStorageKeys: [],
+        recoveryRequiredMutations: [],
       },
     });
 
@@ -359,16 +424,155 @@ describe("restore reconciliation worker handler", () => {
         missingOriginals: [
           {
             fileId: "file-missing",
-            storageKey: "files/member/missing.txt",
+            storageKey: "files/…/missing.txt",
           },
         ],
         orphanedStorageKeys: [
-          "files/member/orphan.txt",
-          ".trash/member/trashed-orphan.txt",
+          "files/…/orphan.txt",
+          ".trash/…/trashed-orphan.txt",
         ],
+        mutationTrackedStorageKeys: [],
+        recoveryRequiredMutations: [],
       },
     });
 
+    await rm(filesRoot, { recursive: true, force: true });
+  });
+
+  it("does not overwrite storage status for unresolved mutation files", async () => {
+    const filesRoot = createTempFilesRoot();
+    const updateMany = vi.fn(async () => ({ count: 1 }));
+    await mkdir(path.join(filesRoot, "files", "member"), { recursive: true });
+    await writeFile(
+      path.join(filesRoot, "files", "member", "blocked.txt"),
+      "ok",
+      "utf8",
+    );
+
+    await handleRestoreReconciliation(
+      {
+        id: "job-unresolved",
+        kind: "restore.reconcile",
+        status: "running",
+        payloadJson: {},
+        dedupeKey: "restore.reconcile.manual",
+        runAt: new Date(),
+        lockedAt: null,
+        lockedBy: null,
+        attemptCount: 1,
+        maxAttempts: 5,
+        lastError: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        filesRoot,
+        tmpRoot: path.join(filesRoot, "tmp"),
+        heartbeatPath: path.join(filesRoot, "tmp", "worker-heartbeat.json"),
+        pendingDeleteRoot: path.join(filesRoot, "tmp", "pending-delete"),
+        uploadStagingTtlMs: 1,
+      },
+      {
+        file: {
+          async findMany() {
+            return [
+              {
+                id: "file-blocked",
+                storageKey: "files/member/blocked.txt",
+              },
+            ];
+          },
+          updateMany,
+        },
+        storageMutationEntity: {
+          async findMany() {
+            return [{ entityId: "file-blocked" }];
+          },
+        },
+      },
+    );
+
+    expect(updateMany).not.toHaveBeenCalled();
+    await rm(filesRoot, { recursive: true, force: true });
+  });
+
+  it("does not classify live worker and generated temp files as orphans", async () => {
+    const filesRoot = createTempFilesRoot();
+    const heartbeatPath = path.join(filesRoot, "tmp", "worker-heartbeat.json");
+    const derivativeTemp = path.join(
+      filesRoot,
+      "tmp",
+      "derivatives",
+      "derivative-1.jpg.tmp",
+    );
+    const archiveTemp = path.join(
+      filesRoot,
+      "tmp",
+      "archives",
+      "archive-1.zip.tmp",
+    );
+    const probe = path.join(filesRoot, "tmp", "capability", "probe-current");
+    for (const target of [heartbeatPath, derivativeTemp, archiveTemp, probe]) {
+      await mkdir(path.dirname(target), { recursive: true });
+      await writeFile(target, "live", "utf8");
+    }
+    const updateMany = vi.fn(async () => ({ count: 0 }));
+
+    await handleRestoreReconciliation(
+      {
+        id: "job-live-files",
+        kind: "restore.reconcile",
+        status: "running",
+        payloadJson: {},
+        dedupeKey: "restore.reconcile.manual",
+        runAt: new Date(),
+        lockedAt: null,
+        lockedBy: null,
+        attemptCount: 1,
+        maxAttempts: 5,
+        lastError: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        filesRoot,
+        tmpRoot: path.join(filesRoot, "tmp"),
+        heartbeatPath,
+        pendingDeleteRoot: path.join(filesRoot, "tmp", "pending-delete"),
+        uploadStagingTtlMs: 1,
+      },
+      {
+        file: { findMany: async () => [], updateMany },
+        mediaDerivative: {
+          findMany: async () => [
+            {
+              id: "derivative-1",
+              fileId: "file-1",
+              kind: "preview",
+              profile: "default",
+              storageKey: null,
+            },
+          ],
+        },
+        backgroundJob: {
+          findMany: async () => [
+            {
+              kind: "media.derivative.generate",
+              dedupeKey: "media.derivative.generate:file-1:preview:default",
+            },
+            {
+              kind: "zip.archive.generate",
+              dedupeKey: "zip.archive.generate:archive-1",
+            },
+          ],
+        },
+      },
+    );
+
+    expect(completeRestoreReconciliationRun).toHaveBeenLastCalledWith({
+      backgroundJobId: "job-live-files",
+      details: expect.objectContaining({ orphanedStorageKeys: [] }),
+    });
     await rm(filesRoot, { recursive: true, force: true });
   });
 });

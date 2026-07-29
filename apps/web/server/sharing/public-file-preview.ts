@@ -9,6 +9,7 @@ import {
 import type { FileSummary } from "@/server/files/types";
 import { getPublicShareSafeInlineMimeType } from "@/server/media/public-share-content-policy";
 import { getStoragePath } from "@/server/storage";
+import { assertStorageEntityReadable } from "@/server/storage-read-guard";
 
 import type { PublicShareFilePreview } from "./types";
 
@@ -46,9 +47,11 @@ export const getPublicShareFilePreview = async (
   file: FileSummary,
 ): Promise<PublicShareFilePreview | null> => {
   if (file.viewerKind !== "video") return null;
+  await assertStorageEntityReadable("file", file.id);
 
   const derivative = await findPreviewDerivative(file.id);
   if (!isStoredReadyDerivative(derivative)) return null;
+  await assertStorageEntityReadable("derivative", derivative.id);
   if (!(await isReadableDerivativeFile(derivative.storageKey))) return null;
 
   return {

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 import { ShareErrorView, ShareView } from "@/app/s/share-view";
 import { getShareBaseUrl } from "@/server/request";
@@ -7,6 +8,7 @@ import { SHARE_ACCESS_COOKIE_NAME } from "@/server/sharing/access-cookie";
 import { ShareError, isShareError } from "@/server/sharing/errors";
 import { getSharePageMetadata } from "@/server/sharing/metadata";
 import { sharingService } from "@/server/sharing/service";
+import { StorageEntityUnavailableError } from "@/server/storage-read-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +61,12 @@ export default async function SharedFolderPage({
       />
     );
   } catch (error) {
+    if (error instanceof StorageEntityUnavailableError) {
+      const returnTo = `/s/${encodeURIComponent(token)}/f/${folderId}`;
+      redirect(
+        `/s/${encodeURIComponent(token)}/storage-unavailable?folderId=${encodeURIComponent(folderId)}&returnTo=${encodeURIComponent(returnTo)}`,
+      );
+    }
     if (isShareError(error)) {
       return <ShareErrorView error={error} />;
     }

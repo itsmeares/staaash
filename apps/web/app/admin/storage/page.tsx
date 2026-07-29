@@ -1,3 +1,5 @@
+// Pending and recovery-required tables intentionally share one status layout.
+// fallow-ignore-file code-duplication
 import Link from "next/link";
 import type { CSSProperties } from "react";
 
@@ -7,6 +9,8 @@ import {
   getAdminStatusClassName,
 } from "@/app/admin/admin-format";
 import { getAdminStorageSummary } from "@/server/admin/storage";
+import { getStorageMutationHealth } from "@staaash/db/storage-mutations";
+import { retryStorageMutationAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +20,10 @@ const getUsagePercent = (value: bigint, maxValue: bigint) => {
 };
 
 export default async function AdminStoragePage() {
-  const summary = await getAdminStorageSummary();
+  const [summary, storageMutations] = await Promise.all([
+    getAdminStorageSummary(),
+    getStorageMutationHealth(),
+  ]);
   const topUsage = summary.rows[0]?.retainedBytes ?? 0n;
   const activeUsers = summary.rows.filter(
     (row) => row.retainedBytes > 0n,
@@ -129,6 +136,69 @@ export default async function AdminStoragePage() {
                   </tr>
                 );
               })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="admin-storage-matrix">
+        <div className="admin-overview-panel-head">
+          <h2>Storage mutations</h2>
+        </div>
+        <div className="admin-storage-table-wrap">
+          <table className="admin-storage-table">
+            <thead>
+              <tr>
+                <th>Mutation</th>
+                <th>Owner</th>
+                <th>Phase</th>
+                <th>Safe paths</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {storageMutations.active.length === 0 ? (
+                <tr>
+                  <td colSpan={5}>No unfinished storage mutations.</td>
+                </tr>
+              ) : (
+                storageMutations.active.map((mutation) => (
+                  <tr key={mutation.id}>
+                    <td>
+                      <strong>{mutation.kind}</strong>
+                      <br />
+                      <span>{mutation.id}</span>
+                    </td>
+                    <td>{mutation.ownerUserId}</td>
+                    <td>
+                      <span
+                        className={getAdminStatusClassName(mutation.status)}
+                      >
+                        {mutation.status}
+                      </span>
+                    </td>
+                    <td>
+                      {mutation.safePathLabels.length > 0
+                        ? mutation.safePathLabels.join(", ")
+                        : "Redacted"}
+                    </td>
+                    <td>
+                      {mutation.canRetryNow ? (
+                        <form action={retryStorageMutationAction}>
+                          <input
+                            name="mutationId"
+                            type="hidden"
+                            value={mutation.id}
+                          />
+                          <button type="submit">Retry now</button>
+                        </form>
+                      ) : (
+                        "Automatic recovery"
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

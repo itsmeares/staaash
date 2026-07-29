@@ -1,6 +1,7 @@
-import { rm } from "node:fs/promises";
-
+// Generated-artifact cleanup handlers intentionally share journaled purge flow.
+// fallow-ignore-file code-duplication
 import { getPrisma } from "@staaash/db/client";
+import { lstat } from "node:fs/promises";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
 import {
   DERIVATIVE_STATUS_PROCESSING,
@@ -11,6 +12,11 @@ import {
 
 import type { WorkerStoragePaths } from "../storage-maintenance.js";
 import { safeResolveStoragePath } from "../storage-maintenance.js";
+import {
+  calculateStorageFileChecksum,
+  resolveMutationStoragePath,
+} from "@staaash/db/storage-mutation-executor";
+import { runWorkerStorageMutation } from "../durable-storage-mutation.js";
 
 type MediaDerivativeRecord = {
   id: string;
@@ -22,6 +28,8 @@ type MediaDerivativeRecord = {
   lastSharedAt: Date | null;
   generatedAt: Date | null;
   updatedAt: Date;
+  storageRevision: number;
+  sizeBytes: bigint | null;
 };
 
 type FolderRecord = {
@@ -35,6 +43,7 @@ type ShareLinkRecord = {
 
 type FileRecord = {
   id: string;
+  ownerUserId: string;
   folderId: string | null;
 };
 
@@ -62,6 +71,27 @@ type PrismaClient = {
 
 const DEFAULT_RETENTION_DAYS = 14;
 
+const calculateChecksumIfPresent = async (
+  filesRoot: string,
+  storageKey: string,
+) => {
+  const target = resolveMutationStoragePath(filesRoot, storageKey);
+  try {
+    await lstat(target);
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
+      return undefined;
+    }
+    throw error;
+  }
+  return calculateStorageFileChecksum(filesRoot, storageKey);
+};
+
 const isFileProtectedByFolderShare = async (
   prisma: PrismaClient,
   fileId: string,
@@ -69,7 +99,7 @@ const isFileProtectedByFolderShare = async (
 ): Promise<boolean> => {
   const file = await prisma.file.findUnique({
     where: { id: fileId },
-    select: { id: true, folderId: true } as object,
+    select: { id: true, ownerUserId: true, folderId: true } as object,
   });
 
   if (!file?.folderId) return false;
@@ -96,6 +126,128 @@ const isFileProtectedByFolderShare = async (
   }
 
   return false;
+};
+
+const latestDerivativeReference = (derivative: MediaDerivativeRecord) =>
+  [
+    derivative.lastViewedAt,
+    derivative.lastSharedAt,
+    derivative.generatedAt,
+    derivative.updatedAt,
+  ]
+    .filter((date): date is Date => date !== null)
+    .reduce((latest, date) => (date > latest ? date : latest), new Date(0));
+
+const hasDirectShare = async (
+  prisma: PrismaClient,
+  derivative: MediaDerivativeRecord,
+  now: Date,
+) =>
+  prisma.shareLink
+    .findFirst({
+      where: {
+        fileId: derivative.fileId,
+        revokedAt: null,
+        expiresAt: { gt: now },
+      } as object,
+    })
+    .then((share) => share !== null);
+
+const hasActiveGeneration = async (
+  prisma: PrismaClient,
+  derivativeId: string,
+) =>
+  prisma.mediaDerivative
+    .findMany({
+      where: {
+        id: derivativeId,
+        status: {
+          in: [DERIVATIVE_STATUS_QUEUED, DERIVATIVE_STATUS_PROCESSING],
+        },
+      } as object,
+    })
+    .then((rows) => rows.length > 0);
+
+const purgeDerivative = async ({
+  prisma,
+  derivative,
+  storagePaths,
+}: {
+  prisma: PrismaClient;
+  derivative: MediaDerivativeRecord & { storageKey: string };
+  storagePaths: WorkerStoragePaths;
+}) => {
+  const file = await prisma.file.findUnique({
+    where: { id: derivative.fileId },
+    select: { id: true, ownerUserId: true, folderId: true } as object,
+  });
+  if (!file) return;
+  const checksum = await calculateChecksumIfPresent(
+    storagePaths.filesRoot,
+    derivative.storageKey,
+  );
+  await runWorkerStorageMutation({
+    mutationId: `derivative-purge-${derivative.id}-${derivative.storageRevision}`,
+    kind: "derivative_purge",
+    ownerUserId: file.ownerUserId,
+    idempotencyKey: `derivative-purge:${derivative.id}:${derivative.storageRevision}`,
+    storagePaths,
+    metadataOperations: [
+      {
+        action: "update",
+        entityType: "derivative",
+        entityId: derivative.id,
+        preRevision: derivative.storageRevision,
+        data: { status: "stale", storageKey: null, sizeBytes: null },
+      },
+    ],
+    steps: [
+      {
+        action: "delete_file",
+        targetKey: derivative.storageKey,
+        expectedNodeType: "file",
+        expectedSizeBytes: derivative.sizeBytes,
+        expectedChecksum: checksum,
+      },
+    ],
+    entities: [
+      {
+        entityType: "derivative",
+        entityId: derivative.id,
+        preRevision: derivative.storageRevision,
+        postRevision: derivative.storageRevision + 1,
+        beforeJson: { storageKey: derivative.storageKey },
+        afterJson: { status: "stale" },
+      },
+    ],
+  });
+};
+
+const processDerivativeCandidate = async ({
+  prisma,
+  derivative,
+  now,
+  retentionCutoff,
+  storagePaths,
+}: {
+  prisma: PrismaClient;
+  derivative: MediaDerivativeRecord;
+  now: Date;
+  retentionCutoff: Date;
+  storagePaths: WorkerStoragePaths;
+}) => {
+  if (derivative.pinnedByAdmin) return;
+  if (latestDerivativeReference(derivative) >= retentionCutoff) return;
+  if (await hasDirectShare(prisma, derivative, now)) return;
+  if (await isFileProtectedByFolderShare(prisma, derivative.fileId, now))
+    return;
+  if (await hasActiveGeneration(prisma, derivative.id)) return;
+  if (!derivative.storageKey) return;
+  await purgeDerivative({
+    prisma,
+    derivative: { ...derivative, storageKey: derivative.storageKey },
+    storagePaths,
+  });
 };
 
 export const handleMediaDerivativeCleanup = async (
@@ -129,60 +281,12 @@ export const handleMediaDerivativeCleanup = async (
   });
 
   for (const derivative of candidates) {
-    if (derivative.pinnedByAdmin) continue;
-
-    const referenceDate = [
-      derivative.lastViewedAt,
-      derivative.lastSharedAt,
-      derivative.generatedAt,
-      derivative.updatedAt,
-    ]
-      .filter((d): d is Date => d !== null)
-      .reduce((latest, d) => (d > latest ? d : latest), new Date(0));
-
-    if (referenceDate >= retentionCutoff) continue;
-
-    const isDirectlyShared = await prisma.shareLink
-      .findFirst({
-        where: {
-          fileId: derivative.fileId,
-          revokedAt: null,
-          expiresAt: { gt: now },
-        } as object,
-      })
-      .then((r) => r !== null);
-
-    if (isDirectlyShared) continue;
-
-    const isFolderShared = await isFileProtectedByFolderShare(
+    await processDerivativeCandidate({
       prisma,
-      derivative.fileId,
       now,
-    );
-
-    if (isFolderShared) continue;
-
-    const activeJobStatus = await prisma.mediaDerivative
-      .findMany({
-        where: {
-          id: derivative.id,
-          status: {
-            in: [DERIVATIVE_STATUS_QUEUED, DERIVATIVE_STATUS_PROCESSING],
-          },
-        } as object,
-      })
-      .then((rows) => rows.length > 0);
-
-    if (activeJobStatus) continue;
-
-    if (derivative.storageKey) {
-      const filePath = safeResolveStoragePath(
-        storagePaths.filesRoot,
-        derivative.storageKey,
-      );
-      await rm(filePath, { force: true });
-    }
-
-    await markDerivativeStale(derivative.id);
+      retentionCutoff,
+      derivative,
+      storagePaths,
+    });
   }
 };

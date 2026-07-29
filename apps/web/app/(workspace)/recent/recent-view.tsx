@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 
 import { FlashMessage } from "@/app/auth-ui";
+import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
 import {
   DashboardItemContextMenu,
   DashboardPageContextMenu,
@@ -318,7 +319,7 @@ export function RecentView({ error, items, success }: RecentViewProps) {
   };
 
   const openItem = (item: RecentClientItem) => {
-    if (item.deletedAt) return;
+    if (item.deletedAt || item.storageMutationStatus) return;
 
     const href = getOpenHref(item);
     if (href.startsWith("/files/")) {
@@ -329,7 +330,7 @@ export function RecentView({ error, items, success }: RecentViewProps) {
   };
 
   const downloadItem = async (item: RecentClientItem) => {
-    if (item.deletedAt) return;
+    if (item.deletedAt || item.storageMutationStatus) return;
 
     if (item.kind === "folder") {
       await handleDownload([item.id]);
@@ -349,19 +350,16 @@ export function RecentView({ error, items, success }: RecentViewProps) {
   };
 
   const moveToTrash = async (item: RecentClientItem) => {
+    if (item.storageMutationStatus) return;
     const endpoint =
       item.kind === "folder"
         ? `/api/files/folders/${item.id}/trash`
         : `/api/files/files/${item.id}/trash`;
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: { Accept: "application/json" },
-      body: new URLSearchParams({ redirectTo: "/recent" }),
+    await submitStorageMutationPost({
+      action: endpoint,
+      fields: { redirectTo: "/recent" },
+      logicalAction: `recent-trash:${item.kind}:${item.id}`,
     });
-
-    if (res.ok || res.status === 404) return;
-    const data = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(data.error ?? `Trash failed (${res.status})`);
   };
 
   const trashItems = async (targets: RecentClientItem[]) => {
@@ -627,7 +625,13 @@ export function RecentView({ error, items, success }: RecentViewProps) {
   );
 
   const renderItemActions = (item: RecentClientItem) =>
-    isCoarsePointer ? (
+    item.storageMutationStatus ? (
+      <span className="pill pill-sm">
+        {item.storageMutationStatus === "recovery_required"
+          ? "Recovery required"
+          : "Finishing storage operation"}
+      </span>
+    ) : isCoarsePointer ? (
       <button
         aria-label={`Actions for ${item.name}`}
         className="recent-action-btn"
@@ -643,7 +647,27 @@ export function RecentView({ error, items, success }: RecentViewProps) {
       <>
         {item.deletedAt ? (
           <>
-            <form action={getRestoreHref(item)} method="post">
+            <form
+              action={getRestoreHref(item)}
+              method="post"
+              onSubmit={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                void submitStorageMutationPost({
+                  action: event.currentTarget.action,
+                  fields: { redirectTo: "/recent" },
+                  logicalAction: `recent-restore:${item.kind}:${item.id}`,
+                })
+                  .then(() => router.refresh())
+                  .catch((error) =>
+                    setActionError(
+                      error instanceof Error
+                        ? error.message
+                        : "Restore failed.",
+                    ),
+                  );
+              }}
+            >
               <input name="redirectTo" type="hidden" value="/recent" />
               <button
                 aria-label={`Restore ${item.name}`}
@@ -709,6 +733,7 @@ export function RecentView({ error, items, success }: RecentViewProps) {
   const getRecentItemContextGroups = (
     item: RecentClientItem,
   ): DashboardContextMenuGroup[] => {
+    if (item.storageMutationStatus) return [];
     if (item.deletedAt) {
       return [
         {
@@ -793,7 +818,9 @@ export function RecentView({ error, items, success }: RecentViewProps) {
     children: ReactNode;
   }) => (
     <DashboardItemContextMenu
-      groups={getRecentItemContextGroups(item)}
+      groups={
+        item.storageMutationStatus ? [] : getRecentItemContextGroups(item)
+      }
       key={`${item.kind}-${item.id}`}
     >
       <article
@@ -807,7 +834,7 @@ export function RecentView({ error, items, success }: RecentViewProps) {
         onClick={(event) => handleItemClick(item, event)}
         onDoubleClick={(event) => {
           event.stopPropagation();
-          if (deleted) return;
+          if (deleted || item.storageMutationStatus) return;
           openItem(item);
         }}
         onPointerCancel={clearLongPressTimer}

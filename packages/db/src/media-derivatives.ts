@@ -51,6 +51,7 @@ export type MediaDerivativeRecord = {
   generatedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  storageRevision: number;
 };
 
 type DerivativeClient = {

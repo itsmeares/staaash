@@ -18,6 +18,28 @@ const mocks = vi.hoisted(() => ({
   getSharedNestedFileContent: vi.fn(),
   getStoragePath: vi.fn(),
   resolvePublicShare: vi.fn(),
+  assertStorageEntityReadable: vi.fn(),
+}));
+
+class TestStorageEntityUnavailableError extends Error {
+  readonly code = "STORAGE_RECOVERY_REQUIRED";
+  readonly status = 503;
+  readonly mutationId = "mutation-1";
+}
+
+vi.mock("@/server/storage-read-guard", () => ({
+  assertStorageEntityReadable: mocks.assertStorageEntityReadable,
+  StorageEntityUnavailableError: TestStorageEntityUnavailableError,
+  createStorageEntityUnavailableResponse: (
+    error: TestStorageEntityUnavailableError,
+  ) =>
+    Response.json(
+      { error: error.message, code: error.code },
+      {
+        status: error.status,
+        headers: { "X-Storage-Mutation-Id": error.mutationId },
+      },
+    ),
 }));
 
 vi.mock("next/headers", () => ({
@@ -172,6 +194,21 @@ describe("public share poster route", () => {
     });
 
     expect(response.status).toBe(404);
+    expect(mocks.findReadyPosterDerivative).not.toHaveBeenCalled();
+  });
+
+  it("returns fail-closed recovery state for a blocked source file", async () => {
+    const { GET } = await import("@/app/s/[token]/poster/route");
+    mocks.assertStorageEntityReadable.mockRejectedValueOnce(
+      new TestStorageEntityUnavailableError("blocked"),
+    );
+
+    const response = await GET(new Request("http://localhost/s/token/poster"), {
+      params: Promise.resolve({ token: "token" }),
+    });
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("X-Storage-Mutation-Id")).toBe("mutation-1");
     expect(mocks.findReadyPosterDerivative).not.toHaveBeenCalled();
   });
 });

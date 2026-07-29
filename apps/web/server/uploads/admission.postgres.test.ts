@@ -330,6 +330,7 @@ beforeEach(async () => {
   vi.clearAllMocks();
   await db.uploadChunk.deleteMany();
   await db.uploadSession.deleteMany();
+  await db.storageMutation.deleteMany();
   await db.file.deleteMany();
   await db.folder.deleteMany();
   await db.session.deleteMany();

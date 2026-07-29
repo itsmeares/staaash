@@ -1,3 +1,5 @@
+// Folder creation intentionally keeps the common storage mutation response.
+// fallow-ignore-file code-duplication
 import { NextRequest, NextResponse } from "next/server";
 
 import { getRequestSession } from "@/server/auth/guards";
@@ -13,6 +15,10 @@ import {
 } from "@/server/auth/http";
 import { filesService } from "@/server/files/service";
 import { recordFolderAccessBestEffort } from "@/server/retrieval/recent-tracking";
+import {
+  attachStorageMutationHeader,
+  readStorageIdempotencyKey,
+} from "@/server/storage-idempotency";
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
@@ -36,12 +42,15 @@ export async function POST(request: NextRequest) {
     return notSignedInResponse(request, redirectTo);
   }
 
+  let idempotencyKey: string | null = null;
   try {
+    idempotencyKey = readStorageIdempotencyKey(request);
     const result = await filesService.createFolder({
       actorUserId: session.user.id,
       actorRole: session.user.role,
       parentId: body.parentId || null,
       name: body.name,
+      idempotencyKey,
     });
     await recordFolderAccessBestEffort({
       actorUserId: session.user.id,
@@ -50,17 +59,24 @@ export async function POST(request: NextRequest) {
       source: "create-folder-route",
     });
 
-    return wantsJson(request)
-      ? NextResponse.json(result, { status: 201 })
-      : redirectWithMessage(
-          request,
-          redirectTo,
-          "success",
-          `Created folder ${result.folder.name}.`,
-        );
+    return attachStorageMutationHeader(
+      wantsJson(request)
+        ? NextResponse.json(result, { status: 201 })
+        : redirectWithMessage(
+            request,
+            redirectTo,
+            "success",
+            `Created folder ${result.folder.name}.`,
+          ),
+      idempotencyKey,
+    );
   } catch (error) {
-    return wantsJson(request)
-      ? jsonErrorResponse(error)
-      : formErrorResponse(request, redirectTo, error);
+    return attachStorageMutationHeader(
+      wantsJson(request)
+        ? jsonErrorResponse(error)
+        : formErrorResponse(request, redirectTo, error),
+      idempotencyKey ?? request.headers.get("Idempotency-Key"),
+      error,
+    );
   }
 }

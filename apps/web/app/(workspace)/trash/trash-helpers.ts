@@ -13,6 +13,7 @@ export type TrashClientItem = {
   originalPathLabel: string;
   restoreTargetLabel: string;
   sizeBytes?: number;
+  storageMutationStatus?: string;
 };
 
 export type TrashFilterType = "all" | "file" | "folder";
@@ -59,6 +60,7 @@ export function toTrashClientItem(
       name: item.folder.name,
       originalPathLabel: item.originalPathLabel,
       restoreTargetLabel: item.restoreLocation.pathLabel,
+      storageMutationStatus: item.folder.storageMutation?.status,
     };
   }
 
@@ -71,6 +73,7 @@ export function toTrashClientItem(
     originalPathLabel: item.originalPathLabel,
     restoreTargetLabel: item.restoreLocation.pathLabel,
     sizeBytes: item.file.sizeBytes,
+    storageMutationStatus: item.file.storageMutation?.status,
   };
 }
 

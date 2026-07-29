@@ -24,6 +24,7 @@ export type FavoriteClientItem = {
   parentId?: string | null;
   quickAccessPinnedAt: string | null;
   sizeBytes?: number;
+  storageMutationStatus?: string;
 };
 
 export type FavoriteFilterType = WorkspaceItemFilterType;
@@ -50,6 +51,7 @@ export function toFavoriteClientItem(
     parentId: item.kind === "folder" ? item.parentId : undefined,
     quickAccessPinnedAt: item.quickAccessPinnedAt?.toISOString() ?? null,
     sizeBytes: item.kind === "file" ? item.sizeBytes : undefined,
+    storageMutationStatus: item.storageMutation?.status,
   };
 }
 

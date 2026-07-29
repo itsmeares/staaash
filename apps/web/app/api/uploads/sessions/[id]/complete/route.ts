@@ -1,8 +1,15 @@
+// Resumable completion intentionally mirrors session mutation guards.
+// fallow-ignore-file code-duplication
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { getPrisma } from "@staaash/db/client";
 
 import { getRequestSession } from "@/server/auth/guards";
 import { isSameOrigin, notSignedInResponse } from "@/server/auth/http";
+import {
+  assertStorageProtocolReady,
+  StorageProtocolNotReadyError,
+} from "@/server/durable-storage-mutation";
 import { filesService } from "@/server/files/service";
 import { FilesError, ResumableCompletionError } from "@/server/files/errors";
 import { computeFileSha256 } from "@/server/uploads";
@@ -17,6 +24,23 @@ import {
 } from "@/server/uploads/session-service";
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+const attachResumableMutationHeader = async (
+  response: Response,
+  uploadSessionId: string,
+) => {
+  const mutationId = `resumable-${uploadSessionId}`;
+  const storageMutation = getPrisma().storageMutation;
+  if (!storageMutation) return response;
+  const mutation = await storageMutation.findUnique({
+    where: { id: mutationId },
+    select: { id: true },
+  });
+  if (mutation) {
+    response.headers.set("X-Storage-Mutation-Id", mutation.id);
+  }
+  return response;
+};
 
 const completeSchema = z.object({
   expectedChecksum: z
@@ -200,6 +224,18 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   if (!session)
     return notSignedInResponse(request, `/api/uploads/sessions/${id}/complete`);
 
+  try {
+    await assertStorageProtocolReady();
+  } catch (error) {
+    if (error instanceof StorageProtocolNotReadyError) {
+      return Response.json(
+        { error: error.message, code: error.code },
+        { status: error.status },
+      );
+    }
+    throw error;
+  }
+
   const uploadSession = await findActiveResumableSession(id, session.user.id);
   if (!uploadSession) {
     return Response.json(
@@ -233,18 +269,24 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       error instanceof Error &&
       error.message === "UPLOAD_SESSION_NOT_RECEIVABLE"
     ) {
-      return Response.json(
-        { error: "Upload session is no longer available." },
-        { status: 409 },
+      return attachResumableMutationHeader(
+        Response.json(
+          { error: "Upload session is no longer available." },
+          { status: 409 },
+        ),
+        uploadSession.id,
       );
     }
     console.error("[uploads] Could not begin resumable commit.", error);
-    return Response.json(
-      {
-        error: "Upload completion is temporarily unavailable.",
-        code: "RESUMABLE_COMMIT_RETRYABLE",
-      },
-      { status: 503, headers: { "retry-after": "1" } },
+    return attachResumableMutationHeader(
+      Response.json(
+        {
+          error: "Upload completion is temporarily unavailable.",
+          code: "RESUMABLE_COMMIT_RETRYABLE",
+        },
+        { status: 503, headers: { "retry-after": "1" } },
+      ),
+      uploadSession.id,
     );
   }
 
@@ -254,9 +296,12 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   );
   if (verificationError) return verificationError;
 
-  return commitUploadedFile(
-    uploadSession,
-    session,
-    checksumResult.expectedChecksum,
+  return attachResumableMutationHeader(
+    await commitUploadedFile(
+      uploadSession,
+      session,
+      checksumResult.expectedChecksum,
+    ),
+    uploadSession.id,
   );
 }

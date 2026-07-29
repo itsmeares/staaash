@@ -3,6 +3,10 @@ import { z } from "zod";
 
 import { getRequestSession } from "@/server/auth/guards";
 import { isSameOrigin, notSignedInResponse } from "@/server/auth/http";
+import {
+  assertStorageProtocolReady,
+  StorageProtocolNotReadyError,
+} from "@/server/durable-storage-mutation";
 import { assertUploadSizeAllowed, UploadError } from "@/server/uploads";
 import { UploadAdmissionError } from "@/server/uploads/admission";
 import { createResumableSession } from "@/server/uploads/session-service";
@@ -34,6 +38,18 @@ export async function POST(request: NextRequest) {
   const session = await getRequestSession(request);
   if (!session) {
     return notSignedInResponse(request, "/api/uploads/sessions");
+  }
+
+  try {
+    await assertStorageProtocolReady();
+  } catch (error) {
+    if (error instanceof StorageProtocolNotReadyError) {
+      return Response.json(
+        { error: error.message, code: error.code },
+        { status: error.status },
+      );
+    }
+    throw error;
   }
 
   let body: unknown;

@@ -85,6 +85,11 @@ const shareErrorCopy: Record<
     title: "Password required",
     description: "Enter the password to continue to this shared item.",
   },
+  SHARE_STORAGE_UNAVAILABLE: {
+    title: "Storage operation finishing",
+    description:
+      "This shared item is unavailable until storage recovery finishes.",
+  },
   SHARE_TARGET_UNAVAILABLE: {
     title: "Shared item unavailable",
     description: "The owner has moved this item out of public availability.",

@@ -10,6 +10,10 @@ import { prismaFilesRepository } from "@/server/files/repository";
 import { recordFileAccessBestEffort } from "@/server/retrieval/recent-tracking";
 import { getStoragePath } from "@/server/storage";
 import { createRangeResponseFromHandle } from "@/server/downloads/range-response";
+import {
+  assertStorageEntityReadable,
+  StorageEntityUnavailableError,
+} from "@/server/storage-read-guard";
 
 type RouteContext = {
   params: Promise<{
@@ -64,6 +68,10 @@ const createDownloadErrorResponse = (error: unknown, request: NextRequest) => {
       },
       {
         status: normalized.status,
+        headers:
+          error instanceof StorageEntityUnavailableError
+            ? { "X-Storage-Mutation-Id": error.mutationId }
+            : undefined,
       },
     );
   }
@@ -72,6 +80,9 @@ const createDownloadErrorResponse = (error: unknown, request: NextRequest) => {
     status: normalized.status,
     headers: {
       "content-type": "text/plain; charset=utf-8",
+      ...(error instanceof StorageEntityUnavailableError
+        ? { "X-Storage-Mutation-Id": error.mutationId }
+        : {}),
     },
   });
 };
@@ -103,6 +114,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     }
 
     const storagePath = getStoragePath(file.storageKey);
+    await assertStorageEntityReadable("file", file.id);
 
     // Open explicitly so the file is proven readable before recording recents.
     let fileHandle;

@@ -1,3 +1,5 @@
+// Folder restore intentionally mirrors file restore and folder mutations.
+// fallow-ignore-file code-duplication
 import { NextRequest, NextResponse } from "next/server";
 
 import { getRequestSession } from "@/server/auth/guards";
@@ -13,6 +15,10 @@ import {
 } from "@/server/auth/http";
 import { filesService } from "@/server/files/service";
 import { recordFolderAccessBestEffort } from "@/server/retrieval/recent-tracking";
+import {
+  attachStorageMutationHeader,
+  readStorageIdempotencyKey,
+} from "@/server/storage-idempotency";
 
 type RouteContext = {
   params: Promise<{
@@ -42,12 +48,15 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     return notSignedInResponse(request, redirectTo);
   }
 
+  let idempotencyKey: string | null = null;
   try {
+    idempotencyKey = readStorageIdempotencyKey(request);
     const { folderId } = await params;
     const result = await filesService.restoreFolder({
       actorUserId: session.user.id,
       actorRole: session.user.role,
       folderId,
+      idempotencyKey,
     });
     await recordFolderAccessBestEffort({
       actorUserId: session.user.id,
@@ -57,17 +66,24 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     });
     const location = result.restoredTo?.pathLabel ?? "Files";
 
-    return wantsJson(request)
-      ? NextResponse.json(result)
-      : redirectWithMessage(
-          request,
-          redirectTo,
-          "success",
-          `Restored ${result.folder.name} to ${location}.`,
-        );
+    return attachStorageMutationHeader(
+      wantsJson(request)
+        ? NextResponse.json(result)
+        : redirectWithMessage(
+            request,
+            redirectTo,
+            "success",
+            `Restored ${result.folder.name} to ${location}.`,
+          ),
+      idempotencyKey,
+    );
   } catch (error) {
-    return wantsJson(request)
-      ? jsonErrorResponse(error)
-      : formErrorResponse(request, redirectTo, error);
+    return attachStorageMutationHeader(
+      wantsJson(request)
+        ? jsonErrorResponse(error)
+        : formErrorResponse(request, redirectTo, error),
+      idempotencyKey ?? request.headers.get("Idempotency-Key"),
+      error,
+    );
   }
 }

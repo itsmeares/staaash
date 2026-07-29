@@ -8,6 +8,10 @@ const derivativeMocks = vi.hoisted(() => ({
 const settingsMocks = vi.hoisted(() => ({
   getSystemSettings: vi.fn(),
 }));
+const storageMutationMocks = vi.hoisted(() => ({
+  assertStorageEntityReadable: vi.fn(),
+  getStorageMutationStateMap: vi.fn(),
+}));
 
 vi.mock("@staaash/db/media-derivatives", async (importOriginal) => {
   const actual =
@@ -25,6 +29,17 @@ vi.mock("@/server/settings", async (importOriginal) => {
   return {
     ...actual,
     getSystemSettings: settingsMocks.getSystemSettings,
+  };
+});
+
+vi.mock("@/server/storage-read-guard", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/server/storage-read-guard")>();
+  return {
+    ...actual,
+    assertStorageEntityReadable:
+      storageMutationMocks.assertStorageEntityReadable,
+    getStorageMutationStateMap: storageMutationMocks.getStorageMutationStateMap,
   };
 });
 
@@ -311,6 +326,12 @@ describe("sharing service", () => {
     derivativeMocks.findReadyDerivative.mockResolvedValue(null);
     derivativeMocks.scheduleDerivativeGenerate.mockResolvedValue({ id: "job" });
     derivativeMocks.touchDerivativeShared.mockResolvedValue(undefined);
+    storageMutationMocks.assertStorageEntityReadable.mockResolvedValue(
+      undefined,
+    );
+    storageMutationMocks.getStorageMutationStateMap.mockResolvedValue(
+      new Map(),
+    );
   });
 
   it("creates and reissues singleton links for the same target", async () => {
@@ -461,6 +482,45 @@ describe("sharing service", () => {
       }),
     ).rejects.toMatchObject({
       code: "SHARE_ACCESS_DENIED",
+    });
+  });
+
+  it("fails closed when a visible shared-folder member is recovering", async () => {
+    const sharingRepo = createFakeSharingRepository();
+    const service = createSharingService({
+      repo: sharingRepo.repo,
+      filesRepo: fakeFilesRepo,
+      now: () => fixedNow,
+    });
+    const created = await service.createOrReissueShare({
+      actorUserId: "user-1",
+      actorRole: "member",
+      targetType: "folder",
+      folderId: sharedFolder.id,
+      expiresAt: addDays(5),
+    });
+    storageMutationMocks.getStorageMutationStateMap.mockImplementation(
+      async (entityType: string) =>
+        entityType === "file"
+          ? new Map([
+              [
+                sharedFile.id,
+                {
+                  id: "mutation-1",
+                  kind: "file_move",
+                  status: "retrying",
+                },
+              ],
+            ])
+          : new Map(),
+    );
+
+    await expect(
+      service.resolvePublicShare({ token: created.token }),
+    ).rejects.toMatchObject({
+      code: "STORAGE_MUTATION_RECOVERING",
+      mutationId: "mutation-1",
+      status: 503,
     });
   });
 

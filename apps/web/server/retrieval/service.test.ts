@@ -1,4 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const storageMutationMocks = vi.hoisted(() => ({
+  getStorageMutationStateMap: vi.fn(),
+}));
+
+vi.mock("@/server/storage-read-guard", () => ({
+  getStorageMutationStateMap: storageMutationMocks.getStorageMutationStateMap,
+}));
 
 import type { FileSummary, FolderSummary } from "@/server/files/types";
 import { normalizeSearchText } from "@/server/search";
@@ -10,6 +18,10 @@ import type {
   RecentFolderRecord,
   RetrievalRepository,
 } from "@/server/retrieval/types";
+
+beforeEach(() => {
+  storageMutationMocks.getStorageMutationStateMap.mockResolvedValue(new Map());
+});
 
 type MemoryState = {
   folders: FolderSummary[];
@@ -334,11 +346,26 @@ describe("retrieval service", () => {
   it("searches case-insensitively and accent-insensitively", async () => {
     const { repo, ensureFilesRootRecord, addFile } = createMemoryRepository();
     const root = ensureFilesRootRecord("alice");
-    addFile({
+    const newer = addFile({
       ownerUserId: "alice",
       folderId: root.id,
       name: "Résumé.md",
     });
+    storageMutationMocks.getStorageMutationStateMap.mockImplementation(
+      async (entityType: string) =>
+        entityType === "file"
+          ? new Map([
+              [
+                newer.id,
+                {
+                  id: "mutation-1",
+                  kind: "upload_create",
+                  status: "finalizing",
+                },
+              ],
+            ])
+          : new Map(),
+    );
     const service = createRetrievalService({ repo });
 
     const results = await service.search({
@@ -349,6 +376,11 @@ describe("retrieval service", () => {
 
     expect(results.map((item) => item.name)).toEqual(["Résumé.md"]);
     expect(results[0]?.matchKind).toBe("exact");
+    expect(results[0]?.storageMutation).toEqual({
+      id: "mutation-1",
+      kind: "upload_create",
+      status: "finalizing",
+    });
   });
 
   it("matches extensions and path tokens as exact search hits", async () => {

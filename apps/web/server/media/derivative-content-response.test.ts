@@ -25,6 +25,10 @@ const mocks = vi.hoisted(() => ({
   touchDerivativeViewed: vi.fn(),
 }));
 
+vi.mock("@/server/storage-read-guard", () => ({
+  assertStorageEntityReadable: vi.fn(async () => undefined),
+}));
+
 vi.mock("@staaash/db/client", () => ({
   getPrisma: () => ({
     mediaDerivative: { findFirst: mocks.findFirst },

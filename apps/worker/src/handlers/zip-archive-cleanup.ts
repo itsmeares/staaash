@@ -1,11 +1,15 @@
-import { rm } from "node:fs/promises";
-
 import { getPrisma } from "@staaash/db/client";
+import { lstat } from "node:fs/promises";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
 import { findExpiredZipArchives } from "@staaash/db/zip-archives";
 
 import type { WorkerStoragePaths } from "../storage-maintenance.js";
 import { safeResolveStoragePath } from "../storage-maintenance.js";
+import {
+  calculateStorageFileChecksum,
+  resolveMutationStoragePath,
+} from "@staaash/db/storage-mutation-executor";
+import { runWorkerStorageMutation } from "../durable-storage-mutation.js";
 
 type SystemSettingsRecord = {
   zipArchiveRetentionDays: number;
@@ -21,6 +25,27 @@ type PrismaClient = {
 };
 
 const DEFAULT_RETENTION_DAYS = 7;
+
+const calculateChecksumIfPresent = async (
+  filesRoot: string,
+  storageKey: string,
+) => {
+  const target = resolveMutationStoragePath(filesRoot, storageKey);
+  try {
+    await lstat(target);
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
+      return undefined;
+    }
+    throw error;
+  }
+  return calculateStorageFileChecksum(filesRoot, storageKey);
+};
 
 export const handleZipArchiveCleanup = async (
   _job: BackgroundJobRecord,
@@ -44,16 +69,44 @@ export const handleZipArchiveCleanup = async (
   const expired = await findExpiredZipArchives(now);
 
   for (const archive of expired) {
-    if (archive.storageKey) {
-      const filePath = safeResolveStoragePath(
-        storagePaths.filesRoot,
-        archive.storageKey,
-      );
-      await rm(filePath, { force: true });
-    }
-
-    await prisma.zipArchive.delete({
-      where: { id: archive.id } as object,
+    if (!archive.storageKey) continue;
+    const checksum = await calculateChecksumIfPresent(
+      storagePaths.filesRoot,
+      archive.storageKey,
+    );
+    await runWorkerStorageMutation({
+      mutationId: `archive-purge-${archive.id}`,
+      kind: "archive_purge",
+      ownerUserId: archive.userId,
+      idempotencyKey: `archive-purge:${archive.id}`,
+      storagePaths,
+      metadataOperations: [
+        {
+          action: "delete",
+          entityType: "archive",
+          entityId: archive.id,
+          preRevision: archive.storageRevision,
+        },
+      ],
+      steps: [
+        {
+          action: "delete_file",
+          targetKey: archive.storageKey,
+          expectedNodeType: "file",
+          expectedSizeBytes: archive.sizeBytes,
+          expectedChecksum: checksum,
+        },
+      ],
+      entities: [
+        {
+          entityType: "archive",
+          entityId: archive.id,
+          preRevision: archive.storageRevision,
+          postRevision: archive.storageRevision + 1,
+          beforeJson: { storageKey: archive.storageKey },
+          afterJson: null,
+        },
+      ],
     });
   }
 };

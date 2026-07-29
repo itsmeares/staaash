@@ -9,6 +9,10 @@ import {
   MediaContentError,
 } from "@/server/media/content-response";
 import { createInlineContentResponse } from "@/server/media/derivative-content-response";
+import {
+  createStorageEntityUnavailableResponse,
+  StorageEntityUnavailableError,
+} from "@/server/storage-read-guard";
 
 type RouteContext = {
   params: Promise<{
@@ -36,6 +40,9 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       file,
     });
   } catch (error) {
+    if (error instanceof StorageEntityUnavailableError) {
+      return createStorageEntityUnavailableResponse(error);
+    }
     if (error instanceof FilesError) {
       return Response.json(
         { error: error.message, code: error.code },

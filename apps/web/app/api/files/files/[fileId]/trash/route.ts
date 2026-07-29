@@ -1,3 +1,5 @@
+// File mutation routes intentionally share one HTTP mutation contract.
+// fallow-ignore-file code-duplication
 import { NextRequest, NextResponse } from "next/server";
 
 import { getRequestSession } from "@/server/auth/guards";
@@ -13,6 +15,10 @@ import {
 } from "@/server/auth/http";
 import { filesService } from "@/server/files/service";
 import { recordFileAccessBestEffort } from "@/server/retrieval/recent-tracking";
+import {
+  attachStorageMutationHeader,
+  readStorageIdempotencyKey,
+} from "@/server/storage-idempotency";
 
 type RouteContext = {
   params: Promise<{
@@ -42,12 +48,15 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     return notSignedInResponse(request, redirectTo);
   }
 
+  let idempotencyKey: string | null = null;
   try {
+    idempotencyKey = readStorageIdempotencyKey(request);
     const { fileId } = await params;
     const result = await filesService.trashFile({
       actorUserId: session.user.id,
       actorRole: session.user.role,
       fileId,
+      idempotencyKey,
     });
     await recordFileAccessBestEffort({
       actorUserId: session.user.id,
@@ -56,17 +65,24 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       source: "trash-file-route",
     });
 
-    return wantsJson(request)
-      ? NextResponse.json(result)
-      : redirectWithMessage(
-          request,
-          redirectTo,
-          "success",
-          `Moved ${result.file?.name} to trash.`,
-        );
+    return attachStorageMutationHeader(
+      wantsJson(request)
+        ? NextResponse.json(result)
+        : redirectWithMessage(
+            request,
+            redirectTo,
+            "success",
+            `Moved ${result.file?.name} to trash.`,
+          ),
+      idempotencyKey,
+    );
   } catch (error) {
-    return wantsJson(request)
-      ? jsonErrorResponse(error)
-      : formErrorResponse(request, redirectTo, error);
+    return attachStorageMutationHeader(
+      wantsJson(request)
+        ? jsonErrorResponse(error)
+        : formErrorResponse(request, redirectTo, error),
+      idempotencyKey ?? request.headers.get("Idempotency-Key"),
+      error,
+    );
   }
 }

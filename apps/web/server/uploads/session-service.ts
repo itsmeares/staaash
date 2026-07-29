@@ -295,6 +295,8 @@ export const findActiveResumableSession = async (
   return row ? toSession(row) : null;
 };
 
+// PostgreSQL admission regression seam.
+// fallow-ignore-next-line unused-export
 export const findCompletedUploadChunk = async (
   sessionId: string,
   chunkIndex: number,
@@ -312,6 +314,8 @@ export const findCompletedUploadChunk = async (
     : null;
 };
 
+// PostgreSQL admission regression seam.
+// fallow-ignore-next-line unused-export
 export const recordCompletedUploadChunk = async ({
   sessionId,
   chunkIndex,
@@ -362,6 +366,133 @@ export const recordCompletedUploadChunk = async ({
   return Number(session.receivedBytes);
 };
 
+type WriteUploadChunkInput = CompletedUploadChunk & {
+  sessionId: string;
+  ownerUserId: string;
+  writeBytes: () => Promise<number>;
+};
+
+const chunkRangeMatches = (
+  existing: { startByte: bigint; endByte: bigint; sizeBytes: bigint },
+  input: CompletedUploadChunk,
+) =>
+  existing.startByte === BigInt(input.startByte) &&
+  existing.endByte === BigInt(input.endByte) &&
+  existing.sizeBytes === BigInt(input.sizeBytes);
+
+const findReceivableChunkSession = (
+  tx: Prisma.TransactionClient,
+  input: WriteUploadChunkInput,
+  now: Date,
+) =>
+  tx.uploadSession.findFirstOrThrow({
+    where: {
+      id: input.sessionId,
+      ownerUserId: input.ownerUserId,
+      status: { in: [...RECEIVABLE_UPLOAD_SESSION_STATUSES] },
+      expiresAt: { gt: now },
+    },
+  });
+
+const reuseRecordedUploadChunk = async (
+  tx: Prisma.TransactionClient,
+  existing: { startByte: bigint; endByte: bigint; sizeBytes: bigint },
+  input: WriteUploadChunkInput,
+  now: Date,
+) => {
+  if (!chunkRangeMatches(existing, input)) {
+    throw new Error("CHUNK_RANGE_CONFLICT");
+  }
+  return findReceivableChunkSession(tx, input, now);
+};
+
+const assertReceivableChunkSession = async (
+  tx: Prisma.TransactionClient,
+  input: WriteUploadChunkInput,
+  now: Date,
+) => {
+  const activeSession = await tx.uploadSession.findFirst({
+    where: {
+      id: input.sessionId,
+      ownerUserId: input.ownerUserId,
+      status: { in: [...RECEIVABLE_UPLOAD_SESSION_STATUSES] },
+      expiresAt: { gt: now },
+    },
+    select: { id: true },
+  });
+  if (!activeSession) throw new Error("UPLOAD_SESSION_NOT_RECEIVABLE");
+};
+
+const persistNewUploadChunk = async (
+  tx: Prisma.TransactionClient,
+  input: WriteUploadChunkInput,
+  now: Date,
+) => {
+  await assertReceivableChunkSession(tx, input, now);
+  const writtenLength = await input.writeBytes();
+  if (writtenLength !== input.sizeBytes) {
+    throw new Error("CHUNK_LENGTH_MISMATCH");
+  }
+  await tx.uploadChunk.create({
+    data: {
+      sessionId: input.sessionId,
+      chunkIndex: input.chunkIndex,
+      startByte: BigInt(input.startByte),
+      endByte: BigInt(input.endByte),
+      sizeBytes: BigInt(input.sizeBytes),
+    },
+  });
+  const updated = await tx.uploadSession.updateMany({
+    where: {
+      id: input.sessionId,
+      ownerUserId: input.ownerUserId,
+      status: { in: [...RECEIVABLE_UPLOAD_SESSION_STATUSES] },
+      expiresAt: { gt: now },
+    },
+    data: {
+      receivedBytes: { increment: BigInt(input.sizeBytes) },
+      status: UPLOAD_SESSION_STATUS_RECEIVING,
+    },
+  });
+  if (updated.count !== 1) {
+    throw new Error("UPLOAD_SESSION_NOT_RECEIVABLE");
+  }
+  return tx.uploadSession.findUniqueOrThrow({
+    where: { id: input.sessionId },
+  });
+};
+
+const writeAndRecordUploadChunkTransaction = async (
+  tx: Prisma.TransactionClient,
+  input: WriteUploadChunkInput,
+  now: Date,
+) => {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock_shared(hashtextextended(${`upload-session:${input.sessionId}`}, 0))`;
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`upload-chunk:${input.sessionId}:${input.chunkIndex}`}, 0))`;
+  const existing = await tx.uploadChunk.findUnique({
+    where: {
+      sessionId_chunkIndex: {
+        sessionId: input.sessionId,
+        chunkIndex: input.chunkIndex,
+      },
+    },
+  });
+  return existing
+    ? reuseRecordedUploadChunk(tx, existing, input, now)
+    : persistNewUploadChunk(tx, input, now);
+};
+
+export const writeAndRecordUploadChunk = async (
+  input: WriteUploadChunkInput,
+) => {
+  const now = new Date();
+  const session = await getPrisma().$transaction(
+    (tx) => writeAndRecordUploadChunkTransaction(tx, input, now),
+    { maxWait: 10_000, timeout: 310_000 },
+  );
+  return Number(session.receivedBytes);
+};
+
 export const updateSessionProgress = async (
   id: string,
   receivedBytes: number,
@@ -392,6 +523,7 @@ export const beginSessionCommit = async ({
   now?: Date;
 }) =>
   runUploadTransaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`upload-session:${id}`}, 0))`;
     await lockUploadCapacityRows(tx, ownerUserId);
     const rows = await tx.$queryRaw<Array<{ id: string }>>`
       SELECT "id"
@@ -551,6 +683,7 @@ const transitionResumableSessionToTerminal = async ({
   now?: Date;
 }) =>
   runUploadTransaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`upload-session:${id}`}, 0))`;
     await lockUploadCapacityRows(tx, ownerUserId);
     const rows = await tx.$queryRaw<Array<{ id: string; status: string }>>`
       SELECT "id", "status"

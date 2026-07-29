@@ -32,7 +32,7 @@ join the same per-user quota lock when committed metadata grows.
   requested file size.
 - Successful allocation changes the session to `created` with a 24-hour expiry.
 - Completion transfers the active reservation to committed file usage in one
-  database transaction.
+  database transaction linked to a durable storage mutation.
 - Cancellation, checksum failure, allocation failure, and expiry become terminal
   before filesystem cleanup starts.
 - Terminal chunks are deleted promptly. Lightweight terminal parent rows remain
@@ -80,14 +80,18 @@ For persistent failures:
 Do not manually set `stagingReleasedAt` while a staging file may still exist.
 Doing so would remove its capacity liability before physical deletion.
 
+The linked storage mutation is the sole authority after a session enters
+`committing`. Restart recovery validates staged, incoming, backup, and canonical
+bytes by checksum. An unlinked stale session with intact staging may return to
+receiving; an ambiguous linked mutation fails closed.
+
 ## Upgrade ordering
 
-This schema change and the new web lifecycle must be deployed together. For a
-self-hosted upgrade, stop the old web process, apply migrations, then start the
-new web and worker versions. The new web can run briefly with an older worker;
-capacity remains bounded and cleanup waits. Do not run the older web version
-against the migrated schema: it neither participates in admission locking nor
-sets the required terminal lifecycle fields.
+The journal schema, web runtime, and worker must be deployed together. Stop the
+old web and worker, apply migrations, then start the new worker in recovery-only
+mode. Web storage writes remain unavailable until the worker completes cutover
+and marks storage protocol version 2 ready. Mixed protocol versions are not
+supported.
 
 Application rollback alone is therefore unsafe after this migration. Prefer a
 forward fix. A full rollback requires restoring the matching pre-upgrade

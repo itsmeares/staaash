@@ -32,8 +32,12 @@ const createPrismaRetrievalRepository = ({
   const getFilesRepo = () => filesRepo ?? prismaFilesRepository;
 
   return {
-    ensureFilesRoot(ownerUserId) {
-      return getFilesRepo().ensureFilesRoot(ownerUserId);
+    async ensureFilesRoot(ownerUserId) {
+      const activeFilesRepo = getFilesRepo();
+      if (filesRepo) return activeFilesRepo.ensureFilesRoot(ownerUserId);
+      const root = await activeFilesRepo.findFilesRoot?.(ownerUserId);
+      if (!root) throw new Error("Files root requires storage recovery.");
+      return root;
     },
 
     findFolderById(folderId) {

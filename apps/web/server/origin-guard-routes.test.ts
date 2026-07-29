@@ -17,6 +17,14 @@ vi.mock("@/server/auth/guards", () => ({
   getRequestSession: vi.fn(),
 }));
 
+vi.mock("@/server/durable-storage-mutation", () => ({
+  assertStorageProtocolReady: vi.fn(async () => undefined),
+  StorageProtocolNotReadyError: class extends Error {
+    code = "STORAGE_MUTATION_RECOVERING";
+    status = 503;
+  },
+}));
+
 vi.mock("@/server/uploads", () => ({
   UploadError: class UploadError extends Error {
     code = "UPLOAD_ERROR";
