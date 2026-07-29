@@ -2167,6 +2167,12 @@ describe("STO-02 durable PostgreSQL protocol", () => {
   it("records an already-succeeded clear-trash child after a parent crash gap", async () => {
     const user = await createUser();
     const item = { id: "folder-1", kind: "folder" as const };
+    const plannedItem = {
+      ...item,
+      deletedAt: new Date("2026-07-01T00:00:00.000Z").toISOString(),
+      storageRevision: 1,
+      trashEntryId: "trash-entry-1",
+    };
     const parent = await prepareStorageMutationParent({
       kind: "clear_trash",
       ownerUserId: user.id,
@@ -2175,7 +2181,7 @@ describe("STO-02 durable PostgreSQL protocol", () => {
       intentJson: {
         version: 1,
         metadataOperations: [],
-        orderedItems: [item],
+        orderedItems: [plannedItem],
       },
     });
     const child = await prepareStorageMutation({
