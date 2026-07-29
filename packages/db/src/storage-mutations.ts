@@ -409,13 +409,13 @@ const applyBulkMetadataUpdates = async (
   const values = operations.map((operation) => {
     const data = parseMetadataData(operation.data);
     return keys.length > 0
-      ? Prisma.sql`(${operation.entityId}, ${operation.preRevision}, ${Prisma.join(
+      ? Prisma.sql`(${operation.entityId}::text, ${operation.preRevision}::integer, ${Prisma.join(
           keys.map(
             (key) =>
               Prisma.sql`${data[key]}::${Prisma.raw(metadataCastByKey[key]!)}`,
           ),
         )})`
-      : Prisma.sql`(${operation.entityId}, ${operation.preRevision})`;
+      : Prisma.sql`(${operation.entityId}::text, ${operation.preRevision}::integer)`;
   });
   const assignments = [
     Prisma.raw(`"storageRevision" = source."preRevision" + 1`),
@@ -1058,7 +1058,7 @@ const acquireStorageMutationResources = async (
   resourceKeys: string[],
 ) => {
   if (resourceKeys.length === 0) return;
-  await tx.$queryRaw`
+  await tx.$executeRaw`
     SELECT pg_advisory_xact_lock(
       hashtext('staaash:storage-mutation-resource-acquisition')
     )
@@ -1786,6 +1786,8 @@ export const recordStorageMutationParentChild = async ({
     });
   });
 
+// Parent completion keeps the durable child ledger beside the public summary.
+// fallow-ignore-next-line complexity
 export const completeStorageMutationParent = async ({
   parentId,
   resultJson,
@@ -1796,13 +1798,29 @@ export const completeStorageMutationParent = async ({
   resultJson: Prisma.InputJsonValue;
   leaseOwner: string;
   leaseToken: bigint;
-}) =>
-  completeStorageMutation({
+}) => {
+  const parent = await getPrisma().storageMutation.findUnique({
+    where: { id: parentId },
+    select: { resultJson: true },
+  });
+  const children =
+    parent?.resultJson &&
+    typeof parent.resultJson === "object" &&
+    !Array.isArray(parent.resultJson) &&
+    Array.isArray((parent.resultJson as { children?: unknown }).children)
+      ? (parent.resultJson as { children: Prisma.JsonArray }).children
+      : [];
+  const summary =
+    typeof resultJson === "object" && !Array.isArray(resultJson)
+      ? resultJson
+      : { result: resultJson };
+  return completeStorageMutation({
     mutationId: parentId,
     leaseOwner,
     leaseToken,
-    resultJson,
+    resultJson: { ...summary, children },
   });
+};
 
 export const listRecoverableStorageMutations = async ({
   now = new Date(),

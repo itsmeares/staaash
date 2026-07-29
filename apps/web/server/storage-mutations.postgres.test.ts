@@ -1542,7 +1542,9 @@ describe("STO-02 durable PostgreSQL protocol", () => {
     ).resolves.toMatchObject({ status: "succeeded" });
   });
 
-  it.each(executorBoundaryCases)(
+  const fsyncIt = process.platform === "win32" ? it.skip : it;
+
+  fsyncIt.each(executorBoundaryCases)(
     "recovers $family after interruption at $boundary ($phase)",
     async ({ family, boundary, phase }) => {
       const caseId = randomUUID();
@@ -1665,7 +1667,7 @@ describe("STO-02 durable PostgreSQL protocol", () => {
     },
   );
 
-  it("recovers when the executor stops after filesystem apply but before step commit", async () => {
+  fsyncIt("recovers after an interrupted rename", async () => {
     const user = await createUser();
     const sourceKey = `files/${user.storageId}/executor-source.bin`;
     const targetKey = `files/${user.storageId}/executor-target.bin`;
@@ -1731,7 +1733,7 @@ describe("STO-02 durable PostgreSQL protocol", () => {
     ).resolves.toEqual({ status: "succeeded" });
   });
 
-  it("recovers after a child process is killed immediately after rename", async () => {
+  fsyncIt("recovers after child-process death following rename", async () => {
     const user = await createUser();
     const sourceKey = `files/${user.storageId}/child-source.bin`;
     const targetKey = `files/${user.storageId}/child-target.bin`;
