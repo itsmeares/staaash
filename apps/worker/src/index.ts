@@ -44,14 +44,23 @@ const runMaintenance = async () => {
   await finalizeStorageProtocol({ storagePaths });
 };
 
-const runMaintenanceSafely = async () => {
-  try {
-    await runMaintenance();
-  } catch (error) {
-    console.warn("[worker] Maintenance failed; retrying later.", {
-      error: error instanceof Error ? error.message : "Unknown error.",
+let maintenanceInFlight: Promise<void> | null = null;
+
+const runMaintenanceSafely = () => {
+  if (maintenanceInFlight) return maintenanceInFlight;
+  const run = runMaintenance()
+    .catch((error) => {
+      console.warn("[worker] Maintenance failed; retrying later.", {
+        error: error instanceof Error ? error.message : "Unknown error.",
+      });
+    })
+    .finally(() => {
+      if (maintenanceInFlight === run) {
+        maintenanceInFlight = null;
+      }
     });
-  }
+  maintenanceInFlight = run;
+  return run;
 };
 
 const main = async () => {

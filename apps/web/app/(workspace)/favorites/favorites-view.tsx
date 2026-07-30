@@ -199,6 +199,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
         .map((item) => getItemKey(item)),
     [visibleItems],
   );
+  const visibleKeySet = useMemo(() => new Set(visibleKeys), [visibleKeys]);
   const allVisibleSelected =
     visibleKeys.length > 0 && visibleKeys.every((key) => selectedKeys.has(key));
   const selectedItems = visibleItems.filter(
@@ -211,13 +212,12 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
 
   useEffect(() => {
     setSelectedKeys((current) => {
-      const visibleKeySet = new Set(visibleKeys);
       const next = new Set(
         [...current].filter((key) => visibleKeySet.has(key)),
       );
       return next.size === current.size ? current : next;
     });
-  }, [visibleKeys]);
+  }, [visibleKeySet]);
 
   useEffect(() => {
     setSelectedKeys(new Set());
@@ -234,10 +234,10 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
     setSortDirection(key === "favoritedAt" || key === "size" ? "desc" : "asc");
   };
 
-  const clearSelection = () => {
+  const clearSelection = useCallback(() => {
     setSelectedKeys(new Set());
     setLastSelectedKey(null);
-  };
+  }, []);
 
   const selectAllVisible = () => {
     setSelectedKeys((current) => {
@@ -569,15 +569,15 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
         }
       }
     },
-    [isCoarsePointer],
+    [clearSelection, isCoarsePointer],
   );
 
-  const clearLongPressTimer = () => {
+  const clearLongPressTimer = useCallback(() => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
-  };
+  }, []);
 
   const handleFavoritePointerDown = (
     item: FavoriteClientItem,
@@ -589,6 +589,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
     clearLongPressTimer();
     suppressNextClickRef.current = false;
     const key = getItemKey(item);
+    if (!visibleKeySet.has(key)) return;
     longPressTimerRef.current = setTimeout(() => {
       suppressNextClickRef.current = true;
       setSelectedKeys(new Set([key]));
@@ -662,7 +663,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
         .querySelectorAll<HTMLElement>("[data-favorite-item]")
         .forEach((element) => {
           const key = element.dataset.favoriteItem;
-          if (!key) return;
+          if (!key || !visibleKeySet.has(key)) return;
 
           const itemRect = element.getBoundingClientRect();
           const rowTop = itemRect.top - rect.top;
@@ -706,7 +707,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, [isCoarsePointer]);
+  }, [clearLongPressTimer, clearSelection, isCoarsePointer, visibleKeySet]);
 
   const renderSortButton = (
     key: FavoriteSortKey,

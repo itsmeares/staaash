@@ -502,6 +502,74 @@ describe("trash retention handler", () => {
     await rm(filesRoot, { recursive: true, force: true });
   });
 
+  it("replays the stored parent intent when one live item disappears before retry", async () => {
+    const filesRoot = await mkdtemp(
+      path.join(os.tmpdir(), "staaash-trash-retention-"),
+    );
+    const folders: TestFolderRecord[] = [];
+    const files: TestFileRecord[] = [
+      {
+        id: "expired-file-a",
+        ownerUserId: "member-1",
+        folderId: null,
+        storageKey: ".trash/member-1/expired-file-a.txt",
+        deletedAt: cutoffDate,
+      },
+      {
+        id: "expired-file-b",
+        ownerUserId: "member-1",
+        folderId: null,
+        storageKey: ".trash/member-1/expired-file-b.txt",
+        deletedAt: cutoffDate,
+      },
+    ];
+    getPrismaMock.mockReturnValue(createMockPrisma({ files, folders }));
+    durableMocks.hashWorkerStorageRequest.mockImplementation((value) =>
+      JSON.stringify(value),
+    );
+    let storedIntent: object | undefined;
+    durableMocks.prepareStorageMutationParent.mockImplementation(
+      async (input: { intentJson: object }) => {
+        storedIntent ??= input.intentJson;
+        return {
+          mutation: {
+            id: "retention-parent-1",
+            status: "prepared",
+            intentJson: storedIntent,
+          },
+        };
+      },
+    );
+    durableMocks.claimStorageMutation.mockImplementation(async () => ({
+      id: "retention-parent-1",
+      status: "running",
+      intentJson: storedIntent,
+      leaseToken: 1n,
+    }));
+    const { handleTrashRetention } = await import("./trash-retention.js");
+    const job = createJob();
+
+    await handleTrashRetention(job, {
+      UPLOAD_LOCATION: filesRoot,
+      TRASH_RETENTION_DAYS: "30",
+    });
+    files.splice(0, 1);
+    await handleTrashRetention(job, {
+      UPLOAD_LOCATION: filesRoot,
+      TRASH_RETENTION_DAYS: "30",
+    });
+
+    const first = durableMocks.prepareStorageMutationParent.mock.calls[0]![0];
+    const second = durableMocks.prepareStorageMutationParent.mock.calls[1]![0];
+    expect(second.requestHash).toBe(first.requestHash);
+    expect(second.intentJson).not.toEqual(first.intentJson);
+    expect(
+      durableMocks.recoverStorageMutationParent.mock.calls[1]![0].parent
+        .intentJson,
+    ).toEqual(first.intentJson);
+    await rm(filesRoot, { recursive: true, force: true });
+  });
+
   it("skips deletion when the trashed root is restored before transactional revalidation", async () => {
     const filesRoot = await mkdtemp(
       path.join(os.tmpdir(), "staaash-trash-retention-"),

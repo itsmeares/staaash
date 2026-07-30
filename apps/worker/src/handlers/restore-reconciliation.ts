@@ -20,6 +20,7 @@ import { recoverPendingDeletes } from "../storage-maintenance.js";
 import { recoverStorageMutations } from "./storage-mutation-recovery.js";
 import {
   calculateStorageFileChecksum,
+  requireStorageRegularFile,
   StorageMutationAmbiguityError,
 } from "@staaash/db/storage-mutation-executor";
 
@@ -172,13 +173,15 @@ const collectOriginalIntegrityIssues = async (
   for (const file of fileRecords) {
     if (ignoredFileIds.has(file.id)) continue;
     try {
-      // Checksum traversal validates every ancestor plus final node with lstat,
-      // so symlinks and non-files fail closed even for legacy null checksums.
+      if (!file.contentChecksum) {
+        await requireStorageRegularFile(filesRoot, file.storageKey);
+        continue;
+      }
       const checksum = await calculateStorageFileChecksum(
         filesRoot,
         file.storageKey,
       );
-      if (file.contentChecksum && checksum !== file.contentChecksum) {
+      if (checksum !== file.contentChecksum) {
         checksumMismatches.push({
           fileId: file.id,
           storageKey: safeStorageLabel(file.storageKey),

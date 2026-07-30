@@ -149,7 +149,7 @@ const sha256File = async (filePath: string) => {
   return hash.digest("hex");
 };
 
-export const calculateStorageFileChecksum = async (
+export const requireStorageRegularFile = async (
   filesRoot: string,
   storageKey: string,
 ) => {
@@ -161,6 +161,14 @@ export const calculateStorageFileChecksum = async (
       "Cannot fingerprint missing or non-file storage entry.",
     );
   }
+  return candidate;
+};
+
+export const calculateStorageFileChecksum = async (
+  filesRoot: string,
+  storageKey: string,
+) => {
+  const candidate = await requireStorageRegularFile(filesRoot, storageKey);
   return sha256File(candidate);
 };
 
@@ -465,7 +473,14 @@ const durableMkdirWithinRoot = async ({
   }
 };
 
-const supportedFilesystemRoots = new Map<string, Promise<void>>();
+const STORAGE_FILESYSTEM_PROBE_TTL_MS = 60_000;
+
+type FilesystemProbeCacheEntry = {
+  probe: Promise<void>;
+  verifiedAt: number | null;
+};
+
+const supportedFilesystemRoots = new Map<string, FilesystemProbeCacheEntry>();
 
 const probeStorageFilesystemSupport = async (filesRoot: string) => {
   const probeRoot = path.resolve(filesRoot, "tmp", "capability");
@@ -498,13 +513,29 @@ const probeStorageFilesystemSupport = async (filesRoot: string) => {
 export const assertStorageFilesystemSupported = async (filesRoot: string) => {
   const resolvedRoot = path.resolve(filesRoot);
   const existing = supportedFilesystemRoots.get(resolvedRoot);
-  if (existing) return existing;
-  const probe = probeStorageFilesystemSupport(resolvedRoot).catch((error) => {
-    supportedFilesystemRoots.delete(resolvedRoot);
-    throw error;
-  });
-  supportedFilesystemRoots.set(resolvedRoot, probe);
-  return probe;
+  if (
+    existing &&
+    (existing.verifiedAt === null ||
+      Date.now() - existing.verifiedAt < STORAGE_FILESYSTEM_PROBE_TTL_MS)
+  ) {
+    return existing.probe;
+  }
+  const entry: FilesystemProbeCacheEntry = {
+    probe: Promise.resolve(),
+    verifiedAt: null,
+  };
+  entry.probe = probeStorageFilesystemSupport(resolvedRoot)
+    .then(() => {
+      entry.verifiedAt = Date.now();
+    })
+    .catch((error) => {
+      if (supportedFilesystemRoots.get(resolvedRoot) === entry) {
+        supportedFilesystemRoots.delete(resolvedRoot);
+      }
+      throw error;
+    });
+  supportedFilesystemRoots.set(resolvedRoot, entry);
+  return entry.probe;
 };
 
 const assertRenamePaths = (step: StorageMutationStep) => {

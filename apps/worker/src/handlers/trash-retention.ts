@@ -232,11 +232,17 @@ const runRetentionParent = async ({
     cutoff: cutoff.toISOString(),
     orderedItems,
   };
+  const requestHash = hashWorkerStorageRequest({
+    kind: "trash_retention",
+    jobId: job.id,
+    ownerUserId,
+    cutoff: cutoff.toISOString(),
+  });
   const prepared = await prepareStorageMutationParent({
     kind: "trash_retention",
     ownerUserId,
     idempotencyKey: `trash-retention:${job.id}:${ownerUserId}`,
-    requestHash: hashWorkerStorageRequest(intent),
+    requestHash,
     intentJson: intent,
   });
   if (prepared.mutation.status === "succeeded") return;
