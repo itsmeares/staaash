@@ -40,8 +40,8 @@ jobs:
           run_json=""
           for _ in $(seq 1 360); do
             all_runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/runs?event=push&per_page=100")"
-            run_json="$(jq -c --arg sha "$RELEASE_SHA" --arg tag "$RELEASE_TAG" '
-              [.workflow_runs[] | select(.head_sha == $sha and .head_branch == $tag)]
+            run_json="$(jq -c --arg sha "$RELEASE_SHA" '
+              [.workflow_runs[] | select(.head_sha == $sha)]
               | sort_by(.created_at)
               | last // empty
             ' <<<"$all_runs")"
