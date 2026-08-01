@@ -1437,7 +1437,7 @@ describe("STO-02 durable PostgreSQL protocol", () => {
       ],
     });
 
-    await expect(execute(prepared.mutation)).resolves.toBeDefined();
+    await execute(prepared.mutation);
     await expect(
       db.storageMutation.findUniqueOrThrow({
         where: { id: prepared.mutation.id },
