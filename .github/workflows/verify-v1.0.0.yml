@@ -1,62 +1,115 @@
-name: Snapshot v1.0.0 release state
+name: Verify v1.0.0 publication
 
 on:
-  push:
-    branches:
-      - release/v1.0.0-verification
-    paths:
-      - ".github/workflows/verify-v1.0.0.yml"
+  pull_request:
 
 permissions:
   actions: read
-  contents: write
+  contents: read
+  packages: read
 
 jobs:
-  snapshot:
+  verify-release:
     runs-on: ubuntu-latest
+    timeout-minutes: 100
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      REPORT_DIR: .release-verification
+      RELEASE_TAG: v1.0.0
+      RELEASE_SHA: dd53d633d379551107355acfaac908e2b54e6e49
+      VERSIONED_IMAGE: ghcr.io/itsmeares/staaash:v1.0.0
+      LATEST_IMAGE: ghcr.io/itsmeares/staaash:latest
+
     steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: release/v1.0.0-verification
+      - uses: docker/setup-buildx-action@v4
 
-      - name: Capture current state
+      - name: Verify release workflow
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf "$REPORT_DIR"
-          mkdir -p "$REPORT_DIR"
 
-          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/runs?event=push&per_page=20" > "$REPORT_DIR/release-runs.json"
-          jq '.workflow_runs | sort_by(.created_at) | last // {}' "$REPORT_DIR/release-runs.json" > "$REPORT_DIR/latest-release-run.json"
+          run_json=""
+          for _ in $(seq 1 360); do
+            all_runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/runs?event=push&per_page=100")"
+            run_json="$(jq -c '[.workflow_runs[]] | sort_by(.created_at) | last // empty' <<<"$all_runs")"
+            if [[ -n "$run_json" && "$(jq -r '.status' <<<"$run_json")" == "completed" ]]; then
+              break
+            fi
+            sleep 15
+          done
 
-          if gh api "repos/$GITHUB_REPOSITORY/releases/tags/v1.0.0" > "$REPORT_DIR/release.json"; then
-            jq -r '.body // ""' "$REPORT_DIR/release.json" > "$REPORT_DIR/release-notes-current.md"
-          else
-            printf '%s\n' '{"error":"release not published"}' > "$REPORT_DIR/release.json"
-            : > "$REPORT_DIR/release-notes-current.md"
-          fi
+          [[ -n "$run_json" ]] || { echo "No Release workflow run found." >&2; exit 1; }
+          jq '{id,name,event,status,conclusion,head_branch,head_sha,run_attempt,html_url,created_at,updated_at}' <<<"$run_json"
 
-          {
-            echo "run_id=$(jq -r '.id // "missing"' "$REPORT_DIR/latest-release-run.json")"
-            echo "run_status=$(jq -r '.status // "missing"' "$REPORT_DIR/latest-release-run.json")"
-            echo "run_conclusion=$(jq -r '.conclusion // "missing"' "$REPORT_DIR/latest-release-run.json")"
-            echo "run_head_sha=$(jq -r '.head_sha // "missing"' "$REPORT_DIR/latest-release-run.json")"
-            echo "run_head_branch=$(jq -r '.head_branch // "missing"' "$REPORT_DIR/latest-release-run.json")"
-            echo "release_id=$(jq -r '.id // "missing"' "$REPORT_DIR/release.json")"
-            echo "release_draft=$(jq -r '.draft // "missing"' "$REPORT_DIR/release.json")"
-            echo "release_prerelease=$(jq -r '.prerelease // "missing"' "$REPORT_DIR/release.json")"
-            echo "release_assets=$(jq -r '[.assets[]?.name] | sort | join(",")' "$REPORT_DIR/release.json")"
-          } > "$REPORT_DIR/snapshot.txt"
+          [[ "$(jq -r '.conclusion' <<<"$run_json")" == "success" ]] || {
+            echo "Release workflow did not succeed." >&2
+            exit 1
+          }
 
-      - name: Commit snapshot
+          run_id="$(jq -r '.id' <<<"$run_json")"
+          jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs?per_page=100")"
+          jq '[.jobs[] | {id,name,status,conclusion,started_at,completed_at,html_url}]' <<<"$jobs"
+          jq -e 'all(.jobs[]; .status == "completed" and (.conclusion == "success" or .conclusion == "skipped"))' <<<"$jobs" >/dev/null
+
+      - name: Verify GitHub Release and assets
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add "$REPORT_DIR"
-          git commit -m "chore: record temporary v1.0.0 snapshot"
-          git push origin HEAD:release/v1.0.0-verification
+          mkdir -p release-assets
+
+          release="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+          jq '{id,tag_name,target_commitish,name,draft,prerelease,created_at,published_at,html_url,assets:[.assets[]|{id,name,size,digest,state,browser_download_url}]}' <<<"$release"
+
+          [[ "$(jq -r '.tag_name' <<<"$release")" == "$RELEASE_TAG" ]]
+          [[ "$(jq -r '.draft' <<<"$release")" == "false" ]]
+          [[ "$(jq -r '.prerelease' <<<"$release")" == "false" ]]
+
+          actual_assets="$(jq -r '[.assets[].name] | sort | join(",")' <<<"$release")"
+          expected_assets="SHA256SUMS,docker-compose.yml,example.env,release-manifest.json"
+          [[ "$actual_assets" == "$expected_assets" ]] || {
+            echo "Unexpected release assets: $actual_assets" >&2
+            exit 1
+          }
+
+          while IFS=$'\t' read -r asset_id asset_name; do
+            gh api -H "Accept: application/octet-stream" \
+              "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id" \
+              > "release-assets/$asset_name"
+          done < <(jq -r '.assets[] | [.id,.name] | @tsv' <<<"$release")
+
+          (
+            cd release-assets
+            sha256sum -c SHA256SUMS
+          )
+
+          grep -Fxq 'STAAASH_VERSION=v1.0.0' release-assets/example.env
+          [[ "$(grep -Fc 'ghcr.io/itsmeares/staaash:${STAAASH_VERSION:-v1.0.0}' release-assets/docker-compose.yml)" == "2" ]]
+
+          echo '--- release-manifest.json ---'
+          jq . release-assets/release-manifest.json
+          echo '--- release notes ---'
+          jq -r '.body // ""' <<<"$release"
+
+      - name: Verify GHCR stable channel
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+
+          docker buildx imagetools inspect "$VERSIONED_IMAGE" --format '{{json .}}' > versioned.json
+          docker buildx imagetools inspect "$LATEST_IMAGE" --format '{{json .}}' > latest.json
+
+          echo '--- versioned image ---'
+          jq '{digest:.manifest.digest,mediaType:.manifest.mediaType,manifests:.manifest.manifests,labels:.image.config.Labels}' versioned.json
+          echo '--- latest image ---'
+          jq '{digest:.manifest.digest,mediaType:.manifest.mediaType,manifests:.manifest.manifests,labels:.image.config.Labels}' latest.json
+
+          versioned_digest="$(jq -r '.manifest.digest' versioned.json)"
+          latest_digest="$(jq -r '.manifest.digest' latest.json)"
+          [[ "$versioned_digest" == "$latest_digest" ]] || {
+            echo "latest digest $latest_digest does not match v1.0.0 digest $versioned_digest" >&2
+            exit 1
+          }
+
+          [[ "$(jq -r '.image.config.Labels["org.opencontainers.image.version"]' versioned.json)" == "$RELEASE_TAG" ]]
+          [[ "$(jq -r '.image.config.Labels["org.opencontainers.image.revision"]' versioned.json)" == "$RELEASE_SHA" ]]
+          [[ "$(jq '[.manifest.manifests[] | select(.platform.os == "linux" and .platform.architecture == "amd64")] | length' versioned.json)" == "1" ]]
