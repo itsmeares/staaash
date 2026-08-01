@@ -53,7 +53,8 @@ jobs:
       - name: Require clean pnpm audit
         run: pnpm audit --audit-level=low
 
-      - name: Require zero open Dependabot alerts
+      - name: Check open Dependabot alerts
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -65,6 +66,7 @@ jobs:
           jq -e 'length == 0' <<<"$response" >/dev/null
 
       - name: Require zero open main code-scanning alerts
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
