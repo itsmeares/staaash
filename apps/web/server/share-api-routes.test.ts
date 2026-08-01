@@ -37,7 +37,7 @@ import { POST as updatePassword } from "@/app/api/shares/[shareId]/password/rout
 import { POST as revokeShare } from "@/app/api/shares/[shareId]/revoke/route";
 import { POST as updateShare } from "@/app/api/shares/[shareId]/update/route";
 
-const futureExpiry = new Date("2026-08-01T12:00:00.000Z");
+const futureExpiry = new Date("2099-08-01T12:00:00.000Z");
 
 const makeShare = (
   overrides: Partial<StoredShareLink> = {},
