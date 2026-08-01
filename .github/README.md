@@ -26,7 +26,7 @@ Staaash gives individuals, families, and small trusted groups a browser-based dr
 
 <table>
   <tr>
-    <td>
+    <td colspan="2">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="../docs/assets/readme/home-dashboard-dark.png">
         <img src="../docs/assets/readme/home-dashboard-light.png" alt="Staaash home dashboard with pinned items, recent activity, populated folders, and a shared folder">
@@ -34,18 +34,16 @@ Staaash gives individuals, families, and small trusted groups a browser-based dr
     </td>
   </tr>
   <tr>
-    <td>
+    <td width="50%">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="../docs/assets/readme/files-dark.png">
         <img src="../docs/assets/readme/files-light.png" alt="Staaash files view with demo folders, files, sizes, and varied modification dates">
       </picture>
     </td>
-  </tr>
-  <tr>
-    <td>
+    <td width="50%">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="../docs/assets/readme/share-page-dark.png">
-        <img src="../docs/assets/readme/share-page-light.png" alt="Staaash public folder share for Project Notes with a nested folder and demo files">
+        <img src="../docs/assets/readme/share-page-light.png" alt="Staaash public video share for definitely-not-a-rickroll.mp4 with an inline player">
       </picture>
     </td>
   </tr>
