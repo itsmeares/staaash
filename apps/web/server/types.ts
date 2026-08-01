@@ -1,3 +1,5 @@
+import type { StorageMutationStatus } from "@staaash/db/storage-mutations";
+
 export type UserRole = "owner" | "admin" | "member";
 
 export type SearchMatchKind = "exact" | "prefix" | "substring";
@@ -78,6 +80,28 @@ export type InstanceHealthSummary = {
   worker: WorkerHeartbeatStatus;
   queue: QueueBacklogSummary;
   reconciliation: RestoreReconciliationHealthSummary;
+  storageMutations: {
+    counts: Record<string, number>;
+    oldest: {
+      id: string;
+      kind: string;
+      status: StorageMutationStatus;
+      ownerUserId: string;
+      createdAt: Date;
+      ageMs: number;
+    } | null;
+    active: Array<{
+      id: string;
+      kind: string;
+      status: StorageMutationStatus;
+      ownerUserId: string;
+      createdAt: Date;
+      ageMs: number;
+      lastError: string | null;
+      canRetryNow: boolean;
+      safePathLabels: string[];
+    }>;
+  };
   storageWarnings: StorageWarningSummary;
   version: {
     currentVersion: string;
@@ -99,7 +123,24 @@ export type JsonStorageWarningSummary = Omit<
 
 export type JsonInstanceHealthSummary = Omit<
   InstanceHealthSummary,
-  "storageWarnings"
+  "storageWarnings" | "storageMutations"
 > & {
   storageWarnings: JsonStorageWarningSummary;
+  storageMutations: Omit<
+    InstanceHealthSummary["storageMutations"],
+    "oldest" | "active"
+  > & {
+    oldest:
+      | (Omit<
+          NonNullable<InstanceHealthSummary["storageMutations"]["oldest"]>,
+          "createdAt"
+        > & { createdAt: string })
+      | null;
+    active: Array<
+      Omit<
+        InstanceHealthSummary["storageMutations"]["active"][number],
+        "createdAt"
+      > & { createdAt: string }
+    >;
+  };
 };

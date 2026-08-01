@@ -16,31 +16,28 @@ import {
   beginSessionCommit,
   failAndCleanupResumableSession,
   findActiveResumableSession,
-  findCompletedUploadChunk,
   recordResumableCommitRecoveryError,
-  recordCompletedUploadChunk,
   restoreResumableSessionAfterCommitRollback,
+  writeAndRecordUploadChunk,
 } from "@/server/uploads/session-service";
 
 vi.mock("@/server/auth/guards", () => ({
   getRequestSession: vi.fn(),
 }));
 
-vi.mock("@/server/storage-mutations", () => ({
-  withStorageLocks: vi.fn(
-    async ({ callback }: { callback: () => Promise<unknown> }) => callback(),
-  ),
+vi.mock("@/server/durable-storage-mutation", () => ({
+  assertStorageProtocolReady: vi.fn(async () => undefined),
+  StorageProtocolNotReadyError: class extends Error {},
 }));
 
 vi.mock("@/server/uploads/session-service", () => ({
   beginSessionCommit: vi.fn(),
   failAndCleanupResumableSession: vi.fn(),
   findActiveResumableSession: vi.fn(),
-  findCompletedUploadChunk: vi.fn(),
   recordResumableCommitRecoveryError: vi.fn(),
-  recordCompletedUploadChunk: vi.fn(),
   restoreResumableSessionAfterCommitRollback: vi.fn(),
   updateSessionProgress: vi.fn(),
+  writeAndRecordUploadChunk: vi.fn(),
 }));
 
 vi.mock("@/server/uploads", () => ({
@@ -106,8 +103,12 @@ describe("parallel upload route", () => {
     vi.mocked(getRequestSession).mockResolvedValue({
       user: { id: "user-1", role: "owner" },
     } as Awaited<ReturnType<typeof getRequestSession>>);
-    vi.mocked(findCompletedUploadChunk).mockResolvedValue(null);
-    vi.mocked(recordCompletedUploadChunk).mockResolvedValue(4);
+    vi.mocked(writeAndRecordUploadChunk).mockImplementation(
+      async ({ writeBytes }) => {
+        await writeBytes();
+        return 4;
+      },
+    );
   });
 
   afterEach(async () => {
@@ -118,22 +119,31 @@ describe("parallel upload route", () => {
 
   it("writes an aligned chunk at its offset even when it arrives first", async () => {
     const tmpPath = await createTempUpload(10);
+    const request = patchRequest("bytes 4-7/10", new Uint8Array([1, 2, 3, 4]));
     vi.mocked(findActiveResumableSession).mockResolvedValue(
       uploadSession(tmpPath),
     );
-
-    const response = await patchUpload(
-      patchRequest("bytes 4-7/10", new Uint8Array([1, 2, 3, 4])),
-      { params: Promise.resolve({ id: "session-1" }) },
+    vi.mocked(writeAndRecordUploadChunk).mockImplementationOnce(
+      async ({ writeBytes }) => {
+        expect(request.bodyUsed).toBe(true);
+        await writeBytes();
+        return 4;
+      },
     );
 
+    const response = await patchUpload(request, {
+      params: Promise.resolve({ id: "session-1" }),
+    });
+
     expect(response.status).toBe(200);
-    expect(recordCompletedUploadChunk).toHaveBeenCalledWith({
+    expect(writeAndRecordUploadChunk).toHaveBeenCalledWith({
       sessionId: "session-1",
+      ownerUserId: "user-1",
       chunkIndex: 1,
       startByte: 4,
       endByte: 7,
       sizeBytes: 4,
+      writeBytes: expect.any(Function),
     });
     expect(Array.from((await readFile(tmpPath)).subarray(4, 8))).toEqual([
       1, 2, 3, 4,
@@ -145,12 +155,7 @@ describe("parallel upload route", () => {
     vi.mocked(findActiveResumableSession).mockResolvedValue(
       uploadSession(tmpPath, 4),
     );
-    vi.mocked(findCompletedUploadChunk).mockResolvedValue({
-      chunkIndex: 1,
-      startByte: 4,
-      endByte: 7,
-      sizeBytes: 4,
-    });
+    vi.mocked(writeAndRecordUploadChunk).mockResolvedValue(4);
 
     const response = await patchUpload(
       patchRequest("bytes 4-7/10", new Uint8Array([9, 9, 9, 9])),
@@ -158,7 +163,7 @@ describe("parallel upload route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(recordCompletedUploadChunk).not.toHaveBeenCalled();
+    expect(writeAndRecordUploadChunk).toHaveBeenCalledOnce();
   });
 
   it("rejects ranges that do not match the negotiated chunk size", async () => {
@@ -173,7 +178,7 @@ describe("parallel upload route", () => {
     );
 
     expect(response.status).toBe(400);
-    expect(recordCompletedUploadChunk).not.toHaveBeenCalled();
+    expect(writeAndRecordUploadChunk).not.toHaveBeenCalled();
   });
 
   it("refuses completion until every exact chunk is recorded", async () => {

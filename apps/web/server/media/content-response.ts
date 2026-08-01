@@ -4,6 +4,7 @@ import type { Readable } from "node:stream";
 import { getStoragePath } from "@/server/storage";
 import { prismaFilesRepository } from "@/server/files/repository";
 import type { StoredFile } from "@/server/files/types";
+import { assertStorageEntityReadable } from "@/server/storage-read-guard";
 import { convertHeicToJpeg, isHeicFile } from "./heic-converter";
 
 const buildInlineDisposition = (fileName: string) =>
@@ -220,6 +221,7 @@ export const createInlineOriginalContentResponse = async ({
   request: Request;
   file: StoredFile;
 }): Promise<Response> => {
+  await assertStorageEntityReadable("file", file.id);
   if (!file.viewerKind) {
     throw new MediaContentError(
       404,

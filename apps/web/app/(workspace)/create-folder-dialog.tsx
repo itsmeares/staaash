@@ -1,6 +1,12 @@
 "use client";
 
-import { startTransition, useId, useState, type FormEvent } from "react";
+import {
+  startTransition,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { useRouter } from "next/navigation";
 import { FolderPlus } from "lucide-react";
 import { toast } from "sonner";
@@ -27,6 +33,10 @@ export function CreateFolderDialog({
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const mutationKeyRef = useRef<{
+    action: string;
+    key: string;
+  } | null>(null);
 
   const reset = () => {
     setName("");
@@ -59,9 +69,19 @@ export function CreateFolderDialog({
     if (parentId) body.set("parentId", parentId);
 
     try {
+      const logicalAction = `${parentId ?? "root"}:${trimmedName}`;
+      if (mutationKeyRef.current?.action !== logicalAction) {
+        mutationKeyRef.current = {
+          action: logicalAction,
+          key: crypto.randomUUID(),
+        };
+      }
       const response = await fetch("/api/files/folders", {
         method: "POST",
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+          "Idempotency-Key": mutationKeyRef.current.key,
+        },
         body,
       });
       const data = (await response.json().catch(() => ({}))) as {
@@ -70,11 +90,13 @@ export function CreateFolderDialog({
       };
 
       if (!response.ok) {
+        if (response.status < 500) mutationKeyRef.current = null;
         setError(data.error ?? "Folder could not be created.");
         return;
       }
 
       const folderName = data.folder?.name ?? trimmedName;
+      mutationKeyRef.current = null;
       reset();
       onOpenChange(false);
       toast.success(`Created folder ${folderName}.`);

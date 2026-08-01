@@ -1,8 +1,11 @@
+import path from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
   buildFileStorageKey,
   buildFolderStorageKey,
+  buildIsolatedTrashStorageKey,
   normalizeFileName,
   normalizeFolderName,
 } from "@/server/files/storage-layout";
@@ -122,5 +125,20 @@ describe("files storage layout", () => {
         trashed: true,
       }),
     ).toBe(".trash/johnsmith/Photos/Trips/my-photo.jpg");
+  });
+
+  it("keeps isolated trash components within UTF-8 filesystem limits", () => {
+    const key = buildIsolatedTrashStorageKey({
+      ownerStorageId: "johnsmith",
+      kind: "file",
+      name: `${"é".repeat(125)}.txt`,
+      deletedAt: new Date("2026-07-30T12:34:56.789Z"),
+      trashEntryId: "ffffffff-ffff-ffff-ffff-ffffffffffff",
+    });
+    const component = path.posix.basename(key);
+
+    expect(Buffer.byteLength(component)).toBeLessThanOrEqual(255);
+    expect(component).toMatch(/\.txt \(\d+\)$/);
+    expect(component).not.toContain("�");
   });
 });

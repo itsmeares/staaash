@@ -30,22 +30,27 @@ This is intentionally a small, explicit architecture. The repo is trying to make
 ### File storage volume
 
 - app-managed local disk
-- stores original binaries outside logical folder layout
-- uses immutable IDs instead of user-visible paths for physical placement
+- stores original binaries in a human-readable canonical logical layout
+- requires local same-volume atomic rename plus working file and directory fsync
 
 ## Core Data And Storage Model
 
 - PostgreSQL stores metadata
 - physical files live on an app-managed local volume
-- logical paths exist in metadata only
-- rename and move operations normally do not move binaries on disk
+- logical paths are canonical in metadata and on disk
+- rename, move, trash, and restore physically move paths under a durable
+  PostgreSQL mutation journal
 - uploads stage under `FILES_ROOT/tmp/` before verification and commit
 
-This separation is one of the main architectural choices in the repo. It keeps logical organization flexible without making physical storage behavior hard to reason about.
+PostgreSQL is the durable intent authority while the filesystem is the canonical
+byte store. Prepared mutations recover forward after restart. Ambiguous outcomes
+preserve every possible byte and fail closed until an operator investigates.
 
 ## Locked Behavior Rules
 
-- physical storage uses immutable IDs, not logical paths
+- active originals use `files/<storageId>/<logical hierarchy>`
+- newly trashed roots use isolated readable paths below `.trash/<storageId>/`
+- generated derivatives and archives stay below `derivatives/` and `archives/`
 - resumable uploads reserve bounded database capacity before staging, then
   verify checksum and transfer the reservation to committed metadata atomically
 - share links bind to files or folders by stable IDs
@@ -68,3 +73,4 @@ This separation is one of the main architectural choices in the repo. It keeps l
 - [`../README.md`](../README.md) for install and local development steps
 - [`operations/backup-restore.md`](./operations/backup-restore.md) for backup and restore expectations
 - [`operations/resumable-uploads.md`](./operations/resumable-uploads.md) for resumable admission, quota, and cleanup behavior
+- [`operations/storage-mutation-recovery.md`](./operations/storage-mutation-recovery.md) for mutation recovery and upgrade operations

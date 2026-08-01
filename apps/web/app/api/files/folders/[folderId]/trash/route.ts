@@ -1,3 +1,5 @@
+// Folder mutation routes intentionally share one HTTP mutation contract.
+// fallow-ignore-file code-duplication
 import { NextRequest, NextResponse } from "next/server";
 
 import { getRequestSession } from "@/server/auth/guards";
@@ -13,6 +15,10 @@ import {
 } from "@/server/auth/http";
 import { filesService } from "@/server/files/service";
 import { recordFolderAccessBestEffort } from "@/server/retrieval/recent-tracking";
+import {
+  attachStorageMutationHeader,
+  readStorageIdempotencyKey,
+} from "@/server/storage-idempotency";
 
 type RouteContext = {
   params: Promise<{
@@ -42,12 +48,15 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     return notSignedInResponse(request, redirectTo);
   }
 
+  let idempotencyKey: string | null = null;
   try {
+    idempotencyKey = readStorageIdempotencyKey(request);
     const { folderId } = await params;
     const result = await filesService.trashFolder({
       actorUserId: session.user.id,
       actorRole: session.user.role,
       folderId,
+      idempotencyKey,
     });
     await recordFolderAccessBestEffort({
       actorUserId: session.user.id,
@@ -56,17 +65,26 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       source: "trash-folder-route",
     });
 
-    return wantsJson(request)
-      ? NextResponse.json(result)
-      : redirectWithMessage(
-          request,
-          redirectTo,
-          "success",
-          `Moved ${result.folder.name} to trash.`,
-        );
+    return attachStorageMutationHeader(
+      wantsJson(request)
+        ? NextResponse.json(result)
+        : redirectWithMessage(
+            request,
+            redirectTo,
+            "success",
+            `Moved ${result.folder.name} to trash.`,
+          ),
+      idempotencyKey,
+      session.user.id,
+    );
   } catch (error) {
-    return wantsJson(request)
-      ? jsonErrorResponse(error)
-      : formErrorResponse(request, redirectTo, error);
+    return attachStorageMutationHeader(
+      wantsJson(request)
+        ? jsonErrorResponse(error)
+        : formErrorResponse(request, redirectTo, error),
+      idempotencyKey ?? request.headers.get("Idempotency-Key"),
+      session.user.id,
+      error,
+    );
   }
 }

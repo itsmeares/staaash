@@ -21,6 +21,7 @@ export type ZipArchiveRecord = {
   expiresAt: Date;
   createdAt: Date;
   updatedAt: Date;
+  storageRevision: number;
 };
 
 type ZipArchiveClient = {

@@ -1,11 +1,12 @@
-import { rm } from "node:fs/promises";
-
 import { getPrisma } from "@staaash/db/client";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
 import { findExpiredZipArchives } from "@staaash/db/zip-archives";
 
 import type { WorkerStoragePaths } from "../storage-maintenance.js";
-import { safeResolveStoragePath } from "../storage-maintenance.js";
+import {
+  calculateStorageChecksumIfPresent,
+  runWorkerStorageMutation,
+} from "../durable-storage-mutation.js";
 
 type SystemSettingsRecord = {
   zipArchiveRetentionDays: number;
@@ -14,9 +15,6 @@ type SystemSettingsRecord = {
 type PrismaClient = {
   systemSettings: {
     findUnique(args: object): Promise<SystemSettingsRecord | null>;
-  };
-  zipArchive: {
-    delete(args: object): Promise<void>;
   };
 };
 
@@ -44,16 +42,47 @@ export const handleZipArchiveCleanup = async (
   const expired = await findExpiredZipArchives(now);
 
   for (const archive of expired) {
-    if (archive.storageKey) {
-      const filePath = safeResolveStoragePath(
-        storagePaths.filesRoot,
-        archive.storageKey,
-      );
-      await rm(filePath, { force: true });
-    }
-
-    await prisma.zipArchive.delete({
-      where: { id: archive.id } as object,
+    const checksum = archive.storageKey
+      ? await calculateStorageChecksumIfPresent(
+          storagePaths.filesRoot,
+          archive.storageKey,
+        )
+      : undefined;
+    await runWorkerStorageMutation({
+      mutationId: `archive-purge-${archive.id}`,
+      kind: "archive_purge",
+      ownerUserId: archive.userId,
+      idempotencyKey: `archive-purge:${archive.id}`,
+      storagePaths,
+      metadataOperations: [
+        {
+          action: "delete",
+          entityType: "archive",
+          entityId: archive.id,
+          preRevision: archive.storageRevision,
+        },
+      ],
+      steps: archive.storageKey
+        ? [
+            {
+              action: "delete_file",
+              targetKey: archive.storageKey,
+              expectedNodeType: "file",
+              expectedSizeBytes: archive.sizeBytes,
+              expectedChecksum: checksum,
+            },
+          ]
+        : [],
+      entities: [
+        {
+          entityType: "archive",
+          entityId: archive.id,
+          preRevision: archive.storageRevision,
+          postRevision: archive.storageRevision + 1,
+          beforeJson: { storageKey: archive.storageKey },
+          afterJson: null,
+        },
+      ],
     });
   }
 };

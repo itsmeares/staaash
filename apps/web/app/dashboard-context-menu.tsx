@@ -14,6 +14,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
 import { FolderOpen, RefreshCw } from "lucide-react";
 
 import {
@@ -326,21 +327,19 @@ export function submitDashboardPostForm({
   fields?: Record<string, string>;
 }) {
   if (confirmMessage && !window.confirm(confirmMessage)) return;
-
-  const form = document.createElement("form");
-  form.method = "post";
-  form.action = action;
-
-  for (const [name, value] of Object.entries(fields ?? {})) {
-    const input = document.createElement("input");
-    input.type = "hidden";
-    input.name = name;
-    input.value = value;
-    form.appendChild(input);
-  }
-
-  document.body.appendChild(form);
-  form.submit();
+  void submitStorageMutationPost({
+    action,
+    fields,
+    logicalAction: `dashboard:${action}:${JSON.stringify(fields ?? {})}`,
+  })
+    .then(() => {
+      window.location.href = fields?.redirectTo ?? window.location.href;
+    })
+    .catch((error) =>
+      window.alert(
+        error instanceof Error ? error.message : "Storage operation failed.",
+      ),
+    );
 }
 
 export function WorkspacePresetPageContextMenu({

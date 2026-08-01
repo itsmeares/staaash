@@ -19,6 +19,14 @@ const markFileStorageMissing = vi.fn();
 const recordFileAccessBestEffort = vi.fn();
 const getStoragePath = vi.fn();
 
+vi.mock("@/server/storage-read-guard", () => ({
+  assertStorageEntityReadable: vi.fn(async () => undefined),
+  StorageEntityUnavailableError: class StorageEntityUnavailableError extends Error {
+    mutationId = "mutation-test";
+    status = 503;
+  },
+}));
+
 vi.mock("@/server/auth/guards", () => ({
   getRequestSession,
 }));

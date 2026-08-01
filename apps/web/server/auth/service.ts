@@ -28,7 +28,21 @@ import type {
   TemporaryPasswordResult,
 } from "@/server/auth/types";
 import { getSystemSettings } from "@/server/settings";
-import { ensureUserCommittedStorageDirectories } from "@/server/storage";
+import {
+  ensureUserCommittedStorageDirectories,
+  getUserFilesRootStorageKey,
+  getUserTrashRootStorageKey,
+  getStorageRoot,
+} from "@/server/storage";
+import { getPrisma } from "@staaash/db/client";
+import {
+  assertStorageProtocolReady,
+  runDurableStorageMutation,
+} from "@/server/durable-storage-mutation";
+import {
+  assertStorageFilesystemSupported,
+  EMPTY_TREE_MANIFEST_DIGEST,
+} from "@staaash/db/storage-mutation-executor";
 
 import type { AuthRepository } from "./repository";
 
@@ -91,7 +105,7 @@ const generateStorageId = (email: string, attempt = 0) => {
     : `${base}-${generateTokenFromAlphabet(6, "abcdefghijklmnopqrstuvwxyz0123456789")}`;
 };
 
-export const generateTemporaryPassword = () =>
+const generateTemporaryPassword = () =>
   shuffle(
     [
       generateTokenFromAlphabet(1, "abcdefghijkmnopqrstuvwxyz"),
@@ -144,6 +158,65 @@ export const createAuthService = ({
     return {
       sessionMaxAgeDays: sessionMaxAgeDays ?? s.sessionMaxAgeDays,
     };
+  };
+
+  const provisionUserStorage = async (user: AuthUser) => {
+    if (repo) {
+      await ensureUserCommittedStorageDirectories(user.storageId);
+      return;
+    }
+    const filesRoot = await getPrisma().folder.findFirstOrThrow({
+      where: { ownerUserId: user.id, isFilesRoot: true },
+      select: { id: true, storageRevision: true },
+    });
+    await runDurableStorageMutation({
+      kind: "folder_create",
+      ownerUserId: user.id,
+      idempotencyKey: `user-storage-provision:${user.id}`,
+      requestHashPayload: {
+        kind: "user_storage_provision",
+        userId: user.id,
+        storageId: user.storageId,
+      },
+      metadataOperations: [],
+      steps: [
+        {
+          action: "mkdir",
+          targetKey: getUserFilesRootStorageKey(user.storageId),
+          expectedNodeType: "directory",
+          treeManifestDigest: EMPTY_TREE_MANIFEST_DIGEST,
+        },
+        {
+          action: "mkdir",
+          targetKey: getUserTrashRootStorageKey(user.storageId),
+          expectedNodeType: "directory",
+          treeManifestDigest: EMPTY_TREE_MANIFEST_DIGEST,
+        },
+      ],
+      entities: [
+        {
+          entityType: "folder",
+          entityId: filesRoot.id,
+          preRevision: filesRoot.storageRevision,
+          postRevision: filesRoot.storageRevision,
+          beforeJson: null,
+          afterJson: null,
+        },
+      ],
+      resultJson: { filesRootId: filesRoot.id },
+    });
+  };
+
+  const assertUserStorageProvisioningReady = async () => {
+    if (repo) return;
+    const instance = await getPrisma().instance.findUnique({
+      where: { id: "singleton" },
+      select: { storageProtocolVersion: true },
+    });
+    if (instance) {
+      await assertStorageProtocolReady();
+    }
+    await assertStorageFilesystemSupported(getStorageRoot());
   };
 
   const requireAdmin = async (actorUserId: string) => {
@@ -241,6 +314,7 @@ export const createAuthService = ({
       metadata?: SessionMetadata,
     ): Promise<AuthResult> {
       const parsed = bootstrapInputSchema.parse(input);
+      await assertUserStorageProvisioningReady();
       const activeRepo = await resolveRepo();
       const setupState = await activeRepo.getSetupState();
 
@@ -259,7 +333,7 @@ export const createAuthService = ({
         createdAt,
       });
 
-      await ensureUserCommittedStorageDirectories(user.storageId);
+      await provisionUserStorage(user);
       return createSessionForUser(user, metadata);
     },
 
@@ -371,6 +445,7 @@ export const createAuthService = ({
       input: AdminCreateUserInput,
     ): Promise<TemporaryPasswordResult> {
       await requireOwner(actorUserId);
+      await assertUserStorageProvisioningReady();
       const parsed = adminCreateUserInputSchema.parse(input);
 
       if (await (await resolveRepo()).findUserByEmail(parsed.email)) {
@@ -391,7 +466,7 @@ export const createAuthService = ({
         passwordChangeRequiredAt: requirePasswordChange ? issuedAt : null,
       });
 
-      await ensureUserCommittedStorageDirectories(user.storageId);
+      await provisionUserStorage(user);
 
       return {
         user,

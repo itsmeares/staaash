@@ -2,13 +2,12 @@
 
 import type { ReactElement } from "react";
 
-import {
-  DashboardItemContextMenu,
-  submitDashboardPostForm,
-} from "@/app/dashboard-context-menu";
+import { DashboardItemContextMenu } from "@/app/dashboard-context-menu";
+import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
 
 type TrashContextMenuProps = {
   children: ReactElement;
+  disabled?: boolean;
   itemId: string;
   itemName: string;
   kind: "file" | "folder";
@@ -16,10 +15,27 @@ type TrashContextMenuProps = {
 
 export function TrashContextMenu({
   children,
+  disabled = false,
   itemId,
   itemName,
   kind,
 }: TrashContextMenuProps) {
+  if (disabled) return children;
+  const submit = (
+    action: string,
+    logicalAction: string,
+    fallbackMessage: string,
+  ) => {
+    void submitStorageMutationPost({
+      action,
+      fields: { redirectTo: "/trash" },
+      logicalAction,
+    })
+      .then(() => window.location.reload())
+      .catch((error) =>
+        window.alert(error instanceof Error ? error.message : fallbackMessage),
+      );
+  };
   return (
     <DashboardItemContextMenu
       groups={[
@@ -28,10 +44,11 @@ export function TrashContextMenu({
             {
               label: kind === "folder" ? "Restore folder" : "Restore file",
               onSelect: () =>
-                submitDashboardPostForm({
-                  action: `/api/files/${kind === "folder" ? "folders" : "files"}/${itemId}/restore`,
-                  fields: { redirectTo: "/trash" },
-                }),
+                submit(
+                  `/api/files/${kind === "folder" ? "folders" : "files"}/${itemId}/restore`,
+                  `trash-restore:${kind}:${itemId}`,
+                  "Restore failed.",
+                ),
             },
           ],
         },
@@ -41,12 +58,19 @@ export function TrashContextMenu({
               destructive: true,
               hidden: kind !== "file",
               label: "Delete permanently",
-              onSelect: () =>
-                submitDashboardPostForm({
-                  action: `/api/files/files/${itemId}/delete`,
-                  confirmMessage: `Permanently delete ${itemName}? This cannot be undone.`,
-                  fields: { redirectTo: "/trash" },
-                }),
+              onSelect: () => {
+                if (
+                  window.confirm(
+                    `Permanently delete ${itemName}? This cannot be undone.`,
+                  )
+                ) {
+                  submit(
+                    `/api/files/files/${itemId}/delete`,
+                    `trash-delete:file:${itemId}`,
+                    "Delete failed.",
+                  );
+                }
+              },
             },
           ],
         },

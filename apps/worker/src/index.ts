@@ -5,6 +5,7 @@ import {
   markWorkerInstanceStopped,
   registerWorkerInstance,
 } from "@staaash/db/jobs";
+import { pruneSucceededStorageMutationResults } from "@staaash/db/storage-mutations";
 
 import {
   getWorkerStoragePaths,
@@ -15,6 +16,13 @@ import { detectFfmpeg } from "./ffmpeg.js";
 import { schedulePeriodicJobs } from "./job-registry.js";
 import { WorkerRunner } from "./runner.js";
 import { resolveWorkerVersion } from "./runtime-version.js";
+import { recoverStorageMutations } from "./handlers/storage-mutation-recovery.js";
+import {
+  finalizeStorageProtocol,
+  initializeStorageProtocol,
+  recoverUnjournaledUserStorageProvisioning,
+} from "./storage-protocol-cutover.js";
+import { waitForStorageProtocolReady } from "./startup-readiness.js";
 
 const storagePaths = getWorkerStoragePaths();
 const workerId = `${os.hostname()}-${process.pid}-${Date.now()}`;
@@ -24,8 +32,35 @@ const maintenanceMs = 60_000;
 
 const runMaintenance = async () => {
   await recoverPendingDeletes({
+    filesRoot: storagePaths.filesRoot,
     pendingDeleteRoot: storagePaths.pendingDeleteRoot,
   });
+  await initializeStorageProtocol({ storagePaths });
+  await recoverUnjournaledUserStorageProvisioning({ storagePaths });
+  await recoverStorageMutations({ storagePaths });
+  await pruneSucceededStorageMutationResults(
+    new Date(Date.now() - 7 * 24 * 60 * 60 * 1_000),
+  );
+  await finalizeStorageProtocol({ storagePaths });
+};
+
+let maintenanceInFlight: Promise<void> | null = null;
+
+const runMaintenanceSafely = () => {
+  if (maintenanceInFlight) return maintenanceInFlight;
+  const run = runMaintenance()
+    .catch((error) => {
+      console.warn("[worker] Maintenance failed; retrying later.", {
+        error: error instanceof Error ? error.message : "Unknown error.",
+      });
+    })
+    .finally(() => {
+      if (maintenanceInFlight === run) {
+        maintenanceInFlight = null;
+      }
+    });
+  maintenanceInFlight = run;
+  return run;
 };
 
 const main = async () => {
@@ -43,6 +78,11 @@ const main = async () => {
     },
   });
 
+  await waitForStorageProtocolReady({
+    runMaintenance: runMaintenanceSafely,
+    heartbeatPath: storagePaths.heartbeatPath,
+  });
+
   const ffmpegHealth = await detectFfmpeg();
   if (!ffmpegHealth.available) {
     console.warn(
@@ -57,18 +97,14 @@ const main = async () => {
   }
 
   await schedulePeriodicJobs(new Date(), { runMissingImmediately: true });
-  await runMaintenance();
+  await runMaintenanceSafely();
 
   const heartbeatTimer = setInterval(() => {
     void writeHeartbeat(storagePaths.heartbeatPath);
   }, workerHeartbeatMs);
 
   const maintenanceTimer = setInterval(() => {
-    void runMaintenance().catch((error) => {
-      console.warn("[worker] Maintenance failed.", {
-        error: error instanceof Error ? error.message : "Unknown error.",
-      });
-    });
+    void runMaintenanceSafely();
   }, maintenanceMs);
 
   const runner = new WorkerRunner({ workerId, storagePaths });

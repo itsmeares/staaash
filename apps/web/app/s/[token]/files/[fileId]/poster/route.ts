@@ -1,3 +1,5 @@
+// Public poster routes intentionally share fail-closed share validation.
+// fallow-ignore-file code-duplication
 import { cookies } from "next/headers";
 
 import {
@@ -9,6 +11,10 @@ import {
   createMediaErrorResponse,
   MediaContentError,
 } from "@/server/media/content-response";
+import {
+  createStorageEntityUnavailableResponse,
+  StorageEntityUnavailableError,
+} from "@/server/storage-read-guard";
 
 export async function GET(
   request: Request,
@@ -26,6 +32,9 @@ export async function GET(
         cookieStore.get(SHARE_ACCESS_COOKIE_NAME)?.value ?? null,
     });
   } catch (error) {
+    if (error instanceof StorageEntityUnavailableError) {
+      return createStorageEntityUnavailableResponse(error);
+    }
     if (error instanceof MediaContentError) {
       return createMediaErrorResponse(error);
     }

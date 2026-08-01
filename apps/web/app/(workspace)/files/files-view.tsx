@@ -239,7 +239,23 @@ export function FilesView({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const draggedItemsRef = useRef<BatchMoveItem[]>([]);
   const contextMoveItemsRef = useRef<BatchMoveItem[]>([]);
+  const storageMutationKeysRef = useRef(new Map<string, string>());
   const dragPreviewRef = useRef<HTMLDivElement | null>(null);
+  const getStorageMutationKey = (logicalAction: string) => {
+    const existing = storageMutationKeysRef.current.get(logicalAction);
+    if (existing) return existing;
+    const created = crypto.randomUUID();
+    storageMutationKeysRef.current.set(logicalAction, created);
+    return created;
+  };
+  const finishStorageMutationKey = (
+    logicalAction: string,
+    response: Response,
+  ) => {
+    if (response.ok || response.status < 500) {
+      storageMutationKeysRef.current.delete(logicalAction);
+    }
+  };
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
   // Register fileInputRef + current folder ID with TransferProvider so the
@@ -613,10 +629,13 @@ export function FilesView({
         ? `/api/files/folders/${id}/rename`
         : `/api/files/files/${id}/rename`;
 
-    await fetch(endpoint, {
+    const logicalAction = `rename:${kind}:${id}:${name}`;
+    const response = await fetch(endpoint, {
       method: "POST",
+      headers: { "Idempotency-Key": getStorageMutationKey(logicalAction) },
       body: new URLSearchParams({ name, redirectTo: currentPath }),
     });
+    finishStorageMutationKey(logicalAction, response);
     startTransition(() => router.refresh());
   };
 
@@ -649,11 +668,16 @@ export function FilesView({
       kind === "folder"
         ? `/api/files/folders/${id}/trash`
         : `/api/files/files/${id}/trash`;
+    const logicalAction = `trash:${kind}:${id}`;
     const res = await fetch(endpoint, {
       method: "POST",
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        "Idempotency-Key": getStorageMutationKey(logicalAction),
+      },
       body: new URLSearchParams({ redirectTo: currentPath }),
     });
+    finishStorageMutationKey(logicalAction, res);
     if (res.ok || res.status === 404) return;
 
     const data = (await res.json().catch(() => ({}))) as { error?: string };
@@ -729,17 +753,22 @@ export function FilesView({
     setLastSelectedId(null);
 
     try {
+      const logicalAction = `move:${destinationFolderId}:${items
+        .map((item) => `${item.kind}:${item.id}`)
+        .join(",")}`;
       const response = await fetch("/api/files/move", {
         method: "POST",
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
+          "Idempotency-Key": getStorageMutationKey(logicalAction),
         },
         body: JSON.stringify({
           items,
           destinationFolderId,
         }),
       });
+      finishStorageMutationKey(logicalAction, response);
       const data = (await response.json().catch(() => ({}))) as
         BatchMoveResponse | { error?: string };
 
@@ -1083,6 +1112,8 @@ export function FilesView({
       if (!start) return;
 
       didRubberBand.current = true;
+      // Files and recent use the same pointer rectangle shape.
+      // fallow-ignore-next-line code-duplication
       setRubberBand({
         startX: start.startX,
         startY: start.startY,

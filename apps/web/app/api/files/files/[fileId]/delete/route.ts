@@ -1,3 +1,5 @@
+// File mutation routes intentionally share one HTTP mutation contract.
+// fallow-ignore-file code-duplication
 import { NextRequest, NextResponse } from "next/server";
 
 import { getRequestSession } from "@/server/auth/guards";
@@ -12,6 +14,10 @@ import {
   wantsJson,
 } from "@/server/auth/http";
 import { filesService } from "@/server/files/service";
+import {
+  attachStorageMutationHeader,
+  readStorageIdempotencyKey,
+} from "@/server/storage-idempotency";
 
 type RouteContext = {
   params: Promise<{
@@ -41,25 +47,37 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     return notSignedInResponse(request, redirectTo);
   }
 
+  let idempotencyKey: string | null = null;
   try {
+    idempotencyKey = readStorageIdempotencyKey(request);
     const { fileId } = await params;
     const result = await filesService.deleteFile({
       actorUserId: session.user.id,
       actorRole: session.user.role,
       fileId,
+      idempotencyKey,
     });
 
-    return wantsJson(request)
-      ? NextResponse.json(result)
-      : redirectWithMessage(
-          request,
-          redirectTo,
-          "success",
-          "Permanently deleted file.",
-        );
+    return attachStorageMutationHeader(
+      wantsJson(request)
+        ? NextResponse.json(result)
+        : redirectWithMessage(
+            request,
+            redirectTo,
+            "success",
+            "Permanently deleted file.",
+          ),
+      idempotencyKey,
+      session.user.id,
+    );
   } catch (error) {
-    return wantsJson(request)
-      ? jsonErrorResponse(error)
-      : formErrorResponse(request, redirectTo, error);
+    return attachStorageMutationHeader(
+      wantsJson(request)
+        ? jsonErrorResponse(error)
+        : formErrorResponse(request, redirectTo, error),
+      idempotencyKey ?? request.headers.get("Idempotency-Key"),
+      session.user.id,
+      error,
+    );
   }
 }

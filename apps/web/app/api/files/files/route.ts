@@ -12,6 +12,10 @@ import {
 import { filesService } from "@/server/files/service";
 import { recordFileAccessBestEffort } from "@/server/retrieval/recent-tracking";
 import { pairUploadRequestItems, parseUploadManifest } from "@/server/uploads";
+import {
+  attachStorageMutationHeader,
+  readStorageIdempotencyKey,
+} from "@/server/storage-idempotency";
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
@@ -38,7 +42,9 @@ export async function POST(request: NextRequest) {
     return notSignedInResponse(request, redirectTo);
   }
 
+  let idempotencyKey: string | null = null;
   try {
+    idempotencyKey = readStorageIdempotencyKey(request);
     const files = formData
       .getAll("files")
       .filter((value): value is File => value instanceof File);
@@ -50,6 +56,7 @@ export async function POST(request: NextRequest) {
       actorRole: session.user.role,
       folderId: formData.get("folderId")?.toString() ?? null,
       items: pairUploadRequestItems(manifest, files),
+      idempotencyKey,
     });
     await Promise.all(
       result.uploadedFiles.map((file) =>
@@ -63,58 +70,72 @@ export async function POST(request: NextRequest) {
     );
 
     if (result.conflicts.length > 0) {
-      return NextResponse.json(
-        {
-          error:
-            "One or more files conflicted with existing names in this folder.",
-          code: "FILE_NAME_CONFLICT",
-          ...result,
-        },
-        {
-          status: 409,
-        },
+      return attachStorageMutationHeader(
+        NextResponse.json(
+          {
+            error:
+              "One or more files conflicted with existing names in this folder.",
+            code: "FILE_NAME_CONFLICT",
+            ...result,
+          },
+          { status: 409 },
+        ),
+        `${idempotencyKey}:0`,
+        session.user.id,
       );
     }
 
     if (!wantsJson(request)) {
       const count = result.uploadedFiles.length;
-      return redirectWithMessage(
+      const response = redirectWithMessage(
         request,
         redirectTo,
         "success",
         `Uploaded ${count} file${count === 1 ? "" : "s"}.`,
       );
+      return attachStorageMutationHeader(
+        response,
+        `${idempotencyKey}:0`,
+        session.user.id,
+      );
     }
 
-    return NextResponse.json(result, {
-      status: 201,
-    });
+    return attachStorageMutationHeader(
+      NextResponse.json(result, { status: 201 }),
+      `${idempotencyKey}:0`,
+      session.user.id,
+    );
   } catch (error) {
-    return wantsJson(request)
-      ? NextResponse.json(
-          {
-            error:
-              error instanceof Error
-                ? error.message
-                : "Unexpected server error.",
-            code:
-              typeof error === "object" &&
-              error !== null &&
-              "code" in error &&
-              typeof error.code === "string"
-                ? error.code
-                : "INTERNAL_ERROR",
-          },
-          {
-            status:
-              typeof error === "object" &&
-              error !== null &&
-              "status" in error &&
-              typeof error.status === "number"
-                ? error.status
-                : 500,
-          },
-        )
-      : formErrorResponse(request, redirectTo, error);
+    return attachStorageMutationHeader(
+      wantsJson(request)
+        ? NextResponse.json(
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "Unexpected server error.",
+              code:
+                typeof error === "object" &&
+                error !== null &&
+                "code" in error &&
+                typeof error.code === "string"
+                  ? error.code
+                  : "INTERNAL_ERROR",
+            },
+            {
+              status:
+                typeof error === "object" &&
+                error !== null &&
+                "status" in error &&
+                typeof error.status === "number"
+                  ? error.status
+                  : 500,
+            },
+          )
+        : formErrorResponse(request, redirectTo, error),
+      idempotencyKey ? `${idempotencyKey}:0` : null,
+      session.user.id,
+      error,
+    );
   }
 }

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthError } from "@/server/auth/errors";
 import { createAuthService } from "@/server/auth/service";
+import { ensureUserCommittedStorageDirectories } from "@/server/storage";
 import type {
   AuthSession,
   AuthUser,
@@ -227,6 +228,7 @@ const createRepo = (state: State): AuthRepository => ({
 describe("auth service", () => {
   beforeEach(() => {
     idCounter = 0;
+    vi.mocked(ensureUserCommittedStorageDirectories).mockReset();
   });
 
   it("bootstraps an owner/admin account and signs in by email", async () => {
@@ -257,6 +259,32 @@ describe("auth service", () => {
     });
 
     expect(signIn.user.email).toBe("owner@example.com");
+  });
+
+  it("signs in when storage provisioning is unavailable", async () => {
+    const state: State = { users: [], sessions: [] };
+    const service = createAuthService({
+      repo: createRepo(state),
+      now: () => now,
+      sessionMaxAgeDays: 30,
+    });
+    const bootstrap = await service.bootstrap({
+      instanceName: "Test Staaash",
+      email: "owner@example.com",
+      password: "long-owner-password",
+    });
+    vi.mocked(ensureUserCommittedStorageDirectories).mockReset();
+    vi.mocked(ensureUserCommittedStorageDirectories).mockRejectedValueOnce(
+      new Error("Storage recovery is required."),
+    );
+
+    await expect(
+      service.signIn({
+        email: "owner@example.com",
+        password: "long-owner-password",
+      }),
+    ).resolves.toMatchObject({ user: { id: bootstrap.user.id } });
+    expect(ensureUserCommittedStorageDirectories).not.toHaveBeenCalled();
   });
 
   it("creates users with a temporary password and required password change", async () => {

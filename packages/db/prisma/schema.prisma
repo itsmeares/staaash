@@ -42,6 +42,7 @@ model Instance {
   updateCheckStatus      String?
   updateCheckMessage     String?
   latestAvailableVersion String?
+  storageProtocolVersion Int       @default(2)
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 }
@@ -102,6 +103,8 @@ model User {
   shareLinks                      ShareLink[]                @relation("ShareLinkCreator")
   restoreReconciliationRuns       RestoreReconciliationRun[] @relation("RestoreReconciliationTrigger")
   zipArchives                     ZipArchive[]
+  storageMutations                StorageMutation[]
+  trashEntries                    TrashEntry[]
 
   @@index([isOwner])
   @@index([isAdmin])
@@ -143,6 +146,8 @@ model Folder {
   name        String
   isFilesRoot Boolean          @default(false)
   deletedAt   DateTime?
+  storageRevision Int             @default(0)
+  trashEntryId String?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   owner       User             @relation("FolderOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
@@ -152,10 +157,12 @@ model Folder {
   favorites   FavoriteFolder[]
   recents     RecentFolder[]
   shareLink   ShareLink?       @relation("ShareLinkFolder")
+  trashEntry  TrashEntry?      @relation(fields: [trashEntryId], references: [id], onDelete: SetNull)
 
   @@index([ownerUserId, isFilesRoot])
   @@index([ownerUserId, parentId, deletedAt])
   @@index([ownerUserId, deletedAt, updatedAt])
+  @@index([trashEntryId])
 }
 
 model File {
@@ -171,6 +178,8 @@ model File {
   sizeBytes               BigInt
   contentChecksum         String?
   deletedAt               DateTime?
+  storageRevision         Int               @default(0)
+  trashEntryId            String?
   createdAt               DateTime          @default(now())
   updatedAt               DateTime          @updatedAt
   owner                   User              @relation("FileOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
@@ -180,9 +189,11 @@ model File {
   shareLink               ShareLink?        @relation("ShareLinkFile")
   derivatives             MediaDerivative[]
   committedUploadSessions UploadSession[]   @relation("UploadSessionCommittedFile")
+  trashEntry              TrashEntry?       @relation(fields: [trashEntryId], references: [id], onDelete: SetNull)
 
   @@index([ownerUserId, folderId, deletedAt])
   @@index([ownerUserId, folderId, deletedAt, storageStatus])
+  @@index([trashEntryId])
 }
 
 model FavoriteFile {
@@ -363,6 +374,7 @@ model MediaDerivative {
   lastViewedAt    DateTime?
   lastSharedAt    DateTime?
   generatedAt     DateTime?
+  storageRevision Int       @default(0)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -384,6 +396,7 @@ model ZipArchive {
   sizeBytes  BigInt?
   fileCount  Int?
   error      String?
+  storageRevision Int      @default(0)
   expiresAt  DateTime
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -415,10 +428,12 @@ model UploadSession {
   cleanupLastAttemptAt DateTime?
   cleanupLastError     String?
   committedFileId      String?
+  storageMutationId    String?       @unique
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
   chunks               UploadChunk[]
   committedFile        File?         @relation("UploadSessionCommittedFile", fields: [committedFileId], references: [id], onDelete: SetNull)
+  storageMutation      StorageMutation? @relation(fields: [storageMutationId], references: [id], onDelete: SetNull)
 
   @@index([ownerUserId, status, expiresAt])
   @@index([status, expiresAt])
@@ -426,6 +441,115 @@ model UploadSession {
   @@index([status, terminalAt])
   @@index([stagingReleasedAt])
   @@index([committedFileId])
+}
+
+model StorageMutation {
+  id                   String                    @id @default(cuid())
+  parentId             String?
+  kind                 String
+  status               String
+  ownerUserId          String
+  idempotencyKey       String?                   @unique
+  requestHash          String?
+  intentJson           Json
+  resultJson           Json?
+  leaseOwner           String?
+  leaseToken           BigInt                    @default(0)
+  leaseExpiresAt       DateTime?
+  attemptCount         Int                       @default(0)
+  lastAttemptAt        DateTime?
+  nextAttemptAt        DateTime?
+  lastError            String?
+  metadataCommittedAt  DateTime?
+  completedAt          DateTime?
+  recoveryRequiredAt   DateTime?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
+  parent               StorageMutation?          @relation("StorageMutationChildren", fields: [parentId], references: [id], onDelete: SetNull)
+  children             StorageMutation[]         @relation("StorageMutationChildren")
+  owner                User                      @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
+  steps                StorageMutationStep[]
+  entities             StorageMutationEntity[]
+  resources            StorageMutationResource[]
+  uploadSessions       UploadSession[]
+
+  @@index([status, nextAttemptAt])
+  @@index([ownerUserId, status])
+  @@index([leaseExpiresAt])
+  @@index([parentId])
+}
+
+model StorageMutationStep {
+  id                 String          @id @default(cuid())
+  mutationId         String
+  ordinal            Int
+  action             String
+  sourceKey          String?
+  targetKey          String?
+  expectedNodeType   String?
+  expectedSizeBytes  BigInt?
+  expectedChecksum   String?
+  treeManifestDigest String?
+  status             String          @default("pending")
+  attemptCount       Int             @default(0)
+  lastError          String?
+  appliedAt          DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  mutation           StorageMutation @relation(fields: [mutationId], references: [id], onDelete: Cascade)
+
+  @@unique([mutationId, ordinal])
+  @@index([mutationId, status])
+}
+
+model StorageMutationEntity {
+  id             String          @id @default(cuid())
+  mutationId     String
+  entityType     String
+  entityId       String
+  preRevision    Int
+  postRevision   Int
+  beforeJson     Json?
+  afterJson      Json?
+  createdAt      DateTime        @default(now())
+  mutation       StorageMutation @relation(fields: [mutationId], references: [id], onDelete: Cascade)
+
+  @@unique([mutationId, entityType, entityId])
+  @@index([entityType, entityId])
+}
+
+model StorageMutationResource {
+  id           String          @id @default(cuid())
+  resourceKey  String
+  mutationId   String
+  fenceToken   BigInt
+  acquiredAt   DateTime        @default(now())
+  releasedAt   DateTime?
+  mutation     StorageMutation @relation(fields: [mutationId], references: [id], onDelete: Cascade)
+
+  @@index([resourceKey, releasedAt])
+  @@index([mutationId])
+}
+
+model TrashEntry {
+  id             String    @id @default(cuid())
+  ownerUserId    String
+  rootKind       String
+  rootEntityId   String
+  deletedAt      DateTime
+  /// Migration 20260726000000 enforces uniqueness only for isolated roots;
+  /// Prisma schema syntax cannot represent that partial PostgreSQL index.
+  storageRootKey String?
+  treeManifestDigest String?
+  layoutVersion  String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  owner          User      @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  files          File[]
+  folders        Folder[]
+
+  @@unique([rootKind, rootEntityId])
+  @@index([ownerUserId, deletedAt])
 }
 
 model UploadChunk {

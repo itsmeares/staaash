@@ -1,3 +1,5 @@
+// Retrieval variants intentionally share stable ordering and access guards.
+// fallow-ignore-file code-duplication
 import { canAccessPrivateNamespace } from "@/server/access";
 import { FilesError } from "@/server/files/errors";
 import type {
@@ -15,6 +17,7 @@ import {
   getSearchMatchKind,
   normalizeSearchText,
 } from "@/server/search";
+import { getStorageMutationStateMap } from "@/server/storage-read-guard";
 
 import type {
   FavoriteMutationResult,
@@ -115,6 +118,26 @@ const compareRetrievalItems = (left: RetrievalItem, right: RetrievalItem) => {
   return left.id.localeCompare(right.id);
 };
 
+const decorateRetrievalStorageState = async <T extends RetrievalItem>(
+  items: T[],
+): Promise<T[]> => {
+  const [folderStates, fileStates] = await Promise.all([
+    getStorageMutationStateMap(
+      "folder",
+      items.filter((item) => item.kind === "folder").map((item) => item.id),
+    ),
+    getStorageMutationStateMap(
+      "file",
+      items.filter((item) => item.kind === "file").map((item) => item.id),
+    ),
+  ]);
+  return items.map((item) => ({
+    ...item,
+    storageMutation:
+      (item.kind === "folder" ? folderStates : fileStates).get(item.id) ?? null,
+  }));
+};
+
 const toFolderItem = ({
   folder,
   folderMap,
@@ -139,6 +162,7 @@ const toFolderItem = ({
   deletedAt: folder.deletedAt,
   isFavorite: favoriteFolderIds.has(folder.id),
   parentId: folder.parentId,
+  storageMutation: null,
 });
 
 const toFileItem = ({
@@ -167,6 +191,7 @@ const toFileItem = ({
   folderId: file.folderId,
   mimeType: file.mimeType,
   sizeBytes: file.sizeBytes,
+  storageMutation: null,
 });
 
 const assertFolderAccess = (
@@ -302,34 +327,36 @@ export const createRetrievalService = ({
         ),
       ];
 
-      return baseItems
-        .flatMap((item) => {
-          const matchKind = getSearchMatchKind(
-            trimmedQuery,
-            item.name,
-            item.pathLabel,
-          );
+      return decorateRetrievalStorageState(
+        baseItems
+          .flatMap((item) => {
+            const matchKind = getSearchMatchKind(
+              trimmedQuery,
+              item.name,
+              item.pathLabel,
+            );
 
-          return matchKind ? [{ ...item, matchKind }] : [];
-        })
-        .sort((left, right) =>
-          compareSearchResults(
-            {
-              id: left.id,
-              name: left.name,
-              path: left.pathLabel,
-              updatedAt: left.updatedAt,
-              matchKind: left.matchKind!,
-            },
-            {
-              id: right.id,
-              name: right.name,
-              path: right.pathLabel,
-              updatedAt: right.updatedAt,
-              matchKind: right.matchKind!,
-            },
+            return matchKind ? [{ ...item, matchKind }] : [];
+          })
+          .sort((left, right) =>
+            compareSearchResults(
+              {
+                id: left.id,
+                name: left.name,
+                path: left.pathLabel,
+                updatedAt: left.updatedAt,
+                matchKind: left.matchKind!,
+              },
+              {
+                id: right.id,
+                name: right.name,
+                path: right.pathLabel,
+                updatedAt: right.updatedAt,
+                matchKind: right.matchKind!,
+              },
+            ),
           ),
-        );
+      );
     },
 
     async listFavorites({
@@ -423,23 +450,25 @@ export const createRetrievalService = ({
             ),
         );
 
-      return items.map((entry) => ({
-        ...(entry.kind === "folder"
-          ? toFolderItem({
-              folder: entry.item as FolderSummary,
-              folderMap,
-              filesRoot,
-              favoriteFolderIds: favoriteState.favoriteFolderIds,
-            })
-          : toFileItem({
-              file: entry.item as FileSummary,
-              folderMap,
-              filesRoot,
-              favoriteFileIds: favoriteState.favoriteFileIds,
-            })),
-        favoritedAt: entry.createdAt,
-        quickAccessPinnedAt: entry.quickAccessPinnedAt,
-      }));
+      return decorateRetrievalStorageState(
+        items.map((entry) => ({
+          ...(entry.kind === "folder"
+            ? toFolderItem({
+                folder: entry.item as FolderSummary,
+                folderMap,
+                filesRoot,
+                favoriteFolderIds: favoriteState.favoriteFolderIds,
+              })
+            : toFileItem({
+                file: entry.item as FileSummary,
+                folderMap,
+                filesRoot,
+                favoriteFileIds: favoriteState.favoriteFileIds,
+              })),
+          favoritedAt: entry.createdAt,
+          quickAccessPinnedAt: entry.quickAccessPinnedAt,
+        })),
+      ) as Promise<FavoriteRetrievalItem[]>;
     },
 
     async listRecentlyAdded({
@@ -482,13 +511,15 @@ export const createRetrievalService = ({
         })),
       ];
 
-      return items
-        .sort(
-          (left, right) =>
-            right.createdAt.getTime() - left.createdAt.getTime() ||
-            compareRetrievalItems(left.item, right.item),
-        )
-        .map((entry) => entry.item);
+      return decorateRetrievalStorageState(
+        items
+          .sort(
+            (left, right) =>
+              right.createdAt.getTime() - left.createdAt.getTime() ||
+              compareRetrievalItems(left.item, right.item),
+          )
+          .map((entry) => entry.item),
+      );
     },
 
     async listRecent({ actorUserId }: FilesActor): Promise<RetrievalItem[]> {
@@ -577,20 +608,22 @@ export const createRetrievalService = ({
             ),
         );
 
-      return items.map((entry) =>
-        entry.kind === "folder"
-          ? toFolderItem({
-              folder: entry.item as FolderSummary,
-              folderMap,
-              filesRoot,
-              favoriteFolderIds: favoriteState.favoriteFolderIds,
-            })
-          : toFileItem({
-              file: entry.item as FileSummary,
-              folderMap,
-              filesRoot,
-              favoriteFileIds: favoriteState.favoriteFileIds,
-            }),
+      return decorateRetrievalStorageState(
+        items.map((entry) =>
+          entry.kind === "folder"
+            ? toFolderItem({
+                folder: entry.item as FolderSummary,
+                folderMap,
+                filesRoot,
+                favoriteFolderIds: favoriteState.favoriteFolderIds,
+              })
+            : toFileItem({
+                file: entry.item as FileSummary,
+                folderMap,
+                filesRoot,
+                favoriteFileIds: favoriteState.favoriteFileIds,
+              }),
+        ),
       );
     },
 

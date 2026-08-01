@@ -1,5 +1,7 @@
 "use client";
 
+// Favorites intentionally mirrors recent-item storage guards and downloads.
+// fallow-ignore-file code-duplication
 import {
   useCallback,
   useEffect,
@@ -191,13 +193,17 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
     [activeItems],
   );
   const visibleKeys = useMemo(
-    () => visibleItems.map((item) => getItemKey(item)),
+    () =>
+      visibleItems
+        .filter((item) => !item.storageMutationStatus)
+        .map((item) => getItemKey(item)),
     [visibleItems],
   );
+  const visibleKeySet = useMemo(() => new Set(visibleKeys), [visibleKeys]);
   const allVisibleSelected =
     visibleKeys.length > 0 && visibleKeys.every((key) => selectedKeys.has(key));
-  const selectedItems = visibleItems.filter((item) =>
-    selectedKeys.has(getItemKey(item)),
+  const selectedItems = visibleItems.filter(
+    (item) => !item.storageMutationStatus && selectedKeys.has(getItemKey(item)),
   );
   const visibleItemByKey = useMemo(
     () => new Map(visibleItems.map((item) => [getItemKey(item), item])),
@@ -206,13 +212,12 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
 
   useEffect(() => {
     setSelectedKeys((current) => {
-      const visibleKeySet = new Set(visibleKeys);
       const next = new Set(
         [...current].filter((key) => visibleKeySet.has(key)),
       );
       return next.size === current.size ? current : next;
     });
-  }, [visibleKeys]);
+  }, [visibleKeySet]);
 
   useEffect(() => {
     setSelectedKeys(new Set());
@@ -229,10 +234,10 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
     setSortDirection(key === "favoritedAt" || key === "size" ? "desc" : "asc");
   };
 
-  const clearSelection = () => {
+  const clearSelection = useCallback(() => {
     setSelectedKeys(new Set());
     setLastSelectedKey(null);
-  };
+  }, []);
 
   const selectAllVisible = () => {
     setSelectedKeys((current) => {
@@ -248,6 +253,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
   const selectItem = (key: string, event: MouseEvent<HTMLElement>) => {
     event.preventDefault();
     event.stopPropagation();
+    if (!visibleKeys.includes(key)) return;
 
     if (event.ctrlKey || event.metaKey) {
       setSelectedKeys((current) => {
@@ -280,6 +286,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
   ) => {
     event.preventDefault();
     event.stopPropagation();
+    if (!visibleKeys.includes(key)) return;
 
     if (event.ctrlKey || event.metaKey) {
       setSelectedKeys((current) => {
@@ -307,6 +314,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
   };
 
   const openItem = (item: FavoriteClientItem) => {
+    if (item.storageMutationStatus) return;
     if (item.href.startsWith("/files/")) {
       router.push(item.href);
       return;
@@ -316,6 +324,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
   };
 
   const downloadItem = async (item: FavoriteClientItem) => {
+    if (item.storageMutationStatus) return;
     if (item.kind === "folder") {
       await handleDownload([item.id]);
       return;
@@ -509,6 +518,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
     const key = item?.dataset.favoriteItem;
     if (key && visibleItemByKey.has(key)) {
       const favorite = visibleItemByKey.get(key)!;
+      if (favorite.storageMutationStatus) return;
       if (isCoarsePointer) {
         if (selectedKeys.size === 0) {
           openItem(favorite);
@@ -559,15 +569,15 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
         }
       }
     },
-    [isCoarsePointer],
+    [clearSelection, isCoarsePointer],
   );
 
-  const clearLongPressTimer = () => {
+  const clearLongPressTimer = useCallback(() => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
-  };
+  }, []);
 
   const handleFavoritePointerDown = (
     item: FavoriteClientItem,
@@ -579,6 +589,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
     clearLongPressTimer();
     suppressNextClickRef.current = false;
     const key = getItemKey(item);
+    if (!visibleKeySet.has(key)) return;
     longPressTimerRef.current = setTimeout(() => {
       suppressNextClickRef.current = true;
       setSelectedKeys(new Set([key]));
@@ -652,7 +663,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
         .querySelectorAll<HTMLElement>("[data-favorite-item]")
         .forEach((element) => {
           const key = element.dataset.favoriteItem;
-          if (!key) return;
+          if (!key || !visibleKeySet.has(key)) return;
 
           const itemRect = element.getBoundingClientRect();
           const rowTop = itemRect.top - rect.top;
@@ -696,7 +707,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, [isCoarsePointer]);
+  }, [clearLongPressTimer, clearSelection, isCoarsePointer, visibleKeySet]);
 
   const renderSortButton = (
     key: FavoriteSortKey,
@@ -716,6 +727,15 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
   );
 
   const renderItemActions = (item: FavoriteClientItem) => {
+    if (item.storageMutationStatus) {
+      return (
+        <span className="pill pill-sm">
+          {item.storageMutationStatus === "recovery_required"
+            ? "Recovery required"
+            : "Finishing storage operation"}
+        </span>
+      );
+    }
     const pinned = item.quickAccessPinnedAt != null;
 
     if (isCoarsePointer) {
@@ -795,6 +815,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
   const getFavoriteItemContextGroups = (
     item: FavoriteClientItem,
   ): DashboardContextMenuGroup[] => {
+    if (item.storageMutationStatus) return [];
     const pinned = item.quickAccessPinnedAt != null;
     const key = getItemKey(item);
     const targets =

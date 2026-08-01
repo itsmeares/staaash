@@ -1676,6 +1676,47 @@ describe.sequential("files service", () => {
     expect(result.deletedFileCount).toBeGreaterThanOrEqual(1);
   });
 
+  it("clearTrash skips the same file restored and trashed after its snapshot", async () => {
+    await cleanDataRoot();
+    const { repo, addFile } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureFilesRoot("member-1");
+    const retrashDeletedAt = new Date("2026-07-30T12:01:00.000Z");
+    const retrash = addFile({
+      ownerUserId: "member-1",
+      folderId: root.id,
+      name: "race.txt",
+      storageKey: ".trash/member-1/race.txt",
+      deletedAt: retrashDeletedAt,
+    });
+    retrash.storageRevision = 3;
+    retrash.trashEntryId = "new-trash-entry";
+
+    const result = await service.clearTrash({
+      actorUserId: "member-1",
+      actorRole: "member",
+      storageMutationOrderedItems: [
+        {
+          id: retrash.id,
+          kind: "file",
+          deletedAt: "2026-07-01T12:00:00.000Z",
+          storageRevision: 1,
+          trashEntryId: "old-trash-entry",
+        },
+      ],
+    });
+
+    expect(result).toEqual({ deletedFolderCount: 0, deletedFileCount: 0 });
+    expect(
+      (
+        await service.listTrashFolders({
+          actorUserId: "member-1",
+          actorRole: "member",
+        })
+      ).files.map((item) => item.file.id),
+    ).toContain(retrash.id);
+  });
+
   it("bulk clear removes standalone trashed files and top-level trashed folder trees without touching active items", async () => {
     await cleanDataRoot();
     const { repo } = createMemoryRepository();

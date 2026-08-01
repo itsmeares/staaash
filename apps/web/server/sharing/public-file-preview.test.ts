@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   findReadyDerivative: vi.fn(),
   getStoragePath: vi.fn(),
   stat: vi.fn(),
+  assertStorageEntityReadable: vi.fn(),
 }));
 
 vi.mock("node:fs/promises", async (importOriginal) => ({
@@ -22,6 +23,9 @@ vi.mock("@staaash/db/media-derivatives", async (importOriginal) => ({
 
 vi.mock("@/server/storage", () => ({
   getStoragePath: mocks.getStoragePath,
+}));
+vi.mock("@/server/storage-read-guard", () => ({
+  assertStorageEntityReadable: mocks.assertStorageEntityReadable,
 }));
 
 const fixedNow = new Date("2026-07-20T12:00:00.000Z");
@@ -61,6 +65,7 @@ const makeDerivative = (
   lastViewedAt: null,
   lastSharedAt: null,
   generatedAt: fixedNow,
+  storageRevision: 0,
   createdAt: fixedNow,
   updatedAt: fixedNow,
   ...overrides,

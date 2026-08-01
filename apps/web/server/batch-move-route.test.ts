@@ -10,6 +10,35 @@ import {
   recordFolderAccessBestEffort,
 } from "@/server/retrieval/recent-tracking";
 
+const durableMocks = vi.hoisted(() => ({
+  prepareDurableStorageMutationParent: vi.fn(),
+  claimStorageMutation: vi.fn(),
+  renewStorageMutationLease: vi.fn(),
+  recordStorageMutationParentChild: vi.fn(),
+  completeStorageMutationParent: vi.fn(),
+  findUnique: vi.fn(),
+}));
+
+vi.mock("@/server/durable-storage-mutation", () => ({
+  hashDurableStorageRequest: (value: unknown) => JSON.stringify(value),
+  prepareDurableStorageMutationParent:
+    durableMocks.prepareDurableStorageMutationParent,
+}));
+
+vi.mock("@staaash/db/client", () => ({
+  getPrisma: () => ({
+    storageMutation: { findUnique: durableMocks.findUnique },
+  }),
+}));
+
+vi.mock("@staaash/db/storage-mutations", () => ({
+  claimStorageMutation: durableMocks.claimStorageMutation,
+  renewStorageMutationLease: durableMocks.renewStorageMutationLease,
+  recordStorageMutationParentChild:
+    durableMocks.recordStorageMutationParentChild,
+  completeStorageMutationParent: durableMocks.completeStorageMutationParent,
+}));
+
 vi.mock("@/server/auth/guards", () => ({
   getRequestSession: vi.fn(),
 }));
@@ -48,6 +77,22 @@ describe("batch move route", () => {
     vi.mocked(filesService.moveFolder).mockResolvedValue({
       folder: {} as never,
     });
+    const mutation = {
+      id: "batch-parent-1",
+      status: "prepared",
+      resultJson: { children: [] },
+    };
+    durableMocks.prepareDurableStorageMutationParent.mockResolvedValue({
+      mutation,
+      replayed: false,
+    });
+    durableMocks.claimStorageMutation.mockResolvedValue({
+      ...mutation,
+      leaseOwner: "test",
+      leaseToken: 1n,
+      leaseExpiresAt: new Date(Date.now() + 30_000),
+    });
+    durableMocks.findUnique.mockResolvedValue({ id: "child-1" });
   });
 
   it("moves mixed items and reports per-item success", async () => {
@@ -70,18 +115,22 @@ describe("batch move route", () => {
         { id: "file-1", kind: "file", status: "moved" },
       ],
     });
-    expect(filesService.moveFolder).toHaveBeenCalledWith({
-      actorUserId: "user-1",
-      actorRole: "owner",
-      folderId: "folder-1",
-      destinationFolderId: "folder-destination",
-    });
-    expect(filesService.moveFile).toHaveBeenCalledWith({
-      actorUserId: "user-1",
-      actorRole: "owner",
-      fileId: "file-1",
-      destinationFolderId: "folder-destination",
-    });
+    expect(filesService.moveFolder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorUserId: "user-1",
+        actorRole: "owner",
+        folderId: "folder-1",
+        destinationFolderId: "folder-destination",
+      }),
+    );
+    expect(filesService.moveFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorUserId: "user-1",
+        actorRole: "owner",
+        fileId: "file-1",
+        destinationFolderId: "folder-destination",
+      }),
+    );
   });
 
   it("keeps processing after an item fails", async () => {

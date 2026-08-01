@@ -4,10 +4,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { FileSummary, FolderSummary } from "@/server/files/types";
 import type { PublicShareResolution } from "@/server/sharing/types";
+import { StorageEntityUnavailableError } from "@/server/storage-read-guard";
 
 const mocks = vi.hoisted(() => ({
   getPublicShareFilePreview: vi.fn(),
   getSharedNestedFileContent: vi.fn(),
+  redirect: vi.fn(),
   resolvePublicShare: vi.fn(),
 }));
 
@@ -20,6 +22,7 @@ vi.mock("next/navigation", () => ({
   notFound: vi.fn(() => {
     throw new Error("not found");
   }),
+  redirect: mocks.redirect,
 }));
 
 vi.mock("@/server/auth/service", () => ({
@@ -153,6 +156,31 @@ describe("public shared file pages", () => {
     mocks.getPublicShareFilePreview.mockResolvedValue({
       safeInlineMimeType: "video/mp4",
     });
+    mocks.redirect.mockImplementation((destination: string) => {
+      throw Object.assign(new Error("NEXT_REDIRECT"), { destination });
+    });
+  });
+
+  it("redirects an affected page to the verified 503 responder", async () => {
+    mocks.resolvePublicShare.mockRejectedValue(
+      new StorageEntityUnavailableError({
+        id: "mutation-1",
+        kind: "file_move",
+        status: "retrying",
+      }),
+    );
+
+    await expect(
+      SharedRootPage({
+        params: Promise.resolve({ token: "token" }),
+        searchParams: Promise.resolve({}),
+      }),
+    ).rejects.toMatchObject({
+      message: "NEXT_REDIRECT",
+    });
+    expect(mocks.redirect).toHaveBeenCalledWith(
+      "/s/token/storage-unavailable?returnTo=%2Fs%2Ftoken",
+    );
   });
 
   it("passes ready safe video preview metadata to a direct file share", async () => {

@@ -469,4 +469,60 @@ describe("staging cleanup handler", () => {
 
     await rm(filesRoot, { recursive: true, force: true });
   });
+
+  it("journals and preserves abandoned generated temps", async () => {
+    const filesRoot = createTempRoot();
+    const tmpRoot = path.join(filesRoot, "tmp");
+    const tempPath = path.join(tmpRoot, "derivatives", "derivative-1.jpg.tmp");
+    await mkdir(path.dirname(tempPath), { recursive: true });
+    await writeFile(tempPath, "generated", "utf8");
+    await utimes(
+      tempPath,
+      new Date(fixedNow.getTime() - stagingTtlMs - 1),
+      new Date(fixedNow.getTime() - stagingTtlMs - 1),
+    );
+    const { client } = createSessionClient([]);
+    const extendedClient = Object.assign(client, {
+      backgroundJob: { findMany: vi.fn(async () => []) },
+      mediaDerivative: {
+        findMany: vi.fn(async () => [
+          {
+            id: "derivative-1",
+            fileId: "file-1",
+            kind: "preview",
+            profile: "default",
+            file: { ownerUserId: "owner-1" },
+          },
+        ]),
+      },
+      zipArchive: { findMany: vi.fn(async () => []) },
+    });
+    const classifyResidue = vi.fn(async () => undefined);
+    const { cleanupUploadSessionLifecycle } =
+      await import("./staging-cleanup.js");
+
+    const warnings = await cleanupUploadSessionLifecycle({
+      client: extendedClient,
+      storagePaths: {
+        filesRoot,
+        tmpRoot,
+        heartbeatPath: path.join(tmpRoot, "worker-heartbeat.json"),
+        pendingDeleteRoot: path.join(tmpRoot, "pending-delete"),
+        uploadStagingTtlMs: stagingTtlMs,
+      },
+      now: fixedNow,
+      classifyResidue,
+    });
+
+    expect(classifyResidue).toHaveBeenCalledWith({
+      ownerUserId: "owner-1",
+      residueKeys: ["tmp/derivatives/derivative-1.jpg.tmp"],
+      global: false,
+    });
+    expect(warnings).toContain(
+      "generated temp preserved for recovery: tmp/derivatives/derivative-1.jpg.tmp",
+    );
+    await expectPathToExist(tempPath);
+    await rm(filesRoot, { recursive: true, force: true });
+  });
 });

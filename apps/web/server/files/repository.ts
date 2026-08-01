@@ -15,6 +15,8 @@ const folderSelect = {
   name: true,
   isFilesRoot: true,
   deletedAt: true,
+  storageRevision: true,
+  trashEntryId: true,
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.FolderSelect;
@@ -37,6 +39,8 @@ const fileSelect = {
   sizeBytes: true,
   contentChecksum: true,
   deletedAt: true,
+  storageRevision: true,
+  trashEntryId: true,
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.FileSelect;
@@ -155,6 +159,8 @@ const toFolderSummary = (
     | "name"
     | "isFilesRoot"
     | "deletedAt"
+    | "storageRevision"
+    | "trashEntryId"
     | "createdAt"
     | "updatedAt"
   >,
@@ -166,6 +172,8 @@ const toFolderSummary = (
   name: folder.name,
   isFilesRoot: folder.isFilesRoot,
   deletedAt: folder.deletedAt,
+  storageRevision: folder.storageRevision,
+  trashEntryId: folder.trashEntryId,
   createdAt: folder.createdAt,
   updatedAt: folder.updatedAt,
 });
@@ -185,6 +193,8 @@ const toStoredFile = (file: FileRecord): StoredFile => ({
   contentChecksum: file.contentChecksum,
   viewerKind: resolveViewerKind(file.mimeType, file.originalName),
   deletedAt: file.deletedAt,
+  storageRevision: file.storageRevision,
+  trashEntryId: file.trashEntryId,
   createdAt: file.createdAt,
   updatedAt: file.updatedAt,
 });
@@ -250,6 +260,7 @@ const createCanonicalRoot = async (
 
 export type FilesRepository = {
   ensureFilesRoot(ownerUserId: string): Promise<FolderSummary>;
+  findFilesRoot?(ownerUserId: string): Promise<FolderSummary | null>;
   findFolderById(folderId: string): Promise<FolderSummary | null>;
   findFileById(
     fileId: string,
@@ -303,6 +314,15 @@ export const createPrismaFilesRepository = (
     client ?? (getPrisma() as unknown as FilesPrismaClient);
 
   return {
+    async findFilesRoot(ownerUserId) {
+      const roots = sortLegacyRoots(
+        await listLegacyRoots(getClient(), ownerUserId),
+      );
+      if (roots.length > 1) {
+        throw new Error("Multiple files roots require storage recovery.");
+      }
+      return roots[0] ? toFolderSummary(roots[0]) : null;
+    },
     async ensureFilesRoot(ownerUserId) {
       const client = getClient();
       const existingRoots = sortLegacyRoots(

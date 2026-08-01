@@ -1,5 +1,5 @@
 import path from "node:path";
-import { mkdir, rename, rm, stat } from "node:fs/promises";
+import { mkdir, rm, stat } from "node:fs/promises";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createWriteStream } from "node:fs";
@@ -15,11 +15,19 @@ import {
   updateZipArchiveFailed,
   ZIP_ARCHIVE_STATUS_READY,
 } from "@staaash/db/zip-archives";
+import { calculateStorageFileChecksum } from "@staaash/db/storage-mutation-executor";
+import { listBlockingStorageMutationsForEntities } from "@staaash/db/storage-mutations";
 
 import type { WorkerStoragePaths } from "../storage-maintenance.js";
 import { safeResolveStoragePath } from "../storage-maintenance.js";
 import type { JobContext } from "../job-context.js";
 import { TerminalJobError } from "../job-context.js";
+import {
+  assertWorkerMutationMayStart,
+  buildArtifactPublishSteps,
+  runWorkerStorageMutation,
+  StorageMutationOwnedError,
+} from "../durable-storage-mutation.js";
 
 type FolderRecord = {
   id: string;
@@ -28,6 +36,7 @@ type FolderRecord = {
   name: string;
   isFilesRoot: boolean;
   deletedAt: Date | null;
+  storageRevision: number;
 };
 
 type StoredFileRecord = {
@@ -37,6 +46,7 @@ type StoredFileRecord = {
   originalName: string;
   storageKey: string;
   deletedAt: Date | null;
+  storageRevision: number;
 };
 
 type PrismaClient = {
@@ -115,6 +125,10 @@ export const handleZipArchiveGenerate = async (
   const idsJson = parsedIds.data;
   const { fileIds, folderIds } = idsJson;
   const userId = archive.userId;
+  const publishMutationId = `archive-publish-${archiveId}-${job.id}`;
+  if ((await assertWorkerMutationMayStart(publishMutationId)) === "succeeded") {
+    return;
+  }
 
   await updateZipArchiveProcessing(archiveId);
 
@@ -211,6 +225,16 @@ export const handleZipArchiveGenerate = async (
     }
 
     // Add files
+    const blockedFiles = await listBlockingStorageMutationsForEntities({
+      entityType: "file",
+      entityIds: filesToZip.map((file) => file.id),
+    });
+    if (blockedFiles.length > 0) {
+      throw new StorageMutationOwnedError(
+        blockedFiles[0]!.mutation.id,
+        new Error("An archive source has an unfinished storage mutation."),
+      );
+    }
     for (const file of filesToZip) {
       const filePath = safeResolveStoragePath(
         storagePaths.filesRoot,
@@ -274,20 +298,89 @@ export const handleZipArchiveGenerate = async (
       storagePaths.filesRoot,
       storageKey,
     );
-    await mkdir(path.dirname(finalPath), { recursive: true });
-    await rename(tmpPath, finalPath);
-
-    const { size } = await stat(finalPath);
-
-    await updateZipArchiveReady(
-      archiveId,
+    const { size } = await stat(tmpPath);
+    const tmpKey = path
+      .relative(storagePaths.filesRoot, tmpPath)
+      .split(path.sep)
+      .join("/");
+    const checksum = await calculateStorageFileChecksum(
+      storagePaths.filesRoot,
+      tmpKey,
+    );
+    let oldChecksum: string | null = null;
+    try {
+      oldChecksum = await calculateStorageFileChecksum(
+        storagePaths.filesRoot,
+        storageKey,
+      );
+    } catch {
+      oldChecksum = null;
+    }
+    const readyData = {
+      status: "ready",
       storageKey,
       fileName,
-      BigInt(size),
-      filesToZip.length,
-    );
+      sizeBytes: String(size),
+      fileCount: filesToZip.length,
+      error: null,
+    };
+    await runWorkerStorageMutation({
+      mutationId: publishMutationId,
+      kind: "archive_publish",
+      ownerUserId: userId,
+      idempotencyKey: `archive-publish:${job.id}`,
+      storagePaths,
+      metadataOperations: [
+        {
+          action: "update",
+          entityType: "archive",
+          entityId: archiveId,
+          preRevision: archive.storageRevision,
+          data: readyData,
+        },
+      ],
+      steps: buildArtifactPublishSteps({
+        mutationId: publishMutationId,
+        tmpKey,
+        storageKey,
+        sizeBytes: BigInt(size),
+        checksum,
+        oldChecksum,
+      }),
+      entities: [
+        ...filesToZip.map((file) => ({
+          entityType: "file" as const,
+          entityId: file.id,
+          preRevision: file.storageRevision,
+          postRevision: file.storageRevision,
+          beforeJson: null,
+          afterJson: null,
+        })),
+        ...allFolders
+          .filter((folder) => allDescendantFolderIds.has(folder.id))
+          .map((folder) => ({
+            entityType: "folder" as const,
+            entityId: folder.id,
+            preRevision: folder.storageRevision,
+            postRevision: folder.storageRevision,
+            beforeJson: null,
+            afterJson: null,
+          })),
+        {
+          entityType: "archive",
+          entityId: archiveId,
+          preRevision: archive.storageRevision,
+          postRevision: archive.storageRevision + 1,
+          beforeJson: { status: archive.status },
+          afterJson: readyData,
+        },
+      ],
+    });
     await context?.updateProgress({ stage: "ready", archiveId });
   } catch (error) {
+    if (error instanceof StorageMutationOwnedError) {
+      throw error;
+    }
     await rm(tmpPath, { force: true });
     const message =
       error instanceof Error ? error.message : "Unknown zip error.";

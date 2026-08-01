@@ -3,6 +3,10 @@ import { createRangeResponseFromPath } from "@/server/downloads/range-response";
 import { prismaFilesRepository } from "@/server/files/repository";
 import { ShareError, isShareError } from "@/server/sharing/errors";
 import type { ShareDownloadResult } from "@/server/sharing/types";
+import {
+  assertStorageEntityReadable,
+  StorageEntityUnavailableError,
+} from "@/server/storage-read-guard";
 
 const buildAttachmentDisposition = (fileName: string) =>
   `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`;
@@ -11,6 +15,7 @@ export const createFileDownloadResponse = async (
   { file, contentType, contentLength }: ShareDownloadResult,
   request: Request,
 ): Promise<Response> => {
+  await assertStorageEntityReadable("file", file.id);
   const response = await createRangeResponseFromPath(
     request,
     getStoragePath(file.storageKey),
@@ -47,6 +52,15 @@ export const createArchiveResponse = ({
   });
 
 export const createShareErrorResponse = (error: unknown) => {
+  if (error instanceof StorageEntityUnavailableError) {
+    return new Response(error.message, {
+      status: error.status,
+      headers: {
+        "content-type": "text/plain; charset=utf-8",
+        "X-Storage-Mutation-Id": error.mutationId,
+      },
+    });
+  }
   const normalized = isShareError(error)
     ? error
     : new ShareError("SHARE_INVALID");

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import {
   ShareErrorView,
@@ -13,6 +13,7 @@ import { ShareError, isShareError } from "@/server/sharing/errors";
 import { getSharePageMetadata } from "@/server/sharing/metadata";
 import { getPublicShareFilePreview } from "@/server/sharing/public-file-preview";
 import { sharingService } from "@/server/sharing/service";
+import { StorageEntityUnavailableError } from "@/server/storage-read-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -102,6 +103,12 @@ export default async function SharedNestedFilePage({
       />
     );
   } catch (error) {
+    if (error instanceof StorageEntityUnavailableError) {
+      const returnTo = `/s/${encodeURIComponent(token)}/files/${fileId}`;
+      redirect(
+        `/s/${encodeURIComponent(token)}/storage-unavailable?fileId=${encodeURIComponent(fileId)}&returnTo=${encodeURIComponent(returnTo)}`,
+      );
+    }
     if (isShareError(error)) {
       return <ShareErrorView error={error} />;
     }

@@ -33,6 +33,7 @@ import { UploadTaskPool } from "@/lib/transfers/upload-task-pool";
 
 export type UploadingFile = {
   clientKey: string;
+  storageMutationKey: string;
   name: string;
   size: number;
   status: "uploading" | "done" | "error";
@@ -520,6 +521,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
 
   const uploadSingleFile = async (
     clientKey: string,
+    storageMutationKey: string,
     file: File,
     folderId: string,
     currentPath: string,
@@ -542,6 +544,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
         url: "/api/files/files",
         body: formData,
         signal,
+        headers: { "Idempotency-Key": storageMutationKey },
         onProgress: (loaded, total) => {
           const progress = Math.round((loaded / total) * 100);
           const elapsed = (Date.now() - startTime) / 1000;
@@ -908,6 +911,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
 
   const startUpload = (
     clientKey: string,
+    storageMutationKey: string,
     file: File,
     folderId: string,
     currentPath: string,
@@ -921,6 +925,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
     } else {
       void uploadSingleFile(
         clientKey,
+        storageMutationKey,
         file,
         folderId,
         currentPath,
@@ -936,10 +941,12 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
   ) => {
     for (const file of files) {
       const clientKey = randomClientId();
+      const storageMutationKey = crypto.randomUUID();
       setUploadingFiles((prev) => [
         ...prev,
         {
           clientKey,
+          storageMutationKey,
           name: file.name,
           size: file.size,
           status: "uploading",
@@ -950,7 +957,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
           folderId,
         },
       ]);
-      startUpload(clientKey, file, folderId, currentPath);
+      startUpload(clientKey, storageMutationKey, file, folderId, currentPath);
     }
   };
 
@@ -983,7 +990,13 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
           : f,
       ),
     );
-    startUpload(clientKey, file.fileRef, file.folderId, "");
+    startUpload(
+      clientKey,
+      file.storageMutationKey,
+      file.fileRef,
+      file.folderId,
+      "",
+    );
   };
 
   return (

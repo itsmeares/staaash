@@ -194,6 +194,12 @@ export function FilesRow(props: FilesRowProps) {
 
   // ---- Name ----
   const name = props.data.name;
+  const mutationLabel = props.data.storageMutation
+    ? props.data.storageMutation.status === "recovery_required"
+      ? "Recovery required"
+      : "Finishing storage operation"
+    : null;
+  const storageMutationBlocked = mutationLabel !== null;
 
   // ---- Meta ----
   // Format on the client only — server's timezone diverges from the browser's
@@ -351,24 +357,34 @@ export function FilesRow(props: FilesRowProps) {
 
   return (
     <>
-      <DashboardItemContextMenu groups={contextGroups}>
+      <DashboardItemContextMenu
+        groups={storageMutationBlocked ? [] : contextGroups}
+      >
         <div
           ref={rowRef}
           data-file-row={props.data.id}
           className={rowClasses}
-          draggable={!touchMode && !isRenaming}
+          draggable={!storageMutationBlocked && !touchMode && !isRenaming}
           onClick={handleRowClick}
-          onContextMenu={onContextMenu}
+          onContextMenu={storageMutationBlocked ? undefined : onContextMenu}
           onDoubleClick={touchMode ? undefined : onOpen}
-          onDragStart={onDragStart}
-          onDragEnd={onDragEnd}
+          onDragStart={storageMutationBlocked ? undefined : onDragStart}
+          onDragEnd={storageMutationBlocked ? undefined : onDragEnd}
           onDragOver={
-            props.kind === "folder" ? props.onMoveDragOver : undefined
+            props.kind === "folder" && !storageMutationBlocked
+              ? props.onMoveDragOver
+              : undefined
           }
           onDragLeave={
-            props.kind === "folder" ? props.onMoveDragLeave : undefined
+            props.kind === "folder" && !storageMutationBlocked
+              ? props.onMoveDragLeave
+              : undefined
           }
-          onDrop={props.kind === "folder" ? props.onMoveDrop : undefined}
+          onDrop={
+            props.kind === "folder" && !storageMutationBlocked
+              ? props.onMoveDrop
+              : undefined
+          }
           onPointerCancel={clearLongPressTimer}
           onPointerDown={handlePointerDown}
           onPointerLeave={clearLongPressTimer}
@@ -416,6 +432,15 @@ export function FilesRow(props: FilesRowProps) {
                 <span className="explorer-row-name" title={name}>
                   {name}
                 </span>
+                {mutationLabel && (
+                  <span
+                    className="explorer-row-meta"
+                    aria-label={mutationLabel}
+                    title={`Mutation ${props.data.storageMutation?.id}`}
+                  >
+                    {mutationLabel}
+                  </span>
+                )}
                 {shareProps.share?.status === "active" && (
                   <Share2
                     size={10}
@@ -441,26 +466,30 @@ export function FilesRow(props: FilesRowProps) {
             {date}
           </span>
 
-          <button
-            aria-label={`Actions for ${name}`}
-            className="explorer-row-mobile-action"
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              onContextMenu();
-              setActionSheetOpen(true);
-            }}
-          >
-            <MoreHorizontal size={16} aria-hidden />
-          </button>
+          {!storageMutationBlocked && (
+            <button
+              aria-label={`Actions for ${name}`}
+              className="explorer-row-mobile-action"
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onContextMenu();
+                setActionSheetOpen(true);
+              }}
+            >
+              <MoreHorizontal size={16} aria-hidden />
+            </button>
+          )}
         </div>
       </DashboardItemContextMenu>
-      <WorkspaceActionSheet
-        groups={contextGroups}
-        itemName={name}
-        open={actionSheetOpen}
-        onOpenChange={setActionSheetOpen}
-      />
+      {!storageMutationBlocked && (
+        <WorkspaceActionSheet
+          groups={contextGroups}
+          itemName={name}
+          open={actionSheetOpen}
+          onOpenChange={setActionSheetOpen}
+        />
+      )}
     </>
   );
 }

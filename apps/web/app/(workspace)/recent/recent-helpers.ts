@@ -24,6 +24,7 @@ export type RecentClientItem = {
   name: string;
   parentId?: string | null;
   sizeBytes?: number;
+  storageMutationStatus?: string;
   uploadedAt: string;
 };
 
@@ -64,6 +65,7 @@ export function toRecentClientItem(item: RetrievalItem): RecentClientItem {
     name: item.name,
     parentId: item.kind === "folder" ? item.parentId : undefined,
     sizeBytes: item.kind === "file" ? item.sizeBytes : undefined,
+    storageMutationStatus: item.storageMutation?.status,
     uploadedAt: item.updatedAt.toISOString(),
   };
 }

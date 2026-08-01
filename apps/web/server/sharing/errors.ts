@@ -6,6 +6,7 @@ export type ShareErrorCode =
   | "SHARE_NOT_FOUND"
   | "SHARE_PASSWORD_INVALID"
   | "SHARE_PASSWORD_REQUIRED"
+  | "SHARE_STORAGE_UNAVAILABLE"
   | "SHARE_TARGET_UNAVAILABLE";
 
 const shareErrorMessages: Record<ShareErrorCode, string> = {
@@ -16,6 +17,8 @@ const shareErrorMessages: Record<ShareErrorCode, string> = {
   SHARE_NOT_FOUND: "That shared link could not be found.",
   SHARE_PASSWORD_INVALID: "That password did not unlock the shared link.",
   SHARE_PASSWORD_REQUIRED: "That shared link requires a password.",
+  SHARE_STORAGE_UNAVAILABLE:
+    "That shared item is temporarily unavailable while storage recovery finishes.",
   SHARE_TARGET_UNAVAILABLE: "That shared item is currently unavailable.",
 };
 
@@ -27,6 +30,7 @@ const shareErrorStatuses: Record<ShareErrorCode, number> = {
   SHARE_NOT_FOUND: 404,
   SHARE_PASSWORD_INVALID: 401,
   SHARE_PASSWORD_REQUIRED: 401,
+  SHARE_STORAGE_UNAVAILABLE: 503,
   SHARE_TARGET_UNAVAILABLE: 410,
 };
 

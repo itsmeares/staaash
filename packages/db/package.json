@@ -46,6 +46,14 @@
     "./upload-sessions": {
       "types": "./dist/upload-sessions.d.ts",
       "default": "./dist/upload-sessions.js"
+    },
+    "./storage-mutations": {
+      "types": "./dist/storage-mutations.d.ts",
+      "default": "./dist/storage-mutations.js"
+    },
+    "./storage-mutation-executor": {
+      "types": "./dist/storage-mutation-executor.d.ts",
+      "default": "./dist/storage-mutation-executor.js"
     }
   },
   "scripts": {

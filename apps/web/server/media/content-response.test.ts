@@ -7,6 +7,10 @@ const getStoragePathMock = vi.fn();
 const markFileStorageMissingMock = vi.fn();
 const convertHeicToJpegMock = vi.fn();
 
+vi.mock("@/server/storage-read-guard", () => ({
+  assertStorageEntityReadable: vi.fn(async () => undefined),
+}));
+
 vi.mock("node:fs/promises", () => ({
   open: openMock,
 }));

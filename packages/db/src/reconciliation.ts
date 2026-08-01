@@ -11,6 +11,15 @@ export type RestoreReconciliationMissingOriginal = {
 export type RestoreReconciliationIssueDetails = {
   missingOriginals: RestoreReconciliationMissingOriginal[];
   orphanedStorageKeys: string[];
+  mutationTrackedStorageKeys?: string[];
+  recoveryRequiredMutations?: Array<{
+    id: string;
+    kind: string;
+  }>;
+  checksumMismatches?: Array<{
+    fileId: string;
+    storageKey: string;
+  }>;
 };
 
 export type RestoreReconciliationRunRecord = {
@@ -50,6 +59,36 @@ const emptyDetails = (): RestoreReconciliationIssueDetails => ({
   orphanedStorageKeys: [],
 });
 
+const stringsFrom = (value: unknown) =>
+  Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+
+const missingOriginalsFrom = (
+  value: unknown,
+): RestoreReconciliationMissingOriginal[] =>
+  Array.isArray(value)
+    ? value.flatMap((item) => {
+        if (!item || typeof item !== "object") return [];
+        const row = item as Record<string, unknown>;
+        return typeof row.fileId === "string" &&
+          typeof row.storageKey === "string"
+          ? [{ fileId: row.fileId, storageKey: row.storageKey }]
+          : [];
+      })
+    : [];
+
+const recoveryMutationsFrom = (value: unknown) =>
+  Array.isArray(value)
+    ? value.flatMap((item) => {
+        if (!item || typeof item !== "object") return [];
+        const row = item as Record<string, unknown>;
+        return typeof row.id === "string" && typeof row.kind === "string"
+          ? [{ id: row.id, kind: row.kind }]
+          : [];
+      })
+    : [];
+
 const normalizeDetails = (
   value: unknown,
 ): RestoreReconciliationIssueDetails => {
@@ -60,41 +99,31 @@ const normalizeDetails = (
   const candidate = value as {
     missingOriginals?: unknown;
     orphanedStorageKeys?: unknown;
+    mutationTrackedStorageKeys?: unknown;
+    recoveryRequiredMutations?: unknown;
+    checksumMismatches?: unknown;
   };
 
-  return {
-    missingOriginals: Array.isArray(candidate.missingOriginals)
-      ? candidate.missingOriginals.flatMap((item) => {
-          if (!item || typeof item !== "object") {
-            return [];
-          }
-
-          const missingOriginal = item as {
-            fileId?: unknown;
-            storageKey?: unknown;
-          };
-
-          if (
-            typeof missingOriginal.fileId !== "string" ||
-            typeof missingOriginal.storageKey !== "string"
-          ) {
-            return [];
-          }
-
-          return [
-            {
-              fileId: missingOriginal.fileId,
-              storageKey: missingOriginal.storageKey,
-            },
-          ];
-        })
-      : [],
-    orphanedStorageKeys: Array.isArray(candidate.orphanedStorageKeys)
-      ? candidate.orphanedStorageKeys.filter(
-          (item): item is string => typeof item === "string",
-        )
-      : [],
+  const details: RestoreReconciliationIssueDetails = {
+    missingOriginals: missingOriginalsFrom(candidate.missingOriginals),
+    orphanedStorageKeys: stringsFrom(candidate.orphanedStorageKeys),
   };
+  if (Array.isArray(candidate.mutationTrackedStorageKeys)) {
+    details.mutationTrackedStorageKeys = stringsFrom(
+      candidate.mutationTrackedStorageKeys,
+    );
+  }
+  if (Array.isArray(candidate.recoveryRequiredMutations)) {
+    details.recoveryRequiredMutations = recoveryMutationsFrom(
+      candidate.recoveryRequiredMutations,
+    );
+  }
+  if (Array.isArray(candidate.checksumMismatches)) {
+    details.checksumMismatches = missingOriginalsFrom(
+      candidate.checksumMismatches,
+    );
+  }
+  return details;
 };
 
 const toRunRecord = (

@@ -1,7 +1,5 @@
 "use server";
 
-import { rm } from "node:fs/promises";
-
 import { revalidatePath } from "next/cache";
 
 import { getPrisma } from "@staaash/db/client";
@@ -15,6 +13,8 @@ import {
 
 import { requireOwnerPageSession } from "@/server/auth/guards";
 import { getStoragePath } from "@/server/storage";
+import { runDurableStorageMutation } from "@/server/durable-storage-mutation";
+import { calculateStorageFileChecksum } from "@staaash/db/storage-mutation-executor";
 
 const revalidateDerivativeViews = () => {
   revalidatePath("/admin/jobs");
@@ -130,16 +130,55 @@ export async function removeDerivative(
   }
 
   const db = getPrisma();
-  const derivative = await db.mediaDerivative.findUnique({ where: { id } });
+  const derivative = await db.mediaDerivative.findUnique({
+    where: { id },
+    include: { file: { select: { ownerUserId: true } } },
+  });
   if (!derivative) {
     return { error: "Preview file not found." };
   }
 
   if (derivative.storageKey) {
-    await rm(getStoragePath(derivative.storageKey), { force: true });
+    const checksum = await calculateStorageFileChecksum(
+      getStoragePath(""),
+      derivative.storageKey,
+    );
+    await runDurableStorageMutation({
+      kind: "derivative_purge",
+      ownerUserId: derivative.file.ownerUserId,
+      idempotencyKey: `admin-derivative-purge:${id}:${derivative.storageRevision}`,
+      metadataOperations: [
+        {
+          action: "update",
+          entityType: "derivative",
+          entityId: id,
+          preRevision: derivative.storageRevision,
+          data: { status: "stale", storageKey: null, sizeBytes: null },
+        },
+      ],
+      steps: [
+        {
+          action: "delete_file",
+          targetKey: derivative.storageKey,
+          expectedNodeType: "file",
+          expectedSizeBytes: derivative.sizeBytes,
+          expectedChecksum: checksum,
+        },
+      ],
+      entities: [
+        {
+          entityType: "derivative",
+          entityId: id,
+          preRevision: derivative.storageRevision,
+          postRevision: derivative.storageRevision + 1,
+          beforeJson: { storageKey: derivative.storageKey },
+          afterJson: { status: "stale" },
+        },
+      ],
+    });
+  } else {
+    await markDerivativeStale(id);
   }
-
-  await markDerivativeStale(id);
   revalidateDerivativeViews();
   return { success: true };
 }

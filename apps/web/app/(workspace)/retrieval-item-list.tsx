@@ -24,6 +24,117 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
+const getStorageMutationLabel = (item: RetrievalItem) => {
+  if (!item.storageMutation) return null;
+  return item.storageMutation.status === "recovery_required"
+    ? "Recovery required"
+    : "Finishing storage operation";
+};
+
+function RetrievalName({
+  item,
+  blocked,
+}: {
+  item: RetrievalItem;
+  blocked: boolean;
+}) {
+  if (blocked) {
+    return <span className="retrieval-row-name">{item.name}</span>;
+  }
+  if (item.kind === "folder") {
+    return (
+      <Link className="retrieval-row-name" href={item.href}>
+        {item.name}
+      </Link>
+    );
+  }
+  return (
+    <a className="retrieval-row-name" href={item.href}>
+      {item.name}
+    </a>
+  );
+}
+
+function RetrievalBadges({
+  item,
+  mutationLabel,
+  showMatchKind,
+}: {
+  item: RetrievalItem;
+  mutationLabel: string | null;
+  showMatchKind: boolean;
+}) {
+  return (
+    <div className="retrieval-row-badges">
+      {showMatchKind && item.matchKind ? (
+        <span className="pill pill-sm">{item.matchKind}</span>
+      ) : null}
+      {mutationLabel ? (
+        <span className="pill pill-sm">{mutationLabel}</span>
+      ) : null}
+      <span className="pill pill-sm">
+        {item.kind === "folder" ? "Folder" : "File"}
+      </span>
+      {item.isFavorite ? (
+        <span
+          className="retrieval-row-favorite-dot"
+          role="img"
+          aria-label="Favorited"
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function RetrievalMeta({ item }: { item: RetrievalItem }) {
+  return (
+    <span className="retrieval-row-meta">
+      {formatDateTime(item.updatedAt)}
+      {item.kind === "file"
+        ? ` · ${formatFileSize(item.sizeBytes)}`
+        : ` · ${item.pathLabel}`}
+    </span>
+  );
+}
+
+function RetrievalActions({
+  item,
+  currentPath,
+  blocked,
+}: {
+  item: RetrievalItem;
+  currentPath: string;
+  blocked: boolean;
+}) {
+  if (blocked) return null;
+  const collection = item.kind === "folder" ? "folders" : "files";
+  const nextFavorite = item.isFavorite ? "false" : "true";
+  return (
+    <div className="retrieval-row-actions">
+      {item.kind === "folder" ? (
+        <Link className="button button-secondary button-sm" href={item.href}>
+          Open
+        </Link>
+      ) : (
+        <a className="button button-secondary button-sm" href={item.href}>
+          Download
+        </a>
+      )}
+      <form
+        action={`/api/files/${collection}/${item.id}/favorite`}
+        method="post"
+        className="inline-form"
+      >
+        <input name="redirectTo" type="hidden" value={currentPath} />
+        <input name="isFavorite" type="hidden" value={nextFavorite} />
+        <button className="button button-secondary button-sm" type="submit">
+          {getFavoriteActionLabel(item)}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 export function RetrievalItemList({
   items,
   currentPath,
@@ -44,17 +155,10 @@ export function RetrievalItemList({
 
   return (
     <div className="retrieval-list">
-      {items.map((item) => (
-        <ItemContextMenu
-          href={item.href}
-          id={item.id}
-          isFavorite={item.isFavorite}
-          key={`${item.kind}-${item.id}`}
-          kind={item.kind}
-          name={item.name}
-          redirectTo={currentPath}
-        >
-          <article className="retrieval-row">
+      {items.map((item) => {
+        const mutationLabel = getStorageMutationLabel(item);
+        const row = (
+          <article className="retrieval-row" key={`${item.kind}-${item.id}`}>
             <div className="retrieval-row-main">
               <ItemTypeIcon
                 tone="plain"
@@ -64,82 +168,40 @@ export function RetrievalItemList({
                 )}
               />
               <div className="retrieval-row-name-wrap">
-                {item.kind === "folder" ? (
-                  <Link className="retrieval-row-name" href={item.href}>
-                    {item.name}
-                  </Link>
-                ) : (
-                  <a className="retrieval-row-name" href={item.href}>
-                    {item.name}
-                  </a>
-                )}
+                <RetrievalName item={item} blocked={Boolean(mutationLabel)} />
               </div>
-
-              <div className="retrieval-row-badges">
-                {showMatchKind && item.matchKind ? (
-                  <span className="pill pill-sm">{item.matchKind}</span>
-                ) : null}
-                <span className="pill pill-sm">
-                  {item.kind === "folder" ? "Folder" : "File"}
-                </span>
-                {item.isFavorite ? (
-                  <span
-                    className="retrieval-row-favorite-dot"
-                    role="img"
-                    aria-label="Favorited"
-                  />
-                ) : null}
-              </div>
+              <RetrievalBadges
+                item={item}
+                mutationLabel={mutationLabel}
+                showMatchKind={showMatchKind}
+              />
             </div>
 
             <div className="retrieval-row-sub">
-              <span className="retrieval-row-meta">
-                {formatDateTime(item.updatedAt)}
-                {item.kind === "file"
-                  ? ` · ${formatFileSize(item.sizeBytes)}`
-                  : ` · ${item.pathLabel}`}
-              </span>
-
-              <div className="retrieval-row-actions">
-                {item.kind === "folder" ? (
-                  <Link
-                    className="button button-secondary button-sm"
-                    href={item.href}
-                  >
-                    Open
-                  </Link>
-                ) : (
-                  <a
-                    className="button button-secondary button-sm"
-                    href={item.href}
-                  >
-                    Download
-                  </a>
-                )}
-
-                <form
-                  action={`/api/files/${item.kind === "folder" ? "folders" : "files"}/${item.id}/favorite`}
-                  method="post"
-                  className="inline-form"
-                >
-                  <input name="redirectTo" type="hidden" value={currentPath} />
-                  <input
-                    name="isFavorite"
-                    type="hidden"
-                    value={item.isFavorite ? "false" : "true"}
-                  />
-                  <button
-                    className="button button-secondary button-sm"
-                    type="submit"
-                  >
-                    {getFavoriteActionLabel(item)}
-                  </button>
-                </form>
-              </div>
+              <RetrievalMeta item={item} />
+              <RetrievalActions
+                item={item}
+                currentPath={currentPath}
+                blocked={Boolean(mutationLabel)}
+              />
             </div>
           </article>
-        </ItemContextMenu>
-      ))}
+        );
+        if (mutationLabel) return row;
+        return (
+          <ItemContextMenu
+            href={item.href}
+            id={item.id}
+            isFavorite={item.isFavorite}
+            key={`${item.kind}-${item.id}`}
+            kind={item.kind}
+            name={item.name}
+            redirectTo={currentPath}
+          >
+            {row}
+          </ItemContextMenu>
+        );
+      })}
     </div>
   );
 }

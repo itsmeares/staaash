@@ -9,7 +9,13 @@ import {
   createMediaErrorResponse,
   MediaContentError,
 } from "@/server/media/content-response";
+import {
+  createStorageEntityUnavailableResponse,
+  StorageEntityUnavailableError,
+} from "@/server/storage-read-guard";
 
+// Poster routes intentionally share public-share validation and byte responses.
+// fallow-ignore-next-line code-duplication
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ token: string }> },
@@ -25,6 +31,9 @@ export async function GET(
         cookieStore.get(SHARE_ACCESS_COOKIE_NAME)?.value ?? null,
     });
   } catch (error) {
+    if (error instanceof StorageEntityUnavailableError) {
+      return createStorageEntityUnavailableResponse(error);
+    }
     if (error instanceof MediaContentError) {
       return createMediaErrorResponse(error);
     }

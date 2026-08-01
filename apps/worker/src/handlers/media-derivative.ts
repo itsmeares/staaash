@@ -1,5 +1,5 @@
 import path from "node:path";
-import { mkdir, rename, rm, stat } from "node:fs/promises";
+import { access, mkdir, rm, stat } from "node:fs/promises";
 
 import { getPrisma } from "@staaash/db/client";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
@@ -15,6 +15,8 @@ import {
   markDerivativeReady,
   upsertDerivativeQueued,
 } from "@staaash/db/media-derivatives";
+import { calculateStorageFileChecksum } from "@staaash/db/storage-mutation-executor";
+import { findBlockingStorageMutationForEntity } from "@staaash/db/storage-mutations";
 
 import type { WorkerStoragePaths } from "../storage-maintenance.js";
 import type { JobContext } from "../job-context.js";
@@ -27,6 +29,12 @@ import {
   runFfmpegTranscode,
   runFfprobe,
 } from "../ffmpeg.js";
+import {
+  assertWorkerMutationMayStart,
+  buildArtifactPublishSteps,
+  runWorkerStorageMutation,
+  StorageMutationOwnedError,
+} from "../durable-storage-mutation.js";
 
 type FileRecord = {
   id: string;
@@ -35,6 +43,7 @@ type FileRecord = {
   sizeBytes: bigint;
   storageKey: string;
   deletedAt: Date | null;
+  storageRevision: number;
 };
 
 type SystemSettingsRecord = {
@@ -52,7 +61,11 @@ type PrismaClient = {
     findUnique(args: object): Promise<SystemSettingsRecord | null>;
   };
   mediaDerivative: {
-    findUnique(args: object): Promise<{ id: string; status: string } | null>;
+    findUnique(args: object): Promise<{
+      id: string;
+      status: string;
+      storageRevision?: number;
+    } | null>;
     upsert(args: object): Promise<{ id: string; status: string }>;
     update(args: object): Promise<{ id: string; status: string }>;
   };
@@ -129,6 +142,7 @@ export const handleMediaDerivativeGenerate = async (
       sizeBytes: true,
       storageKey: true,
       deletedAt: true,
+      storageRevision: true,
     } as object,
   });
 
@@ -159,6 +173,10 @@ export const handleMediaDerivativeGenerate = async (
   }
 
   const derivative = await upsertDerivativeQueued(file.id, kind, profile);
+  const publishMutationId = `derivative-publish-${derivative.id}-${job.id}`;
+  if ((await assertWorkerMutationMayStart(publishMutationId)) === "succeeded") {
+    return false;
+  }
 
   await (getPrisma() as unknown as PrismaClient).mediaDerivative.update({
     where: { id: derivative.id },
@@ -169,6 +187,16 @@ export const handleMediaDerivativeGenerate = async (
     storagePaths.filesRoot,
     file.storageKey,
   );
+  const blockingInputMutation = await findBlockingStorageMutationForEntity({
+    entityType: "file",
+    entityId: file.id,
+  });
+  if (blockingInputMutation) {
+    throw new StorageMutationOwnedError(
+      blockingInputMutation.mutation.id,
+      new Error("Source file has an unfinished storage mutation."),
+    );
+  }
   const storageKey = buildDerivativeStorageKey(
     file.ownerUserId,
     file.id,
@@ -256,16 +284,15 @@ export const handleMediaDerivativeGenerate = async (
 
   try {
     await context?.updateProgress({ stage: "committing", fileId: file.id });
-    await mkdir(path.dirname(outputPath), { recursive: true });
-    await rename(tmpPath, outputPath);
+    await access(tmpPath);
   } catch (err) {
     await rm(tmpPath, { force: true });
     await markDerivativeFailed(derivative.id, String(err));
     throw err;
   }
 
-  const outputStats = await stat(outputPath);
-  const outputProbe = await runFfprobe(outputPath);
+  const outputStats = await stat(tmpPath);
+  const outputProbe = await runFfprobe(tmpPath);
   const visualStream = outputProbe.streams.find(
     (s) => s.codec_type === "video",
   );
@@ -285,20 +312,82 @@ export const handleMediaDerivativeGenerate = async (
     select: { status: true } as object,
   });
   if (current?.status === DERIVATIVE_STATUS_STALE) {
-    await rm(outputPath, { force: true });
+    await rm(tmpPath, { force: true });
     return true;
   }
 
-  await markDerivativeReady(derivative.id, {
+  const tmpKey = path
+    .relative(storagePaths.filesRoot, tmpPath)
+    .split(path.sep)
+    .join("/");
+  const newChecksum = await calculateStorageFileChecksum(
+    storagePaths.filesRoot,
+    tmpKey,
+  );
+  let oldChecksum: string | null = null;
+  try {
+    oldChecksum = await calculateStorageFileChecksum(
+      storagePaths.filesRoot,
+      storageKey,
+    );
+  } catch {
+    oldChecksum = null;
+  }
+  const generatedAt = job.createdAt;
+  const readyData = {
     storageKey,
     mimeType: isPoster ? "image/jpeg" : "video/mp4",
-    sizeBytes: BigInt(outputStats.size),
+    sizeBytes: String(outputStats.size),
     width: visualStream?.width ?? null,
     height: visualStream?.height ?? null,
     durationSeconds: Number.isFinite(durationSeconds) ? durationSeconds : null,
     videoCodec: isPoster ? null : (visualStream?.codec_name ?? null),
     audioCodec: audioStream?.codec_name ?? null,
-    generatedAt: new Date(),
+    generatedAt: generatedAt.toISOString(),
+    status: "ready",
+    error: null,
+  };
+  await runWorkerStorageMutation({
+    mutationId: publishMutationId,
+    kind: "derivative_publish",
+    ownerUserId: file.ownerUserId,
+    idempotencyKey: `derivative-publish:${job.id}`,
+    storagePaths,
+    metadataOperations: [
+      {
+        action: "update",
+        entityType: "derivative",
+        entityId: derivative.id,
+        preRevision: derivative.storageRevision ?? 0,
+        data: readyData,
+      },
+    ],
+    steps: buildArtifactPublishSteps({
+      mutationId: publishMutationId,
+      tmpKey,
+      storageKey,
+      sizeBytes: BigInt(outputStats.size),
+      checksum: newChecksum,
+      oldChecksum,
+    }),
+    entities: [
+      {
+        entityType: "file",
+        entityId: file.id,
+        preRevision: file.storageRevision,
+        postRevision: file.storageRevision,
+        beforeJson: null,
+        afterJson: null,
+      },
+      {
+        entityType: "derivative",
+        entityId: derivative.id,
+        preRevision: derivative.storageRevision ?? 0,
+        postRevision: (derivative.storageRevision ?? 0) + 1,
+        beforeJson: { status: derivative.status },
+        afterJson: readyData,
+      },
+    ],
   });
 
   await context?.updateProgress({ stage: "ready", fileId: file.id });

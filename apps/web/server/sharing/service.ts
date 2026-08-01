@@ -1,3 +1,5 @@
+// Share resolution variants intentionally enforce the same download policy.
+// fallow-ignore-file code-duplication
 import { createHash, randomBytes } from "node:crypto";
 
 import type { ShareTargetType } from "@staaash/db/client";
@@ -26,6 +28,12 @@ import {
   buildFolderMap,
   buildFolderPathLabel,
 } from "@/server/files/path-labels";
+import {
+  assertStorageEntityReadable,
+  getStorageMutationStateMap,
+  StorageEntityUnavailableError,
+} from "@/server/storage-read-guard";
+import { StorageProtocolNotReadyError } from "@/server/durable-storage-mutation";
 
 import { createSharedFolderArchive } from "./archive";
 import {
@@ -321,16 +329,20 @@ export const createSharingService = ({
   };
 
   const resolveFilesState = async (ownerUserId: string) => {
-    const filesRepo = await resolveFilesRepo();
+    const activeFilesRepo = await resolveFilesRepo();
+    const filesRootPromise = filesRepo
+      ? activeFilesRepo.ensureFilesRoot(ownerUserId)
+      : activeFilesRepo.findFilesRoot?.(ownerUserId);
     const [filesRoot, folders, files] = await Promise.all([
-      filesRepo.ensureFilesRoot(ownerUserId),
-      filesRepo.listFoldersByOwner(ownerUserId, {
+      filesRootPromise,
+      activeFilesRepo.listFoldersByOwner(ownerUserId, {
         includeDeleted: true,
       }),
-      filesRepo.listFilesByOwner(ownerUserId, {
+      activeFilesRepo.listFilesByOwner(ownerUserId, {
         includeDeleted: true,
       }),
     ]);
+    if (!filesRoot) throw new StorageProtocolNotReadyError();
 
     return {
       filesRoot,
@@ -961,6 +973,7 @@ export const createSharingService = ({
           file,
           folderMap: rootState.folderMap,
         });
+        await assertStorageEntityReadable("file", file!.id);
 
         return {
           kind: "file",
@@ -977,6 +990,7 @@ export const createSharingService = ({
         folder: rootFolder,
         folderMap: rootState.folderMap,
       });
+      await assertStorageEntityReadable("folder", rootFolder!.id);
 
       const currentFolder = requestedFolderId
         ? await filesRepo.findFolderById(requestedFolderId)
@@ -1023,6 +1037,39 @@ export const createSharingService = ({
         });
       }
 
+      const childFolders = access.isUnlocked
+        ? rootState.folders.filter(
+            (folder) =>
+              folder.parentId === currentFolder.id && !folder.deletedAt,
+          )
+        : [];
+      const files = access.isUnlocked
+        ? rootState.files
+            .filter((file) => file.folderId === currentFolder.id)
+            .filter(
+              (file) =>
+                !isFileDeletedInTree({
+                  file,
+                  folderMap: rootState.folderMap,
+                }),
+            )
+        : [];
+      if (access.isUnlocked) {
+        const [folderStates, fileStates] = await Promise.all([
+          getStorageMutationStateMap("folder", [
+            ...trail.map((folder) => folder.id),
+            ...childFolders.map((folder) => folder.id),
+          ]),
+          getStorageMutationStateMap(
+            "file",
+            files.map((file) => file.id),
+          ),
+        ]);
+        const state =
+          [...folderStates.values(), ...fileStates.values()][0] ?? null;
+        if (state) throw new StorageEntityUnavailableError(state);
+      }
+
       return {
         kind: "folder",
         share: shareSummary,
@@ -1031,24 +1078,8 @@ export const createSharingService = ({
           rootFolder: rootFolder!,
           currentFolder,
           breadcrumbs,
-          childFolders: access.isUnlocked
-            ? rootState.folders.filter(
-                (folder) =>
-                  folder.parentId === currentFolder.id && !folder.deletedAt,
-              )
-            : [],
-          files: access.isUnlocked
-            ? rootState.files
-                .filter((file) => file.folderId === currentFolder.id)
-                .filter(
-                  (file) =>
-                    !isFileDeletedInTree({
-                      file,
-                      folderMap: rootState.folderMap,
-                    }),
-                )
-                .map(toFileSummary)
-            : [],
+          childFolders,
+          files: files.map(toFileSummary),
         },
       };
     },
@@ -1273,6 +1304,7 @@ export const createSharingService = ({
       ) {
         throw new ShareError("SHARE_ACCESS_DENIED");
       }
+      await assertStorageEntityReadable("file", file.id);
 
       return { file, downloadDisabled: resolved.share.downloadDisabled };
     },

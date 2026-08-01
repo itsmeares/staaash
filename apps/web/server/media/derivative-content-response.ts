@@ -16,6 +16,7 @@ import {
 import { getSystemSettings } from "@/server/settings";
 import { getStoragePath } from "@/server/storage";
 import type { StoredFile } from "@/server/files/types";
+import { assertStorageEntityReadable } from "@/server/storage-read-guard";
 import {
   MediaContentError,
   createInlineOriginalContentResponse,
@@ -169,9 +170,13 @@ export const createReadyDerivativeContentResponse = async ({
   fileName,
 }: {
   request: Request;
-  derivative: Pick<DerivativeRow, "storageKey" | "sizeBytes" | "mimeType">;
+  derivative: Pick<
+    DerivativeRow,
+    "id" | "storageKey" | "sizeBytes" | "mimeType"
+  >;
   fileName: string;
 }): Promise<Response> => {
+  await assertStorageEntityReadable("derivative", derivative.id);
   if (!derivative.storageKey || derivative.sizeBytes === null) {
     throw new MediaContentError(404, "Derivative content is unavailable.");
   }
@@ -201,10 +206,12 @@ export const createInlineContentResponse = async ({
   if (file.viewerKind !== "video") {
     return createInlineOriginalContentResponse({ request, file });
   }
+  await assertStorageEntityReadable("file", file.id);
 
   const derivative = await findReadyDerivativeForFile(file.id);
 
   if (derivative?.storageKey && derivative.sizeBytes !== null) {
+    await assertStorageEntityReadable("derivative", derivative.id);
     const response = await serveDerivativeBytes(
       request,
       derivative.storageKey,

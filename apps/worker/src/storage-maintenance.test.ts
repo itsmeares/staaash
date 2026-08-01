@@ -23,8 +23,8 @@ const createPendingDeleteFixture = () => {
   const root = createTempRoot();
   return {
     root,
-    pendingDeleteRoot: path.join(root, "pending-delete"),
-    originalPath: path.join(root, "trash", "file.txt"),
+    pendingDeleteRoot: path.join(root, "tmp", "pending-delete"),
+    originalPath: path.join(root, ".trash", "member-1", "file.txt"),
   };
 };
 
@@ -140,15 +140,22 @@ describe("worker storage maintenance", () => {
   it("restores quarantined deletes when the db row still exists", async () => {
     const { root, pendingDeleteRoot, originalPath } =
       createPendingDeleteFixture();
-    const quarantineBlobPath = path.join(pendingDeleteRoot, "op-1.bin");
-    const quarantineManifestPath = path.join(pendingDeleteRoot, "op-1.json");
+    const operationId = "00000000-0000-4000-8000-000000000001";
+    const quarantineBlobPath = path.join(
+      pendingDeleteRoot,
+      `${operationId}.bin`,
+    );
+    const quarantineManifestPath = path.join(
+      pendingDeleteRoot,
+      `${operationId}.json`,
+    );
     await mkdir(path.dirname(originalPath), { recursive: true });
     await mkdir(pendingDeleteRoot, { recursive: true });
     await writeFile(quarantineBlobPath, "restore me", "utf8");
     await writeFile(
       quarantineManifestPath,
       JSON.stringify({
-        operationId: "op-1",
+        operationId,
         fileId: "file-1",
         originalStorageKey: ".trash/member-1/file.txt",
         originalPath,
@@ -181,14 +188,21 @@ describe("worker storage maintenance", () => {
   it("finalizes quarantined deletes when the db row is gone", async () => {
     const { root, pendingDeleteRoot, originalPath } =
       createPendingDeleteFixture();
-    const quarantineBlobPath = path.join(pendingDeleteRoot, "op-2.bin");
-    const quarantineManifestPath = path.join(pendingDeleteRoot, "op-2.json");
+    const operationId = "00000000-0000-4000-8000-000000000002";
+    const quarantineBlobPath = path.join(
+      pendingDeleteRoot,
+      `${operationId}.bin`,
+    );
+    const quarantineManifestPath = path.join(
+      pendingDeleteRoot,
+      `${operationId}.json`,
+    );
     await mkdir(pendingDeleteRoot, { recursive: true });
     await writeFile(quarantineBlobPath, "delete me", "utf8");
     await writeFile(
       quarantineManifestPath,
       JSON.stringify({
-        operationId: "op-2",
+        operationId,
         fileId: "file-2",
         originalStorageKey: ".trash/member-1/file.txt",
         originalPath,
@@ -212,6 +226,71 @@ describe("worker storage maintenance", () => {
 
     await expect(access(quarantineBlobPath)).rejects.toBeDefined();
     await expect(access(quarantineManifestPath)).rejects.toBeDefined();
+    await rm(root, { recursive: true, force: true });
+  });
+
+  it("preserves malformed and manifestless quarantine residue", async () => {
+    const { root, pendingDeleteRoot } = createPendingDeleteFixture();
+    await mkdir(pendingDeleteRoot, { recursive: true });
+    const malformed = path.join(pendingDeleteRoot, "malformed.json");
+    const manifestless = path.join(pendingDeleteRoot, "manifestless.bin");
+    await writeFile(malformed, "{not-json", "utf8");
+    await writeFile(manifestless, "private bytes", "utf8");
+
+    await recoverPendingDeletes({
+      filesRoot: root,
+      pendingDeleteRoot,
+      client: {
+        file: {
+          async findUnique() {
+            return null;
+          },
+        },
+      },
+    });
+
+    await expect(access(malformed)).resolves.toBeUndefined();
+    await expect(access(manifestless)).resolves.toBeUndefined();
+    await rm(root, { recursive: true, force: true });
+  });
+
+  it("preserves traversal manifests and their possible bytes", async () => {
+    const { root, pendingDeleteRoot } = createPendingDeleteFixture();
+    const operationId = "00000000-0000-4000-8000-000000000003";
+    const manifestPath = path.join(pendingDeleteRoot, `${operationId}.json`);
+    const blobPath = path.join(pendingDeleteRoot, `${operationId}.bin`);
+    const outsidePath = path.resolve(root, "..", "outside-private.bin");
+    await mkdir(pendingDeleteRoot, { recursive: true });
+    await writeFile(blobPath, "private bytes", "utf8");
+    await writeFile(
+      manifestPath,
+      JSON.stringify({
+        operationId,
+        fileId: "file-3",
+        originalStorageKey: "../outside-private.bin",
+        originalPath: outsidePath,
+        quarantineBlobPath: blobPath,
+        quarantineManifestPath: manifestPath,
+        createdAt: new Date().toISOString(),
+      }),
+      "utf8",
+    );
+
+    await recoverPendingDeletes({
+      filesRoot: root,
+      pendingDeleteRoot,
+      client: {
+        file: {
+          async findUnique() {
+            return null;
+          },
+        },
+      },
+    });
+
+    await expect(access(manifestPath)).resolves.toBeUndefined();
+    await expect(access(blobPath)).resolves.toBeUndefined();
+    await expect(access(outsidePath)).rejects.toBeDefined();
     await rm(root, { recursive: true, force: true });
   });
 });

@@ -1,5 +1,6 @@
 import type { UserRole } from "@/server/types";
 import type { ViewerKind } from "@staaash/db/viewer-contract";
+import type { StorageMutationState } from "@/server/storage-read-guard";
 
 export type FilesActor = {
   actorUserId: string;
@@ -14,6 +15,9 @@ export type FolderSummary = {
   name: string;
   isFilesRoot: boolean;
   deletedAt: Date | null;
+  storageRevision?: number;
+  trashEntryId?: string | null;
+  storageMutation?: StorageMutationState | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -27,6 +31,9 @@ export type FileSummary = {
   mimeType: string;
   sizeBytes: number;
   viewerKind: ViewerKind | null;
+  storageRevision?: number;
+  trashEntryId?: string | null;
+  storageMutation?: StorageMutationState | null;
   deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -38,6 +45,7 @@ export type StoredFile = FileSummary & {
   storageCheckedAt: Date | null;
   storageMissingAt: Date | null;
   contentChecksum: string | null;
+  storageMutation?: StorageMutationState | null;
 };
 
 export type FilesBreadcrumb = {

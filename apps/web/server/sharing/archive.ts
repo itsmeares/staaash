@@ -9,6 +9,7 @@ import type {
   FolderSummary,
   StoredFile,
 } from "@/server/files/types";
+import { assertStorageEntityReadable } from "@/server/storage-read-guard";
 
 const buildFolderSegments = ({
   folder,
@@ -54,7 +55,7 @@ const buildFileArchivePath = ({
   return path.posix.join(rootFolder.name, ...segments, file.name);
 };
 
-export const createSharedFolderArchive = ({
+export const createSharedFolderArchive = async ({
   rootFolder,
   folders,
   files,
@@ -63,6 +64,13 @@ export const createSharedFolderArchive = ({
   folders: FolderSummary[];
   files: StoredFile[];
 }) => {
+  await assertStorageEntityReadable("folder", rootFolder.id);
+  await Promise.all([
+    ...folders.map((folder) =>
+      assertStorageEntityReadable("folder", folder.id),
+    ),
+    ...files.map((file) => assertStorageEntityReadable("file", file.id)),
+  ]);
   const zipFile = new yazl.ZipFile();
   const folderMap = new Map(folders.map((folder) => [folder.id, folder]));
 

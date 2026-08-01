@@ -19,10 +19,15 @@ const PUBLIC_SHARE_CONTENT_SECURITY_POLICY =
 
 const mocks = vi.hoisted(() => ({
   findFirst: vi.fn(),
+  assertStorageEntityReadable: vi.fn(async () => undefined),
   getStoragePath: vi.fn(),
   markFileStorageMissing: vi.fn(),
   scheduleDerivativeGenerate: vi.fn(),
   touchDerivativeViewed: vi.fn(),
+}));
+
+vi.mock("@/server/storage-read-guard", () => ({
+  assertStorageEntityReadable: mocks.assertStorageEntityReadable,
 }));
 
 vi.mock("@staaash/db/client", () => ({
@@ -118,6 +123,7 @@ describe("public derivative content responses", () => {
       }),
       downloadDisabled: false,
       derivative: {
+        id: "derivative-1",
         storageKey: "derivative",
         sizeBytes: 10n,
         mimeType: "ViDeO/Mp4; codecs=avc1",
@@ -162,6 +168,10 @@ describe("public derivative content responses", () => {
       PUBLIC_SHARE_CONTENT_SECURITY_POLICY,
     );
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(mocks.assertStorageEntityReadable).toHaveBeenCalledWith(
+      "derivative",
+      "derivative-1",
+    );
     expect(await response.text()).toBe("0123456789");
   });
 
@@ -197,6 +207,7 @@ describe("public derivative content responses", () => {
       request: new Request("http://localhost/poster"),
       downloadDisabled: false,
       derivative: {
+        id: "derivative-2",
         storageKey: "unsafeDerivative",
         sizeBytes: 21n,
         mimeType: "image/svg+xml",
@@ -226,6 +237,7 @@ describe("public derivative content responses", () => {
         request: new Request("http://localhost/poster"),
         downloadDisabled: true,
         derivative: {
+          id: "derivative-3",
           storageKey: "unsafeDerivative",
           sizeBytes: 21n,
           mimeType: "image/svg+xml",

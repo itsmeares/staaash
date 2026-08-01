@@ -4,6 +4,7 @@ import {
   mkdir,
   opendir,
   readFile,
+  realpath,
   rename,
   rm,
   writeFile,
@@ -61,6 +62,16 @@ type PendingDeleteClient = {
     }): Promise<{ id: string; storageKey: string } | null>;
   };
 };
+
+const pendingDeleteRecordSchema = z.object({
+  operationId: z.string().uuid(),
+  fileId: z.string().min(1),
+  originalStorageKey: z.string().min(1),
+  originalPath: z.string().min(1),
+  quarantineBlobPath: z.string().min(1),
+  quarantineManifestPath: z.string().min(1),
+  createdAt: z.string().datetime(),
+});
 
 export const getWorkerStoragePaths = (
   env: NodeJS.ProcessEnv = process.env,
@@ -182,21 +193,112 @@ export const cleanupExpiredStagingFiles = async ({
   }
 };
 
-const readPendingDeleteRecord = async (manifestPath: string) =>
-  JSON.parse(await readFile(manifestPath, "utf8")) as WorkerPendingDeleteRecord;
+const readPendingDeleteRecord = async (
+  manifestPath: string,
+): Promise<WorkerPendingDeleteRecord | null> => {
+  try {
+    return pendingDeleteRecordSchema.parse(
+      JSON.parse(await readFile(manifestPath, "utf8")),
+    );
+  } catch {
+    return null;
+  }
+};
+
+const isSafeStorageKey = (storageKey: string) =>
+  !storageKey.includes("\\") &&
+  !path.posix.isAbsolute(storageKey) &&
+  path.posix.normalize(storageKey) === storageKey &&
+  storageKey !== ".." &&
+  !storageKey.startsWith("../");
+
+const expectedPendingDeletePaths = ({
+  filesRoot,
+  pendingDeleteRoot,
+  record,
+}: {
+  filesRoot: string;
+  pendingDeleteRoot: string;
+  record: WorkerPendingDeleteRecord;
+}) => {
+  if (!isSafeStorageKey(record.originalStorageKey)) return null;
+  const resolvedPendingRoot = path.resolve(pendingDeleteRoot);
+  try {
+    return {
+      manifestPath: path.resolve(
+        resolvedPendingRoot,
+        `${record.operationId}.json`,
+      ),
+      blobPath: path.resolve(resolvedPendingRoot, `${record.operationId}.bin`),
+      originalPath: safeResolveStoragePath(
+        filesRoot,
+        record.originalStorageKey,
+      ),
+    };
+  } catch {
+    return null;
+  }
+};
+
+const pendingDeletePathsMatch = (
+  manifestPath: string,
+  record: WorkerPendingDeleteRecord,
+  expected: NonNullable<ReturnType<typeof expectedPendingDeletePaths>>,
+) =>
+  canonicalStoragePath(manifestPath) ===
+    canonicalStoragePath(expected.manifestPath) &&
+  canonicalStoragePath(record.quarantineManifestPath) ===
+    canonicalStoragePath(expected.manifestPath) &&
+  canonicalStoragePath(record.quarantineBlobPath) ===
+    canonicalStoragePath(expected.blobPath) &&
+  canonicalStoragePath(record.originalPath) ===
+    canonicalStoragePath(expected.originalPath);
+
+const safePendingDeleteRecord = async ({
+  filesRoot,
+  pendingDeleteRoot,
+  manifestPath,
+  record,
+}: {
+  filesRoot: string;
+  pendingDeleteRoot: string;
+  manifestPath: string;
+  record: WorkerPendingDeleteRecord;
+}) => {
+  const expected = expectedPendingDeletePaths({
+    filesRoot,
+    pendingDeleteRoot,
+    record,
+  });
+  if (!expected || !pendingDeletePathsMatch(manifestPath, record, expected))
+    return null;
+  return {
+    ...record,
+    originalPath: expected.originalPath,
+    quarantineBlobPath: expected.blobPath,
+    quarantineManifestPath: expected.manifestPath,
+  };
+};
+
+const safeNodeType = async (candidate: string) => {
+  try {
+    const info = await lstat(candidate);
+    if (info.isSymbolicLink()) return "unsafe" as const;
+    if (info.isFile()) return "file" as const;
+    if (info.isDirectory()) return "directory" as const;
+    return "unsafe" as const;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return "missing" as const;
+    }
+    throw error;
+  }
+};
 
 const restorePendingDeleteRecord = async (
   record: WorkerPendingDeleteRecord,
 ) => {
-  await mkdir(path.dirname(record.originalPath), { recursive: true });
-
-  try {
-    await rename(record.quarantineBlobPath, record.originalPath);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-      throw error;
-    }
-  }
+  await rename(record.quarantineBlobPath, record.originalPath);
 
   await rm(record.quarantineManifestPath, { force: true });
 };
@@ -208,10 +310,92 @@ const finalizePendingDeleteRecord = async (
   await rm(record.quarantineManifestPath, { force: true });
 };
 
-export const recoverPendingDeletes = async ({
+const recoverTrackedPendingDelete = async ({
+  record,
+  filesRoot,
+}: {
+  record: WorkerPendingDeleteRecord;
+  filesRoot: string;
+}) => {
+  const [blobType, originalType, parentType] = await Promise.all([
+    safeNodeType(record.quarantineBlobPath),
+    safeNodeType(record.originalPath),
+    safeNodeType(path.dirname(record.originalPath)),
+  ]);
+  if (blobType === "missing" && originalType === "file") {
+    await rm(record.quarantineManifestPath, { force: true });
+    return;
+  }
+  if (
+    blobType !== "file" ||
+    originalType !== "missing" ||
+    parentType !== "directory"
+  ) {
+    return;
+  }
+  const [realRoot, realParent] = await Promise.all([
+    realpath(filesRoot),
+    realpath(path.dirname(record.originalPath)),
+  ]);
+  if (isPathInsideRoot(realRoot, realParent)) {
+    await restorePendingDeleteRecord(record);
+  }
+};
+
+const recoverDeletedPendingDelete = async (
+  record: WorkerPendingDeleteRecord,
+) => {
+  const [blobType, originalType] = await Promise.all([
+    safeNodeType(record.quarantineBlobPath),
+    safeNodeType(record.originalPath),
+  ]);
+  if (
+    originalType === "missing" &&
+    (blobType === "file" || blobType === "missing")
+  ) {
+    await finalizePendingDeleteRecord(record);
+  }
+};
+
+const recoverPendingDeleteManifest = async ({
+  manifestPath,
   pendingDeleteRoot,
+  filesRoot,
   client,
 }: {
+  manifestPath: string;
+  pendingDeleteRoot: string;
+  filesRoot: string;
+  client: PendingDeleteClient;
+}) => {
+  const parsedRecord = await readPendingDeleteRecord(manifestPath);
+  if (!parsedRecord) return;
+  const record = await safePendingDeleteRecord({
+    filesRoot,
+    pendingDeleteRoot,
+    manifestPath,
+    record: parsedRecord,
+  });
+  if (!record) return;
+  const fileRecord = await client.file.findUnique({
+    where: { id: record.fileId },
+    select: { id: true, storageKey: true },
+  });
+  if (!fileRecord) {
+    await recoverDeletedPendingDelete(record);
+    return;
+  }
+  if (fileRecord.storageKey === record.originalStorageKey) {
+    await recoverTrackedPendingDelete({ record, filesRoot });
+  }
+};
+
+export const recoverPendingDeletes = async ({
+  pendingDeleteRoot,
+  filesRoot = path.resolve(pendingDeleteRoot, "..", ".."),
+  client,
+}: {
+  filesRoot?: string;
   pendingDeleteRoot: string;
   client?: PendingDeleteClient;
 }) => {
@@ -229,22 +413,11 @@ export const recoverPendingDeletes = async ({
     }
 
     const manifestPath = path.join(pendingDeleteRoot, entry.name);
-    const record = await readPendingDeleteRecord(manifestPath);
-    const fileRecord = await activeClient.file.findUnique({
-      where: {
-        id: record.fileId,
-      },
-      select: {
-        id: true,
-        storageKey: true,
-      },
+    await recoverPendingDeleteManifest({
+      manifestPath,
+      pendingDeleteRoot,
+      filesRoot,
+      client: activeClient,
     });
-
-    if (fileRecord) {
-      await restorePendingDeleteRecord(record);
-      continue;
-    }
-
-    await finalizePendingDeleteRecord(record);
   }
 };

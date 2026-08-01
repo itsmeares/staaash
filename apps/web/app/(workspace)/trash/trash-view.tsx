@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { FlashMessage } from "@/app/auth-ui";
 import { getItemVisual } from "@/app/item-visuals";
 import { ItemTypeIcon } from "@/app/item-type-icon";
+import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
 import {
   formatRecentFileSize,
   formatRecentRelativeTime,
@@ -30,11 +31,36 @@ type TrashViewProps = {
   success?: string | null;
 };
 
+const finishTrashMutation = (
+  promise: Promise<void>,
+  fallbackMessage: string,
+) => {
+  void promise
+    .then(() => window.location.reload())
+    .catch((error) =>
+      window.alert(error instanceof Error ? error.message : fallbackMessage),
+    );
+};
+
 function RestoreAction({ item }: { item: TrashClientItem }) {
   const kindPath = item.kind === "folder" ? "folders" : "files";
 
   return (
-    <form action={`/api/files/${kindPath}/${item.id}/restore`} method="post">
+    <form
+      action={`/api/files/${kindPath}/${item.id}/restore`}
+      method="post"
+      onSubmit={(event) => {
+        event.preventDefault();
+        finishTrashMutation(
+          submitStorageMutationPost({
+            action: event.currentTarget.action,
+            fields: { redirectTo: "/trash" },
+            logicalAction: `trash-restore:${item.kind}:${item.id}`,
+          }),
+          "Restore failed.",
+        );
+      }}
+    >
       <input name="redirectTo" type="hidden" value="/trash" />
       <button
         aria-label={`Restore ${item.name}`}
@@ -56,13 +82,22 @@ function DeleteFileAction({ item }: { item: TrashClientItem }) {
       action={`/api/files/files/${item.id}/delete`}
       method="post"
       onSubmit={(event) => {
+        event.preventDefault();
         if (
           !window.confirm(
             `Permanently delete ${item.name}? This cannot be undone.`,
           )
         ) {
-          event.preventDefault();
+          return;
         }
+        finishTrashMutation(
+          submitStorageMutationPost({
+            action: event.currentTarget.action,
+            fields: { redirectTo: "/trash" },
+            logicalAction: `trash-delete:file:${item.id}`,
+          }),
+          "Delete failed.",
+        );
       }}
     >
       <input name="redirectTo" type="hidden" value="/trash" />
@@ -79,6 +114,7 @@ function DeleteFileAction({ item }: { item: TrashClientItem }) {
 }
 
 function TrashRowActions({ item }: { item: TrashClientItem }) {
+  if (item.storageMutationStatus) return null;
   return (
     <>
       <RestoreAction item={item} />
@@ -115,7 +151,12 @@ function TrashRow({ item }: { item: TrashClientItem }) {
   );
 
   return (
-    <TrashContextMenu itemId={item.id} itemName={item.name} kind={item.kind}>
+    <TrashContextMenu
+      disabled={Boolean(item.storageMutationStatus)}
+      itemId={item.id}
+      itemName={item.name}
+      kind={item.kind}
+    >
       <article
         className="recent-row is-deleted trash-row"
         id={`${item.kind}-${item.id}`}
@@ -126,6 +167,13 @@ function TrashRow({ item }: { item: TrashClientItem }) {
         <span className="recent-row-name" title={item.name}>
           {item.name}
           <span className="recent-deleted-badge">Deleted</span>
+          {item.storageMutationStatus ? (
+            <span className="recent-deleted-badge">
+              {item.storageMutationStatus === "recovery_required"
+                ? "Recovery required"
+                : "Finishing storage operation"}
+            </span>
+          ) : null}
         </span>
         <span
           className="recent-row-location"

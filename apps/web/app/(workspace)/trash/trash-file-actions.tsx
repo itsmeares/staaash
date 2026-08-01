@@ -1,45 +1,10 @@
 "use client";
 
-type TrashFileActionsProps = {
-  fileId: string;
-  fileName: string;
-};
+import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
 
 type EmptyTrashActionProps = {
   disabled: boolean;
 };
-
-function TrashFileActions({ fileId, fileName }: TrashFileActionsProps) {
-  return (
-    <div className="workspace-inline-fields">
-      <form action={`/api/files/files/${fileId}/restore`} method="post">
-        <input name="redirectTo" type="hidden" value="/trash" />
-        <button className="button" type="submit">
-          Restore file
-        </button>
-      </form>
-
-      <form
-        action={`/api/files/files/${fileId}/delete`}
-        method="post"
-        onSubmit={(event) => {
-          if (
-            !window.confirm(
-              `Permanently delete ${fileName}? This cannot be undone.`,
-            )
-          ) {
-            event.preventDefault();
-          }
-        }}
-      >
-        <input name="redirectTo" type="hidden" value="/trash" />
-        <button className="button button-danger" type="submit">
-          Delete permanently
-        </button>
-      </form>
-    </div>
-  );
-}
 
 export function EmptyTrashAction({ disabled }: EmptyTrashActionProps) {
   return (
@@ -47,13 +12,25 @@ export function EmptyTrashAction({ disabled }: EmptyTrashActionProps) {
       action="/api/files/trash/clear"
       method="post"
       onSubmit={(event) => {
+        event.preventDefault();
         if (
           !window.confirm(
             "Empty trash? This permanently deletes all trashed folder trees and standalone files.",
           )
         ) {
-          event.preventDefault();
+          return;
         }
+        void submitStorageMutationPost({
+          action: event.currentTarget.action,
+          fields: { redirectTo: "/trash" },
+          logicalAction: "trash-clear",
+        })
+          .then(() => window.location.reload())
+          .catch((error) =>
+            window.alert(
+              error instanceof Error ? error.message : "Empty trash failed.",
+            ),
+          );
       }}
     >
       <input name="redirectTo" type="hidden" value="/trash" />

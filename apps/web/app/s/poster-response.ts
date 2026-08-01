@@ -7,6 +7,7 @@ import {
 import { createPublicReadyDerivativeContentResponse } from "@/server/media/public-share-content-response";
 import type { FileSummary } from "@/server/files/types";
 import { sharingService } from "@/server/sharing/service";
+import { assertStorageEntityReadable } from "@/server/storage-read-guard";
 
 const posterNotFound = () =>
   new MediaContentError(404, "Poster content is unavailable.");
@@ -59,6 +60,7 @@ export const createSharePosterResponse = async ({
   }
 
   if (file.viewerKind !== "video") throw posterNotFound();
+  await assertStorageEntityReadable("file", file.id);
 
   const derivative = await findReadyPosterDerivative(file.id);
   if (!derivative) throw posterNotFound();

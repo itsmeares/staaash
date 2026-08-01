@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import {
   getActiveCommittedStorageKey,
   getActiveFolderStorageKey,
@@ -36,6 +38,37 @@ const reservedWindowsNames = new Set([
 ]);
 
 const invalidSegmentCharacters = /[\\/<>\:"|?*]/;
+const maxFilesystemComponentBytes = 255;
+
+const takeUtf8Bytes = (value: string, maxBytes: number) => {
+  let result = "";
+  let usedBytes = 0;
+  for (const character of value) {
+    const characterBytes = Buffer.byteLength(character);
+    if (usedBytes + characterBytes > maxBytes) break;
+    result += character;
+    usedBytes += characterBytes;
+  }
+  return result;
+};
+
+const truncateStorageComponentName = ({
+  name,
+  maxBytes,
+  preserveExtension,
+}: {
+  name: string;
+  maxBytes: number;
+  preserveExtension: boolean;
+}) => {
+  if (Buffer.byteLength(name) <= maxBytes) return name;
+  const extension = preserveExtension ? path.posix.extname(name) : "";
+  const extensionBytes = Buffer.byteLength(extension);
+  if (extension && extensionBytes < maxBytes) {
+    return `${takeUtf8Bytes(name.slice(0, -extension.length), maxBytes - extensionBytes)}${extension}`;
+  }
+  return takeUtf8Bytes(name, maxBytes);
+};
 
 const validateSegment = (rawValue: string, kind: "file" | "folder") => {
   const value = rawValue.trim();
@@ -79,6 +112,42 @@ export const normalizeFolderName = (value: string) =>
 
 export const normalizeFileName = (value: string) =>
   validateSegment(value, "file");
+
+export const buildIsolatedTrashStorageKey = ({
+  ownerStorageId,
+  kind,
+  name,
+  deletedAt,
+  trashEntryId,
+}: {
+  ownerStorageId: string;
+  kind: "file" | "folder";
+  name: string;
+  deletedAt: Date;
+  trashEntryId: string;
+}) => {
+  const timestamp = deletedAt
+    .toISOString()
+    .replace("T", " ")
+    .replaceAll(":", "-")
+    .replace("Z", " UTC");
+  const collisionSuffix = ` (${BigInt(`0x${trashEntryId.replaceAll("-", "")}`)})`;
+  const prefix = `${timestamp} - `;
+  const safeName = truncateStorageComponentName({
+    name,
+    maxBytes:
+      maxFilesystemComponentBytes -
+      Buffer.byteLength(prefix) -
+      Buffer.byteLength(collisionSuffix),
+    preserveExtension: kind === "file",
+  });
+  return path.posix.join(
+    ".trash",
+    ownerStorageId,
+    kind === "file" ? "files" : "folders",
+    `${prefix}${safeName}${collisionSuffix}`,
+  );
+};
 
 const buildFolderPathSegments = ({
   folder,

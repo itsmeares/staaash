@@ -8,6 +8,9 @@ import {
 import { readInstanceUpdateCheck } from "@staaash/db/instance";
 import { listWorkerInstances } from "@staaash/db/jobs";
 import { readLatestRestoreReconciliationRun } from "@staaash/db/reconciliation";
+import { getStorageMutationHealth } from "@staaash/db/storage-mutations";
+import { assertStorageFilesystemSupported } from "@staaash/db/storage-mutation-executor";
+import { getPrisma } from "@staaash/db/client";
 
 import { resolveAppVersion } from "@/server/app-version";
 import { getSystemSettings } from "@/server/settings";
@@ -108,6 +111,7 @@ const probeStorage = async () => {
   try {
     await ensureStorageDirectories();
     await access(getStorageRoot(), constants.R_OK | constants.W_OK);
+    await assertStorageFilesystemSupported(getStorageRoot());
     return {
       status: "healthy" as const,
     };
@@ -156,6 +160,7 @@ export const buildInstanceHealthSummary = ({
   reconciliation,
   storageWarnings,
   versionInfo,
+  storageMutations = { counts: {}, oldest: null, active: [] },
 }: {
   databaseStatus: HealthCheckStatus;
   databaseMessage?: string;
@@ -166,6 +171,7 @@ export const buildInstanceHealthSummary = ({
   reconciliation: RestoreReconciliationHealthSummary;
   storageWarnings: StorageWarningSummary;
   versionInfo: InstanceHealthSummary["version"];
+  storageMutations?: InstanceHealthSummary["storageMutations"];
 }): InstanceHealthSummary => {
   const ok =
     databaseStatus === "healthy" &&
@@ -173,9 +179,11 @@ export const buildInstanceHealthSummary = ({
     worker.status !== "error" &&
     queue.status !== "error" &&
     reconciliation.status !== "error";
+  const storageMutationError =
+    (storageMutations.counts.recovery_required ?? 0) > 0;
 
   return {
-    ok,
+    ok: ok && !storageMutationError,
     checks: {
       app: {
         status: "healthy",
@@ -192,10 +200,88 @@ export const buildInstanceHealthSummary = ({
     worker,
     queue,
     reconciliation,
+    storageMutations,
     storageWarnings,
     version: versionInfo,
   };
 };
+
+const EMPTY_STORAGE_MUTATION_HEALTH: InstanceHealthSummary["storageMutations"] =
+  {
+    counts: {},
+    oldest: null,
+    active: [],
+  };
+
+const readStorageMutationHealthProbe = async () => {
+  try {
+    return { health: await getStorageMutationHealth(), error: null };
+  } catch (error) {
+    return { health: null, error };
+  }
+};
+
+const readStorageProtocolProbe = async () => {
+  try {
+    const instance = await getPrisma().instance.findUnique({
+      where: { id: "singleton" },
+      select: { storageProtocolVersion: true },
+    });
+    return {
+      version: instance?.storageProtocolVersion ?? null,
+      error: null,
+    };
+  } catch (error) {
+    return { version: null, error };
+  }
+};
+
+const storageProbeErrorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : "unknown error";
+
+const resolveStorageReadiness = ({
+  storage,
+  storageMutationProbe,
+  storageProtocolProbe,
+}: {
+  storage: Awaited<ReturnType<typeof probeStorage>>;
+  storageMutationProbe: Awaited<
+    ReturnType<typeof readStorageMutationHealthProbe>
+  >;
+  storageProtocolProbe: Awaited<ReturnType<typeof readStorageProtocolProbe>>;
+}) => {
+  const storageProtocolReady =
+    !storageProtocolProbe.error && storageProtocolProbe.version === 2;
+  const status =
+    storage.status === "healthy" &&
+    !storageMutationProbe.error &&
+    storageProtocolReady
+      ? ("healthy" as const)
+      : ("error" as const);
+  if (storageMutationProbe.error) {
+    return {
+      status,
+      message: `Storage mutation health probe failed: ${storageProbeErrorMessage(storageMutationProbe.error)}`,
+    };
+  }
+  return {
+    status,
+    message: storageProtocolReady
+      ? storage.message
+      : "Storage protocol recovery is not complete.",
+  };
+};
+
+const resolveVersionHealth = (
+  instanceState: Awaited<ReturnType<typeof readInstanceUpdateCheck>> | null,
+): InstanceHealthSummary["version"] => ({
+  currentVersion:
+    process.env.NODE_ENV !== "production" ? "development" : resolveAppVersion(),
+  lastUpdateCheckAt: instanceState?.lastUpdateCheckAt?.toISOString() ?? null,
+  updateCheckStatus: instanceState?.updateCheckStatus ?? null,
+  updateCheckMessage: instanceState?.updateCheckMessage ?? null,
+  latestAvailableVersion: instanceState?.latestAvailableVersion ?? null,
+});
 
 export const getReadiness = async () => {
   const databaseUrl = process.env.DATABASE_URL ?? "";
@@ -209,6 +295,8 @@ export const getReadiness = async () => {
     latestReconciliationRun,
     settings,
     workers,
+    storageMutationProbe,
+    storageProtocolProbe,
   ] = await Promise.all([
     probeDatabaseReachability(databaseUrl),
     probeStorage(),
@@ -219,15 +307,22 @@ export const getReadiness = async () => {
     readLatestRestoreReconciliationRun().catch(() => null),
     getSystemSettings(),
     listWorkerInstances().catch(() => []),
+    readStorageMutationHealthProbe(),
+    readStorageProtocolProbe(),
   ]);
 
   const latestWorkerHeartbeat = workers[0]?.lastHeartbeatAt ?? heartbeat;
+  const storageReadiness = resolveStorageReadiness({
+    storage,
+    storageMutationProbe,
+    storageProtocolProbe,
+  });
 
   return buildInstanceHealthSummary({
     databaseStatus: database.status,
     databaseMessage: database.message,
-    storageStatus: storage.status,
-    storageMessage: storage.message,
+    storageStatus: storageReadiness.status,
+    storageMessage: storageReadiness.message,
     worker: getWorkerHeartbeatStatus(
       latestWorkerHeartbeat,
       new Date(),
@@ -237,18 +332,10 @@ export const getReadiness = async () => {
     reconciliation: buildRestoreReconciliationHealthSummary(
       latestReconciliationRun,
     ),
+    storageMutations:
+      storageMutationProbe.health ?? EMPTY_STORAGE_MUTATION_HEALTH,
     storageWarnings,
-    versionInfo: {
-      currentVersion:
-        process.env.NODE_ENV !== "production"
-          ? "development"
-          : resolveAppVersion(),
-      lastUpdateCheckAt:
-        instanceState?.lastUpdateCheckAt?.toISOString() ?? null,
-      updateCheckStatus: instanceState?.updateCheckStatus ?? null,
-      updateCheckMessage: instanceState?.updateCheckMessage ?? null,
-      latestAvailableVersion: instanceState?.latestAvailableVersion ?? null,
-    },
+    versionInfo: resolveVersionHealth(instanceState),
   });
 };
 
@@ -258,6 +345,19 @@ export const toJsonInstanceHealthSummary = (
   summary: InstanceHealthSummary,
 ): JsonInstanceHealthSummary => ({
   ...summary,
+  storageMutations: {
+    ...summary.storageMutations,
+    oldest: summary.storageMutations.oldest
+      ? {
+          ...summary.storageMutations.oldest,
+          createdAt: summary.storageMutations.oldest.createdAt.toISOString(),
+        }
+      : null,
+    active: summary.storageMutations.active.map((mutation) => ({
+      ...mutation,
+      createdAt: mutation.createdAt.toISOString(),
+    })),
+  },
   storageWarnings: {
     ...summary.storageWarnings,
     freeBytes: summary.storageWarnings.freeBytes?.toString() ?? null,

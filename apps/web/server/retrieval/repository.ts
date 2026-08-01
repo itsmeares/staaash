@@ -4,6 +4,7 @@ import {
   prismaFilesRepository,
   type FilesRepository,
 } from "@/server/files/repository";
+import { StorageProtocolNotReadyError } from "@/server/durable-storage-mutation";
 
 import type {
   FavoriteFileRecord,
@@ -32,8 +33,12 @@ const createPrismaRetrievalRepository = ({
   const getFilesRepo = () => filesRepo ?? prismaFilesRepository;
 
   return {
-    ensureFilesRoot(ownerUserId) {
-      return getFilesRepo().ensureFilesRoot(ownerUserId);
+    async ensureFilesRoot(ownerUserId) {
+      const activeFilesRepo = getFilesRepo();
+      if (filesRepo) return activeFilesRepo.ensureFilesRoot(ownerUserId);
+      const root = await activeFilesRepo.findFilesRoot?.(ownerUserId);
+      if (!root) throw new StorageProtocolNotReadyError();
+      return root;
     },
 
     findFolderById(folderId) {

@@ -15,14 +15,25 @@ This guide applies only to compatible installations in the supported Postgres 18
 
 ## Backup Checklist
 
-1. Stop application writes, then cleanly stop PostgreSQL:
+1. Stop the web service so no new mutation intent can start:
 
    ```console
-   docker compose stop staaash worker
+   docker compose stop staaash
+   ```
+
+2. Let the worker drain storage mutations. Admin health must show zero
+   `prepared`, `running`, `retrying`, `metadata_committed`, or `finalizing`
+   mutations. A `recovery_required` mutation must not be resolved or have its
+   artifacts removed for the backup.
+
+3. Stop the worker and then PostgreSQL:
+
+   ```console
+   docker compose stop worker
    docker compose stop db
    ```
 
-2. Confirm that all three services are stopped:
+4. Confirm that all three services are stopped:
 
    ```console
    docker compose ps --status running
@@ -32,7 +43,7 @@ This guide applies only to compatible installations in the supported Postgres 18
    `staaash`, `worker`, or `db` is running. Raw PostgreSQL data-directory copies
    must not be taken while PostgreSQL is running.
 
-3. While all three services remain stopped, copy both configured host data
+5. While all three services remain stopped, copy both configured host data
    locations into the same backup set:
    - `UPLOAD_LOCATION` (default: `./library`)
    - `DB_DATA_LOCATION` (default: `./postgres`)
@@ -40,16 +51,16 @@ This guide applies only to compatible installations in the supported Postgres 18
    Read the paths from the deployment's `.env` file. Do not restart any service
    until both copies have finished.
 
-4. Preserve the completed backup unchanged. Keep more than one backup copy; a
+6. Preserve the completed backup unchanged. Keep more than one backup copy; a
    good starting point is one local backup and one backup outside the machine.
 
-5. Restart the complete stack:
+7. Restart the complete stack:
 
    ```console
    docker compose up -d db staaash worker
    ```
 
-6. Perform the restore drill below on a separate clean deployment before
+8. Perform the restore drill below on a separate clean deployment before
    trusting the backup.
 
 ## Restore Drill
@@ -89,8 +100,9 @@ If any check fails, keep the restored copy untouched and investigate before usin
 
 ## Notes
 
-- File names and folder paths live in the database.
-- File bytes live in `library`.
+- File names and folder paths live in the database and canonical upload tree.
+- File bytes, journal-owned transition artifacts, derivatives, and archives live
+  under the configured upload location; back up the complete location.
 - A backup containing only uploaded files is incomplete.
 - A backup containing only the database is incomplete.
 - Raw PostgreSQL data-directory copies must not be taken while PostgreSQL is

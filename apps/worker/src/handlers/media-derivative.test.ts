@@ -17,6 +17,9 @@ const mocks = vi.hoisted(() => ({
   runFfmpegTranscode: vi.fn(),
   runFfprobe: vi.fn(),
   upsertDerivativeQueued: vi.fn(),
+  assertWorkerMutationMayStart: vi.fn(),
+  findBlockingStorageMutationForEntity: vi.fn(),
+  runWorkerStorageMutation: vi.fn(),
 }));
 
 vi.mock("@staaash/db/client", () => ({
@@ -36,6 +39,11 @@ vi.mock("@staaash/db/media-derivatives", () => ({
   upsertDerivativeQueued: mocks.upsertDerivativeQueued,
 }));
 
+vi.mock("@staaash/db/storage-mutations", () => ({
+  findBlockingStorageMutationForEntity:
+    mocks.findBlockingStorageMutationForEntity,
+}));
+
 vi.mock("../ffmpeg.js", () => ({
   getFfmpegHealth: mocks.getFfmpegHealth,
   isStreamCopyCompatible: mocks.isStreamCopyCompatible,
@@ -43,6 +51,13 @@ vi.mock("../ffmpeg.js", () => ({
   runFfmpegStreamCopy: mocks.runFfmpegStreamCopy,
   runFfmpegTranscode: mocks.runFfmpegTranscode,
   runFfprobe: mocks.runFfprobe,
+}));
+
+vi.mock("../durable-storage-mutation.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../durable-storage-mutation.js")>()),
+  assertWorkerMutationMayStart: mocks.assertWorkerMutationMayStart,
+  runWorkerStorageMutation: mocks.runWorkerStorageMutation,
+  StorageMutationOwnedError: class StorageMutationOwnedError extends Error {},
 }));
 
 const { handleMediaDerivativeGenerate } = await import("./media-derivative.js");
@@ -89,6 +104,9 @@ describe("media derivative handler", () => {
       id: "derivative-1",
       status: "queued",
     });
+    mocks.assertWorkerMutationMayStart.mockResolvedValue("new");
+    mocks.findBlockingStorageMutationForEntity.mockResolvedValue(null);
+    mocks.runWorkerStorageMutation.mockResolvedValue({ id: "mutation-1" });
     mocks.markDerivativeReady.mockResolvedValue({
       id: "derivative-1",
       status: "ready",
@@ -107,10 +125,19 @@ describe("media derivative handler", () => {
       path.join(os.tmpdir(), "staaash-media-derivative-"),
     );
     const filesRoot = path.join(tempRoot, "files");
-    const tmpRoot = path.join(tempRoot, "tmp");
+    const tmpRoot = path.join(filesRoot, "tmp");
     const sourcePath = path.join(filesRoot, "files", "owner-1", "clip.mov");
+    const existingDerivativePath = path.join(
+      filesRoot,
+      "derivatives",
+      "owner-1",
+      "file-1",
+      "preview-1080p.mp4",
+    );
     await mkdir(path.dirname(sourcePath), { recursive: true });
     await writeFile(sourcePath, "source", "utf8");
+    await mkdir(path.dirname(existingDerivativePath), { recursive: true });
+    await writeFile(existingDerivativePath, "old-output", "utf8");
 
     const client = {
       systemSettings: {
@@ -145,7 +172,7 @@ describe("media derivative handler", () => {
     mocks.getPrisma.mockReturnValue(client);
 
     mocks.runFfprobe.mockImplementation(async (inputPath: string) => {
-      if (inputPath.endsWith("preview-1080p.mp4")) {
+      if (inputPath.endsWith("derivative-1.mp4.tmp")) {
         return {
           streams: [
             {
@@ -192,23 +219,34 @@ describe("media derivative handler", () => {
 
     expect(mocks.runFfprobe).toHaveBeenCalledWith(sourcePath);
     expect(mocks.runFfprobe).toHaveBeenCalledWith(
-      path.join(
-        filesRoot,
-        "derivatives",
-        "owner-1",
-        "file-1",
-        "preview-1080p.mp4",
-      ),
+      path.join(tmpRoot, "derivatives", "derivative-1.mp4.tmp"),
     );
-    expect(mocks.markDerivativeReady).toHaveBeenCalledWith(
-      "derivative-1",
+    expect(mocks.runWorkerStorageMutation).toHaveBeenCalledWith(
       expect.objectContaining({
-        mimeType: "video/mp4",
-        width: 1280,
-        height: 720,
-        durationSeconds: 12.5,
-        videoCodec: "h264",
-        audioCodec: "aac",
+        kind: "derivative_publish",
+        metadataOperations: [
+          expect.objectContaining({
+            entityId: "derivative-1",
+            data: expect.objectContaining({
+              mimeType: "video/mp4",
+              width: 1280,
+              height: 720,
+              durationSeconds: 12.5,
+              videoCodec: "h264",
+              audioCodec: "aac",
+            }),
+          }),
+        ],
+        steps: expect.arrayContaining([
+          expect.objectContaining({
+            targetKey:
+              "tmp/incoming/derivative-publish-derivative-1-job-1/preview-1080p.mp4",
+          }),
+          expect.objectContaining({
+            targetKey:
+              "tmp/backup/derivative-publish-derivative-1-job-1/preview-1080p.mp4",
+          }),
+        ]),
       }),
     );
   });
@@ -216,7 +254,7 @@ describe("media derivative handler", () => {
   it("generates shared poster derivatives below the video preview threshold", async () => {
     tempRoot = await mkdtemp(path.join(os.tmpdir(), "staaash-media-poster-"));
     const filesRoot = path.join(tempRoot, "files");
-    const tmpRoot = path.join(tempRoot, "tmp");
+    const tmpRoot = path.join(filesRoot, "tmp");
     const sourcePath = path.join(filesRoot, "files", "owner-1", "clip.mp4");
     await mkdir(path.dirname(sourcePath), { recursive: true });
     await writeFile(sourcePath, "source", "utf8");
@@ -262,7 +300,7 @@ describe("media derivative handler", () => {
     mocks.getPrisma.mockReturnValue(client);
 
     mocks.runFfprobe.mockImplementation(async (inputPath: string) => {
-      if (inputPath.endsWith("social-poster.jpg")) {
+      if (inputPath.endsWith("poster-derivative-1.jpg.tmp")) {
         return {
           streams: [
             {
@@ -320,16 +358,23 @@ describe("media derivative handler", () => {
       expect.any(AbortSignal),
     );
     expect(mocks.runFfmpegTranscode).not.toHaveBeenCalled();
-    expect(mocks.markDerivativeReady).toHaveBeenCalledWith(
-      "poster-derivative-1",
+    expect(mocks.runWorkerStorageMutation).toHaveBeenCalledWith(
       expect.objectContaining({
-        storageKey: "derivatives/owner-1/file-1/social-poster.jpg",
-        mimeType: "image/jpeg",
-        width: 1280,
-        height: 720,
-        durationSeconds: null,
-        videoCodec: null,
-        audioCodec: null,
+        kind: "derivative_publish",
+        metadataOperations: [
+          expect.objectContaining({
+            entityId: "poster-derivative-1",
+            data: expect.objectContaining({
+              storageKey: "derivatives/owner-1/file-1/social-poster.jpg",
+              mimeType: "image/jpeg",
+              width: 1280,
+              height: 720,
+              durationSeconds: null,
+              videoCodec: null,
+              audioCodec: null,
+            }),
+          }),
+        ],
       }),
     );
   });
