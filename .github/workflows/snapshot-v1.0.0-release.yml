@@ -1,0 +1,23 @@
+name: Snapshot v1.0.0 release run
+
+on:
+  pull_request:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Show recovery runs and release
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/runs?event=workflow_dispatch&per_page=20" \
+            | jq '[.workflow_runs[] | {id,status,conclusion,head_branch,head_sha,created_at,updated_at,html_url}]'
+          gh api "repos/$GITHUB_REPOSITORY/releases/363560464" \
+            | jq '{id,tag_name,name,draft,prerelease,published_at,html_url,assets:[.assets[]|{name,state,size,digest}]}'
