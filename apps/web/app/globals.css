@@ -8146,7 +8146,7 @@ html.light {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: color-mix(in oklab, var(--muted-foreground) 60%, transparent);
+  color: var(--muted-foreground);
 }
 
 .share-dialog-hint {
