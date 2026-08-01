@@ -1,4 +1,4 @@
-name: Verify v1.0.0 release
+name: Snapshot v1.0.0 release state
 
 on:
   push:
@@ -10,152 +10,53 @@ on:
 permissions:
   actions: read
   contents: write
-  packages: read
 
 jobs:
-  verify:
+  snapshot:
     runs-on: ubuntu-latest
-    timeout-minutes: 100
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      RELEASE_TAG: v1.0.0
-      RELEASE_SHA: dd53d633d379551107355acfaac908e2b54e6e49
-      VERSIONED_IMAGE: ghcr.io/itsmeares/staaash:v1.0.0
-      LATEST_IMAGE: ghcr.io/itsmeares/staaash:latest
       REPORT_DIR: .release-verification
-
     steps:
       - uses: actions/checkout@v7
         with:
           ref: release/v1.0.0-verification
 
-      - uses: docker/setup-buildx-action@v4
-
-      - name: Wait for release workflow and capture state
+      - name: Capture current state
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$REPORT_DIR/assets"
+          rm -rf "$REPORT_DIR"
+          mkdir -p "$REPORT_DIR"
 
-          run_json=""
-          for _ in $(seq 1 360); do
-            all_runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/runs?event=push&per_page=100")"
-            run_json="$(jq -c '
-              [.workflow_runs[]]
-              | sort_by(.created_at)
-              | last // empty
-            ' <<<"$all_runs")"
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/runs?event=push&per_page=20" > "$REPORT_DIR/release-runs.json"
+          jq '.workflow_runs | sort_by(.created_at) | last // {}' "$REPORT_DIR/release-runs.json" > "$REPORT_DIR/latest-release-run.json"
 
-            if [[ -n "$run_json" ]]; then
-              status="$(jq -r '.status' <<<"$run_json")"
-              if [[ "$status" == "completed" ]]; then
-                break
-              fi
-            fi
-            sleep 15
-          done
-
-          if [[ -z "$run_json" ]]; then
-            printf '%s\n' '{"error":"No Release workflow run found."}' > "$REPORT_DIR/release-run.json"
-            printf '%s\n' '{"jobs":[]}' > "$REPORT_DIR/release-jobs.json"
-          else
-            jq . <<<"$run_json" > "$REPORT_DIR/release-run.json"
-            run_id="$(jq -r '.id' <<<"$run_json")"
-            gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs?per_page=100" > "$REPORT_DIR/release-jobs.json"
-          fi
-
-      - name: Capture release, assets, and checksums
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" > "$REPORT_DIR/release.json"; then
+          if gh api "repos/$GITHUB_REPOSITORY/releases/tags/v1.0.0" > "$REPORT_DIR/release.json"; then
             jq -r '.body // ""' "$REPORT_DIR/release.json" > "$REPORT_DIR/release-notes-current.md"
-            jq '.assets' "$REPORT_DIR/release.json" > "$REPORT_DIR/release-assets.json"
-
-            while IFS=$'\t' read -r asset_id asset_name; do
-              gh api \
-                -H "Accept: application/octet-stream" \
-                "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id" \
-                > "$REPORT_DIR/assets/$asset_name"
-            done < <(jq -r '.assets[] | [.id, .name] | @tsv' "$REPORT_DIR/release.json")
           else
-            printf '%s\n' '{"error":"Published release not found."}' > "$REPORT_DIR/release.json"
+            printf '%s\n' '{"error":"release not published"}' > "$REPORT_DIR/release.json"
             : > "$REPORT_DIR/release-notes-current.md"
-            printf '%s\n' '[]' > "$REPORT_DIR/release-assets.json"
           fi
 
           {
-            echo "release_run_status=$(jq -r '.status // "missing"' "$REPORT_DIR/release-run.json")"
-            echo "release_run_conclusion=$(jq -r '.conclusion // "missing"' "$REPORT_DIR/release-run.json")"
-            echo "release_run_head_sha=$(jq -r '.head_sha // "missing"' "$REPORT_DIR/release-run.json")"
-            echo "release_run_head_branch=$(jq -r '.head_branch // "missing"' "$REPORT_DIR/release-run.json")"
+            echo "run_id=$(jq -r '.id // "missing"' "$REPORT_DIR/latest-release-run.json")"
+            echo "run_status=$(jq -r '.status // "missing"' "$REPORT_DIR/latest-release-run.json")"
+            echo "run_conclusion=$(jq -r '.conclusion // "missing"' "$REPORT_DIR/latest-release-run.json")"
+            echo "run_head_sha=$(jq -r '.head_sha // "missing"' "$REPORT_DIR/latest-release-run.json")"
+            echo "run_head_branch=$(jq -r '.head_branch // "missing"' "$REPORT_DIR/latest-release-run.json")"
             echo "release_id=$(jq -r '.id // "missing"' "$REPORT_DIR/release.json")"
-            echo "release_tag=$(jq -r '.tag_name // "missing"' "$REPORT_DIR/release.json")"
             echo "release_draft=$(jq -r '.draft // "missing"' "$REPORT_DIR/release.json")"
             echo "release_prerelease=$(jq -r '.prerelease // "missing"' "$REPORT_DIR/release.json")"
-            echo "release_name=$(jq -r '.name // "missing"' "$REPORT_DIR/release.json")"
-            echo "release_published_at=$(jq -r '.published_at // "missing"' "$REPORT_DIR/release.json")"
-            echo "asset_names=$(jq -r '[.[].name] | sort | join(",")' "$REPORT_DIR/release-assets.json")"
-          } > "$REPORT_DIR/verification.txt"
+            echo "release_assets=$(jq -r '[.assets[]?.name] | sort | join(",")' "$REPORT_DIR/release.json")"
+          } > "$REPORT_DIR/snapshot.txt"
 
-          if [[ -f "$REPORT_DIR/assets/SHA256SUMS" ]]; then
-            (
-              cd "$REPORT_DIR/assets"
-              sha256sum -c SHA256SUMS
-            ) | tee -a "$REPORT_DIR/verification.txt"
-          else
-            echo "SHA256SUMS missing" | tee -a "$REPORT_DIR/verification.txt"
-          fi
-
-          if [[ -f "$REPORT_DIR/assets/example.env" ]]; then
-            if grep -Fxq 'STAAASH_VERSION=v1.0.0' "$REPORT_DIR/assets/example.env"; then
-              echo "example_env_version=ok" >> "$REPORT_DIR/verification.txt"
-            else
-              echo "example_env_version=invalid" >> "$REPORT_DIR/verification.txt"
-            fi
-          fi
-
-          if [[ -f "$REPORT_DIR/assets/release-manifest.json" ]]; then
-            jq . "$REPORT_DIR/assets/release-manifest.json" > "$REPORT_DIR/release-manifest.pretty.json"
-          fi
-
-      - name: Inspect GHCR versioned and latest images
-        shell: bash
-        run: |
-          set -u
-          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
-
-          if docker buildx imagetools inspect "$VERSIONED_IMAGE" --format '{{json .}}' > "$REPORT_DIR/versioned-image.json" 2> "$REPORT_DIR/versioned-image-error.txt"; then
-            echo "versioned_image=present" >> "$REPORT_DIR/verification.txt"
-            jq -r '"versioned_digest=" + (.manifest.digest // "missing")' "$REPORT_DIR/versioned-image.json" >> "$REPORT_DIR/verification.txt"
-          else
-            echo "versioned_image=missing" >> "$REPORT_DIR/verification.txt"
-          fi
-
-          if docker buildx imagetools inspect "$LATEST_IMAGE" --format '{{json .}}' > "$REPORT_DIR/latest-image.json" 2> "$REPORT_DIR/latest-image-error.txt"; then
-            echo "latest_image=present" >> "$REPORT_DIR/verification.txt"
-            jq -r '"latest_digest=" + (.manifest.digest // "missing")' "$REPORT_DIR/latest-image.json" >> "$REPORT_DIR/verification.txt"
-          else
-            echo "latest_image=missing" >> "$REPORT_DIR/verification.txt"
-          fi
-
-          if [[ -s "$REPORT_DIR/versioned-image.json" && -s "$REPORT_DIR/latest-image.json" ]]; then
-            versioned_digest="$(jq -r '.manifest.digest // ""' "$REPORT_DIR/versioned-image.json")"
-            latest_digest="$(jq -r '.manifest.digest // ""' "$REPORT_DIR/latest-image.json")"
-            if [[ -n "$versioned_digest" && "$versioned_digest" == "$latest_digest" ]]; then
-              echo "latest_matches_versioned=yes" >> "$REPORT_DIR/verification.txt"
-            else
-              echo "latest_matches_versioned=no" >> "$REPORT_DIR/verification.txt"
-            fi
-          fi
-
-      - name: Commit temporary verification report
+      - name: Commit snapshot
         shell: bash
         run: |
           set -euo pipefail
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add "$REPORT_DIR"
-          git commit -m "chore: record temporary v1.0.0 verification"
+          git commit -m "chore: record temporary v1.0.0 snapshot"
           git push origin HEAD:release/v1.0.0-verification
