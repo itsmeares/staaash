@@ -544,7 +544,9 @@ const applyOwnerQuotaAssertion = async (
     bigintOrZero(reserved._sum.totalSizeBytes) +
     BigInt(operation.additionalBytes);
   if (total > limit) {
-    throw new Error("Storage quota changed while mutation was running.");
+    throw new StorageMutationIntentError(
+      "Storage quota changed while mutation was running.",
+    );
   }
 };
 

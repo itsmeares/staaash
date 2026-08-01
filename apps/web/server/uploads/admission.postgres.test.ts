@@ -263,7 +263,6 @@ const createReadyToCommitSession = async ({
     },
     fixedNow,
   );
-  await writeFile(session.tmpPath, bytes);
   await writeAndRecordUploadChunk({
     sessionId: session.id,
     ownerUserId,
@@ -271,7 +270,10 @@ const createReadyToCommitSession = async ({
     startByte: 0,
     endByte: bytes.length - 1,
     sizeBytes: bytes.length,
-    writeBytes: async () => bytes.length,
+    writeBytes: async () => {
+      await writeFile(session.tmpPath, bytes);
+      return bytes.length;
+    },
   });
   await beginSessionCommit({
     id: session.id,
@@ -1102,7 +1104,6 @@ describe("UPL-01 PostgreSQL lifecycle and cleanup", () => {
       },
       fixedNow,
     );
-    await writeFile(session.tmpPath, Buffer.alloc(5, 1));
     await writeAndRecordUploadChunk({
       sessionId: session.id,
       ownerUserId: user.id,
@@ -1110,7 +1111,10 @@ describe("UPL-01 PostgreSQL lifecycle and cleanup", () => {
       startByte: 0,
       endByte: 4,
       sizeBytes: 5,
-      writeBytes: async () => 5,
+      writeBytes: async () => {
+        await writeFile(session.tmpPath, Buffer.alloc(5, 1));
+        return 5;
+      },
     });
 
     await cancelAndCleanupResumableSession({
@@ -1176,7 +1180,6 @@ describe("UPL-01 PostgreSQL lifecycle and cleanup", () => {
       },
       fixedNow,
     );
-    await writeFile(session.tmpPath, Buffer.alloc(5, 1));
     await writeAndRecordUploadChunk({
       sessionId: session.id,
       ownerUserId: user.id,
@@ -1184,7 +1187,10 @@ describe("UPL-01 PostgreSQL lifecycle and cleanup", () => {
       startByte: 0,
       endByte: 4,
       sizeBytes: 5,
-      writeBytes: async () => 5,
+      writeBytes: async () => {
+        await writeFile(session.tmpPath, Buffer.alloc(5, 1));
+        return 5;
+      },
     });
     const staleTime = new Date(
       fixedNow.getTime() - storagePaths.uploadStagingTtlMs - 1,

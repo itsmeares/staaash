@@ -24,6 +24,7 @@ import {
   renewStorageMutationLease,
   StorageMutationConflictError,
   StorageMutationFenceError,
+  StorageMutationIntentError,
   type RecoverableStorageMutationIntent,
   type StorageMetadataOperation,
 } from "@staaash/db/storage-mutations";
@@ -1417,6 +1418,24 @@ describe("STO-02 durable PostgreSQL protocol", () => {
     ).resolves.toBe("private");
   });
 
+  it("routes commit-time quota drift to recovery", async () => {
+    const fixture = await prepareOrdinaryUploadCreateFixture();
+    await db.user.update({
+      where: { id: fixture.mutation.ownerUserId },
+      data: { storageLimitBytes: 1n },
+    });
+
+    await expect(execute(fixture.mutation)).rejects.toBeInstanceOf(
+      StorageMutationIntentError,
+    );
+    await expect(
+      db.storageMutation.findUniqueOrThrow({
+        where: { id: fixture.mutation.id },
+        select: { status: true },
+      }),
+    ).resolves.toEqual({ status: "recovery_required" });
+  });
+
   it("recovers an existing empty directory with a legacy manifest", async () => {
     const user = await createUser();
     const targetKey = `files/${user.storageId}/legacy-empty`;
@@ -2281,6 +2300,9 @@ describe("STO-02 durable PostgreSQL protocol", () => {
       ]),
     );
     await expect(access(storagePath(sourceKey))).resolves.toBeUndefined();
+    await expect(
+      readFile(path.join(storagePath(sourceKey), "untracked.bin"), "utf8"),
+    ).resolves.toBe("private");
     await expect(access(storagePath(targetKey))).rejects.toMatchObject({
       code: "ENOENT",
     });
