@@ -82,7 +82,7 @@ The supplied Compose stack runs PostgreSQL 18 and exposes Staaash on port `2113`
 
 6. Open `http://localhost:2113` and complete the initial setup. The first account becomes the owner and an admin.
 
-Additional users are created by an owner or admin from **Admin → Users**. Staaash issues or accepts a temporary password and can require the user to replace it at first sign-in; it does not use email invitation links.
+Additional users are created by the owner from **Admin → Users**. Staaash issues or accepts a temporary password and can require the user to replace it at first sign-in; it does not use email invitation links.
 
 ### Configuration
 
