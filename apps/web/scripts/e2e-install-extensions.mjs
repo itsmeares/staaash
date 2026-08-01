@@ -1,5 +1,6 @@
 import pg from "pg";
 
+// Validation trigger; removed in the following commit.
 const databaseUrl = process.env.DATABASE_URL?.trim();
 
 if (!databaseUrl) {
