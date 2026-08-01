@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { THEME_COOKIE_NAME } from "@/server/auth/session";
 import { TransferRoot } from "./transfer-root";
 import "./globals.css";
+import "./accessibility.css";
 
 export const metadata: Metadata = {
   title: "Staaash",
