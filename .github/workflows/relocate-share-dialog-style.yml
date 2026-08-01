@@ -1,0 +1,64 @@
+name: Relocate share dialog style
+
+on:
+  push:
+    branches:
+      - fix/final-revalidation-findings
+
+permissions:
+  contents: write
+
+jobs:
+  relocate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: fix/final-revalidation-findings
+
+      - name: Consolidate share dialog styles
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          css_path = Path("apps/web/app/globals.css")
+          css = css_path.read_text()
+          old = """.share-dialog-section-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: color-mix(in oklab, var(--muted-foreground) 60%, transparent);
+          }"""
+          new = """.share-dialog-section-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--muted-foreground);
+          }"""
+          if css.count(old) != 1:
+              raise SystemExit("Expected exactly one share-dialog section-label block.")
+          css_path.write_text(css.replace(old, new))
+
+          layout_path = Path("apps/web/app/layout.tsx")
+          layout = layout_path.read_text()
+          import_line = 'import "./accessibility.css";\n'
+          if layout.count(import_line) != 1:
+              raise SystemExit("Expected exactly one accessibility stylesheet import.")
+          layout_path.write_text(layout.replace(import_line, ""))
+
+          Path("apps/web/app/accessibility.css").unlink()
+          Path(".github/workflows/relocate-share-dialog-style.yml").unlink()
+          PY
+
+      - name: Commit consolidated styles
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "refactor: consolidate share dialog styles"
+          git push origin HEAD:fix/final-revalidation-findings
