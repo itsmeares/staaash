@@ -1,6 +1,6 @@
 # Backup And Restore
 
-Staaash is in beta. Do not keep important files in Staaash unless you also have a separate backup.
+Staaash is not a backup system. Keep an independent backup of every important file stored in Staaash.
 
 Back up both data folders together:
 
@@ -11,7 +11,7 @@ By default these folders sit next to `docker-compose.yml`. If you changed `UPLOA
 
 Fresh installs use Postgres 18. The default `postgres` folder is still the folder you back up, but the Postgres 18 container stores the actual database cluster under its versioned directory inside the container.
 
-This guide applies only to compatible installations in the supported Postgres 18 RC/current release line. Alpha and beta releases are unsupported development history and cannot be upgraded to the RC or v1 line. Start a fresh current installation instead. Do not reuse an alpha/beta deployment's internal database or storage directories as the data directories for a current installation.
+This guide applies only to compatible installations in the supported Postgres 18 RC/v1 release line. Alpha and beta releases are unsupported development history and cannot be upgraded to the RC or v1 line. Start a fresh current installation instead. Do not reuse an alpha/beta deployment's internal database or storage directories as the data directories for a current installation.
 
 ## Backup Checklist
 
