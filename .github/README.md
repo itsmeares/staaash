@@ -9,7 +9,7 @@
 <h1>Staaash</h1>
 
 [![AGPL-3.0 License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](../LICENSE)
-[![Release](https://img.shields.io/github/v/release/itsmeares/staaash?include_prereleases&label=release)](https://github.com/itsmeares/staaash/releases)
+[![Release](https://img.shields.io/github/v/release/itsmeares/staaash?label=release)](https://github.com/itsmeares/staaash/releases)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/itsmeares/staaash/pkgs/container/staaash)
 [![Self-hosted](https://img.shields.io/badge/self--hosted-yes-brightgreen)](#installation)
 
