@@ -9,7 +9,8 @@ const mocks = vi.hoisted(() => ({
   prepareStorageMutation: vi.fn(),
 }));
 
-vi.mock("@staaash/db/storage-mutations", () => ({
+vi.mock("@staaash/db/storage-mutations", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@staaash/db/storage-mutations")>()),
   applyStorageMutationIntentMetadata: mocks.applyStorageMutationIntentMetadata,
   findStorageMutation: mocks.findStorageMutation,
   findStorageMutationByIdempotencyKey:

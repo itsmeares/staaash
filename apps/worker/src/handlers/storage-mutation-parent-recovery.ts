@@ -16,7 +16,7 @@ import {
 } from "@staaash/db/storage-mutations";
 import {
   calculateStorageFileChecksum,
-  calculateTreeManifestDigest,
+  calculateCapturedTreeManifestDigest,
   resolveMutationStoragePath,
   StorageMutationAmbiguityError,
 } from "@staaash/db/storage-mutation-executor";
@@ -33,7 +33,6 @@ import {
   TrashItemIdentityChangedError,
   type TrashItemIdentity,
 } from "./trash-retention-eligibility.js";
-import { buildTrashPurgeChildRequestHashPayload } from "./trash-purge-child-request.js";
 
 type ParentChild = {
   ordinal: number;
@@ -80,23 +79,6 @@ const checksumIfPresent = async (filesRoot: string, storageKey: string) => {
     return await calculateStorageFileChecksum(filesRoot, storageKey);
   } catch (error) {
     if (error instanceof StorageMutationAmbiguityError) return undefined;
-    throw error;
-  }
-};
-
-const treeDigestIfDeterminable = async (absolutePath: string) => {
-  try {
-    const stats = await lstat(absolutePath);
-    if (!stats.isDirectory()) return "invalid-tree-node";
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-    throw error;
-  }
-  try {
-    return await calculateTreeManifestDigest(absolutePath);
-  } catch (error) {
-    if (error instanceof StorageMutationAmbiguityError)
-      return "invalid-tree-manifest";
     throw error;
   }
 };
@@ -227,7 +209,12 @@ const requireBatchDestination = async (
 ) => {
   const destination = await getPrisma().folder.findUnique({
     where: { id: destinationFolderId },
-    select: { id: true, ownerUserId: true, deletedAt: true },
+    select: {
+      id: true,
+      ownerUserId: true,
+      deletedAt: true,
+      storageRevision: true,
+    },
   });
   if (
     [
@@ -388,6 +375,66 @@ const createBatchTargetStorageKey = (
   return path.posix.join(targetKey, relative);
 };
 
+const captureBatchFolderTreeManifest = async ({
+  sourceKey,
+  descendantKeys,
+  files,
+  storagePaths,
+}: {
+  sourceKey: string;
+  descendantKeys: string[];
+  files: Array<{
+    id: string;
+    storageKey: string;
+    sizeBytes: bigint;
+    contentChecksum: string | null;
+  }>;
+  storagePaths: WorkerStoragePaths;
+}) => {
+  const relativeKey = (storageKey: string) => {
+    const relative = path.posix.relative(sourceKey, storageKey);
+    if (
+      !relative ||
+      relative === ".." ||
+      relative.startsWith("../") ||
+      path.posix.isAbsolute(relative)
+    ) {
+      throw new StorageMutationAmbiguityError(
+        "Folder member storage path escaped its journaled source root.",
+      );
+    }
+    return relative;
+  };
+  const entries: Parameters<typeof calculateCapturedTreeManifestDigest>[0] =
+    descendantKeys.map((storageKey) => ({
+      kind: "directory",
+      relativeKey: relativeKey(storageKey),
+    }));
+  const checksums = new Map<string, string>();
+  for (const file of files) {
+    const checksum = await resolveBatchFileChecksum(
+      storagePaths.filesRoot,
+      file,
+    );
+    if (!checksum) {
+      throw new StorageMutationAmbiguityError(
+        "Folder file checksum is ambiguous.",
+      );
+    }
+    checksums.set(file.id, checksum);
+    entries.push({
+      kind: "file",
+      relativeKey: relativeKey(file.storageKey),
+      sizeBytes: file.sizeBytes,
+      checksum,
+    });
+  }
+  return {
+    digest: calculateCapturedTreeManifestDigest(entries),
+    checksums,
+  };
+};
+
 const buildBatchFolderMovePlan = async ({
   parent,
   itemId,
@@ -398,7 +445,7 @@ const buildBatchFolderMovePlan = async ({
 }: {
   parent: ClaimedStorageMutation;
   itemId: string;
-  destination: { id: string };
+  destination: { id: string; storageRevision: number };
   destinationKey: string;
   layout: Awaited<ReturnType<typeof buildFolderKeyResolver>>;
   storagePaths: WorkerStoragePaths;
@@ -456,9 +503,15 @@ const buildBatchFolderMovePlan = async ({
   });
   const targetStorageKey = (storageKey: string) =>
     createBatchTargetStorageKey(sourceKey, targetKey, storageKey);
-  const digest = await treeDigestIfDeterminable(
-    resolveMutationStoragePath(storagePaths.filesRoot, sourceKey),
-  );
+  const descendants = [...descendantIds].map((id) => layout.folderMap.get(id)!);
+  const { digest, checksums } = await captureBatchFolderTreeManifest({
+    sourceKey,
+    descendantKeys: descendants.map((descendant) =>
+      layout.resolve(descendant.id),
+    ),
+    files,
+    storagePaths,
+  });
   return {
     operations: [
       {
@@ -468,12 +521,24 @@ const buildBatchFolderMovePlan = async ({
         preRevision: folder!.storageRevision,
         data: { parentId: destination.id },
       },
+      ...descendants.map((descendant): StorageMetadataOperation => ({
+        action: "update",
+        entityType: "folder",
+        entityId: descendant.id,
+        preRevision: descendant.storageRevision,
+        data: {},
+      })),
       ...files.map((file): StorageMetadataOperation => ({
         action: "update",
         entityType: "file",
         entityId: file.id,
         preRevision: file.storageRevision,
-        data: { storageKey: targetStorageKey(file.storageKey) },
+        data: {
+          storageKey: targetStorageKey(file.storageKey),
+          ...(!file.contentChecksum
+            ? { contentChecksum: checksums.get(file.id)! }
+            : {}),
+        },
       })),
     ],
     steps: [
@@ -494,6 +559,14 @@ const buildBatchFolderMovePlan = async ({
         beforeJson: { parentId: folder!.parentId },
         afterJson: { parentId: destination.id },
       },
+      ...descendants.map((descendant) => ({
+        entityType: "folder" as const,
+        entityId: descendant.id,
+        preRevision: descendant.storageRevision,
+        postRevision: descendant.storageRevision + 1,
+        beforeJson: { parentId: descendant.parentId },
+        afterJson: {},
+      })),
       ...files.map((file) => ({
         entityType: "file" as const,
         entityId: file.id,
@@ -502,6 +575,14 @@ const buildBatchFolderMovePlan = async ({
         beforeJson: { storageKey: file.storageKey },
         afterJson: { storageKey: targetStorageKey(file.storageKey) },
       })),
+      {
+        entityType: "folder" as const,
+        entityId: destination.id,
+        preRevision: destination.storageRevision,
+        postRevision: destination.storageRevision,
+        beforeJson: null,
+        afterJson: null,
+      },
     ],
   };
 };
@@ -1110,7 +1191,10 @@ const runClearTrashChild = async ({
 }) => {
   const childKey = `${parent.idempotencyKey}:${ordinal}`;
   const expectedKind = item.kind === "file" ? "file_purge" : "folder_purge";
-  const requestHashPayload = buildTrashPurgeChildRequestHashPayload(item);
+  const requestHashPayload = buildStorageMutationChildRequestHashPayload({
+    operation: "clear_trash",
+    item: { id: item.id, kind: item.kind },
+  });
   const replay = await resolveExistingClearTrashChild({
     parent,
     childKey,

@@ -105,7 +105,7 @@ const generateStorageId = (email: string, attempt = 0) => {
     : `${base}-${generateTokenFromAlphabet(6, "abcdefghijklmnopqrstuvwxyz0123456789")}`;
 };
 
-export const generateTemporaryPassword = () =>
+const generateTemporaryPassword = () =>
   shuffle(
     [
       generateTokenFromAlphabet(1, "abcdefghijkmnopqrstuvwxyz"),
@@ -358,7 +358,6 @@ export const createAuthService = ({
         throw new AuthError("INVALID_CREDENTIALS");
       }
 
-      await provisionUserStorage(user);
       return createSessionForUser(user, metadata);
     },
 

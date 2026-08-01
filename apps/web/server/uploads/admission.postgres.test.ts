@@ -48,7 +48,7 @@ import {
   cancelAndCleanupResumableSession,
   completeResumableSessionWithFile,
   createResumableSession,
-  recordCompletedUploadChunk,
+  writeAndRecordUploadChunk,
 } from "@/server/uploads/session-service";
 import { assertIsolatedPostgresTestTarget } from "../../vitest.postgres.global";
 import { cleanupUploadSessionLifecycle } from "../../../worker/src/handlers/staging-cleanup.js";
@@ -264,12 +264,14 @@ const createReadyToCommitSession = async ({
     fixedNow,
   );
   await writeFile(session.tmpPath, bytes);
-  await recordCompletedUploadChunk({
+  await writeAndRecordUploadChunk({
     sessionId: session.id,
+    ownerUserId,
     chunkIndex: 0,
     startByte: 0,
     endByte: bytes.length - 1,
     sizeBytes: bytes.length,
+    writeBytes: async () => bytes.length,
   });
   await beginSessionCommit({
     id: session.id,
@@ -1101,12 +1103,14 @@ describe("UPL-01 PostgreSQL lifecycle and cleanup", () => {
       fixedNow,
     );
     await writeFile(session.tmpPath, Buffer.alloc(5, 1));
-    await recordCompletedUploadChunk({
+    await writeAndRecordUploadChunk({
       sessionId: session.id,
+      ownerUserId: user.id,
       chunkIndex: 0,
       startByte: 0,
       endByte: 4,
       sizeBytes: 5,
+      writeBytes: async () => 5,
     });
 
     await cancelAndCleanupResumableSession({
@@ -1173,12 +1177,14 @@ describe("UPL-01 PostgreSQL lifecycle and cleanup", () => {
       fixedNow,
     );
     await writeFile(session.tmpPath, Buffer.alloc(5, 1));
-    await recordCompletedUploadChunk({
+    await writeAndRecordUploadChunk({
       sessionId: session.id,
+      ownerUserId: user.id,
       chunkIndex: 0,
       startByte: 0,
       endByte: 4,
       sizeBytes: 5,
+      writeBytes: async () => 5,
     });
     const staleTime = new Date(
       fixedNow.getTime() - storagePaths.uploadStagingTtlMs - 1,

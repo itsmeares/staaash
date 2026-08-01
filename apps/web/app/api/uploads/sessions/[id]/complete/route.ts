@@ -2,7 +2,6 @@
 // fallow-ignore-file code-duplication
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { getPrisma } from "@staaash/db/client";
 
 import { getRequestSession } from "@/server/auth/guards";
 import { isSameOrigin, notSignedInResponse } from "@/server/auth/http";
@@ -13,6 +12,7 @@ import {
 import { filesService } from "@/server/files/service";
 import { FilesError, ResumableCompletionError } from "@/server/files/errors";
 import { computeFileSha256 } from "@/server/uploads";
+import { attachStorageMutationHeader } from "@/server/storage-idempotency";
 import { hasCompleteUploadChunkSet } from "@/server/uploads/chunk-protocol";
 import {
   beginSessionCommit,
@@ -28,19 +28,13 @@ type RouteContext = { params: Promise<{ id: string }> };
 const attachResumableMutationHeader = async (
   response: Response,
   uploadSessionId: string,
-) => {
-  const mutationId = `resumable-${uploadSessionId}`;
-  const storageMutation = getPrisma().storageMutation;
-  if (!storageMutation) return response;
-  const mutation = await storageMutation.findUnique({
-    where: { id: mutationId },
-    select: { id: true },
-  });
-  if (mutation) {
-    response.headers.set("X-Storage-Mutation-Id", mutation.id);
-  }
-  return response;
-};
+  ownerUserId: string,
+) =>
+  attachStorageMutationHeader(
+    response,
+    `resumable:${uploadSessionId}:complete`,
+    ownerUserId,
+  );
 
 const completeSchema = z.object({
   expectedChecksum: z
@@ -275,6 +269,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
           { status: 409 },
         ),
         uploadSession.id,
+        session.user.id,
       );
     }
     console.error("[uploads] Could not begin resumable commit.", error);
@@ -287,6 +282,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         { status: 503, headers: { "retry-after": "1" } },
       ),
       uploadSession.id,
+      session.user.id,
     );
   }
 
@@ -303,5 +299,6 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       checksumResult.expectedChecksum,
     ),
     uploadSession.id,
+    session.user.id,
   );
 }

@@ -199,7 +199,6 @@ const collectOriginalIntegrityIssues = async (
   return { missingOriginals, checksumMismatches };
 };
 
-// fallow-ignore-next-line unused-export
 export const collectMissingOriginals = async (
   fileRecords: ReconciliationFileRecord[],
   filesRoot: string,

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 import { getRequestSession } from "@/server/auth/guards";
 import {
@@ -17,11 +17,14 @@ import {
   attachStorageMutationHeader,
   readStorageIdempotencyKey,
 } from "@/server/storage-idempotency";
-import { assertStorageMutationMayStart } from "@/server/durable-storage-mutation";
+import {
+  findDurableStorageMutationReplay,
+  hashDurableStorageRequest,
+  prepareDurableStorageMutationParent,
+} from "@/server/durable-storage-mutation";
 import {
   claimStorageMutation,
   completeStorageMutationParent,
-  prepareStorageMutationParent,
 } from "@staaash/db/storage-mutations";
 
 type ClearTrashInput = Parameters<typeof filesService.clearTrash>[0];
@@ -34,8 +37,12 @@ type ClearTrashPriorChildren = NonNullable<
 >;
 type TrashListing = Awaited<ReturnType<typeof filesService.listTrashFolders>>;
 type PreparedClearTrash = Awaited<
-  ReturnType<typeof prepareStorageMutationParent>
+  ReturnType<typeof prepareDurableStorageMutationParent>
 >;
+
+const CLEAR_TRASH_REQUEST_HASH = hashDurableStorageRequest({
+  action: "clear_trash",
+});
 
 const crossOriginResponse = (request: NextRequest) =>
   wantsJson(request)
@@ -90,13 +97,11 @@ const prepareClearTrash = async ({
   idempotencyKey: string;
   orderedItems: ClearTrashOrderedItems;
 }) =>
-  prepareStorageMutationParent({
+  prepareDurableStorageMutationParent({
     kind: "clear_trash",
     ownerUserId: actor.actorUserId,
     idempotencyKey,
-    requestHash: createHash("sha256")
-      .update(JSON.stringify({ action: "clear_trash" }))
-      .digest("hex"),
+    requestHash: CLEAR_TRASH_REQUEST_HASH,
     intentJson: { version: 1, orderedItems },
   });
 
@@ -235,16 +240,28 @@ export async function POST(request: NextRequest) {
   let idempotencyKey: string | null = null;
   try {
     idempotencyKey = readStorageIdempotencyKey(request);
-    await assertStorageMutationMayStart();
-    const initialListing = await filesService.listTrashFolders({
-      actorUserId: session.user.id,
-      actorRole: session.user.role,
-    });
-    const orderedItems = buildClearTrashItems(initialListing);
     const actor = {
       actorUserId: session.user.id,
       actorRole: session.user.role,
     };
+    const replay = await findDurableStorageMutationReplay({
+      kind: "clear_trash",
+      ownerUserId: session.user.id,
+      idempotencyKey,
+      requestHash: CLEAR_TRASH_REQUEST_HASH,
+    });
+    if (replay) {
+      return executePreparedClearTrash({
+        request,
+        redirectTo,
+        parent: { mutation: replay, replayed: true },
+        actor,
+        idempotencyKey,
+        orderedItems: [],
+      });
+    }
+    const initialListing = await filesService.listTrashFolders(actor);
+    const orderedItems = buildClearTrashItems(initialListing);
     const parent = await prepareClearTrash({
       actor,
       idempotencyKey,

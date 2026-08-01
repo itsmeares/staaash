@@ -1417,6 +1417,35 @@ describe("STO-02 durable PostgreSQL protocol", () => {
     ).resolves.toBe("private");
   });
 
+  it("recovers an existing empty directory with a legacy manifest", async () => {
+    const user = await createUser();
+    const targetKey = `files/${user.storageId}/legacy-empty`;
+    await mkdir(storagePath(targetKey), { recursive: true });
+    const prepared = await prepareStorageMutation({
+      kind: "folder_create",
+      ownerUserId: user.id,
+      idempotencyKey: randomUUID(),
+      requestHash: randomUUID(),
+      intentJson: intent([]) as unknown as Prisma.InputJsonValue,
+      steps: [
+        {
+          action: "mkdir",
+          targetKey,
+          expectedNodeType: "directory",
+          treeManifestDigest: createHash("sha256").update("").digest("hex"),
+        },
+      ],
+    });
+
+    await expect(execute(prepared.mutation)).resolves.toBeDefined();
+    await expect(
+      db.storageMutation.findUniqueOrThrow({
+        where: { id: prepared.mutation.id },
+        select: { status: true },
+      }),
+    ).resolves.toEqual({ status: "succeeded" });
+  });
+
   it("preserves an unexpected member added to a captured trash tree", async () => {
     const user = await createUser();
     const sourceKey = `files/${user.storageId}/captured`;
@@ -2162,6 +2191,105 @@ describe("STO-02 durable PostgreSQL protocol", () => {
         },
       ],
     });
+  });
+
+  it("fails closed when reconstructed folder moves contain untracked files", async () => {
+    const user = await createUser();
+    const filesRoot = await db.folder.create({
+      data: {
+        ownerUserId: user.id,
+        name: "Files",
+        isFilesRoot: true,
+      },
+    });
+    const [source, destination] = await Promise.all([
+      db.folder.create({
+        data: {
+          ownerUserId: user.id,
+          parentId: filesRoot.id,
+          name: "source",
+        },
+      }),
+      db.folder.create({
+        data: {
+          ownerUserId: user.id,
+          parentId: filesRoot.id,
+          name: "destination",
+        },
+      }),
+    ]);
+    const nested = await db.folder.create({
+      data: {
+        ownerUserId: user.id,
+        parentId: source.id,
+        name: "nested",
+      },
+    });
+    const sourceKey = `files/${user.storageId}/source`;
+    const targetKey = `files/${user.storageId}/destination/source`;
+    const trackedKey = `${sourceKey}/nested/tracked.bin`;
+    const trackedBytes = Buffer.from("tracked");
+    const tracked = await db.file.create({
+      data: {
+        ownerUserId: user.id,
+        folderId: nested.id,
+        originalName: "tracked.bin",
+        storageKey: trackedKey,
+        mimeType: "application/octet-stream",
+        sizeBytes: BigInt(trackedBytes.length),
+      },
+    });
+    await mkdir(path.dirname(storagePath(trackedKey)), { recursive: true });
+    await writeFile(storagePath(trackedKey), trackedBytes);
+    await writeFile(
+      path.join(storagePath(sourceKey), "untracked.bin"),
+      "private",
+    );
+    const parent = await prepareStorageMutationParent({
+      kind: "batch_move",
+      ownerUserId: user.id,
+      idempotencyKey: `batch:${randomUUID()}`,
+      requestHash: "parent-hash",
+      intentJson: {
+        version: 1,
+        metadataOperations: [],
+        destinationFolderId: destination.id,
+        items: [{ id: source.id, kind: "folder" }],
+      },
+    });
+
+    await recoverStorageMutations({
+      storagePaths: storagePaths(),
+      leaseOwner: `parent-recovery:${randomUUID()}`,
+    });
+
+    const child = await db.storageMutation.findFirstOrThrow({
+      where: { parentId: parent.mutation.id },
+    });
+    expect(child.status).toBe("recovery_required");
+    await expect(
+      db.storageMutationEntity.findMany({
+        where: { mutationId: child.id },
+        select: { entityType: true, entityId: true },
+      }),
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        { entityType: "folder", entityId: source.id },
+        { entityType: "folder", entityId: nested.id },
+        { entityType: "folder", entityId: destination.id },
+        { entityType: "file", entityId: tracked.id },
+      ]),
+    );
+    await expect(access(storagePath(sourceKey))).resolves.toBeUndefined();
+    await expect(access(storagePath(targetKey))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+    await expect(
+      db.folder.findUniqueOrThrow({ where: { id: source.id } }),
+    ).resolves.toMatchObject({ parentId: filesRoot.id, storageRevision: 0 });
+    await expect(
+      db.folder.findUniqueOrThrow({ where: { id: nested.id } }),
+    ).resolves.toMatchObject({ parentId: source.id, storageRevision: 0 });
   });
 
   it("records an already-succeeded clear-trash child after a parent crash gap", async () => {

@@ -31,10 +31,6 @@ import {
   type StorageMutationRecord,
 } from "./storage-mutations";
 
-export const EMPTY_TREE_MANIFEST_DIGEST = createHash("sha256")
-  .update("")
-  .digest("hex");
-
 export class StorageMutationAmbiguityError extends Error {
   readonly code = "STORAGE_RECOVERY_REQUIRED";
 
@@ -172,7 +168,7 @@ export const calculateStorageFileChecksum = async (
   return sha256File(candidate);
 };
 
-export const calculateTreeManifestDigest = async (treeRoot: string) => {
+const readTreeManifestRecords = async (treeRoot: string) => {
   const records: string[] = [];
   const visit = async (directoryPath: string, prefix: string) => {
     const entries = await readdir(directoryPath, { withFileTypes: true });
@@ -203,7 +199,30 @@ export const calculateTreeManifestDigest = async (treeRoot: string) => {
     }
   };
   await visit(treeRoot, "");
-  return createHash("sha256").update(records.join("\n")).digest("hex");
+  return records;
+};
+
+const hashTreeManifestRecords = (records: string[]) => {
+  const hash = createHash("sha256");
+  for (const record of records) {
+    hash.update(`${Buffer.byteLength(record)}:`).update(record);
+  }
+  return `v2:${hash.digest("hex")}`;
+};
+
+const hashLegacyTreeManifestRecords = (records: string[]) =>
+  createHash("sha256").update(records.join("\n")).digest("hex");
+
+export const EMPTY_TREE_MANIFEST_DIGEST = hashTreeManifestRecords([]);
+
+export const calculateTreeManifestDigest = async (treeRoot: string) =>
+  hashTreeManifestRecords(await readTreeManifestRecords(treeRoot));
+
+const treeManifestMatches = async (treeRoot: string, expected: string) => {
+  const records = await readTreeManifestRecords(treeRoot);
+  return expected.startsWith("v2:")
+    ? hashTreeManifestRecords(records) === expected
+    : hashLegacyTreeManifestRecords(records) === expected;
 };
 
 export const calculateCapturedTreeManifestDigest = (
@@ -239,7 +258,7 @@ export const calculateCapturedTreeManifestDigest = (
         ? `D ${entry.relativeKey}`
         : `F ${entry.relativeKey} ${entry.sizeBytes} ${entry.checksum}`,
     );
-  return createHash("sha256").update(records.join("\n")).digest("hex");
+  return hashTreeManifestRecords(records);
 };
 
 type StoragePathState = Awaited<ReturnType<typeof pathState>>;
@@ -296,11 +315,10 @@ const assertExpectedTreeManifest = async (
   step: StorageMutationStep,
 ) => {
   if (!step.treeManifestDigest) return;
-  const digest =
-    state.type === "directory"
-      ? await calculateTreeManifestDigest(candidate)
-      : null;
-  if (digest !== step.treeManifestDigest) {
+  if (
+    state.type !== "directory" ||
+    !(await treeManifestMatches(candidate, step.treeManifestDigest))
+  ) {
     throw new StorageMutationAmbiguityError(
       "Mutation tree differs from captured manifest.",
     );
@@ -667,9 +685,7 @@ const applyMkdir = async (
       target,
       beforeCreate: assertLease,
     });
-  } else if (
-    (await calculateTreeManifestDigest(target)) !== step.treeManifestDigest
-  ) {
+  } else if (!(await treeManifestMatches(target, step.treeManifestDigest))) {
     throw new StorageMutationAmbiguityError(
       "Existing mkdir target is not the captured empty directory.",
     );
@@ -709,8 +725,10 @@ const deleteMutationTree = async (
       "Tree-delete step lacks captured manifest.",
     );
   }
-  const digest = await calculateTreeManifestDigest(target);
-  if (digest !== step.treeManifestDigest && !allowOwnedPartialTreeDelete) {
+  if (
+    !(await treeManifestMatches(target, step.treeManifestDigest)) &&
+    !allowOwnedPartialTreeDelete
+  ) {
     throw new StorageMutationAmbiguityError(
       "Tree-delete content differs from captured manifest.",
     );
@@ -924,7 +942,7 @@ export type StorageMutationExecutionBoundary =
   | "cleanup_steps_applied"
   | "completed";
 
-export type StorageMutationExecutionHook = (
+type StorageMutationExecutionHook = (
   boundary: StorageMutationExecutionBoundary,
   step?: StorageMutationRecord["steps"][number],
 ) => Promise<void>;

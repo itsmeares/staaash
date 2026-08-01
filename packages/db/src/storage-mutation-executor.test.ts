@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -21,8 +22,35 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 
 import {
   assertStorageFilesystemSupported,
+  calculateCapturedTreeManifestDigest,
   StorageFilesystemUnsupportedError,
 } from "./storage-mutation-executor";
+
+describe("storage tree manifests", () => {
+  it("does not confuse record separators inside logical paths", () => {
+    const checksum = createHash("sha256").update("x").digest("hex");
+
+    const digest = calculateCapturedTreeManifestDigest([
+      {
+        kind: "directory",
+        relativeKey: `x\nF y 1 ${checksum}`,
+      },
+    ]);
+
+    expect(digest).toMatch(/^v2:/);
+    expect(digest).not.toBe(
+      calculateCapturedTreeManifestDigest([
+        { kind: "directory", relativeKey: "x" },
+        {
+          kind: "file",
+          relativeKey: "y",
+          sizeBytes: 1n,
+          checksum,
+        },
+      ]),
+    );
+  });
+});
 
 describe("storage filesystem capability cache", () => {
   afterEach(() => {

@@ -1,11 +1,14 @@
 // Cutover scans intentionally use one preserve-or-report artifact policy.
 // fallow-ignore-file code-duplication
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { lstat, readdir, rm } from "node:fs/promises";
 
 import { getPrisma, type Prisma } from "@staaash/db/client";
-import { assertStorageFilesystemSupported } from "@staaash/db/storage-mutation-executor";
+import {
+  assertStorageFilesystemSupported,
+  EMPTY_TREE_MANIFEST_DIGEST,
+} from "@staaash/db/storage-mutation-executor";
 import { createLegacyRecoveryRequiredMutation } from "@staaash/db/storage-mutations";
 import {
   collectRestoreReconciliationIssues,
@@ -53,7 +56,7 @@ const buildProvisioningSteps = async (
       action: "mkdir" as const,
       targetKey,
       expectedNodeType: "directory" as const,
-      treeManifestDigest: createHash("sha256").update("").digest("hex"),
+      treeManifestDigest: EMPTY_TREE_MANIFEST_DIGEST,
     });
   }
   return steps;

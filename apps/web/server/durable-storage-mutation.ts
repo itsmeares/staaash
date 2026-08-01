@@ -1,14 +1,16 @@
 // Web and worker executors intentionally enforce the same journal protocol.
 // fallow-ignore-file code-duplication
 import os from "node:os";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 import { getPrisma, type Prisma } from "@staaash/db/client";
 import {
   applyStorageMutationIntentMetadata,
   findStorageMutation,
   findStorageMutationByIdempotencyKey,
+  hashStorageMutationRequest,
   prepareStorageMutation,
+  prepareStorageMutationParent,
   StorageMutationConflictError,
   type RecoverableStorageMutationIntent,
   type StorageMetadataOperation,
@@ -45,19 +47,13 @@ export const assertStorageProtocolReady = async () => {
   }
 };
 
-export const assertStorageMutationMayStart = async () => {
+const assertStorageMutationMayStart = async () => {
   await assertStorageProtocolReady();
   await assertStorageFilesystemSupported(getStorageRoot());
 };
 
 export const hashDurableStorageRequest = (value: unknown) =>
-  createHash("sha256")
-    .update(
-      JSON.stringify(value, (_key, item) =>
-        typeof item === "bigint" ? item.toString() : item,
-      ),
-    )
-    .digest("hex");
+  hashStorageMutationRequest(value);
 
 export type DurableStorageMutationInput = {
   kind: StorageMutationKind;
@@ -221,11 +217,12 @@ const prepareDurableStorageMutation = async (
   }
 };
 
-const replayExistingIdempotentMutation = async (
-  input: DurableStorageMutationInput,
-) => {
-  if (!input.idempotencyKey) return null;
-  const { requestHash } = buildDurableMutationPlan(input);
+export const findDurableStorageMutationReplay = async (input: {
+  idempotencyKey: string;
+  kind: StorageMutationKind;
+  ownerUserId: string;
+  requestHash: string;
+}) => {
   const existing = await findStorageMutationByIdempotencyKey(
     input.idempotencyKey,
   );
@@ -233,12 +230,25 @@ const replayExistingIdempotentMutation = async (
   if (
     existing.ownerUserId !== input.ownerUserId ||
     existing.kind !== input.kind ||
-    existing.requestHash !== requestHash
+    existing.requestHash !== input.requestHash
   ) {
     throw new StorageMutationConflictError("STORAGE_IDEMPOTENCY_KEY_REUSED");
   }
-  if (existing.status === "succeeded") return existing;
-  throw mutationStateConflict(existing);
+  if (existing.status !== "succeeded") throw mutationStateConflict(existing);
+  return existing;
+};
+
+const replayExistingIdempotentMutation = async (
+  input: DurableStorageMutationInput,
+) => {
+  if (!input.idempotencyKey) return null;
+  const { requestHash } = buildDurableMutationPlan(input);
+  return findDurableStorageMutationReplay({
+    kind: input.kind,
+    ownerUserId: input.ownerUserId,
+    idempotencyKey: input.idempotencyKey,
+    requestHash,
+  });
 };
 
 export const runDurableStorageMutation = async (
@@ -256,4 +266,13 @@ export const runDurableStorageMutation = async (
   }
   if (mutation.status === "succeeded") return mutation;
   throw mutationStateConflict(mutation);
+};
+
+export const prepareDurableStorageMutationParent = async (
+  input: Parameters<typeof prepareStorageMutationParent>[0],
+) => {
+  const existing = await findDurableStorageMutationReplay(input);
+  if (existing) return { mutation: existing, replayed: true };
+  await assertStorageMutationMayStart();
+  return prepareStorageMutationParent(input);
 };

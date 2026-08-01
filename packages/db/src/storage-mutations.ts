@@ -4,10 +4,10 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { Prisma, getPrisma } from "./client";
 
-export const STORAGE_MUTATION_LEASE_MS = 30_000;
+const STORAGE_MUTATION_LEASE_MS = 30_000;
 export const STORAGE_MUTATION_RENEW_MS = 10_000;
 
-export const STORAGE_MUTATION_KINDS = [
+const STORAGE_MUTATION_KINDS = [
   "folder_create",
   "file_rename",
   "file_move",
@@ -61,6 +61,15 @@ export const buildStorageMutationChildRequestHashPayload = ({
     : { kind: "folder_purge" as const, folderId: item.id };
 };
 
+export const hashStorageMutationRequest = (value: unknown) =>
+  createHash("sha256")
+    .update(
+      JSON.stringify(value, (_key, item) =>
+        typeof item === "bigint" ? item.toString() : item,
+      ),
+    )
+    .digest("hex");
+
 export type StorageMutationKind = (typeof STORAGE_MUTATION_KINDS)[number];
 export type StorageMutationStatus =
   | "preparing"
@@ -71,7 +80,7 @@ export type StorageMutationStatus =
   | "succeeded"
   | "retrying"
   | "recovery_required";
-export type StorageMutationAction =
+type StorageMutationAction =
   "mkdir" | "rename" | "delete_file" | "delete_tree" | "remove_empty_directory";
 
 export type StorageMutationStepInput = {
@@ -171,7 +180,7 @@ export type RecoverableStorageMutationIntent = {
   [key: string]: unknown;
 };
 
-export type PrepareStorageMutationInput = {
+type PrepareStorageMutationInput = {
   id?: string;
   parentId?: string | null;
   kind: StorageMutationKind;
@@ -244,13 +253,6 @@ export class StorageMutationIntentError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "StorageMutationIntentError";
-  }
-}
-
-export class StorageMutationRetryableIntentError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "StorageMutationRetryableIntentError";
   }
 }
 
@@ -542,9 +544,7 @@ const applyOwnerQuotaAssertion = async (
     bigintOrZero(reserved._sum.totalSizeBytes) +
     BigInt(operation.additionalBytes);
   if (total > limit) {
-    throw new StorageMutationRetryableIntentError(
-      "Storage quota changed while mutation was running.",
-    );
+    throw new Error("Storage quota changed while mutation was running.");
   }
 };
 
@@ -1435,22 +1435,6 @@ export const commitStorageMutationMetadata = async <T>({
     return result;
   });
 
-export const markStorageMutationMetadataCommitted = async ({
-  mutationId,
-  leaseOwner,
-  leaseToken,
-}: {
-  mutationId: string;
-  leaseOwner: string;
-  leaseToken: bigint;
-}) =>
-  commitStorageMutationMetadata({
-    mutationId,
-    leaseOwner,
-    leaseToken,
-    callback: async () => undefined,
-  });
-
 export const beginStorageMutationFinalization = async ({
   mutationId,
   leaseOwner,
@@ -1685,9 +1669,7 @@ export const createLegacyRecoveryRequiredMutation = async ({
   reason: string;
   resourceKeys?: string[];
 }) => {
-  const requestHash = createHash("sha256")
-    .update(JSON.stringify([...residueKeys].sort()))
-    .digest("hex");
+  const requestHash = hashStorageMutationRequest([...residueKeys].sort());
   const idempotencyKey = `legacy-residue:${requestHash}`;
   const prepared = await prepareStorageMutation({
     kind: "legacy_recovery",

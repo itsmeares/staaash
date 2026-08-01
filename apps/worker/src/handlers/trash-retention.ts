@@ -11,7 +11,7 @@ import {
 } from "@staaash/db/storage-mutations";
 import { hashWorkerStorageRequest } from "../durable-storage-mutation.js";
 import { recoverStorageMutationParent } from "./storage-mutation-parent-recovery.js";
-import type { TrashRetentionItemIdentity } from "./trash-retention-eligibility.js";
+import type { TrashItemIdentity } from "./trash-retention-eligibility.js";
 
 const trashEnvSchema = z.object({
   UPLOAD_LOCATION: z.string().trim().min(1),
@@ -156,7 +156,7 @@ const loadExpiredFolderRoots = async (prisma: PrismaClient, cutoff: Date) => {
   );
 };
 
-type RetentionItem = TrashRetentionItemIdentity & {
+type RetentionItem = TrashItemIdentity & {
   id: string;
   kind: "file" | "folder";
 };

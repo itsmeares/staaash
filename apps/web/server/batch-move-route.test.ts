@@ -11,8 +11,7 @@ import {
 } from "@/server/retrieval/recent-tracking";
 
 const durableMocks = vi.hoisted(() => ({
-  assertStorageMutationMayStart: vi.fn(),
-  prepareStorageMutationParent: vi.fn(),
+  prepareDurableStorageMutationParent: vi.fn(),
   claimStorageMutation: vi.fn(),
   renewStorageMutationLease: vi.fn(),
   recordStorageMutationParentChild: vi.fn(),
@@ -21,7 +20,9 @@ const durableMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/server/durable-storage-mutation", () => ({
-  assertStorageMutationMayStart: durableMocks.assertStorageMutationMayStart,
+  hashDurableStorageRequest: (value: unknown) => JSON.stringify(value),
+  prepareDurableStorageMutationParent:
+    durableMocks.prepareDurableStorageMutationParent,
 }));
 
 vi.mock("@staaash/db/client", () => ({
@@ -31,7 +32,6 @@ vi.mock("@staaash/db/client", () => ({
 }));
 
 vi.mock("@staaash/db/storage-mutations", () => ({
-  prepareStorageMutationParent: durableMocks.prepareStorageMutationParent,
   claimStorageMutation: durableMocks.claimStorageMutation,
   renewStorageMutationLease: durableMocks.renewStorageMutationLease,
   recordStorageMutationParentChild:
@@ -82,7 +82,7 @@ describe("batch move route", () => {
       status: "prepared",
       resultJson: { children: [] },
     };
-    durableMocks.prepareStorageMutationParent.mockResolvedValue({
+    durableMocks.prepareDurableStorageMutationParent.mockResolvedValue({
       mutation,
       replayed: false,
     });

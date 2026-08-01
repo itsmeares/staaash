@@ -4,9 +4,7 @@ export type TrashItemIdentity = {
   trashEntryId: string | null;
 };
 
-export type TrashRetentionItemIdentity = TrashItemIdentity;
-
-export type TrashRetentionPurgeItem = {
+type TrashRetentionPurgeItem = {
   id: string;
   kind: "file" | "folder";
   identity: TrashItemIdentity & { cutoff: Date };

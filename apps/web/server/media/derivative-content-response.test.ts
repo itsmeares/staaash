@@ -123,6 +123,7 @@ describe("public derivative content responses", () => {
       }),
       downloadDisabled: false,
       derivative: {
+        id: "derivative-1",
         storageKey: "derivative",
         sizeBytes: 10n,
         mimeType: "ViDeO/Mp4; codecs=avc1",
@@ -206,6 +207,7 @@ describe("public derivative content responses", () => {
       request: new Request("http://localhost/poster"),
       downloadDisabled: false,
       derivative: {
+        id: "derivative-2",
         storageKey: "unsafeDerivative",
         sizeBytes: 21n,
         mimeType: "image/svg+xml",
@@ -235,6 +237,7 @@ describe("public derivative content responses", () => {
         request: new Request("http://localhost/poster"),
         downloadDisabled: true,
         derivative: {
+          id: "derivative-3",
           storageKey: "unsafeDerivative",
           sizeBytes: 21n,
           mimeType: "image/svg+xml",

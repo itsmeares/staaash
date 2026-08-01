@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import { getRequestSession } from "@/server/auth/guards";
@@ -18,12 +18,14 @@ import {
   attachStorageMutationHeader,
   readStorageIdempotencyKey,
 } from "@/server/storage-idempotency";
-import { assertStorageMutationMayStart } from "@/server/durable-storage-mutation";
+import {
+  hashDurableStorageRequest,
+  prepareDurableStorageMutationParent,
+} from "@/server/durable-storage-mutation";
 import { getPrisma } from "@staaash/db/client";
 import {
   completeStorageMutationParent,
   claimStorageMutation,
-  prepareStorageMutationParent,
   recordStorageMutationParentChild,
   renewStorageMutationLease,
 } from "@staaash/db/storage-mutations";
@@ -47,7 +49,7 @@ type BatchMoveActor = Pick<
   "actorUserId" | "actorRole"
 >;
 type PreparedBatchMove = Awaited<
-  ReturnType<typeof prepareStorageMutationParent>
+  ReturnType<typeof prepareDurableStorageMutationParent>
 >;
 type ClaimedBatchMove = NonNullable<
   Awaited<ReturnType<typeof claimStorageMutation>>
@@ -332,11 +334,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = requestSchema.parse(await request.json());
     idempotencyKey = readStorageIdempotencyKey(request);
-    await assertStorageMutationMayStart();
-    const requestHash = createHash("sha256")
-      .update(JSON.stringify(body))
-      .digest("hex");
-    const parent = await prepareStorageMutationParent({
+    const requestHash = hashDurableStorageRequest(body);
+    const parent = await prepareDurableStorageMutationParent({
       kind: "batch_move",
       ownerUserId: session.user.id,
       idempotencyKey,

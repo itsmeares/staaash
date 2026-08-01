@@ -1,11 +1,12 @@
 import os from "node:os";
 import path from "node:path";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { lstat } from "node:fs/promises";
 
 import type { Prisma } from "@staaash/db/client";
 import {
   applyStorageMutationIntentMetadata,
+  hashStorageMutationRequest,
   prepareStorageMutation,
   type RecoverableStorageMutationIntent,
   type StorageMetadataOperation,
@@ -62,13 +63,7 @@ export const assertWorkerMutationMayStart = async (mutationId: string) => {
 };
 
 export const hashWorkerStorageRequest = (value: unknown) =>
-  createHash("sha256")
-    .update(
-      JSON.stringify(value, (_key, item) =>
-        typeof item === "bigint" ? item.toString() : item,
-      ),
-    )
-    .digest("hex");
+  hashStorageMutationRequest(value);
 
 export const buildArtifactPublishSteps = ({
   mutationId,

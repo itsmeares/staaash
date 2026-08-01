@@ -170,14 +170,13 @@ export const createReadyDerivativeContentResponse = async ({
   fileName,
 }: {
   request: Request;
-  derivative: Pick<DerivativeRow, "storageKey" | "sizeBytes" | "mimeType"> & {
-    id?: string;
-  };
+  derivative: Pick<
+    DerivativeRow,
+    "id" | "storageKey" | "sizeBytes" | "mimeType"
+  >;
   fileName: string;
 }): Promise<Response> => {
-  if (derivative.id) {
-    await assertStorageEntityReadable("derivative", derivative.id);
-  }
+  await assertStorageEntityReadable("derivative", derivative.id);
   if (!derivative.storageKey || derivative.sizeBytes === null) {
     throw new MediaContentError(404, "Derivative content is unavailable.");
   }
@@ -204,10 +203,10 @@ export const createInlineContentResponse = async ({
   request: Request;
   file: StoredFile;
 }): Promise<Response> => {
-  await assertStorageEntityReadable("file", file.id);
   if (file.viewerKind !== "video") {
     return createInlineOriginalContentResponse({ request, file });
   }
+  await assertStorageEntityReadable("file", file.id);
 
   const derivative = await findReadyDerivativeForFile(file.id);
 
