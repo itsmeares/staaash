@@ -10,7 +10,7 @@
     "pretest": "pnpm run build:deps",
     "pretypecheck": "pnpm run build:deps && next typegen",
     "dev": "next dev",
-    "e2e:prepare": "node scripts/e2e-bootstrap.mjs",
+    "e2e:prepare": "node scripts/e2e-bootstrap.mjs && node --env-file-if-exists=.env.local scripts/e2e-install-extensions.mjs",
     "build": "next build",
     "postbuild": "node scripts/check-built-runtime.mjs",
     "start": "next start",
