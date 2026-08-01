@@ -3,6 +3,8 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { getOwnerCredentials, signIn } from "./helpers";
 
+test.use({ hasTouch: true });
+
 const expectNoHorizontalOverflow = async (page: Page) => {
   await expect
     .poll(() =>
