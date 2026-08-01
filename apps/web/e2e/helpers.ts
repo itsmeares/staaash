@@ -93,8 +93,10 @@ export const signIn = async (
   },
 ) => {
   await page.goto(`/?next=${encodeURIComponent(next)}`);
-  await page.keyboard.press("Enter");
-  await page.waitForSelector(".entry-form");
+  await page
+    .getByRole("button", { name: "Click anywhere to begin" })
+    .click();
+  await expect(page.locator(".entry-form")).toBeVisible();
   await page.getByLabel("Email", { exact: true }).fill(identifier);
   await page.getByLabel("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).press("Enter");
