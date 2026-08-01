@@ -70,7 +70,7 @@ preserve every possible byte and fail closed until an operator investigates.
 
 ## Related Docs
 
-- [`../README.md`](../README.md) for install and local development steps
+- [`../.github/README.md`](../.github/README.md) for install and local development steps
 - [`operations/backup-restore.md`](./operations/backup-restore.md) for backup and restore expectations
 - [`operations/resumable-uploads.md`](./operations/resumable-uploads.md) for resumable admission, quota, and cleanup behavior
 - [`operations/storage-mutation-recovery.md`](./operations/storage-mutation-recovery.md) for mutation recovery and upgrade operations

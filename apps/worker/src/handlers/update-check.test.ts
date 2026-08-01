@@ -128,9 +128,9 @@ describe("update check handler", () => {
         status: 200,
         json: async () => [
           {
-            tag_name: "v999.0.0-rc.1",
+            tag_name: "v999.0.0",
             draft: false,
-            prerelease: true,
+            prerelease: false,
           },
         ],
       }),
@@ -142,7 +142,7 @@ describe("update check handler", () => {
     expect(writeInstanceUpdateCheck).toHaveBeenCalledWith(
       expect.objectContaining({
         updateCheckStatus: "update-available",
-        latestAvailableVersion: "999.0.0-rc.1",
+        latestAvailableVersion: "999.0.0",
       }),
     );
   });

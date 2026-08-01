@@ -8,7 +8,7 @@
 </p>
 <h1>Staaash</h1>
 
-[![AGPL-3.0 License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](./LICENSE)
+[![AGPL-3.0 License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](../LICENSE)
 [![Release](https://img.shields.io/github/v/release/itsmeares/staaash?include_prereleases&label=release)](https://github.com/itsmeares/staaash/releases)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/itsmeares/staaash/pkgs/container/staaash)
 [![Self-hosted](https://img.shields.io/badge/self--hosted-yes-brightgreen)](#installation)
@@ -16,187 +16,207 @@
 </div>
 
 > [!IMPORTANT]
-> **Staaash is in beta.** Expect some bugs and breaking changes between pre-releases. Do not use it as your only copy of important files — set up a [3-2-1 backup strategy](https://www.backblaze.com/blog/the-3-2-1-backup-strategy/) before you start.
+> **Staaash v1.0 is the first stable release line.** Staaash is a file drive, not a backup system. Keep an independent backup of every important file you store in it and test that you can restore it.
 
 ---
 
-<p align="center">Staaash is a self-hosted file drive for people who want their files on their own server.</p>
+<p align="center">A private, self-hosted file drive for people who want their files on storage they control.</p>
+
+Staaash gives individuals, families, and small trusted groups a browser-based drive without handing their files to a third-party cloud. It combines everyday file management and public sharing with explicit local-storage behavior, an operator-facing admin area, and recovery that fails closed when filesystem state is ambiguous.
 
 <table>
   <tr>
-    <td colspan="2">
-      <img src="../docs/assets/readme/home-dashboard-light.png" alt="Staaash files view in light mode">
+    <td>
+      <img src="../docs/assets/readme/home-dashboard-light.png" alt="Staaash home dashboard in matching light and dark themes">
     </td>
   </tr>
   <tr>
     <td>
-      <img src="../docs/assets/readme/files-light.png" alt="Staaash home dashboard in light mode">
+      <img src="../docs/assets/readme/files-light.png" alt="Staaash files view in matching light and dark themes">
     </td>
+  </tr>
+  <tr>
     <td>
-      <img src="../docs/assets/readme/share-page-light.png" alt="Staaash public share page in light mode">
+      <img src="../docs/assets/readme/share-page-light.png" alt="Staaash public share page in matching light and dark themes">
     </td>
   </tr>
 </table>
 
-## Why Use It
+## Features
 
-- Your files stay on storage you control.
-- Sharing is built in, with public links for files and folders.
-- Invite friends or family and give them their own space.
-- Built for real home use: uploads, folders, sharing, backups, and restore checks.
+- **Files and folders:** upload, create folders, preview, download, rename, move, favorite, search, trash, restore, and permanently delete.
+- **Reliable transfers:** resumable uploads, per-user quotas, bounded staging capacity, upload progress, and generated ZIP downloads for selections and folders.
+- **Useful views:** home dashboard, recent items, favorites, shared links, path-aware search, and responsive desktop and mobile navigation.
+- **Public sharing:** links for files and folders with expiry, optional passwords, download controls, media previews, and revocation.
+- **Multiple users:** owner and admin management, per-user storage limits, temporary passwords, required password changes, and authorized-session controls.
+- **Media support:** inline image, audio, video, PDF, and text viewing, with optional FFmpeg-generated video previews handled by the worker.
+- **Operations:** health and integrity status, storage usage, job history, update checks, restore reconciliation, and crash-recoverable storage mutations.
 
-Upload files, organize folders, invite trusted users, and share links without handing the whole thing to someone else's cloud. It is built for self-hosters who want something small enough to understand and useful enough to run at home.
+## Requirements
 
-If [Immich](https://github.com/immich-app/immich) is your self-hosted photo library, Staaash aims to be your self-hosted file drive.
+- Docker Engine or Docker Desktop with the Docker Compose plugin.
+- A host that can run Linux AMD64 containers. The published v1 image currently targets `linux/amd64`; there is no native ARM64 image.
+- A local, same-volume filesystem for uploaded files with atomic rename plus working file and directory `fsync`.
+- Enough disk space for PostgreSQL, original files, temporary uploads, previews, and generated archives.
+
+The supplied Compose stack runs PostgreSQL 18 and exposes Staaash on port `2113`. Network filesystems, object-storage mounts, and S3-compatible backends are not supported storage locations.
 
 ## Installation
 
-Requirements: [Docker](https://docs.docker.com/get-docker/) with the Compose plugin.
-
-### Windows and Linux
-
-1. Go to the [releases page](https://github.com/itsmeares/staaash/releases) and download `docker-compose.yml` and `example.env` from the release you want into the same folder. Release files select that exact version tag; files on `main` may include unreleased changes.
-2. Rename `example.env` to `.env`.
-3. Open `.env`, set `DB_PASSWORD` to a secure value (you can use something like pwgen), and change any other settings you want.
-4. Run:
+1. Open the [GitHub Releases page](https://github.com/itsmeares/staaash/releases) and select the release you want. For the first stable release, use `v1.0.0`.
+2. Download that release's `docker-compose.yml` and `example.env` into the same empty folder. Release assets select the exact release tag; files on `main` may contain unreleased changes.
+3. Rename `example.env` to `.env`.
+4. Set `DB_PASSWORD` in `.env` to a long, unique alphanumeric value. Set custom storage paths before first start if you do not want the defaults.
+5. Start the stack:
 
    ```console
    docker compose up -d
    ```
 
-Staaash is now running at `http://localhost:2113`.
+6. Open `http://localhost:2113` and complete the initial setup. The first account becomes the owner and an admin.
 
-The first account you register becomes the owner. Subsequent accounts require an invite from the owner.
+Additional users are created by an owner or admin from **Admin → Users**. Staaash issues or accepts a temporary password and can require the user to replace it at first sign-in; it does not use email invitation links.
 
-### Optional release verification
+### Configuration
 
-Advanced users can also download `release-manifest.json` and `SHA256SUMS` from the same release to verify the files. The manifest records the workflow-verified immutable image reference. To pin that digest, set `STAAASH_VERSION` to its `v1.2.3@sha256:...` value instead of the normal `v1.2.3` tag.
+| Variable             | Default      | Purpose                                                                 |
+| -------------------- | ------------ | ----------------------------------------------------------------------- |
+| `STAAASH_VERSION`    | `latest`     | Image tag. Release assets replace this with their exact release tag.    |
+| `UPLOAD_LOCATION`    | `./library`  | Host directory for uploaded files and app-managed storage artifacts.    |
+| `DB_DATA_LOCATION`   | `./postgres` | Host directory for the PostgreSQL 18 data directory.                    |
+| `DB_USERNAME`        | `postgres`   | PostgreSQL username used by the supplied Compose stack.                 |
+| `DB_DATABASE_NAME`   | `staaash`    | PostgreSQL database name used by the supplied Compose stack.            |
+| `DB_PASSWORD`        | `change-me`  | Required PostgreSQL password; change before first start.                |
+| `STAAASH_PUBLIC_URL` | unset        | Canonical public URL for generated share links and embed metadata.      |
+| `SECURE_COOKIES`     | automatic    | Optional `true` or `false` override for automatic HTTP/HTTPS detection. |
 
-If you use CasaOS or another container UI, select the same readable release normally, for example `ghcr.io/itsmeares/staaash:v1.2.3`.
+The two data paths are relative to the folder containing `docker-compose.yml`. Change them in `.env`, not in the Compose volume definitions.
 
-### Reverse proxies
+### Reverse proxies and public links
 
-For a working Caddy example, see [`docs/operations/reverse-proxy.md`](../docs/operations/reverse-proxy.md).
+Staaash can run behind Caddy, Nginx, Traefik, or another reverse proxy. Use one public address consistently, preserve the original `Host` header, and forward `X-Forwarded-Proto: https` when TLS terminates at the proxy. Staaash deliberately rejects cross-origin mutating requests when the browser `Origin` host and request `Host` do not match.
 
-If you put Staaash behind Caddy, Nginx, Traefik, or another reverse proxy, preserve the original `Host` header. Staaash rejects cross-origin mutating requests by comparing the browser `Origin` host to the request `Host`.
+Set `STAAASH_PUBLIC_URL` to the canonical HTTPS address when generated share links and Discord media embeds must use it. See the [reverse-proxy guide](../docs/operations/reverse-proxy.md) and [public-sharing guide](../docs/operations/public-sharing.md) for the supported setup.
 
-Use one public address consistently. Loading the app from `https://staaash.example.com` and posting to a direct server IP, LAN IP, or different port can fail by design.
+### Verifying a release
 
-`SECURE_COOKIES` is optional. By default, Staaash uses secure cookies on HTTPS and non-secure cookies on plain HTTP. Only set `SECURE_COOKIES` if you need to force cookie behavior. If your HTTPS proxy forwards traffic to Staaash over HTTP, make sure it sends `x-forwarded-proto: https`.
+Each release also provides:
 
-### Upgrading
+- `release-manifest.json`, containing the verified Git tag, commit, OCI index digest, immutable image reference, platform, and labels;
+- `SHA256SUMS`, covering the Compose file, environment file, and release manifest.
 
-Change the exact release tag in your existing `.env`:
+Use the files from the same GitHub Release. Advanced deployments can pin the manifest's immutable `<tag>@sha256:<digest>` value as `STAAASH_VERSION`; ordinary installs should keep the readable exact tag generated in the release environment file. Container UIs such as CasaOS should select that same readable tag.
 
-```diff
-- STAAASH_VERSION=v1.2.3
-+ STAAASH_VERSION=v1.2.4
-```
+## Upgrading
 
-Then run:
+1. Read the target release notes and take a complete offline backup.
+2. Change `STAAASH_VERSION` in `.env` to the target release tag.
+3. Replace `docker-compose.yml` only when the target release notes say its Compose definition changed.
+4. Pull and restart:
 
-```console
-docker compose pull
-docker compose up -d
-```
+   ```console
+   docker compose pull
+   docker compose up -d
+   ```
 
-Replace or update `docker-compose.yml` only when the target release notes say its Compose definition changed. Migrations run automatically on startup. These commands support upgrades between compatible releases in the Postgres 18 RC/current release line.
+Database migrations run automatically on startup. Compatible installations in the PostgreSQL 18 RC/v1 release line can upgrade in place. Alpha and beta deployments are unsupported development history: create a fresh current installation and do not reuse their internal database or storage directories as current data directories.
 
-> [!WARNING]
-> Alpha and beta releases cannot be upgraded to the RC or v1 release line. Use a fresh installation of the current release. Do not reuse an alpha/beta deployment's internal database or storage directories as the data directories for the current installation.
+After an upgrade, check the version badge and **Admin → Overview**. Storage-protocol upgrades may temporarily keep writes unavailable while the worker completes recovery; follow the target release notes and the [storage-mutation recovery guide](../docs/operations/storage-mutation-recovery.md).
 
-### Data locations
+## Storage, Backup, and Restore
 
-| What           | Default path |
-| -------------- | ------------ |
-| Uploaded files | `./library`  |
-| Database       | `./postgres` |
+Staaash is a modular monolith with two application runtimes:
 
-Both paths are relative to where `docker-compose.yml` lives. Change them in `.env` before first run.
+- the Next.js web app handles the product UI and request-time behavior;
+- the worker handles durable cleanup, previews, archives, reconciliation, and storage-mutation recovery.
 
-With the default Postgres 18 container, `./postgres` is still the folder you back up. Inside the container, Postgres stores the actual cluster under its versioned data directory.
+PostgreSQL is the metadata and durable-intent authority. Original bytes live on the configured local filesystem in human-readable logical paths. Rename, move, trash, and restore operations are recorded in a PostgreSQL mutation journal before filesystem changes begin; interrupted work rolls forward, while ambiguous state preserves possible bytes and requires operator review.
 
-## Backup And Restore
+Back up `UPLOAD_LOCATION` and `DB_DATA_LOCATION` together while the web app, worker, and PostgreSQL are stopped. A backup containing only one location is incomplete. Test restores on a separate clean deployment before trusting them. Follow the complete [backup and restore checklist](../docs/operations/backup-restore.md).
 
-Back up both the database and uploaded files. In the default Docker setup, that means backing up `./postgres` and `./library` together.
+## Current Limitations
 
-See [`docs/operations/backup-restore.md`](../docs/operations/backup-restore.md) for the restore checklist.
+- One modular application stack with a separate worker; no microservice deployment mode.
+- Linux AMD64 image only; no native ARM64 release image.
+- Local, same-volume app-managed storage only; no S3, object storage, or network filesystem support.
+- No desktop sync client or native mobile application.
+- No shared workspaces or internal collaboration permission model in v1.
+- External tools may read storage for backup, but editing app-managed paths outside Staaash is unsupported.
+- Owner authority is operational and does not provide a normal-app bypass into another user's private files.
 
 ## Documentation
 
-- [`docs/architecture.md`](../docs/architecture.md) - system shape, storage model, and design boundaries
-- [`docs/operations/backup-restore.md`](../docs/operations/backup-restore.md) - simple backup and restore checklist
+- [Architecture](../docs/architecture.md) — system shape, storage model, and design boundaries
+- [Backup and restore](../docs/operations/backup-restore.md) — offline backup and restore drill
+- [Public sharing](../docs/operations/public-sharing.md) — canonical share URLs and HTTPS embeds
+- [Reverse proxy](../docs/operations/reverse-proxy.md) — Caddy example and proxy requirements
+- [Resumable uploads](../docs/operations/resumable-uploads.md) — capacity, cleanup, and recovery behavior
+- [Storage mutation recovery](../docs/operations/storage-mutation-recovery.md) — filesystem requirements and recovery operations
+- [Releasing](./RELEASING.md) — maintainer release identity, verification, and recovery flow
 
 ## Local Development
 
-Staaash is a PNPM workspace monorepo.
+Staaash is a PNPM workspace monorepo built with Next.js, React, TypeScript, Prisma, PostgreSQL, and a separate Node.js worker.
 
-Next.js · TypeScript · Prisma · PostgreSQL
+### Repository layout
 
-### Repository Layout
+- `apps/web` — web app, server modules, and API routes
+- `apps/worker` — background worker runtime
+- `packages/config` — shared runtime and TypeScript configuration
+- `packages/db` — Prisma schema, generated client, and database helpers
+- `docs` — architecture and operations guidance
+- `scripts` — maintenance and release utilities
 
-- `apps/web` - web app and server routes
-- `apps/worker` - background worker runtime
-- `packages/config` - shared TypeScript config
-- `packages/db` - Prisma schema and DB helpers
-- `docs` - architecture reference
+### Development setup
 
-### Development Setup
+Use Node.js 24.18.0, Corepack, the repository-pinned pnpm version, and PostgreSQL 18.
 
-1. Copy `dev.example.env` to `.env.local` at the repo root.
-2. Start PostgreSQL.
-   The default `.env.local` expects `postgresql://staaash:staaash@localhost:5432/staaash`.
-   If you want a local Docker container that matches those values, run:
+1. Copy `dev.example.env` to `.env.local` at the repository root.
+2. Start PostgreSQL and update `DATABASE_URL` if it does not use the example connection details.
+3. Install and prepare the workspace:
 
    ```console
-   docker run --name staaash-postgres -e POSTGRES_USER=staaash -e POSTGRES_PASSWORD=staaash -e POSTGRES_DB=staaash -p 5432:5432 -v staaash-postgres-data:/var/lib/postgresql -d postgres:18-alpine
+   corepack enable
+   corepack install
+   pnpm install
+   pnpm db:generate
+   pnpm db:push
    ```
 
-   After that first run, you can restart it later with `docker start staaash-postgres`.
-   If you already have PostgreSQL running another way, just update `DATABASE_URL` in `.env.local`.
+4. Start the web app and worker in separate terminals:
 
-3. Run `pnpm i`.
-4. Run `pnpm db:generate`.
-5. Run `pnpm db:push`.
-6. Start the web app with `pnpm web:dev`.
-7. Start the worker with `pnpm worker:dev`.
+   ```console
+   pnpm web:dev
+   pnpm worker:dev
+   ```
 
-### Resetting Local Data
+FFmpeg is required on the worker host when testing generated video previews outside the production container.
 
-If you need to reset your local database and file uploads during development:
+The local reset command deletes the configured development upload tree and force-resets the development database. Run it only when those exact targets are disposable:
 
 ```console
 pnpm app:reset-local-data
 ```
 
-This will:
+## Testing and Quality
 
-- Delete all local file uploads (`.data/files`)
-- Reset the Prisma database schema with `prisma db push --force-reset`
+```console
+pnpm format:check
+pnpm lint
+pnpm quality:fallow
+pnpm test
+pnpm test:postgres
+pnpm build
+```
 
-**Note:** Use this script to reset your database please, you may have data remain if you do it manually.
+PostgreSQL integration and browser E2E suites require isolated disposable data. Do not point their reset/bootstrap commands at a normal development or production database.
 
-## Testing And Quality
+## Contributing and Feedback
 
-- staged files are auto-formatted on commit
-- `pnpm format:check`
-- `pnpm format` for one-off repo-wide formatting or intentional normalization
-- `pnpm lint`
-- `pnpm test`
-- `pnpm build`
-
-## AI Use
-
-AI is being used in this project as part of the development and documentation workflow.
-
-That does not change the quality bar. Generated code or generated docs still need to be reviewed, tested, and kept consistent with the repo's actual behavior.
-
-## Contributing And Feedback
-
-- read [`CONTRIBUTING.md`](./CONTRIBUTING.md) before opening work
-- use the GitHub issue forms for bug reports and feature requests
-- use the PR template when opening changes
-- report security problems privately as described in [`SECURITY.md`](./SECURITY.md)
+- Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening work.
+- Use the GitHub issue forms for bug reports and feature requests.
+- Use the pull request template for proposed changes.
+- Report security problems privately as described in [SECURITY.md](./SECURITY.md).
 
 ## Star History
 
