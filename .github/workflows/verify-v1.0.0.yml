@@ -1,247 +1,101 @@
-name: Recover and verify v1.0.0 publication
+name: Polish v1.0.0 release notes
 
 on:
   pull_request:
 
 permissions:
-  actions: write
   contents: write
-  packages: read
 
 jobs:
-  bootstrap-release:
+  update-notes:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    outputs:
-      release_id: ${{ steps.release.outputs.release_id }}
-      release_sha: ${{ steps.preflight.outputs.release_sha }}
-      tag_object: ${{ steps.preflight.outputs.tag_object }}
-      tag_type: ${{ steps.preflight.outputs.tag_type }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      RELEASE_TAG: v1.0.0
-      TOOLING_SHA: dd53d633d379551107355acfaac908e2b54e6e49
-      TOOLING_ROOT: ${{ github.workspace }}/tooling
-      RELEASE_SOURCE_ROOT: ${{ github.workspace }}/release-source
-      CI_WAIT_SECONDS: "1800"
-      CI_POLL_SECONDS: "15"
-
+      RELEASE_ID: "363560464"
     steps:
-      - name: Check out exact release tooling
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          path: tooling
-          ref: dd53d633d379551107355acfaac908e2b54e6e49
-
-      - name: Check out immutable release source
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          path: release-source
-          ref: v1.0.0
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.18.0
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Install pinned pnpm
-        working-directory: tooling
-        run: corepack install
-
-      - name: Install tooling dependencies
-        working-directory: tooling
-        run: pnpm install --frozen-lockfile
-
-      - name: Build release policy
-        working-directory: tooling
-        run: pnpm --filter @staaash/config build
-
-      - name: Run exact release preflight
-        id: preflight
-        env:
-          RELEASE_EVENT_NAME: push
-          EXPECTED_RELEASE_SHA: ""
-          EXPECTED_TAG_OBJECT: ""
-        run: node tooling/scripts/release/index.mjs preflight
-
-      - name: Resolve or create exact draft release
-        id: release
-        shell: bash
-        env:
-          RELEASE_SHA: ${{ steps.preflight.outputs.release_sha }}
-          TAG_OBJECT_SHA: ${{ steps.preflight.outputs.tag_object }}
-          TAG_TYPE: ${{ steps.preflight.outputs.tag_type }}
-          IMAGE_REPOSITORY: ${{ steps.preflight.outputs.image_repository }}
-          RELEASE_EVENT_NAME: push
-        run: |
-          set -euo pipefail
-
-          if published="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" 2>/dev/null)"; then
-            release_id="$(jq -r '.id' <<<"$published")"
-            echo "Using existing release ID $release_id."
-          else
-            inventory="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" | jq 'flatten')"
-            compatible="$(jq -c \
-              --arg tag "$RELEASE_TAG" \
-              --arg commit "$RELEASE_SHA" \
-              --arg tagObject "$TAG_OBJECT_SHA" \
-              '[.[] | select(.draft == true) | select((.body // "") | contains($tag) and contains($commit) and contains($tagObject))]' \
-              <<<"$inventory")"
-            count="$(jq 'length' <<<"$compatible")"
-
-            if [[ "$count" == "1" ]]; then
-              release_id="$(jq -r '.[0].id' <<<"$compatible")"
-              echo "Using compatible draft release ID $release_id."
-            elif [[ "$count" == "0" ]]; then
-              unrelated_drafts="$(jq '[.[] | select(.draft == true) | {id,tag_name,name}]' <<<"$inventory")"
-              if [[ "$(jq 'length' <<<"$unrelated_drafts")" != "0" ]]; then
-                echo "Unrelated draft releases exist; refusing automatic creation:" >&2
-                jq . <<<"$unrelated_drafts" >&2
-                exit 1
-              fi
-
-              output_file="$(mktemp)"
-              GITHUB_OUTPUT="$output_file" node tooling/scripts/release/index.mjs ensure-release
-              release_id="$(sed -n 's/^release_id=//p' "$output_file" | tail -1)"
-              rm -f "$output_file"
-              [[ "$release_id" =~ ^[1-9][0-9]*$ ]] || { echo "Invalid created release ID: $release_id" >&2; exit 1; }
-              echo "Created draft release ID $release_id."
-            else
-              echo "Multiple compatible draft releases found; refusing to guess." >&2
-              jq . <<<"$compatible" >&2
-              exit 1
-            fi
-          fi
-
-          echo "release_id=$release_id" >> "$GITHUB_OUTPUT"
-
-      - name: Dispatch official release recovery workflow
-        shell: bash
-        env:
-          RELEASE_ID: ${{ steps.release.outputs.release_id }}
-        run: |
-          set -euo pipefail
-          jq -n \
-            --arg ref main \
-            --arg tag "$RELEASE_TAG" \
-            --arg release_id "$RELEASE_ID" \
-            '{ref:$ref,inputs:{tag:$tag,release_id:$release_id}}' \
-            | gh api \
-                "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/dispatches" \
-                --method POST \
-                --input -
-          echo "Dispatched release recovery for release ID $RELEASE_ID."
-
-  verify-release:
-    needs: bootstrap-release
-    runs-on: ubuntu-latest
-    timeout-minutes: 100
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      RELEASE_TAG: v1.0.0
-      RELEASE_SHA: ${{ needs.bootstrap-release.outputs.release_sha }}
-      RELEASE_ID: ${{ needs.bootstrap-release.outputs.release_id }}
-      VERSIONED_IMAGE: ghcr.io/itsmeares/staaash:v1.0.0
-      LATEST_IMAGE: ghcr.io/itsmeares/staaash:latest
-
-    steps:
-      - uses: docker/setup-buildx-action@v4
-
-      - name: Verify official release workflow
+      - name: Replace human-readable notes and preserve provenance
         shell: bash
         run: |
           set -euo pipefail
-
-          run_json=""
-          for _ in $(seq 1 360); do
-            all_runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/runs?event=workflow_dispatch&per_page=100")"
-            run_json="$(jq -c --arg sha "$RELEASE_SHA" '
-              [.workflow_runs[] | select(.head_sha == $sha)]
-              | sort_by(.created_at)
-              | last // empty
-            ' <<<"$all_runs")"
-            if [[ -n "$run_json" && "$(jq -r '.status' <<<"$run_json")" == "completed" ]]; then
-              break
-            fi
-            sleep 15
-          done
-
-          [[ -n "$run_json" ]] || { echo "No matching recovery workflow run found." >&2; exit 1; }
-          jq '{id,name,event,status,conclusion,head_branch,head_sha,run_attempt,html_url,created_at,updated_at}' <<<"$run_json"
-          [[ "$(jq -r '.conclusion' <<<"$run_json")" == "success" ]] || {
-            echo "Release recovery workflow did not succeed." >&2
-            exit 1
-          }
-
-          run_id="$(jq -r '.id' <<<"$run_json")"
-          jobs="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs?per_page=100")"
-          jq '[.jobs[] | {id,name,status,conclusion,started_at,completed_at,html_url}]' <<<"$jobs"
-          jq -e 'all(.jobs[]; .status == "completed" and (.conclusion == "success" or .conclusion == "skipped"))' <<<"$jobs" >/dev/null
-
-      - name: Verify GitHub Release and assets
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p release-assets
 
           release="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")"
-          jq '{id,tag_name,target_commitish,name,draft,prerelease,created_at,published_at,html_url,assets:[.assets[]|{id,name,size,digest,state,browser_download_url}]}' <<<"$release"
+          current_body="$(jq -r '.body // ""' <<<"$release")"
 
-          [[ "$(jq -r '.tag_name' <<<"$release")" == "$RELEASE_TAG" ]]
-          [[ "$(jq -r '.draft' <<<"$release")" == "false" ]]
-          [[ "$(jq -r '.prerelease' <<<"$release")" == "false" ]]
+          provenance="$(python - "$current_body" <<'PY'
+          import sys
 
-          actual_assets="$(jq -r '[.assets[].name] | sort | join(",")' <<<"$release")"
-          expected_assets="SHA256SUMS,docker-compose.yml,example.env,release-manifest.json"
-          [[ "$actual_assets" == "$expected_assets" ]] || {
-            echo "Unexpected release assets: $actual_assets" >&2
-            exit 1
-          }
+          body = sys.argv[1]
+          start = "<!-- staaash:release-provenance:start -->"
+          end = "<!-- staaash:release-provenance:end -->"
+          start_index = body.find(start)
+          end_index = body.find(end)
+          if start_index < 0 or end_index < start_index:
+              raise SystemExit("Release provenance block is missing or malformed.")
+          end_index += len(end)
+          print(body[start_index:end_index])
+          PY
+          )"
 
-          while IFS=$'\t' read -r asset_id asset_name; do
-            gh api -H "Accept: application/octet-stream" \
-              "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id" \
-              > "release-assets/$asset_name"
-          done < <(jq -r '.assets[] | [.id,.name] | @tsv' <<<"$release")
+          notes="$(cat <<'EOF'
+          # Staaash v1.0.0
 
-          (
-            cd release-assets
-            sha256sum -c SHA256SUMS
-          )
+          Staaash v1.0.0 is the first stable release of the private, self-hosted file drive for storage you control.
 
-          grep -Fxq 'STAAASH_VERSION=v1.0.0' release-assets/example.env
-          [[ "$(grep -Fc 'ghcr.io/itsmeares/staaash:${STAAASH_VERSION:-v1.0.0}' release-assets/docker-compose.yml)" == "2" ]]
+          ## Highlights
 
-          echo '--- release-manifest.json ---'
-          jq . release-assets/release-manifest.json
-          echo '--- release notes ---'
-          jq -r '.body // ""' <<<"$release"
+          - Browser-based file and folder management with uploads, previews, downloads, rename, move, favorites, search, trash, restore, and permanent deletion.
+          - Resumable uploads, per-user storage quotas, generated ZIP downloads, and worker-managed media previews.
+          - Public file and folder sharing with optional passwords, expiry dates, download controls, media previews, revocation, and canonical public URLs.
+          - Multiple-user administration with temporary passwords, required password changes, session controls, and per-user storage limits.
+          - Operator-facing health, integrity, storage, job, update, and reconciliation views.
+          - Crash-recoverable storage mutations backed by a durable PostgreSQL journal, leases, fencing, atomic same-volume filesystem operations, and fail-closed ambiguity handling.
 
-      - name: Verify GHCR stable channel
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          ## Deployment requirements
 
-          docker buildx imagetools inspect "$VERSIONED_IMAGE" --format '{{json .}}' > versioned.json
-          docker buildx imagetools inspect "$LATEST_IMAGE" --format '{{json .}}' > latest.json
+          - Docker Engine or Docker Desktop with the Docker Compose plugin.
+          - Linux AMD64. A native ARM64 image is not published for v1.0.0.
+          - PostgreSQL 18, supplied by the release Compose stack.
+          - Local, same-volume app-managed storage with atomic rename and working file and directory `fsync`. Network filesystems, object-storage mounts, and S3-compatible backends are not supported storage locations.
 
-          echo '--- versioned image ---'
-          jq '{digest:.manifest.digest,mediaType:.manifest.mediaType,manifests:.manifest.manifests,labels:.image.config.Labels}' versioned.json
-          echo '--- latest image ---'
-          jq '{digest:.manifest.digest,mediaType:.manifest.mediaType,manifests:.manifest.manifests,labels:.image.config.Labels}' latest.json
+          Staaash is a file drive, not a backup system. Keep an independent backup of important data and test restores regularly.
 
-          versioned_digest="$(jq -r '.manifest.digest' versioned.json)"
-          latest_digest="$(jq -r '.manifest.digest' latest.json)"
-          [[ "$versioned_digest" == "$latest_digest" ]] || {
-            echo "latest digest $latest_digest does not match v1.0.0 digest $versioned_digest" >&2
-            exit 1
-          }
+          ## Installation
 
-          [[ "$(jq -r '.image.config.Labels["org.opencontainers.image.version"]' versioned.json)" == "$RELEASE_TAG" ]]
-          [[ "$(jq -r '.image.config.Labels["org.opencontainers.image.revision"]' versioned.json)" == "$RELEASE_SHA" ]]
-          [[ "$(jq '[.manifest.manifests[] | select(.platform.os == "linux" and .platform.architecture == "amd64")] | length' versioned.json)" == "1" ]]
+          Download `docker-compose.yml` and `example.env` from the assets attached to this release, rename `example.env` to `.env`, set a secure `DB_PASSWORD`, then start the stack with:
+
+          ```console
+          docker compose up -d
+          ```
+
+          Open `http://localhost:2113` and complete initial setup. The first account becomes the owner.
+
+          ## Upgrade notes
+
+          Compatible PostgreSQL 18 RC/v1 installations can upgrade in place after taking a complete offline backup. Alpha and beta deployments are unsupported development history and require a fresh installation; do not reuse their internal database or storage directories as current data directories.
+
+          ## Release hardening
+
+          This stable release includes the final storage-mutation recovery work, release-workflow integrity and recovery hardening, security dependency fixes, and the complete pre-release production revalidation and backup/restore drill.
+
+          **Full Changelog:** https://github.com/itsmeares/staaash/compare/v1.0.0-rc.7...v1.0.0
+          EOF
+          )"
+
+          new_body="${notes}
+
+          ${provenance}"
+          jq -n --arg body "$new_body" '{body:$body}' \
+            | gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" --method PATCH --input - \
+            > updated-release.json
+
+          updated_body="$(jq -r '.body // ""' updated-release.json)"
+          [[ "$(jq -r '.draft' updated-release.json)" == "false" ]]
+          [[ "$(jq -r '.prerelease' updated-release.json)" == "false" ]]
+          [[ "$(jq -r '.tag_name' updated-release.json)" == "v1.0.0" ]]
+          [[ "$updated_body" == *"# Staaash v1.0.0"* ]]
+          [[ "$updated_body" == *"<!-- staaash:release-provenance:start -->"* ]]
+          [[ "$updated_body" == *"<!-- staaash:release-provenance:end -->"* ]]
+          [[ "$(grep -Fc '<!-- staaash:release-provenance:start -->' <<<"$updated_body")" == "1" ]]
+          [[ "$(grep -Fc '<!-- staaash:release-provenance:end -->' <<<"$updated_body")" == "1" ]]
+
+          printf '%s\n' "$updated_body"
