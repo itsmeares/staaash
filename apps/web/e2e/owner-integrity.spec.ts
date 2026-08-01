@@ -11,9 +11,9 @@ test("owner can trigger and observe reconciliation", async ({ page }) => {
   });
 
   await expect(
-    page.getByRole("heading", { name: "Owner overview" }),
+    page.getByRole("heading", { name: "Overview", exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("Restore integrity")).toBeVisible();
+  await expect(page.getByText("Restore check", { exact: true })).toBeVisible();
 
   const origin = new URL(page.url()).origin;
   const response = await page.request.post("/api/admin/integrity", {
