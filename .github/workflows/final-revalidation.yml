@@ -1,0 +1,321 @@
+name: Final revalidation
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: final-revalidation-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  production-e2e-backup-restore:
+    name: Production E2E and backup restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      AUTH_SECRET: final-revalidation-e2e-secret
+      DATABASE_URL: postgresql://staaash:staaash@127.0.0.1:5432/staaash_e2e
+      UPLOAD_LOCATION: ${{ github.workspace }}/.final-revalidation/files
+      FILES_ROOT: ${{ github.workspace }}/.final-revalidation/files
+      STAAASH_E2E_BASE_URL: http://127.0.0.1:2113
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.18.0
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install pinned pnpm
+        run: corepack install
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Build database package
+        run: pnpm --filter @staaash/db build
+
+      - name: Install Chromium
+        run: pnpm --filter web exec playwright install --with-deps chromium
+
+      - name: Build production image
+        run: docker build --tag staaash:final-revalidation .
+
+      - name: Create isolated PostgreSQL and storage
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .final-revalidation/files .final-revalidation/backup
+          chmod 0777 .final-revalidation/files
+          docker network create staaash-final-network
+          docker volume create staaash-final-db
+          docker run --detach \
+            --name staaash-final-db \
+            --network staaash-final-network \
+            --publish 5432:5432 \
+            --env POSTGRES_USER=staaash \
+            --env POSTGRES_PASSWORD=staaash \
+            --env POSTGRES_DB=staaash_e2e \
+            --volume staaash-final-db:/var/lib/postgresql \
+            postgres:18-alpine
+
+          ready=0
+          for attempt in $(seq 1 90); do
+            if docker exec staaash-final-db pg_isready -U staaash -d staaash_e2e >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" = "1"
+
+      - name: Seed disposable E2E database and filesystem
+        run: pnpm --filter web e2e:prepare
+
+      - name: Start production image against seeded state
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --detach \
+            --name staaash-final-web \
+            --network staaash-final-network \
+            --publish 2113:2113 \
+            --env NODE_ENV=production \
+            --env PORT=2113 \
+            --env AUTH_SECRET="$AUTH_SECRET" \
+            --env DATABASE_URL=postgresql://staaash:staaash@staaash-final-db:5432/staaash_e2e \
+            --env UPLOAD_LOCATION=/data/files \
+            --volume "$UPLOAD_LOCATION:/data/files" \
+            staaash:final-revalidation \
+            node apps/web/server.js
+
+          docker run --detach \
+            --name staaash-final-worker \
+            --network staaash-final-network \
+            --env NODE_ENV=production \
+            --env DATABASE_URL=postgresql://staaash:staaash@staaash-final-db:5432/staaash_e2e \
+            --env UPLOAD_LOCATION=/data/files \
+            --volume "$UPLOAD_LOCATION:/data/files" \
+            staaash:final-revalidation \
+            node /worker/dist/index.js
+
+          healthy=0
+          for attempt in $(seq 1 120); do
+            if curl --fail --silent http://127.0.0.1:2113/api/health/ready >/tmp/e2e-ready.json && \
+              node -e '
+                const fs = require("node:fs");
+                const body = JSON.parse(fs.readFileSync("/tmp/e2e-ready.json", "utf8"));
+                process.exit(body.ok && Object.values(body.checks ?? {}).every((value) => value === "healthy") ? 0 : 1);
+              '; then
+              healthy=1
+              break
+            fi
+            sleep 2
+          done
+          cat /tmp/e2e-ready.json || true
+          test "$healthy" = "1"
+
+      - name: Run complete Playwright suite against production image
+        run: pnpm web:e2e
+
+      - name: Require clean reconciliation from the full suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          complete=0
+          for attempt in $(seq 1 120); do
+            row="$(docker exec staaash-final-db psql -U staaash -d staaash_e2e -At -F '|' -c "SELECT status::text, \"missingOriginalCount\", \"orphanedStorageCount\", COALESCE(\"lastError\", '') FROM \"RestoreReconciliationRun\" ORDER BY \"createdAt\" DESC LIMIT 1;")"
+            status="${row%%|*}"
+            if [[ "$status" == "succeeded" ]]; then
+              IFS='|' read -r _ missing orphaned error <<<"$row"
+              if [[ "$missing" != "0" || "$orphaned" != "0" ]]; then
+                echo "Reconciliation was not clean: $row" >&2
+                exit 1
+              fi
+              complete=1
+              break
+            fi
+            if [[ "$status" == "failed" ]]; then
+              echo "Reconciliation failed: $row" >&2
+              exit 1
+            fi
+            sleep 2
+          done
+          test "$complete" = "1"
+
+      - name: Drain storage mutations and stop all services
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker stop staaash-final-web
+
+          drained=0
+          for attempt in $(seq 1 120); do
+            active="$(docker exec staaash-final-db psql -U staaash -d staaash_e2e -At -c "SELECT count(*) FROM \"StorageMutation\" WHERE status IN ('preparing','prepared','running','metadata_committed','finalizing','retrying');")"
+            if [[ "$active" == "0" ]]; then
+              drained=1
+              break
+            fi
+            sleep 2
+          done
+          test "$drained" = "1"
+
+          docker stop staaash-final-worker
+          docker stop staaash-final-db
+
+          if docker ps --format '{{.Names}}' | grep -E '^staaash-final-(web|worker|db)$'; then
+            echo 'A service is still running during backup.' >&2
+            exit 1
+          fi
+
+      - name: Take offline PostgreSQL and storage backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd .final-revalidation/files && find . -type f -print0 | sort -z | xargs -0 -r sha256sum) > .final-revalidation/backup/files.sha256
+          tar -C .final-revalidation/files -cpf .final-revalidation/backup/files.tar .
+          docker run --rm \
+            --volume staaash-final-db:/source:ro \
+            --volume "$PWD/.final-revalidation/backup:/backup" \
+            alpine:3.22 \
+            sh -c 'cd /source && tar -cpf /backup/postgres.tar .'
+
+      - name: Restore into a separate clean deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker rm staaash-final-web staaash-final-worker staaash-final-db
+          docker volume create staaash-restored-db
+          mkdir -p .final-revalidation/restored-files
+          chmod 0777 .final-revalidation/restored-files
+
+          docker run --rm \
+            --volume staaash-restored-db:/restore \
+            --volume "$PWD/.final-revalidation/backup:/backup:ro" \
+            alpine:3.22 \
+            sh -c 'cd /restore && tar -xpf /backup/postgres.tar'
+          tar -C .final-revalidation/restored-files -xpf .final-revalidation/backup/files.tar
+
+          (cd .final-revalidation/restored-files && find . -type f -print0 | sort -z | xargs -0 -r sha256sum) > .final-revalidation/backup/restored-files.sha256
+          diff -u .final-revalidation/backup/files.sha256 .final-revalidation/backup/restored-files.sha256
+
+          docker run --detach \
+            --name staaash-restored-db \
+            --network staaash-final-network \
+            --publish 5432:5432 \
+            --env POSTGRES_USER=staaash \
+            --env POSTGRES_PASSWORD=staaash \
+            --env POSTGRES_DB=staaash_e2e \
+            --volume staaash-restored-db:/var/lib/postgresql \
+            postgres:18-alpine
+
+          db_ready=0
+          for attempt in $(seq 1 90); do
+            if docker exec staaash-restored-db pg_isready -U staaash -d staaash_e2e >/dev/null 2>&1; then
+              db_ready=1
+              break
+            fi
+            sleep 2
+          done
+          test "$db_ready" = "1"
+
+          docker run --detach \
+            --name staaash-restored-web \
+            --network staaash-final-network \
+            --publish 2113:2113 \
+            --env NODE_ENV=production \
+            --env PORT=2113 \
+            --env AUTH_SECRET="$AUTH_SECRET" \
+            --env DATABASE_URL=postgresql://staaash:staaash@staaash-restored-db:5432/staaash_e2e \
+            --env UPLOAD_LOCATION=/data/files \
+            --volume "$PWD/.final-revalidation/restored-files:/data/files" \
+            staaash:final-revalidation \
+            node apps/web/server.js
+
+          docker run --detach \
+            --name staaash-restored-worker \
+            --network staaash-final-network \
+            --env NODE_ENV=production \
+            --env DATABASE_URL=postgresql://staaash:staaash@staaash-restored-db:5432/staaash_e2e \
+            --env UPLOAD_LOCATION=/data/files \
+            --volume "$PWD/.final-revalidation/restored-files:/data/files" \
+            staaash:final-revalidation \
+            node /worker/dist/index.js
+
+          healthy=0
+          for attempt in $(seq 1 120); do
+            if curl --fail --silent http://127.0.0.1:2113/api/health/ready >/tmp/restored-ready.json && \
+              node -e '
+                const fs = require("node:fs");
+                const body = JSON.parse(fs.readFileSync("/tmp/restored-ready.json", "utf8"));
+                process.exit(body.ok && Object.values(body.checks ?? {}).every((value) => value === "healthy") ? 0 : 1);
+              '; then
+              healthy=1
+              break
+            fi
+            sleep 2
+          done
+          cat /tmp/restored-ready.json || true
+          test "$healthy" = "1"
+
+          user_count="$(docker exec staaash-restored-db psql -U staaash -d staaash_e2e -At -c 'SELECT count(*) FROM "User";')"
+          file_count="$(docker exec staaash-restored-db psql -U staaash -d staaash_e2e -At -c 'SELECT count(*) FROM "File";')"
+          test "$user_count" -ge 3
+          test "$file_count" -ge 1
+
+      - name: Verify restored ownership and public sharing
+        run: pnpm --filter web exec playwright test e2e/member-files.spec.ts e2e/public-share.spec.ts --workers=1
+
+      - name: Queue and require clean restored reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          before="$(docker exec staaash-restored-db psql -U staaash -d staaash_e2e -At -c 'SELECT count(*) FROM "RestoreReconciliationRun";')"
+          pnpm --filter web exec playwright test e2e/owner-integrity.spec.ts --workers=1
+
+          complete=0
+          for attempt in $(seq 1 120); do
+            row="$(docker exec staaash-restored-db psql -U staaash -d staaash_e2e -At -F '|' -c "SELECT count(*) OVER (), status::text, \"missingOriginalCount\", \"orphanedStorageCount\", COALESCE(\"lastError\", '') FROM \"RestoreReconciliationRun\" ORDER BY \"createdAt\" DESC LIMIT 1;")"
+            IFS='|' read -r count status missing orphaned error <<<"$row"
+            if [[ -n "$count" && "$count" -gt "$before" && "$status" == "succeeded" ]]; then
+              if [[ "$missing" != "0" || "$orphaned" != "0" ]]; then
+                echo "Restored reconciliation was not clean: $row" >&2
+                exit 1
+              fi
+              complete=1
+              break
+            fi
+            if [[ -n "$count" && "$count" -gt "$before" && "$status" == "failed" ]]; then
+              echo "Restored reconciliation failed: $row" >&2
+              exit 1
+            fi
+            sleep 2
+          done
+          test "$complete" = "1"
+
+      - name: Capture logs and clean up
+        if: always()
+        shell: bash
+        run: |
+          for container in \
+            staaash-final-web staaash-final-worker staaash-final-db \
+            staaash-restored-web staaash-restored-worker staaash-restored-db; do
+            echo "===== $container ====="
+            docker logs "$container" 2>&1 || true
+            docker rm --force "$container" 2>/dev/null || true
+          done
+          docker network rm staaash-final-network 2>/dev/null || true
+          docker volume rm staaash-final-db staaash-restored-db 2>/dev/null || true
