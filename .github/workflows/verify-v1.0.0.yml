@@ -1,47 +1,179 @@
-name: Verify v1.0.0 publication
+name: Recover and verify v1.0.0 publication
 
 on:
   pull_request:
 
 permissions:
-  actions: read
-  contents: read
+  actions: write
+  contents: write
   packages: read
 
 jobs:
+  bootstrap-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      release_id: ${{ steps.release.outputs.release_id }}
+      release_sha: ${{ steps.preflight.outputs.release_sha }}
+      tag_object: ${{ steps.preflight.outputs.tag_object }}
+      tag_type: ${{ steps.preflight.outputs.tag_type }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_TAG: v1.0.0
+      TOOLING_SHA: dd53d633d379551107355acfaac908e2b54e6e49
+      TOOLING_ROOT: ${{ github.workspace }}/tooling
+      RELEASE_SOURCE_ROOT: ${{ github.workspace }}/release-source
+      CI_WAIT_SECONDS: "1800"
+      CI_POLL_SECONDS: "15"
+
+    steps:
+      - name: Check out exact release tooling
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          path: tooling
+          ref: dd53d633d379551107355acfaac908e2b54e6e49
+
+      - name: Check out immutable release source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          path: release-source
+          ref: v1.0.0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.18.0
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install pinned pnpm
+        working-directory: tooling
+        run: corepack install
+
+      - name: Install tooling dependencies
+        working-directory: tooling
+        run: pnpm install --frozen-lockfile
+
+      - name: Build release policy
+        working-directory: tooling
+        run: pnpm --filter @staaash/config build
+
+      - name: Run exact release preflight
+        id: preflight
+        env:
+          RELEASE_EVENT_NAME: push
+          EXPECTED_RELEASE_SHA: ""
+          EXPECTED_TAG_OBJECT: ""
+        run: node tooling/scripts/release/index.mjs preflight
+
+      - name: Resolve or create exact draft release
+        id: release
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ steps.preflight.outputs.release_sha }}
+          TAG_OBJECT_SHA: ${{ steps.preflight.outputs.tag_object }}
+          TAG_TYPE: ${{ steps.preflight.outputs.tag_type }}
+          IMAGE_REPOSITORY: ${{ steps.preflight.outputs.image_repository }}
+          RELEASE_EVENT_NAME: push
+        run: |
+          set -euo pipefail
+
+          if published="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" 2>/dev/null)"; then
+            release_id="$(jq -r '.id' <<<"$published")"
+            echo "Using existing release ID $release_id."
+          else
+            inventory="$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" | jq 'flatten')"
+            compatible="$(jq -c \
+              --arg tag "$RELEASE_TAG" \
+              --arg commit "$RELEASE_SHA" \
+              --arg tagObject "$TAG_OBJECT_SHA" \
+              '[.[] | select(.draft == true) | select((.body // "") | contains($tag) and contains($commit) and contains($tagObject))]' \
+              <<<"$inventory")"
+            count="$(jq 'length' <<<"$compatible")"
+
+            if [[ "$count" == "1" ]]; then
+              release_id="$(jq -r '.[0].id' <<<"$compatible")"
+              echo "Using compatible draft release ID $release_id."
+            elif [[ "$count" == "0" ]]; then
+              unrelated_drafts="$(jq '[.[] | select(.draft == true) | {id,tag_name,name}]' <<<"$inventory")"
+              if [[ "$(jq 'length' <<<"$unrelated_drafts")" != "0" ]]; then
+                echo "Unrelated draft releases exist; refusing automatic creation:" >&2
+                jq . <<<"$unrelated_drafts" >&2
+                exit 1
+              fi
+
+              output_file="$(mktemp)"
+              GITHUB_OUTPUT="$output_file" node tooling/scripts/release/index.mjs ensure-release
+              release_id="$(sed -n 's/^release_id=//p' "$output_file" | tail -1)"
+              rm -f "$output_file"
+              [[ "$release_id" =~ ^[1-9][0-9]*$ ]] || { echo "Invalid created release ID: $release_id" >&2; exit 1; }
+              echo "Created draft release ID $release_id."
+            else
+              echo "Multiple compatible draft releases found; refusing to guess." >&2
+              jq . <<<"$compatible" >&2
+              exit 1
+            fi
+          fi
+
+          echo "release_id=$release_id" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch official release recovery workflow
+        shell: bash
+        env:
+          RELEASE_ID: ${{ steps.release.outputs.release_id }}
+        run: |
+          set -euo pipefail
+          jq -n \
+            --arg ref main \
+            --arg tag "$RELEASE_TAG" \
+            --arg release_id "$RELEASE_ID" \
+            '{ref:$ref,inputs:{tag:$tag,release_id:$release_id}}' \
+            | gh api \
+                "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/dispatches" \
+                --method POST \
+                --input -
+          echo "Dispatched release recovery for release ID $RELEASE_ID."
+
   verify-release:
+    needs: bootstrap-release
     runs-on: ubuntu-latest
     timeout-minutes: 100
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       RELEASE_TAG: v1.0.0
-      RELEASE_SHA: dd53d633d379551107355acfaac908e2b54e6e49
+      RELEASE_SHA: ${{ needs.bootstrap-release.outputs.release_sha }}
+      RELEASE_ID: ${{ needs.bootstrap-release.outputs.release_id }}
       VERSIONED_IMAGE: ghcr.io/itsmeares/staaash:v1.0.0
       LATEST_IMAGE: ghcr.io/itsmeares/staaash:latest
 
     steps:
       - uses: docker/setup-buildx-action@v4
 
-      - name: Verify release workflow
+      - name: Verify official release workflow
         shell: bash
         run: |
           set -euo pipefail
 
           run_json=""
           for _ in $(seq 1 360); do
-            all_runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/runs?event=push&per_page=100")"
-            run_json="$(jq -c '[.workflow_runs[]] | sort_by(.created_at) | last // empty' <<<"$all_runs")"
+            all_runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/runs?event=workflow_dispatch&per_page=100")"
+            run_json="$(jq -c --arg sha "$RELEASE_SHA" '
+              [.workflow_runs[] | select(.head_sha == $sha)]
+              | sort_by(.created_at)
+              | last // empty
+            ' <<<"$all_runs")"
             if [[ -n "$run_json" && "$(jq -r '.status' <<<"$run_json")" == "completed" ]]; then
               break
             fi
             sleep 15
           done
 
-          [[ -n "$run_json" ]] || { echo "No Release workflow run found." >&2; exit 1; }
+          [[ -n "$run_json" ]] || { echo "No matching recovery workflow run found." >&2; exit 1; }
           jq '{id,name,event,status,conclusion,head_branch,head_sha,run_attempt,html_url,created_at,updated_at}' <<<"$run_json"
-
           [[ "$(jq -r '.conclusion' <<<"$run_json")" == "success" ]] || {
-            echo "Release workflow did not succeed." >&2
+            echo "Release recovery workflow did not succeed." >&2
             exit 1
           }
 
@@ -56,7 +188,7 @@ jobs:
           set -euo pipefail
           mkdir -p release-assets
 
-          release="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG")"
+          release="$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID")"
           jq '{id,tag_name,target_commitish,name,draft,prerelease,created_at,published_at,html_url,assets:[.assets[]|{id,name,size,digest,state,browser_download_url}]}' <<<"$release"
 
           [[ "$(jq -r '.tag_name' <<<"$release")" == "$RELEASE_TAG" ]]
