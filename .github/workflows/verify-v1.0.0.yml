@@ -40,8 +40,8 @@ jobs:
           run_json=""
           for _ in $(seq 1 360); do
             all_runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/runs?event=push&per_page=100")"
-            run_json="$(jq -c --arg sha "$RELEASE_SHA" '
-              [.workflow_runs[] | select(.head_sha == $sha)]
+            run_json="$(jq -c '
+              [.workflow_runs[]]
               | sort_by(.created_at)
               | last // empty
             ' <<<"$all_runs")"
@@ -56,7 +56,7 @@ jobs:
           done
 
           if [[ -z "$run_json" ]]; then
-            printf '%s\n' '{"error":"No matching Release workflow run found."}' > "$REPORT_DIR/release-run.json"
+            printf '%s\n' '{"error":"No Release workflow run found."}' > "$REPORT_DIR/release-run.json"
             printf '%s\n' '{"jobs":[]}' > "$REPORT_DIR/release-jobs.json"
           else
             jq . <<<"$run_json" > "$REPORT_DIR/release-run.json"
@@ -88,6 +88,8 @@ jobs:
           {
             echo "release_run_status=$(jq -r '.status // "missing"' "$REPORT_DIR/release-run.json")"
             echo "release_run_conclusion=$(jq -r '.conclusion // "missing"' "$REPORT_DIR/release-run.json")"
+            echo "release_run_head_sha=$(jq -r '.head_sha // "missing"' "$REPORT_DIR/release-run.json")"
+            echo "release_run_head_branch=$(jq -r '.head_branch // "missing"' "$REPORT_DIR/release-run.json")"
             echo "release_id=$(jq -r '.id // "missing"' "$REPORT_DIR/release.json")"
             echo "release_tag=$(jq -r '.tag_name // "missing"' "$REPORT_DIR/release.json")"
             echo "release_draft=$(jq -r '.draft // "missing"' "$REPORT_DIR/release.json")"
