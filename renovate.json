@@ -30,6 +30,12 @@
     },
     {
       "description": "Hold routine patch updates for manual approval",
+      "matchManagers": [
+        "npm",
+        "dockerfile",
+        "docker-compose",
+        "github-actions"
+      ],
       "matchUpdateTypes": ["patch"],
       "groupName": "routine patch updates",
       "groupSlug": "routine-patches",
