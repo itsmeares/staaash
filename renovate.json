@@ -5,7 +5,7 @@
     "mergeConfidence:all-badges",
     "security:minimumReleaseAgeNpm"
   ],
-  "dependencyDashboard": false,
+  "dependencyDashboard": true,
   "timezone": "Europe/London",
   "schedule": ["* 0-7 * * 1-5"],
   "rangeStrategy": "bump",
@@ -29,12 +29,17 @@
       "groupName": null
     },
     {
-      "description": "Batch routine npm patch updates on Thursdays",
-      "matchManagers": ["npm"],
+      "description": "Hold routine patch updates for manual approval",
+      "matchManagers": [
+        "npm",
+        "dockerfile",
+        "docker-compose",
+        "github-actions"
+      ],
       "matchUpdateTypes": ["patch"],
       "groupName": "routine patch updates",
       "groupSlug": "routine-patches",
-      "schedule": ["* 0-7 * * 4"]
+      "dependencyDashboardApproval": true
     },
     {
       "description": "Group runtime dependency minor updates",
@@ -58,17 +63,6 @@
       "groupName": "workspace tooling"
     },
     {
-      "description": "Group test tooling minor updates",
-      "matchManagers": ["npm"],
-      "matchPackageNames": [
-        "vitest",
-        "@playwright/test",
-        "@axe-core/playwright"
-      ],
-      "matchUpdateTypes": ["minor"],
-      "groupName": "test tooling"
-    },
-    {
       "description": "Group type definition minor updates",
       "matchManagers": ["npm"],
       "matchPackageNames": ["@types/**"],
@@ -76,16 +70,16 @@
       "groupName": "type definitions"
     },
     {
-      "description": "Group non-major GitHub Actions updates",
+      "description": "Group GitHub Actions minor updates",
       "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["patch", "minor"],
+      "matchUpdateTypes": ["minor"],
       "groupName": "GitHub Actions"
     },
     {
       "description": "Update React and React DOM only together",
       "matchManagers": ["npm"],
       "matchPackageNames": ["react", "react-dom"],
-      "matchUpdateTypes": ["patch", "minor", "major"],
+      "matchUpdateTypes": ["minor", "major"],
       "groupName": "React",
       "minimumGroupSize": 2,
       "schedule": ["* 0-7 * * 1-5"]
@@ -94,7 +88,7 @@
       "description": "Update all Prisma packages only together",
       "matchManagers": ["npm"],
       "matchPackageNames": ["@prisma/client", "@prisma/adapter-pg", "prisma"],
-      "matchUpdateTypes": ["patch", "minor", "major"],
+      "matchUpdateTypes": ["minor", "major"],
       "groupName": "Prisma",
       "minimumGroupSize": 3,
       "schedule": ["* 0-7 * * 1-5"]
@@ -103,7 +97,7 @@
       "description": "Update Tailwind packages only together",
       "matchManagers": ["npm"],
       "matchPackageNames": ["tailwindcss", "@tailwindcss/postcss"],
-      "matchUpdateTypes": ["patch", "minor", "major"],
+      "matchUpdateTypes": ["minor", "major"],
       "groupName": "Tailwind CSS",
       "minimumGroupSize": 2,
       "schedule": ["* 0-7 * * 1-5"]
