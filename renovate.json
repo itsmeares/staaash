@@ -76,6 +76,14 @@
       "groupName": "GitHub Actions"
     },
     {
+      "description": "Keep Node.js versions aligned",
+      "matchManagers": ["github-actions", "dockerfile", "docker-compose"],
+      "matchPackageNames": ["node"],
+      "matchUpdateTypes": ["patch", "minor", "major"],
+      "groupName": "Node.js",
+      "groupSlug": "node-js"
+    },
+    {
       "description": "Update React and React DOM only together",
       "matchManagers": ["npm"],
       "matchPackageNames": ["react", "react-dom"],
