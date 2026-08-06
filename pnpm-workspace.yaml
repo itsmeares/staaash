@@ -9,7 +9,7 @@ overrides:
   fast-uri: 4.1.2
   find-my-way: 9.7.0
   hono: 4.12.34
-  ip-address: 10.3.1
+  ip-address: 10.4.0
   postcss: 8.5.25
   sharp: 0.35.3
   valibot: 1.4.2
