@@ -11,7 +11,7 @@ overrides:
   esbuild@>=0.27.3 <0.28.1: ^0.28.1
   fast-uri: 4.1.2
   find-my-way: 9.7.0
-  hono: 4.12.34
+  hono: 4.13.0
   ip-address: 10.4.0
   postcss: 8.5.25
   sharp: 0.35.3
@@ -2403,8 +2403,8 @@ packages:
     resolution: {integrity: sha512-0fB3O3WMk38+PScbHLVp66jcNhsZ/ErtQ6u2lMYu/YxXgbBtl+oKOhGQHa4RpvE68k8IzbWkABzHnyAIjR758A==}
     engines: {node: '>=8.0.0'}
 
-  hono@4.12.34:
-    resolution: {integrity: sha512-GqXJqY/xJkJmuloTrnV1ZEXG3fqte+VjkUqoRNZXcrUidiUOP4fMSIHHY4tsqZBK++kVyWmt/AAfSUuy57/eSA==}
+  hono@4.13.0:
+    resolution: {integrity: sha512-jhunvfHWxd7J5EFfSgH4xsYJzSe/lfqbUCxiyyeaQasUsXeEHXtzVid+7EOGByc5JnFa23SSFL3Y2RV/z1T+eQ==}
     engines: {node: '>=16.9.0'}
 
   http-errors@2.0.1:
@@ -4190,7 +4190,7 @@ snapshots:
 
   '@hono/node-server@2.1.0(hono@4.12.34)':
     dependencies:
-      hono: 4.12.34
+      hono: 4.13.0
 
   '@img/colour@1.1.0':
     optional: true
@@ -4330,7 +4330,7 @@ snapshots:
       eventsource-parser: 3.1.0
       express: 5.2.1
       express-rate-limit: 8.6.0(express@5.2.1)
-      hono: 4.12.34
+      hono: 4.13.0
       jose: 6.2.4
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
@@ -5731,7 +5731,7 @@ snapshots:
     dependencies:
       libheif-js: 1.19.8
 
-  hono@4.12.34: {}
+  hono@4.13.0: {}
 
   http-errors@2.0.1:
     dependencies:
