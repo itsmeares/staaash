@@ -7,7 +7,7 @@ overrides:
   esbuild@>=0.17.0 <0.28.1: ^0.28.2
   esbuild@>=0.27.3 <0.28.1: ^0.28.2
   fast-uri: 4.1.2
-  find-my-way: 9.8.0
+  find-my-way: 9.9.0
   hono: 4.13.2
   ip-address: 10.5.0
   postcss: 8.5.26
