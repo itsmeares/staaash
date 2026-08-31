@@ -1,8 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@staaash/config/version", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@staaash/config/version")>()),
+  normalizeSemanticVersion: () => null,
+  compareSemanticVersions: () => -1,
+}));
 
 import {
   buildInstanceHealthSummary,
   getWorkerHeartbeatStatus,
+  resolveVersionHealth,
   toJsonInstanceHealthSummary,
 } from "@/server/health";
 
@@ -66,6 +73,18 @@ describe("health summaries", () => {
     expect(summary.ok).toBe(true);
     expect(summary.version.currentVersion).toBe("0.3.0-beta.1");
     expect(summary.version.lastUpdateCheckAt).toBeNull();
+  });
+
+  it("does not flip update-available when a real comparison is unavailable", () => {
+    const version = resolveVersionHealth({
+      lastUpdateCheckAt: null,
+      updateCheckStatus: "update-available",
+      updateCheckMessage: "Update available: 1.0.0.",
+      latestAvailableVersion: "1.0.0",
+    });
+
+    expect(version.updateCheckStatus).toBe("update-available");
+    expect(version.updateCheckMessage).toBe("Update available: 1.0.0.");
   });
 
   it("serializes bigint storage warnings for JSON routes", () => {
