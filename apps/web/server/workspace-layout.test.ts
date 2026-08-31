@@ -1,3 +1,4 @@
+import * as React from "react";
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -24,9 +25,9 @@ vi.mock("@/server/settings", () => ({
 }));
 
 vi.mock("@/server/user-storage", () => ({
-  getInstanceDiskInfo: vi.fn(),
-  getInstanceStorageUsed: vi.fn(),
-  getUserStorageUsed: vi.fn(),
+  getInstanceDiskInfo: vi.fn(() => null),
+  getInstanceStorageUsed: vi.fn(() => 0n),
+  getUserStorageUsed: vi.fn(() => ({ usedBytes: 0n })),
 }));
 
 vi.mock("@staaash/db/instance", () => ({
@@ -38,11 +39,15 @@ vi.mock("@/server/app-version", () => ({
 }));
 
 vi.mock("@/app/(workspace)/instance-badge", () => ({
-  InstanceBadge: () => null,
+  InstanceBadge: (props: { updateStatus: string | null }) =>
+    React.createElement("span", {
+      "data-testid": "instance-badge",
+      "data-status": props.updateStatus ?? "",
+    }),
 }));
 
 vi.mock("@/app/(workspace)/topbar-actions", () => ({
-  TopbarActions: () => null,
+  TopbarActions: (props: Record<string, unknown>) => null,
 }));
 
 vi.mock("@/app/(workspace)/workspace-mobile-nav", () => ({
@@ -77,6 +82,39 @@ describe("WorkspaceLayout", () => {
       updateCheckRepository: "itsmeares/staaash",
     });
     mocks.readInstanceUpdateCheck.mockResolvedValue(null);
+  });
+
+  it("passes the derived update status to the instance badge and topbar", async () => {
+    mocks.getSetupState.mockResolvedValue({
+      isBootstrapped: true,
+      instanceName: "Staaash",
+    });
+    mocks.getCurrentSession.mockResolvedValue({
+      user: {
+        id: "u1",
+        email: "owner@example.com",
+        displayName: "Owner",
+        isAdmin: true,
+        isOwner: true,
+        avatarUrl: null,
+        storageLimitBytes: null,
+        preferences: {},
+      },
+    });
+    mocks.readInstanceUpdateCheck.mockResolvedValue({
+      lastUpdateCheckAt: null,
+      updateCheckStatus: "update-available",
+      updateCheckMessage: "Update available: 0.0.0-test.",
+      latestAvailableVersion: "0.0.0-test",
+    });
+
+    const { default: WorkspaceLayout } =
+      await import("@/app/(workspace)/layout");
+    const page = await WorkspaceLayout({ children: "Files" });
+    const markup = renderToStaticMarkup(page);
+
+    expect(markup).toContain('data-status="up-to-date"');
+    expect(markup).not.toContain('data-status="update-available"');
   });
 
   it("uses the instance name as the workspace sidebar brand", async () => {

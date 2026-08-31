@@ -6,6 +6,7 @@ import {
 import { readInstanceUpdateCheck } from "@staaash/db/instance";
 
 import { resolveAppVersion } from "@/server/app-version";
+import { deriveEffectiveUpdateStatus } from "@/server/update-derive";
 import { getSystemSettings } from "@/server/settings";
 
 import type { AdminUpdateStatus, JsonAdminUpdateStatus } from "./types";
@@ -16,15 +17,26 @@ export const getAdminUpdateStatus = async (): Promise<AdminUpdateStatus> => {
     getSystemSettings(),
   ]);
 
+  const currentVersion =
+    process.env.NODE_ENV !== "production" ? "development" : resolveAppVersion();
+
+  const { updateCheckStatus, updateCheckMessage } = deriveEffectiveUpdateStatus(
+    {
+      currentVersion,
+      persisted: {
+        updateCheckStatus: state.updateCheckStatus,
+        updateCheckMessage: state.updateCheckMessage,
+        latestAvailableVersion: state.latestAvailableVersion,
+      },
+    },
+  );
+
   return {
-    currentVersion:
-      process.env.NODE_ENV !== "production"
-        ? "development"
-        : resolveAppVersion(),
+    currentVersion,
     repository: settings.updateCheckRepository || null,
     lastUpdateCheckAt: state.lastUpdateCheckAt,
-    updateCheckStatus: state.updateCheckStatus,
-    updateCheckMessage: state.updateCheckMessage,
+    updateCheckStatus,
+    updateCheckMessage,
     latestAvailableVersion: state.latestAvailableVersion,
   };
 };

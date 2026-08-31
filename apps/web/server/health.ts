@@ -13,6 +13,7 @@ import { assertStorageFilesystemSupported } from "@staaash/db/storage-mutation-e
 import { getPrisma } from "@staaash/db/client";
 
 import { resolveAppVersion } from "@/server/app-version";
+import { deriveEffectiveUpdateStatus } from "@/server/update-derive";
 import { getSystemSettings } from "@/server/settings";
 import { buildRestoreReconciliationHealthSummary } from "@/server/restore";
 import {
@@ -272,16 +273,32 @@ const resolveStorageReadiness = ({
   };
 };
 
-const resolveVersionHealth = (
+// fallow-ignore-next-line unused-export
+export const resolveVersionHealth = (
   instanceState: Awaited<ReturnType<typeof readInstanceUpdateCheck>> | null,
-): InstanceHealthSummary["version"] => ({
-  currentVersion:
-    process.env.NODE_ENV !== "production" ? "development" : resolveAppVersion(),
-  lastUpdateCheckAt: instanceState?.lastUpdateCheckAt?.toISOString() ?? null,
-  updateCheckStatus: instanceState?.updateCheckStatus ?? null,
-  updateCheckMessage: instanceState?.updateCheckMessage ?? null,
-  latestAvailableVersion: instanceState?.latestAvailableVersion ?? null,
-});
+): InstanceHealthSummary["version"] => {
+  const currentVersion =
+    process.env.NODE_ENV !== "production" ? "development" : resolveAppVersion();
+
+  const { updateCheckStatus, updateCheckMessage } = deriveEffectiveUpdateStatus(
+    {
+      currentVersion,
+      persisted: {
+        updateCheckStatus: instanceState?.updateCheckStatus ?? null,
+        updateCheckMessage: instanceState?.updateCheckMessage ?? null,
+        latestAvailableVersion: instanceState?.latestAvailableVersion ?? null,
+      },
+    },
+  );
+
+  return {
+    currentVersion,
+    lastUpdateCheckAt: instanceState?.lastUpdateCheckAt?.toISOString() ?? null,
+    updateCheckStatus,
+    updateCheckMessage,
+    latestAvailableVersion: instanceState?.latestAvailableVersion ?? null,
+  };
+};
 
 export const getReadiness = async () => {
   const databaseUrl = process.env.DATABASE_URL ?? "";
