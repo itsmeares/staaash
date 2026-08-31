@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { UpdateCheckStatus } from "@staaash/db/instance";
 
@@ -14,7 +14,7 @@ const withStatus = (status: UpdateCheckStatus | null) => ({
     updateCheckStatus: status,
     updateCheckMessage: null,
     latestAvailableVersion: "1.0.0",
-    checkedVersion: null,
+    checkedVersion: "1.0.0",
   },
 });
 
@@ -34,13 +34,18 @@ describe("update status display", () => {
     expect(getUpdateStatusDotClassName(null)).toContain("--muted");
   });
 
-  it("maps the derived up-to-date status to the green dot and label", () => {
+  it("maps a derived update to the update dot and label", () => {
     const derived = deriveEffectiveUpdateStatus(withStatus("update-available"));
 
-    expect(derived.updateCheckStatus).toBe("up-to-date");
-    expect(getUpdateStatusLabel("up-to-date")).toBe("Up to date");
-    expect(getUpdateStatusDotClassName("up-to-date")).toBe(
-      "instance-dot instance-dot--online",
+    expect(derived.updateCheckStatus).toBe("update-available");
+    expect(
+      getUpdateStatusLabel(
+        derived.updateCheckStatus,
+        derived.latestAvailableVersion,
+      ),
+    ).toBe("v1.0.0 available");
+    expect(getUpdateStatusDotClassName(derived.updateCheckStatus)).toBe(
+      "instance-dot instance-dot--update",
     );
   });
 
@@ -48,7 +53,7 @@ describe("update status display", () => {
     const derived = deriveEffectiveUpdateStatus(withStatus("error"));
 
     expect(derived.updateCheckStatus).toBe("error");
-    expect(getUpdateStatusDotClassName("error")).toBe(
+    expect(getUpdateStatusDotClassName(derived.updateCheckStatus)).toBe(
       "instance-dot instance-dot--error",
     );
   });

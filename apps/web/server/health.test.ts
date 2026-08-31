@@ -1,9 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@staaash/config/version", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@staaash/config/version")>()),
-  normalizeSemanticVersion: () => null,
-  compareSemanticVersions: () => -1,
+vi.mock("@/server/app-version", () => ({
+  resolveAppVersion: () => "2.0.0",
 }));
 
 import {
@@ -19,7 +17,6 @@ const baseVersionInfo = {
   updateCheckStatus: null,
   updateCheckMessage: null,
   latestAvailableVersion: null,
-  checkedVersion: null,
 };
 
 const baseReconciliation = {
@@ -32,6 +29,10 @@ const baseReconciliation = {
 };
 
 describe("health summaries", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("marks missing heartbeat as a warning", () => {
     expect(getWorkerHeartbeatStatus(null).status).toBe("warning");
   });
@@ -88,6 +89,28 @@ describe("health summaries", () => {
     expect(version.updateCheckStatus).toBe("update-available");
     expect(version.updateCheckMessage).toBe("Update available: 1.0.0.");
   });
+
+  it.each(["production", "test"])(
+    "invalidates stale version health in %s",
+    (nodeEnv) => {
+      vi.stubEnv("NODE_ENV", nodeEnv);
+
+      const version = resolveVersionHealth({
+        lastUpdateCheckAt: null,
+        updateCheckStatus: "up-to-date",
+        updateCheckMessage: "Instance is up to date.",
+        latestAvailableVersion: "1.0.0",
+        checkedVersion: "1.0.0",
+      });
+
+      expect(version).toMatchObject({
+        currentVersion: "2.0.0",
+        updateCheckStatus: null,
+        latestAvailableVersion: null,
+      });
+      expect(version).not.toHaveProperty("checkedVersion");
+    },
+  );
 
   it("serializes bigint storage warnings for JSON routes", () => {
     const summary = buildInstanceHealthSummary({

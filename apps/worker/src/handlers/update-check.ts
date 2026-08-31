@@ -140,7 +140,7 @@ export const handleUpdateCheck = async (
         updateCheckStatus: "unavailable",
         updateCheckMessage: release.message,
         latestAvailableVersion: null,
-        checkedVersion: null,
+        checkedVersion: currentVersion,
       });
       return;
     }
@@ -170,7 +170,7 @@ export const handleUpdateCheck = async (
       updateCheckMessage:
         error instanceof Error ? error.message : "Update check failed.",
       latestAvailableVersion: null,
-      checkedVersion: null,
+      checkedVersion: currentVersion,
     });
   }
 };

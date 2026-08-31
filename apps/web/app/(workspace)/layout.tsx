@@ -63,6 +63,7 @@ export default async function WorkspaceLayout({
     },
   });
   const effectiveUpdateStatus = effectiveUpdate.updateCheckStatus ?? null;
+  const effectiveLatestVersion = effectiveUpdate.latestAvailableVersion;
   const instanceName = setupState.instanceName?.trim() || "Staaash";
   const compactInstanceInitial = instanceName.charAt(0).toUpperCase() || "S";
 
@@ -111,9 +112,7 @@ export default async function WorkspaceLayout({
               appVersion={appVersion}
               nodeVersion={process.version}
               updateStatus={effectiveUpdateStatus}
-              latestVersion={
-                instanceUpdateState?.latestAvailableVersion ?? null
-              }
+              latestVersion={effectiveLatestVersion}
               repository={settings.updateCheckRepository || null}
             />
           </div>
@@ -156,9 +155,7 @@ export default async function WorkspaceLayout({
                   session.user.preferences?.enableVersionChecks ?? true
                 }
                 updateStatus={effectiveUpdateStatus}
-                latestVersion={
-                  instanceUpdateState?.latestAvailableVersion ?? null
-                }
+                latestVersion={effectiveLatestVersion}
                 repository={settings.updateCheckRepository || null}
               />
             ) : null}
@@ -178,7 +175,7 @@ export default async function WorkspaceLayout({
           initials={initials}
           instanceName={instanceName}
           isOwner={session.user.isAdmin}
-          latestVersion={instanceUpdateState?.latestAvailableVersion ?? null}
+          latestVersion={effectiveLatestVersion}
           limitBytes={limitBytes?.toString() ?? null}
           nodeVersion={process.version}
           repository={settings.updateCheckRepository || null}

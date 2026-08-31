@@ -277,11 +277,10 @@ const resolveStorageReadiness = ({
 export const resolveVersionHealth = (
   instanceState: Awaited<ReturnType<typeof readInstanceUpdateCheck>> | null,
 ): InstanceHealthSummary["version"] => {
-  const currentVersion =
-    process.env.NODE_ENV !== "production" ? "development" : resolveAppVersion();
+  const currentVersion = resolveAppVersion();
 
-  const { updateCheckStatus, updateCheckMessage } = deriveEffectiveUpdateStatus(
-    {
+  const { updateCheckStatus, updateCheckMessage, latestAvailableVersion } =
+    deriveEffectiveUpdateStatus({
       currentVersion,
       persisted: {
         updateCheckStatus: instanceState?.updateCheckStatus ?? null,
@@ -289,16 +288,14 @@ export const resolveVersionHealth = (
         latestAvailableVersion: instanceState?.latestAvailableVersion ?? null,
         checkedVersion: instanceState?.checkedVersion ?? null,
       },
-    },
-  );
+    });
 
   return {
     currentVersion,
     lastUpdateCheckAt: instanceState?.lastUpdateCheckAt?.toISOString() ?? null,
     updateCheckStatus,
     updateCheckMessage,
-    latestAvailableVersion: instanceState?.latestAvailableVersion ?? null,
-    checkedVersion: instanceState?.checkedVersion ?? null,
+    latestAvailableVersion,
   };
 };
 

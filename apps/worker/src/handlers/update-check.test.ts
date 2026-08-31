@@ -266,7 +266,7 @@ describe("update check handler", () => {
     );
   });
 
-  it("sends configured GitHub authentication", async () => {
+  it("records no compatible release against the current version", async () => {
     process.env.UPDATE_CHECK_TOKEN = "test-token";
     mockFindUnique.mockResolvedValue({
       updateCheckRepository: "itsmeares/staaash",
@@ -285,6 +285,13 @@ describe("update check handler", () => {
     expect(request[0]).toContain("/releases?per_page=100");
     expect((request[1].headers as Headers).get("Authorization")).toBe(
       "Bearer test-token",
+    );
+    expect(writeInstanceUpdateCheck).toHaveBeenCalledWith(
+      expect.objectContaining({
+        updateCheckStatus: "unavailable",
+        latestAvailableVersion: null,
+        checkedVersion: "1.0.0",
+      }),
     );
   });
 
@@ -308,7 +315,7 @@ describe("update check handler", () => {
       expect.objectContaining({
         updateCheckStatus: "unavailable",
         latestAvailableVersion: null,
-        checkedVersion: null,
+        checkedVersion: "1.0.0",
       }),
     );
   });
@@ -333,7 +340,7 @@ describe("update check handler", () => {
       expect.objectContaining({
         updateCheckStatus: "error",
         latestAvailableVersion: null,
-        checkedVersion: null,
+        checkedVersion: "1.0.0",
       }),
     );
   });

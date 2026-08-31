@@ -1,7 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@staaash/db/instance", () => ({
   readInstanceUpdateCheck: vi.fn(),
+}));
+
+vi.mock("@/server/app-version", () => ({
+  resolveAppVersion: () => "2.0.0",
 }));
 
 vi.mock("@/server/settings", async (importOriginal) => ({
@@ -18,8 +22,8 @@ import { getAdminUpdateStatus } from "@/server/admin/updates";
 const STALE_UPDATE_ROW: InstanceUpdateCheckState = {
   lastUpdateCheckAt: new Date("2026-03-01T00:00:00.000Z"),
   updateCheckStatus: "update-available",
-  updateCheckMessage: "Update available: 1.0.0.",
-  latestAvailableVersion: "1.0.0",
+  updateCheckMessage: "Update available: 2.0.0.",
+  latestAvailableVersion: "2.0.0",
   checkedVersion: "1.0.0",
 };
 
@@ -33,49 +37,45 @@ describe("getAdminUpdateStatus", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getSystemSettings).mockResolvedValue(SETTINGS);
-  });
-
-  it("returns a development version and passes the row through in non-production", async () => {
     vi.mocked(readInstanceUpdateCheck).mockResolvedValue(STALE_UPDATE_ROW);
-
-    const status = await getAdminUpdateStatus();
-
-    expect(status.currentVersion).toBe("development");
-    expect(status.updateCheckStatus).toBe("update-available");
-    expect(status.updateCheckMessage).toBe("Update available: 1.0.0.");
   });
 
-  it("derives up-to-date when the packaged version equals latest in production", async () => {
-    vi.mocked(readInstanceUpdateCheck).mockResolvedValue(STALE_UPDATE_ROW);
-
-    const status = await getAdminUpdateStatus();
-
-    if (process.env.NODE_ENV === "production") {
-      expect(status.currentVersion).toBe("1.0.0");
-      expect(status.updateCheckStatus).toBe("up-to-date");
-      expect(status.updateCheckMessage).toBe(
-        "Instance is on or ahead of the latest published release (v1.0.0).",
-      );
-    } else {
-      expect(status.updateCheckStatus).toBe("update-available");
-    }
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
-  it("keeps a genuinely newer release as update-available in production", async () => {
+  it.each(["production", "test"])(
+    "uses the resolved app version in %s",
+    async (nodeEnv) => {
+      vi.stubEnv("NODE_ENV", nodeEnv);
+
+      const status = await getAdminUpdateStatus();
+
+      expect(status).toMatchObject({
+        currentVersion: "2.0.0",
+        updateCheckStatus: null,
+        updateCheckMessage:
+          "Update check was run against v1.0.0; re-run to refresh.",
+        latestAvailableVersion: null,
+      });
+      expect(status).not.toHaveProperty("checkedVersion");
+    },
+  );
+
+  it("preserves a result checked by the running version", async () => {
+    vi.stubEnv("NODE_ENV", "production");
     vi.mocked(readInstanceUpdateCheck).mockResolvedValue({
       ...STALE_UPDATE_ROW,
-      updateCheckMessage: "Update available: 2.0.0.",
-      latestAvailableVersion: "2.0.0",
+      updateCheckMessage: "Update available: 3.0.0.",
+      latestAvailableVersion: "3.0.0",
+      checkedVersion: "2.0.0",
     });
 
-    const status = await getAdminUpdateStatus();
-
-    if (process.env.NODE_ENV === "production") {
-      expect(status.currentVersion).toBe("1.0.0");
-      expect(status.updateCheckStatus).toBe("update-available");
-      expect(status.updateCheckMessage).toBe("Update available: 2.0.0.");
-    } else {
-      expect(status.updateCheckStatus).toBe("update-available");
-    }
+    await expect(getAdminUpdateStatus()).resolves.toMatchObject({
+      currentVersion: "2.0.0",
+      updateCheckStatus: "update-available",
+      updateCheckMessage: "Update available: 3.0.0.",
+      latestAvailableVersion: "3.0.0",
+    });
   });
 });

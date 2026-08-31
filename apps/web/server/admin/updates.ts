@@ -17,11 +17,10 @@ export const getAdminUpdateStatus = async (): Promise<AdminUpdateStatus> => {
     getSystemSettings(),
   ]);
 
-  const currentVersion =
-    process.env.NODE_ENV !== "production" ? "development" : resolveAppVersion();
+  const currentVersion = resolveAppVersion();
 
-  const { updateCheckStatus, updateCheckMessage } = deriveEffectiveUpdateStatus(
-    {
+  const { updateCheckStatus, updateCheckMessage, latestAvailableVersion } =
+    deriveEffectiveUpdateStatus({
       currentVersion,
       persisted: {
         updateCheckStatus: state.updateCheckStatus,
@@ -29,8 +28,7 @@ export const getAdminUpdateStatus = async (): Promise<AdminUpdateStatus> => {
         latestAvailableVersion: state.latestAvailableVersion,
         checkedVersion: state.checkedVersion,
       },
-    },
-  );
+    });
 
   return {
     currentVersion,
@@ -38,8 +36,7 @@ export const getAdminUpdateStatus = async (): Promise<AdminUpdateStatus> => {
     lastUpdateCheckAt: state.lastUpdateCheckAt,
     updateCheckStatus,
     updateCheckMessage,
-    latestAvailableVersion: state.latestAvailableVersion,
-    checkedVersion: state.checkedVersion,
+    latestAvailableVersion,
   };
 };
 

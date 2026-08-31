@@ -110,7 +110,6 @@ export type InstanceHealthSummary = {
       "up-to-date" | "update-available" | "unavailable" | "error" | null;
     updateCheckMessage: string | null;
     latestAvailableVersion: string | null;
-    checkedVersion: string | null;
   };
 };
 

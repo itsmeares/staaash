@@ -39,19 +39,39 @@ vi.mock("@/server/app-version", () => ({
 }));
 
 vi.mock("@/app/(workspace)/instance-badge", () => ({
-  InstanceBadge: (props: { updateStatus: string | null }) =>
-    React.createElement("span", {
-      "data-testid": "instance-badge",
-      "data-status": props.updateStatus ?? "",
-    }),
+  InstanceBadge: (props: {
+    updateStatus: string | null;
+    latestVersion: string | null;
+  }) =>
+    React.createElement(
+      "span",
+      { "data-testid": "instance-badge" },
+      `${props.updateStatus ?? "unchecked"}:${props.latestVersion ?? "none"}`,
+    ),
 }));
 
 vi.mock("@/app/(workspace)/topbar-actions", () => ({
-  TopbarActions: (props: Record<string, unknown>) => null,
+  TopbarActions: (props: {
+    updateStatus: string | null;
+    latestVersion: string | null;
+  }) =>
+    React.createElement(
+      "span",
+      { "data-testid": "topbar-actions" },
+      `${props.updateStatus ?? "unchecked"}:${props.latestVersion ?? "none"}`,
+    ),
 }));
 
 vi.mock("@/app/(workspace)/workspace-mobile-nav", () => ({
-  WorkspaceMobileNav: () => null,
+  WorkspaceMobileNav: (props: {
+    updateStatus: string | null;
+    latestVersion: string | null;
+  }) =>
+    React.createElement(
+      "span",
+      { "data-testid": "mobile-nav" },
+      `${props.updateStatus ?? "unchecked"}:${props.latestVersion ?? "none"}`,
+    ),
 }));
 
 vi.mock("@/app/(workspace)/workspace-nav", () => ({
@@ -84,7 +104,7 @@ describe("WorkspaceLayout", () => {
     mocks.readInstanceUpdateCheck.mockResolvedValue(null);
   });
 
-  it("passes the derived update status to the instance badge and topbar", async () => {
+  it("passes invalidated update state to every workspace status surface", async () => {
     mocks.getSetupState.mockResolvedValue({
       isBootstrapped: true,
       instanceName: "Staaash",
@@ -106,7 +126,7 @@ describe("WorkspaceLayout", () => {
       updateCheckStatus: "update-available",
       updateCheckMessage: "Update available: 0.0.0-test.",
       latestAvailableVersion: "0.0.0-test",
-      checkedVersion: "0.0.0-test",
+      checkedVersion: "0.0.0-old",
     });
 
     const { default: WorkspaceLayout } =
@@ -114,8 +134,13 @@ describe("WorkspaceLayout", () => {
     const page = await WorkspaceLayout({ children: "Files" });
     const markup = renderToStaticMarkup(page);
 
-    expect(markup).toContain('data-status="up-to-date"');
-    expect(markup).not.toContain('data-status="update-available"');
+    expect(markup).toContain(
+      'data-testid="instance-badge">unchecked:none</span>',
+    );
+    expect(markup).toContain(
+      'data-testid="topbar-actions">unchecked:none</span>',
+    );
+    expect(markup).toContain('data-testid="mobile-nav">unchecked:none</span>');
   });
 
   it("uses the instance name as the workspace sidebar brand", async () => {
