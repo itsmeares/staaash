@@ -28,6 +28,7 @@ export type AdminUpdateStatus = {
   updateCheckStatus: UpdateCheckStatus | null;
   updateCheckMessage: string | null;
   latestAvailableVersion: string | null;
+  checkedVersion: string | null;
 };
 
 export type AdminRestoreReconciliationRun = DbRestoreReconciliationRunRecord;

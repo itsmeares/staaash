@@ -27,6 +27,7 @@ export const getAdminUpdateStatus = async (): Promise<AdminUpdateStatus> => {
         updateCheckStatus: state.updateCheckStatus,
         updateCheckMessage: state.updateCheckMessage,
         latestAvailableVersion: state.latestAvailableVersion,
+        checkedVersion: state.checkedVersion,
       },
     },
   );
@@ -38,6 +39,7 @@ export const getAdminUpdateStatus = async (): Promise<AdminUpdateStatus> => {
     updateCheckStatus,
     updateCheckMessage,
     latestAvailableVersion: state.latestAvailableVersion,
+    checkedVersion: state.checkedVersion,
   };
 };
 

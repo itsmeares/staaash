@@ -126,6 +126,7 @@ export const handleUpdateCheck = async (
       updateCheckStatus: "unavailable",
       updateCheckMessage: "Update checks are not configured.",
       latestAvailableVersion: null,
+      checkedVersion: null,
     });
     return;
   }
@@ -139,6 +140,7 @@ export const handleUpdateCheck = async (
         updateCheckStatus: "unavailable",
         updateCheckMessage: release.message,
         latestAvailableVersion: null,
+        checkedVersion: null,
       });
       return;
     }
@@ -159,6 +161,7 @@ export const handleUpdateCheck = async (
       updateCheckStatus,
       updateCheckMessage,
       latestAvailableVersion: release.latestVersion,
+      checkedVersion: currentVersion,
     });
   } catch (error) {
     await writeInstanceUpdateCheck({
@@ -167,6 +170,7 @@ export const handleUpdateCheck = async (
       updateCheckMessage:
         error instanceof Error ? error.message : "Update check failed.",
       latestAvailableVersion: null,
+      checkedVersion: null,
     });
   }
 };

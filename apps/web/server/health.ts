@@ -287,6 +287,7 @@ export const resolveVersionHealth = (
         updateCheckStatus: instanceState?.updateCheckStatus ?? null,
         updateCheckMessage: instanceState?.updateCheckMessage ?? null,
         latestAvailableVersion: instanceState?.latestAvailableVersion ?? null,
+        checkedVersion: instanceState?.checkedVersion ?? null,
       },
     },
   );
@@ -297,6 +298,7 @@ export const resolveVersionHealth = (
     updateCheckStatus,
     updateCheckMessage,
     latestAvailableVersion: instanceState?.latestAvailableVersion ?? null,
+    checkedVersion: instanceState?.checkedVersion ?? null,
   };
 };
 

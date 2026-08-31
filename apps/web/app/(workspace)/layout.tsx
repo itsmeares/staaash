@@ -59,6 +59,7 @@ export default async function WorkspaceLayout({
       updateCheckMessage: instanceUpdateState?.updateCheckMessage ?? null,
       latestAvailableVersion:
         instanceUpdateState?.latestAvailableVersion ?? null,
+      checkedVersion: instanceUpdateState?.checkedVersion ?? null,
     },
   });
   const effectiveUpdateStatus = effectiveUpdate.updateCheckStatus ?? null;

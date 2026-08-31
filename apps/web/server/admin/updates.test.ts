@@ -20,6 +20,7 @@ const STALE_UPDATE_ROW: InstanceUpdateCheckState = {
   updateCheckStatus: "update-available",
   updateCheckMessage: "Update available: 1.0.0.",
   latestAvailableVersion: "1.0.0",
+  checkedVersion: "1.0.0",
 };
 
 type SettingsRow = Awaited<ReturnType<typeof getSystemSettings>>;

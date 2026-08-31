@@ -19,6 +19,7 @@ const baseVersionInfo = {
   updateCheckStatus: null,
   updateCheckMessage: null,
   latestAvailableVersion: null,
+  checkedVersion: null,
 };
 
 const baseReconciliation = {
@@ -81,6 +82,7 @@ describe("health summaries", () => {
       updateCheckStatus: "update-available",
       updateCheckMessage: "Update available: 1.0.0.",
       latestAvailableVersion: "1.0.0",
+      checkedVersion: null,
     });
 
     expect(version.updateCheckStatus).toBe("update-available");

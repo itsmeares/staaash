@@ -14,6 +14,7 @@ const withStatus = (status: UpdateCheckStatus | null) => ({
     updateCheckStatus: status,
     updateCheckMessage: null,
     latestAvailableVersion: "1.0.0",
+    checkedVersion: null,
   },
 });
 

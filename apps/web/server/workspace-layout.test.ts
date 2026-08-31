@@ -106,6 +106,7 @@ describe("WorkspaceLayout", () => {
       updateCheckStatus: "update-available",
       updateCheckMessage: "Update available: 0.0.0-test.",
       latestAvailableVersion: "0.0.0-test",
+      checkedVersion: "0.0.0-test",
     });
 
     const { default: WorkspaceLayout } =
