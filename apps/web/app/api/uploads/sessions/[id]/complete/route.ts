@@ -3,6 +3,8 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 
+import { StorageMutationConflictError } from "@staaash/db/storage-mutations";
+
 import { getRequestSession } from "@/server/auth/guards";
 import { isSameOrigin, notSignedInResponse } from "@/server/auth/http";
 import {
@@ -140,6 +142,57 @@ const verifyUploadedFile = async (
   );
 };
 
+const ambiguousCommitResponse = async (
+  uploadSession: ResumableSession,
+  error: unknown,
+): Promise<Response> => {
+  await recordResumableCommitRecoveryError({
+    id: uploadSession.id,
+    ownerUserId: uploadSession.ownerUserId,
+    error,
+  }).catch((recordError) => {
+    console.error(
+      "[uploads] Failed to record unknown resumable commit outcome.",
+      recordError,
+    );
+  });
+  console.error("[uploads] Resumable commit outcome is unknown.", error);
+  return Response.json(
+    {
+      error: "Upload completion requires storage reconciliation.",
+      code: "RESUMABLE_COMMIT_AMBIGUOUS",
+    },
+    { status: 500 },
+  );
+};
+
+const storageMutationConflictResponse = async (
+  uploadSession: ResumableSession,
+  error: StorageMutationConflictError,
+): Promise<Response> => {
+  if (error.code !== "STORAGE_MUTATION_IN_PROGRESS") {
+    return Response.json(
+      { error: error.message, code: error.code },
+      { status: error.status },
+    );
+  }
+
+  try {
+    await restoreResumableSessionAfterCommitRollback({
+      id: uploadSession.id,
+      ownerUserId: uploadSession.ownerUserId,
+      error,
+    });
+  } catch (restoreError) {
+    return ambiguousCommitResponse(uploadSession, restoreError);
+  }
+
+  return Response.json(
+    { error: error.message, code: error.code },
+    { status: error.status, headers: { "retry-after": "1" } },
+  );
+};
+
 const commitUploadedFile = async (
   uploadSession: ResumableSession,
   session: NonNullable<Awaited<ReturnType<typeof getRequestSession>>>,
@@ -184,24 +237,10 @@ const commitUploadedFile = async (
         { status: error.status },
       );
     }
-    await recordResumableCommitRecoveryError({
-      id: uploadSession.id,
-      ownerUserId: uploadSession.ownerUserId,
-      error,
-    }).catch((recordError) => {
-      console.error(
-        "[uploads] Failed to record unknown resumable commit outcome.",
-        recordError,
-      );
-    });
-    console.error("[uploads] Resumable commit outcome is unknown.", error);
-    return Response.json(
-      {
-        error: "Upload completion requires storage reconciliation.",
-        code: "RESUMABLE_COMMIT_AMBIGUOUS",
-      },
-      { status: 500 },
-    );
+    if (error instanceof StorageMutationConflictError) {
+      return storageMutationConflictResponse(uploadSession, error);
+    }
+    return ambiguousCommitResponse(uploadSession, error);
   }
 };
 

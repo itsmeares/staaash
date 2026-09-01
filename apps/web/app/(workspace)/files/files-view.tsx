@@ -714,18 +714,16 @@ export function FilesView({
       for (const item of items) next.add(item.id);
       return next;
     });
-    const results = await Promise.allSettled(
-      items.map((i) => moveToTrash(i.id, i.kind)),
-    );
     let succeeded = false;
     const failedIds = new Set<string>();
-    results.forEach((result, index) => {
-      if (result.status === "fulfilled") {
+    for (const item of items) {
+      try {
+        await moveToTrash(item.id, item.kind);
         succeeded = true;
-      } else {
-        failedIds.add(items[index].id);
+      } catch {
+        failedIds.add(item.id);
       }
-    });
+    }
     if (failedIds.size > 0) {
       setTrashedIds((prev) => {
         const next = new Set(prev);

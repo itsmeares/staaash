@@ -115,6 +115,10 @@ export const jsonErrorResponse = (error: unknown) => {
     },
     {
       status: normalized.status,
+      headers:
+        normalized.code === "STORAGE_MUTATION_IN_PROGRESS"
+          ? { "Retry-After": "1" }
+          : undefined,
     },
   );
 };
