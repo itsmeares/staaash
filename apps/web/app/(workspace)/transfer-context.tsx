@@ -211,7 +211,12 @@ const completeResumableUploadSession = async ({
         : { Accept: "application/json" },
       body: expectedChecksum ? JSON.stringify({ expectedChecksum }) : undefined,
     },
-    { retries: 3, backoffMs: 500, signal },
+    {
+      retries: 3,
+      backoffMs: 500,
+      signal,
+      shouldRetry: (response) => response.headers.has("retry-after"),
+    },
   );
   if (!response.ok) {
     throw new Error(

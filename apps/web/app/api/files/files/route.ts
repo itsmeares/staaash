@@ -5,6 +5,7 @@ import {
   formErrorResponse,
   getSafeRedirectTarget,
   isSameOrigin,
+  jsonErrorResponse,
   notSignedInResponse,
   redirectWithMessage,
   wantsJson,
@@ -108,30 +109,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return attachStorageMutationHeader(
       wantsJson(request)
-        ? NextResponse.json(
-            {
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Unexpected server error.",
-              code:
-                typeof error === "object" &&
-                error !== null &&
-                "code" in error &&
-                typeof error.code === "string"
-                  ? error.code
-                  : "INTERNAL_ERROR",
-            },
-            {
-              status:
-                typeof error === "object" &&
-                error !== null &&
-                "status" in error &&
-                typeof error.status === "number"
-                  ? error.status
-                  : 500,
-            },
-          )
+        ? jsonErrorResponse(error)
         : formErrorResponse(request, redirectTo, error),
       idempotencyKey ? `${idempotencyKey}:0` : null,
       session.user.id,

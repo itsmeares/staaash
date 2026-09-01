@@ -6,6 +6,8 @@ import path from "node:path";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { StorageMutationConflictError } from "@staaash/db/storage-mutations";
+
 import { POST as completeUpload } from "@/app/api/uploads/sessions/[id]/complete/route";
 import { PATCH as patchUpload } from "@/app/api/uploads/sessions/[id]/route";
 import { getRequestSession } from "@/server/auth/guards";
@@ -372,6 +374,98 @@ describe("parallel upload route", () => {
     expect(response.status).toBe(503);
     expect(response.headers.get("retry-after")).toBe("1");
     expect(failAndCleanupResumableSession).not.toHaveBeenCalled();
+    expect(recordResumableCommitRecoveryError).not.toHaveBeenCalled();
+  });
+
+  it("restores the session after owner contention and returns a retryable response", async () => {
+    const tmpPath = await createTempUpload(10);
+    const expectedChecksum = "a".repeat(64);
+    vi.mocked(findActiveResumableSession).mockResolvedValue({
+      ...uploadSession(tmpPath, 10),
+      completedChunks: [
+        { chunkIndex: 0, startByte: 0, endByte: 3, sizeBytes: 4 },
+        { chunkIndex: 1, startByte: 4, endByte: 7, sizeBytes: 4 },
+        { chunkIndex: 2, startByte: 8, endByte: 9, sizeBytes: 2 },
+      ],
+    });
+    vi.mocked(computeFileSha256).mockResolvedValue(expectedChecksum);
+    vi.mocked(filesService.commitResumableUpload).mockRejectedValue(
+      new StorageMutationConflictError(
+        "STORAGE_MUTATION_IN_PROGRESS",
+        "mutation-1",
+      ),
+    );
+
+    const response = await completeUpload(
+      new NextRequest(
+        "http://localhost:3000/api/uploads/sessions/session-1/complete",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            host: "localhost:3000",
+            origin: "http://localhost:3000",
+          },
+          body: JSON.stringify({ expectedChecksum }),
+        },
+      ),
+      { params: Promise.resolve({ id: "session-1" }) },
+    );
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("retry-after")).toBe("1");
+    await expect(response.json()).resolves.toMatchObject({
+      code: "STORAGE_MUTATION_IN_PROGRESS",
+    });
+    expect(restoreResumableSessionAfterCommitRollback).toHaveBeenCalledWith({
+      id: "session-1",
+      ownerUserId: "user-1",
+      error: expect.any(StorageMutationConflictError),
+    });
+    expect(recordResumableCommitRecoveryError).not.toHaveBeenCalled();
+  });
+
+  it("keeps recovery-required contention visible without restoring the session", async () => {
+    const tmpPath = await createTempUpload(10);
+    const expectedChecksum = "a".repeat(64);
+    vi.mocked(findActiveResumableSession).mockResolvedValue({
+      ...uploadSession(tmpPath, 10),
+      completedChunks: [
+        { chunkIndex: 0, startByte: 0, endByte: 3, sizeBytes: 4 },
+        { chunkIndex: 1, startByte: 4, endByte: 7, sizeBytes: 4 },
+        { chunkIndex: 2, startByte: 8, endByte: 9, sizeBytes: 2 },
+      ],
+    });
+    vi.mocked(computeFileSha256).mockResolvedValue(expectedChecksum);
+    vi.mocked(filesService.commitResumableUpload).mockRejectedValue(
+      new StorageMutationConflictError(
+        "STORAGE_RECOVERY_REQUIRED",
+        "mutation-1",
+      ),
+    );
+
+    const response = await completeUpload(
+      new NextRequest(
+        "http://localhost:3000/api/uploads/sessions/session-1/complete",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            host: "localhost:3000",
+            origin: "http://localhost:3000",
+          },
+          body: JSON.stringify({ expectedChecksum }),
+        },
+      ),
+      { params: Promise.resolve({ id: "session-1" }) },
+    );
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("retry-after")).toBeNull();
+    await expect(response.json()).resolves.toMatchObject({
+      code: "STORAGE_RECOVERY_REQUIRED",
+    });
+    expect(restoreResumableSessionAfterCommitRollback).not.toHaveBeenCalled();
     expect(recordResumableCommitRecoveryError).not.toHaveBeenCalled();
   });
 });

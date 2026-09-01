@@ -3,6 +3,8 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 
+import { StorageMutationConflictError } from "@staaash/db/storage-mutations";
+
 import { getRequestSession } from "@/server/auth/guards";
 import { isSameOrigin, notSignedInResponse } from "@/server/auth/http";
 import {
@@ -183,6 +185,30 @@ const commitUploadedFile = async (
         { error: error.message, code: error.code },
         { status: error.status },
       );
+    }
+    if (error instanceof StorageMutationConflictError) {
+      if (error.code === "STORAGE_MUTATION_IN_PROGRESS") {
+        try {
+          await restoreResumableSessionAfterCommitRollback({
+            id: uploadSession.id,
+            ownerUserId: uploadSession.ownerUserId,
+            error,
+          });
+        } catch (restoreError) {
+          error = restoreError;
+        }
+        if (error instanceof StorageMutationConflictError) {
+          return Response.json(
+            { error: error.message, code: error.code },
+            { status: error.status, headers: { "retry-after": "1" } },
+          );
+        }
+      } else {
+        return Response.json(
+          { error: error.message, code: error.code },
+          { status: error.status },
+        );
+      }
     }
     await recordResumableCommitRecoveryError({
       id: uploadSession.id,

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   isSameOrigin,
+  jsonErrorResponse,
   jsonNotSignedInResponse,
   notSignedInResponse,
 } from "@/server/auth/http";
@@ -16,6 +17,18 @@ describe("auth http helpers", () => {
       error: "Not signed in.",
       code: "NOT_SIGNED_IN",
     });
+  });
+
+  it("marks transient storage contention as retryable", () => {
+    const error = Object.assign(new Error("Storage is busy."), {
+      code: "STORAGE_MUTATION_IN_PROGRESS",
+      status: 503,
+    });
+
+    const response = jsonErrorResponse(error);
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("retry-after")).toBe("1");
   });
 
   it("redirects form callers to sign-in with a safe next target", () => {
