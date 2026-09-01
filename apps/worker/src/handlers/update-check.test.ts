@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import packageMetadata from "../../package.json" with { type: "json" };
 
 const writeInstanceUpdateCheck = vi.fn();
 const mockFindUnique = vi.fn();
@@ -145,7 +146,7 @@ describe("update check handler", () => {
       expect.objectContaining({
         updateCheckStatus: "update-available",
         latestAvailableVersion: "999.0.0",
-        checkedVersion: "1.0.0",
+        checkedVersion: packageMetadata.version,
       }),
     );
   });
@@ -290,7 +291,7 @@ describe("update check handler", () => {
       expect.objectContaining({
         updateCheckStatus: "unavailable",
         latestAvailableVersion: null,
-        checkedVersion: "1.0.0",
+        checkedVersion: packageMetadata.version,
       }),
     );
   });
@@ -315,7 +316,7 @@ describe("update check handler", () => {
       expect.objectContaining({
         updateCheckStatus: "unavailable",
         latestAvailableVersion: null,
-        checkedVersion: "1.0.0",
+        checkedVersion: packageMetadata.version,
       }),
     );
   });
@@ -340,7 +341,7 @@ describe("update check handler", () => {
       expect.objectContaining({
         updateCheckStatus: "error",
         latestAvailableVersion: null,
-        checkedVersion: "1.0.0",
+        checkedVersion: packageMetadata.version,
       }),
     );
   });
