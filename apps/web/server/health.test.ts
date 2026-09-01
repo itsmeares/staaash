@@ -1,8 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/server/app-version", () => ({
+  resolveAppVersion: () => "2.0.0",
+}));
 
 import {
   buildInstanceHealthSummary,
   getWorkerHeartbeatStatus,
+  resolveVersionHealth,
   toJsonInstanceHealthSummary,
 } from "@/server/health";
 
@@ -24,6 +29,10 @@ const baseReconciliation = {
 };
 
 describe("health summaries", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("marks missing heartbeat as a warning", () => {
     expect(getWorkerHeartbeatStatus(null).status).toBe("warning");
   });
@@ -67,6 +76,41 @@ describe("health summaries", () => {
     expect(summary.version.currentVersion).toBe("0.3.0-beta.1");
     expect(summary.version.lastUpdateCheckAt).toBeNull();
   });
+
+  it("does not flip update-available when a real comparison is unavailable", () => {
+    const version = resolveVersionHealth({
+      lastUpdateCheckAt: null,
+      updateCheckStatus: "update-available",
+      updateCheckMessage: "Update available: 1.0.0.",
+      latestAvailableVersion: "1.0.0",
+      checkedVersion: null,
+    });
+
+    expect(version.updateCheckStatus).toBe("update-available");
+    expect(version.updateCheckMessage).toBe("Update available: 1.0.0.");
+  });
+
+  it.each(["production", "test"])(
+    "invalidates stale version health in %s",
+    (nodeEnv) => {
+      vi.stubEnv("NODE_ENV", nodeEnv);
+
+      const version = resolveVersionHealth({
+        lastUpdateCheckAt: null,
+        updateCheckStatus: "up-to-date",
+        updateCheckMessage: "Instance is up to date.",
+        latestAvailableVersion: "1.0.0",
+        checkedVersion: "1.0.0",
+      });
+
+      expect(version).toMatchObject({
+        currentVersion: "2.0.0",
+        updateCheckStatus: null,
+        latestAvailableVersion: null,
+      });
+      expect(version).not.toHaveProperty("checkedVersion");
+    },
+  );
 
   it("serializes bigint storage warnings for JSON routes", () => {
     const summary = buildInstanceHealthSummary({

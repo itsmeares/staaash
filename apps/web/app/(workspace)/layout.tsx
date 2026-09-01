@@ -6,6 +6,7 @@ import { getInitials } from "@/lib/user";
 import { authService } from "@/server/auth/service";
 import { resolveAppVersion } from "@/server/app-version";
 import { getCurrentSession } from "@/server/auth/session";
+import { deriveEffectiveUpdateStatus } from "@/server/update-derive";
 import { getSystemSettings } from "@/server/settings";
 import {
   getInstanceDiskInfo,
@@ -51,6 +52,18 @@ export default async function WorkspaceLayout({
   ]);
 
   const appVersion = resolveAppVersion();
+  const effectiveUpdate = deriveEffectiveUpdateStatus({
+    currentVersion: appVersion,
+    persisted: {
+      updateCheckStatus: instanceUpdateState?.updateCheckStatus ?? null,
+      updateCheckMessage: instanceUpdateState?.updateCheckMessage ?? null,
+      latestAvailableVersion:
+        instanceUpdateState?.latestAvailableVersion ?? null,
+      checkedVersion: instanceUpdateState?.checkedVersion ?? null,
+    },
+  });
+  const effectiveUpdateStatus = effectiveUpdate.updateCheckStatus ?? null;
+  const effectiveLatestVersion = effectiveUpdate.latestAvailableVersion;
   const instanceName = setupState.instanceName?.trim() || "Staaash";
   const compactInstanceInitial = instanceName.charAt(0).toUpperCase() || "S";
 
@@ -98,10 +111,8 @@ export default async function WorkspaceLayout({
             <InstanceBadge
               appVersion={appVersion}
               nodeVersion={process.version}
-              updateStatus={instanceUpdateState?.updateCheckStatus ?? null}
-              latestVersion={
-                instanceUpdateState?.latestAvailableVersion ?? null
-              }
+              updateStatus={effectiveUpdateStatus}
+              latestVersion={effectiveLatestVersion}
               repository={settings.updateCheckRepository || null}
             />
           </div>
@@ -143,10 +154,8 @@ export default async function WorkspaceLayout({
                 initialEnableVersionChecks={
                   session.user.preferences?.enableVersionChecks ?? true
                 }
-                updateStatus={instanceUpdateState?.updateCheckStatus ?? null}
-                latestVersion={
-                  instanceUpdateState?.latestAvailableVersion ?? null
-                }
+                updateStatus={effectiveUpdateStatus}
+                latestVersion={effectiveLatestVersion}
                 repository={settings.updateCheckRepository || null}
               />
             ) : null}
@@ -166,11 +175,11 @@ export default async function WorkspaceLayout({
           initials={initials}
           instanceName={instanceName}
           isOwner={session.user.isAdmin}
-          latestVersion={instanceUpdateState?.latestAvailableVersion ?? null}
+          latestVersion={effectiveLatestVersion}
           limitBytes={limitBytes?.toString() ?? null}
           nodeVersion={process.version}
           repository={settings.updateCheckRepository || null}
-          updateStatus={instanceUpdateState?.updateCheckStatus ?? null}
+          updateStatus={effectiveUpdateStatus}
           usedBytes={usedBytes.toString()}
           userLabel={userLabel}
           email={session.user.email}

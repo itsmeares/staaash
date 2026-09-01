@@ -8,6 +8,7 @@ export type InstanceUpdateCheckState = {
   updateCheckStatus: UpdateCheckStatus | null;
   updateCheckMessage: string | null;
   latestAvailableVersion: string | null;
+  checkedVersion: string | null;
 };
 
 type InstanceClient = {
@@ -29,6 +30,7 @@ export const readInstanceUpdateCheck = async (
       updateCheckStatus: true,
       updateCheckMessage: true,
       latestAvailableVersion: true,
+      checkedVersion: true,
     },
   });
 
@@ -38,6 +40,7 @@ export const readInstanceUpdateCheck = async (
       updateCheckStatus: null,
       updateCheckMessage: null,
       latestAvailableVersion: null,
+      checkedVersion: null,
     }
   );
 };
@@ -48,6 +51,7 @@ export const writeInstanceUpdateCheck = async (
     updateCheckStatus,
     updateCheckMessage,
     latestAvailableVersion,
+    checkedVersion,
   }: Partial<InstanceUpdateCheckState>,
   client?: InstanceClient,
 ): Promise<void> => {
@@ -69,6 +73,10 @@ export const writeInstanceUpdateCheck = async (
 
   if (latestAvailableVersion !== undefined) {
     data.latestAvailableVersion = latestAvailableVersion;
+  }
+
+  if (checkedVersion !== undefined) {
+    data.checkedVersion = checkedVersion;
   }
 
   await activeClient.instance.updateMany({

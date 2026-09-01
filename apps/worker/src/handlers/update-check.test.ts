@@ -81,6 +81,7 @@ describe("update check handler", () => {
         updateCheckStatus: "unavailable",
         updateCheckMessage: "Update checks are not configured.",
         latestAvailableVersion: null,
+        checkedVersion: null,
       }),
     );
   });
@@ -113,6 +114,7 @@ describe("update check handler", () => {
       expect.objectContaining({
         updateCheckStatus: "update-available",
         latestAvailableVersion: "0.3.0",
+        checkedVersion: "0.3.0-beta.1",
       }),
     );
   });
@@ -143,6 +145,7 @@ describe("update check handler", () => {
       expect.objectContaining({
         updateCheckStatus: "update-available",
         latestAvailableVersion: "999.0.0",
+        checkedVersion: "1.0.0",
       }),
     );
   });
@@ -184,6 +187,7 @@ describe("update check handler", () => {
       expect.objectContaining({
         updateCheckStatus: "update-available",
         latestAvailableVersion: "1.0.0-rc.10",
+        checkedVersion: "1.0.0-rc.2",
       }),
     );
   });
@@ -220,6 +224,7 @@ describe("update check handler", () => {
       expect.objectContaining({
         updateCheckStatus: "update-available",
         latestAvailableVersion: "1.0.1",
+        checkedVersion: "1.0.0",
       }),
     );
   });
@@ -256,11 +261,12 @@ describe("update check handler", () => {
       expect.objectContaining({
         updateCheckStatus: "up-to-date",
         latestAvailableVersion: "1.0.0-rc.4",
+        checkedVersion: "1.0.0-rc.4",
       }),
     );
   });
 
-  it("sends configured GitHub authentication", async () => {
+  it("records no compatible release against the current version", async () => {
     process.env.UPDATE_CHECK_TOKEN = "test-token";
     mockFindUnique.mockResolvedValue({
       updateCheckRepository: "itsmeares/staaash",
@@ -279,6 +285,13 @@ describe("update check handler", () => {
     expect(request[0]).toContain("/releases?per_page=100");
     expect((request[1].headers as Headers).get("Authorization")).toBe(
       "Bearer test-token",
+    );
+    expect(writeInstanceUpdateCheck).toHaveBeenCalledWith(
+      expect.objectContaining({
+        updateCheckStatus: "unavailable",
+        latestAvailableVersion: null,
+        checkedVersion: "1.0.0",
+      }),
     );
   });
 
@@ -302,6 +315,7 @@ describe("update check handler", () => {
       expect.objectContaining({
         updateCheckStatus: "unavailable",
         latestAvailableVersion: null,
+        checkedVersion: "1.0.0",
       }),
     );
   });
@@ -326,6 +340,7 @@ describe("update check handler", () => {
       expect.objectContaining({
         updateCheckStatus: "error",
         latestAvailableVersion: null,
+        checkedVersion: "1.0.0",
       }),
     );
   });
