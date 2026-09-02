@@ -22,6 +22,11 @@ if (existsSync(rootEnvLocal)) {
 export default function config(phase: string): NextConfig {
   return {
     output: "standalone",
+    outputFileTracingIncludes: {
+      "/*": [
+        "../../node_modules/.pnpm/@swc+helpers@*/node_modules/@swc/helpers/esm/**/*",
+      ],
+    },
     ...(phase !== PHASE_DEVELOPMENT_SERVER && {
       outputFileTracingRoot: path.join(__dirname, "../../"),
     }),
