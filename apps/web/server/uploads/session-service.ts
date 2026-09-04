@@ -5,6 +5,7 @@ import path from "node:path";
 import {
   getPostgresPool,
   getPrisma,
+  getUploadPostgresPool,
   Prisma,
   type PostgresPoolClient,
 } from "@staaash/db/client";
@@ -369,6 +370,7 @@ const acquireUploadChunkLocks = async (
   sessionLock: string,
   chunkLock: string,
 ) => {
+  await client.query("SET lock_timeout = '15s'");
   await client.query(
     "SELECT pg_advisory_lock_shared(hashtextextended($1, 0))",
     [sessionLock],
@@ -397,6 +399,7 @@ const releaseUploadChunkLocks = async (
       [sessionLock],
     );
   }
+  await client.query("RESET lock_timeout");
 };
 
 const recordWrittenUploadChunk = async (
@@ -460,7 +463,7 @@ export const writeAndRecordUploadChunk = async (
   const now = new Date();
   const sessionLock = `upload-session:${input.sessionId}`;
   const chunkLock = `upload-chunk:${input.sessionId}:${input.chunkIndex}`;
-  const client = await getPostgresPool().connect();
+  const client = await getUploadPostgresPool().connect();
   const lockAbort = new AbortController();
   const state: UploadChunkConnectionState = {
     sessionLocked: false,
@@ -491,6 +494,11 @@ export const writeAndRecordUploadChunk = async (
     }
     lockAbort.signal.throwIfAborted();
     return await recordWrittenUploadChunk(client, state, input, now);
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "55P03") {
+      throw new Error("UPLOAD_CHUNK_LOCK_TIMEOUT", { cause: error });
+    }
+    throw error;
   } finally {
     if (!state.destroyClient) {
       try {

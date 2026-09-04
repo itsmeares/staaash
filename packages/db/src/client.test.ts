@@ -6,6 +6,9 @@ const dummyDatabaseUrl = "postgresql://staaash:staaash@localhost:5432/staaash";
 
 const globalForPrisma = globalThis as typeof globalThis & {
   __staaashDatabase?: {
+    uploadPool: {
+      end(): Promise<void>;
+    };
     prisma: {
       $disconnect(): Promise<void>;
     };
@@ -31,6 +34,7 @@ const clearGlobalPrisma = async () => {
     return;
   }
 
+  await globalForPrisma.__staaashDatabase.uploadPool.end();
   await globalForPrisma.__staaashDatabase.prisma.$disconnect();
   delete globalForPrisma.__staaashDatabase;
 };
@@ -71,13 +75,17 @@ describe("getPrisma", () => {
     process.env.DATABASE_URL = dummyDatabaseUrl;
     process.env.NODE_ENV = "production";
 
-    const { getPostgresPool, getPrisma } = await loadClientModule();
+    const { getPostgresPool, getPrisma, getUploadPostgresPool } =
+      await loadClientModule();
     const first = getPrisma();
     const second = getPrisma();
 
     expect(first).toBe(second);
     expect(getPostgresPool()).toBe(getPostgresPool());
+    expect(getUploadPostgresPool()).toBe(getUploadPostgresPool());
+    expect(getUploadPostgresPool()).not.toBe(getPostgresPool());
 
+    await getUploadPostgresPool().end();
     await first.$disconnect();
   });
 
@@ -88,11 +96,13 @@ describe("getPrisma", () => {
     const firstModule = await loadClientModule();
     const first = firstModule.getPrisma();
     const firstPool = firstModule.getPostgresPool();
+    const firstUploadPool = firstModule.getUploadPostgresPool();
     const secondModule = await loadClientModule();
     const second = secondModule.getPrisma();
 
     expect(second).toBe(first);
     expect(secondModule.getPostgresPool()).toBe(firstPool);
+    expect(secondModule.getUploadPostgresPool()).toBe(firstUploadPool);
 
     await first.$disconnect();
   });

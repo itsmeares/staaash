@@ -210,6 +210,24 @@ describe("parallel upload route", () => {
     expect(writeAndRecordUploadChunk).toHaveBeenCalledOnce();
   });
 
+  it("asks the client to retry when a chunk lock times out", async () => {
+    const tmpPath = await createTempUpload(10);
+    vi.mocked(findActiveResumableSession).mockResolvedValue(
+      uploadSession(tmpPath),
+    );
+    vi.mocked(writeAndRecordUploadChunk).mockRejectedValue(
+      new Error("UPLOAD_CHUNK_LOCK_TIMEOUT"),
+    );
+
+    const response = await patchUpload(
+      patchRequest("bytes 4-7/10", new Uint8Array([1, 2, 3, 4])),
+      { params: Promise.resolve({ id: "session-1" }) },
+    );
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("retry-after")).toBe("1");
+  });
+
   it("rejects ranges that do not match the negotiated chunk size", async () => {
     const tmpPath = await createTempUpload(10);
     vi.mocked(findActiveResumableSession).mockResolvedValue(

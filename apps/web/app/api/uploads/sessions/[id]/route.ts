@@ -159,6 +159,12 @@ const chunkConflictResponse = (
       { status: 400 },
     );
   }
+  if (error.message === "UPLOAD_CHUNK_LOCK_TIMEOUT") {
+    return Response.json(
+      { error: "This upload chunk is busy. Retry shortly." },
+      { status: 503, headers: { "retry-after": "1" } },
+    );
+  }
   return null;
 };
 
