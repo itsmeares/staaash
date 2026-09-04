@@ -490,7 +490,7 @@ export const writeAndRecordUploadChunk = async (
       throw new Error("CHUNK_LENGTH_MISMATCH");
     }
     lockAbort.signal.throwIfAborted();
-    return recordWrittenUploadChunk(client, state, input, now);
+    return await recordWrittenUploadChunk(client, state, input, now);
   } finally {
     if (!state.destroyClient) {
       try {
