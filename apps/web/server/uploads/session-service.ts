@@ -357,52 +357,56 @@ const findRecordedUploadChunk = async (
   return result.rows[0] ?? null;
 };
 
-export const writeAndRecordUploadChunk = async (
-  input: WriteUploadChunkInput,
-) => {
-  const now = new Date();
-  const sessionLock = `upload-session:${input.sessionId}`;
-  const chunkLock = `upload-chunk:${input.sessionId}:${input.chunkIndex}`;
-  const client = await getPostgresPool().connect();
-  const lockAbort = new AbortController();
-  let sessionLocked = false;
-  let chunkLocked = false;
-  let transactionStarted = false;
-  let destroyClient = false;
-  const abortOnClientError = (error: Error) => {
-    destroyClient = true;
-    lockAbort.abort(error);
-  };
-  client.on("error", abortOnClientError);
+type UploadChunkConnectionState = {
+  sessionLocked: boolean;
+  chunkLocked: boolean;
+  destroyClient: boolean;
+};
 
-  try {
-    await client.query(
-      "SELECT pg_advisory_lock_shared(hashtextextended($1, 0))",
-      [sessionLock],
-    );
-    sessionLocked = true;
-    await client.query("SELECT pg_advisory_lock(hashtextextended($1, 0))", [
+const acquireUploadChunkLocks = async (
+  client: PostgresPoolClient,
+  state: UploadChunkConnectionState,
+  sessionLock: string,
+  chunkLock: string,
+) => {
+  await client.query(
+    "SELECT pg_advisory_lock_shared(hashtextextended($1, 0))",
+    [sessionLock],
+  );
+  state.sessionLocked = true;
+  await client.query("SELECT pg_advisory_lock(hashtextextended($1, 0))", [
+    chunkLock,
+  ]);
+  state.chunkLocked = true;
+};
+
+const releaseUploadChunkLocks = async (
+  client: PostgresPoolClient,
+  state: UploadChunkConnectionState,
+  sessionLock: string,
+  chunkLock: string,
+) => {
+  if (state.chunkLocked) {
+    await client.query("SELECT pg_advisory_unlock(hashtextextended($1, 0))", [
       chunkLock,
     ]);
-    chunkLocked = true;
+  }
+  if (state.sessionLocked) {
+    await client.query(
+      "SELECT pg_advisory_unlock_shared(hashtextextended($1, 0))",
+      [sessionLock],
+    );
+  }
+};
 
-    const session = await findReceivableChunkSession(client, input, now);
-    const existing = await findRecordedUploadChunk(client, input);
-    if (existing) {
-      if (!chunkRangeMatches(existing, input)) {
-        throw new Error("CHUNK_RANGE_CONFLICT");
-      }
-      return Number(session.receivedBytes);
-    }
-
-    const writtenLength = await input.writeBytes(lockAbort.signal);
-    if (writtenLength !== input.sizeBytes) {
-      throw new Error("CHUNK_LENGTH_MISMATCH");
-    }
-    lockAbort.signal.throwIfAborted();
-
-    await client.query("BEGIN");
-    transactionStarted = true;
+const recordWrittenUploadChunk = async (
+  client: PostgresPoolClient,
+  state: UploadChunkConnectionState,
+  input: WriteUploadChunkInput,
+  now: Date,
+) => {
+  await client.query("BEGIN");
+  try {
     await findReceivableChunkSession(client, input, now);
     const completedAt = new Date();
     await client.query(
@@ -441,36 +445,62 @@ export const writeAndRecordUploadChunk = async (
     );
     if (!updated.rows[0]) throw new Error("UPLOAD_SESSION_NOT_RECEIVABLE");
     await client.query("COMMIT");
-    transactionStarted = false;
     return Number(updated.rows[0].receivedBytes);
   } catch (error) {
-    if (transactionStarted) {
-      await client.query("ROLLBACK").catch(() => {
-        destroyClient = true;
-      });
-    }
+    await client.query("ROLLBACK").catch(() => {
+      state.destroyClient = true;
+    });
     throw error;
+  }
+};
+
+export const writeAndRecordUploadChunk = async (
+  input: WriteUploadChunkInput,
+) => {
+  const now = new Date();
+  const sessionLock = `upload-session:${input.sessionId}`;
+  const chunkLock = `upload-chunk:${input.sessionId}:${input.chunkIndex}`;
+  const client = await getPostgresPool().connect();
+  const lockAbort = new AbortController();
+  const state: UploadChunkConnectionState = {
+    sessionLocked: false,
+    chunkLocked: false,
+    destroyClient: false,
+  };
+  const abortOnClientError = (error: Error) => {
+    state.destroyClient = true;
+    lockAbort.abort(error);
+  };
+  client.on("error", abortOnClientError);
+
+  try {
+    await acquireUploadChunkLocks(client, state, sessionLock, chunkLock);
+
+    const session = await findReceivableChunkSession(client, input, now);
+    const existing = await findRecordedUploadChunk(client, input);
+    if (existing) {
+      if (!chunkRangeMatches(existing, input)) {
+        throw new Error("CHUNK_RANGE_CONFLICT");
+      }
+      return Number(session.receivedBytes);
+    }
+
+    const writtenLength = await input.writeBytes(lockAbort.signal);
+    if (writtenLength !== input.sizeBytes) {
+      throw new Error("CHUNK_LENGTH_MISMATCH");
+    }
+    lockAbort.signal.throwIfAborted();
+    return recordWrittenUploadChunk(client, state, input, now);
   } finally {
-    if (!destroyClient) {
+    if (!state.destroyClient) {
       try {
-        if (chunkLocked) {
-          await client.query(
-            "SELECT pg_advisory_unlock(hashtextextended($1, 0))",
-            [chunkLock],
-          );
-        }
-        if (sessionLocked) {
-          await client.query(
-            "SELECT pg_advisory_unlock_shared(hashtextextended($1, 0))",
-            [sessionLock],
-          );
-        }
+        await releaseUploadChunkLocks(client, state, sessionLock, chunkLock);
       } catch {
-        destroyClient = true;
+        state.destroyClient = true;
       }
     }
     client.off("error", abortOnClientError);
-    client.release(destroyClient);
+    client.release(state.destroyClient);
   }
 };
 
