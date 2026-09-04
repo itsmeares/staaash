@@ -86,11 +86,15 @@ const uploadSession = (tmpPath: string, receivedBytes = 0) => ({
   createdAt: new Date("2026-07-16T00:00:00.000Z"),
 });
 
-const patchRequest = (range: string, body: Uint8Array) =>
+const patchRequest = (
+  range: string,
+  body: Uint8Array,
+  contentLength: string | null = String(body.byteLength),
+) =>
   new NextRequest("http://localhost:3000/api/uploads/sessions/session-1", {
     method: "PATCH",
     headers: {
-      "content-length": String(body.byteLength),
+      ...(contentLength === null ? {} : { "content-length": contentLength }),
       "content-range": range,
       "content-type": "application/octet-stream",
       host: "localhost:3000",
@@ -107,7 +111,7 @@ describe("parallel upload route", () => {
     } as Awaited<ReturnType<typeof getRequestSession>>);
     vi.mocked(writeAndRecordUploadChunk).mockImplementation(
       async ({ writeBytes }) => {
-        await writeBytes();
+        await writeBytes(new AbortController().signal);
         return 4;
       },
     );
@@ -127,8 +131,9 @@ describe("parallel upload route", () => {
     );
     vi.mocked(writeAndRecordUploadChunk).mockImplementationOnce(
       async ({ writeBytes }) => {
+        expect(request.bodyUsed).toBe(false);
+        await writeBytes(new AbortController().signal);
         expect(request.bodyUsed).toBe(true);
-        await writeBytes();
         return 4;
       },
     );
@@ -138,6 +143,11 @@ describe("parallel upload route", () => {
     });
 
     expect(response.status).toBe(200);
+    expect(findActiveResumableSession).toHaveBeenCalledWith(
+      "session-1",
+      "user-1",
+      false,
+    );
     expect(writeAndRecordUploadChunk).toHaveBeenCalledWith({
       sessionId: "session-1",
       ownerUserId: "user-1",
@@ -150,6 +160,38 @@ describe("parallel upload route", () => {
     expect(Array.from((await readFile(tmpPath)).subarray(4, 8))).toEqual([
       1, 2, 3, 4,
     ]);
+  });
+
+  it("rejects a short streamed chunk without recording it", async () => {
+    const tmpPath = await createTempUpload(10);
+    vi.mocked(findActiveResumableSession).mockResolvedValue(
+      uploadSession(tmpPath),
+    );
+
+    const response = await patchUpload(
+      patchRequest("bytes 4-7/10", new Uint8Array([1, 2, 3]), null),
+      { params: Promise.resolve({ id: "session-1" }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(writeAndRecordUploadChunk).toHaveBeenCalledOnce();
+    expect((await readFile(tmpPath))[7]).toBe(0);
+  });
+
+  it("does not write past the declared chunk range", async () => {
+    const tmpPath = await createTempUpload(10);
+    vi.mocked(findActiveResumableSession).mockResolvedValue(
+      uploadSession(tmpPath),
+    );
+
+    const response = await patchUpload(
+      patchRequest("bytes 4-7/10", new Uint8Array([1, 2, 3, 4, 5]), null),
+      { params: Promise.resolve({ id: "session-1" }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(writeAndRecordUploadChunk).toHaveBeenCalledOnce();
+    expect((await readFile(tmpPath))[8]).toBe(0);
   });
 
   it("treats an already completed chunk as a safe retry", async () => {

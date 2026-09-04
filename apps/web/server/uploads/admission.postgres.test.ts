@@ -10,7 +10,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 
-import { getPrisma } from "@staaash/db/client";
+import { getPostgresPool, getPrisma } from "@staaash/db/client";
 import { UPLOAD_TERMINAL_RETENTION_MS } from "@staaash/db/upload-sessions";
 import { NextRequest } from "next/server";
 import {
@@ -62,6 +62,14 @@ const storageRoot = getStorageRoot();
 const tmpRoot = path.join(storageRoot, "tmp");
 const fixedNow = new Date("2030-07-20T12:00:00.000Z");
 const futureExpiry = new Date(fixedNow.getTime() + 60 * 60 * 1000);
+
+const deferred = () => {
+  let resolve!: () => void;
+  const promise = new Promise<void>((complete) => {
+    resolve = complete;
+  });
+  return { promise, resolve };
+};
 
 const storagePaths = {
   filesRoot: storageRoot,
@@ -1130,6 +1138,135 @@ describe("UPL-01 PostgreSQL lifecycle and cleanup", () => {
       terminalAt: expect.any(Date),
       stagingReleasedAt: expect.any(Date),
     });
+    expect(
+      await db.uploadChunk.count({ where: { sessionId: session.id } }),
+    ).toBe(0);
+    await expect(access(session.tmpPath)).rejects.toBeDefined();
+  });
+
+  it("serializes duplicate chunk writes and records the bytes once", async () => {
+    const user = await createUser();
+    const session = await createResumableSession(
+      {
+        ownerUserId: user.id,
+        folderId: null,
+        originalName: "duplicate.bin",
+        mimeType: "application/octet-stream",
+        totalSizeBytes: 5,
+        expectedChecksum: null,
+        conflictStrategy: "safeRename",
+        chunkSizeBytes: 5,
+      },
+      fixedNow,
+    );
+    const writerStarted = deferred();
+    const releaseWriter = deferred();
+    const first = writeAndRecordUploadChunk({
+      sessionId: session.id,
+      ownerUserId: user.id,
+      chunkIndex: 0,
+      startByte: 0,
+      endByte: 4,
+      sizeBytes: 5,
+      writeBytes: async () => {
+        writerStarted.resolve();
+        await releaseWriter.promise;
+        await writeFile(session.tmpPath, Buffer.alloc(5, 1));
+        return 5;
+      },
+    });
+    await writerStarted.promise;
+    const duplicateWriter = vi.fn(async () => 5);
+    const duplicate = writeAndRecordUploadChunk({
+      sessionId: session.id,
+      ownerUserId: user.id,
+      chunkIndex: 0,
+      startByte: 0,
+      endByte: 4,
+      sizeBytes: 5,
+      writeBytes: duplicateWriter,
+    });
+
+    try {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(duplicateWriter).not.toHaveBeenCalled();
+    } finally {
+      releaseWriter.resolve();
+    }
+
+    await expect(Promise.all([first, duplicate])).resolves.toEqual([5, 5]);
+    expect(duplicateWriter).not.toHaveBeenCalled();
+    expect(
+      await db.uploadChunk.count({ where: { sessionId: session.id } }),
+    ).toBe(1);
+    expect(
+      await db.uploadSession.findUniqueOrThrow({ where: { id: session.id } }),
+    ).toMatchObject({ receivedBytes: 5n });
+  });
+
+  it("keeps cancellation from deleting staging during a chunk write", async () => {
+    const user = await createUser();
+    const session = await createResumableSession(
+      {
+        ownerUserId: user.id,
+        folderId: null,
+        originalName: "cancel-during-write.bin",
+        mimeType: "application/octet-stream",
+        totalSizeBytes: 5,
+        expectedChecksum: null,
+        conflictStrategy: "safeRename",
+        chunkSizeBytes: 5,
+      },
+      fixedNow,
+    );
+    const writerStarted = deferred();
+    const releaseWriter = deferred();
+    const upload = writeAndRecordUploadChunk({
+      sessionId: session.id,
+      ownerUserId: user.id,
+      chunkIndex: 0,
+      startByte: 0,
+      endByte: 4,
+      sizeBytes: 5,
+      writeBytes: async () => {
+        writerStarted.resolve();
+        await releaseWriter.promise;
+        await writeFile(session.tmpPath, Buffer.alloc(5, 1));
+        return 5;
+      },
+    });
+    await writerStarted.promise;
+
+    let cancellation: ReturnType<typeof cancelAndCleanupResumableSession>;
+    try {
+      const probe = await getPostgresPool().connect();
+      try {
+        const lock = await probe.query<{ acquired: boolean }>(
+          "SELECT pg_try_advisory_lock(hashtextextended($1, 0)) AS acquired",
+          [`upload-session:${session.id}`],
+        );
+        expect(lock.rows[0]?.acquired).toBe(false);
+      } finally {
+        probe.release();
+      }
+
+      cancellation = cancelAndCleanupResumableSession({
+        id: session.id,
+        ownerUserId: user.id,
+        tmpPath: session.tmpPath,
+      });
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      await expect(access(session.tmpPath)).resolves.toBeUndefined();
+    } finally {
+      releaseWriter.resolve();
+      await Promise.allSettled([upload, cancellation!]);
+    }
+
+    await upload;
+    await cancellation;
+    expect(
+      await db.uploadSession.findUniqueOrThrow({ where: { id: session.id } }),
+    ).toMatchObject({ status: "cancelled" });
     expect(
       await db.uploadChunk.count({ where: { sessionId: session.id } }),
     ).toBe(0);

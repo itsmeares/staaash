@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import { access, mkdir, open, rm } from "node:fs/promises";
 import path from "node:path";
 
-import { getPrisma, Prisma } from "@staaash/db/client";
+import {
+  getPostgresPool,
+  getPrisma,
+  Prisma,
+  type PostgresPoolClient,
+} from "@staaash/db/client";
 
 import { getTmpUploadPath } from "@/server/storage";
 import {
@@ -281,6 +286,7 @@ export const createResumableSession = async (
 export const findActiveResumableSession = async (
   id: string,
   ownerUserId: string,
+  includeCompletedChunks = true,
   now = new Date(),
 ): Promise<ResumableSession | null> => {
   const row = await getPrisma().uploadSession.findFirst({
@@ -290,7 +296,9 @@ export const findActiveResumableSession = async (
       status: { in: [...RECEIVABLE_UPLOAD_SESSION_STATUSES] },
       expiresAt: { gt: now },
     },
-    include: { chunks: { orderBy: { chunkIndex: "asc" } } },
+    include: includeCompletedChunks
+      ? { chunks: { orderBy: { chunkIndex: "asc" } } }
+      : undefined,
   });
   return row ? toSession(row) : null;
 };
@@ -298,128 +306,172 @@ export const findActiveResumableSession = async (
 type WriteUploadChunkInput = CompletedUploadChunk & {
   sessionId: string;
   ownerUserId: string;
-  writeBytes: () => Promise<number>;
+  writeBytes: (signal: AbortSignal) => Promise<number>;
 };
 
 const chunkRangeMatches = (
-  existing: { startByte: bigint; endByte: bigint; sizeBytes: bigint },
+  existing: { startByte: string; endByte: string; sizeBytes: string },
   input: CompletedUploadChunk,
 ) =>
-  existing.startByte === BigInt(input.startByte) &&
-  existing.endByte === BigInt(input.endByte) &&
-  existing.sizeBytes === BigInt(input.sizeBytes);
+  BigInt(existing.startByte) === BigInt(input.startByte) &&
+  BigInt(existing.endByte) === BigInt(input.endByte) &&
+  BigInt(existing.sizeBytes) === BigInt(input.sizeBytes);
 
-const findReceivableChunkSession = (
-  tx: Prisma.TransactionClient,
-  input: WriteUploadChunkInput,
-  now: Date,
-) =>
-  tx.uploadSession.findFirstOrThrow({
-    where: {
-      id: input.sessionId,
-      ownerUserId: input.ownerUserId,
-      status: { in: [...RECEIVABLE_UPLOAD_SESSION_STATUSES] },
-      expiresAt: { gt: now },
-    },
-  });
-
-const reuseRecordedUploadChunk = async (
-  tx: Prisma.TransactionClient,
-  existing: { startByte: bigint; endByte: bigint; sizeBytes: bigint },
+const findReceivableChunkSession = async (
+  client: PostgresPoolClient,
   input: WriteUploadChunkInput,
   now: Date,
 ) => {
-  if (!chunkRangeMatches(existing, input)) {
-    throw new Error("CHUNK_RANGE_CONFLICT");
-  }
-  return findReceivableChunkSession(tx, input, now);
+  const result = await client.query<{ receivedBytes: string }>(
+    `SELECT "receivedBytes"
+     FROM "UploadSession"
+     WHERE "id" = $1
+       AND "ownerUserId" = $2
+       AND "status" = ANY($3::text[])
+       AND "expiresAt" > $4`,
+    [
+      input.sessionId,
+      input.ownerUserId,
+      RECEIVABLE_UPLOAD_SESSION_STATUSES,
+      now,
+    ],
+  );
+  if (!result.rows[0]) throw new Error("UPLOAD_SESSION_NOT_RECEIVABLE");
+  return result.rows[0];
 };
 
-const assertReceivableChunkSession = async (
-  tx: Prisma.TransactionClient,
+const findRecordedUploadChunk = async (
+  client: PostgresPoolClient,
   input: WriteUploadChunkInput,
-  now: Date,
 ) => {
-  const activeSession = await tx.uploadSession.findFirst({
-    where: {
-      id: input.sessionId,
-      ownerUserId: input.ownerUserId,
-      status: { in: [...RECEIVABLE_UPLOAD_SESSION_STATUSES] },
-      expiresAt: { gt: now },
-    },
-    select: { id: true },
-  });
-  if (!activeSession) throw new Error("UPLOAD_SESSION_NOT_RECEIVABLE");
-};
-
-const persistNewUploadChunk = async (
-  tx: Prisma.TransactionClient,
-  input: WriteUploadChunkInput,
-  now: Date,
-) => {
-  await assertReceivableChunkSession(tx, input, now);
-  const writtenLength = await input.writeBytes();
-  if (writtenLength !== input.sizeBytes) {
-    throw new Error("CHUNK_LENGTH_MISMATCH");
-  }
-  await tx.uploadChunk.create({
-    data: {
-      sessionId: input.sessionId,
-      chunkIndex: input.chunkIndex,
-      startByte: BigInt(input.startByte),
-      endByte: BigInt(input.endByte),
-      sizeBytes: BigInt(input.sizeBytes),
-    },
-  });
-  const updated = await tx.uploadSession.updateMany({
-    where: {
-      id: input.sessionId,
-      ownerUserId: input.ownerUserId,
-      status: { in: [...RECEIVABLE_UPLOAD_SESSION_STATUSES] },
-      expiresAt: { gt: now },
-    },
-    data: {
-      receivedBytes: { increment: BigInt(input.sizeBytes) },
-      status: UPLOAD_SESSION_STATUS_RECEIVING,
-    },
-  });
-  if (updated.count !== 1) {
-    throw new Error("UPLOAD_SESSION_NOT_RECEIVABLE");
-  }
-  return tx.uploadSession.findUniqueOrThrow({
-    where: { id: input.sessionId },
-  });
-};
-
-const writeAndRecordUploadChunkTransaction = async (
-  tx: Prisma.TransactionClient,
-  input: WriteUploadChunkInput,
-  now: Date,
-) => {
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock_shared(hashtextextended(${`upload-session:${input.sessionId}`}, 0))`;
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`upload-chunk:${input.sessionId}:${input.chunkIndex}`}, 0))`;
-  const existing = await tx.uploadChunk.findUnique({
-    where: {
-      sessionId_chunkIndex: {
-        sessionId: input.sessionId,
-        chunkIndex: input.chunkIndex,
-      },
-    },
-  });
-  return existing
-    ? reuseRecordedUploadChunk(tx, existing, input, now)
-    : persistNewUploadChunk(tx, input, now);
+  const result = await client.query<{
+    startByte: string;
+    endByte: string;
+    sizeBytes: string;
+  }>(
+    `SELECT "startByte", "endByte", "sizeBytes"
+     FROM "UploadChunk"
+     WHERE "sessionId" = $1 AND "chunkIndex" = $2`,
+    [input.sessionId, input.chunkIndex],
+  );
+  return result.rows[0] ?? null;
 };
 
 export const writeAndRecordUploadChunk = async (
   input: WriteUploadChunkInput,
 ) => {
   const now = new Date();
-  const session = await getPrisma().$transaction(
-    (tx) => writeAndRecordUploadChunkTransaction(tx, input, now),
-    { maxWait: 10_000, timeout: 310_000 },
-  );
-  return Number(session.receivedBytes);
+  const sessionLock = `upload-session:${input.sessionId}`;
+  const chunkLock = `upload-chunk:${input.sessionId}:${input.chunkIndex}`;
+  const client = await getPostgresPool().connect();
+  const lockAbort = new AbortController();
+  let sessionLocked = false;
+  let chunkLocked = false;
+  let transactionStarted = false;
+  let destroyClient = false;
+  const abortOnClientError = (error: Error) => {
+    destroyClient = true;
+    lockAbort.abort(error);
+  };
+  client.on("error", abortOnClientError);
+
+  try {
+    await client.query(
+      "SELECT pg_advisory_lock_shared(hashtextextended($1, 0))",
+      [sessionLock],
+    );
+    sessionLocked = true;
+    await client.query("SELECT pg_advisory_lock(hashtextextended($1, 0))", [
+      chunkLock,
+    ]);
+    chunkLocked = true;
+
+    const session = await findReceivableChunkSession(client, input, now);
+    const existing = await findRecordedUploadChunk(client, input);
+    if (existing) {
+      if (!chunkRangeMatches(existing, input)) {
+        throw new Error("CHUNK_RANGE_CONFLICT");
+      }
+      return Number(session.receivedBytes);
+    }
+
+    const writtenLength = await input.writeBytes(lockAbort.signal);
+    if (writtenLength !== input.sizeBytes) {
+      throw new Error("CHUNK_LENGTH_MISMATCH");
+    }
+    lockAbort.signal.throwIfAborted();
+
+    await client.query("BEGIN");
+    transactionStarted = true;
+    await findReceivableChunkSession(client, input, now);
+    const completedAt = new Date();
+    await client.query(
+      `INSERT INTO "UploadChunk"
+        ("id", "sessionId", "chunkIndex", "startByte", "endByte", "sizeBytes", "completedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        randomUUID(),
+        input.sessionId,
+        input.chunkIndex,
+        input.startByte,
+        input.endByte,
+        input.sizeBytes,
+        completedAt,
+      ],
+    );
+    const updated = await client.query<{ receivedBytes: string }>(
+      `UPDATE "UploadSession"
+       SET "receivedBytes" = "receivedBytes" + $1,
+           "status" = $2,
+           "updatedAt" = $3
+       WHERE "id" = $4
+         AND "ownerUserId" = $5
+         AND "status" = ANY($6::text[])
+         AND "expiresAt" > $7
+       RETURNING "receivedBytes"`,
+      [
+        input.sizeBytes,
+        UPLOAD_SESSION_STATUS_RECEIVING,
+        completedAt,
+        input.sessionId,
+        input.ownerUserId,
+        RECEIVABLE_UPLOAD_SESSION_STATUSES,
+        now,
+      ],
+    );
+    if (!updated.rows[0]) throw new Error("UPLOAD_SESSION_NOT_RECEIVABLE");
+    await client.query("COMMIT");
+    transactionStarted = false;
+    return Number(updated.rows[0].receivedBytes);
+  } catch (error) {
+    if (transactionStarted) {
+      await client.query("ROLLBACK").catch(() => {
+        destroyClient = true;
+      });
+    }
+    throw error;
+  } finally {
+    if (!destroyClient) {
+      try {
+        if (chunkLocked) {
+          await client.query(
+            "SELECT pg_advisory_unlock(hashtextextended($1, 0))",
+            [chunkLock],
+          );
+        }
+        if (sessionLocked) {
+          await client.query(
+            "SELECT pg_advisory_unlock_shared(hashtextextended($1, 0))",
+            [sessionLock],
+          );
+        }
+      } catch {
+        destroyClient = true;
+      }
+    }
+    client.off("error", abortOnClientError);
+    client.release(destroyClient);
+  }
 };
 
 export const updateSessionProgress = async (

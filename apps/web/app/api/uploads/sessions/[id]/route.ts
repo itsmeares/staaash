@@ -1,6 +1,8 @@
-import { open, mkdir, type FileHandle } from "node:fs/promises";
+import { createWriteStream } from "node:fs";
+import { mkdir, open } from "node:fs/promises";
 import path from "node:path";
-import { Readable } from "node:stream";
+import { Readable, Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
 
 import { NextRequest } from "next/server";
 
@@ -55,46 +57,31 @@ const parseContentRange = (
   return { start, end };
 };
 
-const readRequestBody = async ({
-  request,
-  expectedLength,
-}: {
-  request: NextRequest;
-  expectedLength: number;
-}) => {
-  if (!request.body) return Buffer.alloc(0);
-
+const exactLengthStream = (expectedLength: number) => {
   let receivedLength = 0;
-  const chunks: Buffer[] = [];
-  const input = Readable.fromWeb(request.body as never);
-  for await (const rawChunk of input) {
-    const chunk = Buffer.isBuffer(rawChunk)
-      ? rawChunk
-      : Buffer.from(rawChunk as Uint8Array);
-    if (receivedLength + chunk.length > expectedLength) {
-      throw new Error("CHUNK_LENGTH_MISMATCH");
-    }
-    chunks.push(chunk);
-    receivedLength += chunk.length;
-  }
-  return Buffer.concat(chunks, receivedLength);
-};
-
-const writeBufferAtOffset = async (
-  fileHandle: FileHandle,
-  body: Buffer,
-  startByte: number,
-) => {
-  let offset = 0;
-  while (offset < body.length) {
-    const { bytesWritten } = await fileHandle.write(
-      body,
-      offset,
-      body.length - offset,
-      startByte + offset,
-    );
-    offset += bytesWritten;
-  }
+  return {
+    stream: new Transform({
+      transform(rawChunk, _encoding, callback) {
+        const chunk = Buffer.isBuffer(rawChunk)
+          ? rawChunk
+          : Buffer.from(rawChunk as Uint8Array);
+        if (receivedLength + chunk.length > expectedLength) {
+          callback(new Error("CHUNK_LENGTH_MISMATCH"));
+          return;
+        }
+        receivedLength += chunk.length;
+        callback(null, chunk);
+      },
+      flush(callback) {
+        callback(
+          receivedLength === expectedLength
+            ? undefined
+            : new Error("CHUNK_LENGTH_MISMATCH"),
+        );
+      },
+    }),
+    getReceivedLength: () => receivedLength,
+  };
 };
 
 const validateContentLength = (
@@ -129,7 +116,6 @@ const writeParallelUploadChunk = async ({
   chunkIndex: number;
   expectedLength: number;
 }) => {
-  const body = await readRequestBody({ request, expectedLength });
   return writeAndRecordUploadChunk({
     sessionId: uploadSession.id,
     ownerUserId,
@@ -137,17 +123,21 @@ const writeParallelUploadChunk = async ({
     startByte: range.start,
     endByte: range.end,
     sizeBytes: expectedLength,
-    writeBytes: async () => {
+    writeBytes: async (lockSignal) => {
       await mkdir(path.dirname(uploadSession.tmpPath), { recursive: true });
-      const fileHandle = await open(uploadSession.tmpPath, "r+");
-      try {
-        await writeBufferAtOffset(fileHandle, body, range.start);
-        const writtenLength = body.length;
-        if (writtenLength === expectedLength) await fileHandle.sync();
-        return writtenLength;
-      } finally {
-        await fileHandle.close();
-      }
+      const input = request.body
+        ? Readable.fromWeb(request.body as never)
+        : Readable.from([]);
+      const validator = exactLengthStream(expectedLength);
+      const output = createWriteStream(uploadSession.tmpPath, {
+        flags: "r+",
+        start: range.start,
+        flush: true,
+      });
+      await pipeline(input, validator.stream, output, {
+        signal: AbortSignal.any([request.signal, lockSignal]),
+      });
+      return validator.getReceivedLength();
     },
   });
 };
@@ -303,10 +293,11 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
   if (!session)
     return notSignedInResponse(request, `/api/uploads/sessions/${id}`);
 
-  const protocolResponse = await requireStorageProtocol();
+  const [protocolResponse, uploadSession] = await Promise.all([
+    requireStorageProtocol(),
+    findActiveResumableSession(id, session.user.id, false),
+  ]);
   if (protocolResponse) return protocolResponse;
-
-  const uploadSession = await findActiveResumableSession(id, session.user.id);
   if (!uploadSession) {
     return Response.json(
       { error: "Upload session not found." },
@@ -361,7 +352,11 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
   const protocolResponse = await requireStorageProtocol();
   if (protocolResponse) return protocolResponse;
 
-  const uploadSession = await findActiveResumableSession(id, session.user.id);
+  const uploadSession = await findActiveResumableSession(
+    id,
+    session.user.id,
+    false,
+  );
   if (!uploadSession) {
     return Response.json(
       { error: "Upload session not found." },
