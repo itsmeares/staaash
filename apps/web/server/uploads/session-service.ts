@@ -364,6 +364,11 @@ type UploadChunkConnectionState = {
   destroyClient: boolean;
 };
 
+const translateUploadChunkLockError = (error: unknown) =>
+  error instanceof Error && "code" in error && error.code === "55P03"
+    ? new Error("UPLOAD_CHUNK_LOCK_TIMEOUT", { cause: error })
+    : error;
+
 const acquireUploadChunkLocks = async (
   client: PostgresPoolClient,
   state: UploadChunkConnectionState,
@@ -495,10 +500,7 @@ export const writeAndRecordUploadChunk = async (
     lockAbort.signal.throwIfAborted();
     return await recordWrittenUploadChunk(client, state, input, now);
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "55P03") {
-      throw new Error("UPLOAD_CHUNK_LOCK_TIMEOUT", { cause: error });
-    }
-    throw error;
+    throw translateUploadChunkLockError(error);
   } finally {
     if (!state.destroyClient) {
       try {
