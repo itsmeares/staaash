@@ -347,7 +347,7 @@ export function FilesRow(props: FilesRowProps) {
     }
 
     if (touchMode && !isRenaming) {
-      if (selectedCount > 0) onClick(event);
+      if (selectedCount > 0 || storageMutationBlocked) onClick(event);
       else onOpen();
       return;
     }
@@ -367,7 +367,9 @@ export function FilesRow(props: FilesRowProps) {
           draggable={!storageMutationBlocked && !touchMode && !isRenaming}
           onClick={handleRowClick}
           onContextMenu={storageMutationBlocked ? undefined : onContextMenu}
-          onDoubleClick={touchMode ? undefined : onOpen}
+          onDoubleClick={
+            touchMode || storageMutationBlocked ? undefined : onOpen
+          }
           onDragStart={storageMutationBlocked ? undefined : onDragStart}
           onDragEnd={storageMutationBlocked ? undefined : onDragEnd}
           onDragOver={
@@ -391,6 +393,7 @@ export function FilesRow(props: FilesRowProps) {
           onPointerUp={clearLongPressTimer}
           role="row"
           aria-selected={isSelected}
+          aria-disabled={storageMutationBlocked}
           tabIndex={isSelected ? 0 : -1}
         >
           {/* Icon */}

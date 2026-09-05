@@ -4,10 +4,12 @@ import { redirect } from "next/navigation";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { isFilesError } from "@/server/files/errors";
 import { filesService } from "@/server/files/service";
+import type { FilesListing } from "@/server/files/types";
 import { recordFolderAccessBestEffort } from "@/server/retrieval/recent-tracking";
 import { retrievalService } from "@/server/retrieval/service";
 import { getShareBaseUrl } from "@/server/request";
 import { sharingService } from "@/server/sharing/service";
+import { StorageEntityUnavailableError } from "@/server/storage-read-guard";
 
 import { FilesExplorer } from "../../files-explorer";
 
@@ -34,17 +36,30 @@ export default async function FilesFolderPage({
     `/?next=${encodeURIComponent(`/files/f/${folderId}`)}`,
   );
 
+  let listing: FilesListing;
   try {
-    const listing = await filesService.getFilesListing({
+    listing = await filesService.getFilesListing({
       actorUserId: session.user.id,
       actorRole: session.user.role,
       folderId,
     });
-
-    if (listing.currentFolder.isFilesRoot) {
-      redirect("/files");
+  } catch (error) {
+    if (error instanceof StorageEntityUnavailableError) {
+      redirect(
+        `/files/storage-unavailable?folderId=${encodeURIComponent(folderId)}`,
+      );
     }
+    if (isFilesError(error)) {
+      redirect(`/files?error=${encodeURIComponent(error.message)}`);
+    }
+    throw error;
+  }
 
+  if (listing.currentFolder.isFilesRoot) {
+    redirect("/files");
+  }
+
+  try {
     await recordFolderAccessBestEffort({
       actorUserId: session.user.id,
       actorRole: session.user.role,

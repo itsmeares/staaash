@@ -29,6 +29,7 @@ import { FilesRow } from "./files-row";
 import {
   buildBatchMoveFailureMessage,
   getMoveItemsForInteraction,
+  getOptimisticSourceMoveIds,
 } from "./files-move";
 import { FilesPropertiesPanel } from "./files-properties-panel";
 import { ShareDialog } from "./share-dialog";
@@ -54,6 +55,7 @@ const UPLOAD_SESSION_KEY_PREFIX = "staaash:upload-session";
 const INTERNAL_ITEM_DRAG_TYPE = "application/x-staaash-items";
 
 type CutItem = { id: string; kind: "folder" | "file"; name: string };
+type MoveRequestSource = "direct" | "paste";
 type ResumableSessionSummary = {
   name: string;
   size: number;
@@ -157,6 +159,12 @@ type FilesViewProps = {
   favoriteFolderIds: string[];
 };
 
+const getListedItemIds = (listing: FilesListing) =>
+  new Set([
+    ...listing.childFolders.map((folder) => folder.id),
+    ...listing.files.map((file) => file.id),
+  ]);
+
 // ---------------------------------------------------------------------------
 
 export function FilesView({
@@ -194,21 +202,26 @@ export function FilesView({
   // the new listing arrives (the server response no longer contains them).
   const [trashedIds, setTrashedIds] = useState<Set<string>>(new Set());
   const [movingIds, setMovingIds] = useState<Set<string>>(new Set());
+  const [optimisticallyMovedIds, setOptimisticallyMovedIds] = useState<
+    Set<string>
+  >(new Set());
   const [trashError, setTrashError] = useState<string | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
+  const [retryMoveRequest, setRetryMoveRequest] = useState<{
+    items: BatchMoveItem[];
+    destinationFolderId: string;
+    source: MoveRequestSource;
+  } | null>(null);
   useEffect(() => {
     setTrashedIds(new Set());
   }, [listing]);
   useEffect(() => {
-    const listedIds = new Set([
-      ...listing.childFolders.map((folder) => folder.id),
-      ...listing.files.map((file) => file.id),
-    ]);
-    setMovingIds((current) => {
-      const pending = new Set(
+    const listedIds = getListedItemIds(listing);
+    setOptimisticallyMovedIds((current) => {
+      const next = new Set(
         Array.from(current).filter((id) => listedIds.has(id)),
       );
-      return pending.size === current.size ? current : pending;
+      return next.size === current.size ? current : next;
     });
   }, [listing]);
   useEffect(() => {
@@ -328,10 +341,16 @@ export function FilesView({
   const favoriteFileSet = new Set(favoriteFileIds);
   const favoriteFolderSet = new Set(favoriteFolderIds);
   const visibleFolders = listing.childFolders.filter(
-    (f) => !trashedIds.has(f.id) && !movingIds.has(f.id),
+    (f) =>
+      !trashedIds.has(f.id) &&
+      !movingIds.has(f.id) &&
+      !optimisticallyMovedIds.has(f.id),
   );
   const visibleFiles = listing.files.filter(
-    (f) => !trashedIds.has(f.id) && !movingIds.has(f.id),
+    (f) =>
+      !trashedIds.has(f.id) &&
+      !movingIds.has(f.id) &&
+      !optimisticallyMovedIds.has(f.id),
   );
 
   // Flat ordered list of all items (folders first, then files)
@@ -604,11 +623,13 @@ export function FilesView({
   const openItem = (id: string) => {
     const folder = listing.childFolders.find((f) => f.id === id);
     if (folder) {
+      if (folder.storageMutation) return;
       router.push(folder.isFilesRoot ? "/files" : `/files/f/${folder.id}`);
       return;
     }
     const file = listing.files.find((f) => f.id === id);
     if (file) {
+      if (file.storageMutation) return;
       if (file.viewerKind) router.push(`/files/view/${file.id}`);
       else void downloadFile(file.id);
     }
@@ -738,10 +759,13 @@ export function FilesView({
   const moveItems = async (
     items: BatchMoveItem[],
     destinationFolderId: string,
+    source: MoveRequestSource = "direct",
   ): Promise<BatchMoveResponse | null> => {
     if (items.length === 0) return null;
     setMoveError(null);
+    setRetryMoveRequest(null);
     const itemIds = new Set(items.map((item) => item.id));
+    const initiallyListedIds = getListedItemIds(listing);
     setMovingIds((current) => new Set([...current, ...itemIds]));
     setSelectedIds((current) => {
       const next = new Set(current);
@@ -782,11 +806,30 @@ export function FilesView({
         (result) => result.status === "failed",
       );
       const failedIds = new Set(failures.map((result) => result.id));
+      const movedFromCurrentFolderIds = getOptimisticSourceMoveIds({
+        results: data.results,
+        initiallyListedIds,
+      });
       setMovingIds((current) => {
         const next = new Set(current);
-        for (const id of failedIds) next.delete(id);
+        for (const id of itemIds) next.delete(id);
         return next;
       });
+      setOptimisticallyMovedIds((current) => {
+        const next = new Set(current);
+        for (const id of failedIds) next.delete(id);
+        for (const id of movedFromCurrentFolderIds) next.add(id);
+        return next;
+      });
+      setRetryMoveRequest(
+        failures.length > 0
+          ? {
+              items: failures.map(({ id, kind }) => ({ id, kind })),
+              destinationFolderId,
+              source,
+            }
+          : null,
+      );
       setSelectedIds(new Set(failures.map((result) => result.id)));
       setLastSelectedId(failures.at(-1)?.id ?? null);
 
@@ -810,6 +853,16 @@ export function FilesView({
         for (const id of itemIds) next.delete(id);
         return next;
       });
+      setOptimisticallyMovedIds((current) => {
+        const next = new Set(current);
+        for (const id of itemIds) next.delete(id);
+        return next;
+      });
+      setRetryMoveRequest({
+        items,
+        destinationFolderId,
+        source,
+      });
       setSelectedIds(new Set(items.map((item) => item.id)));
       setMoveError(
         error instanceof Error ? error.message : "Items could not be moved.",
@@ -818,15 +871,7 @@ export function FilesView({
     }
   };
 
-  const handlePaste = async () => {
-    if (cutItems.length === 0) return;
-    const dest = listing.currentFolder.id;
-    const result = await moveItems(
-      cutItems.map(({ id, kind }) => ({ id, kind })),
-      dest,
-    );
-    if (!result) return;
-
+  const finishPasteMove = (result: BatchMoveResponse) => {
     const failedIds = new Set(
       result.results
         .filter((item) => item.status === "failed")
@@ -844,6 +889,29 @@ export function FilesView({
     );
     setJustMovedIds(moved);
     setTimeout(() => setJustMovedIds(new Set()), 800);
+  };
+
+  const handlePaste = async () => {
+    if (cutItems.length === 0) return;
+    const dest = listing.currentFolder.id;
+    const result = await moveItems(
+      cutItems.map(({ id, kind }) => ({ id, kind })),
+      dest,
+      "paste",
+    );
+    if (!result) return;
+    finishPasteMove(result);
+  };
+
+  const retryFailedMove = async () => {
+    const request = retryMoveRequest;
+    if (!request) return;
+    const result = await moveItems(
+      request.items,
+      request.destinationFolderId,
+      request.source,
+    );
+    if (result && request.source === "paste") finishPasteMove(result);
   };
 
   // ---------------------------------------------------------------------------
@@ -1331,7 +1399,23 @@ export function FilesView({
         {error ? <FlashMessage>{error}</FlashMessage> : null}
         {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
         {trashError ? <FlashMessage>{trashError}</FlashMessage> : null}
-        {moveError ? <FlashMessage>{moveError}</FlashMessage> : null}
+        {moveError ? (
+          <FlashMessage>
+            <div className="files-move-error">
+              <span>{moveError}</span>
+              {retryMoveRequest ? (
+                <button
+                  className="button button-secondary"
+                  disabled={movingIds.size > 0}
+                  onClick={retryFailedMove}
+                  type="button"
+                >
+                  Retry
+                </button>
+              ) : null}
+            </div>
+          </FlashMessage>
+        ) : null}
 
         <DashboardPageContextMenu
           className="explorer-root"

@@ -13,6 +13,22 @@ export const getMoveItemsForInteraction = ({
     ? allItems.filter((item) => selectedIds.has(item.id))
     : [target];
 
+export const getOptimisticSourceMoveIds = ({
+  results,
+  initiallyListedIds,
+}: {
+  results: BatchMoveResponse["results"];
+  initiallyListedIds: ReadonlySet<string>;
+}) =>
+  new Set(
+    results
+      .filter(
+        (result) =>
+          result.status === "moved" && initiallyListedIds.has(result.id),
+      )
+      .map((result) => result.id),
+  );
+
 export const buildBatchMoveFailureMessage = ({
   response,
   getItemName,

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildBatchMoveFailureMessage,
   getMoveItemsForInteraction,
+  getOptimisticSourceMoveIds,
 } from "@/app/(workspace)/files/files-move";
 
 const allItems = [
@@ -33,6 +34,25 @@ describe("file move interactions", () => {
         target: { id: "file-1", kind: "file" },
       }),
     ).toEqual([{ id: "file-1", kind: "file" }]);
+  });
+
+  it("only keeps successful source items hidden until the new listing arrives", () => {
+    expect(
+      getOptimisticSourceMoveIds({
+        initiallyListedIds: new Set(["file-1"]),
+        results: [
+          { id: "file-1", kind: "file", status: "moved" },
+          { id: "file-2", kind: "file", status: "moved" },
+          {
+            id: "folder-1",
+            kind: "folder",
+            status: "failed",
+            code: "FOLDER_MOVE_CYCLE",
+            error: "A folder cannot be moved into itself.",
+          },
+        ],
+      }),
+    ).toEqual(new Set(["file-1"]));
   });
 
   it("builds an exact per-item partial-failure summary", () => {
