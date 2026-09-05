@@ -285,7 +285,13 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
 }
 
 // Chunk PATCH and DELETE share session authorization and error translation.
-// fallow-ignore-next-line code-duplication
+/**
+ * Processes a chunk for an authenticated resumable upload session.
+ *
+ * @param request - The incoming chunk upload request.
+ * @param params - Route parameters containing the upload session identifier.
+ * @returns An HTTP response describing the chunk upload result or validation failure.
+ */
 export async function PATCH(request: NextRequest, { params }: RouteContext) {
   const { id } = await params;
   if (!isSameOrigin(request)) {
