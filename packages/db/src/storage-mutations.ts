@@ -1892,6 +1892,49 @@ export const listRecoverableStorageMutations = async ({
     include: mutationInclude,
   });
 
+export const listRecentBatchMoveMutations = async ({
+  ownerUserId,
+  now = new Date(),
+  take = 100,
+}: {
+  ownerUserId: string;
+  now?: Date;
+  take?: number;
+}) =>
+  getPrisma().storageMutation.findMany({
+    where: {
+      ownerUserId,
+      kind: "batch_move",
+      parentId: null,
+      OR: [
+        {
+          status: {
+            in: [
+              "prepared",
+              "running",
+              "retrying",
+              "metadata_committed",
+              "finalizing",
+              "recovery_required",
+            ],
+          },
+        },
+        {
+          status: "succeeded",
+          completedAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+        },
+      ],
+    },
+    orderBy: { updatedAt: "desc" },
+    take,
+    select: {
+      id: true,
+      status: true,
+      intentJson: true,
+      resultJson: true,
+    },
+  });
+
 type BlockingEntityOwnerResolver = (entityId: string) => Promise<string | null>;
 
 const blockingEntityOwnerResolvers: Record<

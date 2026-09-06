@@ -91,6 +91,9 @@ export type BatchMoveOperationResponse = {
   status: BatchMoveOperationStatus;
   response?: BatchMoveResponse;
   error?: string;
+  items?: BatchMoveItem[];
+  destinationFolderId?: string;
+  source?: "direct" | "paste";
 };
 
 export type FilesListing = {

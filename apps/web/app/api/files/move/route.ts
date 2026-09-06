@@ -17,7 +17,10 @@ import {
   prepareDurableStorageMutationParent,
 } from "@/server/durable-storage-mutation";
 import { getPrisma } from "@staaash/db/client";
-import type { StorageMutationEntityInput } from "@staaash/db/storage-mutations";
+import {
+  listRecentBatchMoveMutations,
+  type StorageMutationEntityInput,
+} from "@staaash/db/storage-mutations";
 
 const requestSchema = z.object({
   destinationFolderId: z.string().trim().min(1),
@@ -30,6 +33,7 @@ const requestSchema = z.object({
     )
     .min(1)
     .max(500),
+  source: z.enum(["direct", "paste"]).optional(),
 });
 
 type BatchMoveRequest = z.infer<typeof requestSchema>;
@@ -137,6 +141,7 @@ export async function POST(request: NextRequest) {
           version: 1,
           destinationFolderId: body.destinationFolderId,
           items: body.items,
+          source: body.source ?? "direct",
         },
         resourceKeys: [],
         entities: await buildMoveGuardEntities(session.user.id, body),
@@ -159,4 +164,30 @@ export async function POST(request: NextRequest) {
       error,
     );
   }
+}
+
+export async function GET(request: NextRequest) {
+  if (!isSameOrigin(request)) {
+    return NextResponse.json(
+      { error: "Cross-origin requests are not allowed." },
+      { status: 403 },
+    );
+  }
+
+  const session = await getRequestSession(request);
+  if (!session) return jsonNotSignedInResponse();
+
+  const mutations = await listRecentBatchMoveMutations({
+    ownerUserId: session.user.id,
+  });
+  const operations = mutations
+    .map(toBatchMoveOperationResponse)
+    .filter(
+      (operation) =>
+        operation.status !== "succeeded" ||
+        (operation.response?.failedCount ?? 0) > 0,
+    );
+  return NextResponse.json(operations, {
+    headers: { "Cache-Control": "no-store" },
+  });
 }

@@ -105,7 +105,7 @@ export class WorkerRunner {
 
     await Promise.race([
       Promise.all(active).then(() => undefined),
-      delay(timeoutMs).then(() => undefined),
+      delay(timeoutMs, undefined, { ref: false }).then(() => undefined),
     ]);
   }
 

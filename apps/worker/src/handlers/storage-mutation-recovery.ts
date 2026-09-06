@@ -82,7 +82,11 @@ const recoverForwardMutation = async ({
     leaseOwner,
     resourceKeys:
       mutation.kind === "batch_move"
-        ? [`owner:${mutation.ownerUserId}`]
+        ? mutation.entities.length > 0
+          ? mutation.entities.map(
+              (entity) => `${entity.entityType}:${entity.entityId}`,
+            )
+          : [`owner:${mutation.ownerUserId}`]
         : undefined,
   });
   if (!claimed) return false;
@@ -177,23 +181,29 @@ export const recoverStorageMutations = async ({
   kinds?: string[];
   excludeKinds?: string[];
 }) => {
+  const workerConcurrency = Math.max(1, Math.floor(concurrency));
   const mutations = await listRecoverableStorageMutations({
-    take,
+    // ponytail: bounded candidate window; paginate if queue depth exceeds this scan.
+    take: Math.max(take, workerConcurrency * 4),
     kinds,
     excludeKinds,
   });
-  const workerConcurrency = Math.max(1, Math.floor(concurrency));
   let recovered = 0;
 
-  for (let index = 0; index < mutations.length; index += workerConcurrency) {
-    const batch = mutations.slice(index, index + workerConcurrency);
-    const results = await Promise.all(
-      batch.map((mutation) =>
-        recoverMutation({ mutation, storagePaths, leaseOwner }),
-      ),
-    );
-    recovered += results.filter(Boolean).length;
-  }
+  let nextIndex = 0;
+  await Promise.all(
+    Array.from(
+      { length: Math.min(workerConcurrency, mutations.length) },
+      async () => {
+        while (nextIndex < mutations.length) {
+          const mutation = mutations[nextIndex++];
+          if (await recoverMutation({ mutation, storagePaths, leaseOwner })) {
+            recovered += 1;
+          }
+        }
+      },
+    ),
+  );
 
   return recovered;
 };

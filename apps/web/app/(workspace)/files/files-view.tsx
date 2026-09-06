@@ -242,6 +242,68 @@ export function FilesView({
   >(new Map());
   const moveOperationsRef = useRef(moveOperations);
   moveOperationsRef.current = moveOperations;
+
+  useEffect(() => {
+    let cancelled = false;
+    const hydrateMoveOperations = async () => {
+      try {
+        const response = await fetch("/api/files/move", {
+          headers: { Accept: "application/json" },
+        });
+        if (!response.ok) return;
+        const value = await response.json().catch(() => null);
+        if (
+          cancelled ||
+          !Array.isArray(value) ||
+          !value.every(isBatchMoveOperationResponse)
+        ) {
+          return;
+        }
+        setMoveOperations((current) => {
+          const next = new Map(current);
+          for (const durable of value) {
+            if (
+              durable.status === "succeeded" &&
+              (durable.response?.failedCount ?? 0) === 0
+            ) {
+              continue;
+            }
+            const existing = Array.from(next.values()).find(
+              (operation) => operation.operationId === durable.operationId,
+            );
+            const clientId =
+              existing?.clientId ?? `durable:${durable.operationId}`;
+            next.set(clientId, {
+              clientId,
+              operationId: durable.operationId,
+              items: durable.items ?? existing?.items ?? [],
+              destinationFolderId:
+                durable.destinationFolderId ??
+                existing?.destinationFolderId ??
+                "",
+              source: durable.source ?? existing?.source ?? "direct",
+              initiallyListedIds:
+                existing?.initiallyListedIds ?? getListedItemIds(listing),
+              status: durable.status,
+              response: durable.response ?? existing?.response ?? null,
+              preservedFailures: existing?.preservedFailures ?? [],
+              error: durable.error ?? existing?.error ?? null,
+              retrying: existing?.retrying ?? false,
+            });
+          }
+          return next;
+        });
+      } catch {
+        // The normal move request and manual refresh remain available.
+      }
+    };
+    void hydrateMoveOperations();
+    return () => {
+      cancelled = true;
+    };
+    // Hydration only needs to run when this view mounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [optimisticallyMovedIds, setOptimisticallyMovedIds] = useState<
     Set<string>
   >(new Set());
@@ -1007,6 +1069,21 @@ export function FilesView({
               `/api/files/move/${encodeURIComponent(operation.operationId!)}`,
               { headers: { Accept: "application/json" } },
             );
+            if (response.status === 404) {
+              if (!cancelled) {
+                completeMoveOperation(
+                  operation.clientId,
+                  operation.operationId!,
+                  {
+                    operationId: operation.operationId!,
+                    status: "recovery_required",
+                    error:
+                      "This move could not be tracked. Please check the file state.",
+                  },
+                );
+              }
+              return;
+            }
             if (!response.ok) return;
             const value = await response.json().catch(() => null);
             if (!cancelled && isBatchMoveOperationResponse(value)) {
@@ -1079,7 +1156,7 @@ export function FilesView({
           "Content-Type": "application/json",
           "Idempotency-Key": getStorageMutationKey(logicalAction),
         },
-        body: JSON.stringify({ items, destinationFolderId }),
+        body: JSON.stringify({ items, destinationFolderId, source }),
       });
       finishStorageMutationKey(logicalAction, response);
       const value = await response.json().catch(() => null);

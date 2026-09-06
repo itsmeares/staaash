@@ -1,12 +1,13 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { POST } from "@/app/api/files/move/route";
+import { GET, POST } from "@/app/api/files/move/route";
 import { getRequestSession } from "@/server/auth/guards";
 
 const mocks = vi.hoisted(() => ({
   prepare: vi.fn(),
   hash: vi.fn(),
+  listRecent: vi.fn(),
   fileFindMany: vi.fn(),
   folderFindMany: vi.fn(),
   folderFindFirst: vi.fn(),
@@ -25,6 +26,10 @@ vi.mock("@staaash/db/client", () => ({
       findFirst: mocks.folderFindFirst,
     },
   }),
+}));
+
+vi.mock("@staaash/db/storage-mutations", () => ({
+  listRecentBatchMoveMutations: mocks.listRecent,
 }));
 
 vi.mock("@/server/auth/guards", () => ({
@@ -121,6 +126,44 @@ describe("batch move route", () => {
       }),
       { allowInProgress: true },
     );
+  });
+
+  it("lists only the signed-in owner's recoverable move state", async () => {
+    mocks.listRecent.mockResolvedValue([
+      {
+        id: "batch-parent-1",
+        kind: "batch_move",
+        status: "running",
+        intentJson: {
+          items: [{ id: "file-1", kind: "file" }],
+          destinationFolderId: "folder-destination",
+        },
+        resultJson: { children: [] },
+      },
+    ]);
+
+    const response = await GET(
+      new NextRequest("http://localhost:3000/api/files/move", {
+        headers: {
+          accept: "application/json",
+          host: "localhost:3000",
+          origin: "http://localhost:3000",
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.listRecent).toHaveBeenCalledWith({
+      ownerUserId: "user-1",
+    });
+    await expect(response.json()).resolves.toMatchObject([
+      {
+        operationId: "batch-parent-1",
+        status: "running",
+        items: [{ id: "file-1", kind: "file" }],
+        destinationFolderId: "folder-destination",
+      },
+    ]);
   });
 
   it("guards nested folders and files during a folder move", async () => {

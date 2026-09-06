@@ -659,7 +659,7 @@ const runBatchMoveChild = async ({
     item,
   });
   if (replay) {
-    void recordBatchMoveAccess(parent.ownerUserId, item);
+    await recordBatchMoveAccess(parent.ownerUserId, item);
     return replay;
   }
   const destination = await requireBatchDestination(
@@ -698,7 +698,7 @@ const runBatchMoveChild = async ({
     storagePaths,
     requestHashPayload,
   });
-  void recordBatchMoveAccess(parent.ownerUserId, item);
+  await recordBatchMoveAccess(parent.ownerUserId, item);
   await renewParent(parent, leaseOwner);
   return {
     childId: child.id,
@@ -1316,6 +1316,7 @@ const recoverStorageMutationParentInternal = async ({
     cutoff?: unknown;
     destinationFolderId?: unknown;
     items?: unknown;
+    source?: unknown;
     orderedItems?: unknown;
   };
   const existing = new Map(
@@ -1410,6 +1411,9 @@ const recoverStorageMutationParentInternal = async ({
         movedCount,
         failedCount: results.length - movedCount,
         results,
+        destinationFolderId: intent.destinationFolderId,
+        items: intent.items,
+        source: intent.source === "paste" ? "paste" : "direct",
       } as Prisma.InputJsonValue,
     });
     return true;

@@ -70,4 +70,52 @@ describe("batch move operation route", () => {
 
     expect(response.status).toBe(404);
   });
+
+  it("returns retry metadata after a partial move survives reload", async () => {
+    mocks.findStorageMutation.mockResolvedValueOnce({
+      id: "move-parent-1",
+      kind: "batch_move",
+      parentId: null,
+      ownerUserId: "user-1",
+      status: "succeeded",
+      intentJson: { redacted: true },
+      resultJson: {
+        movedCount: 1,
+        failedCount: 1,
+        results: [
+          { id: "file-1", kind: "file", status: "moved" },
+          {
+            id: "file-2",
+            kind: "file",
+            status: "failed",
+            code: "FILE_NAME_CONFLICT",
+            error: "A file with this name already exists.",
+            retryable: true,
+          },
+        ],
+        items: [
+          { id: "file-1", kind: "file" },
+          { id: "file-2", kind: "file" },
+        ],
+        destinationFolderId: "folder-destination",
+        source: "paste",
+      },
+    });
+
+    const response = await GET(request(), {
+      params: Promise.resolve({ mutationId: "move-parent-1" }),
+    });
+
+    await expect(response.json()).resolves.toMatchObject({
+      operationId: "move-parent-1",
+      status: "succeeded",
+      response: { movedCount: 1, failedCount: 1 },
+      items: [
+        { id: "file-1", kind: "file" },
+        { id: "file-2", kind: "file" },
+      ],
+      destinationFolderId: "folder-destination",
+      source: "paste",
+    });
+  });
 });
