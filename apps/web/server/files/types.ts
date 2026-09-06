@@ -74,12 +74,26 @@ export type BatchMoveResult =
       status: "failed";
       code: string;
       error: string;
+      retryable?: boolean;
     });
 
 export type BatchMoveResponse = {
   movedCount: number;
   failedCount: number;
   results: BatchMoveResult[];
+};
+
+export type BatchMoveOperationStatus =
+  "queued" | "running" | "succeeded" | "recovery_required";
+
+export type BatchMoveOperationResponse = {
+  operationId: string;
+  status: BatchMoveOperationStatus;
+  response?: BatchMoveResponse;
+  error?: string;
+  items?: BatchMoveItem[];
+  destinationFolderId?: string;
+  source?: "direct" | "paste";
 };
 
 export type FilesListing = {

@@ -248,12 +248,15 @@ const prepareDurableStorageMutation = async (
   }
 };
 
-export const findDurableStorageMutationReplay = async (input: {
-  idempotencyKey: string;
-  kind: StorageMutationKind;
-  ownerUserId: string;
-  requestHash: string;
-}) => {
+export const findDurableStorageMutationReplay = async (
+  input: {
+    idempotencyKey: string;
+    kind: StorageMutationKind;
+    ownerUserId: string;
+    requestHash: string;
+  },
+  options: { allowInProgress?: boolean } = {},
+) => {
   const existing = await findStorageMutationByIdempotencyKey(
     input.idempotencyKey,
   );
@@ -265,7 +268,9 @@ export const findDurableStorageMutationReplay = async (input: {
   ) {
     throw new StorageMutationConflictError("STORAGE_IDEMPOTENCY_KEY_REUSED");
   }
-  if (existing.status !== "succeeded") throw mutationStateConflict(existing);
+  if (existing.status !== "succeeded" && !options.allowInProgress) {
+    throw mutationStateConflict(existing);
+  }
   return existing;
 };
 
@@ -303,8 +308,9 @@ export const runDurableStorageMutation = async (
 
 export const prepareDurableStorageMutationParent = async (
   input: Parameters<typeof prepareStorageMutationParent>[0],
+  options: { allowInProgress?: boolean } = {},
 ) => {
-  const existing = await findDurableStorageMutationReplay(input);
+  const existing = await findDurableStorageMutationReplay(input, options);
   if (existing) return { mutation: existing, replayed: true };
   await assertStorageMutationMayStart();
   return retryStorageMutationContention(() =>

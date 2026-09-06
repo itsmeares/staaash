@@ -327,7 +327,13 @@ export function FilesRow(props: FilesRowProps) {
   };
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!touchMode || event.pointerType === "mouse" || isRenaming) return;
+    if (
+      !touchMode ||
+      event.pointerType === "mouse" ||
+      isRenaming ||
+      storageMutationBlocked
+    )
+      return;
     const target = event.target as HTMLElement;
     if (target.closest("button, input, a")) return;
     clearLongPressTimer();
@@ -339,6 +345,8 @@ export function FilesRow(props: FilesRowProps) {
   };
 
   const handleRowClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (storageMutationBlocked) return;
+
     if (suppressNextClickRef.current) {
       suppressNextClickRef.current = false;
       event.preventDefault();
@@ -367,7 +375,9 @@ export function FilesRow(props: FilesRowProps) {
           draggable={!storageMutationBlocked && !touchMode && !isRenaming}
           onClick={handleRowClick}
           onContextMenu={storageMutationBlocked ? undefined : onContextMenu}
-          onDoubleClick={touchMode ? undefined : onOpen}
+          onDoubleClick={
+            touchMode || storageMutationBlocked ? undefined : onOpen
+          }
           onDragStart={storageMutationBlocked ? undefined : onDragStart}
           onDragEnd={storageMutationBlocked ? undefined : onDragEnd}
           onDragOver={
@@ -391,6 +401,7 @@ export function FilesRow(props: FilesRowProps) {
           onPointerUp={clearLongPressTimer}
           role="row"
           aria-selected={isSelected}
+          aria-disabled={storageMutationBlocked}
           tabIndex={isSelected ? 0 : -1}
         >
           {/* Icon */}

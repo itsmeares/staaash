@@ -1197,6 +1197,54 @@ describe("STO-02 durable PostgreSQL protocol", () => {
     ).rejects.toBeInstanceOf(StorageMutationFenceError);
   });
 
+  it("claims disjoint same-owner moves while serializing overlapping moves", async () => {
+    const user = await createUser();
+    const prepare = (entityId: string) =>
+      prepareStorageMutationParent({
+        kind: "batch_move",
+        ownerUserId: user.id,
+        idempotencyKey: randomUUID(),
+        requestHash: randomUUID(),
+        intentJson: { version: 1, metadataOperations: [], items: [] },
+        resourceKeys: [],
+        entities: [
+          {
+            entityType: "file",
+            entityId,
+            preRevision: -1,
+            postRevision: -1,
+          },
+        ],
+      });
+    const [first, second, overlapping] = await Promise.all([
+      prepare("file-a"),
+      prepare("file-b"),
+      prepare("file-a"),
+    ]);
+
+    const claims = await Promise.all([
+      claimStorageMutation({
+        id: first.mutation.id,
+        leaseOwner: "move-worker",
+        resourceKeys: ["file:file-a"],
+      }),
+      claimStorageMutation({
+        id: second.mutation.id,
+        leaseOwner: "move-worker",
+        resourceKeys: ["file:file-b"],
+      }),
+    ]);
+
+    expect(claims.every(Boolean)).toBe(true);
+    await expect(
+      claimStorageMutation({
+        id: overlapping.mutation.id,
+        leaseOwner: "move-worker",
+        resourceKeys: ["file:file-a"],
+      }),
+    ).resolves.toBeNull();
+  });
+
   it("serializes global recovery against every owner mutation", async () => {
     const firstUser = await createUser();
     const secondUser = await createUser();

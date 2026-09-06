@@ -3323,6 +3323,93 @@ h3 {
   gap: 22px;
 }
 
+.files-move-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.files-move-error > span {
+  flex: 1 1 240px;
+}
+
+.files-move-error .button {
+  min-height: 32px;
+  padding-inline: 12px;
+  font-size: 12px;
+}
+
+.storage-unavailable-page {
+  min-height: min(58vh, 520px);
+  display: grid;
+  place-items: center;
+}
+
+.storage-unavailable-panel {
+  width: min(560px, 100%);
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+  padding: clamp(28px, 5vw, 56px) 24px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  border-radius: 16px;
+  background: color-mix(in oklab, var(--card) 94%, var(--background));
+  text-align: center;
+}
+
+.storage-unavailable-spinner {
+  color: var(--primary);
+  animation: storage-unavailable-spin 1.1s linear infinite;
+}
+
+@keyframes storage-unavailable-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.storage-unavailable-copy {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.storage-unavailable-eyebrow {
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.storage-unavailable-copy h1 {
+  max-width: 28ch;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  line-height: 1.15;
+}
+
+.storage-unavailable-copy > p:last-child {
+  max-width: 44ch;
+  color: var(--muted-foreground);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.storage-unavailable-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .storage-unavailable-spinner {
+    animation: none;
+  }
+}
+
 .settings-page {
   --settings-max-width: 760px;
   width: min(var(--settings-max-width), 100%);
@@ -6895,6 +6982,16 @@ html.light {
   border-radius: 999px;
   padding: 0 10px;
   white-space: nowrap;
+}
+
+.move-status-spinner {
+  animation: storage-unavailable-spin 1.1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .move-status-spinner {
+    animation: none;
+  }
 }
 
 .cut-badge {

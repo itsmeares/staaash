@@ -40,6 +40,48 @@ type ParentChild = {
   result: Record<string, unknown>;
 };
 
+const recordBatchMoveAccess = async (
+  ownerUserId: string,
+  item: { id: string; kind: "file" | "folder" },
+) => {
+  try {
+    const interactedAt = new Date();
+    if (item.kind === "folder") {
+      const folder = await getPrisma().folder.findUnique({
+        where: { id: item.id },
+        select: { isFilesRoot: true },
+      });
+      if (!folder || folder.isFilesRoot) return;
+      await getPrisma().recentFolder.upsert({
+        where: { userId_folderId: { userId: ownerUserId, folderId: item.id } },
+        create: {
+          userId: ownerUserId,
+          folderId: item.id,
+          lastInteractedAt: interactedAt,
+        },
+        update: { lastInteractedAt: interactedAt },
+      });
+      return;
+    }
+    await getPrisma().recentFile.upsert({
+      where: { userId_fileId: { userId: ownerUserId, fileId: item.id } },
+      create: {
+        userId: ownerUserId,
+        fileId: item.id,
+        lastInteractedAt: interactedAt,
+      },
+      update: { lastInteractedAt: interactedAt },
+    });
+  } catch (error) {
+    console.error("recent-tracking: failed to record file move", {
+      targetKind: item.kind,
+      targetId: item.id,
+      ownerUserId,
+      error,
+    });
+  }
+};
+
 type TrashPurgeItem = {
   id: string;
   kind: "file" | "folder";
@@ -616,7 +658,10 @@ const runBatchMoveChild = async ({
     requestHashPayload,
     item,
   });
-  if (replay) return replay;
+  if (replay) {
+    await recordBatchMoveAccess(parent.ownerUserId, item);
+    return replay;
+  }
   const destination = await requireBatchDestination(
     destinationFolderId,
     parent.ownerUserId,
@@ -653,6 +698,7 @@ const runBatchMoveChild = async ({
     storagePaths,
     requestHashPayload,
   });
+  await recordBatchMoveAccess(parent.ownerUserId, item);
   await renewParent(parent, leaseOwner);
   return {
     childId: child.id,
@@ -679,6 +725,20 @@ const skippedTrashResult = (item: { id: string; kind: "file" | "folder" }) => ({
   deletedFolderCount: 0,
   deletedFileCount: 0,
 });
+
+const batchMoveFailureMessages: Record<string, string> = {
+  DESTINATION_FOLDER_NOT_FOUND: "That folder does not exist.",
+  FILE_NOT_FOUND: "That file does not exist.",
+  FILE_MOVE_NOOP: "That file is already in that location.",
+  FILE_NAME_CONFLICT:
+    "An active file or folder already uses that name in this location.",
+  FOLDER_NOT_FOUND: "That folder does not exist.",
+  FOLDER_MOVE_NOOP: "That folder is already in that location.",
+  FOLDER_MOVE_CYCLE:
+    "A folder cannot be moved into itself or one of its descendants.",
+  FOLDER_NAME_CONFLICT:
+    "An active file or folder already uses that name in this location.",
+};
 
 const clearTrashReplayResult = (
   item: { id: string; kind: "file" | "folder" },
@@ -1256,6 +1316,7 @@ const recoverStorageMutationParentInternal = async ({
     cutoff?: unknown;
     destinationFolderId?: unknown;
     items?: unknown;
+    source?: unknown;
     orderedItems?: unknown;
   };
   const existing = new Map(
@@ -1300,6 +1361,13 @@ const recoverStorageMutationParentInternal = async ({
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Unexpected server error.";
+        const code =
+          error &&
+          typeof error === "object" &&
+          "code" in error &&
+          typeof error.code === "string"
+            ? error.code
+            : message;
         if (
           ![
             "DESTINATION_FOLDER_NOT_FOUND",
@@ -1310,7 +1378,7 @@ const recoverStorageMutationParentInternal = async ({
             "FOLDER_MOVE_NOOP",
             "FOLDER_MOVE_CYCLE",
             "FOLDER_NAME_CONFLICT",
-          ].includes(message)
+          ].includes(code)
         ) {
           throw error;
         }
@@ -1318,8 +1386,11 @@ const recoverStorageMutationParentInternal = async ({
           id: item.id,
           kind: item.kind,
           status: "failed",
-          code: message,
-          error: message,
+          code,
+          error: batchMoveFailureMessages[code] ?? message,
+          retryable: ["FILE_NAME_CONFLICT", "FOLDER_NAME_CONFLICT"].includes(
+            code,
+          ),
         };
         await recordChild({
           parent,
@@ -1340,6 +1411,9 @@ const recoverStorageMutationParentInternal = async ({
         movedCount,
         failedCount: results.length - movedCount,
         results,
+        destinationFolderId: intent.destinationFolderId,
+        items: intent.items,
+        source: intent.source === "paste" ? "paste" : "direct",
       } as Prisma.InputJsonValue,
     });
     return true;

@@ -37,7 +37,10 @@ const runMaintenance = async () => {
   });
   await initializeStorageProtocol({ storagePaths });
   await recoverUnjournaledUserStorageProvisioning({ storagePaths });
-  await recoverStorageMutations({ storagePaths });
+  await recoverStorageMutations({
+    storagePaths,
+    excludeKinds: ["batch_move"],
+  });
   await pruneSucceededStorageMutationResults(
     new Date(Date.now() - 7 * 24 * 60 * 60 * 1_000),
   );
