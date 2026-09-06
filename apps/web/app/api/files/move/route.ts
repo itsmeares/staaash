@@ -33,7 +33,7 @@ const requestSchema = z.object({
     )
     .min(1)
     .max(500),
-  source: z.enum(["direct", "paste"]).optional(),
+  source: z.enum(["direct", "paste"]).default("direct"),
 });
 
 type BatchMoveRequest = z.infer<typeof requestSchema>;
@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
           version: 1,
           destinationFolderId: body.destinationFolderId,
           items: body.items,
-          source: body.source ?? "direct",
+          source: body.source,
         },
         resourceKeys: [],
         entities: await buildMoveGuardEntities(session.user.id, body),

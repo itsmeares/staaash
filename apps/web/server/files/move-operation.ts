@@ -25,36 +25,45 @@ const operationStatus = (
   return "queued";
 };
 
-const getMoveMetadata = (value: unknown) => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  const candidate = value as {
-    items?: unknown;
-    destinationFolderId?: unknown;
-    source?: unknown;
-  };
+const isBatchMoveItem = (value: unknown): value is BatchMoveItem =>
+  Boolean(
+    value &&
+    typeof value === "object" &&
+    typeof (value as { id?: unknown }).id === "string" &&
+    ((value as { kind?: unknown }).kind === "file" ||
+      (value as { kind?: unknown }).kind === "folder"),
+  );
+
+const isMoveSource = (
+  value: unknown,
+): value is NonNullable<BatchMoveOperationResponse["source"]> =>
+  value === "paste" || value === "direct";
+
+type MoveMetadataInput = {
+  items?: unknown;
+  destinationFolderId?: unknown;
+  source?: unknown;
+};
+
+const getMoveMetadataFields = (candidate: MoveMetadataInput) => {
   const items = Array.isArray(candidate.items)
-    ? candidate.items.filter((item): item is BatchMoveItem =>
-        Boolean(
-          item &&
-          typeof item === "object" &&
-          typeof (item as { id?: unknown }).id === "string" &&
-          ((item as { kind?: unknown }).kind === "file" ||
-            (item as { kind?: unknown }).kind === "folder"),
-        ),
-      )
+    ? candidate.items.filter(isBatchMoveItem)
     : undefined;
   return {
     ...(items && items.length > 0 ? { items } : {}),
     ...(typeof candidate.destinationFolderId === "string"
       ? { destinationFolderId: candidate.destinationFolderId }
       : {}),
-    ...(candidate.source === "paste" || candidate.source === "direct"
-      ? { source: candidate.source }
-      : {}),
+    ...(isMoveSource(candidate.source) ? { source: candidate.source } : {}),
   } satisfies Pick<
     BatchMoveOperationResponse,
     "items" | "destinationFolderId" | "source"
   >;
+};
+
+const getMoveMetadata = (value: unknown) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return getMoveMetadataFields(value as MoveMetadataInput);
 };
 
 const getMoveResponse = (value: unknown): BatchMoveResponse | null => {

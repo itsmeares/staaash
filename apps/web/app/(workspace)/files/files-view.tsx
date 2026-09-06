@@ -259,6 +259,8 @@ export function FilesView({
         ) {
           return;
         }
+        // Persisted move state needs to reconcile every optional recovery field.
+        // fallow-ignore-next-line complexity
         setMoveOperations((current) => {
           const next = new Map(current);
           for (const durable of value) {
