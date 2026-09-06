@@ -3,56 +3,32 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { POST } from "@/app/api/files/move/route";
 import { getRequestSession } from "@/server/auth/guards";
-import { FilesError } from "@/server/files/errors";
-import { filesService } from "@/server/files/service";
-import {
-  recordFileAccessBestEffort,
-  recordFolderAccessBestEffort,
-} from "@/server/retrieval/recent-tracking";
 
-const durableMocks = vi.hoisted(() => ({
-  prepareDurableStorageMutationParent: vi.fn(),
-  claimStorageMutation: vi.fn(),
-  renewStorageMutationLease: vi.fn(),
-  recordStorageMutationParentChild: vi.fn(),
-  completeStorageMutationParent: vi.fn(),
-  findUnique: vi.fn(),
+const mocks = vi.hoisted(() => ({
+  prepare: vi.fn(),
+  hash: vi.fn(),
+  fileFindMany: vi.fn(),
+  folderFindMany: vi.fn(),
+  folderFindFirst: vi.fn(),
 }));
 
 vi.mock("@/server/durable-storage-mutation", () => ({
-  hashDurableStorageRequest: (value: unknown) => JSON.stringify(value),
-  prepareDurableStorageMutationParent:
-    durableMocks.prepareDurableStorageMutationParent,
+  hashDurableStorageRequest: mocks.hash,
+  prepareDurableStorageMutationParent: mocks.prepare,
 }));
 
 vi.mock("@staaash/db/client", () => ({
   getPrisma: () => ({
-    storageMutation: { findUnique: durableMocks.findUnique },
+    file: { findMany: mocks.fileFindMany },
+    folder: {
+      findMany: mocks.folderFindMany,
+      findFirst: mocks.folderFindFirst,
+    },
   }),
-}));
-
-vi.mock("@staaash/db/storage-mutations", () => ({
-  claimStorageMutation: durableMocks.claimStorageMutation,
-  renewStorageMutationLease: durableMocks.renewStorageMutationLease,
-  recordStorageMutationParentChild:
-    durableMocks.recordStorageMutationParentChild,
-  completeStorageMutationParent: durableMocks.completeStorageMutationParent,
 }));
 
 vi.mock("@/server/auth/guards", () => ({
   getRequestSession: vi.fn(),
-}));
-
-vi.mock("@/server/files/service", () => ({
-  filesService: {
-    moveFile: vi.fn(),
-    moveFolder: vi.fn(),
-  },
-}));
-
-vi.mock("@/server/retrieval/recent-tracking", () => ({
-  recordFileAccessBestEffort: vi.fn(),
-  recordFolderAccessBestEffort: vi.fn(),
 }));
 
 const request = (body: unknown, origin = "http://localhost:3000") =>
@@ -61,6 +37,7 @@ const request = (body: unknown, origin = "http://localhost:3000") =>
     headers: {
       accept: "application/json",
       "content-type": "application/json",
+      "idempotency-key": "move-request-1",
       host: "localhost:3000",
       origin,
     },
@@ -73,29 +50,31 @@ describe("batch move route", () => {
     vi.mocked(getRequestSession).mockResolvedValue({
       user: { id: "user-1", role: "owner" },
     } as Awaited<ReturnType<typeof getRequestSession>>);
-    vi.mocked(filesService.moveFile).mockResolvedValue({ file: undefined });
-    vi.mocked(filesService.moveFolder).mockResolvedValue({
-      folder: {} as never,
+    mocks.hash.mockImplementation((value: unknown) => JSON.stringify(value));
+    mocks.fileFindMany.mockResolvedValue([
+      { id: "file-1", storageRevision: 4 },
+    ]);
+    mocks.folderFindMany.mockResolvedValue([
+      { id: "folder-1", storageRevision: 2 },
+    ]);
+    mocks.folderFindFirst.mockResolvedValue({
+      id: "folder-destination",
+      storageRevision: 7,
     });
-    const mutation = {
-      id: "batch-parent-1",
-      status: "prepared",
-      resultJson: { children: [] },
-    };
-    durableMocks.prepareDurableStorageMutationParent.mockResolvedValue({
-      mutation,
+    mocks.prepare.mockResolvedValue({
+      mutation: {
+        id: "batch-parent-1",
+        kind: "batch_move",
+        parentId: null,
+        ownerUserId: "user-1",
+        status: "prepared",
+        resultJson: { children: [] },
+      },
       replayed: false,
     });
-    durableMocks.claimStorageMutation.mockResolvedValue({
-      ...mutation,
-      leaseOwner: "test",
-      leaseToken: 1n,
-      leaseExpiresAt: new Date(Date.now() + 30_000),
-    });
-    durableMocks.findUnique.mockResolvedValue({ id: "child-1" });
   });
 
-  it("moves mixed items and reports per-item success", async () => {
+  it("queues a move and records the affected items", async () => {
     const response = await POST(
       request({
         destinationFolderId: "folder-destination",
@@ -106,85 +85,131 @@ describe("batch move route", () => {
       }),
     );
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(202);
     await expect(response.json()).resolves.toEqual({
-      movedCount: 2,
-      failedCount: 0,
-      results: [
-        { id: "folder-1", kind: "folder", status: "moved" },
-        { id: "file-1", kind: "file", status: "moved" },
-      ],
+      operationId: "batch-parent-1",
+      status: "queued",
     });
-    expect(filesService.moveFolder).toHaveBeenCalledWith(
-      expect.objectContaining({
-        actorUserId: "user-1",
-        actorRole: "owner",
-        folderId: "folder-1",
-        destinationFolderId: "folder-destination",
-      }),
+    expect(response.headers.get("X-Storage-Mutation-Id")).toBe(
+      "batch-parent-1",
     );
-    expect(filesService.moveFile).toHaveBeenCalledWith(
+    expect(mocks.prepare).toHaveBeenCalledWith(
       expect.objectContaining({
-        actorUserId: "user-1",
-        actorRole: "owner",
-        fileId: "file-1",
-        destinationFolderId: "folder-destination",
+        kind: "batch_move",
+        ownerUserId: "user-1",
+        resourceKeys: [],
+        entities: [
+          {
+            entityType: "file",
+            entityId: "file-1",
+            preRevision: 4,
+            postRevision: 4,
+          },
+          {
+            entityType: "folder",
+            entityId: "folder-1",
+            preRevision: 2,
+            postRevision: 2,
+          },
+          {
+            entityType: "folder",
+            entityId: "folder-destination",
+            preRevision: 7,
+            postRevision: 7,
+          },
+        ],
       }),
+      { allowInProgress: true },
     );
   });
 
-  it("keeps processing after an item fails", async () => {
-    vi.mocked(filesService.moveFolder).mockRejectedValueOnce(
-      new FilesError("FOLDER_MOVE_CYCLE"),
-    );
+  it("guards nested folders and files during a folder move", async () => {
+    mocks.folderFindMany.mockResolvedValue([
+      {
+        id: "folder-1",
+        parentId: "folder-root",
+        deletedAt: null,
+        storageRevision: 2,
+      },
+      {
+        id: "folder-child",
+        parentId: "folder-1",
+        deletedAt: null,
+        storageRevision: 3,
+      },
+    ]);
+    mocks.fileFindMany.mockResolvedValue([
+      { id: "file-child", storageRevision: 5 },
+    ]);
 
-    const response = await POST(
+    await POST(
       request({
         destinationFolderId: "folder-destination",
-        items: [
-          { id: "folder-1", kind: "folder" },
-          { id: "file-1", kind: "file" },
-        ],
+        items: [{ id: "folder-1", kind: "folder" }],
       }),
     );
 
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      movedCount: 1,
-      failedCount: 1,
-      results: [
-        {
-          id: "folder-1",
-          kind: "folder",
-          status: "failed",
-          code: "FOLDER_MOVE_CYCLE",
-          error:
-            "A folder cannot be moved into itself or one of its descendants.",
+    expect(mocks.prepare).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entities: expect.arrayContaining([
+          {
+            entityType: "file",
+            entityId: "file-child",
+            preRevision: 5,
+            postRevision: 5,
+          },
+          {
+            entityType: "folder",
+            entityId: "folder-1",
+            preRevision: 2,
+            postRevision: 2,
+          },
+          {
+            entityType: "folder",
+            entityId: "folder-child",
+            preRevision: 3,
+            postRevision: 3,
+          },
+        ]),
+      }),
+      { allowInProgress: true },
+    );
+  });
+
+  it("returns the saved result when the same move is replayed", async () => {
+    mocks.prepare.mockResolvedValueOnce({
+      mutation: {
+        id: "batch-parent-1",
+        kind: "batch_move",
+        parentId: null,
+        ownerUserId: "user-1",
+        status: "succeeded",
+        resultJson: {
+          movedCount: 1,
+          failedCount: 0,
+          results: [{ id: "file-1", kind: "file", status: "moved" }],
         },
-        { id: "file-1", kind: "file", status: "moved" },
-      ],
+      },
+      replayed: true,
     });
-    expect(filesService.moveFile).toHaveBeenCalledOnce();
-  });
-
-  it("does not wait for best-effort recent tracking", async () => {
-    const pending = new Promise<void>(() => {});
-    vi.mocked(recordFolderAccessBestEffort).mockReturnValueOnce(pending);
-    vi.mocked(recordFileAccessBestEffort).mockReturnValueOnce(pending);
 
     const response = await POST(
       request({
         destinationFolderId: "folder-destination",
-        items: [
-          { id: "folder-1", kind: "folder" },
-          { id: "file-1", kind: "file" },
-        ],
+        items: [{ id: "file-1", kind: "file" }],
       }),
     );
 
     expect(response.status).toBe(200);
-    expect(recordFolderAccessBestEffort).toHaveBeenCalledOnce();
-    expect(recordFileAccessBestEffort).toHaveBeenCalledOnce();
+    await expect(response.json()).resolves.toEqual({
+      operationId: "batch-parent-1",
+      status: "succeeded",
+      response: {
+        movedCount: 1,
+        failedCount: 0,
+        results: [{ id: "file-1", kind: "file", status: "moved" }],
+      },
+    });
   });
 
   it("rejects malformed and cross-origin requests", async () => {
@@ -203,6 +228,6 @@ describe("batch move route", () => {
       ),
     );
     expect(crossOrigin.status).toBe(403);
-    expect(filesService.moveFile).not.toHaveBeenCalled();
+    expect(mocks.prepare).not.toHaveBeenCalled();
   });
 });

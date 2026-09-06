@@ -1197,6 +1197,36 @@ describe("STO-02 durable PostgreSQL protocol", () => {
     ).rejects.toBeInstanceOf(StorageMutationFenceError);
   });
 
+  it("serializes queued batch moves for one owner at worker claim time", async () => {
+    const user = await createUser();
+    const prepare = () =>
+      prepareStorageMutationParent({
+        kind: "batch_move",
+        ownerUserId: user.id,
+        idempotencyKey: randomUUID(),
+        requestHash: randomUUID(),
+        intentJson: { version: 1, metadataOperations: [], items: [] },
+        resourceKeys: [],
+      });
+    const [first, second] = await Promise.all([prepare(), prepare()]);
+
+    const claims = await Promise.all([
+      claimStorageMutation({
+        id: first.mutation.id,
+        leaseOwner: "move-worker",
+        resourceKeys: [`owner:${user.id}`],
+      }),
+      claimStorageMutation({
+        id: second.mutation.id,
+        leaseOwner: "move-worker",
+        resourceKeys: [`owner:${user.id}`],
+      }),
+    ]);
+
+    expect(claims.filter(Boolean)).toHaveLength(1);
+    expect(claims.filter((claim) => !claim)).toHaveLength(1);
+  });
+
   it("serializes global recovery against every owner mutation", async () => {
     const firstUser = await createUser();
     const secondUser = await createUser();

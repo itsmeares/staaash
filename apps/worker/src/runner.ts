@@ -24,10 +24,13 @@ import {
   schedulePeriodicJobs,
 } from "./job-registry.js";
 import { TerminalJobError, getErrorMessage } from "./job-context.js";
+import { recoverStorageMutations } from "./handlers/storage-mutation-recovery.js";
 
 const MIN_IDLE_DELAY_MS = 1_000;
 const MAX_IDLE_DELAY_MS = 30_000;
 const SCHEDULER_TICK_MS = 60_000;
+const MOVE_STORAGE_MUTATION_CONCURRENCY = 5;
+const STORAGE_MUTATION_POLL_MS = 1_000;
 
 type ActiveJobState = {
   jobId: string;
@@ -43,6 +46,7 @@ export class WorkerRunner {
   private stopping = false;
   private idleDelayMs = MIN_IDLE_DELAY_MS;
   private activeJob: ActiveJobState | null = null;
+  private storageMutationLoop: Promise<void> | null = null;
   private schedulerTimer: NodeJS.Timeout | null = null;
 
   constructor(
@@ -54,6 +58,8 @@ export class WorkerRunner {
   ) {}
 
   async start() {
+    const storageMutationLoop = this.runStorageMutationLoop();
+    this.storageMutationLoop = storageMutationLoop;
     this.schedulerTimer = setInterval(() => {
       void schedulePeriodicJobs().catch((error) => {
         console.warn("[worker] Failed to schedule periodic jobs.", {
@@ -83,6 +89,8 @@ export class WorkerRunner {
         await delay(this.idleDelayMs);
       }
     }
+
+    await storageMutationLoop;
   }
 
   async stop(timeoutMs = 25_000) {
@@ -90,12 +98,35 @@ export class WorkerRunner {
     if (this.schedulerTimer) clearInterval(this.schedulerTimer);
     this.activeJob?.controller.abort();
 
-    if (!this.activeJob) return;
+    const active = [this.activeJob?.done, this.storageMutationLoop].filter(
+      (value): value is Promise<void> => Boolean(value),
+    );
+    if (active.length === 0) return;
 
     await Promise.race([
-      this.activeJob.done,
+      Promise.all(active).then(() => undefined),
       delay(timeoutMs).then(() => undefined),
     ]);
+  }
+
+  private async runStorageMutationLoop() {
+    while (!this.stopping) {
+      try {
+        await recoverStorageMutations({
+          storagePaths: this.options.storagePaths,
+          leaseOwner: `storage-move:${this.options.workerId}`,
+          kinds: ["batch_move"],
+          take: MOVE_STORAGE_MUTATION_CONCURRENCY,
+          concurrency: MOVE_STORAGE_MUTATION_CONCURRENCY,
+        });
+      } catch (error) {
+        console.warn("[worker] Move operation poll failed.", {
+          error: getErrorMessage(error),
+        });
+      }
+
+      if (!this.stopping) await delay(STORAGE_MUTATION_POLL_MS);
+    }
   }
 
   async drainDueJobs() {

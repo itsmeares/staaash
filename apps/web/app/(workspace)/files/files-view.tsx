@@ -9,7 +9,7 @@ import {
 } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Download, FolderPlus, RefreshCw, Upload } from "lucide-react";
+import { Download, FolderPlus, Loader2, RefreshCw, Upload } from "lucide-react";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { FlashMessage } from "@/app/auth-ui";
@@ -19,6 +19,8 @@ import { getItemVisual } from "@/app/item-visuals";
 import { startValidatedDownload } from "@/lib/transfers/download";
 import type {
   BatchMoveItem,
+  BatchMoveOperationResponse,
+  BatchMoveResult,
   BatchMoveResponse,
   FilesListing,
 } from "@/server/files/types";
@@ -30,6 +32,7 @@ import {
   buildBatchMoveFailureMessage,
   getMoveItemsForInteraction,
   getOptimisticSourceMoveIds,
+  getRetryableMoveItems,
   getStorageMutationItemIds,
   reconcileCutItems,
 } from "./files-move";
@@ -58,6 +61,19 @@ const INTERNAL_ITEM_DRAG_TYPE = "application/x-staaash-items";
 
 type CutItem = { id: string; kind: "folder" | "file"; name: string };
 type MoveRequestSource = "direct" | "paste";
+type MoveOperation = {
+  clientId: string;
+  operationId: string | null;
+  items: BatchMoveItem[];
+  destinationFolderId: string;
+  source: MoveRequestSource;
+  initiallyListedIds: Set<string>;
+  status: BatchMoveOperationResponse["status"] | "failed";
+  response: BatchMoveResponse | null;
+  preservedFailures: Extract<BatchMoveResult, { status: "failed" }>[];
+  error: string | null;
+  retrying: boolean;
+};
 type ResumableSessionSummary = {
   name: string;
   size: number;
@@ -167,6 +183,24 @@ const getListedItemIds = (listing: FilesListing) =>
     ...listing.files.map((file) => file.id),
   ]);
 
+const isBatchMoveOperationResponse = (
+  value: unknown,
+): value is BatchMoveOperationResponse => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const candidate = value as {
+    operationId?: unknown;
+    status?: unknown;
+  };
+  return (
+    typeof candidate.operationId === "string" &&
+    ["queued", "running", "succeeded", "recovery_required"].includes(
+      candidate.status as string,
+    )
+  );
+};
+
 // ---------------------------------------------------------------------------
 
 export function FilesView({
@@ -203,17 +237,15 @@ export function FilesView({
   // refresh comes back so the list visually updates instantly. Cleared once
   // the new listing arrives (the server response no longer contains them).
   const [trashedIds, setTrashedIds] = useState<Set<string>>(new Set());
-  const [movingIds, setMovingIds] = useState<Set<string>>(new Set());
+  const [moveOperations, setMoveOperations] = useState<
+    Map<string, MoveOperation>
+  >(new Map());
+  const moveOperationsRef = useRef(moveOperations);
+  moveOperationsRef.current = moveOperations;
   const [optimisticallyMovedIds, setOptimisticallyMovedIds] = useState<
     Set<string>
   >(new Set());
   const [trashError, setTrashError] = useState<string | null>(null);
-  const [moveError, setMoveError] = useState<string | null>(null);
-  const [retryMoveRequest, setRetryMoveRequest] = useState<{
-    items: BatchMoveItem[];
-    destinationFolderId: string;
-    source: MoveRequestSource;
-  } | null>(null);
   useEffect(() => {
     setTrashedIds(new Set());
   }, [listing]);
@@ -358,6 +390,14 @@ export function FilesView({
   const favoriteFileSet = new Set(favoriteFileIds);
   const favoriteFolderSet = new Set(favoriteFolderIds);
   const storageMutationItemIds = getStorageMutationItemIds(listing);
+  const movingIds = new Set(
+    Array.from(moveOperations.values())
+      .filter(
+        (operation) =>
+          operation.status === "queued" || operation.status === "running",
+      )
+      .flatMap((operation) => operation.items.map((item) => item.id)),
+  );
   const visibleFolders = listing.childFolders.filter(
     (f) =>
       !trashedIds.has(f.id) &&
@@ -782,121 +822,6 @@ export function FilesView({
     if (succeeded) startTransition(() => router.refresh());
   };
 
-  const moveItems = async (
-    items: BatchMoveItem[],
-    destinationFolderId: string,
-    source: MoveRequestSource = "direct",
-  ): Promise<BatchMoveResponse | null> => {
-    if (items.length === 0) return null;
-    setMoveError(null);
-    setRetryMoveRequest(null);
-    const itemIds = new Set(items.map((item) => item.id));
-    const initiallyListedIds = getListedItemIds(listing);
-    setMovingIds((current) => new Set([...current, ...itemIds]));
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      for (const id of itemIds) next.delete(id);
-      return next;
-    });
-    setLastSelectedId(null);
-
-    try {
-      const logicalAction = `move:${destinationFolderId}:${items
-        .map((item) => `${item.kind}:${item.id}`)
-        .join(",")}`;
-      const response = await fetch("/api/files/move", {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          "Idempotency-Key": getStorageMutationKey(logicalAction),
-        },
-        body: JSON.stringify({
-          items,
-          destinationFolderId,
-        }),
-      });
-      finishStorageMutationKey(logicalAction, response);
-      const data = (await response.json().catch(() => ({}))) as
-        BatchMoveResponse | { error?: string };
-
-      if (!response.ok || !("results" in data)) {
-        throw new Error(
-          "error" in data && data.error
-            ? data.error
-            : `Move failed (${response.status})`,
-        );
-      }
-
-      const failures = data.results.filter(
-        (result) => result.status === "failed",
-      );
-      const failedIds = new Set(failures.map((result) => result.id));
-      const movedFromCurrentFolderIds = getOptimisticSourceMoveIds({
-        results: data.results,
-        initiallyListedIds,
-      });
-      setMovingIds((current) => {
-        const next = new Set(current);
-        for (const id of itemIds) next.delete(id);
-        return next;
-      });
-      setOptimisticallyMovedIds((current) => {
-        const next = new Set(current);
-        for (const id of failedIds) next.delete(id);
-        for (const id of movedFromCurrentFolderIds) next.add(id);
-        return next;
-      });
-      setRetryMoveRequest(
-        failures.length > 0
-          ? {
-              items: failures.map(({ id, kind }) => ({ id, kind })),
-              destinationFolderId,
-              source,
-            }
-          : null,
-      );
-      setSelectedIds(new Set(failures.map((result) => result.id)));
-      setLastSelectedId(failures.at(-1)?.id ?? null);
-
-      if (failures.length > 0) {
-        setMoveError(
-          buildBatchMoveFailureMessage({
-            response: data,
-            getItemName,
-          }),
-        );
-      }
-
-      if (data.movedCount > 0) {
-        startTransition(() => router.refresh());
-      }
-
-      return data;
-    } catch (error) {
-      setMovingIds((current) => {
-        const next = new Set(current);
-        for (const id of itemIds) next.delete(id);
-        return next;
-      });
-      setOptimisticallyMovedIds((current) => {
-        const next = new Set(current);
-        for (const id of itemIds) next.delete(id);
-        return next;
-      });
-      setRetryMoveRequest({
-        items,
-        destinationFolderId,
-        source,
-      });
-      setSelectedIds(new Set(items.map((item) => item.id)));
-      setMoveError(
-        error instanceof Error ? error.message : "Items could not be moved.",
-      );
-      return null;
-    }
-  };
-
   const finishPasteMove = (
     result: BatchMoveResponse,
     attemptedItems: BatchMoveItem[],
@@ -924,6 +849,303 @@ export function FilesView({
     setTimeout(() => setJustMovedIds(new Set()), 800);
   };
 
+  const updateMoveOperation = (
+    clientId: string,
+    update: (operation: MoveOperation) => MoveOperation,
+    fallback?: MoveOperation,
+  ) => {
+    setMoveOperations((current) => {
+      const stored = current.get(clientId);
+      const operation =
+        fallback && stored && stored.operationId !== fallback.operationId
+          ? fallback
+          : (stored ?? fallback);
+      if (!operation) return current;
+      const updated = update(operation);
+      if (updated === operation) return current;
+      const next = new Map(current);
+      next.set(clientId, updated);
+      return next;
+    });
+  };
+
+  // This keeps terminal-result reconciliation in one place for queued moves.
+  // fallow-ignore-next-line complexity
+  const completeMoveOperation = (
+    clientId: string,
+    operationId: string,
+    operationResponse: BatchMoveOperationResponse,
+    operationOverride?: MoveOperation,
+  ) => {
+    const operation =
+      operationOverride ?? moveOperationsRef.current.get(clientId);
+    if (
+      !operation ||
+      (operation.operationId !== null && operation.operationId !== operationId)
+    ) {
+      return;
+    }
+    const updateOperation = (
+      update: (current: MoveOperation) => MoveOperation,
+    ) => updateMoveOperation(clientId, update, operation);
+
+    if (
+      operationResponse.status === "queued" ||
+      operationResponse.status === "running"
+    ) {
+      if (operation.status === operationResponse.status) return;
+      updateOperation((current) => ({
+        ...current,
+        status: operationResponse.status,
+      }));
+      return;
+    }
+
+    if (operationResponse.status === "recovery_required") {
+      updateOperation((current) => ({
+        ...current,
+        status: "recovery_required",
+        response: null,
+        error:
+          operationResponse.error ??
+          "This move could not finish. Please check the file state.",
+        retrying: false,
+      }));
+      startTransition(() => router.refresh());
+      return;
+    }
+
+    const result = operationResponse.response;
+    if (!result) {
+      updateOperation((current) => ({
+        ...current,
+        status: "recovery_required",
+        response: null,
+        error: "The move result is unavailable.",
+        retrying: false,
+      }));
+      startTransition(() => router.refresh());
+      return;
+    }
+
+    const combinedResponse: BatchMoveResponse =
+      operation.preservedFailures.length === 0
+        ? result
+        : {
+            movedCount: result.movedCount,
+            failedCount:
+              operation.preservedFailures.length + result.failedCount,
+            results: [...operation.preservedFailures, ...result.results],
+          };
+    const failures = combinedResponse.results.filter(
+      (item) => item.status === "failed",
+    );
+    const failedIds = new Set(failures.map((item) => item.id));
+    const movedFromCurrentFolderIds = getOptimisticSourceMoveIds({
+      results: result.results,
+      initiallyListedIds: operation.initiallyListedIds,
+    });
+
+    setOptimisticallyMovedIds((current) => {
+      const next = new Set(current);
+      for (const id of movedFromCurrentFolderIds) next.add(id);
+      return next;
+    });
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      for (const item of operation.items) next.delete(item.id);
+      for (const id of failedIds) next.add(id);
+      return next;
+    });
+    if (failures.length > 0) {
+      setLastSelectedId(failures.at(-1)?.id ?? null);
+    }
+
+    if (operation.source === "paste") {
+      finishPasteMove(result, operation.items);
+    }
+    startTransition(() => router.refresh());
+
+    if (failures.length === 0) {
+      setMoveOperations((current) => {
+        if (!current.has(clientId)) return current;
+        const next = new Map(current);
+        next.delete(clientId);
+        return next;
+      });
+      return;
+    }
+
+    updateOperation((current) => ({
+      ...current,
+      status: "succeeded",
+      response: combinedResponse,
+      preservedFailures: [],
+      error: buildBatchMoveFailureMessage({
+        response: combinedResponse,
+        getItemName,
+      }),
+      retrying: false,
+    }));
+  };
+
+  useEffect(() => {
+    const activeOperations = Array.from(moveOperations.values()).filter(
+      (operation) =>
+        operation.operationId &&
+        (operation.status === "queued" || operation.status === "running"),
+    );
+    if (activeOperations.length === 0) return;
+
+    let cancelled = false;
+    let timeoutId: number | undefined;
+    const poll = async () => {
+      await Promise.all(
+        activeOperations.map(async (operation) => {
+          try {
+            const response = await fetch(
+              `/api/files/move/${encodeURIComponent(operation.operationId!)}`,
+              { headers: { Accept: "application/json" } },
+            );
+            if (!response.ok) return;
+            const value = await response.json().catch(() => null);
+            if (!cancelled && isBatchMoveOperationResponse(value)) {
+              completeMoveOperation(
+                operation.clientId,
+                operation.operationId!,
+                value,
+              );
+            }
+          } catch {
+            // Keep polling. Refresh remains available as the manual fallback.
+          }
+        }),
+      );
+      if (!cancelled) timeoutId = window.setTimeout(poll, 2_000);
+    };
+    void poll();
+    return () => {
+      cancelled = true;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    };
+    // The operation map is the polling trigger; the callback reads current refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moveOperations]);
+
+  const moveItems = async (
+    items: BatchMoveItem[],
+    destinationFolderId: string,
+    source: MoveRequestSource = "direct",
+    clientId = crypto.randomUUID(),
+    initiallyListedIds = getListedItemIds(listing),
+    preservedFailures: Extract<BatchMoveResult, { status: "failed" }>[] = [],
+  ): Promise<void> => {
+    if (items.length === 0) return;
+    const itemIds = new Set(items.map((item) => item.id));
+    const previous = moveOperationsRef.current.get(clientId);
+    const nextOperation: MoveOperation = {
+      clientId,
+      operationId: null,
+      items,
+      destinationFolderId,
+      source,
+      initiallyListedIds,
+      status: "queued",
+      response: null,
+      preservedFailures,
+      error: null,
+      retrying: previous?.retrying ?? false,
+    };
+    setMoveOperations((current) => {
+      const next = new Map(current);
+      next.set(clientId, nextOperation);
+      return next;
+    });
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      for (const id of itemIds) next.delete(id);
+      return next;
+    });
+    setLastSelectedId(null);
+
+    const logicalAction = `move:${destinationFolderId}:${items
+      .map((item) => `${item.kind}:${item.id}`)
+      .join(",")}`;
+    try {
+      const response = await fetch("/api/files/move", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "Idempotency-Key": getStorageMutationKey(logicalAction),
+        },
+        body: JSON.stringify({ items, destinationFolderId }),
+      });
+      finishStorageMutationKey(logicalAction, response);
+      const value = await response.json().catch(() => null);
+      const mutationId = response.headers.get("X-Storage-Mutation-Id");
+      const errorMessage =
+        value && typeof value === "object" && "error" in value
+          ? typeof value.error === "string"
+            ? value.error
+            : null
+          : null;
+
+      if (isBatchMoveOperationResponse(value)) {
+        updateMoveOperation(clientId, (operation) => ({
+          ...operation,
+          operationId: value.operationId,
+          status: value.status,
+          response: value.response ?? null,
+          error: value.error ?? null,
+          retrying: false,
+        }));
+        if (
+          value.status === "succeeded" ||
+          value.status === "recovery_required"
+        ) {
+          completeMoveOperation(clientId, value.operationId, value, {
+            ...nextOperation,
+            operationId: value.operationId,
+            status: value.status,
+            response: value.response ?? null,
+            error: value.error ?? null,
+            retrying: false,
+          });
+        }
+        return;
+      }
+
+      if (mutationId) {
+        updateMoveOperation(clientId, (operation) => ({
+          ...operation,
+          operationId: mutationId,
+          status: "queued",
+          error: null,
+          retrying: false,
+        }));
+        return;
+      }
+
+      throw new Error(errorMessage ?? `Move failed (${response.status})`);
+    } catch (error) {
+      updateMoveOperation(clientId, (operation) => ({
+        ...operation,
+        operationId: null,
+        status: "failed",
+        response: previous?.response ?? null,
+        error:
+          error instanceof Error ? error.message : "Items could not be moved.",
+        retrying: false,
+      }));
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        for (const id of itemIds) next.add(id);
+        return next;
+      });
+    }
+  };
+
   const handlePaste = async () => {
     if (cutItems.length === 0) return;
     const dest = listing.currentFolder.id;
@@ -931,22 +1153,40 @@ export function FilesView({
       .filter((item) => !storageMutationItemIds.has(item.id))
       .map(({ id, kind }) => ({ id, kind }));
     if (attemptedItems.length === 0) return;
-    const result = await moveItems(attemptedItems, dest, "paste");
-    if (!result) return;
-    finishPasteMove(result, attemptedItems);
+    await moveItems(attemptedItems, dest, "paste");
   };
 
-  const retryFailedMove = async () => {
-    const request = retryMoveRequest;
-    if (!request) return;
-    const result = await moveItems(
-      request.items,
-      request.destinationFolderId,
-      request.source,
-    );
-    if (result && request.source === "paste") {
-      finishPasteMove(result, request.items);
+  const retryFailedMove = async (clientId: string) => {
+    const operation = moveOperationsRef.current.get(clientId);
+    if (
+      !operation ||
+      operation.retrying ||
+      (operation.status !== "failed" && operation.status !== "succeeded")
+    ) {
+      return;
     }
+    const retryItems = operation.response
+      ? getRetryableMoveItems(operation.response)
+      : operation.items;
+    if (retryItems.length === 0) return;
+    const preservedFailures = operation.response
+      ? operation.response.results.filter(
+          (result): result is Extract<BatchMoveResult, { status: "failed" }> =>
+            result.status === "failed" && result.retryable !== true,
+        )
+      : operation.preservedFailures;
+    updateMoveOperation(clientId, (current) => ({
+      ...current,
+      retrying: true,
+    }));
+    await moveItems(
+      retryItems,
+      operation.destinationFolderId,
+      operation.source,
+      clientId,
+      operation.initiallyListedIds,
+      preservedFailures,
+    );
   };
 
   // ---------------------------------------------------------------------------
@@ -1434,23 +1674,40 @@ export function FilesView({
         {error ? <FlashMessage>{error}</FlashMessage> : null}
         {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
         {trashError ? <FlashMessage>{trashError}</FlashMessage> : null}
-        {moveError ? (
-          <FlashMessage>
-            <div className="files-move-error">
-              <span>{moveError}</span>
-              {retryMoveRequest ? (
-                <button
-                  className="button button-secondary"
-                  disabled={movingIds.size > 0}
-                  onClick={retryFailedMove}
-                  type="button"
-                >
-                  Retry
-                </button>
-              ) : null}
-            </div>
-          </FlashMessage>
-        ) : null}
+        {Array.from(moveOperations.values())
+          .filter(
+            (operation) =>
+              operation.status === "failed" ||
+              operation.status === "recovery_required" ||
+              (operation.status === "succeeded" &&
+                (operation.response?.failedCount ?? 0) > 0),
+          )
+          .map((operation) => {
+            const retryItems = operation.response
+              ? getRetryableMoveItems(operation.response)
+              : operation.status === "failed"
+                ? operation.items
+                : [];
+            return (
+              <FlashMessage key={operation.clientId}>
+                <div className="files-move-error">
+                  <span>
+                    {operation.error ?? "Some items could not be moved."}
+                  </span>
+                  {retryItems.length > 0 ? (
+                    <button
+                      className="button button-secondary"
+                      disabled={operation.retrying}
+                      onClick={() => void retryFailedMove(operation.clientId)}
+                      type="button"
+                    >
+                      Retry
+                    </button>
+                  ) : null}
+                </div>
+              </FlashMessage>
+            );
+          })}
 
         <DashboardPageContextMenu
           className="explorer-root"
@@ -1519,6 +1776,11 @@ export function FilesView({
                         role="status"
                         aria-live="polite"
                       >
+                        <Loader2
+                          aria-hidden
+                          className="move-status-spinner"
+                          size={12}
+                        />
                         Moving {movingIds.size} item
                         {movingIds.size === 1 ? "" : "s"}…
                       </span>
@@ -1659,6 +1921,8 @@ export function FilesView({
                   }}
                   onProperties={() => setPropertiesId(folder.id)}
                   onCut={() => {
+                    // Folder and file rows intentionally share this selection behavior.
+                    // fallow-ignore-next-line code-duplication
                     if (selectedIds.has(folder.id) && selectedIds.size > 1) {
                       const items = allItems
                         .filter((i) => selectedIdsRef.current.has(i.id))

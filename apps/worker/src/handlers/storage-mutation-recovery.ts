@@ -80,6 +80,10 @@ const recoverForwardMutation = async ({
   const claimed = await claimStorageMutation({
     id: mutation.id,
     leaseOwner,
+    resourceKeys:
+      mutation.kind === "batch_move"
+        ? [`owner:${mutation.ownerUserId}`]
+        : undefined,
   });
   if (!claimed) return false;
 
@@ -161,17 +165,34 @@ const recoverMutation = async ({
 export const recoverStorageMutations = async ({
   storagePaths,
   leaseOwner = workerLeaseOwner(),
+  take = 100,
+  concurrency = 1,
+  kinds,
+  excludeKinds,
 }: {
   storagePaths: WorkerStoragePaths;
   leaseOwner?: string;
+  take?: number;
+  concurrency?: number;
+  kinds?: string[];
+  excludeKinds?: string[];
 }) => {
-  const mutations = await listRecoverableStorageMutations();
+  const mutations = await listRecoverableStorageMutations({
+    take,
+    kinds,
+    excludeKinds,
+  });
+  const workerConcurrency = Math.max(1, Math.floor(concurrency));
   let recovered = 0;
 
-  for (const mutation of mutations) {
-    if (await recoverMutation({ mutation, storagePaths, leaseOwner })) {
-      recovered += 1;
-    }
+  for (let index = 0; index < mutations.length; index += workerConcurrency) {
+    const batch = mutations.slice(index, index + workerConcurrency);
+    const results = await Promise.all(
+      batch.map((mutation) =>
+        recoverMutation({ mutation, storagePaths, leaseOwner }),
+      ),
+    );
+    recovered += results.filter(Boolean).length;
   }
 
   return recovered;

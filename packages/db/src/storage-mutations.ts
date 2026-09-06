@@ -1234,49 +1234,86 @@ export const claimStorageMutation = async ({
   leaseOwner,
   now = new Date(),
   leaseMs = STORAGE_MUTATION_LEASE_MS,
+  resourceKeys = [],
 }: {
   id: string;
   leaseOwner: string;
   now?: Date;
   leaseMs?: number;
+  resourceKeys?: string[];
 }): Promise<ClaimedStorageMutation | null> => {
   const leaseExpiresAt = new Date(now.getTime() + leaseMs);
-  const claimed = await getPrisma().$queryRaw<
-    Array<{ id: string; leaseToken: bigint }>
-  >`
-    UPDATE "StorageMutation"
-       SET "status" = 'running',
-           "leaseOwner" = ${leaseOwner},
-           "leaseToken" = "leaseToken" + 1,
-           "leaseExpiresAt" = ${leaseExpiresAt},
-           "attemptCount" = "attemptCount" + 1,
-           "lastAttemptAt" = ${now},
-           "nextAttemptAt" = NULL,
-           "lastError" = NULL,
-           "updatedAt" = ${now}
-     WHERE "id" = ${id}
-       AND (
-         (
-           "status" IN ('prepared', 'retrying')
-           AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= ${now})
-           AND ("leaseExpiresAt" IS NULL OR "leaseExpiresAt" <= ${now})
-         )
-         OR (
-           "status" = 'running'
-           AND "leaseExpiresAt" <= ${now}
-         )
-       )
-    RETURNING "id", "leaseToken"
-  `;
+  const uniqueResources = Array.from(new Set(resourceKeys)).sort();
+  let claimed: { id: string; leaseToken: bigint } | null;
 
-  if (!claimed[0]) {
-    return null;
+  try {
+    // Resource ownership and the lease must change together.
+    // fallow-ignore-next-line complexity
+    claimed = await getPrisma().$transaction(async (tx) => {
+      if (uniqueResources.length > 0) {
+        await acquireStorageMutationResources(tx, uniqueResources);
+        for (const resourceKey of uniqueResources) {
+          const existing = await tx.storageMutationResource.findFirst({
+            where: { resourceKey, releasedAt: null },
+            select: { mutationId: true },
+          });
+          if (existing && existing.mutationId !== id) return null;
+        }
+      }
+
+      const rows = await tx.$queryRaw<
+        Array<{ id: string; leaseToken: bigint }>
+      >`
+        UPDATE "StorageMutation"
+           SET "status" = 'running',
+               "leaseOwner" = ${leaseOwner},
+               "leaseToken" = "leaseToken" + 1,
+               "leaseExpiresAt" = ${leaseExpiresAt},
+               "attemptCount" = "attemptCount" + 1,
+               "lastAttemptAt" = ${now},
+               "nextAttemptAt" = NULL,
+               "lastError" = NULL,
+               "updatedAt" = ${now}
+         WHERE "id" = ${id}
+           AND (
+             (
+               "status" IN ('prepared', 'retrying')
+               AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= ${now})
+               AND ("leaseExpiresAt" IS NULL OR "leaseExpiresAt" <= ${now})
+             )
+             OR (
+               "status" = 'running'
+               AND "leaseExpiresAt" <= ${now}
+             )
+           )
+        RETURNING "id", "leaseToken"
+      `;
+      const row = rows[0];
+      if (!row) return null;
+
+      for (const resourceKey of uniqueResources) {
+        const existing = await tx.storageMutationResource.findFirst({
+          where: { resourceKey, releasedAt: null },
+          select: { mutationId: true },
+        });
+        if (!existing) {
+          await tx.storageMutationResource.create({
+            data: { resourceKey, mutationId: id, fenceToken: row.leaseToken },
+          });
+        }
+      }
+      await tx.storageMutationResource.updateMany({
+        where: { mutationId: id, releasedAt: null },
+        data: { fenceToken: row.leaseToken },
+      });
+      return row;
+    });
+  } catch (error) {
+    if (isUniqueViolation(error)) return null;
+    throw error;
   }
 
-  await getPrisma().storageMutationResource.updateMany({
-    where: { mutationId: id, releasedAt: null },
-    data: { fenceToken: claimed[0].leaseToken },
-  });
+  if (!claimed) return null;
 
   const mutation = await findStorageMutation(id);
   if (
@@ -1714,12 +1751,16 @@ export const prepareStorageMutationParent = async ({
   idempotencyKey,
   requestHash,
   intentJson,
+  resourceKeys,
+  entities = [],
 }: {
   kind: "clear_trash" | "batch_move" | "trash_retention";
   ownerUserId: string;
   idempotencyKey: string;
   requestHash: string;
   intentJson: Prisma.InputJsonValue;
+  resourceKeys?: string[];
+  entities?: StorageMutationEntityInput[];
 }) => {
   const id = randomUUID();
   const prepared = await prepareStorageMutation({
@@ -1730,8 +1771,9 @@ export const prepareStorageMutationParent = async ({
     requestHash,
     intentJson,
     initialResultJson: { children: [] },
-    resourceKeys: [`owner:${ownerUserId}`, `parent:${id}`],
+    resourceKeys: resourceKeys ?? [`owner:${ownerUserId}`, `parent:${id}`],
     steps: [],
+    entities,
   });
   return prepared;
 };
@@ -1814,15 +1856,29 @@ export const completeStorageMutationParent = async ({
   });
 };
 
+// Recovery selection supports both normal maintenance and scoped move polling.
+// fallow-ignore-next-line complexity
 export const listRecoverableStorageMutations = async ({
   now = new Date(),
   take = 100,
+  kinds,
+  excludeKinds,
 }: {
   now?: Date;
   take?: number;
+  kinds?: string[];
+  excludeKinds?: string[];
 } = {}) =>
   getPrisma().storageMutation.findMany({
     where: {
+      ...(kinds?.length || excludeKinds?.length
+        ? {
+            kind: {
+              ...(kinds?.length ? { in: kinds } : {}),
+              ...(excludeKinds?.length ? { notIn: excludeKinds } : {}),
+            },
+          }
+        : {}),
       OR: [
         { status: "prepared" },
         { status: "retrying", nextAttemptAt: { lte: now } },

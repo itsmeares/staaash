@@ -63,6 +63,20 @@ export const getOptimisticSourceMoveIds = ({
       .map((result) => result.id),
   );
 
+export const getRetryableMoveItems = (
+  response: BatchMoveResponse,
+): BatchMoveItem[] =>
+  response.results
+    .filter(
+      (
+        result,
+      ): result is Extract<
+        BatchMoveResponse["results"][number],
+        { status: "failed" }
+      > => result.status === "failed" && result.retryable === true,
+    )
+    .map(({ id, kind }) => ({ id, kind }));
+
 export const buildBatchMoveFailureMessage = ({
   response,
   getItemName,

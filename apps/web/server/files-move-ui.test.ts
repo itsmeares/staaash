@@ -4,6 +4,7 @@ import {
   buildBatchMoveFailureMessage,
   getMoveItemsForInteraction,
   getOptimisticSourceMoveIds,
+  getRetryableMoveItems,
   getStorageMutationItemIds,
   reconcileCutItems,
 } from "@/app/(workspace)/files/files-move";
@@ -80,6 +81,33 @@ describe("file move interactions", () => {
     ).toBe(
       "1 moved. 1 failed — Photos: A folder cannot be moved into itself or one of its descendants.",
     );
+  });
+
+  it("only retries failures the server marks as retryable", () => {
+    expect(
+      getRetryableMoveItems({
+        movedCount: 1,
+        failedCount: 2,
+        results: [
+          { id: "file-1", kind: "file", status: "moved" },
+          {
+            id: "file-2",
+            kind: "file",
+            status: "failed",
+            code: "FILE_NAME_CONFLICT",
+            error: "A file with this name already exists.",
+            retryable: true,
+          },
+          {
+            id: "folder-1",
+            kind: "folder",
+            status: "failed",
+            code: "FOLDER_MOVE_CYCLE",
+            error: "A folder cannot be moved into itself.",
+          },
+        ],
+      }),
+    ).toEqual([{ id: "file-2", kind: "file" }]);
   });
 
   it("keeps storage-busy items out of selection actions", () => {
