@@ -327,7 +327,13 @@ export function FilesRow(props: FilesRowProps) {
   };
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!touchMode || event.pointerType === "mouse" || isRenaming) return;
+    if (
+      !touchMode ||
+      event.pointerType === "mouse" ||
+      isRenaming ||
+      storageMutationBlocked
+    )
+      return;
     const target = event.target as HTMLElement;
     if (target.closest("button, input, a")) return;
     clearLongPressTimer();
@@ -339,6 +345,8 @@ export function FilesRow(props: FilesRowProps) {
   };
 
   const handleRowClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (storageMutationBlocked) return;
+
     if (suppressNextClickRef.current) {
       suppressNextClickRef.current = false;
       event.preventDefault();
@@ -347,7 +355,7 @@ export function FilesRow(props: FilesRowProps) {
     }
 
     if (touchMode && !isRenaming) {
-      if (selectedCount > 0 || storageMutationBlocked) onClick(event);
+      if (selectedCount > 0) onClick(event);
       else onOpen();
       return;
     }

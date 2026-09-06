@@ -30,6 +30,8 @@ import {
   buildBatchMoveFailureMessage,
   getMoveItemsForInteraction,
   getOptimisticSourceMoveIds,
+  getStorageMutationItemIds,
+  reconcileCutItems,
 } from "./files-move";
 import { FilesPropertiesPanel } from "./files-properties-panel";
 import { ShareDialog } from "./share-dialog";
@@ -225,6 +227,15 @@ export function FilesView({
     });
   }, [listing]);
   useEffect(() => {
+    const blockedIds = getStorageMutationItemIds(listing);
+    setSelectedIds((current) => {
+      const next = new Set(
+        Array.from(current).filter((id) => !blockedIds.has(id)),
+      );
+      return next.size === current.size ? current : next;
+    });
+  }, [listing]);
+  useEffect(() => {
     if (!trashError) return;
     const t = setTimeout(() => setTrashError(null), 4000);
     return () => clearTimeout(t);
@@ -236,6 +247,12 @@ export function FilesView({
 
   // ---- Cut / paste ----
   const [cutItems, setCutItems] = useState<CutItem[]>([]);
+  const cutItemsRef = useRef<CutItem[]>([]);
+  cutItemsRef.current = cutItems;
+  const updateCutItems = (items: CutItem[]) => {
+    cutItemsRef.current = items;
+    setCutItems(items);
+  };
 
   // ---- Properties panel ----
   const [propertiesId, setPropertiesId] = useState<string | null>(null);
@@ -340,6 +357,7 @@ export function FilesView({
   // ---- Sets ----
   const favoriteFileSet = new Set(favoriteFileIds);
   const favoriteFolderSet = new Set(favoriteFolderIds);
+  const storageMutationItemIds = getStorageMutationItemIds(listing);
   const visibleFolders = listing.childFolders.filter(
     (f) =>
       !trashedIds.has(f.id) &&
@@ -357,7 +375,12 @@ export function FilesView({
   const allItems: BatchMoveItem[] = [
     ...visibleFolders.map((f) => ({ kind: "folder" as const, id: f.id })),
     ...visibleFiles.map((f) => ({ kind: "file" as const, id: f.id })),
-  ];
+  ].filter((item) => !storageMutationItemIds.has(item.id));
+
+  const getSelectedItemIds = () =>
+    allItems
+      .filter((item) => selectedIdsRef.current.has(item.id))
+      .map((item) => item.id);
 
   const getItemName = (item: BatchMoveItem) =>
     item.kind === "folder"
@@ -393,7 +416,7 @@ export function FilesView({
   useEffect(() => {
     setFolderIcons(loadFolderIcons());
     const saved = loadCutItems();
-    if (saved.length > 0) setCutItems(saved);
+    if (saved.length > 0) updateCutItems(saved);
   }, []);
 
   // ---- Scan for resumable upload sessions in this folder ----
@@ -488,7 +511,7 @@ export function FilesView({
                 : listing.files.find((f) => f.id === i.id);
             return { id: i.id, kind: i.kind, name: data?.name ?? "" };
           });
-        setCutItems(items);
+        updateCutItems(items);
         persistCutItems(items);
         return;
       }
@@ -532,7 +555,7 @@ export function FilesView({
         }
         setSelectedIds(new Set());
         setRenamingId(null);
-        setCutItems([]);
+        updateCutItems([]);
         clearCutItems();
         return;
       }
@@ -728,7 +751,10 @@ export function FilesView({
 
   const handleTrashSelected = async () => {
     const items = allItems.filter((i) => selectedIds.has(i.id));
-    if (items.length === 0) return;
+    if (items.length === 0) {
+      setSelectedIds(new Set());
+      return;
+    }
     setSelectedIds(new Set());
     setTrashedIds((prev) => {
       const next = new Set(prev);
@@ -871,14 +897,21 @@ export function FilesView({
     }
   };
 
-  const finishPasteMove = (result: BatchMoveResponse) => {
+  const finishPasteMove = (
+    result: BatchMoveResponse,
+    attemptedItems: BatchMoveItem[],
+  ) => {
     const failedIds = new Set(
       result.results
         .filter((item) => item.status === "failed")
         .map((item) => item.id),
     );
-    const remainingCutItems = cutItems.filter((item) => failedIds.has(item.id));
-    setCutItems(remainingCutItems);
+    const remainingCutItems = reconcileCutItems({
+      currentItems: cutItemsRef.current,
+      attemptedItems,
+      failedIds,
+    });
+    updateCutItems(remainingCutItems);
     if (remainingCutItems.length > 0) persistCutItems(remainingCutItems);
     else clearCutItems();
 
@@ -894,13 +927,13 @@ export function FilesView({
   const handlePaste = async () => {
     if (cutItems.length === 0) return;
     const dest = listing.currentFolder.id;
-    const result = await moveItems(
-      cutItems.map(({ id, kind }) => ({ id, kind })),
-      dest,
-      "paste",
-    );
+    const attemptedItems = cutItems
+      .filter((item) => !storageMutationItemIds.has(item.id))
+      .map(({ id, kind }) => ({ id, kind }));
+    if (attemptedItems.length === 0) return;
+    const result = await moveItems(attemptedItems, dest, "paste");
     if (!result) return;
-    finishPasteMove(result);
+    finishPasteMove(result, attemptedItems);
   };
 
   const retryFailedMove = async () => {
@@ -911,7 +944,9 @@ export function FilesView({
       request.destinationFolderId,
       request.source,
     );
-    if (result && request.source === "paste") finishPasteMove(result);
+    if (result && request.source === "paste") {
+      finishPasteMove(result, request.items);
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -1197,7 +1232,7 @@ export function FilesView({
         .querySelectorAll<HTMLElement>("[data-file-row]")
         .forEach((el) => {
           const id = el.dataset.fileRow;
-          if (!id) return;
+          if (!id || el.getAttribute("aria-disabled") === "true") return;
 
           const rowRect = el.getBoundingClientRect();
           const rowTop = rowRect.top - rect.top;
@@ -1307,7 +1342,7 @@ export function FilesView({
           : listing.files.find((file) => file.id === item.id);
       return { id: item.id, kind: item.kind, name: data?.name ?? "" };
     });
-    setCutItems(cut);
+    updateCutItems(cut);
     persistCutItems(cut);
   };
 
@@ -1356,7 +1391,7 @@ export function FilesView({
           hidden: selectedIds.size === 0,
           icon: <Download size={13} />,
           label: `Download ${selectedIds.size} item${selectedIds.size !== 1 ? "s" : ""} as zip`,
-          onSelect: () => handleDownload(Array.from(selectedIdsRef.current)),
+          onSelect: () => handleDownload(getSelectedItemIds()),
         },
         {
           hidden: selectedIds.size === 0,
@@ -1496,9 +1531,7 @@ export function FilesView({
                         <button
                           className="download-badge"
                           type="button"
-                          onClick={() =>
-                            handleDownload(Array.from(selectedIds))
-                          }
+                          onClick={() => handleDownload(getSelectedItemIds())}
                           title={`Download ${selectedIds.size} item${selectedIds.size !== 1 ? "s" : ""} as zip`}
                         >
                           <Download size={12} />
@@ -1640,7 +1673,7 @@ export function FilesView({
                             name: data?.name ?? "",
                           };
                         });
-                      setCutItems(items);
+                      updateCutItems(items);
                       persistCutItems(items);
                     } else {
                       const item: CutItem = {
@@ -1648,7 +1681,7 @@ export function FilesView({
                         kind: "folder",
                         name: folder.name,
                       };
-                      setCutItems([item]);
+                      updateCutItems([item]);
                       persistCutItems([item]);
                     }
                   }}
@@ -1661,10 +1694,10 @@ export function FilesView({
                     void moveItems(items, dest);
                   }}
                   onDownload={() => {
-                    const current = selectedIdsRef.current;
+                    const current = getSelectedItemIds();
                     const idsToDownload =
-                      current.has(folder.id) && current.size > 1
-                        ? Array.from(current)
+                      current.includes(folder.id) && current.length > 1
+                        ? current
                         : [folder.id];
                     handleDownload(idsToDownload);
                   }}
@@ -1829,7 +1862,7 @@ export function FilesView({
                             name: data?.name ?? "",
                           };
                         });
-                      setCutItems(items);
+                      updateCutItems(items);
                       persistCutItems(items);
                     } else {
                       const item: CutItem = {
@@ -1837,7 +1870,7 @@ export function FilesView({
                         kind: "file",
                         name: file.name,
                       };
-                      setCutItems([item]);
+                      updateCutItems([item]);
                       persistCutItems([item]);
                     }
                   }}
@@ -1850,9 +1883,9 @@ export function FilesView({
                     void moveItems(items, dest);
                   }}
                   onDownload={() => {
-                    const current = selectedIdsRef.current;
-                    if (current.has(file.id) && current.size > 1) {
-                      handleDownload(Array.from(current));
+                    const current = getSelectedItemIds();
+                    if (current.includes(file.id) && current.length > 1) {
+                      handleDownload(current);
                       return;
                     }
                     void downloadFile(file.id);
@@ -1878,9 +1911,7 @@ export function FilesView({
               </span>
               <button
                 type="button"
-                onClick={() =>
-                  handleDownload(Array.from(selectedIdsRef.current))
-                }
+                onClick={() => handleDownload(getSelectedItemIds())}
               >
                 Download
               </button>

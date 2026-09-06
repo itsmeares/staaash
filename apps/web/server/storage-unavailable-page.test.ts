@@ -59,6 +59,7 @@ describe("private storage unavailable page", () => {
     expect(markup).toContain(">Refresh</button>");
     expect(markup).toContain("Back to Files");
     expect(markup).toContain("storage-unavailable-spinner");
+    expect(markup).not.toContain('aria-busy="true"');
   });
 
   it("stops the spinner when the move needs recovery", async () => {

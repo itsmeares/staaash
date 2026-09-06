@@ -13,6 +13,40 @@ export const getMoveItemsForInteraction = ({
     ? allItems.filter((item) => selectedIds.has(item.id))
     : [target];
 
+export const getStorageMutationItemIds = ({
+  childFolders,
+  files,
+}: {
+  childFolders: ReadonlyArray<{
+    id: string;
+    storageMutation?: unknown | null;
+  }>;
+  files: ReadonlyArray<{
+    id: string;
+    storageMutation?: unknown | null;
+  }>;
+}) =>
+  new Set(
+    [...childFolders, ...files]
+      .filter((item) => item.storageMutation)
+      .map((item) => item.id),
+  );
+
+export const reconcileCutItems = <T extends { id: string }>({
+  currentItems,
+  attemptedItems,
+  failedIds,
+}: {
+  currentItems: readonly T[];
+  attemptedItems: ReadonlyArray<{ id: string }>;
+  failedIds: ReadonlySet<string>;
+}) => {
+  const attemptedIds = new Set(attemptedItems.map((item) => item.id));
+  return currentItems.filter(
+    (item) => !attemptedIds.has(item.id) || failedIds.has(item.id),
+  );
+};
+
 export const getOptimisticSourceMoveIds = ({
   results,
   initiallyListedIds,

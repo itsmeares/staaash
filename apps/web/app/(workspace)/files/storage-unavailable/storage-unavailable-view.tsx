@@ -92,7 +92,7 @@ export function StorageUnavailableView({
   }, [recoveryRequired, router, startTransition]);
 
   return (
-    <section aria-busy={!recoveryRequired} className="storage-unavailable-page">
+    <section className="storage-unavailable-page">
       <div className="storage-unavailable-panel">
         {!recoveryRequired && (
           <Loader2
