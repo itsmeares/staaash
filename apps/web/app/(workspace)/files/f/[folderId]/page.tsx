@@ -36,30 +36,27 @@ export default async function FilesFolderPage({
     `/?next=${encodeURIComponent(`/files/f/${folderId}`)}`,
   );
 
-  let listing: FilesListing;
   try {
-    listing = await filesService.getFilesListing({
-      actorUserId: session.user.id,
-      actorRole: session.user.role,
-      folderId,
-    });
-  } catch (error) {
-    if (error instanceof StorageEntityUnavailableError) {
-      redirect(
-        `/files/storage-unavailable?folderId=${encodeURIComponent(folderId)}`,
-      );
+    let listing: FilesListing;
+    try {
+      listing = await filesService.getFilesListing({
+        actorUserId: session.user.id,
+        actorRole: session.user.role,
+        folderId,
+      });
+    } catch (error) {
+      if (error instanceof StorageEntityUnavailableError) {
+        redirect(
+          `/files/storage-unavailable?folderId=${encodeURIComponent(folderId)}`,
+        );
+      }
+      throw error;
     }
-    if (isFilesError(error)) {
-      redirect(`/files?error=${encodeURIComponent(error.message)}`);
+
+    if (listing.currentFolder.isFilesRoot) {
+      redirect("/files");
     }
-    throw error;
-  }
 
-  if (listing.currentFolder.isFilesRoot) {
-    redirect("/files");
-  }
-
-  try {
     await recordFolderAccessBestEffort({
       actorUserId: session.user.id,
       actorRole: session.user.role,

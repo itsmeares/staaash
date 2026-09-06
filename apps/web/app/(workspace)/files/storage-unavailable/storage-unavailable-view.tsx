@@ -11,10 +11,46 @@ const FAST_REFRESH_MS = 2_000;
 const SLOW_REFRESH_MS = 10_000;
 const LONG_REFRESH_MS = 30_000;
 
+// fallow-ignore-next-line unused-export
 export const getRefreshDelay = (elapsedMs: number) => {
   if (elapsedMs < NORMAL_WAIT_MS) return FAST_REFRESH_MS;
   if (elapsedMs < LONG_WAIT_MS) return SLOW_REFRESH_MS;
   return LONG_REFRESH_MS;
+};
+
+const getStorageUnavailableCopy = ({
+  recoveryRequired,
+  elapsedMs,
+}: {
+  recoveryRequired: boolean;
+  elapsedMs: number;
+}) => {
+  if (recoveryRequired) {
+    return {
+      eyebrow: "Move incomplete",
+      heading: "This operation could not finish.",
+      message: "Use Refresh to check again or go back to Files.",
+    };
+  }
+  if (elapsedMs >= LONG_WAIT_MS) {
+    return {
+      eyebrow: "Folder unavailable",
+      heading: "This is taking longer than usual.",
+      message: "We are keeping your files safe while this finishes.",
+    };
+  }
+  if (elapsedMs >= NORMAL_WAIT_MS) {
+    return {
+      eyebrow: "Folder unavailable",
+      heading: "Folder is still getting ready.",
+      message: "The folder will open automatically when it is ready.",
+    };
+  }
+  return {
+    eyebrow: "Folder unavailable",
+    heading: "Folder is getting ready.",
+    message: "The folder will open automatically when it is ready.",
+  };
 };
 
 export function StorageUnavailableView({
@@ -25,6 +61,7 @@ export function StorageUnavailableView({
   const router = useRouter();
   const [isRefreshing, startTransition] = useTransition();
   const [elapsedMs, setElapsedMs] = useState(0);
+  const copy = getStorageUnavailableCopy({ recoveryRequired, elapsedMs });
 
   useEffect(() => {
     if (recoveryRequired) return;
@@ -54,8 +91,6 @@ export function StorageUnavailableView({
     };
   }, [recoveryRequired, router, startTransition]);
 
-  const longWait = elapsedMs >= LONG_WAIT_MS;
-
   return (
     <section aria-busy={!recoveryRequired} className="storage-unavailable-page">
       <div className="storage-unavailable-panel">
@@ -69,25 +104,9 @@ export function StorageUnavailableView({
         )}
 
         <div className="storage-unavailable-copy" aria-live="polite">
-          <p className="storage-unavailable-eyebrow">
-            {recoveryRequired ? "Move incomplete" : "Folder unavailable"}
-          </p>
-          <h1>
-            {recoveryRequired
-              ? "This operation could not finish."
-              : longWait
-                ? "This is taking longer than usual."
-                : elapsedMs >= NORMAL_WAIT_MS
-                  ? "Folder is still getting ready."
-                  : "Folder is getting ready."}
-          </h1>
-          <p>
-            {recoveryRequired
-              ? "Use Refresh to check again or go back to Files."
-              : longWait
-                ? "We are keeping your files safe while this finishes."
-                : "The folder will open automatically when it is ready."}
-          </p>
+          <p className="storage-unavailable-eyebrow">{copy.eyebrow}</p>
+          <h1>{copy.heading}</h1>
+          <p>{copy.message}</p>
         </div>
 
         <div className="storage-unavailable-actions">
