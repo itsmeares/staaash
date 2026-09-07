@@ -21,7 +21,7 @@
     "e2e": "playwright test"
   },
   "dependencies": {
-    "@base-ui/react": "^1.7.0",
+    "@base-ui/react": "^1.8.0",
     "@react-three/fiber": "^9.7.0",
     "@staaash/config": "workspace:*",
     "@staaash/db": "workspace:*",
@@ -30,12 +30,12 @@
     "clsx": "^2.1.1",
     "hash-wasm": "^4.12.0",
     "heic-convert": "^2.1.0",
-    "lucide-react": "^1.37.0",
+    "lucide-react": "^1.40.0",
     "next": "16.3.1",
     "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "shadcn": "^4.19.0",
+    "shadcn": "^4.21.0",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.6.0",
     "three": "^0.185.1",
