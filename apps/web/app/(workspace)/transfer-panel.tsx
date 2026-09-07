@@ -167,12 +167,10 @@ function PanelUploadRow({
         <span
           className={`transfer-panel-row-status${file.status === "error" ? " is-error" : ""}`}
         >
-          <span
-            aria-live={isPhaseStatus ? "polite" : undefined}
-            aria-atomic={isPhaseStatus ? "true" : undefined}
-          >
-            {statusText}
+          <span aria-live="polite" aria-atomic="true">
+            {isPhaseStatus ? statusText : ""}
           </span>
+          {!isPhaseStatus && statusText}
           {file.status === "error" && onRetry && (
             <button
               type="button"

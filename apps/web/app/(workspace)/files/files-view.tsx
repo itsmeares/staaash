@@ -2383,12 +2383,11 @@ function UploadingRow({
         role="gridcell"
         title={statusText}
       >
-        <span
-          className="uploading-row-status-text"
-          aria-live={isPhaseStatus ? "polite" : undefined}
-          aria-atomic={isPhaseStatus ? "true" : undefined}
-        >
-          {statusText}
+        <span className="uploading-row-status-text">
+          <span aria-live="polite" aria-atomic="true">
+            {isPhaseStatus ? statusText : ""}
+          </span>
+          {!isPhaseStatus && statusText}
         </span>
         {file.status === "error" && onRetry && (
           <button
