@@ -2359,6 +2359,8 @@ function UploadingRow({
           : file.statusLabel
             ? file.statusLabel
             : `${file.progress}% · ${formatSpeed(file.speed)}${eta ? ` · ${eta}` : ""}`;
+  const isPhaseStatus =
+    file.status === "uploading" && Boolean(file.statusLabel);
 
   return (
     <div className="explorer-row uploading-row" role="row">
@@ -2381,7 +2383,13 @@ function UploadingRow({
         role="gridcell"
         title={statusText}
       >
-        <span className="uploading-row-status-text">{statusText}</span>
+        <span
+          className="uploading-row-status-text"
+          aria-live={isPhaseStatus ? "polite" : undefined}
+          aria-atomic={isPhaseStatus ? "true" : undefined}
+        >
+          {statusText}
+        </span>
         {file.status === "error" && onRetry && (
           <button
             type="button"

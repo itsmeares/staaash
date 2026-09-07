@@ -156,6 +156,8 @@ function PanelUploadRow({
           : file.statusLabel
             ? file.statusLabel
             : `${file.progress}% · ${formatSpeed(file.speed)}${eta ? ` · ${eta}` : ""}`;
+  const isPhaseStatus =
+    file.status === "uploading" && Boolean(file.statusLabel);
 
   return (
     <div className="transfer-panel-row">
@@ -165,7 +167,12 @@ function PanelUploadRow({
         <span
           className={`transfer-panel-row-status${file.status === "error" ? " is-error" : ""}`}
         >
-          {statusText}
+          <span
+            aria-live={isPhaseStatus ? "polite" : undefined}
+            aria-atomic={isPhaseStatus ? "true" : undefined}
+          >
+            {statusText}
+          </span>
           {file.status === "error" && onRetry && (
             <button
               type="button"
