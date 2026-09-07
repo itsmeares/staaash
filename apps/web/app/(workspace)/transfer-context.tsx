@@ -779,6 +779,12 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
           );
         }
 
+        updateUploadingFile(clientKey, {
+          progress: 100,
+          transferredBytes: file.size,
+          speed: 0,
+          statusLabel: "Verifying upload...",
+        });
         const data = await completeResumableUploadSession({
           sessionId,
           signal,
@@ -878,21 +884,19 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
         });
       }
       await taskPool.drain();
+      updateUploadingFile(clientKey, {
+        progress: 100,
+        transferredBytes: file.size,
+        speed: 0,
+        statusLabel: "Preparing checksum...",
+      });
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+      if (signal.aborted) {
+        throw new DOMException("Upload cancelled", "AbortError");
+      }
       const expectedChecksum = hasher.digest("hex");
 
-      setUploadingFiles((prev) =>
-        prev.map((f) =>
-          f.clientKey === clientKey
-            ? {
-                ...f,
-                progress: 100,
-                transferredBytes: file.size,
-                speed: 0,
-                statusLabel: "Verifying upload...",
-              }
-            : f,
-        ),
-      );
+      updateUploadingFile(clientKey, { statusLabel: "Verifying upload..." });
       const data = await completeResumableUploadSession({
         sessionId,
         expectedChecksum,
