@@ -32,16 +32,21 @@ export async function POST(request: NextRequest) {
         );
   }
 
-  const formData = await request.formData();
-  const redirectTo = getSafeRedirectTarget(
-    String(formData.get("redirectTo") ?? "/files"),
+  const redirectToFromUrl = getSafeRedirectTarget(
+    request.nextUrl.searchParams.get("redirectTo") ?? "/files",
     "/files",
   );
   const session = await getRequestSession(request);
 
   if (!session) {
-    return notSignedInResponse(request, redirectTo);
+    return notSignedInResponse(request, redirectToFromUrl);
   }
+
+  const formData = await request.formData();
+  const redirectTo = getSafeRedirectTarget(
+    String(formData.get("redirectTo") ?? redirectToFromUrl),
+    "/files",
+  );
 
   let idempotencyKey: string | null = null;
   try {
