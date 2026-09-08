@@ -58,5 +58,4 @@ This repo is intentionally straightforward: focused changes, honest docs, and wo
 If you are new to the repo, start with:
 
 - [`README.md`](./README.md)
-- [`docs/README.md`](./docs/README.md)
-- [`docs/implementation-plan.md`](./docs/implementation-plan.md)
+- [`Architecture`](../docs/architecture.md)
