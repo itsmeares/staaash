@@ -324,12 +324,14 @@ export const createAuthService = ({
 
       const createdAt = now();
       const passwordHash = await crypto.hashPassword(parsed.password);
+      const authSecret = await getAuthSecret();
       const user = await activeRepo.createBootstrap({
         instanceName: parsed.instanceName,
         email: parsed.email,
         storageId: generateStorageId(parsed.email),
         displayName: parsed.displayName,
         passwordHash,
+        authSecret,
         createdAt,
       });
 
