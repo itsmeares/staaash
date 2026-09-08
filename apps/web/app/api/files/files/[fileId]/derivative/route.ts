@@ -3,8 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPrisma } from "@staaash/db/client";
 import { scheduleDerivativeGenerate } from "@staaash/db/media-derivatives";
 
+import { canAccessPrivateNamespace } from "@/server/access";
 import { getRequestSession } from "@/server/auth/guards";
 import { isSameOrigin } from "@/server/auth/http";
+import type { UserRole } from "@/server/types";
 
 type RouteContext = {
   params: Promise<{ fileId: string }>;
@@ -13,7 +15,7 @@ type RouteContext = {
 const getAuthorizedFile = async (
   fileId: string,
   actorId: string,
-  actorRole: string,
+  actorRole: UserRole,
 ) => {
   const db = getPrisma();
   const file = await db.file.findFirst({
@@ -21,7 +23,15 @@ const getAuthorizedFile = async (
     select: { ownerUserId: true, mimeType: true },
   });
   if (!file) return null;
-  if (file.ownerUserId !== actorId && actorRole !== "owner") return null;
+  if (
+    !canAccessPrivateNamespace({
+      actorRole,
+      actorUserId: actorId,
+      namespaceOwnerUserId: file.ownerUserId,
+    })
+  ) {
+    return null;
+  }
   return file;
 };
 
