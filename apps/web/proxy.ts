@@ -21,22 +21,27 @@ const WORKSPACE_PREFIX = [
   "/trash",
 ];
 
+const oversizedDirectUploadResponse = (request: NextRequest) => {
+  if (request.method !== "POST") return null;
+  if (request.nextUrl.pathname !== "/api/files/files") return null;
+  if (!isDirectUploadRequestTooLarge(request.headers.get("content-length"))) {
+    return null;
+  }
+
+  return NextResponse.json(
+    {
+      error: DIRECT_UPLOAD_REQUEST_TOO_LARGE_MESSAGE,
+      code: "UPLOAD_REQUEST_TOO_LARGE",
+    },
+    { status: 413 },
+  );
+};
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (
-    request.method === "POST" &&
-    pathname === "/api/files/files" &&
-    isDirectUploadRequestTooLarge(request.headers.get("content-length"))
-  ) {
-    return NextResponse.json(
-      {
-        error: DIRECT_UPLOAD_REQUEST_TOO_LARGE_MESSAGE,
-        code: "UPLOAD_REQUEST_TOO_LARGE",
-      },
-      { status: 413 },
-    );
-  }
+  const oversizedUploadResponse = oversizedDirectUploadResponse(request);
+  if (oversizedUploadResponse) return oversizedUploadResponse;
 
   const isWorkspace = WORKSPACE_PREFIX.some((p) => pathname.startsWith(p));
   if (!isWorkspace) return NextResponse.next();

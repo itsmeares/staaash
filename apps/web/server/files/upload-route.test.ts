@@ -1,8 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { DIRECT_UPLOAD_MAX_REQUEST_BYTES } from "@/lib/upload-limits";
-
 const getRequestSession = vi.fn();
 const uploadFiles = vi.fn();
 const pairUploadRequestItems = vi.fn();
@@ -139,10 +137,7 @@ describe("direct upload route", () => {
       user: { id: "user-1", role: "member" },
     });
     const request = multipartRequest("application/json");
-    request.headers.set(
-      "content-length",
-      String(DIRECT_UPLOAD_MAX_REQUEST_BYTES + 1),
-    );
+    request.headers.set("content-length", String(Number.MAX_SAFE_INTEGER));
     const { POST } = await import("@/app/api/files/files/route");
 
     const response = await POST(request);

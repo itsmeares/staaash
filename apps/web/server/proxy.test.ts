@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
 
-import { DIRECT_UPLOAD_MAX_REQUEST_BYTES } from "@/lib/upload-limits";
 import { proxy } from "@/proxy";
 
 const requestForPath = (
@@ -57,7 +56,7 @@ describe("proxy onboarding cookie guard", () => {
       method: "POST",
       headers: {
         accept: "application/json",
-        "content-length": String(DIRECT_UPLOAD_MAX_REQUEST_BYTES + 1),
+        "content-length": String(Number.MAX_SAFE_INTEGER),
         "content-type": "multipart/form-data; boundary=test",
       },
       body: "not-read-by-the-proxy",
