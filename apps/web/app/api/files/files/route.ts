@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getRequestSession } from "@/server/auth/guards";
 import {
+  DIRECT_UPLOAD_REQUEST_TOO_LARGE_MESSAGE,
+  isDirectUploadRequestTooLarge,
+} from "@/lib/upload-limits";
+import {
   formErrorResponse,
   getSafeRedirectTarget,
   isSameOrigin,
@@ -32,16 +36,34 @@ export async function POST(request: NextRequest) {
         );
   }
 
-  const formData = await request.formData();
-  const redirectTo = getSafeRedirectTarget(
-    String(formData.get("redirectTo") ?? "/files"),
+  const redirectToFromUrl = getSafeRedirectTarget(
+    request.nextUrl.searchParams.get("redirectTo") ?? "/files",
     "/files",
   );
   const session = await getRequestSession(request);
 
   if (!session) {
-    return notSignedInResponse(request, redirectTo);
+    return notSignedInResponse(request, redirectToFromUrl);
   }
+
+  if (isDirectUploadRequestTooLarge(request.headers.get("content-length"))) {
+    const error = new Error(DIRECT_UPLOAD_REQUEST_TOO_LARGE_MESSAGE);
+    return wantsJson(request)
+      ? NextResponse.json(
+          {
+            error: error.message,
+            code: "UPLOAD_REQUEST_TOO_LARGE",
+          },
+          { status: 413 },
+        )
+      : formErrorResponse(request, redirectToFromUrl, error);
+  }
+
+  const formData = await request.formData();
+  const redirectTo = getSafeRedirectTarget(
+    String(formData.get("redirectTo") ?? redirectToFromUrl),
+    "/files",
+  );
 
   let idempotencyKey: string | null = null;
   try {
