@@ -1,14 +1,20 @@
 import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
 
+import { DIRECT_UPLOAD_MAX_REQUEST_BYTES } from "@/lib/upload-limits";
 import { proxy } from "@/proxy";
 
-const requestForPath = (path: string, cookie: string) =>
+const requestForPath = (
+  path: string,
+  cookie: string,
+  init?: ConstructorParameters<typeof NextRequest>[1],
+) =>
   new NextRequest(`http://localhost:3000${path}`, {
     headers: {
       cookie,
       host: "localhost:3000",
     },
+    ...init,
   });
 
 describe("proxy onboarding cookie guard", () => {
@@ -44,5 +50,22 @@ describe("proxy onboarding cookie guard", () => {
     expect(
       proxy(requestForPath("/s/token", "staaash_session=token")).status,
     ).toBe(200);
+  });
+
+  it("rejects oversized direct uploads before the route reads the body", () => {
+    const request = requestForPath("/api/files/files", "", {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-length": String(DIRECT_UPLOAD_MAX_REQUEST_BYTES + 1),
+        "content-type": "multipart/form-data; boundary=test",
+      },
+      body: "not-read-by-the-proxy",
+    });
+
+    const response = proxy(request);
+
+    expect(response.status).toBe(413);
+    expect(request.bodyUsed).toBe(false);
   });
 });

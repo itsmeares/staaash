@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { DIRECT_UPLOAD_MAX_REQUEST_BYTES } from "@/lib/upload-limits";
+
 const getRequestSession = vi.fn();
 const uploadFiles = vi.fn();
 const pairUploadRequestItems = vi.fn();
@@ -130,5 +132,23 @@ describe("direct upload route", () => {
       items: ["upload-item"],
       idempotencyKey: "mutation-1",
     });
+  });
+
+  it("rejects oversized authenticated requests before parsing the body", async () => {
+    getRequestSession.mockResolvedValueOnce({
+      user: { id: "user-1", role: "member" },
+    });
+    const request = multipartRequest("application/json");
+    request.headers.set(
+      "content-length",
+      String(DIRECT_UPLOAD_MAX_REQUEST_BYTES + 1),
+    );
+    const { POST } = await import("@/app/api/files/files/route");
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(413);
+    expect(request.bodyUsed).toBe(false);
+    expect(uploadFiles).not.toHaveBeenCalled();
   });
 });

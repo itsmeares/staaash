@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import {
+  DIRECT_UPLOAD_REQUEST_TOO_LARGE_MESSAGE,
+  isDirectUploadRequestTooLarge,
+} from "@/lib/upload-limits";
+
 // Hardcoded — cannot import from server/auth/session (pulls node:crypto via service.ts)
 const SESSION_COOKIE = "staaash_session";
 const ONBOARDED_COOKIE = "staaash_onboarded";
@@ -19,6 +24,20 @@ const WORKSPACE_PREFIX = [
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  if (
+    request.method === "POST" &&
+    pathname === "/api/files/files" &&
+    isDirectUploadRequestTooLarge(request.headers.get("content-length"))
+  ) {
+    return NextResponse.json(
+      {
+        error: DIRECT_UPLOAD_REQUEST_TOO_LARGE_MESSAGE,
+        code: "UPLOAD_REQUEST_TOO_LARGE",
+      },
+      { status: 413 },
+    );
+  }
+
   const isWorkspace = WORKSPACE_PREFIX.some((p) => pathname.startsWith(p));
   if (!isWorkspace) return NextResponse.next();
 
@@ -33,5 +52,8 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/).*)"],
+  matcher: [
+    "/api/files/files",
+    "/((?!_next/static|_next/image|favicon.ico|api/).*)",
+  ],
 };
