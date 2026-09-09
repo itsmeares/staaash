@@ -392,9 +392,31 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
           signal: downloadAbortRef.current?.signal,
         },
       )
-        .then((res) => res.json())
+        .then(async (res) => {
+          if (!res.ok) {
+            stopDownloadPoll();
+            localStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
+            setActiveDownload({
+              archiveId,
+              state: {
+                status: "error",
+                message: await readResponseError(
+                  res,
+                  "Download status unavailable.",
+                ),
+              },
+            });
+            return null;
+          }
+
+          return res.json();
+        })
         .then(
-          (data: { status: string; fileCount?: number; error?: string }) => {
+          (
+            data: { status: string; fileCount?: number; error?: string } | null,
+          ) => {
+            if (!data) return;
+
             if (data.status === "ready") {
               stopDownloadPoll();
               localStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
