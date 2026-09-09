@@ -10,11 +10,20 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { z } from "zod";
-import { resolveWorkspacePath } from "@staaash/config";
+import {
+  normalizeOptionalEnvValue,
+  resolveUploadStagingRetentionHours,
+  resolveWorkspacePath,
+} from "@staaash/config";
+
+const optionalPositiveInteger = z.preprocess(
+  normalizeOptionalEnvValue,
+  z.coerce.number().int().positive().optional(),
+);
 
 const workerEnvSchema = z.object({
   UPLOAD_LOCATION: z.string().trim().min(1),
-  UPLOAD_STAGING_RETENTION_HOURS: z.coerce.number().int().positive().default(2),
+  UPLOAD_STAGING_RETENTION_HOURS: optionalPositiveInteger,
 });
 
 export const safeResolveStoragePath = (
@@ -42,6 +51,7 @@ export type WorkerStoragePaths = {
   heartbeatPath: string;
   pendingDeleteRoot: string;
   uploadStagingTtlMs: number;
+  uploadStagingRetentionHoursOverride?: number;
 };
 
 type WorkerPendingDeleteRecord = {
@@ -80,13 +90,17 @@ export const getWorkerStoragePaths = (
   const parsed = workerEnvSchema.parse(env);
   const filesRoot = resolveWorkspacePath(parsed.UPLOAD_LOCATION, startDir);
   const tmpRoot = path.resolve(filesRoot, "tmp");
+  const retentionHours = resolveUploadStagingRetentionHours({
+    environmentHours: parsed.UPLOAD_STAGING_RETENTION_HOURS,
+  });
 
   return {
     filesRoot,
     tmpRoot,
     heartbeatPath: path.resolve(tmpRoot, "worker-heartbeat.json"),
     pendingDeleteRoot: path.resolve(tmpRoot, "pending-delete"),
-    uploadStagingTtlMs: parsed.UPLOAD_STAGING_RETENTION_HOURS * 60 * 60 * 1000,
+    uploadStagingTtlMs: retentionHours * 60 * 60 * 1000,
+    uploadStagingRetentionHoursOverride: parsed.UPLOAD_STAGING_RETENTION_HOURS,
   };
 };
 

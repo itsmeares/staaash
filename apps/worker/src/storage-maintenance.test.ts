@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   cleanupExpiredStagingFiles,
+  getWorkerStoragePaths,
   recoverPendingDeletes,
 } from "./storage-maintenance.js";
 
@@ -29,6 +30,16 @@ const createPendingDeleteFixture = () => {
 };
 
 describe("worker storage maintenance", () => {
+  it("preserves an explicit retention override in the worker paths", () => {
+    const paths = getWorkerStoragePaths({
+      UPLOAD_LOCATION: "/tmp/staaash-files",
+      UPLOAD_STAGING_RETENTION_HOURS: "5",
+    });
+
+    expect(paths.uploadStagingTtlMs).toBe(5 * 60 * 60 * 1000);
+    expect(paths.uploadStagingRetentionHoursOverride).toBe(5);
+  });
+
   it("cleans up expired staged uploads only after ttl", async () => {
     const tmpRoot = createTempRoot();
     await mkdir(tmpRoot, { recursive: true });

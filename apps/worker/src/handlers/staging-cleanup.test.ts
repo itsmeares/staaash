@@ -375,6 +375,97 @@ describe("staging cleanup handler", () => {
     await rm(filesRoot, { recursive: true, force: true });
   });
 
+  it("refreshes the database retention value for each cleanup run", async () => {
+    const filesRoot = createTempRoot();
+    const tmpRoot = path.join(filesRoot, "tmp");
+    const threeHourUpload = path.join(tmpRoot, "three-hour.upload");
+    const sixHourUpload = path.join(tmpRoot, "six-hour.upload");
+    await mkdir(tmpRoot, { recursive: true });
+    await writeFile(threeHourUpload, "three hours", "utf8");
+    await writeFile(sixHourUpload, "six hours", "utf8");
+    await utimes(
+      threeHourUpload,
+      new Date(fixedNow.getTime() - 3 * 60 * 60 * 1000),
+      new Date(fixedNow.getTime() - 3 * 60 * 60 * 1000),
+    );
+    await utimes(
+      sixHourUpload,
+      new Date(fixedNow.getTime() - 6 * 60 * 60 * 1000),
+      new Date(fixedNow.getTime() - 6 * 60 * 60 * 1000),
+    );
+
+    const { client } = createSessionClient([]);
+    const findSettings = vi
+      .fn()
+      .mockResolvedValue({ uploadStagingRetentionHours: 5 });
+    client.systemSettings = { findUnique: findSettings };
+    getPrismaMock.mockReturnValue(client);
+
+    const storagePaths = {
+      filesRoot,
+      tmpRoot,
+      heartbeatPath: path.join(tmpRoot, "worker-heartbeat.json"),
+      pendingDeleteRoot: path.join(tmpRoot, "pending-delete"),
+      uploadStagingTtlMs: stagingTtlMs,
+    };
+    const { handleStagingCleanup } = await import("./staging-cleanup.js");
+
+    await handleStagingCleanup(createJob(), storagePaths);
+    await expectPathToExist(threeHourUpload);
+    await expectPathToBeMissing(sixHourUpload);
+
+    findSettings.mockResolvedValue({ uploadStagingRetentionHours: 2 });
+    await handleStagingCleanup(createJob(), storagePaths);
+    await expectPathToBeMissing(threeHourUpload);
+    expect(findSettings).toHaveBeenCalledTimes(2);
+
+    await rm(filesRoot, { recursive: true, force: true });
+  });
+
+  it("fails closed for file TTL cleanup when settings cannot be read", async () => {
+    const filesRoot = createTempRoot();
+    const tmpRoot = path.join(filesRoot, "tmp");
+    const staleUpload = path.join(tmpRoot, "stale.upload");
+    await mkdir(tmpRoot, { recursive: true });
+    await writeFile(staleUpload, "keep on settings failure", "utf8");
+    const staleTime = new Date(fixedNow.getTime() - 6 * 60 * 60 * 1000);
+    await utimes(staleUpload, staleTime, staleTime);
+
+    const { client } = createSessionClient([]);
+    const findSettings = vi
+      .fn()
+      .mockRejectedValue(new Error("settings lookup failed"));
+    client.systemSettings = { findUnique: findSettings };
+    getPrismaMock.mockReturnValue(client);
+    const emitEvent = vi.fn();
+    const updateProgress = vi.fn();
+    const { handleStagingCleanup } = await import("./staging-cleanup.js");
+
+    await handleStagingCleanup(
+      createJob(),
+      {
+        filesRoot,
+        tmpRoot,
+        heartbeatPath: path.join(tmpRoot, "worker-heartbeat.json"),
+        pendingDeleteRoot: path.join(tmpRoot, "pending-delete"),
+        uploadStagingTtlMs: stagingTtlMs,
+      },
+      { emitEvent, updateProgress } as any,
+    );
+
+    await expectPathToExist(staleUpload);
+    expect(emitEvent).toHaveBeenCalledWith(
+      "cleanup_warning",
+      expect.any(String),
+      expect.objectContaining({ failureCount: 1 }),
+    );
+    expect(updateProgress).toHaveBeenCalledWith(
+      expect.objectContaining({ cleanupFailureCount: 1 }),
+    );
+
+    await rm(filesRoot, { recursive: true, force: true });
+  });
+
   it("recovers stale commits only when original staging still exists", async () => {
     const filesRoot = createTempRoot();
     const tmpRoot = path.join(filesRoot, "tmp");

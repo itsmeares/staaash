@@ -7,6 +7,9 @@ import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { z } from "zod";
 
+import { resolveUploadStagingRetentionHours } from "@staaash/config";
+
+import { env } from "@/lib/env";
 import { getSystemSettings } from "@/server/settings";
 import { getStorageRoot, getTmpUploadPath } from "@/server/storage";
 import {
@@ -112,7 +115,6 @@ export class UploadError extends Error {
 let _uploadPolicy: {
   maxUploadBytes: number;
   timeoutMinutes: number;
-  stagingRetentionHours: number;
 } | null = null;
 
 const getUploadPolicy = async () => {
@@ -121,7 +123,6 @@ const getUploadPolicy = async () => {
   _uploadPolicy = {
     maxUploadBytes: Number(s.maxUploadBytes),
     timeoutMinutes: s.uploadTimeoutMinutes,
-    stagingRetentionHours: s.uploadStagingRetentionHours,
   };
   return _uploadPolicy;
 };
@@ -168,8 +169,20 @@ const getRemainingUploadBudgetMs = async (
 };
 
 export const getUploadStagingTtlMs = async () => {
-  const policy = await getUploadPolicy();
-  return policy.stagingRetentionHours * 60 * 60 * 1000;
+  const environmentHours = env.UPLOAD_STAGING_RETENTION_HOURS;
+  const databaseHours =
+    environmentHours === undefined
+      ? (await getSystemSettings()).uploadStagingRetentionHours
+      : undefined;
+  return (
+    resolveUploadStagingRetentionHours({
+      environmentHours,
+      databaseHours,
+    }) *
+    60 *
+    60 *
+    1000
+  );
 };
 
 const isUploadSizeAllowed = async (sizeBytes: number) => {
