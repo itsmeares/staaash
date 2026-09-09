@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 import { findZipArchiveById } from "@staaash/db/zip-archives";
 
+import { canAccessPrivateNamespace } from "@/server/access";
 import { getRequestSession } from "@/server/auth/guards";
 import { notSignedInResponse, jsonErrorResponse } from "@/server/auth/http";
 import { FilesError } from "@/server/files/errors";
@@ -24,6 +25,16 @@ export async function GET(
     const archive = await findZipArchiveById(archiveId);
     if (!archive) {
       throw new FilesError("FILE_NOT_FOUND");
+    }
+
+    if (
+      !canAccessPrivateNamespace({
+        actorRole: session.user.role,
+        actorUserId: session.user.id,
+        namespaceOwnerUserId: archive.userId,
+      })
+    ) {
+      throw new FilesError("ACCESS_DENIED");
     }
 
     return Response.json({

@@ -290,6 +290,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
     state: DownloadProgressState;
   } | null>(null);
   const downloadPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const downloadPollSessionRef = useRef(0);
   const downloadAbortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const uploadingFilesRef = useRef<UploadingFile[]>([]);
@@ -373,6 +374,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
   // ---- Download poll ----
 
   const stopDownloadPoll = () => {
+    downloadPollSessionRef.current += 1;
     if (downloadPollRef.current) {
       clearInterval(downloadPollRef.current);
       downloadPollRef.current = null;
@@ -381,6 +383,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
 
   const startDownloadPoll = (archiveId: string) => {
     stopDownloadPoll();
+    const pollSession = downloadPollSessionRef.current;
     downloadPollRef.current = setInterval(() => {
       void queuedFetch(
         "poll",
@@ -392,9 +395,35 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
           signal: downloadAbortRef.current?.signal,
         },
       )
-        .then((res) => res.json())
+        .then(async (res) => {
+          if (pollSession !== downloadPollSessionRef.current) return null;
+
+          if (!res.ok) {
+            stopDownloadPoll();
+            const message = await readResponseError(
+              res,
+              "Download status unavailable.",
+            );
+            if (pollSession !== downloadPollSessionRef.current) return null;
+            localStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
+            setActiveDownload({
+              archiveId,
+              state: {
+                status: "error",
+                message,
+              },
+            });
+            return null;
+          }
+
+          return res.json();
+        })
         .then(
-          (data: { status: string; fileCount?: number; error?: string }) => {
+          (
+            data: { status: string; fileCount?: number; error?: string } | null,
+          ) => {
+            if (!data || pollSession !== downloadPollSessionRef.current) return;
+
             if (data.status === "ready") {
               stopDownloadPoll();
               localStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
