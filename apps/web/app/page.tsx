@@ -46,6 +46,15 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         instanceName={setupState.instanceName ?? undefined}
         isOwner={session.user.isOwner}
         initialMediaPreviewEnabled={systemSettings.mediaPreviewEnabled}
+        initialMediaPreviewGenerateOnUpload={
+          systemSettings.mediaPreviewGenerateOnUpload
+        }
+        initialMediaPreviewGenerateOnFirstView={
+          systemSettings.mediaPreviewGenerateOnFirstView
+        }
+        initialMediaPreviewGenerateOnShare={
+          systemSettings.mediaPreviewGenerateOnShare
+        }
       />
     );
   }

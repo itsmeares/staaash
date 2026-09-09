@@ -140,6 +140,15 @@ test("incomplete-onboarding user can finish setup with keyboard", async ({
   const mediaPreviews = page.getByRole("switch", {
     name: /Enable media previews/i,
   });
+  await expect(
+    page.getByRole("switch", { name: /Generate on upload/i }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("switch", { name: /Generate on first view/i }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("switch", { name: /Generate when shared/i }),
+  ).toBeVisible();
   await mediaPreviews.press("Space");
   await page.getByRole("button", { name: "Enter Staaash" }).press("Enter");
 

@@ -90,6 +90,8 @@ export type SystemSettingsMinAggregateOutputType = {
   maintenanceRunTime: string | null
   mediaPreviewEnabled: boolean | null
   mediaPreviewGenerateOnUpload: boolean | null
+  mediaPreviewGenerateOnFirstView: boolean | null
+  mediaPreviewGenerateOnShare: boolean | null
   mediaPreviewThresholdBytes: bigint | null
   mediaPreviewRetentionDays: number | null
   mediaPreviewMaxHeight: number | null
@@ -120,6 +122,8 @@ export type SystemSettingsMaxAggregateOutputType = {
   maintenanceRunTime: string | null
   mediaPreviewEnabled: boolean | null
   mediaPreviewGenerateOnUpload: boolean | null
+  mediaPreviewGenerateOnFirstView: boolean | null
+  mediaPreviewGenerateOnShare: boolean | null
   mediaPreviewThresholdBytes: bigint | null
   mediaPreviewRetentionDays: number | null
   mediaPreviewMaxHeight: number | null
@@ -150,6 +154,8 @@ export type SystemSettingsCountAggregateOutputType = {
   maintenanceRunTime: number
   mediaPreviewEnabled: number
   mediaPreviewGenerateOnUpload: number
+  mediaPreviewGenerateOnFirstView: number
+  mediaPreviewGenerateOnShare: number
   mediaPreviewThresholdBytes: number
   mediaPreviewRetentionDays: number
   mediaPreviewMaxHeight: number
@@ -226,6 +232,8 @@ export type SystemSettingsMinAggregateInputType = {
   maintenanceRunTime?: true
   mediaPreviewEnabled?: true
   mediaPreviewGenerateOnUpload?: true
+  mediaPreviewGenerateOnFirstView?: true
+  mediaPreviewGenerateOnShare?: true
   mediaPreviewThresholdBytes?: true
   mediaPreviewRetentionDays?: true
   mediaPreviewMaxHeight?: true
@@ -256,6 +264,8 @@ export type SystemSettingsMaxAggregateInputType = {
   maintenanceRunTime?: true
   mediaPreviewEnabled?: true
   mediaPreviewGenerateOnUpload?: true
+  mediaPreviewGenerateOnFirstView?: true
+  mediaPreviewGenerateOnShare?: true
   mediaPreviewThresholdBytes?: true
   mediaPreviewRetentionDays?: true
   mediaPreviewMaxHeight?: true
@@ -286,6 +296,8 @@ export type SystemSettingsCountAggregateInputType = {
   maintenanceRunTime?: true
   mediaPreviewEnabled?: true
   mediaPreviewGenerateOnUpload?: true
+  mediaPreviewGenerateOnFirstView?: true
+  mediaPreviewGenerateOnShare?: true
   mediaPreviewThresholdBytes?: true
   mediaPreviewRetentionDays?: true
   mediaPreviewMaxHeight?: true
@@ -403,6 +415,8 @@ export type SystemSettingsGroupByOutputType = {
   maintenanceRunTime: string
   mediaPreviewEnabled: boolean
   mediaPreviewGenerateOnUpload: boolean
+  mediaPreviewGenerateOnFirstView: boolean
+  mediaPreviewGenerateOnShare: boolean
   mediaPreviewThresholdBytes: bigint
   mediaPreviewRetentionDays: number
   mediaPreviewMaxHeight: number
@@ -456,6 +470,8 @@ export type SystemSettingsWhereInput = {
   maintenanceRunTime?: Prisma.StringFilter<"SystemSettings"> | string
   mediaPreviewEnabled?: Prisma.BoolFilter<"SystemSettings"> | boolean
   mediaPreviewGenerateOnUpload?: Prisma.BoolFilter<"SystemSettings"> | boolean
+  mediaPreviewGenerateOnFirstView?: Prisma.BoolFilter<"SystemSettings"> | boolean
+  mediaPreviewGenerateOnShare?: Prisma.BoolFilter<"SystemSettings"> | boolean
   mediaPreviewThresholdBytes?: Prisma.BigIntFilter<"SystemSettings"> | bigint | number
   mediaPreviewRetentionDays?: Prisma.IntFilter<"SystemSettings"> | number
   mediaPreviewMaxHeight?: Prisma.IntFilter<"SystemSettings"> | number
@@ -486,6 +502,8 @@ export type SystemSettingsOrderByWithRelationInput = {
   maintenanceRunTime?: Prisma.SortOrder
   mediaPreviewEnabled?: Prisma.SortOrder
   mediaPreviewGenerateOnUpload?: Prisma.SortOrder
+  mediaPreviewGenerateOnFirstView?: Prisma.SortOrder
+  mediaPreviewGenerateOnShare?: Prisma.SortOrder
   mediaPreviewThresholdBytes?: Prisma.SortOrder
   mediaPreviewRetentionDays?: Prisma.SortOrder
   mediaPreviewMaxHeight?: Prisma.SortOrder
@@ -519,6 +537,8 @@ export type SystemSettingsWhereUniqueInput = Prisma.AtLeast<{
   maintenanceRunTime?: Prisma.StringFilter<"SystemSettings"> | string
   mediaPreviewEnabled?: Prisma.BoolFilter<"SystemSettings"> | boolean
   mediaPreviewGenerateOnUpload?: Prisma.BoolFilter<"SystemSettings"> | boolean
+  mediaPreviewGenerateOnFirstView?: Prisma.BoolFilter<"SystemSettings"> | boolean
+  mediaPreviewGenerateOnShare?: Prisma.BoolFilter<"SystemSettings"> | boolean
   mediaPreviewThresholdBytes?: Prisma.BigIntFilter<"SystemSettings"> | bigint | number
   mediaPreviewRetentionDays?: Prisma.IntFilter<"SystemSettings"> | number
   mediaPreviewMaxHeight?: Prisma.IntFilter<"SystemSettings"> | number
@@ -549,6 +569,8 @@ export type SystemSettingsOrderByWithAggregationInput = {
   maintenanceRunTime?: Prisma.SortOrder
   mediaPreviewEnabled?: Prisma.SortOrder
   mediaPreviewGenerateOnUpload?: Prisma.SortOrder
+  mediaPreviewGenerateOnFirstView?: Prisma.SortOrder
+  mediaPreviewGenerateOnShare?: Prisma.SortOrder
   mediaPreviewThresholdBytes?: Prisma.SortOrder
   mediaPreviewRetentionDays?: Prisma.SortOrder
   mediaPreviewMaxHeight?: Prisma.SortOrder
@@ -587,6 +609,8 @@ export type SystemSettingsScalarWhereWithAggregatesInput = {
   maintenanceRunTime?: Prisma.StringWithAggregatesFilter<"SystemSettings"> | string
   mediaPreviewEnabled?: Prisma.BoolWithAggregatesFilter<"SystemSettings"> | boolean
   mediaPreviewGenerateOnUpload?: Prisma.BoolWithAggregatesFilter<"SystemSettings"> | boolean
+  mediaPreviewGenerateOnFirstView?: Prisma.BoolWithAggregatesFilter<"SystemSettings"> | boolean
+  mediaPreviewGenerateOnShare?: Prisma.BoolWithAggregatesFilter<"SystemSettings"> | boolean
   mediaPreviewThresholdBytes?: Prisma.BigIntWithAggregatesFilter<"SystemSettings"> | bigint | number
   mediaPreviewRetentionDays?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
   mediaPreviewMaxHeight?: Prisma.IntWithAggregatesFilter<"SystemSettings"> | number
@@ -617,6 +641,8 @@ export type SystemSettingsCreateInput = {
   maintenanceRunTime?: string
   mediaPreviewEnabled?: boolean
   mediaPreviewGenerateOnUpload?: boolean
+  mediaPreviewGenerateOnFirstView?: boolean
+  mediaPreviewGenerateOnShare?: boolean
   mediaPreviewThresholdBytes?: bigint | number
   mediaPreviewRetentionDays?: number
   mediaPreviewMaxHeight?: number
@@ -647,6 +673,8 @@ export type SystemSettingsUncheckedCreateInput = {
   maintenanceRunTime?: string
   mediaPreviewEnabled?: boolean
   mediaPreviewGenerateOnUpload?: boolean
+  mediaPreviewGenerateOnFirstView?: boolean
+  mediaPreviewGenerateOnShare?: boolean
   mediaPreviewThresholdBytes?: bigint | number
   mediaPreviewRetentionDays?: number
   mediaPreviewMaxHeight?: number
@@ -677,6 +705,8 @@ export type SystemSettingsUpdateInput = {
   maintenanceRunTime?: Prisma.StringFieldUpdateOperationsInput | string
   mediaPreviewEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   mediaPreviewGenerateOnUpload?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  mediaPreviewGenerateOnFirstView?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  mediaPreviewGenerateOnShare?: Prisma.BoolFieldUpdateOperationsInput | boolean
   mediaPreviewThresholdBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   mediaPreviewRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
   mediaPreviewMaxHeight?: Prisma.IntFieldUpdateOperationsInput | number
@@ -707,6 +737,8 @@ export type SystemSettingsUncheckedUpdateInput = {
   maintenanceRunTime?: Prisma.StringFieldUpdateOperationsInput | string
   mediaPreviewEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   mediaPreviewGenerateOnUpload?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  mediaPreviewGenerateOnFirstView?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  mediaPreviewGenerateOnShare?: Prisma.BoolFieldUpdateOperationsInput | boolean
   mediaPreviewThresholdBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   mediaPreviewRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
   mediaPreviewMaxHeight?: Prisma.IntFieldUpdateOperationsInput | number
@@ -737,6 +769,8 @@ export type SystemSettingsCreateManyInput = {
   maintenanceRunTime?: string
   mediaPreviewEnabled?: boolean
   mediaPreviewGenerateOnUpload?: boolean
+  mediaPreviewGenerateOnFirstView?: boolean
+  mediaPreviewGenerateOnShare?: boolean
   mediaPreviewThresholdBytes?: bigint | number
   mediaPreviewRetentionDays?: number
   mediaPreviewMaxHeight?: number
@@ -767,6 +801,8 @@ export type SystemSettingsUpdateManyMutationInput = {
   maintenanceRunTime?: Prisma.StringFieldUpdateOperationsInput | string
   mediaPreviewEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   mediaPreviewGenerateOnUpload?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  mediaPreviewGenerateOnFirstView?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  mediaPreviewGenerateOnShare?: Prisma.BoolFieldUpdateOperationsInput | boolean
   mediaPreviewThresholdBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   mediaPreviewRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
   mediaPreviewMaxHeight?: Prisma.IntFieldUpdateOperationsInput | number
@@ -797,6 +833,8 @@ export type SystemSettingsUncheckedUpdateManyInput = {
   maintenanceRunTime?: Prisma.StringFieldUpdateOperationsInput | string
   mediaPreviewEnabled?: Prisma.BoolFieldUpdateOperationsInput | boolean
   mediaPreviewGenerateOnUpload?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  mediaPreviewGenerateOnFirstView?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  mediaPreviewGenerateOnShare?: Prisma.BoolFieldUpdateOperationsInput | boolean
   mediaPreviewThresholdBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   mediaPreviewRetentionDays?: Prisma.IntFieldUpdateOperationsInput | number
   mediaPreviewMaxHeight?: Prisma.IntFieldUpdateOperationsInput | number
@@ -827,6 +865,8 @@ export type SystemSettingsCountOrderByAggregateInput = {
   maintenanceRunTime?: Prisma.SortOrder
   mediaPreviewEnabled?: Prisma.SortOrder
   mediaPreviewGenerateOnUpload?: Prisma.SortOrder
+  mediaPreviewGenerateOnFirstView?: Prisma.SortOrder
+  mediaPreviewGenerateOnShare?: Prisma.SortOrder
   mediaPreviewThresholdBytes?: Prisma.SortOrder
   mediaPreviewRetentionDays?: Prisma.SortOrder
   mediaPreviewMaxHeight?: Prisma.SortOrder
@@ -879,6 +919,8 @@ export type SystemSettingsMaxOrderByAggregateInput = {
   maintenanceRunTime?: Prisma.SortOrder
   mediaPreviewEnabled?: Prisma.SortOrder
   mediaPreviewGenerateOnUpload?: Prisma.SortOrder
+  mediaPreviewGenerateOnFirstView?: Prisma.SortOrder
+  mediaPreviewGenerateOnShare?: Prisma.SortOrder
   mediaPreviewThresholdBytes?: Prisma.SortOrder
   mediaPreviewRetentionDays?: Prisma.SortOrder
   mediaPreviewMaxHeight?: Prisma.SortOrder
@@ -909,6 +951,8 @@ export type SystemSettingsMinOrderByAggregateInput = {
   maintenanceRunTime?: Prisma.SortOrder
   mediaPreviewEnabled?: Prisma.SortOrder
   mediaPreviewGenerateOnUpload?: Prisma.SortOrder
+  mediaPreviewGenerateOnFirstView?: Prisma.SortOrder
+  mediaPreviewGenerateOnShare?: Prisma.SortOrder
   mediaPreviewThresholdBytes?: Prisma.SortOrder
   mediaPreviewRetentionDays?: Prisma.SortOrder
   mediaPreviewMaxHeight?: Prisma.SortOrder
@@ -975,6 +1019,8 @@ export type SystemSettingsSelect<ExtArgs extends runtime.Types.Extensions.Intern
   maintenanceRunTime?: boolean
   mediaPreviewEnabled?: boolean
   mediaPreviewGenerateOnUpload?: boolean
+  mediaPreviewGenerateOnFirstView?: boolean
+  mediaPreviewGenerateOnShare?: boolean
   mediaPreviewThresholdBytes?: boolean
   mediaPreviewRetentionDays?: boolean
   mediaPreviewMaxHeight?: boolean
@@ -1005,6 +1051,8 @@ export type SystemSettingsSelectCreateManyAndReturn<ExtArgs extends runtime.Type
   maintenanceRunTime?: boolean
   mediaPreviewEnabled?: boolean
   mediaPreviewGenerateOnUpload?: boolean
+  mediaPreviewGenerateOnFirstView?: boolean
+  mediaPreviewGenerateOnShare?: boolean
   mediaPreviewThresholdBytes?: boolean
   mediaPreviewRetentionDays?: boolean
   mediaPreviewMaxHeight?: boolean
@@ -1035,6 +1083,8 @@ export type SystemSettingsSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
   maintenanceRunTime?: boolean
   mediaPreviewEnabled?: boolean
   mediaPreviewGenerateOnUpload?: boolean
+  mediaPreviewGenerateOnFirstView?: boolean
+  mediaPreviewGenerateOnShare?: boolean
   mediaPreviewThresholdBytes?: boolean
   mediaPreviewRetentionDays?: boolean
   mediaPreviewMaxHeight?: boolean
@@ -1065,6 +1115,8 @@ export type SystemSettingsSelectScalar = {
   maintenanceRunTime?: boolean
   mediaPreviewEnabled?: boolean
   mediaPreviewGenerateOnUpload?: boolean
+  mediaPreviewGenerateOnFirstView?: boolean
+  mediaPreviewGenerateOnShare?: boolean
   mediaPreviewThresholdBytes?: boolean
   mediaPreviewRetentionDays?: boolean
   mediaPreviewMaxHeight?: boolean
@@ -1075,7 +1127,7 @@ export type SystemSettingsSelectScalar = {
   updatedAt?: boolean
 }
 
-export type SystemSettingsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionMaxAgeDays" | "shareMaxAgeDays" | "maxUploadBytes" | "uploadTimeoutMinutes" | "uploadStagingRetentionHours" | "resumableMaxActiveSessionsPerUser" | "resumableMaxActiveSessionsInstance" | "resumableMaxReservedBytesPerUser" | "resumableMaxReservedBytesInstance" | "previewMaxSourceBytes" | "previewTextMaxBytes" | "workerHeartbeatMaxAgeSeconds" | "updateCheckIntervalHours" | "updateCheckRepository" | "timeZone" | "maintenanceRunTime" | "mediaPreviewEnabled" | "mediaPreviewGenerateOnUpload" | "mediaPreviewThresholdBytes" | "mediaPreviewRetentionDays" | "mediaPreviewMaxHeight" | "zipArchiveRetentionDays" | "mediaPreviewCrf" | "mediaPreviewMaxConcurrentJobs" | "createdAt" | "updatedAt", ExtArgs["result"]["systemSettings"]>
+export type SystemSettingsOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "sessionMaxAgeDays" | "shareMaxAgeDays" | "maxUploadBytes" | "uploadTimeoutMinutes" | "uploadStagingRetentionHours" | "resumableMaxActiveSessionsPerUser" | "resumableMaxActiveSessionsInstance" | "resumableMaxReservedBytesPerUser" | "resumableMaxReservedBytesInstance" | "previewMaxSourceBytes" | "previewTextMaxBytes" | "workerHeartbeatMaxAgeSeconds" | "updateCheckIntervalHours" | "updateCheckRepository" | "timeZone" | "maintenanceRunTime" | "mediaPreviewEnabled" | "mediaPreviewGenerateOnUpload" | "mediaPreviewGenerateOnFirstView" | "mediaPreviewGenerateOnShare" | "mediaPreviewThresholdBytes" | "mediaPreviewRetentionDays" | "mediaPreviewMaxHeight" | "zipArchiveRetentionDays" | "mediaPreviewCrf" | "mediaPreviewMaxConcurrentJobs" | "createdAt" | "updatedAt", ExtArgs["result"]["systemSettings"]>
 
 export type $SystemSettingsPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "SystemSettings"
@@ -1100,6 +1152,8 @@ export type $SystemSettingsPayload<ExtArgs extends runtime.Types.Extensions.Inte
     maintenanceRunTime: string
     mediaPreviewEnabled: boolean
     mediaPreviewGenerateOnUpload: boolean
+    mediaPreviewGenerateOnFirstView: boolean
+    mediaPreviewGenerateOnShare: boolean
     mediaPreviewThresholdBytes: bigint
     mediaPreviewRetentionDays: number
     mediaPreviewMaxHeight: number
@@ -1550,6 +1604,8 @@ export interface SystemSettingsFieldRefs {
   readonly maintenanceRunTime: Prisma.FieldRef<"SystemSettings", 'String'>
   readonly mediaPreviewEnabled: Prisma.FieldRef<"SystemSettings", 'Boolean'>
   readonly mediaPreviewGenerateOnUpload: Prisma.FieldRef<"SystemSettings", 'Boolean'>
+  readonly mediaPreviewGenerateOnFirstView: Prisma.FieldRef<"SystemSettings", 'Boolean'>
+  readonly mediaPreviewGenerateOnShare: Prisma.FieldRef<"SystemSettings", 'Boolean'>
   readonly mediaPreviewThresholdBytes: Prisma.FieldRef<"SystemSettings", 'BigInt'>
   readonly mediaPreviewRetentionDays: Prisma.FieldRef<"SystemSettings", 'Int'>
   readonly mediaPreviewMaxHeight: Prisma.FieldRef<"SystemSettings", 'Int'>

@@ -87,7 +87,7 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
     media: matchesSearch(
       "media previews",
       "video preview generation cleanup quality",
-      "enable media previews generate on upload threshold keep previews max height crf quality max preview tasks",
+      "enable media previews generate on upload generate on first view generate when shared threshold keep previews max height crf quality max preview tasks",
     ),
     downloads: matchesSearch(
       "downloads",
@@ -374,11 +374,34 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
                 label="Enable media previews"
               />
             </SettingRow>
-            <SettingRow label="Generate on upload">
+            <SettingRow
+              label="Generate on upload"
+              hint="Create a preview when a qualifying video upload finishes."
+            >
               <SettingsToggle
                 name="mediaPreviewGenerateOnUpload"
                 defaultChecked={settings.mediaPreviewGenerateOnUpload}
                 label="Generate on upload"
+              />
+            </SettingRow>
+            <SettingRow
+              label="Generate on first view"
+              hint="Create a preview after the first qualifying video view."
+            >
+              <SettingsToggle
+                name="mediaPreviewGenerateOnFirstView"
+                defaultChecked={settings.mediaPreviewGenerateOnFirstView}
+                label="Generate on first view"
+              />
+            </SettingRow>
+            <SettingRow
+              label="Generate when shared"
+              hint="Create a preview and poster when a video is shared."
+            >
+              <SettingsToggle
+                name="mediaPreviewGenerateOnShare"
+                defaultChecked={settings.mediaPreviewGenerateOnShare}
+                label="Generate when shared"
               />
             </SettingRow>
             <SettingRow label="Threshold (bytes)">

@@ -17,9 +17,12 @@ import { getSystemSettings } from "@/server/settings";
 import { getStoragePath } from "@/server/storage";
 import type { StoredFile } from "@/server/files/types";
 import { assertStorageEntityReadable } from "@/server/storage-read-guard";
+import { shouldGenerateMediaPreview } from "./preview-generation-policy";
 import {
+  INLINE_MEDIA_OPEN_ENDED_RANGE_BYTES,
   MediaContentError,
   createInlineOriginalContentResponse,
+  parseSingleByteRange,
 } from "./content-response";
 
 type DerivativeRow = {
@@ -66,27 +69,6 @@ const findDerivativeStatus = async (fileId: string): Promise<string | null> => {
 const buildInlineDisposition = (fileName: string) =>
   `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 
-const parseSingleByteRange = (
-  rangeHeader: string,
-  size: number,
-): { start: number; end: number } | null => {
-  if (!rangeHeader.startsWith("bytes=")) return null;
-  const part = rangeHeader.slice("bytes=".length).trim();
-  if (!part || part.includes(",")) return null;
-  const [s, e] = part.split("-", 2);
-  if (s === undefined || e === undefined) return null;
-  if (s === "") {
-    const suffix = Number(e);
-    if (!Number.isFinite(suffix) || suffix <= 0) return null;
-    return { start: Math.max(size - suffix, 0), end: size - 1 };
-  }
-  const start = Number(s);
-  if (!Number.isFinite(start) || start < 0 || start >= size) return null;
-  const end = e === "" ? size - 1 : Math.min(Number(e), size - 1);
-  if (!Number.isFinite(end) || end < start) return null;
-  return { start, end };
-};
-
 const serveDerivativeBytes = async (
   request: Request,
   storageKey: string,
@@ -131,8 +113,14 @@ const serveDerivativeBytes = async (
       });
     }
 
-    const range = parseSingleByteRange(rangeHeader, sizeBytes);
-    if (!range) {
+    let range: { start: number; end: number };
+    try {
+      range = parseSingleByteRange(rangeHeader, sizeBytes, {
+        openEndedRangeBytes: mimeType.toLowerCase().startsWith("video/")
+          ? INLINE_MEDIA_OPEN_ENDED_RANGE_BYTES
+          : undefined,
+      });
+    } catch {
       await fileHandle.close();
       return new Response("Range not satisfiable.", {
         status: 416,
@@ -243,7 +231,7 @@ export const createInlineContentResponse = async ({
       try {
         const settings = await getSystemSettings();
         if (
-          settings.mediaPreviewEnabled &&
+          shouldGenerateMediaPreview(settings, "first-view") &&
           BigInt(file.sizeBytes) >= settings.mediaPreviewThresholdBytes
         ) {
           await scheduleDerivativeGenerate({

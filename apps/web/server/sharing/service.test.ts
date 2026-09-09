@@ -321,6 +321,7 @@ describe("sharing service", () => {
     vi.clearAllMocks();
     settingsMocks.getSystemSettings.mockResolvedValue({
       mediaPreviewEnabled: true,
+      mediaPreviewGenerateOnShare: true,
       mediaPreviewThresholdBytes: 367001600n,
     });
     derivativeMocks.findReadyDerivative.mockResolvedValue(null);
@@ -732,5 +733,30 @@ describe("sharing service", () => {
       "social-jpeg",
       fixedNow,
     );
+  });
+
+  it("does not schedule derivatives when sharing generation is disabled", async () => {
+    settingsMocks.getSystemSettings.mockResolvedValueOnce({
+      mediaPreviewEnabled: true,
+      mediaPreviewGenerateOnShare: false,
+      mediaPreviewThresholdBytes: 1n,
+    });
+    const sharingRepo = createFakeSharingRepository();
+    const service = createSharingService({
+      repo: sharingRepo.repo,
+      filesRepo: fakeFilesRepo,
+      now: () => fixedNow,
+    });
+
+    await service.createOrReissueShare({
+      actorUserId: "user-1",
+      actorRole: "member",
+      targetType: "file",
+      fileId: sharedFile.id,
+      expiresAt: addDays(7),
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(derivativeMocks.scheduleDerivativeGenerate).not.toHaveBeenCalled();
   });
 });

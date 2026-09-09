@@ -6,6 +6,7 @@ import { scheduleDerivativeGenerate } from "@staaash/db/media-derivatives";
 import { canAccessPrivateNamespace } from "@/server/access";
 import { getRequestSession } from "@/server/auth/guards";
 import { isSameOrigin } from "@/server/auth/http";
+import { getSystemSettings } from "@/server/settings";
 import type { UserRole } from "@/server/types";
 
 type RouteContext = {
@@ -94,6 +95,14 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     return NextResponse.json(
       { error: "Preview generation is only supported for video files." },
       { status: 400 },
+    );
+  }
+
+  const settings = await getSystemSettings();
+  if (!settings.mediaPreviewEnabled) {
+    return NextResponse.json(
+      { error: "Media previews are disabled." },
+      { status: 409 },
     );
   }
 

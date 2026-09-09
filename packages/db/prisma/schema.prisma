@@ -68,6 +68,8 @@ model SystemSettings {
   maintenanceRunTime                 String   @default("02:00")
   mediaPreviewEnabled                Boolean  @default(true)
   mediaPreviewGenerateOnUpload       Boolean  @default(false)
+  mediaPreviewGenerateOnFirstView    Boolean  @default(true)
+  mediaPreviewGenerateOnShare        Boolean  @default(true)
   mediaPreviewThresholdBytes         BigInt   @default(367001600)
   mediaPreviewRetentionDays          Int      @default(14)
   mediaPreviewMaxHeight              Int      @default(1080)

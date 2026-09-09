@@ -8,6 +8,7 @@ import { scheduleDerivativeGenerate } from "@staaash/db/media-derivatives";
 import { getPrisma, type Prisma } from "@staaash/db/client";
 
 import { canAccessPrivateNamespace } from "@/server/access";
+import { shouldGenerateMediaPreview } from "@/server/media/preview-generation-policy";
 import { getSystemSettings } from "@/server/settings";
 import {
   assertUserStorageQuotaAvailable,
@@ -5104,10 +5105,7 @@ export const createFilesService = ({
         void (async () => {
           try {
             const settings = await getSystemSettings();
-            if (
-              !settings.mediaPreviewEnabled ||
-              !settings.mediaPreviewGenerateOnUpload
-            ) {
+            if (!shouldGenerateMediaPreview(settings, "upload")) {
               return;
             }
             const threshold = settings.mediaPreviewThresholdBytes;
@@ -5607,8 +5605,7 @@ export const createFilesService = ({
               try {
                 const settings = await getSystemSettings();
                 if (
-                  settings.mediaPreviewEnabled &&
-                  settings.mediaPreviewGenerateOnUpload &&
+                  shouldGenerateMediaPreview(settings, "upload") &&
                   BigInt(totalSizeBytes) >= settings.mediaPreviewThresholdBytes
                 ) {
                   await scheduleDerivativeGenerate({

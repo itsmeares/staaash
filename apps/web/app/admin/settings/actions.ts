@@ -11,7 +11,10 @@ import {
   isValidTimeZone,
 } from "@staaash/config/time-zone";
 
-import { requireOwnerPageSession } from "@/server/auth/guards";
+import {
+  requireOwnerOnboardingSession,
+  requireOwnerPageSession,
+} from "@/server/auth/guards";
 
 const updateSettingsSchema = z
   .object({
@@ -44,6 +47,14 @@ const updateSettingsSchema = z
       .optional()
       .transform((v) => v === "on"),
     mediaPreviewGenerateOnUpload: z
+      .string()
+      .optional()
+      .transform((v) => v === "on"),
+    mediaPreviewGenerateOnFirstView: z
+      .string()
+      .optional()
+      .transform((v) => v === "on"),
+    mediaPreviewGenerateOnShare: z
       .string()
       .optional()
       .transform((v) => v === "on"),
@@ -111,6 +122,9 @@ export async function updateSystemSettings(
 
 const ownerOnboardingSettingsSchema = z.object({
   mediaPreviewEnabled: z.boolean(),
+  mediaPreviewGenerateOnUpload: z.boolean(),
+  mediaPreviewGenerateOnFirstView: z.boolean(),
+  mediaPreviewGenerateOnShare: z.boolean(),
   timeZone: z
     .string()
     .trim()
@@ -120,9 +134,12 @@ const ownerOnboardingSettingsSchema = z.object({
 
 export async function saveOwnerOnboardingSettings(input: {
   mediaPreviewEnabled: boolean;
+  mediaPreviewGenerateOnUpload: boolean;
+  mediaPreviewGenerateOnFirstView: boolean;
+  mediaPreviewGenerateOnShare: boolean;
   timeZone: string;
 }): Promise<{ error?: string; success?: boolean }> {
-  await requireOwnerPageSession();
+  await requireOwnerOnboardingSession();
 
   const parsed = ownerOnboardingSettingsSchema.safeParse(input);
   if (!parsed.success) {
@@ -135,10 +152,18 @@ export async function saveOwnerOnboardingSettings(input: {
     create: {
       id: "singleton",
       mediaPreviewEnabled: parsed.data.mediaPreviewEnabled,
+      mediaPreviewGenerateOnUpload: parsed.data.mediaPreviewGenerateOnUpload,
+      mediaPreviewGenerateOnFirstView:
+        parsed.data.mediaPreviewGenerateOnFirstView,
+      mediaPreviewGenerateOnShare: parsed.data.mediaPreviewGenerateOnShare,
       timeZone: parsed.data.timeZone,
     },
     update: {
       mediaPreviewEnabled: parsed.data.mediaPreviewEnabled,
+      mediaPreviewGenerateOnUpload: parsed.data.mediaPreviewGenerateOnUpload,
+      mediaPreviewGenerateOnFirstView:
+        parsed.data.mediaPreviewGenerateOnFirstView,
+      mediaPreviewGenerateOnShare: parsed.data.mediaPreviewGenerateOnShare,
       timeZone: parsed.data.timeZone,
     },
   });

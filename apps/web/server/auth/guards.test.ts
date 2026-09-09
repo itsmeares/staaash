@@ -37,6 +37,15 @@ const pendingSession = {
   },
 };
 
+const ownerPendingSession = {
+  user: {
+    isOwner: true,
+    role: "owner",
+    passwordChangeRequiredAt: null,
+    preferences: null,
+  },
+};
+
 const cookieRequest = (value: string) => ({
   cookies: {
     get: (name: string) => (name === "staaash_session" ? { value } : undefined),
@@ -70,6 +79,16 @@ describe("auth guards", () => {
 
     await expect(requireSignedInPageSession("/?next=/files")).resolves.toBe(
       completedSession,
+    );
+  });
+
+  it("allows the owner to save settings during onboarding", async () => {
+    getCurrentSession.mockResolvedValueOnce(ownerPendingSession);
+    const { requireOwnerOnboardingSession } =
+      await import("@/server/auth/guards");
+
+    await expect(requireOwnerOnboardingSession()).resolves.toBe(
+      ownerPendingSession,
     );
   });
 

@@ -48,6 +48,21 @@ export const requireOwnerPageSession = async () => {
   return session;
 };
 
+export const requireOwnerOnboardingSession = async () => {
+  const session = await getCurrentSession();
+
+  if (
+    !session ||
+    session.user.passwordChangeRequiredAt ||
+    !session.user.isOwner ||
+    !canAccessAdminSurface(session.user.role)
+  ) {
+    redirect("/");
+  }
+
+  return session;
+};
+
 export const getRequestSession = async (request: {
   cookies: { get(name: string): { value: string } | undefined };
 }) => {

@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   findFirst: vi.fn(),
   assertStorageEntityReadable: vi.fn(async () => undefined),
   getStoragePath: vi.fn(),
+  getSystemSettings: vi.fn(),
   markFileStorageMissing: vi.fn(),
   scheduleDerivativeGenerate: vi.fn(),
   touchDerivativeViewed: vi.fn(),
@@ -49,7 +50,7 @@ vi.mock("@staaash/db/media-derivatives", () => ({
 }));
 
 vi.mock("@/server/settings", () => ({
-  getSystemSettings: vi.fn(),
+  getSystemSettings: mocks.getSystemSettings,
 }));
 
 vi.mock("@/server/storage", () => ({
@@ -105,6 +106,11 @@ describe("public derivative content responses", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.touchDerivativeViewed.mockResolvedValue(undefined);
+    mocks.getSystemSettings.mockResolvedValue({
+      mediaPreviewEnabled: true,
+      mediaPreviewGenerateOnFirstView: true,
+      mediaPreviewThresholdBytes: 1n,
+    });
     mocks.getStoragePath.mockImplementation((storageKey: string) =>
       paths.get(storageKey),
     );
@@ -282,5 +288,25 @@ describe("public derivative content responses", () => {
       PUBLIC_SHARE_CONTENT_SECURITY_POLICY,
     );
     expect(await response.text()).toBe("<h1>fallback</h1>");
+  });
+
+  it("does not queue first-view generation when that trigger is disabled", async () => {
+    mocks.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+    mocks.getSystemSettings.mockResolvedValueOnce({
+      mediaPreviewEnabled: true,
+      mediaPreviewGenerateOnFirstView: false,
+      mediaPreviewThresholdBytes: 1n,
+    });
+    const { createInlineContentResponse } =
+      await import("./derivative-content-response");
+
+    const response = await createInlineContentResponse({
+      request: new Request("http://localhost/content"),
+      file: makeVideoFile(),
+    });
+
+    await expect(response.text()).resolves.toBe("<h1>fallback</h1>");
+    await vi.waitFor(() => expect(mocks.getSystemSettings).toHaveBeenCalled());
+    expect(mocks.scheduleDerivativeGenerate).not.toHaveBeenCalled();
   });
 });

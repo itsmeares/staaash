@@ -15,6 +15,8 @@ type ByteRange = {
   end: number;
 };
 
+export const INLINE_MEDIA_OPEN_ENDED_RANGE_BYTES = 2 * 1024 * 1024;
+
 export class MediaContentError extends Error {
   readonly status: number;
   readonly headers: HeadersInit | undefined;
@@ -33,9 +35,12 @@ export class MediaContentError extends Error {
   }
 }
 
-const parseSingleRange = (
+export const parseSingleByteRange = (
   rangeHeader: string,
   sizeBytes: number,
+  options?: {
+    openEndedRangeBytes?: number;
+  },
 ): ByteRange => {
   if (!rangeHeader.startsWith("bytes=")) {
     throw new MediaContentError(416, "Malformed range request.", {
@@ -97,7 +102,10 @@ const parseSingleRange = (
   if (endToken === "") {
     return {
       start,
-      end: sizeBytes - 1,
+      end: Math.min(
+        start + (options?.openEndedRangeBytes ?? sizeBytes) - 1,
+        sizeBytes - 1,
+      ),
     };
   }
 
@@ -300,7 +308,12 @@ export const createInlineOriginalContentResponse = async ({
       });
     }
 
-    const { start, end } = parseSingleRange(rangeHeader, stat.size);
+    const { start, end } = parseSingleByteRange(rangeHeader, stat.size, {
+      openEndedRangeBytes:
+        file.viewerKind === "video"
+          ? INLINE_MEDIA_OPEN_ENDED_RANGE_BYTES
+          : undefined,
+    });
     const contentLength = end - start + 1;
 
     return new Response(createStream({ start, end }), {
