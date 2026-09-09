@@ -1,5 +1,13 @@
 import { z } from "zod";
-import { resolveWorkspacePath } from "@staaash/config";
+import {
+  normalizeOptionalEnvValue,
+  resolveWorkspacePath,
+} from "@staaash/config";
+
+const optionalPositiveInteger = z.preprocess(
+  normalizeOptionalEnvValue,
+  z.coerce.number().int().positive().optional(),
+);
 
 const parseSecureCookies = (val: string | undefined, ctx: z.RefinementCtx) => {
   if (val === undefined) return undefined;
@@ -53,6 +61,7 @@ const envSchema = z.object({
     .min(1)
     .default("postgresql://postgres:staaash@localhost:5432/staaash"),
   UPLOAD_LOCATION: z.string().trim().min(1).default("./.data/files"),
+  UPLOAD_STAGING_RETENTION_HOURS: optionalPositiveInteger,
   SECURE_COOKIES: z.string().optional().transform(parseSecureCookies),
   STAAASH_PUBLIC_URL: z.string().optional().transform(parsePublicUrl),
 });

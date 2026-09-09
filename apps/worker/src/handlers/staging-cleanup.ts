@@ -2,6 +2,7 @@ import path from "node:path";
 import { access, lstat, opendir, rm } from "node:fs/promises";
 
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
+import { resolveUploadStagingRetentionHours } from "@staaash/config";
 import { getPrisma } from "@staaash/db/client";
 import { createLegacyRecoveryRequiredMutation } from "@staaash/db/storage-mutations";
 import {
@@ -61,6 +62,11 @@ type UploadSessionCleanupClient = {
   user?: {
     findMany(args: object): Promise<Array<{ id: string }>>;
   };
+  systemSettings?: {
+    findUnique(args: object): Promise<{
+      uploadStagingRetentionHours: number;
+    } | null>;
+  };
   $executeRaw?(
     query: TemplateStringsArray,
     ...values: unknown[]
@@ -78,6 +84,34 @@ const errorMessage = (error: unknown) =>
     0,
     MAX_ERROR_LENGTH,
   );
+
+const resolveStagingCleanupTtlMs = async ({
+  client,
+  storagePaths,
+}: {
+  client: UploadSessionCleanupClient;
+  storagePaths: WorkerStoragePaths;
+}): Promise<{ ttlMs: number | null; warning?: string }> => {
+  if (storagePaths.uploadStagingRetentionHoursOverride !== undefined) {
+    return { ttlMs: storagePaths.uploadStagingTtlMs };
+  }
+
+  try {
+    const settings = await client.systemSettings?.findUnique({
+      where: { id: "singleton" },
+      select: { uploadStagingRetentionHours: true },
+    });
+    const retentionHours = resolveUploadStagingRetentionHours({
+      databaseHours: settings?.uploadStagingRetentionHours,
+    });
+    return { ttlMs: retentionHours * 60 * 60 * 1000 };
+  } catch (error) {
+    return {
+      ttlMs: null,
+      warning: `staging settings: ${errorMessage(error)}`,
+    };
+  }
+};
 
 const pathIsInside = (root: string, candidate: string) => {
   const relative = path.relative(path.resolve(root), path.resolve(candidate));
@@ -634,6 +668,7 @@ const deleteRetainedTerminalSessions = async ({
 export const cleanupUploadSessionLifecycle = async ({
   client,
   storagePaths,
+  stagingTtlMs,
   now = new Date(),
   removeStagingPath = (targetPath) => rm(targetPath, { force: true }),
   deleteTerminalRows = (sessionIds) =>
@@ -650,6 +685,7 @@ export const cleanupUploadSessionLifecycle = async ({
 }: {
   client: UploadSessionCleanupClient;
   storagePaths: WorkerStoragePaths;
+  stagingTtlMs?: number | null;
   now?: Date;
   removeStagingPath?: (targetPath: string) => Promise<void>;
   deleteTerminalRows?: (sessionIds: string[]) => Promise<unknown>;
@@ -723,28 +759,36 @@ export const cleanupUploadSessionLifecycle = async ({
         : [],
     ),
   ]);
-  try {
-    warnings.push(
-      ...(await classifyAbandonedGeneratedTemps({
-        client,
-        storagePaths,
-        protectedPaths,
+  const effectiveStagingTtlMs =
+    stagingTtlMs === undefined ? storagePaths.uploadStagingTtlMs : stagingTtlMs;
+  if (effectiveStagingTtlMs !== null) {
+    const effectiveStoragePaths = {
+      ...storagePaths,
+      uploadStagingTtlMs: effectiveStagingTtlMs,
+    };
+    try {
+      warnings.push(
+        ...(await classifyAbandonedGeneratedTemps({
+          client,
+          storagePaths: effectiveStoragePaths,
+          protectedPaths,
+          now,
+          classifyResidue,
+        })),
+      );
+    } catch (error) {
+      warnings.push(`generated temp: ${errorMessage(error)}`);
+    }
+    try {
+      await cleanupExpiredStagingFiles({
+        tmpRoot: storagePaths.tmpRoot,
+        ttlMs: effectiveStagingTtlMs,
+        protectedPaths: [...protectedPaths],
         now,
-        classifyResidue,
-      })),
-    );
-  } catch (error) {
-    warnings.push(`generated temp: ${errorMessage(error)}`);
-  }
-  try {
-    await cleanupExpiredStagingFiles({
-      tmpRoot: storagePaths.tmpRoot,
-      ttlMs: storagePaths.uploadStagingTtlMs,
-      protectedPaths: [...protectedPaths],
-      now,
-    });
-  } catch (error) {
-    warnings.push(`orphan staging: ${errorMessage(error)}`);
+      });
+    } catch (error) {
+      warnings.push(`orphan staging: ${errorMessage(error)}`);
+    }
   }
 
   return warnings;
@@ -755,10 +799,17 @@ export const handleStagingCleanup = async (
   storagePaths: WorkerStoragePaths,
   context?: JobContext,
 ): Promise<void> => {
-  const warnings = await cleanupUploadSessionLifecycle({
-    client: getPrisma() as unknown as UploadSessionCleanupClient,
+  const client = getPrisma() as unknown as UploadSessionCleanupClient;
+  const stagingSettings = await resolveStagingCleanupTtlMs({
+    client,
     storagePaths,
   });
+  const warnings = await cleanupUploadSessionLifecycle({
+    client,
+    storagePaths,
+    stagingTtlMs: stagingSettings.ttlMs,
+  });
+  if (stagingSettings.warning) warnings.unshift(stagingSettings.warning);
   if (warnings.length > 0) {
     await context?.emitEvent(
       "cleanup_warning",

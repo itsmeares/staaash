@@ -15,6 +15,13 @@ The owner can change these values under **Admin > Settings > Uploads**:
 | Staged bytes per user         |  20 GiB | Active reservations plus unreleased staging liability for one user        |
 | Staged bytes instance-wide    | 100 GiB | Active reservations plus unreleased staging liability across the instance |
 
+Staging-file retention is also editable under **Admin > Settings > Uploads**.
+The database setting is used by both web and worker when no
+`UPLOAD_STAGING_RETENTION_HOURS` environment override is set. An explicit,
+valid override must be supplied to both services, takes precedence over the
+database setting, and requires a process restart when changed. Without an
+override, a database change is used by the next staging-cleanup run.
+
 The per-user staged-byte limit must allow one maximum-size upload. The instance
 session and staged-byte limits must be at least their per-user equivalents.
 Staaash also requires projected free disk space to remain at least 10% of the
@@ -67,6 +74,11 @@ on `UploadSession.cleanupAttemptCount`, `cleanupLastAttemptAt`, and
 `cleanupLastError`. The worker also records a `cleanup_warning` job event and
 logs the affected session IDs. A failed periodic job is retried; after its retry
 budget is exhausted, the next periodic run is still scheduled.
+
+If the worker cannot read the staging-retention setting, it skips only
+generated-temp and orphan-file TTL deletion for that run and records a cleanup
+warning. It does not guess a shorter retention period. Active or unreleased
+upload sessions remain protected by the normal database lookup.
 
 For persistent failures:
 
