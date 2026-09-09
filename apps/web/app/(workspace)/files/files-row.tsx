@@ -120,6 +120,8 @@ type BaseFileRowProps = {
 
 type FilesRowProps = BaseFolderRowProps | BaseFileRowProps;
 
+// Test-only regression seam.
+// fallow-ignore-next-line unused-export
 export const getRenameCursorPosition = (
   name: string,
   kind: "folder" | "file",
