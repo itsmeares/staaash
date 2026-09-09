@@ -120,6 +120,15 @@ type BaseFileRowProps = {
 
 type FilesRowProps = BaseFolderRowProps | BaseFileRowProps;
 
+export const getRenameCursorPosition = (
+  name: string,
+  kind: "folder" | "file",
+) => {
+  if (kind === "folder") return name.length;
+  const extensionStart = name.lastIndexOf(".");
+  return extensionStart > 0 ? extensionStart : name.length;
+};
+
 // ---------------------------------------------------------------------------
 
 export function FilesRow(props: FilesRowProps) {
@@ -194,6 +203,16 @@ export function FilesRow(props: FilesRowProps) {
 
   // ---- Name ----
   const name = props.data.name;
+
+  useEffect(() => {
+    if (!isRenaming) return;
+    const input = renameInputRef.current;
+    if (!input) return;
+    input.focus();
+    const position = getRenameCursorPosition(name, props.kind);
+    input.setSelectionRange(position, position);
+  }, [isRenaming, name, props.kind]);
+
   const mutationLabel = props.data.storageMutation
     ? props.data.storageMutation.status === "recovery_required"
       ? "Recovery required"
@@ -421,7 +440,6 @@ export function FilesRow(props: FilesRowProps) {
                 ref={renameInputRef}
                 className="explorer-row-rename"
                 value={renameValue}
-                autoFocus
                 onChange={(e) => onRenameChange(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
