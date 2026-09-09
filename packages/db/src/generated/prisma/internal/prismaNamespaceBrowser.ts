@@ -132,6 +132,8 @@ export const SystemSettingsScalarFieldEnum = {
   maintenanceRunTime: 'maintenanceRunTime',
   mediaPreviewEnabled: 'mediaPreviewEnabled',
   mediaPreviewGenerateOnUpload: 'mediaPreviewGenerateOnUpload',
+  mediaPreviewGenerateOnFirstView: 'mediaPreviewGenerateOnFirstView',
+  mediaPreviewGenerateOnShare: 'mediaPreviewGenerateOnShare',
   mediaPreviewThresholdBytes: 'mediaPreviewThresholdBytes',
   mediaPreviewRetentionDays: 'mediaPreviewRetentionDays',
   mediaPreviewMaxHeight: 'mediaPreviewMaxHeight',

@@ -12,6 +12,7 @@ import {
 } from "@staaash/db/media-derivatives";
 
 import { requireOwnerPageSession } from "@/server/auth/guards";
+import { getSystemSettings } from "@/server/settings";
 import { getStoragePath } from "@/server/storage";
 import { runDurableStorageMutation } from "@/server/durable-storage-mutation";
 import { calculateStorageFileChecksum } from "@staaash/db/storage-mutation-executor";
@@ -33,6 +34,9 @@ export async function regenerateDerivative(
   }
 
   try {
+    if (!(await getSystemSettings()).mediaPreviewEnabled) {
+      return { error: "Media previews are disabled." };
+    }
     await scheduleDerivativeGenerate({
       fileId,
       kind: DERIVATIVE_KIND_PREVIEW,

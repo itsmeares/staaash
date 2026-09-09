@@ -15,6 +15,7 @@ import {
 
 import { canAccessPrivateNamespace } from "@/server/access";
 import { authCrypto } from "@/server/auth/crypto";
+import { shouldGenerateMediaPreview } from "@/server/media/preview-generation-policy";
 import { getAuthSecret, getSystemSettings } from "@/server/settings";
 import type { FilesRepository } from "@/server/files/repository";
 import type { FilesActor } from "@/server/files/types";
@@ -198,6 +199,9 @@ const getShareStatus = ({
 
 type MediaPreviewSettings = {
   mediaPreviewEnabled: boolean;
+  mediaPreviewGenerateOnUpload: boolean;
+  mediaPreviewGenerateOnFirstView: boolean;
+  mediaPreviewGenerateOnShare: boolean;
   mediaPreviewThresholdBytes: bigint;
 };
 
@@ -205,14 +209,15 @@ const isEligibleForPreview = (
   file: StoredFile,
   settings: MediaPreviewSettings,
 ): boolean =>
-  settings.mediaPreviewEnabled &&
+  shouldGenerateMediaPreview(settings, "share") &&
   file.viewerKind === "video" &&
   BigInt(file.sizeBytes) >= settings.mediaPreviewThresholdBytes;
 
 const isEligibleForPoster = (
   file: StoredFile,
   settings: MediaPreviewSettings,
-): boolean => settings.mediaPreviewEnabled && file.viewerKind === "video";
+): boolean =>
+  shouldGenerateMediaPreview(settings, "share") && file.viewerKind === "video";
 
 const ensureSharedDerivative = async ({
   fileId,

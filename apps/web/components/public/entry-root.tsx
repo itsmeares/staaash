@@ -16,6 +16,9 @@ type EntryRootProps = {
   next?: string;
   isOwner?: boolean;
   initialMediaPreviewEnabled?: boolean;
+  initialMediaPreviewGenerateOnUpload?: boolean;
+  initialMediaPreviewGenerateOnFirstView?: boolean;
+  initialMediaPreviewGenerateOnShare?: boolean;
 };
 
 export function EntryRoot({
@@ -24,6 +27,9 @@ export function EntryRoot({
   next,
   isOwner = false,
   initialMediaPreviewEnabled = true,
+  initialMediaPreviewGenerateOnUpload = false,
+  initialMediaPreviewGenerateOnFirstView = true,
+  initialMediaPreviewGenerateOnShare = true,
 }: EntryRootProps) {
   const [phase, setPhase] = useState<Phase>("intro");
   const [onboardingKey, setOnboardingKey] = useState(0);
@@ -55,6 +61,15 @@ export function EntryRoot({
           instanceName={instanceName}
           isOwner={isOwner}
           initialMediaPreviewEnabled={initialMediaPreviewEnabled}
+          initialMediaPreviewGenerateOnUpload={
+            initialMediaPreviewGenerateOnUpload
+          }
+          initialMediaPreviewGenerateOnFirstView={
+            initialMediaPreviewGenerateOnFirstView
+          }
+          initialMediaPreviewGenerateOnShare={
+            initialMediaPreviewGenerateOnShare
+          }
         />
       </EntryShell>
     );

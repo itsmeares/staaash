@@ -161,6 +161,44 @@ describe("media content response", () => {
     });
   });
 
+  it("bounds open-ended video ranges to the inline media chunk size", async () => {
+    const size = 2 * 1024 * 1024 + 100;
+    const fakeHandle = {
+      stat: vi.fn().mockResolvedValue({ size }),
+      close: vi.fn().mockResolvedValue(undefined),
+      createReadStream: vi.fn(
+        ({ start, end }: { start: number; end: number }) =>
+          Readable.from([Buffer.alloc(end - start + 1)]),
+      ),
+    };
+    openMock.mockResolvedValueOnce(fakeHandle);
+    getStoragePathMock.mockReturnValueOnce("C:\\temp\\clip.mp4");
+
+    const { createInlineOriginalContentResponse } =
+      await import("@/server/media/content-response");
+    const response = await createInlineOriginalContentResponse({
+      request: new Request("http://localhost/content", {
+        headers: { range: "bytes=0-" },
+      }),
+      file: makeFile({ sizeBytes: size }),
+    });
+
+    expect(response.status).toBe(206);
+    expect(response.headers.get("content-length")).toBe(
+      String(2 * 1024 * 1024),
+    );
+    expect(response.headers.get("content-range")).toBe(
+      `bytes 0-${2 * 1024 * 1024 - 1}/${size}`,
+    );
+    expect(fakeHandle.createReadStream).toHaveBeenCalledWith({
+      start: 0,
+      end: 2 * 1024 * 1024 - 1,
+      highWaterMark: 512 * 1024,
+    });
+    const body = await response.arrayBuffer();
+    expect(body.byteLength).toBe(2 * 1024 * 1024);
+  });
+
   it("keeps private authenticated response behavior unchanged", async () => {
     const fakeHandle = {
       stat: vi.fn().mockResolvedValue({ size: 16 }),

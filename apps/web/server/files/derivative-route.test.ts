@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   findFile: vi.fn(),
   findDerivative: vi.fn(),
   getRequestSession: vi.fn(),
+  getSystemSettings: vi.fn(),
   scheduleDerivativeGenerate: vi.fn(),
 }));
 
@@ -21,6 +22,10 @@ vi.mock("@staaash/db/media-derivatives", () => ({
 
 vi.mock("@/server/auth/guards", () => ({
   getRequestSession: mocks.getRequestSession,
+}));
+
+vi.mock("@/server/settings", () => ({
+  getSystemSettings: mocks.getSystemSettings,
 }));
 
 import { GET, POST } from "@/app/api/files/files/[fileId]/derivative/route";
@@ -51,6 +56,7 @@ const setSession = (id: string, role: "owner" | "member") => {
 describe("private media derivative routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.getSystemSettings.mockResolvedValue({ mediaPreviewEnabled: true });
   });
 
   it("lets the file owner read derivative status", async () => {
@@ -117,6 +123,22 @@ describe("private media derivative routes", () => {
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({
       error: "File not found.",
+    });
+    expect(mocks.scheduleDerivativeGenerate).not.toHaveBeenCalled();
+  });
+
+  it("does not queue manual regeneration when previews are disabled", async () => {
+    setSession("member-1", "member");
+    setFile("member-1");
+    mocks.getSystemSettings.mockResolvedValueOnce({
+      mediaPreviewEnabled: false,
+    });
+
+    const response = await POST(sameOriginPost(), routeContext());
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: "Media previews are disabled.",
     });
     expect(mocks.scheduleDerivativeGenerate).not.toHaveBeenCalled();
   });

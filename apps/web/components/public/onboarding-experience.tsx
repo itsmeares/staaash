@@ -56,10 +56,16 @@ export function OnboardingExperience({
   instanceName,
   isOwner,
   initialMediaPreviewEnabled = true,
+  initialMediaPreviewGenerateOnUpload = false,
+  initialMediaPreviewGenerateOnFirstView = true,
+  initialMediaPreviewGenerateOnShare = true,
 }: {
   instanceName?: string;
   isOwner: boolean;
   initialMediaPreviewEnabled?: boolean;
+  initialMediaPreviewGenerateOnUpload?: boolean;
+  initialMediaPreviewGenerateOnFirstView?: boolean;
+  initialMediaPreviewGenerateOnShare?: boolean;
 }) {
   const [step, setStep] = useState<OnboardingStep>("welcome");
   const [animating, setAnimating] = useState(false);
@@ -74,6 +80,12 @@ export function OnboardingExperience({
   const [mediaPreviewEnabled, setMediaPreviewEnabled] = useState(
     initialMediaPreviewEnabled,
   );
+  const [mediaPreviewGenerateOnUpload, setMediaPreviewGenerateOnUpload] =
+    useState(initialMediaPreviewGenerateOnUpload);
+  const [mediaPreviewGenerateOnFirstView, setMediaPreviewGenerateOnFirstView] =
+    useState(initialMediaPreviewGenerateOnFirstView);
+  const [mediaPreviewGenerateOnShare, setMediaPreviewGenerateOnShare] =
+    useState(initialMediaPreviewGenerateOnShare);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [donePhase, setDonePhase] = useState<0 | 1 | 2>(0);
@@ -117,39 +129,37 @@ export function OnboardingExperience({
     setPending(true);
     setError(null);
     try {
-      const tasks: Promise<unknown>[] = [
-        fetch("/api/user/preferences", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify({
-            theme: prefs.theme,
-            timeZone: prefs.timeZone,
-            showUpdateNotifications: prefs.showUpdateNotifications,
-            enableVersionChecks: prefs.enableVersionChecks,
-            displayName: prefs.displayName || null,
-            avatarUrl: prefs.avatarUrl,
-          }),
-        }).then(async (res) => {
-          if (!res.ok) {
-            const json = await res.json().catch(() => ({}));
-            throw new Error(json.error ?? "Something went wrong.");
-          }
-        }),
-      ];
       if (isOwner) {
-        tasks.push(
-          saveOwnerOnboardingSettings({
-            mediaPreviewEnabled,
-            timeZone: prefs.timeZone,
-          }).then((result) => {
-            if (result?.error) throw new Error(result.error);
-          }),
-        );
+        const result = await saveOwnerOnboardingSettings({
+          mediaPreviewEnabled,
+          mediaPreviewGenerateOnUpload,
+          mediaPreviewGenerateOnFirstView,
+          mediaPreviewGenerateOnShare,
+          timeZone: prefs.timeZone,
+        });
+        if (result?.error) throw new Error(result.error);
       }
-      await Promise.all(tasks);
+
+      const response = await fetch("/api/user/preferences", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          theme: prefs.theme,
+          timeZone: prefs.timeZone,
+          showUpdateNotifications: prefs.showUpdateNotifications,
+          enableVersionChecks: prefs.enableVersionChecks,
+          displayName: prefs.displayName || null,
+          avatarUrl: prefs.avatarUrl,
+        }),
+      });
+      if (!response.ok) {
+        const json = await response.json().catch(() => ({}));
+        throw new Error(json.error ?? "Something went wrong.");
+      }
+
       setStep("done");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -313,6 +323,12 @@ export function OnboardingExperience({
         <MediaStep
           enabled={mediaPreviewEnabled}
           onToggle={setMediaPreviewEnabled}
+          generateOnUpload={mediaPreviewGenerateOnUpload}
+          onGenerateOnUploadChange={setMediaPreviewGenerateOnUpload}
+          generateOnFirstView={mediaPreviewGenerateOnFirstView}
+          onGenerateOnFirstViewChange={setMediaPreviewGenerateOnFirstView}
+          generateOnShare={mediaPreviewGenerateOnShare}
+          onGenerateOnShareChange={setMediaPreviewGenerateOnShare}
           onComplete={() => {
             void handleComplete();
           }}
@@ -829,6 +845,12 @@ function PrivacyStep({
 function MediaStep({
   enabled,
   onToggle,
+  generateOnUpload,
+  onGenerateOnUploadChange,
+  generateOnFirstView,
+  onGenerateOnFirstViewChange,
+  generateOnShare,
+  onGenerateOnShareChange,
   onComplete,
   onBack,
   pending,
@@ -836,6 +858,12 @@ function MediaStep({
 }: {
   enabled: boolean;
   onToggle: (val: boolean) => void;
+  generateOnUpload: boolean;
+  onGenerateOnUploadChange: (val: boolean) => void;
+  generateOnFirstView: boolean;
+  onGenerateOnFirstViewChange: (val: boolean) => void;
+  generateOnShare: boolean;
+  onGenerateOnShareChange: (val: boolean) => void;
   onComplete: () => void;
   onBack: () => void;
   pending: boolean;
@@ -861,9 +889,10 @@ function MediaStep({
       </div>
 
       <p className="onboarding-step__body">
-        Staaash can transcode uploaded videos into streamable previews using
-        FFmpeg. This runs in a background worker and can use significant CPU.
-        You can change this anytime in Admin → Settings.
+        Staaash can transcode videos into streamable previews using FFmpeg.
+        Choose when automatic generation should happen. This runs in a
+        background worker and can use significant CPU. You can change this
+        anytime in Admin → Settings.
       </p>
 
       <div className="onboarding-toggles">
@@ -887,6 +916,79 @@ function MediaStep({
             >
               Generates compressed video previews on demand. Requires a worker
               process and a reasonably capable CPU.
+            </span>
+          </div>
+          <span className="onboarding-switch" aria-hidden="true">
+            <span className="onboarding-switch__thumb" />
+          </span>
+        </label>
+        <label className="onboarding-toggle" htmlFor="ob-media-upload">
+          <input
+            id="ob-media-upload"
+            role="switch"
+            className="onboarding-switch-input"
+            type="checkbox"
+            checked={generateOnUpload}
+            onChange={(event) =>
+              onGenerateOnUploadChange(event.currentTarget.checked)
+            }
+            aria-describedby="ob-media-upload-desc"
+          />
+          <div className="onboarding-toggle__text">
+            <span className="onboarding-toggle__label">Generate on upload</span>
+            <span className="onboarding-toggle__desc" id="ob-media-upload-desc">
+              Start a preview when a qualifying video upload finishes.
+            </span>
+          </div>
+          <span className="onboarding-switch" aria-hidden="true">
+            <span className="onboarding-switch__thumb" />
+          </span>
+        </label>
+        <label className="onboarding-toggle" htmlFor="ob-media-first-view">
+          <input
+            id="ob-media-first-view"
+            role="switch"
+            className="onboarding-switch-input"
+            type="checkbox"
+            checked={generateOnFirstView}
+            onChange={(event) =>
+              onGenerateOnFirstViewChange(event.currentTarget.checked)
+            }
+            aria-describedby="ob-media-first-view-desc"
+          />
+          <div className="onboarding-toggle__text">
+            <span className="onboarding-toggle__label">
+              Generate on first view
+            </span>
+            <span
+              className="onboarding-toggle__desc"
+              id="ob-media-first-view-desc"
+            >
+              Start a preview after the first qualifying video view.
+            </span>
+          </div>
+          <span className="onboarding-switch" aria-hidden="true">
+            <span className="onboarding-switch__thumb" />
+          </span>
+        </label>
+        <label className="onboarding-toggle" htmlFor="ob-media-share">
+          <input
+            id="ob-media-share"
+            role="switch"
+            className="onboarding-switch-input"
+            type="checkbox"
+            checked={generateOnShare}
+            onChange={(event) =>
+              onGenerateOnShareChange(event.currentTarget.checked)
+            }
+            aria-describedby="ob-media-share-desc"
+          />
+          <div className="onboarding-toggle__text">
+            <span className="onboarding-toggle__label">
+              Generate when shared
+            </span>
+            <span className="onboarding-toggle__desc" id="ob-media-share-desc">
+              Create a preview and poster when a video is shared.
             </span>
           </div>
           <span className="onboarding-switch" aria-hidden="true">
