@@ -2,20 +2,9 @@
 
 The release workflow treats a Git tag, exact commit, package versions, validated CI run, GHCR image, OCI index digest, GitHub Release, and installation assets as one release identity.
 
-## Prerequisites
-
-Configure the release workflow once:
-
-1. Create a GitHub App with repository Contents read/write permission.
-2. Store its client ID in the repository variable `RELEASE_APP_CLIENT_ID` and its private key in the repository secret `RELEASE_APP_PRIVATE_KEY`.
-3. Install the App on this repository and add it as a bypass actor for the `main-protection` ruleset.
-4. Ensure the repository ruleset for `refs/tags/v*` blocks tag updates and deletion.
-
-Package versions stay at the current release until the workflow is run. The workflow updates `package.json`, `apps/web/package.json`, `apps/worker/package.json`, `packages/config/package.json`, and `packages/db/package.json` together.
-
 Alpha and beta releases remain unsupported development history. Their prerelease classification does not restore an upgrade path. Users must start a fresh current installation and must not reuse alpha/beta internal database or storage directories.
 
-## Automated sequence
+## Start a release
 
 Run a new release from `main` with the version input:
 
