@@ -10,6 +10,7 @@ import {
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Download, FolderPlus, Loader2, RefreshCw, Upload } from "lucide-react";
+import { toast } from "sonner";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { FlashMessage } from "@/app/auth-ui";
@@ -17,6 +18,11 @@ import { DashboardPageContextMenu } from "@/app/dashboard-context-menu";
 import { ItemTypeIcon } from "@/app/item-type-icon";
 import { getItemVisual } from "@/app/item-visuals";
 import { startValidatedDownload } from "@/lib/transfers/download";
+import {
+  collectDirectoryDropSelection,
+  createFolderUploadSelection,
+  getDirectoryDropEntries,
+} from "@/lib/transfers/folder-upload";
 import type {
   BatchMoveItem,
   BatchMoveOperationResponse,
@@ -363,6 +369,7 @@ export function FilesView({
   >([]);
   const dragCounterRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   const draggedItemsRef = useRef<BatchMoveItem[]>([]);
   const contextMoveItemsRef = useRef<BatchMoveItem[]>([]);
   const storageMutationKeysRef = useRef(new Map<string, string>());
@@ -390,6 +397,10 @@ export function FilesView({
     registerFileInput(fileInputRef.current, listing.currentFolder.id);
     return () => registerFileInput(null);
   }, [listing.currentFolder.id, registerFileInput]);
+
+  useEffect(() => {
+    folderInputRef.current?.setAttribute("webkitdirectory", "");
+  }, []);
 
   useEffect(() => {
     return () => dragPreviewRef.current?.remove();
@@ -1354,9 +1365,34 @@ export function FilesView({
     e.preventDefault();
     dragCounterRef.current = 0;
     setIsDragOver(false);
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0)
-      beginUpload(listing.currentFolder.id, currentPath, files);
+    const entries = getDirectoryDropEntries(Array.from(e.dataTransfer.items));
+    const flatFileFallback = createFolderUploadSelection(
+      Array.from(e.dataTransfer.files),
+    );
+    if (entries.length > 0) {
+      void collectDirectoryDropSelection(entries)
+        .then((selection) => {
+          beginUpload(listing.currentFolder.id, currentPath, selection);
+        })
+        .catch(() => {
+          // The browser can expose a directory entry without allowing its
+          // contents to be read. Preserve the files as a flat upload.
+          if (flatFileFallback.files.length > 0) {
+            beginUpload(
+              listing.currentFolder.id,
+              currentPath,
+              flatFileFallback,
+            );
+            return;
+          }
+          toast.error("The dropped folder could not be read.");
+        });
+      return;
+    }
+
+    if (flatFileFallback.files.length > 0) {
+      beginUpload(listing.currentFolder.id, currentPath, flatFileFallback);
+    }
   };
 
   const handleItemDragStart = (
@@ -1475,12 +1511,24 @@ export function FilesView({
     void moveItems(items, destinationFolderId);
   };
 
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    if (files.length > 0)
-      beginUpload(listing.currentFolder.id, currentPath, files);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+  const handleUploadInputChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    inputRef: { current: HTMLInputElement | null },
+  ) => {
+    const selection = createFolderUploadSelection(
+      Array.from(e.target.files ?? []),
+    );
+    if (selection.files.length > 0) {
+      beginUpload(listing.currentFolder.id, currentPath, selection);
+    }
+    if (inputRef.current) inputRef.current.value = "";
   };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    handleUploadInputChange(e, fileInputRef);
+
+  const handleFolderInputChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    handleUploadInputChange(e, folderInputRef);
 
   // ---------------------------------------------------------------------------
   // Rubber-band
@@ -1618,7 +1666,8 @@ export function FilesView({
 
   const activeUploads = uploadingFiles.filter(
     (f) =>
-      f.folderId === listing.currentFolder.id &&
+      (f.folderId === listing.currentFolder.id ||
+        f.folderUploadRootId === listing.currentFolder.id) &&
       (f.status !== "done" ||
         !f.fileId ||
         !visibleFiles.some((lf) => lf.id === f.fileId)),
@@ -1681,6 +1730,11 @@ export function FilesView({
           icon: <Upload size={13} />,
           label: "Upload files",
           onSelect: () => fileInputRef.current?.click(),
+        },
+        {
+          icon: <FolderPlus size={13} />,
+          label: "Upload folder",
+          onSelect: () => folderInputRef.current?.click(),
         },
         {
           icon: <RefreshCw size={13} />,
@@ -1906,12 +1960,29 @@ export function FilesView({
                 New folder
               </button>
 
+              <button
+                className="button button-secondary"
+                type="button"
+                onClick={() => folderInputRef.current?.click()}
+              >
+                <FolderPlus size={15} aria-hidden />
+                Upload folder
+              </button>
+
               <input
                 ref={fileInputRef}
                 type="file"
                 multiple
                 hidden
                 onChange={handleFileInputChange}
+                aria-hidden
+              />
+              <input
+                ref={folderInputRef}
+                type="file"
+                multiple
+                hidden
+                onChange={handleFolderInputChange}
                 aria-hidden
               />
             </div>
@@ -2070,7 +2141,7 @@ export function FilesView({
               <div className="explorer-empty">
                 <div className="explorer-empty-copy">
                   <strong>No files here yet</strong>
-                  <span>Drop files here or choose files to upload.</span>
+                  <span>Drop files or folders here to upload.</span>
                 </div>
                 <div className="explorer-empty-actions">
                   <button
@@ -2083,6 +2154,17 @@ export function FilesView({
                   >
                     <Upload size={16} />
                     Upload files
+                  </button>
+                  <button
+                    className="explorer-empty-secondary"
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      folderInputRef.current?.click();
+                    }}
+                  >
+                    <FolderPlus size={15} />
+                    Upload folder
                   </button>
                   <button
                     className="explorer-empty-secondary"
@@ -2279,7 +2361,7 @@ export function FilesView({
             <div className="upload-drag-overlay" aria-hidden>
               <div className="upload-drag-overlay-inner">
                 <Upload size={32} />
-                <p>Drop to upload into "{listing.currentFolder.name}"</p>
+                <p>Drop files or folders into "{listing.currentFolder.name}"</p>
               </div>
             </div>
           )}

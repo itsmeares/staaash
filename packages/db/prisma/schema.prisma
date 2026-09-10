@@ -1,6 +1,7 @@
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
+  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
@@ -162,6 +163,7 @@ model Folder {
   shareLink   ShareLink?       @relation("ShareLinkFolder")
   trashEntry  TrashEntry?      @relation(fields: [trashEntryId], references: [id], onDelete: SetNull)
 
+  @@unique([ownerUserId, parentId, name], where: raw("\"deletedAt\" IS NULL"))
   @@index([ownerUserId, isFilesRoot])
   @@index([ownerUserId, parentId, deletedAt])
   @@index([ownerUserId, deletedAt, updatedAt])
@@ -541,7 +543,8 @@ model TrashEntry {
   rootEntityId   String
   deletedAt      DateTime
   /// Migration 20260726000000 enforces uniqueness only for isolated roots;
-  /// Prisma schema syntax cannot represent that partial PostgreSQL index.
+  /// the partialIndexes preview feature represents the matching PostgreSQL
+  /// partial index with a raw where clause.
   storageRootKey String?
   treeManifestDigest String?
   layoutVersion  String

@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { randomClientId } from "@/lib/client-id";
 import {
   computeFileSha256,
@@ -26,6 +27,10 @@ import {
   UploadRateTracker,
 } from "@/lib/transfers/upload-progress";
 import { UploadTaskPool } from "@/lib/transfers/upload-task-pool";
+import {
+  getUploadDirectoryPath,
+  type FolderUploadSelection,
+} from "@/lib/transfers/folder-upload";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -46,6 +51,7 @@ export type UploadingFile = {
   fileRef?: File;
   fileId?: string;
   folderId?: string;
+  folderUploadRootId?: string;
 };
 
 export type DownloadProgressState =
@@ -58,7 +64,11 @@ type TransferContextValue = {
   uploadingFiles: UploadingFile[];
   activeDownload: { archiveId: string; state: DownloadProgressState } | null;
   currentFilesViewFolderId: string | null;
-  beginUpload: (folderId: string, currentPath: string, files: File[]) => void;
+  beginUpload: (
+    folderId: string,
+    currentPath: string,
+    selection: FolderUploadSelection,
+  ) => void;
   dismissUpload: (clientKey: string) => void;
   retryUpload: (clientKey: string) => void;
   handleDownload: (ids: string[]) => Promise<void>;
@@ -101,6 +111,13 @@ type ResumableSessionResponse = {
   completedChunks: CompletedUploadChunk[];
 };
 
+type EnsureFolderPathsResponse = {
+  folders: Array<{
+    path: string;
+    folderId: string;
+  }>;
+};
+
 const isAbortError = (error: unknown) =>
   error instanceof DOMException && error.name === "AbortError";
 
@@ -109,6 +126,35 @@ const readResponseError = async (response: Response, fallback: string) => {
     error?: string;
   };
   return data.error ?? fallback;
+};
+
+const ensureUploadFolders = async ({
+  folderId,
+  paths,
+}: {
+  folderId: string;
+  paths: string[];
+}): Promise<EnsureFolderPathsResponse> => {
+  const response = await queuedFetch(
+    "upload",
+    "/api/files/folders/ensure",
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "Idempotency-Key": crypto.randomUUID(),
+      },
+      body: JSON.stringify({ folderId, paths }),
+    },
+    { retries: 3, backoffMs: 500 },
+  );
+  if (!response.ok) {
+    throw new Error(
+      await readResponseError(response, "Failed to prepare upload folders"),
+    );
+  }
+  return (await response.json()) as EnsureFolderPathsResponse;
 };
 
 const createResumableUploadSession = async ({
@@ -298,6 +344,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
   const uploadAbortControllers = useRef<Map<string, AbortController>>(
     new Map(),
   );
+  const cancelledUploadKeys = useRef(new Set<string>());
   const [currentFilesViewFolderId, setCurrentFilesViewFolderId] = useState<
     string | null
   >(null);
@@ -332,6 +379,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
     fileId?: string;
     sessionStorageKeys?: string[];
   }) => {
+    cancelledUploadKeys.current.delete(clientKey);
     for (const storageKey of sessionStorageKeys) {
       localStorage.removeItem(storageKey);
     }
@@ -975,31 +1023,99 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
   const beginUpload = (
     folderId: string,
     currentPath: string,
-    files: File[],
+    selection: FolderUploadSelection,
   ) => {
-    for (const file of files) {
+    if (selection.files.length === 0 && selection.directoryPaths.length === 0) {
+      return;
+    }
+
+    const uploadKeys = selection.files.map(({ file, relativePath }) => {
       const clientKey = randomClientId();
       const storageMutationKey = crypto.randomUUID();
+      cancelledUploadKeys.current.delete(clientKey);
       setUploadingFiles((prev) => [
         ...prev,
         {
           clientKey,
           storageMutationKey,
-          name: file.name,
+          name: relativePath,
           size: file.size,
           status: "uploading",
           progress: 0,
           transferredBytes: 0,
           speed: 0,
           fileRef: file,
-          folderId,
+          folderId:
+            selection.directoryPaths.length === 0 ? folderId : undefined,
+          folderUploadRootId:
+            selection.directoryPaths.length > 0 ? folderId : undefined,
+          statusLabel:
+            selection.directoryPaths.length === 0
+              ? undefined
+              : "Preparing folders...",
         },
       ]);
-      startUpload(clientKey, storageMutationKey, file, folderId, currentPath);
-    }
+
+      return { clientKey, storageMutationKey, file, relativePath };
+    });
+
+    void (async () => {
+      const folderIds = new Map<string, string>();
+      if (selection.directoryPaths.length > 0) {
+        const result = await ensureUploadFolders({
+          folderId,
+          paths: selection.directoryPaths,
+        });
+        for (const folder of result.folders) {
+          folderIds.set(folder.path, folder.folderId);
+        }
+      }
+
+      for (const upload of uploadKeys) {
+        if (cancelledUploadKeys.current.has(upload.clientKey)) {
+          continue;
+        }
+
+        const uploadDirectoryPath = getUploadDirectoryPath(upload.relativePath);
+        const targetFolderId =
+          selection.directoryPaths.length === 0 || uploadDirectoryPath === ""
+            ? folderId
+            : folderIds.get(uploadDirectoryPath);
+        if (!targetFolderId) {
+          throw new Error("The upload folder could not be prepared.");
+        }
+        updateUploadingFile(upload.clientKey, {
+          folderId: targetFolderId,
+          statusLabel: undefined,
+        });
+        startUpload(
+          upload.clientKey,
+          upload.storageMutationKey,
+          upload.file,
+          targetFolderId,
+          currentPath,
+        );
+      }
+
+      if (uploadKeys.length === 0) startTransition(() => router.refresh());
+    })().catch((error) => {
+      if (uploadKeys.length === 0) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Failed to prepare upload folders",
+        );
+      }
+      for (const upload of uploadKeys) {
+        if (!cancelledUploadKeys.current.has(upload.clientKey)) {
+          markUploadFailed(upload.clientKey, error);
+        }
+      }
+    });
   };
 
   const dismissUpload = (clientKey: string) => {
+    cancelledUploadKeys.current.add(clientKey);
     const controller = uploadAbortControllers.current.get(clientKey);
     if (controller) {
       controller.abort();
@@ -1012,7 +1128,13 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
     const file = uploadingFilesRef.current.find(
       (f) => f.clientKey === clientKey,
     );
-    if (!file?.fileRef || !file.folderId) return;
+    if (!file?.fileRef) return;
+    const fileRef = file.fileRef;
+    const uploadDirectoryPath = file.folderUploadRootId
+      ? getUploadDirectoryPath(file.name)
+      : "";
+    if (!file.folderId && !file.folderUploadRootId) return;
+    cancelledUploadKeys.current.delete(clientKey);
     setUploadingFiles((prev) =>
       prev.map((f) =>
         f.clientKey === clientKey
@@ -1023,18 +1145,51 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
               transferredBytes: 0,
               speed: 0,
               error: undefined,
-              statusLabel: undefined,
+              statusLabel:
+                f.folderUploadRootId &&
+                !f.folderId &&
+                getUploadDirectoryPath(f.name) !== ""
+                  ? "Preparing folders..."
+                  : undefined,
             }
           : f,
       ),
     );
-    startUpload(
-      clientKey,
-      file.storageMutationKey,
-      file.fileRef,
-      file.folderId,
-      "",
-    );
+    void (async () => {
+      let targetFolderId = file.folderId;
+      if (!targetFolderId && file.folderUploadRootId) {
+        if (uploadDirectoryPath === "") {
+          targetFolderId = file.folderUploadRootId;
+        } else {
+          const result = await ensureUploadFolders({
+            folderId: file.folderUploadRootId,
+            paths: [uploadDirectoryPath],
+          });
+          targetFolderId = result.folders.find(
+            (folder) => folder.path === uploadDirectoryPath,
+          )?.folderId;
+        }
+      }
+      if (!targetFolderId) {
+        throw new Error("The upload folder could not be prepared.");
+      }
+      if (cancelledUploadKeys.current.has(clientKey)) return;
+      updateUploadingFile(clientKey, {
+        folderId: targetFolderId,
+        statusLabel: undefined,
+      });
+      startUpload(
+        clientKey,
+        file.storageMutationKey,
+        fileRef,
+        targetFolderId,
+        "",
+      );
+    })().catch((error) => {
+      if (!cancelledUploadKeys.current.has(clientKey)) {
+        markUploadFailed(clientKey, error);
+      }
+    });
   };
 
   return (

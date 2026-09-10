@@ -32,15 +32,20 @@ const defaultSystemSettings = {
   updatedAt: new Date("2026-01-01T00:00:00.000Z"),
 };
 
-vi.mock("@staaash/db/client", () => ({
-  getPrisma: () => ({
-    systemSettings: {
-      findUnique: vi.fn().mockResolvedValue(defaultSystemSettings),
-      create: vi.fn().mockResolvedValue(defaultSystemSettings),
-    },
-    instance: {
-      findUnique: vi.fn().mockResolvedValue(null),
-      update: vi.fn().mockResolvedValue(null),
-    },
-  }),
-}));
+vi.mock("@staaash/db/client", async (importOriginal) => {
+  const { Prisma } =
+    await importOriginal<typeof import("@staaash/db/client")>();
+  return {
+    Prisma,
+    getPrisma: () => ({
+      systemSettings: {
+        findUnique: vi.fn().mockResolvedValue(defaultSystemSettings),
+        create: vi.fn().mockResolvedValue(defaultSystemSettings),
+      },
+      instance: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        update: vi.fn().mockResolvedValue(null),
+      },
+    }),
+  };
+});

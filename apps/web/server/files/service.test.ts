@@ -2,6 +2,7 @@ import { access, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
+import { Prisma } from "@staaash/db/client";
 import { describe, expect, it, vi } from "vitest";
 
 import { FilesError } from "@/server/files/errors";
@@ -577,6 +578,148 @@ describe.sequential("files service", () => {
       }),
     ).rejects.toMatchObject({
       code: "FOLDER_NAME_CONFLICT",
+    });
+  });
+
+  it("ensures nested folder paths and reuses existing folders", async () => {
+    await cleanDataRoot();
+    const { repo, state } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureFilesRoot("member-1");
+
+    const first = await service.ensureFolderPaths({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: root.id,
+      paths: ["Project/src", "Project", "Project/empty"],
+      idempotencyKey: "folder-upload-1",
+    });
+    const second = await service.ensureFolderPaths({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: root.id,
+      paths: ["Project/src", "Project", "Project/empty"],
+      idempotencyKey: "folder-upload-1",
+    });
+
+    expect(first.folders).toEqual(second.folders);
+    expect(first.folders).toHaveLength(3);
+    expect(new Set(first.folders.map(({ folderId }) => folderId)).size).toBe(3);
+
+    const rawPathVariants = await service.ensureFolderPaths({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: root.id,
+      paths: ["Project/src", " Project/src"],
+      idempotencyKey: "folder-upload-raw-paths",
+    });
+    expect(rawPathVariants.folders).toHaveLength(2);
+    expect(rawPathVariants.folders.map(({ path }) => path)).toEqual([
+      "Project/src",
+      " Project/src",
+    ]);
+    expect(rawPathVariants.folders[0]?.folderId).toBe(
+      rawPathVariants.folders[1]?.folderId,
+    );
+
+    const nestedFolder = first.folders.find(
+      ({ path }) => path === "Project/src",
+    );
+    const upload = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: nestedFolder!.folderId,
+      items: [
+        {
+          clientKey: "nested-file",
+          originalName: "index.ts",
+          conflictStrategy: "fail",
+          file: new File(["export {}"], "index.ts", {
+            type: "text/typescript",
+          }),
+        },
+      ],
+    });
+
+    expect(upload.uploadedFiles[0]?.folderId).toBe(nestedFolder?.folderId);
+    const storedFile = state.files.find(
+      ({ id }) => id === upload.uploadedFiles[0]?.id,
+    );
+    expect(storedFile?.storageKey).toBe("files/member-1/Project/src/index.ts");
+    await expect(
+      readFile(getStoragePath(storedFile!.storageKey), "utf8"),
+    ).resolves.toBe("export {}");
+  });
+
+  it("preserves the winning folder directory after a unique race", async () => {
+    await cleanDataRoot();
+    const { repo, addFolder } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureFilesRoot("member-1");
+    let winningFolder: FolderSummary | undefined;
+
+    repo.createFolder = async (params) => {
+      winningFolder = addFolder({
+        ownerUserId: params.ownerUserId,
+        parentId: params.parentId,
+        name: params.name,
+      });
+      throw new Prisma.PrismaClientKnownRequestError("duplicate folder", {
+        code: "P2002",
+        clientVersion: "7.10.0",
+      });
+    };
+
+    const result = await service.ensureFolderPaths({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: root.id,
+      paths: ["Race"],
+    });
+
+    expect(result.folders[0]?.folderId).toBe(winningFolder?.id);
+    await expect(
+      access(getStoragePath("files/member-1/Race")),
+    ).resolves.toBeUndefined();
+  });
+
+  it("rejects a file occupying a required folder path", async () => {
+    const { repo, addFile } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureFilesRoot("member-1");
+    addFile({
+      ownerUserId: "member-1",
+      folderId: root.id,
+      name: "Project",
+      storageKey: "files/member-1/Project",
+    });
+
+    await expect(
+      service.ensureFolderPaths({
+        actorUserId: "member-1",
+        actorRole: "member",
+        parentId: root.id,
+        paths: ["Project/src"],
+      }),
+    ).rejects.toMatchObject({
+      code: "FOLDER_NAME_CONFLICT",
+    });
+  });
+
+  it("rejects unsafe folder paths before creating anything", async () => {
+    const { repo } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureFilesRoot("member-1");
+
+    await expect(
+      service.ensureFolderPaths({
+        actorUserId: "member-1",
+        actorRole: "member",
+        parentId: root.id,
+        paths: ["Project/../private"],
+      }),
+    ).rejects.toMatchObject({
+      code: "FOLDER_NAME_INVALID",
     });
   });
 

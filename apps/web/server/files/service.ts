@@ -5,7 +5,7 @@ import { lstat, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 
 import { scheduleDerivativeGenerate } from "@staaash/db/media-derivatives";
-import { getPrisma, type Prisma } from "@staaash/db/client";
+import { getPrisma, Prisma } from "@staaash/db/client";
 
 import { canAccessPrivateNamespace } from "@/server/access";
 import { shouldGenerateMediaPreview } from "@/server/media/preview-generation-policy";
@@ -184,9 +184,224 @@ type UploadFilesInput = FilesActor &
     items: UploadRequestItem[];
   };
 
+type EnsureFolderPathsInput = FilesActor &
+  DurableRequest & {
+    parentId: string;
+    paths: string[];
+  };
+
+type EnsureFolderPathsResult = {
+  folders: Array<{
+    path: string;
+    folderId: string;
+  }>;
+};
+
+const MAX_FOLDER_UPLOAD_PATHS = 10_000;
+const MAX_FOLDER_UPLOAD_PATH_DEPTH = 100;
+const MAX_FOLDER_UPLOAD_PATH_LENGTH = 4_096;
+
 const deterministicUuid = (value: string) => {
   const hex = createHash("sha256").update(value).digest("hex").slice(0, 32);
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20)}`;
+};
+
+const hasInvalidFolderUploadPathShape = (rawPath: string) =>
+  rawPath.length === 0 ||
+  rawPath.length > MAX_FOLDER_UPLOAD_PATH_LENGTH ||
+  rawPath.startsWith("/") ||
+  rawPath.endsWith("/") ||
+  rawPath.includes("\\");
+
+const hasUnsafeFolderUploadSegments = (segments: string[]) =>
+  segments.length > MAX_FOLDER_UPLOAD_PATH_DEPTH ||
+  segments.some((segment) => segment === "." || segment === "..");
+
+const parseFolderUploadPath = (rawPath: string) => {
+  if (hasInvalidFolderUploadPathShape(rawPath)) {
+    throw new FilesError("FOLDER_NAME_INVALID");
+  }
+
+  const rawSegments = rawPath.split("/");
+  if (hasUnsafeFolderUploadSegments(rawSegments)) {
+    throw new FilesError("FOLDER_NAME_INVALID");
+  }
+
+  const segments = rawSegments.map(normalizeFolderName);
+  return {
+    path: rawPath,
+    canonicalPath: segments.join("/"),
+    segments,
+  };
+};
+
+type ParsedFolderUploadPath = ReturnType<typeof parseFolderUploadPath>;
+
+const folderUploadEntryKey = (folderId: string, name: string) =>
+  `${folderId}\u0000${name}`;
+
+const buildFolderUploadIndex = (
+  folders: FolderSummary[],
+  files: StoredFile[],
+) => {
+  const folderByParentAndName = new Map<string, FolderSummary>();
+  const fileKeys = new Set<string>();
+
+  for (const folder of folders) {
+    if (folder.parentId) {
+      folderByParentAndName.set(
+        folderUploadEntryKey(folder.parentId, folder.name),
+        folder,
+      );
+    }
+  }
+  for (const file of files) {
+    if (file.folderId) {
+      fileKeys.add(folderUploadEntryKey(file.folderId, file.name));
+    }
+  }
+
+  return { folderByParentAndName, fileKeys };
+};
+
+const isFolderNameConflict = (error: unknown): error is FilesError =>
+  error instanceof FilesError && error.code === "FOLDER_NAME_CONFLICT";
+
+const recoverFolderUploadConflict = async ({
+  error,
+  activeRepo,
+  ownerUserId,
+  parentId,
+  name,
+}: {
+  error: FilesError;
+  activeRepo: FilesRepository;
+  ownerUserId: string;
+  parentId: string;
+  name: string;
+}) => {
+  const [existingFolders, existingFiles] = await Promise.all([
+    activeRepo.listChildFolders(ownerUserId, parentId, {
+      includeDeleted: false,
+    }),
+    activeRepo.listChildFiles(ownerUserId, parentId, {
+      includeDeleted: false,
+    }),
+  ]);
+  const folder = existingFolders.find((candidate) => candidate.name === name);
+  if (!folder || existingFiles.some((file) => file.name === name)) {
+    throw error;
+  }
+  return folder;
+};
+
+const ensureFolderUploadChild = async ({
+  actorRole,
+  actorUserId,
+  ownerUserId,
+  parentFolder,
+  parsed,
+  segment,
+  segmentIndex,
+  idempotencyKey,
+  activeRepo,
+  folderByParentAndName,
+  fileKeys,
+  createFolder,
+}: {
+  actorRole: FilesActor["actorRole"];
+  actorUserId: string;
+  ownerUserId: string;
+  parentFolder: FolderSummary;
+  parsed: ParsedFolderUploadPath;
+  segment: string;
+  segmentIndex: number;
+  idempotencyKey?: string | null;
+  activeRepo: FilesRepository;
+  folderByParentAndName: Map<string, FolderSummary>;
+  fileKeys: Set<string>;
+  createFolder: (input: CreateFolderInput) => Promise<FolderMutationResult>;
+}) => {
+  const key = folderUploadEntryKey(parentFolder.id, segment);
+  const cachedFolder = folderByParentAndName.get(key);
+  if (cachedFolder) return cachedFolder;
+  if (fileKeys.has(key)) throw new FilesError("FOLDER_NAME_CONFLICT");
+
+  const childIdempotencyKey = idempotencyKey
+    ? deterministicUuid(
+        `folder-upload:${idempotencyKey}:${parsed.segments
+          .slice(0, segmentIndex + 1)
+          .join("/")}`,
+      )
+    : undefined;
+
+  let folder: FolderSummary;
+  try {
+    folder = (
+      await createFolder({
+        actorRole,
+        actorUserId,
+        parentId: parentFolder.id,
+        name: segment,
+        idempotencyKey: childIdempotencyKey,
+      })
+    ).folder;
+  } catch (error) {
+    if (!isFolderNameConflict(error)) throw error;
+    folder = await recoverFolderUploadConflict({
+      error,
+      activeRepo,
+      ownerUserId,
+      parentId: parentFolder.id,
+      name: segment,
+    });
+  }
+
+  folderByParentAndName.set(key, folder);
+  return folder;
+};
+
+const ensureFolderUploadPath = async ({
+  actorRole,
+  actorUserId,
+  ownerUserId,
+  targetFolder,
+  parsed,
+  idempotencyKey,
+  activeRepo,
+  folderByParentAndName,
+  fileKeys,
+  createFolder,
+}: {
+  actorRole: FilesActor["actorRole"];
+  actorUserId: string;
+  ownerUserId: string;
+  targetFolder: FolderSummary;
+  parsed: ParsedFolderUploadPath;
+  idempotencyKey?: string | null;
+  activeRepo: FilesRepository;
+  folderByParentAndName: Map<string, FolderSummary>;
+  fileKeys: Set<string>;
+  createFolder: (input: CreateFolderInput) => Promise<FolderMutationResult>;
+}) => {
+  let parentFolder = targetFolder;
+  for (const [segmentIndex, segment] of parsed.segments.entries()) {
+    parentFolder = await ensureFolderUploadChild({
+      actorRole,
+      actorUserId,
+      ownerUserId,
+      parentFolder,
+      parsed,
+      segment,
+      segmentIndex,
+      idempotencyKey,
+      activeRepo,
+      folderByParentAndName,
+      fileKeys,
+      createFolder,
+    });
+  }
+  return parentFolder;
 };
 
 type ActiveNameConflict =
@@ -2748,9 +2963,76 @@ export const createFilesService = ({
           folder,
         };
       } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2002"
+        ) {
+          throw new FilesError("FOLDER_NAME_CONFLICT");
+        }
         await removeFolderDirectory(folderStorageKey);
         throw error;
       }
+    },
+
+    async ensureFolderPaths({
+      actorRole,
+      actorUserId,
+      parentId,
+      paths,
+      idempotencyKey,
+    }: EnsureFolderPathsInput): Promise<EnsureFolderPathsResult> {
+      if (paths.length > MAX_FOLDER_UPLOAD_PATHS) {
+        throw new FilesError("FOLDER_NAME_INVALID");
+      }
+
+      const requestedPaths = paths.map(parseFolderUploadPath);
+
+      const targetFolder = await getActiveOwnedFolder({
+        actorRole,
+        actorUserId,
+        folderId: parentId,
+      });
+      const activeRepo = await resolveRepo();
+      const [folders, files] = await Promise.all([
+        activeRepo.listFoldersByOwner(targetFolder.ownerUserId, {
+          includeDeleted: false,
+        }),
+        activeRepo.listFilesByOwner(targetFolder.ownerUserId, {
+          includeDeleted: false,
+        }),
+      ]);
+      const { folderByParentAndName, fileKeys } = buildFolderUploadIndex(
+        folders,
+        files,
+      );
+
+      const resolvedFolders: EnsureFolderPathsResult["folders"] = [];
+      const resolvedByCanonicalPath = new Map<string, FolderSummary>();
+      for (const parsed of requestedPaths) {
+        let folder = resolvedByCanonicalPath.get(parsed.canonicalPath);
+        if (!folder) {
+          folder = await ensureFolderUploadPath({
+            actorRole,
+            actorUserId,
+            ownerUserId: targetFolder.ownerUserId,
+            targetFolder,
+            parsed,
+            idempotencyKey,
+            activeRepo,
+            folderByParentAndName,
+            fileKeys,
+            createFolder: (input) => this.createFolder(input),
+          });
+          resolvedByCanonicalPath.set(parsed.canonicalPath, folder);
+        }
+
+        resolvedFolders.push({
+          path: parsed.path,
+          folderId: folder.id,
+        });
+      }
+
+      return { folders: resolvedFolders };
     },
 
     // Durable rename keeps validation, intent, and replay ordering explicit.

@@ -289,6 +289,7 @@ export type FolderOrderByWithRelationInput = {
 
 export type FolderWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  ownerUserId_parentId_name?: Prisma.FolderOwnerUserIdParentIdNameCompoundUniqueInput
   AND?: Prisma.FolderWhereInput | Prisma.FolderWhereInput[]
   OR?: Prisma.FolderWhereInput[]
   NOT?: Prisma.FolderWhereInput | Prisma.FolderWhereInput[]
@@ -309,7 +310,7 @@ export type FolderWhereUniqueInput = Prisma.AtLeast<{
   recents?: Prisma.RecentFolderListRelationFilter
   shareLink?: Prisma.XOR<Prisma.ShareLinkNullableScalarRelationFilter, Prisma.ShareLinkWhereInput> | null
   trashEntry?: Prisma.XOR<Prisma.TrashEntryNullableScalarRelationFilter, Prisma.TrashEntryWhereInput> | null
-}, "id">
+}, "id" | "ownerUserId_parentId_name">
 
 export type FolderOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
@@ -466,6 +467,12 @@ export type FolderOrderByRelationAggregateInput = {
 export type FolderNullableScalarRelationFilter = {
   is?: Prisma.FolderWhereInput | null
   isNot?: Prisma.FolderWhereInput | null
+}
+
+export type FolderOwnerUserIdParentIdNameCompoundUniqueInput = {
+  ownerUserId: string
+  parentId: string
+  name: string
 }
 
 export type FolderCountOrderByAggregateInput = {
