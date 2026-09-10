@@ -491,7 +491,7 @@ const cleanDataRoot = async () => {
   }
 };
 
-describe.sequential("files service", () => {
+describe("files service", { concurrent: false }, () => {
   it("creates a files root on first listing and includes an empty file list", async () => {
     const { repo } = createMemoryRepository();
     const service = createService(repo);
