@@ -2963,13 +2963,13 @@ export const createFilesService = ({
           folder,
         };
       } catch (error) {
-        await removeFolderDirectory(folderStorageKey);
         if (
           error instanceof Prisma.PrismaClientKnownRequestError &&
           error.code === "P2002"
         ) {
           throw new FilesError("FOLDER_NAME_CONFLICT");
         }
+        await removeFolderDirectory(folderStorageKey);
         throw error;
       }
     },

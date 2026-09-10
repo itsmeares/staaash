@@ -2,6 +2,7 @@ import { access, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
+import { Prisma } from "@staaash/db/client";
 import { describe, expect, it, vi } from "vitest";
 
 import { FilesError } from "@/server/files/errors";
@@ -648,6 +649,38 @@ describe.sequential("files service", () => {
     await expect(
       readFile(getStoragePath(storedFile!.storageKey), "utf8"),
     ).resolves.toBe("export {}");
+  });
+
+  it("preserves the winning folder directory after a unique race", async () => {
+    await cleanDataRoot();
+    const { repo, addFolder } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureFilesRoot("member-1");
+    let winningFolder: FolderSummary | undefined;
+
+    repo.createFolder = async (params) => {
+      winningFolder = addFolder({
+        ownerUserId: params.ownerUserId,
+        parentId: params.parentId,
+        name: params.name,
+      });
+      throw new Prisma.PrismaClientKnownRequestError("duplicate folder", {
+        code: "P2002",
+        clientVersion: "7.10.0",
+      });
+    };
+
+    const result = await service.ensureFolderPaths({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: root.id,
+      paths: ["Race"],
+    });
+
+    expect(result.folders[0]?.folderId).toBe(winningFolder?.id);
+    await expect(
+      access(getStoragePath("files/member-1/Race")),
+    ).resolves.toBeUndefined();
   });
 
   it("rejects a file occupying a required folder path", async () => {
