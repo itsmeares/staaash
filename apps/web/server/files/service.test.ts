@@ -580,6 +580,100 @@ describe.sequential("files service", () => {
     });
   });
 
+  it("ensures nested folder paths and reuses existing folders", async () => {
+    await cleanDataRoot();
+    const { repo, state } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureFilesRoot("member-1");
+
+    const first = await service.ensureFolderPaths({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: root.id,
+      paths: ["Project/src", "Project", "Project/empty"],
+      idempotencyKey: "folder-upload-1",
+    });
+    const second = await service.ensureFolderPaths({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: root.id,
+      paths: ["Project/src", "Project", "Project/empty"],
+      idempotencyKey: "folder-upload-1",
+    });
+
+    expect(first.folders).toEqual(second.folders);
+    expect(first.folders).toHaveLength(3);
+    expect(new Set(first.folders.map(({ folderId }) => folderId)).size).toBe(3);
+
+    const nestedFolder = first.folders.find(
+      ({ path }) => path === "Project/src",
+    );
+    const upload = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: nestedFolder!.folderId,
+      items: [
+        {
+          clientKey: "nested-file",
+          originalName: "index.ts",
+          conflictStrategy: "fail",
+          file: new File(["export {}"], "index.ts", {
+            type: "text/typescript",
+          }),
+        },
+      ],
+    });
+
+    expect(upload.uploadedFiles[0]?.folderId).toBe(nestedFolder?.folderId);
+    const storedFile = state.files.find(
+      ({ id }) => id === upload.uploadedFiles[0]?.id,
+    );
+    expect(storedFile?.storageKey).toBe("files/member-1/Project/src/index.ts");
+    await expect(
+      readFile(getStoragePath(storedFile!.storageKey), "utf8"),
+    ).resolves.toBe("export {}");
+  });
+
+  it("rejects a file occupying a required folder path", async () => {
+    const { repo, addFile } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureFilesRoot("member-1");
+    addFile({
+      ownerUserId: "member-1",
+      folderId: root.id,
+      name: "Project",
+      storageKey: "files/member-1/Project",
+    });
+
+    await expect(
+      service.ensureFolderPaths({
+        actorUserId: "member-1",
+        actorRole: "member",
+        parentId: root.id,
+        paths: ["Project/src"],
+      }),
+    ).rejects.toMatchObject({
+      code: "FOLDER_NAME_CONFLICT",
+    });
+  });
+
+  it("rejects unsafe folder paths before creating anything", async () => {
+    const { repo } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureFilesRoot("member-1");
+
+    await expect(
+      service.ensureFolderPaths({
+        actorUserId: "member-1",
+        actorRole: "member",
+        parentId: root.id,
+        paths: ["Project/../private"],
+      }),
+    ).rejects.toMatchObject({
+      code: "FOLDER_NAME_INVALID",
+    });
+  });
+
   it("renames an active ancestor without stranding a standalone trashed descendant file", async () => {
     await cleanDataRoot();
     const { repo, state } = createMemoryRepository();
