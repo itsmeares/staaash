@@ -10,6 +10,7 @@ import {
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Download, FolderPlus, Loader2, RefreshCw, Upload } from "lucide-react";
+import { toast } from "sonner";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { FlashMessage } from "@/app/auth-ui";
@@ -1382,7 +1383,9 @@ export function FilesView({
               currentPath,
               flatFileFallback,
             );
+            return;
           }
+          toast.error("The dropped folder could not be read.");
         });
       return;
     }
@@ -1508,25 +1511,24 @@ export function FilesView({
     void moveItems(items, destinationFolderId);
   };
 
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadInputChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    inputRef: { current: HTMLInputElement | null },
+  ) => {
     const selection = createFolderUploadSelection(
       Array.from(e.target.files ?? []),
     );
     if (selection.files.length > 0) {
       beginUpload(listing.currentFolder.id, currentPath, selection);
     }
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (inputRef.current) inputRef.current.value = "";
   };
 
-  const handleFolderInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selection = createFolderUploadSelection(
-      Array.from(e.target.files ?? []),
-    );
-    if (selection.files.length > 0) {
-      beginUpload(listing.currentFolder.id, currentPath, selection);
-    }
-    if (folderInputRef.current) folderInputRef.current.value = "";
-  };
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    handleUploadInputChange(e, fileInputRef);
+
+  const handleFolderInputChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    handleUploadInputChange(e, folderInputRef);
 
   // ---------------------------------------------------------------------------
   // Rubber-band
@@ -1664,7 +1666,8 @@ export function FilesView({
 
   const activeUploads = uploadingFiles.filter(
     (f) =>
-      f.folderId === listing.currentFolder.id &&
+      (f.folderId === listing.currentFolder.id ||
+        f.folderUploadRootId === listing.currentFolder.id) &&
       (f.status !== "done" ||
         !f.fileId ||
         !visibleFiles.some((lf) => lf.id === f.fileId)),

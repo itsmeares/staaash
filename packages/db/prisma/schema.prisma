@@ -1,6 +1,7 @@
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
+  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
@@ -162,6 +163,7 @@ model Folder {
   shareLink   ShareLink?       @relation("ShareLinkFolder")
   trashEntry  TrashEntry?      @relation(fields: [trashEntryId], references: [id], onDelete: SetNull)
 
+  @@unique([ownerUserId, parentId, name], where: raw("\"deletedAt\" IS NULL"))
   @@index([ownerUserId, isFilesRoot])
   @@index([ownerUserId, parentId, deletedAt])
   @@index([ownerUserId, deletedAt, updatedAt])

@@ -89,6 +89,37 @@ const readDirectoryEntries = (reader: DirectoryDropReader) =>
     reader.readEntries(resolve, reject);
   });
 
+const visitFileEntry = async (
+  entry: DirectoryDropEntry,
+  relativePath: string,
+  files: FolderUploadFile[],
+) => {
+  files.push({
+    file: await readFileEntry(entry),
+    relativePath,
+  });
+};
+
+const visitDirectoryEntry = async (
+  entry: DirectoryDropEntry,
+  relativePath: string,
+  files: FolderUploadFile[],
+  directoryPaths: Set<string>,
+  visit: (entry: DirectoryDropEntry, parentPath: string) => Promise<void>,
+) => {
+  directoryPaths.add(relativePath);
+  if (!entry.createReader) {
+    throw new Error("The dropped folder could not be read.");
+  }
+  const reader = entry.createReader();
+
+  while (true) {
+    const children = await readDirectoryEntries(reader);
+    if (children.length === 0) return;
+    for (const child of children) await visit(child, relativePath);
+  }
+};
+
 export const collectDirectoryDropSelection = async (
   entries: DirectoryDropEntry[],
 ): Promise<FolderUploadSelection> => {
@@ -99,25 +130,15 @@ export const collectDirectoryDropSelection = async (
       ? `${parentPath}/${entry.name}`
       : entry.name;
 
-    if (entry.isFile) {
-      files.push({
-        file: await readFileEntry(entry),
+    if (entry.isFile) return visitFileEntry(entry, relativePath, files);
+    if (entry.isDirectory) {
+      return visitDirectoryEntry(
+        entry,
         relativePath,
-      });
-      return;
-    }
-
-    if (!entry.isDirectory) return;
-    directoryPaths.add(relativePath);
-    if (!entry.createReader) {
-      throw new Error("The dropped folder could not be read.");
-    }
-    const reader = entry.createReader();
-
-    while (true) {
-      const children = await readDirectoryEntries(reader);
-      if (children.length === 0) return;
-      for (const child of children) await visit(child, relativePath);
+        files,
+        directoryPaths,
+        visit,
+      );
     }
   };
 

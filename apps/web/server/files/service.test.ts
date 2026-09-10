@@ -605,6 +605,22 @@ describe.sequential("files service", () => {
     expect(first.folders).toHaveLength(3);
     expect(new Set(first.folders.map(({ folderId }) => folderId)).size).toBe(3);
 
+    const rawPathVariants = await service.ensureFolderPaths({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: root.id,
+      paths: ["Project/src", " Project/src"],
+      idempotencyKey: "folder-upload-raw-paths",
+    });
+    expect(rawPathVariants.folders).toHaveLength(2);
+    expect(rawPathVariants.folders.map(({ path }) => path)).toEqual([
+      "Project/src",
+      " Project/src",
+    ]);
+    expect(rawPathVariants.folders[0]?.folderId).toBe(
+      rawPathVariants.folders[1]?.folderId,
+    );
+
     const nestedFolder = first.folders.find(
       ({ path }) => path === "Project/src",
     );

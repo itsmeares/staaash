@@ -1,7 +1,10 @@
+// Folder preparation intentionally follows the authenticated mutation route contract.
+// fallow-ignore-file code-duplication
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getRequestSession } from "@/server/auth/guards";
+import type { FilesActor } from "@/server/files/types";
 import {
   isSameOrigin,
   jsonErrorResponse,
@@ -18,6 +21,33 @@ const ensureFolderPathsSchema = z.object({
   folderId: z.string().trim().min(1),
   paths: z.array(z.string().min(1).max(4096)).min(1).max(10_000),
 });
+
+const FOLDER_ACCESS_BATCH_SIZE = 8;
+
+const trackEnsuredFolderAccess = async ({
+  folders,
+  actorUserId,
+  actorRole,
+}: FilesActor & { folders: Array<{ folderId: string }> }) => {
+  for (
+    let index = 0;
+    index < folders.length;
+    index += FOLDER_ACCESS_BATCH_SIZE
+  ) {
+    await Promise.all(
+      folders
+        .slice(index, index + FOLDER_ACCESS_BATCH_SIZE)
+        .map(({ folderId }) =>
+          recordFolderAccessBestEffort({
+            actorUserId,
+            actorRole,
+            folderId,
+            source: "ensure-folder-paths-route",
+          }),
+        ),
+    );
+  }
+};
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
@@ -60,16 +90,11 @@ export async function POST(request: NextRequest) {
       paths: parsed.data.paths,
       idempotencyKey,
     });
-    await Promise.all(
-      result.folders.map(({ folderId }) =>
-        recordFolderAccessBestEffort({
-          actorUserId: session.user.id,
-          actorRole: session.user.role,
-          folderId,
-          source: "ensure-folder-paths-route",
-        }),
-      ),
-    );
+    await trackEnsuredFolderAccess({
+      folders: result.folders,
+      actorUserId: session.user.id,
+      actorRole: session.user.role,
+    });
 
     return attachStorageMutationHeader(
       NextResponse.json(result, { status: 201 }),

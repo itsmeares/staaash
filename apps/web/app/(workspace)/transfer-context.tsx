@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { randomClientId } from "@/lib/client-id";
 import {
   computeFileSha256,
@@ -1098,6 +1099,13 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
 
       if (uploadKeys.length === 0) startTransition(() => router.refresh());
     })().catch((error) => {
+      if (uploadKeys.length === 0) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Failed to prepare upload folders",
+        );
+      }
       for (const upload of uploadKeys) {
         if (!cancelledUploadKeys.current.has(upload.clientKey)) {
           markUploadFailed(upload.clientKey, error);

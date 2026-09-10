@@ -80,7 +80,11 @@ export function TransferPanel() {
   // Show uploads in panel only when they don't belong to the currently visible
   // folder (those appear inline in the file list instead).
   const panelUploads = isOnFilesRoute
-    ? uploadingFiles.filter((f) => f.folderId !== currentFilesViewFolderId)
+    ? uploadingFiles.filter(
+        (f) =>
+          f.folderId !== currentFilesViewFolderId &&
+          f.folderUploadRootId !== currentFilesViewFolderId,
+      )
     : uploadingFiles;
 
   const shouldShow = panelUploads.length > 0 || activeDownload !== null;
