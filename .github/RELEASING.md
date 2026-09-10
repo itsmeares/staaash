@@ -43,7 +43,7 @@ The first release using this path may therefore be `v1.1.0`; no package files ne
 
 ## Release notes
 
-GitHub-generated notes form the initial release body. After publication, the agent may improve the human-facing notes with `gh release edit` or the GitHub UI. It must preserve this managed block exactly, including its contents:
+GitHub-generated notes form the initial release body. After publication, update the release notes with `gh release edit` or the GitHub UI as needed. Preserve this managed block exactly, including its contents:
 
 ```text
 <!-- staaash:release-provenance:start -->
