@@ -28,6 +28,11 @@ describe("release workflow topology", () => {
     );
     expect(workflow).toContain("ref: ${{ github.sha }}");
     expect(workflow).toContain("token: ${{ steps.app-token.outputs.token }}");
+    expect(workflow).toContain("- name: Resolve App bot identity");
+    expect(workflow).toContain('git config user.name "${APP_SLUG}[bot]"');
+    expect(workflow).toContain(
+      'git config user.email "${APP_BOT_ID}+${APP_SLUG}[bot]@users.noreply.github.com"',
+    );
     expect(workflow).toContain(
       "run: node scripts/release/index.mjs prepare-version",
     );
