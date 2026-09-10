@@ -4,41 +4,64 @@ The release workflow treats a Git tag, exact commit, package versions, validated
 
 ## Prerequisites
 
-Before creating a release tag:
+Configure the release workflow once:
 
-1. Merge the release commit to `main`.
-2. Set the same normalized version in:
-   - `package.json`
-   - `apps/web/package.json`
-   - `apps/worker/package.json`
-   - `packages/config/package.json`
-   - `packages/db/package.json`
-3. Wait for the `CI` workflow on that exact `main` SHA to pass. A tag created while CI is running waits for the exact run; no release state is written first.
-4. Use a canonical tag: `v<major>.<minor>.<patch>` with an optional SemVer prerelease suffix. Build metadata is not supported because it cannot be represented unchanged as an OCI tag.
-5. Ensure the repository ruleset for `refs/tags/v*` blocks tag updates and deletion.
+1. Create a GitHub App with repository Contents read/write permission.
+2. Store its client ID in the repository variable `RELEASE_APP_CLIENT_ID` and its private key in the repository secret `RELEASE_APP_PRIVATE_KEY`.
+3. Install the App on this repository and add it as a bypass actor for the `main-protection` ruleset.
+4. Ensure the repository ruleset for `refs/tags/v*` blocks tag updates and deletion.
+
+Package versions stay at the current release until the workflow is run. The workflow updates `package.json`, `apps/web/package.json`, `apps/worker/package.json`, `packages/config/package.json`, and `packages/db/package.json` together.
 
 Alpha and beta releases remain unsupported development history. Their prerelease classification does not restore an upgrade path. Users must start a fresh current installation and must not reuse alpha/beta internal database or storage directories.
 
 ## Automated sequence
 
-`.github/workflows/release.yml` globally queues releases and performs:
+Run a new release from `main` with the version input:
 
-1. Select immutable tooling and source checkouts. Tag pushes use tooling committed in the release tag. Manual recovery uses the exact reviewed `main` commit that defined the dispatched workflow. Release source always comes from the requested tag.
-2. Resolve the tag object and peeled commit; require the commit on current `main`.
-3. Verify all package versions plus successful exact-SHA `CI` main-push runs for the release commit and, when different during recovery, the tooling commit.
-4. Create a hidden draft GitHub Release for a tag push, or resolve the exact release ID supplied for manual recovery, then validate managed provenance.
-5. Build the exact versioned image once, or reuse a matching existing image.
-6. Capture and remotely verify the top-level OCI index digest, OCI labels, and final web/worker runtime versions.
-7. Generate release-specific `docker-compose.yml`, `example.env`, `release-manifest.json`, and `SHA256SUMS`.
-8. Reconcile missing draft assets without overwriting mismatched assets.
-9. Publish the GitHub Release after every exact artifact check passes.
-10. For stable releases only, copy the verified OCI index digest to `latest` without rebuilding, verify it, then mark the same GitHub Release as latest.
+```text
+gh workflow run release.yml --ref main -f version=v1.1.0
+```
+
+The workflow globally queues releases and performs:
+
+1. Validate the requested version and update all package versions together.
+2. Commit the version change directly to `main` with the release App.
+3. Create the immutable `v<version>` tag from that exact commit.
+4. Select immutable tooling and source checkouts. A new release uses tooling committed in the new tag. Manual recovery uses the exact `main` commit that defined the dispatched workflow. Release source always comes from the requested tag.
+5. Resolve the tag object and peeled commit; require the commit on current `main`.
+6. Verify all package versions plus successful exact-SHA `CI` main-push runs for the release commit and, when different during recovery, the tooling commit.
+7. Create a hidden draft GitHub Release for a new release, or resolve the exact release ID supplied for manual recovery, then validate managed provenance.
+8. Build the exact versioned image once, or reuse a matching image.
+9. Capture and remotely verify the top-level OCI index digest, OCI labels, and final web/worker runtime versions.
+10. Generate release-specific `docker-compose.yml`, `example.env`, `release-manifest.json`, and `SHA256SUMS`.
+11. Reconcile missing draft assets without overwriting mismatched assets.
+12. Publish the GitHub Release after every exact artifact check passes.
+13. For stable releases only, copy the verified OCI index digest to `latest` without rebuilding, verify it, then mark the same GitHub Release as latest.
+
+The first release using this path may therefore be `v1.1.0`; no package files need to be edited in advance.
+
+## Release notes
+
+GitHub-generated notes form the initial release body. After publication, the agent may improve the human-facing notes with `gh release edit` or the GitHub UI. It must preserve this managed block exactly, including its contents:
+
+```text
+<!-- staaash:release-provenance:start -->
+...
+<!-- staaash:release-provenance:end -->
+```
+
+The block records the release commit, tag object, image digest, immutable image reference, and generated asset checksums. Do not replace it with a new generated body.
 
 Every SemVer prerelease skips both latest-channel mutations. A stable release is complete and installable through exact-tag assets before `latest` promotion starts; its verified digest remains recorded in manifest and provenance metadata.
 
 ## Recovery
 
-Use **Actions → Release → Run workflow** from `main` with the same existing tag and exact existing GitHub Release ID. Never dispatch recovery from another branch, and never move or recreate the tag to retry.
+Use **Actions → Release → Run workflow** from `main` with the existing tag and exact existing GitHub Release ID, leaving `version` empty. Never dispatch recovery from another branch, and never move or recreate the tag to retry.
+
+```text
+gh workflow run release.yml --ref main -f tag=v1.1.0 -f release_id=123
+```
 
 GitHub may expose a draft release through an `untagged-<20 lowercase hex>` placeholder and report `target_commitish` as `main`, including when the real tag already exists. Those draft fields are not release identity. Recovery binds to the explicit numeric release ID, prerelease state, and managed provenance containing the expected tag, peeled commit, and annotated tag object. Publication explicitly binds the existing tag with `tag_name` while omitting `target_commitish`, then validates the real tag through the exact release ID. A retry also repairs the narrow intermediate state where publication succeeded but GitHub still exposes the placeholder tag.
 

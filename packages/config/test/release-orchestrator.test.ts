@@ -18,6 +18,7 @@ import {
   ensureReleaseState,
   getReleaseById,
   markGitHubReleaseLatest,
+  preparePackageVersions,
   publishRelease,
   readPackageVersions,
   readReleaseTemplates,
@@ -92,6 +93,47 @@ afterEach(() => {
 });
 
 describe("release trust roots", () => {
+  it("updates every package version together", async () => {
+    const sourceRoot = await mkdtemp(
+      path.join(os.tmpdir(), "release-version-"),
+    );
+    try {
+      const packageFiles = [
+        "package.json",
+        "apps/web/package.json",
+        "apps/worker/package.json",
+        "packages/config/package.json",
+        "packages/db/package.json",
+      ];
+      await Promise.all(
+        packageFiles.map(async (file) => {
+          const target = path.join(sourceRoot, file);
+          await mkdir(path.dirname(target), { recursive: true });
+          await writeFile(
+            target,
+            JSON.stringify({ name: file, version: "1.0.4" }, null, 2) + "\n",
+          );
+        }),
+      );
+
+      await expect(preparePackageVersions(sourceRoot, "1.1.0")).resolves.toBe(
+        true,
+      );
+      await expect(readPackageVersions(sourceRoot)).resolves.toEqual({
+        root: "1.1.0",
+        web: "1.1.0",
+        worker: "1.1.0",
+        config: "1.1.0",
+        db: "1.1.0",
+      });
+      await expect(preparePackageVersions(sourceRoot, "1.1.0")).resolves.toBe(
+        false,
+      );
+    } finally {
+      await rm(sourceRoot, { recursive: true, force: true });
+    }
+  });
+
   it("reads package versions and templates only from release source", async () => {
     const sourceRoot = await mkdtemp(path.join(os.tmpdir(), "release-source-"));
     try {

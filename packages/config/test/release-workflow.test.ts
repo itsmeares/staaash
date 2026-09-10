@@ -14,18 +14,40 @@ const orchestratorUrl = new URL(
 const readWorkflow = () => readFile(workflowUrl, "utf8");
 const readOrchestrator = () => readFile(orchestratorUrl, "utf8");
 
-describe("release workflow recovery topology", () => {
-  it("pins manual recovery tooling to exact main workflow commit", async () => {
+describe("release workflow topology", () => {
+  it("prepares a new release with an App-authenticated main checkout", async () => {
+    const workflow = await readWorkflow();
+
+    expect(workflow).toContain(
+      "if: github.event_name == 'workflow_dispatch' && inputs.version != ''",
+    );
+    expect(workflow).toContain("uses: actions/create-github-app-token@v3");
+    expect(workflow).toContain("client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}");
+    expect(workflow).toContain(
+      "private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}",
+    );
+    expect(workflow).toContain("ref: ${{ github.sha }}");
+    expect(workflow).toContain("token: ${{ steps.app-token.outputs.token }}");
+    expect(workflow).toContain(
+      "run: node scripts/release/index.mjs prepare-version",
+    );
+    expect(workflow).toContain('git push origin "HEAD:refs/heads/main"');
+    expect(workflow).toContain(
+      'gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs"',
+    );
+  });
+
+  it("pins recovery tooling to exact main workflow commit", async () => {
     const workflow = await readWorkflow();
 
     expect(workflow).toContain(
       "if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'",
     );
     expect(workflow).toContain(
-      "EXPECTED_TOOLING_SHA: ${{ github.event_name == 'workflow_dispatch' && github.sha || '' }}",
+      "EXPECTED_TOOLING_SHA: ${{ (github.event_name == 'workflow_dispatch' && inputs.version == '') && github.sha || '' }}",
     );
     expect(workflow).toContain(
-      "ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || env.RELEASE_TAG }}",
+      "ref: ${{ (github.event_name == 'workflow_dispatch' && inputs.version == '') && github.sha || env.RELEASE_TAG }}",
     );
     expect(workflow).toContain(
       "ref: ${{ needs.preflight.outputs.tooling_sha }}",
@@ -62,7 +84,9 @@ describe("release workflow recovery topology", () => {
     expect(workflow).toContain(
       "run: node tooling/scripts/release/index.mjs reconcile-release",
     );
-    expect(workflow).not.toMatch(/run: node scripts\/release\/index\.mjs/u);
+    expect(workflow).toContain(
+      "run: node scripts/release/index.mjs prepare-version",
+    );
     expect(workflow).toContain(
       "tooling_sha: ${{ steps.preflight.outputs.tooling_sha }}",
     );
@@ -100,15 +124,30 @@ describe("release workflow recovery topology", () => {
     const workflow = await readWorkflow();
 
     expect(workflow).toContain(
-      "release_id:\n        description: Exact existing release ID to resume\n        required: true",
+      "release_id:\n        description: Exact existing release ID to resume\n        required: false",
     );
     expect(workflow).toContain(
-      "RECOVERY_RELEASE_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.release_id || '' }}",
+      "RECOVERY_RELEASE_ID: ${{ (github.event_name == 'workflow_dispatch' && inputs.version == '') && inputs.release_id || '' }}",
     );
     expect(workflow).toContain(
       'if [[ ! "$RECOVERY_RELEASE_ID" =~ ^[1-9][0-9]*$ ]]; then',
     );
-    expect(workflow).toContain("RELEASE_EVENT_NAME: ${{ github.event_name }}");
+    expect(workflow).toContain(
+      "RELEASE_EVENT_NAME: ${{ (github.event_name == 'workflow_dispatch' && inputs.version != '') && 'push' || github.event_name }}",
+    );
+  });
+
+  it("keeps normal releases in one workflow without a release PR", async () => {
+    const workflow = await readWorkflow();
+
+    expect(workflow).toContain(
+      "version:\n        description: New release version to prepare and publish",
+    );
+    expect(workflow).toContain(
+      'git commit -m "chore(release): prepare $RELEASE_TAG"',
+    );
+    expect(workflow).not.toContain("prepare-release.yml");
+    expect(workflow).not.toContain("pull_request");
   });
 
   it("never discovers a draft by release collection or tag", async () => {

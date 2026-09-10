@@ -6,13 +6,17 @@ on:
       - "v*"
   workflow_dispatch:
     inputs:
+      version:
+        description: New release version to prepare and publish
+        required: false
+        type: string
       tag:
         description: Existing release tag to verify or resume
-        required: true
+        required: false
         type: string
       release_id:
         description: Exact existing release ID to resume
-        required: true
+        required: false
         type: string
 
 concurrency:
@@ -20,7 +24,131 @@ concurrency:
   queue: max
 
 jobs:
+  prepare:
+    if: github.event_name == 'workflow_dispatch' && inputs.version != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      release_sha: ${{ steps.commit.outputs.release_sha }}
+
+    steps:
+      - name: Require dispatch from main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "New releases must be dispatched from refs/heads/main." >&2
+          exit 1
+
+      - name: Create repository token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+
+      - name: Check out dispatch commit
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Verify dispatch base
+        env:
+          EXPECTED_BASE_SHA: ${{ github.sha }}
+        run: |
+          ACTUAL_BASE_SHA="$(git rev-parse HEAD)"
+          if [[ "$ACTUAL_BASE_SHA" != "$EXPECTED_BASE_SHA" ]]; then
+            echo "Dispatch checkout is $ACTUAL_BASE_SHA; expected $EXPECTED_BASE_SHA." >&2
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.21.0
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install pinned pnpm
+        run: corepack install
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build release policy
+        run: pnpm --filter @staaash/config build
+
+      - name: Prepare package versions
+        id: version
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: node scripts/release/index.mjs prepare-version
+
+      - name: Reject existing release tag
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if git ls-remote --exit-code --refs origin "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release tag $RELEASE_TAG already exists; use recovery inputs instead." >&2
+            exit 1
+          fi
+
+      - name: Commit package versions
+        id: commit
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          VERSION_CHANGED: ${{ steps.version.outputs.changed }}
+        run: |
+          if [[ "$VERSION_CHANGED" == "true" ]]; then
+            git diff --check
+            git add package.json apps/web/package.json apps/worker/package.json packages/config/package.json packages/db/package.json
+            EXPECTED_FILES=$'apps/web/package.json\napps/worker/package.json\npackage.json\npackages/config/package.json\npackages/db/package.json'
+            ACTUAL_FILES="$(git diff --cached --name-only | sort)"
+            if [[ "$ACTUAL_FILES" != "$EXPECTED_FILES" ]]; then
+              echo "Unexpected release diff:" >&2
+              printf '%s\n' "$ACTUAL_FILES" >&2
+              exit 1
+            fi
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "chore(release): prepare $RELEASE_TAG"
+          fi
+          echo "release_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Push release commit
+        env:
+          RELEASE_SHA: ${{ steps.commit.outputs.release_sha }}
+          VERSION_CHANGED: ${{ steps.version.outputs.changed }}
+        run: |
+          if [[ "$VERSION_CHANGED" == "true" ]]; then
+            git push origin "HEAD:refs/heads/main"
+          fi
+          REMOTE_SHA="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [[ "$REMOTE_SHA" != "$RELEASE_SHA" ]]; then
+            echo "origin/main is $REMOTE_SHA; expected $RELEASE_SHA." >&2
+            exit 1
+          fi
+
+      - name: Create release tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_SHA: ${{ steps.commit.outputs.release_sha }}
+        run: |
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+            -f "ref=refs/tags/$RELEASE_TAG" \
+            -f "sha=$RELEASE_SHA"
+
   preflight:
+    if: ${{ always() && (needs.prepare.result == 'success' || needs.prepare.result == 'skipped') }}
+    needs: prepare
     runs-on: ubuntu-latest
     timeout-minutes: 40
     permissions:
@@ -37,11 +165,11 @@ jobs:
       tooling_sha: ${{ steps.preflight.outputs.tooling_sha }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-      EXPECTED_RELEASE_SHA: ${{ github.event_name == 'push' && github.sha || '' }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag || inputs.tag || github.ref_name }}
+      EXPECTED_RELEASE_SHA: ${{ needs.prepare.outputs.release_sha || (github.event_name == 'push' && github.sha) || '' }}
       EXPECTED_TAG_OBJECT: ${{ github.event_name == 'push' && github.event.after || '' }}
-      EXPECTED_TOOLING_SHA: ${{ github.event_name == 'workflow_dispatch' && github.sha || '' }}
-      RELEASE_EVENT_NAME: ${{ github.event_name }}
+      EXPECTED_TOOLING_SHA: ${{ (github.event_name == 'workflow_dispatch' && inputs.version == '') && github.sha || '' }}
+      RELEASE_EVENT_NAME: ${{ (github.event_name == 'workflow_dispatch' && inputs.version != '') && 'push' || github.event_name }}
       RECOVERY_REF: ${{ github.ref }}
       TOOLING_ROOT: ${{ github.workspace }}/tooling
       RELEASE_SOURCE_ROOT: ${{ github.workspace }}/release-source
@@ -49,14 +177,32 @@ jobs:
       CI_POLL_SECONDS: "15"
 
     steps:
-      - name: Require recovery dispatch from main
+      - name: Validate dispatch inputs
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          RELEASE_VERSION_INPUT: ${{ inputs.version }}
+          RECOVERY_TAG_INPUT: ${{ inputs.tag }}
+          RECOVERY_RELEASE_ID_INPUT: ${{ inputs.release_id }}
+        shell: bash
+        run: |
+          if [[ -n "$RELEASE_VERSION_INPUT" ]]; then
+            if [[ -n "$RECOVERY_TAG_INPUT" || -n "$RECOVERY_RELEASE_ID_INPUT" ]]; then
+              echo "Use version alone for a new release, or tag and release_id for recovery." >&2
+              exit 1
+            fi
+          elif [[ -z "$RECOVERY_TAG_INPUT" || -z "$RECOVERY_RELEASE_ID_INPUT" ]]; then
+            echo "Recovery requires both tag and release_id." >&2
+            exit 1
+          fi
+
+      - name: Require release dispatch from main
         if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
         run: |
-          echo "Release recovery must be dispatched from refs/heads/main." >&2
+          echo "Release workflow dispatch must be from refs/heads/main." >&2
           exit 1
 
       - name: Require exact recovery release ID
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && inputs.version == ''
         shell: bash
         env:
           RECOVERY_RELEASE_ID: ${{ inputs.release_id }}
@@ -71,7 +217,7 @@ jobs:
         with:
           fetch-depth: 0
           path: tooling
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || env.RELEASE_TAG }}
+          ref: ${{ (github.event_name == 'workflow_dispatch' && inputs.version == '') && github.sha || env.RELEASE_TAG }}
 
       - name: Check out immutable release source
         uses: actions/checkout@v7
@@ -134,8 +280,8 @@ jobs:
       TAG_TYPE: ${{ needs.preflight.outputs.tag_type }}
       IMAGE_REPOSITORY: ${{ needs.preflight.outputs.image_repository }}
       TOOLING_SHA: ${{ needs.preflight.outputs.tooling_sha }}
-      RELEASE_EVENT_NAME: ${{ github.event_name }}
-      RECOVERY_RELEASE_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.release_id || '' }}
+      RELEASE_EVENT_NAME: ${{ (github.event_name == 'workflow_dispatch' && inputs.version != '') && 'push' || github.event_name }}
+      RECOVERY_RELEASE_ID: ${{ (github.event_name == 'workflow_dispatch' && inputs.version == '') && inputs.release_id || '' }}
       TOOLING_ROOT: ${{ github.workspace }}/tooling
       RELEASE_SOURCE_ROOT: ${{ github.workspace }}/release-source
       ASSET_DIR: ${{ github.workspace }}/release-assets

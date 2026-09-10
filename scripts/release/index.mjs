@@ -27,6 +27,10 @@ import {
   serializeReleaseManifest,
   serializeSha256Sums,
 } from "../../packages/config/dist/release.js";
+import {
+  compareSemanticVersions,
+  normalizeSemanticVersion,
+} from "../../packages/config/dist/version.js";
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const TOOLING_ROOT = fileURLToPath(new URL("../../", import.meta.url));
@@ -239,6 +243,21 @@ const readPackageVersions = async (sourceRoot = releaseSourceRoot()) =>
       }),
     ),
   );
+
+const preparePackageVersions = async (sourceRoot, version) => {
+  let changed = false;
+  await Promise.all(
+    Object.values(PACKAGE_FILES).map(async (file) => {
+      const filePath = path.join(sourceRoot, file);
+      const metadata = JSON.parse(await readFile(filePath, "utf8"));
+      if (metadata.version === version) return;
+      metadata.version = version;
+      await writeFile(filePath, `${JSON.stringify(metadata, null, 2)}\n`);
+      changed = true;
+    }),
+  );
+  return changed;
+};
 
 const readRemoteTagObject = (tag) => {
   const result = run("git", ["ls-remote", "origin", `refs/tags/${tag}`], {
@@ -1145,6 +1164,41 @@ const waitForRequiredCi = async ({
   return { releaseCiRun, toolingCiRun };
 };
 
+const commandPrepareVersion = async () => {
+  const requested = requiredEnv("RELEASE_VERSION");
+  const tag = requested.startsWith("v") ? requested : `v${requested}`;
+  const release = parseReleaseTag(tag);
+  if (!release) {
+    throw new Error(
+      `Invalid release version: ${requested}. Use X.Y.Z or vX.Y.Z without build metadata.`,
+    );
+  }
+
+  const packageVersions = await readPackageVersions(TOOLING_ROOT);
+  const normalizedVersions = Object.entries(packageVersions).map(
+    ([name, version]) => [name, normalizeSemanticVersion(version)],
+  );
+  const currentVersion = normalizedVersions[0]?.[1];
+  if (
+    !currentVersion ||
+    normalizedVersions.some(([, version]) => version !== currentVersion)
+  ) {
+    throw new Error("Package versions must be valid and match before release.");
+  }
+  if (compareSemanticVersions(release.version, currentVersion) < 0) {
+    throw new Error(
+      `Release version ${release.version} is older than current package version ${currentVersion}.`,
+    );
+  }
+
+  const changed = await preparePackageVersions(TOOLING_ROOT, release.version);
+  await writeOutputs([
+    ["tag", release.tag],
+    ["version", release.version],
+    ["changed", changed],
+  ]);
+};
+
 const commandPreflight = async () => {
   const tag = requiredEnv("RELEASE_TAG");
   const repository = requiredEnv("GITHUB_REPOSITORY");
@@ -1650,6 +1704,7 @@ const commandSummary = async () => {
 };
 
 const commands = {
+  "prepare-version": commandPrepareVersion,
   preflight: commandPreflight,
   "verify-tag": commandVerifyTag,
   "ensure-release": commandEnsureRelease,
@@ -1669,6 +1724,7 @@ export {
   getReleaseById,
   markGitHubReleaseLatest,
   publishRelease,
+  preparePackageVersions,
   readPackageVersions,
   readReleaseTemplates,
   reconcileReleaseAssets,
