@@ -59,14 +59,25 @@ export async function POST(request: NextRequest) {
       : formErrorResponse(request, redirectToFromUrl, error);
   }
 
-  const formData = await request.formData();
-  const redirectTo = getSafeRedirectTarget(
-    String(formData.get("redirectTo") ?? redirectToFromUrl),
-    "/files",
-  );
-
   let idempotencyKey: string | null = null;
+  let redirectTo = redirectToFromUrl;
   try {
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch {
+      const error = new Error("The upload request was incomplete or invalid.");
+      Object.assign(error, {
+        code: "INVALID_MULTIPART_BODY",
+        status: 400,
+      });
+      throw error;
+    }
+
+    redirectTo = getSafeRedirectTarget(
+      String(formData.get("redirectTo") ?? redirectToFromUrl),
+      "/files",
+    );
     idempotencyKey = readStorageIdempotencyKey(request);
     const files = formData
       .getAll("files")

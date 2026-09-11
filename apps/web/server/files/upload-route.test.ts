@@ -57,6 +57,18 @@ const multipartRequest = (
   });
 };
 
+const malformedMultipartRequest = () =>
+  new NextRequest("http://localhost:3000/api/files/files", {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      host: "localhost:3000",
+      origin: "http://localhost:3000",
+      "content-type": "multipart/form-data; boundary=missing-end",
+    },
+    body: "--missing-end\r\n",
+  });
+
 describe("direct upload route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -144,6 +156,23 @@ describe("direct upload route", () => {
 
     expect(response.status).toBe(413);
     expect(request.bodyUsed).toBe(false);
+    expect(uploadFiles).not.toHaveBeenCalled();
+  });
+
+  it("returns a clear error for an incomplete multipart body", async () => {
+    getRequestSession.mockResolvedValueOnce({
+      user: { id: "user-1", role: "member" },
+    });
+    const request = malformedMultipartRequest();
+    const { POST } = await import("@/app/api/files/files/route");
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "The upload request was incomplete or invalid.",
+      code: "INVALID_MULTIPART_BODY",
+    });
     expect(uploadFiles).not.toHaveBeenCalled();
   });
 });

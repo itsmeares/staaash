@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
 
-import { proxy } from "@/proxy";
+import { config, proxy } from "@/proxy";
 
 const requestForPath = (
   path: string,
@@ -51,20 +51,7 @@ describe("proxy onboarding cookie guard", () => {
     ).toBe(200);
   });
 
-  it("rejects oversized direct uploads before the route reads the body", () => {
-    const request = requestForPath("/api/files/files", "", {
-      method: "POST",
-      headers: {
-        accept: "application/json",
-        "content-length": String(Number.MAX_SAFE_INTEGER),
-        "content-type": "multipart/form-data; boundary=test",
-      },
-      body: "not-read-by-the-proxy",
-    });
-
-    const response = proxy(request);
-
-    expect(response.status).toBe(413);
-    expect(request.bodyUsed).toBe(false);
+  it("does not match the direct upload endpoint", () => {
+    expect(config.matcher).not.toContain("/api/files/files");
   });
 });
