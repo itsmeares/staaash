@@ -14,7 +14,7 @@ overrides:
   mysql2: 3.24.2
   postcss: 8.5.26
   sharp: 0.35.3
-  valibot: 1.4.2
+  valibot: 1.5.0
   vite: 8.2.1
 allowBuilds:
   "@prisma/engines": true
