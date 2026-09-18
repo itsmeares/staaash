@@ -1,6 +1,6 @@
 blank_issues_enabled: false
 contact_links:
-    - name: Questions, ideas, and feedback
+  - name: Questions, ideas, and feedback
     url: https://github.com/itsmeares/staaash/discussions
     about: Ask for help, discuss ideas, and share feedback in GitHub Discussions.
   - name: Contribution guide
