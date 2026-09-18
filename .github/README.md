@@ -221,6 +221,7 @@ PostgreSQL integration and browser E2E suites require isolated disposable data. 
 ## Contributing and Feedback
 
 - Read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening work.
+- Use [GitHub Discussions](https://github.com/itsmeares/staaash/discussions) for questions, ideas, and general feedback.
 - Use the GitHub issue forms for bug reports and feature requests.
 - Use the pull request template for proposed changes.
 - Report security problems privately as described in [SECURITY.md](./SECURITY.md).
