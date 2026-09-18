@@ -175,8 +175,6 @@ Staaash is a PNPM workspace monorepo built with Next.js, React, TypeScript, Pris
 
 ### Development setup
 
-Use Node.js 24.18.0, Corepack, the repository-pinned pnpm version, and PostgreSQL 18.
-
 1. Copy `dev.example.env` to `.env.local` at the repository root.
 2. Start PostgreSQL and update `DATABASE_URL` if it does not use the example connection details.
 3. Install and prepare the workspace:
