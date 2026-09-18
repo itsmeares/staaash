@@ -49,7 +49,7 @@ This repo is intentionally straightforward: focused changes, honest docs, and wo
 ## Issues And Security
 
 - use the GitHub issue forms for bug reports and feature requests
-- use a blank issue for feedback that does not fit the forms
+- use GitHub Discussions for questions, ideas, and general feedback
 - do not open public issues for security problems
 - follow [`SECURITY.md`](./SECURITY.md) for private reporting guidance
 
