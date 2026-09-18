@@ -7,7 +7,6 @@ coverage/
 .vercel/
 *.tsbuildinfo
 test-results/
-apps/web/test-results/
 playwright-report/
 .cache/
 .eslintcache
