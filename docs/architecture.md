@@ -40,7 +40,7 @@ This is intentionally a small, explicit architecture. The repo is trying to make
 - logical paths are canonical in metadata and on disk
 - rename, move, trash, and restore physically move paths under a durable
   PostgreSQL mutation journal
-- uploads stage under `FILES_ROOT/tmp/` before verification and commit
+- uploads stage under `UPLOAD_LOCATION/tmp/` before verification and commit
 
 PostgreSQL is the durable intent authority while the filesystem is the canonical
 byte store. Prepared mutations recover forward after restart. Ambiguous outcomes

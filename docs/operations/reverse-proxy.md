@@ -40,6 +40,8 @@ Set the canonical public URL in `.env`:
 STAAASH_PUBLIC_URL=https://drive.example.com
 ```
 
+Discord caches embed metadata, so repost the link or create a fresh share after changing this setting.
+
 `SECURE_COOKIES` is usually not needed. By default, Staaash uses secure cookies on HTTPS and non-secure cookies on plain HTTP.
 
 ## Docker Compose example

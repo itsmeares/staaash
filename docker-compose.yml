@@ -58,7 +58,7 @@ services:
       POSTGRES_DB: ${DB_DATABASE_NAME:-staaash}
 
     volumes:
-      # Do not edit the next line. To change where files are stored, edit UPLOAD_LOCATION in the .env file
+      # Do not edit the next line. To change where files are stored, edit DB_DATA_LOCATION in the .env file
       - ${DB_DATA_LOCATION:-./postgres}:/var/lib/postgresql
 
     healthcheck:

@@ -103,7 +103,7 @@ The two data paths are relative to the folder containing `docker-compose.yml`. C
 
 Staaash can run behind Caddy, Nginx, Traefik, or another reverse proxy. Use one public address consistently, preserve the original `Host` header, and forward `X-Forwarded-Proto: https` when TLS terminates at the proxy. Staaash deliberately rejects cross-origin mutating requests when the browser `Origin` host and request `Host` do not match.
 
-Set `STAAASH_PUBLIC_URL` to the canonical HTTPS address when generated share links and Discord media embeds must use it. See the [reverse-proxy guide](../docs/operations/reverse-proxy.md) and [public-sharing guide](../docs/operations/public-sharing.md) for the supported setup.
+Set `STAAASH_PUBLIC_URL` to the canonical HTTPS address when generated share links and Discord media embeds must use it. See the [reverse-proxy guide](../docs/operations/reverse-proxy.md) for the supported setup.
 
 ### Verifying a release
 
@@ -155,7 +155,6 @@ Back up `UPLOAD_LOCATION` and `DB_DATA_LOCATION` together while the web app, wor
 
 - [Architecture](../docs/architecture.md) — system shape, storage model, and design boundaries
 - [Backup and restore](../docs/operations/backup-restore.md) — offline backup and restore drill
-- [Public sharing](../docs/operations/public-sharing.md) — canonical share URLs and HTTPS embeds
 - [Reverse proxy](../docs/operations/reverse-proxy.md) — Caddy example and proxy requirements
 - [Resumable uploads](../docs/operations/resumable-uploads.md) — capacity, cleanup, and recovery behavior
 - [Storage mutation recovery](../docs/operations/storage-mutation-recovery.md) — filesystem requirements and recovery operations
@@ -175,8 +174,6 @@ Staaash is a PNPM workspace monorepo built with Next.js, React, TypeScript, Pris
 - `scripts` — maintenance and release utilities
 
 ### Development setup
-
-Use Node.js 24.18.0, Corepack, the repository-pinned pnpm version, and PostgreSQL 18.
 
 1. Copy `dev.example.env` to `.env.local` at the repository root.
 2. Start PostgreSQL and update `DATABASE_URL` if it does not use the example connection details.
