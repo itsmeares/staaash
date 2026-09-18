@@ -36,6 +36,3 @@ temp/
 .env.local
 .env.*.local
 !example.env
-
-.agent/
-.instructions/
