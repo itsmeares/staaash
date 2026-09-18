@@ -1,7 +1,4 @@
-# Dependencies
 node_modules/
-
-# Build and framework output
 .next/
 next-env.d.ts
 dist/
@@ -9,27 +6,6 @@ dist/
 coverage/
 .vercel/
 *.tsbuildinfo
-test-results/
-
-# Runtime data
-.data/
-tmp/
-temp/
-
-# Environment files
-.env
-.env.local
-.env.*.local
-!example.env
-
-# Logs
-*.log
-npm-debug.log*
-pnpm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Test and tooling caches
 test-results/
 apps/web/test-results/
 playwright-report/
@@ -41,22 +17,25 @@ playwright-report/
 .fallow/*
 !.fallow/baselines/
 !.fallow/baselines/health.json
-
-# OS and editor noise
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 .DS_Store
 Thumbs.db
 Desktop.ini
 .idea/
 .vscode/
 
-# Local agent and AI tooling files
-AGENTS.md
-CLAUDE.md
-.agents/
-.codex/
-.claude/
-.cursor/
-.github/copilot-instructions.md
-AGENTS.original.md
-CLAUDE.original.md
-apps/web/test-results/.last-run.json
+.data/
+tmp/
+temp/
+
+.env
+.env.local
+.env.*.local
+!example.env
+
+.agent/
+.instructions/
