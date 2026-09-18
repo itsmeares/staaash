@@ -30,7 +30,7 @@
     "db:push": "pnpm --filter @staaash/db exec prisma db push",
     "app:clear-caches": "node scripts/clear-caches.mjs",
     "app:reset-local-data": "node scripts/reset-local-data.mjs",
-    "quality:fallow": "fallow audit --base origin/main --gate new-only --production-dead-code --production-health --production-dupes --no-css --max-crap 60 --health-baseline .fallow/baselines/health.json"
+    "quality:fallow": "fallow audit --base origin/main --gate new-only --production-dead-code --production-health --production-dupes --no-css --max-crap 60"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,cjs,json,md,yml,yaml,css}": "prettier --write --ignore-unknown"
