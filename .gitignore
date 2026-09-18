@@ -14,9 +14,7 @@ playwright-report/
 .stylelintcache
 .parcel-cache/
 .vite/
-.fallow/*
-!.fallow/baselines/
-!.fallow/baselines/health.json
+.fallow/
 *.log
 npm-debug.log*
 pnpm-debug.log*
