@@ -9,9 +9,6 @@ coverage/
 test-results/
 playwright-report/
 .cache/
-.eslintcache
-.stylelintcache
-.parcel-cache/
 .vite/
 .fallow/
 *.log
