@@ -295,6 +295,30 @@ const descriptorPlatform = (descriptor: ImageIndexDescriptor) =>
     ? `${descriptor.platform.os}/${descriptor.platform.architecture}`
     : "unknown";
 
+const hasExactPlatforms = (
+  actualPlatforms: string[],
+  expectedPlatforms: readonly string[],
+) =>
+  actualPlatforms.length === expectedPlatforms.length &&
+  expectedPlatforms.every((platform) => actualPlatforms.includes(platform));
+
+const isLegacyAmd64Platform = (platforms: string[]) =>
+  platforms.length === 1 && platforms[0] === "linux/amd64";
+
+const findRunnablePlatformError = ({
+  runnablePlatforms,
+  allowLegacyPlatforms,
+}: {
+  runnablePlatforms: string[];
+  allowLegacyPlatforms: boolean;
+}) => {
+  const accepted =
+    hasExactPlatforms(runnablePlatforms, RELEASE_IMAGE_PLATFORMS) ||
+    (allowLegacyPlatforms && isLegacyAmd64Platform(runnablePlatforms));
+  if (accepted) return null;
+  return `image index runnable platforms are ${runnablePlatforms.join(", ") || "none"}; expected ${RELEASE_IMAGE_PLATFORMS.join(" and ")}`;
+};
+
 export const findReleaseImageIndexErrors = (
   index: ImageIndex,
   { allowLegacyPlatforms = false }: { allowLegacyPlatforms?: boolean } = {},
@@ -311,20 +335,11 @@ export const findReleaseImageIndexErrors = (
     (descriptor) => !isAttestationDescriptor(descriptor),
   );
   const runnablePlatforms = runnable.map(descriptorPlatform);
-  const hasReleasePlatforms =
-    runnablePlatforms.length === RELEASE_IMAGE_PLATFORMS.length &&
-    RELEASE_IMAGE_PLATFORMS.every((platform) =>
-      runnablePlatforms.includes(platform),
-    );
-  const hasLegacyPlatform =
-    allowLegacyPlatforms &&
-    runnablePlatforms.length === 1 &&
-    runnablePlatforms[0] === "linux/amd64";
-  if (!hasReleasePlatforms && !hasLegacyPlatform) {
-    errors.push(
-      `image index runnable platforms are ${runnablePlatforms.join(", ") || "none"}; expected ${RELEASE_IMAGE_PLATFORMS.join(" and ")}`,
-    );
-  }
+  const platformError = findRunnablePlatformError({
+    runnablePlatforms,
+    allowLegacyPlatforms,
+  });
+  if (platformError) errors.push(platformError);
   return errors;
 };
 

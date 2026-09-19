@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   validate:
+    name: Lint, test, and build
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -78,11 +79,13 @@ jobs:
         run: pnpm build
 
   arm64:
+    name: Docker smoke tests (ARM64)
     runs-on: ubuntu-24.04-arm
     env:
       AUTH_SECRET: ci-placeholder-secret-should-not-be-used-in-production
       DATABASE_URL: postgresql://postgres:staaash-ci-password@127.0.0.1:5432/staaash
       DB_PASSWORD: staaash-ci-password
+      STAAASH_VERSION: ci-arm64
       STAAASH_E2E_BASE_URL: http://127.0.0.1:2113
 
     steps:
