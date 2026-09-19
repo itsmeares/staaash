@@ -162,9 +162,9 @@ const resetStorageAndSchema = async (env) => {
         "@staaash/db",
         "exec",
         "prisma",
-        "db",
-        "push",
-        "--force-reset",
+        "migrate",
+        "reset",
+        "--force",
       ],
       env,
     );

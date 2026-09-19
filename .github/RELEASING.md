@@ -95,7 +95,7 @@ Release-generated Compose and env files select the exact readable tag:
 ghcr.io/itsmeares/staaash:<tag>
 ```
 
-`release-manifest.json` records tag object, commit SHA, image repository, verified OCI index digest, full immutable reference, platform, and OCI labels. `SHA256SUMS` covers Compose, env, and manifest files. The workflow validates both the normal tag selection and an optional `STAAASH_VERSION=<tag>@sha256:<digest>` override. Source files in the immutable release-tag checkout remain templates and are never uploaded directly as release assets.
+`release-manifest.json` records tag object, commit SHA, image repository, verified OCI index digest, full immutable reference, platforms, and OCI labels. `SHA256SUMS` covers Compose, env, and manifest files. The workflow validates both the normal tag selection and an optional `STAAASH_VERSION=<tag>@sha256:<digest>` override. Source files in the immutable release-tag checkout remain templates and are never uploaded directly as release assets.
 
 ## Controlled rehearsal
 

@@ -9,6 +9,7 @@ import {
 export const RELEASE_PROVENANCE_START =
   "<!-- staaash:release-provenance:start -->";
 export const RELEASE_PROVENANCE_END = "<!-- staaash:release-provenance:end -->";
+export const RELEASE_IMAGE_PLATFORMS = ["linux/amd64", "linux/arm64"] as const;
 
 const SHA256_PATTERN = /^sha256:[0-9a-f]{64}$/u;
 const RELEASE_IMAGE_FALLBACK_PATTERN =
@@ -37,7 +38,7 @@ export type ReleaseManifest = {
     tag: string;
     indexDigest: string;
     immutableReference: string;
-    platforms: ["linux/amd64"];
+    platforms: typeof RELEASE_IMAGE_PLATFORMS;
     labels: {
       version: string;
       revision: string;
@@ -289,11 +290,39 @@ const isAttestationDescriptor = (descriptor: ImageIndexDescriptor) =>
   descriptor.platform?.os === "unknown" &&
   descriptor.platform?.architecture === "unknown";
 
-const isLinuxAmd64Descriptor = (descriptor: ImageIndexDescriptor) =>
-  descriptor.platform?.os === "linux" &&
-  descriptor.platform?.architecture === "amd64";
+const descriptorPlatform = (descriptor: ImageIndexDescriptor) =>
+  descriptor.platform?.os && descriptor.platform?.architecture
+    ? `${descriptor.platform.os}/${descriptor.platform.architecture}`
+    : "unknown";
 
-export const findReleaseImageIndexErrors = (index: ImageIndex): string[] => {
+const hasExactPlatforms = (
+  actualPlatforms: string[],
+  expectedPlatforms: readonly string[],
+) =>
+  actualPlatforms.length === expectedPlatforms.length &&
+  expectedPlatforms.every((platform) => actualPlatforms.includes(platform));
+
+const isLegacyAmd64Platform = (platforms: string[]) =>
+  platforms.length === 1 && platforms[0] === "linux/amd64";
+
+const findRunnablePlatformError = ({
+  runnablePlatforms,
+  allowLegacyPlatforms,
+}: {
+  runnablePlatforms: string[];
+  allowLegacyPlatforms: boolean;
+}) => {
+  const accepted =
+    hasExactPlatforms(runnablePlatforms, RELEASE_IMAGE_PLATFORMS) ||
+    (allowLegacyPlatforms && isLegacyAmd64Platform(runnablePlatforms));
+  if (accepted) return null;
+  return `image index runnable platforms are ${runnablePlatforms.join(", ") || "none"}; expected ${RELEASE_IMAGE_PLATFORMS.join(" and ")}`;
+};
+
+export const findReleaseImageIndexErrors = (
+  index: ImageIndex,
+  { allowLegacyPlatforms = false }: { allowLegacyPlatforms?: boolean } = {},
+): string[] => {
   const errors: string[] = [];
   if (index.mediaType !== OCI_IMAGE_INDEX_MEDIA_TYPE) {
     errors.push(
@@ -305,13 +334,12 @@ export const findReleaseImageIndexErrors = (index: ImageIndex): string[] => {
   const runnable = descriptors.filter(
     (descriptor) => !isAttestationDescriptor(descriptor),
   );
-  if (runnable.length !== 1) {
-    errors.push(
-      `image index has ${runnable.length} runnable manifests; expected 1`,
-    );
-  } else if (!isLinuxAmd64Descriptor(runnable[0]!)) {
-    errors.push("image index runnable manifest is not linux/amd64");
-  }
+  const runnablePlatforms = runnable.map(descriptorPlatform);
+  const platformError = findRunnablePlatformError({
+    runnablePlatforms,
+    allowLegacyPlatforms,
+  });
+  if (platformError) errors.push(platformError);
   return errors;
 };
 
@@ -437,7 +465,7 @@ export const buildReleaseManifest = ({
       tag: release.tag,
       indexDigest: imageDigest,
       immutableReference,
-      platforms: ["linux/amd64"],
+      platforms: [...RELEASE_IMAGE_PLATFORMS],
       labels: {
         version: release.tag,
         revision: commit,

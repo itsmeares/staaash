@@ -6,7 +6,6 @@
   "scripts": {
     "build:deps": "pnpm --filter @staaash/config build && pnpm --filter @staaash/db build",
     "predev": "pnpm run build:deps",
-    "prebuild": "pnpm run build:deps",
     "prelint": "pnpm run build:deps",
     "pretest": "pnpm run build:deps",
     "pretypecheck": "pnpm run build:deps",
