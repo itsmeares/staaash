@@ -1,0 +1,8 @@
+services:
+  staaash:
+    environment:
+      AUTH_SECRET: ${AUTH_SECRET}
+
+  db:
+    ports:
+      - "5432:5432"

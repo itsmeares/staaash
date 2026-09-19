@@ -202,9 +202,12 @@ describe("release policy", () => {
     ]);
   });
 
-  it("accepts only one linux/amd64 runnable image plus attestations", () => {
+  it("accepts linux/amd64 and linux/arm64 runnable images plus attestations", () => {
     const amd64 = {
       platform: { os: "linux", architecture: "amd64" },
+    };
+    const arm64 = {
+      platform: { os: "linux", architecture: "arm64" },
     };
     const attestation = {
       platform: { os: "unknown", architecture: "unknown" },
@@ -214,25 +217,33 @@ describe("release policy", () => {
     expect(
       findReleaseImageIndexErrors({
         mediaType: "application/vnd.oci.image.index.v1+json",
-        manifests: [amd64, attestation],
+        manifests: [amd64, arm64, attestation],
       }),
     ).toEqual([]);
     expect(
       findReleaseImageIndexErrors({
         mediaType: "application/vnd.oci.image.index.v1+json",
-        manifests: [
-          amd64,
-          { platform: { os: "linux", architecture: "arm64" } },
-        ],
+        manifests: [amd64, attestation],
       }),
-    ).toEqual(["image index has 2 runnable manifests; expected 1"]);
+    ).toEqual([
+      "image index runnable platforms are linux/amd64; expected linux/amd64 and linux/arm64",
+    ]);
+    expect(
+      findReleaseImageIndexErrors(
+        {
+          mediaType: "application/vnd.oci.image.index.v1+json",
+          manifests: [amd64, attestation],
+        },
+        { allowLegacyPlatforms: true },
+      ),
+    ).toEqual([]);
     expect(
       findReleaseImageIndexErrors({
         mediaType: "application/vnd.oci.image.manifest.v1+json",
       }),
     ).toEqual([
       "image media type is application/vnd.oci.image.manifest.v1+json; expected OCI index",
-      "image index has 0 runnable manifests; expected 1",
+      "image index runnable platforms are none; expected linux/amd64 and linux/arm64",
     ]);
   });
 
@@ -366,6 +377,7 @@ describe("release policy", () => {
     });
 
     expect(manifest.image.indexDigest).toBe(DIGEST_A);
+    expect(manifest.image.platforms).toEqual(["linux/amd64", "linux/arm64"]);
     expect(manifest.image.immutableReference).toBe(
       `${IMAGE_REPOSITORY}:v1.2.3@${DIGEST_A}`,
     );

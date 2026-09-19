@@ -13,6 +13,7 @@ import {
   buildReleaseProvenance,
   classifyImageState,
   findCanonicalReleaseVersionErrors,
+  RELEASE_IMAGE_PLATFORMS,
   findReleaseImageIndexErrors,
   findResolvedReleaseImageErrors,
   hashReleaseContent,
@@ -51,7 +52,6 @@ const GITHUB_API_VERSION = "2022-11-28";
 const MISSING_IMAGE_PATTERN =
   /manifest unknown|not found|no such manifest|does not exist/iu;
 const DRAFT_TAG_PLACEHOLDER_PATTERN = /^untagged-[0-9a-f]{20}$/u;
-
 const sleep = (milliseconds) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -682,11 +682,17 @@ const getInspectionManifest = (inspected) =>
 const getInspectionConfig = (inspected) =>
   inspected.image?.config ?? { Labels: {}, Env: [] };
 
-const parseImageInspection = (reference, output) => {
+const parseImageInspection = (
+  reference,
+  output,
+  { allowLegacyPlatforms = false } = {},
+) => {
   const inspected = JSON.parse(output);
   const manifest = getInspectionManifest(inspected);
   const config = getInspectionConfig(inspected);
-  const indexErrors = findReleaseImageIndexErrors(manifest);
+  const indexErrors = findReleaseImageIndexErrors(manifest, {
+    allowLegacyPlatforms,
+  });
   if (indexErrors.length > 0) {
     throw new Error(
       `${reference} has invalid image index:\n${indexErrors.join("\n")}`,
@@ -699,12 +705,17 @@ const parseImageInspection = (reference, output) => {
   };
 };
 
-const inspectImage = (reference, { allowMissing = false } = {}) => {
+const inspectImage = (
+  reference,
+  { allowMissing = false, allowLegacyPlatforms = false } = {},
+) => {
   const output = runImageInspection(reference, allowMissing);
-  return output === null ? null : parseImageInspection(reference, output);
+  return output === null
+    ? null
+    : parseImageInspection(reference, output, { allowLegacyPlatforms });
 };
 
-const inspectRuntimeVersions = (reference) => {
+const inspectRuntimeVersions = (reference, platform) => {
   const program = [
     'const fs = require("node:fs");',
     'const webVersion = JSON.parse(fs.readFileSync("/app/apps/web/package.json", "utf8")).version;',
@@ -720,6 +731,8 @@ const inspectRuntimeVersions = (reference) => {
     "run",
     "--rm",
     "--pull=always",
+    "--platform",
+    platform,
     "--entrypoint",
     "node",
     reference,
@@ -729,7 +742,7 @@ const inspectRuntimeVersions = (reference) => {
   return JSON.parse(result.stdout);
 };
 
-const readObservedImage = (reference) => {
+const readObservedImage = (reference, platform) => {
   const inspected = inspectImage(reference);
   if (
     inspected.environment.some(
@@ -738,7 +751,7 @@ const readObservedImage = (reference) => {
   ) {
     throw new Error(`${reference} defines APP_VERSION in image config.`);
   }
-  const runtime = inspectRuntimeVersions(reference);
+  const runtime = inspectRuntimeVersions(reference, platform);
   if (runtime.workerVersion !== runtime.resolvedWorkerVersion) {
     throw new Error(
       `Worker package version ${runtime.workerVersion} resolves as ${runtime.resolvedWorkerVersion}.`,
@@ -755,22 +768,36 @@ const readObservedImage = (reference) => {
   };
 };
 
+const readObservedImages = (reference) =>
+  RELEASE_IMAGE_PLATFORMS.map((platform) => ({
+    platform,
+    observed: readObservedImage(reference, platform),
+  }));
+
+const assertMatchingImages = ({ context, digest, observedImages }) => {
+  for (const { platform, observed } of observedImages) {
+    const state = classifyImageState({
+      observed,
+      expected: {
+        digest,
+        version: context.release.tag,
+        revision: context.releaseSha,
+        source: context.sourceUrl,
+      },
+    });
+    if (state.status !== "matching") {
+      throw new Error(
+        `Image conflict (${platform}):\n${state.reasons.join("\n")}`,
+      );
+    }
+  }
+};
+
 const verifyImage = ({ context, digest }) => {
   const exactReference = `${context.imageRepository}:${context.release.tag}`;
   const immutableReference = `${exactReference}@${digest}`;
-  const observed = readObservedImage(immutableReference);
-  const state = classifyImageState({
-    observed,
-    expected: {
-      digest,
-      version: context.release.tag,
-      revision: context.releaseSha,
-      source: context.sourceUrl,
-    },
-  });
-  if (state.status !== "matching") {
-    throw new Error(`Image conflict:\n${state.reasons.join("\n")}`);
-  }
+  const observedImages = readObservedImages(immutableReference);
+  assertMatchingImages({ context, digest, observedImages });
 
   const exactInspected = inspectImage(exactReference);
   if (exactInspected.digest !== digest) {
@@ -778,7 +805,7 @@ const verifyImage = ({ context, digest }) => {
       `Exact tag resolves to ${exactInspected.digest}; expected ${digest}.`,
     );
   }
-  return { observed, immutableReference };
+  return { observed: observedImages[0].observed, immutableReference };
 };
 
 const assetDirectory = () => requiredAbsolutePath("ASSET_DIR");
@@ -1287,23 +1314,16 @@ const commandInspectImage = async () => {
   const expectedDigest =
     provenance.imageDigest === "pending" ? undefined : provenance.imageDigest;
   const immutableReference = `${exactReference}@${inspected.digest}`;
-  const observed = readObservedImage(immutableReference);
-  const state = classifyImageState({
-    observed,
-    expected: {
-      digest: expectedDigest,
-      version: context.release.tag,
-      revision: context.releaseSha,
-      source: context.sourceUrl,
-    },
+  const observedImages = readObservedImages(immutableReference);
+  assertMatchingImages({
+    context,
+    digest: expectedDigest,
+    observedImages,
   });
-  if (state.status !== "matching") {
-    throw new Error(`Existing image conflicts:\n${state.reasons.join("\n")}`);
-  }
 
   await writeOutputs([
     ["exists", true],
-    ["digest", observed.digest],
+    ["digest", observedImages[0].observed.digest],
   ]);
 };
 
@@ -1647,7 +1667,10 @@ const promoteStableLatest = async ({ context, imageDigest, releaseId }) => {
 
   const latestReference = `${context.imageRepository}:latest`;
   const previousLatest = toLatestImage(
-    inspectImage(latestReference, { allowMissing: true }),
+    inspectImage(latestReference, {
+      allowMissing: true,
+      allowLegacyPlatforms: true,
+    }),
   );
   const plan = planLatestPromotion({
     candidateVersion: context.release.version,

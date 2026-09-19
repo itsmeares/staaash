@@ -76,3 +76,103 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  arm64:
+    runs-on: ubuntu-24.04-arm
+    env:
+      AUTH_SECRET: ci-placeholder-secret-should-not-be-used-in-production
+      DATABASE_URL: postgresql://postgres:staaash-ci-password@127.0.0.1:5432/staaash
+      DB_PASSWORD: staaash-ci-password
+      DB_DATA_LOCATION: ${{ runner.temp }}/staaash-postgres
+      FILES_ROOT: ${{ runner.temp }}/staaash-files
+      STAAASH_E2E_BASE_URL: http://127.0.0.1:2113
+      UPLOAD_LOCATION: ${{ runner.temp }}/staaash-files
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.21.0
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install pinned pnpm
+        run: corepack install
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build ARM64 image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          platforms: linux/arm64
+          tags: ghcr.io/itsmeares/staaash:ci-arm64
+
+      - name: Start PostgreSQL
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d db
+
+      - name: Wait for PostgreSQL
+        run: |
+          for attempt in $(seq 1 60); do
+            if docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T db pg_isready -U postgres -d staaash; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml logs db
+          exit 1
+
+      - name: Prepare E2E data
+        run: pnpm --filter web e2e:prepare
+
+      - name: Start ARM64 application
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d staaash worker
+
+      - name: Wait for application readiness
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error http://127.0.0.1:2113/api/health/ready >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml logs staaash worker
+          exit 1
+
+      - name: Verify ARM64 media runtime
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T worker sh -ec '
+            ffmpeg -hide_banner -loglevel error \
+              -f lavfi -i color=c=black:s=16x16:d=0.1 \
+              -frames:v 1 -f image2 /tmp/arm64-smoke.png
+            test "$(ffprobe -v error -show_entries stream=width,height -of csv=p=0:s=x /tmp/arm64-smoke.png)" = "16x16"
+          '
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter web exec playwright install --with-deps chromium
+
+      - name: Run ARM64 Playwright smoke tests
+        run: >-
+          pnpm --filter web e2e --
+          e2e/member-files.spec.ts
+          e2e/direct-upload-size.spec.ts
+          e2e/public-share.spec.ts
+          e2e/owner-integrity.spec.ts
+
+      - name: Dump ARM64 stack logs
+        if: failure()
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --no-color
+
+      - name: Stop ARM64 stack
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml down --volumes

@@ -54,7 +54,7 @@ It supports resumable uploads, public links, media previews, multiple users, sto
 ### Requirements
 
 - Docker with Compose Plugin
-- AMD64 host
+- Linux AMD64 or ARM64 host
 
 Download the current release files into an empty directory:
 
