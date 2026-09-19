@@ -18,6 +18,7 @@ import {
   ensureReleaseState,
   getReleaseById,
   markGitHubReleaseLatest,
+  parseImageInspection,
   preparePackageVersions,
   publishRelease,
   readPackageVersions,
@@ -82,6 +83,38 @@ const release = {
 
 const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
 
+const imageInspection = ({
+  amd64Labels,
+  arm64Labels,
+}: {
+  amd64Labels: Record<string, string>;
+  arm64Labels: Record<string, string>;
+}) =>
+  JSON.stringify({
+    manifest: {
+      digest: `sha256:${"a".repeat(64)}`,
+      mediaType: "application/vnd.oci.image.index.v1+json",
+      manifests: [
+        {
+          digest: `sha256:${"b".repeat(64)}`,
+          platform: { os: "linux", architecture: "amd64" },
+        },
+        {
+          digest: `sha256:${"c".repeat(64)}`,
+          platform: { os: "linux", architecture: "arm64" },
+        },
+      ],
+    },
+    image: {
+      "linux/amd64": {
+        config: { Labels: amd64Labels, Env: ["APP_VERSION=amd64"] },
+      },
+      "linux/arm64": {
+        config: { Labels: arm64Labels, Env: ["APP_VERSION=arm64"] },
+      },
+    },
+  });
+
 const git = (cwd: string, ...args: string[]) => {
   const result = spawnSync("git", args, { cwd, encoding: "utf8" });
   if (result.status !== 0) throw new Error(result.stderr || result.stdout);
@@ -93,6 +126,23 @@ afterEach(() => {
 });
 
 describe("release trust roots", () => {
+  it("selects the requested platform image configuration", () => {
+    const amd64Labels = { version: "amd64" };
+    const arm64Labels = { version: "arm64" };
+
+    expect(
+      parseImageInspection(
+        "ghcr.io/itsmeares/staaash:v1.0.0",
+        imageInspection({ amd64Labels, arm64Labels }),
+        { platform: "linux/arm64" },
+      ),
+    ).toEqual({
+      digest: `sha256:${"a".repeat(64)}`,
+      labels: arm64Labels,
+      environment: ["APP_VERSION=arm64"],
+    });
+  });
+
   it("updates every package version together", async () => {
     const sourceRoot = await mkdtemp(
       path.join(os.tmpdir(), "release-version-"),

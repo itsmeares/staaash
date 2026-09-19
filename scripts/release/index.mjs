@@ -679,17 +679,21 @@ const runImageInspection = (reference, allowMissing) => {
 const getInspectionManifest = (inspected) =>
   inspected.manifest ?? { digest: null, mediaType: null, manifests: [] };
 
-const getInspectionConfig = (inspected) =>
-  inspected.image?.config ?? { Labels: {}, Env: [] };
+const getInspectionConfig = (inspected, platform) => {
+  const image = platform
+    ? (inspected.image?.[platform] ?? inspected.image)
+    : inspected.image;
+  return image?.config ?? { Labels: {}, Env: [] };
+};
 
 const parseImageInspection = (
   reference,
   output,
-  { allowLegacyPlatforms = false } = {},
+  { allowLegacyPlatforms = false, platform } = {},
 ) => {
   const inspected = JSON.parse(output);
   const manifest = getInspectionManifest(inspected);
-  const config = getInspectionConfig(inspected);
+  const config = getInspectionConfig(inspected, platform);
   const indexErrors = findReleaseImageIndexErrors(manifest, {
     allowLegacyPlatforms,
   });
@@ -707,12 +711,15 @@ const parseImageInspection = (
 
 const inspectImage = (
   reference,
-  { allowMissing = false, allowLegacyPlatforms = false } = {},
+  { allowMissing = false, allowLegacyPlatforms = false, platform } = {},
 ) => {
   const output = runImageInspection(reference, allowMissing);
   return output === null
     ? null
-    : parseImageInspection(reference, output, { allowLegacyPlatforms });
+    : parseImageInspection(reference, output, {
+        allowLegacyPlatforms,
+        platform,
+      });
 };
 
 const inspectRuntimeVersions = (reference, platform) => {
@@ -743,7 +750,7 @@ const inspectRuntimeVersions = (reference, platform) => {
 };
 
 const readObservedImage = (reference, platform) => {
-  const inspected = inspectImage(reference);
+  const inspected = inspectImage(reference, { platform });
   if (
     inspected.environment.some(
       (entry) => entry === "APP_VERSION" || entry.startsWith("APP_VERSION="),
@@ -1765,6 +1772,7 @@ export {
   validateResolvedRelease,
   verifyPreflightToolingIdentity,
   waitForRequiredCi,
+  parseImageInspection,
   verifyToolingCheckout,
 };
 
