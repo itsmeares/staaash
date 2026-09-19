@@ -77,11 +77,11 @@ The release files are the supported installation path. Files on `main` may conta
 
 ## Learn more
 
-- Read the [backup and restore checklist](../docs/operations/backup-restore.md) before storing important files.
-- Use the [reverse proxy guide](../docs/operations/reverse-proxy.md) when exposing Staaash through a domain.
-- Read the target [release notes](https://github.com/itsmeares/staaash/releases) before upgrading.
-- Use the [storage mutation recovery guide](../docs/operations/storage-mutation-recovery.md) if storage operations become unavailable.
-- See the [architecture](../docs/architecture.md) and [resumable upload](../docs/operations/resumable-uploads.md) docs for deeper technical detail.
+- [Backup and restore](../docs/operations/backup-restore.md) — protect your files and practice recovery.
+- [Reverse proxy](../docs/operations/reverse-proxy.md) — put Staaash behind a domain.
+- [Release notes](https://github.com/itsmeares/staaash/releases) — check changes before upgrading.
+- [Storage mutation recovery](../docs/operations/storage-mutation-recovery.md) — recover interrupted storage operations.
+- [Architecture](../docs/architecture.md) and [resumable uploads](../docs/operations/resumable-uploads.md) — understand how Staaash works.
 
 ## Community
 
