@@ -1,6 +1,6 @@
 # Changelog
 
-This file summarizes stable releases. The linked GitHub release notes contain the full details, upgrade notes, and release artifacts.
+See linked GitHub release notes for full details.
 
 ## [1.1.1](https://github.com/itsmeares/staaash/releases/tag/v1.1.1) - 2026-09-11
 
