@@ -15,7 +15,7 @@
 
 </div>
 
-**Your files, on your hardware.**
+## Your files, on your hardware.
 
 > [!IMPORTANT]
 > Staaash is a file drive, not a backup system. Keep an independent backup of important files and test that you can restore it.
