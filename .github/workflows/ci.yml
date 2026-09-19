@@ -169,7 +169,7 @@ jobs:
 
       - name: Run ARM64 Playwright smoke tests
         run: >-
-          pnpm --filter web e2e --
+          pnpm --filter web e2e
           e2e/member-files.spec.ts
           e2e/direct-upload-size.spec.ts
           e2e/public-share.spec.ts
