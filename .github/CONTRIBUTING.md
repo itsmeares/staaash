@@ -1,18 +1,47 @@
 # Contributing
 
-Thanks for taking a look at the project.
+Staaash is maintained by one person. Contributions are welcome, but opening a pull request does not create an obligation to merge it. The project is still early, and keeping its scope and direction under control matters.
 
-This repo is intentionally straightforward: focused changes, honest docs, and working code. If you want to contribute, that is welcome.
+## Read this first
 
-## Before You Start
+- Use [GitHub Discussions](https://github.com/itsmeares/staaash/discussions) for questions, ideas, and non-trivial product changes.
+- Use issues for bugs and narrowly scoped fixes.
+- Keep pull requests small enough to understand in one sitting.
+- Do not mix unrelated changes together.
 
-- keep changes focused and reviewable
-- add or update tests for behavior changes
-- do not commit secrets, runtime data, or generated local storage contents
-- prefer small follow-up PRs over unrelated bundle changes
-- AI-assisted changes are fine, but you are still responsible for reviewing, testing, and accurately describing them
+## What fits
 
-## Local Development
+The work most likely to fit is:
+
+- focused bug, reliability, or security fixes
+- small performance or usability improvements
+- documentation that helps users or operators
+- tests for a real regression
+- maintenance that keeps the project healthy without changing its direction
+
+## What probably does not fit
+
+Please discuss these before opening a pull request:
+
+- large new features
+- broad rewrites or drive-by refactors
+- changes that introduce a new abstraction without a concrete need
+- product ideas that expand Staaash beyond a personal or small-group file drive
+- a large bundle of changes that is difficult to review
+
+## Opening a pull request
+
+Explain what changed and why it should exist. Describe the user-visible or operational impact, especially for changes involving storage, authentication, the database, or recovery. Keep the pull request description in your own words.
+
+For UI changes, include before and after screenshots. For motion or timing changes, include a short video. If a change is hard to explain from the diff, it is probably too large or needs a design discussion first.
+
+## AI-assisted contributions
+
+AI tools are allowed here. They do not change the contribution standard: understand the important parts of your change, check the behavior, and be able to explain it when someone asks.
+
+Do not have an agent open a pull request, write public replies, or answer maintainer questions without checking the content yourself. Pull requests that look like unreviewed generated output may be closed without review.
+
+## Development setup
 
 1. Copy `dev.example.env` to `.env.local` at the repo root.
 2. Start PostgreSQL.
@@ -23,8 +52,8 @@ This repo is intentionally straightforward: focused changes, honest docs, and wo
    docker run --name staaash-postgres -e POSTGRES_USER=staaash -e POSTGRES_PASSWORD=staaash -e POSTGRES_DB=staaash -p 5432:5432 -v staaash-postgres-data:/var/lib/postgresql -d postgres:18-alpine
    ```
 
-   After that first run, you can restart it later with `docker start staaash-postgres`.
-   If you already have PostgreSQL running another way, just update `DATABASE_URL` in `.env.local`.
+   After that first run, restart it later with `docker start staaash-postgres`.
+   If you already have PostgreSQL running another way, update `DATABASE_URL` in `.env.local`.
 
 3. Run `pnpm i`.
 4. Run `pnpm db:generate`.
@@ -32,30 +61,8 @@ This repo is intentionally straightforward: focused changes, honest docs, and wo
 6. Start the web app with `pnpm web:dev`.
 7. Start the worker with `pnpm worker:dev`.
 
-## Checks Before Opening A PR
+## Issues and security
 
-- staged files are auto-formatted on commit
-- CI still verifies formatting repo-wide with `pnpm format:check`
-- run `pnpm lint`
-- run `pnpm test`
-- run `pnpm build`
-
-## Pull Requests
-
-- explain the user-visible or operational impact
-- call out schema, auth, storage, or restore behavior changes when they apply
-- complete the pull request template, including the validation checklist
-
-## Issues And Security
-
-- use the GitHub issue forms for bug reports and feature requests
-- use GitHub Discussions for questions, ideas, and general feedback
-- do not open public issues for security problems
-- follow [`SECURITY.md`](./SECURITY.md) for private reporting guidance
-
-## Project Context
-
-If you are new to the repo, start with:
-
-- [`README.md`](./README.md)
-- [`Architecture`](../docs/architecture.md)
+- Use the GitHub issue forms for bug reports and feature requests.
+- Do not open public issues for security problems.
+- Follow [`SECURITY.md`](./SECURITY.md) for private reporting guidance.
