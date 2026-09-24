@@ -319,7 +319,7 @@ importers:
         specifier: ^4.4.0
         version: 4.4.0
       tsx:
-        specifier: ^4.23.13
+        specifier: ^4.23.15
         version: 4.23.15
       yazl:
         specifier: ^3.3.1
