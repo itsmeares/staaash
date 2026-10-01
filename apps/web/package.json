@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
-    "@react-three/fiber": "^9.7.0",
+    "@react-three/fiber": "^9.8.1",
     "@staaash/config": "workspace:*",
     "@staaash/db": "workspace:*",
     "canvas-confetti": "^1.9.4",
@@ -29,7 +29,7 @@
     "clsx": "^2.1.1",
     "hash-wasm": "^4.12.0",
     "heic-convert": "^2.1.0",
-    "lucide-react": "^1.47.0",
+    "lucide-react": "^1.48.0",
     "next": "16.3.6",
     "pg": "^8.23.0",
     "react": "19.3.0",
