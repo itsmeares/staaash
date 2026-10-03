@@ -82,8 +82,8 @@ vi.mock("@/app/(workspace)/workspace-storage", () => ({
   WorkspaceStorage: () => null,
 }));
 
-vi.mock("@/components/ui/sonner", () => ({
-  Toaster: () => null,
+vi.mock("@/components/ui/toast", () => ({
+  ToastProvider: () => null,
 }));
 
 vi.mock("lucide-react", () => ({

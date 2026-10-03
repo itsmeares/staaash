@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment } from "react";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Drawer, DrawerPopup, DrawerTitle } from "@/components/ui/drawer";
 import { getVisibleDashboardMenuGroups } from "@/app/dashboard-context-menu-model";
 import type { DashboardContextMenuGroup } from "@/app/dashboard-context-menu";
 
@@ -29,21 +29,15 @@ export function WorkspaceActionSheet({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerPopup
         className="workspace-bottom-sheet workspace-action-sheet"
-        showCloseButton={false}
-        onSwipeClose={() => onOpenChange(false)}
+        showBar
       >
-        <div
-          className="workspace-bottom-sheet-handle"
-          data-bottom-sheet-drag-handle
-          aria-hidden
-        />
         <div className="workspace-action-sheet-head">
-          <DialogTitle className="workspace-action-sheet-title">
+          <DrawerTitle className="workspace-action-sheet-title">
             {title}
-          </DialogTitle>
+          </DrawerTitle>
           {itemName ? (
             <p className="workspace-action-sheet-subtitle">{itemName}</p>
           ) : null}
@@ -111,7 +105,7 @@ export function WorkspaceActionSheet({
         >
           Cancel
         </button>
-      </DialogContent>
-    </Dialog>
+      </DrawerPopup>
+    </Drawer>
   );
 }

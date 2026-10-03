@@ -15,11 +15,11 @@ import {
 import { useState } from "react";
 
 import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Drawer,
+  DrawerPopup,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 
 import { InstanceBadge } from "./instance-badge";
 import { WorkspaceStorage } from "./workspace-storage";
@@ -105,25 +105,19 @@ export function WorkspaceMobileNav(props: WorkspaceMobileNavProps) {
 
       <UploadButton />
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger className="workspace-mobile-nav-item" aria-label="More">
+      <Drawer open={open} onOpenChange={setOpen}>
+        <DrawerTrigger className="workspace-mobile-nav-item" aria-label="More">
           <MoreHorizontal size={18} strokeWidth={2} aria-hidden />
           <span>More</span>
-        </DialogTrigger>
-        <DialogContent
+        </DrawerTrigger>
+        <DrawerPopup
           className="workspace-bottom-sheet workspace-more-sheet"
-          showCloseButton={false}
-          onSwipeClose={() => setOpen(false)}
+          showBar
         >
-          <div
-            className="workspace-bottom-sheet-handle"
-            data-bottom-sheet-drag-handle
-            aria-hidden
-          />
           <div className="workspace-more-head">
-            <DialogTitle className="workspace-more-title">
+            <DrawerTitle className="workspace-more-title">
               {props.instanceName}
-            </DialogTitle>
+            </DrawerTitle>
           </div>
 
           <div className="workspace-more-profile">
@@ -217,8 +211,8 @@ export function WorkspaceMobileNav(props: WorkspaceMobileNavProps) {
               </button>
             </form>
           </div>
-        </DialogContent>
-      </Dialog>
+        </DrawerPopup>
+      </Drawer>
     </nav>
   );
 }

@@ -76,6 +76,13 @@
   );
   --animate-fade-in: fade-in 120ms ease both;
   --animate-overlay-in: overlay-in 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-skeleton: skeleton 2s -1s infinite linear;
+
+  @keyframes skeleton {
+    to {
+      background-position: -200% 0;
+    }
+  }
 
   @keyframes fade-in {
     from {

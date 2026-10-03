@@ -37,27 +37,13 @@ export function FlashMessage({
   tone?: "error" | "info" | "success";
 }) {
   const config = {
-    error: {
-      title: "There was a problem",
-      variant: "destructive" as const,
-      className: "border-destructive/30 bg-destructive/10",
-    },
-    info: {
-      title: "Heads up",
-      variant: "default" as const,
-      className:
-        "border-primary/20 bg-primary/10 text-card-foreground [&_[data-slot=alert-description]]:text-muted-foreground",
-    },
-    success: {
-      title: "Success",
-      variant: "default" as const,
-      className:
-        "border-emerald-500/20 bg-emerald-500/10 text-card-foreground [&_[data-slot=alert-description]]:text-muted-foreground",
-    },
+    error: { title: "There was a problem", variant: "error" as const },
+    info: { title: "Heads up", variant: "info" as const },
+    success: { title: "Success", variant: "success" as const },
   }[tone];
 
   return (
-    <Alert className={config.className} variant={config.variant}>
+    <Alert variant={config.variant}>
       <AlertTitle>{config.title}</AlertTitle>
       <AlertDescription>{children}</AlertDescription>
     </Alert>

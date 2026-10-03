@@ -19,12 +19,12 @@ import { FolderOpen, RefreshCw } from "lucide-react";
 
 import {
   ContextMenu,
-  ContextMenuContent,
+  ContextMenuPopup,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuShortcut,
   ContextMenuSub,
-  ContextMenuSubContent,
+  ContextMenuSubPopup,
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
@@ -73,12 +73,12 @@ function DashboardContextMenuItems({
                     {action.icon}
                     {action.label}
                   </ContextMenuSubTrigger>
-                  <ContextMenuSubContent>
+                  <ContextMenuSubPopup>
                     <DashboardContextMenuItems
                       groups={[{ actions: action.subActions }]}
                       onActionSelected={onActionSelected}
                     />
-                  </ContextMenuSubContent>
+                  </ContextMenuSubPopup>
                 </ContextMenuSub>
               ) : (
                 <ContextMenuItem
@@ -219,9 +219,9 @@ export function DashboardItemContextMenu({
   return (
     <ContextMenu>
       <ContextMenuTrigger render={trigger} />
-      <ContextMenuContent>
+      <ContextMenuPopup>
         <DashboardContextMenuItems groups={groups} />
-      </ContextMenuContent>
+      </ContextMenuPopup>
     </ContextMenu>
   );
 }

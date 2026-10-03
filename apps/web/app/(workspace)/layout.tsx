@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Search } from "lucide-react";
 
-import { Toaster } from "@/components/ui/sonner";
+import { ToastProvider } from "@/components/ui/toast";
 import { getInitials } from "@/lib/user";
 import { authService } from "@/server/auth/service";
 import { resolveAppVersion } from "@/server/app-version";
@@ -186,8 +186,8 @@ export default async function WorkspaceLayout({
         />
       ) : null}
 
-      {/* Toaster outside workspace-shell grid — fixed elements still consume a grid cell. */}
-      <Toaster position="bottom-right" richColors />
+      {/* Kept outside the shell grid: fixed elements still take a grid cell. */}
+      <ToastProvider position="bottom-right" />
     </>
   );
 }
