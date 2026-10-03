@@ -195,7 +195,7 @@ test("share dialog traps focus and returns focus on Escape", async ({
 
   const dialog = page.getByRole("dialog", { name: "Share" });
   await expect(dialog).toBeVisible();
-  await expectNoSeriousA11yViolations(page, '[data-slot="dialog-content"]');
+  await expectNoSeriousA11yViolations(page, '[data-slot="dialog-popup"]');
 
   await page.keyboard.press("Tab");
   await expect
