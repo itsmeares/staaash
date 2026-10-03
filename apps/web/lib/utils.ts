@@ -18,7 +18,7 @@ const twMerge = extendTailwindMerge({
         "sidebar",
         "admin-sidebar",
       ],
-      container: ["settings", "admin-settings", "page"],
+      container: ["settings", "page"],
     },
   },
 });
