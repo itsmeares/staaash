@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 export type JobTone =
   "idle" | "queued" | "running" | "succeeded" | "failed" | "cancelled";
 
-export const JOB_TONE_DOT: Record<JobTone, string> = {
+const JOB_TONE_DOT: Record<JobTone, string> = {
   idle: "bg-muted-foreground",
   queued: "bg-warning",
   running: "bg-info",

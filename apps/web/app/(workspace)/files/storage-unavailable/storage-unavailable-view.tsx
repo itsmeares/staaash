@@ -101,6 +101,7 @@ export function StorageUnavailableView({
           <Loader2
             aria-hidden
             className="animate-spin text-primary motion-reduce:animate-none"
+            data-storage-unavailable-spinner
             size={34}
             strokeWidth={1.8}
           />

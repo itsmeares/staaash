@@ -41,7 +41,6 @@ const COLLECTION_GRID_WITH_ACTIONS =
 const ACTIONS_BOX =
   "inline-flex items-center gap-0.5 rounded-md border bg-card p-0.5 shadow-xs [&_form]:inline-flex";
 
-export const COLLECTION_ROW_ICON_CELL = ROW_ICON_CELL;
 export const COLLECTION_ROW_NAME = cn(ROW_NAME, "flex items-center gap-1.5");
 export const COLLECTION_ROW_LOCATION = cn(
   ROW_META,

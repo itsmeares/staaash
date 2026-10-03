@@ -58,7 +58,7 @@ describe("private storage unavailable page", () => {
     expect(markup).toContain("Folder is getting ready.");
     expect(markup).toContain(">Refresh</button>");
     expect(markup).toContain("Back to Files");
-    expect(markup).toContain("storage-unavailable-spinner");
+    expect(markup).toContain("data-storage-unavailable-spinner");
     expect(markup).not.toContain('aria-busy="true"');
   });
 
@@ -77,7 +77,7 @@ describe("private storage unavailable page", () => {
     const markup = renderToStaticMarkup(page);
 
     expect(markup).toContain("This operation could not finish.");
-    expect(markup).not.toContain("storage-unavailable-spinner");
+    expect(markup).not.toContain("data-storage-unavailable-spinner");
   });
 
   it("returns to the requested folder after it becomes readable", async () => {

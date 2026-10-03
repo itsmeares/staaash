@@ -11,14 +11,13 @@ const twMerge = extendTailwindMerge({
       shadow: ["panel", "dialog", "floating", "selection-bar", "rail"],
       spacing: [
         "control",
-        "control-sm",
         "row",
         "row-sm",
         "row-home",
         "sidebar",
         "admin-sidebar",
       ],
-      container: ["settings", "page"],
+      container: ["settings"],
     },
   },
 });

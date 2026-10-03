@@ -36,34 +36,28 @@ export const capitalize = (value: string) =>
 
 type AdminStatusVariant = NonNullable<BadgeProps["variant"]>;
 
-export const getAdminStatusVariant = (status: string): AdminStatusVariant => {
-  switch (status) {
-    case "healthy":
-    case "active":
-    case "up-to-date":
-    case "succeeded":
-    case "ready":
-    case "admin":
-      return "success";
-    case "running":
-    case "processing":
-      return "info";
-    case "warning":
-    case "accepted":
-    case "update-available":
-    case "queued":
-    case "stale":
-      return "warning";
-    case "idle":
-    case "stopped":
-    case "unavailable":
-    case "not checked":
-    case "cancelled":
-    case "member":
-      return "neutral";
-    case "owner":
-      return "accent";
-    default:
-      return "error";
-  }
+const ADMIN_STATUS_VARIANTS: Record<string, AdminStatusVariant> = {
+  healthy: "success",
+  active: "success",
+  "up-to-date": "success",
+  succeeded: "success",
+  ready: "success",
+  admin: "success",
+  running: "info",
+  processing: "info",
+  warning: "warning",
+  accepted: "warning",
+  "update-available": "warning",
+  queued: "warning",
+  stale: "warning",
+  idle: "neutral",
+  stopped: "neutral",
+  unavailable: "neutral",
+  "not checked": "neutral",
+  cancelled: "neutral",
+  member: "neutral",
+  owner: "accent",
 };
+
+export const getAdminStatusVariant = (status: string): AdminStatusVariant =>
+  ADMIN_STATUS_VARIANTS[status] ?? "error";

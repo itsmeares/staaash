@@ -1,6 +1,3 @@
-/* Legacy styles sit below components and utilities so new code always wins. */
-@layer theme, base, legacy, components, utilities;
-
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -9,11 +6,3 @@
 @import "../styles/theme.css";
 @import "../styles/base.css";
 @import "../styles/utilities.css";
-
-/* Legacy feature styles, removed area by area as screens move to the shared
-   components and utilities. */
-@import "../styles/legacy/tokens.css" layer(legacy);
-@import "../styles/legacy/common.css" layer(legacy);
-@import "../styles/legacy/shell.css" layer(legacy);
-@import "../styles/legacy/explorer.css" layer(legacy);
-@import "../styles/legacy/late.css" layer(legacy);

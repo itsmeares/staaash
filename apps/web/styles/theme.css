@@ -51,14 +51,12 @@
 
   /* Product sizes: h-control, h-row, w-sidebar, max-w-settings, … */
   --spacing-control: 3rem;
-  --spacing-control-sm: 2.75rem;
   --spacing-row: 3.125rem;
   --spacing-row-sm: 2.875rem;
   --spacing-row-home: 3.75rem;
   --spacing-sidebar: 16.875rem;
   --spacing-admin-sidebar: 18.75rem;
   --container-settings: 57.5rem;
-  --container-page: 67.5rem;
 
   /* Motion */
   --ease-expo-out: linear(
@@ -79,24 +77,7 @@
     0.9915 68.74%,
     1 100%
   );
-  --animate-fade-in: fade-in 120ms ease both;
   --animate-overlay-in: overlay-in 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  --animate-skeleton: skeleton 2s -1s infinite linear;
-
-  @keyframes skeleton {
-    to {
-      background-position: -200% 0;
-    }
-  }
-
-  @keyframes fade-in {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
 
   @keyframes overlay-in {
     from {

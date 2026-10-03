@@ -1342,6 +1342,7 @@ function ActivityPagination({
   );
 }
 
+// fallow-ignore-next-line complexity
 function JobActivityPanel({
   derivativeActions,
   derivatives,

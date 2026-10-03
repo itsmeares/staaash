@@ -164,7 +164,10 @@ export function ShareLockedView({
   token: string;
 }) {
   return (
-    <main className="relative flex min-h-screen w-full flex-col items-center justify-center p-6">
+    <main
+      className="relative flex min-h-screen w-full flex-col items-center justify-center p-6"
+      data-share-locked
+    >
       <div className="grid w-[min(340px,100%)] gap-5">
         {error ? <FlashMessage>{error}</FlashMessage> : null}
         {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}

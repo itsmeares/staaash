@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { SkipLink } from "@/components/skip-link";
 import { cn } from "@/lib/utils";
 
 import styles from "./entry-experience.module.css";
@@ -32,15 +33,13 @@ export function EntryShell({
     <main
       id="main-content"
       className={cn(
-        "entry-surface dark relative isolate min-h-dvh w-full overflow-x-hidden overflow-y-auto bg-background text-foreground",
+        "dark relative isolate min-h-dvh w-full overflow-x-hidden overflow-y-auto bg-background text-foreground",
         background ? styles.surfaceGateway : styles.surfaceFocused,
         className,
       )}
       tabIndex={-1}
     >
-      <a className="skip-link" href="#main-content">
-        Skip to content
-      </a>
+      <SkipLink />
       {background ? (
         <div
           aria-hidden="true"

@@ -24,7 +24,7 @@ export const itemVisualIconMap: Record<ItemVisualKind, LucideIcon> = {
 };
 
 export function ItemTypeIcon({
-  className = "item-type-icon",
+  className = "inline-flex size-6.5 shrink-0 items-center justify-center rounded-sm lg:size-7.5",
   icon,
   size = 14,
   tone = "filled",
@@ -38,11 +38,10 @@ export function ItemTypeIcon({
 }) {
   const Icon = icon ?? itemVisualIconMap[visual.kind];
   const filled = tone === "filled";
-  const style = {
-    "--item-type-icon-color": visual.color,
+  const style: CSSProperties = {
     color: visual.color,
     ...(filled ? { background: visual.background } : {}),
-  } as CSSProperties & { "--item-type-icon-color": string };
+  };
 
   return (
     <span

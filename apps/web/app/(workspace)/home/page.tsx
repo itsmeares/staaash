@@ -156,6 +156,44 @@ function HomeFirstRunState() {
   );
 }
 
+function getRetrievalItemVisual(item: RetrievalItem) {
+  return getHomeItemVisual(
+    item.kind,
+    item.kind === "file" ? item.mimeType : null,
+  );
+}
+
+function HomeItemRow({
+  item,
+  redirectTo,
+  children,
+}: {
+  item: RetrievalItem;
+  redirectTo: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <ItemContextMenu
+      href={item.href}
+      id={item.id}
+      isFavorite={item.isFavorite}
+      kind={item.kind}
+      name={item.name}
+      redirectTo={redirectTo}
+    >
+      {item.kind === "folder" ? (
+        <Link className={HOME_ROW} href={item.href}>
+          {children}
+        </Link>
+      ) : (
+        <a className={HOME_ROW} href={item.href}>
+          {children}
+        </a>
+      )}
+    </ItemContextMenu>
+  );
+}
+
 function PinnedList({
   items,
   redirectTo,
@@ -172,10 +210,7 @@ function PinnedList({
   return (
     <div className={HOME_LIST}>
       {items.map((item) => {
-        const visual = getHomeItemVisual(
-          item.kind,
-          item.kind === "file" ? item.mimeType : null,
-        );
+        const visual = getRetrievalItemVisual(item);
         const content = (
           <>
             <HomeIcon visual={visual} />
@@ -184,25 +219,13 @@ function PinnedList({
         );
 
         return (
-          <ItemContextMenu
-            href={item.href}
-            id={item.id}
-            isFavorite={item.isFavorite}
+          <HomeItemRow
+            item={item}
             key={`${item.kind}-${item.id}`}
-            kind={item.kind}
-            name={item.name}
             redirectTo={redirectTo}
           >
-            {item.kind === "folder" ? (
-              <Link className={HOME_ROW} href={item.href}>
-                {content}
-              </Link>
-            ) : (
-              <a className={HOME_ROW} href={item.href}>
-                {content}
-              </a>
-            )}
-          </ItemContextMenu>
+            {content}
+          </HomeItemRow>
         );
       })}
     </div>
@@ -225,10 +248,7 @@ function RecentList({
   return (
     <div className={HOME_LIST}>
       {items.map((item) => {
-        const visual = getHomeItemVisual(
-          item.kind,
-          item.kind === "file" ? item.mimeType : null,
-        );
+        const visual = getRetrievalItemVisual(item);
         const content = (
           <>
             <HomeIcon visual={visual} />
@@ -244,25 +264,13 @@ function RecentList({
         );
 
         return (
-          <ItemContextMenu
-            href={item.href}
-            id={item.id}
-            isFavorite={item.isFavorite}
+          <HomeItemRow
+            item={item}
             key={`${item.kind}-${item.id}`}
-            kind={item.kind}
-            name={item.name}
             redirectTo={redirectTo}
           >
-            {item.kind === "folder" ? (
-              <Link className={HOME_ROW} href={item.href}>
-                {content}
-              </Link>
-            ) : (
-              <a className={HOME_ROW} href={item.href}>
-                {content}
-              </a>
-            )}
-          </ItemContextMenu>
+            {content}
+          </HomeItemRow>
         );
       })}
     </div>

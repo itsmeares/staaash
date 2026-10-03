@@ -103,6 +103,7 @@ function getVisual(item: FavoriteClientItem) {
   return getItemVisual(item.kind, item.kind === "file" ? item.mimeType : null);
 }
 
+// fallow-ignore-next-line complexity
 export function FavoritesView({ error, items, success }: FavoritesViewProps) {
   const router = useRouter();
   const [, startTransition] = useTransition();

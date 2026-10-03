@@ -234,7 +234,7 @@ describe("folder public link behavior", () => {
       }),
     );
 
-    expect(markup).toContain("share-locked-page");
+    expect(markup).toContain("data-share-locked");
     expect(markup).not.toContain("plan.txt");
     expect(markup).not.toContain("text/plain");
   });
@@ -248,7 +248,7 @@ describe("folder public link behavior", () => {
       }),
     );
 
-    expect(markup).toContain("share-locked-page");
+    expect(markup).toContain("data-share-locked");
     expect(markup).not.toContain("Projects");
     expect(markup).not.toContain("2026");
     expect(markup).not.toContain("Breadcrumb");
