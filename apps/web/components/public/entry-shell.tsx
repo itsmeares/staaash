@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
+import styles from "./entry-experience.module.css";
+
 type EntryShellProps = {
   children: ReactNode;
   background?: ReactNode;
@@ -13,6 +15,9 @@ type EntryShellProps = {
   scrimVariant?: "gateway" | "setup";
   onBrandClick?: () => void;
 };
+
+const brandClassName =
+  "cursor-pointer border-0 bg-transparent p-0 font-heading text-headline leading-none tracking-tighter text-balance text-inherit";
 
 export function EntryShell({
   children,
@@ -27,8 +32,8 @@ export function EntryShell({
     <main
       id="main-content"
       className={cn(
-        "entry-surface",
-        background ? "entry-surface--gateway" : "entry-surface--focused",
+        "entry-surface dark relative isolate min-h-dvh w-full overflow-x-hidden overflow-y-auto bg-background text-foreground",
+        background ? styles.surfaceGateway : styles.surfaceFocused,
         className,
       )}
       tabIndex={-1}
@@ -37,7 +42,10 @@ export function EntryShell({
         Skip to content
       </a>
       {background ? (
-        <div aria-hidden="true" className="entry-surface__background">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-20 overflow-hidden"
+        >
           {background}
         </div>
       ) : null}
@@ -45,10 +53,12 @@ export function EntryShell({
       <div
         aria-hidden="true"
         className={cn(
-          "entry-surface__scrim",
-          background
-            ? `entry-surface__scrim--${scrimVariant}`
-            : "entry-surface__scrim--focused",
+          "pointer-events-none absolute inset-0 -z-10",
+          !background
+            ? styles.scrimFocused
+            : scrimVariant === "setup"
+              ? styles.scrimSetup
+              : styles.scrimGateway,
         )}
       />
 
@@ -56,18 +66,22 @@ export function EntryShell({
         <header className="flex items-center justify-between gap-4">
           {onBrandClick ? (
             <button
-              className="entry-brand"
+              className={brandClassName}
               onClick={onBrandClick}
               aria-label="Back to start"
             >
               Staaash
             </button>
           ) : (
-            <Link href="/" className="entry-brand">
+            <Link href="/" className={brandClassName}>
               Staaash
             </Link>
           )}
-          {topNote ? <p className="entry-top-note">{topNote}</p> : null}
+          {topNote ? (
+            <p className="text-xs font-medium tracking-widest whitespace-nowrap text-foreground/60 uppercase max-sm:hidden">
+              {topNote}
+            </p>
+          ) : null}
         </header>
 
         <div

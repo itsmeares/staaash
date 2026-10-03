@@ -7,6 +7,8 @@ import { useEffect, useState } from "react";
 import { STAAASH_BRONZE_HEX } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
+import styles from "./entry-experience.module.css";
+
 type SilkCanvasProps = {
   speed?: number;
   scale?: number;
@@ -95,12 +97,17 @@ export function SilkBackground({
   return (
     <div
       aria-hidden="true"
-      className={cn("entry-silk", className)}
+      className={cn("absolute inset-0 overflow-hidden", className)}
       style={{ opacity }}
     >
-      <div className="entry-silk-fallback" />
+      <div className={styles.silkFallback} />
       {canAnimate ? (
-        <div className="entry-silk-canvas absolute inset-0">
+        <div
+          className={cn(
+            styles.silkCanvas,
+            "absolute inset-0 [&_canvas]:h-full [&_canvas]:w-full",
+          )}
+        >
           <SilkCanvas
             color={color}
             noiseIntensity={noiseIntensity}

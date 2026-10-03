@@ -1,0 +1,232 @@
+/* Entry surface backdrop, intro/form/success choreography and silk fade. */
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+}
+
+@keyframes silkFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---- Surface ---- */
+
+.surfaceGateway {
+  background-image:
+    radial-gradient(
+      circle at top left,
+      color-mix(in oklab, var(--primary) 12%, transparent),
+      transparent 28%
+    ),
+    linear-gradient(
+      180deg,
+      var(--background),
+      color-mix(in oklab, var(--background) 70%, black)
+    );
+}
+
+.surfaceFocused {
+  background-image:
+    radial-gradient(
+      circle at top right,
+      color-mix(in oklab, var(--primary) 7%, transparent),
+      transparent 24%
+    ),
+    linear-gradient(
+      180deg,
+      var(--background),
+      color-mix(in oklab, var(--background) 75%, black)
+    );
+}
+
+.scrimGateway {
+  background-image:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, black 14%, transparent) 0%,
+      color-mix(in oklab, black 56%, transparent) 54%,
+      color-mix(in oklab, black 84%, transparent) 100%
+    ),
+    radial-gradient(
+      circle at 82% 18%,
+      color-mix(in oklab, var(--primary) 16%, transparent),
+      transparent 22%
+    );
+}
+
+.scrimSetup {
+  background-image:
+    linear-gradient(
+      to top,
+      color-mix(in oklab, black 84%, transparent) 0%,
+      color-mix(in oklab, black 22%, transparent) 30%,
+      transparent 52%
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in oklab, black 20%, transparent) 0%,
+      transparent 18%
+    ),
+    radial-gradient(
+      ellipse 70% 80% at 0% 0%,
+      color-mix(in oklab, black 42%, transparent),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 70% 80% at 100% 0%,
+      color-mix(in oklab, black 42%, transparent),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 70% 80% at 0% 100%,
+      color-mix(in oklab, black 56%, transparent),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 70% 80% at 100% 100%,
+      color-mix(in oklab, black 56%, transparent),
+      transparent 55%
+    );
+}
+
+.scrimFocused {
+  background-image:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, black 10%, transparent),
+      color-mix(in oklab, black 38%, transparent) 54%,
+      color-mix(in oklab, black 68%, transparent)
+    ),
+    radial-gradient(
+      circle at top left,
+      color-mix(in oklab, var(--primary) 10%, transparent),
+      transparent 24%
+    );
+}
+
+/* ---- Silk ---- */
+
+.silkCanvas {
+  animation: silkFadeIn 1.4s ease-out both;
+}
+
+.silkFallback {
+  position: absolute;
+  inset: -12%;
+  width: 100%;
+  height: 100%;
+  background-image:
+    radial-gradient(
+      circle at 24% 26%,
+      color-mix(in oklab, var(--primary) 72%, transparent),
+      transparent 38%
+    ),
+    radial-gradient(
+      circle at 72% 38%,
+      color-mix(in oklab, var(--primary) 52%, black),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 50% 80%,
+      color-mix(in oklab, var(--primary) 38%, black),
+      transparent 42%
+    ),
+    linear-gradient(
+      160deg,
+      color-mix(in oklab, var(--background) 85%, var(--primary)),
+      var(--background)
+    );
+  filter: blur(18px);
+  transform: scale(1.08);
+}
+
+/* ---- Intro ---- */
+
+.introTitle {
+  animation: fadeUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) 1.1s both;
+}
+
+.introDescription {
+  animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 1.5s both;
+}
+
+.introHint {
+  animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 1.9s both;
+}
+
+.introExiting {
+  animation: fadeOut 0.36s cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
+}
+
+/* Child fill-mode would snap back to opacity 0 during exit */
+.introExiting .introTitle,
+.introExiting .introDescription,
+.introExiting .introHint {
+  animation: none;
+}
+
+/* Returning from the form: quick stagger, no long initial delays */
+.introReturning .introTitle {
+  animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.introReturning .introDescription {
+  animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.07s both;
+}
+
+.introReturning .introHint {
+  animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.14s both;
+}
+
+/* ---- Form and success ---- */
+
+.formEntering {
+  animation: fadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.formExiting {
+  animation: fadeOut 0.3s cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
+}
+
+.successMessage {
+  animation: fadeUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .introTitle,
+  .introDescription,
+  .introHint,
+  .introExiting,
+  .introReturning .introTitle,
+  .introReturning .introDescription,
+  .introReturning .introHint,
+  .formEntering,
+  .formExiting,
+  .successMessage {
+    animation: none;
+  }
+}
