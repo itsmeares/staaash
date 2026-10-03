@@ -15,14 +15,10 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowDown,
-  ArrowUp,
   Download,
   ExternalLink,
   FolderOpen,
-  Grid2X2,
   Heart,
-  List,
   MoreHorizontal,
   Pin,
   PinOff,
@@ -37,6 +33,11 @@ import {
 } from "@/app/dashboard-context-menu";
 import { getItemVisual } from "@/app/item-visuals";
 import { ItemTypeIcon } from "@/app/item-type-icon";
+import { PageHeader } from "@/components/page-header";
+import { SectionLabel } from "@/components/section-label";
+import { Badge } from "@/components/ui/badge";
+import { ViewToggle, type ViewMode } from "@/components/view-toggle";
+import { cn } from "@/lib/utils";
 import { startValidatedDownload } from "@/lib/transfers/download";
 
 import { useTransferContext } from "../transfer-context";
@@ -47,6 +48,27 @@ import {
 } from "../workspace-item-helpers";
 import { WorkspaceActionSheet } from "../workspace-action-sheet";
 import { RubberBandRect, type RubberBand } from "../rubber-band-rect";
+import {
+  COLLECTION_GRID_CARDS,
+  COLLECTION_ROW_LOCATION,
+  COLLECTION_ROW_NAME,
+  COLLECTION_ROW_SIZE,
+  COLLECTION_ROW_TIME,
+  CollectionColumnHead,
+  CollectionEmpty,
+  CollectionGridCard,
+  CollectionRow,
+  CollectionSortButton,
+  CollectionToolbar,
+  GridCardActions,
+  GridCardBody,
+  GridCardPreview,
+  RowActionButton,
+  RowActions,
+  RowIcon,
+  TypeFilterSelect,
+} from "../collection-parts";
+import { SelectionBar } from "../selection-bar";
 import {
   filterFavoriteItems,
   formatFavoriteFileSize,
@@ -59,8 +81,6 @@ import {
   type FavoriteSortDirection,
   type FavoriteSortKey,
 } from "./favorites-helpers";
-
-type FavoriteViewMode = "grid" | "list";
 
 type FavoritesViewProps = {
   error?: string | null;
@@ -79,40 +99,8 @@ function getFavoriteEndpoint(item: FavoriteClientItem): string {
   return `/api/files/${item.kind === "folder" ? "folders" : "files"}/${item.id}/favorite`;
 }
 
-function SortIcon({
-  active,
-  direction,
-}: {
-  active: boolean;
-  direction: FavoriteSortDirection;
-}) {
-  if (!active) return <ArrowDown size={11} aria-hidden />;
-  return direction === "asc" ? (
-    <ArrowUp size={11} aria-hidden />
-  ) : (
-    <ArrowDown size={11} aria-hidden />
-  );
-}
-
-function FavoriteIcon({
-  item,
-  size = 14,
-  tone = "filled",
-}: {
-  item: FavoriteClientItem;
-  size?: number;
-  tone?: "filled" | "plain";
-}) {
-  return (
-    <ItemTypeIcon
-      size={size}
-      tone={tone}
-      visual={getItemVisual(
-        item.kind,
-        item.kind === "file" ? item.mimeType : null,
-      )}
-    />
-  );
+function getVisual(item: FavoriteClientItem) {
+  return getItemVisual(item.kind, item.kind === "file" ? item.mimeType : null);
 }
 
 export function FavoritesView({ error, items, success }: FavoritesViewProps) {
@@ -120,7 +108,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
   const [, startTransition] = useTransition();
   const { handleDownload } = useTransferContext();
   const isCoarsePointer = useCoarsePointer();
-  const [viewMode, setViewMode] = useState<FavoriteViewMode>("list");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [viewReady, setViewReady] = useState(false);
   const [filterType, setFilterType] = useState<FavoriteFilterType>("all");
   const [sortKey, setSortKey] = useState<FavoriteSortKey>("favoritedAt");
@@ -513,6 +501,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
     }
     const target = event.target as HTMLElement;
     if (target.closest("button, input, select, textarea")) return;
+    if (target.closest("[data-slot^='select']")) return;
 
     const item = target.closest<HTMLElement>("[data-favorite-item]");
     const key = item?.dataset.favoriteItem;
@@ -547,7 +536,13 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
 
       const target = event.target as HTMLElement;
       if (target.closest("button, input, select, textarea")) return;
-      if (target.closest(".favorites-toolbar, .favorites-col-head")) return;
+      if (
+        target.closest(
+          "[data-collection-toolbar], [data-collection-head], [data-slot^='select']",
+        )
+      ) {
+        return;
+      }
 
       const container = listRef.current;
       if (!container) return;
@@ -712,80 +707,72 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
   const renderSortButton = (
     key: FavoriteSortKey,
     label: string,
-    align = "left",
+    align: "left" | "right" = "left",
   ) => (
-    <button
-      className={`favorites-col-head-cell${sortKey === key ? " is-sorted" : ""}`}
-      data-align={align}
-      data-column={key}
-      type="button"
+    <CollectionSortButton
+      active={sortKey === key}
+      align={align}
+      className={key === "path" || key === "size" ? "max-lg:hidden" : undefined}
+      column={key}
+      direction={sortDirection}
+      label={label}
       onClick={() => toggleSort(key)}
-    >
-      {label}
-      <SortIcon active={sortKey === key} direction={sortDirection} />
-    </button>
+    />
   );
 
   const renderItemActions = (item: FavoriteClientItem) => {
     if (item.storageMutationStatus) {
       return (
-        <span className="pill pill-sm">
+        <Badge size="sm">
           {item.storageMutationStatus === "recovery_required"
             ? "Recovery required"
             : "Finishing storage operation"}
-        </span>
+        </Badge>
       );
     }
     const pinned = item.quickAccessPinnedAt != null;
 
     if (isCoarsePointer) {
       return (
-        <button
+        <RowActionButton
           aria-label={`Actions for ${item.name}`}
-          className="favorites-action-btn"
-          type="button"
           onClick={(event) => {
             event.stopPropagation();
             setActionSheetItem(item);
           }}
         >
           <MoreHorizontal size={13} aria-hidden />
-        </button>
+        </RowActionButton>
       );
     }
 
     return (
       <>
-        <button
+        <RowActionButton
           aria-label={`Open ${item.name}`}
-          className="favorites-action-btn"
-          type="button"
           onClick={(event) => {
             event.stopPropagation();
             openItem(item);
           }}
         >
           <ExternalLink size={13} aria-hidden />
-        </button>
-        <button
+        </RowActionButton>
+        <RowActionButton
           aria-label={`Download ${item.name}`}
-          className="favorites-action-btn"
-          type="button"
           onClick={(event) => {
             event.stopPropagation();
             void downloadItem(item);
           }}
         >
           <Download size={13} aria-hidden />
-        </button>
-        <button
+        </RowActionButton>
+        <RowActionButton
           aria-label={
             pinned
               ? `Remove ${item.name} from quick access`
               : `Pin ${item.name} to quick access`
           }
-          className={`favorites-action-btn${pinned ? " is-pinned" : ""}`}
-          type="button"
+          tone={pinned ? "pinned" : "default"}
           onClick={(event) => {
             event.stopPropagation();
             void setQuickAccess(item, !pinned);
@@ -796,18 +783,17 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
           ) : (
             <Pin size={13} aria-hidden />
           )}
-        </button>
-        <button
+        </RowActionButton>
+        <RowActionButton
           aria-label={`Remove ${item.name} from favorites`}
-          className="favorites-action-btn favorites-action-btn-danger"
-          type="button"
+          tone="danger"
           onClick={(event) => {
             event.stopPropagation();
             void removeFavorite(item);
           }}
         >
           <Heart size={13} fill="currentColor" aria-hidden />
-        </button>
+        </RowActionButton>
       </>
     );
   };
@@ -918,22 +904,24 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
 
   return (
     <DashboardPageContextMenu
-      className="workspace-page favorites-page"
+      className="flex min-h-0 flex-col gap-4.5 max-lg:min-w-0"
       groups={backgroundMenuGroups}
       tabIndex={-1}
       onKeyDown={handleKeyDown}
     >
-      <div className="favorites-header">
-        <h1>Favorites</h1>
-        {activeItems.length > 0 ? (
-          <span className="section-count">{activeItems.length}</span>
-        ) : null}
-        {selectedItems.length > 0 ? (
-          <span className="selection-badge">
-            {selectedItems.length} selected
-          </span>
-        ) : null}
-      </div>
+      <PageHeader
+        title="Favorites"
+        meta={
+          <>
+            {activeItems.length > 0 ? (
+              <Badge>{activeItems.length}</Badge>
+            ) : null}
+            {selectedItems.length > 0 ? (
+              <Badge variant="accent">{selectedItems.length} selected</Badge>
+            ) : null}
+          </>
+        }
+      />
 
       {error ? <FlashMessage>{error}</FlashMessage> : null}
       {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
@@ -941,80 +929,59 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
 
       <div
         ref={listRef}
-        className="favorites-selection-surface"
+        className="relative flex min-h-0 flex-col gap-4.5 select-none"
         onClickCapture={handleFavoritesSurfaceClick}
         onMouseDownCapture={handleFavoritesMouseDown}
       >
         {renderRubberBand()}
 
-        <div
-          className="favorites-toolbar"
-          aria-label="Favorites display controls"
-        >
-          <label className="favorites-filter-control">
-            <span>Type</span>
-            <select
-              value={filterType}
-              onChange={(event) =>
-                setFilterType(event.target.value as FavoriteFilterType)
-              }
-            >
-              {WORKSPACE_ITEM_FILTERS.map((filter) => (
-                <option key={filter.id} value={filter.id}>
-                  {filter.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <div className="favorites-view-toggle" aria-label="View mode">
-            <button
-              aria-label="List view"
-              className={viewMode === "list" ? "is-active" : ""}
-              type="button"
-              onClick={() => setViewMode("list")}
-            >
-              <List size={14} aria-hidden />
-            </button>
-            <button
-              aria-label="Grid view"
-              className={viewMode === "grid" ? "is-active" : ""}
-              type="button"
-              onClick={() => setViewMode("grid")}
-            >
-              <Grid2X2 size={14} aria-hidden />
-            </button>
-          </div>
-        </div>
+        <CollectionToolbar aria-label="Favorites display controls">
+          <TypeFilterSelect
+            options={WORKSPACE_ITEM_FILTERS}
+            value={filterType}
+            onValueChange={(value) =>
+              setFilterType(value as FavoriteFilterType)
+            }
+          />
+          <ViewToggle
+            className="ml-auto shrink-0"
+            value={viewMode}
+            onValueChange={setViewMode}
+          />
+        </CollectionToolbar>
 
         {quickAccessItems.length > 0 ? (
-          <section className="favorites-quick-section" aria-labelledby="fav-qa">
-            <h2 id="fav-qa" className="favorites-section-eyebrow">
-              Quick access
+          <section aria-labelledby="fav-qa">
+            <h2 id="fav-qa" className="m-0 mb-2">
+              <SectionLabel>Quick access</SectionLabel>
             </h2>
-            <div className="favorites-quick-grid">
+            <div className="grid grid-cols-3 gap-2.5 max-md:grid-cols-1">
               {quickAccessItems.map((item) => {
-                const visual = getItemVisual(
-                  item.kind,
-                  item.kind === "file" ? item.mimeType : null,
-                );
+                const visual = getVisual(item);
                 return (
                   <DashboardItemContextMenu
                     groups={getFavoriteItemContextGroups(item)}
                     key={`${item.kind}-${item.id}`}
                   >
                     <button
-                      className="favorites-quick-card"
+                      className="flex min-w-0 items-center gap-3 rounded-lg border border-hairline px-3.5 py-3 text-left text-foreground transition-[border-color,filter] duration-100 outline-none hover:border-line-strong hover:brightness-98 focus-visible:border-line-strong focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none"
                       style={{ background: visual.background }}
                       type="button"
                       onClick={() => openItem(item)}
                     >
-                      <span className="favorites-quick-thumb">
-                        <FavoriteIcon item={item} size={18} />
-                      </span>
-                      <span className="favorites-quick-copy">
-                        <span title={item.name}>{item.name}</span>
-                        <small>
+                      <ItemTypeIcon
+                        className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg"
+                        size={18}
+                        visual={visual}
+                      />
+                      <span className="grid min-w-0 gap-0.5">
+                        <span
+                          className="truncate text-label leading-snug font-semibold"
+                          title={item.name}
+                        >
+                          {item.name}
+                        </span>
+                        <small className="text-xs text-muted-foreground">
                           {formatFavoriteRelativeTime(
                             item.quickAccessPinnedAt ?? item.favoritedAt,
                           )}
@@ -1029,34 +996,28 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
         ) : null}
 
         {visibleItems.length === 0 ? (
-          <div className="favorites-empty-state">
-            <span className="favorites-empty-icon">
-              <Heart size={26} aria-hidden />
-            </span>
-            <p>
-              {activeItems.length === 0
-                ? "No favorites yet"
-                : "No favorites match that filter"}
-            </p>
-            <span>
-              {activeItems.length === 0
+          <CollectionEmpty
+            description={
+              activeItems.length === 0
                 ? "Add favorites from files, search, or recent. Pin favorites here for quick access."
-                : "Try a different type."}
-            </span>
-          </div>
+                : "Try a different type."
+            }
+            icon={<Heart aria-hidden />}
+            title={
+              activeItems.length === 0
+                ? "No favorites yet"
+                : "No favorites match that filter"
+            }
+          />
         ) : viewMode === "list" ? (
-          <div className="favorites-list-wrap">
-            <div
-              className="favorites-col-head"
-              role="row"
-              aria-label="Favorites columns"
-            >
+          <div className="grid min-h-0 max-md:pb-22 pointer-coarse:pb-22">
+            <CollectionColumnHead aria-label="Favorites columns">
               <span aria-hidden />
               {renderSortButton("name", "Name")}
               {renderSortButton("path", "Location")}
               {renderSortButton("size", "Size", "right")}
               {renderSortButton("favoritedAt", "Added", "right")}
-            </div>
+            </CollectionColumnHead>
 
             {visibleItems.map((item) => {
               const key = getItemKey(item);
@@ -1067,12 +1028,12 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
                   groups={getFavoriteItemContextGroups(item)}
                   key={key}
                 >
-                  <article
+                  <CollectionRow
                     data-favorite-item={key}
                     tabIndex={0}
                     role="button"
                     aria-pressed={selected}
-                    className={`favorites-row${selected ? " is-selected" : ""}`}
+                    selected={selected}
                     onKeyDown={(event) =>
                       handleFavoriteItemKeyDown(item, event)
                     }
@@ -1087,52 +1048,50 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
                     onPointerLeave={clearLongPressTimer}
                     onPointerUp={clearLongPressTimer}
                   >
-                    <span className="favorites-row-thumb">
-                      <FavoriteIcon item={item} tone="plain" />
-                    </span>
-                    <span className="favorites-row-name" title={item.name}>
-                      {item.name}
+                    <RowIcon visual={getVisual(item)} />
+                    <span className={COLLECTION_ROW_NAME} title={item.name}>
+                      <span className="truncate">{item.name}</span>
                     </span>
                     <span
-                      className="favorites-row-location"
+                      className={COLLECTION_ROW_LOCATION}
                       title={item.locationLabel}
                     >
                       {item.locationLabel}
                     </span>
-                    <span className="favorites-row-size">
+                    <span className={COLLECTION_ROW_SIZE}>
                       {formatFavoriteFileSize(item.sizeBytes)}
                     </span>
-                    <span className="favorites-row-time">
+                    <span className={COLLECTION_ROW_TIME}>
                       {formatFavoriteRelativeTime(item.favoritedAt)}
                     </span>
-                    <span className="favorites-row-actions">
-                      {renderItemActions(item)}
-                    </span>
-                  </article>
+                    <RowActions>{renderItemActions(item)}</RowActions>
+                  </CollectionRow>
                 </DashboardItemContextMenu>
               );
             })}
           </div>
         ) : (
-          <div className="favorites-grid-cards">
+          <div
+            className={cn(
+              COLLECTION_GRID_CARDS,
+              "pb-14 max-md:pb-22 pointer-coarse:pb-22",
+            )}
+          >
             {visibleItems.map((item) => {
               const key = getItemKey(item);
               const selected = selectedKeys.has(key);
-              const visual = getItemVisual(
-                item.kind,
-                item.kind === "file" ? item.mimeType : null,
-              );
+              const visual = getVisual(item);
               return (
                 <DashboardItemContextMenu
                   groups={getFavoriteItemContextGroups(item)}
                   key={key}
                 >
-                  <article
+                  <CollectionGridCard
                     data-favorite-item={key}
                     tabIndex={0}
                     role="button"
                     aria-pressed={selected}
-                    className={`favorites-grid-card${selected ? " is-selected" : ""}`}
+                    selected={selected}
                     onKeyDown={(event) =>
                       handleFavoriteItemKeyDown(item, event)
                     }
@@ -1147,13 +1106,10 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
                     onPointerLeave={clearLongPressTimer}
                     onPointerUp={clearLongPressTimer}
                   >
-                    <div
-                      className="favorites-grid-preview"
-                      style={{ background: visual.background }}
-                    >
-                      <FavoriteIcon item={item} size={30} />
-                      <span
-                        className="favorites-type-badge"
+                    <GridCardPreview visual={visual}>
+                      <Badge
+                        className="absolute top-1.75 right-2"
+                        size="sm"
                         style={{
                           background: visual.background,
                           color: visual.color,
@@ -1162,23 +1118,17 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
                         {getFavoriteType(item) === "all"
                           ? "FILE"
                           : getFavoriteType(item).toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="favorites-grid-body">
-                      <span className="favorites-grid-name" title={item.name}>
-                        {item.name}
-                      </span>
-                      <span className="favorites-grid-meta">
-                        <span>
-                          {formatFavoriteRelativeTime(item.favoritedAt)}
-                        </span>
-                        <span>{formatFavoriteFileSize(item.sizeBytes)}</span>
-                      </span>
-                    </div>
-                    <span className="favorites-grid-actions">
+                      </Badge>
+                    </GridCardPreview>
+                    <GridCardBody
+                      end={formatFavoriteFileSize(item.sizeBytes)}
+                      name={item.name}
+                      start={formatFavoriteRelativeTime(item.favoritedAt)}
+                    />
+                    <GridCardActions placement="bottom">
                       {renderItemActions(item)}
-                    </span>
-                  </article>
+                    </GridCardActions>
+                  </CollectionGridCard>
                 </DashboardItemContextMenu>
               );
             })}
@@ -1186,30 +1136,22 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
         )}
       </div>
       {isCoarsePointer && selectedItems.length > 0 ? (
-        <div className="workspace-selection-bar" role="region">
-          <span>
-            {selectedItems.length} item
-            {selectedItems.length === 1 ? "" : "s"}
-          </span>
-          <button
-            type="button"
-            onClick={() =>
-              void handleDownload(selectedItems.map((item) => item.id))
-            }
-          >
-            Download
-          </button>
-          <button
-            className="is-danger"
-            type="button"
-            onClick={() => void removeFavorites(selectedItems)}
-          >
-            Remove
-          </button>
-          <button type="button" onClick={clearSelection}>
-            Clear
-          </button>
-        </div>
+        <SelectionBar
+          actions={[
+            {
+              label: "Download",
+              onClick: () =>
+                void handleDownload(selectedItems.map((item) => item.id)),
+            },
+            {
+              destructive: true,
+              label: "Remove",
+              onClick: () => void removeFavorites(selectedItems),
+            },
+            { label: "Clear", onClick: clearSelection },
+          ]}
+          count={selectedItems.length}
+        />
       ) : null}
       <WorkspaceActionSheet
         groups={
