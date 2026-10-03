@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
@@ -68,12 +68,19 @@ const shoot = async (page: Page, name: string) => {
   await page.addStyleTag({
     content: "nextjs-portal { display: none !important; }",
   });
-  await expect(page).toHaveScreenshot(`${name}.png`, {
+  await expect.soft(page).toHaveScreenshot(`${name}.png`, {
     fullPage: true,
     animations: "disabled",
     caret: "hide",
     timeout: 15_000,
-    mask: [page.getByText(/ of [\d.]+ (GB|TB|MB)/), page.locator("canvas")],
+    mask: [
+      page.getByText(/ of [\d.]+ (GB|TB|MB)/),
+      page.getByText(/\b(ago|just now|yesterday)\b/i),
+      page.getByText(/^Good (morning|afternoon|evening)/),
+      page.locator("time"),
+      page.getByText(/\d{1,2} [A-Z][a-z]{2} \d{4},? \d{1,2}:\d{2}/),
+      page.locator("canvas"),
+    ],
   });
 };
 
@@ -87,8 +94,11 @@ const attempt = async (name: string, run: () => Promise<void>) => {
   }
 };
 
+// Sessions are reused across runs so device counts and "last seen" values on
+// admin pages stay stable between baseline and comparison runs.
 test.beforeAll(async ({ browser }) => {
   mkdirSync(authDirectory, { recursive: true });
+  if (existsSync(ownerStatePath) && existsSync(memberStatePath)) return;
 
   const ownerContext = await browser.newContext();
   const ownerPage = await ownerContext.newPage();

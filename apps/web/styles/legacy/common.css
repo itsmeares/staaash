@@ -1,0 +1,369 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: inherit;
+  background: var(--background);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--ring) 62%, transparent);
+  outline-offset: 4px;
+}
+
+main:not(.entry-surface) {
+  width: min(1080px, calc(100vw - 48px));
+  margin: 0 auto;
+  padding: 48px 0 72px;
+}
+
+.panel {
+  background: color-mix(in oklab, var(--card) 92%, white);
+  border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 16px 40px color-mix(in oklab, var(--foreground) 8%, transparent);
+}
+
+.stack {
+  display: grid;
+  gap: 16px;
+}
+
+.muted {
+  color: var(--muted-foreground);
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.split {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.cluster {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: color-mix(in oklab, var(--primary) 12%, var(--card));
+  color: color-mix(in oklab, var(--foreground) 78%, var(--primary) 22%);
+  font-size: 14px;
+}
+
+code {
+  font-family: var(--font-jetbrains-mono), monospace;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-cabinet), sans-serif;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.form-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.field label {
+  font-size: 14px;
+  font-weight: 600;
+  color: color-mix(in oklab, var(--foreground) 76%, var(--primary) 24%);
+}
+
+.field input,
+.field select {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 12%, transparent);
+  background: color-mix(in oklab, var(--card) 96%, white);
+  color: var(--foreground);
+  font: inherit;
+}
+
+.field input:focus,
+.field select:focus {
+  outline: 2px solid color-mix(in oklab, var(--ring) 30%, transparent);
+  outline-offset: 0;
+  border-color: color-mix(in oklab, var(--ring) 62%, transparent);
+}
+
+.field-help {
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 14px;
+  padding: 0 18px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 8px 20px color-mix(in oklab, var(--primary) 6%, transparent);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.button-secondary {
+  background: color-mix(in oklab, var(--primary) 10%, var(--card));
+  color: color-mix(in oklab, var(--foreground) 78%, var(--primary) 22%);
+  box-shadow: none;
+}
+
+.button-danger {
+  background: rgba(170, 52, 52, 0.12);
+  color: color-mix(in oklab, var(--destructive) 78%, black 22%);
+}
+
+.banner {
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 14px;
+}
+
+.banner-error {
+  background: rgba(170, 52, 52, 0.1);
+  color: color-mix(in oklab, var(--destructive) 78%, black 22%);
+}
+
+.banner-success {
+  background: rgba(49, 123, 75, 0.12);
+  color: #23573a;
+}
+
+.banner-info {
+  background: color-mix(in oklab, var(--primary) 10%, var(--card));
+  color: color-mix(in oklab, var(--foreground) 78%, var(--primary) 22%);
+}
+
+.card-list {
+  display: grid;
+  gap: 14px;
+}
+
+.meta-list {
+  display: grid;
+  gap: 10px;
+}
+
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 10px;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 8%, transparent);
+}
+
+.meta-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 12px 10px;
+  border-bottom: 1px solid
+    color-mix(in oklab, var(--foreground) 8%, transparent);
+  vertical-align: top;
+}
+
+.table th {
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-active,
+.status-healthy {
+  background: var(--status-succeeded-bg);
+  color: var(--status-succeeded);
+}
+
+.status-running {
+  background: var(--status-running-bg);
+  color: var(--status-running);
+}
+
+.status-accepted,
+.status-warning {
+  background: var(--status-queued-bg);
+  color: var(--status-queued);
+}
+
+.status-expired,
+.status-revoked,
+.status-error {
+  background: var(--status-failed-bg);
+  color: var(--status-failed);
+}
+
+.status-muted,
+.status-cancelled {
+  background: var(--status-cancelled-bg);
+  color: var(--status-cancelled);
+}
+
+.status-owner {
+  background: color-mix(in oklab, var(--primary) 12%, var(--card));
+  color: color-mix(in oklab, var(--foreground) 76%, var(--primary) 24%);
+}
+
+.status-member {
+  background: color-mix(in oklab, var(--foreground) 8%, var(--card));
+  color: color-mix(in oklab, var(--foreground) 70%, transparent);
+}
+
+.dark .status-active,
+.dark .status-healthy {
+  background: var(--status-succeeded-bg);
+  color: var(--status-succeeded);
+}
+
+.dark .status-running {
+  background: var(--status-running-bg);
+  color: var(--status-running);
+}
+
+.dark .status-accepted,
+.dark .status-warning {
+  background: var(--status-queued-bg);
+  color: var(--status-queued);
+}
+
+.dark .status-expired,
+.dark .status-revoked,
+.dark .status-error {
+  background: var(--status-failed-bg);
+  color: var(--status-failed);
+}
+
+.dark .status-muted,
+.dark .status-cancelled {
+  background: var(--status-cancelled-bg);
+  color: var(--status-cancelled);
+}
+
+.inline-form {
+  display: inline-flex;
+}
+
+@keyframes storage-unavailable-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes setup-hint-pulse {
+  0%,
+  100% {
+    opacity: 0.42;
+  }
+  50% {
+    opacity: 0.78;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes legend-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
