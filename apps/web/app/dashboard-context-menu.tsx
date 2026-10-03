@@ -5,26 +5,24 @@ import {
   Fragment,
   isValidElement,
   useEffect,
-  useLayoutEffect,
-  useRef,
+  useMemo,
   useState,
   type HTMLAttributes,
   type ReactElement,
   type ReactNode,
 } from "react";
-import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
 import { FolderOpen, RefreshCw } from "lucide-react";
 
 import {
   ContextMenu,
-  ContextMenuContent,
+  ContextMenuPopup,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuShortcut,
   ContextMenuSub,
-  ContextMenuSubContent,
+  ContextMenuSubPopup,
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
@@ -51,13 +49,9 @@ export type DashboardContextMenuGroup =
 
 type DashboardContextMenuItemsProps = {
   groups: DashboardContextMenuGroup[];
-  onActionSelected?: () => void;
 };
 
-function DashboardContextMenuItems({
-  groups,
-  onActionSelected,
-}: DashboardContextMenuItemsProps) {
+function DashboardContextMenuItems({ groups }: DashboardContextMenuItemsProps) {
   const visibleGroups = getVisibleDashboardMenuGroups(groups);
 
   return (
@@ -73,12 +67,11 @@ function DashboardContextMenuItems({
                     {action.icon}
                     {action.label}
                   </ContextMenuSubTrigger>
-                  <ContextMenuSubContent>
+                  <ContextMenuSubPopup>
                     <DashboardContextMenuItems
                       groups={[{ actions: action.subActions }]}
-                      onActionSelected={onActionSelected}
                     />
-                  </ContextMenuSubContent>
+                  </ContextMenuSubPopup>
                 </ContextMenuSub>
               ) : (
                 <ContextMenuItem
@@ -87,7 +80,6 @@ function DashboardContextMenuItems({
                   onClick={() => {
                     if (action.disabled) return;
                     action.onSelect?.();
-                    onActionSelected?.();
                   }}
                 >
                   {action.icon}
@@ -100,104 +92,6 @@ function DashboardContextMenuItems({
             </Fragment>
           ))}
         </Fragment>
-      ))}
-    </>
-  );
-}
-
-function DashboardFloatingMenuItems({
-  groups,
-  onActionSelected,
-}: DashboardContextMenuItemsProps) {
-  const visibleGroups = getVisibleDashboardMenuGroups(groups);
-  const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const cancelSubmenuClose = () => {
-    if (!closeTimerRef.current) return;
-    clearTimeout(closeTimerRef.current);
-    closeTimerRef.current = null;
-  };
-
-  const openSubmenuNow = (label: string) => {
-    cancelSubmenuClose();
-    setOpenSubmenu(label);
-  };
-
-  const scheduleSubmenuClose = () => {
-    cancelSubmenuClose();
-    closeTimerRef.current = setTimeout(() => {
-      setOpenSubmenu(null);
-      closeTimerRef.current = null;
-    }, 180);
-  };
-
-  useEffect(() => {
-    return () => cancelSubmenuClose();
-  }, []);
-
-  return (
-    <>
-      {visibleGroups.map((group, groupIndex) => (
-        <div key={groupIndex}>
-          {groupIndex > 0 ? <div className="bg-ctx-sep" /> : null}
-          {group.actions.map((action) =>
-            action.subActions && action.subActions.length > 0 ? (
-              <div
-                className="bg-ctx-sub"
-                key={action.label}
-                onPointerEnter={() => openSubmenuNow(action.label)}
-                onPointerLeave={scheduleSubmenuClose}
-              >
-                <button
-                  className="bg-ctx-item bg-ctx-sub-trigger"
-                  disabled={action.disabled}
-                  onFocus={() => openSubmenuNow(action.label)}
-                  onPointerDown={(event) => {
-                    event.stopPropagation();
-                    openSubmenuNow(action.label);
-                  }}
-                  type="button"
-                >
-                  {action.icon}
-                  {action.label}
-                  <span className="bg-ctx-sub-arrow" aria-hidden="true">
-                    ›
-                  </span>
-                </button>
-                <div
-                  className={`bg-ctx-menu bg-ctx-sub-content${openSubmenu === action.label ? " is-open" : ""}`}
-                  onPointerEnter={cancelSubmenuClose}
-                  onPointerLeave={scheduleSubmenuClose}
-                  onPointerDown={(event) => event.stopPropagation()}
-                >
-                  <DashboardFloatingMenuItems
-                    groups={[{ actions: action.subActions }]}
-                    onActionSelected={onActionSelected}
-                  />
-                </div>
-              </div>
-            ) : (
-              <button
-                className={`bg-ctx-item${action.destructive ? " bg-ctx-item--danger" : ""}`}
-                disabled={action.disabled}
-                key={action.label}
-                type="button"
-                onClick={() => {
-                  if (action.disabled) return;
-                  action.onSelect?.();
-                  onActionSelected?.();
-                }}
-              >
-                {action.icon}
-                {action.label}
-                {action.shortcut ? (
-                  <span className="bg-ctx-shortcut">{action.shortcut}</span>
-                ) : null}
-              </button>
-            ),
-          )}
-        </div>
       ))}
     </>
   );
@@ -219,9 +113,9 @@ export function DashboardItemContextMenu({
   return (
     <ContextMenu>
       <ContextMenuTrigger render={trigger} />
-      <ContextMenuContent>
+      <ContextMenuPopup>
         <DashboardContextMenuItems groups={groups} />
-      </ContextMenuContent>
+      </ContextMenuPopup>
     </ContextMenu>
   );
 }
@@ -240,14 +134,13 @@ export function DashboardPageContextMenu({
   const [position, setPosition] = useState<{ x: number; y: number } | null>(
     null,
   );
-  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onDocumentContextMenu = (event: MouseEvent) => {
       if (event.defaultPrevented) return;
 
       const target = event.target instanceof Element ? event.target : null;
-      if (!target?.closest(".workspace-content")) return;
+      if (!target?.closest("[data-workspace-content]")) return;
       if (target.closest(`[${ITEM_CONTEXT_TRIGGER_ATTR}]`)) return;
       if (ignoreSelector && target.closest(ignoreSelector)) return;
 
@@ -260,59 +153,31 @@ export function DashboardPageContextMenu({
       document.removeEventListener("contextmenu", onDocumentContextMenu);
   }, [ignoreSelector]);
 
-  useEffect(() => {
-    if (!position) return;
-    const close = (event: PointerEvent) => {
-      const target = event.target instanceof Element ? event.target : null;
-      if (target?.closest(".bg-ctx-menu")) return;
-      setPosition(null);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setPosition(null);
-    };
-    window.addEventListener("pointerdown", close);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("pointerdown", close);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [position]);
-
-  useLayoutEffect(() => {
-    if (!position || !menuRef.current) return;
-    const { width, height } = menuRef.current.getBoundingClientRect();
-    const pad = 8;
-    const x = Math.max(
-      pad,
-      Math.min(position.x, window.innerWidth - width - pad),
-    );
-    const y = Math.max(
-      pad,
-      Math.min(position.y, window.innerHeight - height - pad),
-    );
-    if (x !== position.x || y !== position.y) setPosition({ x, y });
-  }, [position]);
+  const anchor = useMemo(
+    () =>
+      position
+        ? {
+            getBoundingClientRect: () =>
+              DOMRect.fromRect({ x: position.x, y: position.y }),
+          }
+        : undefined,
+    [position],
+  );
 
   return (
     <>
       <div {...props}>{children}</div>
 
-      {position
-        ? createPortal(
-            <div
-              ref={menuRef}
-              className="bg-ctx-menu"
-              style={{ top: position.y, left: position.x }}
-              onPointerDown={(event) => event.stopPropagation()}
-            >
-              <DashboardFloatingMenuItems
-                groups={groups}
-                onActionSelected={() => setPosition(null)}
-              />
-            </div>,
-            document.body,
-          )
-        : null}
+      <ContextMenu
+        open={position !== null}
+        onOpenChange={(open) => {
+          if (!open) setPosition(null);
+        }}
+      >
+        <ContextMenuPopup align="start" anchor={anchor} sideOffset={0}>
+          <DashboardContextMenuItems groups={groups} />
+        </ContextMenuPopup>
+      </ContextMenu>
     </>
   );
 }

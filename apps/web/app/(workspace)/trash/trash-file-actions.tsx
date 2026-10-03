@@ -1,6 +1,7 @@
 "use client";
 
 import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
+import { Button } from "@/components/ui/button";
 
 type EmptyTrashActionProps = {
   disabled: boolean;
@@ -34,13 +35,9 @@ export function EmptyTrashAction({ disabled }: EmptyTrashActionProps) {
       }}
     >
       <input name="redirectTo" type="hidden" value="/trash" />
-      <button
-        className="button button-danger"
-        disabled={disabled}
-        type="submit"
-      >
+      <Button disabled={disabled} size="xs" type="submit" variant="destructive">
         Empty trash
-      </button>
+      </Button>
     </form>
   );
 }

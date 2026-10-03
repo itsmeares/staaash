@@ -25,13 +25,13 @@ test("phone workspace shell exposes bottom nav, upload, and touch file actions",
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page, getOwnerCredentials());
 
-  await expect(page.locator(".workspace-mobile-nav")).toBeVisible();
-  await expect(page.locator(".workspace-sidebar")).toBeHidden();
+  await expect(page.locator("[data-workspace-mobile-nav]")).toBeVisible();
+  await expect(page.locator("[data-workspace-sidebar]")).toBeHidden();
   await expectNoHorizontalOverflow(page);
 
   const fileChooser = page.waitForEvent("filechooser");
   await page
-    .locator(".workspace-mobile-nav")
+    .locator("[data-workspace-mobile-nav]")
     .getByRole("button", { name: "Upload" })
     .click();
   await fileChooser;
@@ -77,7 +77,7 @@ test("phone workspace routes do not overflow horizontally", async ({
     "/home",
   ]) {
     await page.goto(route);
-    await expect(page.locator(".workspace-mobile-nav")).toBeVisible();
+    await expect(page.locator("[data-workspace-mobile-nav]")).toBeVisible();
     await expectNoHorizontalOverflow(page);
   }
 
@@ -98,17 +98,17 @@ test("tablet portrait uses mobile nav and landscape uses compact sidebar", async
 }) => {
   await page.setViewportSize({ width: 768, height: 1024 });
   await signIn(page, getOwnerCredentials());
-  await expect(page.locator(".workspace-mobile-nav")).toBeVisible();
-  await expect(page.locator(".workspace-sidebar")).toBeHidden();
+  await expect(page.locator("[data-workspace-mobile-nav]")).toBeVisible();
+  await expect(page.locator("[data-workspace-sidebar]")).toBeHidden();
   await expectNoHorizontalOverflow(page);
 
   await page.setViewportSize({ width: 900, height: 600 });
-  await expect(page.locator(".workspace-mobile-nav")).toBeHidden();
-  await expect(page.locator(".workspace-sidebar")).toBeVisible();
+  await expect(page.locator("[data-workspace-mobile-nav]")).toBeHidden();
+  await expect(page.locator("[data-workspace-sidebar]")).toBeVisible();
   await expect
     .poll(() =>
       page
-        .locator(".workspace-sidebar")
+        .locator("[data-workspace-sidebar]")
         .evaluate((node) => node.getBoundingClientRect().width),
     )
     .toBeLessThan(100);

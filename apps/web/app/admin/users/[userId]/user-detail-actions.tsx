@@ -4,12 +4,19 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useState, useTransition } from "react";
 import { Copy, Edit2, KeyRound } from "lucide-react";
 
+import { AdminToggleField } from "@/app/admin/admin-toggle-field";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
-  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogPanel,
+  DialogPopup,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 
 type DetailUser = {
   id: string;
@@ -35,42 +42,6 @@ const fromGibInput = (value: string, unlimited: boolean) =>
   unlimited || value.trim() === ""
     ? null
     : (BigInt(value) * BYTES_PER_GIB).toString();
-
-function ToggleField({
-  checked,
-  defaultChecked,
-  disabled,
-  label,
-  name,
-  onChange,
-}: {
-  checked?: boolean;
-  defaultChecked?: boolean;
-  disabled?: boolean;
-  label: string;
-  name?: string;
-  onChange?: (checked: boolean) => void;
-}) {
-  return (
-    <label className="admin-user-toggle-row">
-      <span className="settings-toggle">
-        <input
-          className="settings-toggle-input"
-          type="checkbox"
-          name={name}
-          checked={checked}
-          defaultChecked={defaultChecked}
-          disabled={disabled}
-          onChange={(event) => onChange?.(event.currentTarget.checked)}
-        />
-        <span className="settings-toggle-track">
-          <span className="settings-toggle-thumb" />
-        </span>
-      </span>
-      <span>{label}</span>
-    </label>
-  );
-}
 
 export function UserDetailActions({
   user,
@@ -159,35 +130,40 @@ export function UserDetailActions({
   }
 
   return (
-    <div className="admin-detail-actions">
+    <div className="flex flex-wrap items-start justify-end gap-2 max-md:justify-start">
       {error ? (
-        <span className="settings-form-status-error">{error}</span>
+        <span className="text-label text-destructive-foreground">{error}</span>
       ) : null}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogTrigger className="button button-secondary">
-          <Edit2 size={14} aria-hidden />
+        <DialogTrigger render={<Button variant="secondary" />}>
+          <Edit2 aria-hidden />
           Edit
         </DialogTrigger>
-        <DialogContent className="admin-user-dialog">
-          <DialogTitle>Edit user</DialogTitle>
-          <form className="form-grid" onSubmit={handleEdit}>
-            <label className="field">
-              <span>Email</span>
-              <input
-                name="email"
-                type="email"
-                defaultValue={user.email}
-                required
-              />
-            </label>
-            <label className="field">
-              <span>Name</span>
-              <input name="displayName" defaultValue={user.displayName ?? ""} />
-            </label>
-            <div className="admin-user-dialog-grid">
-              <label className="field">
-                <span>Quota size (GiB)</span>
-                <input
+        <DialogPopup className="max-w-110">
+          <form className="flex min-h-0 flex-col" onSubmit={handleEdit}>
+            <DialogHeader>
+              <DialogTitle>Edit user</DialogTitle>
+            </DialogHeader>
+            <DialogPanel className="grid grid-cols-1 gap-4">
+              <Field>
+                <FieldLabel>Email</FieldLabel>
+                <Input
+                  name="email"
+                  type="email"
+                  defaultValue={user.email}
+                  required
+                />
+              </Field>
+              <Field>
+                <FieldLabel>Name</FieldLabel>
+                <Input
+                  name="displayName"
+                  defaultValue={user.displayName ?? ""}
+                />
+              </Field>
+              <Field>
+                <FieldLabel>Quota size (GiB)</FieldLabel>
+                <Input
                   name="quotaGiB"
                   type="number"
                   min={1}
@@ -196,106 +172,104 @@ export function UserDetailActions({
                   disabled={quotaUnlimited}
                   placeholder="Unlimited"
                 />
-              </label>
-              <ToggleField
+              </Field>
+              <AdminToggleField
                 checked={quotaUnlimited}
                 label="Unlimited"
                 onChange={setQuotaUnlimited}
               />
-            </div>
-            <ToggleField
-              name="isAdmin"
-              defaultChecked={user.isAdmin}
-              disabled={user.isOwner}
-              label="Admin user"
-            />
-            <div className="admin-user-dialog-actions">
-              <button
-                type="button"
-                className="button button-secondary"
-                onClick={() => setEditOpen(false)}
-              >
+              <AdminToggleField
+                name="isAdmin"
+                defaultChecked={user.isAdmin}
+                disabled={user.isOwner}
+                label="Admin user"
+              />
+            </DialogPanel>
+            <DialogFooter>
+              <Button variant="secondary" onClick={() => setEditOpen(false)}>
                 Cancel
-              </button>
-              <button type="submit" className="button" disabled={isRefreshing}>
+              </Button>
+              <Button type="submit" disabled={isRefreshing}>
                 Save changes
-              </button>
-            </div>
+              </Button>
+            </DialogFooter>
           </form>
-        </DialogContent>
+        </DialogPopup>
       </Dialog>
 
       <Dialog open={resetOpen} onOpenChange={setResetOpen}>
-        <DialogTrigger className="button button-secondary">
-          <KeyRound size={14} aria-hidden />
+        <DialogTrigger render={<Button variant="secondary" />}>
+          <KeyRound aria-hidden />
           Reset password
         </DialogTrigger>
-        <DialogContent className="admin-user-dialog">
-          <DialogTitle>Reset password</DialogTitle>
-          <form className="form-grid" onSubmit={handleReset}>
-            <p className="muted">Existing sessions are revoked immediately.</p>
-            <ToggleField
-              checked={generated}
-              label="Generate temporary password"
-              onChange={setGenerated}
-            />
-            {!generated ? (
-              <>
-                <label className="field">
-                  <span>Temporary password</span>
-                  <input
-                    name="temporaryPassword"
-                    type="password"
-                    minLength={12}
-                  />
-                </label>
-                <label className="field">
-                  <span>Confirm temporary password</span>
-                  <input
-                    name="confirmTemporaryPassword"
-                    type="password"
-                    minLength={12}
-                  />
-                </label>
-              </>
-            ) : null}
-            <ToggleField
-              name="requirePasswordChange"
-              defaultChecked
-              label="Require password change on next login"
-            />
-            <div className="admin-user-dialog-actions">
-              <button
-                type="button"
-                className="button button-secondary"
-                onClick={() => setResetOpen(false)}
-              >
+        <DialogPopup className="max-w-110">
+          <form className="flex min-h-0 flex-col" onSubmit={handleReset}>
+            <DialogHeader>
+              <DialogTitle>Reset password</DialogTitle>
+            </DialogHeader>
+            <DialogPanel className="grid grid-cols-1 gap-4">
+              <p className="m-0 text-meta text-muted-foreground">
+                Existing sessions are revoked immediately.
+              </p>
+              <AdminToggleField
+                checked={generated}
+                label="Generate temporary password"
+                onChange={setGenerated}
+              />
+              {!generated ? (
+                <>
+                  <Field>
+                    <FieldLabel>Temporary password</FieldLabel>
+                    <Input
+                      name="temporaryPassword"
+                      type="password"
+                      minLength={12}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel>Confirm temporary password</FieldLabel>
+                    <Input
+                      name="confirmTemporaryPassword"
+                      type="password"
+                      minLength={12}
+                    />
+                  </Field>
+                </>
+              ) : null}
+              <AdminToggleField
+                name="requirePasswordChange"
+                defaultChecked
+                label="Require password change on next login"
+              />
+              {password ? (
+                <div className="grid grid-cols-1 gap-4">
+                  <strong>Temporary password</strong>
+                  <code>{password}</code>
+                  <Button
+                    className="justify-self-start"
+                    variant="secondary"
+                    onClick={() =>
+                      navigator.clipboard.writeText(
+                        `Email: ${user.email}\nTemporary password: ${password}\nSign in: ${signInUrl}`,
+                      )
+                    }
+                  >
+                    <Copy aria-hidden />
+                    Copy
+                  </Button>
+                </div>
+              ) : null}
+            </DialogPanel>
+            <DialogFooter>
+              <Button variant="secondary" onClick={() => setResetOpen(false)}>
                 Cancel
-              </button>
-              <button type="submit" className="button" disabled={isRefreshing}>
+              </Button>
+              <Button type="submit" disabled={isRefreshing}>
                 Reset password
-              </button>
-            </div>
+              </Button>
+            </DialogFooter>
           </form>
-          {password ? (
-            <div className="admin-user-result">
-              <strong>Temporary password</strong>
-              <code>{password}</code>
-              <button
-                className="button button-secondary"
-                type="button"
-                onClick={() =>
-                  navigator.clipboard.writeText(
-                    `Email: ${user.email}\nTemporary password: ${password}\nSign in: ${signInUrl}`,
-                  )
-                }
-              >
-                <Copy size={14} aria-hidden />
-                Copy
-              </button>
-            </div>
-          ) : null}
-        </DialogContent>
+        </DialogPopup>
       </Dialog>
     </div>
   );

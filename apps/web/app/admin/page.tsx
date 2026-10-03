@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { formatVersionLabel } from "@staaash/config/version";
 
-import {
-  formatAdminBytes,
-  getAdminStatusClassName,
-} from "@/app/admin/admin-format";
+import { formatAdminBytes } from "@/app/admin/admin-format";
+import { AdminPanel } from "@/app/admin/admin-panel";
+import { AdminStatCard } from "@/app/admin/admin-stat-card";
+import { AdminStatusBadge } from "@/app/admin/admin-status-badge";
+import { PageHeader } from "@/components/page-header";
+import { Button } from "@/components/ui/button";
 import { requireAdminPageSession } from "@/server/auth/guards";
 import { getAdminOverviewSummary } from "@/server/admin/overview";
 import { getUpdateStatusLabel } from "@/lib/update-status";
@@ -88,102 +90,109 @@ export default async function AdminOverviewPage() {
   ];
 
   return (
-    <main className="admin-overview-page">
-      <header className="admin-ops-header">
-        <div>
-          <h1>Overview</h1>
-          <p>Health, storage, jobs, and updates.</p>
-        </div>
-        <div className="admin-ops-header-actions">
-          <Link href="/admin/jobs">Jobs</Link>
-          <Link href="/admin/storage">Storage</Link>
-          <Link href="/admin/settings">Settings</Link>
-        </div>
-      </header>
+    <main className="m-0 mx-auto grid w-[min(1420px,100%)] grid-cols-1 gap-5 p-0 max-sm:gap-4.5">
+      <PageHeader
+        size="lg"
+        divider
+        title="Overview"
+        description="Health, storage, jobs, and updates."
+        actions={
+          <>
+            <Button variant="outline" render={<Link href="/admin/jobs" />}>
+              Jobs
+            </Button>
+            <Button variant="outline" render={<Link href="/admin/storage" />}>
+              Storage
+            </Button>
+            <Button variant="outline" render={<Link href="/admin/settings" />}>
+              Settings
+            </Button>
+          </>
+        }
+      />
 
-      <section className="admin-overview-status-grid" aria-label="At a glance">
+      <section
+        className="grid grid-cols-4 gap-3.5 max-md:grid-cols-2 max-xs:grid-cols-1"
+        aria-label="At a glance"
+      >
         {statusCards.map((card) => (
-          <Link
-            className="admin-overview-status-card"
-            href={card.href}
-            key={card.label}
-          >
-            <span>{card.label}</span>
-            <strong>{card.value}</strong>
-            <small>{card.detail}</small>
-          </Link>
+          <AdminStatCard key={card.label} {...card} />
         ))}
       </section>
 
-      <section className="admin-overview-workbench">
-        <div className="admin-overview-health-panel">
-          <div className="admin-overview-panel-head">
-            <h2>System health</h2>
-            <p>Current system checks.</p>
-          </div>
-          <div className="admin-overview-health-list">
+      <section className="grid grid-cols-[minmax(0,1fr)_340px] items-start gap-4.5 max-lg:grid-cols-1">
+        <AdminPanel title="System health" aside="Current system checks.">
+          <div className="grid grid-cols-1 gap-0 overflow-hidden rounded-lg border border-hairline">
             {healthRows.map((row) => (
-              <div className="admin-overview-health-row" key={row.label}>
-                <span className="admin-overview-health-name">{row.label}</span>
-                <span className={getAdminStatusClassName(row.status)}>
-                  {row.status}
+              <div
+                className="grid min-h-15 grid-cols-[minmax(190px,0.32fr)_auto_minmax(0,1fr)] items-center gap-3.5 border-b border-hairline px-4 py-3 last:border-b-0 max-md:grid-cols-[minmax(0,1fr)_auto]"
+                key={row.label}
+              >
+                <span className="text-base font-medium text-foreground">
+                  {row.label}
                 </span>
-                <span className="admin-overview-health-message">
+                <AdminStatusBadge status={row.status} size="lg" />
+                <span className="min-w-0 truncate text-meta text-muted-foreground max-md:col-span-full max-md:whitespace-normal">
                   {row.message}
                 </span>
               </div>
             ))}
           </div>
-        </div>
+        </AdminPanel>
 
-        <aside className="admin-overview-rail" aria-label="Operational summary">
-          <section className="admin-overview-rail-card">
-            <div className="admin-overview-panel-head">
-              <h2>Queue</h2>
-              <p>{summary.jobs.status}</p>
-            </div>
-            <dl>
-              <div>
-                <dt>Queued</dt>
-                <dd>{summary.jobs.queued}</dd>
-              </div>
-              <div>
-                <dt>Running</dt>
-                <dd>{summary.jobs.running}</dd>
-              </div>
-              <div>
-                <dt>Failed</dt>
-                <dd>{failedWork}</dd>
-              </div>
+        <aside
+          className="grid grid-cols-1 gap-3.5 max-lg:grid-cols-3 max-md:grid-cols-2 max-xs:grid-cols-1"
+          aria-label="Operational summary"
+        >
+          <AdminPanel title="Queue" aside={summary.jobs.status}>
+            <dl className="m-0 grid grid-cols-1 gap-0">
+              <RailRow label="Queued" value={summary.jobs.queued} />
+              <RailRow label="Running" value={summary.jobs.running} />
+              <RailRow label="Failed" value={failedWork} />
             </dl>
-            <Link href="/admin/jobs">Open activity</Link>
-          </section>
+            <RailLink href="/admin/jobs">Open activity</RailLink>
+          </AdminPanel>
 
-          <section className="admin-overview-rail-card">
-            <div className="admin-overview-panel-head">
-              <h2>Storage</h2>
-              <p>{retainedBytes}</p>
-            </div>
-            <p>
+          <AdminPanel title="Storage" aside={retainedBytes}>
+            <p className="m-0 text-meta text-muted-foreground">
               {summary.storage.retainedFileCount} files across{" "}
               {summary.storage.totalUsers} users.
             </p>
-            <Link href="/admin/storage">Open storage</Link>
-          </section>
+            <RailLink href="/admin/storage">Open storage</RailLink>
+          </AdminPanel>
 
-          <section className="admin-overview-rail-card">
-            <div className="admin-overview-panel-head">
-              <h2>Updates</h2>
-              <p>{updateStatusLabel}</p>
-            </div>
-            <p>
+          <AdminPanel title="Updates" aside={updateStatusLabel}>
+            <p className="m-0 text-meta text-muted-foreground">
               {summary.updates.updateCheckMessage ??
                 "No update check has run yet."}
             </p>
-            <Link href="/admin/settings">Open update checks</Link>
-          </section>
+            <RailLink href="/admin/settings">Open update checks</RailLink>
+          </AdminPanel>
         </aside>
       </section>
     </main>
+  );
+}
+
+function RailRow({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex justify-between gap-3 border-b border-hairline py-2.5 last:border-b-0">
+      <dt className="text-meta text-muted-foreground">{label}</dt>
+      <dd className="m-0 text-base font-semibold text-foreground tabular-nums">
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function RailLink({ href, children }: { href: string; children: string }) {
+  return (
+    <Button
+      className="justify-self-start"
+      variant="outline"
+      render={<Link href={href} />}
+    >
+      {children}
+    </Button>
   );
 }

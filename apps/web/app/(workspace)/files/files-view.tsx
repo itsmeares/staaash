@@ -10,9 +10,20 @@ import {
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Download, FolderPlus, Loader2, RefreshCw, Upload } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogPanel,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Kbd } from "@/components/ui/kbd";
+import { SectionLabel } from "@/components/section-label";
+import { cn } from "@/lib/utils";
 import { FlashMessage } from "@/app/auth-ui";
 import { DashboardPageContextMenu } from "@/app/dashboard-context-menu";
 import { ItemTypeIcon } from "@/app/item-type-icon";
@@ -32,8 +43,21 @@ import type {
 } from "@/server/files/types";
 import type { ShareFilesLookup } from "@/server/sharing";
 
+import { Breadcrumbs } from "../breadcrumbs";
 import { RubberBandRect, type RubberBand } from "../rubber-band-rect";
+import { SelectionBar } from "../selection-bar";
+import { WorkspacePage } from "../workspace-page";
+import styles from "./explorer.module.css";
 import { FilesRow } from "./files-row";
+import {
+  ROW_BASE,
+  ROW_GRID,
+  ROW_ICON,
+  ROW_ICON_CELL,
+  ROW_META,
+  ROW_NAME,
+  ROW_NAME_CELL,
+} from "./files-row-styles";
 import {
   buildBatchMoveFailureMessage,
   getMoveItemsForInteraction,
@@ -1412,34 +1436,34 @@ export function FilesView({
 
     clearDragPreview();
     const preview = document.createElement("div");
-    preview.className = "explorer-drag-preview";
+    preview.className = styles.dragPreview;
     preview.dataset.stackDepth = String(Math.min(items.length, 3));
     preview.setAttribute("aria-hidden", "true");
 
     const stackDepth = Math.min(items.length, 3);
     for (let layerIndex = stackDepth - 1; layerIndex >= 1; layerIndex--) {
       const layer = document.createElement("div");
-      layer.className = "explorer-drag-preview-layer";
+      layer.className = styles.dragPreviewLayer;
       layer.dataset.layer = String(layerIndex);
       preview.append(layer);
     }
 
     const row = document.createElement("div");
-    row.className = "explorer-drag-preview-row";
+    row.className = styles.dragPreviewRow;
     const icon = event.currentTarget
-      .querySelector(".explorer-row-icon")
+      .querySelector("[data-row-icon]")
       ?.cloneNode(true);
     const name = event.currentTarget
-      .querySelector(".explorer-row-name-cell")
+      .querySelector("[data-row-name]")
       ?.cloneNode(true);
     if (icon) row.append(icon);
     if (name) row.append(name);
 
     preview.append(row);
     if (items.length > 1) {
-      preview.classList.add("has-count");
+      preview.dataset.hasCount = "";
       const count = document.createElement("span");
-      count.className = "explorer-drag-preview-count";
+      count.className = styles.dragPreviewCount;
       count.textContent = `${items.length} items`;
       preview.append(count);
     }
@@ -1542,7 +1566,7 @@ export function FilesView({
       // Let rename inputs and buttons handle their own events
       if (target.closest("input, button")) return;
       // Never start rubber-band from the header toolbar
-      if (target.closest(".explorer-header")) return;
+      if (target.closest("[data-explorer-header]")) return;
 
       if (target.closest("[data-file-row]")) return;
 
@@ -1802,7 +1826,7 @@ export function FilesView({
 
   return (
     <>
-      <div className="workspace-page">
+      <WorkspacePage>
         {/* Flash messages */}
         {error ? <FlashMessage>{error}</FlashMessage> : null}
         {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
@@ -1823,19 +1847,19 @@ export function FilesView({
                 : [];
             return (
               <FlashMessage key={operation.clientId}>
-                <div className="files-move-error">
-                  <span>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span className="flex-1 basis-60">
                     {operation.error ?? "Some items could not be moved."}
                   </span>
                   {retryItems.length > 0 ? (
-                    <button
-                      className="button button-secondary"
+                    <Button
+                      size="xs"
+                      variant="secondary"
                       disabled={operation.retrying}
                       onClick={() => void retryFailedMove(operation.clientId)}
-                      type="button"
                     >
                       Retry
-                    </button>
+                    </Button>
                   ) : null}
                 </div>
               </FlashMessage>
@@ -1843,9 +1867,9 @@ export function FilesView({
           })}
 
         <DashboardPageContextMenu
-          className="explorer-root"
+          className="relative isolate grid min-h-[calc(100vh-100px)] content-start max-lg:min-w-0"
           groups={backgroundMenuGroups}
-          ignoreSelector=".explorer-header"
+          ignoreSelector="[data-explorer-header]"
           onMouseDown={handleListMouseDown}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
@@ -1853,47 +1877,24 @@ export function FilesView({
           onDrop={handleDrop}
         >
           {/* ---- Header ---- */}
-          <div className="explorer-header">
-            <div className="explorer-header-left">
-              <div className="explorer-title-row">
-                <nav aria-label="Breadcrumb" className="workspace-breadcrumbs">
-                  {listing.breadcrumbs.map((crumb, index) => {
-                    const label = index === 0 ? "Files" : crumb.name;
-                    const isActive = index === listing.breadcrumbs.length - 1;
-                    if (isActive) {
-                      return (
-                        <span
-                          key={crumb.id}
-                          className="workspace-breadcrumb-active"
-                        >
-                          {label}
-                        </span>
-                      );
-                    }
-                    return (
-                      <Link
-                        key={crumb.id}
-                        className={
-                          dropTargetId === crumb.id
-                            ? "is-drop-target"
-                            : undefined
-                        }
-                        href={crumb.href}
-                        onDragOver={(event) =>
-                          handleMoveDragOver(crumb.id, event)
-                        }
-                        onDragLeave={(event) =>
-                          handleMoveDragLeave(crumb.id, event)
-                        }
-                        onDrop={(event) => handleMoveDrop(crumb.id, event)}
-                      >
-                        <span className="workspace-breadcrumb-label">
-                          {label}
-                        </span>
-                      </Link>
-                    );
-                  })}
-                </nav>
+          <div
+            data-explorer-header
+            className="flex flex-wrap items-start justify-between gap-4 border-b border-hairline pb-7 max-md:items-stretch max-md:gap-3 pointer-coarse:items-stretch pointer-coarse:gap-3"
+          >
+            <div className="grid min-w-0 gap-1.5">
+              <div className="flex flex-wrap items-center gap-3 max-md:flex-col max-md:items-start max-md:gap-2 pointer-coarse:flex-col pointer-coarse:items-start pointer-coarse:gap-2">
+                <Breadcrumbs
+                  items={listing.breadcrumbs.map((crumb, index) => ({
+                    id: crumb.id,
+                    label: index === 0 ? "Files" : crumb.name,
+                    href: crumb.href,
+                    isDropTarget: dropTargetId === crumb.id,
+                    onDragOver: (event) => handleMoveDragOver(crumb.id, event),
+                    onDragLeave: (event) =>
+                      handleMoveDragLeave(crumb.id, event),
+                    onDrop: (event) => handleMoveDrop(crumb.id, event),
+                  }))}
+                />
                 <p className="sr-only" aria-live="polite">
                   {selectedIds.size === 0
                     ? "No items selected"
@@ -1902,72 +1903,74 @@ export function FilesView({
                 {(selectedIds.size > 0 ||
                   cutItems.length > 0 ||
                   movingIds.size > 0) && (
-                  <div className="explorer-badges">
+                  <div className="flex items-center gap-2">
                     {movingIds.size > 0 && (
-                      <span
-                        className="move-status-badge"
-                        role="status"
-                        aria-live="polite"
-                      >
+                      <Badge variant="info" role="status" aria-live="polite">
                         <Loader2
                           aria-hidden
-                          className="move-status-spinner"
+                          className="animate-spin motion-reduce:animate-none"
                           size={12}
                         />
                         Moving {movingIds.size} item
                         {movingIds.size === 1 ? "" : "s"}…
-                      </span>
+                      </Badge>
                     )}
                     {selectedIds.size > 0 && (
                       <>
-                        <span className="selection-badge">
+                        <Badge variant="accent">
                           {selectedIds.size} selected
-                        </span>
-                        <button
-                          className="download-badge"
-                          type="button"
-                          onClick={() => handleDownload(getSelectedItemIds())}
-                          title={`Download ${selectedIds.size} item${selectedIds.size !== 1 ? "s" : ""} as zip`}
+                        </Badge>
+                        <Badge
+                          render={
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleDownload(getSelectedItemIds())
+                              }
+                              title={`Download ${selectedIds.size} item${selectedIds.size !== 1 ? "s" : ""} as zip`}
+                            />
+                          }
                         >
                           <Download size={12} />
                           Download
-                        </button>
+                        </Badge>
                       </>
                     )}
                     {cutItems.length > 0 && selectedIds.size === 0 && (
-                      <button
-                        className="cut-badge"
-                        type="button"
-                        onClick={handlePaste}
-                        title="Paste here (Ctrl+V)"
+                      <Badge
+                        render={
+                          <button
+                            type="button"
+                            onClick={handlePaste}
+                            title="Paste here (Ctrl+V)"
+                          />
+                        }
                       >
                         {cutItems.length} item{cutItems.length !== 1 ? "s" : ""}{" "}
                         cut — paste here
-                      </button>
+                      </Badge>
                     )}
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="explorer-header-actions">
-              <button
-                className="button button-secondary"
-                type="button"
+            <div className="flex shrink-0 items-center gap-2 pt-1 max-md:w-full pointer-coarse:w-full">
+              <Button
+                variant="secondary"
                 onClick={() => setNewFolderOpen(true)}
               >
-                <FolderPlus size={15} aria-hidden />
+                <FolderPlus aria-hidden />
                 New folder
-              </button>
+              </Button>
 
-              <button
-                className="button button-secondary"
-                type="button"
+              <Button
+                variant="secondary"
                 onClick={() => folderInputRef.current?.click()}
               >
-                <FolderPlus size={15} aria-hidden />
+                <FolderPlus aria-hidden />
                 Upload folder
-              </button>
+              </Button>
 
               <input
                 ref={fileInputRef}
@@ -1991,7 +1994,8 @@ export function FilesView({
           {/* ---- List ---- */}
           <div
             ref={listRef}
-            className="explorer-list"
+            className="relative min-h-50 pt-3.5 pb-10 outline-none select-none focus-visible:rounded-lg focus-visible:outline-2 focus-visible:outline-offset-6 focus-visible:outline-ring/60 max-md:pb-22.5 pointer-coarse:pb-22.5"
+            data-explorer-list
             role="grid"
             aria-label={`${listing.currentFolder.name} files`}
             tabIndex={0}
@@ -2007,7 +2011,13 @@ export function FilesView({
           >
             {/* Column headers */}
             {(listing.childFolders.length > 0 || listing.files.length > 0) && (
-              <div className="explorer-col-header" aria-hidden>
+              <div
+                className={cn(
+                  ROW_GRID,
+                  "items-start pt-0.5 pr-2 pb-2 pl-1 text-xs font-medium tracking-wide text-muted-foreground max-md:hidden lg:min-h-12 lg:pt-1.5 lg:pr-3 lg:pb-3 lg:pl-2 lg:text-label pointer-coarse:hidden [&>span:nth-last-child(-n+2)]:text-right",
+                )}
+                aria-hidden
+              >
                 <span />
                 <span>Name</span>
                 <span>Size</span>
@@ -2138,45 +2148,45 @@ export function FilesView({
 
             {/* ---- Empty state ---- */}
             {mergedFileEntries.length === 0 && visibleFolders.length === 0 && (
-              <div className="explorer-empty">
-                <div className="explorer-empty-copy">
-                  <strong>No files here yet</strong>
-                  <span>Drop files or folders here to upload.</span>
+              <div className="mt-1 grid min-h-[min(52vh,480px)] place-content-center justify-items-center gap-4 rounded-lg border border-dashed border-line-strong px-4.5 py-8.5 text-sm text-muted-foreground max-md:min-h-60 max-md:px-3.5 max-md:py-7">
+                <div className="grid justify-items-center gap-1 text-center">
+                  <strong className="text-meta font-semibold text-foreground/90">
+                    No files here yet
+                  </strong>
+                  <span className="max-w-[34ch] leading-snug">
+                    Drop files or folders here to upload.
+                  </span>
                 </div>
-                <div className="explorer-empty-actions">
-                  <button
-                    className="explorer-empty-primary"
-                    type="button"
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <Button
                     onClick={(e) => {
                       e.stopPropagation();
                       fileInputRef.current?.click();
                     }}
                   >
-                    <Upload size={16} />
+                    <Upload />
                     Upload files
-                  </button>
-                  <button
-                    className="explorer-empty-secondary"
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="outline"
                     onClick={(e) => {
                       e.stopPropagation();
                       folderInputRef.current?.click();
                     }}
                   >
-                    <FolderPlus size={15} />
+                    <FolderPlus />
                     Upload folder
-                  </button>
-                  <button
-                    className="explorer-empty-secondary"
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="outline"
                     onClick={(e) => {
                       e.stopPropagation();
                       setNewFolderOpen(true);
                     }}
                   >
-                    <FolderPlus size={15} />
+                    <FolderPlus />
                     New folder
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -2330,38 +2340,35 @@ export function FilesView({
           </div>
 
           {isCoarsePointer && selectedIds.size > 0 ? (
-            <div className="workspace-selection-bar" role="region">
-              <span>
-                {selectedIds.size} item{selectedIds.size === 1 ? "" : "s"}
-              </span>
-              <button
-                type="button"
-                onClick={() => handleDownload(getSelectedItemIds())}
-              >
-                Download
-              </button>
-              <button type="button" onClick={cutSelectedItems}>
-                Cut
-              </button>
-              <button
-                className="is-danger"
-                type="button"
-                onClick={handleTrashSelected}
-              >
-                Trash
-              </button>
-              <button type="button" onClick={() => setSelectedIds(new Set())}>
-                Clear
-              </button>
-            </div>
+            <SelectionBar
+              count={selectedIds.size}
+              actions={[
+                {
+                  label: "Download",
+                  onClick: () => handleDownload(getSelectedItemIds()),
+                },
+                { label: "Cut", onClick: cutSelectedItems },
+                {
+                  label: "Trash",
+                  onClick: handleTrashSelected,
+                  destructive: true,
+                },
+                { label: "Clear", onClick: () => setSelectedIds(new Set()) },
+              ]}
+            />
           ) : null}
 
           {/* ---- Drag-to-upload overlay ---- */}
           {isDragOver && (
-            <div className="upload-drag-overlay" aria-hidden>
-              <div className="upload-drag-overlay-inner">
-                <Upload size={32} />
-                <p>Drop files or folders into "{listing.currentFolder.name}"</p>
+            <div
+              className="pointer-events-none absolute -inset-1 z-30 flex animate-overlay-in items-center justify-center rounded-2xl border-2 border-dashed border-primary/50 bg-card motion-reduce:animate-none"
+              aria-hidden
+            >
+              <div className="grid justify-items-center gap-3 text-center">
+                <Upload size={32} className="text-primary opacity-70" />
+                <p className="font-heading text-meta font-semibold text-primary-ink">
+                  Drop files or folders into "{listing.currentFolder.name}"
+                </p>
               </div>
             </div>
           )}
@@ -2411,7 +2418,7 @@ export function FilesView({
         {showShortcutLegend && (
           <ShortcutLegend onClose={() => setShowShortcutLegend(false)} />
         )}
-      </div>
+      </WorkspacePage>
     </>
   );
 }
@@ -2419,6 +2426,40 @@ export function FilesView({
 // ---------------------------------------------------------------------------
 // Uploading row
 // ---------------------------------------------------------------------------
+
+const UPLOAD_ROW_STATUS =
+  "flex min-w-0 items-center justify-end overflow-hidden text-right text-xs whitespace-nowrap text-muted-foreground max-md:col-start-3 pointer-coarse:col-start-3";
+
+function UploadRowActions({
+  onRetry,
+  retryLabel = "Retry",
+  onDismiss,
+}: {
+  onRetry?: (e: React.MouseEvent) => void;
+  retryLabel?: string;
+  onDismiss?: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <>
+      {onRetry && (
+        <Button size="xs" variant="outline" className="ml-2" onClick={onRetry}>
+          {retryLabel}
+        </Button>
+      )}
+      {onDismiss && (
+        <Button
+          size="icon-xs"
+          variant="ghost"
+          className="ml-1"
+          onClick={onDismiss}
+          aria-label="Dismiss"
+        >
+          ✕
+        </Button>
+      )}
+    </>
+  );
+}
 
 function UploadingRow({
   file,
@@ -2445,56 +2486,46 @@ function UploadingRow({
     file.status === "uploading" && Boolean(file.statusLabel);
 
   return (
-    <div className="explorer-row uploading-row" role="row">
-      <div className="explorer-row-icon" role="gridcell">
-        <ItemTypeIcon size={16} tone="plain" visual={visual} />
+    <div className={cn(ROW_GRID, ROW_BASE, "bg-hover/60")} role="row">
+      <div className={ROW_ICON_CELL} role="gridcell">
+        <ItemTypeIcon
+          className={ROW_ICON}
+          size={16}
+          tone="plain"
+          visual={visual}
+        />
       </div>
-      <div className="explorer-row-name-cell" role="gridcell">
-        <span
-          className="explorer-row-name uploading-row-name"
-          title={file.name}
-        >
+      <div className={ROW_NAME_CELL} role="gridcell">
+        <span className={ROW_NAME} title={file.name}>
           {file.name}
         </span>
       </div>
-      <span className="uploading-row-size explorer-row-meta" role="gridcell">
+      <span className={ROW_META} role="gridcell">
         {formatBytes(file.size)}
       </span>
       <span
-        className={`uploading-row-status${file.status === "error" ? " is-error" : ""}`}
+        className={cn(
+          UPLOAD_ROW_STATUS,
+          file.status === "error" && "text-destructive-foreground",
+        )}
         role="gridcell"
         title={statusText}
       >
-        <span className="uploading-row-status-text">
+        <span className="min-w-0 flex-1 truncate">
           <span aria-live="polite" aria-atomic="true">
             {isPhaseStatus ? statusText : ""}
           </span>
           {!isPhaseStatus && statusText}
         </span>
-        {file.status === "error" && onRetry && (
-          <button
-            type="button"
-            className="uploading-row-retry"
-            onClick={onRetry}
-          >
-            Retry
-          </button>
-        )}
-        {file.status !== "uploading" && (
-          <button
-            type="button"
-            className="uploading-row-dismiss"
-            onClick={onDismiss}
-            aria-label="Dismiss"
-          >
-            ✕
-          </button>
-        )}
+        <UploadRowActions
+          onRetry={file.status === "error" ? onRetry : undefined}
+          onDismiss={file.status !== "uploading" ? onDismiss : undefined}
+        />
       </span>
       {file.status === "uploading" && (
-        <div className="uploading-row-progress-track">
+        <div className="absolute right-2 bottom-px left-1 h-0.5 overflow-hidden rounded-full bg-line-strong">
           <div
-            className="uploading-row-progress-fill"
+            className="h-full rounded-full bg-primary transition-[width] duration-200"
             style={{ width: `${file.progress}%` }}
           />
         </div>
@@ -2521,50 +2552,46 @@ function GhostUploadRow({
   const visual = getItemVisual("file");
   return (
     <div
-      className="explorer-row uploading-row ghost-upload-row"
+      className={cn(
+        ROW_GRID,
+        ROW_BASE,
+        "cursor-pointer bg-transparent opacity-55 outline outline-1 outline-muted-foreground/50 outline-dashed hover:bg-transparent hover:opacity-75",
+      )}
       onDoubleClick={onDoubleClick}
       role="row"
     >
-      <div className="explorer-row-icon" role="gridcell">
-        <ItemTypeIcon size={16} tone="plain" visual={visual} />
+      <div className={ROW_ICON_CELL} role="gridcell">
+        <ItemTypeIcon
+          className={ROW_ICON}
+          size={16}
+          tone="plain"
+          visual={visual}
+        />
       </div>
-      <div className="explorer-row-name-cell" role="gridcell">
-        <span className="explorer-row-name uploading-row-name" title={name}>
+      <div className={ROW_NAME_CELL} role="gridcell">
+        <span className={ROW_NAME} title={name}>
           {name}
         </span>
       </div>
-      <span className="uploading-row-size explorer-row-meta" role="gridcell">
+      <span className={ROW_META} role="gridcell">
         {formatBytes(size)}
       </span>
-      <span
-        className="uploading-row-status ghost-upload-row-status"
-        role="gridcell"
-      >
-        <span className="uploading-row-status-text">Incomplete</span>
-        <button
-          type="button"
-          className="uploading-row-retry"
-          onClick={(e) => {
+      <span className={UPLOAD_ROW_STATUS} role="gridcell">
+        <span className="min-w-0 flex-1 truncate">Incomplete</span>
+        <UploadRowActions
+          retryLabel="Resume"
+          onRetry={(e) => {
             e.stopPropagation();
             onDoubleClick();
           }}
-        >
-          Resume
-        </button>
-        <button
-          type="button"
-          className="uploading-row-dismiss"
-          onClick={(e) => {
+          onDismiss={(e) => {
             e.stopPropagation();
             onDismiss();
           }}
-          aria-label="Dismiss"
-        >
-          ✕
-        </button>
+        />
       </span>
-      <div className="uploading-row-progress-track ghost-upload-row-track">
-        <div className="ghost-upload-row-fill" />
+      <div className="absolute right-2 bottom-px left-1 h-0.5 overflow-hidden rounded-full bg-muted-foreground/15">
+        <div className="h-full w-[35%] rounded-full bg-muted-foreground opacity-40" />
       </div>
     </div>
   );
@@ -2573,6 +2600,44 @@ function GhostUploadRow({
 // ---------------------------------------------------------------------------
 // Keyboard shortcut legend
 // ---------------------------------------------------------------------------
+
+type ShortcutRow = { action: string; keys: string[]; hint?: string };
+
+const SHORTCUT_GROUPS: Array<{ label: string; rows: ShortcutRow[] }> = [
+  {
+    label: "Navigation",
+    rows: [
+      { action: "Move up / down", keys: ["↑", "↓"] },
+      { action: "Open selected", keys: ["↵"] },
+    ],
+  },
+  {
+    label: "Selection",
+    rows: [
+      { action: "Select all", keys: ["⌘", "A"] },
+      { action: "Add to selection", keys: ["⌘"], hint: "click" },
+      { action: "Range select", keys: ["⇧"], hint: "click" },
+      { action: "Rubber-band select", keys: [], hint: "drag empty space" },
+      { action: "Deselect all", keys: ["Esc"] },
+    ],
+  },
+  {
+    label: "File actions",
+    rows: [
+      { action: "Rename", keys: ["F2"] },
+      { action: "Cut", keys: ["⌘", "X"] },
+      { action: "Paste here", keys: ["⌘", "V"] },
+      { action: "Move to trash", keys: ["⌫"] },
+    ],
+  },
+  {
+    label: "Interface",
+    rows: [
+      { action: "New folder", keys: ["⌘", "⇧", "N"] },
+      { action: "Show shortcuts", keys: ["?"] },
+    ],
+  },
+];
 
 function ShortcutLegend({ onClose }: { onClose: () => void }) {
   const openerRef = useRef<HTMLElement | null>(null);
@@ -2594,128 +2659,39 @@ function ShortcutLegend({ onClose }: { onClose: () => void }) {
         if (!open) closeAndRestoreFocus();
       }}
     >
-      <DialogContent className="shortcut-legend" showCloseButton={false}>
-        <div className="shortcut-legend-title">
-          <DialogTitle className="shortcut-legend-title-text">
-            Keyboard shortcuts
-          </DialogTitle>
-          <button
-            className="shortcut-legend-close"
-            type="button"
-            onClick={closeAndRestoreFocus}
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="shortcut-legend-group">
-          <div className="shortcut-legend-group-label">Navigation</div>
-          <div className="shortcut-legend-row">
-            <span className="shortcut-legend-action">Move up / down</span>
-            <span className="shortcut-legend-keys">
-              <kbd className="shortcut-key">↑</kbd>
-              <kbd className="shortcut-key">↓</kbd>
-            </span>
-          </div>
-          <div className="shortcut-legend-row">
-            <span className="shortcut-legend-action">Open selected</span>
-            <span className="shortcut-legend-keys">
-              <kbd className="shortcut-key">↵</kbd>
-            </span>
-          </div>
-        </div>
-
-        <div className="shortcut-legend-group">
-          <div className="shortcut-legend-group-label">Selection</div>
-          <div className="shortcut-legend-row">
-            <span className="shortcut-legend-action">Select all</span>
-            <span className="shortcut-legend-keys">
-              <kbd className="shortcut-key">⌘</kbd>
-              <kbd className="shortcut-key">A</kbd>
-            </span>
-          </div>
-          <div className="shortcut-legend-row">
-            <span className="shortcut-legend-action">Add to selection</span>
-            <span className="shortcut-legend-keys">
-              <kbd className="shortcut-key">⌘</kbd>
-              <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
-                click
-              </span>
-            </span>
-          </div>
-          <div className="shortcut-legend-row">
-            <span className="shortcut-legend-action">Range select</span>
-            <span className="shortcut-legend-keys">
-              <kbd className="shortcut-key">⇧</kbd>
-              <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
-                click
-              </span>
-            </span>
-          </div>
-          <div className="shortcut-legend-row">
-            <span className="shortcut-legend-action">Rubber-band select</span>
-            <span className="shortcut-legend-keys">
-              <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
-                drag empty space
-              </span>
-            </span>
-          </div>
-          <div className="shortcut-legend-row">
-            <span className="shortcut-legend-action">Deselect all</span>
-            <span className="shortcut-legend-keys">
-              <kbd className="shortcut-key">Esc</kbd>
-            </span>
-          </div>
-        </div>
-
-        <div className="shortcut-legend-group">
-          <div className="shortcut-legend-group-label">File actions</div>
-          <div className="shortcut-legend-row">
-            <span className="shortcut-legend-action">Rename</span>
-            <span className="shortcut-legend-keys">
-              <kbd className="shortcut-key">F2</kbd>
-            </span>
-          </div>
-          <div className="shortcut-legend-row">
-            <span className="shortcut-legend-action">Cut</span>
-            <span className="shortcut-legend-keys">
-              <kbd className="shortcut-key">⌘</kbd>
-              <kbd className="shortcut-key">X</kbd>
-            </span>
-          </div>
-          <div className="shortcut-legend-row">
-            <span className="shortcut-legend-action">Paste here</span>
-            <span className="shortcut-legend-keys">
-              <kbd className="shortcut-key">⌘</kbd>
-              <kbd className="shortcut-key">V</kbd>
-            </span>
-          </div>
-          <div className="shortcut-legend-row">
-            <span className="shortcut-legend-action">Move to trash</span>
-            <span className="shortcut-legend-keys">
-              <kbd className="shortcut-key">⌫</kbd>
-            </span>
-          </div>
-        </div>
-
-        <div className="shortcut-legend-group">
-          <div className="shortcut-legend-group-label">Interface</div>
-          <div className="shortcut-legend-row">
-            <span className="shortcut-legend-action">New folder</span>
-            <span className="shortcut-legend-keys">
-              <kbd className="shortcut-key">⌘</kbd>
-              <kbd className="shortcut-key">⇧</kbd>
-              <kbd className="shortcut-key">N</kbd>
-            </span>
-          </div>
-          <div className="shortcut-legend-row">
-            <span className="shortcut-legend-action">Show shortcuts</span>
-            <span className="shortcut-legend-keys">
-              <kbd className="shortcut-key">?</kbd>
-            </span>
-          </div>
-        </div>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Keyboard shortcuts</DialogTitle>
+        </DialogHeader>
+        <DialogPanel className="grid gap-4.5">
+          {SHORTCUT_GROUPS.map((group) => (
+            <div key={group.label} className="grid gap-0.5">
+              <SectionLabel className="mb-1.5 text-xs">
+                {group.label}
+              </SectionLabel>
+              {group.rows.map((row) => (
+                <div
+                  key={row.action}
+                  className="flex items-center justify-between py-1.25"
+                >
+                  <span className="text-label text-foreground">
+                    {row.action}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    {row.keys.map((key) => (
+                      <Kbd key={key}>{key}</Kbd>
+                    ))}
+                    {row.hint ? (
+                      <span className="text-xs text-muted-foreground">
+                        {row.hint}
+                      </span>
+                    ) : null}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </DialogPanel>
       </DialogContent>
     </Dialog>
   );

@@ -2,6 +2,8 @@
 
 import { useActionState } from "react";
 
+import { Button } from "@/components/ui/button";
+
 export type MediaDerivativeAction = (
   prev: { error?: string; success?: boolean },
   formData: FormData,
@@ -49,17 +51,18 @@ export function MediaDerivativeRowActions({
   const anyError = regenState.error ?? removeState.error ?? cancelState.error;
 
   return (
-    <div className="admin-derivative-actions">
+    <div className="flex flex-wrap justify-end gap-1.5 max-lg:justify-start">
       <form action={regenAction}>
         <input type="hidden" name="fileId" value={fileId} />
-        <button
+        <Button
           type="submit"
-          className="admin-jobs-button"
+          variant="outline"
+          size="sm"
           disabled={regenPending || isActive}
           title="Queue preview file again"
         >
           {regenPending ? "..." : "Create again"}
-        </button>
+        </Button>
       </form>
 
       <form action={pinAction}>
@@ -69,9 +72,10 @@ export function MediaDerivativeRowActions({
           name="pinned"
           value={pinnedByAdmin ? "false" : "true"}
         />
-        <button
+        <Button
           type="submit"
-          className="admin-jobs-button"
+          variant="outline"
+          size="sm"
           disabled={pinPending}
           title={
             pinnedByAdmin
@@ -80,39 +84,44 @@ export function MediaDerivativeRowActions({
           }
         >
           {pinPending ? "..." : pinnedByAdmin ? "Unpin" : "Pin"}
-        </button>
+        </Button>
       </form>
 
       {canCancel ? (
         <form action={cancelFormAction}>
           <input type="hidden" name="id" value={id} />
-          <button
+          <Button
             type="submit"
-            className="admin-jobs-button"
+            variant="outline"
+            size="sm"
             disabled={cancelPending}
             title="Cancel queued preview file"
           >
             {cancelPending ? "..." : "Cancel"}
-          </button>
+          </Button>
         </form>
       ) : null}
 
       {canRemove ? (
         <form action={removeFormAction}>
           <input type="hidden" name="id" value={id} />
-          <button
+          <Button
             type="submit"
-            className="admin-jobs-button admin-jobs-button-danger"
+            variant="destructive"
+            size="sm"
             disabled={removePending}
             title="Delete preview file from disk"
           >
             {removePending ? "..." : "Delete"}
-          </button>
+          </Button>
         </form>
       ) : null}
 
       {anyError ? (
-        <span className="admin-derivative-error" title={anyError}>
+        <span
+          className="self-center text-xs font-bold text-destructive-foreground"
+          title={anyError}
+        >
           Error
         </span>
       ) : null}

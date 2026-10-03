@@ -4,8 +4,16 @@ import {
   getSingleSearchParam,
 } from "@/app/auth-ui";
 import { DEFAULT_TIME_ZONE } from "@staaash/config/time-zone";
-import { SettingsPanel } from "@/components/settings-panel";
+import { PageHeader } from "@/components/page-header";
+import {
+  SettingsAccordion,
+  SettingsList,
+  SettingsPanel,
+  SettingsRow,
+} from "@/components/settings-panel";
+import { Button } from "@/components/ui/button";
 import { requireSignedInPageSession } from "@/server/auth/guards";
+import { WorkspacePage } from "../workspace-page";
 import { PreferencesForm } from "./preferences-form";
 
 export const dynamic = "force-dynamic";
@@ -29,15 +37,13 @@ export default async function SettingsPage({
   const prefs = session.user.preferences;
 
   return (
-    <div className="workspace-page settings-page">
-      <section className="settings-page-head">
-        <h1>Settings</h1>
-      </section>
+    <WorkspacePage className="mx-auto w-full max-w-settings content-start gap-4.5">
+      <PageHeader title="Settings" />
 
       {errorMessage ? <FlashMessage>{errorMessage}</FlashMessage> : null}
       {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
 
-      <div className="settings-accordion" aria-label="Settings sections">
+      <SettingsAccordion>
         <SettingsPanel
           title="Preferences"
           description="Theme, time zone, and update notices"
@@ -55,67 +61,45 @@ export default async function SettingsPage({
         </SettingsPanel>
 
         <SettingsPanel title="Account" description="Identity and access">
-          <dl className="settings-list">
-            <div className="settings-row">
-              <dt className="settings-row-label">Display name</dt>
-              <dd className="settings-row-value">
-                {session.user.displayName ?? "Not set"}
-              </dd>
-            </div>
-            <div className="settings-row">
-              <dt className="settings-row-label">Email</dt>
-              <dd className="settings-row-value">{session.user.email}</dd>
-            </div>
-            <div className="settings-row">
-              <dt className="settings-row-label">Access</dt>
-              <dd className="settings-row-value">
-                {session.user.isOwner
-                  ? "Owner"
-                  : session.user.isAdmin
-                    ? "Admin"
-                    : "Member"}
-              </dd>
-            </div>
-          </dl>
+          <SettingsList>
+            <SettingsRow kind="value" label="Display name">
+              {session.user.displayName ?? "Not set"}
+            </SettingsRow>
+            <SettingsRow kind="value" label="Email">
+              {session.user.email}
+            </SettingsRow>
+            <SettingsRow kind="value" label="Access">
+              {session.user.isOwner
+                ? "Owner"
+                : session.user.isAdmin
+                  ? "Admin"
+                  : "Member"}
+            </SettingsRow>
+          </SettingsList>
         </SettingsPanel>
 
         <SettingsPanel title="Session" description="Current browser session">
-          <dl className="settings-list">
-            <div className="settings-row">
-              <dt className="settings-row-label">Session ID</dt>
-              <dd className="settings-row-value">
-                <code>{session.id}</code>
-              </dd>
-            </div>
-            <div className="settings-row">
-              <dt className="settings-row-label">Created</dt>
-              <dd className="settings-row-value">
-                {formatDateTime(session.createdAt, prefs?.timeZone)}
-              </dd>
-            </div>
-            <div className="settings-row">
-              <dt className="settings-row-label">Expires</dt>
-              <dd className="settings-row-value">
-                {formatDateTime(session.expiresAt, prefs?.timeZone)}
-              </dd>
-            </div>
-            <div className="settings-row settings-row-action">
-              <dt className="settings-row-label">Sign out</dt>
-              <dd className="settings-row-value">
-                <form action="/api/auth/sign-out" method="post">
-                  <input type="hidden" name="next" value="/" />
-                  <button
-                    className="settings-action settings-action-danger"
-                    type="submit"
-                  >
-                    Sign out
-                  </button>
-                </form>
-              </dd>
-            </div>
-          </dl>
+          <SettingsList>
+            <SettingsRow kind="value" label="Session ID">
+              <code>{session.id}</code>
+            </SettingsRow>
+            <SettingsRow kind="value" label="Created">
+              {formatDateTime(session.createdAt, prefs?.timeZone)}
+            </SettingsRow>
+            <SettingsRow kind="value" label="Expires">
+              {formatDateTime(session.expiresAt, prefs?.timeZone)}
+            </SettingsRow>
+            <SettingsRow kind="value" label="Sign out">
+              <form action="/api/auth/sign-out" method="post">
+                <input type="hidden" name="next" value="/" />
+                <Button type="submit" variant="destructive-outline">
+                  Sign out
+                </Button>
+              </form>
+            </SettingsRow>
+          </SettingsList>
         </SettingsPanel>
-      </div>
-    </div>
+      </SettingsAccordion>
+    </WorkspacePage>
   );
 }

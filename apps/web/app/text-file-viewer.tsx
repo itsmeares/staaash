@@ -12,21 +12,14 @@ export function TextFileViewer({ contentHref }: { contentHref: string }) {
       .catch(() => setFailed(true));
   }, [contentHref]);
 
-  if (failed) return <p className="muted">Could not load file content.</p>;
-  if (text === null) return <p className="muted">Loading…</p>;
+  if (failed)
+    return (
+      <p className="text-muted-foreground">Could not load file content.</p>
+    );
+  if (text === null) return <p className="text-muted-foreground">Loading…</p>;
 
   return (
-    <pre
-      style={{
-        overflow: "auto",
-        maxHeight: "75vh",
-        width: "100%",
-        padding: "1rem",
-        margin: 0,
-        whiteSpace: "pre-wrap",
-        wordBreak: "break-word",
-      }}
-    >
+    <pre className="m-0 max-h-[75vh] w-full overflow-auto p-4 break-words whitespace-pre-wrap">
       {text}
     </pre>
   );

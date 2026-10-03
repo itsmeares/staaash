@@ -9,6 +9,15 @@ import {
   parsePage,
 } from "@/app/pagination-controls";
 import { redirect } from "next/navigation";
+import { PageHeader } from "@/components/page-header";
+import { SectionLabel } from "@/components/section-label";
+import { Badge } from "@/components/ui/badge";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { RetrievalItemList } from "../retrieval-item-list";
 
 export const dynamic = "force-dynamic";
@@ -52,33 +61,34 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   return (
     <WorkspacePresetPageContextMenu
-      className="workspace-page search-page"
+      className="grid gap-4.5 max-lg:min-w-0"
       preset="search"
     >
-      <header className="search-header">
-        <div className="search-header-copy">
-          <h1>Search</h1>
-          <p className="muted search-description">
-            Find active files and folders by name, extension, or path segment.
-          </p>
-        </div>
-        {query.length > 0 ? (
-          <span className="section-count">
-            {allItems.length} match{allItems.length === 1 ? "" : "es"}
-          </span>
-        ) : null}
-      </header>
+      <PageHeader
+        description="Find active files and folders by name, extension, or path segment."
+        divider
+        meta={
+          query.length > 0 ? (
+            <Badge>
+              {allItems.length} match{allItems.length === 1 ? "" : "es"}
+            </Badge>
+          ) : null
+        }
+        title="Search"
+      />
 
       {error ? <FlashMessage>{error}</FlashMessage> : null}
       {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
 
-      <section className="search-results" aria-labelledby="search-results">
-        <div className="search-results-head">
-          <h2 id="search-results">Results</h2>
-          <p className="muted search-query">
+      <section className="grid gap-3.5" aria-labelledby="search-results">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3.5 gap-y-2 max-xs:flex-col">
+          <h2 id="search-results" className="m-0">
+            <SectionLabel>Results</SectionLabel>
+          </h2>
+          <p className="m-0 text-label text-muted-foreground">
             Query:{" "}
             {query.length > 0 ? (
-              <strong>{query}</strong>
+              <strong className="font-semibold text-foreground">{query}</strong>
             ) : (
               "enter a search above"
             )}
@@ -86,13 +96,15 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         </div>
 
         {query.length === 0 ? (
-          <div className="workspace-empty-state search-empty-state">
-            <h2>Search your files</h2>
-            <p className="muted">
-              Use the top-bar search field to find active files and folders by
-              name, extension, or path segment.
-            </p>
-          </div>
+          <Empty className="min-h-48">
+            <EmptyHeader>
+              <EmptyTitle>Search your files</EmptyTitle>
+              <EmptyDescription>
+                Use the top-bar search field to find active files and folders by
+                name, extension, or path segment.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <>
             <RetrievalItemList

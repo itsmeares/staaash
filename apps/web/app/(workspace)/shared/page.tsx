@@ -7,9 +7,12 @@ import {
   getSingleSearchParam,
 } from "@/app/auth-ui";
 import { WorkspacePresetPageContextMenu } from "@/app/dashboard-context-menu";
+import { PageHeader } from "@/components/page-header";
+import { Badge } from "@/components/ui/badge";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { getShareBaseUrl } from "@/server/request";
 import { sharingService } from "@/server/sharing/service";
+import { CollectionEmpty } from "../collection-parts";
 import { SharedTable, type SharedTableItem } from "./shared-table";
 
 export const dynamic = "force-dynamic";
@@ -91,32 +94,27 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
   }));
 
   return (
-    <WorkspacePresetPageContextMenu className="workspace-page" preset="shared">
-      <div className="stack">
-        {/* Page header */}
-        <div className="shared-header">
-          <div className="shared-title-row">
-            <h1>Shared</h1>
-            {allShares.length > 0 && (
-              <span className="section-count">{allShares.length}</span>
-            )}
-          </div>
-        </div>
+    <WorkspacePresetPageContextMenu
+      className="grid gap-5.5 max-lg:min-w-0"
+      preset="shared"
+    >
+      <div className="grid gap-4">
+        <PageHeader
+          meta={allShares.length > 0 ? <Badge>{allShares.length}</Badge> : null}
+          title="Shared"
+        />
 
         {error ? <FlashMessage>{error}</FlashMessage> : null}
         {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
 
-        {/* Empty state */}
         {allShares.length === 0 ? (
-          <div className="shared-empty-state">
-            <span className="shared-empty-icon">
-              <Share2 size={22} aria-hidden />
-            </span>
-            <p>No shared links yet</p>
-            <span>Create a link from any file or folder.</span>
-          </div>
+          <CollectionEmpty
+            description="Create a link from any file or folder."
+            icon={<Share2 aria-hidden />}
+            title="No shared links yet"
+          />
         ) : (
-          <div className="sl-page">
+          <div className="grid gap-4 max-lg:min-w-0">
             <SharedTable items={tableItems} />
           </div>
         )}

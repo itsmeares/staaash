@@ -11,6 +11,13 @@ import {
 
 import { saveOwnerOnboardingSettings } from "@/app/admin/settings/actions";
 import { TimeZonePicker } from "@/components/time-zone-picker";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { applyTheme } from "@/lib/theme";
+import { cn } from "@/lib/utils";
+
+import styles from "./onboarding-experience.module.css";
 
 type Theme = "light" | "dark" | "system";
 type OnboardingStep =
@@ -45,12 +52,10 @@ const STEP_ANNOUNCEMENTS: Record<OnboardingStep, string> = {
   done: "Onboarding complete.",
 };
 
-function applyThemePreview(theme: Theme) {
-  const html = document.documentElement;
-  html.classList.remove("dark", "light");
-  if (theme === "dark") html.classList.add("dark");
-  else if (theme === "light") html.classList.add("light");
-}
+const doneMessageClass = cn(
+  "text-center font-heading leading-tight tracking-tighter whitespace-nowrap text-foreground",
+  styles.doneMessage,
+);
 
 export function OnboardingExperience({
   instanceName,
@@ -118,7 +123,7 @@ export function OnboardingExperience({
 
   function setTheme(t: Theme) {
     setPrefs((p) => ({ ...p, theme: t }));
-    applyThemePreview(t);
+    applyTheme(t);
   }
 
   function setTimeZone(timeZone: string) {
@@ -218,26 +223,41 @@ export function OnboardingExperience({
     const isCustomName = effectiveName !== "Staaash";
 
     return (
-      <div className="onboarding-done" role="status" aria-live="polite">
+      <div
+        className="grid w-full place-items-center"
+        role="status"
+        aria-live="polite"
+      >
         <div
-          className={`onboarding-done__phase onboarding-done__phase--allset${donePhase > 0 ? " is-exiting" : ""}`}
+          className={cn(
+            styles.phase,
+            styles.phaseAllset,
+            donePhase > 0 && styles.isExiting,
+          )}
         >
-          <p className="onboarding-done__message">You&apos;re all set.</p>
+          <p className={doneMessageClass}>You&apos;re all set.</p>
         </div>
         <div
-          className={`onboarding-done__phase onboarding-done__phase--brand${donePhase >= 1 ? " is-entering" : ""}`}
+          className={cn(
+            styles.phase,
+            styles.phaseBrand,
+            donePhase >= 1 && styles.isEntering,
+          )}
         >
-          <p className="onboarding-done__message">
+          <p className={doneMessageClass}>
             Welcome to{" "}
             {isCustomName && donePhase >= 2 ? (
-              <span className="onboarding-done__name-wrap">
+              <span className={styles.nameWrap}>
                 <span
-                  className={`onboarding-done__name-brand${nameSwapping ? " is-out" : ""}`}
+                  className={cn(styles.nameBrand, nameSwapping && styles.isOut)}
                 >
                   Staaash
                 </span>
                 <span
-                  className={`onboarding-done__name-instance${nameSwapping ? " is-in" : ""}`}
+                  className={cn(
+                    styles.nameInstance,
+                    nameSwapping && styles.isIn,
+                  )}
                 >
                   {effectiveName}
                 </span>
@@ -256,7 +276,10 @@ export function OnboardingExperience({
 
   return (
     <div
-      className={`onboarding${animating ? " onboarding--exiting" : " onboarding--entering"}`}
+      className={cn(
+        "grid w-full gap-0",
+        animating ? styles.exiting : styles.entering,
+      )}
     >
       <p className="sr-only" aria-live="polite" aria-atomic="true">
         {STEP_ANNOUNCEMENTS[step]}
@@ -372,10 +395,20 @@ function WelcomeStep({ onContinue }: { onContinue: () => void }) {
   }, [onContinue]);
 
   return (
-    <section className="onboarding-welcome">
-      <h1 className="onboarding-welcome__title">Before you dive in.</h1>
+    <section className="grid w-full cursor-default gap-5 text-center outline-none select-none md:gap-7">
+      <h1
+        className={cn(
+          "font-heading text-display tracking-tighter text-balance text-foreground",
+          styles.welcomeTitle,
+        )}
+      >
+        Before you dive in.
+      </h1>
       <button
-        className="onboarding-welcome__hint onboarding-welcome-action"
+        className={cn(
+          "mt-1.5 cursor-pointer rounded-xl border-0 bg-transparent p-0 text-xs font-medium tracking-widest text-foreground/40 uppercase outline-none focus-visible:outline-2 focus-visible:outline-offset-12 focus-visible:outline-primary/55",
+          styles.welcomeHint,
+        )}
         onClick={advance}
         type="button"
       >
@@ -387,10 +420,7 @@ function WelcomeStep({ onContinue }: { onContinue: () => void }) {
 
 function StepProgress({ current, total }: { current: number; total: number }) {
   return (
-    <div
-      className="onboarding-progress"
-      aria-label={`Step ${current} of ${total}`}
-    >
+    <div className="block flex-1" aria-label={`Step ${current} of ${total}`}>
       <ol className="sr-only">
         {Array.from({ length: total }, (_, i) => (
           <li key={i} aria-current={i + 1 === current ? "step" : undefined}>
@@ -399,11 +429,14 @@ function StepProgress({ current, total }: { current: number; total: number }) {
           </li>
         ))}
       </ol>
-      <div className="onboarding-progress__visual" aria-hidden="true">
+      <div className="flex gap-1" aria-hidden="true">
         {Array.from({ length: total }, (_, i) => (
           <span
             key={i}
-            className={`onboarding-progress__segment${i < current ? " onboarding-progress__segment--active" : ""}`}
+            className={cn(
+              "block h-0.5 flex-1 rounded-full bg-muted-foreground/25 transition-colors duration-500 ease-expo-out motion-reduce:transition-none",
+              i < current && "bg-primary",
+            )}
           />
         ))}
       </div>
@@ -437,10 +470,10 @@ function ThemeStep({
   };
 
   return (
-    <div className="onboarding-step">
-      <div className="onboarding-step__nav">
+    <div className="mx-auto grid w-[min(100%,420px)] gap-6">
+      <div className="flex items-center gap-3">
         <button
-          className="onboarding-back"
+          className="flex cursor-pointer items-center gap-1 rounded-xs border-0 bg-transparent p-0 text-xs font-medium whitespace-nowrap text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary/50 motion-reduce:transition-none"
           onClick={onBack}
           type="button"
           aria-label="Go back"
@@ -450,23 +483,31 @@ function ThemeStep({
         <StepProgress current={1} total={totalSteps} />
       </div>
 
-      <div className="onboarding-step__header">
-        <span className="onboarding-step__index">01</span>
-        <h2 className="onboarding-step__title">Choose your theme</h2>
+      <div className="flex items-baseline gap-3.5">
+        <span className="shrink-0 font-heading text-xs font-bold tracking-widest text-primary">
+          01
+        </span>
+        <h2 className="m-0 font-heading text-headline tracking-tighter text-foreground md:text-3xl">
+          Choose your theme
+        </h2>
       </div>
 
       <div
-        className="onboarding-theme-grid"
+        className="inline-grid w-full grid-cols-3 gap-2.5"
         role="radiogroup"
         aria-label="Theme"
       >
         {THEME_OPTIONS.map((opt) => (
           <label
             key={opt.value}
-            className={`onboarding-theme-tile onboarding-theme-tile--variant-${opt.value}${theme === opt.value ? " onboarding-theme-tile--selected" : ""}`}
+            className={cn(
+              "relative flex cursor-pointer flex-col items-center gap-2.5 rounded-xl border border-line-strong bg-card/60 px-2.5 pt-3.5 pb-4 transition-colors hover:border-foreground/20 hover:bg-accent has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-primary/50 motion-reduce:transition-none",
+              theme === opt.value &&
+                "border-primary/80 bg-accent ring-1 ring-primary/25",
+            )}
           >
             <input
-              className="onboarding-theme-input"
+              className="absolute inset-0 cursor-pointer opacity-0"
               type="radio"
               name="onboarding-theme"
               value={opt.value}
@@ -475,19 +516,19 @@ function ThemeStep({
               onKeyDown={handleThemeKeyDown}
             />
             <ThemePreview variant={opt.value} />
-            <span className="onboarding-theme-tile__label">{opt.label}</span>
-            <span className="onboarding-theme-tile__desc">{opt.desc}</span>
+            <span className="text-label font-semibold text-foreground">
+              {opt.label}
+            </span>
+            <span className="text-center text-xs leading-snug text-muted-foreground/75">
+              {opt.desc}
+            </span>
           </label>
         ))}
       </div>
 
-      <button
-        className="onboarding-continue"
-        onClick={onContinue}
-        type="button"
-      >
+      <Button className="w-full" onClick={onContinue} type="button">
         Continue
-      </button>
+      </Button>
     </div>
   );
 }
@@ -506,10 +547,10 @@ function TimeZoneStep({
   totalSteps: number;
 }) {
   return (
-    <div className="onboarding-step">
-      <div className="onboarding-step__nav">
+    <div className="mx-auto grid w-[min(100%,420px)] gap-6">
+      <div className="flex items-center gap-3">
         <button
-          className="onboarding-back"
+          className="flex cursor-pointer items-center gap-1 rounded-xs border-0 bg-transparent p-0 text-xs font-medium whitespace-nowrap text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary/50 motion-reduce:transition-none"
           onClick={onBack}
           type="button"
           aria-label="Go back"
@@ -519,37 +560,37 @@ function TimeZoneStep({
         <StepProgress current={2} total={totalSteps} />
       </div>
 
-      <div className="onboarding-step__header">
-        <span className="onboarding-step__index">02</span>
-        <h2 className="onboarding-step__title">Set your time zone</h2>
+      <div className="flex items-baseline gap-3.5">
+        <span className="shrink-0 font-heading text-xs font-bold tracking-widest text-primary">
+          02
+        </span>
+        <h2 className="m-0 font-heading text-headline tracking-tighter text-foreground md:text-3xl">
+          Set your time zone
+        </h2>
       </div>
 
-      <p className="onboarding-step__body">
+      <p className="-mt-2 text-sm leading-relaxed text-muted-foreground">
         Used for dates, activity, and schedules shown to you.
       </p>
 
-      <div className="onboarding-field">
-        <label className="onboarding-field__label" htmlFor="ob-timeZone">
+      <div className="flex flex-col gap-2">
+        <label className="block text-label font-medium" htmlFor="ob-timeZone">
           Time zone
         </label>
         <TimeZonePicker
-          className="onboarding-field__input"
+          className="block w-full rounded-lg border border-line-strong bg-muted px-3.5 py-2.5 text-sm text-foreground transition-colors focus-visible:border-primary/65 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary/50 motion-reduce:transition-none"
           id="ob-timeZone"
           value={timeZone}
           onChange={onSelect}
         />
-        <span className="onboarding-field__help">
+        <span className="block text-xs text-muted-foreground">
           Detected from this browser. You can update it later.
         </span>
       </div>
 
-      <button
-        className="onboarding-continue"
-        onClick={onContinue}
-        type="button"
-      >
+      <Button className="w-full" onClick={onContinue} type="button">
         Continue
-      </button>
+      </Button>
     </div>
   );
 }
@@ -557,11 +598,11 @@ function TimeZoneStep({
 function PreviewContent() {
   return (
     <>
-      <div className="theme-preview__sidebar" />
-      <div className="theme-preview__main">
-        <div className="theme-preview__bar" />
-        <div className="theme-preview__bar theme-preview__bar--short" />
-        <div className="theme-preview__bar theme-preview__bar--shorter" />
+      <div className={styles.sidebar} />
+      <div className={styles.main}>
+        <div className={styles.bar} />
+        <div className={cn(styles.bar, styles.barShort)} />
+        <div className={cn(styles.bar, styles.barShorter)} />
       </div>
     </>
   );
@@ -570,11 +611,11 @@ function PreviewContent() {
 function ThemePreview({ variant }: { variant: Theme }) {
   if (variant === "system") {
     return (
-      <div className="theme-preview theme-preview--system" aria-hidden="true">
-        <div className="theme-preview__half theme-preview__half--light">
+      <div className={styles.preview} aria-hidden="true">
+        <div className={cn(styles.half, styles.halfLight, styles.swatchLight)}>
           <PreviewContent />
         </div>
-        <div className="theme-preview__half theme-preview__half--dark">
+        <div className={cn(styles.half, styles.halfDark, styles.swatchDark)}>
           <PreviewContent />
         </div>
       </div>
@@ -583,7 +624,10 @@ function ThemePreview({ variant }: { variant: Theme }) {
 
   return (
     <div
-      className={`theme-preview theme-preview--${variant}`}
+      className={cn(
+        styles.preview,
+        variant === "light" ? styles.swatchLight : styles.swatchDark,
+      )}
       aria-hidden="true"
     >
       <PreviewContent />
@@ -654,10 +698,10 @@ function ProfileStep({
   const indexStr = String(stepIndex).padStart(2, "0");
 
   return (
-    <div className="onboarding-step">
-      <div className="onboarding-step__nav">
+    <div className="mx-auto grid w-[min(100%,420px)] gap-6">
+      <div className="flex items-center gap-3">
         <button
-          className="onboarding-back"
+          className="flex cursor-pointer items-center gap-1 rounded-xs border-0 bg-transparent p-0 text-xs font-medium whitespace-nowrap text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary/50 motion-reduce:transition-none"
           onClick={onBack}
           type="button"
           aria-label="Go back"
@@ -667,31 +711,37 @@ function ProfileStep({
         <StepProgress current={stepIndex} total={totalSteps} />
       </div>
 
-      <div className="onboarding-step__header">
-        <span className="onboarding-step__index">{indexStr}</span>
-        <h2 className="onboarding-step__title">Your profile</h2>
+      <div className="flex items-baseline gap-3.5">
+        <span className="shrink-0 font-heading text-xs font-bold tracking-widest text-primary">
+          {indexStr}
+        </span>
+        <h2 className="m-0 font-heading text-headline tracking-tighter text-foreground md:text-3xl">
+          Your profile
+        </h2>
       </div>
 
-      <div className="onboarding-profile">
-        <div className="onboarding-avatar">
+      <div className="flex flex-col gap-7">
+        <div className="text-center">
           <button
             type="button"
-            className="onboarding-avatar__btn"
+            className="relative mx-auto mb-2.5 block size-22 cursor-pointer overflow-hidden rounded-full border border-foreground/20 bg-hover p-0 transition-colors hover:border-primary/80 hover:bg-pressed focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-primary/50"
             onClick={() => fileInputRef.current?.click()}
             aria-label="Choose profile picture"
           >
-            <span className="onboarding-avatar__inner">
+            <span className="flex size-full items-center justify-center">
               {prefs.avatarUrl ? (
                 <img
-                  className="onboarding-avatar__img"
+                  className="block size-full object-cover"
                   src={prefs.avatarUrl}
                   alt=""
                 />
               ) : initials ? (
-                <span className="onboarding-avatar__initials">{initials}</span>
+                <span className="font-heading text-3xl font-semibold text-muted-foreground select-none">
+                  {initials}
+                </span>
               ) : (
                 <svg
-                  className="onboarding-avatar__icon"
+                  className="text-muted-foreground"
                   width="28"
                   height="28"
                   viewBox="0 0 24 24"
@@ -707,22 +757,26 @@ function ProfileStep({
               )}
             </span>
           </button>
-          <span className="onboarding-avatar__hint">Select photo</span>
+          <span className="block text-xs text-muted-foreground">
+            Select photo
+          </span>
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*"
-            style={{ display: "none" }}
+            className="hidden"
             onChange={handleFileChange}
           />
         </div>
 
-        <div className="onboarding-field">
-          <label className="onboarding-field__label" htmlFor="ob-displayName">
+        <div className="flex flex-col gap-2">
+          <label
+            className="block text-label font-medium"
+            htmlFor="ob-displayName"
+          >
             Full name
           </label>
-          <input
-            className="onboarding-field__input"
+          <Input
             id="ob-displayName"
             type="text"
             placeholder="Your name"
@@ -730,26 +784,29 @@ function ProfileStep({
             onChange={(e) => onDisplayNameChange(e.target.value)}
             maxLength={80}
           />
-          <span className="onboarding-field__help">
+          <span className="block text-xs text-muted-foreground">
             Optional — you can update this later.
           </span>
         </div>
       </div>
 
       {error && (
-        <p className="onboarding-error" role="alert">
+        <p
+          className="-mt-2 text-center text-label leading-normal text-destructive-foreground"
+          role="alert"
+        >
           {error}
         </p>
       )}
 
-      <button
-        className="onboarding-continue"
+      <Button
+        className="w-full"
         onClick={onContinue}
         disabled={pending}
         type="button"
       >
         {pending ? "Saving…" : isLastStep ? "Enter Staaash" : "Continue"}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -772,10 +829,10 @@ function PrivacyStep({
   isLastStep?: boolean;
 }) {
   return (
-    <div className="onboarding-step">
-      <div className="onboarding-step__nav">
+    <div className="mx-auto grid w-[min(100%,420px)] gap-6">
+      <div className="flex items-center gap-3">
         <button
-          className="onboarding-back"
+          className="flex cursor-pointer items-center gap-1 rounded-xs border-0 bg-transparent p-0 text-xs font-medium whitespace-nowrap text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary/50 motion-reduce:transition-none"
           onClick={onBack}
           type="button"
           aria-label="Go back"
@@ -785,59 +842,83 @@ function PrivacyStep({
         <StepProgress current={4} total={5} />
       </div>
 
-      <div className="onboarding-step__header">
-        <span className="onboarding-step__index">04</span>
-        <h2 className="onboarding-step__title">Privacy &amp; features</h2>
+      <div className="flex items-baseline gap-3.5">
+        <span className="shrink-0 font-heading text-xs font-bold tracking-widest text-primary">
+          04
+        </span>
+        <h2 className="m-0 font-heading text-headline tracking-tighter text-foreground md:text-3xl">
+          Privacy &amp; features
+        </h2>
       </div>
 
-      <p className="onboarding-step__body">
+      <p className="-mt-2 text-sm leading-relaxed text-muted-foreground">
         Periodically checks GitHub for new releases. Sends no personal data.
         Disable to keep Staaash fully offline.
       </p>
 
-      <div className="onboarding-toggles">
-        <label className="onboarding-toggle" htmlFor="ob-version-checks">
-          <input
-            id="ob-version-checks"
-            role="switch"
-            className="onboarding-switch-input"
-            type="checkbox"
-            checked={prefs.enableVersionChecks}
-            onChange={(event) =>
-              onVersionChecksChange(event.currentTarget.checked)
-            }
-            aria-describedby="ob-version-checks-desc"
-          />
-          <div className="onboarding-toggle__text">
-            <span className="onboarding-toggle__label">Version checks</span>
-            <span
-              className="onboarding-toggle__desc"
-              id="ob-version-checks-desc"
-            >
-              Check GitHub for updates and show a badge when a new version is
-              available.
-            </span>
-          </div>
-          <span className="onboarding-switch" aria-hidden="true">
-            <span className="onboarding-switch__thumb" />
-          </span>
-        </label>
+      <div className="grid gap-0">
+        <ToggleRow
+          id="ob-version-checks"
+          label="Version checks"
+          description="Check GitHub for updates and show a badge when a new version is available."
+          checked={prefs.enableVersionChecks}
+          onCheckedChange={onVersionChecksChange}
+        />
       </div>
 
       {error && (
-        <p className="onboarding-error" role="alert">
+        <p
+          className="-mt-2 text-center text-label leading-normal text-destructive-foreground"
+          role="alert"
+        >
           {error}
         </p>
       )}
 
-      <button
-        className="onboarding-continue"
+      <Button
+        className="w-full"
         onClick={onComplete}
         disabled={pending}
         type="button"
       >
         {pending ? "Saving…" : isLastStep ? "Enter Staaash" : "Continue"}
-      </button>
+      </Button>
+    </div>
+  );
+}
+
+function ToggleRow({
+  id,
+  label,
+  description,
+  checked,
+  onCheckedChange,
+}: {
+  id: string;
+  label: string;
+  description: string;
+  checked: boolean;
+  onCheckedChange: (val: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-5 border-b border-hairline py-4 first:border-t">
+      <div className="grid gap-1">
+        <label className="text-sm font-medium text-foreground" htmlFor={id}>
+          {label}
+        </label>
+        <span
+          className="text-xs leading-normal text-muted-foreground"
+          id={`${id}-desc`}
+        >
+          {description}
+        </span>
+      </div>
+      <Switch
+        id={id}
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        aria-describedby={`${id}-desc`}
+      />
     </div>
   );
 }
@@ -870,10 +951,10 @@ function MediaStep({
   error: string | null;
 }) {
   return (
-    <div className="onboarding-step">
-      <div className="onboarding-step__nav">
+    <div className="mx-auto grid w-[min(100%,420px)] gap-6">
+      <div className="flex items-center gap-3">
         <button
-          className="onboarding-back"
+          className="flex cursor-pointer items-center gap-1 rounded-xs border-0 bg-transparent p-0 text-xs font-medium whitespace-nowrap text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary/50 motion-reduce:transition-none"
           onClick={onBack}
           type="button"
           aria-label="Go back"
@@ -883,134 +964,70 @@ function MediaStep({
         <StepProgress current={5} total={5} />
       </div>
 
-      <div className="onboarding-step__header">
-        <span className="onboarding-step__index">05</span>
-        <h2 className="onboarding-step__title">Media previews</h2>
+      <div className="flex items-baseline gap-3.5">
+        <span className="shrink-0 font-heading text-xs font-bold tracking-widest text-primary">
+          05
+        </span>
+        <h2 className="m-0 font-heading text-headline tracking-tighter text-foreground md:text-3xl">
+          Media previews
+        </h2>
       </div>
 
-      <p className="onboarding-step__body">
+      <p className="-mt-2 text-sm leading-relaxed text-muted-foreground">
         Staaash can transcode videos into streamable previews using FFmpeg.
         Choose when automatic generation should happen. This runs in a
         background worker and can use significant CPU. You can change this
         anytime in Admin → Settings.
       </p>
 
-      <div className="onboarding-toggles">
-        <label className="onboarding-toggle" htmlFor="ob-media-previews">
-          <input
-            id="ob-media-previews"
-            role="switch"
-            className="onboarding-switch-input"
-            type="checkbox"
-            checked={enabled}
-            onChange={(event) => onToggle(event.currentTarget.checked)}
-            aria-describedby="ob-media-previews-desc"
-          />
-          <div className="onboarding-toggle__text">
-            <span className="onboarding-toggle__label">
-              Enable media previews
-            </span>
-            <span
-              className="onboarding-toggle__desc"
-              id="ob-media-previews-desc"
-            >
-              Generates compressed video previews on demand. Requires a worker
-              process and a reasonably capable CPU.
-            </span>
-          </div>
-          <span className="onboarding-switch" aria-hidden="true">
-            <span className="onboarding-switch__thumb" />
-          </span>
-        </label>
-        <label className="onboarding-toggle" htmlFor="ob-media-upload">
-          <input
-            id="ob-media-upload"
-            role="switch"
-            className="onboarding-switch-input"
-            type="checkbox"
-            checked={generateOnUpload}
-            onChange={(event) =>
-              onGenerateOnUploadChange(event.currentTarget.checked)
-            }
-            aria-describedby="ob-media-upload-desc"
-          />
-          <div className="onboarding-toggle__text">
-            <span className="onboarding-toggle__label">Generate on upload</span>
-            <span className="onboarding-toggle__desc" id="ob-media-upload-desc">
-              Start a preview when a qualifying video upload finishes.
-            </span>
-          </div>
-          <span className="onboarding-switch" aria-hidden="true">
-            <span className="onboarding-switch__thumb" />
-          </span>
-        </label>
-        <label className="onboarding-toggle" htmlFor="ob-media-first-view">
-          <input
-            id="ob-media-first-view"
-            role="switch"
-            className="onboarding-switch-input"
-            type="checkbox"
-            checked={generateOnFirstView}
-            onChange={(event) =>
-              onGenerateOnFirstViewChange(event.currentTarget.checked)
-            }
-            aria-describedby="ob-media-first-view-desc"
-          />
-          <div className="onboarding-toggle__text">
-            <span className="onboarding-toggle__label">
-              Generate on first view
-            </span>
-            <span
-              className="onboarding-toggle__desc"
-              id="ob-media-first-view-desc"
-            >
-              Start a preview after the first qualifying video view.
-            </span>
-          </div>
-          <span className="onboarding-switch" aria-hidden="true">
-            <span className="onboarding-switch__thumb" />
-          </span>
-        </label>
-        <label className="onboarding-toggle" htmlFor="ob-media-share">
-          <input
-            id="ob-media-share"
-            role="switch"
-            className="onboarding-switch-input"
-            type="checkbox"
-            checked={generateOnShare}
-            onChange={(event) =>
-              onGenerateOnShareChange(event.currentTarget.checked)
-            }
-            aria-describedby="ob-media-share-desc"
-          />
-          <div className="onboarding-toggle__text">
-            <span className="onboarding-toggle__label">
-              Generate when shared
-            </span>
-            <span className="onboarding-toggle__desc" id="ob-media-share-desc">
-              Create a preview and poster when a video is shared.
-            </span>
-          </div>
-          <span className="onboarding-switch" aria-hidden="true">
-            <span className="onboarding-switch__thumb" />
-          </span>
-        </label>
+      <div className="grid gap-0">
+        <ToggleRow
+          id="ob-media-previews"
+          label="Enable media previews"
+          description="Generates compressed video previews on demand. Requires a worker process and a reasonably capable CPU."
+          checked={enabled}
+          onCheckedChange={onToggle}
+        />
+        <ToggleRow
+          id="ob-media-upload"
+          label="Generate on upload"
+          description="Start a preview when a qualifying video upload finishes."
+          checked={generateOnUpload}
+          onCheckedChange={onGenerateOnUploadChange}
+        />
+        <ToggleRow
+          id="ob-media-first-view"
+          label="Generate on first view"
+          description="Start a preview after the first qualifying video view."
+          checked={generateOnFirstView}
+          onCheckedChange={onGenerateOnFirstViewChange}
+        />
+        <ToggleRow
+          id="ob-media-share"
+          label="Generate when shared"
+          description="Create a preview and poster when a video is shared."
+          checked={generateOnShare}
+          onCheckedChange={onGenerateOnShareChange}
+        />
       </div>
 
       {error && (
-        <p className="onboarding-error" role="alert">
+        <p
+          className="-mt-2 text-center text-label leading-normal text-destructive-foreground"
+          role="alert"
+        >
           {error}
         </p>
       )}
 
-      <button
-        className="onboarding-continue"
+      <Button
+        className="w-full"
         onClick={onComplete}
         disabled={pending}
         type="button"
       >
         {pending ? "Saving…" : "Enter Staaash"}
-      </button>
+      </Button>
     </div>
   );
 }

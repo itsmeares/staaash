@@ -4,7 +4,15 @@ import React, { useState } from "react";
 
 import { normalizeTimeZone } from "@staaash/config/time-zone";
 
+import {
+  SettingsFormStatus,
+  SettingsList,
+  SettingsRow,
+} from "@/components/settings-panel";
 import { TimeZonePicker } from "@/components/time-zone-picker";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { applyThemeWithTransition, type Theme } from "@/lib/theme";
 
 type PreferencesFormProps = {
@@ -75,127 +83,75 @@ export function PreferencesForm({
 
   return (
     <>
-      <div className="settings-list">
-        <div className="settings-row">
-          <div>
-            <div className="settings-row-label">Theme</div>
-            <div className="settings-row-help">
-              Choose how Staaash looks in this browser.
-            </div>
-          </div>
-          <div className="settings-row-value">
-            <div className="settings-segmented" role="group" aria-label="Theme">
-              {THEME_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => handleThemeChange(opt.value)}
-                  className={
-                    theme === opt.value
-                      ? "settings-segment is-active"
-                      : "settings-segment"
-                  }
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="settings-row">
-          <div>
-            <div className="settings-row-label">Time zone</div>
-            <div className="settings-row-help">
-              Used for dates and schedules shown to you.
-            </div>
-          </div>
-          <div className="settings-row-value settings-row-control">
-            <TimeZonePicker
-              className="settings-input"
-              value={timeZone}
-              onChange={(nextTimeZone) => {
-                setTimeZone(nextTimeZone);
-                setSaved(false);
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="settings-row">
-          <div>
-            <div className="settings-row-label">Update notifications</div>
-            <div className="settings-row-help">
-              Show a badge when a new version is available.
-            </div>
-          </div>
-          <div className="settings-row-value">
-            <ToggleSwitch
-              checked={showUpdateNotifications}
-              onChange={setShowUpdateNotifications}
-              label="Update notifications"
-            />
-          </div>
-        </div>
-
-        <div className="settings-row">
-          <div>
-            <div className="settings-row-label">Version checks</div>
-            <div className="settings-row-help">
-              Periodically check GitHub for new releases.
-            </div>
-          </div>
-          <div className="settings-row-value">
-            <ToggleSwitch
-              checked={enableVersionChecks}
-              onChange={setEnableVersionChecks}
-              label="Version checks"
-            />
-          </div>
-        </div>
-      </div>
-
-      {error && (
-        <p className="settings-form-status settings-form-status-error">
-          {error}
-        </p>
-      )}
-
-      <div className="settings-form-footer">
-        <button
-          type="button"
-          className="settings-action settings-action-primary"
-          onClick={handleSave}
-          disabled={saving}
+      <SettingsList plain>
+        <SettingsRow
+          plain
+          label="Theme"
+          hint="Choose how Staaash looks in this browser."
         >
+          <ToggleGroup
+            aria-label="Theme"
+            variant="outline"
+            size="lg"
+            value={[theme]}
+            onValueChange={(next) => {
+              if (next[0]) handleThemeChange(next[0] as Theme);
+            }}
+          >
+            {THEME_OPTIONS.map((opt) => (
+              <ToggleGroupItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </SettingsRow>
+
+        <SettingsRow
+          plain
+          label="Time zone"
+          hint="Used for dates and schedules shown to you."
+        >
+          <TimeZonePicker
+            value={timeZone}
+            onChange={(nextTimeZone) => {
+              setTimeZone(nextTimeZone);
+              setSaved(false);
+            }}
+          />
+        </SettingsRow>
+
+        <SettingsRow
+          plain
+          label="Update notifications"
+          hint="Show a badge when a new version is available."
+        >
+          <Switch
+            aria-label="Update notifications"
+            checked={showUpdateNotifications}
+            onCheckedChange={setShowUpdateNotifications}
+          />
+        </SettingsRow>
+
+        <SettingsRow
+          plain
+          label="Version checks"
+          hint="Periodically check GitHub for new releases."
+        >
+          <Switch
+            aria-label="Version checks"
+            checked={enableVersionChecks}
+            onCheckedChange={setEnableVersionChecks}
+          />
+        </SettingsRow>
+      </SettingsList>
+
+      {error && <SettingsFormStatus tone="error">{error}</SettingsFormStatus>}
+
+      <div className="flex flex-wrap items-center gap-3 pt-0.5 max-md:flex-col max-md:items-stretch">
+        <Button type="button" onClick={handleSave} disabled={saving}>
           {saving ? "Saving…" : saved ? "Saved" : "Save preferences"}
-        </button>
+        </Button>
       </div>
     </>
-  );
-}
-
-function ToggleSwitch({
-  checked,
-  onChange,
-  label,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  label: string;
-}) {
-  return (
-    <button
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      type="button"
-      onClick={() => onChange(!checked)}
-      className={`settings-toggle settings-toggle-button${checked ? " is-checked" : ""}`}
-    >
-      <span className="settings-toggle-track" aria-hidden="true">
-        <span className="settings-toggle-thumb" />
-      </span>
-    </button>
   );
 }

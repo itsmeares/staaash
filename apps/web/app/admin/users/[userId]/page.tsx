@@ -1,14 +1,19 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 
+import { AdminAvatar } from "@/app/admin/admin-avatar";
 import {
   formatAdminBytes,
   formatAdminDateTime,
-  getAdminStatusClassName,
 } from "@/app/admin/admin-format";
+import { AdminPanel } from "@/app/admin/admin-panel";
+import { AdminStatCard } from "@/app/admin/admin-stat-card";
+import { AdminStatusBadge } from "@/app/admin/admin-status-badge";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { requireAdminPageSession } from "@/server/auth/guards";
 import { authService } from "@/server/auth/service";
 import { getAdminStorageSummary } from "@/server/admin/storage";
@@ -107,42 +112,45 @@ export default async function AdminUserDetailsPage({
   );
 
   return (
-    <main className="admin-user-detail">
-      <section className="admin-user-hero" aria-label="User profile summary">
-        <div className="admin-user-hero-copy">
-          <Link className="admin-user-back-button" href="/admin/users">
-            <ArrowLeft size={15} aria-hidden />
+    <main className="m-0 mx-auto grid w-[min(1420px,100%)] grid-cols-1 gap-4.5 p-0">
+      <section
+        className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-5 rounded-lg border border-hairline bg-card p-5 max-md:grid-cols-1 max-xs:p-4"
+        aria-label="User profile summary"
+      >
+        <div className="grid min-w-0 grid-cols-1 gap-3.5">
+          <Button
+            className="justify-self-start"
+            variant="outline"
+            size="sm"
+            render={<Link href="/admin/users" />}
+          >
+            <ArrowLeft aria-hidden />
             Back to users
-          </Link>
-          <div className="admin-user-hero-main">
-            <span
-              className="workspace-avatar admin-user-hero-avatar"
-              aria-hidden
-            >
-              {user.avatarUrl ? (
-                <img
-                  src={user.avatarUrl}
-                  alt=""
-                  className="workspace-avatar-img"
-                />
-              ) : (
-                <span className="workspace-avatar-initials">{initials}</span>
-              )}
-            </span>
-            <div className="admin-user-identity">
-              <h1>{user.displayName ?? "No name yet"}</h1>
-              <p>{user.email}</p>
+          </Button>
+          <div className="flex min-w-0 items-center gap-4 max-xs:items-start">
+            <AdminAvatar
+              avatarUrl={user.avatarUrl ?? null}
+              initials={initials}
+              size="xl"
+            />
+            <div className="grid min-w-0 grid-cols-1 gap-1.5">
+              <h1 className="m-0 truncate font-sans text-3xl leading-tight font-bold text-foreground max-xs:whitespace-normal">
+                {user.displayName ?? "No name yet"}
+              </h1>
+              <p className="m-0 truncate text-body text-muted-foreground max-xs:whitespace-normal">
+                {user.email}
+              </p>
               {hasStatusAlerts ? (
-                <div className="admin-user-status-row">
+                <div className="flex flex-wrap items-center gap-2">
                   {user.passwordChangeRequiredAt ? (
-                    <span className={getAdminStatusClassName("error")}>
-                      password change required
-                    </span>
+                    <AdminStatusBadge status="error" size="lg">
+                      Password change required
+                    </AdminStatusBadge>
                   ) : null}
                   {!user.preferences?.onboardingCompletedAt ? (
-                    <span className={getAdminStatusClassName("warning")}>
-                      onboarding incomplete
-                    </span>
+                    <AdminStatusBadge status="warning" size="lg">
+                      Onboarding incomplete
+                    </AdminStatusBadge>
                   ) : null}
                 </div>
               ) : null}
@@ -163,8 +171,11 @@ export default async function AdminUserDetailsPage({
         />
       </section>
 
-      <section className="admin-user-stat-grid" aria-label="User summary">
-        <SummaryStat
+      <section
+        className="grid grid-cols-4 gap-3.5 max-md:grid-cols-2 max-xs:grid-cols-1"
+        aria-label="User summary"
+      >
+        <AdminStatCard
           label="Total used"
           value={storageUsedLabel}
           detail={
@@ -173,33 +184,31 @@ export default async function AdminUserDetailsPage({
               : "Unlimited quota"
           }
         />
-        <SummaryStat
+        <AdminStatCard
           label="Files"
           value={String(storageRow?.retainedFileCount ?? 0)}
           detail="stored files"
         />
-        <SummaryStat
+        <AdminStatCard
           label="Folders"
           value={String(storageRow?.retainedFolderCount ?? 0)}
           detail="stored folders"
         />
-        <SummaryStat
+        <AdminStatCard
           label="Active devices"
           value={String(sessions.length)}
           detail={`Last seen ${lastSeenAt}`}
         />
       </section>
 
-      <div className="admin-user-detail-layout">
-        <div className="admin-user-detail-main">
-          <DetailPanel title="Account">
-            <dl className="admin-user-fact-list">
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(320px,0.38fr)] items-start gap-4.5 max-md:grid-cols-1">
+        <div className="grid min-w-0 grid-cols-1 gap-4.5">
+          <AdminPanel title="Account">
+            <dl className="m-0 grid grid-cols-1 gap-0">
               <FactRow label="Name" value={user.displayName ?? "No name yet"} />
               <FactRow
                 label="Role"
-                value={
-                  <span className={getAdminStatusClassName(role)}>{role}</span>
-                }
+                value={<AdminStatusBadge status={role} />}
               />
               <FactRow
                 label="Email"
@@ -227,10 +236,10 @@ export default async function AdminUserDetailsPage({
                 code
               />
             </dl>
-          </DetailPanel>
+          </AdminPanel>
 
-          <DetailPanel title="Storage">
-            <dl className="admin-user-fact-list">
+          <AdminPanel title="Storage">
+            <dl className="m-0 grid grid-cols-1 gap-0">
               <FactRow
                 label="Quota"
                 value={
@@ -250,24 +259,19 @@ export default async function AdminUserDetailsPage({
               />
             </dl>
             {quotaPercentLabel ? (
-              <div className="admin-user-quota-meter">
-                <span
-                  aria-hidden
-                  style={
-                    {
-                      "--admin-user-quota": `${quotaBarPercent}%`,
-                    } as CSSProperties
-                  }
-                />
-                <p>{quotaPercentLabel} of quota used</p>
+              <div className="grid grid-cols-1 gap-2 pt-0.5">
+                <Progress aria-label="Quota used" value={quotaBarPercent} />
+                <p className="m-0 text-label text-muted-foreground">
+                  {quotaPercentLabel} of quota used
+                </p>
               </div>
             ) : null}
-          </DetailPanel>
+          </AdminPanel>
         </div>
 
-        <aside className="admin-user-detail-side">
-          <DetailPanel title="Security">
-            <dl className="admin-user-fact-list">
+        <aside className="grid min-w-0 grid-cols-1 gap-4.5">
+          <AdminPanel title="Security">
+            <dl className="m-0 grid grid-cols-1 gap-0">
               <FactRow label="Active devices" value={String(sessions.length)} />
               <FactRow label="Last seen" value={lastSeenAt} />
               <FactRow
@@ -285,7 +289,7 @@ export default async function AdminUserDetailsPage({
                 }
               />
             </dl>
-          </DetailPanel>
+          </AdminPanel>
 
           <AuthorizedDevicesPanel
             userId={user.id}
@@ -305,41 +309,6 @@ export default async function AdminUserDetailsPage({
   );
 }
 
-function SummaryStat({
-  detail,
-  label,
-  value,
-}: {
-  detail: string;
-  label: string;
-  value: string;
-}) {
-  return (
-    <article className="admin-user-stat-card">
-      <span>{label}</span>
-      <strong>{value}</strong>
-      <small>{detail}</small>
-    </article>
-  );
-}
-
-function DetailPanel({
-  children,
-  title,
-}: {
-  children: ReactNode;
-  title: string;
-}) {
-  return (
-    <section className="admin-user-panel">
-      <div className="admin-user-panel-head">
-        <h2>{title}</h2>
-      </div>
-      {children}
-    </section>
-  );
-}
-
 function FactRow({
   copyValue,
   detail,
@@ -354,16 +323,20 @@ function FactRow({
   code?: boolean;
 }) {
   return (
-    <div className="admin-user-fact-row">
-      <dt>{label}</dt>
-      <dd>
-        <span className="admin-user-fact-value">
+    <div className="grid grid-cols-[minmax(145px,0.3fr)_minmax(0,1fr)] items-start gap-4 border-b border-hairline py-3 last:border-b-0 max-md:grid-cols-1 max-md:gap-1.5">
+      <dt className="text-label font-medium text-muted-foreground">{label}</dt>
+      <dd className="m-0 flex min-w-0 flex-wrap items-center gap-2 text-meta text-foreground">
+        <span className="min-w-0 font-semibold wrap-anywhere [&_code]:whitespace-normal">
           {code && typeof value === "string" ? <code>{value}</code> : value}
         </span>
         {copyValue ? (
           <UserDetailCopyButton label={label} value={copyValue} />
         ) : null}
-        {detail ? <small>{detail}</small> : null}
+        {detail ? (
+          <small className="basis-full text-label text-muted-foreground">
+            {detail}
+          </small>
+        ) : null}
       </dd>
     </div>
   );

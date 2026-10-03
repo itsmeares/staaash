@@ -30,7 +30,7 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
 
   return (
     <WorkspacePresetPageContextMenu
-      className="workspace-page recent-page trash-page"
+      className="flex min-h-0 flex-col gap-4.5 max-lg:min-w-0"
       isTrashEmpty={isEmpty}
       preset="trash"
     >

@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { Button } from "@/components/ui/button";
+
 type PaginationControlsProps = {
   page: number;
   totalPages: number;
@@ -14,29 +16,35 @@ export function PaginationControls({
   if (totalPages <= 1) return null;
 
   return (
-    <div className="cluster">
+    <div className="flex flex-wrap items-center gap-3">
       {page > 1 ? (
-        <Link className="button button-secondary" href={buildHref(page - 1)}>
+        <Button
+          render={<Link href={buildHref(page - 1)} />}
+          variant="secondary"
+        >
           Previous
-        </Link>
+        </Button>
       ) : (
-        <button className="button button-secondary" disabled type="button">
+        <Button disabled variant="secondary">
           Previous
-        </button>
+        </Button>
       )}
 
-      <span className="muted">
+      <span className="text-muted-foreground">
         Page {page} of {totalPages}
       </span>
 
       {page < totalPages ? (
-        <Link className="button button-secondary" href={buildHref(page + 1)}>
+        <Button
+          render={<Link href={buildHref(page + 1)} />}
+          variant="secondary"
+        >
           Next
-        </Link>
+        </Button>
       ) : (
-        <button className="button button-secondary" disabled type="button">
+        <Button disabled variant="secondary">
           Next
-        </button>
+        </Button>
       )}
     </div>
   );

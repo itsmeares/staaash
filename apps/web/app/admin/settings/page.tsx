@@ -17,7 +17,7 @@ export default async function AdminSettingsPage() {
   ]);
 
   return (
-    <main className="settings-page admin-settings-page">
+    <main className="mx-auto grid w-full max-w-settings content-start gap-4.5 p-0">
       <SettingsForm
         settings={settings}
         updateStatus={toJsonAdminUpdateStatus(updateStatus)}

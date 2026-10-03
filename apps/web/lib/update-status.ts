@@ -22,16 +22,3 @@ export const getUpdateStatusLabel = (
       return "Not checked";
   }
 };
-
-export const getUpdateStatusDotClassName = (status: UpdateStatus) => {
-  switch (status) {
-    case "up-to-date":
-      return "instance-dot instance-dot--online";
-    case "update-available":
-      return "instance-dot instance-dot--update";
-    case "error":
-      return "instance-dot instance-dot--error";
-    default:
-      return "instance-dot instance-dot--muted";
-  }
-};

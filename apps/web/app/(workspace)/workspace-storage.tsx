@@ -1,5 +1,8 @@
 "use client";
 
+import { SectionLabel } from "@/components/section-label";
+import { cn } from "@/lib/utils";
+
 type WorkspaceStorageProps = {
   usedBytes: string;
   limitBytes: string | null;
@@ -17,13 +20,9 @@ function fmt(n: number): string {
 }
 
 function barColor(pct: number): string {
-  const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-  if (pct <= 65) {
-    const t = pct / 65;
-    return `oklch(${lerp(65, 75, t).toFixed(1)}% ${lerp(0.18, 0.16, t).toFixed(3)} ${lerp(145, 85, t).toFixed(1)})`;
-  }
-  const t = (pct - 65) / 35;
-  return `oklch(${lerp(75, 60, t).toFixed(1)}% ${lerp(0.16, 0.2, t).toFixed(3)} ${lerp(85, 27, t).toFixed(1)})`;
+  if (pct <= 65) return "bg-success";
+  if (pct <= 85) return "bg-warning";
+  return "bg-destructive";
 }
 
 export function WorkspaceStorage({
@@ -48,16 +47,15 @@ export function WorkspaceStorage({
     denom !== null && denom > 0
       ? Math.min(100, Math.round((num / denom) * 100))
       : 0;
-  const color = barColor(pct);
 
   const label =
     denom !== null ? `${fmt(num)} of ${fmt(denom)}` : `${fmt(num)} used`;
 
   return (
-    <div className="workspace-storage">
-      <span className="workspace-storage-label">Storage</span>
+    <div className="flex flex-col gap-1.5 px-0.5">
+      <SectionLabel>Storage</SectionLabel>
       <div
-        className="workspace-storage-bar-track"
+        className="h-1.5 overflow-hidden rounded-full bg-foreground/15"
         role="meter"
         aria-valuenow={pct}
         aria-valuemin={0}
@@ -65,11 +63,16 @@ export function WorkspaceStorage({
         aria-label={`Storage: ${label}`}
       >
         <div
-          className="workspace-storage-bar-fill"
-          style={{ width: `${pct}%`, background: color }}
+          className={cn(
+            "h-full min-w-0.5 transition-[width,background-color] duration-500 motion-reduce:transition-none",
+            barColor(pct),
+          )}
+          style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="workspace-storage-text">{label}</span>
+      <span className="truncate text-xs text-muted-foreground lg:text-meta">
+        {label}
+      </span>
     </div>
   );
 }

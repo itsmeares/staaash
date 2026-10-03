@@ -166,7 +166,7 @@ test("files rows move focus with keyboard and open selected item", async ({
   await expect(page.getByText("shared-preview.png")).toBeVisible();
   await expectNoSeriousA11yViolations(page);
 
-  const list = page.locator(".explorer-list");
+  const list = page.locator("[data-explorer-list]");
   const firstRow = page.locator("[data-file-row]").first();
 
   await list.focus();
@@ -195,7 +195,7 @@ test("share dialog traps focus and returns focus on Escape", async ({
 
   const dialog = page.getByRole("dialog", { name: "Share" });
   await expect(dialog).toBeVisible();
-  await expectNoSeriousA11yViolations(page, '[data-slot="dialog-content"]');
+  await expectNoSeriousA11yViolations(page, '[data-slot="dialog-popup"]');
 
   await page.keyboard.press("Tab");
   await expect

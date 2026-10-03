@@ -13,6 +13,15 @@ import {
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { filesService } from "@/server/files/service";
 import type { FolderSummary } from "@/server/files/types";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { cn } from "@/lib/utils";
 import { ItemContextMenu } from "@/app/item-context-menu";
 import { WorkspacePresetPageContextMenu } from "@/app/dashboard-context-menu";
 import { ItemTypeIcon } from "@/app/item-type-icon";
@@ -41,6 +50,21 @@ type HomeFolder = {
   childCount: number;
 };
 
+const HOME_LIST = "grid min-h-12 [&>[data-slot=context-menu]]:contents";
+const HOME_ROW =
+  "grid min-h-12 grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-x-2 rounded-md px-1.75 py-1.25 text-foreground transition-colors duration-100 hover:bg-hover motion-reduce:transition-none lg:h-row-home lg:gap-x-3 lg:px-2.25 lg:py-2";
+const HOME_NAME =
+  "block min-w-0 truncate text-sm leading-tight font-medium lg:text-body";
+const HOME_META = "text-xs leading-tight text-muted-foreground lg:text-meta";
+
+const EMPTY_TONE_CLASS = {
+  favorite: "text-destructive",
+  folder: "text-primary-ink",
+  neutral: "text-muted-foreground",
+  recent: "text-info",
+  share: "text-success",
+} as const;
+
 function SectionHeader({
   actionHref,
   actionLabel,
@@ -53,12 +77,18 @@ function SectionHeader({
   titleId: string;
 }) {
   return (
-    <div className="home-section-head">
-      <h2 className="home-section-title" id={titleId}>
+    <div className="mb-2 flex min-h-4.5 items-center justify-between gap-3 border-b border-hairline pb-2 lg:mb-2.5 lg:min-h-6 lg:pb-2.5">
+      <h2
+        className="flex min-h-4.5 items-center text-label font-medium text-foreground/75 lg:min-h-6 lg:text-body"
+        id={titleId}
+      >
         {title}
       </h2>
       {actionHref && actionLabel ? (
-        <Link className="home-section-link" href={actionHref}>
+        <Link
+          className="inline-flex min-h-4.5 items-center gap-1 text-xs font-medium whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground motion-reduce:transition-none lg:min-h-6 lg:text-meta"
+          href={actionHref}
+        >
           <span>{actionLabel}</span>
           <ArrowRight size={12} strokeWidth={1.8} aria-hidden />
         </Link>
@@ -70,7 +100,7 @@ function SectionHeader({
 function HomeIcon({ visual }: { visual: HomeItemVisual }) {
   return (
     <ItemTypeIcon
-      className="home-item-icon"
+      className="inline-flex size-6 shrink-0 items-center justify-center justify-self-center lg:size-7.5 [&_svg]:size-4 lg:[&_svg]:size-5"
       size={16}
       tone="plain"
       visual={visual}
@@ -84,31 +114,83 @@ function HomeEmptyBlock({
   title,
 }: {
   icon: LucideIcon;
-  tone?: "favorite" | "folder" | "recent" | "share" | "neutral";
+  tone?: keyof typeof EMPTY_TONE_CLASS;
   title: string;
 }) {
   return (
-    <div className="home-empty-block">
-      <span className={`home-empty-icon home-empty-icon-${tone}`} aria-hidden>
+    <div className={cn(HOME_ROW, "hover:bg-transparent")}>
+      <span
+        className={cn(
+          "inline-flex size-6 items-center justify-center justify-self-center lg:size-7.5 [&_svg]:size-4 lg:[&_svg]:size-5",
+          EMPTY_TONE_CLASS[tone],
+        )}
+        aria-hidden
+      >
         <Icon size={17} strokeWidth={1.8} />
       </span>
-      <span className="home-empty-copy">{title}</span>
+      <span className="min-w-0 text-label text-muted-foreground lg:text-meta">
+        {title}
+      </span>
     </div>
   );
 }
 
 function HomeFirstRunState() {
   return (
-    <section className="home-first-run" aria-label="Start your drive">
-      <span className="home-first-run-icon" aria-hidden>
-        <FolderPlus size={24} strokeWidth={1.7} />
-      </span>
-      <div className="home-first-run-copy">
-        <h2>Add your first file</h2>
-        <p>Upload something now, or create a folder first.</p>
-      </div>
-      <HomePrimaryActions />
+    <section aria-label="Start your drive">
+      <Empty className="min-h-[min(52vh,520px)]">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <FolderPlus aria-hidden />
+          </EmptyMedia>
+          <EmptyTitle>Add your first file</EmptyTitle>
+          <EmptyDescription>
+            Upload something now, or create a folder first.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
+          <HomePrimaryActions className="justify-center" />
+        </EmptyContent>
+      </Empty>
     </section>
+  );
+}
+
+function getRetrievalItemVisual(item: RetrievalItem) {
+  return getHomeItemVisual(
+    item.kind,
+    item.kind === "file" ? item.mimeType : null,
+  );
+}
+
+function HomeItemRow({
+  item,
+  redirectTo,
+  children,
+}: {
+  item: RetrievalItem;
+  redirectTo: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <ItemContextMenu
+      href={item.href}
+      id={item.id}
+      isFavorite={item.isFavorite}
+      kind={item.kind}
+      name={item.name}
+      redirectTo={redirectTo}
+    >
+      {item.kind === "folder" ? (
+        <Link className={HOME_ROW} href={item.href}>
+          {children}
+        </Link>
+      ) : (
+        <a className={HOME_ROW} href={item.href}>
+          {children}
+        </a>
+      )}
+    </ItemContextMenu>
   );
 }
 
@@ -126,39 +208,24 @@ function PinnedList({
   }
 
   return (
-    <div className="home-pinned-list">
+    <div className={HOME_LIST}>
       {items.map((item) => {
-        const visual = getHomeItemVisual(
-          item.kind,
-          item.kind === "file" ? item.mimeType : null,
-        );
+        const visual = getRetrievalItemVisual(item);
         const content = (
           <>
             <HomeIcon visual={visual} />
-            <span className="home-pinned-name">{item.name}</span>
+            <span className={HOME_NAME}>{item.name}</span>
           </>
         );
 
         return (
-          <ItemContextMenu
-            href={item.href}
-            id={item.id}
-            isFavorite={item.isFavorite}
+          <HomeItemRow
+            item={item}
             key={`${item.kind}-${item.id}`}
-            kind={item.kind}
-            name={item.name}
             redirectTo={redirectTo}
           >
-            {item.kind === "folder" ? (
-              <Link className="home-pinned-row" href={item.href}>
-                {content}
-              </Link>
-            ) : (
-              <a className="home-pinned-row" href={item.href}>
-                {content}
-              </a>
-            )}
-          </ItemContextMenu>
+            {content}
+          </HomeItemRow>
         );
       })}
     </div>
@@ -179,20 +246,17 @@ function RecentList({
   }
 
   return (
-    <div className="home-recent-list">
+    <div className={HOME_LIST}>
       {items.map((item) => {
-        const visual = getHomeItemVisual(
-          item.kind,
-          item.kind === "file" ? item.mimeType : null,
-        );
+        const visual = getRetrievalItemVisual(item);
         const content = (
           <>
             <HomeIcon visual={visual} />
-            <span className="home-recent-main">
-              <span className="home-recent-name" title={item.name}>
+            <span className="grid min-w-0 gap-px">
+              <span className={HOME_NAME} title={item.name}>
                 {item.name}
               </span>
-              <span className="home-recent-meta">
+              <span className={HOME_META}>
                 {formatHomeRelativeTime(item.updatedAt)}
               </span>
             </span>
@@ -200,25 +264,13 @@ function RecentList({
         );
 
         return (
-          <ItemContextMenu
-            href={item.href}
-            id={item.id}
-            isFavorite={item.isFavorite}
+          <HomeItemRow
+            item={item}
             key={`${item.kind}-${item.id}`}
-            kind={item.kind}
-            name={item.name}
             redirectTo={redirectTo}
           >
-            {item.kind === "folder" ? (
-              <Link className="home-recent-row" href={item.href}>
-                {content}
-              </Link>
-            ) : (
-              <a className="home-recent-row" href={item.href}>
-                {content}
-              </a>
-            )}
-          </ItemContextMenu>
+            {content}
+          </HomeItemRow>
         );
       })}
     </div>
@@ -239,7 +291,7 @@ function FolderList({
   }
 
   return (
-    <div className="home-folder-list">
+    <div className={HOME_LIST}>
       {folders.map(({ folder, childCount }) => {
         const href = folder.isFilesRoot ? "/files" : `/files/f/${folder.id}`;
 
@@ -252,10 +304,10 @@ function FolderList({
             name={folder.name}
             redirectTo={redirectTo}
           >
-            <Link className="home-folder-row" href={href}>
+            <Link className={HOME_ROW} href={href}>
               <HomeIcon visual={getHomeItemVisual("folder")} />
-              <span className="home-folder-name">{folder.name}</span>
-              <span className="home-folder-meta">
+              <span className={HOME_NAME}>{folder.name}</span>
+              <span className="px-1 text-right text-label whitespace-nowrap text-muted-foreground lg:text-meta">
                 {formatHomeChildCount(childCount)}
               </span>
             </Link>
@@ -274,7 +326,7 @@ function SharedList({ shares }: { shares: ShareLinkSummary[] }) {
   }
 
   return (
-    <div className="home-shared-list">
+    <div className={HOME_LIST}>
       {shares.map((share) => {
         const visual = getHomeItemVisual(
           share.target.targetType,
@@ -289,17 +341,22 @@ function SharedList({ shares }: { shares: ShareLinkSummary[] }) {
             kind="share"
             name={share.target.name}
           >
-            <Link className="home-shared-row" href={`/shared#${share.id}`}>
+            <Link className={HOME_ROW} href={`/shared#${share.id}`}>
               <HomeIcon visual={visual} />
-              <span className="home-shared-main">
-                <span className="home-shared-name">{share.target.name}</span>
-                <span className="home-shared-meta">
+              <span className="grid min-w-0 gap-px">
+                <span className={HOME_NAME}>{share.target.name}</span>
+                <span className={cn(HOME_META, "truncate")}>
                   {share.downloadDisabled ? "Downloads off" : "Downloads on"}
                   {", expires "}
                   {formatHomeExpiryTime(share.expiresAt)}
                 </span>
               </span>
-              <Share2 size={13} strokeWidth={1.8} aria-hidden />
+              <Share2
+                className="text-muted-foreground"
+                size={13}
+                strokeWidth={1.8}
+                aria-hidden
+              />
             </Link>
           </ItemContextMenu>
         );
@@ -373,12 +430,20 @@ export default async function HomePage() {
 
   return (
     <WorkspacePresetPageContextMenu
-      className={`workspace-page home-page${dashboardEmpty ? " home-page-empty" : ""}`}
+      className={cn(
+        "grid w-full content-start gap-6 max-lg:min-w-0 lg:gap-7.5",
+        dashboardEmpty && "gap-7.5 lg:gap-9.5",
+      )}
       preset="home"
     >
-      <header className="home-hero">
-        <div className="home-greeting">
-          <h1>{`${greeting}, ${displayName}.`}</h1>
+      <header
+        className={cn(
+          "grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4.5 pb-1 max-lg:grid-cols-1 max-lg:items-start lg:gap-6 lg:pb-2",
+          dashboardEmpty && "pb-0 lg:pb-0",
+        )}
+      >
+        <div className="grid min-w-0 gap-2">
+          <h1 className="font-heading text-3xl leading-none font-bold tracking-tight text-balance text-foreground lg:text-greeting">{`${greeting}, ${displayName}.`}</h1>
         </div>
         {dashboardEmpty ? null : <HomePrimaryActions />}
       </header>
@@ -386,13 +451,13 @@ export default async function HomePage() {
       {dashboardEmpty ? (
         <HomeFirstRunState />
       ) : (
-        <div className="home-sections-grid">
-          <section className="home-section" aria-labelledby="home-pinned-title">
+        <div className="grid grid-cols-2 items-start gap-7 max-lg:grid-cols-1 lg:gap-8.5">
+          <section className="min-w-0" aria-labelledby="home-pinned-title">
             <SectionHeader title="Pinned" titleId="home-pinned-title" />
             <PinnedList items={pinnedItems} redirectTo={currentPath} />
           </section>
 
-          <section className="home-section" aria-labelledby="home-recent-title">
+          <section className="min-w-0" aria-labelledby="home-recent-title">
             <SectionHeader
               actionHref="/files"
               actionLabel="All files"
@@ -402,10 +467,7 @@ export default async function HomePage() {
             <RecentList items={recentHomeItems} redirectTo={currentPath} />
           </section>
 
-          <section
-            className="home-section"
-            aria-labelledby="home-folders-title"
-          >
+          <section className="min-w-0" aria-labelledby="home-folders-title">
             <SectionHeader
               actionHref="/files"
               actionLabel="View all"
@@ -415,7 +477,7 @@ export default async function HomePage() {
             <FolderList folders={folders} redirectTo={currentPath} />
           </section>
 
-          <section className="home-section" aria-labelledby="home-shared-title">
+          <section className="min-w-0" aria-labelledby="home-shared-title">
             <SectionHeader
               actionHref="/shared"
               actionLabel="Manage"

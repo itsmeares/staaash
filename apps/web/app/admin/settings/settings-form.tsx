@@ -4,22 +4,32 @@ import {
   type ClipboardEvent,
   type InputHTMLAttributes,
   type InputEvent as ReactInputEvent,
-  type ReactNode,
   useActionState,
+  useEffect,
+  useRef,
   useState,
 } from "react";
-import { SearchIcon } from "lucide-react";
 
 import { formatVersionLabel } from "@staaash/config/version";
 import type { SystemSettings } from "@staaash/db/client";
 
+import { AdminStatusBadge } from "@/app/admin/admin-status-badge";
 import {
   formatAdminBytes,
   formatAdminDateTime,
-  getAdminStatusClassName,
 } from "@/app/admin/admin-format";
-import { SettingsPanel } from "@/components/settings-panel";
+import {
+  SettingsAccordion,
+  SettingsFormStatus,
+  SettingsList,
+  SettingsPanel,
+  SettingsRow,
+  SettingsSearch,
+} from "@/components/settings-panel";
 import { TimeZonePicker } from "@/components/time-zone-picker";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { getUpdateStatusLabel } from "@/lib/update-status";
 import type { JsonAdminUpdateStatus } from "@/server/admin/types";
 
@@ -29,13 +39,6 @@ import { UpdateCheckConsole } from "../update-check-console";
 type SettingsFormProps = {
   settings: SystemSettings;
   updateStatus: JsonAdminUpdateStatus;
-};
-
-type SettingRowProps = {
-  label: ReactNode;
-  hint?: ReactNode;
-  hidden?: boolean;
-  children: ReactNode;
 };
 
 type SettingsNumberInputProps = Omit<
@@ -98,58 +101,51 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
   const hasVisiblePanels = Object.values(visiblePanels).some(Boolean);
 
   return (
-    <form action={action} className="settings-form">
-      <label className="settings-search">
-        <SearchIcon className="settings-search-icon" aria-hidden="true" />
-        <input
-          aria-label="Search settings"
-          type="search"
-          value={searchQuery}
-          onChange={(event) => setSearchQuery(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-            }
-          }}
-          placeholder="Search settings"
-        />
-      </label>
+    <form action={action} className="grid gap-4.5">
+      <SettingsSearch
+        aria-label="Search settings"
+        value={searchQuery}
+        onChange={(event) => setSearchQuery(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+          }
+        }}
+        placeholder="Search settings"
+      />
 
-      <div className="settings-accordion" aria-label="Settings sections">
+      <SettingsAccordion>
         <SettingsPanel
           title="Uploads"
           description="Upload limits, temporary upload cleanup, and file preview limits"
           hidden={!visiblePanels.uploads}
         >
-          <dl className="settings-list">
-            <SettingRow label="Max upload size (bytes)">
+          <SettingsList>
+            <SettingsRow label="Max upload size (bytes)">
               <SettingsNumberInput
                 name="maxUploadBytes"
                 defaultValue={String(settings.maxUploadBytes)}
                 min={1}
-                className="settings-input"
               />
-              <span className="settings-field-note">
+              <span className="basis-full text-right text-xs whitespace-nowrap text-muted-foreground">
                 {formatAdminBytes(Number(settings.maxUploadBytes))}
               </span>
-            </SettingRow>
-            <SettingRow label="Upload timeout (minutes)">
+            </SettingsRow>
+            <SettingsRow label="Upload timeout (minutes)">
               <SettingsNumberInput
                 name="uploadTimeoutMinutes"
                 defaultValue={settings.uploadTimeoutMinutes}
                 min={1}
-                className="settings-input"
               />
-            </SettingRow>
-            <SettingRow label="Keep temporary uploads for (hours)">
+            </SettingsRow>
+            <SettingsRow label="Keep temporary uploads for (hours)">
               <SettingsNumberInput
                 name="uploadStagingRetentionHours"
                 defaultValue={settings.uploadStagingRetentionHours}
                 min={1}
-                className="settings-input"
               />
-            </SettingRow>
-            <SettingRow
+            </SettingsRow>
+            <SettingsRow
               label="Active resumable uploads per user"
               hint="Maximum concurrent resumable sessions owned by one user."
             >
@@ -157,10 +153,9 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
                 name="resumableMaxActiveSessionsPerUser"
                 defaultValue={settings.resumableMaxActiveSessionsPerUser}
                 min={1}
-                className="settings-input"
               />
-            </SettingRow>
-            <SettingRow
+            </SettingsRow>
+            <SettingsRow
               label="Active resumable uploads instance-wide"
               hint="Maximum concurrent resumable sessions across all users."
             >
@@ -168,10 +163,9 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
                 name="resumableMaxActiveSessionsInstance"
                 defaultValue={settings.resumableMaxActiveSessionsInstance}
                 min={1}
-                className="settings-input"
               />
-            </SettingRow>
-            <SettingRow
+            </SettingsRow>
+            <SettingsRow
               label="Resumable staged bytes per user"
               hint="Includes active reservations and terminal staging files awaiting deletion."
             >
@@ -179,15 +173,14 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
                 name="resumableMaxReservedBytesPerUser"
                 defaultValue={String(settings.resumableMaxReservedBytesPerUser)}
                 min={1}
-                className="settings-input"
               />
-              <span className="settings-field-note">
+              <span className="basis-full text-right text-xs whitespace-nowrap text-muted-foreground">
                 {formatAdminBytes(
                   Number(settings.resumableMaxReservedBytesPerUser),
                 )}
               </span>
-            </SettingRow>
-            <SettingRow
+            </SettingsRow>
+            <SettingsRow
               label="Resumable staged bytes instance-wide"
               hint="Hard staging-liability ceiling across all users."
             >
@@ -197,34 +190,31 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
                   settings.resumableMaxReservedBytesInstance,
                 )}
                 min={1}
-                className="settings-input"
               />
-              <span className="settings-field-note">
+              <span className="basis-full text-right text-xs whitespace-nowrap text-muted-foreground">
                 {formatAdminBytes(
                   Number(settings.resumableMaxReservedBytesInstance),
                 )}
               </span>
-            </SettingRow>
-            <SettingRow label="Preview source max (bytes)">
+            </SettingsRow>
+            <SettingsRow label="Preview source max (bytes)">
               <SettingsNumberInput
                 name="previewMaxSourceBytes"
                 defaultValue={settings.previewMaxSourceBytes}
                 min={1}
-                className="settings-input"
               />
-              <span className="settings-field-note">
+              <span className="basis-full text-right text-xs whitespace-nowrap text-muted-foreground">
                 {formatAdminBytes(settings.previewMaxSourceBytes)}
               </span>
-            </SettingRow>
-            <SettingRow label="Preview text max (bytes)">
+            </SettingsRow>
+            <SettingsRow label="Preview text max (bytes)">
               <SettingsNumberInput
                 name="previewTextMaxBytes"
                 defaultValue={settings.previewTextMaxBytes}
                 min={1}
-                className="settings-input"
               />
-            </SettingRow>
-          </dl>
+            </SettingsRow>
+          </SettingsList>
           <SettingsPanelActions pending={pending} state={state} />
         </SettingsPanel>
 
@@ -233,24 +223,22 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
           description="Session and share expiry"
           hidden={!visiblePanels.sessions}
         >
-          <dl className="settings-list">
-            <SettingRow label="Session max age (days)">
+          <SettingsList>
+            <SettingsRow label="Session max age (days)">
               <SettingsNumberInput
                 name="sessionMaxAgeDays"
                 defaultValue={settings.sessionMaxAgeDays}
                 min={1}
-                className="settings-input"
               />
-            </SettingRow>
-            <SettingRow label="Share max age (days)">
+            </SettingsRow>
+            <SettingsRow label="Share max age (days)">
               <SettingsNumberInput
                 name="shareMaxAgeDays"
                 defaultValue={settings.shareMaxAgeDays}
                 min={1}
-                className="settings-input"
               />
-            </SettingRow>
-          </dl>
+            </SettingsRow>
+          </SettingsList>
           <SettingsPanelActions pending={pending} state={state} />
         </SettingsPanel>
 
@@ -259,60 +247,58 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
           description="Repository source, cadence, and release status"
           hidden={!visiblePanels.updates}
         >
-          <dl className="settings-list settings-update-list">
-            <SettingRow label="Current version">
-              <span className="settings-row-value-text">
+          <SettingsList>
+            <SettingsRow label="Current version">
+              <span className="text-sm leading-snug text-foreground/82">
                 {updateStatus.currentVersion
                   ? formatVersionLabel(updateStatus.currentVersion)
                   : "n/a"}
               </span>
-            </SettingRow>
-            <SettingRow label="Latest published">
-              <span className="settings-row-value-text">
+            </SettingsRow>
+            <SettingsRow label="Latest published">
+              <span className="text-sm leading-snug text-foreground/82">
                 {updateStatus.latestAvailableVersion
                   ? formatVersionLabel(updateStatus.latestAvailableVersion)
                   : "n/a"}
               </span>
-            </SettingRow>
-            <SettingRow label="Check status">
-              <span
-                className={getAdminStatusClassName(
-                  updateStatus.updateCheckStatus ?? "not checked",
-                )}
+            </SettingsRow>
+            <SettingsRow label="Check status">
+              <AdminStatusBadge
+                status={updateStatus.updateCheckStatus ?? "not checked"}
+                size="lg"
               >
                 {getUpdateStatusLabel(updateStatus.updateCheckStatus)}
-              </span>
-            </SettingRow>
-            <SettingRow label="Last checked">
-              <span className="settings-row-value-text">
+              </AdminStatusBadge>
+            </SettingsRow>
+            <SettingsRow label="Last checked">
+              <span className="text-sm leading-snug text-foreground/82">
                 {formatAdminDateTime(updateStatus.lastUpdateCheckAt)}
               </span>
-            </SettingRow>
-            <SettingRow label="Last message">
-              <span className="settings-row-value-text">
+            </SettingsRow>
+            <SettingsRow label="Last message">
+              <span className="text-sm leading-snug text-foreground/82">
                 {updateStatus.updateCheckMessage ??
                   "No update check has run yet."}
               </span>
-            </SettingRow>
-            <SettingRow label="Repository">
-              <input
+            </SettingsRow>
+            <SettingsRow label="Repository">
+              <Input
+                nativeInput
                 name="updateCheckRepository"
                 type="text"
                 defaultValue={settings.updateCheckRepository}
                 placeholder="owner/repo"
-                className="settings-input"
               />
-            </SettingRow>
-            <SettingRow label="Check interval (hours)">
+            </SettingsRow>
+            <SettingsRow label="Check interval (hours)">
               <SettingsNumberInput
                 name="updateCheckIntervalHours"
                 defaultValue={settings.updateCheckIntervalHours}
                 min={1}
-                className="settings-input"
               />
-            </SettingRow>
-          </dl>
-          <div className="settings-update-console">
+            </SettingsRow>
+          </SettingsList>
+          <div className="flex justify-end max-sm:justify-stretch">
             <UpdateCheckConsole />
           </div>
           <SettingsPanelActions pending={pending} state={state} />
@@ -323,16 +309,15 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
           description="Background worker heartbeat tolerance"
           hidden={!visiblePanels.worker}
         >
-          <dl className="settings-list">
-            <SettingRow label="Heartbeat max age (seconds)">
+          <SettingsList>
+            <SettingsRow label="Heartbeat max age (seconds)">
               <SettingsNumberInput
                 name="workerHeartbeatMaxAgeSeconds"
                 defaultValue={settings.workerHeartbeatMaxAgeSeconds}
                 min={1}
-                className="settings-input"
               />
-            </SettingRow>
-          </dl>
+            </SettingsRow>
+          </SettingsList>
           <SettingsPanelActions pending={pending} state={state} />
         </SettingsPanel>
 
@@ -341,23 +326,22 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
           description="Instance time zone and maintenance window"
           hidden={!visiblePanels.scheduling}
         >
-          <dl className="settings-list">
-            <SettingRow label="Instance time zone">
+          <SettingsList>
+            <SettingsRow label="Instance time zone">
               <TimeZonePicker
                 name="timeZone"
                 defaultValue={settings.timeZone}
-                className="settings-input"
               />
-            </SettingRow>
-            <SettingRow label="Daily maintenance time">
-              <input
+            </SettingsRow>
+            <SettingsRow label="Daily maintenance time">
+              <Input
+                nativeInput
                 name="maintenanceRunTime"
                 type="time"
                 defaultValue={settings.maintenanceRunTime}
-                className="settings-input"
               />
-            </SettingRow>
-          </dl>
+            </SettingsRow>
+          </SettingsList>
           <SettingsPanelActions pending={pending} state={state} />
         </SettingsPanel>
 
@@ -366,15 +350,15 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
           description="Video preview generation, cleanup, and quality"
           hidden={!visiblePanels.media}
         >
-          <dl className="settings-list">
-            <SettingRow label="Enable media previews">
+          <SettingsList>
+            <SettingsRow label="Enable media previews">
               <SettingsToggle
                 name="mediaPreviewEnabled"
                 defaultChecked={settings.mediaPreviewEnabled}
                 label="Enable media previews"
               />
-            </SettingRow>
-            <SettingRow
+            </SettingsRow>
+            <SettingsRow
               label="Generate on upload"
               hint="Create a preview when a qualifying video upload finishes."
             >
@@ -383,8 +367,8 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
                 defaultChecked={settings.mediaPreviewGenerateOnUpload}
                 label="Generate on upload"
               />
-            </SettingRow>
-            <SettingRow
+            </SettingsRow>
+            <SettingsRow
               label="Generate on first view"
               hint="Create a preview after the first qualifying video view."
             >
@@ -393,8 +377,8 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
                 defaultChecked={settings.mediaPreviewGenerateOnFirstView}
                 label="Generate on first view"
               />
-            </SettingRow>
-            <SettingRow
+            </SettingsRow>
+            <SettingsRow
               label="Generate when shared"
               hint="Create a preview and poster when a video is shared."
             >
@@ -403,52 +387,47 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
                 defaultChecked={settings.mediaPreviewGenerateOnShare}
                 label="Generate when shared"
               />
-            </SettingRow>
-            <SettingRow label="Threshold (bytes)">
+            </SettingsRow>
+            <SettingsRow label="Threshold (bytes)">
               <SettingsNumberInput
                 name="mediaPreviewThresholdBytes"
                 defaultValue={String(settings.mediaPreviewThresholdBytes)}
                 min={1}
-                className="settings-input"
               />
-              <span className="settings-field-note">
+              <span className="basis-full text-right text-xs whitespace-nowrap text-muted-foreground">
                 {formatAdminBytes(Number(settings.mediaPreviewThresholdBytes))}
               </span>
-            </SettingRow>
-            <SettingRow label="Keep previews for (days, 0 = never)">
+            </SettingsRow>
+            <SettingsRow label="Keep previews for (days, 0 = never)">
               <SettingsNumberInput
                 name="mediaPreviewRetentionDays"
                 defaultValue={settings.mediaPreviewRetentionDays}
                 min={0}
-                className="settings-input"
               />
-            </SettingRow>
-            <SettingRow label="Max height (px)">
+            </SettingsRow>
+            <SettingsRow label="Max height (px)">
               <SettingsNumberInput
                 name="mediaPreviewMaxHeight"
                 defaultValue={settings.mediaPreviewMaxHeight}
                 min={1}
-                className="settings-input"
               />
-            </SettingRow>
-            <SettingRow label="CRF quality (0-51, lower = better)">
+            </SettingsRow>
+            <SettingsRow label="CRF quality (0-51, lower = better)">
               <SettingsNumberInput
                 name="mediaPreviewCrf"
                 defaultValue={settings.mediaPreviewCrf}
                 min={0}
                 max={51}
-                className="settings-input"
               />
-            </SettingRow>
-            <SettingRow label="Max preview tasks at once">
+            </SettingsRow>
+            <SettingsRow label="Max preview tasks at once">
               <SettingsNumberInput
                 name="mediaPreviewMaxConcurrentJobs"
                 defaultValue={settings.mediaPreviewMaxConcurrentJobs}
                 min={1}
-                className="settings-input"
               />
-            </SettingRow>
-          </dl>
+            </SettingsRow>
+          </SettingsList>
           <SettingsPanelActions pending={pending} state={state} />
         </SettingsPanel>
 
@@ -457,22 +436,21 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
           description="Generated archive cleanup window"
           hidden={!visiblePanels.downloads}
         >
-          <dl className="settings-list">
-            <SettingRow label="Keep zip archives for (days, 0 = never)">
+          <SettingsList>
+            <SettingsRow label="Keep zip archives for (days, 0 = never)">
               <SettingsNumberInput
                 name="zipArchiveRetentionDays"
                 defaultValue={settings.zipArchiveRetentionDays}
                 min={0}
-                className="settings-input"
               />
-            </SettingRow>
-          </dl>
+            </SettingsRow>
+          </SettingsList>
           <SettingsPanelActions pending={pending} state={state} />
         </SettingsPanel>
-      </div>
+      </SettingsAccordion>
 
       {!hasVisiblePanels ? (
-        <p className="settings-search-empty">No settings found.</p>
+        <p className="m-0 text-sm text-muted-foreground">No settings found.</p>
       ) : null}
     </form>
   );
@@ -528,8 +506,9 @@ function SettingsNumberInput({
   }
 
   return (
-    <input
+    <Input
       {...props}
+      nativeInput
       defaultValue={String(defaultValue)}
       inputMode="numeric"
       onBeforeInput={handleBeforeInput}
@@ -549,30 +528,19 @@ function SettingsPanelActions({
   state: { error?: string; success?: boolean };
 }) {
   return (
-    <div className="settings-panel-actions">
+    <div className="flex flex-wrap items-center justify-end gap-2.5 pt-0.5 max-md:flex-col max-md:items-stretch [&>p]:mr-auto max-md:[&>p]:mr-0">
       {state.success ? (
-        <span className="settings-form-status settings-form-status-success">
-          Saved.
-        </span>
+        <SettingsFormStatus tone="success">Saved.</SettingsFormStatus>
       ) : null}
       {state.error ? (
-        <span className="settings-form-status settings-form-status-error">
-          {state.error}
-        </span>
+        <SettingsFormStatus tone="error">{state.error}</SettingsFormStatus>
       ) : null}
-      <button
-        type="reset"
-        className="settings-action settings-action-secondary"
-      >
+      <Button type="reset" variant="secondary">
         Reset
-      </button>
-      <button
-        type="submit"
-        className="settings-action settings-action-primary"
-        disabled={pending}
-      >
+      </Button>
+      <Button type="submit" disabled={pending}>
         {pending ? "Saving..." : "Save"}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -586,30 +554,25 @@ function SettingsToggle({
   defaultChecked: boolean;
   label: string;
 }) {
-  return (
-    <label className="settings-toggle">
-      <input
-        aria-label={label}
-        className="settings-toggle-input"
-        defaultChecked={defaultChecked}
-        name={name}
-        type="checkbox"
-      />
-      <span className="settings-toggle-track">
-        <span className="settings-toggle-thumb" />
-      </span>
-    </label>
-  );
-}
+  const [checked, setChecked] = useState(defaultChecked);
+  const anchor = useRef<HTMLSpanElement>(null);
 
-function SettingRow({ label, hint, hidden, children }: SettingRowProps) {
+  // The switch is controlled, so mirror the native form reset by hand.
+  useEffect(() => {
+    const form = anchor.current?.closest("form");
+    const reset = () => setChecked(defaultChecked);
+    form?.addEventListener("reset", reset);
+    return () => form?.removeEventListener("reset", reset);
+  }, [defaultChecked]);
+
   return (
-    <div className="settings-row" hidden={hidden}>
-      <dt className="settings-row-label">
-        {label}
-        {hint ? <span className="settings-row-help">{hint}</span> : null}
-      </dt>
-      <dd className="settings-row-value settings-row-control">{children}</dd>
-    </div>
+    <span ref={anchor} className="inline-flex">
+      <Switch
+        aria-label={label}
+        checked={checked}
+        name={name}
+        onCheckedChange={setChecked}
+      />
+    </span>
   );
 }

@@ -14,7 +14,7 @@ export function RubberBandRect({
 
   return (
     <div
-      className="rubber-band-rect"
+      className="pointer-events-none absolute z-20 rounded-xs border border-primary/40 bg-primary/6"
       style={{
         left: Math.min(rubberBand.startX, rubberBand.currentX),
         top: Math.min(rubberBand.startY, rubberBand.currentY),

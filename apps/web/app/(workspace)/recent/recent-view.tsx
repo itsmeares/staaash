@@ -14,13 +14,9 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowDown,
-  ArrowUp,
   Clock,
   Download,
   ExternalLink,
-  Grid2X2,
-  List,
   MoreHorizontal,
   RefreshCw,
   RotateCcw,
@@ -36,7 +32,9 @@ import {
   type DashboardContextMenuGroup,
 } from "@/app/dashboard-context-menu";
 import { getItemVisual } from "@/app/item-visuals";
-import { ItemTypeIcon } from "@/app/item-type-icon";
+import { PageHeader } from "@/components/page-header";
+import { Badge } from "@/components/ui/badge";
+import { ViewToggle, type ViewMode } from "@/components/view-toggle";
 import { startValidatedDownload } from "@/lib/transfers/download";
 
 import { useTransferContext } from "../transfer-context";
@@ -47,7 +45,34 @@ import {
 } from "../workspace-item-helpers";
 import { WorkspaceActionSheet } from "../workspace-action-sheet";
 import { RubberBandRect, type RubberBand } from "../rubber-band-rect";
-import { RecentGroupSections } from "./recent-group-sections";
+import {
+  COLLECTION_GRID_CARDS,
+  COLLECTION_ROW_LOCATION,
+  COLLECTION_ROW_NAME,
+  COLLECTION_ROW_SIZE,
+  COLLECTION_ROW_TIME,
+  CollectionColumnHead,
+  CollectionEmpty,
+  CollectionGridCard,
+  CollectionRow,
+  CollectionSortButton,
+  CollectionToolbar,
+  DeletedBadge,
+  FavoriteDot,
+  GridCardActions,
+  GridCardBody,
+  GridCardPreview,
+  InlineActions,
+  RowActionButton,
+  RowActions,
+  RowIcon,
+  TypeFilterSelect,
+} from "../collection-parts";
+import { SelectionBar } from "../selection-bar";
+import {
+  RecentGroupHeader,
+  RecentGroupSections,
+} from "./recent-group-sections";
 import {
   filterRecentItems,
   formatRecentFileSize,
@@ -59,8 +84,6 @@ import {
   type RecentSortDirection,
   type RecentSortKey,
 } from "./recent-helpers";
-
-type RecentViewMode = "grid" | "list";
 
 type RecentViewProps = {
   error?: string | null;
@@ -87,40 +110,8 @@ function getTrashItemHref(item: RecentClientItem): string {
   return `/trash#${item.kind}-${item.id}`;
 }
 
-function SortIcon({
-  active,
-  direction,
-}: {
-  active: boolean;
-  direction: RecentSortDirection;
-}) {
-  if (!active) return <ArrowDown size={11} aria-hidden />;
-  return direction === "asc" ? (
-    <ArrowUp size={11} aria-hidden />
-  ) : (
-    <ArrowDown size={11} aria-hidden />
-  );
-}
-
-function ItemIcon({
-  item,
-  size = 14,
-  tone = "filled",
-}: {
-  item: RecentClientItem;
-  size?: number;
-  tone?: "filled" | "plain";
-}) {
-  return (
-    <ItemTypeIcon
-      size={size}
-      tone={tone}
-      visual={getItemVisual(
-        item.kind,
-        item.kind === "file" ? item.mimeType : null,
-      )}
-    />
-  );
+function getVisual(item: RecentClientItem) {
+  return getItemVisual(item.kind, item.kind === "file" ? item.mimeType : null);
 }
 
 export function RecentView({ error, items, success }: RecentViewProps) {
@@ -128,7 +119,7 @@ export function RecentView({ error, items, success }: RecentViewProps) {
   const [, startTransition] = useTransition();
   const { handleDownload } = useTransferContext();
   const isCoarsePointer = useCoarsePointer();
-  const [viewMode, setViewMode] = useState<RecentViewMode>("list");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [filterType, setFilterType] = useState<RecentFilterType>("all");
   const [sortKey, setSortKey] = useState<RecentSortKey>("uploadedAt");
   const [sortDirection, setSortDirection] =
@@ -458,7 +449,9 @@ export function RecentView({ error, items, success }: RecentViewProps) {
 
       const target = event.target as HTMLElement;
       if (target.closest("button, input, select, textarea")) return;
-      if (target.closest(".recent-toolbar, .recent-col-head")) return;
+      if (target.closest("[data-collection-toolbar], [data-collection-head]")) {
+        return;
+      }
 
       const container = listRef.current;
       if (!container) return;
@@ -610,39 +603,36 @@ export function RecentView({ error, items, success }: RecentViewProps) {
   const renderSortButton = (
     key: RecentSortKey,
     label: string,
-    align = "left",
+    align: "left" | "right" = "left",
   ) => (
-    <button
-      className={`recent-col-head-cell${sortKey === key ? " is-sorted" : ""}`}
-      data-column={key}
-      data-align={align}
-      type="button"
+    <CollectionSortButton
+      active={sortKey === key}
+      align={align}
+      className={key === "path" || key === "size" ? "max-lg:hidden" : undefined}
+      column={key}
+      direction={sortDirection}
+      label={label}
       onClick={() => toggleSort(key)}
-    >
-      {label}
-      <SortIcon active={sortKey === key} direction={sortDirection} />
-    </button>
+    />
   );
 
   const renderItemActions = (item: RecentClientItem) =>
     item.storageMutationStatus ? (
-      <span className="pill pill-sm">
+      <Badge size="sm">
         {item.storageMutationStatus === "recovery_required"
           ? "Recovery required"
           : "Finishing storage operation"}
-      </span>
+      </Badge>
     ) : isCoarsePointer ? (
-      <button
+      <RowActionButton
         aria-label={`Actions for ${item.name}`}
-        className="recent-action-btn"
-        type="button"
         onClick={(event) => {
           event.stopPropagation();
           setActionSheetItem(item);
         }}
       >
         <MoreHorizontal size={13} aria-hidden />
-      </button>
+      </RowActionButton>
     ) : (
       <>
         {item.deletedAt ? (
@@ -669,62 +659,55 @@ export function RecentView({ error, items, success }: RecentViewProps) {
               }}
             >
               <input name="redirectTo" type="hidden" value="/recent" />
-              <button
+              <RowActionButton
                 aria-label={`Restore ${item.name}`}
-                className="recent-action-btn"
                 type="submit"
                 onClick={(event) => event.stopPropagation()}
               >
                 <RotateCcw size={13} aria-hidden />
-              </button>
+              </RowActionButton>
             </form>
-            <button
+            <RowActionButton
               aria-label={`Delete ${item.name} from Trash`}
-              className="recent-action-btn recent-action-btn-danger"
-              type="button"
+              tone="danger"
               onClick={(event) => {
                 event.stopPropagation();
                 router.push(getTrashItemHref(item));
               }}
             >
               <Trash2 size={13} aria-hidden />
-            </button>
+            </RowActionButton>
           </>
         ) : (
           <>
-            <button
+            <RowActionButton
               aria-label={`Open ${item.name}`}
-              className="recent-action-btn"
-              type="button"
               onClick={(event) => {
                 event.stopPropagation();
                 openItem(item);
               }}
             >
               <ExternalLink size={13} aria-hidden />
-            </button>
-            <button
+            </RowActionButton>
+            <RowActionButton
               aria-label={`Download ${item.name}`}
-              className="recent-action-btn"
-              type="button"
               onClick={(event) => {
                 event.stopPropagation();
                 void downloadItem(item);
               }}
             >
               <Download size={13} aria-hidden />
-            </button>
-            <button
+            </RowActionButton>
+            <RowActionButton
               aria-label={`Move ${item.name} to trash`}
-              className="recent-action-btn recent-action-btn-danger"
-              type="button"
+              tone="danger"
               onClick={(event) => {
                 event.stopPropagation();
                 void trashItems([item]);
               }}
             >
               <Trash2 size={13} aria-hidden />
-            </button>
+            </RowActionButton>
           </>
         )}
       </>
@@ -808,44 +791,48 @@ export function RecentView({ error, items, success }: RecentViewProps) {
     item,
     selected,
     deleted,
-    className,
+    variant,
     children,
   }: {
     item: RecentClientItem;
     selected: boolean;
     deleted: boolean;
-    className: string;
+    variant: "row" | "card";
     children: ReactNode;
-  }) => (
-    <DashboardItemContextMenu
-      groups={
-        item.storageMutationStatus ? [] : getRecentItemContextGroups(item)
-      }
-      key={`${item.kind}-${item.id}`}
-    >
-      <article
-        data-recent-active={deleted ? undefined : "true"}
-        data-recent-item={item.id}
-        tabIndex={deleted ? -1 : 0}
-        role={deleted ? undefined : "button"}
-        aria-pressed={deleted ? undefined : selected}
-        className={className}
-        onKeyDown={(event) => handleRecentItemKeyDown(item, event)}
-        onClick={(event) => handleItemClick(item, event)}
-        onDoubleClick={(event) => {
-          event.stopPropagation();
-          if (deleted || item.storageMutationStatus) return;
-          openItem(item);
-        }}
-        onPointerCancel={clearLongPressTimer}
-        onPointerDown={(event) => handleRecentPointerDown(item, event)}
-        onPointerLeave={clearLongPressTimer}
-        onPointerUp={clearLongPressTimer}
+  }) => {
+    const Shell = variant === "row" ? CollectionRow : CollectionGridCard;
+    return (
+      <DashboardItemContextMenu
+        groups={
+          item.storageMutationStatus ? [] : getRecentItemContextGroups(item)
+        }
+        key={`${item.kind}-${item.id}`}
       >
-        {children}
-      </article>
-    </DashboardItemContextMenu>
-  );
+        <Shell
+          data-recent-active={deleted ? undefined : "true"}
+          data-recent-item={item.id}
+          deleted={deleted}
+          selected={selected}
+          tabIndex={deleted ? -1 : 0}
+          role={deleted ? undefined : "button"}
+          aria-pressed={deleted ? undefined : selected}
+          onKeyDown={(event) => handleRecentItemKeyDown(item, event)}
+          onClick={(event) => handleItemClick(item, event)}
+          onDoubleClick={(event) => {
+            event.stopPropagation();
+            if (deleted || item.storageMutationStatus) return;
+            openItem(item);
+          }}
+          onPointerCancel={clearLongPressTimer}
+          onPointerDown={(event) => handleRecentPointerDown(item, event)}
+          onPointerLeave={clearLongPressTimer}
+          onPointerUp={clearLongPressTimer}
+        >
+          {children}
+        </Shell>
+      </DashboardItemContextMenu>
+    );
+  };
 
   const backgroundMenuGroups: DashboardContextMenuGroup[] = [
     {
@@ -893,99 +880,68 @@ export function RecentView({ error, items, success }: RecentViewProps) {
 
   return (
     <DashboardPageContextMenu
-      className="workspace-page recent-page"
+      className="flex min-h-0 flex-col gap-4.5 max-lg:min-w-0"
       groups={backgroundMenuGroups}
       tabIndex={-1}
       onKeyDown={handleKeyDown}
     >
-      <div className="recent-header">
-        <h1>Recent</h1>
-        {items.length > 0 ? (
-          <span className="section-count">{items.length}</span>
-        ) : null}
-        {selectedItems.length > 0 ? (
-          <span className="selection-badge">
-            {selectedItems.length} selected
-          </span>
-        ) : null}
-      </div>
+      <PageHeader
+        title="Recent"
+        meta={
+          <>
+            {items.length > 0 ? <Badge>{items.length}</Badge> : null}
+            {selectedItems.length > 0 ? (
+              <Badge variant="accent">{selectedItems.length} selected</Badge>
+            ) : null}
+          </>
+        }
+      />
 
       {error ? <FlashMessage>{error}</FlashMessage> : null}
       {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
       {actionError ? <FlashMessage>{actionError}</FlashMessage> : null}
 
-      <div className="recent-toolbar" aria-label="Recent display controls">
-        <label className="recent-filter-label">
-          <span>Type</span>
-          <select
-            className="recent-type-select"
-            value={filterType}
-            onChange={(event) =>
-              setFilterType(event.target.value as RecentFilterType)
-            }
-          >
-            {WORKSPACE_ITEM_FILTERS.map((filter) => (
-              <option key={filter.id} value={filter.id}>
-                {filter.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <div className="recent-view-toggle" aria-label="View mode">
-          <button
-            aria-label="List view"
-            className={viewMode === "list" ? "is-active" : ""}
-            type="button"
-            onClick={() => setViewMode("list")}
-          >
-            <List size={14} aria-hidden />
-          </button>
-          <button
-            aria-label="Grid view"
-            className={viewMode === "grid" ? "is-active" : ""}
-            type="button"
-            onClick={() => setViewMode("grid")}
-          >
-            <Grid2X2 size={14} aria-hidden />
-          </button>
-        </div>
-      </div>
+      <CollectionToolbar aria-label="Recent display controls">
+        <TypeFilterSelect
+          options={WORKSPACE_ITEM_FILTERS}
+          value={filterType}
+          onValueChange={(value) => setFilterType(value as RecentFilterType)}
+        />
+        <ViewToggle
+          className="ml-auto"
+          value={viewMode}
+          onValueChange={setViewMode}
+        />
+      </CollectionToolbar>
 
       {visibleItems.length === 0 ? (
-        <div className="recent-empty-state">
-          <span className="recent-empty-icon">
-            <Clock size={22} aria-hidden />
-          </span>
-          <p>
-            {items.length === 0
-              ? "No recent uploads yet"
-              : "No recent items match that filter"}
-          </p>
-          <span>
-            {items.length === 0
+        <CollectionEmpty
+          description={
+            items.length === 0
               ? "Files and folders you add will appear here."
-              : "Try a different type."}
-          </span>
-        </div>
+              : "Try a different type."
+          }
+          icon={<Clock aria-hidden />}
+          title={
+            items.length === 0
+              ? "No recent uploads yet"
+              : "No recent items match that filter"
+          }
+        />
       ) : viewMode === "list" ? (
         <div
           ref={listRef}
-          className="recent-table-wrap"
+          className="relative grid min-h-0 select-none max-md:pb-22 pointer-coarse:pb-22"
           onClick={handleRecentListClick}
           onMouseDown={handleRecentMouseDown}
         >
-          <div
-            className="recent-col-head"
-            role="row"
-            aria-label="Recent columns"
-          >
+          <CollectionColumnHead aria-label="Recent columns">
             <span aria-hidden />
             {renderSortButton("name", "Name")}
             {renderSortButton("path", "Location")}
             {renderSortButton("size", "Size", "right")}
             {renderSortButton("uploadedAt", "Uploaded", "right")}
-          </div>
+          </CollectionColumnHead>
 
           <RubberBandRect rubberBand={rubberBand} />
 
@@ -998,46 +954,33 @@ export function RecentView({ error, items, success }: RecentViewProps) {
                 item,
                 selected,
                 deleted,
-                className: `recent-row${selected ? " is-selected" : ""}${deleted ? " is-deleted" : ""}`,
+                variant: "row",
                 children: (
                   <>
-                    <span className="recent-row-thumb">
-                      <ItemIcon item={item} tone="plain" />
-                    </span>
-                    <span className="recent-row-name" title={item.name}>
-                      {item.name}
-                      {item.isFavorite ? (
-                        <span
-                          aria-label="Favorited"
-                          className="recent-favorite-dot"
-                        />
-                      ) : null}
-                      {deleted ? (
-                        <span className="recent-deleted-badge">Deleted</span>
-                      ) : null}
+                    <RowIcon deleted={deleted} visual={getVisual(item)} />
+                    <span className={COLLECTION_ROW_NAME} title={item.name}>
+                      <span className="truncate">{item.name}</span>
+                      {item.isFavorite ? <FavoriteDot /> : null}
+                      {deleted ? <DeletedBadge /> : null}
                     </span>
                     <span
-                      className="recent-row-location"
+                      className={COLLECTION_ROW_LOCATION}
                       title={item.locationLabel}
                     >
                       {item.locationLabel}
                     </span>
-                    <span className="recent-row-size">
+                    <span className={COLLECTION_ROW_SIZE}>
                       {formatRecentFileSize(item.sizeBytes)}
                     </span>
-                    <span className="recent-row-time">
+                    <span className={COLLECTION_ROW_TIME}>
                       {deleted ? (
-                        <span className="recent-row-inline-actions">
-                          {renderItemActions(item)}
-                        </span>
+                        <InlineActions>{renderItemActions(item)}</InlineActions>
                       ) : (
                         formatRecentRelativeTime(item.uploadedAt)
                       )}
                     </span>
                     {!deleted ? (
-                      <span className="recent-row-actions">
-                        {renderItemActions(item)}
-                      </span>
+                      <RowActions>{renderItemActions(item)}</RowActions>
                     ) : null}
                   </>
                 ),
@@ -1048,62 +991,45 @@ export function RecentView({ error, items, success }: RecentViewProps) {
       ) : (
         <div
           ref={listRef}
-          className="recent-grid-wrap"
+          className="relative grid gap-1 pb-14 select-none max-md:pb-22 pointer-coarse:pb-22"
           onClick={handleRecentListClick}
           onMouseDown={handleRecentMouseDown}
         >
           <RubberBandRect rubberBand={rubberBand} />
 
           {groups.map((group) => (
-            <section className="recent-grid-group" key={group.label}>
-              <div className="recent-grid-group-header">
-                <span>{group.label}</span>
-                <small>{group.items.length}</small>
-              </div>
+            <section className="group/group grid" key={group.label}>
+              <RecentGroupHeader
+                count={group.items.length}
+                label={group.label}
+              />
 
-              <div className="recent-grid-cards">
+              <div className={COLLECTION_GRID_CARDS}>
                 {group.items.map((item) => {
                   const deleted = Boolean(item.deletedAt);
                   const selected = !deleted && selectedIds.has(item.id);
-                  const visual = getItemVisual(
-                    item.kind,
-                    item.kind === "file" ? item.mimeType : null,
-                  );
+                  const visual = getVisual(item);
                   return renderRecentItemShell({
                     item,
                     selected,
                     deleted,
-                    className: `recent-grid-card${selected ? " is-selected" : ""}${deleted ? " is-deleted" : ""}`,
+                    variant: "card",
                     children: (
                       <>
-                        <div
-                          className="recent-grid-card-preview"
-                          style={{ background: visual.background }}
+                        <GridCardPreview deleted={deleted} visual={visual} />
+                        <GridCardBody
+                          badge={deleted ? <DeletedBadge /> : null}
+                          deleted={deleted}
+                          end={formatRecentFileSize(item.sizeBytes)}
+                          name={item.name}
+                          start={formatRecentRelativeTime(item.uploadedAt)}
+                        />
+                        <GridCardActions
+                          alwaysVisible={deleted}
+                          placement="top"
                         >
-                          <ItemIcon item={item} size={30} />
-                        </div>
-                        <div className="recent-grid-card-body">
-                          <span
-                            className="recent-grid-card-name"
-                            title={item.name}
-                          >
-                            {item.name}
-                          </span>
-                          {deleted ? (
-                            <span className="recent-deleted-badge">
-                              Deleted
-                            </span>
-                          ) : null}
-                          <span className="recent-grid-card-meta">
-                            <span>
-                              {formatRecentRelativeTime(item.uploadedAt)}
-                            </span>
-                            <span>{formatRecentFileSize(item.sizeBytes)}</span>
-                          </span>
-                        </div>
-                        <span className="recent-grid-card-actions">
                           {renderItemActions(item)}
-                        </span>
+                        </GridCardActions>
                       </>
                     ),
                   });
@@ -1114,36 +1040,28 @@ export function RecentView({ error, items, success }: RecentViewProps) {
         </div>
       )}
       {isCoarsePointer && selectedItems.length > 0 ? (
-        <div className="workspace-selection-bar" role="region">
-          <span>
-            {selectedItems.length} item
-            {selectedItems.length === 1 ? "" : "s"}
-          </span>
-          <button
-            type="button"
-            onClick={() =>
-              void handleDownload(selectedItems.map((item) => item.id))
-            }
-          >
-            Download
-          </button>
-          <button
-            className="is-danger"
-            type="button"
-            onClick={() => void trashItems(selectedItems)}
-          >
-            Trash
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedIds(new Set());
-              setLastSelectedId(null);
-            }}
-          >
-            Clear
-          </button>
-        </div>
+        <SelectionBar
+          actions={[
+            {
+              label: "Download",
+              onClick: () =>
+                void handleDownload(selectedItems.map((item) => item.id)),
+            },
+            {
+              destructive: true,
+              label: "Trash",
+              onClick: () => void trashItems(selectedItems),
+            },
+            {
+              label: "Clear",
+              onClick: () => {
+                setSelectedIds(new Set());
+                setLastSelectedId(null);
+              },
+            },
+          ]}
+          count={selectedItems.length}
+        />
       ) : null}
       <WorkspaceActionSheet
         groups={

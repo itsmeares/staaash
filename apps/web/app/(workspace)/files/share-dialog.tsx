@@ -2,10 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy, Link2Off, Lock, LockOpen, Download } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
+import { Switch } from "@/components/ui/switch";
 import type { ShareLinkSummary } from "@/server/sharing";
 import type { ManagedShareView } from "@/server/sharing/mutation-response";
 
@@ -269,25 +277,15 @@ export function ShareDialog({
         if (!open) closeAndRestoreFocus();
       }}
     >
-      <DialogContent className="share-dialog" showCloseButton={false}>
-        {/* Header */}
-        <div className="share-dialog-header">
-          <DialogTitle className="share-dialog-title">Share</DialogTitle>
-          <button
-            className="shortcut-legend-close"
-            type="button"
-            onClick={closeAndRestoreFocus}
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </div>
+      <DialogContent className="max-w-105">
+        <DialogHeader className="border-b border-hairline px-5 pt-4 pb-3">
+          <DialogTitle className="text-label font-semibold">Share</DialogTitle>
+        </DialogHeader>
 
-        <div className="share-dialog-body">
-          {/* ── No share yet ── */}
+        <div className="grid">
           {!dialogShare && (
-            <div className="share-dialog-section share-dialog-empty">
-              <p className="share-dialog-hint">
+            <div className="grid gap-3.5 px-5 py-5">
+              <p className="text-label leading-normal text-muted-foreground">
                 No public link for this {targetType}.
               </p>
               <Button size="sm" onClick={createLink} disabled={isBusy}>
@@ -296,137 +294,141 @@ export function ShareDialog({
             </div>
           )}
 
-          {/* ── Active share ── */}
           {isActive && dialogShare && (
             <>
-              {/* URL */}
-              <div className="share-dialog-section">
-                <div className="share-url-row">
-                  <input
-                    className="share-url-input"
-                    value={dialogShare.shareUrl}
-                    readOnly
-                    aria-label="Share URL"
-                  />
-                  <button
+              <div className="grid gap-2.5 border-b border-hairline px-5 py-3.5">
+                <div className="flex items-center gap-2">
+                  <InputGroup className="min-w-0 flex-1">
+                    <InputGroupInput
+                      className="font-mono text-xs text-muted-foreground"
+                      value={dialogShare.shareUrl}
+                      readOnly
+                      aria-label="Share URL"
+                    />
+                  </InputGroup>
+                  <Button
                     type="button"
-                    className="share-copy-btn"
+                    variant="outline"
+                    size="sm"
                     onClick={copyUrl}
                     aria-label="Copy link"
                   >
-                    {copied ? <Check size={13} /> : <Copy size={13} />}
+                    {copied ? <Check /> : <Copy />}
                     {copied ? "Copied" : "Copy"}
-                  </button>
+                  </Button>
                 </div>
               </div>
 
-              {/* Expiry */}
-              <div className="share-dialog-section">
-                <div className="share-expiry-header">
-                  <p className="share-dialog-section-label">Expires</p>
-                  <span className="share-expiry-value">
+              <div className="grid gap-2.5 border-b border-hairline px-5 py-3.5">
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                    Expires
+                  </p>
+                  <span className="text-xs font-medium text-foreground tabular-nums">
                     {formatExpiry(dialogShare.expiresAt)}
                   </span>
                 </div>
 
-                {/* Presets */}
-                <div className="share-preset-row">
+                <div className="flex flex-wrap gap-1.5">
                   {[
                     { label: "7 days", days: 7 },
                     { label: "30 days", days: 30 },
                     { label: "90 days", days: 90 },
                     { label: "1 year", days: 365 },
                   ].map(({ label, days }) => (
-                    <button
+                    <Button
                       key={days}
                       type="button"
-                      className="share-preset-btn"
+                      variant="outline"
+                      size="xs"
                       onClick={() => setExpiryPreset(days)}
                       disabled={isBusy}
                     >
                       {label}
-                    </button>
+                    </Button>
                   ))}
                 </div>
 
-                {/* Custom date + time */}
-                <div className="share-expiry-custom">
-                  <input
+                <div className="flex items-center gap-1.5">
+                  <Input
                     type="date"
-                    className="share-date-input"
+                    size="sm"
+                    className="min-w-0 flex-1"
                     value={customDate}
                     onChange={(e) => setCustomDate(e.target.value)}
                     disabled={isBusy}
                     aria-label="Expiry date"
                   />
-                  <input
+                  <Input
                     type="time"
-                    className="share-time-input"
+                    size="sm"
+                    className="w-28 shrink-0"
                     value={customTime}
                     onChange={(e) => setCustomTime(e.target.value)}
                     disabled={isBusy}
                     aria-label="Expiry time"
                   />
-                  <button
+                  <Button
                     type="button"
-                    className="share-expiry-save-btn"
+                    variant="secondary"
+                    size="sm"
                     onClick={saveCustomExpiry}
                     disabled={isBusy || !customDate}
                   >
                     Save
-                  </button>
+                  </Button>
                 </div>
               </div>
 
-              {/* Settings */}
-              <div className="share-dialog-section">
-                <p className="share-dialog-section-label">Settings</p>
+              <div className="grid gap-2.5 border-b border-hairline px-5 py-3.5">
+                <p className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                  Settings
+                </p>
 
-                {/* Downloads toggle */}
-                <label className="share-toggle-label">
-                  <input
-                    type="checkbox"
-                    className="share-toggle-check"
+                <label className="flex cursor-pointer items-center gap-2 select-none">
+                  <Switch
                     checked={!dialogShare.downloadDisabled}
-                    onChange={toggleDownloads}
+                    onCheckedChange={toggleDownloads}
                     disabled={isBusy}
                   />
-                  <span className="share-toggle-slider" aria-hidden />
                   <Download
                     size={13}
-                    className="share-setting-icon"
+                    className="shrink-0 text-muted-foreground"
                     aria-hidden
                   />
-                  <span className="share-toggle-text">Allow downloads</span>
+                  <span className="text-label text-foreground">
+                    Allow downloads
+                  </span>
                 </label>
 
-                {/* Password */}
-                <div className="share-password-block">
-                  <div className="share-password-row">
+                <div className="grid gap-2">
+                  <div className="flex items-center gap-2">
                     <Lock
                       size={13}
-                      className="share-setting-icon"
+                      className="shrink-0 text-muted-foreground"
                       aria-hidden
                     />
-                    <span className="share-setting-label">
+                    <span className="min-w-0 flex-1 text-label text-muted-foreground">
                       {dialogShare.hasPassword
                         ? "Password protected"
                         : "No password"}
                     </span>
-                    <div className="share-password-actions">
+                    <div className="flex shrink-0 gap-1.5">
                       {dialogShare.hasPassword && (
-                        <button
+                        <Button
                           type="button"
-                          className="share-action-btn share-action-btn--danger"
+                          variant="destructive-outline"
+                          size="xs"
                           onClick={handleClearPassword}
                           disabled={isBusy}
                         >
                           Remove
-                        </button>
+                        </Button>
                       )}
-                      <button
+                      <Button
                         type="button"
-                        className="share-action-btn"
+                        variant="outline"
+                        size="xs"
                         onClick={() => setShowPasswordField((v) => !v)}
                       >
                         {showPasswordField
@@ -434,14 +436,15 @@ export function ShareDialog({
                           : dialogShare.hasPassword
                             ? "Change"
                             : "Set"}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                   {showPasswordField && (
-                    <div className="share-password-input-row">
-                      <input
+                    <div className="flex items-center gap-2">
+                      <Input
                         type="password"
-                        className="share-password-input"
+                        size="sm"
+                        className="flex-1"
                         placeholder="Min 4 characters"
                         value={passwordValue}
                         onChange={(e) => setPasswordValue(e.target.value)}
@@ -452,40 +455,40 @@ export function ShareDialog({
                         autoComplete="new-password"
                         autoFocus
                       />
-                      <button
+                      <Button
                         type="button"
-                        className="share-action-btn share-action-btn--primary"
+                        variant="secondary"
+                        size="xs"
                         onClick={handleSetPassword}
                         disabled={isBusy || passwordValue.trim().length < 4}
                       >
                         {dialogShare.hasPassword ? "Update" : "Set"}
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Revoke */}
-              <div className="share-dialog-section share-dialog-footer">
-                <button
+              <div className="px-5 py-3">
+                <Button
                   type="button"
-                  className="share-revoke-btn"
+                  variant="destructive-outline"
+                  className="w-full"
                   onClick={revokeLink}
                   disabled={isBusy}
                 >
-                  <Link2Off size={14} aria-hidden />
+                  <Link2Off aria-hidden />
                   Revoke link
-                </button>
+                </Button>
               </div>
             </>
           )}
 
-          {/* ── Inactive share ── */}
           {isInactive && dialogShare && (
-            <div className="share-dialog-section share-dialog-empty">
-              <p className="share-dialog-hint">
+            <div className="grid gap-3.5 px-5 py-5">
+              <p className="text-label leading-normal text-muted-foreground">
                 This link is{" "}
-                <strong>
+                <strong className="font-semibold text-foreground">
                   {dialogShare.status === "revoked" ? "revoked" : "expired"}
                 </strong>
                 .

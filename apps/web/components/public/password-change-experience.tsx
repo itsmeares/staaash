@@ -2,6 +2,11 @@
 
 import React, { useEffect, useRef, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
+import styles from "./entry-experience.module.css";
+
 export function PasswordChangeExperience() {
   const firstFieldRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -48,28 +53,33 @@ export function PasswordChangeExperience() {
   }
 
   return (
-    <div className="entry-form entry-form--entering">
-      <div className="entry-form__fields" style={{ marginBottom: "18px" }}>
-        <h1 className="entry-form__title">Change your password.</h1>
-        <p className="entry-form__help">
+    <div className={`grid w-[min(100%,380px)] gap-0 ${styles.formEntering}`}>
+      <div className="mb-4.5 grid gap-4.5">
+        <h1 className="font-heading">Change your password.</h1>
+        <p className="text-xs leading-normal text-muted-foreground">
           Your password was reset. Choose a new password before continuing.
         </p>
       </div>
 
       {error ? (
-        <p className="entry-form__error" role="alert">
+        <p
+          className="mb-3.5 text-center text-label leading-normal text-destructive-foreground"
+          role="alert"
+        >
           {error}
         </p>
       ) : null}
 
-      <form className="entry-form__fields" onSubmit={handleSubmit}>
-        <div className="entry-form__field">
-          <label className="entry-form__label" htmlFor="password">
+      <form className="grid gap-4.5" onSubmit={handleSubmit}>
+        <div className="grid gap-1.5">
+          <label
+            className="text-xs font-medium tracking-wide text-muted-foreground"
+            htmlFor="password"
+          >
             Password
           </label>
-          <input
+          <Input
             ref={firstFieldRef}
-            className="entry-form__input"
             id="password"
             name="password"
             type="password"
@@ -77,15 +87,19 @@ export function PasswordChangeExperience() {
             minLength={12}
             required
           />
-          <span className="entry-form__help">At least 12 characters.</span>
+          <span className="text-xs leading-normal text-muted-foreground">
+            At least 12 characters.
+          </span>
         </div>
 
-        <div className="entry-form__field">
-          <label className="entry-form__label" htmlFor="confirmPassword">
+        <div className="grid gap-1.5">
+          <label
+            className="text-xs font-medium tracking-wide text-muted-foreground"
+            htmlFor="confirmPassword"
+          >
             Confirm password
           </label>
-          <input
-            className="entry-form__input"
+          <Input
             id="confirmPassword"
             name="confirmPassword"
             type="password"
@@ -95,9 +109,9 @@ export function PasswordChangeExperience() {
           />
         </div>
 
-        <button className="entry-form__submit" type="submit" disabled={pending}>
+        <Button className="mt-1.5 w-full" type="submit" disabled={pending}>
           {pending ? "Saving..." : "Save new password"}
-        </button>
+        </Button>
       </form>
     </div>
   );

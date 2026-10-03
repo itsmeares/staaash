@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Music, Pause, Play, Volume2, VolumeX } from "lucide-react";
 
 type ShareAudioPlayerProps = {
@@ -82,46 +83,49 @@ export function ShareAudioPlayer({ src, fileName }: ShareAudioPlayerProps) {
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className="sp-player" data-playing={isPlaying}>
+    <div
+      className="group overflow-hidden rounded-xl border border-hairline bg-hover"
+      data-playing={isPlaying}
+    >
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
       <audio ref={audioRef} src={src} preload="metadata" />
 
-      {/* Visual area */}
-      <div className="sp-visual" aria-hidden="true">
-        <Music className="sp-visual-icon" size={40} strokeWidth={1.25} />
+      <div
+        className="relative flex h-32 items-center justify-center overflow-hidden bg-selected"
+        aria-hidden="true"
+      >
+        <Music
+          className="text-primary opacity-35 transition-opacity duration-300 group-data-[playing=true]:animate-pulse group-data-[playing=true]:opacity-55 motion-reduce:animate-none motion-reduce:transition-none"
+          size={40}
+          strokeWidth={1.25}
+        />
       </div>
 
-      {/* Controls */}
-      <div className="sp-controls">
-        <button
-          className="sp-play-btn"
+      <div className="flex items-center gap-3.5 px-4.5 pt-3.5 pb-4.5">
+        <Button
+          size="icon"
           onClick={togglePlay}
           aria-label={isPlaying ? "Pause" : "Play"}
           disabled={!isLoaded}
           type="button"
         >
           {isPlaying ? (
-            <Pause size={20} fill="currentColor" strokeWidth={0} />
+            <Pause fill="currentColor" strokeWidth={0} />
           ) : (
-            <Play
-              size={20}
-              fill="currentColor"
-              strokeWidth={0}
-              style={{ marginLeft: "2px" }}
-            />
+            <Play className="ml-0.5" fill="currentColor" strokeWidth={0} />
           )}
-        </button>
+        </Button>
 
-        <div className="sp-scrubber-area">
-          <div className="sp-scrubber-track">
-            <div className="sp-scrubber-bg" />
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <div className="relative flex h-5 cursor-pointer items-center">
+            <div className="pointer-events-none absolute inset-x-0 h-0.75 rounded-xs bg-line-strong" />
             <div
-              className="sp-scrubber-fill"
+              className="pointer-events-none absolute left-0 h-0.75 max-w-full rounded-xs bg-primary"
               style={{ width: `${progress}%` }}
             />
             <input
               type="range"
-              className="sp-scrubber"
+              className="absolute inset-0 m-0 size-full cursor-pointer appearance-none p-0 opacity-0 disabled:cursor-not-allowed"
               min={0}
               max={duration || 100}
               step={0.1}
@@ -131,20 +135,21 @@ export function ShareAudioPlayer({ src, fileName }: ShareAudioPlayerProps) {
               aria-label="Seek"
             />
           </div>
-          <div className="sp-time">
+          <div className="flex justify-between text-xs text-muted-foreground tabular-nums">
             <span>{fmt(currentTime)}</span>
             <span>{fmt(duration)}</span>
           </div>
         </div>
 
-        <button
-          className="sp-mute-btn"
+        <Button
+          variant="outline"
+          size="icon-xs"
           onClick={toggleMute}
           aria-label={isMuted ? "Unmute" : "Mute"}
           type="button"
         >
-          {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-        </button>
+          {isMuted ? <VolumeX /> : <Volume2 />}
+        </Button>
       </div>
     </div>
   );

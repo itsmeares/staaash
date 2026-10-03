@@ -11,4 +11,9 @@
   ],
   "ignorePatterns": ["packages/db/src/generated/prisma/**"],
   "ignoreDependencies": ["@staaash/config"],
+  // components/ui is a vendored component kit: its full API is kept even when
+  // the app uses only part of it, and its internals follow upstream.
+  "ignoreExports": [{ "file": "apps/web/components/ui/**", "exports": ["*"] }],
+  "health": { "ignore": ["apps/web/components/ui/**"] },
+  "duplicates": { "ignore": ["apps/web/components/ui/**"] },
 }

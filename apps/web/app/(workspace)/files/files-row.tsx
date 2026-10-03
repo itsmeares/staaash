@@ -25,7 +25,19 @@ import { formatDateTime } from "@/app/auth-ui";
 import type { FileSummary, FolderSummary } from "@/server/files/types";
 import type { ShareLinkSummary } from "@/server/sharing";
 import { FOLDER_ICON_MAP } from "./files-properties-panel";
+import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 import { WorkspaceActionSheet } from "../workspace-action-sheet";
+import styles from "./explorer.module.css";
+import {
+  ROW_BASE,
+  ROW_GRID,
+  ROW_ICON,
+  ROW_ICON_CELL,
+  ROW_META,
+  ROW_NAME,
+  ROW_NAME_CELL,
+} from "./files-row-styles";
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -178,15 +190,16 @@ export function FilesRow(props: FilesRowProps) {
     };
   }, []);
 
-  const rowClasses = [
-    "explorer-row",
-    isSelected ? "is-selected" : "",
-    isCut ? "is-cut" : "",
-    isJustMoved ? "just-moved" : "",
-    props.kind === "folder" && props.isDropTarget ? "is-drop-target" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const rowClasses = cn(
+    ROW_GRID,
+    ROW_BASE,
+    isSelected ? "bg-selected hover:bg-primary/14" : "",
+    isCut && "opacity-40",
+    isJustMoved && styles.justMoved,
+    props.kind === "folder" &&
+      props.isDropTarget &&
+      "bg-primary/14 outline outline-1 -outline-offset-1 outline-primary/50",
+  );
 
   // ---- Icon ----
   let IconComponent: LucideIcon | undefined;
@@ -426,8 +439,9 @@ export function FilesRow(props: FilesRowProps) {
           tabIndex={isSelected ? 0 : -1}
         >
           {/* Icon */}
-          <div className="explorer-row-icon" role="gridcell">
+          <div className={ROW_ICON_CELL} role="gridcell" data-row-icon>
             <ItemTypeIcon
+              className={ROW_ICON}
               icon={props.kind === "folder" ? IconComponent : undefined}
               size={16}
               tone="plain"
@@ -436,11 +450,12 @@ export function FilesRow(props: FilesRowProps) {
           </div>
 
           {/* Name */}
-          <div className="explorer-row-name-cell" role="gridcell">
+          <div className={ROW_NAME_CELL} role="gridcell" data-row-name>
             {isRenaming ? (
-              <input
+              <Input
                 ref={renameInputRef}
-                className="explorer-row-rename"
+                size="sm"
+                className="w-full text-sm font-medium lg:text-body"
                 value={renameValue}
                 onChange={(e) => onRenameChange(e.target.value)}
                 onKeyDown={(e) => {
@@ -460,12 +475,12 @@ export function FilesRow(props: FilesRowProps) {
               />
             ) : (
               <>
-                <span className="explorer-row-name" title={name}>
+                <span className={ROW_NAME} title={name}>
                   {name}
                 </span>
                 {mutationLabel && (
                   <span
-                    className="explorer-row-meta"
+                    className={ROW_META}
                     aria-label={mutationLabel}
                     title={`Mutation ${props.data.storageMutation?.id}`}
                   >
@@ -475,7 +490,7 @@ export function FilesRow(props: FilesRowProps) {
                 {shareProps.share?.status === "active" && (
                   <Share2
                     size={10}
-                    className="explorer-row-share-badge"
+                    className="shrink-0 text-primary opacity-55"
                     aria-label="Shared"
                   />
                 )}
@@ -484,23 +499,19 @@ export function FilesRow(props: FilesRowProps) {
           </div>
 
           {/* Size */}
-          <span className="explorer-row-meta" role="gridcell">
+          <span className={ROW_META} role="gridcell">
             {size}
           </span>
 
           {/* Date */}
-          <span
-            className="explorer-row-meta"
-            role="gridcell"
-            suppressHydrationWarning
-          >
+          <span className={ROW_META} role="gridcell" suppressHydrationWarning>
             {date}
           </span>
 
           {!storageMutationBlocked && (
             <button
               aria-label={`Actions for ${name}`}
-              className="explorer-row-mobile-action"
+              className="col-start-3 hidden size-9.5 items-center justify-center rounded-lg text-muted-foreground max-md:inline-flex lg:size-10.5 pointer-coarse:inline-flex"
               type="button"
               onClick={(event) => {
                 event.stopPropagation();

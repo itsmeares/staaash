@@ -1,3 +1,5 @@
+import type { BadgeProps } from "@/components/ui/badge";
+
 export const formatAdminDateTime = (
   value: Date | string | null,
   timeZone?: string,
@@ -29,34 +31,33 @@ export const formatAdminBytes = (value: bigint | number) => {
   return `${scaled.toFixed(scaled >= 100 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
 };
 
-export const getAdminStatusClassName = (status: string) =>
-  `status-chip ${
-    status === "healthy" ||
-    status === "active" ||
-    status === "up-to-date" ||
-    status === "succeeded" ||
-    status === "ready"
-      ? "status-healthy"
-      : status === "running" || status === "processing"
-        ? "status-running"
-        : status === "warning" ||
-            status === "accepted" ||
-            status === "update-available" ||
-            status === "queued" ||
-            status === "stale"
-          ? "status-warning"
-          : status === "idle" ||
-              status === "stopped" ||
-              status === "unavailable" ||
-              status === "not checked"
-            ? "status-muted"
-            : status === "cancelled"
-              ? "status-cancelled"
-              : status === "owner"
-                ? "status-owner"
-                : status === "admin"
-                  ? "status-healthy"
-                  : status === "member"
-                    ? "status-member"
-                    : "status-error"
-  }`;
+export const capitalize = (value: string) =>
+  value.charAt(0).toUpperCase() + value.slice(1);
+
+type AdminStatusVariant = NonNullable<BadgeProps["variant"]>;
+
+const ADMIN_STATUS_VARIANTS: Record<string, AdminStatusVariant> = {
+  healthy: "success",
+  active: "success",
+  "up-to-date": "success",
+  succeeded: "success",
+  ready: "success",
+  admin: "success",
+  running: "info",
+  processing: "info",
+  warning: "warning",
+  accepted: "warning",
+  "update-available": "warning",
+  queued: "warning",
+  stale: "warning",
+  idle: "neutral",
+  stopped: "neutral",
+  unavailable: "neutral",
+  "not checked": "neutral",
+  cancelled: "neutral",
+  member: "neutral",
+  owner: "accent",
+};
+
+export const getAdminStatusVariant = (status: string): AdminStatusVariant =>
+  ADMIN_STATUS_VARIANTS[status] ?? "error";

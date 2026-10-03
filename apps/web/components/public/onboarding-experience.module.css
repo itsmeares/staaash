@@ -1,0 +1,240 @@
+/* Onboarding step transitions, welcome fade-ins, theme swatches and the
+   "done" sequence. */
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes stepFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes stepFadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}
+
+.entering {
+  animation: stepFadeUp 0.46s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.exiting {
+  animation: stepFadeOut 0.26s cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
+}
+
+.welcomeTitle {
+  animation: fadeUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+}
+
+.welcomeHint {
+  animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both;
+}
+
+/* ---- Theme swatches: fixed mini palettes, independent of the live theme ---- */
+
+.swatchLight {
+  --swatch-bg: oklch(98% 0.006 78);
+  --swatch-side: oklch(94% 0.007 78);
+  --swatch-bar: oklch(72% 0.01 76 / 0.5);
+}
+
+.swatchDark {
+  --swatch-bg: oklch(12% 0.008 70);
+  --swatch-side: oklch(17% 0.01 72);
+  --swatch-bar: oklch(45% 0.012 76 / 0.6);
+}
+
+.preview {
+  position: relative;
+  display: flex;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 14%, transparent);
+}
+
+.half {
+  position: absolute;
+  inset: 0;
+  display: flex;
+}
+
+.halfLight {
+  clip-path: inset(0 50% 0 0);
+}
+
+.halfDark {
+  clip-path: inset(0 0 0 50%);
+}
+
+.swatchLight,
+.swatchDark {
+  background: var(--swatch-bg);
+}
+
+.sidebar {
+  width: 26%;
+  height: 100%;
+  flex-shrink: 0;
+  background: var(--swatch-side);
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  padding: 8px 10px;
+}
+
+.bar {
+  height: 5px;
+  width: 80%;
+  border-radius: 3px;
+  background: var(--swatch-bar);
+}
+
+.barShort {
+  width: 55%;
+}
+
+.barShorter {
+  width: 35%;
+  background: color-mix(in oklab, var(--primary) 70%, transparent);
+}
+
+/* ---- Done ---- */
+
+.phase {
+  grid-area: 1 / 1;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transform: translateY(20px);
+  pointer-events: none;
+}
+
+.phaseAllset {
+  animation: fadeUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.phaseAllset.isExiting {
+  animation: none;
+  opacity: 0;
+  transform: translateY(-20px);
+  pointer-events: none;
+  transition:
+    opacity 0.45s cubic-bezier(0.4, 0, 1, 1),
+    transform 0.45s cubic-bezier(0.4, 0, 1, 1);
+}
+
+.phaseBrand {
+  transition:
+    opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s,
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s;
+}
+
+.phaseBrand.isEntering {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.doneMessage {
+  font-size: calc(var(--text-display) * 0.84);
+}
+
+.nameWrap {
+  display: inline-grid;
+  vertical-align: baseline;
+  justify-items: center;
+}
+
+.nameWrap > span {
+  grid-area: 1 / 1;
+  transition:
+    opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    filter 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nameBrand {
+  opacity: 1;
+  filter: blur(0);
+  transform: translateY(0);
+}
+
+.nameBrand.isOut {
+  opacity: 0;
+  filter: blur(8px);
+  transform: translateY(-10px);
+}
+
+.nameInstance {
+  opacity: 0;
+  filter: blur(8px);
+  transform: translateY(10px);
+}
+
+.nameInstance.isIn {
+  opacity: 1;
+  filter: blur(0);
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entering,
+  .exiting,
+  .welcomeTitle,
+  .welcomeHint,
+  .phaseAllset,
+  .phaseAllset.isExiting,
+  .phaseBrand {
+    animation: none;
+    transition: none;
+  }
+
+  .phaseAllset {
+    opacity: 1;
+    transform: none;
+  }
+
+  .phaseAllset.isExiting {
+    opacity: 0;
+  }
+
+  .phaseBrand.isEntering {
+    opacity: 1;
+    transform: none;
+  }
+
+  .nameWrap > span {
+    transition: none;
+  }
+}

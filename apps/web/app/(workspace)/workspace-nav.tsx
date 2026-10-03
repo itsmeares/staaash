@@ -13,6 +13,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 
+import { SectionLabel } from "@/components/section-label";
+import { cn } from "@/lib/utils";
+
 export type WorkspaceNavItem = {
   href: string;
   label: string;
@@ -87,11 +90,16 @@ export function WorkspaceNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="workspace-nav" aria-label="Workspace">
+    <nav
+      className="flex flex-1 flex-col gap-1 md:max-lg:landscape:gap-0.5"
+      aria-label="Workspace"
+    >
       {workspaceNavGroups.map((group, groupIndex) => (
-        <div key={groupIndex} className="workspace-nav-group">
+        <div key={groupIndex} className="mb-4.5 flex flex-col gap-0.75">
           {group.label ? (
-            <span className="workspace-nav-label">{group.label}</span>
+            <SectionLabel className="block px-3 pt-1.5 pb-2 md:max-lg:landscape:hidden">
+              {group.label}
+            </SectionLabel>
           ) : null}
           {group.items.map((item) => {
             const active = isItemActive(pathname, item);
@@ -101,15 +109,20 @@ export function WorkspaceNav() {
               <Link
                 key={item.href}
                 aria-current={active ? "page" : undefined}
-                className={`workspace-nav-link${active ? " workspace-nav-link-active" : ""}`}
+                className={cn(
+                  "flex min-h-control items-center gap-3 rounded-md px-3.5 text-base font-medium transition-colors duration-150 motion-reduce:transition-none md:max-lg:landscape:min-h-row-sm md:max-lg:landscape:justify-center md:max-lg:landscape:px-0",
+                  active
+                    ? "bg-primary/10 font-semibold text-primary-ink hover:bg-primary/12"
+                    : "text-foreground/60 hover:bg-hover hover:text-foreground/90",
+                )}
                 href={item.href}
               >
                 <Icon
-                  className="workspace-nav-icon"
+                  className={cn("size-5 shrink-0", active ? "" : "opacity-70")}
                   size={20}
                   strokeWidth={1.9}
                 />
-                <span>{item.label}</span>
+                <span className="md:max-lg:landscape:hidden">{item.label}</span>
               </Link>
             );
           })}

@@ -18,6 +18,8 @@ import {
   normalizeTimeZone,
 } from "@staaash/config/time-zone";
 
+import { cn } from "@/lib/utils";
+
 type TimeZonePickerProps = {
   id?: string;
   name?: string;
@@ -38,184 +40,6 @@ type TimeZoneOption = {
 const SELECTABLE_TIME_ZONES = getSupportedTimeZones().filter(
   (zone) => zone === DEFAULT_TIME_ZONE || !zone.startsWith("Etc/"),
 );
-const TIME_ZONE_PICKER_CSS = `
-.time-zone-picker,
-.time-zone-picker__panel {
-  --time-zone-picker-panel-bg: oklch(99% 0.004 78);
-  --time-zone-picker-field-bg: oklch(97% 0.006 78);
-  --time-zone-picker-option-bg: oklch(94% 0.008 78);
-}
-
-.time-zone-picker {
-  position: relative;
-  width: 100%;
-}
-
-.dark .time-zone-picker,
-.dark .time-zone-picker__panel,
-.entry-surface .time-zone-picker {
-  --time-zone-picker-panel-bg: oklch(16% 0.01 72);
-  --time-zone-picker-field-bg: oklch(20% 0.01 72);
-  --time-zone-picker-option-bg: oklch(23% 0.012 72);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not(.light) .time-zone-picker,
-  :root:not(.light) .time-zone-picker__panel {
-    --time-zone-picker-panel-bg: oklch(16% 0.01 72);
-    --time-zone-picker-field-bg: oklch(20% 0.01 72);
-    --time-zone-picker-option-bg: oklch(23% 0.012 72);
-  }
-}
-
-.time-zone-picker__trigger {
-  align-items: center;
-  cursor: pointer;
-  display: flex;
-  gap: 12px;
-  justify-content: space-between;
-  min-height: 42px;
-  text-align: left;
-}
-
-.time-zone-picker__trigger.onboarding-field__input {
-  background: var(--time-zone-picker-field-bg);
-}
-
-.time-zone-picker__trigger.admin-setting-input {
-  background: var(--time-zone-picker-field-bg);
-  border: 1px solid color-mix(in oklab, var(--foreground) 12%, transparent);
-  border-radius: 10px;
-  color: var(--foreground);
-  font: inherit;
-  min-width: 240px;
-  padding: 9px 12px;
-}
-
-.time-zone-picker__value {
-  align-items: center;
-  display: grid;
-  gap: 10px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  min-width: 0;
-  width: 100%;
-}
-
-.time-zone-picker__zone {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.time-zone-picker__offset {
-  color: var(--muted-foreground);
-  flex: 0 0 auto;
-  font-size: var(--app-font-meta, 0.9375rem);
-  font-variant-numeric: tabular-nums;
-}
-
-.time-zone-picker__chevron {
-  flex: 0 0 auto;
-  opacity: 0.62;
-  transition: transform 150ms ease-out;
-}
-
-.time-zone-picker[data-open="true"] .time-zone-picker__chevron {
-  transform: rotate(180deg);
-}
-
-.time-zone-picker__panel {
-  background: var(--time-zone-picker-panel-bg);
-  border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
-  border-radius: 8px;
-  box-shadow: 0 18px 50px color-mix(in oklab, black 28%, transparent);
-  color: var(--popover-foreground);
-  display: grid;
-  gap: 8px;
-  max-height: min(var(--time-zone-picker-panel-max-height, 320px), calc(100vh - 24px));
-  overflow: hidden;
-  padding: 8px;
-  position: fixed;
-  z-index: 120;
-}
-
-.time-zone-picker__search-wrap {
-  position: relative;
-}
-
-.time-zone-picker__search-icon {
-  color: var(--muted-foreground);
-  left: 10px;
-  pointer-events: none;
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.time-zone-picker__search {
-  background: var(--time-zone-picker-field-bg);
-  border: 1px solid color-mix(in oklab, var(--foreground) 9%, transparent);
-  border-radius: 6px;
-  color: var(--foreground);
-  font: inherit;
-  font-size: var(--app-font-body, 1.0625rem);
-  min-height: var(--app-control-height-compact, 44px);
-  padding: 8px 10px 8px 32px;
-  width: 100%;
-}
-
-.time-zone-picker__search:focus {
-  border-color: color-mix(in oklab, var(--ring) 55%, transparent);
-  outline: none;
-}
-
-.time-zone-picker__list {
-  display: grid;
-  gap: 2px;
-  max-height: var(--time-zone-picker-list-max-height, 246px);
-  overflow: auto;
-  overscroll-behavior: contain;
-  padding-right: 2px;
-}
-
-.time-zone-picker__option {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: 6px;
-  color: inherit;
-  cursor: pointer;
-  display: grid;
-  font: inherit;
-  font-size: var(--app-font-body, 1.0625rem);
-  gap: 8px;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  min-height: var(--app-control-height-compact, 44px);
-  padding: 0 8px;
-  text-align: left;
-}
-
-.time-zone-picker__option:hover,
-.time-zone-picker__option.is-highlighted {
-  background: var(--time-zone-picker-option-bg);
-}
-
-.time-zone-picker__option.is-selected {
-  color: var(--foreground);
-}
-
-.time-zone-picker__check {
-  color: var(--primary);
-}
-
-.time-zone-picker__empty {
-  color: var(--muted-foreground);
-  font-size: var(--app-font-meta, 0.9375rem);
-  margin: 0;
-  padding: 12px 8px;
-}
-`;
-
 function formatZone(zone: string) {
   return zone.replaceAll("_", " ");
 }
@@ -507,16 +331,20 @@ export function TimeZonePicker({
   }
 
   const panel = open ? (
-    <div className="time-zone-picker__panel" ref={panelRef} style={panelStyle}>
-      <div className="time-zone-picker__search-wrap">
+    <div
+      className="fixed z-120 grid max-h-[min(var(--time-zone-picker-panel-max-height,320px),calc(100vh-24px))] gap-2 overflow-hidden rounded-lg border border-line-strong bg-popover p-2 text-popover-foreground shadow-floating"
+      ref={panelRef}
+      style={panelStyle}
+    >
+      <div className="relative">
         <SearchIcon
           aria-hidden="true"
-          className="time-zone-picker__search-icon"
+          className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground"
           size={15}
         />
         <input
           aria-label="Search time zones"
-          className="time-zone-picker__search"
+          className="min-h-11 w-full rounded-md border border-hairline bg-muted py-2 pr-2.5 pl-8 text-body text-foreground outline-none placeholder:text-muted-foreground/72 focus:border-ring/55"
           id={searchId}
           onChange={(event) => {
             setQuery(event.target.value);
@@ -532,7 +360,7 @@ export function TimeZonePicker({
       </div>
       <div
         aria-labelledby={pickerId}
-        className="time-zone-picker__list"
+        className="grid max-h-[var(--time-zone-picker-list-max-height,246px)] gap-0.5 overflow-auto overscroll-contain pr-0.5"
         id={listId}
         role="listbox"
         tabIndex={-1}
@@ -544,7 +372,11 @@ export function TimeZonePicker({
             return (
               <button
                 aria-selected={selected}
-                className={`time-zone-picker__option${selected ? " is-selected" : ""}${highlighted ? " is-highlighted" : ""}`}
+                className={cn(
+                  "grid min-h-11 cursor-pointer grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 rounded-md border-0 bg-transparent px-2 text-left text-body text-inherit hover:bg-hover",
+                  selected && "text-foreground",
+                  highlighted && "bg-hover",
+                )}
                 data-time-zone-index={index}
                 key={option.zone}
                 onClick={() => choose(option.zone)}
@@ -552,14 +384,14 @@ export function TimeZonePicker({
                 role="option"
                 type="button"
               >
-                <span className="time-zone-picker__zone">{option.zone}</span>
-                <span className="time-zone-picker__offset">
+                <span className="truncate">{option.zone}</span>
+                <span className="shrink-0 text-meta text-muted-foreground tabular-nums">
                   {option.offsetLabel}
                 </span>
                 {selected ? (
                   <CheckIcon
                     aria-hidden="true"
-                    className="time-zone-picker__check"
+                    className="text-primary"
                     size={15}
                   />
                 ) : null}
@@ -567,7 +399,9 @@ export function TimeZonePicker({
             );
           })
         ) : (
-          <p className="time-zone-picker__empty">No matching time zones.</p>
+          <p className="m-0 px-2 py-3 text-meta text-muted-foreground">
+            No matching time zones.
+          </p>
         )}
       </div>
     </div>
@@ -575,17 +409,19 @@ export function TimeZonePicker({
 
   return (
     <div
-      className="time-zone-picker"
+      className="group relative w-full"
       data-open={open ? "true" : "false"}
       ref={rootRef}
     >
-      <style>{TIME_ZONE_PICKER_CSS}</style>
       {name ? <input type="hidden" name={name} value={selectedValue} /> : null}
       <button
         aria-controls={listId}
         aria-expanded={open}
         aria-haspopup="listbox"
-        className={`time-zone-picker__trigger${className ? ` ${className}` : ""}`}
+        className={cn(
+          "flex min-h-10.5 w-full cursor-pointer items-center justify-between gap-3 rounded-xl border border-line-strong bg-card px-3.5 text-left text-base text-foreground transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30 dark:bg-input/32",
+          className,
+        )}
         id={pickerId}
         onClick={() => {
           if (open) setOpen(false);
@@ -595,15 +431,15 @@ export function TimeZonePicker({
         ref={triggerRef}
         type="button"
       >
-        <span className="time-zone-picker__value">
-          <span className="time-zone-picker__zone">{selectedValue}</span>
-          <span className="time-zone-picker__offset">
+        <span className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2.5">
+          <span className="truncate">{selectedValue}</span>
+          <span className="shrink-0 text-meta text-muted-foreground tabular-nums">
             {selectedOption?.offsetLabel}
           </span>
         </span>
         <ChevronDownIcon
           aria-hidden="true"
-          className="time-zone-picker__chevron"
+          className="shrink-0 opacity-60 transition-transform duration-150 ease-out group-data-[open=true]:rotate-180"
           size={16}
         />
       </button>

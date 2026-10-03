@@ -2,6 +2,12 @@
 
 import React, { useEffect, useRef, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+
+import styles from "./entry-experience.module.css";
+
 export type Phase =
   | "intro"
   | "intro-return"
@@ -143,18 +149,33 @@ export function EntryExperience({
 
     return (
       <section
-        className={[
-          "entry-intro",
-          isReturning && "entry-intro--returning",
-          isExiting && "entry-intro--exiting",
-        ]
-          .filter(Boolean)
-          .join(" ")}
+        className={cn(
+          "grid max-w-[clamp(22rem,50vw,44rem)] cursor-default gap-4 text-center outline-none select-none md:gap-5",
+          isReturning && styles.introReturning,
+          isExiting && styles.introExiting,
+        )}
       >
-        <h1 className="entry-intro__title">{title}</h1>
-        <p className="entry-intro__description">{description}</p>
+        <h1
+          className={cn(
+            "font-heading text-display tracking-tighter text-foreground",
+            styles.introTitle,
+          )}
+        >
+          {title}
+        </h1>
+        <p
+          className={cn(
+            "mx-auto max-w-120 text-base leading-relaxed text-muted-foreground",
+            styles.introDescription,
+          )}
+        >
+          {description}
+        </p>
         <button
-          className="entry-intro__hint entry-intro-action"
+          className={cn(
+            "mt-1 cursor-pointer rounded-xl border-0 bg-transparent p-0 text-xs font-medium tracking-widest text-foreground/40 uppercase outline-none focus-visible:outline-2 focus-visible:outline-offset-12 focus-visible:outline-primary/55 disabled:cursor-default",
+            styles.introHint,
+          )}
           disabled={!isActive}
           onClick={advanceToForm}
           type="button"
@@ -168,8 +189,15 @@ export function EntryExperience({
   // Success
   if (phase === "success") {
     return (
-      <div className="entry-success">
-        <p className="entry-success__message">{successMessage}</p>
+      <div className="grid place-items-center">
+        <p
+          className={cn(
+            "font-heading text-display tracking-tighter text-foreground",
+            styles.successMessage,
+          )}
+        >
+          {successMessage}
+        </p>
       </div>
     );
   }
@@ -177,24 +205,33 @@ export function EntryExperience({
   // Form (including exiting-to-intro state)
   return (
     <div
-      className={`entry-form ${phase === "exiting-to-intro" ? "entry-form--exiting" : "entry-form--entering"}`}
+      data-entry-form
+      className={cn(
+        "grid w-[min(100%,380px)] gap-0",
+        phase === "exiting-to-intro" ? styles.formExiting : styles.formEntering,
+      )}
     >
       {error && (
-        <p className="entry-form__error" role="alert">
+        <p
+          className="mb-3.5 text-center text-label leading-normal text-destructive-foreground"
+          role="alert"
+        >
           {error}
         </p>
       )}
 
-      <form className="entry-form__fields" onSubmit={handleSubmit}>
+      <form className="grid gap-4.5" onSubmit={handleSubmit}>
         {mode === "setup" ? (
           <>
-            <div className="entry-form__field">
-              <label className="entry-form__label" htmlFor="instanceName">
+            <div className="grid gap-1.5">
+              <label
+                className="text-xs font-medium tracking-wide text-muted-foreground"
+                htmlFor="instanceName"
+              >
                 Instance name
               </label>
-              <input
+              <Input
                 ref={firstFieldRef}
-                className="entry-form__input"
                 id="instanceName"
                 name="instanceName"
                 placeholder="Staaash Home Drive"
@@ -202,12 +239,14 @@ export function EntryExperience({
               />
             </div>
 
-            <div className="entry-form__field">
-              <label className="entry-form__label" htmlFor="email">
+            <div className="grid gap-1.5">
+              <label
+                className="text-xs font-medium tracking-wide text-muted-foreground"
+                htmlFor="email"
+              >
                 Email
               </label>
-              <input
-                className="entry-form__input"
+              <Input
                 id="email"
                 name="email"
                 type="email"
@@ -217,12 +256,14 @@ export function EntryExperience({
               />
             </div>
 
-            <div className="entry-form__field">
-              <label className="entry-form__label" htmlFor="password">
+            <div className="grid gap-1.5">
+              <label
+                className="text-xs font-medium tracking-wide text-muted-foreground"
+                htmlFor="password"
+              >
                 Password
               </label>
-              <input
-                className="entry-form__input"
+              <Input
                 id="password"
                 name="password"
                 type="password"
@@ -230,18 +271,22 @@ export function EntryExperience({
                 minLength={12}
                 required
               />
-              <span className="entry-form__help">At least 12 characters.</span>
+              <span className="text-xs leading-normal text-muted-foreground">
+                At least 12 characters.
+              </span>
             </div>
           </>
         ) : (
           <>
-            <div className="entry-form__field">
-              <label className="entry-form__label" htmlFor="email">
+            <div className="grid gap-1.5">
+              <label
+                className="text-xs font-medium tracking-wide text-muted-foreground"
+                htmlFor="email"
+              >
                 Email
               </label>
-              <input
+              <Input
                 ref={firstFieldRef}
-                className="entry-form__input"
                 id="email"
                 name="email"
                 type="email"
@@ -250,12 +295,14 @@ export function EntryExperience({
               />
             </div>
 
-            <div className="entry-form__field">
-              <label className="entry-form__label" htmlFor="password">
+            <div className="grid gap-1.5">
+              <label
+                className="text-xs font-medium tracking-wide text-muted-foreground"
+                htmlFor="password"
+              >
                 Password
               </label>
-              <input
-                className="entry-form__input"
+              <Input
                 id="password"
                 name="password"
                 type="password"
@@ -266,7 +313,7 @@ export function EntryExperience({
           </>
         )}
 
-        <button className="entry-form__submit" type="submit" disabled={pending}>
+        <Button className="mt-1.5 w-full" type="submit" disabled={pending}>
           {pending
             ? mode === "setup"
               ? "Setting up…"
@@ -274,7 +321,7 @@ export function EntryExperience({
             : mode === "setup"
               ? "Create owner and continue"
               : "Sign in"}
-        </button>
+        </Button>
       </form>
     </div>
   );
