@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { PageHeader } from "@/components/page-header";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { WorkspacePage } from "../../../workspace-page";
+
 import { TextFileViewer } from "@/app/text-file-viewer";
 
 import { formatDateTime } from "@/app/auth-ui";
@@ -49,88 +54,77 @@ export default async function FilesFileViewerPage({
     const userTimeZone = session.user.preferences?.timeZone;
 
     return (
-      <main
-        className="workspace-page"
-        style={
-          file.viewerKind === "pdf"
-            ? { display: "flex", flexDirection: "column", height: "100%" }
-            : undefined
-        }
+      <WorkspacePage
+        as="main"
+        className={cn(
+          file.viewerKind === "pdf" && "h-full grid-rows-[auto_1fr]",
+        )}
       >
-        <div className="viewer-header">
-          <div className="viewer-header-identity">
-            <h1>{file.name}</h1>
-            <p className="muted" style={{ marginTop: 6, fontSize: 13 }}>
+        <PageHeader
+          divider
+          title={file.name}
+          description={
+            <>
               {file.mimeType}
               {" · "}
               Updated {formatDateTime(file.updatedAt, userTimeZone)}
-            </p>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              gap: 10,
-              alignItems: "center",
-              flexShrink: 0,
-            }}
-          >
-            <Link className="button button-secondary button-sm" href={backHref}>
-              Back
-            </Link>
-            {file.viewerKind === "pdf" ? (
-              <a
-                className="button button-secondary button-sm"
-                href={contentHref}
-                target="_blank"
-                rel="noreferrer"
+            </>
+          }
+          actions={
+            <>
+              <Button
+                size="sm"
+                variant="secondary"
+                render={<Link href={backHref} />}
               >
-                Open in new tab
-              </a>
-            ) : null}
-            <a className="button button-sm" href={downloadHref}>
-              Download
-            </a>
-          </div>
-        </div>
+                Back
+              </Button>
+              {file.viewerKind === "pdf" ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  render={
+                    <a href={contentHref} target="_blank" rel="noreferrer" />
+                  }
+                >
+                  Open in new tab
+                </Button>
+              ) : null}
+              <Button size="sm" render={<a href={downloadHref} />}>
+                Download
+              </Button>
+            </>
+          }
+        />
 
         <div
-          className="viewer-media"
-          style={
+          className={cn(
+            "flex items-center justify-center overflow-hidden rounded-xl border border-hairline bg-hover",
             file.viewerKind === "audio" || file.viewerKind === "text"
-              ? { minHeight: "auto", padding: "2rem" }
+              ? "p-8"
               : file.viewerKind === "pdf"
-                ? { flex: 1, minHeight: 0 }
-                : {
-                    minHeight: "auto",
-                    background: "none",
-                    border: "none",
-                    borderRadius: 0,
-                  }
-          }
+                ? "min-h-0"
+                : "rounded-none border-0 bg-transparent",
+          )}
         >
           {file.viewerKind === "image" ? (
             <img
               alt={file.name}
               src={contentHref}
-              style={{
-                display: "block",
-                maxWidth: "100%",
-                maxHeight: "75vh",
-                objectFit: "contain",
-              }}
+              className="block max-h-[75vh] max-w-full object-contain"
             />
           ) : file.viewerKind === "audio" ? (
             <audio
               controls
               preload="metadata"
               src={contentHref}
-              style={{ width: "100%" }}
+              className="w-full"
             />
           ) : file.viewerKind === "pdf" ? (
             <embed
               src={contentHref}
               type="application/pdf"
-              style={{ width: "100%", height: "100%" }}
+              className="h-full w-full"
             />
           ) : file.viewerKind === "text" ? (
             <TextFileViewer contentHref={contentHref} />
@@ -140,17 +134,13 @@ export default async function FilesFileViewerPage({
               playsInline
               preload="metadata"
               src={contentHref}
-              style={{
-                display: "block",
-                maxWidth: "100%",
-                maxHeight: "75vh",
-              }}
+              className="block max-h-[75vh] max-w-full"
             >
               Your browser could not play this video inline.
             </video>
           )}
         </div>
-      </main>
+      </WorkspacePage>
     );
   } catch (error) {
     if (isFilesError(error)) {

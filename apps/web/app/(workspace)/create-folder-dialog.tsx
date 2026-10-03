@@ -12,8 +12,17 @@ import { FolderPlus } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogPanel,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type CreateFolderDialogProps = {
   open: boolean;
@@ -114,20 +123,25 @@ export function CreateFolderDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="create-folder-dialog">
-        <div className="create-folder-dialog-head">
-          <span className="create-folder-dialog-icon" aria-hidden>
-            <FolderPlus size={18} strokeWidth={1.9} />
-          </span>
-          <div>
-            <DialogTitle>Create folder</DialogTitle>
-            <p>Folders are created at the current level.</p>
-          </div>
-        </div>
+      <DialogContent className="sm:max-w-105">
+        <form className="contents" onSubmit={handleSubmit}>
+          <DialogHeader className="flex-row items-start gap-3 pr-12">
+            <span
+              className="inline-flex size-9.5 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary-ink"
+              aria-hidden
+            >
+              <FolderPlus size={18} strokeWidth={1.9} />
+            </span>
+            <div className="grid gap-1.5">
+              <DialogTitle>Create folder</DialogTitle>
+              <DialogDescription>
+                Folders are created at the current level.
+              </DialogDescription>
+            </div>
+          </DialogHeader>
 
-        <form className="create-folder-form" onSubmit={handleSubmit}>
-          <div className="create-folder-field">
-            <label htmlFor={inputId}>Folder name</label>
+          <DialogPanel className="grid gap-1.75">
+            <Label htmlFor={inputId}>Folder name</Label>
             <Input
               id={inputId}
               autoFocus
@@ -141,13 +155,16 @@ export function CreateFolderDialog({
               }}
             />
             {error ? (
-              <p className="create-folder-error" id={`${inputId}-error`}>
+              <p
+                className="text-xs text-destructive-foreground"
+                id={`${inputId}-error`}
+              >
                 {error}
               </p>
             ) : null}
-          </div>
+          </DialogPanel>
 
-          <div className="create-folder-actions">
+          <DialogFooter>
             <Button
               type="button"
               variant="secondary"
@@ -159,7 +176,7 @@ export function CreateFolderDialog({
             <Button type="submit" disabled={!name.trim() || isSubmitting}>
               {isSubmitting ? "Creating" : "Create"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

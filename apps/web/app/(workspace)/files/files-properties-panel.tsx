@@ -22,6 +22,8 @@ import {
 
 import { formatDateTime } from "@/app/auth-ui";
 import { Button } from "@/components/ui/button";
+import { SectionLabel } from "@/components/section-label";
+import { cn } from "@/lib/utils";
 import type { FileSummary, FolderSummary } from "@/server/files/types";
 import type { ShareLinkSummary } from "@/server/sharing";
 
@@ -53,6 +55,40 @@ export const FOLDER_ICON_MAP: Record<string, LucideIcon> = Object.fromEntries(
 );
 
 // ---------------------------------------------------------------------------
+
+function PropertiesSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid gap-3.5 border-b border-hairline px-5 py-4.5 last:border-b-0">
+      <SectionLabel className="text-xs">{title}</SectionLabel>
+      {children}
+    </div>
+  );
+}
+
+function PropertiesRow({
+  label,
+  children,
+  valueClassName,
+}: {
+  label: string;
+  children: React.ReactNode;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="flex justify-between gap-3 text-label">
+      <span className="shrink-0 text-muted-foreground">{label}</span>
+      <span className={cn("truncate text-right font-medium", valueClassName)}>
+        {children}
+      </span>
+    </div>
+  );
+}
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -130,20 +166,15 @@ function MediaPreviewSection({ fileId }: { fileId: string }) {
       : "Generate preview";
 
   return (
-    <div className="properties-section">
-      <p className="properties-section-title">Media preview</p>
+    <PropertiesSection title="Media preview">
       {state ? (
-        <div className="properties-row">
-          <span className="properties-row-label">Status</span>
-          <span className="properties-row-value">
-            {STATUS_LABEL[state.status]}
-          </span>
-        </div>
+        <PropertiesRow label="Status">
+          {STATUS_LABEL[state.status]}
+        </PropertiesRow>
       ) : (
-        <div className="properties-row">
-          <span className="properties-row-label">Status</span>
-          <span className="properties-row-value muted">Loading…</span>
-        </div>
+        <PropertiesRow label="Status" valueClassName="text-muted-foreground">
+          Loading…
+        </PropertiesRow>
       )}
       <Button
         size="sm"
@@ -154,18 +185,9 @@ function MediaPreviewSection({ fileId }: { fileId: string }) {
         {queuing ? "Queuing…" : buttonLabel}
       </Button>
       {error && (
-        <p
-          className="muted"
-          style={{
-            fontSize: "0.78rem",
-            color: "var(--color-error, red)",
-            marginTop: 4,
-          }}
-        >
-          {error}
-        </p>
+        <p className="mt-1 text-xs text-destructive-foreground">{error}</p>
       )}
-    </div>
+    </PropertiesSection>
   );
 }
 
@@ -208,17 +230,20 @@ export function FilesPropertiesPanel({
     <>
       {/* Transparent overlay to catch outside clicks */}
       {isOpen && (
-        <div className="properties-overlay" onClick={onClose} aria-hidden />
+        <div className="fixed inset-0 z-40" onClick={onClose} aria-hidden />
       )}
 
       <div
         ref={panelRef}
-        className={`properties-panel${isOpen ? " is-open" : ""}`}
+        className={cn(
+          "fixed inset-y-0 right-0 z-50 grid w-75 content-start overflow-y-auto border-l border-hairline bg-card shadow-rail transition-transform duration-300 ease-expo-out motion-reduce:transition-none",
+          isOpen ? "translate-x-0" : "translate-x-full",
+        )}
         role="complementary"
         aria-label="Item properties"
       >
-        <div className="properties-panel-header">
-          <span className="properties-panel-title">Properties</span>
+        <div className="sticky top-0 z-1 flex items-center justify-between border-b border-hairline bg-inherit px-5 pt-5 pb-4">
+          <SectionLabel className="text-xs">Properties</SectionLabel>
           <Button
             variant="ghost"
             size="icon-sm"
@@ -230,60 +255,31 @@ export function FilesPropertiesPanel({
         </div>
 
         {item && (
-          <div className="properties-panel-body">
+          <div className="grid">
             {/* Info section */}
-            <div className="properties-section">
-              <p className="properties-section-title">Info</p>
-
-              <div className="properties-row">
-                <span className="properties-row-label">Name</span>
-                <span className="properties-row-value">{item.data.name}</span>
-              </div>
-
-              <div className="properties-row">
-                <span className="properties-row-label">Kind</span>
-                <span className="properties-row-value">
-                  {item.kind === "folder" ? "Folder" : item.data.mimeType}
-                </span>
-              </div>
-
+            <PropertiesSection title="Info">
+              <PropertiesRow label="Name">{item.data.name}</PropertiesRow>
+              <PropertiesRow label="Kind">
+                {item.kind === "folder" ? "Folder" : item.data.mimeType}
+              </PropertiesRow>
               {item.kind === "file" && (
-                <div className="properties-row">
-                  <span className="properties-row-label">Size</span>
-                  <span className="properties-row-value">
-                    {formatBytes(item.data.sizeBytes)}
-                  </span>
-                </div>
+                <PropertiesRow label="Size">
+                  {formatBytes(item.data.sizeBytes)}
+                </PropertiesRow>
               )}
-
-              <div className="properties-row">
-                <span className="properties-row-label">Created</span>
-                <span className="properties-row-value">
-                  {formatDateTime(item.data.createdAt)}
-                </span>
-              </div>
-
-              <div className="properties-row">
-                <span className="properties-row-label">Modified</span>
-                <span className="properties-row-value">
-                  {formatDateTime(item.data.updatedAt)}
-                </span>
-              </div>
-
-              <div className="properties-row">
-                <span className="properties-row-label">ID</span>
-                <span
-                  className="properties-row-value"
-                  style={{
-                    fontFamily: "var(--font-jetbrains-mono), monospace",
-                    fontSize: 11,
-                    opacity: 0.65,
-                  }}
-                >
-                  {item.data.id.slice(0, 8)}…
-                </span>
-              </div>
-            </div>
+              <PropertiesRow label="Created">
+                {formatDateTime(item.data.createdAt)}
+              </PropertiesRow>
+              <PropertiesRow label="Modified">
+                {formatDateTime(item.data.updatedAt)}
+              </PropertiesRow>
+              <PropertiesRow
+                label="ID"
+                valueClassName="font-mono text-xs opacity-65"
+              >
+                {item.data.id.slice(0, 8)}…
+              </PropertiesRow>
+            </PropertiesSection>
 
             {/* Media preview section — video files only */}
             {item.kind === "file" &&
@@ -293,27 +289,15 @@ export function FilesPropertiesPanel({
 
             {/* Sharing section */}
             {onShare && (
-              <div className="properties-section">
-                <p className="properties-section-title">Sharing</p>
-                {share?.status === "active" ? (
+              <PropertiesSection title="Sharing">
+                {share ? (
                   <>
-                    <div className="properties-row">
-                      <span className="properties-row-label">Status</span>
-                      <span className="properties-row-value">Active</span>
-                    </div>
-                    <Button size="sm" variant="outline" onClick={onShare}>
-                      Manage link
-                    </Button>
-                  </>
-                ) : share ? (
-                  <>
-                    <div className="properties-row">
-                      <span className="properties-row-label">Status</span>
-                      <span className="properties-row-value">
-                        {share.status.charAt(0).toUpperCase() +
+                    <PropertiesRow label="Status">
+                      {share.status === "active"
+                        ? "Active"
+                        : share.status.charAt(0).toUpperCase() +
                           share.status.slice(1)}
-                      </span>
-                    </div>
+                    </PropertiesRow>
                     <Button size="sm" variant="outline" onClick={onShare}>
                       Manage link
                     </Button>
@@ -323,15 +307,14 @@ export function FilesPropertiesPanel({
                     Create public link
                   </Button>
                 )}
-              </div>
+              </PropertiesSection>
             )}
 
             {/* Icon picker — folders only */}
             {item.kind === "folder" && (
-              <div className="properties-section">
-                <p className="properties-section-title">Folder icon</p>
+              <PropertiesSection title="Folder icon">
                 <div
-                  className="icon-picker-grid"
+                  className="grid grid-cols-6 gap-1"
                   role="radiogroup"
                   aria-label="Choose folder icon"
                 >
@@ -346,7 +329,11 @@ export function FilesPropertiesPanel({
                         aria-checked={active}
                         aria-label={label}
                         title={label}
-                        className={`icon-picker-option${active ? " is-active" : ""}`}
+                        className={cn(
+                          "flex aspect-square w-full cursor-pointer items-center justify-center rounded-md border border-transparent text-muted-foreground transition-colors outline-none hover:bg-pressed hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none",
+                          active &&
+                            "border-primary/25 bg-selected text-primary-ink hover:bg-selected hover:text-primary-ink",
+                        )}
                         onClick={() => onSetFolderIcon(item.data.id, name)}
                       >
                         <Icon size={18} />
@@ -354,7 +341,7 @@ export function FilesPropertiesPanel({
                     );
                   })}
                 </div>
-              </div>
+              </PropertiesSection>
             )}
           </div>
         )}

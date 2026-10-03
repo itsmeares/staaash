@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { Loader2, RefreshCw } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 
+import { Button } from "@/components/ui/button";
+import { SectionLabel } from "@/components/section-label";
+
 const NORMAL_WAIT_MS = 30_000;
 const LONG_WAIT_MS = 5 * 60_000;
 const FAST_REFRESH_MS = 2_000;
@@ -92,36 +95,39 @@ export function StorageUnavailableView({
   }, [recoveryRequired, router, startTransition]);
 
   return (
-    <section className="storage-unavailable-page">
-      <div className="storage-unavailable-panel">
+    <section className="grid min-h-[min(58vh,520px)] place-items-center">
+      <div className="grid w-[min(560px,100%)] justify-items-center gap-4.5 rounded-xl border border-hairline bg-card px-6 py-[clamp(28px,5vw,56px)] text-center">
         {!recoveryRequired && (
           <Loader2
             aria-hidden
-            className="storage-unavailable-spinner"
+            className="animate-spin text-primary motion-reduce:animate-none"
             size={34}
             strokeWidth={1.8}
           />
         )}
 
-        <div className="storage-unavailable-copy" aria-live="polite">
-          <p className="storage-unavailable-eyebrow">{copy.eyebrow}</p>
-          <h1>{copy.heading}</h1>
-          <p>{copy.message}</p>
+        <div className="grid justify-items-center gap-2" aria-live="polite">
+          <SectionLabel className="text-xs">{copy.eyebrow}</SectionLabel>
+          <h1 className="max-w-[28ch] font-heading text-3xl leading-tight font-semibold">
+            {copy.heading}
+          </h1>
+          <p className="max-w-[44ch] text-sm leading-normal text-muted-foreground">
+            {copy.message}
+          </p>
         </div>
 
-        <div className="storage-unavailable-actions">
-          <button
-            className="button button-secondary"
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button
+            variant="secondary"
             disabled={isRefreshing}
             onClick={() => startTransition(() => router.refresh())}
-            type="button"
           >
-            <RefreshCw aria-hidden size={14} />
+            <RefreshCw aria-hidden />
             Refresh
-          </button>
-          <Link className="button button-secondary" href="/files">
+          </Button>
+          <Button variant="secondary" render={<Link href="/files" />}>
             Back to Files
-          </Link>
+          </Button>
         </div>
       </div>
     </section>
