@@ -2,6 +2,16 @@ import React from "react";
 import Link from "next/link";
 
 import { TextFileViewer } from "@/app/text-file-viewer";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Empty, EmptyDescription } from "@/components/ui/empty";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group";
+import { PageHeader } from "@/components/page-header";
 
 import {
   FlashMessage,
@@ -20,6 +30,35 @@ import type {
   PublicShareResolution,
   ShareLinkSummary,
 } from "@/server/sharing/types";
+
+const pageMain =
+  "mx-auto grid w-[min(600px,calc(100vw-48px))] gap-4 py-12 max-sm:w-[min(100vw-28px,600px)] max-sm:py-7";
+const folderMain =
+  "mx-auto grid w-[min(1080px,calc(100vw-48px))] gap-4 py-12 max-sm:w-[min(100vw-28px,1080px)] max-sm:py-7";
+const mediaWidth = "w-[min(calc(60vh*16/9),90vw,1920px)]";
+
+const SharedVia = () => (
+  <p className="pt-2 text-center text-xs text-muted-foreground/55">
+    Shared via{" "}
+    <a
+      className="text-foreground no-underline hover:underline"
+      href="/"
+      rel="noopener noreferrer"
+    >
+      Staaash
+    </a>
+  </p>
+);
+
+const Expiry = ({ expiresAt }: { expiresAt: Date | string }) => (
+  <>
+    <span className="font-medium text-foreground">
+      {getRelativeExpiry(expiresAt)}
+    </span>
+    {" · "}
+    {formatDateTime(expiresAt)}
+  </>
+);
 
 const formatBytes = (value: number) =>
   new Intl.NumberFormat("en-GB", {
@@ -43,9 +82,9 @@ async function ShareBrand() {
   const setupState = await authService.getSetupState();
   const name = setupState.instanceName ?? "Staaash";
   return (
-    <div className="share-brand">
-      <span className="share-brand-wordmark">{name}</span>
-      <span className="share-brand-sub">shared with you</span>
+    <div className="flex shrink-0 flex-col items-end gap-1 text-right">
+      <span className="text-body font-light text-foreground">{name}</span>
+      <span className="text-xs text-muted-foreground">shared with you</span>
     </div>
   );
 }
@@ -100,13 +139,15 @@ export function ShareErrorView({ error }: { error: ShareError }) {
   const copy = shareErrorCopy[error.code];
 
   return (
-    <main className="share-page stack">
+    <main className={pageMain}>
       <ShareBrand />
-      <section className="panel stack">
-        <div className="pill">Public share</div>
-        <h1>{copy.title}</h1>
-        <p className="muted">{copy.description}</p>
-      </section>
+      <Card className="items-start gap-4 p-6 max-sm:p-4.5">
+        <Badge>Public share</Badge>
+        <h1 className="m-0 text-lg font-semibold tracking-tight">
+          {copy.title}
+        </h1>
+        <p className="m-0 text-muted-foreground">{copy.description}</p>
+      </Card>
     </main>
   );
 }
@@ -123,31 +164,30 @@ export function ShareLockedView({
   token: string;
 }) {
   return (
-    <main className="share-locked-page">
-      <div className="share-locked-body">
+    <main className="relative flex min-h-screen w-full flex-col items-center justify-center p-6">
+      <div className="grid w-[min(340px,100%)] gap-5">
         {error ? <FlashMessage>{error}</FlashMessage> : null}
         {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
-        <form
-          action={`/s/${encodeURIComponent(token)}/unlock`}
-          className="share-locked-form"
-          method="post"
-        >
+        <form action={`/s/${encodeURIComponent(token)}/unlock`} method="post">
           <input name="redirectTo" type="hidden" value={redirectPath} />
           <label className="sr-only" htmlFor="share-password">
             Password
           </label>
-          <input
-            id="share-password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            placeholder="Password"
-            required
-            className="share-locked-input"
-          />
-          <button type="submit" className="share-locked-submit">
-            Unlock
-          </button>
+          <InputGroup>
+            <InputGroupInput
+              id="share-password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              placeholder="Password"
+              required
+            />
+            <InputGroupAddon align="inline-end">
+              <Button type="submit" size="sm">
+                Unlock
+              </Button>
+            </InputGroupAddon>
+          </InputGroup>
         </form>
       </div>
     </main>
@@ -177,7 +217,6 @@ export function ShareFilePage({
 }) {
   const error = getSingleSearchParam(searchParams, "error");
   const success = getSingleSearchParam(searchParams, "success");
-  const relativeExpiry = getRelativeExpiry(share.expiresAt);
   const ext = file.name.includes(".")
     ? file.name.split(".").pop()?.toLowerCase()
     : null;
@@ -187,22 +226,17 @@ export function ShareFilePage({
     file.viewerKind === "text" && (safeNativeInline || !share.downloadDisabled);
 
   return (
-    <main className="share-page sp-file-layout">
+    <main className="mx-auto flex min-h-screen w-[min(1080px,calc(100vw-48px))] flex-col items-center gap-4 pt-6 pb-12 max-sm:w-[min(100vw-28px,1080px)]">
       {error ? <FlashMessage>{error}</FlashMessage> : null}
       {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
 
       {/* Top bar: file title left, instance brand right */}
-      <div className="sp-topbar">
-        <div className="sp-hero">
-          <h1 className="sp-file-title">{file.name}</h1>
-          <p className="share-expiry-meta">
-            <span className="share-expiry-highlight">{relativeExpiry}</span>
-            {" · "}
-            {formatDateTime(share.expiresAt)}
-          </p>
-        </div>
-        <ShareBrand />
-      </div>
+      <PageHeader
+        className={`${mediaWidth} max-sm:flex-col-reverse`}
+        title={file.name}
+        description={<Expiry expiresAt={share.expiresAt} />}
+        actions={<ShareBrand />}
+      />
 
       {/* Content */}
       {file.viewerKind === "audio" && safeNativeInline ? (
@@ -211,33 +245,18 @@ export function ShareFilePage({
         <embed
           src={contentHref}
           type="application/pdf"
-          style={{ width: "100%", height: "75vh" }}
+          className="h-[75vh] w-full"
         />
       ) : canViewTextSource ? (
         <TextFileViewer contentHref={contentHref} />
       ) : (file.viewerKind === "image" || file.viewerKind === "video") &&
         safeNativeInline ? (
-        <section
-          className="panel stack sp-media"
-          style={{
-            overflow: "hidden",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor:
-              "color-mix(in oklab, var(--foreground) 4%, var(--background))",
-          }}
-        >
+        <section className="flex w-fit max-w-[min(90vw,1920px)] items-center justify-center overflow-hidden rounded-xl border border-hairline bg-hover">
           {file.viewerKind === "image" ? (
             <img
               alt={file.name}
               src={contentHref}
-              style={{
-                display: "block",
-                maxWidth: "min(90vw, 1920px)",
-                maxHeight: "60vh",
-                objectFit: "contain",
-              }}
+              className="block max-h-[60vh] max-w-[min(90vw,1920px)] object-contain"
             />
           ) : (
             <video
@@ -245,11 +264,7 @@ export function ShareFilePage({
               playsInline
               preload="metadata"
               src={contentHref}
-              style={{
-                display: "block",
-                maxWidth: "min(90vw, 1920px)",
-                maxHeight: "60vh",
-              }}
+              className="block max-h-[60vh] max-w-[min(90vw,1920px)]"
             >
               Your browser could not play this video inline.
             </video>
@@ -257,33 +272,32 @@ export function ShareFilePage({
         </section>
       ) : null}
 
-      {/* Actions row — meta left, download + back right */}
-      <div className="sp-actions">
-        <p className="sp-actions-meta">
+      {/* Actions row: meta left, download + back right */}
+      <div
+        className={`flex flex-wrap items-center justify-between gap-3 ${mediaWidth}`}
+      >
+        <p className="m-0 text-xs text-muted-foreground">
           {formatLabel} · {formatBytes(file.sizeBytes)}
         </p>
-        <div className="sp-actions-right">
+        <div className="flex shrink-0 items-center gap-2">
           {backHref ? (
-            <Link className="button button-secondary" href={backHref}>
+            <Button variant="secondary" render={<Link href={backHref} />}>
               {backLabel}
-            </Link>
+            </Button>
           ) : null}
           {!share.downloadDisabled && downloadHref ? (
-            <a className="button" href={downloadHref}>
-              Download
-            </a>
+            <Button render={<a href={downloadHref} />}>Download</Button>
           ) : share.downloadDisabled ? (
-            <span className="sp-dl-disabled">Downloads off</span>
+            <span className="text-xs text-muted-foreground italic">
+              Downloads off
+            </span>
           ) : null}
         </div>
       </div>
 
-      <p className="share-page-footer">
-        Shared via{" "}
-        <a href="/" rel="noopener noreferrer">
-          Staaash
-        </a>
-      </p>
+      <div className="mt-auto">
+        <SharedVia />
+      </div>
     </main>
   );
 }
@@ -337,131 +351,151 @@ export function ShareView({
     );
   }
 
-  const relativeExpiry = getRelativeExpiry(resolution.share.expiresAt);
-
   return (
-    <main className="share-page stack">
+    <main className={folderMain}>
       <ShareBrand />
 
-      <section className="panel stack">
-        <div className="split">
-          <div className="stack">
-            <div className="pill">Shared folder</div>
-            <h1>{resolution.listing.currentFolder.name}</h1>
-            <p className="share-expiry-meta">
-              <span className="share-expiry-highlight">{relativeExpiry}</span>
-              {" · "}
-              {formatDateTime(resolution.share.expiresAt)}
-            </p>
-          </div>
-          {!resolution.share.downloadDisabled ? (
-            <a
-              className="button button-secondary"
-              href={`/s/${encodeURIComponent(token)}/archive`}
-            >
-              Download all
-            </a>
-          ) : null}
-        </div>
+      <Card className="gap-4 p-6 max-sm:p-4.5">
+        <PageHeader
+          title={resolution.listing.currentFolder.name}
+          meta={<Badge>Shared folder</Badge>}
+          description={<Expiry expiresAt={resolution.share.expiresAt} />}
+          actions={
+            !resolution.share.downloadDisabled ? (
+              <Button
+                variant="secondary"
+                render={<a href={`/s/${encodeURIComponent(token)}/archive`} />}
+              >
+                Download all
+              </Button>
+            ) : null
+          }
+        />
         {error ? <FlashMessage>{error}</FlashMessage> : null}
         {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
         {resolution.share.downloadDisabled ? (
-          <span className="field-help">
+          <span className="text-label text-muted-foreground">
             Archive download is disabled for this link.
           </span>
         ) : null}
-      </section>
+      </Card>
 
       {resolution.listing.breadcrumbs.length > 1 ? (
-        <div className="workspace-breadcrumbs" aria-label="Breadcrumb">
+        <nav className="flex flex-wrap items-baseline" aria-label="Breadcrumb">
           {resolution.listing.breadcrumbs.map((crumb) => (
-            <Link key={crumb.id} href={crumb.href}>
+            <Link
+              key={crumb.id}
+              className="text-label text-muted-foreground/65 transition-colors duration-150 after:px-1.5 after:font-light after:text-muted-foreground/30 after:content-['/'] hover:text-muted-foreground"
+              href={crumb.href}
+            >
               {crumb.name}
             </Link>
           ))}
-        </div>
+        </nav>
       ) : null}
 
-      <section className="panel stack">
-        <div className="split">
-          <h2>Folders</h2>
-          <span className="pill">{resolution.listing.childFolders.length}</span>
+      <Card className="gap-4 p-6 max-sm:p-4.5">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="m-0 text-sm font-semibold">Folders</h2>
+          <Badge>{resolution.listing.childFolders.length}</Badge>
         </div>
 
         {resolution.listing.childFolders.length === 0 ? (
-          <p className="muted" style={{ fontSize: "13px" }}>
-            No folders here.
-          </p>
+          <Empty className="py-4 md:py-4">
+            <EmptyDescription>No folders here.</EmptyDescription>
+          </Empty>
         ) : (
-          <div className="folder-list">
+          <div className="grid gap-2">
             {resolution.listing.childFolders.map((folder) => (
-              <article className="folder-row" key={folder.id}>
-                <div className="folder-row-head">
-                  <div className="item-row-title">
-                    <ItemTypeIcon visual={getItemVisual("folder")} />
-                    <div className="stack">
+              <article
+                className="rounded-lg border border-hairline px-3.5 py-2.5"
+                key={folder.id}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <ItemTypeIcon
+                      className="inline-flex size-6.5 shrink-0 items-center justify-center rounded-sm"
+                      visual={getItemVisual("folder")}
+                    />
+                    <div className="grid min-w-0 gap-1">
                       <Link
-                        className="folder-link"
+                        className="truncate text-label font-medium text-foreground hover:underline"
                         href={`/s/${encodeURIComponent(token)}/f/${folder.id}`}
                       >
                         {folder.name}
                       </Link>
-                      <p className="share-file-meta">
+                      <p className="m-0 text-xs text-muted-foreground">
                         Updated {formatDateTime(folder.updatedAt)}
                       </p>
                     </div>
                   </div>
-                  <span className="pill">Folder</span>
+                  <Badge>Folder</Badge>
                 </div>
               </article>
             ))}
           </div>
         )}
-      </section>
+      </Card>
 
-      <section className="panel stack">
-        <div className="split">
-          <h2>Files</h2>
-          <span className="pill">{resolution.listing.files.length}</span>
+      <Card className="gap-4 p-6 max-sm:p-4.5">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="m-0 text-sm font-semibold">Files</h2>
+          <Badge>{resolution.listing.files.length}</Badge>
         </div>
 
         {resolution.listing.files.length === 0 ? (
-          <p className="muted" style={{ fontSize: "13px" }}>
-            No files here.
-          </p>
+          <Empty className="py-4 md:py-4">
+            <EmptyDescription>No files here.</EmptyDescription>
+          </Empty>
         ) : (
-          <div className="folder-list">
+          <div className="grid gap-2">
             {resolution.listing.files.map((file) => (
-              <article className="folder-row" key={file.id}>
-                <div className="folder-row-head">
-                  <div className="item-row-title">
+              <article
+                className="rounded-lg border border-hairline px-3.5 py-2.5"
+                key={file.id}
+              >
+                <div className="flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-start">
+                  <div className="flex min-w-0 items-center gap-2.5">
                     <ItemTypeIcon
+                      className="inline-flex size-6.5 shrink-0 items-center justify-center rounded-sm"
                       visual={getItemVisual("file", file.mimeType)}
                     />
-                    <div className="stack">
-                      <h3 className="folder-link">{file.name}</h3>
-                      <p className="share-file-meta">
+                    <div className="grid min-w-0 gap-1">
+                      <h3 className="m-0 truncate text-label font-medium text-foreground">
+                        {file.name}
+                      </h3>
+                      <p className="m-0 text-xs text-muted-foreground">
                         {file.mimeType} · {formatBytes(file.sizeBytes)} ·
                         updated {formatDateTime(file.updatedAt)}
                       </p>
                     </div>
                   </div>
-                  <div className="workspace-inline-fields retrieval-inline-actions">
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
                     {file.viewerKind ? (
-                      <Link
-                        className="button button-secondary"
-                        href={`/s/${encodeURIComponent(token)}/files/${file.id}`}
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        render={
+                          <Link
+                            href={`/s/${encodeURIComponent(token)}/files/${file.id}`}
+                          />
+                        }
                       >
                         Open
-                      </Link>
+                      </Button>
                     ) : null}
                     {!resolution.share.downloadDisabled ? (
-                      <a
-                        className="button button-secondary"
-                        href={`/s/${encodeURIComponent(token)}/files/${file.id}/download`}
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        render={
+                          <a
+                            href={`/s/${encodeURIComponent(token)}/files/${file.id}/download`}
+                          />
+                        }
                       >
                         Download
-                      </a>
+                      </Button>
                     ) : null}
                   </div>
                 </div>
@@ -469,14 +503,9 @@ export function ShareView({
             ))}
           </div>
         )}
-      </section>
+      </Card>
 
-      <p className="share-page-footer">
-        Shared via{" "}
-        <a href="/" rel="noopener noreferrer">
-          Staaash
-        </a>
-      </p>
+      <SharedVia />
     </main>
   );
 }
