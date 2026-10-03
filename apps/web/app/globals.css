@@ -16,5 +16,4 @@
 @import "../styles/legacy/common.css" layer(legacy);
 @import "../styles/legacy/shell.css" layer(legacy);
 @import "../styles/legacy/explorer.css" layer(legacy);
-@import "../styles/legacy/retrieval.css" layer(legacy);
 @import "../styles/legacy/late.css" layer(legacy);

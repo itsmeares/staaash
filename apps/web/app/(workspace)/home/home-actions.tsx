@@ -3,32 +3,41 @@
 import { useState } from "react";
 import { FolderPlus, Upload } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
 import { CreateFolderDialog } from "../create-folder-dialog";
 
-export function HomePrimaryActions() {
+export function HomePrimaryActions({ className }: { className?: string }) {
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
 
   return (
     <>
-      <div className="home-actions">
-        <button
-          className="home-action home-action-primary"
+      <div
+        className={cn(
+          "flex flex-wrap justify-end gap-2 max-lg:justify-start lg:gap-2.5",
+          className,
+        )}
+      >
+        <Button
+          className="max-xs:flex-1"
           type="button"
           onClick={() =>
             window.dispatchEvent(new Event("staaash:upload-click"))
           }
         >
-          <Upload size={15} strokeWidth={1.9} aria-hidden />
+          <Upload aria-hidden />
           <span>Upload files</span>
-        </button>
-        <button
-          className="home-action home-action-secondary"
+        </Button>
+        <Button
+          className="max-xs:flex-1"
           type="button"
+          variant="outline"
           onClick={() => setCreateFolderOpen(true)}
         >
-          <FolderPlus size={15} strokeWidth={1.9} aria-hidden />
+          <FolderPlus aria-hidden />
           <span>New folder</span>
-        </button>
+        </Button>
       </div>
 
       <CreateFolderDialog

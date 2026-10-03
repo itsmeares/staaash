@@ -5,13 +5,31 @@ import { useMemo, useState } from "react";
 
 import { FlashMessage } from "@/app/auth-ui";
 import { getItemVisual } from "@/app/item-visuals";
-import { ItemTypeIcon } from "@/app/item-type-icon";
 import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
+import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
+import { Badge } from "@/components/ui/badge";
 import {
   formatRecentFileSize,
   formatRecentRelativeTime,
 } from "../recent/recent-helpers";
 import { RecentGroupSections } from "../recent/recent-group-sections";
+import {
+  COLLECTION_ROW_LOCATION,
+  COLLECTION_ROW_NAME,
+  COLLECTION_ROW_SIZE,
+  COLLECTION_ROW_TIME,
+  CollectionColumnHead,
+  CollectionEmpty,
+  CollectionHeadLabel,
+  CollectionRow,
+  CollectionToolbar,
+  DeletedBadge,
+  InlineActions,
+  RowActionButton,
+  RowIcon,
+  TypeFilterSelect,
+} from "../collection-parts";
 import { EmptyTrashAction } from "./trash-file-actions";
 import {
   filterTrashItems,
@@ -62,14 +80,13 @@ function RestoreAction({ item }: { item: TrashClientItem }) {
       }}
     >
       <input name="redirectTo" type="hidden" value="/trash" />
-      <button
+      <RowActionButton
         aria-label={`Restore ${item.name}`}
-        className="recent-action-btn"
         title={`Restore ${item.name}`}
         type="submit"
       >
         <RotateCcw size={13} aria-hidden />
-      </button>
+      </RowActionButton>
     </form>
   );
 }
@@ -101,14 +118,14 @@ function DeleteFileAction({ item }: { item: TrashClientItem }) {
       }}
     >
       <input name="redirectTo" type="hidden" value="/trash" />
-      <button
+      <RowActionButton
         aria-label={`Delete ${item.name} permanently`}
-        className="recent-action-btn recent-action-btn-danger"
         title={`Delete ${item.name} permanently`}
+        tone="danger"
         type="submit"
       >
         <Trash2 size={13} aria-hidden />
-      </button>
+      </RowActionButton>
     </form>
   );
 }
@@ -125,19 +142,15 @@ function TrashRowActions({ item }: { item: TrashClientItem }) {
 
 function TrashEmptyState({ filtered }: { filtered: boolean }) {
   return (
-    <div className="recent-empty-state trash-empty-state">
-      <span className="recent-empty-icon">
-        <ItemTypeIcon size={22} visual={getItemVisual("folder", null)} />
-      </span>
-      <p>
-        {filtered ? "No deleted items match that filter" : "Trash is empty"}
-      </p>
-      <span>
-        {filtered
+    <CollectionEmpty
+      description={
+        filtered
           ? "Try a different type."
-          : "Deleted files and folder roots show up here."}
-      </span>
-    </div>
+          : "Deleted files and folder roots show up here."
+      }
+      icon={<Trash2 aria-hidden />}
+      title={filtered ? "No deleted items match that filter" : "Trash is empty"}
+    />
   );
 }
 
@@ -157,38 +170,44 @@ function TrashRow({ item }: { item: TrashClientItem }) {
       itemName={item.name}
       kind={item.kind}
     >
-      <article
-        className="recent-row is-deleted trash-row"
+      <CollectionRow
+        actionsColumn
+        deleted
         id={`${item.kind}-${item.id}`}
+        selected={false}
       >
-        <span className="recent-row-thumb">
-          <ItemTypeIcon size={14} visual={visual} />
-        </span>
-        <span className="recent-row-name" title={item.name}>
-          {item.name}
-          <span className="recent-deleted-badge">Deleted</span>
+        <RowIcon deleted visual={visual} />
+        <span className={COLLECTION_ROW_NAME} title={item.name}>
+          <span className="truncate">{item.name}</span>
+          <DeletedBadge />
           {item.storageMutationStatus ? (
-            <span className="recent-deleted-badge">
+            <Badge size="sm" variant="neutral">
               {item.storageMutationStatus === "recovery_required"
                 ? "Recovery required"
                 : "Finishing storage operation"}
-            </span>
+            </Badge>
           ) : null}
         </span>
         <span
-          className="recent-row-location"
+          className={COLLECTION_ROW_LOCATION}
           title={`Restores to ${item.restoreTargetLabel}`}
         >
           {item.originalPathLabel}
         </span>
-        <span className="recent-row-size">{sizeLabel}</span>
-        <span className="recent-row-time" title={item.deletedAt}>
+        <span className={COLLECTION_ROW_SIZE}>{sizeLabel}</span>
+        <span
+          className={cn(
+            COLLECTION_ROW_TIME,
+            "max-md:hidden pointer-coarse:hidden",
+          )}
+          title={item.deletedAt}
+        >
           {deletedLabel}
         </span>
-        <span className="trash-row-actions">
+        <InlineActions className="justify-self-end">
           <TrashRowActions item={item} />
-        </span>
-      </article>
+        </InlineActions>
+      </CollectionRow>
     </TrashContextMenu>
   );
 }
@@ -209,79 +228,41 @@ export function TrashView({ error, items, success }: TrashViewProps) {
 
   return (
     <>
-      <div className="recent-header trash-header">
-        <h1>Deleted</h1>
-        {items.length > 0 ? (
-          <span className="section-count">{items.length}</span>
-        ) : null}
-        <div className="trash-header-action">
-          <EmptyTrashAction disabled={items.length === 0} />
-        </div>
-      </div>
+      <PageHeader
+        actions={<EmptyTrashAction disabled={items.length === 0} />}
+        meta={items.length > 0 ? <Badge>{items.length}</Badge> : null}
+        title="Deleted"
+      />
 
       {error ? <FlashMessage>{error}</FlashMessage> : null}
       {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
 
-      <div className="recent-toolbar" aria-label="Deleted display controls">
-        <label className="recent-filter-label">
-          <span>Type</span>
-          <select
-            className="recent-type-select"
-            value={filterType}
-            onChange={(event) =>
-              setFilterType(event.target.value as TrashFilterType)
-            }
-          >
-            {TRASH_FILTERS.map((filter) => (
-              <option key={filter.id} value={filter.id}>
-                {filter.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="recent-filter-label">
-          <span>Deleted</span>
-          <select
-            className="recent-type-select"
-            value={sortOrder}
-            onChange={(event) =>
-              setSortOrder(event.target.value as TrashSortOrder)
-            }
-          >
-            {TRASH_SORT_OPTIONS.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      <CollectionToolbar aria-label="Deleted display controls">
+        <TypeFilterSelect
+          options={TRASH_FILTERS}
+          value={filterType}
+          onValueChange={(value) => setFilterType(value as TrashFilterType)}
+        />
+        <TypeFilterSelect
+          label="Deleted"
+          options={TRASH_SORT_OPTIONS}
+          value={sortOrder}
+          onValueChange={(value) => setSortOrder(value as TrashSortOrder)}
+        />
+      </CollectionToolbar>
 
       {visibleItems.length === 0 ? (
         <TrashEmptyState filtered={filteredEmpty} />
       ) : (
-        <div className="recent-table-wrap trash-table-wrap">
-          <div className="recent-col-head trash-col-head" role="row">
+        <div className="relative grid min-h-0 pb-14 max-md:pb-22 pointer-coarse:pb-22">
+          <CollectionColumnHead actionsColumn>
             <span aria-hidden />
-            <span className="recent-col-head-cell">Name</span>
-            <span className="recent-col-head-cell" data-column="path">
-              Location
-            </span>
-            <span
-              className="recent-col-head-cell"
-              data-align="right"
-              data-column="size"
-            >
-              Size
-            </span>
-            <span className="recent-col-head-cell" data-align="right">
-              Deleted
-            </span>
-            <span className="recent-col-head-cell" data-align="right">
-              Actions
-            </span>
-          </div>
+            <CollectionHeadLabel>Name</CollectionHeadLabel>
+            <CollectionHeadLabel>Location</CollectionHeadLabel>
+            <CollectionHeadLabel align="right">Size</CollectionHeadLabel>
+            <CollectionHeadLabel align="right">Deleted</CollectionHeadLabel>
+            <CollectionHeadLabel align="right">Actions</CollectionHeadLabel>
+          </CollectionColumnHead>
 
           <RecentGroupSections
             groups={groups}

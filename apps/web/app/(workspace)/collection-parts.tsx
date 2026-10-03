@@ -34,6 +34,10 @@ import {
 const COLLECTION_GRID =
   "grid items-center grid-cols-[28px_minmax(0,1fr)_minmax(78px,96px)] gap-x-2.5 lg:grid-cols-[36px_minmax(225px,1fr)_minmax(175px,225px)_minmax(90px,104px)_minmax(108px,138px)] lg:gap-x-3.5 max-md:grid-cols-[32px_minmax(0,1fr)_44px] pointer-coarse:grid-cols-[32px_minmax(0,1fr)_44px]";
 
+// Same as above with a trailing actions column (Trash).
+const COLLECTION_GRID_WITH_ACTIONS =
+  "grid items-center grid-cols-[28px_minmax(0,1fr)_minmax(78px,96px)_minmax(64px,78px)] gap-x-2.5 lg:grid-cols-[36px_minmax(225px,1fr)_minmax(175px,225px)_minmax(90px,104px)_minmax(108px,138px)_minmax(84px,104px)] lg:gap-x-3.5 max-md:grid-cols-[32px_minmax(0,1fr)_44px] pointer-coarse:grid-cols-[32px_minmax(0,1fr)_44px]";
+
 const ACTIONS_BOX =
   "inline-flex items-center gap-0.5 rounded-md border bg-card p-0.5 shadow-xs [&_form]:inline-flex";
 
@@ -66,10 +70,12 @@ export function CollectionToolbar({
 }
 
 export function TypeFilterSelect({
+  label = "Type",
   options,
   value,
   onValueChange,
 }: {
+  label?: string;
   options: { id: string; label: string }[];
   value: string;
   onValueChange: (value: string) => void;
@@ -87,11 +93,11 @@ export function TypeFilterSelect({
       }}
     >
       <SelectTrigger
-        aria-label="Type"
+        aria-label={label}
         className="w-auto min-w-40 max-md:flex-1 pointer-coarse:flex-1"
         size="sm"
       >
-        <SectionLabel className="text-xs">Type</SectionLabel>
+        <SectionLabel className="text-xs">{label}</SectionLabel>
         <SelectValue />
       </SelectTrigger>
       <SelectPopup>
@@ -126,18 +132,37 @@ export function CollectionEmpty({
 }
 
 export function CollectionColumnHead({
+  actionsColumn = false,
   className,
   ...props
-}: React.ComponentProps<"div">) {
+}: React.ComponentProps<"div"> & { actionsColumn?: boolean }) {
   return (
     <div
       className={cn(
-        COLLECTION_GRID,
+        actionsColumn ? COLLECTION_GRID_WITH_ACTIONS : COLLECTION_GRID,
         "sticky top-0 z-2 min-h-10 border-b pt-0.5 pr-2 pb-2 pl-1 max-md:hidden lg:min-h-12 lg:pt-1.5 lg:pr-3 lg:pb-3 lg:pl-2 pointer-coarse:hidden",
         className,
       )}
       data-collection-head
       role="row"
+      {...props}
+    />
+  );
+}
+
+/** Non-sortable column label. */
+export function CollectionHeadLabel({
+  align = "left",
+  className,
+  ...props
+}: React.ComponentProps<"span"> & { align?: "left" | "right" }) {
+  return (
+    <span
+      className={cn(
+        "flex min-w-0 items-center gap-1 px-1 text-xs font-medium tracking-wider whitespace-nowrap text-muted-foreground uppercase lg:text-label",
+        align === "right" && "justify-end",
+        className,
+      )}
       {...props}
     />
   );
@@ -183,16 +208,18 @@ export function CollectionSortButton({
 export function CollectionRow({
   selected,
   deleted = false,
+  actionsColumn = false,
   className,
   ...props
 }: React.ComponentProps<"article"> & {
   selected: boolean;
   deleted?: boolean;
+  actionsColumn?: boolean;
 }) {
   return (
     <article
       className={cn(
-        COLLECTION_GRID,
+        actionsColumn ? COLLECTION_GRID_WITH_ACTIONS : COLLECTION_GRID,
         ROW_BASE,
         "group/row rounded-none border-b border-hairline focus-within:bg-hover",
         selected &&

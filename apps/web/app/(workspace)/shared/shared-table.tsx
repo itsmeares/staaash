@@ -10,7 +10,24 @@ import {
   DashboardItemContextMenu,
   type DashboardContextMenuGroup,
 } from "@/app/dashboard-context-menu";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import type { ShareLinkSummary } from "@/server/sharing";
+
+import {
+  CollectionEmpty,
+  CollectionToolbar,
+  TypeFilterSelect,
+} from "../collection-parts";
 
 export type SharedTableItem = {
   share: ShareLinkSummary;
@@ -38,10 +55,42 @@ const FILTERS: { id: SharedFilterType; label: string }[] = [
   { id: "archive", label: "Archives" },
 ];
 
-const getStatusClass = (status: ShareLinkSummary["status"]) => {
-  if (status === "target-unavailable") return "unavailable";
-  return status;
-};
+const STATUS_VARIANT = {
+  active: "accent",
+  expired: "neutral",
+  revoked: "error",
+  "target-unavailable": "neutral",
+} as const;
+
+const EXPIRY_TONE_CLASS = {
+  critical: "font-semibold text-destructive-foreground",
+  default: "",
+  warning: "font-semibold text-warning-foreground",
+} as const;
+
+function StatusBadge({
+  status,
+  label,
+}: {
+  status: ShareLinkSummary["status"];
+  label: string;
+}) {
+  return (
+    <Badge className="shrink-0" variant={STATUS_VARIANT[status]}>
+      {label}
+    </Badge>
+  );
+}
+
+function PasswordHint() {
+  return (
+    <KeyRound
+      aria-label="Password protected"
+      className="text-primary-ink"
+      size={13}
+    />
+  );
+}
 
 function getShareType(share: ShareLinkSummary): SharedFilterType {
   if (share.target.targetType === "folder") return "folder";
@@ -138,247 +187,203 @@ export function SharedTable({ items }: SharedTableProps) {
     },
   ];
 
+  const openManage = (share: ShareLinkSummary) =>
+    setShareDialogTarget({
+      targetType: share.target.targetType,
+      targetId: share.target.id,
+      share,
+    });
+
   return (
     <>
-      <div className="shared-toolbar" aria-label="Shared display controls">
-        <label className="favorites-filter-control">
-          <span>Type</span>
-          <select
-            value={filterType}
-            onChange={(event) =>
-              setFilterType(event.target.value as SharedFilterType)
-            }
-          >
-            {FILTERS.map((filter) => (
-              <option key={filter.id} value={filter.id}>
-                {filter.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <Link className="shared-new-link" href="/files">
+      <CollectionToolbar
+        aria-label="Shared display controls"
+        className="justify-between"
+      >
+        <TypeFilterSelect
+          options={FILTERS}
+          value={filterType}
+          onValueChange={(value) => setFilterType(value as SharedFilterType)}
+        />
+        <Button
+          render={<Link href="/files" />}
+          size="sm"
+          className="max-md:flex-1"
+        >
           + New share link
-        </Link>
-      </div>
+        </Button>
+      </CollectionToolbar>
 
       {visibleItems.length === 0 ? (
-        <div className="shared-empty-state">
-          <span className="shared-empty-icon">
-            <Share2 size={22} aria-hidden />
-          </span>
-          <p>No shared links match that filter</p>
-          <span>Try a different type.</span>
-        </div>
+        <CollectionEmpty
+          description="Try a different type."
+          icon={<Share2 aria-hidden />}
+          title="No shared links match that filter"
+        />
       ) : (
         <>
-          <div className="st-card-list">
-            {visibleItems.map(
-              ({ share, canManage, expiresLabel, expiryTone, statusLabel }) => {
-                const locationLabel = getShareLocationLabel(share);
-                return (
-                  <DashboardItemContextMenu
-                    groups={getShareItemContextGroups({
-                      share,
-                      canManage,
-                      expiresLabel,
-                      expiryTone,
-                      statusLabel,
-                    })}
-                    key={share.id}
+          <div className="hidden gap-2.5 max-xs:grid">
+            {visibleItems.map((item) => {
+              const {
+                share,
+                canManage,
+                expiresLabel,
+                expiryTone,
+                statusLabel,
+              } = item;
+              const locationLabel = getShareLocationLabel(share);
+              return (
+                <DashboardItemContextMenu
+                  groups={getShareItemContextGroups(item)}
+                  key={share.id}
+                >
+                  <article
+                    className={cn(
+                      "grid gap-3 rounded-lg border bg-hover p-3",
+                      share.status !== "active" && "opacity-60",
+                    )}
+                    id={`mobile-${share.id}`}
                   >
-                    <article
-                      className={`st-card${share.status === "active" ? "" : " st-card--inactive"}`}
-                      id={`mobile-${share.id}`}
-                    >
-                      <div className="st-card-head">
-                        <span
-                          className="st-name-text"
-                          title={share.target.name}
-                        >
-                          {share.target.name}
-                        </span>
-                        <span
-                          className={`sl-badge sl-badge--${getStatusClass(share.status)}`}
-                        >
-                          {statusLabel}
-                        </span>
-                      </div>
-                      <dl className="st-card-meta">
-                        <div>
-                          <dt>Location</dt>
-                          <dd>{locationLabel}</dd>
-                        </div>
-                        <div>
-                          <dt>Type</dt>
-                          <dd>{getShareTypeLabel(share)}</dd>
-                        </div>
-                        <div>
-                          <dt>Expires</dt>
-                          <dd className={`st-mono st-expires--${expiryTone}`}>
-                            {expiresLabel}
+                    <div className="flex items-center justify-between gap-2.5">
+                      <span
+                        className="min-w-0 truncate text-label font-semibold"
+                        title={share.target.name}
+                      >
+                        {share.target.name}
+                      </span>
+                      <StatusBadge status={share.status} label={statusLabel} />
+                    </div>
+                    <dl className="m-0 grid gap-2 text-label">
+                      {[
+                        ["Location", locationLabel, ""],
+                        ["Type", getShareTypeLabel(share), ""],
+                        [
+                          "Expires",
+                          expiresLabel,
+                          cn("tabular-nums", EXPIRY_TONE_CLASS[expiryTone]),
+                        ],
+                      ].map(([term, value, valueClass]) => (
+                        <div className="grid gap-0.5" key={term}>
+                          <dt className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                            {term}
+                          </dt>
+                          <dd className={cn("m-0 truncate", valueClass)}>
+                            {value}
                           </dd>
                         </div>
-                      </dl>
-                      <div className="st-card-actions">
-                        <button
-                          className="st-action"
-                          disabled={!canManage}
-                          onClick={() =>
-                            setShareDialogTarget({
-                              targetType: share.target.targetType,
-                              targetId: share.target.id,
-                              share,
-                            })
-                          }
-                          type="button"
-                        >
-                          Manage
-                        </button>
-                        {share.hasPassword ? (
-                          <span className="st-password-hint">
-                            <KeyRound
-                              aria-label="Password protected"
-                              size={13}
-                            />
-                          </span>
-                        ) : null}
-                      </div>
-                    </article>
-                  </DashboardItemContextMenu>
-                );
-              },
-            )}
+                      ))}
+                    </dl>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        disabled={!canManage}
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => openManage(share)}
+                      >
+                        Manage
+                      </Button>
+                      {share.hasPassword ? <PasswordHint /> : null}
+                    </div>
+                  </article>
+                </DashboardItemContextMenu>
+              );
+            })}
           </div>
 
-          <div className="st-wrap">
-            <table className="st-table">
-              <colgroup>
-                <col className="st-col-name" />
-                <col className="st-col-location" />
-                <col className="st-col-type" />
-                <col className="st-col-expires" />
-                <col className="st-col-status" />
-                <col className="st-col-actions" />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th className="st-th" scope="col">
+          <div className="overflow-hidden rounded-lg border max-xs:hidden">
+            <Table className="min-w-190 table-fixed">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[29%]" scope="col">
                     Name
-                  </th>
-                  <th className="st-th" scope="col">
+                  </TableHead>
+                  <TableHead className="w-[25%]" scope="col">
                     Location
-                  </th>
-                  <th className="st-th" scope="col">
+                  </TableHead>
+                  <TableHead className="w-[11%]" scope="col">
                     Type
-                  </th>
-                  <th className="st-th" scope="col">
+                  </TableHead>
+                  <TableHead className="w-[15%]" scope="col">
                     Expires
-                  </th>
-                  <th className="st-th" scope="col">
+                  </TableHead>
+                  <TableHead className="w-[11%]" scope="col">
                     Status
-                  </th>
-                  <th className="st-th" scope="col">
+                  </TableHead>
+                  <TableHead className="w-[9%]" scope="col">
                     Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleItems.map(
-                  ({
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visibleItems.map((item) => {
+                  const {
                     share,
                     canManage,
                     expiresLabel,
                     expiryTone,
                     statusLabel,
-                  }) => {
-                    const locationLabel = getShareLocationLabel(share);
+                  } = item;
+                  const locationLabel = getShareLocationLabel(share);
 
-                    return (
-                      <DashboardItemContextMenu
-                        groups={getShareItemContextGroups({
-                          share,
-                          canManage,
-                          expiresLabel,
-                          expiryTone,
-                          statusLabel,
-                        })}
-                        key={share.id}
+                  return (
+                    <DashboardItemContextMenu
+                      groups={getShareItemContextGroups(item)}
+                      key={share.id}
+                    >
+                      <TableRow
+                        className={cn(
+                          share.status !== "active" && "opacity-60",
+                        )}
+                        id={share.id}
                       >
-                        <tr
-                          className={`st-tr${share.status === "active" ? "" : " st-tr--inactive"}`}
-                          id={share.id}
+                        <TableCell className="truncate px-3.5 text-label font-semibold">
+                          <span title={share.target.name}>
+                            {share.target.name}
+                          </span>
+                        </TableCell>
+                        <TableCell className="truncate px-3.5 text-label text-muted-foreground">
+                          <span title={locationLabel}>{locationLabel}</span>
+                        </TableCell>
+                        <TableCell className="truncate px-3.5 text-label text-muted-foreground">
+                          {getShareTypeLabel(share)}
+                        </TableCell>
+                        <TableCell
+                          className={cn(
+                            "truncate px-3.5 text-label tabular-nums",
+                            EXPIRY_TONE_CLASS[expiryTone],
+                          )}
                         >
-                          <td className="st-td st-name-cell">
-                            <span className="st-name">
-                              <span
-                                className="st-name-text"
-                                title={share.target.name}
-                              >
-                                {share.target.name}
-                              </span>
-                            </span>
-                          </td>
-                          <td className="st-td st-muted">
-                            <span className="st-location" title={locationLabel}>
-                              {locationLabel}
-                            </span>
-                          </td>
-                          <td className="st-td st-muted">
-                            {getShareTypeLabel(share)}
-                          </td>
-                          <td
-                            className={`st-td st-mono st-expires--${expiryTone}`}
-                          >
-                            {expiresLabel}
-                          </td>
-                          <td className="st-td">
-                            <span
-                              className={`sl-badge sl-badge--${getStatusClass(share.status)}`}
+                          {expiresLabel}
+                        </TableCell>
+                        <TableCell className="px-3.5">
+                          <StatusBadge
+                            status={share.status}
+                            label={statusLabel}
+                          />
+                        </TableCell>
+                        <TableCell className="px-3.5">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              disabled={!canManage}
+                              size="xs"
+                              variant="ghost"
+                              onClick={() => openManage(share)}
                             >
-                              {statusLabel}
-                            </span>
-                          </td>
-                          <td className="st-td">
-                            <div className="st-actions">
-                              <button
-                                className="st-action"
-                                disabled={!canManage}
-                                onClick={() =>
-                                  setShareDialogTarget({
-                                    targetType: share.target.targetType,
-                                    targetId: share.target.id,
-                                    share,
-                                  })
-                                }
-                                type="button"
-                              >
-                                Manage
-                              </button>
-                              <span
-                                aria-hidden={!share.hasPassword}
-                                className="st-password-hint"
-                                title={
-                                  share.hasPassword
-                                    ? "Password protected"
-                                    : undefined
-                                }
-                              >
-                                {share.hasPassword ? (
-                                  <KeyRound
-                                    aria-label="Password protected"
-                                    size={13}
-                                  />
-                                ) : null}
+                              Manage
+                            </Button>
+                            {share.hasPassword ? (
+                              <span title="Password protected">
+                                <PasswordHint />
                               </span>
-                            </div>
-                          </td>
-                        </tr>
-                      </DashboardItemContextMenu>
-                    );
-                  },
-                )}
-              </tbody>
-            </table>
+                            ) : null}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    </DashboardItemContextMenu>
+                  );
+                })}
+              </TableBody>
+            </Table>
           </div>
         </>
       )}
