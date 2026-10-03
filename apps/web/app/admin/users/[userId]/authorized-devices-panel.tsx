@@ -5,6 +5,9 @@ import { useState, useTransition } from "react";
 import { Trash2 } from "lucide-react";
 
 import { formatAdminDateTime } from "@/app/admin/admin-format";
+import { AdminPanel } from "@/app/admin/admin-panel";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 
 import { formatSessionIp } from "./device-format";
 
@@ -57,34 +60,38 @@ export function AuthorizedDevicesPanel({
   };
 
   return (
-    <section className="admin-user-panel admin-user-devices-panel">
-      <div className="admin-user-panel-head">
-        <h2>Authorized devices</h2>
-        <span>{sessions.length} active</span>
-      </div>
-      {error ? <div className="banner banner-error">{error}</div> : null}
+    <AdminPanel title="Authorized devices" aside={`${sessions.length} active`}>
+      {error ? <Alert variant="error">{error}</Alert> : null}
       {sessions.length === 0 ? (
-        <p className="muted">No active sessions.</p>
+        <p className="m-0 text-meta text-muted-foreground">
+          No active sessions.
+        </p>
       ) : (
-        <div className="admin-device-list">
+        <div className="grid grid-cols-1 gap-0 border-t border-hairline">
           {sessions.map((session) => (
-            <div className="admin-device-row" key={session.id}>
-              <div>
-                <strong>{session.label}</strong>
-                <span className="muted">
+            <div
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-hairline py-3.5 max-md:grid-cols-1"
+              key={session.id}
+            >
+              <div className="grid min-w-0 grid-cols-1 gap-1">
+                <strong className="text-base font-semibold">
+                  {session.label}
+                </strong>
+                <span className="text-meta text-muted-foreground">
                   Last seen{" "}
                   {formatAdminDateTime(session.lastSeenAt ?? session.createdAt)}
                   {session.isCurrent ? " - current session" : ""}
                 </span>
-                <span className="muted">
+                <span className="text-meta text-muted-foreground">
                   IP{" "}
                   {visibleIps[session.id]
                     ? (formatSessionIp(session.ipAddress) ?? "unknown")
                     : "••••••"}
                   {session.ipAddress ? (
-                    <button
-                      className="admin-inline-link"
-                      type="button"
+                    <Button
+                      className="ml-2"
+                      variant="link"
+                      size="xs"
                       onClick={() =>
                         setVisibleIps((current) => ({
                           ...current,
@@ -93,14 +100,14 @@ export function AuthorizedDevicesPanel({
                       }
                     >
                       {visibleIps[session.id] ? "Hide" : "Reveal"}
-                    </button>
+                    </Button>
                   ) : null}
                 </span>
               </div>
               {canRevoke ? (
-                <button
-                  className="button button-secondary"
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="sm"
                   disabled={
                     isRefreshing ||
                     pendingId === session.id ||
@@ -113,14 +120,14 @@ export function AuthorizedDevicesPanel({
                       : "Revoke session"
                   }
                 >
-                  <Trash2 size={14} aria-hidden />
+                  <Trash2 aria-hidden />
                   Revoke
-                </button>
+                </Button>
               ) : null}
             </div>
           ))}
         </div>
       )}
-    </section>
+    </AdminPanel>
   );
 }

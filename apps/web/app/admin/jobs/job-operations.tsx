@@ -10,7 +10,16 @@ import {
   ChevronsRight,
 } from "lucide-react";
 
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogDescription,
+  DialogHeader,
+  DialogPopup,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -19,16 +28,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 import {
   formatAdminBytes,
   formatAdminDateTime,
 } from "@/app/admin/admin-format";
+import { AdminPanel } from "@/app/admin/admin-panel";
+import { cn } from "@/lib/utils";
 import type {
   JsonAdminMediaDerivativeRow,
   JsonAdminMediaDerivativeSummary,
 } from "@/server/admin/media-derivatives";
 
+import {
+  JOB_NOTE,
+  JOB_TONE_TEXT,
+  JobDot,
+  type JobTone,
+  ModalHeading,
+} from "./job-parts";
 import {
   MediaDerivativeRowActions,
   type MediaDerivativeAction,
@@ -94,9 +113,6 @@ type JsonJobEvent = {
   workerId: string | null;
   createdAt: string;
 };
-
-type JobTone =
-  "idle" | "queued" | "running" | "succeeded" | "failed" | "cancelled";
 
 const JOB_META: Record<string, { name: string; desc: string }> = {
   "staging.cleanup": {
@@ -632,11 +648,13 @@ function getPaginationItems(page: number, pageCount: number): PaginationItem[] {
 
 function JsonBlock({ value }: { value: Record<string, unknown> | null }) {
   if (!value || Object.keys(value).length === 0) {
-    return <p className="admin-jobs-modal-empty">No payload recorded.</p>;
+    return <p className={JOB_NOTE}>No payload recorded.</p>;
   }
 
   return (
-    <pre className="admin-jobs-payload">{JSON.stringify(value, null, 2)}</pre>
+    <pre className="m-0 max-h-45 overflow-auto rounded-md bg-hover p-2.5 font-mono text-xs leading-normal text-foreground md:text-meta">
+      {JSON.stringify(value, null, 2)}
+    </pre>
   );
 }
 
@@ -653,35 +671,43 @@ function MediaDerivativeCard({
 
   return (
     <article
-      className={`admin-derivative-row${
-        compact ? " admin-derivative-row-compact" : ""
-      }`}
+      className={cn(
+        "grid grid-cols-[minmax(220px,0.85fr)_minmax(260px,1fr)_auto] items-center gap-3.5 rounded-lg border border-hairline bg-card p-3 max-lg:grid-cols-1",
+        compact && "grid-cols-1",
+      )}
     >
-      <div className="admin-derivative-main">
-        <span
-          aria-hidden
-          className={`admin-jobs-run-dot admin-jobs-run-dot-${tone}`}
-        />
-        <div className="admin-derivative-title">
-          <strong>{derivative.originalName}</strong>
-          <small>{derivative.ownerLabel}</small>
+      <div className="flex min-w-0 items-center gap-2.5">
+        <JobDot tone={tone} />
+        <div className="grid min-w-0 grid-cols-1 gap-0.5">
+          <strong className="truncate text-label font-semibold text-foreground md:text-meta">
+            {derivative.originalName}
+          </strong>
+          <small className="truncate text-xs text-muted-foreground md:text-meta">
+            {derivative.ownerLabel}
+          </small>
         </div>
       </div>
 
-      <div className="admin-derivative-meta">
-        <span className={`admin-jobs-state admin-jobs-state-${tone}`}>
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 text-xs text-muted-foreground md:text-meta">
+        <span
+          className={cn(
+            "inline-flex items-center gap-2 font-semibold capitalize",
+            JOB_TONE_TEXT[tone],
+          )}
+        >
           {derivative.status}
         </span>
-        {derivative.pinnedByAdmin ? (
-          <span className="status-chip">pinned</span>
-        ) : null}
+        {derivative.pinnedByAdmin ? <Badge size="sm">Pinned</Badge> : null}
         <span>{formatBytesString(derivative.originalSizeBytes)} original</span>
         <span>{formatBytesString(derivative.sizeBytes)} preview</span>
         <span>{formatAdminDateTime(derivative.generatedAt)}</span>
       </div>
 
       {derivative.error ? (
-        <p className="admin-derivative-message" title={derivative.error}>
+        <p
+          className="col-span-full m-0 rounded-md bg-destructive/10 px-2.5 py-2 text-xs text-destructive-foreground md:text-meta"
+          title={derivative.error}
+        >
           {derivative.error.length > 120
             ? `${derivative.error.slice(0, 120)}...`
             : derivative.error}
@@ -712,24 +738,29 @@ function JobEventList({
   timeZone: string;
 }) {
   if (events === null) {
-    return <p className="admin-jobs-modal-empty">Loading events...</p>;
+    return <p className={JOB_NOTE}>Loading events...</p>;
   }
 
   if (events.length === 0) {
-    return <p className="admin-jobs-modal-empty">No events recorded.</p>;
+    return <p className={JOB_NOTE}>No events recorded.</p>;
   }
 
   return (
-    <div className="admin-jobs-event-list">
+    <div className="grid grid-cols-1 gap-0">
       {events.map((event) => (
-        <div className="admin-jobs-event-row" key={event.id}>
-          <span className="admin-jobs-event-time">
+        <div
+          className="grid grid-cols-[140px_minmax(0,1fr)] gap-3.5 border-b border-hairline py-2 text-label leading-snug last:border-b-0 max-md:grid-cols-1 max-md:gap-1 md:text-meta"
+          key={event.id}
+        >
+          <span className="text-muted-foreground tabular-nums">
             {formatLocalDateTime(event.createdAt, nowMs, timeZone)}
           </span>
-          <span className="admin-jobs-event-main">
-            <strong>{event.type}</strong>
+          <span className="grid min-w-0 grid-cols-1 gap-0.5">
+            <strong className="capitalize">{event.type}</strong>
             {event.message || event.workerId ? (
-              <span>{event.message ?? event.workerId}</span>
+              <span className="wrap-anywhere text-muted-foreground">
+                {event.message ?? event.workerId}
+              </span>
             ) : null}
           </span>
         </div>
@@ -782,42 +813,50 @@ function JobDetailsModal({
 
   return (
     <Dialog onOpenChange={setOpen} open={open}>
-      <DialogContent className="admin-jobs-modal">
-        <div className="admin-jobs-modal-head">
-          <div>
+      <DialogPopup className="max-h-[min(760px,calc(100dvh-3rem))] max-w-230 overflow-hidden">
+        <DialogHeader className="flex-row items-start justify-between gap-4.5 border-b border-hairline pr-14 max-md:flex-col">
+          <div className="min-w-0">
             <DialogTitle>{jobName}</DialogTitle>
             {selectedHistoryJob ? (
-              <p>
+              <DialogDescription className="mt-1.5 md:text-meta">
                 {getJobStateLine({
                   job: selectedHistoryJob,
                   nowMs,
                   status: selectedStatus,
                   timeZone: instanceTimeZone,
                 })}
-              </p>
+              </DialogDescription>
             ) : null}
           </div>
           {selectedStatus ? (
             <span
-              className={`admin-jobs-state admin-jobs-state-${selectedTone}`}
+              className={cn(
+                "inline-flex items-center gap-2 text-label font-semibold capitalize md:text-meta",
+                JOB_TONE_TEXT[selectedTone],
+              )}
             >
-              <span aria-hidden className="admin-jobs-state-dot" />
+              <JobDot tone={selectedTone} />
               {selectedStatus}
             </span>
           ) : null}
-        </div>
+        </DialogHeader>
 
         {actionError ? (
-          <p className="admin-jobs-modal-error">{actionError}</p>
+          <div className="px-6 pt-4">
+            <Alert variant="error">{actionError}</Alert>
+          </div>
         ) : null}
 
-        <div className="admin-jobs-modal-layout">
-          <section className="admin-jobs-run-list" aria-label="Recent runs">
-            <h3>Recent runs</h3>
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(210px,0.38fr)_minmax(0,1fr)] gap-0 overflow-hidden max-md:grid-cols-1 max-md:overflow-y-auto">
+          <section
+            className="min-h-0 overflow-y-auto border-r border-hairline bg-hover p-4.5 max-md:max-h-55 max-md:border-r-0 max-md:border-b max-md:p-4"
+            aria-label="Recent runs"
+          >
+            <ModalHeading>Recent runs</ModalHeading>
             {historyLoading ? (
-              <p className="admin-jobs-modal-empty">Loading runs...</p>
+              <p className={JOB_NOTE}>Loading runs...</p>
             ) : history && history.length > 0 ? (
-              <div className="admin-jobs-run-buttons">
+              <div className="grid grid-cols-1 gap-1">
                 {history.slice(0, HISTORY_VISIBLE_RUNS).map((job) => {
                   const status = getJobDisplayStatus(job, workerRunningJobIds);
                   const tone = getJobTone(status);
@@ -826,20 +865,20 @@ function JobDetailsModal({
                   return (
                     <button
                       aria-pressed={selected}
-                      className={`admin-jobs-run-button ${
-                        selected ? "admin-jobs-run-button-selected" : ""
-                      }`}
+                      className={cn(
+                        "grid min-h-11 w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-2.5 rounded-lg p-2 text-left outline-none hover:bg-selected focus-visible:ring-2 focus-visible:ring-ring/60",
+                        selected && "bg-selected",
+                      )}
                       key={job.id}
                       onClick={() => onSelectHistoryJob(job.id)}
                       type="button"
                     >
-                      <span
-                        aria-hidden
-                        className={`admin-jobs-run-dot admin-jobs-run-dot-${tone}`}
-                      />
+                      <JobDot tone={tone} />
                       <span>
-                        <strong>{status}</strong>
-                        <small>
+                        <strong className="block text-label font-medium capitalize md:text-body">
+                          {status}
+                        </strong>
+                        <small className="block text-xs text-muted-foreground md:text-meta">
                           {formatRelativeTime(job.updatedAt, nowMs)}
                         </small>
                       </span>
@@ -848,24 +887,24 @@ function JobDetailsModal({
                 })}
               </div>
             ) : (
-              <p className="admin-jobs-modal-empty">No runs recorded yet.</p>
+              <p className={JOB_NOTE}>No runs recorded yet.</p>
             )}
           </section>
 
-          <section className="admin-jobs-run-detail">
+          <section className="grid min-h-0 grid-cols-1 content-start gap-4.5 overflow-y-auto p-4.5 pb-5.5 max-md:p-4 max-md:pb-7">
             {selectedHistoryJob ? (
               <>
                 {selectedHistoryJob.lastError ? (
-                  <div className="admin-jobs-modal-section">
-                    <h3>Error</h3>
-                    <p className="admin-jobs-modal-error">
+                  <div className="grid grid-cols-1 gap-2">
+                    <ModalHeading>Error</ModalHeading>
+                    <Alert variant="error">
                       {selectedHistoryJob.lastError}
-                    </p>
+                    </Alert>
                   </div>
                 ) : null}
 
-                <div className="admin-jobs-modal-section">
-                  <h3>Events</h3>
+                <div className="grid grid-cols-1 gap-2">
+                  <ModalHeading>Events</ModalHeading>
                   <JobEventList
                     events={events}
                     nowMs={nowMs}
@@ -874,8 +913,8 @@ function JobDetailsModal({
                 </div>
 
                 {selectedFileId ? (
-                  <div className="admin-jobs-modal-section">
-                    <h3>Preview file</h3>
+                  <div className="grid grid-cols-1 gap-2">
+                    <ModalHeading>Preview file</ModalHeading>
                     {selectedDerivative ? (
                       <MediaDerivativeCard
                         actions={derivativeActions}
@@ -883,61 +922,57 @@ function JobDetailsModal({
                         derivative={selectedDerivative}
                       />
                     ) : (
-                      <p className="admin-jobs-modal-empty">
+                      <p className={JOB_NOTE}>
                         No preview file record found for this file.
                       </p>
                     )}
                   </div>
                 ) : null}
 
-                <div className="admin-jobs-modal-section">
-                  <h3>Payload</h3>
+                <div className="grid grid-cols-1 gap-2">
+                  <ModalHeading>Payload</ModalHeading>
                   <JsonBlock value={selectedHistoryJob.payloadJson} />
                 </div>
 
-                <div className="admin-jobs-modal-actions">
+                <div className="flex flex-wrap gap-2">
                   {selectedHistoryJob.status === "failed" ||
                   selectedHistoryJob.status === "dead" ||
                   selectedHistoryJob.status === "cancelled" ? (
-                    <button
-                      className="admin-jobs-button admin-jobs-button-primary"
+                    <Button
                       onClick={() =>
                         onJobAction(selectedHistoryJob.id, "retry")
                       }
-                      type="button"
                     >
                       Retry
-                    </button>
+                    </Button>
                   ) : null}
                   {selectedHistoryJob.status === "queued" ||
                   selectedHistoryJob.status === "running" ? (
-                    <button
-                      className="admin-jobs-button admin-jobs-button-danger"
+                    <Button
+                      variant="destructive"
                       onClick={() =>
                         onJobAction(selectedHistoryJob.id, "cancel")
                       }
-                      type="button"
                     >
                       Cancel
-                    </button>
+                    </Button>
                   ) : null}
-                  <button
-                    className="admin-jobs-button"
+                  <Button
+                    variant="outline"
                     onClick={() => {
                       void navigator.clipboard.writeText(selectedHistoryJob.id);
                     }}
-                    type="button"
                   >
                     Copy ID
-                  </button>
+                  </Button>
                 </div>
               </>
             ) : (
-              <p className="admin-jobs-modal-empty">No run selected.</p>
+              <p className={JOB_NOTE}>No run selected.</p>
             )}
           </section>
         </div>
-      </DialogContent>
+      </DialogPopup>
     </Dialog>
   );
 }
@@ -1118,34 +1153,42 @@ function JobTaskCard({
     lastRun;
 
   return (
-    <article className={`admin-jobs-card admin-jobs-card-${tone}`}>
-      <div className="admin-jobs-card-body">
-        <div className="admin-jobs-card-head">
-          <div className="admin-jobs-card-title-row">
-            <span
-              aria-hidden
-              className={`admin-jobs-card-dot admin-jobs-card-dot-${tone}`}
-            />
-            <h2>{jobName}</h2>
+    <article className="grid min-h-35.5 grid-cols-[minmax(0,1fr)_104px] gap-0 overflow-hidden rounded-lg border border-hairline bg-card transition-colors hover:border-primary/24 max-md:grid-cols-1">
+      <div className="grid min-w-0 grid-cols-1 content-center gap-3 px-5.5 py-4.5 max-md:gap-3.5 max-md:p-4.5">
+        <div className="grid w-full grid-cols-1 justify-items-start gap-2 text-left">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <JobDot tone={tone} />
+            <h2 className="m-0 min-w-0 font-sans text-base leading-tight font-bold wrap-anywhere">
+              {jobName}
+            </h2>
           </div>
-          <p className="admin-jobs-card-desc">{jobDescription}</p>
+          <p className="m-0 w-full max-w-[62ch] text-label leading-normal text-pretty text-muted-foreground md:text-meta">
+            {jobDescription}
+          </p>
         </div>
 
-        <div className="admin-jobs-card-facts">
-          <p className={`admin-jobs-card-state admin-jobs-card-state-${tone}`}>
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3.5 gap-y-1.5 text-left max-md:gap-1.5">
+          <p
+            className={cn(
+              "m-0 text-label leading-snug font-semibold text-pretty md:text-meta",
+              JOB_TONE_TEXT[tone],
+            )}
+          >
             {getJobLastFact({ job: lastRun, nowMs, status: displayStatus })}
           </p>
 
           {runError ? (
-            <p className="admin-jobs-card-error">{runError}</p>
+            <p className="m-0 text-xs leading-snug text-destructive-foreground md:text-meta">
+              {runError}
+            </p>
           ) : null}
         </div>
       </div>
 
-      <div className="admin-jobs-card-actions">
+      <div className="grid grid-cols-1 grid-rows-2 gap-0 border-l border-hairline bg-hover max-md:min-h-11 max-md:grid-cols-2 max-md:grid-rows-none max-md:border-t max-md:border-l-0">
         {primaryActionIsCommand ? (
           <button
-            className="admin-jobs-rail-action admin-jobs-rail-action-primary"
+            className={cn(RAIL_CELL, RAIL_ACTION, RAIL_PRIMARY)}
             disabled={running}
             onClick={() => void handlePrimaryAction()}
             type="button"
@@ -1153,10 +1196,17 @@ function JobTaskCard({
             {running ? "..." : primaryActionLabel}
           </button>
         ) : (
-          <span className="admin-jobs-rail-note">{primaryActionLabel}</span>
+          <span
+            className={cn(
+              RAIL_CELL,
+              "px-2.5 leading-tight font-bold text-foreground/66",
+            )}
+          >
+            {primaryActionLabel}
+          </span>
         )}
         <button
-          className="admin-jobs-rail-action"
+          className={cn(RAIL_CELL, RAIL_ACTION)}
           onClick={() => void openDetails()}
           type="button"
         >
@@ -1185,6 +1235,15 @@ function JobTaskCard({
   );
 }
 
+const RAIL_CELL =
+  "grid gap-0 grid-cols-1 min-h-13.5 place-items-center border-b border-hairline text-center text-xs font-bold last:border-b-0 max-md:min-h-11 max-md:border-r max-md:border-b-0 max-md:last:border-r-0 md:text-meta";
+
+const RAIL_ACTION =
+  "cursor-pointer text-foreground outline-none transition-colors enabled:hover:bg-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60 disabled:cursor-not-allowed disabled:opacity-50";
+
+const RAIL_PRIMARY =
+  "bg-primary text-primary-foreground enabled:hover:bg-primary/90";
+
 function ActivityPagination({
   disabled,
   pagination,
@@ -1204,68 +1263,79 @@ function ActivityPagination({
   const canGoForward = pagination.hasNextPage && !disabled;
 
   return (
-    <nav className="admin-jobs-pagination" aria-label="Activity pagination">
-      <p>
+    <nav
+      className="flex items-center justify-between gap-3 rounded-lg border border-hairline bg-hover px-2.5 py-2 max-md:grid"
+      aria-label="Activity pagination"
+    >
+      <p className="m-0 text-xs font-semibold whitespace-nowrap text-muted-foreground max-md:whitespace-normal md:text-label">
         Showing {firstItem}-{lastItem} of {pagination.totalCount} logs
       </p>
       {pagination.pageCount > 1 ? (
-        <div className="admin-jobs-pagination-controls">
-          <button
+        <div className="flex flex-wrap items-center justify-end gap-1 max-md:justify-start">
+          <Button
             aria-label="First page"
             disabled={!canGoBack}
             onClick={() => onPageChange(1)}
+            size="icon-xs"
             title="First page"
-            type="button"
+            variant="outline"
           >
-            <ChevronsLeft size={15} aria-hidden />
-          </button>
-          <button
+            <ChevronsLeft aria-hidden />
+          </Button>
+          <Button
             aria-label="Previous page"
             disabled={!canGoBack}
             onClick={() => onPageChange(page - 1)}
+            size="icon-xs"
             title="Previous page"
-            type="button"
+            variant="outline"
           >
-            <ChevronLeft size={15} aria-hidden />
-          </button>
+            <ChevronLeft aria-hidden />
+          </Button>
           {pageItems.map((item) =>
             typeof item === "number" ? (
-              <button
+              <Button
                 aria-current={item === page ? "page" : undefined}
-                className={
-                  item === page ? "admin-jobs-pagination-page-active" : ""
-                }
-                disabled={disabled || item === page}
+                disabled={disabled}
                 key={item}
-                onClick={() => onPageChange(item)}
-                type="button"
+                onClick={() => {
+                  if (item !== page) onPageChange(item);
+                }}
+                size="xs"
+                variant={item === page ? "secondary" : "outline"}
               >
                 {item}
-              </button>
+              </Button>
             ) : (
-              <span aria-hidden key={item}>
+              <span
+                aria-hidden
+                className="min-w-5.5 text-center text-label font-bold text-muted-foreground"
+                key={item}
+              >
                 ...
               </span>
             ),
           )}
-          <button
+          <Button
             aria-label="Next page"
             disabled={!canGoForward}
             onClick={() => onPageChange(page + 1)}
+            size="icon-xs"
             title="Next page"
-            type="button"
+            variant="outline"
           >
-            <ChevronRight size={15} aria-hidden />
-          </button>
-          <button
+            <ChevronRight aria-hidden />
+          </Button>
+          <Button
             aria-label="Last page"
             disabled={!canGoForward}
             onClick={() => onPageChange(pagination.pageCount)}
+            size="icon-xs"
             title="Last page"
-            type="button"
+            variant="outline"
           >
-            <ChevronsRight size={15} aria-hidden />
-          </button>
+            <ChevronsRight aria-hidden />
+          </Button>
         </div>
       ) : null}
     </nav>
@@ -1484,63 +1554,65 @@ function JobActivityPanel({
   };
 
   return (
-    <section className="admin-jobs-activity" aria-label="Job activity">
-      <div className="admin-jobs-activity-head">
-        <div>
-          <h2>{view === "jobs" ? "Job activity" : "Preview files"}</h2>
-          <p>
+    <AdminPanel
+      className="gap-3.5 p-4.5 max-md:p-3.5"
+      aria-label="Job activity"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-4.5 max-md:grid">
+        <div className="min-w-0 flex-[1_1_280px]">
+          <h2 className="m-0 font-sans text-base leading-tight font-bold">
+            {view === "jobs" ? "Job activity" : "Preview files"}
+          </h2>
+          <p className="m-0 mt-1.5 text-label leading-normal text-muted-foreground md:text-meta">
             {view === "jobs"
               ? "Recent queued, running, failed, and completed work."
               : "Generated preview files, pins, cleanup state, and manual recovery."}
           </p>
         </div>
-        <div className="admin-jobs-activity-controls">
-          <div className="admin-jobs-activity-tabs admin-jobs-view-tabs">
-            <button
-              aria-pressed={view === "jobs"}
-              className={
-                view === "jobs" ? "admin-jobs-activity-tab-active" : ""
-              }
-              onClick={() => setView("jobs")}
-              type="button"
-            >
+        <div className="flex min-w-0 flex-[1_1_420px] flex-wrap items-start justify-end gap-2.5 max-md:grid max-md:justify-stretch">
+          <ToggleGroup
+            className="max-w-full max-md:w-full"
+            onValueChange={(value) => {
+              const next = value[0] as ActivityView | undefined;
+              if (next) setView(next);
+            }}
+            value={[view]}
+            variant="outline"
+          >
+            <ToggleGroupItem className="max-md:flex-1" value="jobs">
               Jobs
-            </button>
-            <button
-              aria-pressed={view === "derivatives"}
-              className={
-                view === "derivatives" ? "admin-jobs-activity-tab-active" : ""
-              }
-              onClick={() => setView("derivatives")}
-              type="button"
-            >
+            </ToggleGroupItem>
+            <ToggleGroupItem className="max-md:flex-1" value="derivatives">
               Preview files
-            </button>
-          </div>
+            </ToggleGroupItem>
+          </ToggleGroup>
 
           {view === "jobs" ? (
             <>
-              <div className="admin-jobs-activity-tabs">
+              <ToggleGroup
+                className="max-w-full max-md:w-full"
+                onValueChange={(value) => {
+                  const next = value[0] as ActivityFilter | undefined;
+                  if (!next) return;
+                  setFilter(next);
+                  setActivityPage(1);
+                }}
+                value={[filter]}
+                variant="outline"
+              >
                 {(Object.keys(ACTIVITY_FILTER_LABELS) as ActivityFilter[]).map(
                   (value) => (
-                    <button
-                      aria-pressed={filter === value}
-                      className={
-                        filter === value ? "admin-jobs-activity-tab-active" : ""
-                      }
+                    <ToggleGroupItem
+                      className="max-md:flex-1"
                       key={value}
-                      onClick={() => {
-                        setFilter(value);
-                        setActivityPage(1);
-                      }}
-                      type="button"
+                      value={value}
                     >
                       {ACTIVITY_FILTER_LABELS[value]}
-                    </button>
+                    </ToggleGroupItem>
                   ),
                 )}
-              </div>
-              <div className="admin-jobs-kind-filter">
+              </ToggleGroup>
+              <div className="grid w-[min(196px,100%)] min-w-40 flex-[0_1_196px] grid-cols-1 gap-0 max-md:w-full">
                 <Select
                   items={kindFilterOptions}
                   onValueChange={(value) => {
@@ -1549,24 +1621,13 @@ function JobActivityPanel({
                   }}
                   value={kindFilter}
                 >
-                  <SelectTrigger
-                    aria-label="Job type"
-                    className="admin-jobs-kind-select-trigger"
-                  >
+                  <SelectTrigger aria-label="Job type">
                     <SelectValue placeholder="Job type" />
                   </SelectTrigger>
-                  <SelectContent
-                    align="end"
-                    alignItemWithTrigger={false}
-                    className="admin-jobs-kind-select-content"
-                  >
+                  <SelectContent align="end" alignItemWithTrigger={false}>
                     <SelectGroup>
                       {kindFilterOptions.map((option) => (
-                        <SelectItem
-                          className="admin-jobs-kind-select-item"
-                          key={option.value}
-                          value={option.value}
-                        >
+                        <SelectItem key={option.value} value={option.value}>
                           {option.label}
                         </SelectItem>
                       ))}
@@ -1576,21 +1637,17 @@ function JobActivityPanel({
               </div>
             </>
           ) : (
-            <button
-              className="admin-jobs-activity-more"
-              onClick={() => router.refresh()}
-              type="button"
-            >
+            <Button variant="secondary" onClick={() => router.refresh()}>
               Refresh
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
       {view === "derivatives" ? (
-        <div className="admin-derivative-list">
+        <div className="grid grid-cols-1 gap-2.5">
           {derivatives.deletedCount > 0 ? (
-            <p className="admin-derivative-note">
+            <p className="m-0 rounded-lg border border-hairline bg-hover px-3 py-2.5 text-label leading-normal text-muted-foreground md:text-meta">
               {derivatives.deletedCount} preview file
               {derivatives.deletedCount === 1 ? "" : "s"} for deleted files are
               hidden and will be cleaned up automatically.
@@ -1605,22 +1662,22 @@ function JobActivityPanel({
               />
             ))
           ) : (
-            <p className="admin-jobs-activity-empty">No preview files yet.</p>
+            <p className={cn(JOB_NOTE, "p-4.5")}>No preview files yet.</p>
           )}
         </div>
       ) : (
         <>
-          {loadError ? (
-            <p className="admin-jobs-activity-error">{loadError}</p>
-          ) : null}
+          {loadError ? <Alert variant="error">{loadError}</Alert> : null}
 
-          <div className="admin-jobs-activity-list">
+          <div className="grid min-h-13.5 grid-cols-1 gap-0 overflow-hidden rounded-lg border border-hairline">
             {isInitialActivityLoad ? (
-              <p className="admin-jobs-activity-empty">Loading activity...</p>
+              <p className={cn(JOB_NOTE, "p-4.5")}>Loading activity...</p>
             ) : items.length > 0 ? (
               <>
                 {loading ? (
-                  <p className="admin-jobs-activity-updating">Updating...</p>
+                  <p className="m-0 border-b border-hairline bg-primary/6 px-3 py-1.5 text-xs font-semibold text-muted-foreground">
+                    Updating...
+                  </p>
                 ) : null}
                 {items.map((job) => {
                   const status = getJobDisplayStatus(job, workerRunningJobIds);
@@ -1628,18 +1685,17 @@ function JobActivityPanel({
 
                   return (
                     <button
-                      className="admin-jobs-activity-row"
+                      className="grid min-h-13.5 w-full cursor-pointer grid-cols-[auto_minmax(220px,1.1fr)_88px_72px_minmax(180px,1fr)] items-center gap-3 border-b border-hairline px-3 py-2.5 text-left outline-none last:border-b-0 hover:bg-selected focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset max-md:min-h-17 max-md:grid-cols-[auto_minmax(0,1fr)_auto] max-md:gap-x-2.5 max-md:gap-y-2 md:min-h-control"
                       key={job.id}
                       onClick={() => void openDetails(job)}
                       type="button"
                     >
-                      <span
-                        aria-hidden
-                        className={`admin-jobs-run-dot admin-jobs-run-dot-${tone}`}
-                      />
-                      <span className="admin-jobs-activity-main">
-                        <strong>{formatJobKind(job.kind)}</strong>
-                        <small>
+                      <JobDot tone={tone} />
+                      <span className="grid min-w-0 grid-cols-1 gap-1">
+                        <strong className="truncate text-label font-bold md:text-body">
+                          {formatJobKind(job.kind)}
+                        </strong>
+                        <small className="truncate text-xs font-medium text-muted-foreground md:text-meta">
                           {getJobStateLine({
                             job,
                             nowMs,
@@ -1649,14 +1705,17 @@ function JobActivityPanel({
                         </small>
                       </span>
                       <span
-                        className={`admin-jobs-activity-status admin-jobs-state-${tone}`}
+                        className={cn(
+                          "text-xs font-bold capitalize max-md:justify-self-end md:text-meta",
+                          JOB_TONE_TEXT[tone],
+                        )}
                       >
                         {status}
                       </span>
-                      <span className="admin-jobs-activity-attempt">
+                      <span className="text-xs font-bold text-muted-foreground tabular-nums max-md:col-[2/3] md:text-meta">
                         {job.attemptCount}/{job.maxAttempts}
                       </span>
-                      <span className="admin-jobs-activity-detail">
+                      <span className="truncate text-xs text-muted-foreground max-md:col-[2/4] max-md:whitespace-normal md:text-meta">
                         {getActivityDetail(job)}
                       </span>
                     </button>
@@ -1664,9 +1723,7 @@ function JobActivityPanel({
                 })}
               </>
             ) : (
-              <p className="admin-jobs-activity-empty">
-                No jobs match this view.
-              </p>
+              <p className={cn(JOB_NOTE, "p-4.5")}>No jobs match this view.</p>
             )}
           </div>
 
@@ -1697,7 +1754,7 @@ function JobActivityPanel({
         setOpen={setDetailsOpen}
         workerRunningJobIds={workerRunningJobIds}
       />
-    </section>
+    </AdminPanel>
   );
 }
 
@@ -1709,6 +1766,8 @@ type Props = {
   jobKinds: string[];
   instanceTimeZone: string;
 };
+
+const STAT = "font-bold text-foreground";
 
 export function JobOperations({
   derivativeActions,
@@ -1780,38 +1839,46 @@ export function JobOperations({
   }, []);
 
   return (
-    <div className="admin-jobs-page">
-      <header className="admin-jobs-header">
-        <h1>Jobs</h1>
+    <div className="mx-auto grid w-full max-w-310 grid-cols-1 gap-6">
+      <header className="grid grid-cols-1 justify-items-center gap-4 text-center max-md:gap-3.5">
+        <h1 className="m-0 text-3xl leading-none font-semibold">Jobs</h1>
         <div
-          className="admin-jobs-summary"
+          className="flex flex-wrap justify-center gap-x-4.5 gap-y-2.5 text-label leading-snug text-muted-foreground max-md:gap-x-3 max-md:gap-y-2 md:text-meta"
           aria-label={`Queue summary: ${queueSummaryLabel}.`}
         >
           <span>
-            <strong>{summary.statusCounts.running}</strong> running
+            <strong className={STAT}>{summary.statusCounts.running}</strong>{" "}
+            running
           </span>
           <span>
-            <strong>{summary.statusCounts.queued}</strong> queued
+            <strong className={STAT}>{summary.statusCounts.queued}</strong>{" "}
+            queued
           </span>
-          <span className="admin-jobs-summary-danger">
-            <strong>{failedCount}</strong> failed
-          </span>
-          <span>
-            <strong>{onlineWorkers}</strong> {workerNoun}
-          </span>
-          <span>
-            oldest due <strong>{oldestDueLabel}</strong>
+          <span className="text-destructive-foreground">
+            <strong className="font-bold text-destructive-foreground">
+              {failedCount}
+            </strong>{" "}
+            failed
           </span>
           <span>
-            active <strong>{activeQueueCount}</strong>
+            <strong className={STAT}>{onlineWorkers}</strong> {workerNoun}
+          </span>
+          <span>
+            oldest due <strong className={STAT}>{oldestDueLabel}</strong>
+          </span>
+          <span>
+            active <strong className={STAT}>{activeQueueCount}</strong>
           </span>
         </div>
-        <Link className="admin-jobs-schedule-link" href="/admin/settings">
+        <Button variant="secondary" render={<Link href="/admin/settings" />}>
           Schedule
-        </Link>
+        </Button>
       </header>
 
-      <section className="admin-jobs-grid" aria-label="Background jobs">
+      <section
+        className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,520px),1fr))] items-stretch gap-3.5 max-xl:grid-cols-1"
+        aria-label="Background jobs"
+      >
         {jobKinds.map((kind) => {
           const lastRun = lastRuns[kind] ?? null;
           return (

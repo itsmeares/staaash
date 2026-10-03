@@ -13,10 +13,10 @@ import { SearchIcon } from "lucide-react";
 import { formatVersionLabel } from "@staaash/config/version";
 import type { SystemSettings } from "@staaash/db/client";
 
+import { AdminStatusBadge } from "@/app/admin/admin-status-badge";
 import {
   formatAdminBytes,
   formatAdminDateTime,
-  getAdminStatusClassName,
 } from "@/app/admin/admin-format";
 import { SettingsPanel } from "@/components/settings-panel";
 import { TimeZonePicker } from "@/components/time-zone-picker";
@@ -129,7 +129,7 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
                 min={1}
                 className="settings-input"
               />
-              <span className="settings-field-note">
+              <span className="flex-[1_1_100%] text-right text-xs whitespace-nowrap text-muted-foreground">
                 {formatAdminBytes(Number(settings.maxUploadBytes))}
               </span>
             </SettingRow>
@@ -181,7 +181,7 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
                 min={1}
                 className="settings-input"
               />
-              <span className="settings-field-note">
+              <span className="flex-[1_1_100%] text-right text-xs whitespace-nowrap text-muted-foreground">
                 {formatAdminBytes(
                   Number(settings.resumableMaxReservedBytesPerUser),
                 )}
@@ -199,7 +199,7 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
                 min={1}
                 className="settings-input"
               />
-              <span className="settings-field-note">
+              <span className="flex-[1_1_100%] text-right text-xs whitespace-nowrap text-muted-foreground">
                 {formatAdminBytes(
                   Number(settings.resumableMaxReservedBytesInstance),
                 )}
@@ -212,7 +212,7 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
                 min={1}
                 className="settings-input"
               />
-              <span className="settings-field-note">
+              <span className="flex-[1_1_100%] text-right text-xs whitespace-nowrap text-muted-foreground">
                 {formatAdminBytes(settings.previewMaxSourceBytes)}
               </span>
             </SettingRow>
@@ -259,37 +259,36 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
           description="Repository source, cadence, and release status"
           hidden={!visiblePanels.updates}
         >
-          <dl className="settings-list settings-update-list">
+          <dl className="settings-list">
             <SettingRow label="Current version">
-              <span className="settings-row-value-text">
+              <span className="text-sm leading-snug text-foreground/82">
                 {updateStatus.currentVersion
                   ? formatVersionLabel(updateStatus.currentVersion)
                   : "n/a"}
               </span>
             </SettingRow>
             <SettingRow label="Latest published">
-              <span className="settings-row-value-text">
+              <span className="text-sm leading-snug text-foreground/82">
                 {updateStatus.latestAvailableVersion
                   ? formatVersionLabel(updateStatus.latestAvailableVersion)
                   : "n/a"}
               </span>
             </SettingRow>
             <SettingRow label="Check status">
-              <span
-                className={getAdminStatusClassName(
-                  updateStatus.updateCheckStatus ?? "not checked",
-                )}
+              <AdminStatusBadge
+                status={updateStatus.updateCheckStatus ?? "not checked"}
+                size="lg"
               >
                 {getUpdateStatusLabel(updateStatus.updateCheckStatus)}
-              </span>
+              </AdminStatusBadge>
             </SettingRow>
             <SettingRow label="Last checked">
-              <span className="settings-row-value-text">
+              <span className="text-sm leading-snug text-foreground/82">
                 {formatAdminDateTime(updateStatus.lastUpdateCheckAt)}
               </span>
             </SettingRow>
             <SettingRow label="Last message">
-              <span className="settings-row-value-text">
+              <span className="text-sm leading-snug text-foreground/82">
                 {updateStatus.updateCheckMessage ??
                   "No update check has run yet."}
               </span>
@@ -312,7 +311,7 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
               />
             </SettingRow>
           </dl>
-          <div className="settings-update-console">
+          <div className="flex justify-end max-sm:justify-stretch">
             <UpdateCheckConsole />
           </div>
           <SettingsPanelActions pending={pending} state={state} />
@@ -411,7 +410,7 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
                 min={1}
                 className="settings-input"
               />
-              <span className="settings-field-note">
+              <span className="flex-[1_1_100%] text-right text-xs whitespace-nowrap text-muted-foreground">
                 {formatAdminBytes(Number(settings.mediaPreviewThresholdBytes))}
               </span>
             </SettingRow>

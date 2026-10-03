@@ -3,6 +3,8 @@
 import { Check, Copy } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+
 type CopyState = "idle" | "copied" | "failed";
 
 type UserDetailCopyButtonProps = {
@@ -40,23 +42,17 @@ export function UserDetailCopyButton({
   const isCopied = copyState === "copied";
 
   return (
-    <button
-      className={`admin-user-copy-button${
-        isCopied ? " admin-user-copy-button-copied" : ""
-      }`}
-      type="button"
+    <Button
+      variant={isCopied ? "secondary" : "outline"}
+      size="xs"
       onClick={copyValue}
       aria-label={`Copy ${label}`}
       title={`Copy ${label}`}
     >
-      {isCopied ? (
-        <Check size={13} aria-hidden />
-      ) : (
-        <Copy size={13} aria-hidden />
-      )}
+      {isCopied ? <Check aria-hidden /> : <Copy aria-hidden />}
       <span aria-live="polite">
         {copyState === "failed" ? "Failed" : isCopied ? "Copied" : "Copy"}
       </span>
-    </button>
+    </Button>
   );
 }

@@ -913,33 +913,6 @@
   pointer-events: none;
 }
 
-.workspace-bottom-sheet-handle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: auto;
-  height: 34px;
-  margin: -6px -14px 6px;
-  border-radius: 18px 18px 0 0;
-  background: transparent;
-  cursor: grab;
-  touch-action: none;
-  -webkit-touch-callout: none;
-  user-select: none;
-}
-
-.workspace-bottom-sheet-handle::before {
-  width: 38px;
-  height: 4px;
-  border-radius: 999px;
-  background: color-mix(in oklab, var(--foreground) 18%, transparent);
-  content: "";
-}
-
-.workspace-bottom-sheet[data-dragging="true"] .workspace-bottom-sheet-handle {
-  cursor: grabbing;
-}
-
 .workspace-more-head,
 .workspace-action-sheet-head {
   display: grid;

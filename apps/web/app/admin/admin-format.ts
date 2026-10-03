@@ -1,3 +1,5 @@
+import type { BadgeProps } from "@/components/ui/badge";
+
 export const formatAdminDateTime = (
   value: Date | string | null,
   timeZone?: string,
@@ -29,34 +31,39 @@ export const formatAdminBytes = (value: bigint | number) => {
   return `${scaled.toFixed(scaled >= 100 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
 };
 
-export const getAdminStatusClassName = (status: string) =>
-  `status-chip ${
-    status === "healthy" ||
-    status === "active" ||
-    status === "up-to-date" ||
-    status === "succeeded" ||
-    status === "ready"
-      ? "status-healthy"
-      : status === "running" || status === "processing"
-        ? "status-running"
-        : status === "warning" ||
-            status === "accepted" ||
-            status === "update-available" ||
-            status === "queued" ||
-            status === "stale"
-          ? "status-warning"
-          : status === "idle" ||
-              status === "stopped" ||
-              status === "unavailable" ||
-              status === "not checked"
-            ? "status-muted"
-            : status === "cancelled"
-              ? "status-cancelled"
-              : status === "owner"
-                ? "status-owner"
-                : status === "admin"
-                  ? "status-healthy"
-                  : status === "member"
-                    ? "status-member"
-                    : "status-error"
-  }`;
+export const capitalize = (value: string) =>
+  value.charAt(0).toUpperCase() + value.slice(1);
+
+type AdminStatusVariant = NonNullable<BadgeProps["variant"]>;
+
+export const getAdminStatusVariant = (status: string): AdminStatusVariant => {
+  switch (status) {
+    case "healthy":
+    case "active":
+    case "up-to-date":
+    case "succeeded":
+    case "ready":
+    case "admin":
+      return "success";
+    case "running":
+    case "processing":
+      return "info";
+    case "warning":
+    case "accepted":
+    case "update-available":
+    case "queued":
+    case "stale":
+      return "warning";
+    case "idle":
+    case "stopped":
+    case "unavailable":
+    case "not checked":
+    case "cancelled":
+    case "member":
+      return "neutral";
+    case "owner":
+      return "accent";
+    default:
+      return "error";
+  }
+};

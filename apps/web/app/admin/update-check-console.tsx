@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { waitForUpdateCheck } from "@/lib/update-check-client";
 
 export function UpdateCheckConsole() {
@@ -57,17 +59,17 @@ export function UpdateCheckConsole() {
   };
 
   return (
-    <div className="stack">
-      {error ? <div className="banner banner-error">{error}</div> : null}
-      {success ? <div className="banner banner-success">{success}</div> : null}
-      <button
-        className="button"
+    <div className="grid grid-cols-1 gap-2 sm:justify-items-end">
+      {error ? <Alert variant="error">{error}</Alert> : null}
+      {success ? <Alert variant="success">{success}</Alert> : null}
+      <Button
+        size="sm"
         disabled={checking || isPending}
         onClick={handleCheckNow}
         type="button"
       >
         {checking || isPending ? "Checking…" : "Check now"}
-      </button>
+      </Button>
     </div>
   );
 }

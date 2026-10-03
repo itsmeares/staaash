@@ -45,12 +45,6 @@ main:not(.entry-surface) {
   color: var(--muted-foreground);
 }
 
-.grid {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-}
-
 .split {
   display: flex;
   justify-content: space-between;
@@ -104,11 +98,6 @@ h3 {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
-}
-
-.form-grid {
-  display: grid;
-  gap: 14px;
 }
 
 .field {
@@ -178,26 +167,6 @@ h3 {
   color: color-mix(in oklab, var(--destructive) 78%, black 22%);
 }
 
-.banner {
-  border-radius: 14px;
-  padding: 12px 14px;
-  font-size: 14px;
-}
-
-.banner-error {
-  background: rgba(170, 52, 52, 0.1);
-  color: color-mix(in oklab, var(--destructive) 78%, black 22%);
-}
-
-.banner-success {
-  background: rgba(49, 123, 75, 0.12);
-  color: #23573a;
-}
-
-.table-wrap {
-  overflow-x: auto;
-}
-
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -216,78 +185,6 @@ h3 {
 .table th {
   font-size: 13px;
   color: var(--muted-foreground);
-}
-
-.status-chip {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: capitalize;
-}
-
-.status-healthy {
-  background: var(--status-succeeded-bg);
-  color: var(--status-succeeded);
-}
-
-.status-running {
-  background: var(--status-running-bg);
-  color: var(--status-running);
-}
-
-.status-warning {
-  background: var(--status-queued-bg);
-  color: var(--status-queued);
-}
-
-.status-error {
-  background: var(--status-failed-bg);
-  color: var(--status-failed);
-}
-
-.status-muted,
-.status-cancelled {
-  background: var(--status-cancelled-bg);
-  color: var(--status-cancelled);
-}
-
-.status-owner {
-  background: color-mix(in oklab, var(--primary) 12%, var(--card));
-  color: color-mix(in oklab, var(--foreground) 76%, var(--primary) 24%);
-}
-
-.status-member {
-  background: color-mix(in oklab, var(--foreground) 8%, var(--card));
-  color: color-mix(in oklab, var(--foreground) 70%, transparent);
-}
-
-.dark .status-healthy {
-  background: var(--status-succeeded-bg);
-  color: var(--status-succeeded);
-}
-
-.dark .status-running {
-  background: var(--status-running-bg);
-  color: var(--status-running);
-}
-
-.dark .status-warning {
-  background: var(--status-queued-bg);
-  color: var(--status-queued);
-}
-
-.dark .status-error {
-  background: var(--status-failed-bg);
-  color: var(--status-failed);
-}
-
-.dark .status-muted,
-.dark .status-cancelled {
-  background: var(--status-cancelled-bg);
-  color: var(--status-cancelled);
 }
 
 .inline-form {

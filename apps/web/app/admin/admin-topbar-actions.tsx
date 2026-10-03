@@ -2,12 +2,16 @@
 
 import { useState } from "react";
 import { Sun, Moon, SunMoon, LogOut, FileStack } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { applyThemeWithTransition, type Theme } from "@/lib/theme";
+
+import { AdminAvatar } from "./admin-avatar";
 
 interface AdminTopbarActionsProps {
   userLabel: string | null;
@@ -19,6 +23,9 @@ interface AdminTopbarActionsProps {
 
 const THEME_CYCLE: Theme[] = ["system", "light", "dark"];
 const THEME_ICONS = { system: SunMoon, light: Sun, dark: Moon } as const;
+
+const PROFILE_ACTION =
+  "flex w-full cursor-pointer items-center gap-2 rounded-xs px-2 py-1.5 text-left text-label text-foreground md:text-meta";
 
 export function AdminTopbarActions({
   userLabel,
@@ -44,84 +51,73 @@ export function AdminTopbarActions({
   const ThemeIcon = THEME_ICONS[theme];
 
   return (
-    <div className="workspace-topbar-tools">
-      <button
-        className="topbar-icon-btn"
+    <div className="flex shrink-0 items-center gap-1 md:gap-2">
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="text-muted-foreground"
         onClick={handleThemeCycle}
         title={`Theme: ${theme}`}
         aria-label={`Toggle theme (currently ${theme})`}
       >
-        <ThemeIcon size={15} strokeWidth={2} aria-hidden />
-      </button>
+        <ThemeIcon strokeWidth={2} aria-hidden />
+      </Button>
 
       <Popover>
         <PopoverTrigger
-          className="workspace-avatar cursor-pointer"
+          className="cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           aria-label="Profile menu"
         >
-          {avatarUrl ? (
-            <img src={avatarUrl} alt="" className="workspace-avatar-img" />
-          ) : (
-            <span className="workspace-avatar-initials">{initials}</span>
-          )}
+          <AdminAvatar avatarUrl={avatarUrl} initials={initials} />
         </PopoverTrigger>
-        <PopoverContent
-          side="bottom"
-          align="end"
-          className="topbar-profile-popover gap-0 !p-0"
-        >
-          <div
-            className="flex flex-col items-center px-4 pt-5 pb-4"
-            style={{
-              background:
-                "color-mix(in oklab, var(--primary) 10%, var(--background))",
-              borderBottom:
-                "1px solid color-mix(in oklab, var(--foreground) 8%, transparent)",
-            }}
-          >
-            <div
-              className="workspace-avatar"
-              style={{ width: 48, height: 48, marginBottom: 10 }}
-            >
-              {avatarUrl ? (
-                <img src={avatarUrl} alt="" className="workspace-avatar-img" />
-              ) : (
-                <span className="workspace-avatar-initials">{initials}</span>
+        <PopoverContent side="bottom" align="end" className="w-70">
+          {/* Cancels the popover's inner padding so the header runs edge to edge. */}
+          <div className="-m-4 w-[calc(100%+2rem)]">
+            <div className="flex flex-col items-center border-b border-hairline bg-selected px-4 pt-5 pb-4">
+              <AdminAvatar
+                avatarUrl={avatarUrl}
+                initials={initials}
+                size="lg"
+                className="mb-2.5"
+              />
+              {userLabel && (
+                <span className="text-center text-sm leading-snug font-semibold text-foreground md:text-body">
+                  {userLabel}
+                </span>
               )}
+              <span className="mt-px text-center text-xs text-muted-foreground md:text-meta">
+                {email}
+              </span>
             </div>
-            {userLabel && (
-              <span className="topbar-profile-card-name">{userLabel}</span>
-            )}
-            <span className="topbar-profile-card-email">{email}</span>
-          </div>
 
-          <div className="flex flex-col p-1.5">
-            <a
-              className="topbar-profile-action flex items-center gap-2"
-              href="/files"
-            >
-              <FileStack size={14} strokeWidth={2} aria-hidden />
-              Back to Drive
-            </a>
-          </div>
+            <div className="flex flex-col p-1.5">
+              <a className={cn(PROFILE_ACTION, "hover:bg-hover")} href="/files">
+                <FileStack className="size-3.5" strokeWidth={2} aria-hidden />
+                Back to Drive
+              </a>
+            </div>
 
-          <div className="topbar-profile-divider" />
+            <div className="mx-0.5 h-px bg-hairline" />
 
-          <div className="flex flex-col p-1.5">
-            <form
-              action="/api/auth/sign-out"
-              method="post"
-              style={{ display: "contents" }}
-            >
-              <input type="hidden" name="next" value="/" />
-              <button
-                type="submit"
-                className="topbar-profile-action topbar-profile-action--danger flex items-center gap-2"
+            <div className="flex flex-col p-1.5">
+              <form
+                action="/api/auth/sign-out"
+                method="post"
+                className="contents"
               >
-                <LogOut size={14} strokeWidth={2} aria-hidden />
-                Sign out
-              </button>
-            </form>
+                <input type="hidden" name="next" value="/" />
+                <button
+                  type="submit"
+                  className={cn(
+                    PROFILE_ACTION,
+                    "text-destructive-foreground hover:bg-destructive/10",
+                  )}
+                >
+                  <LogOut className="size-3.5" strokeWidth={2} aria-hidden />
+                  Sign out
+                </button>
+              </form>
+            </div>
           </div>
         </PopoverContent>
       </Popover>

@@ -1,13 +1,25 @@
 // Pending and recovery-required tables intentionally share one status layout.
 // fallow-ignore-file code-duplication
 import Link from "next/link";
-import type { CSSProperties } from "react";
 
 import {
   formatAdminBytes,
   formatAdminDateTime,
-  getAdminStatusClassName,
 } from "@/app/admin/admin-format";
+import { AdminPanel } from "@/app/admin/admin-panel";
+import { AdminStatCard } from "@/app/admin/admin-stat-card";
+import { AdminStatusBadge } from "@/app/admin/admin-status-badge";
+import { PageHeader } from "@/components/page-header";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { getAdminStorageSummary } from "@/server/admin/storage";
 import { getStorageMutationHealth } from "@staaash/db/storage-mutations";
 import { retryStorageMutationAction } from "./actions";
@@ -49,40 +61,36 @@ export default async function AdminStoragePage() {
   ];
 
   return (
-    <main className="admin-storage-page">
-      <header className="admin-ops-header">
-        <div>
-          <h1>Storage</h1>
-          <p>Storage used by files and folders, including items in trash.</p>
-        </div>
-      </header>
+    <main className="m-0 mx-auto grid w-[min(1420px,100%)] grid-cols-1 gap-5 p-0 max-sm:gap-4.5">
+      <PageHeader
+        size="lg"
+        divider
+        title="Storage"
+        description="Storage used by files and folders, including items in trash."
+      />
 
-      <section className="admin-storage-cards" aria-label="Storage summary">
+      <section
+        className="grid grid-cols-4 gap-3.5 max-md:grid-cols-2 max-xs:grid-cols-1"
+        aria-label="Storage summary"
+      >
         {cards.map((card) => (
-          <article className="admin-storage-card" key={card.label}>
-            <span>{card.label}</span>
-            <strong>{card.value}</strong>
-          </article>
+          <AdminStatCard key={card.label} {...card} />
         ))}
       </section>
 
-      <section className="admin-storage-matrix">
-        <div className="admin-overview-panel-head">
-          <h2>Used storage per user</h2>
-        </div>
-
-        <div className="admin-storage-table-wrap">
-          <table className="admin-storage-table">
-            <thead>
-              <tr>
-                <th>User</th>
-                <th>Role</th>
-                <th>Used</th>
-                <th>Items</th>
-                <th>Last activity</th>
-              </tr>
-            </thead>
-            <tbody>
+      <AdminPanel title="Used storage per user">
+        <TableFrame>
+          <Table className="min-w-230">
+            <TableHeader>
+              <TableRow>
+                <HeadCell>User</HeadCell>
+                <HeadCell>Role</HeadCell>
+                <HeadCell>Used</HeadCell>
+                <HeadCell>Items</HeadCell>
+                <HeadCell>Last activity</HeadCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {summary.rows.map((row) => {
                 const role = row.isOwner
                   ? "owner"
@@ -95,94 +103,91 @@ export default async function AdminStoragePage() {
                 );
 
                 return (
-                  <tr className="admin-storage-link-row" key={row.userId}>
-                    <td>
-                      <div className="admin-storage-user">
+                  <TableRow className="group cursor-pointer" key={row.userId}>
+                    <BodyCell>
+                      <div className="grid min-w-0 grid-cols-1 gap-1">
                         <Link
-                          className="admin-storage-row-link"
+                          className="inline-block max-w-full truncate text-body font-semibold text-foreground group-hover:text-primary-ink group-hover:underline group-hover:decoration-primary/50 group-hover:underline-offset-3 after:absolute after:inset-0 after:z-10 after:content-[''] focus-visible:outline-none focus-visible:after:rounded-lg focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring/80"
                           href={`/admin/users/${row.userId}`}
                         >
                           {row.displayName ?? row.email}
                         </Link>
-                        <span>{row.email}</span>
+                        <span className="text-meta text-muted-foreground">
+                          {row.email}
+                        </span>
                       </div>
-                    </td>
-                    <td>
-                      <span className={getAdminStatusClassName(role)}>
-                        {role}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="admin-storage-usage">
-                        <strong>{formatAdminBytes(row.retainedBytes)}</strong>
-                        <span
-                          aria-hidden
-                          style={
-                            {
-                              "--admin-storage-usage": `${usagePercent}%`,
-                            } as CSSProperties
-                          }
+                    </BodyCell>
+                    <BodyCell>
+                      <AdminStatusBadge status={role} />
+                    </BodyCell>
+                    <BodyCell>
+                      <div className="grid min-w-47 grid-cols-1 gap-2">
+                        <strong className="text-body font-semibold">
+                          {formatAdminBytes(row.retainedBytes)}
+                        </strong>
+                        <Progress
+                          aria-label="Share of the largest user's storage"
+                          value={usagePercent}
                         />
                       </div>
-                    </td>
-                    <td>
-                      <span className="admin-storage-counts">
+                    </BodyCell>
+                    <BodyCell>
+                      <span className="text-meta text-muted-foreground">
                         {row.retainedFileCount} files
                         <br />
                         {row.retainedFolderCount} folders
                       </span>
-                    </td>
-                    <td>{formatAdminDateTime(row.lastContentActivityAt)}</td>
-                  </tr>
+                    </BodyCell>
+                    <BodyCell>
+                      {formatAdminDateTime(row.lastContentActivityAt)}
+                    </BodyCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            </TableBody>
+          </Table>
+        </TableFrame>
+      </AdminPanel>
 
-      <section className="admin-storage-matrix">
-        <div className="admin-overview-panel-head">
-          <h2>Storage mutations</h2>
-        </div>
-        <div className="admin-storage-table-wrap">
-          <table className="admin-storage-table">
-            <thead>
-              <tr>
-                <th>Mutation</th>
-                <th>Owner</th>
-                <th>Phase</th>
-                <th>Safe paths</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
+      <AdminPanel title="Storage mutations">
+        <TableFrame>
+          <Table className="min-w-230">
+            <TableHeader>
+              <TableRow>
+                <HeadCell>Mutation</HeadCell>
+                <HeadCell>Owner</HeadCell>
+                <HeadCell>Phase</HeadCell>
+                <HeadCell>Safe paths</HeadCell>
+                <HeadCell>Action</HeadCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {storageMutations.active.length === 0 ? (
-                <tr>
-                  <td colSpan={5}>No unfinished storage mutations.</td>
-                </tr>
+                <TableRow>
+                  <BodyCell colSpan={5}>
+                    No unfinished storage mutations.
+                  </BodyCell>
+                </TableRow>
               ) : (
                 storageMutations.active.map((mutation) => (
-                  <tr key={mutation.id}>
-                    <td>
+                  <TableRow key={mutation.id}>
+                    <BodyCell>
                       <strong>{mutation.kind}</strong>
                       <br />
-                      <span>{mutation.id}</span>
-                    </td>
-                    <td>{mutation.ownerUserId}</td>
-                    <td>
-                      <span
-                        className={getAdminStatusClassName(mutation.status)}
-                      >
-                        {mutation.status}
+                      <span className="text-meta text-muted-foreground">
+                        {mutation.id}
                       </span>
-                    </td>
-                    <td>
+                    </BodyCell>
+                    <BodyCell>{mutation.ownerUserId}</BodyCell>
+                    <BodyCell>
+                      <AdminStatusBadge status={mutation.status} />
+                    </BodyCell>
+                    <BodyCell>
                       {mutation.safePathLabels.length > 0
                         ? mutation.safePathLabels.join(", ")
                         : "Redacted"}
-                    </td>
-                    <td>
+                    </BodyCell>
+                    <BodyCell>
                       {mutation.canRetryNow ? (
                         <form action={retryStorageMutationAction}>
                           <input
@@ -190,19 +195,47 @@ export default async function AdminStoragePage() {
                             type="hidden"
                             value={mutation.id}
                           />
-                          <button type="submit">Retry now</button>
+                          <Button type="submit" variant="outline" size="sm">
+                            Retry now
+                          </Button>
                         </form>
                       ) : (
                         "Automatic recovery"
                       )}
-                    </td>
-                  </tr>
+                    </BodyCell>
+                  </TableRow>
                 ))
               )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+            </TableBody>
+          </Table>
+        </TableFrame>
+      </AdminPanel>
     </main>
+  );
+}
+
+function TableFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-hairline">
+      {children}
+    </div>
+  );
+}
+
+function HeadCell({ children }: { children: React.ReactNode }) {
+  return <TableHead className="px-5 text-label">{children}</TableHead>;
+}
+
+function BodyCell({
+  children,
+  colSpan,
+}: {
+  children: React.ReactNode;
+  colSpan?: number;
+}) {
+  return (
+    <TableCell className="p-5 text-base whitespace-normal" colSpan={colSpan}>
+      {children}
+    </TableCell>
   );
 }

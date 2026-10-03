@@ -40,7 +40,7 @@ export default async function AdminJobsPage() {
     );
 
   return (
-    <main>
+    <main className="m-0 w-full p-0">
       <JobOperations
         derivativeActions={{
           cancelDerivative,

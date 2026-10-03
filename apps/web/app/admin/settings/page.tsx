@@ -17,7 +17,7 @@ export default async function AdminSettingsPage() {
   ]);
 
   return (
-    <main className="settings-page admin-settings-page">
+    <main className="settings-page w-full max-w-admin-settings p-0">
       <SettingsForm
         settings={settings}
         updateStatus={toJsonAdminUpdateStatus(updateStatus)}

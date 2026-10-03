@@ -47,7 +47,7 @@ export function TableHeader({
 }: React.ComponentProps<"thead">): React.ReactElement {
   return (
     <thead
-      className={cn("[&_tr]:border-b", className)}
+      className={cn("bg-hover [&_tr]:border-b", className)}
       data-slot="table-header"
       {...props}
     />
@@ -109,7 +109,7 @@ export function TableHead({
   return (
     <th
       className={cn(
-        "h-10 px-2.5 text-left align-middle leading-none font-medium whitespace-nowrap text-muted-foreground has-[[role=checkbox]]:w-px first:has-[[role=checkbox]]:pe-0 last:has-[[role=checkbox]]:ps-0",
+        "h-11 px-5 text-left align-middle text-xs leading-none font-semibold tracking-wider whitespace-nowrap text-foreground/80 uppercase has-[[role=checkbox]]:w-px first:has-[[role=checkbox]]:pe-0 last:has-[[role=checkbox]]:ps-0",
         className,
       )}
       data-slot="table-head"

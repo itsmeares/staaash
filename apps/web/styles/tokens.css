@@ -14,7 +14,7 @@
   --card-foreground: oklch(0.22 0.015 72);
   --popover: oklch(0.992 0.004 78);
   --popover-foreground: oklch(0.22 0.015 72);
-  --sidebar: oklch(0.975 0.006 78);
+  --sidebar: color-mix(in oklab, var(--background) 92%, var(--foreground) 8%);
   --muted: oklch(0.965 0.006 78);
   --muted-foreground: oklch(0.48 0.014 72);
   --accent: oklch(0.95 0.01 78);
@@ -56,7 +56,6 @@
   --card-foreground: oklch(0.95 0.008 78);
   --popover: oklch(0.23 0.012 72);
   --popover-foreground: oklch(0.95 0.008 78);
-  --sidebar: oklch(0.16 0.01 72);
   --muted: oklch(0.22 0.01 72);
   --muted-foreground: oklch(0.78 0.014 76);
   --accent: oklch(0.23 0.012 72);

@@ -61,7 +61,7 @@ export default async function AdminUsersPage({
   );
 
   return (
-    <main className="stack admin-users-route">
+    <main className="m-0 grid w-full grid-cols-1 gap-7 p-0">
       <UsersAdminConsole
         appUrl={baseUrl}
         canMutateUsers={session.user.isOwner}
@@ -85,7 +85,7 @@ export default async function AdminUsersPage({
       />
 
       {totalPages > 1 ? (
-        <div className="admin-users-pagination">
+        <div className="mx-auto flex w-[min(1180px,100%)] justify-end max-sm:w-full">
           <PaginationControls
             buildHref={buildHref}
             page={page}
