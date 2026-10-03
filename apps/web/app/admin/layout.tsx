@@ -1,3 +1,4 @@
+import { SkipLink } from "@/components/skip-link";
 import { getInitials } from "@/lib/user";
 import { requireAdminPageSession } from "@/server/auth/guards";
 
@@ -15,9 +16,7 @@ export default async function AdminLayout({
 
   return (
     <>
-      <a className="skip-link" href="#main-content">
-        Skip to content
-      </a>
+      <SkipLink />
       <div className="grid h-screen grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden max-md:h-dvh md:grid-cols-[var(--spacing-admin-sidebar)_minmax(0,1fr)] md:grid-rows-none">
         <aside className="flex flex-col gap-3 overflow-hidden border-b border-hairline bg-primary/9 px-3.5 pt-3.5 pb-2.5 antialiased md:h-screen md:gap-6 md:overflow-y-auto md:border-r md:border-b-0 md:px-4.5 md:pt-7.5 md:pb-5.5">
           <h1 className="m-0 px-2 py-1 font-heading text-xl leading-none font-normal wrap-anywhere whitespace-nowrap text-foreground md:text-3xl md:whitespace-normal">

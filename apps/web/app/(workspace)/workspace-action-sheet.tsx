@@ -1,7 +1,21 @@
 "use client";
 
 import { Fragment } from "react";
-import { Drawer, DrawerPopup, DrawerTitle } from "@/components/ui/drawer";
+import { Button } from "@/components/ui/button";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerMenu,
+  DrawerMenuGroup,
+  DrawerMenuItem,
+  DrawerMenuSeparator,
+  DrawerPanel,
+  DrawerPopup,
+  DrawerTitle,
+} from "@/components/ui/drawer";
+import { cn } from "@/lib/utils";
 import { getVisibleDashboardMenuGroups } from "@/app/dashboard-context-menu-model";
 import type { DashboardContextMenuGroup } from "@/app/dashboard-context-menu";
 
@@ -30,81 +44,78 @@ export function WorkspaceActionSheet({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerPopup
-        className="workspace-bottom-sheet workspace-action-sheet"
-        showBar
-      >
-        <div className="workspace-action-sheet-head">
-          <DrawerTitle className="workspace-action-sheet-title">
-            {title}
-          </DrawerTitle>
+      <DrawerPopup showBar>
+        <DrawerHeader className="gap-0.5">
+          <DrawerTitle>{title}</DrawerTitle>
           {itemName ? (
-            <p className="workspace-action-sheet-subtitle">{itemName}</p>
+            <p className="truncate text-xs text-muted-foreground">{itemName}</p>
           ) : null}
-        </div>
+        </DrawerHeader>
 
-        <div className="workspace-action-sheet-groups">
-          {visibleGroups.map((group, groupIndex) => (
-            <div className="workspace-action-sheet-group" key={groupIndex}>
-              {group.actions.map((action) => (
-                <Fragment key={action.label}>
-                  {action.subActions && action.subActions.length > 0 ? (
-                    <details className="workspace-action-sheet-details">
-                      <summary
-                        className={`workspace-action-sheet-item${action.disabled ? " is-disabled" : ""}`}
+        <DrawerPanel>
+          <DrawerMenu>
+            {visibleGroups.map((group, groupIndex) => (
+              <DrawerMenuGroup key={groupIndex}>
+                {groupIndex > 0 ? <DrawerMenuSeparator /> : null}
+                {group.actions.map((action) => (
+                  <Fragment key={action.label}>
+                    {action.subActions && action.subActions.length > 0 ? (
+                      <details className="grid">
+                        <DrawerMenuItem
+                          className={cn(
+                            "list-none [&::-webkit-details-marker]:hidden",
+                            action.disabled && "opacity-60",
+                          )}
+                          render={<summary />}
+                        >
+                          <span className="inline-flex w-4.5 justify-center text-muted-foreground">
+                            {action.icon}
+                          </span>
+                          <span>{action.label}</span>
+                        </DrawerMenuItem>
+                        <div className="grid gap-1 ps-10 pt-1.5 pb-0.5">
+                          {getVisibleDashboardMenuGroups([
+                            { actions: action.subActions },
+                          ])[0]?.actions.map((subAction) => (
+                            <DrawerMenuItem
+                              disabled={subAction.disabled}
+                              key={subAction.label}
+                              onClick={() => runAction(subAction)}
+                            >
+                              {subAction.label}
+                            </DrawerMenuItem>
+                          ))}
+                        </div>
+                      </details>
+                    ) : (
+                      <DrawerMenuItem
+                        disabled={action.disabled}
+                        variant={action.destructive ? "destructive" : "default"}
+                        onClick={() => runAction(action)}
                       >
-                        <span className="workspace-action-sheet-icon">
+                        <span className="inline-flex w-4.5 justify-center text-muted-foreground">
                           {action.icon}
                         </span>
                         <span>{action.label}</span>
-                      </summary>
-                      <div className="workspace-action-sheet-subitems">
-                        {getVisibleDashboardMenuGroups([
-                          { actions: action.subActions },
-                        ])[0]?.actions.map((subAction) => (
-                          <button
-                            className="workspace-action-sheet-subitem"
-                            disabled={subAction.disabled}
-                            key={subAction.label}
-                            type="button"
-                            onClick={() => runAction(subAction)}
-                          >
-                            {subAction.label}
-                          </button>
-                        ))}
-                      </div>
-                    </details>
-                  ) : (
-                    <button
-                      className={`workspace-action-sheet-item${action.destructive ? " is-destructive" : ""}`}
-                      disabled={action.disabled}
-                      type="button"
-                      onClick={() => runAction(action)}
-                    >
-                      <span className="workspace-action-sheet-icon">
-                        {action.icon}
-                      </span>
-                      <span>{action.label}</span>
-                      {action.shortcut ? (
-                        <span className="workspace-action-sheet-shortcut">
-                          {action.shortcut}
-                        </span>
-                      ) : null}
-                    </button>
-                  )}
-                </Fragment>
-              ))}
-            </div>
-          ))}
-        </div>
+                        {action.shortcut ? (
+                          <span className="ms-auto text-xs text-muted-foreground">
+                            {action.shortcut}
+                          </span>
+                        ) : null}
+                      </DrawerMenuItem>
+                    )}
+                  </Fragment>
+                ))}
+              </DrawerMenuGroup>
+            ))}
+          </DrawerMenu>
+        </DrawerPanel>
 
-        <button
-          className="workspace-action-sheet-cancel"
-          type="button"
-          onClick={() => onOpenChange(false)}
-        >
-          Cancel
-        </button>
+        <DrawerFooter variant="bare">
+          <DrawerClose render={<Button className="w-full" variant="ghost" />}>
+            Cancel
+          </DrawerClose>
+        </DrawerFooter>
       </DrawerPopup>
     </Drawer>
   );

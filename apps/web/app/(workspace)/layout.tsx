@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Search } from "lucide-react";
 
+import { SkipLink } from "@/components/skip-link";
 import { ToastProvider } from "@/components/ui/toast";
 import { getInitials } from "@/lib/user";
 import { authService } from "@/server/auth/service";
@@ -73,22 +74,31 @@ export default async function WorkspaceLayout({
 
   return (
     <>
-      <a className="skip-link" href="#main-content">
-        Skip to content
-      </a>
-      <div className="workspace-shell">
-        <aside className="workspace-sidebar" data-workspace-sidebar>
-          <div className="workspace-brand-area">
+      <SkipLink />
+      <div className="grid h-dvh w-full grid-cols-1 grid-rows-[100dvh] overflow-hidden bg-background lg:h-screen lg:grid-cols-[var(--spacing-sidebar)_minmax(0,1fr)] lg:grid-rows-[100vh] md:max-lg:landscape:grid-cols-[72px_minmax(0,1fr)]">
+        <aside
+          className="hidden flex-col overflow-y-auto border-r border-hairline bg-sidebar px-4.5 pt-7.5 pb-5.5 antialiased lg:flex md:max-lg:landscape:flex md:max-lg:landscape:px-2 md:max-lg:landscape:py-3.5"
+          data-workspace-sidebar
+        >
+          <div className="px-2 pb-7 md:max-lg:landscape:px-0 md:max-lg:landscape:pb-4 md:max-lg:landscape:text-center">
             <Link
-              className="workspace-brand-link"
+              className="inline-block transition-opacity hover:opacity-75 motion-reduce:transition-none"
               href="/files"
               title={instanceName}
             >
               <span
-                className="workspace-brand"
+                className="block font-heading text-3xl leading-none font-normal wrap-anywhere text-foreground"
                 data-compact-initial={compactInstanceInitial}
               >
-                {instanceName}
+                <span className="md:max-lg:landscape:hidden">
+                  {instanceName}
+                </span>
+                <span
+                  className="hidden text-2xl md:max-lg:landscape:inline"
+                  aria-hidden
+                >
+                  {compactInstanceInitial}
+                </span>
               </span>
             </Link>
           </div>
@@ -96,7 +106,7 @@ export default async function WorkspaceLayout({
           <WorkspaceNav />
 
           {session ? (
-            <section className="workspace-user-panel">
+            <section className="mt-auto flex flex-col gap-3.5 border-t border-hairline pt-4 md:max-lg:landscape:hidden">
               <WorkspaceStorage
                 usedBytes={usedBytes.toString()}
                 limitBytes={limitBytes?.toString() ?? null}
@@ -107,25 +117,30 @@ export default async function WorkspaceLayout({
             </section>
           ) : null}
 
-          <div className="workspace-instance-footer">
+          <div className="px-1 pt-1.5 md:max-lg:landscape:hidden">
             <InstanceBadge
               appVersion={appVersion}
               nodeVersion={process.version}
               updateStatus={effectiveUpdateStatus}
               latestVersion={effectiveLatestVersion}
               repository={settings.updateCheckRepository || null}
+              className="w-full justify-start"
             />
           </div>
         </aside>
 
-        <div className="workspace-main">
-          <header className="workspace-topbar">
-            <form action="/search" className="workspace-search" method="get">
+        <div className="flex min-w-0 flex-col max-lg:h-dvh max-lg:min-h-0 max-lg:overflow-hidden">
+          <header className="flex flex-wrap items-center justify-between gap-2 border-b border-hairline bg-background px-3.5 py-2 max-xs:items-stretch lg:min-h-16.5 lg:gap-3 lg:px-10 lg:py-3.5">
+            <form
+              action="/search"
+              className="flex min-h-10 flex-[1_1_min(100%,260px)] items-center gap-2 rounded-lg border border-line-strong bg-hover px-2.5 py-1.5 max-xs:basis-full lg:min-h-control lg:basis-70 lg:gap-2.5 lg:px-3.5 lg:py-2.5"
+              method="get"
+            >
               <label className="sr-only" htmlFor="workspace-search">
                 Search files and folders
               </label>
               <Search
-                className="workspace-search-icon"
+                className="size-3.5 shrink-0 text-muted-foreground opacity-70 lg:size-4.5"
                 size={14}
                 strokeWidth={2}
                 aria-hidden
@@ -135,6 +150,7 @@ export default async function WorkspaceLayout({
                 name="q"
                 placeholder="Search files and folders"
                 type="search"
+                className="w-full border-0 bg-transparent p-0 text-sm text-foreground outline-none disabled:text-muted-foreground lg:text-meta"
               />
             </form>
             {session ? (
@@ -161,7 +177,12 @@ export default async function WorkspaceLayout({
             ) : null}
           </header>
 
-          <main className="workspace-content" id="main-content" tabIndex={-1}>
+          <main
+            className="m-0 w-full min-w-0 flex-1 scrollbar-thin overflow-x-hidden overflow-y-auto bg-background px-3 pt-4.5 pb-[calc(96px+env(safe-area-inset-bottom))] xs:px-4 lg:overflow-x-visible lg:px-10 lg:pt-8.5 lg:pb-18 md:max-lg:landscape:pb-12"
+            data-workspace-content
+            id="main-content"
+            tabIndex={-1}
+          >
             {children}
           </main>
         </div>

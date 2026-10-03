@@ -12,12 +12,23 @@ import {
   Wrench,
   LogOut,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Menu,
+  MenuItem,
+  MenuLinkItem,
+  MenuPopup,
+  MenuSeparator,
+  MenuTrigger,
+} from "@/components/ui/menu";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { applyThemeWithTransition, type Theme } from "@/lib/theme";
+
+import { WorkspaceAvatar } from "./workspace-avatar";
 
 type UpdateStatus =
   "up-to-date" | "update-available" | "unavailable" | "error" | null;
@@ -83,42 +94,46 @@ export function TopbarActions({
     : null;
 
   return (
-    <div className="workspace-topbar-tools">
-      <button
-        className="topbar-icon-btn"
+    <div className="flex shrink-0 items-center gap-1 max-xs:w-full max-xs:justify-end lg:gap-2">
+      <Button
+        className="lg:w-auto lg:px-3.5"
         onClick={handleUploadClick}
+        size="icon"
         title="Upload files"
         aria-label="Upload files"
+        variant="ghost"
       >
         <Upload size={15} strokeWidth={2} aria-hidden />
-        <span>Upload</span>
-      </button>
+        <span className="max-lg:hidden">Upload</span>
+      </Button>
 
-      <button
-        className="topbar-icon-btn"
+      <Button
         onClick={handleThemeCycle}
+        size="icon"
         title={`Theme: ${theme}`}
         aria-label={`Toggle theme (currently ${theme})`}
+        variant="ghost"
       >
         <ThemeIcon size={15} strokeWidth={2} aria-hidden />
-      </button>
+      </Button>
 
       <Popover>
         <PopoverTrigger
-          className="topbar-icon-btn topbar-icon-btn--indicator"
+          render={<Button className="relative" size="icon" variant="ghost" />}
           aria-label="Notifications"
         >
           <Bell size={15} strokeWidth={2} aria-hidden />
-          {hasUpdate && <span className="topbar-indicator-dot" aria-hidden />}
+          {hasUpdate && (
+            <span
+              className="absolute top-2.5 right-2.5 size-2 rounded-full border-2 border-background bg-destructive"
+              aria-hidden
+            />
+          )}
         </PopoverTrigger>
-        <PopoverContent
-          side="bottom"
-          align="end"
-          className="topbar-notif-popover"
-        >
+        <PopoverContent side="bottom" align="end" className="w-55">
           {hasUpdate ? (
-            <div className="topbar-notif-item">
-              <span className="topbar-notif-title">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-label font-medium lg:text-meta">
                 {latestVersion
                   ? `${formatVersionLabel(latestVersion)} available`
                   : "Update available"}
@@ -128,98 +143,74 @@ export function TopbarActions({
                   href={releaseUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="topbar-notif-link"
+                  className="text-xs text-primary-ink hover:underline lg:text-meta"
                 >
                   View releases
                 </a>
               )}
             </div>
           ) : (
-            <p className="topbar-notif-empty">No new notifications</p>
+            <p className="m-0 text-label text-muted-foreground lg:text-meta">
+              No new notifications
+            </p>
           )}
         </PopoverContent>
       </Popover>
 
-      <Popover>
-        <PopoverTrigger
-          className="workspace-avatar cursor-pointer"
+      <Menu>
+        <MenuTrigger
+          className="cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           aria-label="Profile menu"
         >
-          {avatarUrl ? (
-            <img src={avatarUrl} alt="" className="workspace-avatar-img" />
-          ) : (
-            <span className="workspace-avatar-initials">{initials}</span>
-          )}
-        </PopoverTrigger>
-        <PopoverContent
-          side="bottom"
-          align="end"
-          className="topbar-profile-popover gap-0 !p-0"
-        >
-          <div
-            className="flex flex-col items-center px-4 pt-5 pb-4"
-            style={{
-              background:
-                "color-mix(in oklab, var(--primary) 10%, var(--background))",
-              borderBottom:
-                "1px solid color-mix(in oklab, var(--foreground) 8%, transparent)",
-            }}
-          >
-            <div
-              className="workspace-avatar"
-              style={{ width: 48, height: 48, marginBottom: 10 }}
-            >
-              {avatarUrl ? (
-                <img src={avatarUrl} alt="" className="workspace-avatar-img" />
-              ) : (
-                <span className="workspace-avatar-initials">{initials}</span>
-              )}
-            </div>
+          <WorkspaceAvatar
+            avatarUrl={avatarUrl}
+            initials={initials}
+            className="lg:size-11"
+          />
+        </MenuTrigger>
+        <MenuPopup align="end" className="w-70">
+          <div className="mb-1 flex flex-col items-center rounded-lg bg-primary/10 px-4 pt-5 pb-4">
+            <WorkspaceAvatar
+              avatarUrl={avatarUrl}
+              initials={initials}
+              className="mb-2.5 size-12"
+            />
             {userLabel && (
-              <span className="topbar-profile-card-name">{userLabel}</span>
+              <span className="text-center text-sm leading-tight font-semibold lg:text-body">
+                {userLabel}
+              </span>
             )}
-            <span className="topbar-profile-card-email">{email}</span>
+            <span className="mt-px text-center text-xs text-muted-foreground lg:text-meta">
+              {email}
+            </span>
           </div>
 
-          <div className="flex flex-col p-1.5">
-            <a
-              className="topbar-profile-action flex items-center gap-2"
-              href="/settings"
+          <MenuLinkItem href="/settings">
+            <Settings2 size={14} strokeWidth={2} aria-hidden />
+            Settings
+          </MenuLinkItem>
+          {isOwner && (
+            <MenuLinkItem href="/admin">
+              <Wrench size={14} strokeWidth={2} aria-hidden />
+              Admin
+            </MenuLinkItem>
+          )}
+
+          <MenuSeparator />
+
+          <form action="/api/auth/sign-out" className="contents" method="post">
+            <input type="hidden" name="next" value="/" />
+            <MenuItem
+              nativeButton
+              render={<button type="submit" />}
+              variant="destructive"
             >
-              <Settings2 size={14} strokeWidth={2} aria-hidden />
-              Settings
-            </a>
-            {isOwner && (
-              <a
-                className="topbar-profile-action flex items-center gap-2"
-                href="/admin"
-              >
-                <Wrench size={14} strokeWidth={2} aria-hidden />
-                Admin
-              </a>
-            )}
-          </div>
-
-          <div className="topbar-profile-divider" />
-
-          <div className="flex flex-col p-1.5">
-            <form
-              action="/api/auth/sign-out"
-              method="post"
-              style={{ display: "contents" }}
-            >
-              <input type="hidden" name="next" value="/" />
-              <button
-                type="submit"
-                className="topbar-profile-action topbar-profile-action--danger flex items-center gap-2"
-              >
-                <LogOut size={14} strokeWidth={2} aria-hidden />
-                Sign out
-              </button>
-            </form>
-          </div>
-        </PopoverContent>
-      </Popover>
+              <LogOut size={14} strokeWidth={2} aria-hidden />
+              Sign out
+            </MenuItem>
+          </form>
+        </MenuPopup>
+      </Menu>
     </div>
   );
 }

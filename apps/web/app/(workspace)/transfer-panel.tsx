@@ -12,6 +12,8 @@ import {
   X,
 } from "lucide-react";
 
+import { cn } from "@/lib/utils";
+
 import {
   useTransferContext,
   formatSpeed,
@@ -20,6 +22,12 @@ import {
   type DownloadProgressState,
 } from "./transfer-context";
 import { startValidatedDownload } from "@/lib/transfers/download";
+
+const rowClass =
+  "flex flex-col gap-1 border-b border-border/60 px-3 py-2 last:border-b-0";
+const iconButtonClass =
+  "inline-flex cursor-pointer items-center justify-center rounded-xs px-1 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-pressed hover:text-foreground";
+const nameClass = "flex-1 truncate text-xs text-foreground";
 
 // ---------------------------------------------------------------------------
 // Transfer panel (portal-rendered, bottom-right)
@@ -95,23 +103,23 @@ export function TransferPanel() {
   const title = totalCount === 1 ? "1 transfer" : `${totalCount} transfers`;
 
   const panel = (
-    <div className="transfer-panel">
-      <div className="transfer-panel-header">
-        <span className="transfer-panel-title">{title}</span>
-        <div className="transfer-panel-header-actions">
-          <button
-            type="button"
-            className="transfer-panel-icon-btn"
-            onClick={() => setCollapsed((c) => !c)}
-            aria-label={collapsed ? "Expand" : "Collapse"}
-          >
-            {collapsed ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </button>
-        </div>
+    <div className="fixed right-4 bottom-4 z-50 max-w-95 min-w-75 overflow-hidden rounded-md border border-border bg-card shadow-floating max-lg:right-2.5 max-lg:bottom-[calc(76px+env(safe-area-inset-bottom))] max-lg:left-2.5 max-lg:w-auto max-lg:max-w-none max-lg:rounded-xl md:max-lg:landscape:bottom-3.5 md:max-lg:landscape:left-21.5">
+      <div className="flex items-center justify-between gap-2 px-3 py-2.5">
+        <span className="flex-1 text-label font-medium text-foreground">
+          {title}
+        </span>
+        <button
+          type="button"
+          className={cn(iconButtonClass, "size-6 p-0")}
+          onClick={() => setCollapsed((c) => !c)}
+          aria-label={collapsed ? "Expand" : "Collapse"}
+        >
+          {collapsed ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
       </div>
 
       {!collapsed && (
-        <div className="transfer-panel-body">
+        <div className="max-h-80 overflow-y-auto border-t border-border">
           {panelUploads.map((f) => (
             <PanelUploadRow
               key={f.clientKey}
@@ -164,30 +172,29 @@ function PanelUploadRow({
     file.status === "uploading" && Boolean(file.statusLabel);
 
   return (
-    <div className="transfer-panel-row">
-      <div className="transfer-panel-row-top">
-        <File size={13} className="transfer-panel-row-icon" />
-        <span className="transfer-panel-row-name">{file.name}</span>
+    <div className={rowClass}>
+      <div className="flex min-w-0 items-center gap-1.5">
+        <File size={13} className="shrink-0 text-muted-foreground" />
+        <span className={nameClass}>{file.name}</span>
         <span
-          className={`transfer-panel-row-status${file.status === "error" ? " is-error" : ""}`}
+          className={cn(
+            "flex shrink-0 items-center gap-1 text-xs whitespace-nowrap text-muted-foreground",
+            file.status === "error" && "text-destructive-foreground",
+          )}
         >
           <span aria-live="polite" aria-atomic="true">
             {isPhaseStatus ? statusText : ""}
           </span>
           {!isPhaseStatus && statusText}
           {file.status === "error" && onRetry && (
-            <button
-              type="button"
-              className="transfer-panel-row-action"
-              onClick={onRetry}
-            >
+            <button type="button" className={iconButtonClass} onClick={onRetry}>
               Retry
             </button>
           )}
           {file.status !== "uploading" && (
             <button
               type="button"
-              className="transfer-panel-row-action"
+              className={iconButtonClass}
               onClick={onDismiss}
               aria-label="Dismiss"
             >
@@ -197,9 +204,9 @@ function PanelUploadRow({
         </span>
       </div>
       {file.status === "uploading" && (
-        <div className="transfer-panel-row-track">
+        <div className="h-0.75 overflow-hidden rounded-xs bg-foreground/10">
           <div
-            className="transfer-panel-row-fill"
+            className="h-full rounded-xs bg-primary transition-[width] duration-300"
             style={{ width: `${file.progress}%` }}
           />
         </div>
@@ -234,21 +241,24 @@ function PanelDownloadRow({
           : state.message;
 
   return (
-    <div className="transfer-panel-row transfer-panel-row--download">
-      <div className="transfer-panel-row-top">
+    <div className={rowClass}>
+      <div className="flex min-w-0 items-center gap-1.5">
         {state.status === "ready" && !error ? (
           <CheckCircle2
             size={13}
-            className="transfer-panel-row-icon--success"
+            className="shrink-0 text-success-foreground"
           />
         ) : state.status === "error" || error ? null : (
-          <Loader2 size={13} className="transfer-panel-row-icon--spin" />
+          <Loader2
+            size={13}
+            className="shrink-0 animate-spin text-muted-foreground"
+          />
         )}
-        <span className="transfer-panel-row-name">{bodyText}</span>
+        <span className={nameClass}>{bodyText}</span>
         {state.status !== "processing" && state.status !== "queued" && (
           <button
             type="button"
-            className="transfer-panel-row-action"
+            className={iconButtonClass}
             onClick={onClose}
             aria-label="Close"
           >

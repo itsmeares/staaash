@@ -8,6 +8,7 @@
 @import "../styles/tokens.css";
 @import "../styles/theme.css";
 @import "../styles/base.css";
+@import "../styles/utilities.css";
 
 /* Legacy feature styles, removed area by area as screens move to the shared
    components and utilities. */

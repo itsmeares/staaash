@@ -417,7 +417,7 @@ export function DrawerMenuItem({
 }): React.ReactElement {
   const defaultProps = {
     className: cn(
-      "flex min-h-9 w-full cursor-default items-center gap-2 rounded-sm px-2 py-1 text-base text-foreground outline-none select-none hover:bg-hover disabled:pointer-events-none disabled:opacity-60 data-[variant=destructive]:text-destructive-foreground sm:min-h-8 sm:text-sm [&>svg]:pointer-events-none [&>svg]:-mx-0.5 [&>svg]:shrink-0 [&>svg:not([class*='opacity-'])]:opacity-80 [&>svg:not([class*='size-'])]:size-4.5 sm:[&>svg:not([class*='size-'])]:size-4",
+      "flex min-h-11 w-full cursor-default items-center gap-2 rounded-lg px-3 py-1 text-base text-foreground outline-none select-none hover:bg-hover disabled:pointer-events-none disabled:opacity-60 data-[variant=destructive]:text-destructive-foreground sm:min-h-8 sm:text-sm [&>svg]:pointer-events-none [&>svg]:-mx-0.5 [&>svg]:shrink-0 [&>svg:not([class*='opacity-'])]:opacity-80 [&>svg:not([class*='size-'])]:size-4.5 sm:[&>svg:not([class*='size-'])]:size-4",
       className,
     ),
     "data-slot": "drawer-menu-item",
@@ -495,7 +495,7 @@ export function DrawerMenuTrigger({
   return (
     <DrawerTrigger
       className={cn(
-        "flex min-h-9 w-full cursor-default items-center gap-2 rounded-sm px-2 py-1 text-base text-foreground outline-none select-none hover:bg-hover sm:min-h-8 sm:text-sm [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not(:last-child)]:-mx-0.5 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4",
+        "flex min-h-11 w-full cursor-default items-center gap-2 rounded-lg px-3 py-1 text-base text-foreground outline-none select-none hover:bg-hover sm:min-h-8 sm:text-sm [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not(:last-child)]:-mx-0.5 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       data-slot="drawer-menu-trigger"
@@ -525,7 +525,7 @@ export function DrawerMenuCheckboxItem({
     <CheckboxPrimitive.Root
       checked={checked}
       className={cn(
-        "grid min-h-9 w-full cursor-default items-center gap-2 rounded-sm px-2 py-1 text-base text-foreground outline-none select-none hover:bg-hover sm:min-h-8 sm:text-sm data-disabled:pointer-events-none data-disabled:opacity-60 [&_svg]:pointer-events-none [&_svg]:-mx-0.5 [&_svg]:shrink-0 [&_svg:not([class*='opacity-'])]:opacity-80 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4",
+        "grid min-h-11 w-full cursor-default items-center gap-2 rounded-lg px-3 py-1 text-base text-foreground outline-none select-none hover:bg-hover sm:min-h-8 sm:text-sm data-disabled:pointer-events-none data-disabled:opacity-60 [&_svg]:pointer-events-none [&_svg]:-mx-0.5 [&_svg]:shrink-0 [&_svg:not([class*='opacity-'])]:opacity-80 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4",
         variant === "switch"
           ? "grid-cols-[minmax(0,1fr)_auto] gap-4 pe-1.5"
           : "grid-cols-[1rem_minmax(0,1fr)] pe-4",
@@ -599,7 +599,7 @@ export function DrawerMenuRadioItem({
   return (
     <RadioPrimitive.Root
       className={cn(
-        "grid min-h-9 w-full cursor-default items-center gap-2 rounded-sm px-2 py-1 text-base text-foreground outline-none select-none hover:bg-hover sm:min-h-8 sm:text-sm data-disabled:pointer-events-none data-disabled:opacity-60 [&_svg]:pointer-events-none [&_svg]:-mx-0.5 [&_svg]:shrink-0 [&_svg:not([class*='opacity-'])]:opacity-80 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4",
+        "grid min-h-11 w-full cursor-default items-center gap-2 rounded-lg px-3 py-1 text-base text-foreground outline-none select-none hover:bg-hover sm:min-h-8 sm:text-sm data-disabled:pointer-events-none data-disabled:opacity-60 [&_svg]:pointer-events-none [&_svg]:-mx-0.5 [&_svg]:shrink-0 [&_svg:not([class*='opacity-'])]:opacity-80 [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4",
         "grid-cols-[1rem_minmax(0,1fr)] items-center pe-4",
         className,
       )}
