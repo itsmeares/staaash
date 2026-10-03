@@ -434,7 +434,7 @@ export function UsersAdminConsole({
         </div>
 
         <div className="table-wrap">
-          <table className="table admin-users-table">
+          <table className="admin-users-table table">
             <thead>
               <tr>
                 <th>Name</th>

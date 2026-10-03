@@ -1,16 +1,5 @@
 /* ---- Share dialog ---- */
 
-.share-dialog-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  background: color-mix(in oklab, var(--foreground) 28%, transparent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: fade-in 120ms ease both;
-}
-
 .share-dialog {
   display: block;
   background: var(--card);
@@ -892,7 +881,6 @@ main.share-locked-page {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .share-dialog-overlay,
   .share-dialog {
     animation: none;
   }

@@ -136,56 +136,6 @@
   color: var(--foreground);
 }
 
-.folder-meta {
-  font-size: 13px;
-  color: var(--muted-foreground);
-}
-
-.folder-disclosure {
-  border-top: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent);
-  background: color-mix(in oklab, var(--foreground) 2%, var(--card));
-}
-
-.folder-disclosure summary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 16px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted-foreground);
-  list-style: none;
-  user-select: none;
-  transition: color 100ms ease;
-}
-
-.folder-disclosure summary::-webkit-details-marker {
-  display: none;
-}
-
-.folder-disclosure summary::before {
-  content: "›";
-  font-size: 16px;
-  line-height: 1;
-  transition: transform 120ms ease;
-}
-
-.folder-disclosure[open] summary::before {
-  transform: rotate(90deg);
-}
-
-.folder-disclosure summary:hover {
-  color: var(--foreground);
-}
-
-.folder-disclosure-grid {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  padding: 14px 16px 16px;
-}
-
 .recent-row-thumb .item-type-icon,
 .favorites-row-thumb .item-type-icon {
   background: transparent !important;
@@ -221,70 +171,6 @@
 }
 
 /* ---- Library layout ---- */
-
-.library-header {
-  display: grid;
-  gap: 12px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid
-    color-mix(in oklab, var(--foreground) 7%, transparent);
-}
-
-.library-header-row {
-  display: flex;
-  gap: 20px;
-  align-items: flex-start;
-  justify-content: space-between;
-  flex-wrap: wrap;
-}
-
-.library-header-row h1 {
-  font-size: clamp(1.6rem, 3vw, 2.2rem);
-  letter-spacing: -0.025em;
-  line-height: 1.08;
-}
-
-.library-header-meta {
-  font-size: 13px;
-  color: var(--muted-foreground);
-  margin-top: 4px;
-}
-
-.library-header-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  align-items: flex-end;
-  flex-shrink: 0;
-}
-
-.library-sections {
-  display: grid;
-  gap: 36px;
-}
-
-.library-section {
-  display: grid;
-  gap: 6px;
-}
-
-.library-section-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 4px 12px;
-  border-bottom: 1px solid
-    color-mix(in oklab, var(--foreground) 7%, transparent);
-}
-
-.library-section-header h2 {
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: color-mix(in oklab, var(--muted-foreground) 80%, transparent);
-  flex: 1;
-}
 
 /* ================================================================
    FILE EXPLORER — /library
@@ -370,26 +256,6 @@
 }
 
 /* ---- Section label ---- */
-
-.explorer-section {
-  margin-bottom: 36px;
-}
-
-.explorer-section:last-child {
-  margin-bottom: 0;
-}
-
-.explorer-section-label {
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: color-mix(in oklab, var(--muted-foreground) 80%, transparent);
-  padding: 0 4px 10px;
-  border-bottom: 1px solid
-    color-mix(in oklab, var(--foreground) 6%, transparent);
-  margin-bottom: 6px;
-}
 
 /* ---- File/folder row ---- */
 
@@ -1078,37 +944,6 @@
 
 /* ---- Move picker popover ---- */
 
-.move-picker {
-  display: grid;
-  gap: 4px;
-}
-
-.move-picker-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-  color: var(--foreground);
-  width: 100%;
-  text-align: left;
-  transition: background 80ms ease;
-}
-
-.move-picker-item:hover {
-  background: color-mix(in oklab, var(--foreground) 5%, var(--card));
-}
-
-.move-picker-item.is-current {
-  opacity: 0.4;
-  pointer-events: none;
-}
-
 /* ---- Upload row — error / retry / dismiss ---- */
 
 .uploading-row-dismiss {
@@ -1183,17 +1018,6 @@
 }
 
 /* ---- Keyboard shortcut legend ---- */
-
-.shortcut-legend-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  background: color-mix(in oklab, var(--foreground) 30%, transparent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: fade-in 120ms ease both;
-}
 
 .shortcut-legend {
   display: block;
@@ -1314,7 +1138,6 @@
     animation: none;
   }
 
-  .shortcut-legend-overlay,
   .shortcut-legend {
     animation: none;
   }

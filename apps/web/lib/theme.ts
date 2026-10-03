@@ -27,22 +27,34 @@ function getResolvedTheme(theme: Theme): ResolvedTheme {
 }
 
 function getCurrentResolvedTheme(): ResolvedTheme {
-  const html = document.documentElement;
-  if (html.classList.contains("dark")) return "dark";
-  if (html.classList.contains("light")) return "light";
-  return prefersDarkTheme() ? "dark" : "light";
-}
-
-export function applyTheme(theme: Theme) {
-  const html = document.documentElement;
-  html.classList.remove(...THEME_CLASS_NAMES);
-  if (theme !== "system") html.classList.add(theme);
+  return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
 
 function applyResolvedTheme(theme: ResolvedTheme) {
   const html = document.documentElement;
   html.classList.remove(...THEME_CLASS_NAMES);
   html.classList.add(theme);
+}
+
+/**
+ * Store the preference on <html> and always set a resolved theme class, so
+ * `dark:` styles apply for the system preference too.
+ */
+export function applyTheme(theme: Theme) {
+  document.documentElement.dataset.theme = theme;
+  applyResolvedTheme(getResolvedTheme(theme));
+}
+
+/** Follow OS changes while the preference is "system". */
+export function watchSystemTheme() {
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  const onChange = () => {
+    if (document.documentElement.dataset.theme === "system") {
+      applyResolvedTheme(media.matches ? "dark" : "light");
+    }
+  };
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
 }
 
 export function applyThemeWithTransition(theme: Theme) {
@@ -59,6 +71,7 @@ export function applyThemeWithTransition(theme: Theme) {
     return;
   }
 
+  document.documentElement.dataset.theme = theme;
   const transition = transitionDocument.startViewTransition(() => {
     applyResolvedTheme(nextTheme);
   });

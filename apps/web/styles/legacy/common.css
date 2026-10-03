@@ -194,36 +194,6 @@ h3 {
   color: #23573a;
 }
 
-.banner-info {
-  background: color-mix(in oklab, var(--primary) 10%, var(--card));
-  color: color-mix(in oklab, var(--foreground) 78%, var(--primary) 22%);
-}
-
-.card-list {
-  display: grid;
-  gap: 14px;
-}
-
-.meta-list {
-  display: grid;
-  gap: 10px;
-}
-
-.meta-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding-bottom: 10px;
-  border-bottom: 1px solid
-    color-mix(in oklab, var(--foreground) 8%, transparent);
-}
-
-.meta-row:last-child {
-  border-bottom: 0;
-  padding-bottom: 0;
-}
-
 .table-wrap {
   overflow-x: auto;
 }
@@ -258,7 +228,6 @@ h3 {
   text-transform: capitalize;
 }
 
-.status-active,
 .status-healthy {
   background: var(--status-succeeded-bg);
   color: var(--status-succeeded);
@@ -269,14 +238,11 @@ h3 {
   color: var(--status-running);
 }
 
-.status-accepted,
 .status-warning {
   background: var(--status-queued-bg);
   color: var(--status-queued);
 }
 
-.status-expired,
-.status-revoked,
 .status-error {
   background: var(--status-failed-bg);
   color: var(--status-failed);
@@ -298,7 +264,6 @@ h3 {
   color: color-mix(in oklab, var(--foreground) 70%, transparent);
 }
 
-.dark .status-active,
 .dark .status-healthy {
   background: var(--status-succeeded-bg);
   color: var(--status-succeeded);
@@ -309,14 +274,11 @@ h3 {
   color: var(--status-running);
 }
 
-.dark .status-accepted,
 .dark .status-warning {
   background: var(--status-queued-bg);
   color: var(--status-queued);
 }
 
-.dark .status-expired,
-.dark .status-revoked,
 .dark .status-error {
   background: var(--status-failed-bg);
   color: var(--status-failed);

@@ -11,6 +11,7 @@ import {
 
 import { saveOwnerOnboardingSettings } from "@/app/admin/settings/actions";
 import { TimeZonePicker } from "@/components/time-zone-picker";
+import { applyTheme } from "@/lib/theme";
 
 type Theme = "light" | "dark" | "system";
 type OnboardingStep =
@@ -44,13 +45,6 @@ const STEP_ANNOUNCEMENTS: Record<OnboardingStep, string> = {
   media: "Media previews.",
   done: "Onboarding complete.",
 };
-
-function applyThemePreview(theme: Theme) {
-  const html = document.documentElement;
-  html.classList.remove("dark", "light");
-  if (theme === "dark") html.classList.add("dark");
-  else if (theme === "light") html.classList.add("light");
-}
 
 export function OnboardingExperience({
   instanceName,
@@ -118,7 +112,7 @@ export function OnboardingExperience({
 
   function setTheme(t: Theme) {
     setPrefs((p) => ({ ...p, theme: t }));
-    applyThemePreview(t);
+    applyTheme(t);
   }
 
   function setTimeZone(timeZone: string) {

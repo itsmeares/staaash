@@ -68,7 +68,7 @@ export function AdminTopbarActions({
         <PopoverContent
           side="bottom"
           align="end"
-          className="!p-0 gap-0 topbar-profile-popover"
+          className="topbar-profile-popover gap-0 !p-0"
         >
           <div
             className="flex flex-col items-center px-4 pt-5 pb-4"

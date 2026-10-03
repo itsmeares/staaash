@@ -1,0 +1,82 @@
+/*
+ * Design tokens. Raw values live here once per theme; styles/theme.css maps
+ * them to Tailwind utilities. The theme class (.light or .dark) is always set
+ * on <html> before paint, see app/layout.tsx.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Surfaces */
+  --background: oklch(0.982 0.006 78);
+  --foreground: oklch(0.21 0.015 72);
+  --card: oklch(0.992 0.004 78);
+  --card-foreground: oklch(0.22 0.015 72);
+  --popover: oklch(0.992 0.004 78);
+  --popover-foreground: oklch(0.22 0.015 72);
+  --sidebar: oklch(0.975 0.006 78);
+  --muted: oklch(0.965 0.006 78);
+  --muted-foreground: oklch(0.48 0.014 72);
+  --accent: oklch(0.95 0.01 78);
+  --accent-foreground: oklch(0.24 0.018 72);
+  --secondary: oklch(0.955 0.007 78);
+  --secondary-foreground: oklch(0.24 0.018 72);
+
+  /* Action */
+  --primary: oklch(0.48 0.09 78);
+  --primary-foreground: oklch(0.98 0.004 78);
+  --destructive: oklch(0.577 0.245 27.325);
+
+  /* Lines and focus */
+  --border: oklch(0.9 0.009 78);
+  --input: oklch(0.9 0.009 78);
+  --ring: oklch(0.68 0.06 80);
+
+  /* Status hues. The base color is used for tinted fills, the -foreground
+     color for text and icons on those fills. */
+  --success: oklch(0.64 0.11 145);
+  --success-foreground: oklch(0.46 0.12 145);
+  --info: oklch(0.65 0.1 210);
+  --info-foreground: oklch(0.43 0.1 210);
+  --warning: oklch(0.74 0.1 78);
+  --warning-foreground: oklch(0.48 0.1 78);
+  --destructive-foreground: color-mix(
+    in oklab,
+    var(--destructive) 86%,
+    var(--foreground)
+  );
+}
+
+.dark {
+  color-scheme: dark;
+
+  --background: oklch(0.12 0.008 70);
+  --foreground: oklch(0.95 0.008 78);
+  --card: oklch(0.18 0.01 72);
+  --card-foreground: oklch(0.95 0.008 78);
+  --popover: oklch(0.23 0.012 72);
+  --popover-foreground: oklch(0.95 0.008 78);
+  --sidebar: oklch(0.16 0.01 72);
+  --muted: oklch(0.22 0.01 72);
+  --muted-foreground: oklch(0.78 0.014 76);
+  --accent: oklch(0.23 0.012 72);
+  --accent-foreground: oklch(0.94 0.008 78);
+  --secondary: oklch(0.24 0.01 72);
+  --secondary-foreground: oklch(0.93 0.008 78);
+
+  --primary: oklch(0.74 0.08 78);
+  --primary-foreground: oklch(0.18 0.015 72);
+  --destructive: oklch(0.62 0.16 25);
+
+  --border: oklch(0.38 0.014 76 / 0.55);
+  --input: oklch(0.23 0.012 72 / 0.92);
+  --ring: oklch(0.82 0.06 80);
+
+  --success: oklch(0.67 0.12 145);
+  --success-foreground: oklch(0.78 0.1 145);
+  --info: oklch(0.68 0.1 210);
+  --info-foreground: oklch(0.78 0.1 210);
+  --warning: oklch(0.74 0.1 78);
+  --warning-foreground: oklch(0.82 0.1 78);
+  --destructive-foreground: oklch(0.78 0.16 25);
+}
