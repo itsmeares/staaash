@@ -177,6 +177,7 @@ export function EntryExperience({
   // Form (including exiting-to-intro state)
   return (
     <div
+      data-entry-form
       className={`entry-form ${phase === "exiting-to-intro" ? "entry-form--exiting" : "entry-form--entering"}`}
     >
       {error && (

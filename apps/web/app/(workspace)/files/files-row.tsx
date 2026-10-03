@@ -426,7 +426,7 @@ export function FilesRow(props: FilesRowProps) {
           tabIndex={isSelected ? 0 : -1}
         >
           {/* Icon */}
-          <div className="explorer-row-icon" role="gridcell">
+          <div className="explorer-row-icon" role="gridcell" data-row-icon>
             <ItemTypeIcon
               icon={props.kind === "folder" ? IconComponent : undefined}
               size={16}
@@ -436,7 +436,7 @@ export function FilesRow(props: FilesRowProps) {
           </div>
 
           {/* Name */}
-          <div className="explorer-row-name-cell" role="gridcell">
+          <div className="explorer-row-name-cell" role="gridcell" data-row-name>
             {isRenaming ? (
               <input
                 ref={renameInputRef}

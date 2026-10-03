@@ -77,7 +77,7 @@ export default async function WorkspaceLayout({
         Skip to content
       </a>
       <div className="workspace-shell">
-        <aside className="workspace-sidebar">
+        <aside className="workspace-sidebar" data-workspace-sidebar>
           <div className="workspace-brand-area">
             <Link
               className="workspace-brand-link"

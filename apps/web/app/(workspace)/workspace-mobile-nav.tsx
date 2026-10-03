@@ -81,7 +81,11 @@ export function WorkspaceMobileNav(props: WorkspaceMobileNavProps) {
   const [open, setOpen] = useState(false);
 
   return (
-    <nav className="workspace-mobile-nav" aria-label="Workspace mobile">
+    <nav
+      className="workspace-mobile-nav"
+      aria-label="Workspace mobile"
+      data-workspace-mobile-nav
+    >
       {primaryItems.map((item) => {
         const Icon = item.icon;
         const active = isItemActive(pathname, item);

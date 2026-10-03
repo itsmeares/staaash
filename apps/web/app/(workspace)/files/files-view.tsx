@@ -1427,10 +1427,10 @@ export function FilesView({
     const row = document.createElement("div");
     row.className = "explorer-drag-preview-row";
     const icon = event.currentTarget
-      .querySelector(".explorer-row-icon")
+      .querySelector("[data-row-icon]")
       ?.cloneNode(true);
     const name = event.currentTarget
-      .querySelector(".explorer-row-name-cell")
+      .querySelector("[data-row-name]")
       ?.cloneNode(true);
     if (icon) row.append(icon);
     if (name) row.append(name);
@@ -1992,6 +1992,7 @@ export function FilesView({
           <div
             ref={listRef}
             className="explorer-list"
+            data-explorer-list
             role="grid"
             aria-label={`${listing.currentFolder.name} files`}
             tabIndex={0}
