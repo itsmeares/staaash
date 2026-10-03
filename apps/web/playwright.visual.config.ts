@@ -17,7 +17,9 @@ export default defineConfig({
     "baseline",
     "{arg}{ext}",
   ),
-  outputDir: path.join(__dirname, ".data", "visual", "results"),
+  outputDir:
+    process.env.STAAASH_VISUAL_OUT ??
+    path.join(__dirname, ".data", "visual", "results"),
   expect: {
     toHaveScreenshot: { maxDiffPixelRatio: 0.002 },
   },

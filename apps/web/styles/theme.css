@@ -43,6 +43,10 @@
   --shadow-rail: -12px 0 40px
     color-mix(in oklab, var(--foreground) 8%, transparent);
 
+  /* Breakpoints: xs 560 · sm 640 · md 720 · lg 1024 · xl 1280 */
+  --breakpoint-xs: 35rem;
+  --breakpoint-md: 45rem;
+
   /* Product sizes: h-control, h-row, w-sidebar, max-w-settings, … */
   --spacing-control: 3rem;
   --spacing-control-sm: 2.75rem;
