@@ -24,7 +24,8 @@ import {
   renewStorageMutationLease,
   StorageMutationConflictError,
   StorageMutationFenceError,
-  StorageMutationIntentError,
+  StorageMutationRejectedError,
+  storagePathResourceKey,
   type RecoverableStorageMutationIntent,
   type StorageMetadataOperation,
 } from "@staaash/db/storage-mutations";
@@ -35,6 +36,7 @@ import {
   EMPTY_TREE_MANIFEST_DIGEST,
   StorageMutationAbruptInterruptionError,
   StorageMutationAmbiguityError,
+  STORAGE_MUTATION_MAX_PRECOMMIT_ATTEMPTS,
   type StorageMutationExecutionBoundary,
 } from "@staaash/db/storage-mutation-executor";
 import {
@@ -1466,22 +1468,350 @@ describe("STO-02 durable PostgreSQL protocol", () => {
     ).resolves.toBe("private");
   });
 
-  it("routes commit-time quota drift to recovery", async () => {
-    const fixture = await prepareOrdinaryUploadCreateFixture();
-    await db.user.update({
-      where: { id: fixture.mutation.ownerUserId },
-      data: { storageLimitBytes: 1n },
+  describe("permanent rejections and path-scoped ownership", () => {
+    const setupOwner = async (storageLimitBytes: bigint | null = null) => {
+      const user = await db.user.update({
+        where: { id: (await createUser()).id },
+        data: { storageLimitBytes },
+      });
+      const root = await db.folder.create({
+        data: { ownerUserId: user.id, name: "Files", isFilesRoot: true },
+      });
+      return { user, root };
+    };
+
+    const prepareUpload = async ({
+      owner,
+      bytes,
+      targetName = `${randomUUID()}.bin`,
+      reservedBytes = BigInt(bytes.length),
+    }: {
+      owner: Awaited<ReturnType<typeof setupOwner>>;
+      bytes: Buffer;
+      targetName?: string;
+      reservedBytes?: bigint | null;
+    }) => {
+      const fileId = randomUUID();
+      const checksum = checksumOf(bytes);
+      const sourceKey = `tmp/uploads/${fileId}.part`;
+      const targetKey = `files/${owner.user.storageId}/${targetName}`;
+      await mkdir(path.dirname(storagePath(sourceKey)), { recursive: true });
+      await writeFile(storagePath(sourceKey), bytes);
+      const prepared = await prepareStorageMutation({
+        kind: "upload_create",
+        ownerUserId: owner.user.id,
+        idempotencyKey: randomUUID(),
+        requestHash: randomUUID(),
+        reservedBytes,
+        intentJson: intent([
+          {
+            action: "assert_owner_quota",
+            ownerUserId: owner.user.id,
+            additionalBytes: String(bytes.length),
+          },
+          {
+            action: "create_file",
+            data: {
+              id: fileId,
+              ownerUserId: owner.user.id,
+              folderId: owner.root.id,
+              originalName: targetName,
+              storageKey: targetKey,
+              mimeType: "application/octet-stream",
+              sizeBytes: String(bytes.length),
+              contentChecksum: checksum,
+            },
+          },
+        ]) as unknown as Prisma.InputJsonValue,
+        steps: [
+          {
+            action: "rename",
+            sourceKey,
+            targetKey,
+            expectedNodeType: "file",
+            expectedSizeBytes: BigInt(bytes.length),
+            expectedChecksum: checksum,
+          },
+        ],
+        entities: [
+          {
+            entityType: "file",
+            entityId: fileId,
+            preRevision: -1,
+            postRevision: 0,
+            beforeJson: null,
+            afterJson: { storageKey: targetKey, contentChecksum: checksum },
+          },
+        ],
+      });
+      return { mutation: prepared.mutation, fileId, sourceKey, targetKey };
+    };
+
+    const expectAborted = async (mutationId: string) => {
+      await expect(
+        db.storageMutation.findUniqueOrThrow({
+          where: { id: mutationId },
+          select: {
+            status: true,
+            idempotencyKey: true,
+            reservedBytes: true,
+            resources: { where: { releasedAt: null } },
+          },
+        }),
+      ).resolves.toEqual({
+        status: "aborted",
+        idempotencyKey: null,
+        reservedBytes: null,
+        resources: [],
+      });
+    };
+
+    it("rejects an over-quota reservation before taking any ownership", async () => {
+      const owner = await setupOwner(5n);
+
+      await expect(
+        prepareUpload({ owner, bytes: Buffer.alloc(6) }),
+      ).rejects.toMatchObject({
+        code: "USER_STORAGE_QUOTA_EXCEEDED",
+        status: 413,
+      });
+      await expect(
+        db.storageMutation.count({ where: { ownerUserId: owner.user.id } }),
+      ).resolves.toBe(0);
+
+      const exact = await prepareUpload({ owner, bytes: Buffer.alloc(5) });
+      await execute(exact.mutation);
+      await expect(
+        db.file.findUnique({ where: { id: exact.fileId } }),
+      ).resolves.toMatchObject({ sizeBytes: 5n });
     });
 
-    await expect(execute(fixture.mutation)).rejects.toBeInstanceOf(
-      StorageMutationIntentError,
-    );
-    await expect(
-      db.storageMutation.findUniqueOrThrow({
-        where: { id: fixture.mutation.id },
-        select: { status: true },
-      }),
-    ).resolves.toEqual({ status: "recovery_required" });
+    it("counts concurrent in-flight reservations against the quota", async () => {
+      const owner = await setupOwner(5n);
+      const first = await prepareUpload({ owner, bytes: Buffer.alloc(3) });
+
+      await expect(
+        prepareUpload({ owner, bytes: Buffer.alloc(3) }),
+      ).rejects.toBeInstanceOf(StorageMutationRejectedError);
+      const second = await prepareUpload({ owner, bytes: Buffer.alloc(2) });
+      await execute(first.mutation);
+      await execute(second.mutation);
+      await expect(
+        db.file.aggregate({
+          where: { ownerUserId: owner.user.id },
+          _sum: { sizeBytes: true },
+        }),
+      ).resolves.toMatchObject({ _sum: { sizeBytes: 5n } });
+    });
+
+    it("rolls back and aborts commit-time quota drift, then accepts the next upload", async () => {
+      const owner = await setupOwner();
+      const bytes = Buffer.from("over-quota");
+      const upload = await prepareUpload({ owner, bytes });
+      await db.user.update({
+        where: { id: owner.user.id },
+        data: { storageLimitBytes: 1n },
+      });
+
+      await expect(execute(upload.mutation)).rejects.toMatchObject({
+        code: "USER_STORAGE_QUOTA_EXCEEDED",
+      });
+      await expectAborted(upload.mutation.id);
+      await expect(
+        db.file.findUnique({ where: { id: upload.fileId } }),
+      ).resolves.toBeNull();
+      await expectStorageBytes(upload.sourceKey, bytes);
+      await expectStorageMissing(upload.targetKey);
+
+      await db.user.update({
+        where: { id: owner.user.id },
+        data: { storageLimitBytes: null },
+      });
+      const next = await prepareUpload({ owner, bytes: Buffer.from("next") });
+      await execute(next.mutation);
+      await expect(
+        db.storageMutation.findUniqueOrThrow({
+          where: { id: next.mutation.id },
+          select: { status: true },
+        }),
+      ).resolves.toEqual({ status: "succeeded" });
+    });
+
+    it("aborts an overlong filesystem name instead of retrying it", async () => {
+      const owner = await setupOwner();
+      const bytes = Buffer.from("long-name");
+      const upload = await prepareUpload({
+        owner,
+        bytes,
+        targetName: `${"東京".repeat(50)}.txt`,
+      });
+
+      await expect(execute(upload.mutation)).rejects.toMatchObject({
+        code: "STORAGE_PATH_TOO_LONG",
+        status: 400,
+      });
+      await expectAborted(upload.mutation.id);
+      await expectStorageBytes(upload.sourceKey, bytes);
+
+      const next = await prepareUpload({ owner, bytes: Buffer.from("ok") });
+      await execute(next.mutation);
+    });
+
+    it("rolls back a transient pre-commit failure once attempts run out", async () => {
+      const owner = await setupOwner();
+      const bytes = Buffer.from("transient");
+      const upload = await prepareUpload({ owner, bytes });
+      await db.storageMutation.update({
+        where: { id: upload.mutation.id },
+        data: { attemptCount: STORAGE_MUTATION_MAX_PRECOMMIT_ATTEMPTS - 1 },
+      });
+
+      await expect(
+        execute(upload.mutation, {
+          beforeMetadata: async () => {
+            throw new Error("database briefly unavailable");
+          },
+        }),
+      ).rejects.toMatchObject({ code: "STORAGE_MUTATION_ABORTED" });
+      await expectAborted(upload.mutation.id);
+      await expectStorageBytes(upload.sourceKey, bytes);
+      await expectStorageMissing(upload.targetKey);
+    });
+
+    it("keeps retrying a transient pre-commit failure below the attempt cap", async () => {
+      const owner = await setupOwner();
+      const upload = await prepareUpload({ owner, bytes: Buffer.from("x") });
+
+      await expect(
+        execute(upload.mutation, {
+          beforeMetadata: async () => {
+            throw new Error("database briefly unavailable");
+          },
+        }),
+      ).rejects.toThrow("database briefly unavailable");
+      await expect(
+        db.storageMutation.findUniqueOrThrow({
+          where: { id: upload.mutation.id },
+          select: { status: true },
+        }),
+      ).resolves.toEqual({ status: "retrying" });
+    });
+
+    it("lets worker recovery roll back an upload left behind by the old quota check", async () => {
+      const owner = await setupOwner();
+      const bytes = Buffer.from("stranded");
+      const upload = await prepareUpload({ owner, bytes, reservedBytes: null });
+      // State after the requeue migration: bytes promoted, step applied.
+      await mkdir(path.dirname(storagePath(upload.targetKey)), {
+        recursive: true,
+      });
+      await rename(
+        storagePath(upload.sourceKey),
+        storagePath(upload.targetKey),
+      );
+      await db.storageMutationStep.updateMany({
+        where: { mutationId: upload.mutation.id },
+        data: { status: "applied", appliedAt: new Date() },
+      });
+      await db.storageMutation.update({
+        where: { id: upload.mutation.id },
+        data: { status: "retrying", nextAttemptAt: new Date(0) },
+      });
+      await db.user.update({
+        where: { id: owner.user.id },
+        data: { storageLimitBytes: 1n },
+      });
+
+      await recoverStorageMutations({ storagePaths: storagePaths() });
+
+      await expectAborted(upload.mutation.id);
+      await expectStorageBytes(upload.sourceKey, bytes);
+      await expectStorageMissing(upload.targetKey);
+    });
+
+    it("locks only the touched paths, their ancestors, and their descendants", async () => {
+      const owner = await setupOwner();
+      const filesKey = `files/${owner.user.storageId}`;
+      const folderRename = await prepareStorageMutation({
+        kind: "folder_rename",
+        ownerUserId: owner.user.id,
+        idempotencyKey: randomUUID(),
+        requestHash: randomUUID(),
+        intentJson: intent([]) as unknown as Prisma.InputJsonValue,
+        steps: [
+          {
+            action: "rename",
+            sourceKey: `${filesKey}/Photos`,
+            targetKey: `${filesKey}/Pictures`,
+            expectedNodeType: "directory",
+            treeManifestDigest: EMPTY_TREE_MANIFEST_DIGEST,
+          },
+        ],
+      });
+      await expect(
+        db.storageMutationResource.findMany({
+          where: { mutationId: folderRename.mutation.id },
+          select: { resourceKey: true },
+          orderBy: { resourceKey: "asc" },
+        }),
+      ).resolves.toEqual([
+        {
+          resourceKey: storagePathResourceKey(
+            owner.user.id,
+            `${filesKey}/Photos`,
+          ),
+        },
+        {
+          resourceKey: storagePathResourceKey(
+            owner.user.id,
+            `${filesKey}/Pictures`,
+          ),
+        },
+      ]);
+
+      // An unrelated path and the account root stay writable.
+      await prepareUpload({ owner, bytes: Buffer.from("root") });
+      await prepareUpload({
+        owner,
+        bytes: Buffer.from("sibling"),
+        targetName: "Documents/notes.txt",
+      });
+      // A descendant of a locked path conflicts.
+      await expect(
+        prepareUpload({
+          owner,
+          bytes: Buffer.from("inside"),
+          targetName: "Photos/inside.jpg",
+        }),
+      ).rejects.toMatchObject({ code: "STORAGE_MUTATION_IN_PROGRESS" });
+      // Account-wide kinds conflict with any held path.
+      await expect(
+        prepareStorageMutation({
+          kind: "file_purge",
+          ownerUserId: owner.user.id,
+          idempotencyKey: randomUUID(),
+          requestHash: randomUUID(),
+          intentJson: intent([]) as unknown as Prisma.InputJsonValue,
+          steps: [],
+        }),
+      ).rejects.toMatchObject({ code: "STORAGE_MUTATION_IN_PROGRESS" });
+    });
+
+    it("blocks a path below an account-wide lock", async () => {
+      const owner = await setupOwner();
+      await prepareStorageMutation({
+        kind: "file_purge",
+        ownerUserId: owner.user.id,
+        idempotencyKey: randomUUID(),
+        requestHash: randomUUID(),
+        intentJson: intent([]) as unknown as Prisma.InputJsonValue,
+        steps: [],
+      });
+
+      await expect(
+        prepareUpload({ owner, bytes: Buffer.from("blocked") }),
+      ).rejects.toMatchObject({ code: "STORAGE_MUTATION_IN_PROGRESS" });
+    });
   });
 
   it("recovers an existing empty directory with a legacy manifest", async () => {

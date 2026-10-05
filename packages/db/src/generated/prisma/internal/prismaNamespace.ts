@@ -2707,6 +2707,7 @@ export const StorageMutationScalarFieldEnum = {
   metadataCommittedAt: 'metadataCommittedAt',
   completedAt: 'completedAt',
   recoveryRequiredAt: 'recoveryRequiredAt',
+  reservedBytes: 'reservedBytes',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

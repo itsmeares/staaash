@@ -15,11 +15,13 @@ import path from "node:path";
 
 import type { Prisma } from "./client";
 import {
+  abortStorageMutation,
   beginStorageMutationFinalization,
   claimStorageMutation,
   claimStorageMutationFinalization,
   commitStorageMutationMetadata,
   completeStorageMutation,
+  findStorageMutation,
   markStorageMutationStepApplied,
   markStorageMutationStepFailed,
   renewStorageMutationLease,
@@ -27,8 +29,11 @@ import {
   retryStorageMutation,
   STORAGE_MUTATION_RENEW_MS,
   StorageMutationConflictError,
+  StorageMutationFenceError,
   StorageMutationIntentError,
+  StorageMutationRejectedError,
   type StorageMutationRecord,
+  USER_STORAGE_MUTATION_KINDS,
 } from "./storage-mutations";
 
 export class StorageMutationAmbiguityError extends Error {
@@ -1003,6 +1008,107 @@ const startLeaseRenewal = ({
   return timer;
 };
 
+// Pre-commit attempts before a transient failure is rolled back instead of
+// retried. With 2^n second backoff this is roughly half an hour.
+export const STORAGE_MUTATION_MAX_PRECOMMIT_ATTEMPTS = 11;
+
+const permanentRejectionOf = (error: unknown) => {
+  if (error instanceof StorageMutationRejectedError) return error;
+  if ((error as NodeJS.ErrnoException | null)?.code === "ENAMETOOLONG") {
+    return new StorageMutationRejectedError("STORAGE_PATH_TOO_LONG");
+  }
+  return null;
+};
+
+// Batch children, other kinds, and fail-closed errors keep today's handling.
+const mayAbort = (error: unknown, mutation: StorageMutationRecord) =>
+  mutation.parentId === null &&
+  USER_STORAGE_MUTATION_KINDS.has(mutation.kind) &&
+  !(error instanceof StorageMutationAmbiguityError) &&
+  !(error instanceof StorageMutationIntentError) &&
+  !(error instanceof StorageMutationFenceError);
+
+const abortReasonFor = (error: unknown, mutation: StorageMutationRecord) => {
+  if (!mayAbort(error, mutation)) return null;
+  const rejection = permanentRejectionOf(error);
+  if (rejection) return rejection;
+  return mutation.attemptCount >= STORAGE_MUTATION_MAX_PRECOMMIT_ATTEMPTS
+    ? new StorageMutationRejectedError("STORAGE_MUTATION_ABORTED")
+    : null;
+};
+
+const removeUndoneDirectory = async (
+  filesRoot: string,
+  step: StorageMutationStep,
+) => {
+  if (!step.targetKey) return;
+  const target = resolveMutationStoragePath(filesRoot, step.targetKey);
+  await assertSafeStorageAncestors(filesRoot, target);
+  const result = await removeArtifactDirectory(target);
+  if (result === "not_empty") {
+    throw new StorageMutationAmbiguityError(
+      "Created directory gained entries before rollback.",
+    );
+  }
+};
+
+// Reverse applied forward steps, newest first. Renames reuse the idempotent
+// forward implementation with source and target swapped, so fingerprints are
+// checked and a crash mid-undo can be resumed.
+const undoForwardSteps = async (
+  mutation: StorageMutationRecord,
+  filesRoot: string,
+  assertLease: () => Promise<void>,
+) => {
+  for (const step of [...mutation.steps].reverse()) {
+    if (step.status !== "applied" || isCleanup(step.action)) continue;
+    if (step.action === "rename") {
+      await applyRename(
+        filesRoot,
+        { ...step, sourceKey: step.targetKey, targetKey: step.sourceKey },
+        assertLease,
+      );
+    } else if (step.action === "mkdir") {
+      await assertLease();
+      await removeUndoneDirectory(filesRoot, step);
+    }
+  }
+};
+
+const rollBackAndAbort = async ({
+  mutation,
+  filesRoot,
+  leaseOwner,
+  leaseToken,
+  rejection,
+  error,
+}: {
+  mutation: StorageMutationRecord;
+  filesRoot: string;
+  leaseOwner: string;
+  leaseToken: bigint;
+  rejection: StorageMutationRejectedError;
+  error: unknown;
+}) => {
+  // A commit can succeed even when its acknowledgement is lost. Never undo
+  // bytes that committed metadata already points at.
+  const current = await findStorageMutation(mutation.id);
+  if (current?.metadataCommittedAt || current?.status !== "running") {
+    return false;
+  }
+  await undoForwardSteps(mutation, filesRoot, () =>
+    renewStorageMutationLease({ id: mutation.id, leaseOwner, leaseToken }),
+  );
+  await abortStorageMutation({
+    mutationId: mutation.id,
+    leaseOwner,
+    leaseToken,
+    rejection,
+    error: messageOf(error),
+  });
+  return true;
+};
+
 const persistExecutionFailure = async ({
   error,
   mutationId,
@@ -1093,6 +1199,34 @@ const executeStorageMutationPhases = async <T>({
   return result;
 };
 
+const tryAbortBeforeCommit = async <T>(
+  input: ExecuteClaimedStorageMutationInput<T>,
+  error: unknown,
+) => {
+  const rejection = abortReasonFor(error, input.mutation);
+  if (!rejection) return null;
+  try {
+    const aborted = await rollBackAndAbort({
+      mutation: input.mutation,
+      filesRoot: input.filesRoot,
+      leaseOwner: input.leaseOwner,
+      leaseToken: input.leaseToken,
+      rejection,
+      error,
+    });
+    return aborted ? rejection : null;
+  } catch (undoError) {
+    // An ambiguous undo fails closed; anything else retries the whole attempt.
+    await persistExecutionFailure({
+      error: undoError,
+      mutationId: input.mutation.id,
+      leaseOwner: input.leaseOwner,
+      leaseToken: input.leaseToken,
+    });
+    throw error;
+  }
+};
+
 export const executeClaimedStorageMutation = async <T>(
   input: ExecuteClaimedStorageMutationInput<T>,
 ) => {
@@ -1117,6 +1251,8 @@ export const executeClaimedStorageMutation = async <T>(
     if (error instanceof StorageMutationAbruptInterruptionError) {
       throw error;
     }
+    const rejection = await tryAbortBeforeCommit(input, error);
+    if (rejection) throw rejection;
     await persistExecutionFailure({
       error,
       mutationId: mutation.id,

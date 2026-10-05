@@ -19,7 +19,7 @@ export const getUserStorageUsed = async (
   userId: string,
 ): Promise<UserStorageUsage> => {
   const client = getPrisma();
-  const [committed, reserved] = await Promise.all([
+  const [committed, reserved, mutationReserved] = await Promise.all([
     client.file.aggregate({
       where: { ownerUserId: userId },
       _sum: { sizeBytes: true },
@@ -37,10 +37,16 @@ export const getUserStorageUsed = async (
       },
       _sum: { totalSizeBytes: true },
     }),
+    client.storageMutation.aggregate({
+      where: { ownerUserId: userId, reservedBytes: { not: null } },
+      _sum: { reservedBytes: true },
+    }),
   ]);
   const usage = {
     committedBytes: committed._sum.sizeBytes ?? 0n,
-    reservedBytes: reserved._sum.totalSizeBytes ?? 0n,
+    reservedBytes:
+      (reserved._sum.totalSizeBytes ?? 0n) +
+      (mutationReserved._sum.reservedBytes ?? 0n),
   };
   return {
     ...usage,

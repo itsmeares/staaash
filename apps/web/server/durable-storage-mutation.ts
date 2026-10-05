@@ -12,6 +12,8 @@ import {
   prepareStorageMutation,
   prepareStorageMutationParent,
   StorageMutationConflictError,
+  StorageMutationRejectedError,
+  storageMutationRejectionFromResult,
   type RecoverableStorageMutationIntent,
   type StorageMetadataOperation,
   type StorageMutationEntityInput,
@@ -23,6 +25,7 @@ import {
   claimAndExecuteStorageMutation,
 } from "@staaash/db/storage-mutation-executor";
 
+import { assertStorageKeysFit } from "@/server/files/storage-layout";
 import { getStorageRoot } from "@/server/storage";
 
 const STORAGE_PROTOCOL_VERSION = 2;
@@ -100,19 +103,30 @@ export type DurableStorageMutationInput = {
   requestHashPayload?: unknown;
   resultJson?: Prisma.InputJsonValue;
   parentId?: string | null;
+  /** Quota bytes held from prepare until metadata commit or abort. */
+  reservedBytes?: bigint | null;
 };
 
-const mutationStateConflict = (mutation: { id: string; status: string }) =>
-  new StorageMutationConflictError(
-    mutation.status === "recovery_required"
-      ? "STORAGE_RECOVERY_REQUIRED"
-      : ["running", "retrying", "metadata_committed", "finalizing"].includes(
-            mutation.status,
-          )
-        ? "STORAGE_MUTATION_RECOVERING"
-        : "STORAGE_MUTATION_IN_PROGRESS",
-    mutation.id,
-  );
+const mutationStateConflict = (mutation: {
+  id: string;
+  status: string;
+  resultJson?: unknown;
+}) =>
+  mutation.status === "aborted"
+    ? storageMutationRejectionFromResult(mutation.resultJson)
+    : new StorageMutationConflictError(
+        mutation.status === "recovery_required"
+          ? "STORAGE_RECOVERY_REQUIRED"
+          : [
+                "running",
+                "retrying",
+                "metadata_committed",
+                "finalizing",
+              ].includes(mutation.status)
+            ? "STORAGE_MUTATION_RECOVERING"
+            : "STORAGE_MUTATION_IN_PROGRESS",
+        mutation.id,
+      );
 
 const buildDurableMutationPlan = (input: DurableStorageMutationInput) => {
   const intent: RecoverableStorageMutationIntent = {
@@ -200,6 +214,7 @@ const executePreparedMutation = async ({
       resultJson: () => resultJson,
     });
   } catch (error) {
+    if (error instanceof StorageMutationRejectedError) throw error;
     try {
       const current = await findStorageMutation(mutation.id);
       if (current) throw mutationStateConflict(current);
@@ -229,9 +244,9 @@ const prepareDurableStorageMutation = async (
       idempotencyKey: input.idempotencyKey,
       requestHash,
       intentJson: intent as unknown as Prisma.InputJsonValue,
-      resourceKeys:
-        input.resourceKeys ??
-        (input.parentId ? [] : [`owner:${input.ownerUserId}`]),
+      // Without explicit keys, the journal locks the step paths.
+      resourceKeys: input.resourceKeys ?? (input.parentId ? [] : undefined),
+      reservedBytes: input.reservedBytes,
       steps: input.steps,
       entities: input.entities,
       uploadSessionId: input.uploadSessionId,
@@ -274,6 +289,19 @@ export const findDurableStorageMutationReplay = async (
   return existing;
 };
 
+// Collect every new storage path this mutation will create so impossible paths
+// fail as client errors before any durable ownership is taken.
+const plannedStorageKeys = (input: DurableStorageMutationInput) => [
+  ...input.steps.flatMap((step) => (step.targetKey ? [step.targetKey] : [])),
+  ...input.metadataOperations.flatMap((operation) => {
+    const data =
+      operation.action === "create_file" || operation.action === "update"
+        ? (operation.data as { storageKey?: unknown })
+        : null;
+    return typeof data?.storageKey === "string" ? [data.storageKey] : [];
+  }),
+];
+
 const replayExistingIdempotentMutation = async (
   input: DurableStorageMutationInput,
 ) => {
@@ -292,6 +320,7 @@ export const runDurableStorageMutation = async (
 ) => {
   const replay = await replayExistingIdempotentMutation(input);
   if (replay) return replay;
+  assertStorageKeysFit(plannedStorageKeys(input));
   await assertStorageMutationMayStart();
   const { mutation, replayed } = await retryStorageMutationContention(() =>
     prepareDurableStorageMutation(input),

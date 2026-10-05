@@ -261,7 +261,12 @@ const readAdmissionStats = async (
             ("status" IN ('allocating', 'created', 'receiving') AND "expiresAt" > CURRENT_TIMESTAMP)
             OR "status" = 'committing'
           )
-      ), 0) AS "userActiveReservedBytes",
+      ), 0) + (
+        SELECT COALESCE(SUM("reservedBytes"), 0)
+        FROM "StorageMutation"
+        WHERE "ownerUserId" = ${ownerUserId}
+          AND "reservedBytes" IS NOT NULL
+      ) AS "userActiveReservedBytes",
       COALESCE(SUM("totalSizeBytes") FILTER (
         WHERE "ownerUserId" = ${ownerUserId}
           AND "stagingReleasedAt" IS NULL
@@ -527,7 +532,12 @@ export const getQuotaUsageInTransaction = async (
             ("status" IN ('allocating', 'created', 'receiving') AND "expiresAt" > CURRENT_TIMESTAMP)
             OR "status" = 'committing'
           )
-      ), 0) AS "reservedBytes"
+      ), 0) + (
+        SELECT COALESCE(SUM("reservedBytes"), 0)
+        FROM "StorageMutation"
+        WHERE "ownerUserId" = ${ownerUserId}
+          AND "reservedBytes" IS NOT NULL
+      ) AS "reservedBytes"
     FROM "UploadSession"
   `;
   const row = rows[0]!;

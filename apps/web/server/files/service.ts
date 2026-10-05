@@ -16,6 +16,7 @@ import {
 } from "@/server/user-storage";
 import { FilesError, ResumableCompletionError } from "@/server/files/errors";
 import {
+  assertStorageKeysFit,
   buildFileStorageKey,
   buildFolderStorageKey,
   buildIsolatedTrashStorageKey,
@@ -89,6 +90,8 @@ import {
   recordStorageMutationParentChild,
   renewStorageMutationLease,
   StorageMutationConflictError,
+  StorageMutationRejectedError,
+  storageMutationRejectionFromResult,
 } from "@staaash/db/storage-mutations";
 import {
   calculateCapturedTreeManifestDigest,
@@ -3145,6 +3148,16 @@ export const createFilesService = ({
           ),
           files: activeFiles,
         });
+        assertStorageKeysFit(
+          activeFolders.map((descendant) =>
+            buildFolderStorageKey({
+              folder: descendant,
+              folderMap: nextFolderMap,
+              filesRoot,
+              trashed: false,
+            }),
+          ),
+        );
         const durableFolder = await durablyUpdateFolderTree({
           kind: "folder_rename",
           idempotencyKey,
@@ -3467,6 +3480,18 @@ export const createFilesService = ({
           ),
           files: activeFiles,
         });
+        assertStorageKeysFit(
+          descendants
+            .filter((descendant) => descendant.deletedAt === null)
+            .map((descendant) =>
+              buildFolderStorageKey({
+                folder: descendant,
+                folderMap: nextFolderMap,
+                filesRoot,
+                trashed: false,
+              }),
+            ),
+        );
         const durableFolder = await durablyUpdateFolderTree({
           kind: "folder_move",
           idempotencyKey,
@@ -3918,6 +3943,16 @@ export const createFilesService = ({
 
       if (!repo) {
         const memberFolders = [folder, ...memberDescendants];
+        assertStorageKeysFit(
+          memberDescendants.map((member) =>
+            buildFolderStorageKey({
+              folder: member,
+              folderMap: nextFolderMap,
+              filesRoot,
+              trashed: false,
+            }),
+          ),
+        );
         const folderUpdates = memberFolders.map((member) => ({
           folder: member,
           data: {
@@ -5035,6 +5070,9 @@ export const createFilesService = ({
                       kind: "upload_replace",
                       ownerUserId: targetFolder.ownerUserId,
                       idempotencyKey: itemIdempotencyKey,
+                      reservedBytes: BigInt(
+                        Math.max(0, stagedFile.sizeBytes - existing.sizeBytes),
+                      ),
                       requestHashPayload: {
                         folderId: folderId ?? null,
                         name: normalizedName,
@@ -5240,6 +5278,7 @@ export const createFilesService = ({
                   kind: "upload_create",
                   ownerUserId: targetFolder.ownerUserId,
                   idempotencyKey: itemIdempotencyKey,
+                  reservedBytes: BigInt(stagedFile.sizeBytes),
                   requestHashPayload: {
                     folderId: folderId ?? null,
                     name: normalizedName,
@@ -5367,7 +5406,13 @@ export const createFilesService = ({
             },
           });
         } catch (error) {
-          if (repo) {
+          // A rejected durable upload owns nothing: it failed validation or
+          // was rolled back to staging and aborted.
+          if (
+            repo ||
+            error instanceof FilesError ||
+            error instanceof StorageMutationRejectedError
+          ) {
             await cleanupStagedUpload(stagedFile.tmpPath);
           }
 
@@ -5475,6 +5520,9 @@ export const createFilesService = ({
             throw new Error("Completed resumable file metadata is missing.");
           }
           return toFileSummary(committed);
+        }
+        if (prior?.status === "aborted") {
+          throw storageMutationRejectionFromResult(prior.resultJson);
         }
         if (prior) {
           throw new StorageMutationConflictError(

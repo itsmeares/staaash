@@ -468,6 +468,7 @@ model StorageMutation {
   metadataCommittedAt  DateTime?
   completedAt          DateTime?
   recoveryRequiredAt   DateTime?
+  reservedBytes        BigInt?
   createdAt            DateTime                  @default(now())
   updatedAt            DateTime                  @updatedAt
   parent               StorageMutation?          @relation("StorageMutationChildren", fields: [parentId], references: [id], onDelete: SetNull)

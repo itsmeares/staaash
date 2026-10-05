@@ -43,8 +43,10 @@ This is intentionally a small, explicit architecture. The repo is trying to make
 - uploads stage under `UPLOAD_LOCATION/tmp/` before verification and commit
 
 PostgreSQL is the durable intent authority while the filesystem is the canonical
-byte store. Prepared mutations recover forward after restart. Ambiguous outcomes
-preserve every possible byte and fail closed until an operator investigates.
+byte store. Prepared mutations recover forward after restart, except that a
+single user operation rejected before metadata commit (quota, overlong path, or
+exhausted retries) is rolled back and aborted. Ambiguous outcomes preserve every
+possible byte and fail closed until an operator investigates.
 
 ## Locked Behavior Rules
 
