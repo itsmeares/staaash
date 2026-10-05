@@ -3,6 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  assertStorageKeysFit,
   buildFileStorageKey,
   buildFolderStorageKey,
   buildIsolatedTrashStorageKey,
@@ -140,5 +141,29 @@ describe("files storage layout", () => {
     expect(Buffer.byteLength(component)).toBeLessThanOrEqual(255);
     expect(component).toMatch(/\.txt \(\d+\)$/);
     expect(component).not.toContain("�");
+  });
+
+  it("rejects names longer than 255 UTF-8 bytes, not characters", () => {
+    // 104 characters but 304 bytes.
+    const multibyte = `${"東京".repeat(50)}.txt`;
+    expect(() => normalizeFileName(multibyte)).toThrow(
+      expect.objectContaining({ code: "FILE_NAME_TOO_LONG", status: 400 }),
+    );
+    expect(() => normalizeFolderName("a".repeat(256))).toThrow(
+      expect.objectContaining({ code: "FOLDER_NAME_TOO_LONG" }),
+    );
+    expect(normalizeFileName(`${"a".repeat(251)}.txt`)).toHaveLength(255);
+  });
+
+  it("rejects storage keys whose absolute path exceeds PATH_MAX", () => {
+    const deep = `files/johnsmith/${Array.from({ length: 21 }, () =>
+      "a".repeat(200),
+    ).join("/")}`;
+    expect(() => assertStorageKeysFit([deep])).toThrow(
+      expect.objectContaining({ code: "STORAGE_PATH_TOO_LONG", status: 400 }),
+    );
+    expect(() =>
+      assertStorageKeysFit([deep.split("/").slice(0, 12).join("/")]),
+    ).not.toThrow();
   });
 });

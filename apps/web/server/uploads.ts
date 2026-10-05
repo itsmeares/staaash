@@ -11,6 +11,10 @@ import { resolveUploadStagingRetentionHours } from "@staaash/config";
 
 import { env } from "@/lib/env";
 import { getSystemSettings } from "@/server/settings";
+import {
+  maxFilesystemComponentBytes,
+  takeUtf8Bytes,
+} from "@/server/files/storage-layout";
 import { getStorageRoot, getTmpUploadPath } from "@/server/storage";
 import {
   commitStagedUploadWithLock,
@@ -419,7 +423,12 @@ export const buildSafeRenamedFileName = (
   const { baseName, extension } = splitFileName(originalName);
 
   for (let attempt = 1; attempt < 10_000; attempt += 1) {
-    const candidate = `${baseName} (${attempt})${extension}`;
+    // Trim the base, not the suffix, so the renamed name still fits on disk.
+    const suffix = ` (${attempt})${extension}`;
+    const candidate = `${takeUtf8Bytes(
+      baseName,
+      maxFilesystemComponentBytes - Buffer.byteLength(suffix),
+    )}${suffix}`;
 
     if (!takenNames.has(candidate)) {
       return candidate;

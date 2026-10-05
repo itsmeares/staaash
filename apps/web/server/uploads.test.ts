@@ -72,6 +72,23 @@ describe("upload guardrails", () => {
     ).toBe("photo (2).jpg");
   });
 
+  it("trims the base name so a safe-rename suffix still fits 255 bytes", () => {
+    const original = `${"a".repeat(249)}.txt`;
+    const renamed = buildSafeRenamedFileName(original, [original]);
+
+    expect(Buffer.byteLength(original)).toBe(253);
+    expect(Buffer.byteLength(renamed)).toBe(255);
+    expect(renamed).toBe(`${"a".repeat(247)} (1).txt`);
+  });
+
+  it("never splits a multibyte character when trimming", () => {
+    const original = `${"東".repeat(84)}.txt`;
+    const renamed = buildSafeRenamedFileName(original, [original]);
+
+    expect(Buffer.byteLength(renamed)).toBeLessThanOrEqual(255);
+    expect(renamed).toMatch(/^東+ \(1\)\.txt$/);
+  });
+
   it("times out staged uploads and removes temp files", async () => {
     const tmpRoot = path.join(getStorageRoot(), "tmp");
     const beforeEntries = new Set(await readdir(tmpRoot).catch(() => []));

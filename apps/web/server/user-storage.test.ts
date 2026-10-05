@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   fileAggregate: vi.fn(),
   uploadAggregate: vi.fn(),
+  mutationAggregate: vi.fn(),
   findUnique: vi.fn(),
   getPrisma: vi.fn(),
 }));
@@ -21,9 +22,13 @@ import {
 describe("user storage usage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.mutationAggregate.mockResolvedValue({
+      _sum: { reservedBytes: null },
+    });
     mocks.getPrisma.mockReturnValue({
       file: { aggregate: mocks.fileAggregate },
       uploadSession: { aggregate: mocks.uploadAggregate },
+      storageMutation: { aggregate: mocks.mutationAggregate },
       user: { findUnique: mocks.findUnique },
     });
   });
@@ -44,6 +49,26 @@ describe("user storage usage", () => {
     expect(mocks.fileAggregate).toHaveBeenCalledWith({
       where: { ownerUserId: "user-1" },
       _sum: { sizeBytes: true },
+    });
+  });
+
+  it("counts in-flight direct upload reservations as reserved", async () => {
+    mocks.fileAggregate.mockResolvedValue({ _sum: { sizeBytes: 10n } });
+    mocks.uploadAggregate.mockResolvedValue({
+      _sum: { totalSizeBytes: 7n },
+    });
+    mocks.mutationAggregate.mockResolvedValue({
+      _sum: { reservedBytes: 5n },
+    });
+
+    await expect(getUserStorageUsed("user-1")).resolves.toEqual({
+      committedBytes: 10n,
+      reservedBytes: 12n,
+      usedBytes: 22n,
+    });
+    expect(mocks.mutationAggregate).toHaveBeenCalledWith({
+      where: { ownerUserId: "user-1", reservedBytes: { not: null } },
+      _sum: { reservedBytes: true },
     });
   });
 

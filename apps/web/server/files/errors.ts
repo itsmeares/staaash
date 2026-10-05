@@ -8,6 +8,7 @@ export type FilesErrorCode =
   | "FILE_NAME_INVALID_CHARACTER"
   | "FILE_NAME_REQUIRED"
   | "FILE_NAME_RESERVED"
+  | "FILE_NAME_TOO_LONG"
   | "FILE_NAME_TRAILING_SPACE_OR_DOT"
   | "FILE_NOT_FOUND"
   | "FOLDER_ALREADY_ACTIVE"
@@ -18,9 +19,11 @@ export type FilesErrorCode =
   | "FOLDER_NAME_INVALID_CHARACTER"
   | "FOLDER_NAME_REQUIRED"
   | "FOLDER_NAME_RESERVED"
+  | "FOLDER_NAME_TOO_LONG"
   | "FOLDER_NAME_TRAILING_SPACE_OR_DOT"
   | "FOLDER_NOT_FOUND"
   | "FOLDER_ROOT_IMMUTABLE"
+  | "STORAGE_PATH_TOO_LONG"
   | "USER_STORAGE_QUOTA_EXCEEDED";
 
 const filesErrorMessages: Record<FilesErrorCode, string> = {
@@ -37,6 +40,7 @@ const filesErrorMessages: Record<FilesErrorCode, string> = {
   FILE_NAME_REQUIRED: "File name is required.",
   FILE_NAME_RESERVED:
     "That file name is reserved by Windows and cannot be used.",
+  FILE_NAME_TOO_LONG: "File names can be at most 255 bytes long.",
   FILE_NAME_TRAILING_SPACE_OR_DOT:
     "File names cannot end with a space or a dot.",
   FILE_NOT_FOUND: "That file does not exist.",
@@ -52,11 +56,14 @@ const filesErrorMessages: Record<FilesErrorCode, string> = {
   FOLDER_NAME_REQUIRED: "Folder name is required.",
   FOLDER_NAME_RESERVED:
     "That folder name is reserved by Windows and cannot be used.",
+  FOLDER_NAME_TOO_LONG: "Folder names can be at most 255 bytes long.",
   FOLDER_NAME_TRAILING_SPACE_OR_DOT:
     "Folder names cannot end with a space or a dot.",
   FOLDER_NOT_FOUND: "That folder does not exist.",
   FOLDER_ROOT_IMMUTABLE:
     "The files root cannot be renamed, moved, trashed, or restored.",
+  STORAGE_PATH_TOO_LONG:
+    "That location is nested too deeply for the storage filesystem.",
   USER_STORAGE_QUOTA_EXCEEDED:
     "This upload would exceed the user's storage quota.",
 };
@@ -71,6 +78,7 @@ const filesErrorStatuses: Record<FilesErrorCode, number> = {
   FILE_NAME_INVALID_CHARACTER: 400,
   FILE_NAME_REQUIRED: 400,
   FILE_NAME_RESERVED: 400,
+  FILE_NAME_TOO_LONG: 400,
   FILE_NAME_TRAILING_SPACE_OR_DOT: 400,
   FILE_NOT_FOUND: 404,
   FOLDER_ALREADY_ACTIVE: 409,
@@ -81,9 +89,11 @@ const filesErrorStatuses: Record<FilesErrorCode, number> = {
   FOLDER_NAME_REQUIRED: 400,
   FOLDER_NAME_INVALID_CHARACTER: 400,
   FOLDER_NAME_RESERVED: 400,
+  FOLDER_NAME_TOO_LONG: 400,
   FOLDER_NAME_TRAILING_SPACE_OR_DOT: 400,
   FOLDER_NOT_FOUND: 404,
   FOLDER_ROOT_IMMUTABLE: 409,
+  STORAGE_PATH_TOO_LONG: 400,
   USER_STORAGE_QUOTA_EXCEEDED: 413,
 };
 
