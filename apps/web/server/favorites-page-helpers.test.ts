@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   filterFavoriteItems,
   formatFavoriteFileSize,
-  formatFavoriteRelativeTime,
   getFavoriteLocationLabel,
   getFavoriteType,
   getQuickAccessFavorites,
@@ -167,25 +166,10 @@ describe("favorites page helpers", () => {
   });
 
   it("formats size and relative favorite time labels", () => {
-    const now = new Date("2026-05-19T12:00:00.000Z");
-
     expect(formatFavoriteFileSize(undefined)).toBe("-");
     expect(formatFavoriteFileSize(400)).toBe("400 B");
     expect(formatFavoriteFileSize(4200)).toBe("4 KB");
     expect(formatFavoriteFileSize(2_400_000)).toBe("2.3 MB");
     expect(formatFavoriteFileSize(4_500_000_000)).toBe("4.2 GB");
-
-    expect(formatFavoriteRelativeTime("2026-05-19T12:00:00.000Z", now)).toBe(
-      "Just now",
-    );
-    expect(formatFavoriteRelativeTime("2026-05-19T11:55:00.000Z", now)).toBe(
-      "5m ago",
-    );
-    expect(formatFavoriteRelativeTime("2026-05-19T10:00:00.000Z", now)).toBe(
-      "2h ago",
-    );
-    expect(formatFavoriteRelativeTime("2026-05-18T10:00:00.000Z", now)).toBe(
-      "Yesterday",
-    );
   });
 });

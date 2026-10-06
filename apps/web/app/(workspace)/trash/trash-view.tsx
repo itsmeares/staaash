@@ -6,13 +6,12 @@ import { useMemo, useState } from "react";
 import { FlashMessage } from "@/app/auth-ui";
 import { getItemVisual } from "@/app/item-visuals";
 import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
+import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
+import { useTime } from "@/components/time-provider";
 import { Badge } from "@/components/ui/badge";
-import {
-  formatRecentFileSize,
-  formatRecentRelativeTime,
-} from "../recent/recent-helpers";
+import { formatRecentFileSize } from "../recent/recent-helpers";
 import { RecentGroupSections } from "../recent/recent-group-sections";
 import {
   COLLECTION_ROW_LOCATION,
@@ -155,7 +154,8 @@ function TrashEmptyState({ filtered }: { filtered: boolean }) {
 }
 
 function TrashRow({ item }: { item: TrashClientItem }) {
-  const deletedLabel = formatRecentRelativeTime(item.deletedAt);
+  const { now, timeZone } = useTime();
+  const deletedLabel = formatRelativeTime(item.deletedAt, now, timeZone);
   const sizeLabel =
     item.kind === "folder" ? "-" : formatRecentFileSize(item.sizeBytes);
   const visual = getItemVisual(
@@ -220,9 +220,10 @@ export function TrashView({ error, items, success }: TrashViewProps) {
     () => sortTrashItems(filterTrashItems(items, filterType), sortOrder),
     [filterType, items, sortOrder],
   );
+  const { now, timeZone } = useTime();
   const groups = useMemo(
-    () => groupTrashItems(visibleItems, sortOrder),
-    [sortOrder, visibleItems],
+    () => groupTrashItems(visibleItems, sortOrder, now, timeZone),
+    [now, sortOrder, timeZone, visibleItems],
   );
   const filteredEmpty = items.length > 0 && visibleItems.length === 0;
 

@@ -1,4 +1,7 @@
 export const DEFAULT_TIME_ZONE = "UTC";
+// User preference value meaning "follow the browser". Never valid for Intl.
+export const AUTO_TIME_ZONE = "auto";
+export const TIME_ZONE_COOKIE_NAME = "staaash_tz";
 export const DEFAULT_MAINTENANCE_RUN_TIME = "02:00";
 
 const maintenanceRunTimePattern = /^([01]\d|2[0-3]):([0-5]\d)$/;

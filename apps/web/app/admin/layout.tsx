@@ -1,6 +1,7 @@
 import { SkipLink } from "@/components/skip-link";
 import { getInitials } from "@/lib/user";
 import { requireAdminPageSession } from "@/server/auth/guards";
+import { TimeRoot } from "@/server/time-zone";
 
 import { AdminNav } from "./admin-nav";
 import { AdminTopbarActions } from "./admin-topbar-actions";
@@ -44,7 +45,7 @@ export default async function AdminLayout({
             id="main-content"
             tabIndex={-1}
           >
-            {children}
+            <TimeRoot user={session.user}>{children}</TimeRoot>
           </main>
         </div>
       </div>

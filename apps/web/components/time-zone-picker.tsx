@@ -13,6 +13,7 @@ import {
 import { createPortal } from "react-dom";
 
 import {
+  AUTO_TIME_ZONE,
   DEFAULT_TIME_ZONE,
   getSupportedTimeZones,
   normalizeTimeZone,
@@ -27,6 +28,8 @@ type TimeZonePickerProps = {
   defaultValue?: string;
   className?: string;
   onChange?: (value: string) => void;
+  // Offer "Automatic", which follows the browser's zone.
+  allowAuto?: boolean;
 };
 
 type TimeZoneOption = {
@@ -83,7 +86,16 @@ function getTimeZoneOffsetLabel(zone: string, date: Date) {
   }
 }
 
+const AUTO_OPTION: TimeZoneOption = {
+  zone: AUTO_TIME_ZONE,
+  label: "Automatic",
+  offsetLabel: "Browser",
+  offsetMinutes: Number.NaN,
+  searchLabel: "automatic browser",
+};
+
 function buildTimeZoneOption(zone: string, date: Date): TimeZoneOption {
+  if (zone === AUTO_TIME_ZONE) return AUTO_OPTION;
   const offsetLabel = getTimeZoneOffsetLabel(zone, date);
   return {
     zone,
@@ -116,16 +128,19 @@ export function TimeZonePicker({
   defaultValue = DEFAULT_TIME_ZONE,
   className,
   onChange,
+  allowAuto = false,
 }: TimeZonePickerProps) {
+  const normalize = (zone: string) =>
+    allowAuto && zone === AUTO_TIME_ZONE ? zone : normalizeTimeZone(zone);
   const generatedId = useId();
   const pickerId = id ?? generatedId;
   const listId = `${pickerId}-listbox`;
   const searchId = `${pickerId}-search`;
   const isControlled = value !== undefined;
   const [internalValue, setInternalValue] = useState(() =>
-    normalizeTimeZone(defaultValue),
+    normalize(defaultValue),
   );
-  const selectedValue = normalizeTimeZone(isControlled ? value : internalValue);
+  const selectedValue = normalize(isControlled ? value : internalValue);
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [highlightedIndex, setHighlightedIndex] = useState(0);
@@ -184,10 +199,13 @@ export function TimeZonePicker({
   }, []);
 
   const options = useMemo(() => {
-    return SELECTABLE_TIME_ZONES.includes(selectedValue)
-      ? SELECTABLE_TIME_ZONES
-      : [selectedValue, ...SELECTABLE_TIME_ZONES];
-  }, [selectedValue]);
+    const zones =
+      selectedValue === AUTO_TIME_ZONE ||
+      SELECTABLE_TIME_ZONES.includes(selectedValue)
+        ? SELECTABLE_TIME_ZONES
+        : [selectedValue, ...SELECTABLE_TIME_ZONES];
+    return allowAuto ? [AUTO_TIME_ZONE, ...zones] : zones;
+  }, [allowAuto, selectedValue]);
 
   const optionData = useMemo(
     () => options.map((zone) => buildTimeZoneOption(zone, offsetReferenceDate)),
@@ -219,7 +237,7 @@ export function TimeZonePicker({
 
   useEffect(() => {
     if (isControlled) return;
-    setInternalValue(normalizeTimeZone(defaultValue));
+    setInternalValue(normalize(defaultValue));
   }, [defaultValue, isControlled]);
 
   useEffect(() => {
@@ -276,7 +294,7 @@ export function TimeZonePicker({
   }, [highlightedIndex, open]);
 
   function choose(nextValue: string) {
-    const normalizedValue = normalizeTimeZone(nextValue);
+    const normalizedValue = normalize(nextValue);
     if (!isControlled) setInternalValue(normalizedValue);
     onChange?.(normalizedValue);
     setOpen(false);
@@ -384,7 +402,9 @@ export function TimeZonePicker({
                 role="option"
                 type="button"
               >
-                <span className="truncate">{option.zone}</span>
+                <span className="truncate">
+                  {option.zone === AUTO_TIME_ZONE ? option.label : option.zone}
+                </span>
                 <span className="shrink-0 text-meta text-muted-foreground tabular-nums">
                   {option.offsetLabel}
                 </span>
@@ -432,7 +452,11 @@ export function TimeZonePicker({
         type="button"
       >
         <span className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2.5">
-          <span className="truncate">{selectedValue}</span>
+          <span className="truncate">
+            {selectedOption?.zone === AUTO_TIME_ZONE
+              ? selectedOption.label
+              : selectedValue}
+          </span>
           <span className="shrink-0 text-meta text-muted-foreground tabular-nums">
             {selectedOption?.offsetLabel}
           </span>

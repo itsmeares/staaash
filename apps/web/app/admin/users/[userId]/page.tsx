@@ -19,6 +19,7 @@ import { authService } from "@/server/auth/service";
 import { getAdminStorageSummary } from "@/server/admin/storage";
 import { getBaseUrl } from "@/server/request";
 import { getUserStorageUsed } from "@/server/user-storage";
+import { resolveDisplayTimeZone } from "@/server/time-zone";
 
 import { AuthorizedDevicesPanel } from "./authorized-devices-panel";
 import { UserDetailActions } from "./user-detail-actions";
@@ -79,6 +80,7 @@ export default async function AdminUserDetailsPage({
     requireAdminPageSession(),
     headers(),
   ]);
+  const { timeZone } = await resolveDisplayTimeZone(session.user);
 
   const [user, sessions, usage, storageSummary] = await Promise.all([
     authService.getUser(session.user.id, userId).catch((error) => {
@@ -105,6 +107,7 @@ export default async function AdminUserDetailsPage({
   const lastSeenAt = mostRecentSession
     ? formatAdminDateTime(
         mostRecentSession.lastSeenAt ?? mostRecentSession.createdAt,
+        timeZone,
       )
     : "n/a";
   const hasStatusAlerts = Boolean(
@@ -217,11 +220,11 @@ export default async function AdminUserDetailsPage({
               />
               <FactRow
                 label="Created"
-                value={formatAdminDateTime(user.createdAt)}
+                value={formatAdminDateTime(user.createdAt, timeZone)}
               />
               <FactRow
                 label="Updated"
-                value={formatAdminDateTime(user.updatedAt)}
+                value={formatAdminDateTime(user.updatedAt, timeZone)}
               />
               <FactRow
                 label="User ID"
@@ -255,6 +258,7 @@ export default async function AdminUserDetailsPage({
                 label="Last content activity"
                 value={formatAdminDateTime(
                   storageRow?.lastContentActivityAt ?? null,
+                  timeZone,
                 )}
               />
             </dl>
@@ -282,9 +286,7 @@ export default async function AdminUserDetailsPage({
                 label="Onboarding"
                 value={
                   user.preferences?.onboardingCompletedAt
-                    ? `Complete, ${formatAdminDateTime(
-                        user.preferences.onboardingCompletedAt,
-                      )}`
+                    ? `Complete, ${formatAdminDateTime(user.preferences.onboardingCompletedAt, timeZone)}`
                     : "Incomplete"
                 }
               />

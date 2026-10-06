@@ -35,6 +35,7 @@ import {
   formatAdminDateTime,
 } from "@/app/admin/admin-format";
 import { AdminPanel } from "@/app/admin/admin-panel";
+import { useTime } from "@/components/time-provider";
 import { cn } from "@/lib/utils";
 import type {
   JsonAdminMediaDerivativeRow,
@@ -206,21 +207,6 @@ function effectiveStatus(
   return job.status;
 }
 
-function formatStableUtcDateTime(dateStr: string): string {
-  const date = new Date(dateStr);
-  if (Number.isNaN(date.getTime())) return dateStr;
-  return `${date.toISOString().slice(0, 16).replace("T", " ")} UTC`;
-}
-
-function formatLocalDateTime(
-  dateStr: string,
-  nowMs: number | null,
-  timeZone?: string,
-): string {
-  if (nowMs === null) return formatStableUtcDateTime(dateStr);
-  return formatAdminDateTime(dateStr, timeZone);
-}
-
 function getLocalDateParts(date: Date, timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
@@ -257,12 +243,10 @@ function getLocalDateKey(parts: ReturnType<typeof getLocalDateParts>) {
 
 function formatTimelineDate(
   dateStr: string,
-  nowMs: number | null,
+  nowMs: number,
   timeZone: string,
   mode: "absolute" | "scheduled" = "absolute",
 ) {
-  if (nowMs === null) return formatStableUtcDateTime(dateStr);
-
   const date = new Date(dateStr);
   if (Number.isNaN(date.getTime())) return dateStr;
 
@@ -292,11 +276,7 @@ function formatTimelineDate(
   }).format(date);
 }
 
-function formatRelativeTime(dateStr: string, nowMs: number | null): string {
-  if (nowMs === null) {
-    return formatStableUtcDateTime(dateStr);
-  }
-
+function formatRelativeTime(dateStr: string, nowMs: number): string {
   const diff = nowMs - new Date(dateStr).getTime();
   const absoluteSeconds = Math.max(0, Math.floor(Math.abs(diff) / 1000));
   const suffix = diff < 0 ? "from now" : "ago";
@@ -384,7 +364,7 @@ function getJobStateLine({
   timeZone,
 }: {
   job: JsonBackgroundJob | null;
-  nowMs: number | null;
+  nowMs: number;
   status: JsonBackgroundJob["status"] | null;
   timeZone: string;
 }) {
@@ -408,7 +388,7 @@ function getJobStateLine({
 
   if (status === "queued") {
     const runAtMs = new Date(job.runAt).getTime();
-    if (nowMs !== null && runAtMs > nowMs) {
+    if (runAtMs > nowMs) {
       return `Scheduled for ${formatTimelineDate(
         job.runAt,
         nowMs,
@@ -440,7 +420,7 @@ function getJobLastFact({
   status,
 }: {
   job: JsonBackgroundJob | null;
-  nowMs: number | null;
+  nowMs: number;
   status: JsonBackgroundJob["status"] | null;
 }) {
   if (!job || !status) return "Never run";
@@ -668,6 +648,7 @@ function MediaDerivativeCard({
   derivative: JsonAdminMediaDerivativeRow;
 }) {
   const tone = getDerivativeTone(derivative.status);
+  const { timeZone } = useTime();
 
   return (
     <article
@@ -700,7 +681,7 @@ function MediaDerivativeCard({
         {derivative.pinnedByAdmin ? <Badge size="sm">Pinned</Badge> : null}
         <span>{formatBytesString(derivative.originalSizeBytes)} original</span>
         <span>{formatBytesString(derivative.sizeBytes)} preview</span>
-        <span>{formatAdminDateTime(derivative.generatedAt)}</span>
+        <span>{formatAdminDateTime(derivative.generatedAt, timeZone)}</span>
       </div>
 
       {derivative.error ? (
@@ -730,11 +711,9 @@ function MediaDerivativeCard({
 
 function JobEventList({
   events,
-  nowMs,
   timeZone,
 }: {
   events: JsonJobEvent[] | null;
-  nowMs: number | null;
   timeZone: string;
 }) {
   if (events === null) {
@@ -753,7 +732,7 @@ function JobEventList({
           key={event.id}
         >
           <span className="text-muted-foreground tabular-nums">
-            {formatLocalDateTime(event.createdAt, nowMs, timeZone)}
+            {formatAdminDateTime(event.createdAt, timeZone)}
           </span>
           <span className="grid min-w-0 grid-cols-1 gap-0.5">
             <strong className="capitalize">{event.type}</strong>
@@ -776,7 +755,7 @@ function JobDetailsModal({
   events,
   history,
   historyLoading,
-  instanceTimeZone,
+  timeZone,
   jobName,
   nowMs,
   onJobAction,
@@ -792,9 +771,9 @@ function JobDetailsModal({
   events: JsonJobEvent[] | null;
   history: JsonBackgroundJob[] | null;
   historyLoading: boolean;
-  instanceTimeZone: string;
+  timeZone: string;
   jobName: string;
-  nowMs: number | null;
+  nowMs: number;
   onJobAction: (jobId: string, action: "retry" | "cancel") => void;
   onSelectHistoryJob: (jobId: string) => void;
   open: boolean;
@@ -823,7 +802,7 @@ function JobDetailsModal({
                   job: selectedHistoryJob,
                   nowMs,
                   status: selectedStatus,
-                  timeZone: instanceTimeZone,
+                  timeZone,
                 })}
               </DialogDescription>
             ) : null}
@@ -905,11 +884,7 @@ function JobDetailsModal({
 
                 <div className="grid grid-cols-1 gap-2">
                   <ModalHeading>Events</ModalHeading>
-                  <JobEventList
-                    events={events}
-                    nowMs={nowMs}
-                    timeZone={instanceTimeZone}
-                  />
+                  <JobEventList events={events} timeZone={timeZone} />
                 </div>
 
                 {selectedFileId ? (
@@ -980,7 +955,7 @@ function JobDetailsModal({
 function JobTaskCard({
   derivativeActions,
   derivatives,
-  instanceTimeZone,
+  timeZone,
   kind,
   lastRun,
   nowMs,
@@ -989,10 +964,10 @@ function JobTaskCard({
 }: {
   derivativeActions: MediaDerivativeActions;
   derivatives: JsonAdminMediaDerivativeRow[];
-  instanceTimeZone: string;
+  timeZone: string;
   kind: string;
   lastRun: JsonBackgroundJob | null;
-  nowMs: number | null;
+  nowMs: number;
   onLastRunChange: (kind: string, job: JsonBackgroundJob | null) => void;
   workerRunningJobIds: Set<string>;
 }) {
@@ -1221,7 +1196,7 @@ function JobTaskCard({
         events={events}
         history={history}
         historyLoading={historyLoading}
-        instanceTimeZone={instanceTimeZone}
+        timeZone={timeZone}
         jobName={jobName}
         nowMs={nowMs}
         onJobAction={(jobId, action) => void postJobAction(jobId, action)}
@@ -1346,7 +1321,7 @@ function ActivityPagination({
 function JobActivityPanel({
   derivativeActions,
   derivatives,
-  instanceTimeZone,
+  timeZone,
   jobKinds,
   liveJobs,
   nowMs,
@@ -1355,10 +1330,10 @@ function JobActivityPanel({
 }: {
   derivativeActions: MediaDerivativeActions;
   derivatives: JsonAdminMediaDerivativeSummary;
-  instanceTimeZone: string;
+  timeZone: string;
   jobKinds: string[];
   liveJobs: JsonBackgroundJob[];
-  nowMs: number | null;
+  nowMs: number;
   onLastRunChange: (kind: string, job: JsonBackgroundJob | null) => void;
   workerRunningJobIds: Set<string>;
 }) {
@@ -1701,7 +1676,7 @@ function JobActivityPanel({
                             job,
                             nowMs,
                             status,
-                            timeZone: instanceTimeZone,
+                            timeZone,
                           })}
                         </small>
                       </span>
@@ -1745,7 +1720,7 @@ function JobActivityPanel({
         events={events}
         history={history}
         historyLoading={historyLoading}
-        instanceTimeZone={instanceTimeZone}
+        timeZone={timeZone}
         jobName={selectedKind ? formatJobKind(selectedKind) : "Job"}
         nowMs={nowMs}
         onJobAction={(jobId, action) => void postJobAction(jobId, action)}
@@ -1765,7 +1740,6 @@ type Props = {
   initialLastRuns: Record<string, JsonBackgroundJob | null>;
   initialSummary: JsonJobSummary;
   jobKinds: string[];
-  instanceTimeZone: string;
 };
 
 const STAT = "font-bold text-foreground";
@@ -1776,11 +1750,11 @@ export function JobOperations({
   initialLastRuns,
   initialSummary,
   jobKinds,
-  instanceTimeZone,
 }: Props) {
   const [summary, setSummary] = useState(initialSummary);
   const [lastRuns, setLastRuns] = useState(initialLastRuns);
-  const [nowMs, setNowMs] = useState<number | null>(null);
+  const { now, timeZone } = useTime();
+  const [nowMs, setNowMs] = useState(() => now.getTime());
   const activeQueueCount =
     summary.statusCounts.queued + summary.statusCounts.running;
   const failedCount = summary.failed + summary.dead;
@@ -1886,7 +1860,7 @@ export function JobOperations({
             <JobTaskCard
               derivativeActions={derivativeActions}
               derivatives={initialDerivatives.rows}
-              instanceTimeZone={instanceTimeZone}
+              timeZone={timeZone}
               key={kind}
               kind={kind}
               lastRun={lastRun}
@@ -1906,7 +1880,7 @@ export function JobOperations({
       <JobActivityPanel
         derivativeActions={derivativeActions}
         derivatives={initialDerivatives}
-        instanceTimeZone={instanceTimeZone}
+        timeZone={timeZone}
         jobKinds={jobKinds}
         liveJobs={liveJobs}
         nowMs={nowMs}

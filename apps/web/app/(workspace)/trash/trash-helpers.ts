@@ -1,3 +1,8 @@
+import {
+  DATE_GROUP_ORDER,
+  getDateGroup,
+  type DateGroupLabel,
+} from "@/lib/time";
 import type {
   TrashFileSummary,
   TrashFolderSummary,
@@ -30,15 +35,7 @@ export const TRASH_SORT_OPTIONS: { id: TrashSortOrder; label: string }[] = [
   { id: "oldest", label: "Oldest" },
 ];
 
-const TRASH_GROUP_ORDER = [
-  "Today",
-  "Yesterday",
-  "This week",
-  "This month",
-  "Older",
-] as const;
-
-export type TrashGroupLabel = (typeof TRASH_GROUP_ORDER)[number];
+export type TrashGroupLabel = DateGroupLabel;
 
 export type TrashGroup<T> = {
   items: T[];
@@ -116,44 +113,21 @@ export function sortTrashItems(
   });
 }
 
-export function getTrashDateGroup(
-  value: Date | string,
-  now = new Date(),
-): TrashGroupLabel {
-  const date = value instanceof Date ? value : new Date(value);
-  const diffMs = Math.max(0, now.getTime() - date.getTime());
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-
-  const dayOfWeek = now.getDay();
-  const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  const startOfWeek = new Date(now);
-  startOfWeek.setHours(0, 0, 0, 0);
-  startOfWeek.setDate(startOfWeek.getDate() - daysToMonday);
-
-  if (date >= startOfWeek) return "This week";
-  if (diffDays < 30) return "This month";
-  return "Older";
-}
-
 export function groupTrashItems<T extends { deletedAt: string }>(
   items: T[],
-  sortOrder: TrashSortOrder = "newest",
-  now = new Date(),
+  sortOrder: TrashSortOrder,
+  now: Date,
+  timeZone: string,
 ): TrashGroup<T>[] {
   const map = new Map<TrashGroupLabel, T[]>();
 
   for (const item of items) {
-    const label = getTrashDateGroup(item.deletedAt, now);
+    const label = getDateGroup(item.deletedAt, now, timeZone);
     map.set(label, [...(map.get(label) ?? []), item]);
   }
 
   const order =
-    sortOrder === "oldest"
-      ? [...TRASH_GROUP_ORDER].reverse()
-      : TRASH_GROUP_ORDER;
+    sortOrder === "oldest" ? [...DATE_GROUP_ORDER].reverse() : DATE_GROUP_ORDER;
 
   return order.flatMap((label) => {
     const group = map.get(label);

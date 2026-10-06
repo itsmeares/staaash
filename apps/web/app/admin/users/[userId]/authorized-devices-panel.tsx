@@ -6,6 +6,7 @@ import { Trash2 } from "lucide-react";
 
 import { formatAdminDateTime } from "@/app/admin/admin-format";
 import { AdminPanel } from "@/app/admin/admin-panel";
+import { useTime } from "@/components/time-provider";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
@@ -32,6 +33,7 @@ export function AuthorizedDevicesPanel({
   canRevoke,
 }: AuthorizedDevicesPanelProps) {
   const router = useRouter();
+  const { timeZone } = useTime();
   const [visibleIps, setVisibleIps] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -79,7 +81,10 @@ export function AuthorizedDevicesPanel({
                 </strong>
                 <span className="text-meta text-muted-foreground">
                   Last seen{" "}
-                  {formatAdminDateTime(session.lastSeenAt ?? session.createdAt)}
+                  {formatAdminDateTime(
+                    session.lastSeenAt ?? session.createdAt,
+                    timeZone,
+                  )}
                   {session.isCurrent ? " - current session" : ""}
                 </span>
                 <span className="text-meta text-muted-foreground">

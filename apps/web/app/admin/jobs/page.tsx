@@ -6,7 +6,6 @@ import {
   toJsonAdminJob,
   toJsonAdminJobSummary,
 } from "@/server/admin/jobs";
-import { getSystemSettings } from "@/server/settings";
 import {
   getAdminMediaDerivativeSummary,
   toJsonAdminMediaDerivativeSummary,
@@ -23,13 +22,11 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function AdminJobsPage() {
-  const [lastRunPerKind, queueSummary, settings, mediaDerivatives] =
-    await Promise.all([
-      getLastRunPerKind(),
-      getAdminJobSummary(),
-      getSystemSettings(),
-      getAdminMediaDerivativeSummary(),
-    ]);
+  const [lastRunPerKind, queueSummary, mediaDerivatives] = await Promise.all([
+    getLastRunPerKind(),
+    getAdminJobSummary(),
+    getAdminMediaDerivativeSummary(),
+  ]);
 
   const initialLastRuns: Record<string, JsonBackgroundJob | null> =
     Object.fromEntries(
@@ -52,7 +49,6 @@ export default async function AdminJobsPage() {
         initialLastRuns={initialLastRuns}
         initialSummary={toJsonAdminJobSummary(queueSummary)}
         jobKinds={[...ALL_SUPPORTED_JOB_KINDS]}
-        instanceTimeZone={settings.timeZone}
       />
     </main>
   );

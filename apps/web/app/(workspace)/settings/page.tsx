@@ -1,10 +1,7 @@
-import {
-  FlashMessage,
-  formatDateTime,
-  getSingleSearchParam,
-} from "@/app/auth-ui";
-import { DEFAULT_TIME_ZONE } from "@staaash/config/time-zone";
+import { FlashMessage, getSingleSearchParam } from "@/app/auth-ui";
+import { AUTO_TIME_ZONE } from "@staaash/config/time-zone";
 import { PageHeader } from "@/components/page-header";
+import { DateTime } from "@/components/time-provider";
 import {
   SettingsAccordion,
   SettingsList,
@@ -52,7 +49,7 @@ export default async function SettingsPage({
             initialTheme={
               (prefs?.theme as "light" | "dark" | "system") ?? "system"
             }
-            initialTimeZone={prefs?.timeZone ?? DEFAULT_TIME_ZONE}
+            initialTimeZone={prefs?.timeZone ?? AUTO_TIME_ZONE}
             initialShowUpdateNotifications={
               prefs?.showUpdateNotifications ?? true
             }
@@ -84,10 +81,10 @@ export default async function SettingsPage({
               <code>{session.id}</code>
             </SettingsRow>
             <SettingsRow kind="value" label="Created">
-              {formatDateTime(session.createdAt, prefs?.timeZone)}
+              <DateTime value={session.createdAt} />
             </SettingsRow>
             <SettingsRow kind="value" label="Expires">
-              {formatDateTime(session.expiresAt, prefs?.timeZone)}
+              <DateTime value={session.expiresAt} />
             </SettingsRow>
             <SettingsRow kind="value" label="Sign out">
               <form action="/api/auth/sign-out" method="post">

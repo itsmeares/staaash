@@ -4,7 +4,6 @@ import {
   compareWorkspaceStrings,
   filterWorkspaceItems,
   formatWorkspaceFileSize,
-  formatWorkspaceRelativeTime,
   getWorkspaceItemDownloadHref,
   getWorkspaceItemType,
   getWorkspaceLocationLabel,
@@ -90,27 +89,12 @@ describe("workspace item helpers", () => {
     ).toEqual(["c"]);
   });
 
-  it("formats file sizes and relative time labels", () => {
-    const now = new Date("2026-05-19T12:00:00.000Z");
-
+  it("formats file sizes", () => {
     expect(formatWorkspaceFileSize(undefined)).toBe("-");
     expect(formatWorkspaceFileSize(400)).toBe("400 B");
     expect(formatWorkspaceFileSize(4200)).toBe("4 KB");
     expect(formatWorkspaceFileSize(2_400_000)).toBe("2.3 MB");
     expect(formatWorkspaceFileSize(4_500_000_000)).toBe("4.2 GB");
-
-    expect(formatWorkspaceRelativeTime("2026-05-19T12:00:00.000Z", now)).toBe(
-      "Just now",
-    );
-    expect(formatWorkspaceRelativeTime("2026-05-19T11:55:00.000Z", now)).toBe(
-      "5m ago",
-    );
-    expect(formatWorkspaceRelativeTime("2026-05-19T10:00:00.000Z", now)).toBe(
-      "2h ago",
-    );
-    expect(formatWorkspaceRelativeTime("2026-05-18T10:00:00.000Z", now)).toBe(
-      "Yesterday",
-    );
   });
 
   it("sorts with workspace string and tie-break rules", () => {

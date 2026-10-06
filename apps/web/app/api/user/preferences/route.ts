@@ -8,14 +8,17 @@ import {
 } from "@/server/auth/session";
 import { authService } from "@/server/auth/service";
 import { isSameOrigin, jsonErrorResponse } from "@/server/auth/http";
-import { DEFAULT_TIME_ZONE, isValidTimeZone } from "@staaash/config/time-zone";
+import { AUTO_TIME_ZONE, isValidTimeZone } from "@staaash/config/time-zone";
 
 const preferencesSchema = z.object({
   theme: z.enum(["light", "dark", "system"]).optional(),
   timeZone: z
     .string()
     .trim()
-    .refine(isValidTimeZone, "Invalid time zone.")
+    .refine(
+      (value) => value === AUTO_TIME_ZONE || isValidTimeZone(value),
+      "Invalid time zone.",
+    )
     .optional(),
   showUpdateNotifications: z.boolean().optional(),
   enableVersionChecks: z.boolean().optional(),
@@ -45,7 +48,7 @@ export async function POST(request: NextRequest) {
     const existingPrefs = session.user.preferences;
     const theme = parsed.theme ?? existingPrefs?.theme ?? "system";
     const timeZone =
-      parsed.timeZone ?? existingPrefs?.timeZone ?? DEFAULT_TIME_ZONE;
+      parsed.timeZone ?? existingPrefs?.timeZone ?? AUTO_TIME_ZONE;
 
     await authService.savePreferences(session.user.id, {
       theme,

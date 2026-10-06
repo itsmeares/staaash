@@ -1,10 +1,14 @@
+import {
+  DATE_GROUP_ORDER,
+  getDateGroup,
+  type DateGroupLabel,
+} from "@/lib/time";
 import type { RetrievalItem } from "@/server/retrieval/types";
 
 import {
   compareWorkspaceStrings,
   filterWorkspaceItems,
   formatWorkspaceFileSize,
-  formatWorkspaceRelativeTime,
   getWorkspaceItemType,
   getWorkspaceLocationLabel,
   sortWorkspaceItems,
@@ -33,15 +37,7 @@ export type RecentFilterType = WorkspaceItemFilterType;
 export type RecentSortKey = "name" | "path" | "size" | "uploadedAt";
 export type RecentSortDirection = WorkspaceSortDirection;
 
-const RECENT_GROUP_ORDER = [
-  "Today",
-  "Yesterday",
-  "This week",
-  "This month",
-  "Older",
-] as const;
-
-export type RecentGroupLabel = (typeof RECENT_GROUP_ORDER)[number];
+export type RecentGroupLabel = DateGroupLabel;
 
 export type RecentGroup<T> = {
   label: RecentGroupLabel;
@@ -87,35 +83,6 @@ export function formatRecentFileSize(bytes?: number): string {
   return formatWorkspaceFileSize(bytes);
 }
 
-export function formatRecentRelativeTime(
-  value: Date | string,
-  now = new Date(),
-): string {
-  return formatWorkspaceRelativeTime(value, now);
-}
-
-export function getRecentDateGroup(
-  value: Date | string,
-  now = new Date(),
-): RecentGroupLabel {
-  const date = value instanceof Date ? value : new Date(value);
-  const diffMs = Math.max(0, now.getTime() - date.getTime());
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-
-  const dayOfWeek = now.getDay();
-  const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  const startOfWeek = new Date(now);
-  startOfWeek.setHours(0, 0, 0, 0);
-  startOfWeek.setDate(startOfWeek.getDate() - daysToMonday);
-
-  if (date >= startOfWeek) return "This week";
-  if (diffDays < 30) return "This month";
-  return "Older";
-}
-
 export function sortRecentItems(
   items: RecentClientItem[],
   sortKey: RecentSortKey,
@@ -139,16 +106,17 @@ export function sortRecentItems(
 
 export function groupRecentItems<T extends { uploadedAt: string }>(
   items: T[],
-  now = new Date(),
+  now: Date,
+  timeZone: string,
 ): RecentGroup<T>[] {
   const map = new Map<RecentGroupLabel, T[]>();
 
   for (const item of items) {
-    const label = getRecentDateGroup(item.uploadedAt, now);
+    const label = getDateGroup(item.uploadedAt, now, timeZone);
     map.set(label, [...(map.get(label) ?? []), item]);
   }
 
-  return RECENT_GROUP_ORDER.flatMap((label) => {
+  return DATE_GROUP_ORDER.flatMap((label) => {
     const group = map.get(label);
     return group ? [{ label, items: group }] : [];
   });

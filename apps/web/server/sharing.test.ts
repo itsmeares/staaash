@@ -9,12 +9,20 @@ vi.mock("@/server/auth/service", () => ({
 }));
 
 async function renderMarkup(element: React.ReactElement): Promise<string> {
-  const stream = await renderToReadableStream(element);
+  const stream = await renderToReadableStream(
+    createElement(TimeProvider, {
+      autoDetect: false,
+      children: element,
+      serverNow: Date.now(),
+      timeZone: "UTC",
+    }),
+  );
   await stream.allReady;
   return new Response(stream).text();
 }
 
 import { ShareView } from "@/app/s/share-view";
+import { TimeProvider } from "@/components/time-provider";
 import {
   canBrowseSharedFolder,
   createShareSchema,

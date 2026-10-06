@@ -2,8 +2,6 @@
 
 import React, { useState } from "react";
 
-import { normalizeTimeZone } from "@staaash/config/time-zone";
-
 import {
   SettingsFormStatus,
   SettingsList,
@@ -62,7 +60,7 @@ export function PreferencesForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           theme,
-          timeZone: normalizeTimeZone(timeZone),
+          timeZone,
           showUpdateNotifications,
           enableVersionChecks,
         }),
@@ -109,9 +107,10 @@ export function PreferencesForm({
         <SettingsRow
           plain
           label="Time zone"
-          hint="Used for dates and schedules shown to you."
+          hint="Used for dates and schedules shown to you. Automatic follows this browser."
         >
           <TimeZonePicker
+            allowAuto
             value={timeZone}
             onChange={(nextTimeZone) => {
               setTimeZone(nextTimeZone);

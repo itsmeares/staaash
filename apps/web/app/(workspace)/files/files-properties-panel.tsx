@@ -20,7 +20,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { formatDateTime } from "@/app/auth-ui";
+import { useTime } from "@/components/time-provider";
+import { formatDateTime } from "@/lib/time";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerPopup, DrawerTitle } from "@/components/ui/drawer";
 import { useMediaQuery } from "@/app/(workspace)/use-media-query";
@@ -225,6 +226,7 @@ function PropertiesHeader({ onClose }: { onClose: () => void }) {
 }
 
 function InfoSection({ item }: { item: PropertiesItem }) {
+  const { timeZone } = useTime();
   return (
     <PropertiesSection title="Info">
       <PropertiesRow label="Name">{item.data.name}</PropertiesRow>
@@ -237,10 +239,10 @@ function InfoSection({ item }: { item: PropertiesItem }) {
         </PropertiesRow>
       )}
       <PropertiesRow label="Created">
-        {formatDateTime(item.data.createdAt)}
+        {formatDateTime(item.data.createdAt, timeZone)}
       </PropertiesRow>
       <PropertiesRow label="Modified">
-        {formatDateTime(item.data.updatedAt)}
+        {formatDateTime(item.data.updatedAt, timeZone)}
       </PropertiesRow>
       <PropertiesRow label="ID" valueClassName="font-mono text-xs opacity-65">
         {item.data.id.slice(0, 8)}…

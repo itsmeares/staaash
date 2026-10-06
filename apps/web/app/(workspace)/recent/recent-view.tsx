@@ -33,8 +33,10 @@ import {
 } from "@/app/dashboard-context-menu";
 import { getItemVisual } from "@/app/item-visuals";
 import { PageHeader } from "@/components/page-header";
+import { useTime } from "@/components/time-provider";
 import { Badge } from "@/components/ui/badge";
 import { ViewToggle, type ViewMode } from "@/components/view-toggle";
+import { formatRelativeTime } from "@/lib/time";
 import { startValidatedDownload } from "@/lib/transfers/download";
 
 import { useTransferContext } from "../transfer-context";
@@ -76,7 +78,6 @@ import {
 import {
   filterRecentItems,
   formatRecentFileSize,
-  formatRecentRelativeTime,
   groupRecentItems,
   sortRecentItems,
   type RecentClientItem,
@@ -158,7 +159,11 @@ export function RecentView({ error, items, success }: RecentViewProps) {
     );
   }, [filterType, items, optimisticDeletedAtById, sortDirection, sortKey]);
 
-  const groups = useMemo(() => groupRecentItems(visibleItems), [visibleItems]);
+  const { now, timeZone } = useTime();
+  const groups = useMemo(
+    () => groupRecentItems(visibleItems, now, timeZone),
+    [now, timeZone, visibleItems],
+  );
   const activeVisibleItems = useMemo(
     () => visibleItems.filter((item) => !item.deletedAt),
     [visibleItems],
@@ -976,7 +981,7 @@ export function RecentView({ error, items, success }: RecentViewProps) {
                       {deleted ? (
                         <InlineActions>{renderItemActions(item)}</InlineActions>
                       ) : (
-                        formatRecentRelativeTime(item.uploadedAt)
+                        formatRelativeTime(item.uploadedAt, now, timeZone)
                       )}
                     </span>
                     {!deleted ? (
@@ -1022,7 +1027,11 @@ export function RecentView({ error, items, success }: RecentViewProps) {
                           deleted={deleted}
                           end={formatRecentFileSize(item.sizeBytes)}
                           name={item.name}
-                          start={formatRecentRelativeTime(item.uploadedAt)}
+                          start={formatRelativeTime(
+                            item.uploadedAt,
+                            now,
+                            timeZone,
+                          )}
                         />
                         <GridCardActions
                           alwaysVisible={deleted}

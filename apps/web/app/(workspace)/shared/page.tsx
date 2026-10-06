@@ -1,17 +1,15 @@
 import { headers } from "next/headers";
 import { Share2 } from "lucide-react";
 
-import {
-  FlashMessage,
-  formatDateTime,
-  getSingleSearchParam,
-} from "@/app/auth-ui";
+import { FlashMessage, getSingleSearchParam } from "@/app/auth-ui";
 import { WorkspacePresetPageContextMenu } from "@/app/dashboard-context-menu";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
+import { formatDateTime } from "@/lib/time";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { getShareBaseUrl } from "@/server/request";
 import { sharingService } from "@/server/sharing/service";
+import { resolveDisplayTimeZone } from "@/server/time-zone";
 import { CollectionEmpty } from "../collection-parts";
 import { SharedTable, type SharedTableItem } from "./shared-table";
 
@@ -79,7 +77,7 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
   });
 
   const allShares = [...shares.active, ...shares.inactive];
-  const userTimeZone = session.user.preferences?.timeZone;
+  const { timeZone: userTimeZone } = await resolveDisplayTimeZone(session.user);
 
   const tableItems: SharedTableItem[] = allShares.map((share) => ({
     share,
