@@ -21,6 +21,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getAdminStorageSummary } from "@/server/admin/storage";
+import { requireAdminPageSession } from "@/server/auth/guards";
+import { resolveDisplayTimeZone } from "@/server/time-zone";
 import { getStorageMutationHealth } from "@staaash/db/storage-mutations";
 import { retryStorageMutationAction } from "./actions";
 
@@ -32,10 +34,12 @@ const getUsagePercent = (value: bigint, maxValue: bigint) => {
 };
 
 export default async function AdminStoragePage() {
-  const [summary, storageMutations] = await Promise.all([
+  const [summary, storageMutations, session] = await Promise.all([
     getAdminStorageSummary(),
     getStorageMutationHealth(),
+    requireAdminPageSession(),
   ]);
+  const { timeZone } = await resolveDisplayTimeZone(session.user);
   const topUsage = summary.rows[0]?.retainedBytes ?? 0n;
   const activeUsers = summary.rows.filter(
     (row) => row.retainedBytes > 0n,
@@ -139,7 +143,7 @@ export default async function AdminStoragePage() {
                       </span>
                     </BodyCell>
                     <BodyCell>
-                      {formatAdminDateTime(row.lastContentActivityAt)}
+                      {formatAdminDateTime(row.lastContentActivityAt, timeZone)}
                     </BodyCell>
                   </TableRow>
                 );

@@ -1,16 +1,10 @@
 import type { BadgeProps } from "@/components/ui/badge";
+import { formatDateTime } from "@/lib/time";
 
 export const formatAdminDateTime = (
   value: Date | string | null,
-  timeZone?: string,
-) =>
-  value
-    ? new Intl.DateTimeFormat("en-GB", {
-        dateStyle: "medium",
-        timeStyle: "short",
-        ...(timeZone ? { timeZone } : {}),
-      }).format(typeof value === "string" ? new Date(value) : value)
-    : "n/a";
+  timeZone: string,
+) => (value ? formatDateTime(value, timeZone) : "n/a");
 
 export const formatAdminBytes = (value: bigint | number) => {
   const size = typeof value === "bigint" ? Number(value) : value;

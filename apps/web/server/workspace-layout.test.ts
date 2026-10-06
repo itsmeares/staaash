@@ -24,6 +24,10 @@ vi.mock("@/server/settings", () => ({
   getSystemSettings: mocks.getSystemSettings,
 }));
 
+vi.mock("@/server/time-zone", () => ({
+  TimeRoot: ({ children }: { children?: ReactNode }) => children,
+}));
+
 vi.mock("@/server/user-storage", () => ({
   getInstanceDiskInfo: vi.fn(() => null),
   getInstanceStorageUsed: vi.fn(() => 0n),

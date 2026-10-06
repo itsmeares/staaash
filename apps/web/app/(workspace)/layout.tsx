@@ -9,6 +9,7 @@ import { resolveAppVersion } from "@/server/app-version";
 import { getCurrentSession } from "@/server/auth/session";
 import { deriveEffectiveUpdateStatus } from "@/server/update-derive";
 import { getSystemSettings } from "@/server/settings";
+import { TimeRoot } from "@/server/time-zone";
 import {
   getInstanceDiskInfo,
   getInstanceStorageUsed,
@@ -183,7 +184,7 @@ export default async function WorkspaceLayout({
             id="main-content"
             tabIndex={-1}
           >
-            {children}
+            <TimeRoot user={session?.user}>{children}</TimeRoot>
           </main>
         </div>
       </div>

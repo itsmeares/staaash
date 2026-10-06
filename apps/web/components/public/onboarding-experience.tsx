@@ -4,10 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import confetti from "canvas-confetti";
-import {
-  DEFAULT_TIME_ZONE,
-  getBrowserTimeZone,
-} from "@staaash/config/time-zone";
+import { AUTO_TIME_ZONE, getBrowserTimeZone } from "@staaash/config/time-zone";
 
 import { saveOwnerOnboardingSettings } from "@/app/admin/settings/actions";
 import { TimeZonePicker } from "@/components/time-zone-picker";
@@ -76,7 +73,7 @@ export function OnboardingExperience({
   const [animating, setAnimating] = useState(false);
   const [prefs, setPrefs] = useState<Prefs>({
     theme: "system",
-    timeZone: DEFAULT_TIME_ZONE,
+    timeZone: AUTO_TIME_ZONE,
     showUpdateNotifications: true,
     enableVersionChecks: true,
     displayName: "",
@@ -140,7 +137,11 @@ export function OnboardingExperience({
           mediaPreviewGenerateOnUpload,
           mediaPreviewGenerateOnFirstView,
           mediaPreviewGenerateOnShare,
-          timeZone: prefs.timeZone,
+          // The instance needs a fixed zone for its maintenance schedule.
+          timeZone:
+            prefs.timeZone === AUTO_TIME_ZONE
+              ? getBrowserTimeZone()
+              : prefs.timeZone,
         });
         if (result?.error) throw new Error(result.error);
       }
@@ -209,14 +210,6 @@ export function OnboardingExperience({
     const raf = requestAnimationFrame(() => setNameSwapping(true));
     return () => cancelAnimationFrame(raf);
   }, [donePhase]);
-
-  useEffect(() => {
-    setPrefs((p) =>
-      p.timeZone === DEFAULT_TIME_ZONE
-        ? { ...p, timeZone: getBrowserTimeZone() }
-        : p,
-    );
-  }, []);
 
   if (step === "done") {
     const effectiveName = instanceName ?? "Staaash";
@@ -579,12 +572,13 @@ function TimeZoneStep({
         </label>
         <TimeZonePicker
           className="block w-full rounded-lg border border-line-strong bg-muted px-3.5 py-2.5 text-sm text-foreground transition-colors focus-visible:border-primary/65 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary/50 motion-reduce:transition-none"
+          allowAuto
           id="ob-timeZone"
           value={timeZone}
           onChange={onSelect}
         />
         <span className="block text-xs text-muted-foreground">
-          Detected from this browser. You can update it later.
+          Automatic follows this browser. You can change it later.
         </span>
       </div>
 

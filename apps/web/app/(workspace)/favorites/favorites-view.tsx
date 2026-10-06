@@ -35,8 +35,10 @@ import { getItemVisual } from "@/app/item-visuals";
 import { ItemTypeIcon } from "@/app/item-type-icon";
 import { PageHeader } from "@/components/page-header";
 import { SectionLabel } from "@/components/section-label";
+import { useTime } from "@/components/time-provider";
 import { Badge } from "@/components/ui/badge";
 import { ViewToggle, type ViewMode } from "@/components/view-toggle";
+import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { startValidatedDownload } from "@/lib/transfers/download";
 
@@ -72,7 +74,6 @@ import { SelectionBar } from "../selection-bar";
 import {
   filterFavoriteItems,
   formatFavoriteFileSize,
-  formatFavoriteRelativeTime,
   getFavoriteType,
   getQuickAccessFavorites,
   sortFavoriteItems,
@@ -109,6 +110,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
   const [, startTransition] = useTransition();
   const { handleDownload } = useTransferContext();
   const isCoarsePointer = useCoarsePointer();
+  const { now, timeZone } = useTime();
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [viewReady, setViewReady] = useState(false);
   const [filterType, setFilterType] = useState<FavoriteFilterType>("all");
@@ -983,8 +985,10 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
                           {item.name}
                         </span>
                         <small className="text-xs text-muted-foreground">
-                          {formatFavoriteRelativeTime(
+                          {formatRelativeTime(
                             item.quickAccessPinnedAt ?? item.favoritedAt,
+                            now,
+                            timeZone,
                           )}
                         </small>
                       </span>
@@ -1063,7 +1067,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
                       {formatFavoriteFileSize(item.sizeBytes)}
                     </span>
                     <span className={COLLECTION_ROW_TIME}>
-                      {formatFavoriteRelativeTime(item.favoritedAt)}
+                      {formatRelativeTime(item.favoritedAt, now, timeZone)}
                     </span>
                     <RowActions>{renderItemActions(item)}</RowActions>
                   </CollectionRow>
@@ -1124,7 +1128,11 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
                     <GridCardBody
                       end={formatFavoriteFileSize(item.sizeBytes)}
                       name={item.name}
-                      start={formatFavoriteRelativeTime(item.favoritedAt)}
+                      start={formatRelativeTime(
+                        item.favoritedAt,
+                        now,
+                        timeZone,
+                      )}
                     />
                     <GridCardActions placement="bottom">
                       {renderItemActions(item)}

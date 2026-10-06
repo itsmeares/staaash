@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-
-import { normalizeTimeZone } from "@staaash/config/time-zone";
+import { useRouter } from "next/navigation";
 
 import {
   SettingsFormStatus,
@@ -34,6 +33,7 @@ export function PreferencesForm({
   initialShowUpdateNotifications,
   initialEnableVersionChecks,
 }: PreferencesFormProps) {
+  const router = useRouter();
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [timeZone, setTimeZone] = useState(initialTimeZone);
   const [showUpdateNotifications, setShowUpdateNotifications] = useState(
@@ -62,12 +62,14 @@ export function PreferencesForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           theme,
-          timeZone: normalizeTimeZone(timeZone),
+          timeZone,
           showUpdateNotifications,
           enableVersionChecks,
         }),
       });
       if (res.ok) {
+        // Re-render server components so dates pick up the new time zone.
+        router.refresh();
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
       } else {
@@ -109,9 +111,10 @@ export function PreferencesForm({
         <SettingsRow
           plain
           label="Time zone"
-          hint="Used for dates and schedules shown to you."
+          hint="Used for dates and schedules shown to you. Automatic follows this browser."
         >
           <TimeZonePicker
+            allowAuto
             value={timeZone}
             onChange={(nextTimeZone) => {
               setTimeZone(nextTimeZone);

@@ -3,8 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   filterRecentItems,
   formatRecentFileSize,
-  formatRecentRelativeTime,
-  getRecentDateGroup,
   getRecentLocationLabel,
   getRecentType,
   groupRecentItems,
@@ -155,6 +153,7 @@ describe("recent page helpers", () => {
         clientItem({ id: "older", uploadedAt: "2026-03-01T11:00:00.000Z" }),
       ],
       now,
+      "UTC",
     );
 
     expect(grouped.map((group) => group.label)).toEqual([
@@ -164,29 +163,13 @@ describe("recent page helpers", () => {
       "This month",
       "Older",
     ]);
-    expect(getRecentDateGroup("2026-05-21T00:10:00.000Z", now)).toBe("Today");
   });
 
-  it("formats size and relative time labels", () => {
-    const now = new Date("2026-05-19T12:00:00.000Z");
-
+  it("formats size labels", () => {
     expect(formatRecentFileSize(undefined)).toBe("-");
     expect(formatRecentFileSize(400)).toBe("400 B");
     expect(formatRecentFileSize(4200)).toBe("4 KB");
     expect(formatRecentFileSize(2_400_000)).toBe("2.3 MB");
     expect(formatRecentFileSize(4_500_000_000)).toBe("4.2 GB");
-
-    expect(formatRecentRelativeTime("2026-05-19T12:00:00.000Z", now)).toBe(
-      "Just now",
-    );
-    expect(formatRecentRelativeTime("2026-05-19T11:55:00.000Z", now)).toBe(
-      "5m ago",
-    );
-    expect(formatRecentRelativeTime("2026-05-19T10:00:00.000Z", now)).toBe(
-      "2h ago",
-    );
-    expect(formatRecentRelativeTime("2026-05-18T10:00:00.000Z", now)).toBe(
-      "Yesterday",
-    );
   });
 });

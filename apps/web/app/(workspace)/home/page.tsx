@@ -10,7 +10,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { formatRelativeTime } from "@/lib/time";
 import { requireSignedInPageSession } from "@/server/auth/guards";
+import { resolveDisplayTimeZone } from "@/server/time-zone";
 import { filesService } from "@/server/files/service";
 import type { FolderSummary } from "@/server/files/types";
 import {
@@ -35,13 +37,11 @@ import type { UserRole } from "@/server/types";
 import {
   formatHomeChildCount,
   formatHomeExpiryTime,
-  formatHomeRelativeTime,
-  getHomeGreeting,
   getHomeItemVisual,
   isHomeDashboardEmpty,
   type HomeItemVisual,
 } from "./home-helpers";
-import { HomePrimaryActions } from "./home-actions";
+import { HomeGreeting, HomePrimaryActions } from "./home-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -234,10 +234,14 @@ function PinnedList({
 
 function RecentList({
   items,
+  now,
   redirectTo,
+  timeZone,
 }: {
   items: RetrievalItem[];
+  now: Date;
   redirectTo: string;
+  timeZone: string;
 }) {
   if (items.length === 0) {
     return (
@@ -257,7 +261,7 @@ function RecentList({
                 {item.name}
               </span>
               <span className={HOME_META}>
-                {formatHomeRelativeTime(item.updatedAt)}
+                {formatRelativeTime(item.updatedAt, now, timeZone, "long")}
               </span>
             </span>
           </>
@@ -416,7 +420,8 @@ export default async function HomePage() {
   ]);
   const displayName =
     session.user.displayName ?? session.user.email.split("@")[0] ?? "there";
-  const greeting = getHomeGreeting(new Date().getHours());
+  const { timeZone } = await resolveDisplayTimeZone(session.user);
+  const now = new Date();
   const currentPath = "/home";
   const pinnedItems = favoriteItems.slice(0, 6);
   const recentHomeItems = recentItems.slice(0, 6);
@@ -443,7 +448,9 @@ export default async function HomePage() {
         )}
       >
         <div className="grid min-w-0 gap-2">
-          <h1 className="font-heading text-3xl leading-none font-bold tracking-tight text-balance text-foreground lg:text-greeting">{`${greeting}, ${displayName}.`}</h1>
+          <h1 className="font-heading text-3xl leading-none font-bold tracking-tight text-balance text-foreground lg:text-greeting">
+            <HomeGreeting displayName={displayName} />
+          </h1>
         </div>
         {dashboardEmpty ? null : <HomePrimaryActions />}
       </header>
@@ -464,7 +471,12 @@ export default async function HomePage() {
               title="Recent"
               titleId="home-recent-title"
             />
-            <RecentList items={recentHomeItems} redirectTo={currentPath} />
+            <RecentList
+              items={recentHomeItems}
+              now={now}
+              redirectTo={currentPath}
+              timeZone={timeZone}
+            />
           </section>
 
           <section className="min-w-0" aria-labelledby="home-folders-title">

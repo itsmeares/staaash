@@ -12,12 +12,9 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group";
 import { PageHeader } from "@/components/page-header";
+import { DateTime } from "@/components/time-provider";
 
-import {
-  FlashMessage,
-  formatDateTime,
-  getSingleSearchParam,
-} from "@/app/auth-ui";
+import { FlashMessage, getSingleSearchParam } from "@/app/auth-ui";
 import { getItemVisual } from "@/app/item-visuals";
 import { ItemTypeIcon } from "@/app/item-type-icon";
 import { authService } from "@/server/auth/service";
@@ -56,7 +53,7 @@ const Expiry = ({ expiresAt }: { expiresAt: Date | string }) => (
       {getRelativeExpiry(expiresAt)}
     </span>
     {" · "}
-    {formatDateTime(expiresAt)}
+    <DateTime value={expiresAt} />
   </>
 );
 
@@ -428,7 +425,7 @@ export function ShareView({
                         {folder.name}
                       </Link>
                       <p className="m-0 text-xs text-muted-foreground">
-                        Updated {formatDateTime(folder.updatedAt)}
+                        Updated <DateTime value={folder.updatedAt} />
                       </p>
                     </div>
                   </div>
@@ -469,7 +466,7 @@ export function ShareView({
                       </h3>
                       <p className="m-0 text-xs text-muted-foreground">
                         {file.mimeType} · {formatBytes(file.sizeBytes)} ·
-                        updated {formatDateTime(file.updatedAt)}
+                        updated <DateTime value={file.updatedAt} />
                       </p>
                     </div>
                   </div>

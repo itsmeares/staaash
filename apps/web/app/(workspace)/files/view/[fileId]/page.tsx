@@ -2,13 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PageHeader } from "@/components/page-header";
+import { DateTime } from "@/components/time-provider";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { WorkspacePage } from "../../../workspace-page";
 
 import { TextFileViewer } from "@/app/text-file-viewer";
 
-import { formatDateTime } from "@/app/auth-ui";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { isFilesError } from "@/server/files/errors";
 import { getAccessiblePrivateFile } from "@/server/files/viewer";
@@ -51,7 +51,6 @@ export default async function FilesFileViewerPage({
     const backHref = file.folderId ? `/files/f/${file.folderId}` : "/files";
     const contentHref = `/api/files/files/${file.id}/content`;
     const downloadHref = `/api/files/files/${file.id}/download`;
-    const userTimeZone = session.user.preferences?.timeZone;
 
     return (
       <WorkspacePage
@@ -67,7 +66,7 @@ export default async function FilesFileViewerPage({
             <>
               {file.mimeType}
               {" · "}
-              Updated {formatDateTime(file.updatedAt, userTimeZone)}
+              Updated <DateTime value={file.updatedAt} />
             </>
           }
           actions={

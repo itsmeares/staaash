@@ -21,7 +21,8 @@ import {
   DashboardItemContextMenu,
   type DashboardContextMenuGroup,
 } from "@/app/dashboard-context-menu";
-import { formatDateTime } from "@/app/auth-ui";
+import { useTime } from "@/components/time-provider";
+import { formatDateTime } from "@/lib/time";
 import type { FileSummary, FolderSummary } from "@/server/files/types";
 import type { ShareLinkSummary } from "@/server/sharing";
 import { FOLDER_ICON_MAP } from "./files-properties-panel";
@@ -236,14 +237,8 @@ export function FilesRow(props: FilesRowProps) {
   const storageMutationBlocked = mutationLabel !== null;
 
   // ---- Meta ----
-  // Format on the client only — server's timezone diverges from the browser's
-  // so a render-time `Intl.DateTimeFormat` call mismatches at hydration
-  // (React #418). Empty on first paint, populated on mount.
-  const updatedAt = props.data.updatedAt;
-  const [date, setDate] = useState("");
-  useEffect(() => {
-    setDate(formatDateTime(updatedAt));
-  }, [updatedAt]);
+  const { timeZone } = useTime();
+  const date = formatDateTime(props.data.updatedAt, timeZone);
   const size = props.kind === "file" ? formatBytes(props.data.sizeBytes) : "";
 
   // ---- Href ----

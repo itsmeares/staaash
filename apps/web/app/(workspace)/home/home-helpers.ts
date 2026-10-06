@@ -13,32 +13,6 @@ export function getHomeGreeting(hour: number): string {
   return "Good night";
 }
 
-export function formatHomeRelativeTime(
-  value: Date | string,
-  now = new Date(),
-): string {
-  const date = value instanceof Date ? value : new Date(value);
-  const diffMs = Math.max(0, now.getTime() - date.getTime());
-  const diffMinutes = Math.floor(diffMs / 60000);
-
-  if (diffMinutes < 1) return "Just now";
-  if (diffMinutes < 60)
-    return `${diffMinutes} min${diffMinutes === 1 ? "" : "s"} ago`;
-
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24)
-    return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
-
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays} days ago`;
-
-  return date.toLocaleDateString("en", {
-    day: "numeric",
-    month: "short",
-  });
-}
-
 export function formatHomeExpiryTime(
   value: Date | string,
   now = new Date(),

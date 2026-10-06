@@ -4,7 +4,6 @@ import {
   compareWorkspaceStrings,
   filterWorkspaceItems,
   formatWorkspaceFileSize,
-  formatWorkspaceRelativeTime,
   getWorkspaceItemType,
   getWorkspaceLocationLabel,
   sortWorkspaceItems,
@@ -70,13 +69,6 @@ export function filterFavoriteItems(
 
 export function formatFavoriteFileSize(bytes?: number): string {
   return formatWorkspaceFileSize(bytes);
-}
-
-export function formatFavoriteRelativeTime(
-  value: Date | string,
-  now = new Date(),
-): string {
-  return formatWorkspaceRelativeTime(value, now);
 }
 
 export function sortFavoriteItems(

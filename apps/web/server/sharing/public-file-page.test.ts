@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToReadableStream } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { TimeProvider } from "@/components/time-provider";
 import type { FileSummary, FolderSummary } from "@/server/files/types";
 import type { PublicShareResolution } from "@/server/sharing/types";
 import { StorageEntityUnavailableError } from "@/server/storage-read-guard";
@@ -145,7 +146,14 @@ const folderResolution: PublicShareResolution = {
 };
 
 async function renderMarkup(element: React.ReactElement): Promise<string> {
-  const stream = await renderToReadableStream(element);
+  const stream = await renderToReadableStream(
+    createElement(TimeProvider, {
+      autoDetect: false,
+      children: element,
+      serverNow: Date.now(),
+      timeZone: "UTC",
+    }),
+  );
   await stream.allReady;
   return new Response(stream).text();
 }

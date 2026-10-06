@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { formatDateTime } from "@/app/auth-ui";
+import { DateTime } from "@/components/time-provider";
 import { ItemContextMenu } from "@/app/item-context-menu";
 import { getItemVisual } from "@/app/item-visuals";
 import { ItemTypeIcon } from "@/app/item-type-icon";
@@ -98,7 +98,7 @@ function RetrievalBadges({
 function RetrievalMeta({ item }: { item: RetrievalItem }) {
   return (
     <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-      {formatDateTime(item.updatedAt)}
+      <DateTime value={item.updatedAt} />
       {item.kind === "file"
         ? ` · ${formatFileSize(item.sizeBytes)}`
         : ` · ${item.pathLabel}`}

@@ -26,6 +26,7 @@ import {
   SettingsRow,
   SettingsSearch,
 } from "@/components/settings-panel";
+import { useTime } from "@/components/time-provider";
 import { TimeZonePicker } from "@/components/time-zone-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +51,7 @@ type SettingsNumberInputProps = Omit<
 
 export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
   const [state, action, pending] = useActionState(updateSystemSettings, {});
+  const { timeZone } = useTime();
   const [searchQuery, setSearchQuery] = useState("");
   const normalizedSearch = searchQuery.trim().toLowerCase();
   const searchTokens = normalizedSearch.split(/\s+/u).filter(Boolean);
@@ -272,7 +274,7 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
             </SettingsRow>
             <SettingsRow label="Last checked">
               <span className="text-sm leading-snug text-foreground/82">
-                {formatAdminDateTime(updateStatus.lastUpdateCheckAt)}
+                {formatAdminDateTime(updateStatus.lastUpdateCheckAt, timeZone)}
               </span>
             </SettingsRow>
             <SettingsRow label="Last message">
@@ -327,7 +329,10 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
           hidden={!visiblePanels.scheduling}
         >
           <SettingsList>
-            <SettingsRow label="Instance time zone">
+            <SettingsRow
+              label="Instance time zone"
+              hint="Runs the maintenance schedule. Dates are shown in each user's own time zone."
+            >
               <TimeZonePicker
                 name="timeZone"
                 defaultValue={settings.timeZone}

@@ -22,13 +22,6 @@ export const getSafeLocalPath = (
   return value;
 };
 
-export const formatDateTime = (value: Date | string, timeZone?: string) =>
-  new Intl.DateTimeFormat("en-GB", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    ...(timeZone ? { timeZone } : {}),
-  }).format(typeof value === "string" ? new Date(value) : value);
-
 export function FlashMessage({
   children,
   tone = "error",

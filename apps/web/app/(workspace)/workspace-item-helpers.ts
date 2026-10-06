@@ -101,30 +101,6 @@ export function formatWorkspaceFileSize(bytes?: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
-export function formatWorkspaceRelativeTime(
-  value: Date | string,
-  now = new Date(),
-): string {
-  const date = value instanceof Date ? value : new Date(value);
-  const diffMs = Math.max(0, now.getTime() - date.getTime());
-  const diffMinutes = Math.floor(diffMs / 60000);
-
-  if (diffMinutes < 1) return "Just now";
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays} days ago`;
-
-  return date.toLocaleDateString("en", {
-    day: "numeric",
-    month: "short",
-  });
-}
-
 export function compareWorkspaceStrings(left: string, right: string): number {
   return left.localeCompare(right, undefined, {
     numeric: true,

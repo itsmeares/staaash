@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   filterTrashItems,
-  getTrashDateGroup,
   groupTrashItems,
   sortTrashItems,
   toTrashClientItem,
@@ -172,11 +171,10 @@ describe("trash page helpers", () => {
     ];
 
     expect(
-      groupTrashItems(items, "newest", now).map((group) => group.label),
+      groupTrashItems(items, "newest", now, "UTC").map((group) => group.label),
     ).toEqual(["Today", "Yesterday", "This week", "This month", "Older"]);
     expect(
-      groupTrashItems(items, "oldest", now).map((group) => group.label),
+      groupTrashItems(items, "oldest", now, "UTC").map((group) => group.label),
     ).toEqual(["Older", "This month", "This week", "Yesterday", "Today"]);
-    expect(getTrashDateGroup("2026-05-21T00:10:00.000Z", now)).toBe("Today");
   });
 });
