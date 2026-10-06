@@ -22,6 +22,32 @@ const fetchArchiveStatus = (archiveId: string, signal: AbortSignal) =>
     { retries: 5, backoffMs: 1000, signal },
   );
 
+type PollOutcome =
+  ArchivePollResult | { status: "processing"; fileCount?: number };
+
+async function readOutcome(res: Response): Promise<PollOutcome> {
+  if (!res.ok) {
+    return {
+      status: "rejected",
+      message: await readResponseError(res, "Download status unavailable."),
+    };
+  }
+
+  const data = (await res.json()) as {
+    status: string;
+    fileCount?: number;
+    error?: string;
+  };
+  if (data.status === "ready") return { status: "ready" };
+  if (data.status === "failed") {
+    return { status: "failed", message: data.error ?? "Zip creation failed." };
+  }
+  return {
+    status: "processing",
+    fileCount: data.status === "processing" ? data.fileCount : undefined,
+  };
+}
+
 /**
  * Polls until the archive reaches a terminal state. The first terminal
  * response wins: it stops the timer and aborts the other in-flight requests,
@@ -53,31 +79,10 @@ export function pollArchiveStatus({
       try {
         const res = await fetchStatus(archiveId, run.signal);
         if (settled) return;
-        if (!res.ok) {
-          const message = await readResponseError(
-            res,
-            "Download status unavailable.",
-          );
-          finish({ status: "rejected", message });
-          return;
-        }
-
-        const data = (await res.json()) as {
-          status: string;
-          fileCount?: number;
-          error?: string;
-        };
+        const outcome = await readOutcome(res);
         if (settled) return;
-        if (data.status === "ready") {
-          finish({ status: "ready" });
-        } else if (data.status === "failed") {
-          finish({
-            status: "failed",
-            message: data.error ?? "Zip creation failed.",
-          });
-        } else if (data.status === "processing" && data.fileCount != null) {
-          onProcessing(data.fileCount);
-        }
+        if (outcome.status !== "processing") finish(outcome);
+        else if (outcome.fileCount != null) onProcessing(outcome.fileCount);
       } catch {
         // Transient network errors are retried inside fetchStatus; anything
         // still surfacing here (aborts, bad JSON) just waits for the next tick.
