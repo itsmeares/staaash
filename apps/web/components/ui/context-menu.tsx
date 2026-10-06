@@ -272,7 +272,7 @@ export function ContextMenuShortcut({
   return (
     <kbd
       className={cn(
-        "ms-auto font-sans text-xs font-medium tracking-widest text-muted-foreground/72",
+        "ms-auto font-sans text-xs font-medium tracking-widest text-muted-foreground",
         className,
       )}
       data-slot="context-menu-shortcut"

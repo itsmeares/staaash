@@ -72,7 +72,7 @@
 }
 
 .dragPreviewRow [data-row-name] span {
-  color: color-mix(in oklab, var(--foreground) 78%, transparent);
+  color: color-mix(in oklab, var(--foreground) 80%, transparent);
   font-weight: 300;
 }
 

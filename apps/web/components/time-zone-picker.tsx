@@ -362,7 +362,7 @@ export function TimeZonePicker({
         />
         <input
           aria-label="Search time zones"
-          className="min-h-11 w-full rounded-md border border-hairline bg-muted py-2 pr-2.5 pl-8 text-body text-foreground outline-none placeholder:text-muted-foreground/72 focus:border-ring/55"
+          className="min-h-11 w-full rounded-md border border-hairline bg-muted py-2 pr-2.5 pl-8 text-body text-foreground outline-none placeholder:text-muted-foreground focus:border-ring/55"
           id={searchId}
           onChange={(event) => {
             setQuery(event.target.value);

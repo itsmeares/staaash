@@ -49,7 +49,7 @@ export function SelectButton({
   const defaultProps = {
     children: (
       <>
-        <span className="flex-1 truncate in-data-placeholder:text-muted-foreground/72">
+        <span className="flex-1 truncate in-data-placeholder:text-muted-foreground">
           {children}
         </span>
         <ChevronsUpDownIcon className={selectTriggerIconClassName} />

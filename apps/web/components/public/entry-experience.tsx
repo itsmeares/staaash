@@ -173,7 +173,7 @@ export function EntryExperience({
         </p>
         <button
           className={cn(
-            "mt-1 cursor-pointer rounded-xl border-0 bg-transparent p-0 text-xs font-medium tracking-widest text-foreground/40 uppercase outline-none focus-visible:outline-2 focus-visible:outline-offset-12 focus-visible:outline-primary/55 disabled:cursor-default",
+            "mt-1 cursor-pointer rounded-xl border-0 bg-transparent p-0 text-xs font-medium tracking-widest text-muted-foreground uppercase outline-none focus-visible:outline-2 focus-visible:outline-offset-12 focus-visible:outline-primary/55 disabled:cursor-default",
             styles.introHint,
           )}
           disabled={!isActive}

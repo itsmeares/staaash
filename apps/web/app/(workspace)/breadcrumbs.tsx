@@ -42,7 +42,7 @@ export function Breadcrumbs({
           <Link
             key={item.id}
             className={cn(
-              "text-label text-muted-foreground/65 transition-colors duration-150 after:px-1.75 after:font-light after:text-muted-foreground/30 after:content-['/'] hover:text-muted-foreground motion-reduce:transition-none",
+              "text-label text-muted-foreground transition-colors duration-150 after:px-1.75 after:font-light after:text-muted-foreground/30 after:content-['/'] hover:text-muted-foreground motion-reduce:transition-none",
               item.isDropTarget && "text-foreground",
             )}
             href={item.href}

@@ -176,6 +176,7 @@ jobs:
           e2e/owner-integrity.spec.ts
           e2e/archive-status-polling.spec.ts
           e2e/files-properties.spec.ts
+          e2e/text-contrast.spec.ts
 
       - name: Dump ARM64 stack logs
         if: failure()

@@ -55,7 +55,7 @@ function Row({
       <dt>
         <SectionLabel>{label}</SectionLabel>
       </dt>
-      <dd className="m-0 text-xs font-medium text-foreground/70 tabular-nums lg:text-meta">
+      <dd className="m-0 text-xs font-medium text-muted-foreground tabular-nums lg:text-meta">
         {children}
       </dd>
     </div>
@@ -105,7 +105,7 @@ export function InstanceBadge({
               </dt>
               <dd
                 data-update={updateStatus ?? "null"}
-                className="m-0 text-xs font-medium text-foreground/70 tabular-nums data-[update=error]:text-destructive-foreground data-[update=update-available]:text-warning-foreground lg:text-meta"
+                className="m-0 text-xs font-medium text-muted-foreground tabular-nums data-[update=error]:text-destructive-foreground data-[update=update-available]:text-warning-foreground lg:text-meta"
               >
                 {updateLabel}
               </dd>
