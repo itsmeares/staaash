@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Kbd } from "@/components/ui/kbd";
 import { SectionLabel } from "@/components/section-label";
+import { randomClientId } from "@/lib/client-id";
 import { cn } from "@/lib/utils";
 import { FlashMessage } from "@/app/auth-ui";
 import { DashboardPageContextMenu } from "@/app/dashboard-context-menu";
@@ -401,7 +402,7 @@ export function FilesView({
   const getStorageMutationKey = (logicalAction: string) => {
     const existing = storageMutationKeysRef.current.get(logicalAction);
     if (existing) return existing;
-    const created = crypto.randomUUID();
+    const created = randomClientId();
     storageMutationKeysRef.current.set(logicalAction, created);
     return created;
   };
@@ -1150,7 +1151,7 @@ export function FilesView({
     items: BatchMoveItem[],
     destinationFolderId: string,
     source: MoveRequestSource = "direct",
-    clientId = crypto.randomUUID(),
+    clientId = randomClientId(),
     initiallyListedIds = getListedItemIds(listing),
     preservedFailures: Extract<BatchMoveResult, { status: "failed" }>[] = [],
   ): Promise<void> => {

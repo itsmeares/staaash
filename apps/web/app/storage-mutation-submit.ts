@@ -1,5 +1,7 @@
 "use client";
 
+import { randomClientId } from "@/lib/client-id";
+
 const storageMutationKeys = new Map<string, string>();
 
 export const submitStorageMutationPost = async ({
@@ -12,7 +14,7 @@ export const submitStorageMutationPost = async ({
   logicalAction: string;
 }) => {
   const idempotencyKey =
-    storageMutationKeys.get(logicalAction) ?? crypto.randomUUID();
+    storageMutationKeys.get(logicalAction) ?? randomClientId();
   storageMutationKeys.set(logicalAction, idempotencyKey);
   const response = await fetch(action, {
     method: "POST",
