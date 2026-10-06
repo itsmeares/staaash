@@ -16,10 +16,12 @@ import {
   computeFileSha256,
   createFileSha256Hasher,
 } from "@/lib/transfers/file-checksum";
+import { pollArchiveStatus } from "@/lib/transfers/archive-poll";
 import {
   fetchWithRetry,
   queuedFetch,
   queuedXhrUpload,
+  readResponseError,
 } from "@/lib/transfers/request-queue";
 import {
   calculateLiveUploadedBytes,
@@ -82,6 +84,18 @@ type TransferContextValue = {
 
 const UPLOAD_SESSION_KEY_PREFIX = "staaash:upload-session";
 const ACTIVE_DOWNLOAD_KEY = "staaash:active-download";
+
+// Another tab may have replaced the pointer with its own archive since this
+// poll started, so only clear it when it still names the polled archive.
+const clearActiveDownloadPointer = (archiveId: string) => {
+  try {
+    const saved = localStorage.getItem(ACTIVE_DOWNLOAD_KEY);
+    if (saved && JSON.parse(saved).archiveId !== archiveId) return;
+  } catch {
+    // Unreadable pointer: fall through and clear it.
+  }
+  localStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
+};
 // fallow-ignore-next-line unused-export
 export const CHUNKED_UPLOAD_THRESHOLD = 100 * 1024 * 1024;
 const CHUNK_SIZE = 10 * 1024 * 1024;
@@ -120,13 +134,6 @@ type EnsureFolderPathsResponse = {
 
 const isAbortError = (error: unknown) =>
   error instanceof DOMException && error.name === "AbortError";
-
-const readResponseError = async (response: Response, fallback: string) => {
-  const data = (await response.json().catch(() => ({}))) as {
-    error?: string;
-  };
-  return data.error ?? fallback;
-};
 
 const ensureUploadFolders = async ({
   folderId,
@@ -335,8 +342,6 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
     archiveId: string;
     state: DownloadProgressState;
   } | null>(null);
-  const downloadPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const downloadPollSessionRef = useRef(0);
   const downloadAbortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const uploadingFilesRef = useRef<UploadingFile[]>([]);
@@ -421,94 +426,28 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
 
   // ---- Download poll ----
 
-  const stopDownloadPoll = () => {
-    downloadPollSessionRef.current += 1;
-    if (downloadPollRef.current) {
-      clearInterval(downloadPollRef.current);
-      downloadPollRef.current = null;
-    }
-  };
-
+  // The poll runs under downloadAbortRef's controller: aborting it (new
+  // download, dismiss, unmount) cancels the poll without touching UI state.
   const startDownloadPoll = (archiveId: string) => {
-    stopDownloadPoll();
-    const pollSession = downloadPollSessionRef.current;
-    downloadPollRef.current = setInterval(() => {
-      void queuedFetch(
-        "poll",
-        `/api/files/archives/${archiveId}`,
-        { headers: { Accept: "application/json" } },
-        {
-          retries: 5,
-          backoffMs: 1000,
-          signal: downloadAbortRef.current?.signal,
-        },
-      )
-        .then(async (res) => {
-          if (pollSession !== downloadPollSessionRef.current) return null;
-
-          if (!res.ok) {
-            stopDownloadPoll();
-            const message = await readResponseError(
-              res,
-              "Download status unavailable.",
-            );
-            if (pollSession !== downloadPollSessionRef.current) return null;
-            localStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
-            setActiveDownload({
-              archiveId,
-              state: {
-                status: "error",
-                message,
-              },
-            });
-            return null;
-          }
-
-          return res.json();
-        })
-        .then(
-          (
-            data: { status: string; fileCount?: number; error?: string } | null,
-          ) => {
-            if (!data || pollSession !== downloadPollSessionRef.current) return;
-
-            if (data.status === "ready") {
-              stopDownloadPoll();
-              localStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
-              setActiveDownload({
-                archiveId,
-                state: { status: "ready", archiveId },
-              });
-            } else if (data.status === "failed") {
-              stopDownloadPoll();
-              localStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
-              setActiveDownload({
-                archiveId,
-                state: {
-                  status: "error",
-                  message: data.error ?? "Zip creation failed.",
-                },
-              });
-            } else if (data.status === "processing" && data.fileCount != null) {
-              setActiveDownload((prev) =>
-                prev
-                  ? {
-                      ...prev,
-                      state: {
-                        status: "processing",
-                        fileCount: data.fileCount,
-                      },
-                    }
-                  : prev,
-              );
-            }
-          },
-        )
-        .catch(() => {
-          // Transient errors are absorbed by fetchWithRetry; anything still
-          // surfacing here (e.g. user-aborted) is intentionally swallowed.
-        });
-    }, 2000);
+    const controller = (downloadAbortRef.current ??= new AbortController());
+    void pollArchiveStatus({
+      archiveId,
+      signal: controller.signal,
+      onProcessing: (fileCount) =>
+        setActiveDownload((prev) =>
+          prev ? { ...prev, state: { status: "processing", fileCount } } : prev,
+        ),
+    }).then((result) => {
+      if (!result) return;
+      clearActiveDownloadPointer(archiveId);
+      setActiveDownload({
+        archiveId,
+        state:
+          result.status === "ready"
+            ? { status: "ready", archiveId }
+            : { status: "error", message: result.message },
+      });
+    });
   };
 
   // Resume any in-progress download on mount
@@ -524,7 +463,6 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
       // ignore
     }
     return () => {
-      stopDownloadPoll();
       downloadAbortRef.current?.abort();
       downloadAbortRef.current = null;
       for (const controller of uploadAbortControllers.current.values()) {
@@ -536,7 +474,6 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const handleDownload = async (ids: string[]) => {
-    stopDownloadPoll();
     downloadAbortRef.current?.abort();
     const controller = new AbortController();
     downloadAbortRef.current = controller;
@@ -592,7 +529,6 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
   };
 
   const dismissDownload = () => {
-    stopDownloadPoll();
     downloadAbortRef.current?.abort();
     downloadAbortRef.current = null;
     setActiveDownload(null);
