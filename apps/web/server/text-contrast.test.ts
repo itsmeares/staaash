@@ -17,6 +17,7 @@ const css = readFileSync(
 
 const readBlock = (selector: string) => {
   const start = css.indexOf(`${selector} {`);
+  if (start === -1) throw new Error(`tokens.css has no ${selector} block`);
   const body = css.slice(start, css.indexOf("\n}", start));
   return Object.fromEntries(
     [...body.matchAll(/--([\w-]+):\s*([^;]+);/g)].map(([, name, value]) => [
@@ -112,7 +113,7 @@ const checkTheme = (tokens: Record<string, string>) => {
   return Object.entries(texts).flatMap(([text, color]) =>
     Object.entries(surfaces).map(([surface, fill]) => ({
       pair: `${text} on ${surface}`,
-      ratio: Math.round(contrast(color(fill), fill) * 100) / 100,
+      ratio: contrast(color(fill), fill),
     })),
   );
 };
@@ -121,7 +122,9 @@ describe("text contrast tokens", () => {
   it.each(Object.entries(themes))(
     "%s theme text reaches 4.5:1 on every surface",
     (_, tokens) => {
-      const failing = checkTheme(tokens).filter(({ ratio }) => ratio < 4.5);
+      const failing = checkTheme(tokens)
+        .filter(({ ratio }) => ratio < 4.5)
+        .map(({ pair, ratio }) => `${pair}: ${ratio.toFixed(3)}`);
       expect(failing).toEqual([]);
     },
   );

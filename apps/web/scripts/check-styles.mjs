@@ -14,8 +14,10 @@ const TEXT_OPACITY_FLOOR = 80;
 // (breadcrumb separators) is decorative and exempt.
 const fadedTextClass =
   /(?<![\w/-])((?:[\w-]+:)*)text-(muted-)?foreground\/(\d+)/g;
+// `color-mix(in oklab, var(--foreground) 60%, …)` or Tailwind's
+// `--alpha(var(--foreground) / 60%)`.
 const fadedTextCss =
-  /(?<![\w-])color:\s*color-mix\(in oklab, var\(--(muted-)?foreground\) (\d+)%/g;
+  /(?<![\w-])color:\s*(?:color-mix\(in oklab, |--alpha\()var\(--(muted-)?foreground\)(?: \/)? (\d+)%/g;
 const isFaded = (muted, amount) =>
   Boolean(muted) || Number(amount) < TEXT_OPACITY_FLOOR;
 
