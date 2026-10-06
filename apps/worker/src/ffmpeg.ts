@@ -95,6 +95,8 @@ type FfprobeStream = {
   codec_name: string;
   width?: number;
   height?: number;
+  tags?: { rotate?: string };
+  side_data_list?: { rotation?: number }[];
 };
 
 type FfprobeFormat = {
@@ -126,9 +128,14 @@ export const isStreamCopyCompatible = (
   const video = probe.streams.find((s) => s.codec_type === "video");
   const audio = probe.streams.find((s) => s.codec_type === "audio");
   if (!video) return false;
-  // Copying keeps the source size, so a source taller than the cap (or with an
-  // unknown height) has to be transcoded and scaled instead.
-  if (video.height === undefined || video.height > maxHeight) return false;
+  const rotation =
+    video.side_data_list?.find((data) => data.rotation !== undefined)
+      ?.rotation ?? Number(video.tags?.rotate ?? 0);
+  const displayedHeight =
+    Math.abs(rotation) % 180 === 90 ? video.width : video.height;
+  // Copying preserves rotation, so compare the displayed height with the cap.
+  if (displayedHeight === undefined || displayedHeight > maxHeight)
+    return false;
   return video.codec_name === "h264" && (!audio || audio.codec_name === "aac");
 };
 

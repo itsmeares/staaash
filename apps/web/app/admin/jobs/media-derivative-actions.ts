@@ -107,10 +107,26 @@ export async function cancelDerivative(
     select: { id: true },
   });
   if (job) {
-    await cancelBackgroundJob({ jobId: job.id, actorUserId: session.user.id });
+    try {
+      await cancelBackgroundJob({
+        jobId: job.id,
+        actorUserId: session.user.id,
+      });
+    } catch (error) {
+      return {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to cancel preview file.",
+      };
+    }
+  } else {
+    await db.mediaDerivative.updateMany({
+      where: { id, status: { in: ["queued", "processing"] } },
+      data: { status: "stale", storageKey: null, sizeBytes: null },
+    });
   }
 
-  await markDerivativeStale(id);
   revalidateDerivativeViews();
   return { success: true };
 }
