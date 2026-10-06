@@ -198,7 +198,7 @@ importers:
         specifier: 0.8.1
         version: 0.8.1(prettier@3.9.9)
       turbo:
-        specifier: ^2.11.6
+        specifier: ^2.11.7
         version: 2.11.7
       typescript:
         specifier: ^6.0.3
