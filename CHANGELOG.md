@@ -2,6 +2,33 @@
 
 See linked GitHub release notes for full details.
 
+## [1.2.0](https://github.com/itsmeares/staaash/releases/tag/v1.2.0) - 2026-10-06
+
+This release applies two database migrations at startup. Back up the database and uploaded files together before upgrading.
+
+### Added
+
+- Native Linux ARM64 container images alongside AMD64.
+
+### Changed
+
+- Refreshed the workspace, admin, authentication, onboarding, and public sharing interfaces with shared components and consistent themes.
+- File Properties now opens beside the file list.
+- Dates now render in the viewer's time zone.
+
+### Fixed
+
+- Impossible storage operations and over-quota direct uploads no longer leave accounts blocked by unfinished mutations.
+- Cancelled media preview jobs settle correctly, older generation attempts cannot overwrite newer ones, and previews respect the maximum height setting.
+- Archive status polling stops on rejected responses.
+- Browser-generated client IDs work on plain HTTP deployments.
+- Text remains readable across surfaces in both themes.
+- Date rendering no longer causes hydration errors when browser and server time zones differ.
+
+### Maintenance
+
+- Updated dependencies and tooling, refreshed documentation, and added ARM64 smoke tests and UI regression coverage.
+
 ## [1.1.1](https://github.com/itsmeares/staaash/releases/tag/v1.1.1) - 2026-09-11
 
 ### Fixed
