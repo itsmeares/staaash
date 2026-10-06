@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   X,
   Folder,
@@ -22,6 +22,8 @@ import {
 
 import { formatDateTime } from "@/app/auth-ui";
 import { Button } from "@/components/ui/button";
+import { Drawer, DrawerPopup, DrawerTitle } from "@/components/ui/drawer";
+import { useMediaQuery } from "@/app/(workspace)/use-media-query";
 import { SectionLabel } from "@/components/section-label";
 import { cn } from "@/lib/utils";
 import type { FileSummary, FolderSummary } from "@/server/files/types";
@@ -197,6 +199,7 @@ type PropertiesItem =
   { kind: "folder"; data: FolderSummary } | { kind: "file"; data: FileSummary };
 
 type FilesPropertiesPanelProps = {
+  /** The single selected item, or null when nothing or several items are selected. */
   item: PropertiesItem | null;
   folderIcons: Record<string, string>;
   onSetFolderIcon: (folderId: string, iconName: string) => void;
@@ -205,147 +208,190 @@ type FilesPropertiesPanelProps = {
   onShare?: () => void;
 };
 
-export function FilesPropertiesPanel({
+function PropertiesHeader({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="sticky top-0 z-1 flex items-center justify-between border-b border-hairline bg-inherit px-5 pt-5 pb-4">
+      <SectionLabel className="text-xs">Properties</SectionLabel>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={onClose}
+        aria-label="Close properties"
+      >
+        <X />
+      </Button>
+    </div>
+  );
+}
+
+function InfoSection({ item }: { item: PropertiesItem }) {
+  return (
+    <PropertiesSection title="Info">
+      <PropertiesRow label="Name">{item.data.name}</PropertiesRow>
+      <PropertiesRow label="Kind">
+        {item.kind === "folder" ? "Folder" : item.data.mimeType}
+      </PropertiesRow>
+      {item.kind === "file" && (
+        <PropertiesRow label="Size">
+          {formatBytes(item.data.sizeBytes)}
+        </PropertiesRow>
+      )}
+      <PropertiesRow label="Created">
+        {formatDateTime(item.data.createdAt)}
+      </PropertiesRow>
+      <PropertiesRow label="Modified">
+        {formatDateTime(item.data.updatedAt)}
+      </PropertiesRow>
+      <PropertiesRow label="ID" valueClassName="font-mono text-xs opacity-65">
+        {item.data.id.slice(0, 8)}…
+      </PropertiesRow>
+    </PropertiesSection>
+  );
+}
+
+function SharingSection({
+  share,
+  onShare,
+}: {
+  share?: ShareLinkSummary | null;
+  onShare: () => void;
+}) {
+  return (
+    <PropertiesSection title="Sharing">
+      {share ? (
+        <>
+          <PropertiesRow label="Status">
+            {share.status === "active"
+              ? "Active"
+              : share.status.charAt(0).toUpperCase() + share.status.slice(1)}
+          </PropertiesRow>
+          <Button size="sm" variant="outline" onClick={onShare}>
+            Manage link
+          </Button>
+        </>
+      ) : (
+        <Button size="sm" variant="outline" onClick={onShare}>
+          Create public link
+        </Button>
+      )}
+    </PropertiesSection>
+  );
+}
+
+function FolderIconSection({
+  folderId,
+  activeIcon,
+  onSetFolderIcon,
+}: {
+  folderId: string;
+  activeIcon: string;
+  onSetFolderIcon: (folderId: string, iconName: string) => void;
+}) {
+  return (
+    <PropertiesSection title="Folder icon">
+      <div
+        className="grid grid-cols-6 gap-1"
+        role="radiogroup"
+        aria-label="Choose folder icon"
+      >
+        {FOLDER_ICON_OPTIONS.map(({ name, icon: Icon, label }) => {
+          const active = activeIcon === name;
+          return (
+            <button
+              key={name}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              aria-label={label}
+              title={label}
+              className={cn(
+                "flex aspect-square w-full cursor-pointer items-center justify-center rounded-md border border-transparent text-muted-foreground transition-colors outline-none hover:bg-pressed hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none",
+                active &&
+                  "border-primary/25 bg-selected text-primary-ink hover:bg-selected hover:text-primary-ink",
+              )}
+              onClick={() => onSetFolderIcon(folderId, name)}
+            >
+              <Icon size={18} />
+            </button>
+          );
+        })}
+      </div>
+    </PropertiesSection>
+  );
+}
+
+function PropertiesBody({
   item,
   folderIcons,
   onSetFolderIcon,
-  onClose,
   share,
   onShare,
-}: FilesPropertiesPanelProps) {
-  const panelRef = useRef<HTMLDivElement>(null);
-  const isOpen = item !== null;
-
-  // Close on Escape
-  useEffect(() => {
-    if (!isOpen) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [isOpen, onClose]);
+}: Omit<FilesPropertiesPanelProps, "onClose">) {
+  if (!item) {
+    return (
+      <p className="px-5 py-4 text-sm text-muted-foreground">
+        Select a single item to see its properties.
+      </p>
+    );
+  }
 
   return (
-    <>
-      {/* Transparent overlay to catch outside clicks */}
-      {isOpen && (
-        <div className="fixed inset-0 z-40" onClick={onClose} aria-hidden />
+    <div className="grid">
+      <InfoSection item={item} />
+      {item.kind === "file" && item.data.mimeType.startsWith("video/") && (
+        <MediaPreviewSection fileId={item.data.id} />
       )}
+      {onShare && <SharingSection share={share} onShare={onShare} />}
+      {item.kind === "folder" && (
+        <FolderIconSection
+          folderId={item.data.id}
+          activeIcon={folderIcons[item.data.id] ?? "Folder"}
+          onSetFolderIcon={onSetFolderIcon}
+        />
+      )}
+    </div>
+  );
+}
 
-      <div
-        ref={panelRef}
-        className={cn(
-          "fixed inset-y-0 right-0 z-50 grid w-75 content-start overflow-y-auto border-l border-hairline bg-card shadow-rail transition-transform duration-300 ease-expo-out motion-reduce:transition-none",
-          isOpen ? "translate-x-0" : "translate-x-full",
-        )}
-        role="complementary"
+// Docked beside the list on wide screens, a side sheet below that. It never
+// traps focus: the list stays usable while it is open and the pane follows
+// the selection.
+export function FilesPropertiesPanel({
+  onClose,
+  ...body
+}: FilesPropertiesPanelProps) {
+  const docked = useMediaQuery("(min-width: 64rem)");
+
+  if (docked) {
+    return (
+      <aside
         aria-label="Item properties"
+        className="sticky top-0 grid max-h-[calc(100dvh-8rem)] w-75 shrink-0 content-start self-start overflow-y-auto rounded-xl border border-hairline bg-card shadow-rail"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") onClose();
+        }}
       >
-        <div className="sticky top-0 z-1 flex items-center justify-between border-b border-hairline bg-inherit px-5 pt-5 pb-4">
-          <SectionLabel className="text-xs">Properties</SectionLabel>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={onClose}
-            aria-label="Close properties"
-          >
-            <X />
-          </Button>
+        <PropertiesHeader onClose={onClose} />
+        <PropertiesBody {...body} />
+      </aside>
+    );
+  }
+
+  return (
+    <Drawer
+      open
+      position="right"
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DrawerPopup>
+        <DrawerTitle className="sr-only">Item properties</DrawerTitle>
+        <div className="overflow-y-auto">
+          <PropertiesHeader onClose={onClose} />
+          <PropertiesBody {...body} />
         </div>
-
-        {item && (
-          <div className="grid">
-            {/* Info section */}
-            <PropertiesSection title="Info">
-              <PropertiesRow label="Name">{item.data.name}</PropertiesRow>
-              <PropertiesRow label="Kind">
-                {item.kind === "folder" ? "Folder" : item.data.mimeType}
-              </PropertiesRow>
-              {item.kind === "file" && (
-                <PropertiesRow label="Size">
-                  {formatBytes(item.data.sizeBytes)}
-                </PropertiesRow>
-              )}
-              <PropertiesRow label="Created">
-                {formatDateTime(item.data.createdAt)}
-              </PropertiesRow>
-              <PropertiesRow label="Modified">
-                {formatDateTime(item.data.updatedAt)}
-              </PropertiesRow>
-              <PropertiesRow
-                label="ID"
-                valueClassName="font-mono text-xs opacity-65"
-              >
-                {item.data.id.slice(0, 8)}…
-              </PropertiesRow>
-            </PropertiesSection>
-
-            {/* Media preview section — video files only */}
-            {item.kind === "file" &&
-              item.data.mimeType.startsWith("video/") && (
-                <MediaPreviewSection fileId={item.data.id} />
-              )}
-
-            {/* Sharing section */}
-            {onShare && (
-              <PropertiesSection title="Sharing">
-                {share ? (
-                  <>
-                    <PropertiesRow label="Status">
-                      {share.status === "active"
-                        ? "Active"
-                        : share.status.charAt(0).toUpperCase() +
-                          share.status.slice(1)}
-                    </PropertiesRow>
-                    <Button size="sm" variant="outline" onClick={onShare}>
-                      Manage link
-                    </Button>
-                  </>
-                ) : (
-                  <Button size="sm" variant="outline" onClick={onShare}>
-                    Create public link
-                  </Button>
-                )}
-              </PropertiesSection>
-            )}
-
-            {/* Icon picker — folders only */}
-            {item.kind === "folder" && (
-              <PropertiesSection title="Folder icon">
-                <div
-                  className="grid grid-cols-6 gap-1"
-                  role="radiogroup"
-                  aria-label="Choose folder icon"
-                >
-                  {FOLDER_ICON_OPTIONS.map(({ name, icon: Icon, label }) => {
-                    const active =
-                      (folderIcons[item.data.id] ?? "Folder") === name;
-                    return (
-                      <button
-                        key={name}
-                        type="button"
-                        role="radio"
-                        aria-checked={active}
-                        aria-label={label}
-                        title={label}
-                        className={cn(
-                          "flex aspect-square w-full cursor-pointer items-center justify-center rounded-md border border-transparent text-muted-foreground transition-colors outline-none hover:bg-pressed hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none",
-                          active &&
-                            "border-primary/25 bg-selected text-primary-ink hover:bg-selected hover:text-primary-ink",
-                        )}
-                        onClick={() => onSetFolderIcon(item.data.id, name)}
-                      >
-                        <Icon size={18} />
-                      </button>
-                    );
-                  })}
-                </div>
-              </PropertiesSection>
-            )}
-          </div>
-        )}
-      </div>
-    </>
+      </DrawerPopup>
+    </Drawer>
   );
 }
