@@ -74,6 +74,40 @@ export async function setPinDerivative(
   return { success: true };
 }
 
+const cancelDerivativeGeneration = async (
+  id: string,
+  fileId: string,
+  actorUserId: string,
+): Promise<string | null> => {
+  const db = getPrisma();
+  const job = await db.backgroundJob.findFirst({
+    where: {
+      dedupeKey: buildDerivativeDedupeKey(
+        fileId,
+        DERIVATIVE_KIND_PREVIEW,
+        DERIVATIVE_PROFILE_1080P,
+      ),
+      status: { in: ["queued", "running"] },
+    },
+    select: { id: true },
+  });
+  if (!job) {
+    await db.mediaDerivative.updateMany({
+      where: { id, status: { in: ["queued", "processing"] } },
+      data: { status: "stale", storageKey: null, sizeBytes: null },
+    });
+    return null;
+  }
+  try {
+    await cancelBackgroundJob({ jobId: job.id, actorUserId });
+    return null;
+  } catch (error) {
+    return error instanceof Error
+      ? error.message
+      : "Failed to cancel preview file.";
+  }
+};
+
 export async function cancelDerivative(
   _prevState: { error?: string; success?: boolean },
   formData: FormData,
@@ -95,37 +129,12 @@ export async function cancelDerivative(
     };
   }
 
-  const job = await db.backgroundJob.findFirst({
-    where: {
-      dedupeKey: buildDerivativeDedupeKey(
-        derivative.fileId,
-        DERIVATIVE_KIND_PREVIEW,
-        DERIVATIVE_PROFILE_1080P,
-      ),
-      status: { in: ["queued", "running"] },
-    },
-    select: { id: true },
-  });
-  if (job) {
-    try {
-      await cancelBackgroundJob({
-        jobId: job.id,
-        actorUserId: session.user.id,
-      });
-    } catch (error) {
-      return {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to cancel preview file.",
-      };
-    }
-  } else {
-    await db.mediaDerivative.updateMany({
-      where: { id, status: { in: ["queued", "processing"] } },
-      data: { status: "stale", storageKey: null, sizeBytes: null },
-    });
-  }
+  const error = await cancelDerivativeGeneration(
+    id,
+    derivative.fileId,
+    session.user.id,
+  );
+  if (error) return { error };
 
   revalidateDerivativeViews();
   return { success: true };

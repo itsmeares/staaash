@@ -121,22 +121,24 @@ export const runFfprobe = async (inputPath: string): Promise<FfprobeResult> => {
   return JSON.parse(stdout) as FfprobeResult;
 };
 
+const getDisplayedHeight = (video: FfprobeStream) => {
+  const rotation =
+    video.side_data_list?.find((data) => data.rotation !== undefined)
+      ?.rotation ?? Number(video.tags?.rotate ?? 0);
+  return Math.abs(rotation) % 180 === 90 ? video.width : video.height;
+};
+
 export const isStreamCopyCompatible = (
   probe: FfprobeResult,
   maxHeight: number,
 ): boolean => {
   const video = probe.streams.find((s) => s.codec_type === "video");
   const audio = probe.streams.find((s) => s.codec_type === "audio");
-  if (!video) return false;
-  const rotation =
-    video.side_data_list?.find((data) => data.rotation !== undefined)
-      ?.rotation ?? Number(video.tags?.rotate ?? 0);
-  const displayedHeight =
-    Math.abs(rotation) % 180 === 90 ? video.width : video.height;
+  if (!video || video.codec_name !== "h264") return false;
+  if (audio && audio.codec_name !== "aac") return false;
   // Copying preserves rotation, so compare the displayed height with the cap.
-  if (displayedHeight === undefined || displayedHeight > maxHeight)
-    return false;
-  return video.codec_name === "h264" && (!audio || audio.codec_name === "aac");
+  const height = getDisplayedHeight(video);
+  return height !== undefined && height <= maxHeight;
 };
 
 export const runFfmpegStreamCopy = (
