@@ -148,6 +148,16 @@ export async function fetchWithRetry(
   }
 }
 
+export async function readResponseError(
+  response: Response,
+  fallback: string,
+): Promise<string> {
+  const data = (await response.json().catch(() => ({}))) as {
+    error?: string;
+  };
+  return data.error ?? fallback;
+}
+
 // ---------------------------------------------------------------------------
 // Queued + retried fetch convenience
 // ---------------------------------------------------------------------------
