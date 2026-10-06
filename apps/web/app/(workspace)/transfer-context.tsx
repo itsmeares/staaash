@@ -84,6 +84,18 @@ type TransferContextValue = {
 
 const UPLOAD_SESSION_KEY_PREFIX = "staaash:upload-session";
 const ACTIVE_DOWNLOAD_KEY = "staaash:active-download";
+
+// Another tab may have replaced the pointer with its own archive since this
+// poll started, so only clear it when it still names the polled archive.
+const clearActiveDownloadPointer = (archiveId: string) => {
+  try {
+    const saved = localStorage.getItem(ACTIVE_DOWNLOAD_KEY);
+    if (saved && JSON.parse(saved).archiveId !== archiveId) return;
+  } catch {
+    // Unreadable pointer: fall through and clear it.
+  }
+  localStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
+};
 // fallow-ignore-next-line unused-export
 export const CHUNKED_UPLOAD_THRESHOLD = 100 * 1024 * 1024;
 const CHUNK_SIZE = 10 * 1024 * 1024;
@@ -427,7 +439,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
         ),
     }).then((result) => {
       if (!result) return;
-      localStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
+      clearActiveDownloadPointer(archiveId);
       setActiveDownload({
         archiveId,
         state:
