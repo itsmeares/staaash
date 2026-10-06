@@ -381,7 +381,7 @@ export function FilesView({
   };
 
   // ---- Properties panel ----
-  const [propertiesId, setPropertiesId] = useState<string | null>(null);
+  const [propertiesOpen, setPropertiesOpen] = useState(false);
 
   // ---- Folder icons ----
   const [folderIcons, setFolderIcons] = useState<Record<string, string>>({});
@@ -1563,6 +1563,8 @@ export function FilesView({
       if (isCoarsePointer) return;
       if (e.button !== 0) return;
       const target = e.target as HTMLElement;
+      // Portaled menus are React children of the list but not part of its DOM
+      if (!listRef.current?.contains(target)) return;
       // Let rename inputs and buttons handle their own events
       if (target.closest("input, button")) return;
       // Never start rubber-band from the header toolbar
@@ -1670,14 +1672,28 @@ export function FilesView({
   // Properties panel target
   // ---------------------------------------------------------------------------
 
+  // The pane follows the selection and only describes a single item.
   const propertiesItem = (() => {
-    if (!propertiesId) return null;
-    const folder = listing.childFolders.find((f) => f.id === propertiesId);
+    if (selectedIds.size !== 1) return null;
+    const id = Array.from(selectedIds)[0];
+    const folder = listing.childFolders.find((f) => f.id === id);
     if (folder) return { kind: "folder" as const, data: folder };
-    const file = listing.files.find((f) => f.id === propertiesId);
+    const file = listing.files.find((f) => f.id === id);
     if (file) return { kind: "file" as const, data: file };
     return null;
   })();
+
+  const openProperties = (id: string) => {
+    selectSingleItem(id);
+    setPropertiesOpen(true);
+  };
+
+  const closeProperties = () => {
+    // Hand focus back before the pane unmounts so it does not fall to <body>.
+    if (selectedIds.size === 1) focusRowById(Array.from(selectedIds)[0]);
+    else listRef.current?.focus();
+    setPropertiesOpen(false);
+  };
 
   // ---------------------------------------------------------------------------
   // Merged file list (files + active uploads sorted alphabetically)
@@ -1825,8 +1841,8 @@ export function FilesView({
   // ---------------------------------------------------------------------------
 
   return (
-    <>
-      <WorkspacePage>
+    <div className="lg:flex lg:items-start lg:gap-6">
+      <WorkspacePage className="min-w-0 lg:flex-1">
         {/* Flash messages */}
         {error ? <FlashMessage>{error}</FlashMessage> : null}
         {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
@@ -2002,9 +2018,13 @@ export function FilesView({
             onClick={(e) => {
               // A rubber-band drag just ended — skip this ghost click entirely
               if (didRubberBand.current) return;
-              // Plain click on empty space deselects
+              // Plain click on empty space deselects. Clicks in portaled menus
+              // bubble here through the React tree and must not.
               const target = e.target as HTMLElement;
-              if (!target.closest("[data-file-row]")) {
+              if (
+                e.currentTarget.contains(target) &&
+                !target.closest("[data-file-row]")
+              ) {
                 setSelectedIds(new Set());
               }
             }}
@@ -2079,7 +2099,7 @@ export function FilesView({
                       trashItem(folder.id, "folder");
                     }
                   }}
-                  onProperties={() => setPropertiesId(folder.id)}
+                  onProperties={() => openProperties(folder.id)}
                   onCut={() => {
                     // Folder and file rows intentionally share this selection behavior.
                     // fallow-ignore-next-line code-duplication
@@ -2281,7 +2301,7 @@ export function FilesView({
                       trashItem(file.id, "file");
                     }
                   }}
-                  onProperties={() => setPropertiesId(file.id)}
+                  onProperties={() => openProperties(file.id)}
                   onCut={() => {
                     if (selectedIds.has(file.id) && selectedIds.size > 1) {
                       const items = allItems
@@ -2374,26 +2394,6 @@ export function FilesView({
           )}
         </DashboardPageContextMenu>
 
-        {/* ---- Properties panel ---- */}
-        <FilesPropertiesPanel
-          item={propertiesItem}
-          folderIcons={folderIcons}
-          onSetFolderIcon={setFolderIcon}
-          onClose={() => setPropertiesId(null)}
-          share={
-            propertiesItem
-              ? propertiesItem.kind === "file"
-                ? (shareLookup.sharesByFileId[propertiesItem.data.id] ?? null)
-                : (shareLookup.sharesByFolderId[propertiesItem.data.id] ?? null)
-              : null
-          }
-          onShare={
-            propertiesItem
-              ? () => handleShare(propertiesItem.kind, propertiesItem.data.id)
-              : undefined
-          }
-        />
-
         {/* ---- Share dialog ---- */}
         {shareDialogTarget && (
           <ShareDialog
@@ -2419,7 +2419,29 @@ export function FilesView({
           <ShortcutLegend onClose={() => setShowShortcutLegend(false)} />
         )}
       </WorkspacePage>
-    </>
+
+      {/* ---- Properties pane ---- */}
+      {propertiesOpen && (
+        <FilesPropertiesPanel
+          item={propertiesItem}
+          folderIcons={folderIcons}
+          onSetFolderIcon={setFolderIcon}
+          onClose={closeProperties}
+          share={
+            propertiesItem
+              ? propertiesItem.kind === "file"
+                ? (shareLookup.sharesByFileId[propertiesItem.data.id] ?? null)
+                : (shareLookup.sharesByFolderId[propertiesItem.data.id] ?? null)
+              : null
+          }
+          onShare={
+            propertiesItem
+              ? () => handleShare(propertiesItem.kind, propertiesItem.data.id)
+              : undefined
+          }
+        />
+      )}
+    </div>
   );
 }
 
