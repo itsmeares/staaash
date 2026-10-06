@@ -10,6 +10,7 @@ import {
 import { useRouter } from "next/navigation";
 import { FolderPlus } from "lucide-react";
 import { toast } from "@/components/ui/toast";
+import { randomClientId } from "@/lib/client-id";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -82,7 +83,7 @@ export function CreateFolderDialog({
       if (mutationKeyRef.current?.action !== logicalAction) {
         mutationKeyRef.current = {
           action: logicalAction,
-          key: crypto.randomUUID(),
+          key: randomClientId(),
         };
       }
       const response = await fetch("/api/files/folders", {

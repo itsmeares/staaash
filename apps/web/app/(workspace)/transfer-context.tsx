@@ -150,7 +150,7 @@ const ensureUploadFolders = async ({
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        "Idempotency-Key": crypto.randomUUID(),
+        "Idempotency-Key": randomClientId(),
       },
       body: JSON.stringify({ folderId, paths }),
     },
@@ -967,7 +967,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
 
     const uploadKeys = selection.files.map(({ file, relativePath }) => {
       const clientKey = randomClientId();
-      const storageMutationKey = crypto.randomUUID();
+      const storageMutationKey = randomClientId();
       cancelledUploadKeys.current.delete(clientKey);
       setUploadingFiles((prev) => [
         ...prev,
