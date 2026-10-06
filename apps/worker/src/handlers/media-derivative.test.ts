@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   getFfmpegHealth: vi.fn(),
   getPrisma: vi.fn(),
   isStreamCopyCompatible: vi.fn(),
-  markDerivativeFailed: vi.fn(),
+  settleDerivativeIfOwned: vi.fn(),
   markDerivativeReady: vi.fn(),
   runFfmpegPoster: vi.fn(),
   runFfmpegStreamCopy: vi.fn(),
@@ -34,7 +34,7 @@ vi.mock("@staaash/db/media-derivatives", () => ({
   DERIVATIVE_STATUS_PROCESSING: "processing",
   DERIVATIVE_STATUS_STALE: "stale",
   buildDerivativeStorageKey: mocks.buildDerivativeStorageKey,
-  markDerivativeFailed: mocks.markDerivativeFailed,
+  settleDerivativeIfOwned: mocks.settleDerivativeIfOwned,
   markDerivativeReady: mocks.markDerivativeReady,
   upsertDerivativeQueued: mocks.upsertDerivativeQueued,
 }));
@@ -376,6 +376,72 @@ describe("media derivative handler", () => {
           }),
         ],
       }),
+    );
+  });
+
+  it("settles the derivative as stale when the job is cancelled mid-encode", async () => {
+    tempRoot = await mkdtemp(path.join(os.tmpdir(), "staaash-media-cancel-"));
+    const filesRoot = path.join(tempRoot, "files");
+    const tmpRoot = path.join(filesRoot, "tmp");
+    const sourcePath = path.join(filesRoot, "files", "owner-1", "clip.mov");
+    await mkdir(path.dirname(sourcePath), { recursive: true });
+    await writeFile(sourcePath, "source", "utf8");
+
+    mocks.getPrisma.mockReturnValue({
+      systemSettings: { findUnique: vi.fn(async () => null) },
+      file: {
+        findUnique: vi.fn(async () => ({
+          id: "file-1",
+          ownerUserId: "owner-1",
+          mimeType: "video/quicktime",
+          sizeBytes: 500_000_000n,
+          storageKey: "files/owner-1/clip.mov",
+          deletedAt: null,
+        })),
+      },
+      mediaDerivative: {
+        update: vi.fn(async () => ({
+          id: "derivative-1",
+          status: "processing",
+        })),
+        findUnique: vi.fn(async () => ({
+          id: "derivative-1",
+          status: "processing",
+        })),
+      },
+    });
+    mocks.runFfprobe.mockResolvedValue({
+      streams: [{ codec_type: "video", codec_name: "mpeg4", height: 720 }],
+      format: {},
+    });
+
+    const cancel = new AbortController();
+    mocks.runFfmpegTranscode.mockImplementation(async () => {
+      cancel.abort();
+      throw new Error("ffmpeg aborted");
+    });
+
+    const storagePaths = {
+      filesRoot,
+      tmpRoot,
+      heartbeatPath: path.join(tmpRoot, "worker-heartbeat.json"),
+      pendingDeleteRoot: path.join(tmpRoot, "pending-delete"),
+      uploadStagingTtlMs: 1,
+    };
+    await expect(
+      handleMediaDerivativeGenerate(createJob(), storagePaths, {
+        signal: cancel.signal,
+        workerId: "worker-1",
+        storagePaths,
+        emitEvent: vi.fn(async () => undefined),
+        updateProgress: vi.fn(async () => undefined),
+      }),
+    ).resolves.toBe(true);
+
+    expect(mocks.settleDerivativeIfOwned).toHaveBeenCalledWith(
+      "derivative-1",
+      "job-1",
+      { status: "stale" },
     );
   });
 });

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { getPrisma } from "@staaash/db/client";
+import { cancelBackgroundJob } from "@staaash/db/jobs";
 import {
   buildDerivativeDedupeKey,
   DERIVATIVE_KIND_PREVIEW,
@@ -77,7 +78,7 @@ export async function cancelDerivative(
   _prevState: { error?: string; success?: boolean },
   formData: FormData,
 ): Promise<{ error?: string; success?: boolean }> {
-  await requireOwnerPageSession();
+  const session = await requireOwnerPageSession();
 
   const id = formData.get("id");
   if (typeof id !== "string") return { error: "Missing preview file ID." };
@@ -94,27 +95,19 @@ export async function cancelDerivative(
     };
   }
 
-  const dedupeKey = buildDerivativeDedupeKey(
-    derivative.fileId,
-    DERIVATIVE_KIND_PREVIEW,
-    DERIVATIVE_PROFILE_1080P,
-  );
-
-  if (derivative.status === "queued") {
-    await db.backgroundJob.updateMany({
-      where: { dedupeKey, status: "queued" },
-      data: { status: "dead", lastError: "Cancelled by admin." },
-    });
-  } else {
-    await db.backgroundJob.updateMany({
-      where: { dedupeKey, status: "running" },
-      data: {
-        status: "dead",
-        lastError: "Cancelled by admin.",
-        lockedAt: null,
-        lockedBy: null,
-      },
-    });
+  const job = await db.backgroundJob.findFirst({
+    where: {
+      dedupeKey: buildDerivativeDedupeKey(
+        derivative.fileId,
+        DERIVATIVE_KIND_PREVIEW,
+        DERIVATIVE_PROFILE_1080P,
+      ),
+      status: { in: ["queued", "running"] },
+    },
+    select: { id: true },
+  });
+  if (job) {
+    await cancelBackgroundJob({ jobId: job.id, actorUserId: session.user.id });
   }
 
   await markDerivativeStale(id);

@@ -51,4 +51,20 @@ describe("ffmpeg helpers", () => {
       expect.arrayContaining(["-ss", "0"]),
     );
   });
+
+  it("stream copies only when the source fits the max height", async () => {
+    const { isStreamCopyCompatible } = await import("./ffmpeg.js");
+    const probe = (height?: number) => ({
+      streams: [
+        { codec_type: "video", codec_name: "h264", height },
+        { codec_type: "audio", codec_name: "aac" },
+      ],
+      format: {},
+    });
+
+    expect(isStreamCopyCompatible(probe(720), 1080)).toBe(true);
+    expect(isStreamCopyCompatible(probe(720), 720)).toBe(true);
+    expect(isStreamCopyCompatible(probe(720), 360)).toBe(false);
+    expect(isStreamCopyCompatible(probe(undefined), 1080)).toBe(false);
+  });
 });

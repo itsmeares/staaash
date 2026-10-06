@@ -61,6 +61,7 @@ export type MediaDerivativeMinAggregateOutputType = {
   lastViewedAt: Date | null
   lastSharedAt: Date | null
   generatedAt: Date | null
+  generationJobId: string | null
   storageRevision: number | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -85,6 +86,7 @@ export type MediaDerivativeMaxAggregateOutputType = {
   lastViewedAt: Date | null
   lastSharedAt: Date | null
   generatedAt: Date | null
+  generationJobId: string | null
   storageRevision: number | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -109,6 +111,7 @@ export type MediaDerivativeCountAggregateOutputType = {
   lastViewedAt: number
   lastSharedAt: number
   generatedAt: number
+  generationJobId: number
   storageRevision: number
   createdAt: number
   updatedAt: number
@@ -151,6 +154,7 @@ export type MediaDerivativeMinAggregateInputType = {
   lastViewedAt?: true
   lastSharedAt?: true
   generatedAt?: true
+  generationJobId?: true
   storageRevision?: true
   createdAt?: true
   updatedAt?: true
@@ -175,6 +179,7 @@ export type MediaDerivativeMaxAggregateInputType = {
   lastViewedAt?: true
   lastSharedAt?: true
   generatedAt?: true
+  generationJobId?: true
   storageRevision?: true
   createdAt?: true
   updatedAt?: true
@@ -199,6 +204,7 @@ export type MediaDerivativeCountAggregateInputType = {
   lastViewedAt?: true
   lastSharedAt?: true
   generatedAt?: true
+  generationJobId?: true
   storageRevision?: true
   createdAt?: true
   updatedAt?: true
@@ -310,6 +316,7 @@ export type MediaDerivativeGroupByOutputType = {
   lastViewedAt: Date | null
   lastSharedAt: Date | null
   generatedAt: Date | null
+  generationJobId: string | null
   storageRevision: number
   createdAt: Date
   updatedAt: Date
@@ -357,6 +364,7 @@ export type MediaDerivativeWhereInput = {
   lastViewedAt?: Prisma.DateTimeNullableFilter<"MediaDerivative"> | Date | string | null
   lastSharedAt?: Prisma.DateTimeNullableFilter<"MediaDerivative"> | Date | string | null
   generatedAt?: Prisma.DateTimeNullableFilter<"MediaDerivative"> | Date | string | null
+  generationJobId?: Prisma.StringNullableFilter<"MediaDerivative"> | string | null
   storageRevision?: Prisma.IntFilter<"MediaDerivative"> | number
   createdAt?: Prisma.DateTimeFilter<"MediaDerivative"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"MediaDerivative"> | Date | string
@@ -382,6 +390,7 @@ export type MediaDerivativeOrderByWithRelationInput = {
   lastViewedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   lastSharedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   generatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  generationJobId?: Prisma.SortOrderInput | Prisma.SortOrder
   storageRevision?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -411,6 +420,7 @@ export type MediaDerivativeWhereUniqueInput = Prisma.AtLeast<{
   lastViewedAt?: Prisma.DateTimeNullableFilter<"MediaDerivative"> | Date | string | null
   lastSharedAt?: Prisma.DateTimeNullableFilter<"MediaDerivative"> | Date | string | null
   generatedAt?: Prisma.DateTimeNullableFilter<"MediaDerivative"> | Date | string | null
+  generationJobId?: Prisma.StringNullableFilter<"MediaDerivative"> | string | null
   storageRevision?: Prisma.IntFilter<"MediaDerivative"> | number
   createdAt?: Prisma.DateTimeFilter<"MediaDerivative"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"MediaDerivative"> | Date | string
@@ -436,6 +446,7 @@ export type MediaDerivativeOrderByWithAggregationInput = {
   lastViewedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   lastSharedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   generatedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  generationJobId?: Prisma.SortOrderInput | Prisma.SortOrder
   storageRevision?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -468,6 +479,7 @@ export type MediaDerivativeScalarWhereWithAggregatesInput = {
   lastViewedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MediaDerivative"> | Date | string | null
   lastSharedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MediaDerivative"> | Date | string | null
   generatedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"MediaDerivative"> | Date | string | null
+  generationJobId?: Prisma.StringNullableWithAggregatesFilter<"MediaDerivative"> | string | null
   storageRevision?: Prisma.IntWithAggregatesFilter<"MediaDerivative"> | number
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"MediaDerivative"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"MediaDerivative"> | Date | string
@@ -491,6 +503,7 @@ export type MediaDerivativeCreateInput = {
   lastViewedAt?: Date | string | null
   lastSharedAt?: Date | string | null
   generatedAt?: Date | string | null
+  generationJobId?: string | null
   storageRevision?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -516,6 +529,7 @@ export type MediaDerivativeUncheckedCreateInput = {
   lastViewedAt?: Date | string | null
   lastSharedAt?: Date | string | null
   generatedAt?: Date | string | null
+  generationJobId?: string | null
   storageRevision?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -539,6 +553,7 @@ export type MediaDerivativeUpdateInput = {
   lastViewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastSharedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   generatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  generationJobId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -564,6 +579,7 @@ export type MediaDerivativeUncheckedUpdateInput = {
   lastViewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastSharedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   generatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  generationJobId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -588,6 +604,7 @@ export type MediaDerivativeCreateManyInput = {
   lastViewedAt?: Date | string | null
   lastSharedAt?: Date | string | null
   generatedAt?: Date | string | null
+  generationJobId?: string | null
   storageRevision?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -611,6 +628,7 @@ export type MediaDerivativeUpdateManyMutationInput = {
   lastViewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastSharedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   generatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  generationJobId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -635,6 +653,7 @@ export type MediaDerivativeUncheckedUpdateManyInput = {
   lastViewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastSharedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   generatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  generationJobId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -675,6 +694,7 @@ export type MediaDerivativeCountOrderByAggregateInput = {
   lastViewedAt?: Prisma.SortOrder
   lastSharedAt?: Prisma.SortOrder
   generatedAt?: Prisma.SortOrder
+  generationJobId?: Prisma.SortOrder
   storageRevision?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -707,6 +727,7 @@ export type MediaDerivativeMaxOrderByAggregateInput = {
   lastViewedAt?: Prisma.SortOrder
   lastSharedAt?: Prisma.SortOrder
   generatedAt?: Prisma.SortOrder
+  generationJobId?: Prisma.SortOrder
   storageRevision?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -731,6 +752,7 @@ export type MediaDerivativeMinOrderByAggregateInput = {
   lastViewedAt?: Prisma.SortOrder
   lastSharedAt?: Prisma.SortOrder
   generatedAt?: Prisma.SortOrder
+  generationJobId?: Prisma.SortOrder
   storageRevision?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -820,6 +842,7 @@ export type MediaDerivativeCreateWithoutFileInput = {
   lastViewedAt?: Date | string | null
   lastSharedAt?: Date | string | null
   generatedAt?: Date | string | null
+  generationJobId?: string | null
   storageRevision?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -843,6 +866,7 @@ export type MediaDerivativeUncheckedCreateWithoutFileInput = {
   lastViewedAt?: Date | string | null
   lastSharedAt?: Date | string | null
   generatedAt?: Date | string | null
+  generationJobId?: string | null
   storageRevision?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -896,6 +920,7 @@ export type MediaDerivativeScalarWhereInput = {
   lastViewedAt?: Prisma.DateTimeNullableFilter<"MediaDerivative"> | Date | string | null
   lastSharedAt?: Prisma.DateTimeNullableFilter<"MediaDerivative"> | Date | string | null
   generatedAt?: Prisma.DateTimeNullableFilter<"MediaDerivative"> | Date | string | null
+  generationJobId?: Prisma.StringNullableFilter<"MediaDerivative"> | string | null
   storageRevision?: Prisma.IntFilter<"MediaDerivative"> | number
   createdAt?: Prisma.DateTimeFilter<"MediaDerivative"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"MediaDerivative"> | Date | string
@@ -919,6 +944,7 @@ export type MediaDerivativeCreateManyFileInput = {
   lastViewedAt?: Date | string | null
   lastSharedAt?: Date | string | null
   generatedAt?: Date | string | null
+  generationJobId?: string | null
   storageRevision?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -942,6 +968,7 @@ export type MediaDerivativeUpdateWithoutFileInput = {
   lastViewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastSharedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   generatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  generationJobId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -965,6 +992,7 @@ export type MediaDerivativeUncheckedUpdateWithoutFileInput = {
   lastViewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastSharedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   generatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  generationJobId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -988,6 +1016,7 @@ export type MediaDerivativeUncheckedUpdateManyWithoutFileInput = {
   lastViewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lastSharedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   generatedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  generationJobId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1014,6 +1043,7 @@ export type MediaDerivativeSelect<ExtArgs extends runtime.Types.Extensions.Inter
   lastViewedAt?: boolean
   lastSharedAt?: boolean
   generatedAt?: boolean
+  generationJobId?: boolean
   storageRevision?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -1039,6 +1069,7 @@ export type MediaDerivativeSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   lastViewedAt?: boolean
   lastSharedAt?: boolean
   generatedAt?: boolean
+  generationJobId?: boolean
   storageRevision?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -1064,6 +1095,7 @@ export type MediaDerivativeSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   lastViewedAt?: boolean
   lastSharedAt?: boolean
   generatedAt?: boolean
+  generationJobId?: boolean
   storageRevision?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -1089,12 +1121,13 @@ export type MediaDerivativeSelectScalar = {
   lastViewedAt?: boolean
   lastSharedAt?: boolean
   generatedAt?: boolean
+  generationJobId?: boolean
   storageRevision?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type MediaDerivativeOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "fileId" | "kind" | "profile" | "status" | "storageKey" | "mimeType" | "sizeBytes" | "width" | "height" | "durationSeconds" | "videoCodec" | "audioCodec" | "error" | "pinnedByAdmin" | "lastViewedAt" | "lastSharedAt" | "generatedAt" | "storageRevision" | "createdAt" | "updatedAt", ExtArgs["result"]["mediaDerivative"]>
+export type MediaDerivativeOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "fileId" | "kind" | "profile" | "status" | "storageKey" | "mimeType" | "sizeBytes" | "width" | "height" | "durationSeconds" | "videoCodec" | "audioCodec" | "error" | "pinnedByAdmin" | "lastViewedAt" | "lastSharedAt" | "generatedAt" | "generationJobId" | "storageRevision" | "createdAt" | "updatedAt", ExtArgs["result"]["mediaDerivative"]>
 export type MediaDerivativeInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   file?: boolean | Prisma.FileDefaultArgs<ExtArgs>
 }
@@ -1129,6 +1162,7 @@ export type $MediaDerivativePayload<ExtArgs extends runtime.Types.Extensions.Int
     lastViewedAt: Date | null
     lastSharedAt: Date | null
     generatedAt: Date | null
+    generationJobId: string | null
     storageRevision: number
     createdAt: Date
     updatedAt: Date
@@ -1574,6 +1608,7 @@ export interface MediaDerivativeFieldRefs {
   readonly lastViewedAt: Prisma.FieldRef<"MediaDerivative", 'DateTime'>
   readonly lastSharedAt: Prisma.FieldRef<"MediaDerivative", 'DateTime'>
   readonly generatedAt: Prisma.FieldRef<"MediaDerivative", 'DateTime'>
+  readonly generationJobId: Prisma.FieldRef<"MediaDerivative", 'String'>
   readonly storageRevision: Prisma.FieldRef<"MediaDerivative", 'Int'>
   readonly createdAt: Prisma.FieldRef<"MediaDerivative", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"MediaDerivative", 'DateTime'>

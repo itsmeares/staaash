@@ -119,10 +119,16 @@ export const runFfprobe = async (inputPath: string): Promise<FfprobeResult> => {
   return JSON.parse(stdout) as FfprobeResult;
 };
 
-export const isStreamCopyCompatible = (probe: FfprobeResult): boolean => {
+export const isStreamCopyCompatible = (
+  probe: FfprobeResult,
+  maxHeight: number,
+): boolean => {
   const video = probe.streams.find((s) => s.codec_type === "video");
   const audio = probe.streams.find((s) => s.codec_type === "audio");
   if (!video) return false;
+  // Copying keeps the source size, so a source taller than the cap (or with an
+  // unknown height) has to be transcoded and scaled instead.
+  if (video.height === undefined || video.height > maxHeight) return false;
   return video.codec_name === "h264" && (!audio || audio.codec_name === "aac");
 };
 

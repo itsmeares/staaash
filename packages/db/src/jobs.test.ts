@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 const {
   BACKGROUND_JOB_LEASE_MS,
@@ -358,13 +358,23 @@ const createClient = (
     },
   };
 
+  const mediaDerivative = {
+    updateMany: vi.fn(async (_args: object) => ({ count: 0 })),
+  };
+
   return {
     backgroundJob,
     backgroundJobEvent,
     workerInstance,
+    mediaDerivative,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async $transaction<T>(callback: (tx: any) => Promise<T>) {
-      return callback({ backgroundJob, backgroundJobEvent, workerInstance });
+      return callback({
+        backgroundJob,
+        backgroundJobEvent,
+        workerInstance,
+        mediaDerivative,
+      });
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any;
@@ -778,6 +788,38 @@ describe("background jobs", () => {
       status: "queued",
       cancelledByUserId: null,
       lastError: null,
+    });
+  });
+
+  it("stales the derivative owned by a cancelled generate job", async () => {
+    const jobs = [
+      createJob({
+        id: "generate-1",
+        kind: "media.derivative.generate",
+        status: "running",
+      }),
+      createJob({ id: "other-1", status: "queued" }),
+    ];
+    const client = createClient(jobs);
+
+    await cancelBackgroundJob({
+      jobId: "other-1",
+      actorUserId: "owner-1",
+      client,
+    });
+    expect(client.mediaDerivative.updateMany).not.toHaveBeenCalled();
+
+    await cancelBackgroundJob({
+      jobId: "generate-1",
+      actorUserId: "owner-1",
+      client,
+    });
+    expect(client.mediaDerivative.updateMany).toHaveBeenCalledWith({
+      where: {
+        generationJobId: "generate-1",
+        status: { in: ["queued", "processing"] },
+      },
+      data: { status: "stale", storageKey: null, sizeBytes: null },
     });
   });
 

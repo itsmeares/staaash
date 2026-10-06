@@ -919,7 +919,8 @@ export type $TrashEntryPayload<ExtArgs extends runtime.Types.Extensions.Internal
     deletedAt: Date
     /**
      * Migration 20260726000000 enforces uniqueness only for isolated roots;
-     * Prisma schema syntax cannot represent that partial PostgreSQL index.
+     * the partialIndexes preview feature represents the matching PostgreSQL
+     * partial index with a raw where clause.
      */
     storageRootKey: string | null
     treeManifestDigest: string | null
