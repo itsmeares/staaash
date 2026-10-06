@@ -35,7 +35,7 @@ const folderMain =
 const mediaWidth = "w-[min(calc(60vh*16/9),90vw,1920px)]";
 
 const SharedVia = () => (
-  <p className="pt-2 text-center text-xs text-muted-foreground/55">
+  <p className="pt-2 text-center text-xs text-muted-foreground">
     Shared via{" "}
     <a
       className="text-foreground no-underline hover:underline"
@@ -385,7 +385,7 @@ export function ShareView({
           {resolution.listing.breadcrumbs.map((crumb) => (
             <Link
               key={crumb.id}
-              className="text-label text-muted-foreground/65 transition-colors duration-150 after:px-1.5 after:font-light after:text-muted-foreground/30 after:content-['/'] hover:text-muted-foreground"
+              className="text-label text-muted-foreground transition-colors duration-150 after:px-1.5 after:font-light after:text-muted-foreground/30 after:content-['/'] hover:text-muted-foreground"
               href={crumb.href}
             >
               {crumb.name}

@@ -17,7 +17,7 @@ export function RecentGroupHeader({
   return (
     <div className="flex items-center gap-2 px-1 pt-5 pb-2.5 group-first-of-type/group:pt-2 lg:gap-2.5 lg:px-1.5 lg:pt-6.5 lg:pb-3 lg:group-first-of-type/group:pt-2.5">
       <SectionLabel>{label}</SectionLabel>
-      <span className="text-label font-medium text-muted-foreground/70">
+      <span className="text-label font-medium text-muted-foreground">
         {count}
       </span>
     </div>

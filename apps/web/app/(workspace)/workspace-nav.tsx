@@ -113,7 +113,7 @@ export function WorkspaceNav() {
                   "flex min-h-control items-center gap-3 rounded-md px-3.5 text-base font-medium transition-colors duration-150 motion-reduce:transition-none md:max-lg:landscape:min-h-row-sm md:max-lg:landscape:justify-center md:max-lg:landscape:px-0",
                   active
                     ? "bg-primary/10 font-semibold text-primary-ink hover:bg-primary/12"
-                    : "text-foreground/60 hover:bg-hover hover:text-foreground/90",
+                    : "text-muted-foreground hover:bg-hover hover:text-foreground/90",
                 )}
                 href={item.href}
               >

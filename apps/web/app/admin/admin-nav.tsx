@@ -54,7 +54,7 @@ export function AdminNav() {
             key={item.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex min-h-11 flex-none items-center gap-2 rounded-lg px-3 text-sm font-medium text-foreground/62 transition-colors hover:bg-hover hover:text-foreground md:h-control md:px-3.5 md:text-base",
+              "flex min-h-11 flex-none items-center gap-2 rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-hover hover:text-foreground md:h-control md:px-3.5 md:text-base",
               active &&
                 "bg-selected font-semibold text-primary-ink hover:bg-primary/12 hover:text-primary-ink",
             )}

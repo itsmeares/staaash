@@ -1174,7 +1174,7 @@ function JobTaskCard({
           <span
             className={cn(
               RAIL_CELL,
-              "px-2.5 leading-tight font-bold text-foreground/66",
+              "px-2.5 leading-tight font-bold text-muted-foreground",
             )}
           >
             {primaryActionLabel}

@@ -399,7 +399,7 @@ function WelcomeStep({ onContinue }: { onContinue: () => void }) {
       </h1>
       <button
         className={cn(
-          "mt-1.5 cursor-pointer rounded-xl border-0 bg-transparent p-0 text-xs font-medium tracking-widest text-foreground/40 uppercase outline-none focus-visible:outline-2 focus-visible:outline-offset-12 focus-visible:outline-primary/55",
+          "mt-1.5 cursor-pointer rounded-xl border-0 bg-transparent p-0 text-xs font-medium tracking-widest text-muted-foreground uppercase outline-none focus-visible:outline-2 focus-visible:outline-offset-12 focus-visible:outline-primary/55",
           styles.welcomeHint,
         )}
         onClick={advance}
@@ -512,7 +512,7 @@ function ThemeStep({
             <span className="text-label font-semibold text-foreground">
               {opt.label}
             </span>
-            <span className="text-center text-xs leading-snug text-muted-foreground/75">
+            <span className="text-center text-xs leading-snug text-muted-foreground">
               {opt.desc}
             </span>
           </label>

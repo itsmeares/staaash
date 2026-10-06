@@ -77,7 +77,7 @@ export function EntryShell({
             </Link>
           )}
           {topNote ? (
-            <p className="text-xs font-medium tracking-widest whitespace-nowrap text-foreground/60 uppercase max-sm:hidden">
+            <p className="text-xs font-medium tracking-widest whitespace-nowrap text-muted-foreground uppercase max-sm:hidden">
               {topNote}
             </p>
           ) : null}

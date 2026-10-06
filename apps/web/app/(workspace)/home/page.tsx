@@ -79,7 +79,7 @@ function SectionHeader({
   return (
     <div className="mb-2 flex min-h-4.5 items-center justify-between gap-3 border-b border-hairline pb-2 lg:mb-2.5 lg:min-h-6 lg:pb-2.5">
       <h2
-        className="flex min-h-4.5 items-center text-label font-medium text-foreground/75 lg:min-h-6 lg:text-body"
+        className="flex min-h-4.5 items-center text-label font-medium text-muted-foreground lg:min-h-6 lg:text-body"
         id={titleId}
       >
         {title}
