@@ -10,7 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { formatRelativeTime, getZonedHour } from "@/lib/time";
+import { formatRelativeTime } from "@/lib/time";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { resolveDisplayTimeZone } from "@/server/time-zone";
 import { filesService } from "@/server/files/service";
@@ -37,12 +37,11 @@ import type { UserRole } from "@/server/types";
 import {
   formatHomeChildCount,
   formatHomeExpiryTime,
-  getHomeGreeting,
   getHomeItemVisual,
   isHomeDashboardEmpty,
   type HomeItemVisual,
 } from "./home-helpers";
-import { HomePrimaryActions } from "./home-actions";
+import { HomeGreeting, HomePrimaryActions } from "./home-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -423,7 +422,6 @@ export default async function HomePage() {
     session.user.displayName ?? session.user.email.split("@")[0] ?? "there";
   const { timeZone } = await resolveDisplayTimeZone(session.user);
   const now = new Date();
-  const greeting = getHomeGreeting(getZonedHour(now, timeZone));
   const currentPath = "/home";
   const pinnedItems = favoriteItems.slice(0, 6);
   const recentHomeItems = recentItems.slice(0, 6);
@@ -450,7 +448,9 @@ export default async function HomePage() {
         )}
       >
         <div className="grid min-w-0 gap-2">
-          <h1 className="font-heading text-3xl leading-none font-bold tracking-tight text-balance text-foreground lg:text-greeting">{`${greeting}, ${displayName}.`}</h1>
+          <h1 className="font-heading text-3xl leading-none font-bold tracking-tight text-balance text-foreground lg:text-greeting">
+            <HomeGreeting displayName={displayName} />
+          </h1>
         </div>
         {dashboardEmpty ? null : <HomePrimaryActions />}
       </header>

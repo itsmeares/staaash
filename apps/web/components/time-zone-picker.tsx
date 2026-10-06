@@ -238,7 +238,7 @@ export function TimeZonePicker({
   useEffect(() => {
     if (isControlled) return;
     setInternalValue(normalize(defaultValue));
-  }, [defaultValue, isControlled]);
+  }, [allowAuto, defaultValue, isControlled]);
 
   useEffect(() => {
     if (!open) return;

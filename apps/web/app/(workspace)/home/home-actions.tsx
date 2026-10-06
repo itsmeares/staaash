@@ -3,10 +3,13 @@
 import { useState } from "react";
 import { FolderPlus, Upload } from "lucide-react";
 
+import { useTime } from "@/components/time-provider";
 import { Button } from "@/components/ui/button";
+import { getZonedHour } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 import { CreateFolderDialog } from "../create-folder-dialog";
+import { getHomeGreeting } from "./home-helpers";
 
 export function HomePrimaryActions({ className }: { className?: string }) {
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
@@ -48,4 +51,10 @@ export function HomePrimaryActions({ className }: { className?: string }) {
       />
     </>
   );
+}
+
+// Client-side so an automatic time zone corrects the greeting after mount.
+export function HomeGreeting({ displayName }: { displayName: string }) {
+  const { now, timeZone } = useTime();
+  return `${getHomeGreeting(getZonedHour(now, timeZone))}, ${displayName}.`;
 }

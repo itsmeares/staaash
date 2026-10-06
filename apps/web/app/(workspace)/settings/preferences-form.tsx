@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   SettingsFormStatus,
@@ -32,6 +33,7 @@ export function PreferencesForm({
   initialShowUpdateNotifications,
   initialEnableVersionChecks,
 }: PreferencesFormProps) {
+  const router = useRouter();
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [timeZone, setTimeZone] = useState(initialTimeZone);
   const [showUpdateNotifications, setShowUpdateNotifications] = useState(
@@ -66,6 +68,8 @@ export function PreferencesForm({
         }),
       });
       if (res.ok) {
+        // Re-render server components so dates pick up the new time zone.
+        router.refresh();
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
       } else {

@@ -40,7 +40,9 @@ export function TimeProvider({
     }
     const browserTimeZone = getBrowserTimeZone();
     // IANA names are cookie-safe, no encoding needed.
-    document.cookie = `${TIME_ZONE_COOKIE_NAME}=${browserTimeZone}; path=/; max-age=31536000; samesite=lax`;
+    document.cookie = `${TIME_ZONE_COOKIE_NAME}=${browserTimeZone}; path=/; max-age=31536000; samesite=lax${
+      location.protocol === "https:" ? "; secure" : ""
+    }`;
     setTimeZone(browserTimeZone);
   }, [autoDetect, serverTimeZone]);
 
