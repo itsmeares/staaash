@@ -65,6 +65,7 @@ const makeDerivative = (
   lastViewedAt: null,
   lastSharedAt: null,
   generatedAt: fixedNow,
+  generationJobId: null,
   storageRevision: 0,
   createdAt: fixedNow,
   updatedAt: fixedNow,

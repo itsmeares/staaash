@@ -8,11 +8,12 @@ import {
   DERIVATIVE_KIND_PREVIEW,
   DERIVATIVE_PROFILE_1080P,
   DERIVATIVE_PROFILE_SOCIAL_JPEG,
+  DERIVATIVE_STATUS_FAILED,
   DERIVATIVE_STATUS_PROCESSING,
   DERIVATIVE_STATUS_STALE,
   buildDerivativeStorageKey,
-  markDerivativeFailed,
   markDerivativeReady,
+  settleDerivativeIfOwned,
   upsertDerivativeQueued,
 } from "@staaash/db/media-derivatives";
 import { calculateStorageFileChecksum } from "@staaash/db/storage-mutation-executor";
@@ -172,7 +173,12 @@ export const handleMediaDerivativeGenerate = async (
     return false;
   }
 
-  const derivative = await upsertDerivativeQueued(file.id, kind, profile);
+  const derivative = await upsertDerivativeQueued(
+    file.id,
+    kind,
+    profile,
+    job.id,
+  );
   const publishMutationId = `derivative-publish-${derivative.id}-${job.id}`;
   if ((await assertWorkerMutationMayStart(publishMutationId)) === "succeeded") {
     return false;
@@ -217,7 +223,10 @@ export const handleMediaDerivativeGenerate = async (
   try {
     probe = await runFfprobe(inputPath);
   } catch (err) {
-    await markDerivativeFailed(derivative.id, String(err));
+    await settleDerivativeIfOwned(derivative.id, job.id, {
+      status: DERIVATIVE_STATUS_FAILED,
+      error: String(err),
+    });
     throw err;
   }
 
@@ -259,7 +268,7 @@ export const handleMediaDerivativeGenerate = async (
     });
     if (isPoster) {
       await runFfmpegPoster(inputPath, tmpPath, controller.signal);
-    } else if (isStreamCopyCompatible(probe)) {
+    } else if (isStreamCopyCompatible(probe, settings.mediaPreviewMaxHeight)) {
       await runFfmpegStreamCopy(inputPath, tmpPath, controller.signal);
     } else {
       await runFfmpegTranscode(
@@ -273,9 +282,15 @@ export const handleMediaDerivativeGenerate = async (
   } catch (err) {
     await rm(tmpPath, { force: true });
     if (cancelledByAdmin) {
+      await settleDerivativeIfOwned(derivative.id, job.id, {
+        status: DERIVATIVE_STATUS_STALE,
+      });
       return true;
     }
-    await markDerivativeFailed(derivative.id, String(err));
+    await settleDerivativeIfOwned(derivative.id, job.id, {
+      status: DERIVATIVE_STATUS_FAILED,
+      error: String(err),
+    });
     throw err;
   } finally {
     clearInterval(cancelPollId);
@@ -287,7 +302,10 @@ export const handleMediaDerivativeGenerate = async (
     await access(tmpPath);
   } catch (err) {
     await rm(tmpPath, { force: true });
-    await markDerivativeFailed(derivative.id, String(err));
+    await settleDerivativeIfOwned(derivative.id, job.id, {
+      status: DERIVATIVE_STATUS_FAILED,
+      error: String(err),
+    });
     throw err;
   }
 

@@ -51,4 +51,72 @@ describe("ffmpeg helpers", () => {
       expect.arrayContaining(["-ss", "0"]),
     );
   });
+
+  it("stream copies only when the source fits the max height", async () => {
+    const { isStreamCopyCompatible } = await import("./ffmpeg.js");
+    const probe = (height?: number) => ({
+      streams: [
+        { codec_type: "video", codec_name: "h264", height },
+        { codec_type: "audio", codec_name: "aac" },
+      ],
+      format: {},
+    });
+
+    expect(isStreamCopyCompatible(probe(720), 1080)).toBe(true);
+    expect(isStreamCopyCompatible(probe(720), 720)).toBe(true);
+    expect(isStreamCopyCompatible(probe(720), 360)).toBe(false);
+    expect(isStreamCopyCompatible(probe(undefined), 1080)).toBe(false);
+  });
+
+  it.each([90, -90, 270, -270])(
+    "checks displayed height for a source rotated %i degrees",
+    async (rotation) => {
+      const { isStreamCopyCompatible } = await import("./ffmpeg.js");
+      for (const metadata of [
+        { tags: { rotate: String(rotation) } },
+        { side_data_list: [{}, { rotation }] },
+      ]) {
+        const probe = (width?: number, height = 720) => ({
+          streams: [
+            {
+              codec_type: "video",
+              codec_name: "h264",
+              width,
+              height,
+              ...metadata,
+            },
+            { codec_type: "audio", codec_name: "aac" },
+          ],
+          format: {},
+        });
+
+        expect(isStreamCopyCompatible(probe(1920), 1080)).toBe(false);
+        expect(isStreamCopyCompatible(probe(1080, 1920), 1080)).toBe(true);
+        expect(isStreamCopyCompatible(probe(undefined), 1080)).toBe(false);
+      }
+    },
+  );
+
+  it.each([0, 180, -180])(
+    "uses stored height for a source rotated %i degrees",
+    async (rotation) => {
+      const { isStreamCopyCompatible } = await import("./ffmpeg.js");
+      const probe = {
+        streams: [
+          {
+            codec_type: "video",
+            codec_name: "h264",
+            width: 1920,
+            height: 720,
+            tags: { rotate: "90" },
+            side_data_list: [{ rotation }],
+          },
+        ],
+        format: {},
+      };
+
+      expect(isStreamCopyCompatible(probe, 1080)).toBe(true);
+      expect(isStreamCopyCompatible(probe, 360)).toBe(false);
+    },
+  );
 });

@@ -49,6 +49,7 @@ export type MediaDerivativeRecord = {
   lastViewedAt: Date | null;
   lastSharedAt: Date | null;
   generatedAt: Date | null;
+  generationJobId: string | null;
   createdAt: Date;
   updatedAt: Date;
   storageRevision: number;
@@ -163,19 +164,58 @@ export const upsertDerivativeQueued = async (
   fileId: string,
   kind: DerivativeKind,
   profile: DerivativeProfile,
+  generationJobId: string | null = null,
   client?: DerivativeClient,
 ): Promise<MediaDerivativeRecord> => {
   const db = client ?? (getPrisma() as unknown as DerivativeClient);
   return db.mediaDerivative.upsert({
     where: { fileId_kind_profile: { fileId, kind, profile } },
-    create: { fileId, kind, profile, status: DERIVATIVE_STATUS_QUEUED },
+    create: {
+      fileId,
+      kind,
+      profile,
+      status: DERIVATIVE_STATUS_QUEUED,
+      generationJobId,
+    },
     update: {
       status: DERIVATIVE_STATUS_QUEUED,
       error: null,
       storageKey: null,
       generatedAt: null,
+      generationJobId,
     },
   });
+};
+
+/**
+ * Ends an unfinished generation attempt as stale or failed. Only the job that
+ * owns the derivative can do this, so a late write from an old attempt cannot
+ * overwrite a newer one.
+ */
+export const settleDerivativeIfOwned = async (
+  id: string,
+  generationJobId: string,
+  outcome:
+    | { status: typeof DERIVATIVE_STATUS_STALE }
+    | { status: typeof DERIVATIVE_STATUS_FAILED; error: string },
+  client?: DerivativeClient,
+): Promise<boolean> => {
+  const db = client ?? (getPrisma() as unknown as DerivativeClient);
+  const { count } = await db.mediaDerivative.updateMany({
+    where: {
+      id,
+      generationJobId,
+      status: { in: [DERIVATIVE_STATUS_QUEUED, DERIVATIVE_STATUS_PROCESSING] },
+    },
+    data:
+      outcome.status === DERIVATIVE_STATUS_STALE
+        ? { status: DERIVATIVE_STATUS_STALE, storageKey: null, sizeBytes: null }
+        : {
+            status: DERIVATIVE_STATUS_FAILED,
+            error: truncateDerivativeError(outcome.error),
+          },
+  });
+  return count > 0;
 };
 
 export const markDerivativeProcessing = async (

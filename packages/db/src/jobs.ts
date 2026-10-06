@@ -117,6 +117,9 @@ type BackgroundJobClient = {
     create(args: object): Promise<BackgroundJobEventRecord>;
     findMany(args: object): Promise<BackgroundJobEventRecord[]>;
   };
+  mediaDerivative: {
+    updateMany(args: object): Promise<{ count: number }>;
+  };
   workerInstance: {
     upsert(args: object): Promise<WorkerInstanceRecord>;
     update(args: object): Promise<WorkerInstanceRecord>;
@@ -677,6 +680,18 @@ export const cancelBackgroundJob = async ({
         errorCode: "cancelled",
       },
     });
+
+    if (job.kind === MEDIA_DERIVATIVE_GENERATE_JOB_KIND) {
+      // Same states as DERIVATIVE_STATUS_*; media-derivatives.ts imports this
+      // module, so the constants cannot be imported here.
+      await tx.mediaDerivative.updateMany({
+        where: {
+          generationJobId: jobId,
+          status: { in: ["queued", "processing"] },
+        },
+        data: { status: "stale", storageKey: null, sizeBytes: null },
+      });
+    }
 
     await tx.backgroundJobEvent.create({
       data: {

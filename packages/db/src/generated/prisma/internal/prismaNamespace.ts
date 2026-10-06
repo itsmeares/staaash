@@ -2630,6 +2630,7 @@ export const MediaDerivativeScalarFieldEnum = {
   lastViewedAt: 'lastViewedAt',
   lastSharedAt: 'lastSharedAt',
   generatedAt: 'generatedAt',
+  generationJobId: 'generationJobId',
   storageRevision: 'storageRevision',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'

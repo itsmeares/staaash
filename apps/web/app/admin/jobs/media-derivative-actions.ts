@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { getPrisma } from "@staaash/db/client";
+import { cancelBackgroundJob } from "@staaash/db/jobs";
 import {
   buildDerivativeDedupeKey,
   DERIVATIVE_KIND_PREVIEW,
@@ -73,11 +74,45 @@ export async function setPinDerivative(
   return { success: true };
 }
 
+const cancelDerivativeGeneration = async (
+  id: string,
+  fileId: string,
+  actorUserId: string,
+): Promise<string | null> => {
+  const db = getPrisma();
+  const job = await db.backgroundJob.findFirst({
+    where: {
+      dedupeKey: buildDerivativeDedupeKey(
+        fileId,
+        DERIVATIVE_KIND_PREVIEW,
+        DERIVATIVE_PROFILE_1080P,
+      ),
+      status: { in: ["queued", "running"] },
+    },
+    select: { id: true },
+  });
+  if (!job) {
+    await db.mediaDerivative.updateMany({
+      where: { id, status: { in: ["queued", "processing"] } },
+      data: { status: "stale", storageKey: null, sizeBytes: null },
+    });
+    return null;
+  }
+  try {
+    await cancelBackgroundJob({ jobId: job.id, actorUserId });
+    return null;
+  } catch (error) {
+    return error instanceof Error
+      ? error.message
+      : "Failed to cancel preview file.";
+  }
+};
+
 export async function cancelDerivative(
   _prevState: { error?: string; success?: boolean },
   formData: FormData,
 ): Promise<{ error?: string; success?: boolean }> {
-  await requireOwnerPageSession();
+  const session = await requireOwnerPageSession();
 
   const id = formData.get("id");
   if (typeof id !== "string") return { error: "Missing preview file ID." };
@@ -94,30 +129,13 @@ export async function cancelDerivative(
     };
   }
 
-  const dedupeKey = buildDerivativeDedupeKey(
+  const error = await cancelDerivativeGeneration(
+    id,
     derivative.fileId,
-    DERIVATIVE_KIND_PREVIEW,
-    DERIVATIVE_PROFILE_1080P,
+    session.user.id,
   );
+  if (error) return { error };
 
-  if (derivative.status === "queued") {
-    await db.backgroundJob.updateMany({
-      where: { dedupeKey, status: "queued" },
-      data: { status: "dead", lastError: "Cancelled by admin." },
-    });
-  } else {
-    await db.backgroundJob.updateMany({
-      where: { dedupeKey, status: "running" },
-      data: {
-        status: "dead",
-        lastError: "Cancelled by admin.",
-        lockedAt: null,
-        lockedBy: null,
-      },
-    });
-  }
-
-  await markDerivativeStale(id);
   revalidateDerivativeViews();
   return { success: true };
 }
