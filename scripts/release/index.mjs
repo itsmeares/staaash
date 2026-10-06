@@ -17,6 +17,7 @@ import {
   findReleaseImageIndexErrors,
   findResolvedReleaseImageErrors,
   hashReleaseContent,
+  isSha256Digest,
   parseReleaseProvenance,
   parseReleaseTag,
   planLatestPromotion,
@@ -702,10 +703,28 @@ const parseImageInspection = (
       `${reference} has invalid image index:\n${indexErrors.join("\n")}`,
     );
   }
+  const platformManifest = platform
+    ? manifest.manifests.find(
+        (descriptor) =>
+          `${descriptor.platform?.os}/${descriptor.platform?.architecture}` ===
+          platform,
+      )
+    : null;
+  if (platform && !isSha256Digest(platformManifest?.digest ?? "")) {
+    throw new Error(
+      `${reference} has no valid manifest digest for ${platform}.`,
+    );
+  }
+  // Pull each platform by its own digest; classic Docker stores cannot bind
+  // the same immutable index reference to two different platform images.
+  const runtimeReference = platformManifest
+    ? `${reference.split("@")[0].replace(/:[^/]+$/u, "")}@${platformManifest.digest}`
+    : reference;
   return {
     digest: manifest.digest,
     labels: config.Labels ?? {},
     environment: config.Env ?? [],
+    runtimeReference,
   };
 };
 
@@ -758,7 +777,7 @@ const readObservedImage = (reference, platform) => {
   ) {
     throw new Error(`${reference} defines APP_VERSION in image config.`);
   }
-  const runtime = inspectRuntimeVersions(reference, platform);
+  const runtime = inspectRuntimeVersions(inspected.runtimeReference, platform);
   if (runtime.workerVersion !== runtime.resolvedWorkerVersion) {
     throw new Error(
       `Worker package version ${runtime.workerVersion} resolves as ${runtime.resolvedWorkerVersion}.`,
