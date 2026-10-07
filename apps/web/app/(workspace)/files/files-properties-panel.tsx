@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   X,
   Folder,
@@ -27,6 +27,12 @@ import { Drawer, DrawerPopup, DrawerTitle } from "@/components/ui/drawer";
 import { useMediaQuery } from "@/app/(workspace)/use-media-query";
 import { SectionLabel } from "@/components/section-label";
 import { cn } from "@/lib/utils";
+import {
+  generateMediaPreview,
+  watchMediaPreviewStatus,
+  MEDIA_PREVIEW_LABELS,
+  type MediaPreviewState,
+} from "@/lib/media-preview-status";
 import type { FileSummary, FolderSummary } from "@/server/files/types";
 import type { ShareLinkSummary } from "@/server/sharing";
 
@@ -105,90 +111,81 @@ function formatBytes(bytes: number): string {
 // Media preview section
 // ---------------------------------------------------------------------------
 
-type DerivativeStatus =
-  "none" | "queued" | "processing" | "ready" | "failed" | "stale";
-
-type DerivativeState = {
-  status: DerivativeStatus;
-  generatedAt: string | null;
-};
+function previewStatusLabel(
+  state: MediaPreviewState | null,
+  error: string | null,
+) {
+  if (state) return MEDIA_PREVIEW_LABELS[state.status];
+  return error ? "Unavailable" : "Loading…";
+}
 
 function MediaPreviewSection({ fileId }: { fileId: string }) {
-  const [state, setState] = useState<DerivativeState | null>(null);
+  const [state, setState] = useState<MediaPreviewState | null>(null);
   const [queuing, setQueuing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const generateRequest = useRef<AbortController | null>(null);
+
+  useEffect(() => () => generateRequest.current?.abort(), []);
 
   useEffect(() => {
-    let cancelled = false;
-    void fetch(`/api/files/files/${fileId}/derivative`)
-      .then((r) => r.json())
-      .then((data: DerivativeState) => {
-        if (!cancelled) setState(data);
-      })
-      .catch(() => {
-        if (!cancelled) setState({ status: "none", generatedAt: null });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [fileId]);
+    if (queuing) return;
+    return watchMediaPreviewStatus(fileId, setState, setStatusError);
+  }, [fileId, queuing]);
 
   const handleGenerate = async () => {
+    if (generateRequest.current) return;
+    const controller = new AbortController();
+    generateRequest.current = controller;
     setQueuing(true);
     setError(null);
     try {
-      const res = await fetch(`/api/files/files/${fileId}/derivative`, {
-        method: "POST",
-      });
-      const data = (await res.json()) as { status?: string; error?: string };
-      if (!res.ok) {
-        setError(data.error ?? "Failed to queue preview.");
-      } else {
-        setState({ status: "queued", generatedAt: null });
+      const data = await generateMediaPreview(fileId, controller.signal);
+      controller.signal.throwIfAborted();
+      setState(data);
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        setError(
+          error instanceof Error ? error.message : "Failed to queue preview.",
+        );
       }
-    } catch {
-      setError("Failed to queue preview.");
     } finally {
-      setQueuing(false);
+      generateRequest.current = null;
+      if (!controller.signal.aborted) setQueuing(false);
     }
   };
 
-  const STATUS_LABEL: Record<DerivativeStatus, string> = {
-    none: "Not generated",
-    queued: "Queued…",
-    processing: "Generating…",
-    ready: "Ready",
-    failed: "Failed",
-    stale: "Stale",
-  };
-
-  const isActive = state?.status === "queued" || state?.status === "processing";
-  const buttonLabel =
-    state?.status === "ready" || state?.status === "stale"
-      ? "Regenerate"
-      : "Generate preview";
+  const status = state?.status ?? "none";
+  const buttonLabel = ["ready", "stale"].includes(status)
+    ? "Regenerate"
+    : "Generate preview";
+  const disabled = [
+    queuing,
+    ["queued", "processing"].includes(status),
+    state === null,
+    statusError !== null,
+  ].some(Boolean);
 
   return (
     <PropertiesSection title="Media preview">
-      {state ? (
-        <PropertiesRow label="Status">
-          {STATUS_LABEL[state.status]}
-        </PropertiesRow>
-      ) : (
-        <PropertiesRow label="Status" valueClassName="text-muted-foreground">
-          Loading…
-        </PropertiesRow>
-      )}
+      <PropertiesRow label="Status">
+        <span aria-live="polite">{previewStatusLabel(state, statusError)}</span>
+      </PropertiesRow>
       <Button
         size="sm"
         variant="outline"
-        disabled={queuing || isActive || state === null}
+        disabled={disabled}
         onClick={() => void handleGenerate()}
       >
         {queuing ? "Queuing…" : buttonLabel}
       </Button>
       {error && (
         <p className="mt-1 text-xs text-destructive-foreground">{error}</p>
+      )}
+      {statusError && (
+        <p className="mt-1 text-xs text-destructive-foreground" role="status">
+          {statusError}
+        </p>
       )}
     </PropertiesSection>
   );
@@ -341,7 +338,7 @@ function PropertiesBody({
     <div className="grid">
       <InfoSection item={item} />
       {item.kind === "file" && item.data.mimeType.startsWith("video/") && (
-        <MediaPreviewSection fileId={item.data.id} />
+        <MediaPreviewSection key={item.data.id} fileId={item.data.id} />
       )}
       {onShare && <SharingSection share={share} onShare={onShare} />}
       {item.kind === "folder" && (
