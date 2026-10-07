@@ -140,7 +140,43 @@ describe("release trust roots", () => {
       digest: `sha256:${"a".repeat(64)}`,
       labels: arm64Labels,
       environment: ["APP_VERSION=arm64"],
+      runtimeReference: `ghcr.io/itsmeares/staaash@sha256:${"c".repeat(64)}`,
     });
+  });
+
+  it("keeps index identity while using distinct immutable platform references", () => {
+    const reference = `ghcr.io/itsmeares/staaash:v1.2.0@sha256:${"a".repeat(64)}`;
+    const output = imageInspection({ amd64Labels: {}, arm64Labels: {} });
+    const amd64 = parseImageInspection(reference, output, {
+      platform: "linux/amd64",
+    });
+    const arm64 = parseImageInspection(reference, output, {
+      platform: "linux/arm64",
+    });
+
+    expect(amd64.digest).toBe(`sha256:${"a".repeat(64)}`);
+    expect(arm64.digest).toBe(amd64.digest);
+    expect(amd64.runtimeReference).toBe(
+      `ghcr.io/itsmeares/staaash@sha256:${"b".repeat(64)}`,
+    );
+    expect(arm64.runtimeReference).toBe(
+      `ghcr.io/itsmeares/staaash@sha256:${"c".repeat(64)}`,
+    );
+  });
+
+  it("rejects an invalid platform digest before runtime inspection", () => {
+    const inspected = JSON.parse(
+      imageInspection({ amd64Labels: {}, arm64Labels: {} }),
+    );
+    inspected.manifest.manifests[1].digest = "sha256:invalid";
+
+    expect(() =>
+      parseImageInspection(
+        "ghcr.io/itsmeares/staaash:v1.2.0",
+        JSON.stringify(inspected),
+        { platform: "linux/arm64" },
+      ),
+    ).toThrow("no valid manifest digest for linux/arm64");
   });
 
   it("updates every package version together", async () => {

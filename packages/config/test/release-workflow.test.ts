@@ -146,6 +146,16 @@ describe("release workflow topology", () => {
     );
   });
 
+  it("allows recovery publication after skipped preparation and successful preflight", async () => {
+    const workflow = await readWorkflow();
+    const publishJob = workflow.slice(workflow.indexOf("\n  publish:"));
+
+    expect(publishJob).toContain(
+      "if: ${{ !cancelled() && needs.preflight.result == 'success' }}",
+    );
+    expect(publishJob).toContain("needs: preflight");
+  });
+
   it("keeps normal releases in one workflow without a release PR", async () => {
     const workflow = await readWorkflow();
 

@@ -279,6 +279,7 @@ jobs:
         run: node tooling/scripts/release/index.mjs preflight
 
   publish:
+    if: ${{ !cancelled() && needs.preflight.result == 'success' }}
     needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 90
