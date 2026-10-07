@@ -1,6 +1,7 @@
 // Mutation routes intentionally share origin, auth, and response guards.
 // fallow-ignore-file code-duplication
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 import { enforceSameOrigin, requireOwnerApiSession } from "@/server/admin/http";
 import { jsonErrorResponse, readJsonBody } from "@/server/auth/http";
@@ -29,7 +30,15 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
       storageLimitBytes:
         body.storageLimitBytes === null || body.storageLimitBytes === undefined
           ? null
-          : BigInt(String(body.storageLimitBytes)),
+          : BigInt(
+              z
+                .string()
+                .regex(
+                  /^\d+$/,
+                  "Storage limit must be a non-negative integer string.",
+                )
+                .parse(body.storageLimitBytes),
+            ),
       isAdmin: Boolean(body.isAdmin),
     });
     const user = await authService.updateUser(
