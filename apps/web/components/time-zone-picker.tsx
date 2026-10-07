@@ -28,6 +28,8 @@ type TimeZonePickerProps = {
   defaultValue?: string;
   className?: string;
   onChange?: (value: string) => void;
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
   // Offer "Automatic", which follows the browser's zone.
   allowAuto?: boolean;
 };
@@ -128,6 +130,8 @@ export function TimeZonePicker({
   defaultValue = DEFAULT_TIME_ZONE,
   className,
   onChange,
+  "aria-invalid": invalid,
+  "aria-describedby": describedBy,
   allowAuto = false,
 }: TimeZonePickerProps) {
   const normalize = (zone: string) =>
@@ -238,6 +242,11 @@ export function TimeZonePicker({
   useEffect(() => {
     if (isControlled) return;
     setInternalValue(normalize(defaultValue));
+    return listenForFormReset(rootRef.current, () => {
+      setInternalValue(normalize(defaultValue));
+      setOpen(false);
+      setQuery("");
+    });
   }, [allowAuto, defaultValue, isControlled]);
 
   useEffect(() => {
@@ -435,6 +444,8 @@ export function TimeZonePicker({
     >
       {name ? <input type="hidden" name={name} value={selectedValue} /> : null}
       <button
+        aria-invalid={invalid}
+        aria-describedby={describedBy}
         aria-controls={listId}
         aria-expanded={open}
         aria-haspopup="listbox"
@@ -472,4 +483,13 @@ export function TimeZonePicker({
         : null}
     </div>
   );
+}
+
+function listenForFormReset(element: HTMLElement | null, onReset: () => void) {
+  const form = element?.closest("form");
+  const reset = (event: Event) => {
+    if (!event.defaultPrevented) onReset();
+  };
+  form?.addEventListener("reset", reset);
+  return () => form?.removeEventListener("reset", reset);
 }

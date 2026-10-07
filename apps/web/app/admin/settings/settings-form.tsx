@@ -3,6 +3,8 @@
 import {
   type ClipboardEvent,
   type InputHTMLAttributes,
+  type ChangeEvent,
+  type ComponentProps,
   type InputEvent as ReactInputEvent,
   useActionState,
   useEffect,
@@ -35,6 +37,11 @@ import { getUpdateStatusLabel } from "@/lib/update-status";
 import type { JsonAdminUpdateStatus } from "@/server/admin/types";
 
 import { updateSystemSettings } from "./actions";
+import {
+  toSettingsValues,
+  type SettingsField,
+  type SettingsActionState,
+} from "./settings-schema";
 import { UpdateCheckConsole } from "../update-check-console";
 
 type SettingsFormProps = {
@@ -44,13 +51,80 @@ type SettingsFormProps = {
 
 type SettingsNumberInputProps = Omit<
   InputHTMLAttributes<HTMLInputElement>,
-  "defaultValue" | "inputMode" | "pattern" | "type"
+  "value" | "inputMode" | "pattern" | "type"
 > & {
-  defaultValue: number | string | bigint;
+  value: string;
 };
 
 export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
-  const [state, action, pending] = useActionState(updateSystemSettings, {});
+  const [draft, setDraft] = useState(() => toSettingsValues(settings));
+  const [savedValues, setSavedValues] = useState(() =>
+    toSettingsValues(settings),
+  );
+  const [dismissed, setDismissed] = useState(false);
+  const [openPanels, setOpenPanels] = useState<Record<string, boolean>>({});
+  const formRef = useRef<HTMLFormElement>(null);
+  const [state, action, pending] = useActionState(
+    async (previous: SettingsActionState, data: FormData) => {
+      const result = await updateSystemSettings(previous, data);
+      if (result.success && result.values) {
+        setSavedValues(result.values);
+        setDraft(result.values);
+      }
+      return result;
+    },
+    {},
+  );
+  const feedback = settingsFeedback(state, pending, dismissed);
+  const { fieldErrors = {} } = feedback;
+
+  useEffect(() => {
+    setSavedValues(toSettingsValues(settings));
+  }, [settings]);
+
+  useEffect(
+    () =>
+      focusInvalidSetting(formRef.current, feedback.fieldErrors, (panelId) => {
+        setSearchQuery("");
+        setOpenPanels((previous) => ({ ...previous, [panelId]: true }));
+      }),
+    [state, pending, dismissed],
+  );
+
+  function setField(name: SettingsField, value: string) {
+    setDraft((previous) => ({ ...previous, [name]: value }));
+  }
+  function fieldProps(name: SettingsField) {
+    return {
+      id: `settings-${name}`,
+      "aria-invalid": Boolean(fieldErrors[name]),
+      "aria-describedby": fieldErrors[name]
+        ? `settings-${name}-error`
+        : undefined,
+    };
+  }
+  function inputProps(name: SettingsField) {
+    return {
+      ...fieldProps(name),
+      name,
+      value: draft[name],
+      onChange: (event: ChangeEvent<HTMLInputElement>) =>
+        setField(name, event.currentTarget.value),
+    };
+  }
+  function panelProps(name: string) {
+    const id = `settings-panel-${name}`;
+    return {
+      id,
+      open: Boolean(openPanels[id]),
+      onOpenChange: (open: boolean) =>
+        setOpenPanels((previous) => ({ ...previous, [id]: open })),
+    };
+  }
+  function resetDraft() {
+    setDraft(savedValues);
+    setDismissed(true);
+  }
   const { timeZone } = useTime();
   const [searchQuery, setSearchQuery] = useState("");
   const normalizedSearch = searchQuery.trim().toLowerCase();
@@ -103,7 +177,15 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
   const hasVisiblePanels = Object.values(visiblePanels).some(Boolean);
 
   return (
-    <form action={action} className="grid gap-4.5">
+    <form
+      action={action}
+      ref={formRef}
+      onSubmit={() => setDismissed(false)}
+      // A resolved validation result also triggers React's native reset. Drafts
+      // are controlled; only the explicit Reset buttons restore saved values.
+      onResetCapture={(event) => event.preventDefault()}
+      className="grid gap-4.5"
+    >
       <SettingsSearch
         aria-label="Search settings"
         value={searchQuery}
@@ -116,343 +198,473 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
         placeholder="Search settings"
       />
 
-      <SettingsAccordion>
-        <SettingsPanel
-          title="Uploads"
-          description="Upload limits, temporary upload cleanup, and file preview limits"
-          hidden={!visiblePanels.uploads}
-        >
-          <SettingsList>
-            <SettingsRow label="Max upload size (bytes)">
-              <SettingsNumberInput
+      <fieldset
+        disabled={pending}
+        className="m-0 grid min-w-0 gap-4.5 border-0 p-0"
+      >
+        <SettingsAccordion>
+          <SettingsPanel
+            title="Uploads"
+            description="Upload limits, temporary upload cleanup, and file preview limits"
+            hidden={!visiblePanels.uploads}
+            {...panelProps("uploads")}
+          >
+            <SettingsList>
+              <SettingsFieldRow
                 name="maxUploadBytes"
-                defaultValue={String(settings.maxUploadBytes)}
-                min={1}
-              />
-              <span className="basis-full text-right text-xs whitespace-nowrap text-muted-foreground">
-                {formatAdminBytes(Number(settings.maxUploadBytes))}
-              </span>
-            </SettingsRow>
-            <SettingsRow label="Upload timeout (minutes)">
-              <SettingsNumberInput
-                name="uploadTimeoutMinutes"
-                defaultValue={settings.uploadTimeoutMinutes}
-                min={1}
-              />
-            </SettingsRow>
-            <SettingsRow label="Keep temporary uploads for (hours)">
-              <SettingsNumberInput
-                name="uploadStagingRetentionHours"
-                defaultValue={settings.uploadStagingRetentionHours}
-                min={1}
-              />
-            </SettingsRow>
-            <SettingsRow
-              label="Active resumable uploads per user"
-              hint="Maximum concurrent resumable sessions owned by one user."
-            >
-              <SettingsNumberInput
-                name="resumableMaxActiveSessionsPerUser"
-                defaultValue={settings.resumableMaxActiveSessionsPerUser}
-                min={1}
-              />
-            </SettingsRow>
-            <SettingsRow
-              label="Active resumable uploads instance-wide"
-              hint="Maximum concurrent resumable sessions across all users."
-            >
-              <SettingsNumberInput
-                name="resumableMaxActiveSessionsInstance"
-                defaultValue={settings.resumableMaxActiveSessionsInstance}
-                min={1}
-              />
-            </SettingsRow>
-            <SettingsRow
-              label="Resumable staged bytes per user"
-              hint="Includes active reservations and terminal staging files awaiting deletion."
-            >
-              <SettingsNumberInput
-                name="resumableMaxReservedBytesPerUser"
-                defaultValue={String(settings.resumableMaxReservedBytesPerUser)}
-                min={1}
-              />
-              <span className="basis-full text-right text-xs whitespace-nowrap text-muted-foreground">
-                {formatAdminBytes(
-                  Number(settings.resumableMaxReservedBytesPerUser),
-                )}
-              </span>
-            </SettingsRow>
-            <SettingsRow
-              label="Resumable staged bytes instance-wide"
-              hint="Hard staging-liability ceiling across all users."
-            >
-              <SettingsNumberInput
-                name="resumableMaxReservedBytesInstance"
-                defaultValue={String(
-                  settings.resumableMaxReservedBytesInstance,
-                )}
-                min={1}
-              />
-              <span className="basis-full text-right text-xs whitespace-nowrap text-muted-foreground">
-                {formatAdminBytes(
-                  Number(settings.resumableMaxReservedBytesInstance),
-                )}
-              </span>
-            </SettingsRow>
-            <SettingsRow label="Preview source max (bytes)">
-              <SettingsNumberInput
-                name="previewMaxSourceBytes"
-                defaultValue={settings.previewMaxSourceBytes}
-                min={1}
-              />
-              <span className="basis-full text-right text-xs whitespace-nowrap text-muted-foreground">
-                {formatAdminBytes(settings.previewMaxSourceBytes)}
-              </span>
-            </SettingsRow>
-            <SettingsRow label="Preview text max (bytes)">
-              <SettingsNumberInput
-                name="previewTextMaxBytes"
-                defaultValue={settings.previewTextMaxBytes}
-                min={1}
-              />
-            </SettingsRow>
-          </SettingsList>
-          <SettingsPanelActions pending={pending} state={state} />
-        </SettingsPanel>
-
-        <SettingsPanel
-          title="Sessions"
-          description="Session and share expiry"
-          hidden={!visiblePanels.sessions}
-        >
-          <SettingsList>
-            <SettingsRow label="Session max age (days)">
-              <SettingsNumberInput
-                name="sessionMaxAgeDays"
-                defaultValue={settings.sessionMaxAgeDays}
-                min={1}
-              />
-            </SettingsRow>
-            <SettingsRow label="Share max age (days)">
-              <SettingsNumberInput
-                name="shareMaxAgeDays"
-                defaultValue={settings.shareMaxAgeDays}
-                min={1}
-              />
-            </SettingsRow>
-          </SettingsList>
-          <SettingsPanelActions pending={pending} state={state} />
-        </SettingsPanel>
-
-        <SettingsPanel
-          title="Update checks"
-          description="Repository source, cadence, and release status"
-          hidden={!visiblePanels.updates}
-        >
-          <SettingsList>
-            <SettingsRow label="Current version">
-              <span className="text-sm leading-snug text-foreground/82">
-                {updateStatus.currentVersion
-                  ? formatVersionLabel(updateStatus.currentVersion)
-                  : "n/a"}
-              </span>
-            </SettingsRow>
-            <SettingsRow label="Latest published">
-              <span className="text-sm leading-snug text-foreground/82">
-                {updateStatus.latestAvailableVersion
-                  ? formatVersionLabel(updateStatus.latestAvailableVersion)
-                  : "n/a"}
-              </span>
-            </SettingsRow>
-            <SettingsRow label="Check status">
-              <AdminStatusBadge
-                status={updateStatus.updateCheckStatus ?? "not checked"}
-                size="lg"
+                error={fieldErrors.maxUploadBytes}
+                label="Max upload size (bytes)"
               >
-                {getUpdateStatusLabel(updateStatus.updateCheckStatus)}
-              </AdminStatusBadge>
-            </SettingsRow>
-            <SettingsRow label="Last checked">
-              <span className="text-sm leading-snug text-foreground/82">
-                {formatAdminDateTime(updateStatus.lastUpdateCheckAt, timeZone)}
-              </span>
-            </SettingsRow>
-            <SettingsRow label="Last message">
-              <span className="text-sm leading-snug text-foreground/82">
-                {updateStatus.updateCheckMessage ??
-                  "No update check has run yet."}
-              </span>
-            </SettingsRow>
-            <SettingsRow label="Repository">
-              <Input
-                nativeInput
+                <SettingsNumberInput
+                  {...inputProps("maxUploadBytes")}
+                  min={1}
+                />
+                <span className="basis-full text-right text-xs whitespace-nowrap text-muted-foreground">
+                  {formatAdminBytes(Number(settings.maxUploadBytes))}
+                </span>
+              </SettingsFieldRow>
+              <SettingsFieldRow
+                name="uploadTimeoutMinutes"
+                error={fieldErrors.uploadTimeoutMinutes}
+                label="Upload timeout (minutes)"
+              >
+                <SettingsNumberInput
+                  {...inputProps("uploadTimeoutMinutes")}
+                  min={1}
+                />
+              </SettingsFieldRow>
+              <SettingsFieldRow
+                name="uploadStagingRetentionHours"
+                error={fieldErrors.uploadStagingRetentionHours}
+                label="Keep temporary uploads for (hours)"
+              >
+                <SettingsNumberInput
+                  {...inputProps("uploadStagingRetentionHours")}
+                  min={1}
+                />
+              </SettingsFieldRow>
+              <SettingsFieldRow
+                name="resumableMaxActiveSessionsPerUser"
+                error={fieldErrors.resumableMaxActiveSessionsPerUser}
+                label="Active resumable uploads per user"
+                hint="Maximum concurrent resumable sessions owned by one user."
+              >
+                <SettingsNumberInput
+                  {...inputProps("resumableMaxActiveSessionsPerUser")}
+                  min={1}
+                />
+              </SettingsFieldRow>
+              <SettingsFieldRow
+                name="resumableMaxActiveSessionsInstance"
+                error={fieldErrors.resumableMaxActiveSessionsInstance}
+                label="Active resumable uploads instance-wide"
+                hint="Maximum concurrent resumable sessions across all users."
+              >
+                <SettingsNumberInput
+                  {...inputProps("resumableMaxActiveSessionsInstance")}
+                  min={1}
+                />
+              </SettingsFieldRow>
+              <SettingsFieldRow
+                name="resumableMaxReservedBytesPerUser"
+                error={fieldErrors.resumableMaxReservedBytesPerUser}
+                label="Resumable staged bytes per user"
+                hint="Includes active reservations and terminal staging files awaiting deletion."
+              >
+                <SettingsNumberInput
+                  {...inputProps("resumableMaxReservedBytesPerUser")}
+                  min={1}
+                />
+                <span className="basis-full text-right text-xs whitespace-nowrap text-muted-foreground">
+                  {formatAdminBytes(
+                    Number(settings.resumableMaxReservedBytesPerUser),
+                  )}
+                </span>
+              </SettingsFieldRow>
+              <SettingsFieldRow
+                name="resumableMaxReservedBytesInstance"
+                error={fieldErrors.resumableMaxReservedBytesInstance}
+                label="Resumable staged bytes instance-wide"
+                hint="Hard staging-liability ceiling across all users."
+              >
+                <SettingsNumberInput
+                  {...inputProps("resumableMaxReservedBytesInstance")}
+                  min={1}
+                />
+                <span className="basis-full text-right text-xs whitespace-nowrap text-muted-foreground">
+                  {formatAdminBytes(
+                    Number(settings.resumableMaxReservedBytesInstance),
+                  )}
+                </span>
+              </SettingsFieldRow>
+              <SettingsFieldRow
+                name="previewMaxSourceBytes"
+                error={fieldErrors.previewMaxSourceBytes}
+                label="Preview source max (bytes)"
+              >
+                <SettingsNumberInput
+                  {...inputProps("previewMaxSourceBytes")}
+                  min={1}
+                />
+                <span className="basis-full text-right text-xs whitespace-nowrap text-muted-foreground">
+                  {formatAdminBytes(settings.previewMaxSourceBytes)}
+                </span>
+              </SettingsFieldRow>
+              <SettingsFieldRow
+                name="previewTextMaxBytes"
+                error={fieldErrors.previewTextMaxBytes}
+                label="Preview text max (bytes)"
+              >
+                <SettingsNumberInput
+                  {...inputProps("previewTextMaxBytes")}
+                  min={1}
+                />
+              </SettingsFieldRow>
+            </SettingsList>
+            <SettingsPanelActions
+              pending={pending}
+              state={feedback}
+              onReset={resetDraft}
+            />
+          </SettingsPanel>
+
+          <SettingsPanel
+            title="Sessions"
+            description="Session and share expiry"
+            hidden={!visiblePanels.sessions}
+            {...panelProps("sessions")}
+          >
+            <SettingsList>
+              <SettingsFieldRow
+                name="sessionMaxAgeDays"
+                error={fieldErrors.sessionMaxAgeDays}
+                label="Session max age (days)"
+              >
+                <SettingsNumberInput
+                  {...inputProps("sessionMaxAgeDays")}
+                  min={1}
+                />
+              </SettingsFieldRow>
+              <SettingsFieldRow
+                name="shareMaxAgeDays"
+                error={fieldErrors.shareMaxAgeDays}
+                label="Share max age (days)"
+              >
+                <SettingsNumberInput
+                  {...inputProps("shareMaxAgeDays")}
+                  min={1}
+                />
+              </SettingsFieldRow>
+            </SettingsList>
+            <SettingsPanelActions
+              pending={pending}
+              state={feedback}
+              onReset={resetDraft}
+            />
+          </SettingsPanel>
+
+          <SettingsPanel
+            title="Update checks"
+            description="Repository source, cadence, and release status"
+            hidden={!visiblePanels.updates}
+            {...panelProps("updates")}
+          >
+            <SettingsList>
+              <SettingsRow label="Current version">
+                <span className="text-sm leading-snug text-foreground/82">
+                  {updateStatus.currentVersion
+                    ? formatVersionLabel(updateStatus.currentVersion)
+                    : "n/a"}
+                </span>
+              </SettingsRow>
+              <SettingsRow label="Latest published">
+                <span className="text-sm leading-snug text-foreground/82">
+                  {updateStatus.latestAvailableVersion
+                    ? formatVersionLabel(updateStatus.latestAvailableVersion)
+                    : "n/a"}
+                </span>
+              </SettingsRow>
+              <SettingsRow label="Check status">
+                <AdminStatusBadge
+                  status={updateStatus.updateCheckStatus ?? "not checked"}
+                  size="lg"
+                >
+                  {getUpdateStatusLabel(updateStatus.updateCheckStatus)}
+                </AdminStatusBadge>
+              </SettingsRow>
+              <SettingsRow label="Last checked">
+                <span className="text-sm leading-snug text-foreground/82">
+                  {formatAdminDateTime(
+                    updateStatus.lastUpdateCheckAt,
+                    timeZone,
+                  )}
+                </span>
+              </SettingsRow>
+              <SettingsRow label="Last message">
+                <span className="text-sm leading-snug text-foreground/82">
+                  {updateStatus.updateCheckMessage ??
+                    "No update check has run yet."}
+                </span>
+              </SettingsRow>
+              <SettingsFieldRow
                 name="updateCheckRepository"
-                type="text"
-                defaultValue={settings.updateCheckRepository}
-                placeholder="owner/repo"
-              />
-            </SettingsRow>
-            <SettingsRow label="Check interval (hours)">
-              <SettingsNumberInput
+                error={fieldErrors.updateCheckRepository}
+                label="Repository"
+              >
+                <Input
+                  nativeInput
+                  {...inputProps("updateCheckRepository")}
+                  type="text"
+                  placeholder="owner/repo"
+                />
+              </SettingsFieldRow>
+              <SettingsFieldRow
                 name="updateCheckIntervalHours"
-                defaultValue={settings.updateCheckIntervalHours}
-                min={1}
-              />
-            </SettingsRow>
-          </SettingsList>
-          <div className="flex justify-end max-sm:justify-stretch">
-            <UpdateCheckConsole />
-          </div>
-          <SettingsPanelActions pending={pending} state={state} />
-        </SettingsPanel>
+                error={fieldErrors.updateCheckIntervalHours}
+                label="Check interval (hours)"
+              >
+                <SettingsNumberInput
+                  {...inputProps("updateCheckIntervalHours")}
+                  min={1}
+                />
+              </SettingsFieldRow>
+            </SettingsList>
+            <div className="flex justify-end max-sm:justify-stretch">
+              <UpdateCheckConsole />
+            </div>
+            <SettingsPanelActions
+              pending={pending}
+              state={feedback}
+              onReset={resetDraft}
+            />
+          </SettingsPanel>
 
-        <SettingsPanel
-          title="Worker"
-          description="Background worker heartbeat tolerance"
-          hidden={!visiblePanels.worker}
-        >
-          <SettingsList>
-            <SettingsRow label="Heartbeat max age (seconds)">
-              <SettingsNumberInput
+          <SettingsPanel
+            title="Worker"
+            description="Background worker heartbeat tolerance"
+            hidden={!visiblePanels.worker}
+            {...panelProps("worker")}
+          >
+            <SettingsList>
+              <SettingsFieldRow
                 name="workerHeartbeatMaxAgeSeconds"
-                defaultValue={settings.workerHeartbeatMaxAgeSeconds}
-                min={1}
-              />
-            </SettingsRow>
-          </SettingsList>
-          <SettingsPanelActions pending={pending} state={state} />
-        </SettingsPanel>
+                error={fieldErrors.workerHeartbeatMaxAgeSeconds}
+                label="Heartbeat max age (seconds)"
+              >
+                <SettingsNumberInput
+                  {...inputProps("workerHeartbeatMaxAgeSeconds")}
+                  min={1}
+                />
+              </SettingsFieldRow>
+            </SettingsList>
+            <SettingsPanelActions
+              pending={pending}
+              state={feedback}
+              onReset={resetDraft}
+            />
+          </SettingsPanel>
 
-        <SettingsPanel
-          title="Scheduling"
-          description="Instance time zone and maintenance window"
-          hidden={!visiblePanels.scheduling}
-        >
-          <SettingsList>
-            <SettingsRow
-              label="Instance time zone"
-              hint="Runs the maintenance schedule. Dates are shown in each user's own time zone."
-            >
-              <TimeZonePicker
+          <SettingsPanel
+            title="Scheduling"
+            description="Instance time zone and maintenance window"
+            hidden={!visiblePanels.scheduling}
+            {...panelProps("scheduling")}
+          >
+            <SettingsList>
+              <SettingsFieldRow
                 name="timeZone"
-                defaultValue={settings.timeZone}
-              />
-            </SettingsRow>
-            <SettingsRow label="Daily maintenance time">
-              <Input
-                nativeInput
+                error={fieldErrors.timeZone}
+                label="Instance time zone"
+                hint="Runs the maintenance schedule. Dates are shown in each user's own time zone."
+              >
+                <TimeZonePicker
+                  name="timeZone"
+                  {...fieldProps("timeZone")}
+                  value={draft.timeZone}
+                  onChange={(value) => setField("timeZone", value)}
+                />
+              </SettingsFieldRow>
+              <SettingsFieldRow
                 name="maintenanceRunTime"
-                type="time"
-                defaultValue={settings.maintenanceRunTime}
-              />
-            </SettingsRow>
-          </SettingsList>
-          <SettingsPanelActions pending={pending} state={state} />
-        </SettingsPanel>
+                error={fieldErrors.maintenanceRunTime}
+                label="Daily maintenance time"
+              >
+                <Input
+                  nativeInput
+                  {...inputProps("maintenanceRunTime")}
+                  type="time"
+                />
+              </SettingsFieldRow>
+            </SettingsList>
+            <SettingsPanelActions
+              pending={pending}
+              state={feedback}
+              onReset={resetDraft}
+            />
+          </SettingsPanel>
 
-        <SettingsPanel
-          title="Media previews"
-          description="Video preview generation, cleanup, and quality"
-          hidden={!visiblePanels.media}
-        >
-          <SettingsList>
-            <SettingsRow label="Enable media previews">
-              <SettingsToggle
+          <SettingsPanel
+            title="Media previews"
+            description="Video preview generation, cleanup, and quality"
+            hidden={!visiblePanels.media}
+            {...panelProps("media")}
+          >
+            <SettingsList>
+              <SettingsFieldRow
                 name="mediaPreviewEnabled"
-                defaultChecked={settings.mediaPreviewEnabled}
+                error={fieldErrors.mediaPreviewEnabled}
                 label="Enable media previews"
-              />
-            </SettingsRow>
-            <SettingsRow
-              label="Generate on upload"
-              hint="Create a preview when a qualifying video upload finishes."
-            >
-              <SettingsToggle
+              >
+                <SettingsToggle
+                  name="mediaPreviewEnabled"
+                  checked={draft.mediaPreviewEnabled === "on"}
+                  onCheckedChange={(checked) =>
+                    setField("mediaPreviewEnabled", checked ? "on" : "")
+                  }
+                  label="Enable media previews"
+                />
+              </SettingsFieldRow>
+              <SettingsFieldRow
                 name="mediaPreviewGenerateOnUpload"
-                defaultChecked={settings.mediaPreviewGenerateOnUpload}
+                error={fieldErrors.mediaPreviewGenerateOnUpload}
                 label="Generate on upload"
-              />
-            </SettingsRow>
-            <SettingsRow
-              label="Generate on first view"
-              hint="Create a preview after the first qualifying video view."
-            >
-              <SettingsToggle
+                hint="Create a preview when a qualifying video upload finishes."
+              >
+                <SettingsToggle
+                  name="mediaPreviewGenerateOnUpload"
+                  checked={draft.mediaPreviewGenerateOnUpload === "on"}
+                  onCheckedChange={(checked) =>
+                    setField(
+                      "mediaPreviewGenerateOnUpload",
+                      checked ? "on" : "",
+                    )
+                  }
+                  label="Generate on upload"
+                />
+              </SettingsFieldRow>
+              <SettingsFieldRow
                 name="mediaPreviewGenerateOnFirstView"
-                defaultChecked={settings.mediaPreviewGenerateOnFirstView}
+                error={fieldErrors.mediaPreviewGenerateOnFirstView}
                 label="Generate on first view"
-              />
-            </SettingsRow>
-            <SettingsRow
-              label="Generate when shared"
-              hint="Create a preview and poster when a video is shared."
-            >
-              <SettingsToggle
+                hint="Create a preview after the first qualifying video view."
+              >
+                <SettingsToggle
+                  name="mediaPreviewGenerateOnFirstView"
+                  checked={draft.mediaPreviewGenerateOnFirstView === "on"}
+                  onCheckedChange={(checked) =>
+                    setField(
+                      "mediaPreviewGenerateOnFirstView",
+                      checked ? "on" : "",
+                    )
+                  }
+                  label="Generate on first view"
+                />
+              </SettingsFieldRow>
+              <SettingsFieldRow
                 name="mediaPreviewGenerateOnShare"
-                defaultChecked={settings.mediaPreviewGenerateOnShare}
+                error={fieldErrors.mediaPreviewGenerateOnShare}
                 label="Generate when shared"
-              />
-            </SettingsRow>
-            <SettingsRow label="Threshold (bytes)">
-              <SettingsNumberInput
+                hint="Create a preview and poster when a video is shared."
+              >
+                <SettingsToggle
+                  name="mediaPreviewGenerateOnShare"
+                  checked={draft.mediaPreviewGenerateOnShare === "on"}
+                  onCheckedChange={(checked) =>
+                    setField("mediaPreviewGenerateOnShare", checked ? "on" : "")
+                  }
+                  label="Generate when shared"
+                />
+              </SettingsFieldRow>
+              <SettingsFieldRow
                 name="mediaPreviewThresholdBytes"
-                defaultValue={String(settings.mediaPreviewThresholdBytes)}
-                min={1}
-              />
-              <span className="basis-full text-right text-xs whitespace-nowrap text-muted-foreground">
-                {formatAdminBytes(Number(settings.mediaPreviewThresholdBytes))}
-              </span>
-            </SettingsRow>
-            <SettingsRow label="Keep previews for (days, 0 = never)">
-              <SettingsNumberInput
+                error={fieldErrors.mediaPreviewThresholdBytes}
+                label="Threshold (bytes)"
+              >
+                <SettingsNumberInput
+                  {...inputProps("mediaPreviewThresholdBytes")}
+                  min={1}
+                />
+                <span className="basis-full text-right text-xs whitespace-nowrap text-muted-foreground">
+                  {formatAdminBytes(
+                    Number(settings.mediaPreviewThresholdBytes),
+                  )}
+                </span>
+              </SettingsFieldRow>
+              <SettingsFieldRow
                 name="mediaPreviewRetentionDays"
-                defaultValue={settings.mediaPreviewRetentionDays}
-                min={0}
-              />
-            </SettingsRow>
-            <SettingsRow label="Max height (px)">
-              <SettingsNumberInput
+                error={fieldErrors.mediaPreviewRetentionDays}
+                label="Keep previews for (days, 0 = never)"
+              >
+                <SettingsNumberInput
+                  {...inputProps("mediaPreviewRetentionDays")}
+                  min={0}
+                />
+              </SettingsFieldRow>
+              <SettingsFieldRow
                 name="mediaPreviewMaxHeight"
-                defaultValue={settings.mediaPreviewMaxHeight}
-                min={1}
-              />
-            </SettingsRow>
-            <SettingsRow label="CRF quality (0-51, lower = better)">
-              <SettingsNumberInput
+                error={fieldErrors.mediaPreviewMaxHeight}
+                label="Max height (px)"
+              >
+                <SettingsNumberInput
+                  {...inputProps("mediaPreviewMaxHeight")}
+                  min={1}
+                />
+              </SettingsFieldRow>
+              <SettingsFieldRow
                 name="mediaPreviewCrf"
-                defaultValue={settings.mediaPreviewCrf}
-                min={0}
-                max={51}
-              />
-            </SettingsRow>
-            <SettingsRow label="Max preview tasks at once">
-              <SettingsNumberInput
+                error={fieldErrors.mediaPreviewCrf}
+                label="CRF quality (0-51, lower = better)"
+              >
+                <SettingsNumberInput
+                  {...inputProps("mediaPreviewCrf")}
+                  min={0}
+                  max={51}
+                />
+              </SettingsFieldRow>
+              <SettingsFieldRow
                 name="mediaPreviewMaxConcurrentJobs"
-                defaultValue={settings.mediaPreviewMaxConcurrentJobs}
-                min={1}
-              />
-            </SettingsRow>
-          </SettingsList>
-          <SettingsPanelActions pending={pending} state={state} />
-        </SettingsPanel>
+                error={fieldErrors.mediaPreviewMaxConcurrentJobs}
+                label="Max preview tasks at once"
+              >
+                <SettingsNumberInput
+                  {...inputProps("mediaPreviewMaxConcurrentJobs")}
+                  min={1}
+                />
+              </SettingsFieldRow>
+            </SettingsList>
+            <SettingsPanelActions
+              pending={pending}
+              state={feedback}
+              onReset={resetDraft}
+            />
+          </SettingsPanel>
 
-        <SettingsPanel
-          title="Downloads"
-          description="Generated archive cleanup window"
-          hidden={!visiblePanels.downloads}
-        >
-          <SettingsList>
-            <SettingsRow label="Keep zip archives for (days, 0 = never)">
-              <SettingsNumberInput
+          <SettingsPanel
+            title="Downloads"
+            description="Generated archive cleanup window"
+            hidden={!visiblePanels.downloads}
+            {...panelProps("downloads")}
+          >
+            <SettingsList>
+              <SettingsFieldRow
                 name="zipArchiveRetentionDays"
-                defaultValue={settings.zipArchiveRetentionDays}
-                min={0}
-              />
-            </SettingsRow>
-          </SettingsList>
-          <SettingsPanelActions pending={pending} state={state} />
-        </SettingsPanel>
-      </SettingsAccordion>
+                error={fieldErrors.zipArchiveRetentionDays}
+                label="Keep zip archives for (days, 0 = never)"
+              >
+                <SettingsNumberInput
+                  {...inputProps("zipArchiveRetentionDays")}
+                  min={0}
+                />
+              </SettingsFieldRow>
+            </SettingsList>
+            <SettingsPanelActions
+              pending={pending}
+              state={feedback}
+              onReset={resetDraft}
+            />
+          </SettingsPanel>
+        </SettingsAccordion>
+      </fieldset>
 
       {!hasVisiblePanels ? (
         <p className="m-0 text-sm text-muted-foreground">No settings found.</p>
@@ -466,7 +678,8 @@ function sanitizeWholeNumber(value: string) {
 }
 
 function SettingsNumberInput({
-  defaultValue,
+  value,
+  onChange,
   onBeforeInput,
   onInput,
   onPaste,
@@ -514,7 +727,13 @@ function SettingsNumberInput({
     <Input
       {...props}
       nativeInput
-      defaultValue={String(defaultValue)}
+      value={value}
+      onChange={(event) => {
+        event.currentTarget.value = sanitizeWholeNumber(
+          event.currentTarget.value,
+        );
+        onChange?.(event);
+      }}
       inputMode="numeric"
       onBeforeInput={handleBeforeInput}
       onInput={handleInput}
@@ -528,9 +747,11 @@ function SettingsNumberInput({
 function SettingsPanelActions({
   pending,
   state,
+  onReset,
 }: {
   pending: boolean;
   state: { error?: string; success?: boolean };
+  onReset: () => void;
 }) {
   return (
     <div className="flex flex-wrap items-center justify-end gap-2.5 pt-0.5 max-md:flex-col max-md:items-stretch [&>p]:mr-auto max-md:[&>p]:mr-0">
@@ -540,7 +761,12 @@ function SettingsPanelActions({
       {state.error ? (
         <SettingsFormStatus tone="error">{state.error}</SettingsFormStatus>
       ) : null}
-      <Button type="reset" variant="secondary">
+      <Button
+        type="button"
+        variant="secondary"
+        disabled={pending}
+        onClick={onReset}
+      >
         Reset
       </Button>
       <Button type="submit" disabled={pending}>
@@ -552,32 +778,95 @@ function SettingsPanelActions({
 
 function SettingsToggle({
   name,
-  defaultChecked,
+  checked,
+  onCheckedChange,
   label,
 }: {
   name: string;
-  defaultChecked: boolean;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
   label: string;
 }) {
-  const [checked, setChecked] = useState(defaultChecked);
-  const anchor = useRef<HTMLSpanElement>(null);
-
-  // The switch is controlled, so mirror the native form reset by hand.
-  useEffect(() => {
-    const form = anchor.current?.closest("form");
-    const reset = () => setChecked(defaultChecked);
-    form?.addEventListener("reset", reset);
-    return () => form?.removeEventListener("reset", reset);
-  }, [defaultChecked]);
-
   return (
-    <span ref={anchor} className="inline-flex">
-      <Switch
-        aria-label={label}
-        checked={checked}
-        name={name}
-        onCheckedChange={setChecked}
-      />
-    </span>
+    <Switch
+      id={`settings-${name}`}
+      aria-label={label}
+      checked={checked}
+      name={name}
+      onCheckedChange={onCheckedChange}
+    />
   );
+}
+
+function SettingsFieldRow({
+  name,
+  error,
+  label,
+  children,
+  ...props
+}: ComponentProps<typeof SettingsRow> & {
+  name: SettingsField;
+  error?: string;
+}) {
+  return (
+    <SettingsRow
+      {...props}
+      label={<label htmlFor={`settings-${name}`}>{label}</label>}
+    >
+      {children}
+      {error ? (
+        <p
+          id={`settings-${name}-error`}
+          className="basis-full text-label text-destructive-foreground"
+          role="alert"
+        >
+          {error}
+        </p>
+      ) : null}
+    </SettingsRow>
+  );
+}
+
+function focusInvalidSetting(
+  form: HTMLFormElement | null,
+  errors: SettingsActionState["fieldErrors"],
+  revealPanel: (id: string) => void,
+) {
+  if (!form || !errors) return;
+  const input = form.querySelector<HTMLElement>('[aria-invalid="true"]');
+  const panel = input?.closest<HTMLElement>('[data-slot="collapsible"]');
+  if (!input || !panel) return;
+
+  const content =
+    input.closest<HTMLElement>('[data-slot="collapsible-panel"]') ?? panel;
+  let cancelled = false;
+  // Wait for the panel to open before focusing so its clipped contents do not
+  // acquire an internal scroll offset while the height animation is running.
+  const focus = async () => {
+    if (input.closest("[hidden], [data-starting-style]")) return;
+    observer.disconnect();
+    await Promise.allSettled(
+      content.getAnimations().map((animation) => animation.finished),
+    );
+    if (cancelled) return;
+    input.focus({ preventScroll: true });
+    input.scrollIntoView({ block: "center" });
+  };
+  const observer = new MutationObserver(focus);
+  observer.observe(panel, { attributes: true, subtree: true });
+  revealPanel(panel.id);
+  const frame = requestAnimationFrame(focus);
+  return () => {
+    cancelled = true;
+    observer.disconnect();
+    cancelAnimationFrame(frame);
+  };
+}
+
+function settingsFeedback(
+  state: SettingsActionState,
+  pending: boolean,
+  dismissed: boolean,
+): SettingsActionState {
+  return pending || dismissed ? {} : state;
 }

@@ -16,97 +16,32 @@ import {
   requireOwnerPageSession,
 } from "@/server/auth/guards";
 
-const updateSettingsSchema = z
-  .object({
-    sessionMaxAgeDays: z.coerce.number().int().positive(),
-    shareMaxAgeDays: z.coerce.number().int().positive(),
-    maxUploadBytes: z.coerce.bigint().positive(),
-    uploadTimeoutMinutes: z.coerce.number().int().positive(),
-    uploadStagingRetentionHours: z.coerce.number().int().positive(),
-    resumableMaxActiveSessionsPerUser: z.coerce.number().int().positive(),
-    resumableMaxActiveSessionsInstance: z.coerce.number().int().positive(),
-    resumableMaxReservedBytesPerUser: z.coerce.bigint().positive(),
-    resumableMaxReservedBytesInstance: z.coerce.bigint().positive(),
-    previewMaxSourceBytes: z.coerce.number().int().positive(),
-    previewTextMaxBytes: z.coerce.number().int().positive(),
-    workerHeartbeatMaxAgeSeconds: z.coerce.number().int().positive(),
-    updateCheckIntervalHours: z.coerce.number().int().positive(),
-    updateCheckRepository: z.string().trim(),
-    timeZone: z
-      .string()
-      .trim()
-      .default(DEFAULT_TIME_ZONE)
-      .refine(isValidTimeZone, "Invalid time zone."),
-    maintenanceRunTime: z
-      .string()
-      .trim()
-      .default(DEFAULT_MAINTENANCE_RUN_TIME)
-      .refine(isValidMaintenanceRunTime, "Invalid maintenance run time."),
-    mediaPreviewEnabled: z
-      .string()
-      .optional()
-      .transform((v) => v === "on"),
-    mediaPreviewGenerateOnUpload: z
-      .string()
-      .optional()
-      .transform((v) => v === "on"),
-    mediaPreviewGenerateOnFirstView: z
-      .string()
-      .optional()
-      .transform((v) => v === "on"),
-    mediaPreviewGenerateOnShare: z
-      .string()
-      .optional()
-      .transform((v) => v === "on"),
-    mediaPreviewThresholdBytes: z.coerce.bigint().positive(),
-    mediaPreviewRetentionDays: z.coerce.number().int().min(0),
-    mediaPreviewMaxHeight: z.coerce.number().int().positive(),
-    zipArchiveRetentionDays: z.coerce.number().int().min(0),
-    mediaPreviewCrf: z.coerce.number().int().min(0).max(51),
-    mediaPreviewMaxConcurrentJobs: z.coerce.number().int().positive(),
-  })
-  .superRefine((value, context) => {
-    if (
-      value.resumableMaxActiveSessionsInstance <
-      value.resumableMaxActiveSessionsPerUser
-    ) {
-      context.addIssue({
-        code: "custom",
-        message:
-          "Instance active sessions must be at least the per-user limit.",
-        path: ["resumableMaxActiveSessionsInstance"],
-      });
-    }
-    if (value.resumableMaxReservedBytesPerUser < value.maxUploadBytes) {
-      context.addIssue({
-        code: "custom",
-        message: "Per-user staged bytes must allow one maximum-size upload.",
-        path: ["resumableMaxReservedBytesPerUser"],
-      });
-    }
-    if (
-      value.resumableMaxReservedBytesInstance <
-      value.resumableMaxReservedBytesPerUser
-    ) {
-      context.addIssue({
-        code: "custom",
-        message: "Instance staged bytes must be at least the per-user limit.",
-        path: ["resumableMaxReservedBytesInstance"],
-      });
-    }
-  });
+import {
+  settingsSchema,
+  toSettingsValues,
+  type SettingsActionState,
+  type SettingsField,
+} from "./settings-schema";
 
 export async function updateSystemSettings(
-  _prevState: { error?: string; success?: boolean },
+  _prevState: SettingsActionState,
   formData: FormData,
-): Promise<{ error?: string; success?: boolean }> {
+): Promise<SettingsActionState> {
   await requireOwnerPageSession();
 
   const raw = Object.fromEntries(formData.entries());
-  const parsed = updateSettingsSchema.safeParse(raw);
+  const parsed = settingsSchema.safeParse(raw);
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+    const fieldErrors: SettingsActionState["fieldErrors"] = {};
+    for (const issue of parsed.error.issues) {
+      const field = issue.path[0] as SettingsField;
+      fieldErrors[field] ??= issue.message;
+    }
+    return {
+      error: "Check the highlighted settings. Nothing was saved.",
+      fieldErrors,
+    };
   }
 
   const db = getPrisma();
@@ -117,7 +52,7 @@ export async function updateSystemSettings(
   });
 
   revalidatePath("/admin/settings");
-  return { success: true };
+  return { success: true, values: toSettingsValues(parsed.data) };
 }
 
 const ownerOnboardingSettingsSchema = z.object({

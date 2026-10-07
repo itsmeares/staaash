@@ -19,6 +19,9 @@ type SettingsPanelProps = {
   title: string;
   description: string;
   hidden?: boolean;
+  id?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   children: ReactNode;
 };
 
@@ -28,11 +31,17 @@ export function SettingsPanel({
   title,
   description,
   hidden = false,
+  id,
+  open,
+  onOpenChange,
   children,
 }: SettingsPanelProps) {
   return (
     <Collapsible
       hidden={hidden}
+      id={id}
+      open={open}
+      onOpenChange={onOpenChange}
       className="overflow-hidden rounded-lg border border-line-strong bg-card/80 has-data-panel-open:border-foreground/20"
     >
       <CollapsibleTrigger className="group grid min-h-14.5 w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-0 bg-transparent px-3.5 py-3 text-left text-inherit transition-colors select-none hover:bg-hover motion-reduce:transition-none md:min-h-19 md:px-5 md:py-4.5">
