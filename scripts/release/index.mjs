@@ -687,6 +687,22 @@ const getInspectionConfig = (inspected, platform) => {
   return image?.config ?? { Labels: {}, Env: [] };
 };
 
+const getRuntimeImageReference = (reference, manifest, platform) => {
+  if (!platform) return reference;
+  const platformManifest = manifest.manifests.find(
+    (descriptor) =>
+      `${descriptor.platform?.os}/${descriptor.platform?.architecture}` ===
+      platform,
+  );
+  if (!isSha256Digest(platformManifest?.digest ?? "")) {
+    throw new Error(
+      `${reference} has no valid manifest digest for ${platform}.`,
+    );
+  }
+  // Classic Docker stores cannot bind one index reference to two platform images.
+  return `${reference.split("@")[0].replace(/:[^/]+$/u, "")}@${platformManifest.digest}`;
+};
+
 const parseImageInspection = (
   reference,
   output,
@@ -703,28 +719,11 @@ const parseImageInspection = (
       `${reference} has invalid image index:\n${indexErrors.join("\n")}`,
     );
   }
-  const platformManifest = platform
-    ? manifest.manifests.find(
-        (descriptor) =>
-          `${descriptor.platform?.os}/${descriptor.platform?.architecture}` ===
-          platform,
-      )
-    : null;
-  if (platform && !isSha256Digest(platformManifest?.digest ?? "")) {
-    throw new Error(
-      `${reference} has no valid manifest digest for ${platform}.`,
-    );
-  }
-  // Pull each platform by its own digest; classic Docker stores cannot bind
-  // the same immutable index reference to two different platform images.
-  const runtimeReference = platformManifest
-    ? `${reference.split("@")[0].replace(/:[^/]+$/u, "")}@${platformManifest.digest}`
-    : reference;
   return {
     digest: manifest.digest,
     labels: config.Labels ?? {},
     environment: config.Env ?? [],
-    runtimeReference,
+    runtimeReference: getRuntimeImageReference(reference, manifest, platform),
   };
 };
 
