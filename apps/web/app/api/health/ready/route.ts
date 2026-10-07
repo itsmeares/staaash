@@ -14,7 +14,11 @@ export async function GET() {
         storage: summary.checks.storage.status,
         worker: summary.worker.status,
         queue: summary.queue.status,
+        settings: summary.checks.settings.status,
+        reconciliation: summary.reconciliation.status,
+        storageMutations: summary.checks.storageMutations.status,
       },
+      failures: summary.failures,
     },
     {
       status: summary.ok ? 200 : 503,

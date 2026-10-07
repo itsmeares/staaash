@@ -229,16 +229,18 @@ export async function POST(request: NextRequest) {
     return crossOriginResponse(request);
   }
 
-  const body = await readRequestBody(request);
-  const redirectTo = getSafeRedirectTarget(body.redirectTo, "/trash");
-  const session = await getRequestSession(request);
-
-  if (!session) {
-    return notSignedInResponse(request, redirectTo);
-  }
-
+  let redirectTo = "/trash";
+  let session: Awaited<ReturnType<typeof getRequestSession>> = null;
   let idempotencyKey: string | null = null;
   try {
+    const body = await readRequestBody(request);
+    redirectTo = getSafeRedirectTarget(body.redirectTo, "/trash");
+    session = await getRequestSession(request);
+
+    if (!session) {
+      return notSignedInResponse(request, redirectTo);
+    }
+
     idempotencyKey = readStorageIdempotencyKey(request);
     const actor = {
       actorUserId: session.user.id,
@@ -276,11 +278,14 @@ export async function POST(request: NextRequest) {
       orderedItems,
     });
   } catch (error) {
-    return attachStorageMutationHeader(
-      clearTrashErrorResponse({ request, redirectTo, error }),
-      idempotencyKey ?? request.headers.get("Idempotency-Key"),
-      session.user.id,
-      error,
-    );
+    const response = clearTrashErrorResponse({ request, redirectTo, error });
+    return session
+      ? attachStorageMutationHeader(
+          response,
+          idempotencyKey ?? request.headers.get("Idempotency-Key"),
+          session.user.id,
+          error,
+        )
+      : response;
   }
 }

@@ -9,13 +9,44 @@ type ParsedRequestBody = Record<string, string>;
 const getSingleValue = (value: FormDataEntryValue) =>
   typeof value === "string" ? value : value.name;
 
+class RequestBodyError extends Error {
+  readonly status = 400;
+
+  constructor(
+    readonly code: "INVALID_JSON" | "INVALID_REQUEST",
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+export const readJsonBody = async (
+  request: Request,
+): Promise<Record<string, unknown>> => {
+  let payload: unknown;
+  try {
+    payload = await request.json();
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
+    throw new RequestBodyError("INVALID_JSON", "Invalid JSON body.");
+  }
+
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new RequestBodyError(
+      "INVALID_REQUEST",
+      "Request body must be an object.",
+    );
+  }
+  return payload as Record<string, unknown>;
+};
+
 export const readRequestBody = async (
   request: Request,
 ): Promise<ParsedRequestBody> => {
   const contentType = request.headers.get("content-type") ?? "";
 
   if (contentType.includes("application/json")) {
-    const payload = (await request.json()) as Record<string, unknown>;
+    const payload = await readJsonBody(request);
 
     return Object.fromEntries(
       Object.entries(payload).map(([key, value]) => [
@@ -25,7 +56,13 @@ export const readRequestBody = async (
     );
   }
 
-  const formData = await request.formData();
+  let formData: FormData;
+  try {
+    formData = await request.formData();
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error;
+    throw new RequestBodyError("INVALID_REQUEST", "Invalid form body.");
+  }
 
   return Object.fromEntries(
     Array.from(formData.entries()).map(([key, value]) => [

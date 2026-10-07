@@ -36,7 +36,7 @@ const filesErrorMessages: Record<FilesErrorCode, string> = {
     "An active file or folder already uses that name in this location.",
   FILE_NAME_INVALID: "File names cannot contain forward or back slashes.",
   FILE_NAME_INVALID_CHARACTER:
-    "File names cannot contain Windows-reserved path characters.",
+    "File names cannot contain Windows-reserved path characters or NUL.",
   FILE_NAME_REQUIRED: "File name is required.",
   FILE_NAME_RESERVED:
     "That file name is reserved by Windows and cannot be used.",
@@ -52,7 +52,7 @@ const filesErrorMessages: Record<FilesErrorCode, string> = {
     "An active file or folder already uses that name in this location.",
   FOLDER_NAME_INVALID: "Folder names cannot contain forward or back slashes.",
   FOLDER_NAME_INVALID_CHARACTER:
-    "Folder names cannot contain Windows-reserved path characters.",
+    "Folder names cannot contain Windows-reserved path characters or NUL.",
   FOLDER_NAME_REQUIRED: "Folder name is required.",
   FOLDER_NAME_RESERVED:
     "That folder name is reserved by Windows and cannot be used.",

@@ -40,16 +40,18 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         );
   }
 
-  const body = await readRequestBody(request);
-  const redirectTo = getSafeRedirectTarget(body.redirectTo, "/files");
-  const session = await getRequestSession(request);
-
-  if (!session) {
-    return notSignedInResponse(request, redirectTo);
-  }
-
+  let redirectTo = "/files";
+  let session: Awaited<ReturnType<typeof getRequestSession>> = null;
   let idempotencyKey: string | null = null;
   try {
+    const body = await readRequestBody(request);
+    redirectTo = getSafeRedirectTarget(body.redirectTo, "/files");
+    session = await getRequestSession(request);
+
+    if (!session) {
+      return notSignedInResponse(request, redirectTo);
+    }
+
     idempotencyKey = readStorageIdempotencyKey(request);
     const { folderId } = await params;
     const result = await filesService.renameFolder({
@@ -79,13 +81,16 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       session.user.id,
     );
   } catch (error) {
-    return attachStorageMutationHeader(
-      wantsJson(request)
-        ? jsonErrorResponse(error)
-        : formErrorResponse(request, redirectTo, error),
-      idempotencyKey ?? request.headers.get("Idempotency-Key"),
-      session.user.id,
-      error,
-    );
+    const response = wantsJson(request)
+      ? jsonErrorResponse(error)
+      : formErrorResponse(request, redirectTo, error);
+    return session
+      ? attachStorageMutationHeader(
+          response,
+          idempotencyKey ?? request.headers.get("Idempotency-Key"),
+          session.user.id,
+          error,
+        )
+      : response;
   }
 }

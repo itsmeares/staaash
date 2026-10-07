@@ -162,6 +162,9 @@ export const buildInstanceHealthSummary = ({
   storageWarnings,
   versionInfo,
   storageMutations = { counts: {}, oldest: null, active: [] },
+  settingsStatus = "healthy",
+  settingsMessage,
+  storageMutationStatus,
 }: {
   databaseStatus: HealthCheckStatus;
   databaseMessage?: string;
@@ -173,18 +176,39 @@ export const buildInstanceHealthSummary = ({
   storageWarnings: StorageWarningSummary;
   versionInfo: InstanceHealthSummary["version"];
   storageMutations?: InstanceHealthSummary["storageMutations"];
+  settingsStatus?: HealthCheckStatus;
+  settingsMessage?: string;
+  storageMutationStatus?: HealthCheckStatus;
 }): InstanceHealthSummary => {
-  const ok =
-    databaseStatus === "healthy" &&
-    storageStatus === "healthy" &&
-    worker.status !== "error" &&
-    queue.status !== "error" &&
-    reconciliation.status !== "error";
-  const storageMutationError =
-    (storageMutations.counts.recovery_required ?? 0) > 0;
+  const recoveryRequired = (storageMutations.counts.recovery_required ?? 0) > 0;
+  const mutationStatus = recoveryRequired
+    ? "error"
+    : (storageMutationStatus ?? "healthy");
+  const unavailableChecks = {
+    DATABASE_UNAVAILABLE: databaseStatus,
+    STORAGE_UNAVAILABLE: storageStatus,
+    SETTINGS_UNAVAILABLE: settingsStatus,
+  };
+  const failedChecks = {
+    [settingsStatus !== "healthy"
+      ? "WORKER_SETTINGS_UNAVAILABLE"
+      : "WORKER_UNHEALTHY"]: worker.status,
+    QUEUE_UNHEALTHY: queue.status,
+    RESTORE_RECONCILIATION_FAILED: reconciliation.status,
+    [recoveryRequired
+      ? "STORAGE_RECOVERY_REQUIRED"
+      : "STORAGE_MUTATION_HEALTH_UNAVAILABLE"]: mutationStatus,
+  };
+  const failures = [
+    ...Object.entries(unavailableChecks).filter(
+      ([, status]) => status !== "healthy",
+    ),
+    ...Object.entries(failedChecks).filter(([, status]) => status === "error"),
+  ].map(([code]) => code);
 
   return {
-    ok: ok && !storageMutationError,
+    ok: failures.length === 0,
+    failures,
     checks: {
       app: {
         status: "healthy",
@@ -196,6 +220,13 @@ export const buildInstanceHealthSummary = ({
       storage: {
         status: storageStatus,
         message: storageMessage,
+      },
+      settings: {
+        status: settingsStatus,
+        message: settingsMessage,
+      },
+      storageMutations: {
+        status: mutationStatus,
       },
     },
     worker,
@@ -255,11 +286,11 @@ const resolveStorageReadiness = ({
     !storageProtocolProbe.error && storageProtocolProbe.version === 2;
   const status =
     storage.status === "healthy" &&
-    !storageMutationProbe.error &&
+    storageMutationProbe.health !== null &&
     storageProtocolReady
       ? ("healthy" as const)
       : ("error" as const);
-  if (storageMutationProbe.error) {
+  if (storageMutationProbe.health === null) {
     return {
       status,
       message: `Storage mutation health probe failed: ${storageProbeErrorMessage(storageMutationProbe.error)}`,
@@ -299,6 +330,39 @@ export const resolveVersionHealth = (
   };
 };
 
+const resolveSettingsReadiness = (
+  probe: {
+    settings: Awaited<ReturnType<typeof getSystemSettings>> | null;
+    error: unknown;
+  },
+  latestWorkerHeartbeat: Date | null,
+): {
+  settings: InstanceHealthSummary["checks"]["settings"];
+  worker: WorkerHeartbeatStatus;
+} => {
+  if (probe.settings) {
+    return {
+      settings: { status: "healthy" },
+      worker: getWorkerHeartbeatStatus(
+        latestWorkerHeartbeat,
+        new Date(),
+        probe.settings.workerHeartbeatMaxAgeSeconds * 1000,
+      ),
+    };
+  }
+  return {
+    settings: {
+      status: "error",
+      message: `Settings health probe failed: ${storageProbeErrorMessage(probe.error)}`,
+    },
+    worker: {
+      status: "error",
+      lastSeenAt: latestWorkerHeartbeat?.toISOString() ?? null,
+      message: "Worker heartbeat settings are unavailable.",
+    },
+  };
+};
+
 export const getReadiness = async () => {
   const databaseUrl = process.env.DATABASE_URL ?? "";
   const [
@@ -309,7 +373,7 @@ export const getReadiness = async () => {
     storageWarnings,
     instanceState,
     latestReconciliationRun,
-    settings,
+    settingsProbe,
     workers,
     storageMutationProbe,
     storageProtocolProbe,
@@ -321,13 +385,19 @@ export const getReadiness = async () => {
     getStorageWarnings(),
     readInstanceUpdateCheck().catch(() => null),
     readLatestRestoreReconciliationRun().catch(() => null),
-    getSystemSettings(),
+    getSystemSettings()
+      .then((settings) => ({ settings, error: null }))
+      .catch((error: unknown) => ({ settings: null, error })),
     listWorkerInstances().catch(() => []),
     readStorageMutationHealthProbe(),
     readStorageProtocolProbe(),
   ]);
 
   const latestWorkerHeartbeat = workers[0]?.lastHeartbeatAt ?? heartbeat;
+  const settingsReadiness = resolveSettingsReadiness(
+    settingsProbe,
+    latestWorkerHeartbeat,
+  );
   const storageReadiness = resolveStorageReadiness({
     storage,
     storageMutationProbe,
@@ -339,17 +409,16 @@ export const getReadiness = async () => {
     databaseMessage: database.message,
     storageStatus: storageReadiness.status,
     storageMessage: storageReadiness.message,
-    worker: getWorkerHeartbeatStatus(
-      latestWorkerHeartbeat,
-      new Date(),
-      settings.workerHeartbeatMaxAgeSeconds * 1000,
-    ),
+    settingsStatus: settingsReadiness.settings.status,
+    settingsMessage: settingsReadiness.settings.message,
+    worker: settingsReadiness.worker,
     queue,
     reconciliation: buildRestoreReconciliationHealthSummary(
       latestReconciliationRun,
     ),
     storageMutations:
       storageMutationProbe.health ?? EMPTY_STORAGE_MUTATION_HEALTH,
+    storageMutationStatus: storageMutationProbe.health ? undefined : "error",
     storageWarnings,
     versionInfo: resolveVersionHealth(instanceState),
   });

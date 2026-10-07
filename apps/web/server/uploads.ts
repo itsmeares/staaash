@@ -13,6 +13,7 @@ import { env } from "@/lib/env";
 import { getSystemSettings } from "@/server/settings";
 import {
   maxFilesystemComponentBytes,
+  normalizeFileName,
   takeUtf8Bytes,
 } from "@/server/files/storage-layout";
 import { getStorageRoot, getTmpUploadPath } from "@/server/storage";
@@ -296,6 +297,7 @@ export const stageUpload = async (
   }: UploadRequestItem,
   deadline?: Date | number | null,
 ): Promise<StagedUploadFile> => {
+  normalizeFileName(originalName);
   const uploadId = randomUUID();
   const tmpPath = getTmpUploadPath(uploadId);
   const hash = createHash("sha256");

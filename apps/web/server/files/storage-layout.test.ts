@@ -83,6 +83,32 @@ describe("files storage layout", () => {
     );
   });
 
+  it.each(["\u0000name", "bad\u0000name", "name\u0000"])(
+    "rejects NUL in %j before a path is built",
+    (name) => {
+      expectFilesError(
+        () => normalizeFileName(name),
+        "FILE_NAME_INVALID_CHARACTER",
+      );
+      expectFilesError(
+        () => normalizeFolderName(name),
+        "FOLDER_NAME_INVALID_CHARACTER",
+      );
+    },
+  );
+
+  it("returns required-name errors at untyped request boundaries", () => {
+    expectFilesError(
+      () => normalizeFileName(undefined as unknown as string),
+      "FILE_NAME_REQUIRED",
+    );
+    expectFilesError(
+      () => normalizeFolderName(undefined as unknown as string),
+      "FOLDER_NAME_REQUIRED",
+    );
+    expect(normalizeFileName("résumé-日本語.txt")).toBe("résumé-日本語.txt");
+  });
+
   it("rejects reserved Windows device names and trailing dots", () => {
     expectFilesError(() => normalizeFolderName("CON"), "FOLDER_NAME_RESERVED");
     expectFilesError(

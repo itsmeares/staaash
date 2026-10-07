@@ -2,7 +2,13 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { getRequestSession } from "@/server/auth/guards";
-import { isSameOrigin, notSignedInResponse } from "@/server/auth/http";
+import {
+  isSameOrigin,
+  jsonErrorResponse,
+  notSignedInResponse,
+} from "@/server/auth/http";
+import { FilesError } from "@/server/files/errors";
+import { normalizeFileName } from "@/server/files/storage-layout";
 import {
   assertStorageProtocolReady,
   StorageProtocolNotReadyError,
@@ -77,8 +83,10 @@ export async function POST(request: NextRequest) {
   } = parsed.data;
 
   try {
+    normalizeFileName(originalName);
     await assertUploadSizeAllowed(totalSizeBytes);
   } catch (error) {
+    if (error instanceof FilesError) return jsonErrorResponse(error);
     if (error instanceof UploadError) {
       return Response.json(
         { error: error.message, code: error.code },

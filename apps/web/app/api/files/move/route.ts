@@ -6,6 +6,7 @@ import {
   isSameOrigin,
   jsonErrorResponse,
   jsonNotSignedInResponse,
+  readJsonBody,
 } from "@/server/auth/http";
 import { toBatchMoveOperationResponse } from "@/server/files/move-operation";
 import {
@@ -129,7 +130,7 @@ export async function POST(request: NextRequest) {
 
   let idempotencyKey: string | null = null;
   try {
-    const body = requestSchema.parse(await request.json());
+    const body = requestSchema.parse(await readJsonBody(request));
     idempotencyKey = readStorageIdempotencyKey(request);
     const parent = await prepareDurableStorageMutationParent(
       {

@@ -11,6 +11,7 @@ import {
 } from "@staaash/db/client";
 
 import { getTmpUploadPath } from "@/server/storage";
+import { normalizeFileName } from "@/server/files/storage-layout";
 import {
   lockUploadCapacityRows,
   reserveResumableSession,
@@ -251,6 +252,7 @@ export const createResumableSession = async (
     tmpPath: string,
   ) => Promise<void> = allocateEmptyStagingFile,
 ): Promise<ResumableSession> => {
+  normalizeFileName(originalName);
   const id = randomUUID();
   const tmpPath = getTmpUploadPath(`rs-${id}`);
   const allocationExpiresAt = new Date(

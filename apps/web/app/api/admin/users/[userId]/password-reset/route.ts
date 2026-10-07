@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { enforceSameOrigin, requireOwnerApiSession } from "@/server/admin/http";
-import { jsonErrorResponse } from "@/server/auth/http";
+import { jsonErrorResponse, readJsonBody } from "@/server/auth/http";
 import { authService } from "@/server/auth/service";
 
 const optionalString = (value: unknown) =>
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     const body: Record<string, unknown> = request.headers
       .get("content-type")
       ?.includes("application/json")
-      ? ((await request.json()) as Record<string, unknown>)
+      ? ((await readJsonBody(request)) as Record<string, unknown>)
       : {};
     const result = await authService.resetTemporaryPassword(
       auth.session.user.id,

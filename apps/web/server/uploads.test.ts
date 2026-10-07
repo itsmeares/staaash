@@ -2,7 +2,7 @@ import { readdir, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   assertUploadSizeAllowed,
@@ -18,6 +18,23 @@ import {
 import { getStorageRoot } from "@/server/storage";
 
 describe("upload guardrails", () => {
+  it("rejects a NUL name before reading or staging upload bytes", async () => {
+    const file = new File(["payload"], "normal.txt", { type: "text/plain" });
+    const stream = vi.spyOn(file, "stream");
+    await expect(
+      stageUpload({
+        clientKey: "nul-name",
+        originalName: "bad\u0000name.txt",
+        conflictStrategy: "safeRename",
+        file,
+      }),
+    ).rejects.toMatchObject({
+      status: 400,
+      code: "FILE_NAME_INVALID_CHARACTER",
+    });
+    expect(stream).not.toHaveBeenCalled();
+  });
+
   it("uses fail for interactive uploads until the UI chooses explicitly", () => {
     expect(getDefaultUploadConflictStrategy("interactiveWeb")).toBe("fail");
   });
