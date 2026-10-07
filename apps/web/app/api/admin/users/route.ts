@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { enforceSameOrigin, requireOwnerApiSession } from "@/server/admin/http";
-import { jsonErrorResponse } from "@/server/auth/http";
+import { jsonErrorResponse, readJsonBody } from "@/server/auth/http";
 import { authService } from "@/server/auth/service";
 
 const optionalString = (value: unknown) =>
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   if (!auth.ok) return auth.response;
 
   try {
-    const body = (await request.json()) as Record<string, unknown>;
+    const body = (await readJsonBody(request)) as Record<string, unknown>;
     const result = await authService.createUser(auth.session.user.id, {
       email: String(body.email ?? ""),
       temporaryPassword: optionalString(body.temporaryPassword),

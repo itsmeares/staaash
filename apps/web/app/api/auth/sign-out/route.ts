@@ -25,10 +25,10 @@ export async function POST(request: NextRequest) {
       : NextResponse.redirect(new URL("/", getBaseUrl(request.headers)), 303);
   }
 
-  const body = await readRequestBody(request);
-  const next = getSafeRedirectTarget(body.next, "/");
-
   try {
+    const body = await readRequestBody(request);
+    const next = getSafeRedirectTarget(body.next, "/");
+
     await authService.revokeSession(
       getSessionTokenFromCookieStore(request.cookies),
     );

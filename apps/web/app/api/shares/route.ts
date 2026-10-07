@@ -1,3 +1,5 @@
+// Mutation routes intentionally share origin, auth, and response guards.
+// fallow-ignore-file code-duplication
 import { NextRequest, NextResponse } from "next/server";
 
 import {
@@ -30,15 +32,16 @@ export async function POST(request: NextRequest) {
         );
   }
 
-  const body = createShareSchema.parse(await readRequestBody(request));
-  const redirectTo = getSafeRedirectTarget(body.redirectTo, "/shared");
-  const session = await getRequestSession(request);
-
-  if (!session) {
-    return notSignedInResponse(request, redirectTo);
-  }
-
+  let redirectTo = "/shared";
   try {
+    const body = createShareSchema.parse(await readRequestBody(request));
+    redirectTo = getSafeRedirectTarget(body.redirectTo, "/shared");
+    const session = await getRequestSession(request);
+
+    if (!session) {
+      return notSignedInResponse(request, redirectTo);
+    }
+
     const baseUrl = getShareBaseUrl(request.headers);
     const result =
       body.mode === "reissue"

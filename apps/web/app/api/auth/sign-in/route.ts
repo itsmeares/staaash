@@ -30,10 +30,11 @@ export async function POST(request: NextRequest) {
         );
   }
 
-  const body = await readRequestBody(request);
-  const next = getSafeRedirectTarget(body.next, "/files");
-
+  let next = "/files";
   try {
+    const body = await readRequestBody(request);
+    next = getSafeRedirectTarget(body.next, "/files");
+
     const result = await authService.signIn(
       {
         email: body.email,

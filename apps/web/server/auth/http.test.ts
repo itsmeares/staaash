@@ -1,14 +1,86 @@
 import { NextRequest } from "next/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   isSameOrigin,
   jsonErrorResponse,
   jsonNotSignedInResponse,
   notSignedInResponse,
+  readJsonBody,
+  readRequestBody,
 } from "@/server/auth/http";
 
 describe("auth http helpers", () => {
+  const jsonRequest = (body: string) =>
+    new Request("http://localhost:3000/", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+    });
+
+  it.each(["{", ""])(
+    "classifies malformed JSON %s at the boundary",
+    async (body) => {
+      await expect(readJsonBody(jsonRequest(body))).rejects.toMatchObject({
+        status: 400,
+        code: "INVALID_JSON",
+      });
+    },
+  );
+
+  it.each(["null", "[]", '"text"', "123", "false"])(
+    "rejects non-object JSON %s",
+    async (body) => {
+      await expect(readJsonBody(jsonRequest(body))).rejects.toMatchObject({
+        status: 400,
+        code: "INVALID_REQUEST",
+      });
+    },
+  );
+
+  it("keeps native JSON values for route schemas and existing form-field coercion", async () => {
+    const body = { name: "résumé.txt", enabled: true, count: 2, empty: null };
+    expect(await readJsonBody(jsonRequest(JSON.stringify(body)))).toEqual(body);
+    expect(await readRequestBody(jsonRequest(JSON.stringify(body)))).toEqual({
+      name: "résumé.txt",
+      enabled: "true",
+      count: "2",
+      empty: "",
+    });
+  });
+
+  it("continues to read urlencoded browser forms", async () => {
+    const request = new Request("http://localhost:3000/", {
+      method: "POST",
+      body: new URLSearchParams({ name: "Photos", redirectTo: "/files" }),
+    });
+    expect(await readRequestBody(request)).toEqual({
+      name: "Photos",
+      redirectTo: "/files",
+    });
+  });
+
+  it("returns a client error for an undecodable form body", async () => {
+    const request = new Request("http://localhost:3000/", {
+      method: "POST",
+      body: "invalid form",
+    });
+    await expect(readRequestBody(request)).rejects.toMatchObject({
+      status: 400,
+      code: "INVALID_REQUEST",
+    });
+  });
+
+  it("does not reclassify a transport or internal decoding failure", async () => {
+    const request = jsonRequest("{}");
+    const error = new Error("Transport failed.");
+    vi.spyOn(request, "json").mockRejectedValueOnce(error);
+    await expect(readJsonBody(request)).rejects.toBe(error);
+    expect(
+      jsonErrorResponse(new SyntaxError("Internal parsing failure")).status,
+    ).toBe(500);
+  });
+
   it("returns a normalized JSON not-signed-in response", async () => {
     const response = jsonNotSignedInResponse();
 

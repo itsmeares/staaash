@@ -38,7 +38,7 @@ const reservedWindowsNames = new Set([
   "..",
 ]);
 
-const invalidSegmentCharacters = /[\\/<>\:"|?*]/;
+const invalidSegmentCharacters = /[\u0000\\/<>\:"|?*]/;
 export const maxFilesystemComponentBytes = 255;
 // Linux PATH_MAX is 4096 bytes including the terminating NUL.
 const maxFilesystemPathBytes = 4095;
@@ -103,6 +103,9 @@ const findSegmentError = (rawValue: string, value: string) => {
 };
 
 const validateSegment = (rawValue: string, kind: "file" | "folder") => {
+  if (typeof rawValue !== "string") {
+    throw new FilesError(segmentErrorCodes[kind].required);
+  }
   const value = rawValue.trim();
   const error = findSegmentError(rawValue, value);
   if (error) throw new FilesError(segmentErrorCodes[kind][error]);

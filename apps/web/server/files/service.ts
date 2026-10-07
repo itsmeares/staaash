@@ -5481,6 +5481,7 @@ export const createFilesService = ({
       conflictStrategy,
     }: CommitResumableUploadInput): Promise<FileSummary> {
       if (!repo) await assertStorageProtocolReady();
+      const normalizedName = normalizeFileName(originalName);
       const durableMutationId = `resumable-${uploadSessionId}`;
       if (!repo) {
         const prior = await findStorageMutation(durableMutationId);
@@ -5550,7 +5551,6 @@ export const createFilesService = ({
           includeDeleted: true,
         }),
       );
-      const normalizedName = normalizeFileName(originalName);
       const durableStagedStorageKey = !repo
         ? storageKeyForAbsolutePath(tmpPath)
         : null;

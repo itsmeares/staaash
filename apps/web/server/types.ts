@@ -64,6 +64,7 @@ export type QueueBacklogSummary = {
 
 export type InstanceHealthSummary = {
   ok: boolean;
+  failures: string[];
   checks: {
     app: {
       status: HealthCheckStatus;
@@ -75,6 +76,13 @@ export type InstanceHealthSummary = {
     storage: {
       status: HealthCheckStatus;
       message?: string;
+    };
+    settings: {
+      status: HealthCheckStatus;
+      message?: string;
+    };
+    storageMutations: {
+      status: HealthCheckStatus;
     };
   };
   worker: WorkerHeartbeatStatus;

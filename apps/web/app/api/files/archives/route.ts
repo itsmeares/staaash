@@ -15,6 +15,7 @@ import {
   isSameOrigin,
   jsonErrorResponse,
   notSignedInResponse,
+  readJsonBody,
 } from "@/server/auth/http";
 import { FilesError } from "@/server/files/errors";
 import { prismaFilesRepository } from "@/server/files/repository";
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest): Promise<Response> {
   }
 
   try {
-    const body = await request.json();
+    const body = await readJsonBody(request);
     const { ids } = bodySchema.parse(body);
 
     const fileIds: string[] = [];

@@ -1,3 +1,5 @@
+// Mutation routes intentionally share origin, auth, and response guards.
+// fallow-ignore-file code-duplication
 import { NextRequest, NextResponse } from "next/server";
 
 import { getRequestSession } from "@/server/auth/guards";
@@ -36,15 +38,16 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         );
   }
 
-  const body = await readRequestBody(request);
-  const redirectTo = getSafeRedirectTarget(body.redirectTo, "/files");
-  const session = await getRequestSession(request);
-
-  if (!session) {
-    return notSignedInResponse(request, redirectTo);
-  }
-
+  let redirectTo = "/files";
   try {
+    const body = await readRequestBody(request);
+    redirectTo = getSafeRedirectTarget(body.redirectTo, "/files");
+    const session = await getRequestSession(request);
+
+    if (!session) {
+      return notSignedInResponse(request, redirectTo);
+    }
+
     const { fileId } = await params;
     const quickAccessPinned =
       body.quickAccessPinned === undefined

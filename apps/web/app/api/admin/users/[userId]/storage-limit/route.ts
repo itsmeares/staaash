@@ -1,7 +1,9 @@
+// Mutation routes intentionally share origin, auth, and response guards.
+// fallow-ignore-file code-duplication
 import { NextRequest, NextResponse } from "next/server";
 
 import { enforceSameOrigin, requireOwnerApiSession } from "@/server/admin/http";
-import { jsonErrorResponse } from "@/server/auth/http";
+import { jsonErrorResponse, readJsonBody } from "@/server/auth/http";
 import { authService } from "@/server/auth/service";
 
 type RouteContext = {
@@ -19,11 +21,11 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
 
   try {
     const { userId } = await params;
-    const body = (await request.json()) as { limitBytes: string | null };
+    const body = (await readJsonBody(request)) as { limitBytes: string | null };
 
     const limitBytes =
       body.limitBytes !== null && body.limitBytes !== undefined
-        ? BigInt(body.limitBytes)
+        ? BigInt(String(body.limitBytes))
         : null;
 
     const user = await authService.setStorageLimit(
