@@ -150,6 +150,14 @@ const writeWorkerHeartbeat = async (timestamp = new Date()) => {
   );
 };
 
+const operationalStatus = (
+  failures: string[],
+  incidents: string[],
+): HealthCheckStatus => {
+  if (failures.length > 0) return "error";
+  return incidents.length > 0 ? "warning" : "healthy";
+};
+
 // fallow-ignore-next-line unused-export
 export const buildInstanceHealthSummary = ({
   databaseStatus,
@@ -206,25 +214,25 @@ export const buildInstanceHealthSummary = ({
     ...Object.entries(failedChecks).filter(([, status]) => status === "error"),
   ].map(([code]) => code);
 
+  const incidentChecks = {
+    DEAD_JOBS: queue.dead > 0,
+    FAILED_JOBS: queue.failed > 0,
+    STALE_JOBS: queue.staleRunning > 0,
+    WORKER_WARNING: worker.status === "warning",
+    RECONCILIATION_WARNING: reconciliation.status === "warning",
+    STORAGE_WARNING: storageWarnings.status !== "healthy",
+  };
   const incidents = [
     ...failures,
-    ...(queue.dead > 0 ? ["DEAD_JOBS"] : []),
-    ...(queue.failed > 0 ? ["FAILED_JOBS"] : []),
-    ...(queue.staleRunning > 0 ? ["STALE_JOBS"] : []),
-    ...(worker.status === "warning" ? ["WORKER_WARNING"] : []),
-    ...(reconciliation.status === "warning" ? ["RECONCILIATION_WARNING"] : []),
-    ...(storageWarnings.status !== "healthy" ? ["STORAGE_WARNING"] : []),
+    ...Object.entries(incidentChecks)
+      .filter(([, active]) => active)
+      .map(([code]) => code),
   ];
 
   return {
     ok: failures.length === 0,
     operational: {
-      status:
-        failures.length > 0
-          ? "error"
-          : incidents.length > 0
-            ? "warning"
-            : "healthy",
+      status: operationalStatus(failures, incidents),
       incidents,
     },
     failures,

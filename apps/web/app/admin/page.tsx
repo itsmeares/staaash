@@ -13,6 +13,49 @@ import { getUpdateStatusLabel } from "@/lib/update-status";
 
 export const dynamic = "force-dynamic";
 
+function AvailabilitySummary({
+  health,
+  failedWork,
+}: {
+  health: Awaited<ReturnType<typeof getAdminOverviewSummary>>["health"];
+  failedWork: number;
+}) {
+  return (
+    <div className="mb-4 grid gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-base font-medium">Serving traffic</span>
+        <AdminStatusBadge status={health.ok ? "healthy" : "error"}>
+          {health.ok ? "Ready" : "Unavailable"}
+        </AdminStatusBadge>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-base font-medium">Operational health</span>
+        <AdminStatusBadge status={health.operational.status}>
+          {health.operational.status === "healthy"
+            ? "Healthy"
+            : "Attention needed"}
+        </AdminStatusBadge>
+      </div>
+      {failedWork > 0 && (
+        <p className="m-0 text-meta text-muted-foreground">
+          {failedWork} failed or dead{" "}
+          {failedWork === 1 ? "job needs" : "jobs need"} attention.
+          {health.ok ? " File operations remain available. " : " "}
+          <Link href="/admin/jobs" className="underline">
+            Review failed jobs
+          </Link>
+        </p>
+      )}
+    </div>
+  );
+}
+
+const queueMessage = (
+  queue: Awaited<ReturnType<typeof getAdminOverviewSummary>>["health"]["queue"],
+) =>
+  queue.message ??
+  `${queue.queued} queued, ${queue.running} running, ${queue.failed} failed, ${queue.dead} dead`;
+
 export default async function AdminOverviewPage() {
   const session = await requireAdminPageSession();
   const summary = await getAdminOverviewSummary(session.user.id);
@@ -74,9 +117,7 @@ export default async function AdminOverviewPage() {
     },
     {
       label: "Queue backlog",
-      message:
-        summary.health.queue.message ??
-        `${summary.health.queue.queued} queued, ${summary.health.queue.running} running, ${summary.health.queue.failed} failed, ${summary.health.queue.dead} dead`,
+      message: queueMessage(summary.health.queue),
       status: summary.health.queue.status,
     },
     {
@@ -127,36 +168,10 @@ export default async function AdminOverviewPage() {
           title="System health"
           aside="Availability and operational health."
         >
-          <div className="mb-4 grid gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-base font-medium">Serving traffic</span>
-              <AdminStatusBadge
-                status={summary.health.ok ? "healthy" : "error"}
-              >
-                {summary.health.ok ? "Ready" : "Unavailable"}
-              </AdminStatusBadge>
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-base font-medium">Operational health</span>
-              <AdminStatusBadge status={summary.health.operational.status}>
-                {summary.health.operational.status === "healthy"
-                  ? "Healthy"
-                  : "Attention needed"}
-              </AdminStatusBadge>
-            </div>
-            {failedWork > 0 && (
-              <p className="m-0 text-meta text-muted-foreground">
-                {failedWork} failed or dead job{failedWork === 1 ? "" : "s"}{" "}
-                {failedWork === 1 ? "needs" : "need"} attention.
-                {summary.health.ok
-                  ? " File operations remain available. "
-                  : " "}
-                <Link href="/admin/jobs" className="underline">
-                  Review failed jobs
-                </Link>
-              </p>
-            )}
-          </div>
+          <AvailabilitySummary
+            health={summary.health}
+            failedWork={failedWork}
+          />
           <div className="grid grid-cols-1 gap-0 overflow-hidden rounded-lg border border-hairline">
             {healthRows.map((row) => (
               <div

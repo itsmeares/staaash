@@ -31,6 +31,11 @@ export class StorageTransactionUnavailableError extends Error {
   }
 }
 
+const isSqlState = (code: unknown): code is string =>
+  typeof code === "string" &&
+  /^[0-9A-Z]{5}$/.test(code) &&
+  !/^P\d{4}$/.test(code);
+
 // Driver adapters wrap SQLSTATE below Prisma's P2010/P2028 error code.
 export const storageSqlState = (error: unknown): string | null => {
   const visited = new Set<object>();
@@ -38,15 +43,8 @@ export const storageSqlState = (error: unknown): string | null => {
     if (!value || typeof value !== "object" || visited.has(value)) return null;
     visited.add(value);
     const record = value as Record<string, unknown>;
-    for (const key of ["originalCode", "code"]) {
-      const code = record[key];
-      if (
-        typeof code === "string" &&
-        /^[0-9A-Z]{5}$/.test(code) &&
-        !/^P\d{4}$/.test(code)
-      )
-        return code;
-    }
+    const code = [record.originalCode, record.code].find(isSqlState);
+    if (code) return code;
     for (const key of ["cause", "driverAdapterError", "meta"]) {
       const code = read(record[key]);
       if (code) return code;
@@ -71,6 +69,22 @@ export type StorageTransactionOptions = {
   deadline?: number;
   signal?: AbortSignal;
   client?: TransactionClient;
+};
+
+const classifyStorageTransactionError = (error: unknown) => {
+  const code = storageSqlState(error);
+  // These SQL errors abort the transaction. Await rollback before retrying.
+  if (new Set<string | null>(["55P03", "40001", "40P01"]).has(code)) {
+    return new StorageAdmissionBusyError();
+  }
+  if (
+    code === "57014" ||
+    code === "25P04" ||
+    ["P2028", "P1017"].includes((error as { code?: string } | null)?.code ?? "")
+  ) {
+    return new StorageTransactionUnavailableError(error);
+  }
+  return error;
 };
 
 export const runStorageTransaction = async <T>(
@@ -106,21 +120,7 @@ export const runStorageTransaction = async <T>(
       { maxWait: Math.min(1_000, timeout), timeout },
     );
   } catch (error) {
-    const code = storageSqlState(error);
-    // These SQL errors abort the transaction. Await rollback before retrying.
-    if (code && ["55P03", "40001", "40P01"].includes(code)) {
-      throw new StorageAdmissionBusyError();
-    }
-    if (
-      code === "57014" ||
-      code === "25P04" ||
-      ["P2028", "P1017"].includes(
-        (error as { code?: string } | null)?.code ?? "",
-      )
-    ) {
-      throw new StorageTransactionUnavailableError(error);
-    }
-    throw error;
+    throw classifyStorageTransactionError(error);
   }
 };
 
@@ -140,6 +140,23 @@ const waitForAdmissionRetry = (milliseconds: number, signal?: AbortSignal) =>
     if (signal?.aborted) abort();
   });
 
+const createAdmissionWaiter = () => {
+  let waiting = false;
+  return {
+    acquire() {
+      if (waiting) return;
+      if (waitingRequests >= MAX_WAITING_REQUESTS)
+        throw new StorageAdmissionBusyError();
+      waitingRequests++;
+      waiting = true;
+    },
+    release() {
+      if (waiting) waitingRequests--;
+      waiting = false;
+    },
+  };
+};
+
 export const waitForStorageAdmission = async <T>(
   operation: (deadline: number) => Promise<T>,
   {
@@ -151,7 +168,7 @@ export const waitForStorageAdmission = async <T>(
   } = {},
 ): Promise<T> => {
   const deadline = Date.now() + ADMISSION_MS;
-  let waiting = false;
+  const waiter = createAdmissionWaiter();
   try {
     for (let attempt = 0; ; attempt++) {
       assertStorageAdmissionActive(signal);
@@ -161,28 +178,18 @@ export const waitForStorageAdmission = async <T>(
         if (!retryable(error)) throw error;
         const remaining = deadline - Date.now();
         if (remaining <= 0) throw error;
-        if (!waiting) {
-          if (waitingRequests >= MAX_WAITING_REQUESTS)
-            throw new StorageAdmissionBusyError();
-          waitingRequests++;
-          waiting = true;
-        }
-        try {
-          await waitForAdmissionRetry(
-            Math.min(
-              remaining,
-              50 * 2 ** Math.min(attempt, 3) + Math.random() * 50,
-            ),
-            signal,
-          );
-        } catch {
-          assertStorageAdmissionActive(signal);
-          throw error;
-        }
+        waiter.acquire();
+        await waitForAdmissionRetry(
+          Math.min(
+            remaining,
+            50 * 2 ** Math.min(attempt, 3) + Math.random() * 50,
+          ),
+          signal,
+        );
         if (Date.now() >= deadline) throw error;
       }
     }
   } finally {
-    if (waiting) waitingRequests--;
+    waiter.release();
   }
 };
