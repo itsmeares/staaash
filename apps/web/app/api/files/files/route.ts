@@ -90,6 +90,7 @@ export async function POST(request: NextRequest) {
       actorRole: session.user.role,
       folderId: formData.get("folderId")?.toString() ?? null,
       items: pairUploadRequestItems(manifest, files),
+      signal: request.signal,
       idempotencyKey,
     });
     await Promise.all(

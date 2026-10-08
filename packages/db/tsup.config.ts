@@ -12,6 +12,7 @@ export default defineConfig({
     "media-derivatives": "src/media-derivatives.ts",
     "zip-archives": "src/zip-archives.ts",
     "upload-sessions": "src/upload-sessions.ts",
+    "storage-transactions": "src/storage-transactions.ts",
     "storage-mutations": "src/storage-mutations.ts",
     "storage-mutation-executor": "src/storage-mutation-executor.ts",
   },

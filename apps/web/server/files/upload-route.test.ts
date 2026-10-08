@@ -141,6 +141,7 @@ describe("direct upload route", () => {
       folderId: null,
       items: ["upload-item"],
       idempotencyKey: "mutation-1",
+      signal: request.signal,
     });
   });
 

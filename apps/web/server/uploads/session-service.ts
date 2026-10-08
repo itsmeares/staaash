@@ -555,7 +555,7 @@ export const beginSessionCommit = async ({
         AND "ownerUserId" = ${ownerUserId}
         AND "status" IN ('created', 'receiving')
         AND "expiresAt" > ${now}
-      FOR UPDATE
+      FOR UPDATE NOWAIT
     `;
     if (!rows[0]) throw new Error("UPLOAD_SESSION_NOT_RECEIVABLE");
     await tx.uploadSession.update({
@@ -590,7 +590,7 @@ const lockCommittingSession = async ({
       AND "ownerUserId" = ${ownerUserId}
       AND "status" = 'committing'
       ${unreleasedConditions}
-    FOR UPDATE
+    FOR UPDATE NOWAIT
   `);
   if (!rows[0]) throw new Error("UPLOAD_SESSION_NOT_COMMITTING");
 };
@@ -712,7 +712,7 @@ const transitionResumableSessionToTerminal = async ({
       SELECT "id", "status"
       FROM "UploadSession"
       WHERE "id" = ${id} AND "ownerUserId" = ${ownerUserId}
-      FOR UPDATE
+      FOR UPDATE NOWAIT
     `;
     const session = rows[0];
     if (!session) return false;

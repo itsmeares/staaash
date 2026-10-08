@@ -4,6 +4,12 @@ import { createHash, randomUUID } from "node:crypto";
 import { lstat, mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 
+import {
+  assertStorageAdmissionActive,
+  StorageAdmissionBusyError,
+  StorageAdmissionCancelledError,
+} from "@staaash/db/storage-transactions";
+
 import { scheduleDerivativeGenerate } from "@staaash/db/media-derivatives";
 import { getPrisma, Prisma } from "@staaash/db/client";
 
@@ -183,6 +189,7 @@ type MoveFileInput = FilesActor &
 
 type UploadFilesInput = FilesActor &
   DurableRequest & {
+    signal?: AbortSignal;
     folderId?: string | null;
     items: UploadRequestItem[];
   };
@@ -4815,7 +4822,9 @@ export const createFilesService = ({
       folderId,
       items,
       idempotencyKey,
+      signal,
     }: UploadFilesInput): Promise<UploadFilesResult> {
+      assertStorageAdmissionActive(signal);
       if (!repo) await assertStorageProtocolReady();
       const uploadDeadline = await createUploadDeadline(now().getTime());
       const preStagedUploads = new Map<
@@ -4833,6 +4842,7 @@ export const createFilesService = ({
               { ...item, originalName: normalizedName },
               uploadDeadline,
             );
+            preStagedUploads.set(itemOrdinal, stagedFile);
             const requestHashPayload = {
               folderId: folderId ?? null,
               name: normalizedName,
@@ -4965,9 +4975,11 @@ export const createFilesService = ({
             },
             uploadDeadline,
           ));
+        preStagedUploads.delete(itemOrdinal);
         stagedAnyUpload = true;
 
         try {
+          assertStorageAdmissionActive(signal);
           await coordinateStorageMutation({
             lockKeys: targetFolderLockKeys,
             deadline: uploadDeadline,
@@ -5067,6 +5079,7 @@ export const createFilesService = ({
                     const derivativeInvalidation =
                       await buildDerivativeInvalidation(existing.id);
                     await runDurableStorageMutation({
+                      signal,
                       kind: "upload_replace",
                       ownerUserId: targetFolder.ownerUserId,
                       idempotencyKey: itemIdempotencyKey,
@@ -5275,6 +5288,7 @@ export const createFilesService = ({
                   stagedFile.tmpPath,
                 );
                 await runDurableStorageMutation({
+                  signal,
                   kind: "upload_create",
                   ownerUserId: targetFolder.ownerUserId,
                   idempotencyKey: itemIdempotencyKey,
@@ -5411,11 +5425,20 @@ export const createFilesService = ({
           if (
             repo ||
             error instanceof FilesError ||
-            error instanceof StorageMutationRejectedError
+            error instanceof StorageMutationRejectedError ||
+            error instanceof StorageAdmissionBusyError ||
+            error instanceof StorageAdmissionCancelledError
           ) {
             await cleanupStagedUpload(stagedFile.tmpPath);
           }
 
+          await Promise.all(
+            Array.from(preStagedUploads.values()).map((staged) =>
+              cleanupStagedUpload(staged.tmpPath),
+            ),
+          );
+          // Unknown ownership stays on disk for the retention/recovery worker.
+          await scheduleStagingCleanup().catch(() => undefined);
           throw error;
         }
       }

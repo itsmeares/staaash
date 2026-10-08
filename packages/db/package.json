@@ -54,6 +54,10 @@
     "./storage-mutation-executor": {
       "types": "./dist/storage-mutation-executor.d.ts",
       "default": "./dist/storage-mutation-executor.js"
+    },
+    "./storage-transactions": {
+      "types": "./dist/storage-transactions.d.ts",
+      "default": "./dist/storage-transactions.js"
     }
   },
   "scripts": {

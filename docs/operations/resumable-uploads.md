@@ -115,3 +115,13 @@ terminal chunks are removed. Completed sessions are treated as already released,
 while failed or cancelled sessions remain staging liabilities until the worker
 confirms file absence. An over-limit active session may still finish, but new
 admissions wait for capacity.
+
+## Busy admission
+
+Admission uses the shared storage transaction deadlines and bounded waiting
+outside transactions. Capacity rows use nonblocking locks. After three seconds
+of confirmed contention, the endpoint returns `503 UPLOAD_ADMISSION_BUSY` with
+`Retry-After: 1`. Transaction expiry and ambiguous commits are not automatically
+repeated. Existing session reservations and recovery ownership remain intact.
+See [transaction contention](storage-mutation-recovery.md#transaction-contention)
+and [readiness](health-checks.md).

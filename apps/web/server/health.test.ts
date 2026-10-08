@@ -53,6 +53,7 @@ describe("health summaries", () => {
         message: "Worker heartbeat is current.",
       },
       queue: {
+        probeStatus: "healthy",
         queued: 0,
         running: 0,
         failed: 0,
@@ -122,6 +123,7 @@ describe("health summaries", () => {
         message: "Worker heartbeat is current.",
       },
       queue: {
+        probeStatus: "healthy",
         queued: 0,
         running: 0,
         failed: 0,

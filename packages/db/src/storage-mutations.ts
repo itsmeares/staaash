@@ -3,6 +3,12 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import { Prisma, getPrisma } from "./client";
+import {
+  runStorageTransaction,
+  waitForStorageAdmission,
+  StorageAdmissionBusyError,
+  type StorageTransactionOptions,
+} from "./storage-transactions";
 
 const STORAGE_MUTATION_LEASE_MS = 30_000;
 export const STORAGE_MUTATION_RENEW_MS = 10_000;
@@ -568,8 +574,6 @@ const hasEnforcedStorageLimit = (
   limit: bigint | null | undefined,
 ): limit is bigint => typeof limit === "bigint" && limit > 0n;
 
-const bigintOrZero = (value: bigint | null | undefined) => value ?? 0n;
-
 const lockOwnerStorageLimit = async (
   tx: Prisma.TransactionClient,
   ownerUserId: string,
@@ -578,7 +582,7 @@ const lockOwnerStorageLimit = async (
     SELECT "storageLimitBytes"
       FROM "User"
      WHERE "id" = ${ownerUserId}
-     FOR UPDATE
+     FOR UPDATE NOWAIT
   `;
   const limit = users[0]?.storageLimitBytes;
   return hasEnforcedStorageLimit(limit) ? limit : null;
@@ -590,34 +594,18 @@ const sumOwnerQuotaUsage = async (
   tx: Prisma.TransactionClient,
   ownerUserId: string,
 ) => {
-  const [committed, sessions, mutations] = await Promise.all([
-    tx.file.aggregate({
-      where: { ownerUserId },
-      _sum: { sizeBytes: true },
-    }),
-    tx.uploadSession.aggregate({
-      where: {
-        ownerUserId,
-        OR: [
-          {
-            status: { in: ["allocating", "created", "receiving"] },
-            expiresAt: { gt: new Date() },
-          },
-          { status: "committing" },
-        ],
-      },
-      _sum: { totalSizeBytes: true },
-    }),
-    tx.storageMutation.aggregate({
-      where: { ownerUserId, reservedBytes: { not: null } },
-      _sum: { reservedBytes: true },
-    }),
-  ]);
-  return (
-    bigintOrZero(committed._sum.sizeBytes) +
-    bigintOrZero(sessions._sum.totalSizeBytes) +
-    bigintOrZero(mutations._sum.reservedBytes)
-  );
+  const [usage] = await tx.$queryRaw<Array<{ bytes: string }>>`
+    SELECT (
+      COALESCE((SELECT SUM("sizeBytes") FROM "File" WHERE "ownerUserId" = ${ownerUserId}), 0)
+      + COALESCE((SELECT SUM("totalSizeBytes") FROM "UploadSession"
+          WHERE "ownerUserId" = ${ownerUserId}
+            AND (("status" IN ('allocating', 'created', 'receiving') AND "expiresAt" > ${new Date()})
+              OR "status" = 'committing')), 0)
+      + COALESCE((SELECT SUM("reservedBytes") FROM "StorageMutation"
+          WHERE "ownerUserId" = ${ownerUserId} AND "reservedBytes" IS NOT NULL), 0)
+    )::text AS bytes
+  `;
+  return BigInt(usage.bytes);
 };
 
 const assertOwnerQuotaAvailable = async (
@@ -1202,11 +1190,12 @@ const assertNoOverlappingOwnerResources = async (
   ).sort();
   // Serialize overlap checks per owner; the unique index only catches equal keys.
   for (const ownerUserId of owners) {
-    await tx.$executeRaw`
-      SELECT pg_advisory_xact_lock(
+    const [lock] = await tx.$queryRaw<Array<{ acquired: boolean }>>`
+      SELECT pg_try_advisory_xact_lock(
         hashtext(${`staaash:storage-owner-resources:${ownerUserId}`})
-      )
+      ) AS acquired
     `;
+    if (!lock?.acquired) throw new StorageAdmissionBusyError();
   }
   for (const key of ownerKeys) {
     // ponytail: scans active resources for descendants; add a prefix index if
@@ -1238,19 +1227,12 @@ const acquireStorageMutationResources = async (
 ) => {
   if (resourceKeys.length === 0) return;
   const globalRequested = resourceKeys.includes("storage:global-recovery");
-  if (globalRequested) {
-    await tx.$executeRaw`
-      SELECT pg_advisory_xact_lock(
-        hashtext('staaash:storage-mutation-resource-acquisition')
-      )
-    `;
-  } else {
-    await tx.$executeRaw`
-      SELECT pg_advisory_xact_lock_shared(
-        hashtext('staaash:storage-mutation-resource-acquisition')
-      )
-    `;
-  }
+  const [lock] = globalRequested
+    ? await tx.$queryRaw<Array<{ acquired: boolean }>>`
+        SELECT pg_try_advisory_xact_lock(hashtext('staaash:storage-mutation-resource-acquisition')) AS acquired`
+    : await tx.$queryRaw<Array<{ acquired: boolean }>>`
+        SELECT pg_try_advisory_xact_lock_shared(hashtext('staaash:storage-mutation-resource-acquisition')) AS acquired`;
+  if (!lock?.acquired) throw new StorageAdmissionBusyError();
   const conflictingResource = await tx.storageMutationResource.findFirst({
     where: {
       releasedAt: null,
@@ -1267,11 +1249,12 @@ const acquireStorageMutationResources = async (
   await assertNoOverlappingOwnerResources(tx, resourceKeys, selfMutationId);
 };
 
-const createPreparingStorageMutation = (
+const createPreparingStorageMutation = async (
   tx: Prisma.TransactionClient,
   input: PrepareStorageMutationInput,
-) =>
-  tx.storageMutation.create({
+) => {
+  // Separate calls recheck transaction state before any dependent SQL is sent.
+  const created = await tx.storageMutation.create({
     data: {
       id: input.id,
       parentId: input.parentId,
@@ -1283,29 +1266,31 @@ const createPreparingStorageMutation = (
       intentJson: input.intentJson,
       resultJson: input.initialResultJson,
       reservedBytes: input.reservedBytes ?? null,
-      steps: {
-        create: input.steps.map((step, ordinal) => ({
-          ordinal,
-          action: step.action,
-          sourceKey: step.sourceKey,
-          targetKey: step.targetKey,
-          expectedNodeType: step.expectedNodeType,
-          expectedSizeBytes: step.expectedSizeBytes,
-          expectedChecksum: step.expectedChecksum,
-          treeManifestDigest: step.treeManifestDigest,
-        })),
-      },
-      entities: {
-        create: (input.entities ?? []).map((entity) => ({
-          ...entity,
-          beforeJson:
-            entity.beforeJson === null ? Prisma.JsonNull : entity.beforeJson,
-          afterJson:
-            entity.afterJson === null ? Prisma.JsonNull : entity.afterJson,
-        })),
-      },
     },
   });
+  if (input.steps.length) {
+    await tx.storageMutationStep.createMany({
+      data: input.steps.map((step, ordinal) => ({
+        ...step,
+        ordinal,
+        mutationId: created.id,
+      })),
+    });
+  }
+  if (input.entities?.length) {
+    await tx.storageMutationEntity.createMany({
+      data: input.entities.map((entity) => ({
+        ...entity,
+        mutationId: created.id,
+        beforeJson:
+          entity.beforeJson === null ? Prisma.JsonNull : entity.beforeJson,
+        afterJson:
+          entity.afterJson === null ? Prisma.JsonNull : entity.afterJson,
+      })),
+    });
+  }
+  return created;
+};
 
 const createStorageMutationResources = async (
   tx: Prisma.TransactionClient,
@@ -1389,16 +1374,17 @@ const resolvePreparationConflict = async (
 
 export const prepareStorageMutation = async (
   input: PrepareStorageMutationInput,
+  options: StorageTransactionOptions = {},
 ): Promise<PrepareStorageMutationResult> => {
-  const prisma = getPrisma();
   const resourceKeys =
     input.resourceKeys ?? deriveStorageMutationResourceKeys(input);
   const uniqueResources = Array.from(new Set(resourceKeys)).sort();
   const replay = await findPreparedMutationReplay(input);
   if (replay) return replay;
   try {
-    const mutation = await prisma.$transaction((tx) =>
-      prepareStorageMutationTransaction(tx, input, uniqueResources),
+    const mutation = await runStorageTransaction(
+      (tx) => prepareStorageMutationTransaction(tx, input, uniqueResources),
+      options,
     );
     return { mutation, replayed: false };
   } catch (error) {
@@ -1432,7 +1418,7 @@ export const claimStorageMutation = async ({
   try {
     // Resource ownership and the lease must change together.
     // fallow-ignore-next-line complexity
-    claimed = await getPrisma().$transaction(async (tx) => {
+    claimed = await runStorageTransaction(async (tx) => {
       if (uniqueResources.length > 0) {
         await acquireStorageMutationResources(tx, uniqueResources, id);
         for (const resourceKey of uniqueResources) {
@@ -1525,7 +1511,7 @@ const assertFence = async (
        AND "leaseToken" = ${leaseToken}
        AND "leaseExpiresAt" > ${new Date()}
        AND "status" IN ('running', 'metadata_committed', 'finalizing')
-     FOR UPDATE
+     FOR UPDATE NOWAIT
   `;
   if (!fenced[0]) {
     throw new StorageMutationFenceError();
@@ -1571,7 +1557,7 @@ export const markStorageMutationStepApplied = async ({
   leaseOwner: string;
   leaseToken: bigint;
 }) =>
-  getPrisma().$transaction(async (tx) => {
+  runStorageTransaction(async (tx) => {
     await assertFence(tx, mutationId, leaseOwner, leaseToken);
     await tx.storageMutationStep.update({
       where: { id: stepId, mutationId },
@@ -1597,7 +1583,7 @@ export const markStorageMutationStepFailed = async ({
   leaseToken: bigint;
   error: string;
 }) =>
-  getPrisma().$transaction(async (tx) => {
+  runStorageTransaction(async (tx) => {
     await assertFence(tx, mutationId, leaseOwner, leaseToken);
     await tx.storageMutationStep.update({
       where: { id: stepId, mutationId },
@@ -1627,40 +1613,41 @@ export const commitStorageMutationMetadata = async <T>({
     ): Promise<R>;
   };
 }): Promise<T> =>
-  (
-    (client ?? getPrisma()) as {
-      $transaction<R>(
-        callback: (tx: Prisma.TransactionClient) => Promise<R>,
-      ): Promise<R>;
-    }
-  ).$transaction(async (tx: Prisma.TransactionClient) => {
-    await assertFence(tx, mutationId, leaseOwner, leaseToken);
-    // The committed File row replaces the reservation in the same transaction.
-    await tx.storageMutation.updateMany({
-      where: { id: mutationId, reservedBytes: { not: null } },
-      data: { reservedBytes: null },
-    });
-    const result = await callback(tx);
-    const durableResult = resultJson?.(result);
-    const updated = await tx.storageMutation.updateMany({
-      where: {
-        id: mutationId,
-        leaseOwner,
-        leaseToken,
-        status: "running",
-        leaseExpiresAt: { gt: new Date() },
+  waitForStorageAdmission((deadline) =>
+    runStorageTransaction(
+      async (tx: Prisma.TransactionClient) => {
+        await assertFence(tx, mutationId, leaseOwner, leaseToken);
+        // The committed File row replaces the reservation in the same transaction.
+        await tx.storageMutation.updateMany({
+          where: { id: mutationId, reservedBytes: { not: null } },
+          data: { reservedBytes: null },
+        });
+        const result = await callback(tx);
+        const durableResult = resultJson?.(result);
+        const updated = await tx.storageMutation.updateMany({
+          where: {
+            id: mutationId,
+            leaseOwner,
+            leaseToken,
+            status: "running",
+            leaseExpiresAt: { gt: new Date() },
+          },
+          data: {
+            status: "metadata_committed",
+            metadataCommittedAt: new Date(),
+            ...(durableResult === undefined
+              ? {}
+              : { resultJson: durableResult }),
+          },
+        });
+        if (updated.count !== 1) {
+          throw new StorageMutationFenceError();
+        }
+        return result;
       },
-      data: {
-        status: "metadata_committed",
-        metadataCommittedAt: new Date(),
-        ...(durableResult === undefined ? {} : { resultJson: durableResult }),
-      },
-    });
-    if (updated.count !== 1) {
-      throw new StorageMutationFenceError();
-    }
-    return result;
-  });
+      { client, deadline },
+    ),
+  );
 
 export const beginStorageMutationFinalization = async ({
   mutationId,
@@ -1672,7 +1659,7 @@ export const beginStorageMutationFinalization = async ({
   leaseToken: bigint;
 }) => {
   const now = new Date();
-  await getPrisma().$transaction(async (tx) => {
+  await runStorageTransaction(async (tx) => {
     await assertFence(tx, mutationId, leaseOwner, leaseToken);
     const result = await tx.storageMutation.updateMany({
       where: {
@@ -1757,7 +1744,7 @@ export const completeStorageMutation = async ({
   leaseToken: bigint;
   resultJson?: Prisma.InputJsonValue;
 }) =>
-  getPrisma().$transaction(async (tx) => {
+  runStorageTransaction(async (tx) => {
     await assertFence(tx, mutationId, leaseOwner, leaseToken);
     const completedAt = new Date();
     await tx.storageMutationStep.updateMany({
@@ -1902,7 +1889,7 @@ export const abortStorageMutation = async ({
   rejection: StorageMutationRejectedError;
   error: string;
 }) =>
-  getPrisma().$transaction(async (tx) => {
+  runStorageTransaction(async (tx) => {
     await assertFence(tx, mutationId, leaseOwner, leaseToken);
     const abortedAt = new Date();
     const aborted = await tx.storageMutation.updateMany({
@@ -1991,36 +1978,43 @@ export const createLegacyRecoveryRequiredMutation = async ({
   return findStorageMutation(claimed.id);
 };
 
-export const prepareStorageMutationParent = async ({
-  kind,
-  ownerUserId,
-  idempotencyKey,
-  requestHash,
-  intentJson,
-  resourceKeys,
-  entities = [],
-}: {
-  kind: "clear_trash" | "batch_move" | "trash_retention";
-  ownerUserId: string;
-  idempotencyKey: string;
-  requestHash: string;
-  intentJson: Prisma.InputJsonValue;
-  resourceKeys?: string[];
-  entities?: StorageMutationEntityInput[];
-}) => {
-  const id = randomUUID();
-  const prepared = await prepareStorageMutation({
-    id,
+export const prepareStorageMutationParent = async (
+  {
+    id = randomUUID(),
     kind,
     ownerUserId,
     idempotencyKey,
     requestHash,
     intentJson,
-    initialResultJson: { children: [] },
-    resourceKeys: resourceKeys ?? [`owner:${ownerUserId}`, `parent:${id}`],
-    steps: [],
-    entities,
-  });
+    resourceKeys,
+    entities = [],
+  }: {
+    id?: string;
+    kind: "clear_trash" | "batch_move" | "trash_retention";
+    ownerUserId: string;
+    idempotencyKey: string;
+    requestHash: string;
+    intentJson: Prisma.InputJsonValue;
+    resourceKeys?: string[];
+    entities?: StorageMutationEntityInput[];
+  },
+  options: StorageTransactionOptions = {},
+) => {
+  const prepared = await prepareStorageMutation(
+    {
+      id,
+      kind,
+      ownerUserId,
+      idempotencyKey,
+      requestHash,
+      intentJson,
+      initialResultJson: { children: [] },
+      resourceKeys: resourceKeys ?? [`owner:${ownerUserId}`, `parent:${id}`],
+      steps: [],
+      entities,
+    },
+    options,
+  );
   return prepared;
 };
 
@@ -2039,7 +2033,7 @@ export const recordStorageMutationParentChild = async ({
   leaseOwner: string;
   leaseToken: bigint;
 }) =>
-  getPrisma().$transaction(async (tx) => {
+  runStorageTransaction(async (tx) => {
     await assertFence(tx, parentId, leaseOwner, leaseToken);
     const parent = await tx.storageMutation.findUniqueOrThrow({
       where: { id: parentId },

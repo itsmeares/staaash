@@ -188,12 +188,12 @@ export const buildInstanceHealthSummary = ({
     DATABASE_UNAVAILABLE: databaseStatus,
     STORAGE_UNAVAILABLE: storageStatus,
     SETTINGS_UNAVAILABLE: settingsStatus,
+    QUEUE_PROBE_UNAVAILABLE: queue.probeStatus,
   };
   const failedChecks = {
     [settingsStatus !== "healthy"
       ? "WORKER_SETTINGS_UNAVAILABLE"
       : "WORKER_UNHEALTHY"]: worker.status,
-    QUEUE_UNHEALTHY: queue.status,
     RESTORE_RECONCILIATION_FAILED: reconciliation.status,
     [recoveryRequired
       ? "STORAGE_RECOVERY_REQUIRED"
@@ -206,13 +206,33 @@ export const buildInstanceHealthSummary = ({
     ...Object.entries(failedChecks).filter(([, status]) => status === "error"),
   ].map(([code]) => code);
 
+  const incidents = [
+    ...failures,
+    ...(queue.dead > 0 ? ["DEAD_JOBS"] : []),
+    ...(queue.failed > 0 ? ["FAILED_JOBS"] : []),
+    ...(queue.staleRunning > 0 ? ["STALE_JOBS"] : []),
+    ...(worker.status === "warning" ? ["WORKER_WARNING"] : []),
+    ...(reconciliation.status === "warning" ? ["RECONCILIATION_WARNING"] : []),
+    ...(storageWarnings.status !== "healthy" ? ["STORAGE_WARNING"] : []),
+  ];
+
   return {
     ok: failures.length === 0,
+    operational: {
+      status:
+        failures.length > 0
+          ? "error"
+          : incidents.length > 0
+            ? "warning"
+            : "healthy",
+      incidents,
+    },
     failures,
     checks: {
       app: {
         status: "healthy",
       },
+      queue: { status: queue.probeStatus },
       database: {
         status: databaseStatus,
         message: databaseMessage,

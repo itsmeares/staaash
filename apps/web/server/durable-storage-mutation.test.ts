@@ -103,7 +103,8 @@ describe("prepareDurableStorageMutationParent", () => {
     expect(mocks.prepareStorageMutationParent).toHaveBeenCalledTimes(3);
     expect(mocks.prepareStorageMutationParent).toHaveBeenNthCalledWith(
       3,
-      input,
+      expect.objectContaining(input),
+      { deadline: expect.any(Number) },
     );
     vi.useRealTimers();
   });
@@ -134,7 +135,17 @@ describe("prepareDurableStorageMutationParent", () => {
     await vi.runAllTimersAsync();
 
     await result;
-    expect(mocks.prepareStorageMutationParent).toHaveBeenCalledTimes(8);
+    expect(
+      mocks.prepareStorageMutationParent.mock.calls.length,
+    ).toBeGreaterThan(1);
+    expect(
+      mocks.prepareStorageMutationParent.mock.calls.every(
+        ([first, second]) =>
+          first.id === mocks.prepareStorageMutationParent.mock.calls[0][0].id &&
+          second.deadline ===
+            mocks.prepareStorageMutationParent.mock.calls[0][1].deadline,
+      ),
+    ).toBe(true);
     vi.useRealTimers();
   });
 });

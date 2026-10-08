@@ -11,6 +11,7 @@ export type QueueBacklogSummary = {
   oldestQueuedAgeSeconds: number | null;
   staleRunning: number;
   status: HealthCheckStatus;
+  probeStatus: "healthy" | "error";
   message?: string;
 };
 
@@ -73,6 +74,7 @@ export const getQueueBacklogSummary = async (
       oldestQueuedAgeSeconds: null,
       staleRunning: 0,
       status: "error",
+      probeStatus: "error",
       message: "DATABASE_URL is not configured.",
     };
   }
@@ -122,6 +124,7 @@ export const getQueueBacklogSummary = async (
 
       return {
         ...counts,
+        probeStatus: "healthy",
         oldestQueuedAgeSeconds: oldestQueuedResult.rows[0]?.age_seconds
           ? Math.max(
               0,
@@ -141,7 +144,8 @@ export const getQueueBacklogSummary = async (
       cancelled: 0,
       oldestQueuedAgeSeconds: null,
       staleRunning: 0,
-      status: "warning",
+      status: "error",
+      probeStatus: "error",
       message: getErrorMessage(error),
     };
   }
