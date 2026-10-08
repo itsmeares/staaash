@@ -108,3 +108,40 @@ kernel-level `fsync` failure, or PostgreSQL server crash is outside the
 in-process suite; capability-probe failures and database prepare failures cover
 the fail-closed paths, while deployment qualification should include mount and
 database fault testing on the target platform.
+
+## Transaction contention
+
+Journal preparation tries quota and resource locks without waiting in a database
+transaction. Web requests retry confirmed contention for up to three seconds,
+with jitter and at most 32 waiting requests per process. Each retry uses the same
+mutation ID, request hash and staged bytes. The database remains the ownership
+authority across processes. Sustained contention returns `503
+STORAGE_ADMISSION_BUSY` with `Retry-After: 1`.
+
+The journal parent, steps and entities are separate awaited statements in one
+transaction. This prevents nested child writes from continuing after a parent
+transaction expires. Quota aggregation runs in one SQL statement under the
+owner lock. Reservations, namespace checks, fencing and atomic publication are
+unchanged.
+
+Storage transactions have a five-second client ceiling. PostgreSQL 18 receives
+transaction-local statement and full-transaction deadlines below that ceiling,
+or below the remaining admission budget. The full-transaction deadline ends the
+database session; it is not treated as a retryable lock refusal. Fallback lock
+waits are limited to 100 ms. These settings do not change unrelated database
+transactions or pool sessions.
+
+A busy metadata commit retries only its database transaction while the existing
+journal retains ownership. Its three-second admission window limits contention
+retries, while each admitted attempt keeps the separate five-second transaction
+ceiling. It does not repeat byte promotion or create a second upload. Other
+failures leave the existing journal available to worker recovery.
+The browser shows **Finishing upload** after it has sent the bytes, and shows
+completion only after the server confirms the save. Cancelling after all bytes
+were sent stops waiting but cannot promise that an in-flight commit was undone.
+Retry uses the original idempotency key to resolve that upload.
+
+An expired transaction or unknown commit result is not a blanket retry signal.
+Uncertain staging remains protected for recovery and retention cleanup. A proven
+admission refusal or pre-prepare cancellation removes the request's unowned
+staging. No schema migration is required for these changes.

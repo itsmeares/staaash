@@ -10,6 +10,7 @@ describe("durable storage mutation commit", () => {
   it("persists replay result in the metadata transaction before cleanup", async () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 1 });
     const transactionClient = {
+      $executeRaw: vi.fn().mockResolvedValue(0),
       $queryRaw: vi.fn().mockResolvedValue([{ id: "mutation-1" }]),
       storageMutation: {
         findFirst: vi.fn().mockResolvedValue({ id: "mutation-1" }),

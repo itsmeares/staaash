@@ -8,6 +8,8 @@ const state = vi.hoisted(() => ({
   protocolFail: false,
   queueFail: false,
   workerStale: false,
+  deadJobs: false,
+  staleJobs: false,
   error: new Error("Synthetic database/settings unavailable"),
 }));
 vi.mock("@staaash/db/client", () => ({
@@ -31,14 +33,18 @@ vi.mock("@staaash/db/health", () => ({
     status: state.dbFail ? "error" : "healthy",
   })),
   getQueueBacklogSummary: vi.fn(async () => ({
-    status: state.queueFail ? "error" : state.dbFail ? "warning" : "healthy",
+    probeStatus: state.queueFail || state.dbFail ? "error" : "healthy",
+    status:
+      state.queueFail || state.deadJobs || state.staleJobs
+        ? "error"
+        : "healthy",
     queued: 0,
     running: 0,
     failed: 0,
-    dead: 0,
+    dead: state.deadJobs ? 1 : 0,
     cancelled: 0,
     oldestQueuedAgeSeconds: null,
-    staleRunning: 0,
+    staleRunning: state.staleJobs ? 1 : 0,
   })),
 }));
 vi.mock("@staaash/db/instance", () => ({
@@ -99,6 +105,8 @@ describe("public readiness response", () => {
     state.protocolFail = false;
     state.queueFail = false;
     state.workerStale = false;
+    state.deadJobs = false;
+    state.staleJobs = false;
   });
   it("returns structured 503 during a database/settings outage and recovers on the next request", async () => {
     state.settingsFail = true;
@@ -156,7 +164,7 @@ describe("public readiness response", () => {
     ["reconciliationFail", "reconciliation", "RESTORE_RECONCILIATION_FAILED"],
     ["mutationFail", "storageMutations", "STORAGE_MUTATION_HEALTH_UNAVAILABLE"],
     ["protocolFail", "storage", "STORAGE_UNAVAILABLE"],
-    ["queueFail", "queue", "QUEUE_UNHEALTHY"],
+    ["queueFail", "queue", "QUEUE_PROBE_UNAVAILABLE"],
     ["workerStale", "worker", "WORKER_UNHEALTHY"],
   ] as const)("publishes the %s blocker", async (flag, check, code) => {
     state[flag] = true;
@@ -167,4 +175,29 @@ describe("public readiness response", () => {
     expect(body.checks[check]).toBe("error");
     expect(body.failures).toContain(code);
   });
+  it.each(["deadJobs", "staleJobs"] as const)(
+    "keeps traffic ready when %s need attention",
+    async (flag) => {
+      state[flag] = true;
+      const response = await GET();
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        ok: true,
+        failures: [],
+        checks: { queue: "healthy" },
+        operational: {
+          status: "warning",
+          incidents: [flag === "deadJobs" ? "DEAD_JOBS" : "STALE_JOBS"],
+        },
+      });
+      const summary = await getReadiness();
+      expect(summary.queue.status).toBe("error");
+      state.recovery = true;
+      const blocked = await GET();
+      expect(blocked.status).toBe(503);
+      expect((await blocked.json()).failures).toContain(
+        "STORAGE_RECOVERY_REQUIRED",
+      );
+    },
+  );
 });

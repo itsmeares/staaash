@@ -570,7 +570,14 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
           setUploadingFiles((prev) =>
             prev.map((f) =>
               f.clientKey === clientKey
-                ? { ...f, progress, transferredBytes: loaded, speed }
+                ? {
+                    ...f,
+                    progress,
+                    transferredBytes: loaded,
+                    speed,
+                    statusLabel:
+                      progress >= 100 ? "Finishing upload…" : undefined,
+                  }
                 : f,
             ),
           );
@@ -1054,8 +1061,21 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
     cancelledUploadKeys.current.add(clientKey);
     const controller = uploadAbortControllers.current.get(clientKey);
     if (controller) {
+      const upload = uploadingFilesRef.current.find(
+        (item) => item.clientKey === clientKey,
+      );
       controller.abort();
       uploadAbortControllers.current.delete(clientKey);
+      if (upload?.status === "uploading" && upload.progress >= 100) {
+        markUploadFailed(
+          clientKey,
+          new Error(
+            "Stopped waiting for confirmation. The file may still finish saving. Retry checks the same upload.",
+          ),
+        );
+        startTransition(() => router.refresh());
+        return;
+      }
     }
     setUploadingFiles((prev) => prev.filter((f) => f.clientKey !== clientKey));
   };

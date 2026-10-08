@@ -212,7 +212,7 @@ const executePreparedMutation = async ({
 };
 
 export const runWorkerStorageMutation = async ({
-  mutationId,
+  mutationId = randomUUID(),
   kind,
   ownerUserId,
   idempotencyKey,

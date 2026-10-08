@@ -6,9 +6,9 @@
   "scripts": {
     "build:deps": "pnpm --filter @staaash/config build && pnpm --filter @staaash/db build",
     "predev": "pnpm run build:deps",
-    "prelint": "pnpm run build:deps",
-    "pretest": "pnpm run build:deps",
-    "pretypecheck": "pnpm run build:deps",
+    "prelint": "node ../../scripts/build-check-deps.mjs",
+    "pretest": "node ../../scripts/build-check-deps.mjs",
+    "pretypecheck": "node ../../scripts/build-check-deps.mjs",
     "dev": "node --env-file=../../.env.local --import tsx src/index.ts",
     "build": "tsc -p tsconfig.json",
     "postbuild": "node scripts/check-built-runtime.mjs",

@@ -28,39 +28,12 @@ import {
 import { assertStorageKeysFit } from "@/server/files/storage-layout";
 import { getStorageRoot } from "@/server/storage";
 
+import {
+  StorageAdmissionBusyError,
+  waitForStorageAdmission,
+} from "@staaash/db/storage-transactions";
+
 const STORAGE_PROTOCOL_VERSION = 2;
-const STORAGE_MUTATION_CONTENTION_RETRIES = 7;
-const STORAGE_MUTATION_CONTENTION_BACKOFF_MS = 100;
-const STORAGE_MUTATION_CONTENTION_MAX_BACKOFF_MS = 2_000;
-
-const delay = (ms: number) =>
-  new Promise<void>((resolve) => setTimeout(resolve, ms));
-
-const retryStorageMutationContention = async <T>(
-  operation: () => Promise<T>,
-) => {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      return await operation();
-    } catch (error) {
-      if (
-        !(error instanceof StorageMutationConflictError) ||
-        error.code !== "STORAGE_MUTATION_IN_PROGRESS" ||
-        attempt >= STORAGE_MUTATION_CONTENTION_RETRIES
-      ) {
-        throw error;
-      }
-      await delay(
-        Math.min(
-          STORAGE_MUTATION_CONTENTION_BACKOFF_MS * 2 ** attempt,
-          STORAGE_MUTATION_CONTENTION_MAX_BACKOFF_MS,
-        ) +
-          Math.random() * 250,
-      );
-    }
-  }
-};
-
 export class StorageProtocolNotReadyError extends Error {
   readonly code = "STORAGE_MUTATION_RECOVERING";
   readonly status = 503;
@@ -90,6 +63,7 @@ export const hashDurableStorageRequest = (value: unknown) =>
   hashStorageMutationRequest(value);
 
 export type DurableStorageMutationInput = {
+  signal?: AbortSignal;
   kind: StorageMutationKind;
   ownerUserId: string;
   idempotencyKey?: string | null;
@@ -194,6 +168,13 @@ const resolveDurablePreparationFailure = async ({
   if (existing && input.idempotencyKey) {
     throw new StorageMutationConflictError("STORAGE_IDEMPOTENCY_KEY_REUSED");
   }
+  if (
+    !existing &&
+    error instanceof StorageMutationConflictError &&
+    error.code === "STORAGE_MUTATION_IN_PROGRESS"
+  ) {
+    throw new StorageAdmissionBusyError();
+  }
   throw error;
 };
 
@@ -233,25 +214,29 @@ const executePreparedMutation = async ({
 
 const prepareDurableStorageMutation = async (
   input: DurableStorageMutationInput,
+  plan: ReturnType<typeof buildDurableMutationPlan>,
+  deadline: number,
 ) => {
-  const { intent, requestHash, durableMutationId } =
-    buildDurableMutationPlan(input);
+  const { intent, requestHash, durableMutationId } = plan;
   try {
-    return await prepareStorageMutation({
-      id: durableMutationId,
-      kind: input.kind,
-      ownerUserId: input.ownerUserId,
-      idempotencyKey: input.idempotencyKey,
-      requestHash,
-      intentJson: intent as unknown as Prisma.InputJsonValue,
-      // Without explicit keys, the journal locks the step paths.
-      resourceKeys: input.resourceKeys ?? (input.parentId ? [] : undefined),
-      reservedBytes: input.reservedBytes,
-      steps: input.steps,
-      entities: input.entities,
-      uploadSessionId: input.uploadSessionId,
-      parentId: input.parentId,
-    });
+    return await prepareStorageMutation(
+      {
+        id: durableMutationId,
+        kind: input.kind,
+        ownerUserId: input.ownerUserId,
+        idempotencyKey: input.idempotencyKey,
+        requestHash,
+        intentJson: intent as unknown as Prisma.InputJsonValue,
+        // Without explicit keys, the journal locks the step paths.
+        resourceKeys: input.resourceKeys ?? (input.parentId ? [] : undefined),
+        reservedBytes: input.reservedBytes,
+        steps: input.steps,
+        entities: input.entities,
+        uploadSessionId: input.uploadSessionId,
+        parentId: input.parentId,
+      },
+      { deadline, signal: input.signal },
+    );
   } catch (error) {
     const existing = await resolveDurablePreparationFailure({
       error,
@@ -322,8 +307,10 @@ export const runDurableStorageMutation = async (
   if (replay) return replay;
   assertStorageKeysFit(plannedStorageKeys(input));
   await assertStorageMutationMayStart();
-  const { mutation, replayed } = await retryStorageMutationContention(() =>
-    prepareDurableStorageMutation(input),
+  const plan = buildDurableMutationPlan(input);
+  const { mutation, replayed } = await waitForStorageAdmission(
+    (deadline) => prepareDurableStorageMutation(input, plan, deadline),
+    { signal: input.signal },
   );
   if (!replayed) {
     return executePreparedMutation({
@@ -342,7 +329,14 @@ export const prepareDurableStorageMutationParent = async (
   const existing = await findDurableStorageMutationReplay(input, options);
   if (existing) return { mutation: existing, replayed: true };
   await assertStorageMutationMayStart();
-  return retryStorageMutationContention(() =>
-    prepareStorageMutationParent(input),
+  const parentInput = { ...input, id: randomUUID() };
+  return waitForStorageAdmission(
+    (deadline) => prepareStorageMutationParent(parentInput, { deadline }),
+    {
+      retryable: (error) =>
+        error instanceof StorageAdmissionBusyError ||
+        (error instanceof StorageMutationConflictError &&
+          error.code === "STORAGE_MUTATION_IN_PROGRESS"),
+    },
   );
 };

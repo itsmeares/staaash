@@ -1,7 +1,11 @@
 import { mkdir, statfs } from "node:fs/promises";
-import { setTimeout as delay } from "node:timers/promises";
 
-import { getPrisma, Prisma } from "@staaash/db/client";
+import { type Prisma } from "@staaash/db/client";
+import {
+  runStorageTransaction,
+  waitForStorageAdmission,
+  StorageAdmissionBusyError,
+} from "@staaash/db/storage-transactions";
 
 import { getStorageRoot } from "@/server/storage";
 import { getTerminalBacklogLimits } from "@/server/uploads/session-state";
@@ -125,67 +129,18 @@ const toBigInt = (value: unknown): bigint => {
   throw new TypeError("Expected a PostgreSQL integer aggregate.");
 };
 
-const MAX_TRANSACTION_ATTEMPTS = 3;
-
-const firstString = (...values: unknown[]) =>
-  values.find((value): value is string => typeof value === "string");
-
-const readNestedErrorCode = (value: unknown) => {
-  if (!value || typeof value !== "object") return undefined;
-  const code = (value as { code?: unknown }).code;
-  return typeof code === "string" ? code : undefined;
-};
-
-const getErrorCode = (error: unknown) => {
-  if (typeof error !== "object") return null;
-  if (error === null) return null;
-  const candidate = error as {
-    code?: unknown;
-    meta?: unknown;
-    cause?: unknown;
-    name?: unknown;
-    message?: unknown;
-  };
-  const directCode = firstString(
-    candidate.code,
-    readNestedErrorCode(candidate.meta),
-    readNestedErrorCode(candidate.cause),
-    candidate.name,
-  );
-  if (directCode) return directCode;
-  if (typeof candidate.message !== "string") return null;
-  return candidate.message.includes("TransactionWriteConflict")
-    ? "TransactionWriteConflict"
-    : null;
-};
-
-const isRetryableTransactionConflict = (error: unknown) =>
-  ["P2028", "P2034", "40001", "40P01", "TransactionWriteConflict"].includes(
-    getErrorCode(error) ?? "",
-  );
-
 export const runUploadTransaction = async <T>(
   callback: (tx: UploadTransactionClient) => Promise<T>,
 ): Promise<T> => {
-  const db = getPrisma();
-  for (let attempt = 0; attempt < MAX_TRANSACTION_ATTEMPTS; attempt += 1) {
-    try {
-      return await db.$transaction(callback, {
-        isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
-        maxWait: 5_000,
-        timeout: 5_000,
-      });
-    } catch (error) {
-      if (!isRetryableTransactionConflict(error)) {
-        throw error;
-      }
-      if (attempt === MAX_TRANSACTION_ATTEMPTS - 1) {
-        throw new UploadAdmissionError("UPLOAD_ADMISSION_BUSY");
-      }
-      await delay(25 * 2 ** attempt + Math.floor(Math.random() * 25));
-    }
+  try {
+    return await waitForStorageAdmission((deadline) =>
+      runStorageTransaction(callback, { deadline }),
+    );
+  } catch (error) {
+    if (error instanceof StorageAdmissionBusyError)
+      throw new UploadAdmissionError("UPLOAD_ADMISSION_BUSY");
+    throw error;
   }
-  throw new UploadAdmissionError("UPLOAD_ADMISSION_BUSY");
 };
 
 export const lockUploadCapacityRows = async (
@@ -202,7 +157,7 @@ export const lockUploadCapacityRows = async (
       "resumableMaxReservedBytesInstance"
     FROM "SystemSettings"
     WHERE "id" = 'singleton'
-    FOR UPDATE
+    FOR UPDATE NOWAIT
   `;
   const settings = settingsRows[0];
   if (!settings) {
@@ -213,7 +168,7 @@ export const lockUploadCapacityRows = async (
     SELECT "id", "storageLimitBytes"
     FROM "User"
     WHERE "id" = ${ownerUserId}
-    FOR UPDATE
+    FOR UPDATE NOWAIT
   `;
   const user = userRows[0];
   if (!user) {
@@ -230,7 +185,7 @@ export const lockUserQuotaRow = async (
     SELECT "id", "storageLimitBytes"
     FROM "User"
     WHERE "id" = ${ownerUserId}
-    FOR UPDATE
+    FOR UPDATE NOWAIT
   `;
   const user = rows[0];
   if (!user) throw new UploadAdmissionError("UPLOAD_ADMISSION_BUSY");

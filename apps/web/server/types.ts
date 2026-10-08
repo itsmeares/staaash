@@ -50,21 +50,16 @@ export type RestoreReconciliationHealthSummary = {
   message: string;
 };
 
-export type QueueBacklogSummary = {
-  queued: number;
-  running: number;
-  failed: number;
-  dead: number;
-  cancelled: number;
-  oldestQueuedAgeSeconds: number | null;
-  staleRunning: number;
-  status: HealthCheckStatus;
-  message?: string;
-};
+export type { QueueBacklogSummary } from "@staaash/db/health";
+import type { QueueBacklogSummary } from "@staaash/db/health";
 
 export type InstanceHealthSummary = {
   ok: boolean;
   failures: string[];
+  operational: {
+    status: HealthCheckStatus;
+    incidents: string[];
+  };
   checks: {
     app: {
       status: HealthCheckStatus;
@@ -82,6 +77,9 @@ export type InstanceHealthSummary = {
       message?: string;
     };
     storageMutations: {
+      status: HealthCheckStatus;
+    };
+    queue: {
       status: HealthCheckStatus;
     };
   };
