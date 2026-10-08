@@ -164,16 +164,7 @@ export const lockUploadCapacityRows = async (
     throw new UploadAdmissionError("UPLOAD_ADMISSION_BUSY");
   }
 
-  const userRows = await tx.$queryRaw<LockedUser[]>`
-    SELECT "id", "storageLimitBytes"
-    FROM "User"
-    WHERE "id" = ${ownerUserId}
-    FOR UPDATE NOWAIT
-  `;
-  const user = userRows[0];
-  if (!user) {
-    throw new UploadAdmissionError("UPLOAD_ADMISSION_BUSY");
-  }
+  const user = await lockUserQuotaRow(tx, ownerUserId);
   return { settings, user };
 };
 

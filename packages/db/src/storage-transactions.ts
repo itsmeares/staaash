@@ -3,6 +3,11 @@ import { getPrisma, type Prisma } from "./client";
 const TRANSACTION_MS = 5_000;
 const ADMISSION_MS = 3_000;
 const MAX_WAITING_REQUESTS = 32;
+const RETRYABLE_SQL_STATES = new Set<string | null>([
+  "55P03",
+  "40001",
+  "40P01",
+]);
 let waitingRequests = 0;
 
 export class StorageAdmissionBusyError extends Error {
@@ -74,7 +79,7 @@ export type StorageTransactionOptions = {
 const classifyStorageTransactionError = (error: unknown) => {
   const code = storageSqlState(error);
   // These SQL errors abort the transaction. Await rollback before retrying.
-  if (new Set<string | null>(["55P03", "40001", "40P01"]).has(code)) {
+  if (RETRYABLE_SQL_STATES.has(code)) {
     return new StorageAdmissionBusyError();
   }
   if (
