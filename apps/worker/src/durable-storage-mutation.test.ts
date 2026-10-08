@@ -54,6 +54,30 @@ describe("worker durable mutation prepare ownership", () => {
     mocks.assertStorageFilesystemSupported.mockResolvedValue(undefined);
   });
 
+  it("retains the generated mutation identity when prepare fails after taking ownership", async () => {
+    const rejection = new Error("connection lost after commit");
+    mocks.prepareStorageMutation.mockRejectedValueOnce(rejection);
+    mocks.findStorageMutation.mockImplementationOnce(async (id) => ({
+      id,
+      kind: input.kind,
+      ownerUserId: input.ownerUserId,
+      requestHash: hashWorkerStorageRequest(input.requestHashPayload),
+    }));
+    const pending = runWorkerStorageMutation({
+      ...input,
+      mutationId: undefined,
+    });
+    await expect(pending).rejects.toMatchObject({
+      name: "StorageMutationOwnedError",
+      mutationId: expect.any(String),
+      cause: rejection,
+    });
+    const generatedId = mocks.prepareStorageMutation.mock.calls[0][0].id;
+    expect(generatedId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(mocks.findStorageMutation).toHaveBeenCalledWith(generatedId);
+    expect(mocks.claimAndExecuteStorageMutation).not.toHaveBeenCalled();
+  });
+
   it("does not claim a generated source after a definite prepare rejection", async () => {
     const rejection = new Error("namespace conflict");
     mocks.prepareStorageMutation.mockRejectedValue(rejection);

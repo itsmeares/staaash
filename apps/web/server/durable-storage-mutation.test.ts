@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   claimAndExecuteStorageMutation: vi.fn(),
@@ -42,6 +42,11 @@ import {
   prepareDurableStorageMutationParent,
   runDurableStorageMutation,
 } from "./durable-storage-mutation";
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 const input = {
   kind: "batch_move" as const,
@@ -192,6 +197,66 @@ describe("runDurableStorageMutation", () => {
     await expect(result).resolves.toMatchObject({ status: "succeeded" });
     expect(mocks.prepareStorageMutation).toHaveBeenCalledTimes(2);
     expect(mocks.claimAndExecuteStorageMutation).toHaveBeenCalledOnce();
+    const [firstInput, firstOptions] =
+      mocks.prepareStorageMutation.mock.calls[0];
+    expect(firstInput.id).toEqual(expect.any(String));
+    expect(firstInput.id).not.toBe("");
+    expect(mocks.prepareStorageMutation.mock.calls[1]).toEqual([
+      firstInput,
+      firstOptions,
+    ]);
     vi.useRealTimers();
+  });
+
+  it("cancels contended admission without preparing or executing another mutation", async () => {
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    mocks.prepareStorageMutation.mockRejectedValue(
+      new StorageMutationConflictError("STORAGE_MUTATION_IN_PROGRESS"),
+    );
+    const pending = expect(
+      runDurableStorageMutation({
+        kind: "upload_create",
+        ownerUserId: "owner-1",
+        idempotencyKey: "cancelled-upload",
+        metadataOperations: [],
+        steps: [],
+        signal: controller.signal,
+      }),
+    ).rejects.toMatchObject({ code: "UPLOAD_CANCELLED", status: 499 });
+    await vi.advanceTimersByTimeAsync(1);
+    expect(mocks.prepareStorageMutation).toHaveBeenCalledWith(
+      expect.any(Object),
+      {
+        deadline: expect.any(Number),
+        signal: controller.signal,
+      },
+    );
+    controller.abort();
+    await pending;
+    expect(mocks.prepareStorageMutation).toHaveBeenCalledOnce();
+    expect(mocks.claimAndExecuteStorageMutation).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("retains uncertain ownership when the post-failure lookup is unavailable", async () => {
+    mocks.findStorageMutationByIdempotencyKey
+      .mockResolvedValueOnce(null)
+      .mockRejectedValueOnce(new Error("lookup unavailable"));
+    mocks.prepareStorageMutation.mockRejectedValueOnce(
+      new Error("connection lost after commit"),
+    );
+    await expect(
+      runDurableStorageMutation({
+        kind: "upload_create",
+        ownerUserId: "owner-1",
+        idempotencyKey: "uncertain-upload",
+        mutationId: "stable-mutation",
+        metadataOperations: [],
+        steps: [],
+      }),
+    ).rejects.toMatchObject({ code: "STORAGE_MUTATION_RECOVERING" });
+    expect(mocks.prepareStorageMutation).toHaveBeenCalledOnce();
+    expect(mocks.claimAndExecuteStorageMutation).not.toHaveBeenCalled();
   });
 });

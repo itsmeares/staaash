@@ -150,3 +150,129 @@ describe("health summaries", () => {
     expect(() => JSON.stringify(jsonSummary)).not.toThrow();
   });
 });
+
+describe("traffic readiness and operational incidents", () => {
+  const healthyInput = (): Parameters<
+    typeof buildInstanceHealthSummary
+  >[0] => ({
+    databaseStatus: "healthy",
+    storageStatus: "healthy",
+    worker: {
+      status: "healthy",
+      lastSeenAt: "2026-10-08T00:00:00.000Z",
+      message: "Current",
+    },
+    queue: {
+      probeStatus: "healthy",
+      status: "healthy",
+      queued: 0,
+      running: 0,
+      failed: 0,
+      dead: 0,
+      cancelled: 0,
+      oldestQueuedAgeSeconds: null,
+      staleRunning: 0,
+    },
+    reconciliation: { ...baseReconciliation },
+    storageWarnings: {
+      status: "healthy",
+      freeBytes: 10n,
+      totalBytes: 20n,
+      message: "Healthy",
+    },
+    versionInfo: { ...baseVersionInfo },
+  });
+
+  it("reports healthy operations when no incidents are present", () => {
+    const summary = buildInstanceHealthSummary(healthyInput());
+    expect(summary).toMatchObject({
+      ok: true,
+      failures: [],
+      operational: { status: "healthy", incidents: [] },
+      checks: { queue: { status: "healthy" } },
+    });
+  });
+
+  it.each([
+    ["dead", "DEAD_JOBS", "error"],
+    ["failed", "FAILED_JOBS", "warning"],
+    ["staleRunning", "STALE_JOBS", "error"],
+  ] as const)(
+    "reports %s jobs without blocking traffic",
+    (field, incident, status) => {
+      const input = healthyInput();
+      input.queue[field] = 1;
+      input.queue.status = status;
+      expect(buildInstanceHealthSummary(input)).toMatchObject({
+        ok: true,
+        failures: [],
+        operational: { status: "warning", incidents: [incident] },
+        checks: { queue: { status: "healthy" } },
+        queue: { status },
+      });
+    },
+  );
+
+  it.each([
+    ["worker", "WORKER_WARNING"],
+    ["reconciliation", "RECONCILIATION_WARNING"],
+    ["storageWarnings", "STORAGE_WARNING"],
+  ] as const)(
+    "keeps %s warnings visible without failing readiness",
+    (field, incident) => {
+      const input = healthyInput();
+      input[field].status = "warning";
+      expect(buildInstanceHealthSummary(input)).toMatchObject({
+        ok: true,
+        failures: [],
+        operational: { status: "warning", incidents: [incident] },
+      });
+    },
+  );
+
+  it("makes a failed probe block readiness even when the queue appears empty and healthy", () => {
+    const input = healthyInput();
+    input.queue.probeStatus = "error";
+    expect(buildInstanceHealthSummary(input)).toMatchObject({
+      ok: false,
+      failures: ["QUEUE_PROBE_UNAVAILABLE"],
+      operational: { status: "error", incidents: ["QUEUE_PROBE_UNAVAILABLE"] },
+      checks: { queue: { status: "error" } },
+    });
+  });
+
+  it("retains every incident while giving readiness failures operational error severity", () => {
+    const input = healthyInput();
+    input.queue = {
+      ...input.queue,
+      dead: 1,
+      failed: 2,
+      staleRunning: 3,
+      status: "error",
+    };
+    input.worker.status = "warning";
+    input.reconciliation.status = "warning";
+    input.storageWarnings.status = "error";
+    input.storageMutations = {
+      counts: { recovery_required: 1 },
+      oldest: null,
+      active: [],
+    };
+    const summary = buildInstanceHealthSummary(input);
+    expect(summary.ok).toBe(false);
+    expect(summary.failures).toEqual(["STORAGE_RECOVERY_REQUIRED"]);
+    expect(summary.operational.status).toBe("error");
+    expect(summary.operational.incidents).toEqual([
+      "STORAGE_RECOVERY_REQUIRED",
+      "DEAD_JOBS",
+      "FAILED_JOBS",
+      "STALE_JOBS",
+      "WORKER_WARNING",
+      "RECONCILIATION_WARNING",
+      "STORAGE_WARNING",
+    ]);
+    expect(toJsonInstanceHealthSummary(summary).operational).toEqual(
+      summary.operational,
+    );
+  });
+});

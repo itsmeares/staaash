@@ -1,3 +1,9 @@
+import {
+  StorageAdmissionBusyError,
+  StorageAdmissionCancelledError,
+  StorageTransactionUnavailableError,
+} from "@staaash/db/storage-transactions";
+import { UploadAdmissionError } from "@/server/uploads/admission";
 import { NextRequest } from "next/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -204,5 +210,35 @@ describe("auth http helpers", () => {
     });
 
     expect(isSameOrigin(request)).toBe(false);
+  });
+});
+
+describe("upload admission HTTP errors", () => {
+  it.each([
+    new StorageAdmissionBusyError(),
+    new UploadAdmissionError("UPLOAD_ADMISSION_BUSY"),
+  ])("provides retry guidance for $code", async (error) => {
+    const response = jsonErrorResponse(error);
+    expect(response.status).toBe(503);
+    expect(response.headers.get("retry-after")).toBe("1");
+    await expect(response.json()).resolves.toEqual({
+      code: error.code,
+      error: error.message,
+    });
+  });
+
+  it.each([
+    new StorageAdmissionCancelledError(),
+    new StorageTransactionUnavailableError(
+      new Error("private database details"),
+    ),
+  ])("does not advertise safe retries for $code", async (error) => {
+    const response = jsonErrorResponse(error);
+    expect(response.status).toBe(error.status);
+    expect(response.headers.has("retry-after")).toBe(false);
+    await expect(response.json()).resolves.toEqual({
+      code: error.code,
+      error: error.message,
+    });
   });
 });

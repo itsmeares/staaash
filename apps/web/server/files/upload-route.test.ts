@@ -1,3 +1,7 @@
+import {
+  StorageAdmissionBusyError,
+  StorageAdmissionCancelledError,
+} from "@staaash/db/storage-transactions";
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -175,5 +179,30 @@ describe("direct upload route", () => {
       code: "INVALID_MULTIPART_BODY",
     });
     expect(uploadFiles).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    new StorageAdmissionBusyError(),
+    new StorageAdmissionCancelledError(),
+  ])("returns the typed $code from upload admission", async (error) => {
+    getRequestSession.mockResolvedValueOnce({
+      user: { id: "user-1", role: "member" },
+    });
+    pairUploadRequestItems.mockReturnValueOnce(["upload-item"]);
+    uploadFiles.mockRejectedValueOnce(error);
+    const request = multipartRequest("application/json");
+    const { POST } = await import("@/app/api/files/files/route");
+    const response = await POST(request);
+    expect(response.status).toBe(error.status);
+    await expect(response.json()).resolves.toEqual({
+      error: error.message,
+      code: error.code,
+    });
+    expect(response.headers.get("retry-after")).toBe(
+      error instanceof StorageAdmissionBusyError ? "1" : null,
+    );
+    expect(uploadFiles).toHaveBeenCalledWith(
+      expect.objectContaining({ signal: request.signal }),
+    );
   });
 });
