@@ -4,7 +4,11 @@ import path from "node:path";
 import { Client } from "pg";
 import { beforeAll, describe, expect, inject, it } from "vitest";
 import { getPrisma } from "@staaash/db/client";
-import { prepareStorageMutation } from "@staaash/db/storage-mutations";
+import {
+  prepareStorageMutation,
+  claimStorageMutation,
+  commitStorageMutationMetadata,
+} from "@staaash/db/storage-mutations";
 import { getQueueBacklogSummary } from "@staaash/db/health";
 import {
   runStorageTransaction,
@@ -360,6 +364,45 @@ describe("storage admission on real PostgreSQL", () => {
       await db.$executeRawUnsafe("DROP FUNCTION admission_delay()");
     }
   }, 5000);
+  it("gives admitted metadata work its own transaction budget", async () => {
+    const { owner, folder } = await createOwner();
+    const plan = { ...input(owner.id), steps: [], entities: [] };
+    await prepareStorageMutation(plan);
+    const claimed = await claimStorageMutation({
+      id: plan.id,
+      leaseOwner: "metadata-budget-test",
+    });
+    expect(claimed).not.toBeNull();
+
+    const result = await commitStorageMutationMetadata({
+      mutationId: plan.id,
+      leaseOwner: claimed!.leaseOwner,
+      leaseToken: claimed!.leaseToken,
+      callback: async (tx) => {
+        // Longer than the admission window, within the transaction work budget.
+        await tx.$queryRaw`SELECT pg_sleep(3.2)::text`;
+        return tx.folder.update({
+          where: { id: folder.id },
+          data: { name: "Renamed" },
+        });
+      },
+      resultJson: (updated) => ({ folderId: updated.id }),
+    });
+
+    expect(result.name).toBe("Renamed");
+    expect(
+      await db.folder.findUnique({ where: { id: folder.id } }),
+    ).toMatchObject({
+      name: "Renamed",
+    });
+    expect(
+      await db.storageMutation.findUnique({ where: { id: plan.id } }),
+    ).toMatchObject({
+      status: "metadata_committed",
+      reservedBytes: null,
+      resultJson: { folderId: folder.id },
+    });
+  }, 10000);
   it("bounds the entire transaction across multiple individually short queries", async () => {
     await expect(
       runStorageTransaction(

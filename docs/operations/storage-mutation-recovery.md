@@ -132,8 +132,10 @@ waits are limited to 100 ms. These settings do not change unrelated database
 transactions or pool sessions.
 
 A busy metadata commit retries only its database transaction while the existing
-journal retains ownership. It does not repeat byte promotion or create a second
-upload. Other failures leave the existing journal available to worker recovery.
+journal retains ownership. Its three-second admission window limits contention
+retries, while each admitted attempt keeps the separate five-second transaction
+ceiling. It does not repeat byte promotion or create a second upload. Other
+failures leave the existing journal available to worker recovery.
 The browser shows **Finishing upload** after it has sent the bytes, and shows
 completion only after the server confirms the save. Cancelling after all bytes
 were sent stops waiting but cannot promise that an in-flight commit was undone.

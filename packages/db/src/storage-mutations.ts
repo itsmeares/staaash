@@ -1613,7 +1613,7 @@ export const commitStorageMutationMetadata = async <T>({
     ): Promise<R>;
   };
 }): Promise<T> =>
-  waitForStorageAdmission((deadline) =>
+  waitForStorageAdmission(() =>
     runStorageTransaction(
       async (tx: Prisma.TransactionClient) => {
         await assertFence(tx, mutationId, leaseOwner, leaseToken);
@@ -1645,7 +1645,7 @@ export const commitStorageMutationMetadata = async <T>({
         }
         return result;
       },
-      { client, deadline },
+      { client },
     ),
   );
 
