@@ -5,9 +5,9 @@
   "scripts": {
     "build:deps": "pnpm --filter @staaash/config build && pnpm --filter @staaash/db build",
     "predev": "pnpm run build:deps",
-    "prelint": "pnpm run build:deps && next typegen",
-    "pretest": "pnpm run build:deps",
-    "pretypecheck": "pnpm run build:deps && next typegen",
+    "prelint": "node ../../scripts/build-check-deps.mjs && next typegen",
+    "pretest": "node ../../scripts/build-check-deps.mjs",
+    "pretypecheck": "node ../../scripts/build-check-deps.mjs && next typegen",
     "dev": "next dev",
     "e2e:prepare": "node scripts/e2e-bootstrap.mjs && node --env-file-if-exists=.env.local scripts/e2e-install-extensions.mjs",
     "build": "next build",
