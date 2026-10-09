@@ -200,15 +200,14 @@ const resolveDurablePreparationFailure = async ({
 };
 
 const resolveInterruptedExecution = async (mutationId: string) => {
+  let current: Awaited<ReturnType<typeof findStorageMutation>> = null;
   try {
-    const current = await findStorageMutation(mutationId);
-    if (current?.status === "succeeded") return current;
-    if (current) throw mutationStateConflict(current);
-  } catch (lookupError) {
-    if (lookupError instanceof StorageMutationConflictError) {
-      throw lookupError;
-    }
+    current = await findStorageMutation(mutationId);
+  } catch {
+    // An unavailable journal lookup leaves the execution outcome unknown.
   }
+  if (current?.status === "succeeded") return current;
+  if (current) throw mutationStateConflict(current);
   throw new StorageMutationConflictError(
     "STORAGE_MUTATION_RECOVERING",
     mutationId,

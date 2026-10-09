@@ -18,21 +18,26 @@ vi.mock("@staaash/db/client", () => ({
   getPrisma: () => ({ instance: { findUnique: mocks.findUnique } }),
 }));
 
-vi.mock("@staaash/db/storage-mutations", () => ({
-  applyStorageMutationIntentMetadata: vi.fn(),
-  findStorageMutation: mocks.findStorageMutation,
-  findStorageMutationByIdempotencyKey:
-    mocks.findStorageMutationByIdempotencyKey,
-  hashStorageMutationRequest: (value: unknown) => JSON.stringify(value),
-  prepareStorageMutation: mocks.prepareStorageMutation,
-  prepareStorageMutationParent: mocks.prepareStorageMutationParent,
-  StorageMutationRejectedError: class extends Error {},
-  StorageMutationConflictError: class extends Error {
-    constructor(readonly code: string) {
-      super(code);
-    }
-  },
-}));
+vi.mock("@staaash/db/storage-mutations", async (importOriginal) => {
+  const { StorageMutationRejectedError, storageMutationRejectionFromResult } =
+    await importOriginal<typeof import("@staaash/db/storage-mutations")>();
+  return {
+    applyStorageMutationIntentMetadata: vi.fn(),
+    findStorageMutation: mocks.findStorageMutation,
+    findStorageMutationByIdempotencyKey:
+      mocks.findStorageMutationByIdempotencyKey,
+    hashStorageMutationRequest: (value: unknown) => JSON.stringify(value),
+    prepareStorageMutation: mocks.prepareStorageMutation,
+    prepareStorageMutationParent: mocks.prepareStorageMutationParent,
+    StorageMutationRejectedError,
+    storageMutationRejectionFromResult,
+    StorageMutationConflictError: class extends Error {
+      constructor(readonly code: string) {
+        super(code);
+      }
+    },
+  };
+});
 
 vi.mock("@staaash/db/storage-mutation-executor", () => ({
   assertStorageFilesystemSupported: mocks.assertStorageFilesystemSupported,
@@ -430,6 +435,86 @@ describe("runDurableStorageMutation", () => {
       { mutationId: "upload-1", kind: "upload_create", error },
     );
   });
+
+  it.each([
+    ["USER_STORAGE_QUOTA_EXCEEDED", 413],
+    ["STORAGE_PATH_TOO_LONG", 400],
+    [undefined, 503],
+  ])(
+    "preserves an aborted journal's rejection (%s)",
+    async (abortedCode, status) => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const mutation = {
+        id: "upload-aborted",
+        kind: "upload_create",
+        ownerUserId: "owner-1",
+        status: "prepared",
+        intentJson: { version: 1, metadataOperations: [] },
+      };
+      mocks.prepareStorageMutation.mockResolvedValue({
+        mutation,
+        replayed: false,
+      });
+      mocks.claimAndExecuteStorageMutation.mockRejectedValue(
+        new Error("execution interrupted"),
+      );
+      mocks.findStorageMutation.mockResolvedValue({
+        ...mutation,
+        status: "aborted",
+        resultJson: abortedCode ? { abortedCode } : null,
+      });
+
+      await expect(
+        runDurableStorageMutation({
+          kind: "upload_create",
+          ownerUserId: "owner-1",
+          metadataOperations: [],
+          steps: [],
+        }),
+      ).rejects.toMatchObject({
+        name: "StorageMutationRejectedError",
+        code: abortedCode ?? "STORAGE_MUTATION_ABORTED",
+        status,
+      });
+      expect(mocks.claimAndExecuteStorageMutation).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each([
+    null,
+    new Error("database unavailable"),
+    new StorageMutationConflictError("STORAGE_MUTATION_IN_PROGRESS"),
+  ])(
+    "reports recovery when an interrupted execution's journal cannot be read (%s)",
+    async (lookupError) => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const mutation = {
+        id: "upload-unknown",
+        kind: "upload_create",
+        ownerUserId: "owner-1",
+        status: "prepared",
+        intentJson: { version: 1, metadataOperations: [] },
+      };
+      mocks.prepareStorageMutation.mockResolvedValue({
+        mutation,
+        replayed: false,
+      });
+      mocks.claimAndExecuteStorageMutation.mockRejectedValue(
+        new Error("execution interrupted"),
+      );
+      if (lookupError) mocks.findStorageMutation.mockRejectedValue(lookupError);
+      else mocks.findStorageMutation.mockResolvedValue(null);
+
+      await expect(
+        runDurableStorageMutation({
+          kind: "upload_create",
+          ownerUserId: "owner-1",
+          metadataOperations: [],
+          steps: [],
+        }),
+      ).rejects.toMatchObject({ code: "STORAGE_MUTATION_RECOVERING" });
+    },
+  );
 
   it("retries transient contention before executing an upload mutation", async () => {
     vi.useFakeTimers();
