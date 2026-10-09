@@ -1447,6 +1447,52 @@ describe("files service", { concurrent: false }, () => {
     expect(result.uploadedFiles[0]?.name).toBe("photo (1).jpg");
   });
 
+  it("returns a saved upload even when cleanup scheduling fails", async () => {
+    await cleanDataRoot();
+    const { repo, state } = createMemoryRepository();
+    const error = new Error("Scheduler unavailable");
+    const schedule = vi.fn().mockRejectedValue(error);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const service = createFilesService({
+        repo,
+        scheduleStagingCleanupJob: schedule,
+      });
+      const root = await service.ensureFilesRoot("member-1");
+      const result = await service.uploadFiles({
+        actorUserId: "member-1",
+        actorRole: "member",
+        folderId: root.id,
+        items: [
+          {
+            clientKey: "saved-upload",
+            originalName: "saved-upload.txt",
+            conflictStrategy: "fail",
+            file: new File(["saved bytes"], "saved-upload.txt", {
+              type: "text/plain",
+            }),
+          },
+        ],
+      });
+      expect(result.uploadedFiles).toHaveLength(1);
+      expect(state.files).toHaveLength(1);
+      expect(
+        await readFile(
+          getStoragePath("files/member-1/saved-upload.txt"),
+          "utf8",
+        ),
+      ).toBe("saved bytes");
+      await vi.waitFor(() =>
+        expect(warn).toHaveBeenCalledWith(
+          "[files] Failed to schedule staging cleanup.",
+          error,
+        ),
+      );
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it("replaces file content in place when replace is selected", async () => {
     await cleanDataRoot();
     const { repo, state } = createMemoryRepository();

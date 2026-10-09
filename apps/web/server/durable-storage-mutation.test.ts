@@ -1,4 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  StorageAdmissionBusyError,
+  StorageTransactionUnavailableError,
+} from "@staaash/db/storage-transactions";
 
 const mocks = vi.hoisted(() => ({
   claimAndExecuteStorageMutation: vi.fn(),
@@ -22,6 +26,7 @@ vi.mock("@staaash/db/storage-mutations", () => ({
   hashStorageMutationRequest: (value: unknown) => JSON.stringify(value),
   prepareStorageMutation: mocks.prepareStorageMutation,
   prepareStorageMutationParent: mocks.prepareStorageMutationParent,
+  StorageMutationRejectedError: class extends Error {},
   StorageMutationConflictError: class extends Error {
     constructor(readonly code: string) {
       super(code);
@@ -50,6 +55,11 @@ const input = {
   requestHash: "request-1",
   intentJson: { version: 1, items: [] },
 };
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 describe("prepareDurableStorageMutationParent", () => {
   beforeEach(() => {
@@ -158,6 +168,269 @@ describe("runDurableStorageMutation", () => {
     mocks.claimAndExecuteStorageMutation.mockResolvedValue(undefined);
   });
 
+  it("logs unavailable preparation even when no journal exists", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const error = new StorageTransactionUnavailableError(
+      new Error("pool wait"),
+    );
+    mocks.prepareStorageMutation.mockRejectedValue(error);
+    mocks.findStorageMutation.mockResolvedValue(null);
+
+    await expect(
+      runDurableStorageMutation({
+        mutationId: "upload-not-prepared",
+        kind: "upload_create",
+        ownerUserId: "owner-1",
+        metadataOperations: [],
+        steps: [],
+      }),
+    ).rejects.toBe(error);
+    expect(warn).toHaveBeenCalledWith(
+      "[storage] Durable mutation preparation interrupted.",
+      {
+        mutationId: "upload-not-prepared",
+        kind: "upload_create",
+        status: "unknown",
+        error,
+      },
+    );
+    expect(mocks.claimAndExecuteStorageMutation).not.toHaveBeenCalled();
+    expect(mocks.prepareStorageMutation).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries an absent preparation once with a fresh deadline and the same durable identity", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const start = Date.now();
+    const error = new StorageTransactionUnavailableError(
+      new Error("transaction expired"),
+    );
+    const mutation = {
+      id: "upload-retry",
+      kind: "upload_create",
+      ownerUserId: "owner-1",
+      status: "prepared",
+      intentJson: { version: 1, metadataOperations: [] },
+    };
+    mocks.prepareStorageMutation
+      .mockImplementationOnce(async () => {
+        vi.setSystemTime(start + 5100);
+        throw error;
+      })
+      .mockResolvedValueOnce({ mutation, replayed: false });
+    mocks.findStorageMutation.mockResolvedValue({
+      ...mutation,
+      status: "succeeded",
+    });
+    await expect(
+      runDurableStorageMutation({
+        mutationId: mutation.id,
+        kind: "upload_create",
+        ownerUserId: "owner-1",
+        idempotencyKey: "stable-upload-key",
+        metadataOperations: [],
+        steps: [],
+        resultJson: { file: { id: "saved-file" } },
+      }),
+    ).resolves.toMatchObject({ status: "succeeded" });
+    expect(mocks.prepareStorageMutation).toHaveBeenCalledTimes(2);
+    expect(mocks.prepareStorageMutation.mock.calls[1][0]).toEqual(
+      mocks.prepareStorageMutation.mock.calls[0][0],
+    );
+    expect(mocks.prepareStorageMutation.mock.calls[0][1].deadline).toBe(
+      start + 5000,
+    );
+    expect(mocks.prepareStorageMutation.mock.calls[1][1].deadline).toBe(
+      start + 10100,
+    );
+    expect(mocks.claimAndExecuteStorageMutation).toHaveBeenCalledOnce();
+  });
+
+  it("does not retry preparation when the primary lookup cannot establish absence", async () => {
+    mocks.prepareStorageMutation.mockRejectedValue(
+      new StorageTransactionUnavailableError(new Error("unknown commit")),
+    );
+    mocks.findStorageMutation.mockRejectedValue(
+      new Error("database unavailable"),
+    );
+    await expect(
+      runDurableStorageMutation({
+        mutationId: "upload-unknown",
+        kind: "upload_create",
+        ownerUserId: "owner-1",
+        metadataOperations: [],
+        steps: [],
+      }),
+    ).rejects.toMatchObject({ code: "STORAGE_MUTATION_RECOVERING" });
+    expect(mocks.prepareStorageMutation).toHaveBeenCalledOnce();
+    expect(mocks.claimAndExecuteStorageMutation).not.toHaveBeenCalled();
+  });
+
+  it("does not repeat preparation when its matching journal is already running", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    mocks.prepareStorageMutation.mockRejectedValue(
+      new StorageTransactionUnavailableError(new Error("unknown commit")),
+    );
+    mocks.findStorageMutation.mockResolvedValue({
+      id: "upload-running",
+      kind: "upload_create",
+      ownerUserId: "owner-1",
+      status: "running",
+      requestHash: JSON.stringify({ request: "stable" }),
+    });
+    await expect(
+      runDurableStorageMutation({
+        mutationId: "upload-running",
+        kind: "upload_create",
+        ownerUserId: "owner-1",
+        metadataOperations: [],
+        steps: [],
+        requestHashPayload: { request: "stable" },
+      }),
+    ).rejects.toMatchObject({ code: "STORAGE_MUTATION_RECOVERING" });
+    expect(mocks.prepareStorageMutation).toHaveBeenCalledOnce();
+    expect(mocks.claimAndExecuteStorageMutation).not.toHaveBeenCalled();
+  });
+
+  it("claims a late prepared commit atomically and preserves its original receipt", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const receipt = { file: { id: "original-file" } };
+    const mutation = {
+      id: "upload-late",
+      kind: "upload_create",
+      ownerUserId: "owner-1",
+      status: "prepared",
+      resultJson: receipt,
+      intentJson: { version: 1, metadataOperations: [] },
+    };
+    mocks.prepareStorageMutation
+      .mockRejectedValueOnce(
+        new StorageTransactionUnavailableError(new Error("unknown commit")),
+      )
+      .mockResolvedValueOnce({ mutation, replayed: true });
+    mocks.findStorageMutationByIdempotencyKey.mockResolvedValue(null);
+    mocks.findStorageMutation.mockResolvedValue({
+      ...mutation,
+      status: "succeeded",
+    });
+    await expect(
+      runDurableStorageMutation({
+        mutationId: mutation.id,
+        kind: "upload_create",
+        ownerUserId: "owner-1",
+        idempotencyKey: "late-key",
+        metadataOperations: [],
+        steps: [],
+        resultJson: { file: { id: "unused-file" } },
+      }),
+    ).resolves.toMatchObject({ status: "succeeded" });
+    expect(mocks.claimAndExecuteStorageMutation).toHaveBeenCalledOnce();
+    expect(
+      mocks.claimAndExecuteStorageMutation.mock.calls[0][0].resultJson(),
+    ).toEqual(receipt);
+  });
+
+  it("uses a confirmed prepared journal after a lost acknowledgement without preparing twice", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const receipt = { file: { id: "original-file" } };
+    const mutation = {
+      id: "upload-ack",
+      kind: "upload_create",
+      ownerUserId: "owner-1",
+      status: "prepared",
+      requestHash: JSON.stringify({ request: "stable" }),
+      resultJson: receipt,
+      intentJson: { version: 1, metadataOperations: [] },
+    };
+    mocks.prepareStorageMutation.mockRejectedValue(
+      new StorageTransactionUnavailableError(new Error("lost acknowledgement")),
+    );
+    mocks.findStorageMutation
+      .mockResolvedValueOnce(mutation)
+      .mockResolvedValueOnce({ ...mutation, status: "succeeded" });
+    await expect(
+      runDurableStorageMutation({
+        mutationId: mutation.id,
+        kind: "upload_create",
+        ownerUserId: "owner-1",
+        metadataOperations: [],
+        steps: [],
+        requestHashPayload: { request: "stable" },
+        resultJson: { file: { id: "unused-file" } },
+      }),
+    ).resolves.toMatchObject({ status: "succeeded" });
+    expect(mocks.prepareStorageMutation).toHaveBeenCalledOnce();
+    expect(mocks.claimAndExecuteStorageMutation).toHaveBeenCalledOnce();
+    expect(
+      mocks.claimAndExecuteStorageMutation.mock.calls[0][0].resultJson(),
+    ).toEqual(receipt);
+  });
+
+  it("returns a succeeded journal if another executor finished before the error lookup", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const mutation = {
+      id: "upload-finished",
+      kind: "upload_create",
+      ownerUserId: "owner-1",
+      status: "prepared",
+      intentJson: { version: 1, metadataOperations: [] },
+    };
+    mocks.prepareStorageMutation.mockResolvedValue({
+      mutation,
+      replayed: false,
+    });
+    mocks.claimAndExecuteStorageMutation.mockRejectedValue(
+      new StorageMutationConflictError("STORAGE_MUTATION_IN_PROGRESS"),
+    );
+    mocks.findStorageMutation.mockResolvedValue({
+      ...mutation,
+      status: "succeeded",
+    });
+    await expect(
+      runDurableStorageMutation({
+        kind: "upload_create",
+        ownerUserId: "owner-1",
+        metadataOperations: [],
+        steps: [],
+      }),
+    ).resolves.toMatchObject({ status: "succeeded" });
+    expect(mocks.prepareStorageMutation).toHaveBeenCalledOnce();
+  });
+
+  it("logs the underlying execution error before returning recovery status", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const error = new StorageAdmissionBusyError();
+    const mutation = {
+      id: "upload-1",
+      kind: "upload_create",
+      ownerUserId: "owner-1",
+      status: "prepared",
+      intentJson: { version: 1, metadataOperations: [] },
+    };
+    mocks.prepareStorageMutation.mockResolvedValue({
+      mutation,
+      replayed: false,
+    });
+    mocks.claimAndExecuteStorageMutation.mockRejectedValue(error);
+    mocks.findStorageMutation.mockResolvedValue({
+      ...mutation,
+      status: "retrying",
+    });
+
+    await expect(
+      runDurableStorageMutation({
+        kind: "upload_create",
+        ownerUserId: "owner-1",
+        metadataOperations: [],
+        steps: [],
+      }),
+    ).rejects.toMatchObject({ code: "STORAGE_MUTATION_RECOVERING" });
+    expect(warn).toHaveBeenCalledWith(
+      "[storage] Durable mutation execution interrupted.",
+      { mutationId: "upload-1", kind: "upload_create", error },
+    );
+  });
+
   it("retries transient contention before executing an upload mutation", async () => {
     vi.useFakeTimers();
     vi.spyOn(Math, "random").mockReturnValue(0);
@@ -186,11 +459,18 @@ describe("runDurableStorageMutation", () => {
       idempotencyKey: "upload-1",
       metadataOperations: [],
       steps: [],
+      resultJson: { file: { id: "saved-file-1" } },
     });
     await vi.runAllTimersAsync();
 
     await expect(result).resolves.toMatchObject({ status: "succeeded" });
     expect(mocks.prepareStorageMutation).toHaveBeenCalledTimes(2);
+    expect(mocks.prepareStorageMutation).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        initialResultJson: { file: { id: "saved-file-1" } },
+      }),
+      expect.any(Object),
+    );
     expect(mocks.claimAndExecuteStorageMutation).toHaveBeenCalledOnce();
     vi.useRealTimers();
   });

@@ -3,6 +3,7 @@ import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DateTime, TimeProvider, useTime } from "@/components/time-provider";
+import { TimeZonePicker } from "@/components/time-zone-picker";
 import {
   formatDateTime,
   formatRelativeTime,
@@ -88,6 +89,35 @@ describe("getDateGroup", () => {
 });
 
 describe("zoned formatting", () => {
+  it("renders a closed picker without formatting every supported time zone", () => {
+    const formatter = vi.spyOn(Intl, "DateTimeFormat");
+    try {
+      const html = renderToString(
+        createElement(TimeZonePicker, {
+          value: "Europe/London",
+        }),
+      );
+      expect(html).toContain("Europe/London");
+      expect(formatter.mock.calls.length).toBeLessThan(10);
+    } finally {
+      formatter.mockRestore();
+    }
+  });
+
+  it("keeps date-specific daylight-saving offsets when reusing a formatter", () => {
+    const summer = "2026-07-01T12:00:00.000Z";
+    const winter = "2026-12-01T12:00:00.000Z";
+    expect(formatDateTime(summer, "Europe/London")).toBe("1 Jul 2026, 13:00");
+    expect(formatDateTime(winter, "Europe/London")).toBe("1 Dec 2026, 12:00");
+    expect(formatDateTime(summer, "America/New_York")).toBe(
+      "1 Jul 2026, 08:00",
+    );
+    expect(formatDateTime(winter, "America/New_York")).toBe(
+      "1 Dec 2026, 07:00",
+    );
+    expect(formatDateTime(summer, "Europe/London")).toBe("1 Jul 2026, 13:00");
+  });
+
   it("renders absolute times in the requested zone", () => {
     const value = "2026-07-01T12:00:00.000Z";
     expect(formatDateTime(value, "UTC")).toBe("1 Jul 2026, 12:00");

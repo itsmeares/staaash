@@ -10,6 +10,8 @@ const toDate = (value: DateInput) =>
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const dayKeyFormatters = new Map<string, Intl.DateTimeFormat>();
+const dateTimeFormatters = new Map<string, Intl.DateTimeFormat>();
+const shortDateFormatters = new Map<string, Intl.DateTimeFormat>();
 
 // Days since 1970-01-01 for the calendar date `date` falls on in `timeZone`.
 function zonedDayNumber(date: Date, timeZone: string) {
@@ -28,19 +30,29 @@ function zonedDayNumber(date: Date, timeZone: string) {
 }
 
 export function formatDateTime(value: DateInput, timeZone: string) {
-  return new Intl.DateTimeFormat("en-GB", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone,
-  }).format(toDate(value));
+  let formatter = dateTimeFormatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-GB", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone,
+    });
+    dateTimeFormatters.set(timeZone, formatter);
+  }
+  return formatter.format(toDate(value));
 }
 
 function formatShortDate(value: DateInput, timeZone: string) {
-  return toDate(value).toLocaleDateString("en", {
-    day: "numeric",
-    month: "short",
-    timeZone,
-  });
+  let formatter = shortDateFormatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en", {
+      day: "numeric",
+      month: "short",
+      timeZone,
+    });
+    shortDateFormatters.set(timeZone, formatter);
+  }
+  return formatter.format(toDate(value));
 }
 
 export function getZonedHour(now: Date, timeZone: string) {

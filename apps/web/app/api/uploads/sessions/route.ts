@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { StorageTransactionUnavailableError } from "@staaash/db/storage-transactions";
 
 import { getRequestSession } from "@/server/auth/guards";
 import {
@@ -32,6 +33,29 @@ const createSessionSchema = z.object({
     .nullable()
     .default(null),
 });
+
+const sessionCreationErrorResponse = (creationError: unknown) => {
+  if (creationError instanceof UploadAdmissionError) {
+    return Response.json(
+      {
+        error: creationError.message,
+        code: creationError.code,
+        details: creationError.details,
+      },
+      {
+        status: creationError.status,
+        headers:
+          creationError.code === "UPLOAD_ADMISSION_BUSY"
+            ? { "Retry-After": "1" }
+            : undefined,
+      },
+    );
+  }
+  if (creationError instanceof StorageTransactionUnavailableError) {
+    return jsonErrorResponse(creationError);
+  }
+  throw creationError;
+};
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
@@ -108,13 +132,7 @@ export async function POST(request: NextRequest) {
       conflictStrategy,
     });
   } catch (error) {
-    if (error instanceof UploadAdmissionError) {
-      return Response.json(
-        { error: error.message, code: error.code, details: error.details },
-        { status: error.status },
-      );
-    }
-    throw error;
+    return sessionCreationErrorResponse(error);
   }
 
   return Response.json(

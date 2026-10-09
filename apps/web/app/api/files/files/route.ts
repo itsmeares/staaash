@@ -141,10 +141,14 @@ export async function POST(request: NextRequest) {
       session.user.id,
     );
   } catch (error) {
+    const response = wantsJson(request)
+      ? jsonErrorResponse(error)
+      : formErrorResponse(request, redirectTo, error);
+    if (response.status === 500) {
+      console.error("[uploads] Direct upload request failed.", error);
+    }
     return attachStorageMutationHeader(
-      wantsJson(request)
-        ? jsonErrorResponse(error)
-        : formErrorResponse(request, redirectTo, error),
+      response,
       idempotencyKey ? `${idempotencyKey}:0` : null,
       session.user.id,
       error,

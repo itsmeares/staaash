@@ -1,9 +1,11 @@
-import { getPrisma, type Prisma } from "./client";
+import { getStoragePrisma, type Prisma } from "./client";
 
 const TRANSACTION_MS = 5_000;
-const ADMISSION_MS = 3_000;
+const ADMISSION_MS = 5_000;
 const MAX_WAITING_REQUESTS = 32;
+const OWNER_QUEUE_MS = 30_000;
 let waitingRequests = 0;
+const ownerTails = new Map<string, Promise<void>>();
 
 export class StorageAdmissionBusyError extends Error {
   readonly code = "STORAGE_ADMISSION_BUSY";
@@ -71,17 +73,31 @@ export type StorageTransactionOptions = {
   client?: TransactionClient;
 };
 
+const isTransactionStartRefusal = (error: unknown) =>
+  (error as { code?: string } | null)?.code === "P2028" &&
+  error instanceof Error &&
+  error.message ===
+    "Transaction API error: Unable to start a transaction in the given time.";
+
+const isStorageTransactionUnavailable = (error: unknown, code: string | null) =>
+  new Set<string | null>(["57014", "25P04"]).has(code) ||
+  ["P2028", "P1017"].includes(
+    (error as { code?: string } | null)?.code ?? "",
+  ) ||
+  (error instanceof Error &&
+    error.message ===
+      "Client has encountered a connection error and is not queryable");
+
 const classifyStorageTransactionError = (error: unknown) => {
   const code = storageSqlState(error);
-  // These SQL errors abort the transaction. Await rollback before retrying.
-  if (new Set<string | null>(["55P03", "40001", "40P01"]).has(code)) {
+  // Retry only a proven rollback or refusal before the callback can run.
+  if (
+    new Set<string | null>(["55P03", "40001", "40P01"]).has(code) ||
+    isTransactionStartRefusal(error)
+  ) {
     return new StorageAdmissionBusyError();
   }
-  if (
-    code === "57014" ||
-    code === "25P04" ||
-    ["P2028", "P1017"].includes((error as { code?: string } | null)?.code ?? "")
-  ) {
+  if (isStorageTransactionUnavailable(error, code)) {
     return new StorageTransactionUnavailableError(error);
   }
   return error;
@@ -89,25 +105,26 @@ const classifyStorageTransactionError = (error: unknown) => {
 
 export const runStorageTransaction = async <T>(
   callback: (tx: Prisma.TransactionClient) => Promise<T>,
-  { deadline, signal, client = getPrisma() }: StorageTransactionOptions = {},
+  {
+    deadline,
+    signal,
+    client = getStoragePrisma(),
+  }: StorageTransactionOptions = {},
 ): Promise<T> => {
   assertStorageAdmissionActive(signal);
   const remaining =
     deadline === undefined ? TRANSACTION_MS : deadline - Date.now();
-  if (remaining <= 400) throw new StorageAdmissionBusyError();
-  const timeout = Math.min(TRANSACTION_MS, remaining);
+  if (remaining <= 0) throw new StorageAdmissionBusyError();
   try {
     return await client.$transaction(
       async (tx) => {
         assertStorageAdmissionActive(signal);
-        const budget = Math.min(
-          timeout,
-          deadline === undefined ? timeout : deadline - Date.now(),
-        );
-        if (budget <= 400) throw new StorageAdmissionBusyError();
-        // PostgreSQL owns the full deadline, including time across statements.
+        if (deadline !== undefined && Date.now() >= deadline)
+          throw new StorageAdmissionBusyError();
+        // Admission limits waiting; admitted work keeps its own five-second limit.
+        // PostgreSQL bounds the whole transaction, including gaps between queries.
         // Its session-ending timeout is a failure, never an admission retry.
-        const transactionMs = Math.max(1, budget - 200);
+        const transactionMs = TRANSACTION_MS - 200;
         const statementMs = Math.max(1, transactionMs - 200);
         await tx.$executeRaw`SELECT
         set_config('transaction_timeout', ${`${transactionMs}ms`}, true),
@@ -117,7 +134,7 @@ export const runStorageTransaction = async <T>(
         assertStorageAdmissionActive(signal);
         return result;
       },
-      { maxWait: Math.min(1_000, timeout), timeout },
+      { maxWait: Math.min(ADMISSION_MS, remaining), timeout: TRANSACTION_MS },
     );
   } catch (error) {
     throw classifyStorageTransactionError(error);
@@ -157,15 +174,54 @@ const createAdmissionWaiter = () => {
   };
 };
 
-export const waitForStorageAdmission = async <T>(
+const waitForOwnerTurn = (prior: Promise<void>, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    const finish = (error?: Error) => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
+      if (error) reject(error);
+      else resolve();
+    };
+    const timer = setTimeout(
+      () => finish(new StorageAdmissionBusyError()),
+      OWNER_QUEUE_MS,
+    );
+    const abort = () => finish(new StorageAdmissionCancelledError());
+    signal?.addEventListener("abort", abort, { once: true });
+    void prior.then(() => finish());
+    if (signal?.aborted) abort();
+  });
+
+const acquireOwnerTurn = async (ownerUserId: string, signal?: AbortSignal) => {
+  const prior = ownerTails.get(ownerUserId);
+  const waiter = createAdmissionWaiter();
+  if (prior) waiter.acquire();
+  let complete!: () => void;
+  const completion = new Promise<void>((resolve) => {
+    complete = resolve;
+  });
+  // A cancelled ticket still waits for its predecessor before releasing its successor.
+  const tail = prior ? prior.then(() => completion) : completion;
+  ownerTails.set(ownerUserId, tail);
+  void tail.then(() => {
+    if (ownerTails.get(ownerUserId) === tail) ownerTails.delete(ownerUserId);
+  });
+  try {
+    if (prior) await waitForOwnerTurn(prior, signal);
+    assertStorageAdmissionActive(signal);
+    return complete;
+  } catch (error) {
+    complete();
+    throw error;
+  } finally {
+    waiter.release();
+  }
+};
+
+const retryStorageAdmission = async <T>(
   operation: (deadline: number) => Promise<T>,
-  {
-    signal,
-    retryable = (error: unknown) => error instanceof StorageAdmissionBusyError,
-  }: {
-    signal?: AbortSignal;
-    retryable?: (error: unknown) => boolean;
-  } = {},
+  signal: AbortSignal | undefined,
+  retryable: (error: unknown) => boolean,
 ): Promise<T> => {
   const deadline = Date.now() + ADMISSION_MS;
   const waiter = createAdmissionWaiter();
@@ -191,5 +247,28 @@ export const waitForStorageAdmission = async <T>(
     }
   } finally {
     waiter.release();
+  }
+};
+
+export const waitForStorageAdmission = async <T>(
+  operation: (deadline: number) => Promise<T>,
+  {
+    signal,
+    ownerUserId,
+    retryable = (error: unknown) => error instanceof StorageAdmissionBusyError,
+  }: {
+    signal?: AbortSignal;
+    ownerUserId?: string;
+    retryable?: (error: unknown) => boolean;
+  } = {},
+): Promise<T> => {
+  assertStorageAdmissionActive(signal);
+  const releaseOwner = ownerUserId
+    ? await acquireOwnerTurn(ownerUserId, signal)
+    : undefined;
+  try {
+    return await retryStorageAdmission(operation, signal, retryable);
+  } finally {
+    releaseOwner?.();
   }
 };

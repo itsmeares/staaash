@@ -203,6 +203,7 @@ const prepareOrdinaryUploadCreateFixture =
     const prepared = await prepareStorageMutation({
       kind: "upload_create",
       ownerUserId: user.id,
+      initialResultJson: { file: { id: fileId } },
       idempotencyKey: randomUUID(),
       requestHash: randomUUID(),
       intentJson: intent([
@@ -270,6 +271,26 @@ const prepareOrdinaryUploadCreateFixture =
           storageRevision: 0,
         });
         await expectStorageBytes(targetKey, bytes);
+        const completed = await db.storageMutation.findUniqueOrThrow({
+          where: { id: prepared.mutation.id },
+          include: { steps: true, entities: true, resources: true },
+        });
+        expect(completed.status).toBe("succeeded");
+        for (const step of completed.steps) {
+          expect(step).toMatchObject({
+            sourceKey: null,
+            targetKey: null,
+            expectedChecksum: null,
+            expectedSizeBytes: null,
+            treeManifestDigest: null,
+          });
+        }
+        for (const entity of completed.entities) {
+          expect(entity).toMatchObject({ beforeJson: null, afterJson: null });
+        }
+        expect(
+          completed.resources.every((resource) => resource.releasedAt !== null),
+        ).toBe(true);
       },
     };
   };
@@ -949,6 +970,22 @@ afterAll(async () => {
 });
 
 describe("STO-02 durable PostgreSQL protocol", () => {
+  it("keeps an upload receipt when the worker finishes a prepared upload", async () => {
+    const fixture = await prepareOrdinaryUploadCreateFixture();
+    const receipt = fixture.mutation.resultJson;
+    expect(receipt).toEqual({ file: { id: expect.any(String) } });
+    await expect(
+      db.file.count({ where: { ownerUserId: fixture.mutation.ownerUserId } }),
+    ).resolves.toBe(0);
+    await recoverStorageMutations({ storagePaths: storagePaths() });
+    await fixture.assertRecovered();
+    await expect(
+      db.storageMutation.findUniqueOrThrow({
+        where: { id: fixture.mutation.id },
+        select: { status: true, resultJson: true },
+      }),
+    ).resolves.toEqual({ status: "succeeded", resultJson: receipt });
+  });
   it("keeps the isolated trash-root partial unique index installed", async () => {
     const rows = await db.$queryRaw<Array<{ indexdef: string }>>`
       SELECT indexdef

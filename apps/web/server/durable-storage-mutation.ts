@@ -30,10 +30,16 @@ import { getStorageRoot } from "@/server/storage";
 
 import {
   StorageAdmissionBusyError,
+  StorageTransactionUnavailableError,
   waitForStorageAdmission,
 } from "@staaash/db/storage-transactions";
 
 const STORAGE_PROTOCOL_VERSION = 2;
+class UncommittedStoragePreparationError extends Error {
+  constructor(readonly original: StorageTransactionUnavailableError) {
+    super(original.message, { cause: original });
+  }
+}
 export class StorageProtocolNotReadyError extends Error {
   readonly code = "STORAGE_MUTATION_RECOVERING";
   readonly status = 503;
@@ -161,8 +167,20 @@ const resolveDurablePreparationFailure = async ({
     existing?.kind === input.kind &&
     existing.ownerUserId === input.ownerUserId &&
     existing.requestHash === requestHash;
+  if (
+    error instanceof StorageTransactionUnavailableError ||
+    (matchesRequest && existing.status !== "succeeded")
+  ) {
+    console.warn("[storage] Durable mutation preparation interrupted.", {
+      mutationId: existing?.id ?? durableMutationId,
+      kind: input.kind,
+      status: existing?.status ?? "unknown",
+      error,
+    });
+  }
   if (matchesRequest) {
-    if (existing.status === "succeeded") return existing;
+    if (existing.status === "succeeded" || existing.status === "prepared")
+      return existing;
     throw mutationStateConflict(existing);
   }
   if (existing && input.idempotencyKey) {
@@ -175,7 +193,26 @@ const resolveDurablePreparationFailure = async ({
   ) {
     throw new StorageAdmissionBusyError();
   }
+  if (!existing && error instanceof StorageTransactionUnavailableError) {
+    throw new UncommittedStoragePreparationError(error);
+  }
   throw error;
+};
+
+const resolveInterruptedExecution = async (mutationId: string) => {
+  try {
+    const current = await findStorageMutation(mutationId);
+    if (current?.status === "succeeded") return current;
+    if (current) throw mutationStateConflict(current);
+  } catch (lookupError) {
+    if (lookupError instanceof StorageMutationConflictError) {
+      throw lookupError;
+    }
+  }
+  throw new StorageMutationConflictError(
+    "STORAGE_MUTATION_RECOVERING",
+    mutationId,
+  );
 };
 
 const executePreparedMutation = async ({
@@ -196,18 +233,12 @@ const executePreparedMutation = async ({
     });
   } catch (error) {
     if (error instanceof StorageMutationRejectedError) throw error;
-    try {
-      const current = await findStorageMutation(mutation.id);
-      if (current) throw mutationStateConflict(current);
-    } catch (lookupError) {
-      if (lookupError instanceof StorageMutationConflictError) {
-        throw lookupError;
-      }
-    }
-    throw new StorageMutationConflictError(
-      "STORAGE_MUTATION_RECOVERING",
-      mutation.id,
-    );
+    console.warn("[storage] Durable mutation execution interrupted.", {
+      mutationId: mutation.id,
+      kind: mutation.kind,
+      error,
+    });
+    return resolveInterruptedExecution(mutation.id);
   }
   return (await findStorageMutation(mutation.id)) ?? mutation;
 };
@@ -227,6 +258,7 @@ const prepareDurableStorageMutation = async (
         idempotencyKey: input.idempotencyKey,
         requestHash,
         intentJson: intent as unknown as Prisma.InputJsonValue,
+        initialResultJson: input.resultJson,
         // Without explicit keys, the journal locks the step paths.
         resourceKeys: input.resourceKeys ?? (input.parentId ? [] : undefined),
         reservedBytes: input.reservedBytes,
@@ -308,14 +340,41 @@ export const runDurableStorageMutation = async (
   assertStorageKeysFit(plannedStorageKeys(input));
   await assertStorageMutationMayStart();
   const plan = buildDurableMutationPlan(input);
+  let retriedUncommittedPreparation = false;
   const { mutation, replayed } = await waitForStorageAdmission(
-    (deadline) => prepareDurableStorageMutation(input, plan, deadline),
-    { signal: input.signal },
+    async (deadline) => {
+      try {
+        return await prepareDurableStorageMutation(input, plan, deadline);
+      } catch (error) {
+        if (!(error instanceof UncommittedStoragePreparationError)) throw error;
+        if (retriedUncommittedPreparation) throw error.original;
+        // A primary lookup found no journal; the same ID protects a late commit too.
+        retriedUncommittedPreparation = true;
+        try {
+          return await prepareDurableStorageMutation(
+            input,
+            plan,
+            Date.now() + 5_000,
+          );
+        } catch (retryError) {
+          throw retryError instanceof UncommittedStoragePreparationError
+            ? retryError.original
+            : retryError;
+        }
+      }
+    },
+    { signal: input.signal, ownerUserId: input.ownerUserId },
   );
   if (!replayed) {
     return executePreparedMutation({
       mutation,
       resultJson: input.resultJson,
+    });
+  }
+  if (mutation.status === "prepared") {
+    return executePreparedMutation({
+      mutation,
+      resultJson: mutation.resultJson ?? undefined,
     });
   }
   if (mutation.status === "succeeded") return mutation;
@@ -333,6 +392,7 @@ export const prepareDurableStorageMutationParent = async (
   return waitForStorageAdmission(
     (deadline) => prepareStorageMutationParent(parentInput, { deadline }),
     {
+      ownerUserId: input.ownerUserId,
       retryable: (error) =>
         error instanceof StorageAdmissionBusyError ||
         (error instanceof StorageMutationConflictError &&
