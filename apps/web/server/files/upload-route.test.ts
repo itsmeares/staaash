@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { StorageTransactionUnavailableError } from "@staaash/db/storage-transactions";
 
 const getRequestSession = vi.fn();
 const uploadFiles = vi.fn();
@@ -158,6 +159,27 @@ describe("direct upload route", () => {
     expect(response.status).toBe(413);
     expect(request.bodyUsed).toBe(false);
     expect(uploadFiles).not.toHaveBeenCalled();
+  });
+
+  it("returns a classified unavailable response for an invalidated storage transaction", async () => {
+    getRequestSession.mockResolvedValueOnce({
+      user: { id: "user-1", role: "member" },
+    });
+    const error = new StorageTransactionUnavailableError(
+      new Error(
+        "Client has encountered a connection error and is not queryable",
+      ),
+    );
+    uploadFiles.mockRejectedValueOnce(error);
+    const { POST } = await import("@/app/api/files/files/route");
+    const response = await POST(multipartRequest("application/json"));
+    expect(response.status).toBe(503);
+    expect(response.headers.has("Retry-After")).toBe(false);
+    await expect(response.json()).resolves.toEqual({
+      error: error.message,
+      code: "STORAGE_TRANSACTION_UNAVAILABLE",
+    });
+    expect(uploadFiles).toHaveBeenCalledOnce();
   });
 
   it("returns a clear error for an incomplete multipart body", async () => {

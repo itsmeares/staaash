@@ -212,11 +212,15 @@ export function TimeZonePicker({
   }, [allowAuto, selectedValue]);
 
   const optionData = useMemo(
-    () => options.map((zone) => buildTimeZoneOption(zone, offsetReferenceDate)),
-    [offsetReferenceDate, options],
+    () =>
+      open
+        ? options.map((zone) => buildTimeZoneOption(zone, offsetReferenceDate))
+        : [],
+    [offsetReferenceDate, open, options],
   );
-  const selectedOption = optionData.find(
-    (option) => option.zone === selectedValue,
+  const selectedOption = useMemo(
+    () => buildTimeZoneOption(selectedValue, offsetReferenceDate),
+    [offsetReferenceDate, selectedValue],
   );
 
   const filteredOptions = useMemo(() => {

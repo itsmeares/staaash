@@ -5444,7 +5444,10 @@ export const createFilesService = ({
       }
 
       if (stagedAnyUpload) {
-        await scheduleStagingCleanup();
+        // The worker also schedules retention; housekeeping must not fail a saved upload.
+        void scheduleStagingCleanup().catch((error) => {
+          console.warn("[files] Failed to schedule staging cleanup.", error);
+        });
       }
 
       const uploadedFiles = items.flatMap((_item, ordinal) => {

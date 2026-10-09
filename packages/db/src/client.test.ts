@@ -12,6 +12,9 @@ const globalForPrisma = globalThis as typeof globalThis & {
     prisma: {
       $disconnect(): Promise<void>;
     };
+    storagePrisma: {
+      $disconnect(): Promise<void>;
+    };
   };
 };
 
@@ -34,6 +37,7 @@ const clearGlobalPrisma = async () => {
     return;
   }
 
+  await globalForPrisma.__staaashDatabase.storagePrisma.$disconnect();
   await globalForPrisma.__staaashDatabase.uploadPool.end();
   await globalForPrisma.__staaashDatabase.prisma.$disconnect();
   delete globalForPrisma.__staaashDatabase;
@@ -75,8 +79,12 @@ describe("getPrisma", () => {
     process.env.DATABASE_URL = dummyDatabaseUrl;
     process.env.NODE_ENV = "production";
 
-    const { getPostgresPool, getPrisma, getUploadPostgresPool } =
-      await loadClientModule();
+    const {
+      getPostgresPool,
+      getPrisma,
+      getStoragePrisma,
+      getUploadPostgresPool,
+    } = await loadClientModule();
     const first = getPrisma();
     const second = getPrisma();
 
@@ -84,7 +92,10 @@ describe("getPrisma", () => {
     expect(getPostgresPool()).toBe(getPostgresPool());
     expect(getUploadPostgresPool()).toBe(getUploadPostgresPool());
     expect(getUploadPostgresPool()).not.toBe(getPostgresPool());
+    expect(getStoragePrisma()).toBe(getStoragePrisma());
+    expect(getStoragePrisma()).not.toBe(first);
 
+    await getStoragePrisma().$disconnect();
     await getUploadPostgresPool().end();
     await first.$disconnect();
   });
@@ -103,7 +114,25 @@ describe("getPrisma", () => {
     expect(second).toBe(first);
     expect(secondModule.getPostgresPool()).toBe(firstPool);
     expect(secondModule.getUploadPostgresPool()).toBe(firstUploadPool);
+    expect(secondModule.getStoragePrisma()).toBe(
+      firstModule.getStoragePrisma(),
+    );
 
     await first.$disconnect();
+  });
+
+  it("adds the storage pool to an older development cache without replacing the general client", async () => {
+    process.env.DATABASE_URL = dummyDatabaseUrl;
+    process.env.NODE_ENV = "development";
+    const firstModule = await loadClientModule();
+    const first = firstModule.getPrisma();
+    const storage = firstModule.getStoragePrisma();
+    await storage.$disconnect();
+    Reflect.deleteProperty(globalForPrisma.__staaashDatabase!, "storagePrisma");
+    const reloaded = await loadClientModule();
+    expect(reloaded.getPrisma()).toBe(first);
+    expect(reloaded.getStoragePrisma()).toBeDefined();
+    expect(reloaded.getStoragePrisma()).not.toBe(storage);
+    expect(reloaded.getStoragePrisma()).toBe(reloaded.getStoragePrisma());
   });
 });

@@ -25,6 +25,7 @@ describe("durable storage mutation commit", () => {
 
     const result = await commitStorageMutationMetadata({
       mutationId: "mutation-1",
+      ownerUserId: "owner-1",
       leaseOwner: "executor-1",
       leaseToken: 7n,
       callback: async () => ({ committedFileId: "file-1" }),

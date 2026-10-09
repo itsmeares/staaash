@@ -3,11 +3,16 @@ import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { Client } from "pg";
 import { beforeAll, describe, expect, inject, it } from "vitest";
-import { getPrisma } from "@staaash/db/client";
+import {
+  getPostgresPool,
+  getPrisma,
+  getStoragePrisma,
+} from "@staaash/db/client";
 import {
   prepareStorageMutation,
   claimStorageMutation,
   commitStorageMutationMetadata,
+  StorageMutationConflictError,
 } from "@staaash/db/storage-mutations";
 import { getQueueBacklogSummary } from "@staaash/db/health";
 import {
@@ -178,6 +183,191 @@ describe("readiness and operational history", () => {
 });
 
 describe("storage admission on real PostgreSQL", () => {
+  it("retries an expired uncommitted preparation without repeating bytes or quota", async () => {
+    const fixture = await createOwner(14n);
+    const key = randomUUID();
+    const suffix = key.replaceAll("-", "");
+    const sequence = `qa_prepare_timeout_${suffix}`;
+    const fn = `qa_prepare_timeout_fn_${suffix}`;
+    const trigger = `qa_prepare_timeout_trigger_${suffix}`;
+    const fault = new Client({
+      connectionString: inject("postgresDatabaseUrl"),
+    });
+    await fault.connect();
+    try {
+      await fault.query(`CREATE SEQUENCE ${sequence}`);
+      await fault.query(`CREATE FUNCTION ${fn}() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN
+          IF NEW."targetKey" LIKE '%${key}.txt' AND nextval('${sequence}') = 1 THEN
+            PERFORM pg_sleep(6);
+          END IF;
+          RETURN NEW;
+        END $$`);
+      await fault.query(`CREATE TRIGGER ${trigger} BEFORE INSERT ON "StorageMutationStep"
+        FOR EACH ROW EXECUTE FUNCTION ${fn}()`);
+      const result = await upload(fixture, key);
+      expect(
+        Number(
+          (await fault.query(`SELECT last_value FROM ${sequence}`)).rows[0]
+            .last_value,
+        ),
+      ).toBe(2);
+      expect(result.uploadedFiles).toHaveLength(1);
+      const file = await db.file.findUniqueOrThrow({
+        where: { id: result.uploadedFiles[0].id },
+      });
+      expect(
+        await readFile(
+          path.join(inject("postgresStorageRoot"), file.storageKey),
+          "utf8",
+        ),
+      ).toBe("original bytes");
+      const journal = await db.storageMutation.findUniqueOrThrow({
+        where: { idempotencyKey: `${key}:0` },
+        include: { steps: true },
+      });
+      expect(journal).toMatchObject({
+        status: "succeeded",
+        attemptCount: 1,
+        reservedBytes: null,
+      });
+      expect(journal.steps.map((step) => step.attemptCount)).toEqual([1]);
+      expect(
+        await db.file.count({ where: { ownerUserId: fixture.owner.id } }),
+      ).toBe(1);
+      const replay = await upload(fixture, key);
+      expect(replay.uploadedFiles[0].id).toBe(file.id);
+      expect(
+        Number(
+          (await fault.query(`SELECT last_value FROM ${sequence}`)).rows[0]
+            .last_value,
+        ),
+      ).toBe(2);
+    } finally {
+      await fault.query(
+        `DROP TRIGGER IF EXISTS ${trigger} ON "StorageMutationStep"`,
+      );
+      await fault.query(`DROP FUNCTION IF EXISTS ${fn}()`);
+      await fault.query(`DROP SEQUENCE IF EXISTS ${sequence}`);
+      await fault.end();
+    }
+  }, 15000);
+
+  it("preserves exact sizes, step order and JSON nulls in batched journal writes", async () => {
+    const { owner } = await createOwner();
+    const original = input(owner.id);
+    const plan = {
+      ...original,
+      steps: original.steps.map((step) => ({
+        ...step,
+        expectedSizeBytes: 9_007_199_254_740_993n,
+      })),
+    };
+    plan.steps.push({
+      ...plan.steps[0],
+      sourceKey: `tmp/${randomUUID()}`,
+      targetKey: `files/${randomUUID()}`,
+    });
+    const prepared = await prepareStorageMutation({
+      ...plan,
+      entities: [
+        { ...plan.entities[0], beforeJson: null, afterJson: { path: "first" } },
+        { ...plan.entities[0], entityId: randomUUID(), afterJson: null },
+      ],
+    });
+    try {
+      expect(
+        prepared.mutation.steps.map((step) => ({
+          ordinal: step.ordinal,
+          bytes: step.expectedSizeBytes,
+        })),
+      ).toEqual([
+        { ordinal: 0, bytes: 9_007_199_254_740_993n },
+        { ordinal: 1, bytes: 9_007_199_254_740_993n },
+      ]);
+      const rows = await db.$queryRaw<
+        Array<{ entityId: string; sqlNull: boolean; jsonNull: boolean }>
+      >`
+        SELECT "entityId", "beforeJson" IS NULL AS "sqlNull",
+          COALESCE("beforeJson" = 'null'::jsonb, false) AS "jsonNull"
+        FROM "StorageMutationEntity" WHERE "mutationId" = ${plan.id}
+      `;
+      expect(
+        rows.find((row) => row.entityId === plan.entities[0].entityId),
+      ).toMatchObject({ sqlNull: false, jsonNull: true });
+      expect(
+        rows.find((row) => row.entityId !== plan.entities[0].entityId),
+      ).toMatchObject({ sqlNull: true, jsonNull: false });
+    } finally {
+      await db.storageMutation.delete({ where: { id: plan.id } });
+    }
+  });
+
+  it("rolls back the parent and every child when a batched child write fails", async () => {
+    const { owner } = await createOwner();
+    const plan = input(owner.id);
+    await expect(
+      prepareStorageMutation({
+        ...plan,
+        entities: [plan.entities[0], plan.entities[0]],
+      }),
+    ).rejects.toBeInstanceOf(StorageMutationConflictError);
+    expect(await rowCounts(plan.id)).toEqual([0, 0, 0, 0]);
+  });
+
+  it("does not run work refused by a full storage pool and recovers the connection", async () => {
+    const storage = getStoragePrisma();
+    let entered = 0;
+    let markReady!: () => void;
+    let release!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      markReady = resolve;
+    });
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const holders = Array.from({ length: 3 }, () =>
+      storage.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT 1`;
+        if (++entered === 3) markReady();
+        await held;
+      }),
+    );
+    let callbackRan = false;
+    try {
+      await ready;
+      await expect(
+        runStorageTransaction(
+          async () => {
+            callbackRan = true;
+          },
+          { deadline: Date.now() + 200 },
+        ),
+      ).rejects.toBeInstanceOf(StorageAdmissionBusyError);
+      expect(callbackRan).toBe(false);
+    } finally {
+      release();
+      await Promise.all(holders);
+    }
+    await expect(
+      runStorageTransaction((tx) => tx.user.count()),
+    ).resolves.toBeGreaterThanOrEqual(0);
+  });
+
+  it("admits storage work while page reads occupy every general connection", async () => {
+    const pool = getPostgresPool();
+    const occupied = [];
+    try {
+      for (let i = 0; i < (pool.options.max ?? 10); i++) {
+        occupied.push(await pool.connect());
+      }
+      await expect(
+        runStorageTransaction((tx) => tx.user.count()),
+      ).resolves.toBeGreaterThanOrEqual(0);
+    } finally {
+      for (const connection of occupied) connection.release();
+    }
+  });
   it("refuses a held quota row even for unlimited users without waiting for expiry", async () => {
     const { owner } = await createOwner();
     const release = await lockOwner(owner.id);
@@ -247,7 +437,7 @@ describe("storage admission on real PostgreSQL", () => {
       await expect(upload(fixture)).rejects.toBeInstanceOf(
         StorageAdmissionBusyError,
       );
-      expect(Date.now() - start).toBeLessThan(4500);
+      expect(Date.now() - start).toBeLessThan(6500);
       expect(
         await db.file.count({ where: { ownerUserId: fixture.owner.id } }),
       ).toBe(0);
@@ -376,6 +566,7 @@ describe("storage admission on real PostgreSQL", () => {
 
     const result = await commitStorageMutationMetadata({
       mutationId: plan.id,
+      ownerUserId: owner.id,
       leaseOwner: claimed!.leaseOwner,
       leaseToken: claimed!.leaseToken,
       callback: async (tx) => {
@@ -407,12 +598,73 @@ describe("storage admission on real PostgreSQL", () => {
     await expect(
       runStorageTransaction(
         async (tx) => {
-          await tx.$queryRaw`SELECT pg_sleep(0.6)::text`;
-          await tx.$queryRaw`SELECT pg_sleep(0.6)::text`;
+          await tx.$queryRaw`SELECT pg_sleep(2.6)::text`;
+          await tx.$queryRaw`SELECT pg_sleep(2.6)::text`;
         },
         { deadline: Date.now() + 1200 },
       ),
     ).rejects.toBeInstanceOf(StorageTransactionUnavailableError);
     expect(await db.user.count()).toBeGreaterThan(0);
+  }, 8000);
+  it("lets admitted work finish after the waiting deadline", async () => {
+    await expect(
+      runStorageTransaction(
+        async (tx) => {
+          await tx.$queryRaw`SELECT pg_sleep(1)::text`;
+          return tx.user.count();
+        },
+        { deadline: Date.now() + 700 },
+      ),
+    ).resolves.toBeGreaterThan(0);
   }, 5000);
+  it("classifies a session ending between statements before the client expires", async () => {
+    const { folder } = await createOwner();
+    // Separate the deadlines to reliably exercise pg's unqueryable-client guard.
+    const client = {
+      $transaction: <T>(
+        callback: (
+          tx: import("@staaash/db/client").Prisma.TransactionClient,
+        ) => Promise<T>,
+      ) => db.$transaction(callback, { timeout: 10000 }),
+    };
+    let dependentWriteReached = false;
+    let failure: unknown;
+    try {
+      await runStorageTransaction(
+        async (tx) => {
+          await tx.folder.update({
+            where: { id: folder.id },
+            data: { name: "Uncommitted" },
+          });
+          await new Promise((resolve) => setTimeout(resolve, 5100));
+          await tx.folder.update({
+            where: { id: folder.id },
+            data: { name: "Must not commit" },
+          });
+          dependentWriteReached = true;
+        },
+        { deadline: Date.now() + 1500, client },
+      );
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(StorageTransactionUnavailableError);
+    expect((failure as Error).cause).toMatchObject({
+      message: "Client has encountered a connection error and is not queryable",
+    });
+    expect(dependentWriteReached).toBe(false);
+    expect(
+      await db.folder.findUnique({ where: { id: folder.id } }),
+    ).toMatchObject({
+      name: "Files",
+    });
+    await expect(
+      runStorageTransaction((tx) =>
+        tx.folder.update({
+          where: { id: folder.id },
+          data: { name: "Next transaction works" },
+        }),
+      ),
+    ).resolves.toMatchObject({ name: "Next transaction works" });
+  }, 10000);
 });

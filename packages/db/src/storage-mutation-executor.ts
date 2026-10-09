@@ -1167,6 +1167,7 @@ const executeStorageMutationPhases = async <T>({
   await hook("forward_steps_applied");
   const result = await commitStorageMutationMetadata({
     mutationId: mutation.id,
+    ownerUserId: mutation.ownerUserId,
     leaseOwner,
     leaseToken,
     callback: commitMetadata,

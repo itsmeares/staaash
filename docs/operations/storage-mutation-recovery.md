@@ -112,36 +112,78 @@ database fault testing on the target platform.
 ## Transaction contention
 
 Journal preparation tries quota and resource locks without waiting in a database
-transaction. Web requests retry confirmed contention for up to three seconds,
-with jitter and at most 32 waiting requests per process. Each retry uses the same
+transaction. Preparation and metadata commits first join a per-account FIFO
+queue in their process. Queue waiting is limited to 30 seconds; admission retries
+then have a separate five-second window with jitter. At most 32 requests per
+process may wait in the queue or between admission attempts. A cancelled ticket
+does not let later requests skip an active predecessor. Other accounts can proceed
+independently. Each retry uses the same
 mutation ID, request hash and staged bytes. The database remains the ownership
-authority across processes. Sustained contention returns `503
+authority across processes; the FIFO queue does not coordinate separate runtimes.
+Sustained contention or a full queue returns `503
 STORAGE_ADMISSION_BUSY` with `Retry-After: 1`.
 
-The journal parent, steps and entities are separate awaited statements in one
-transaction. This prevents nested child writes from continuing after a parent
-transaction expires. Quota aggregation runs in one SQL statement under the
+Storage transactions use a separate Prisma pool with at most three connections
+per process, so ordinary reads cannot consume their connections. This adds three
+connections to the general pool's ten and the resumable-chunk pool's three.
+Size PostgreSQL connection capacity for all web and worker processes.
+
+The journal parent is awaited before a single SQL command inserts its steps,
+entities and resources in the same transaction. This prevents nested child writes
+from continuing after a parent transaction expires. Completion likewise redacts
+child details and releases resources in one command, after the fenced completion
+update. Any command failure rolls back the transaction. Quota aggregation runs in one SQL statement under the
 owner lock. Reservations, namespace checks, fencing and atomic publication are
 unchanged.
 
 Storage transactions have a five-second client ceiling. PostgreSQL 18 receives
-transaction-local statement and full-transaction deadlines below that ceiling,
-or below the remaining admission budget. The full-transaction deadline ends the
-database session; it is not treated as a retryable lock refusal. Fallback lock
+transaction-local statement and full-transaction deadlines below that ceiling.
+The five-second admission window bounds waiting and is checked again when the
+transaction starts; it does not shorten an admitted transaction's work budget.
+A successful attempt may therefore use up to five seconds to gain admission
+after its queue turn, and another five seconds to finish its database work.
+Prisma's exact refusal to start a transaction is retryable because its callback
+never ran. Other transaction errors remain unavailable failures. The full-transaction
+deadline ends the database session; it is not treated as a retryable lock refusal. Fallback lock
 waits are limited to 100 ms. These settings do not change unrelated database
 transactions or pool sessions.
 
 A busy metadata commit retries only its database transaction while the existing
-journal retains ownership. Its three-second admission window limits contention
+journal retains ownership. Its five-second admission window limits contention
 retries, while each admitted attempt keeps the separate five-second transaction
 ceiling. It does not repeat byte promotion or create a second upload. Other
 failures leave the existing journal available to worker recovery.
+Web logs retain the original preparation or execution error with the mutation
+ID before returning a recovery response. Successful recovery clears the
+journal's `lastError`, so use those logs to investigate a completed upload.
 The browser shows **Finishing upload** after it has sent the bytes, and shows
 completion only after the server confirms the save. Cancelling after all bytes
 were sent stops waiting but cannot promise that an in-flight commit was undone.
 Retry uses the original idempotency key to resolve that upload.
+The expected replay result is stored with the prepared journal. If the worker
+finishes the upload after the web request fails, it keeps that result so the
+original key can still confirm the saved file. A prepared result is returned
+only after the mutation succeeds.
+This does not reconstruct replay results already lost by older versions.
+
+Direct-upload staging cleanup is scheduled after saving without holding up the
+success response. Scheduling failures are logged, and the worker's existing
+periodic cleanup remains responsible for retention. A housekeeping failure does
+not turn an already committed upload into a failed response.
 
 An expired transaction or unknown commit result is not a blanket retry signal.
+The node-postgres error for an already invalidated client is reported as
+`503 STORAGE_TRANSACTION_UNAVAILABLE`, with the original error retained as its
+cause. It is not an admission retry and does not receive a `Retry-After` header.
+Web journal preparation has one narrower recovery attempt. If a fresh lookup on
+the primary database confirms that no journal exists, preparation may retry once
+with the same mutation ID, request hash, idempotency key and staged bytes. That
+attempt has a fresh five-second admission window. A late commit cannot create a
+second journal because the ID and key stay fixed. A prepared replay is claimed
+atomically and keeps its original receipt. No filesystem step runs before
+preparation succeeds. A failed lookup, running journal or second unavailable
+attempt is not retried this way. Metadata commit and resumable-session creation
+do not use this preparation retry.
 Uncertain staging remains protected for recovery and retention cleanup. A proven
 admission refusal or pre-prepare cancellation removes the request's unowned
 staging. No schema migration is required for these changes.
