@@ -1,16 +1,17 @@
 import React from "react";
 import Link from "next/link";
+import { Download } from "lucide-react";
+
+import { DriveGlyph } from "@/components/drive-glyph";
+import { cn } from "@/lib/utils";
 
 import { TextFileViewer } from "@/app/text-file-viewer";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
 } from "@/components/ui/input-group";
-import { PageHeader } from "@/components/page-header";
 import { DateTime } from "@/components/time-provider";
 
 import { FlashMessage, getSingleSearchParam } from "@/app/auth-ui";
@@ -26,60 +27,71 @@ import type {
   ShareLinkSummary,
 } from "@/server/sharing/types";
 
-const pageMain =
-  "mx-auto grid w-[min(600px,calc(100vw-48px))] gap-4 py-12 max-sm:w-[min(100vw-28px,600px)] max-sm:py-7";
-const folderMain =
-  "mx-auto grid w-[min(1080px,calc(100vw-48px))] gap-4 py-12 max-sm:w-[min(100vw-28px,1080px)] max-sm:py-7";
-const mediaWidth = "w-[min(calc(60vh*16/9),90vw,1920px)]";
-
-const SharedVia = () => (
-  <p className="pt-2 text-center text-xs text-muted-foreground">
-    Shared via{" "}
-    <a
-      className="text-foreground no-underline hover:underline"
-      href="/"
-      rel="noopener noreferrer"
-    >
-      Staaash
-    </a>
-  </p>
-);
-
-const Expiry = ({ expiresAt }: { expiresAt: Date | string }) => (
-  <>
-    <span className="font-medium text-foreground">
-      {getRelativeExpiry(expiresAt)}
-    </span>
-    {" · "}
-    <DateTime value={expiresAt} />
-  </>
-);
-
-const formatBytes = (value: number) =>
-  new Intl.NumberFormat("en-GB", {
-    maximumFractionDigits: 1,
-    notation: "standard",
-  }).format(value / (1024 * 1024)) + " MB";
+const formatBytes = (value: number) => {
+  if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`;
+  if (value < 1024 * 1024 * 1024)
+    return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(value / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+};
 
 function getRelativeExpiry(expiresAt: Date | string): string {
-  const d = new Date(expiresAt);
-  const diffMs = d.getTime() - Date.now();
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays <= 0) return "expired";
-  if (diffDays === 1) return "expires tomorrow";
-  if (diffDays < 7) return `expires in ${diffDays} days`;
-  if (diffDays < 60)
-    return `expires in ${Math.ceil(diffDays / 7)} week${Math.ceil(diffDays / 7) === 1 ? "" : "s"}`;
-  return `expires in ${Math.floor(diffDays / 30)} months`;
+  const diffDays = Math.ceil(
+    (new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+  );
+  if (diffDays <= 0) return "Expired";
+  if (diffDays === 1) return "Expires tomorrow";
+  if (diffDays < 7) return `Expires in ${diffDays} days`;
+  if (diffDays < 60) {
+    const weeks = Math.ceil(diffDays / 7);
+    return `Expires in ${weeks} week${weeks === 1 ? "" : "s"}`;
+  }
+  return `Expires in ${Math.floor(diffDays / 30)} months`;
 }
 
-async function ShareBrand() {
+const Expiry = ({ expiresAt }: { expiresAt: Date | string }) => (
+  <span title={new Date(expiresAt).toISOString()}>
+    {getRelativeExpiry(expiresAt)}, <DateTime value={expiresAt} />
+  </span>
+);
+
+/**
+ * Every public page: the drive's name on top, the content, and a quiet
+ * footer. Visitors see the drive, not an app chrome.
+ */
+async function ShareShell({
+  children,
+  width = "wide",
+}: {
+  children: React.ReactNode;
+  width?: "narrow" | "wide";
+}) {
   const setupState = await authService.getSetupState();
-  const name = setupState.instanceName ?? "Staaash";
+  const name = setupState.instanceName?.trim() || "Staaash";
   return (
-    <div className="flex shrink-0 flex-col items-end gap-1 text-right">
-      <span className="text-body font-light text-foreground">{name}</span>
-      <span className="text-xs text-muted-foreground">shared with you</span>
+    <div className="flex min-h-dvh flex-col bg-background">
+      <header className="mx-auto flex w-full max-w-6xl items-center gap-2.5 px-5 py-4">
+        <DriveGlyph />
+        <span className="min-w-0 truncate font-heading text-lg font-medium">
+          {name}
+        </span>
+        <span className="ms-auto text-meta text-muted-foreground">
+          Shared with you
+        </span>
+      </header>
+      <main
+        className={cn(
+          "mx-auto grid w-full flex-1 content-start gap-5 px-5 pt-4 pb-12",
+          width === "narrow" ? "max-w-md" : "max-w-6xl",
+        )}
+      >
+        {children}
+      </main>
+      <footer className="pb-6 text-center text-label text-muted-foreground">
+        Shared with{" "}
+        <a className="text-foreground hover:underline" href="/">
+          Staaash
+        </a>
+      </footer>
     </div>
   );
 }
@@ -92,58 +104,61 @@ const shareErrorCopy: Record<
   }
 > = {
   SHARE_ACCESS_DENIED: {
-    title: "Location unavailable",
-    description: "That folder is outside the shared subtree.",
+    title: "This folder isn't part of the link",
+    description:
+      "The link only opens the folder that was shared and what's inside it.",
   },
   SHARE_DOWNLOAD_DISABLED: {
-    title: "Downloads disabled",
-    description: "This shared link allows browsing, but not downloading.",
+    title: "Downloads are off",
+    description:
+      "You can look at what's here, but this link doesn't allow downloads.",
   },
   SHARE_EXPIRED: {
-    title: "Link expired",
-    description: "This shared link is no longer active.",
+    title: "This link has expired",
+    description: "Ask the person who sent it for a new one.",
   },
   SHARE_INVALID: {
-    title: "Link unavailable",
-    description: "This shared link is not valid anymore.",
+    title: "This link no longer works",
+    description:
+      "It may have been turned off. Ask the person who sent it for a new one.",
   },
   SHARE_NOT_FOUND: {
-    title: "Link missing",
-    description: "This shared link could not be found.",
+    title: "We couldn't find this link",
+    description:
+      "Check that the address is complete, or ask for the link again.",
   },
   SHARE_PASSWORD_INVALID: {
-    title: "Password rejected",
-    description: "That password did not unlock the shared link.",
+    title: "That password didn't work",
+    description: "Check it and try again.",
   },
   SHARE_PASSWORD_REQUIRED: {
-    title: "Password required",
-    description: "Enter the password to continue to this shared item.",
+    title: "This link has a password",
+    description: "Enter it to see what was shared.",
   },
   SHARE_STORAGE_UNAVAILABLE: {
-    title: "Storage operation finishing",
+    title: "Back in a moment",
     description:
-      "This shared item is unavailable until storage recovery finishes.",
+      "The drive is finishing a storage task. Try again in a minute.",
   },
   SHARE_TARGET_UNAVAILABLE: {
-    title: "Shared item unavailable",
-    description: "The owner has moved this item out of public availability.",
+    title: "This item isn't shared anymore",
+    description: "The owner moved it or took it out of sharing.",
   },
 };
 
 export function ShareErrorView({ error }: { error: ShareError }) {
   const copy = shareErrorCopy[error.code];
-
   return (
-    <main className={pageMain}>
-      <ShareBrand />
-      <Card className="items-start gap-4 p-6 max-sm:p-4.5">
-        <Badge>Public share</Badge>
-        <h1 className="m-0 text-lg font-semibold tracking-tight">
+    <ShareShell width="narrow">
+      <div className="grid justify-items-center gap-2 pt-16 text-center">
+        <h1 className="m-0 font-heading text-headline font-semibold">
           {copy.title}
         </h1>
-        <p className="m-0 text-muted-foreground">{copy.description}</p>
-      </Card>
-    </main>
+        <p className="m-0 text-body text-muted-foreground">
+          {copy.description}
+        </p>
+      </div>
+    </ShareShell>
   );
 }
 
@@ -159,11 +174,16 @@ export function ShareLockedView({
   token: string;
 }) {
   return (
-    <main
-      className="relative flex min-h-screen w-full flex-col items-center justify-center p-6"
-      data-share-locked
-    >
-      <div className="grid w-[min(340px,100%)] gap-5">
+    <ShareShell width="narrow">
+      <div className="grid gap-4 pt-16" data-share-locked>
+        <div className="grid gap-1 text-center">
+          <h1 className="m-0 font-heading text-headline font-semibold">
+            This link has a password
+          </h1>
+          <p className="m-0 text-body text-muted-foreground">
+            Enter it to see what was shared.
+          </p>
+        </div>
         {error ? <FlashMessage>{error}</FlashMessage> : null}
         {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
         <form action={`/s/${encodeURIComponent(token)}/unlock`} method="post">
@@ -173,22 +193,23 @@ export function ShareLockedView({
           </label>
           <InputGroup>
             <InputGroupInput
+              autoComplete="current-password"
+              autoFocus
               id="share-password"
               name="password"
-              type="password"
-              autoComplete="current-password"
               placeholder="Password"
               required
+              type="password"
             />
             <InputGroupAddon align="inline-end">
-              <Button type="submit" size="sm">
-                Unlock
+              <Button size="sm" type="submit">
+                Open
               </Button>
             </InputGroupAddon>
           </InputGroup>
         </form>
       </div>
-    </main>
+    </ShareShell>
   );
 }
 
@@ -224,37 +245,59 @@ export function ShareFilePage({
     file.viewerKind === "text" && (safeNativeInline || !share.downloadDisabled);
 
   return (
-    <main className="mx-auto flex min-h-screen w-[min(1080px,calc(100vw-48px))] flex-col items-center gap-4 pt-6 pb-12 max-sm:w-[min(100vw-28px,1080px)]">
+    <ShareShell>
       {error ? <FlashMessage>{error}</FlashMessage> : null}
       {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
 
-      {/* Top bar: file title left, instance brand right */}
-      <PageHeader
-        className={`${mediaWidth} max-sm:flex-col-reverse`}
-        title={file.name}
-        description={<Expiry expiresAt={share.expiresAt} />}
-        actions={<ShareBrand />}
-      />
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="grid min-w-0 gap-1">
+          <h1 className="m-0 truncate font-heading text-headline font-semibold">
+            {file.name}
+          </h1>
+          <p className="m-0 text-meta text-muted-foreground">
+            {formatLabel?.toUpperCase()} · {formatBytes(file.sizeBytes)} ·{" "}
+            <Expiry expiresAt={share.expiresAt} />
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {backHref ? (
+            <Button render={<Link href={backHref} />} variant="outline">
+              {backLabel}
+            </Button>
+          ) : null}
+          {!share.downloadDisabled && downloadHref ? (
+            <Button render={<a href={downloadHref} />}>
+              <Download aria-hidden />
+              Download
+            </Button>
+          ) : share.downloadDisabled ? (
+            <span className="text-meta text-muted-foreground">
+              Downloads are off
+            </span>
+          ) : null}
+        </div>
+      </div>
 
-      {/* Content */}
       {file.viewerKind === "audio" && safeNativeInline ? (
         <ShareAudioPlayer src={contentHref} fileName={file.name} />
       ) : file.viewerKind === "pdf" && safeNativeInline ? (
         <embed
           src={contentHref}
           type="application/pdf"
-          className="h-[75vh] w-full"
+          className="h-[75vh] w-full rounded-xl border border-border"
         />
       ) : canViewTextSource ? (
-        <TextFileViewer contentHref={contentHref} />
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <TextFileViewer contentHref={contentHref} />
+        </div>
       ) : (file.viewerKind === "image" || file.viewerKind === "video") &&
         safeNativeInline ? (
-        <section className="flex w-fit max-w-[min(90vw,1920px)] items-center justify-center overflow-hidden rounded-xl border border-hairline bg-hover">
+        <section className="flex min-h-64 items-center justify-center overflow-hidden rounded-xl bg-black">
           {file.viewerKind === "image" ? (
             <img
               alt={file.name}
               src={contentHref}
-              className="block max-h-[60vh] max-w-[min(90vw,1920px)] object-contain"
+              className="block max-h-[72vh] max-w-full object-contain"
             />
           ) : (
             <video
@@ -262,41 +305,21 @@ export function ShareFilePage({
               playsInline
               preload="metadata"
               src={contentHref}
-              className="block max-h-[60vh] max-w-[min(90vw,1920px)]"
+              className="block max-h-[72vh] max-w-full"
             >
               Your browser could not play this video inline.
             </video>
           )}
         </section>
-      ) : null}
-
-      {/* Actions row: meta left, download + back right */}
-      <div
-        className={`flex flex-wrap items-center justify-between gap-3 ${mediaWidth}`}
-      >
-        <p className="m-0 text-xs text-muted-foreground">
-          {formatLabel} · {formatBytes(file.sizeBytes)}
+      ) : (
+        <p className="m-0 rounded-xl border border-dashed border-border px-4 py-10 text-center text-body text-muted-foreground">
+          This file can't be shown here.
+          {!share.downloadDisabled && downloadHref
+            ? " Download it to open it."
+            : ""}
         </p>
-        <div className="flex shrink-0 items-center gap-2">
-          {backHref ? (
-            <Button variant="secondary" render={<Link href={backHref} />}>
-              {backLabel}
-            </Button>
-          ) : null}
-          {!share.downloadDisabled && downloadHref ? (
-            <Button render={<a href={downloadHref} />}>Download</Button>
-          ) : share.downloadDisabled ? (
-            <span className="text-xs text-muted-foreground italic">
-              Downloads off
-            </span>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="mt-auto">
-        <SharedVia />
-      </div>
-    </main>
+      )}
+    </ShareShell>
   );
 }
 
@@ -349,48 +372,48 @@ export function ShareView({
     );
   }
 
+  const { listing, share } = resolution;
+  const itemCount = listing.childFolders.length + listing.files.length;
   return (
-    <main className={folderMain}>
-      <ShareBrand />
+    <ShareShell>
+      {error ? <FlashMessage>{error}</FlashMessage> : null}
+      {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
 
-      <Card className="gap-4 p-6 max-sm:p-4.5">
-        <PageHeader
-          title={resolution.listing.currentFolder.name}
-          meta={<Badge>Shared folder</Badge>}
-          description={<Expiry expiresAt={resolution.share.expiresAt} />}
-          actions={
-            !resolution.share.downloadDisabled ? (
-              <Button
-                variant="secondary"
-                render={<a href={`/s/${encodeURIComponent(token)}/archive`} />}
-              >
-                Download all
-              </Button>
-            ) : null
-          }
-        />
-        {error ? <FlashMessage>{error}</FlashMessage> : null}
-        {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
-        {resolution.share.downloadDisabled ? (
-          <span className="text-label text-muted-foreground">
-            Archive download is disabled for this link.
-          </span>
-        ) : null}
-      </Card>
-
-      {resolution.listing.breadcrumbs.length > 1 ? (
-        <nav className="flex flex-wrap items-baseline" aria-label="Breadcrumb">
-          {resolution.listing.breadcrumbs.map((crumb) => (
-            <Link
-              key={crumb.id}
-              className="text-label text-muted-foreground transition-colors duration-150 after:px-1.5 after:font-light after:text-muted-foreground/30 after:content-['/'] hover:text-muted-foreground"
-              href={crumb.href}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="grid min-w-0 gap-1">
+          {listing.breadcrumbs.length > 1 ? (
+            <nav
+              aria-label="Breadcrumb"
+              className="flex flex-wrap items-baseline gap-1.5 text-meta text-muted-foreground"
             >
-              {crumb.name}
-            </Link>
-          ))}
-        </nav>
-      ) : null}
+              {listing.breadcrumbs.slice(0, -1).map((crumb) => (
+                <span className="flex items-baseline gap-1.5" key={crumb.id}>
+                  <Link className="hover:text-foreground" href={crumb.href}>
+                    {crumb.name}
+                  </Link>
+                  <span aria-hidden>/</span>
+                </span>
+              ))}
+            </nav>
+          ) : null}
+          <h1 className="m-0 truncate font-heading text-headline font-semibold">
+            {listing.currentFolder.name}
+          </h1>
+          <p className="m-0 text-meta text-muted-foreground">
+            {itemCount} item{itemCount === 1 ? "" : "s"} ·{" "}
+            <Expiry expiresAt={share.expiresAt} />
+            {share.downloadDisabled ? " · Downloads are off" : ""}
+          </p>
+        </div>
+        {!share.downloadDisabled ? (
+          <Button
+            render={<a href={`/s/${encodeURIComponent(token)}/archive`} />}
+          >
+            <Download aria-hidden />
+            Download all
+          </Button>
+        ) : null}
+      </div>
 
       <ShareFolderList
         downloadDisabled={resolution.share.downloadDisabled}
@@ -413,8 +436,6 @@ export function ShareView({
         ]}
         token={token}
       />
-
-      <SharedVia />
-    </main>
+    </ShareShell>
   );
 }

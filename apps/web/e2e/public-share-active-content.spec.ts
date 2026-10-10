@@ -250,7 +250,7 @@ fetch("/api/files/files?sec01-probe=html");
     page.getByRole("heading", { name: svgFixture.name }),
   ).toBeVisible();
   await expect(page.locator(activeEmbedSelector)).toHaveCount(0);
-  await expect(page.getByText("Downloads off")).toBeVisible();
+  await expect(page.getByText("Downloads are off")).toBeVisible();
   expect(await readExecutionMarkers(page)).toEqual({ html: false, svg: false });
 
   const svgPageUrl = page.url();

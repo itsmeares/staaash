@@ -1,9 +1,7 @@
 import Link from "next/link";
-import { Search } from "lucide-react";
 
 import { DriveGlyph } from "@/components/drive-glyph";
 import { SkipLink } from "@/components/skip-link";
-import { Kbd } from "@/components/ui/kbd";
 import { ToastProvider } from "@/components/ui/toast";
 import { getInitials } from "@/lib/user";
 import { authService } from "@/server/auth/service";
@@ -18,6 +16,7 @@ import { readInstanceUpdateCheck } from "@staaash/db/instance";
 import { AppSidebar, type ShellInfo } from "./app-sidebar";
 import { ShortcutsDialog } from "./shortcuts-dialog";
 import { TopbarActions } from "./topbar-actions";
+import { WorkspaceSearch } from "./workspace-search";
 import { WorkspaceMobileNav } from "./workspace-mobile-nav";
 
 export const dynamic = "force-dynamic";
@@ -82,25 +81,7 @@ export default async function WorkspaceLayout({
             >
               <DriveGlyph />
             </Link>
-            <form
-              action="/search"
-              className="flex h-9 max-w-150 min-w-0 flex-1 items-center gap-2.5 rounded-full border border-border bg-card ps-3.5 pe-2 text-muted-foreground focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/24 lg:h-10"
-              method="get"
-              role="search"
-            >
-              <label className="sr-only" htmlFor="workspace-search">
-                Search files and folders
-              </label>
-              <Search aria-hidden className="size-4 shrink-0" />
-              <input
-                id="workspace-search"
-                name="q"
-                placeholder="Search files and folders"
-                type="search"
-                className="min-w-0 flex-1 border-0 bg-transparent p-0 text-body text-foreground outline-none placeholder:text-muted-foreground"
-              />
-              <Kbd className="max-lg:hidden">/</Kbd>
-            </form>
+            <WorkspaceSearch />
             {session ? (
               <div className="ms-auto">
                 <TopbarActions

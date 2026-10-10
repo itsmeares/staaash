@@ -1,13 +1,8 @@
 "use client";
 
-import { ChevronDownIcon, SearchIcon } from "lucide-react";
+import { SearchIcon } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 
-import {
-  Collapsible,
-  CollapsiblePanel,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import {
   InputGroup,
   InputGroupAddon,
@@ -17,62 +12,43 @@ import { cn } from "@/lib/utils";
 
 type SettingsPanelProps = {
   title: string;
-  description: string;
+  description?: string;
   hidden?: boolean;
   id?: string;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
   children: ReactNode;
 };
 
-// Panels stay mounted when closed so a form wrapping several panels still
-// submits every field.
+/** A plain settings section: a heading and its rows, no accordion. */
 export function SettingsPanel({
   title,
   description,
   hidden = false,
   id,
-  open,
-  onOpenChange,
   children,
 }: SettingsPanelProps) {
   return (
-    <Collapsible
+    <section
+      aria-labelledby={id ? `${id}-title` : undefined}
+      className="grid gap-1"
       hidden={hidden}
       id={id}
-      open={open}
-      onOpenChange={onOpenChange}
-      className="overflow-hidden rounded-lg border border-line-strong bg-card/80 has-data-panel-open:border-foreground/20"
     >
-      <CollapsibleTrigger className="group grid min-h-14.5 w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-0 bg-transparent px-3.5 py-3 text-left text-inherit transition-colors select-none hover:bg-hover motion-reduce:transition-none md:min-h-19 md:px-5 md:py-4.5">
-        <span>
-          <span className="block text-meta leading-tight font-semibold text-foreground">
-            {title}
-          </span>
-          <span className="mt-1 block text-label leading-snug text-muted-foreground md:text-meta">
-            {description}
-          </span>
-        </span>
-        <ChevronDownIcon
-          aria-hidden="true"
-          className="size-4.5 text-muted-foreground transition-transform duration-150 group-data-panel-open:rotate-180 motion-reduce:transition-none"
-        />
-      </CollapsibleTrigger>
-      <CollapsiblePanel keepMounted>
-        <div className="grid gap-3.5 border-t border-hairline px-3.5 pb-3.5 md:gap-4.5 md:px-5 md:pb-5">
-          {children}
-        </div>
-      </CollapsiblePanel>
-    </Collapsible>
+      <h2
+        className="m-0 font-heading text-lg font-semibold"
+        id={id ? `${id}-title` : undefined}
+      >
+        {title}
+      </h2>
+      {description ? (
+        <p className="m-0 text-meta text-muted-foreground">{description}</p>
+      ) : null}
+      <div className="grid gap-3.5 pt-1">{children}</div>
+    </section>
   );
 }
 
 export function SettingsAccordion({ children }: { children: ReactNode }) {
-  return (
-    <div className="grid gap-2.5" aria-label="Settings sections">
-      {children}
-    </div>
-  );
+  return <div className="grid gap-9">{children}</div>;
 }
 
 type SettingsListProps = { plain?: boolean; children: ReactNode };
@@ -106,13 +82,13 @@ export function SettingsRow({
 
   return (
     <div
-      className="grid min-h-14 grid-cols-1 items-stretch gap-2 border-b border-hairline py-3 last:border-b-0 md:min-h-17.5 md:grid-cols-[minmax(0,1fr)_minmax(240px,300px)] md:items-center md:gap-6 md:py-4.5"
+      className="grid min-h-13 grid-cols-1 items-stretch gap-2 border-b border-border py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_minmax(240px,320px)] md:items-center md:gap-6"
       hidden={hidden}
     >
-      <LabelTag className="m-0 min-w-0 text-sm leading-snug font-medium text-foreground md:text-body">
+      <LabelTag className="m-0 min-w-0 text-body leading-snug font-medium text-foreground">
         {label}
         {hint ? (
-          <span className="mt-0.5 block text-xs leading-snug font-normal text-muted-foreground md:text-meta">
+          <span className="mt-0.5 block text-meta leading-snug font-normal text-muted-foreground">
             {hint}
           </span>
         ) : null}
@@ -122,7 +98,7 @@ export function SettingsRow({
           "m-0 min-w-0",
           kind === "control"
             ? "flex w-full flex-wrap items-center justify-start gap-2 justify-self-end md:justify-end"
-            : "text-sm leading-snug break-words text-foreground/80 md:text-right md:text-body",
+            : "text-body leading-snug break-words text-foreground/80 md:text-right",
         )}
       >
         {children}

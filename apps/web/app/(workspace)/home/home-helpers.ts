@@ -1,17 +1,4 @@
-import {
-  getItemVisual,
-  type ItemVisual as HomeItemVisual,
-} from "@/app/item-visuals";
-
-export type { HomeItemVisual };
-
-export function getHomeGreeting(hour: number): string {
-  if (hour < 5) return "Good night";
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  if (hour < 21) return "Good evening";
-  return "Good night";
-}
+// Home dashboard formatting.
 
 export function formatHomeExpiryTime(
   value: Date | string,
@@ -37,48 +24,4 @@ export function formatHomeExpiryTime(
 
   const diffMonths = Math.ceil(diffDays / 30);
   return `${diffMonths} month${diffMonths === 1 ? "" : "s"}`;
-}
-
-export function formatHomeFileSize(bytes: number): string {
-  if (bytes < 1024 * 1024) {
-    return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  }
-
-  if (bytes < 1024 * 1024 * 1024) {
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
-
-export function formatHomeChildCount(count: number): string {
-  if (count === 0) return "Empty";
-  if (count === 1) return "1 item";
-  return `${count} items`;
-}
-
-export function isHomeDashboardEmpty({
-  favoriteCount,
-  folderCount,
-  recentCount,
-  shareCount,
-}: {
-  favoriteCount: number;
-  folderCount: number;
-  recentCount: number;
-  shareCount: number;
-}): boolean {
-  return (
-    favoriteCount === 0 &&
-    folderCount === 0 &&
-    recentCount === 0 &&
-    shareCount === 0
-  );
-}
-
-export function getHomeItemVisual(
-  kind: "file" | "folder",
-  mimeType?: string | null,
-): HomeItemVisual {
-  return getItemVisual(kind, mimeType);
 }

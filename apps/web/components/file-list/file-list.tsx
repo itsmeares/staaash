@@ -379,7 +379,12 @@ export function FileList<T extends FileListItem>({
                   {item.blocked}
                 </span>
               ) : item.sub ? (
-                <span className="truncate text-label text-muted-foreground @xl/list:hidden">
+                <span
+                  className={cn(
+                    "truncate text-label text-muted-foreground",
+                    columns.length > 0 && "@xl/list:hidden",
+                  )}
+                >
                   {item.sub}
                 </span>
               ) : null}
@@ -430,7 +435,7 @@ export function FileList<T extends FileListItem>({
         className="relative min-h-40 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
         role="grid"
       >
-        {view === "list" && !isEmpty ? (
+        {view === "list" && !isEmpty && columns.length > 0 ? (
           <div
             className={cn(
               gridCols,
@@ -587,3 +592,18 @@ export const thumbnailUrlFor = (file: {
   file.kind === "file" && canHaveThumbnail(file.mimeType ?? "", file.name)
     ? `/api/files/files/${file.id}/thumbnail`
     : null;
+
+/** The name with the matched part marked. */
+export function Highlight({ text, query }: { text: string; query: string }) {
+  const at = query ? text.toLowerCase().indexOf(query.toLowerCase()) : -1;
+  if (at < 0) return <>{text}</>;
+  return (
+    <>
+      {text.slice(0, at)}
+      <mark className="rounded-xs bg-primary/20 text-foreground">
+        {text.slice(at, at + query.length)}
+      </mark>
+      {text.slice(at + query.length)}
+    </>
+  );
+}

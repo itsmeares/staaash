@@ -66,6 +66,10 @@ vi.mock("@/app/(workspace)/topbar-actions", () => ({
   TopbarActions: () => null,
 }));
 
+vi.mock("@/app/(workspace)/workspace-search", () => ({
+  WorkspaceSearch: () => null,
+}));
+
 vi.mock("@/app/(workspace)/shortcuts-dialog", () => ({
   ShortcutsDialog: () => null,
 }));

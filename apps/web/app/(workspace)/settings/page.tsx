@@ -11,7 +11,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { WorkspacePage } from "../workspace-page";
-import { PreferencesForm } from "./preferences-form";
+import {
+  AppearanceSettings,
+  RegionSettings,
+  UpdateSettings,
+} from "./preferences-form";
 
 export const dynamic = "force-dynamic";
 
@@ -30,34 +34,38 @@ export default async function SettingsPage({
   const success = getSingleSearchParam(resolvedSearchParams, "success");
   const errorMessage =
     error === "admin" ? "Admin access is restricted to admins." : error;
-
   const prefs = session.user.preferences;
 
   return (
-    <WorkspacePage className="mx-auto w-full max-w-settings content-start gap-4.5">
+    <WorkspacePage className="w-full max-w-settings content-start gap-6">
       <PageHeader title="Settings" />
 
       {errorMessage ? <FlashMessage>{errorMessage}</FlashMessage> : null}
       {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
 
       <SettingsAccordion>
-        <SettingsPanel
-          title="Preferences"
-          description="Theme, time zone, and update notices"
-        >
-          <PreferencesForm
+        <SettingsPanel id="appearance" title="Appearance">
+          <AppearanceSettings
             initialTheme={
               (prefs?.theme as "light" | "dark" | "system") ?? "system"
             }
-            initialTimeZone={prefs?.timeZone ?? AUTO_TIME_ZONE}
-            initialShowUpdateNotifications={
-              prefs?.showUpdateNotifications ?? true
-            }
-            initialEnableVersionChecks={prefs?.enableVersionChecks ?? true}
           />
         </SettingsPanel>
 
-        <SettingsPanel title="Account" description="Identity and access">
+        <SettingsPanel id="region" title="Region">
+          <RegionSettings initialTimeZone={prefs?.timeZone ?? AUTO_TIME_ZONE} />
+        </SettingsPanel>
+
+        {/* Update news is for owners; members see the version in About. */}
+        {session.user.isAdmin ? (
+          <SettingsPanel id="updates" title="Updates">
+            <UpdateSettings
+              initialShow={prefs?.showUpdateNotifications ?? true}
+            />
+          </SettingsPanel>
+        ) : null}
+
+        <SettingsPanel id="account" title="Account">
           <SettingsList>
             <SettingsRow kind="value" label="Display name">
               {session.user.displayName ?? "Not set"}
@@ -75,26 +83,24 @@ export default async function SettingsPage({
           </SettingsList>
         </SettingsPanel>
 
-        <SettingsPanel title="Session" description="Current browser session">
+        <SettingsPanel id="session" title="This session">
           <SettingsList>
-            <SettingsRow kind="value" label="Session ID">
-              <code>{session.id}</code>
-            </SettingsRow>
-            <SettingsRow kind="value" label="Created">
+            <SettingsRow kind="value" label="Signed in">
               <DateTime value={session.createdAt} />
             </SettingsRow>
             <SettingsRow kind="value" label="Expires">
               <DateTime value={session.expiresAt} />
             </SettingsRow>
-            <SettingsRow kind="value" label="Sign out">
-              <form action="/api/auth/sign-out" method="post">
-                <input type="hidden" name="next" value="/" />
-                <Button type="submit" variant="destructive-outline">
-                  Sign out
-                </Button>
-              </form>
+            <SettingsRow kind="value" label="Session ID">
+              <code className="text-meta">{session.id.slice(0, 12)}…</code>
             </SettingsRow>
           </SettingsList>
+          <form action="/api/auth/sign-out" method="post">
+            <input type="hidden" name="next" value="/" />
+            <Button type="submit" variant="destructive-outline">
+              Sign out
+            </Button>
+          </form>
         </SettingsPanel>
       </SettingsAccordion>
     </WorkspacePage>

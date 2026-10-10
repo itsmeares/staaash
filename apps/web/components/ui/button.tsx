@@ -53,8 +53,10 @@ export const buttonVariants = cva(
           "border-transparent text-muted-foreground hover:bg-accent hover:text-destructive-foreground data-pressed:bg-accent",
         "media-close":
           "border-transparent bg-black/65 text-white shadow-sm ring-1 ring-white/20 hover:bg-black/80 focus-visible:ring-white [&_svg:not([class*='opacity-'])]:opacity-100",
-        "media-navigation":
+        media:
           "border-transparent text-white hover:bg-white/10 focus-visible:ring-white focus-visible:ring-offset-transparent [&_svg:not([class*='opacity-'])]:opacity-100",
+        "media-navigation":
+          "absolute top-1/2 z-20 -translate-y-1/2 border-transparent text-white hover:bg-white/10 focus-visible:ring-white focus-visible:ring-offset-transparent [&_svg:not([class*='opacity-'])]:opacity-100",
       },
     },
   },

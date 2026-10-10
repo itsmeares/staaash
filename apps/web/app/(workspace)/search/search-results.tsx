@@ -7,6 +7,7 @@ import { useTime } from "@/components/time-provider";
 import { Button } from "@/components/ui/button";
 import {
   FileList,
+  Highlight,
   thumbnailUrlFor,
   type FileListColumn,
   type FileListItem,
@@ -24,21 +25,6 @@ import { useWorkspaceItemActions } from "../use-workspace-item-actions";
 import { formatWorkspaceFileSize } from "../workspace-item-helpers";
 
 type SearchListItem = FileListItem & { data: RecentClientItem };
-
-/** The name with the matched part marked. */
-export function Highlight({ text, query }: { text: string; query: string }) {
-  const at = query ? text.toLowerCase().indexOf(query.toLowerCase()) : -1;
-  if (at < 0) return <>{text}</>;
-  return (
-    <>
-      {text.slice(0, at)}
-      <mark className="rounded-xs bg-primary/20 text-foreground">
-        {text.slice(at, at + query.length)}
-      </mark>
-      {text.slice(at + query.length)}
-    </>
-  );
-}
 
 export function SearchResults({
   items,

@@ -1,25 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
-import {
-  SettingsFormStatus,
-  SettingsList,
-  SettingsRow,
-} from "@/components/settings-panel";
+import { SettingsList, SettingsRow } from "@/components/settings-panel";
 import { TimeZonePicker } from "@/components/time-zone-picker";
-import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
+import { toast } from "@/components/ui/toast";
 import { applyThemeWithTransition, type Theme } from "@/lib/theme";
-
-type PreferencesFormProps = {
-  initialTheme: Theme;
-  initialTimeZone: string;
-  initialShowUpdateNotifications: boolean;
-  initialEnableVersionChecks: boolean;
-};
 
 const THEME_OPTIONS: { value: Theme; label: string }[] = [
   { value: "system", label: "System" },
@@ -27,134 +16,114 @@ const THEME_OPTIONS: { value: Theme; label: string }[] = [
   { value: "dark", label: "Dark" },
 ];
 
-export function PreferencesForm({
-  initialTheme,
-  initialTimeZone,
-  initialShowUpdateNotifications,
-  initialEnableVersionChecks,
-}: PreferencesFormProps) {
+type Preferences = {
+  theme?: Theme;
+  timeZone?: string;
+  showUpdateNotifications?: boolean;
+};
+
+/** Each change saves on its own, so there is no Save button to forget. */
+const usePreferenceSaver = () => {
   const router = useRouter();
-  const [theme, setTheme] = useState<Theme>(initialTheme);
-  const [timeZone, setTimeZone] = useState(initialTimeZone);
-  const [showUpdateNotifications, setShowUpdateNotifications] = useState(
-    initialShowUpdateNotifications,
-  );
-  const [enableVersionChecks, setEnableVersionChecks] = useState(
-    initialEnableVersionChecks,
-  );
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  function handleThemeChange(t: Theme) {
-    setTheme(t);
-    applyThemeWithTransition(t);
-    setSaved(false);
-  }
-
-  async function handleSave() {
-    setSaving(true);
-    setSaved(false);
-    setError(null);
+  return async (change: Preferences, refresh = false) => {
     try {
-      const res = await fetch("/api/user/preferences", {
+      const response = await fetch("/api/user/preferences", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          theme,
-          timeZone,
-          showUpdateNotifications,
-          enableVersionChecks,
-        }),
+        body: JSON.stringify(change),
       });
-      if (res.ok) {
-        // Re-render server components so dates pick up the new time zone.
-        router.refresh();
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
-      } else {
-        const json = await res.json().catch(() => ({}));
-        setError(json.error ?? "Failed to save.");
+      if (!response.ok) {
+        const data = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(data.error ?? "Could not save.");
       }
-    } catch {
-      setError("Network error.");
-    } finally {
-      setSaving(false);
+      // Dates on the server pick up a new time zone.
+      if (refresh) router.refresh();
+    } catch (caught) {
+      toast.error(caught instanceof Error ? caught.message : "Could not save.");
     }
-  }
+  };
+};
 
+export function AppearanceSettings({ initialTheme }: { initialTheme: Theme }) {
+  const save = usePreferenceSaver();
+  const [theme, setTheme] = useState(initialTheme);
   return (
-    <>
-      <SettingsList plain>
-        <SettingsRow
-          plain
-          label="Theme"
-          hint="Choose how Staaash looks in this browser."
+    <SettingsList plain>
+      <SettingsRow
+        label="Theme"
+        hint="How Staaash looks in this browser."
+        plain
+      >
+        <Tabs
+          value={theme}
+          onValueChange={(next) => {
+            const value = next as Theme;
+            setTheme(value);
+            applyThemeWithTransition(value);
+            void save({ theme: value });
+          }}
         >
-          <ToggleGroup
-            aria-label="Theme"
-            variant="outline"
-            size="lg"
-            value={[theme]}
-            onValueChange={(next) => {
-              if (next[0]) handleThemeChange(next[0] as Theme);
-            }}
-          >
-            {THEME_OPTIONS.map((opt) => (
-              <ToggleGroupItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </ToggleGroupItem>
+          <TabsList aria-label="Theme">
+            {THEME_OPTIONS.map((option) => (
+              <TabsTab key={option.value} value={option.value}>
+                {option.label}
+              </TabsTab>
             ))}
-          </ToggleGroup>
-        </SettingsRow>
+          </TabsList>
+        </Tabs>
+      </SettingsRow>
+    </SettingsList>
+  );
+}
 
-        <SettingsRow
-          plain
-          label="Time zone"
-          hint="Used for dates and schedules shown to you. Automatic follows this browser."
-        >
-          <TimeZonePicker
-            allowAuto
-            value={timeZone}
-            onChange={(nextTimeZone) => {
-              setTimeZone(nextTimeZone);
-              setSaved(false);
-            }}
-          />
-        </SettingsRow>
+export function RegionSettings({
+  initialTimeZone,
+}: {
+  initialTimeZone: string;
+}) {
+  const save = usePreferenceSaver();
+  const [timeZone, setTimeZone] = useState(initialTimeZone);
+  return (
+    <SettingsList plain>
+      <SettingsRow
+        label="Time zone"
+        hint="Used for every date shown to you. Automatic follows this browser."
+        plain
+      >
+        <TimeZonePicker
+          allowAuto
+          value={timeZone}
+          onChange={(next) => {
+            setTimeZone(next);
+            void save({ timeZone: next }, true);
+          }}
+        />
+      </SettingsRow>
+    </SettingsList>
+  );
+}
 
-        <SettingsRow
-          plain
-          label="Update notifications"
-          hint="Show a badge when a new version is available."
-        >
-          <Switch
-            aria-label="Update notifications"
-            checked={showUpdateNotifications}
-            onCheckedChange={setShowUpdateNotifications}
-          />
-        </SettingsRow>
-
-        <SettingsRow
-          plain
-          label="Version checks"
-          hint="Periodically check GitHub for new releases."
-        >
-          <Switch
-            aria-label="Version checks"
-            checked={enableVersionChecks}
-            onCheckedChange={setEnableVersionChecks}
-          />
-        </SettingsRow>
-      </SettingsList>
-
-      {error && <SettingsFormStatus tone="error">{error}</SettingsFormStatus>}
-
-      <div className="flex flex-wrap items-center gap-3 pt-0.5 max-md:flex-col max-md:items-stretch">
-        <Button type="button" onClick={handleSave} disabled={saving}>
-          {saving ? "Saving…" : saved ? "Saved" : "Save preferences"}
-        </Button>
-      </div>
-    </>
+export function UpdateSettings({ initialShow }: { initialShow: boolean }) {
+  const save = usePreferenceSaver();
+  const [show, setShow] = useState(initialShow);
+  return (
+    <SettingsList plain>
+      <SettingsRow
+        label="Tell me about new versions"
+        hint="A note in the sidebar and a short announcement when Staaash has an update."
+        plain
+      >
+        <Switch
+          aria-label="Tell me about new versions"
+          checked={show}
+          onCheckedChange={(next) => {
+            setShow(next);
+            void save({ showUpdateNotifications: next }, true);
+          }}
+        />
+      </SettingsRow>
+    </SettingsList>
   );
 }

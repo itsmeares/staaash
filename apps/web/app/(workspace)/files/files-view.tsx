@@ -48,6 +48,7 @@ import {
   type FileListItem,
 } from "@/components/file-list/file-list";
 import { buildItemActions } from "@/components/file-list/item-actions";
+import { MediaViewer } from "@/components/file-list/media-viewer";
 import { getRenameCursorPosition } from "@/components/file-list/list-model";
 import { useListSelection } from "@/components/file-list/use-list-selection";
 import { useViewMode } from "@/components/file-list/use-view-mode";
@@ -267,6 +268,10 @@ export function FilesView({
     useTransferContext();
   const { now, timeZone } = useTime();
   const [view, setView] = useViewMode("files");
+  const [sort, setSort] = useState<{ key: string; direction: "asc" | "desc" }>({
+    key: "name",
+    direction: "asc",
+  });
   const details = useDetailsPanel();
 
   // ---- Optimistic trash ----
@@ -492,8 +497,52 @@ export function FilesView({
     ...visibleFiles.map((f) => ({ kind: "file" as const, id: f.id })),
   ].filter((item) => !storageMutationItemIds.has(item.id));
 
+  // Folders stay above files whatever the order.
+  const compareForSort = (
+    left: {
+      kind: "folder" | "file";
+      name: string;
+      size: number;
+      updatedAt: Date;
+    },
+    right: {
+      kind: "folder" | "file";
+      name: string;
+      size: number;
+      updatedAt: Date;
+    },
+  ) => {
+    if (left.kind !== right.kind) return left.kind === "folder" ? -1 : 1;
+    const delta =
+      sort.key === "size"
+        ? left.size - right.size
+        : sort.key === "modified"
+          ? new Date(left.updatedAt).getTime() -
+            new Date(right.updatedAt).getTime()
+          : left.name.localeCompare(right.name, undefined, {
+              numeric: true,
+              sensitivity: "base",
+            });
+    return sort.direction === "asc" ? delta : -delta;
+  };
+  const sortKeyOf = (item: BatchMoveItem) => {
+    const data =
+      item.kind === "folder"
+        ? listing.childFolders.find((folder) => folder.id === item.id)
+        : listing.files.find((file) => file.id === item.id);
+    return {
+      kind: item.kind,
+      name: data?.name ?? "",
+      size: data && "sizeBytes" in data ? data.sizeBytes : 0,
+      updatedAt: data?.updatedAt ?? new Date(0),
+    };
+  };
+
   const selection = useListSelection({
-    ids: allItems.map((item) => item.id),
+    // Arrow keys and shift ranges follow the order on screen.
+    ids: [...allItems]
+      .sort((left, right) => compareForSort(sortKeyOf(left), sortKeyOf(right)))
+      .map((item) => item.id),
     coarse: isCoarsePointer,
     onOpen: (id) => openItem(id),
     onKey: (event, selected) => handleListKey(event, selected),
@@ -610,9 +659,78 @@ export function FilesView({
     const file = listing.files.find((f) => f.id === id);
     if (file) {
       if (file.storageMutation) return;
-      if (file.viewerKind) router.push(`/files/view/${file.id}`);
+      if (file.viewerKind) openViewer(file.id);
       else void downloadFile(file.id);
     }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Viewer: opens over the list. The URL still becomes /files/view/<id>, so
+  // links, Back and refresh work; refresh loads the standalone viewer page.
+  // ---------------------------------------------------------------------------
+
+  const viewerOrigin = useRef<DOMRect | null>(null);
+  const pushedViewer = useRef(false);
+  const viewerId = pathname.startsWith("/files/view/")
+    ? decodeURIComponent(pathname.slice("/files/view/".length))
+    : null;
+  const viewerFiles = visibleFiles.flatMap((file) =>
+    file.viewerKind && !file.storageMutation
+      ? [
+          {
+            id: file.id,
+            name: file.name,
+            mimeType: file.mimeType,
+            viewerKind: file.viewerKind,
+            thumbnailUrl: thumbnailUrlFor({ ...file, kind: "file" }),
+          },
+        ]
+      : [],
+  );
+  const viewerIndex = viewerId
+    ? viewerFiles.findIndex((file) => file.id === viewerId)
+    : -1;
+
+  useEffect(() => {
+    if (!viewerId) pushedViewer.current = false;
+  }, [viewerId]);
+
+  const reportOpened = (id: string) =>
+    void fetch(`/api/files/files/${id}/opened`, { method: "POST" }).catch(
+      () => {},
+    );
+
+  function openViewer(id: string) {
+    const thumb = document.querySelector(
+      `[data-list-item="${CSS.escape(id)}"] img`,
+    );
+    viewerOrigin.current = thumb?.getBoundingClientRect() ?? null;
+    pushedViewer.current = true;
+    window.history.pushState(null, "", `/files/view/${id}`);
+    reportOpened(id);
+  }
+
+  const closeViewer = () => {
+    const id = viewerId;
+    if (pushedViewer.current) {
+      pushedViewer.current = false;
+      window.history.back();
+    } else {
+      window.history.replaceState(null, "", currentPath);
+    }
+    // Back in the list with the item outlined.
+    if (id) {
+      selection.selectOnly(id);
+      requestAnimationFrame(() => selection.focusItem(id));
+    }
+  };
+
+  const moveViewer = (index: number) => {
+    const next = viewerFiles[index];
+    if (!next) return;
+    viewerOrigin.current = null;
+    window.history.replaceState(null, "", `/files/view/${next.id}`);
+    reportOpened(next.id);
   };
 
   const beginRename = (id: string, currentName: string) => {
@@ -1517,6 +1635,7 @@ export function FilesView({
     {
       key: "size",
       label: "Size",
+      sortable: true,
       width: "6rem",
       align: "end",
       render: (item) =>
@@ -1525,6 +1644,7 @@ export function FilesView({
     {
       key: "modified",
       label: "Modified",
+      sortable: true,
       width: "8rem",
       align: "end",
       render: (item) => (
@@ -1534,6 +1654,23 @@ export function FilesView({
       ),
     },
   ];
+
+  const sortedItems = [...listItems].sort((left, right) =>
+    compareForSort(
+      {
+        kind: left.kind,
+        name: left.name,
+        size: left.sizeBytes ?? 0,
+        updatedAt: left.data.updatedAt,
+      },
+      {
+        kind: right.kind,
+        name: right.name,
+        size: right.sizeBytes ?? 0,
+        updatedAt: right.data.updatedAt,
+      },
+    ),
+  );
 
   const moveTargetsFor = (items: BatchMoveItem[]) => {
     // Folders cannot move into themselves or their own subfolders.
@@ -1915,7 +2052,20 @@ export function FilesView({
                   }
                 : {}),
             })}
-            items={listItems}
+            items={sortedItems}
+            sort={{
+              key: sort.key,
+              direction: sort.direction,
+              onSort: (key) =>
+                setSort((current) =>
+                  current.key === key
+                    ? {
+                        key,
+                        direction: current.direction === "asc" ? "desc" : "asc",
+                      }
+                    : { key, direction: key === "name" ? "asc" : "desc" },
+                ),
+            }}
             label={`${listing.currentFolder.name} files`}
             renderName={(item) =>
               renamingId === item.id ? (
@@ -2021,6 +2171,16 @@ export function FilesView({
           redirectTo={currentPath}
         />
       </WorkspacePage>
+
+      {viewerIndex >= 0 ? (
+        <MediaViewer
+          files={viewerFiles}
+          index={viewerIndex}
+          origin={viewerOrigin.current}
+          onClose={closeViewer}
+          onIndexChange={moveViewer}
+        />
+      ) : null}
 
       {details.open ? (
         <DetailsPanel
