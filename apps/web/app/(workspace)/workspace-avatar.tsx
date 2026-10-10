@@ -12,7 +12,7 @@ export function WorkspaceAvatar({
   return (
     <span
       className={cn(
-        "flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-primary/15 bg-primary/12",
+        "flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/14",
         className,
       )}
     >
@@ -23,7 +23,7 @@ export function WorkspaceAvatar({
           className="size-full rounded-full object-cover"
         />
       ) : (
-        <span className="font-heading text-xs leading-none font-semibold tracking-wide text-primary-ink select-none lg:text-meta">
+        <span className="text-label leading-none font-semibold text-foreground select-none">
           {initials}
         </span>
       )}

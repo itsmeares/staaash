@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { formatVersionLabel } from "@staaash/config/version";
 
-import { formatAdminBytes } from "@/app/admin/admin-format";
-import { AdminPanel } from "@/app/admin/admin-panel";
-import { AdminStatCard } from "@/app/admin/admin-stat-card";
-import { AdminStatusBadge } from "@/app/admin/admin-status-badge";
+import { formatAdminBytes } from "@/app/(workspace)/admin/admin-format";
+import { AdminPanel } from "@/app/(workspace)/admin/admin-panel";
+import { AdminStatCard } from "@/app/(workspace)/admin/admin-stat-card";
+import { AdminStatusBadge } from "@/app/(workspace)/admin/admin-status-badge";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { requireAdminPageSession } from "@/server/auth/guards";

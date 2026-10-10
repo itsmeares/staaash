@@ -50,6 +50,10 @@ export function TransferPanel() {
 
   useEffect(() => {
     setMounted(true);
+    // The top bar's transfers indicator asks the panel to open.
+    const expand = () => setCollapsed(false);
+    window.addEventListener("staaash:transfers-open", expand);
+    return () => window.removeEventListener("staaash:transfers-open", expand);
   }, []);
 
   // Auto-trigger download when archive is ready.

@@ -1,54 +1,88 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { formatVersionLabel } from "@staaash/config/version";
 import {
-  Upload,
-  Sun,
-  Moon,
-  SunMoon,
-  Bell,
-  Settings2,
-  Wrench,
+  ArrowUpDown,
+  Keyboard,
   LogOut,
+  Moon,
+  Settings2,
+  Shield,
+  Sun,
+  SunMoon,
 } from "lucide-react";
+import { useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import {
   Menu,
   MenuItem,
   MenuLinkItem,
   MenuPopup,
+  MenuRadioGroup,
+  MenuRadioItem,
   MenuSeparator,
+  MenuSub,
+  MenuSubPopup,
+  MenuSubTrigger,
   MenuTrigger,
 } from "@/components/ui/menu";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { applyThemeWithTransition, type Theme } from "@/lib/theme";
 
+import { openShortcuts } from "./shortcuts-dialog";
+import { useTransferContext } from "./transfer-context";
 import { WorkspaceAvatar } from "./workspace-avatar";
 
-type UpdateStatus =
-  "up-to-date" | "update-available" | "unavailable" | "error" | null;
-
-interface TopbarActionsProps {
+type TopbarActionsProps = {
   userLabel: string | null;
   email: string;
   initials: string;
   isOwner: boolean;
   avatarUrl: string | null;
   initialTheme: Theme;
-  initialShowUpdateNotifications: boolean;
-  initialEnableVersionChecks: boolean;
-  updateStatus: UpdateStatus;
-  latestVersion: string | null;
-  repository: string | null;
-}
+};
 
 const THEME_CYCLE: Theme[] = ["system", "light", "dark"];
 const THEME_ICONS = { system: SunMoon, light: Sun, dark: Moon } as const;
+const THEME_LABELS = { system: "System", light: "Light", dark: "Dark" };
+
+function saveTheme(theme: Theme) {
+  applyThemeWithTransition(theme);
+  fetch("/api/user/preferences", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ theme }),
+  }).catch(() => {});
+}
+
+/** Shows while files move; opens the transfer panel. */
+function TransfersIndicator() {
+  const { uploadingFiles, activeDownload } = useTransferContext();
+  const active = uploadingFiles.filter((f) => f.status === "uploading");
+  if (active.length === 0 && !activeDownload) return null;
+
+  const total = active.reduce((sum, f) => sum + f.size, 0);
+  const done = active.reduce((sum, f) => sum + f.transferredBytes, 0);
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const label =
+    active.length > 0
+      ? `Uploading ${active.length} ${active.length === 1 ? "file" : "files"}, ${pct}%`
+      : "Preparing a download";
+
+  return (
+    <Button
+      aria-label={label}
+      size="sm"
+      title={label}
+      variant="ghost-muted"
+      onClick={() => window.dispatchEvent(new Event("staaash:transfers-open"))}
+    >
+      <ArrowUpDown aria-hidden />
+      <span className="tabular-nums">
+        {active.length > 0 ? `${pct}%` : "Zip"}
+      </span>
+    </Button>
+  );
+}
 
 export function TopbarActions({
   userLabel,
@@ -57,155 +91,92 @@ export function TopbarActions({
   isOwner,
   avatarUrl,
   initialTheme,
-  initialShowUpdateNotifications,
-  initialEnableVersionChecks,
-  updateStatus,
-  latestVersion,
-  repository,
 }: TopbarActionsProps) {
   const [theme, setTheme] = useState<Theme>(initialTheme);
-  const showUpdateNotificationsRef = useRef(initialShowUpdateNotifications);
-  const enableVersionChecksRef = useRef(initialEnableVersionChecks);
-
-  function handleUploadClick() {
-    window.dispatchEvent(new Event("staaash:upload-click"));
-  }
-
-  function handleThemeCycle() {
-    const idx = THEME_CYCLE.indexOf(theme);
-    const next = THEME_CYCLE[(idx + 1) % THEME_CYCLE.length]!;
-    setTheme(next);
-    applyThemeWithTransition(next);
-    fetch("/api/user/preferences", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        theme: next,
-        showUpdateNotifications: showUpdateNotificationsRef.current,
-        enableVersionChecks: enableVersionChecksRef.current,
-      }),
-    }).catch(() => {});
-  }
-
   const ThemeIcon = THEME_ICONS[theme];
-  const hasUpdate = updateStatus === "update-available";
-  const releaseUrl = repository
-    ? `https://github.com/${repository}/releases`
-    : null;
+
+  const changeTheme = (next: Theme) => {
+    setTheme(next);
+    saveTheme(next);
+  };
 
   return (
-    <div className="flex shrink-0 items-center gap-1 max-xs:w-full max-xs:justify-end lg:gap-2">
-      <Button
-        className="lg:w-auto lg:px-3.5"
-        onClick={handleUploadClick}
-        size="icon"
-        title="Upload files"
-        aria-label="Upload files"
-        variant="ghost"
-      >
-        <Upload size={15} strokeWidth={2} aria-hidden />
-        <span className="max-lg:hidden">Upload</span>
-      </Button>
+    <div className="flex shrink-0 items-center gap-1">
+      <TransfersIndicator />
 
       <Button
-        onClick={handleThemeCycle}
+        aria-label={`Theme: ${THEME_LABELS[theme]}. Switch theme`}
         size="icon"
-        title={`Theme: ${theme}`}
-        aria-label={`Toggle theme (currently ${theme})`}
-        variant="ghost"
+        title={`Theme: ${THEME_LABELS[theme]}`}
+        variant="ghost-muted"
+        onClick={() =>
+          changeTheme(
+            THEME_CYCLE[(THEME_CYCLE.indexOf(theme) + 1) % THEME_CYCLE.length]!,
+          )
+        }
       >
-        <ThemeIcon size={15} strokeWidth={2} aria-hidden />
+        <ThemeIcon aria-hidden />
       </Button>
-
-      <Popover>
-        <PopoverTrigger
-          render={<Button className="relative" size="icon" variant="ghost" />}
-          aria-label="Notifications"
-        >
-          <Bell size={15} strokeWidth={2} aria-hidden />
-          {hasUpdate && (
-            <span
-              className="absolute top-2.5 right-2.5 size-2 rounded-full border-2 border-background bg-destructive"
-              aria-hidden
-            />
-          )}
-        </PopoverTrigger>
-        <PopoverContent side="bottom" align="end" className="w-55">
-          {hasUpdate ? (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-label font-medium lg:text-meta">
-                {latestVersion
-                  ? `${formatVersionLabel(latestVersion)} available`
-                  : "Update available"}
-              </span>
-              {releaseUrl && (
-                <a
-                  href={releaseUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-primary-ink hover:underline lg:text-meta"
-                >
-                  View releases
-                </a>
-              )}
-            </div>
-          ) : (
-            <p className="m-0 text-label text-muted-foreground lg:text-meta">
-              No new notifications
-            </p>
-          )}
-        </PopoverContent>
-      </Popover>
 
       <Menu>
         <MenuTrigger
-          className="cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           aria-label="Profile menu"
+          className="ms-1 cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <WorkspaceAvatar
-            avatarUrl={avatarUrl}
-            initials={initials}
-            className="lg:size-11"
-          />
+          <WorkspaceAvatar avatarUrl={avatarUrl} initials={initials} />
         </MenuTrigger>
-        <MenuPopup align="end" className="w-70">
-          <div className="mb-1 flex flex-col items-center rounded-lg bg-primary/10 px-4 pt-5 pb-4">
-            <WorkspaceAvatar
-              avatarUrl={avatarUrl}
-              initials={initials}
-              className="mb-2.5 size-12"
-            />
-            {userLabel && (
-              <span className="text-center text-sm leading-tight font-semibold lg:text-body">
-                {userLabel}
+        <MenuPopup align="end" className="w-64">
+          <div className="flex items-center gap-2.5 px-2 py-2">
+            <WorkspaceAvatar avatarUrl={avatarUrl} initials={initials} />
+            <div className="grid min-w-0 leading-tight">
+              {userLabel ? (
+                <span className="truncate text-body font-semibold">
+                  {userLabel}
+                </span>
+              ) : null}
+              <span className="truncate text-label text-muted-foreground">
+                {email}
               </span>
-            )}
-            <span className="mt-px text-center text-xs text-muted-foreground lg:text-meta">
-              {email}
-            </span>
+            </div>
           </div>
-
+          <MenuSeparator />
           <MenuLinkItem href="/settings">
-            <Settings2 size={14} strokeWidth={2} aria-hidden />
+            <Settings2 aria-hidden />
             Settings
           </MenuLinkItem>
-          {isOwner && (
+          {isOwner ? (
             <MenuLinkItem href="/admin">
-              <Wrench size={14} strokeWidth={2} aria-hidden />
+              <Shield aria-hidden />
               Admin
             </MenuLinkItem>
-          )}
-
+          ) : null}
+          <MenuSub>
+            <MenuSubTrigger>
+              <ThemeIcon aria-hidden />
+              Theme
+            </MenuSubTrigger>
+            <MenuSubPopup>
+              <MenuRadioGroup
+                value={theme}
+                onValueChange={(value) => changeTheme(value as Theme)}
+              >
+                {THEME_CYCLE.map((option) => (
+                  <MenuRadioItem key={option} value={option}>
+                    {THEME_LABELS[option]}
+                  </MenuRadioItem>
+                ))}
+              </MenuRadioGroup>
+            </MenuSubPopup>
+          </MenuSub>
+          <MenuItem onClick={openShortcuts}>
+            <Keyboard aria-hidden />
+            Keyboard shortcuts
+          </MenuItem>
           <MenuSeparator />
-
           <form action="/api/auth/sign-out" className="contents" method="post">
             <input type="hidden" name="next" value="/" />
-            <MenuItem
-              nativeButton
-              render={<button type="submit" />}
-              variant="destructive"
-            >
-              <LogOut size={14} strokeWidth={2} aria-hidden />
+            <MenuItem nativeButton render={<button type="submit" />}>
+              <LogOut aria-hidden />
               Sign out
             </MenuItem>
           </form>

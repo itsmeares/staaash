@@ -4,14 +4,14 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 
-import { AdminAvatar } from "@/app/admin/admin-avatar";
+import { AdminAvatar } from "@/app/(workspace)/admin/admin-avatar";
 import {
   formatAdminBytes,
   formatAdminDateTime,
-} from "@/app/admin/admin-format";
-import { AdminPanel } from "@/app/admin/admin-panel";
-import { AdminStatCard } from "@/app/admin/admin-stat-card";
-import { AdminStatusBadge } from "@/app/admin/admin-status-badge";
+} from "@/app/(workspace)/admin/admin-format";
+import { AdminPanel } from "@/app/(workspace)/admin/admin-panel";
+import { AdminStatCard } from "@/app/(workspace)/admin/admin-stat-card";
+import { AdminStatusBadge } from "@/app/(workspace)/admin/admin-status-badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { requireAdminPageSession } from "@/server/auth/guards";

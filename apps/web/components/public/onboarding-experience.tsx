@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
 import { AUTO_TIME_ZONE, getBrowserTimeZone } from "@staaash/config/time-zone";
 
-import { saveOwnerOnboardingSettings } from "@/app/admin/settings/actions";
+import { saveOwnerOnboardingSettings } from "@/app/(workspace)/admin/settings/actions";
 import { TimeZonePicker } from "@/components/time-zone-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

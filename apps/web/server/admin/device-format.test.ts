@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatSessionIp } from "@/app/admin/users/[userId]/device-format";
+import { formatSessionIp } from "@/app/(workspace)/admin/users/[userId]/device-format";
 
 describe("formatSessionIp", () => {
   it("normalizes IPv4-mapped IPv6 loopback addresses", () => {

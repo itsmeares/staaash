@@ -58,18 +58,18 @@ test("open pane sits beside the list, leaves the top bar usable and follows the 
   expect(paneBox.x + paneBox.width).toBeLessThanOrEqual(viewport.width);
 
   // The top bar is not covered by the pane.
-  const upload = page.getByRole("button", { name: "Upload files" });
-  const box = (await upload.boundingBox())!;
-  const topElementIsUpload = await page.evaluate(
+  const profile = page.getByRole("button", { name: "Profile menu" });
+  const box = (await profile.boundingBox())!;
+  const topElementIsProfile = await page.evaluate(
     ([x, y]) => {
       const el = document.elementFromPoint(x, y);
       return (
-        el?.closest("button")?.getAttribute("aria-label") === "Upload files"
+        el?.closest("button")?.getAttribute("aria-label") === "Profile menu"
       );
     },
     [box.x + box.width / 2, box.y + box.height / 2],
   );
-  expect(topElementIsUpload).toBe(true);
+  expect(topElementIsProfile).toBe(true);
 
   // Keyboard selection drives the pane and focus stays in the list.
   await list.focus();

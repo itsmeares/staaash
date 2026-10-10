@@ -15,11 +15,11 @@ import {
 import { formatVersionLabel } from "@staaash/config/version";
 import type { SystemSettings } from "@staaash/db/client";
 
-import { AdminStatusBadge } from "@/app/admin/admin-status-badge";
+import { AdminStatusBadge } from "@/app/(workspace)/admin/admin-status-badge";
 import {
   formatAdminBytes,
   formatAdminDateTime,
-} from "@/app/admin/admin-format";
+} from "@/app/(workspace)/admin/admin-format";
 import {
   SettingsAccordion,
   SettingsFormStatus,

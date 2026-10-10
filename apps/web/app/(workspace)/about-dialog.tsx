@@ -11,18 +11,18 @@ import {
   DialogHeader,
   DialogPanel,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { getUpdateStatusLabel, type UpdateStatus } from "@/lib/update-status";
 import { cn } from "@/lib/utils";
 
-type InstanceBadgeProps = {
+type AboutDialogProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   appVersion: string;
   nodeVersion: string;
   updateStatus: UpdateStatus;
   latestVersion: string | null;
   repository: string | null;
-  className?: string;
 };
 
 function StatusDot({ status }: { status: UpdateStatus }) {
@@ -62,14 +62,15 @@ function Row({
   );
 }
 
-export function InstanceBadge({
+export function AboutDialog({
+  open,
+  onOpenChange,
   appVersion,
   nodeVersion,
   updateStatus,
   latestVersion,
   repository,
-  className,
-}: InstanceBadgeProps) {
+}: AboutDialogProps) {
   const updateLabel = getUpdateStatusLabel(updateStatus, latestVersion);
   const versionLabel = formatVersionLabel(appVersion);
 
@@ -78,15 +79,7 @@ export function InstanceBadge({
     : null;
 
   return (
-    <Dialog>
-      <DialogTrigger
-        render={<Button className={className} size="sm" variant="ghost" />}
-      >
-        <StatusDot status={updateStatus} />
-        <span className="text-xs font-medium text-muted-foreground tabular-nums lg:text-meta">
-          {versionLabel}
-        </span>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-105">
         <DialogHeader>
           <div className="flex items-center gap-2">

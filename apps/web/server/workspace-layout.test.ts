@@ -42,48 +42,41 @@ vi.mock("@/server/app-version", () => ({
   resolveAppVersion: () => "0.0.0-test",
 }));
 
-vi.mock("@/app/(workspace)/instance-badge", () => ({
-  InstanceBadge: (props: {
+type ShellInfoProps = {
+  info: {
+    instanceName: string;
     updateStatus: string | null;
     latestVersion: string | null;
-  }) =>
+  };
+};
+
+const describeInfo = ({ info }: ShellInfoProps) =>
+  `${info.instanceName}|${info.updateStatus ?? "unchecked"}:${info.latestVersion ?? "none"}`;
+
+vi.mock("@/app/(workspace)/app-sidebar", () => ({
+  AppSidebar: (props: ShellInfoProps) =>
     React.createElement(
       "span",
-      { "data-testid": "instance-badge" },
-      `${props.updateStatus ?? "unchecked"}:${props.latestVersion ?? "none"}`,
+      { "data-testid": "sidebar" },
+      describeInfo(props),
     ),
 }));
 
 vi.mock("@/app/(workspace)/topbar-actions", () => ({
-  TopbarActions: (props: {
-    updateStatus: string | null;
-    latestVersion: string | null;
-  }) =>
-    React.createElement(
-      "span",
-      { "data-testid": "topbar-actions" },
-      `${props.updateStatus ?? "unchecked"}:${props.latestVersion ?? "none"}`,
-    ),
+  TopbarActions: () => null,
+}));
+
+vi.mock("@/app/(workspace)/shortcuts-dialog", () => ({
+  ShortcutsDialog: () => null,
 }));
 
 vi.mock("@/app/(workspace)/workspace-mobile-nav", () => ({
-  WorkspaceMobileNav: (props: {
-    updateStatus: string | null;
-    latestVersion: string | null;
-  }) =>
+  WorkspaceMobileNav: (props: ShellInfoProps) =>
     React.createElement(
       "span",
       { "data-testid": "mobile-nav" },
-      `${props.updateStatus ?? "unchecked"}:${props.latestVersion ?? "none"}`,
+      describeInfo(props),
     ),
-}));
-
-vi.mock("@/app/(workspace)/workspace-nav", () => ({
-  WorkspaceNav: () => null,
-}));
-
-vi.mock("@/app/(workspace)/workspace-storage", () => ({
-  WorkspaceStorage: () => null,
 }));
 
 vi.mock("@/components/ui/toast", () => ({
@@ -92,6 +85,10 @@ vi.mock("@/components/ui/toast", () => ({
 
 vi.mock("lucide-react", () => ({
   Search: () => null,
+}));
+
+vi.mock("@/components/drive-glyph", () => ({
+  DriveGlyph: () => null,
 }));
 
 vi.mock("next/link", () => ({
@@ -139,12 +136,11 @@ describe("WorkspaceLayout", () => {
     const markup = renderToStaticMarkup(page);
 
     expect(markup).toContain(
-      'data-testid="instance-badge">unchecked:none</span>',
+      'data-testid="sidebar">Staaash|unchecked:none</span>',
     );
     expect(markup).toContain(
-      'data-testid="topbar-actions">unchecked:none</span>',
+      'data-testid="mobile-nav">Staaash|unchecked:none</span>',
     );
-    expect(markup).toContain('data-testid="mobile-nav">unchecked:none</span>');
   });
 
   it("uses the instance name as the workspace sidebar brand", async () => {
@@ -158,8 +154,6 @@ describe("WorkspaceLayout", () => {
     const page = await WorkspaceLayout({ children: "Files" });
     const markup = renderToStaticMarkup(page);
 
-    expect(markup).toContain("Ares Cloud");
-    expect(markup).toContain('data-compact-initial="A"');
-    expect(markup).not.toContain(">Staaash</span>");
+    expect(markup).toContain('data-testid="sidebar">Ares Cloud|');
   });
 });

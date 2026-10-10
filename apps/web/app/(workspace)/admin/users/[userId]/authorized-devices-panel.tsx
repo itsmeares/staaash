@@ -4,8 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Trash2 } from "lucide-react";
 
-import { formatAdminDateTime } from "@/app/admin/admin-format";
-import { AdminPanel } from "@/app/admin/admin-panel";
+import { formatAdminDateTime } from "@/app/(workspace)/admin/admin-format";
+import { AdminPanel } from "@/app/(workspace)/admin/admin-panel";
 import { useTime } from "@/components/time-provider";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";

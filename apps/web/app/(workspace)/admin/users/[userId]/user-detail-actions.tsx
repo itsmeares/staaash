@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useState, useTransition } from "react";
 import { Copy, Edit2, KeyRound } from "lucide-react";
 
-import { AdminToggleField } from "@/app/admin/admin-toggle-field";
+import { AdminToggleField } from "@/app/(workspace)/admin/admin-toggle-field";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

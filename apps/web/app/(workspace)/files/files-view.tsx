@@ -21,8 +21,6 @@ import {
   DialogPanel,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Kbd } from "@/components/ui/kbd";
-import { SectionLabel } from "@/components/section-label";
 import { randomClientId } from "@/lib/client-id";
 import { cn } from "@/lib/utils";
 import { FlashMessage } from "@/app/auth-ui";
@@ -425,6 +423,11 @@ export function FilesView({
 
   useEffect(() => {
     folderInputRef.current?.setAttribute("webkitdirectory", "");
+    // The New menu's Upload folder targets the open folder.
+    const pickFolder = () => folderInputRef.current?.click();
+    window.addEventListener("staaash:upload-folder-click", pickFolder);
+    return () =>
+      window.removeEventListener("staaash:upload-folder-click", pickFolder);
   }, []);
 
   useEffect(() => {
@@ -433,8 +436,9 @@ export function FilesView({
 
   // Auto-open file picker when navigated here via Upload button from another route.
   useEffect(() => {
-    if (rawSearchParams.get("upload") === "1") {
-      fileInputRef.current?.click();
+    const upload = rawSearchParams.get("upload");
+    if (upload === "1" || upload === "folder") {
+      (upload === "folder" ? folderInputRef : fileInputRef).current?.click();
       const next = new URLSearchParams(rawSearchParams.toString());
       next.delete("upload");
       const qs = next.toString();
@@ -468,7 +472,6 @@ export function FilesView({
   const [justMovedIds, setJustMovedIds] = useState<Set<string>>(new Set());
 
   // ---- Shortcut legend ----
-  const [showShortcutLegend, setShowShortcutLegend] = useState(false);
 
   // ---- Share dialog ----
   const [shareDialogTarget, setShareDialogTarget] = useState<{
@@ -673,26 +676,8 @@ export function FilesView({
         return;
       }
 
-      // Ctrl+Shift+N — new folder
-      if (ctrl && e.shiftKey && e.key === "N") {
-        e.preventDefault();
-        setNewFolderOpen(true);
-        return;
-      }
-
-      // ? — toggle shortcut legend
-      if (e.key === "?" && !ctrl) {
-        e.preventDefault();
-        setShowShortcutLegend((v) => !v);
-        return;
-      }
-
-      // Escape — close legend first, then deselect / cancel cut / cancel rename
+      // Escape — deselect / cancel cut / cancel rename
       if (e.key === "Escape") {
-        if (showShortcutLegend) {
-          setShowShortcutLegend(false);
-          return;
-        }
         setSelectedIds(new Set());
         setRenamingId(null);
         updateCutItems([]);
@@ -758,7 +743,7 @@ export function FilesView({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allItems, selectedIds, cutItems, lastSelectedId, showShortcutLegend]);
+  }, [allItems, selectedIds, cutItems, lastSelectedId]);
 
   useEffect(() => {
     if (selectedIds.size !== 1) return;
@@ -2414,11 +2399,6 @@ export function FilesView({
           parentId={listing.currentFolder.id}
           redirectTo={currentPath}
         />
-
-        {/* ---- Keyboard shortcut legend ---- */}
-        {showShortcutLegend && (
-          <ShortcutLegend onClose={() => setShowShortcutLegend(false)} />
-        )}
       </WorkspacePage>
 
       {/* ---- Properties pane ---- */}
@@ -2617,105 +2597,5 @@ function GhostUploadRow({
         <div className="h-full w-[35%] rounded-full bg-muted-foreground opacity-40" />
       </div>
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Keyboard shortcut legend
-// ---------------------------------------------------------------------------
-
-type ShortcutRow = { action: string; keys: string[]; hint?: string };
-
-const SHORTCUT_GROUPS: Array<{ label: string; rows: ShortcutRow[] }> = [
-  {
-    label: "Navigation",
-    rows: [
-      { action: "Move up / down", keys: ["↑", "↓"] },
-      { action: "Open selected", keys: ["↵"] },
-    ],
-  },
-  {
-    label: "Selection",
-    rows: [
-      { action: "Select all", keys: ["⌘", "A"] },
-      { action: "Add to selection", keys: ["⌘"], hint: "click" },
-      { action: "Range select", keys: ["⇧"], hint: "click" },
-      { action: "Rubber-band select", keys: [], hint: "drag empty space" },
-      { action: "Deselect all", keys: ["Esc"] },
-    ],
-  },
-  {
-    label: "File actions",
-    rows: [
-      { action: "Rename", keys: ["F2"] },
-      { action: "Cut", keys: ["⌘", "X"] },
-      { action: "Paste here", keys: ["⌘", "V"] },
-      { action: "Move to trash", keys: ["⌫"] },
-    ],
-  },
-  {
-    label: "Interface",
-    rows: [
-      { action: "New folder", keys: ["⌘", "⇧", "N"] },
-      { action: "Show shortcuts", keys: ["?"] },
-    ],
-  },
-];
-
-function ShortcutLegend({ onClose }: { onClose: () => void }) {
-  const openerRef = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    const opener = document.activeElement;
-    openerRef.current = opener instanceof HTMLElement ? opener : null;
-  }, []);
-
-  const closeAndRestoreFocus = () => {
-    onClose();
-    requestAnimationFrame(() => openerRef.current?.focus());
-  };
-
-  return (
-    <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open) closeAndRestoreFocus();
-      }}
-    >
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Keyboard shortcuts</DialogTitle>
-        </DialogHeader>
-        <DialogPanel className="grid gap-4.5">
-          {SHORTCUT_GROUPS.map((group) => (
-            <div key={group.label} className="grid gap-0.5">
-              <SectionLabel className="mb-1.5 text-xs">
-                {group.label}
-              </SectionLabel>
-              {group.rows.map((row) => (
-                <div
-                  key={row.action}
-                  className="flex items-center justify-between py-1.25"
-                >
-                  <span className="text-label text-foreground">
-                    {row.action}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    {row.keys.map((key) => (
-                      <Kbd key={key}>{key}</Kbd>
-                    ))}
-                    {row.hint ? (
-                      <span className="text-xs text-muted-foreground">
-                        {row.hint}
-                      </span>
-                    ) : null}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ))}
-        </DialogPanel>
-      </DialogContent>
-    </Dialog>
   );
 }

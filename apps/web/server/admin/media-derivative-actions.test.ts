@@ -38,7 +38,7 @@ vi.mock("@staaash/db/storage-mutation-executor", () => ({
   calculateStorageFileChecksum: vi.fn(),
 }));
 
-import { cancelDerivative } from "@/app/admin/jobs/media-derivative-actions";
+import { cancelDerivative } from "@/app/(workspace)/admin/jobs/media-derivative-actions";
 
 describe("cancelDerivative", () => {
   let formData: FormData;

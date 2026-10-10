@@ -14,11 +14,11 @@ vi.mock("@/server/auth/guards", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 
-import { updateSystemSettings } from "@/app/admin/settings/actions";
+import { updateSystemSettings } from "@/app/(workspace)/admin/settings/actions";
 import {
   settingsSchema,
   toSettingsValues,
-} from "@/app/admin/settings/settings-schema";
+} from "@/app/(workspace)/admin/settings/settings-schema";
 
 const defaults = {
   sessionMaxAgeDays: 30,

@@ -33,8 +33,8 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   formatAdminBytes,
   formatAdminDateTime,
-} from "@/app/admin/admin-format";
-import { AdminPanel } from "@/app/admin/admin-panel";
+} from "@/app/(workspace)/admin/admin-format";
+import { AdminPanel } from "@/app/(workspace)/admin/admin-panel";
 import { useTime } from "@/components/time-provider";
 import { cn } from "@/lib/utils";
 import type {
