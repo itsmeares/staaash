@@ -8,7 +8,7 @@
   }
 
   body {
-    @apply min-h-screen bg-background text-foreground;
+    @apply min-h-screen bg-background text-body text-foreground antialiased;
   }
 
   h1,

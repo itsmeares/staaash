@@ -11,47 +11,47 @@ export type ItemVisual = {
 const defaultFileVisual: ItemVisual = {
   kind: "file",
   label: "File",
-  color: "oklch(58% 0.02 76)",
-  background: "oklch(58% 0.02 76 / 0.1)",
+  color: "var(--file-doc)",
+  background: "color-mix(in oklab, var(--file-doc) 12%, transparent)",
 };
 
 const fileVisuals: Record<Exclude<ItemVisualKind, "folder">, ItemVisual> = {
   archive: {
     kind: "archive",
     label: "Archive",
-    color: "oklch(58% 0.02 76)",
-    background: "oklch(58% 0.02 76 / 0.1)",
+    color: "var(--file-doc)",
+    background: "color-mix(in oklab, var(--file-doc) 12%, transparent)",
   },
   audio: {
     kind: "audio",
     label: "Audio",
-    color: "oklch(62% 0.14 145)",
-    background: "oklch(62% 0.14 145 / 0.12)",
+    color: "var(--file-audio)",
+    background: "color-mix(in oklab, var(--file-audio) 12%, transparent)",
   },
   file: defaultFileVisual,
   image: {
     kind: "image",
     label: "Image",
-    color: "oklch(58% 0.13 255)",
-    background: "oklch(58% 0.13 255 / 0.12)",
+    color: "var(--file-image)",
+    background: "color-mix(in oklab, var(--file-image) 12%, transparent)",
   },
   pdf: {
     kind: "pdf",
     label: "PDF",
-    color: "oklch(62% 0.16 45)",
-    background: "oklch(62% 0.16 45 / 0.12)",
+    color: "var(--file-pdf)",
+    background: "color-mix(in oklab, var(--file-pdf) 12%, transparent)",
   },
   text: {
     kind: "text",
     label: "Text",
-    color: "oklch(66% 0.12 78)",
-    background: "oklch(66% 0.12 78 / 0.12)",
+    color: "var(--file-doc)",
+    background: "color-mix(in oklab, var(--file-doc) 12%, transparent)",
   },
   video: {
     kind: "video",
     label: "Video",
-    color: "oklch(58% 0.14 300)",
-    background: "oklch(58% 0.14 300 / 0.12)",
+    color: "var(--file-video)",
+    background: "color-mix(in oklab, var(--file-video) 12%, transparent)",
   },
 };
 
@@ -63,8 +63,8 @@ export function getItemVisual(
     return {
       kind: "folder",
       label: "Folder",
-      color: "color-mix(in oklab, var(--primary) 78%, var(--foreground) 22%)",
-      background: "color-mix(in oklab, var(--primary) 10%, transparent)",
+      color: "var(--muted-foreground)",
+      background: "color-mix(in oklab, var(--foreground) 6%, transparent)",
     };
   }
 
