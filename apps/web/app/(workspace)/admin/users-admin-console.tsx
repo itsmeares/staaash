@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/table";
 
 import { formatAdminBytes } from "./admin-format";
-import { AdminStatCard } from "./admin-stat-card";
+import { AdminAvatar } from "./admin-avatar";
 import { AdminStatusBadge } from "./admin-status-badge";
 import { AdminToggleField } from "./admin-toggle-field";
 
@@ -108,25 +108,18 @@ const plural = (
   pluralLabel = `${singular}s`,
 ) => `${count} ${count === 1 ? singular : pluralLabel}`;
 
-const roleSummaryLabel = (summary: AdminUsersSummary) =>
-  [
-    plural(summary.owners, "owner"),
-    plural(summary.admins, "admin"),
-    plural(summary.members, "member"),
-  ].join(", ");
-
-const onboardingSummaryLabel = (count: number) =>
-  count === 0 ? "No pending setup" : `${plural(count, "user")} pending setup`;
-
-const passwordSummaryLabel = (count: number) =>
-  count === 0
-    ? "No forced password changes"
-    : `${plural(count, "user")} must change password`;
-
 const buildUserWarnings = (user: AdminUser) => [
-  ...(user.passwordChangeRequiredAt ? ["password change required"] : []),
-  ...(!user.onboardingCompletedAt ? ["onboarding incomplete"] : []),
+  ...(user.passwordChangeRequiredAt ? ["must change password"] : []),
+  ...(!user.onboardingCompletedAt ? ["setup not finished"] : []),
 ];
+
+const initialsOf = (user: AdminUser) =>
+  (user.displayName ?? user.email)
+    .split(/[\s@._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]!.toUpperCase())
+    .join("");
 
 const formString = (value: FormDataEntryValue | null) =>
   typeof value === "string" ? value : undefined;
@@ -356,10 +349,18 @@ export function UsersAdminConsole({
   return (
     <div className="mx-auto grid w-[min(1180px,100%)] grid-cols-1 gap-5.5 max-sm:w-full">
       <PageHeader
-        size="lg"
-        divider
-        title="User management"
-        description="Accounts, storage quotas, onboarding state, and device sessions."
+        title="Users"
+        meta={
+          <span className="text-meta text-muted-foreground">
+            {plural(summary.total, "account")}
+            {summary.pendingOnboarding > 0
+              ? `, ${plural(summary.pendingOnboarding, "user")} not set up yet`
+              : ""}
+            {summary.passwordChangeRequired > 0
+              ? `, ${plural(summary.passwordChangeRequired, "password")} to change`
+              : ""}
+          </span>
+        }
         actions={
           canMutateUsers ? (
             <Dialog
@@ -415,37 +416,16 @@ export function UsersAdminConsole({
         }
       />
 
-      <section className="grid grid-cols-1 gap-4">
-        <div
-          className="grid grid-cols-3 gap-3 max-lg:grid-cols-1"
-          aria-label="User summary"
-        >
-          <AdminStatCard
-            label="Accounts"
-            value={String(summary.total)}
-            detail={roleSummaryLabel(summary)}
-          />
-          <AdminStatCard
-            label="Onboarding"
-            value={String(summary.pendingOnboarding)}
-            detail={onboardingSummaryLabel(summary.pendingOnboarding)}
-          />
-          <AdminStatCard
-            label="Password changes"
-            value={String(summary.passwordChangeRequired)}
-            detail={passwordSummaryLabel(summary.passwordChangeRequired)}
-          />
-        </div>
-
-        <div className="overflow-hidden rounded-lg border border-hairline bg-card">
-          <Table className="min-w-205 table-fixed">
+      <section className="grid grid-cols-1 gap-3">
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+          <Table className="min-w-180 table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[26%] px-5">Name</TableHead>
-                <TableHead className="w-[36%] px-5">Email</TableHead>
-                <TableHead className="w-[14%] px-5">Role</TableHead>
-                <TableHead className="w-[12%] px-5">Quota</TableHead>
-                <TableHead className="w-16 px-3">
+                <TableHead className="w-[30%] px-4">Name</TableHead>
+                <TableHead className="w-[30%] px-4">Email</TableHead>
+                <TableHead className="w-[13%] px-4">Role</TableHead>
+                <TableHead className="w-[20%] px-4">Storage</TableHead>
+                <TableHead className="w-14 px-3">
                   <span className="sr-only">Actions</span>
                 </TableHead>
               </TableRow>
@@ -456,31 +436,61 @@ export function UsersAdminConsole({
 
                 return (
                   <TableRow key={user.id}>
-                    <TableCell className="p-5 whitespace-normal">
-                      <div className="grid grid-cols-1 gap-1.5">
-                        <Link
-                          className="text-base font-semibold text-foreground underline decoration-primary/50 underline-offset-3 hover:text-primary-ink"
-                          href={`/admin/users/${user.id}`}
-                        >
-                          {user.displayName ?? "No name yet"}
-                        </Link>
-                        {warnings.length > 0 ? (
-                          <span className="text-meta font-medium text-destructive-foreground">
-                            {warnings.join(" · ")}
+                    <TableCell className="px-4 py-2.5 whitespace-normal">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <AdminAvatar
+                          avatarUrl={null}
+                          initials={initialsOf(user)}
+                          size="sm"
+                        />
+                        <div className="grid min-w-0">
+                          <Link
+                            className="truncate text-body font-medium hover:underline"
+                            href={`/admin/users/${user.id}`}
+                          >
+                            {user.displayName ?? "No name yet"}
+                          </Link>
+                          {warnings.length > 0 ? (
+                            <span className="text-label text-warning-foreground">
+                              {warnings.join(", ")}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="truncate px-4 py-2.5 text-body text-muted-foreground">
+                      {user.email}
+                    </TableCell>
+                    <TableCell className="px-4 py-2.5">
+                      <AdminStatusBadge status={roleLabel(user)} />
+                    </TableCell>
+                    <TableCell className="px-4 py-2.5">
+                      <div className="grid gap-1.5">
+                        <span className="text-meta tabular-nums">
+                          {formatAdminBytes(BigInt(user.storageUsedBytes))} of{" "}
+                          {user.storageLimitBytes
+                            ? quotaLabel(user)
+                            : "unlimited"}
+                        </span>
+                        {user.storageLimitBytes ? (
+                          <span className="block h-1 overflow-hidden rounded-full bg-pressed">
+                            <span
+                              className="block h-full rounded-full bg-primary"
+                              style={{
+                                width: `${Math.min(
+                                  100,
+                                  Number(
+                                    (BigInt(user.storageUsedBytes) * 100n) /
+                                      BigInt(user.storageLimitBytes),
+                                  ),
+                                )}%`,
+                              }}
+                            />
                           </span>
                         ) : null}
                       </div>
                     </TableCell>
-                    <TableCell className="p-5 text-base wrap-anywhere whitespace-normal">
-                      {user.email}
-                    </TableCell>
-                    <TableCell className="p-5">
-                      <AdminStatusBadge status={roleLabel(user)} size="lg" />
-                    </TableCell>
-                    <TableCell className="p-5 font-heading text-xl font-semibold">
-                      {quotaLabel(user)}
-                    </TableCell>
-                    <TableCell className="py-5 pr-4 pl-3 text-right">
+                    <TableCell className="py-2.5 pr-3 pl-2 text-right">
                       <Menu>
                         <MenuTrigger
                           render={
@@ -531,9 +541,6 @@ export function UsersAdminConsole({
               })}
             </TableBody>
           </Table>
-        </div>
-        <div className="justify-self-end px-0.5 text-meta text-muted-foreground">
-          {initialUsers.length} shown
         </div>
       </section>
 

@@ -12,6 +12,7 @@ import {
 
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -1128,65 +1129,43 @@ function JobTaskCard({
     lastRun;
 
   return (
-    <article className="grid min-h-35.5 grid-cols-[minmax(0,1fr)_104px] gap-0 overflow-hidden rounded-lg border border-hairline bg-card transition-colors hover:border-primary/24 max-md:grid-cols-1">
-      <div className="grid min-w-0 grid-cols-1 content-center gap-3 px-5.5 py-4.5 max-md:gap-3.5 max-md:p-4.5">
-        <div className="grid w-full grid-cols-1 justify-items-start gap-2 text-left">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <JobDot tone={tone} />
-            <h2 className="m-0 min-w-0 font-sans text-base leading-tight font-bold wrap-anywhere">
-              {jobName}
-            </h2>
-          </div>
-          <p className="m-0 w-full max-w-[62ch] text-label leading-normal text-pretty text-muted-foreground md:text-meta">
-            {jobDescription}
-          </p>
+    <article className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border px-4 py-3 first:border-t-0">
+      <div className="grid min-w-0 flex-1 basis-80 gap-0.5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <JobDot tone={tone} />
+          <h2 className="m-0 min-w-0 font-sans text-body font-semibold wrap-anywhere">
+            {jobName}
+          </h2>
         </div>
-
-        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3.5 gap-y-1.5 text-left max-md:gap-1.5">
-          <p
-            className={cn(
-              "m-0 text-label leading-snug font-semibold text-pretty md:text-meta",
-              JOB_TONE_TEXT[tone],
-            )}
-          >
-            {getJobLastFact({ job: lastRun, nowMs, status: displayStatus })}
-          </p>
-
+        <p className="m-0 max-w-[70ch] text-meta text-muted-foreground">
+          {jobDescription}
+        </p>
+        <p className={cn("m-0 text-meta", JOB_TONE_TEXT[tone])}>
+          {getJobLastFact({ job: lastRun, nowMs, status: displayStatus })}
           {runError ? (
-            <p className="m-0 text-xs leading-snug text-destructive-foreground md:text-meta">
-              {runError}
-            </p>
+            <span className="text-destructive-foreground"> {runError}</span>
           ) : null}
-        </div>
+        </p>
       </div>
-
-      <div className="grid grid-cols-1 grid-rows-2 gap-0 border-l border-hairline bg-hover max-md:min-h-11 max-md:grid-cols-2 max-md:grid-rows-none max-md:border-t max-md:border-l-0">
+      <div className="flex shrink-0 items-center gap-1.5">
         {primaryActionIsCommand ? (
-          <button
-            className={cn(RAIL_CELL, RAIL_ACTION, RAIL_PRIMARY)}
+          <Button
             disabled={running}
+            loading={running}
+            size="sm"
+            variant="outline"
             onClick={() => void handlePrimaryAction()}
-            type="button"
           >
-            {running ? "..." : primaryActionLabel}
-          </button>
+            {primaryActionLabel}
+          </Button>
         ) : (
-          <span
-            className={cn(
-              RAIL_CELL,
-              "px-2.5 leading-tight font-bold text-muted-foreground",
-            )}
-          >
+          <span className="px-2 text-meta text-muted-foreground">
             {primaryActionLabel}
           </span>
         )}
-        <button
-          className={cn(RAIL_CELL, RAIL_ACTION)}
-          onClick={() => void openDetails()}
-          type="button"
-        >
+        <Button size="sm" variant="ghost" onClick={() => void openDetails()}>
           Details
-        </button>
+        </Button>
       </div>
 
       <JobDetailsModal
@@ -1209,15 +1188,6 @@ function JobTaskCard({
     </article>
   );
 }
-
-const RAIL_CELL =
-  "grid gap-0 grid-cols-1 min-h-13.5 place-items-center border-b border-hairline text-center text-xs font-bold last:border-b-0 max-md:min-h-11 max-md:border-r max-md:border-b-0 max-md:last:border-r-0 md:text-meta";
-
-const RAIL_ACTION =
-  "cursor-pointer text-foreground outline-none transition-colors enabled:hover:bg-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60 disabled:cursor-not-allowed disabled:opacity-50";
-
-const RAIL_PRIMARY =
-  "bg-primary text-primary-foreground enabled:hover:bg-primary/90";
 
 function ActivityPagination({
   disabled,
@@ -1284,7 +1254,7 @@ function ActivityPagination({
             ) : (
               <span
                 aria-hidden
-                className="min-w-5.5 text-center text-label font-bold text-muted-foreground"
+                className="min-w-5.5 text-center text-label font-semibold text-muted-foreground"
                 key={item}
               >
                 ...
@@ -1536,7 +1506,7 @@ function JobActivityPanel({
     >
       <div className="flex flex-wrap items-start justify-between gap-4.5 max-md:grid">
         <div className="min-w-0 flex-[1_1_280px]">
-          <h2 className="m-0 font-sans text-base leading-tight font-bold">
+          <h2 className="m-0 font-sans text-base leading-tight font-semibold">
             {view === "jobs" ? "Job activity" : "Preview files"}
           </h2>
           <p className="m-0 mt-1.5 text-label leading-normal text-muted-foreground md:text-meta">
@@ -1651,7 +1621,7 @@ function JobActivityPanel({
             ) : items.length > 0 ? (
               <>
                 {loading ? (
-                  <p className="m-0 border-b border-hairline bg-primary/6 px-3 py-1.5 text-xs font-semibold text-muted-foreground">
+                  <p className="m-0 border-b border-hairline bg-hover px-3 py-1.5 text-label font-medium text-muted-foreground">
                     Updating...
                   </p>
                 ) : null}
@@ -1668,7 +1638,7 @@ function JobActivityPanel({
                     >
                       <JobDot tone={tone} />
                       <span className="grid min-w-0 grid-cols-1 gap-1">
-                        <strong className="truncate text-label font-bold md:text-body">
+                        <strong className="truncate text-label font-semibold md:text-body">
                           {formatJobKind(job.kind)}
                         </strong>
                         <small className="truncate text-xs font-medium text-muted-foreground md:text-meta">
@@ -1682,13 +1652,13 @@ function JobActivityPanel({
                       </span>
                       <span
                         className={cn(
-                          "text-xs font-bold capitalize max-md:justify-self-end md:text-meta",
+                          "text-xs font-semibold capitalize max-md:justify-self-end md:text-meta",
                           JOB_TONE_TEXT[tone],
                         )}
                       >
                         {status}
                       </span>
-                      <span className="text-xs font-bold text-muted-foreground tabular-nums max-md:col-[2/3] md:text-meta">
+                      <span className="text-xs font-semibold text-muted-foreground tabular-nums max-md:col-[2/3] md:text-meta">
                         {job.attemptCount}/{job.maxAttempts}
                       </span>
                       <span className="truncate text-xs text-muted-foreground max-md:col-[2/4] max-md:whitespace-normal md:text-meta">
@@ -1742,8 +1712,6 @@ type Props = {
   jobKinds: string[];
 };
 
-const STAT = "font-bold text-foreground";
-
 export function JobOperations({
   derivativeActions,
   initialDerivatives,
@@ -1755,8 +1723,6 @@ export function JobOperations({
   const [lastRuns, setLastRuns] = useState(initialLastRuns);
   const { now, timeZone } = useTime();
   const [nowMs, setNowMs] = useState(() => now.getTime());
-  const activeQueueCount =
-    summary.statusCounts.queued + summary.statusCounts.running;
   const failedCount = summary.failed + summary.dead;
   const oldestDueLabel = formatDuration(summary.oldestDueQueuedAgeSeconds);
   const onlineWorkers = summary.workers.filter(
@@ -1766,12 +1732,15 @@ export function JobOperations({
   const workerLabel = `${onlineWorkers} ${workerNoun}`;
   const queueSummaryLabel = [
     `${summary.statusCounts.running} running`,
-    `${summary.statusCounts.queued} queued`,
+    `${summary.statusCounts.queued} waiting`,
     `${failedCount} failed`,
-    workerLabel,
-    `oldest due ${oldestDueLabel}`,
-    `active ${activeQueueCount}`,
-  ].join(", ");
+    `${workerLabel} online`,
+    summary.oldestDueQueuedAgeSeconds
+      ? `oldest waiting ${oldestDueLabel}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const workerRunningJobIds = useMemo(
     () =>
       new Set(
@@ -1814,45 +1783,20 @@ export function JobOperations({
   }, []);
 
   return (
-    <div className="mx-auto grid w-full max-w-310 grid-cols-1 gap-6">
-      <header className="grid grid-cols-1 justify-items-center gap-4 text-center max-md:gap-3.5">
-        <h1 className="m-0 text-3xl leading-none font-semibold">Jobs</h1>
-        <div
-          className="flex flex-wrap justify-center gap-x-4.5 gap-y-2.5 text-label leading-snug text-muted-foreground max-md:gap-x-3 max-md:gap-y-2 md:text-meta"
-          aria-label={`Queue summary: ${queueSummaryLabel}.`}
-        >
-          <span>
-            <strong className={STAT}>{summary.statusCounts.running}</strong>{" "}
-            running
-          </span>
-          <span>
-            <strong className={STAT}>{summary.statusCounts.queued}</strong>{" "}
-            queued
-          </span>
-          <span className="text-destructive-foreground">
-            <strong className="font-bold text-destructive-foreground">
-              {failedCount}
-            </strong>{" "}
-            failed
-          </span>
-          <span>
-            <strong className={STAT}>{onlineWorkers}</strong> {workerNoun}
-          </span>
-          <span>
-            oldest due <strong className={STAT}>{oldestDueLabel}</strong>
-          </span>
-          <span>
-            active <strong className={STAT}>{activeQueueCount}</strong>
-          </span>
-        </div>
-        <Button variant="secondary" render={<Link href="/admin/settings" />}>
-          Schedule
-        </Button>
-      </header>
+    <div className="grid w-full max-w-6xl grid-cols-1 content-start gap-6">
+      <PageHeader
+        actions={
+          <Button render={<Link href="/admin/settings" />} variant="outline">
+            Schedule
+          </Button>
+        }
+        description={queueSummaryLabel}
+        title="Jobs"
+      />
 
       <section
-        className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,520px),1fr))] items-stretch gap-3.5 max-xl:grid-cols-1"
         aria-label="Background jobs"
+        className="overflow-hidden rounded-xl border border-border bg-card"
       >
         {jobKinds.map((kind) => {
           const lastRun = lastRuns[kind] ?? null;

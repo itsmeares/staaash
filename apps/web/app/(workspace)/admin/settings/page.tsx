@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/page-header";
 import { requireOwnerPageSession } from "@/server/auth/guards";
 import {
   getAdminUpdateStatus,
@@ -17,11 +18,12 @@ export default async function AdminSettingsPage() {
   ]);
 
   return (
-    <main className="mx-auto grid w-full max-w-settings content-start gap-4.5 p-0">
+    <div className="grid w-full max-w-settings content-start gap-6">
+      <PageHeader title="Settings" description="For everyone on this drive." />
       <SettingsForm
         settings={settings}
         updateStatus={toJsonAdminUpdateStatus(updateStatus)}
       />
-    </main>
+    </div>
   );
 }

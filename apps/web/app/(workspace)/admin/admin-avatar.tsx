@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 
 const SIZES = {
+  sm: { box: "size-7", text: "text-label" },
   md: { box: "size-9 md:size-11", text: "text-label md:text-meta" },
   lg: { box: "size-12", text: "text-body" },
   xl: { box: "size-13.5", text: "text-xl" },

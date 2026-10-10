@@ -62,7 +62,6 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
     toSettingsValues(settings),
   );
   const [dismissed, setDismissed] = useState(false);
-  const [openPanels, setOpenPanels] = useState<Record<string, boolean>>({});
   const formRef = useRef<HTMLFormElement>(null);
   const [state, action, pending] = useActionState(
     async (previous: SettingsActionState, data: FormData) => {
@@ -84,10 +83,9 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
 
   useEffect(
     () =>
-      focusInvalidSetting(formRef.current, feedback.fieldErrors, (panelId) => {
-        setSearchQuery("");
-        setOpenPanels((previous) => ({ ...previous, [panelId]: true }));
-      }),
+      focusInvalidSetting(formRef.current, feedback.fieldErrors, () =>
+        setSearchQuery(""),
+      ),
     [state, pending, dismissed],
   );
 
@@ -113,13 +111,7 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
     };
   }
   function panelProps(name: string) {
-    const id = `settings-panel-${name}`;
-    return {
-      id,
-      open: Boolean(openPanels[id]),
-      onOpenChange: (open: boolean) =>
-        setOpenPanels((previous) => ({ ...previous, [id]: open })),
-    };
+    return { id: `settings-panel-${name}` };
   }
   function resetDraft() {
     setDraft(savedValues);
@@ -830,37 +822,17 @@ function SettingsFieldRow({
 function focusInvalidSetting(
   form: HTMLFormElement | null,
   errors: SettingsActionState["fieldErrors"],
-  revealPanel: (id: string) => void,
+  clearSearch: () => void,
 ) {
   if (!form || !errors) return;
-  const input = form.querySelector<HTMLElement>('[aria-invalid="true"]');
-  const panel = input?.closest<HTMLElement>('[data-slot="collapsible"]');
-  if (!input || !panel) return;
-
-  const content =
-    input.closest<HTMLElement>('[data-slot="collapsible-panel"]') ?? panel;
-  let cancelled = false;
-  // Wait for the panel to open before focusing so its clipped contents do not
-  // acquire an internal scroll offset while the height animation is running.
-  const focus = async () => {
-    if (input.closest("[hidden], [data-starting-style]")) return;
-    observer.disconnect();
-    await Promise.allSettled(
-      content.getAnimations().map((animation) => animation.finished),
-    );
-    if (cancelled) return;
-    input.focus({ preventScroll: true });
-    input.scrollIntoView({ block: "center" });
-  };
-  const observer = new MutationObserver(focus);
-  observer.observe(panel, { attributes: true, subtree: true });
-  revealPanel(panel.id);
-  const frame = requestAnimationFrame(focus);
-  return () => {
-    cancelled = true;
-    observer.disconnect();
-    cancelAnimationFrame(frame);
-  };
+  // A search may hide the section with the invalid field; clear it first.
+  clearSearch();
+  const frame = requestAnimationFrame(() => {
+    const input = form.querySelector<HTMLElement>('[aria-invalid="true"]');
+    input?.focus({ preventScroll: true });
+    input?.scrollIntoView({ block: "center" });
+  });
+  return () => cancelAnimationFrame(frame);
 }
 
 function settingsFeedback(

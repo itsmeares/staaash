@@ -10,7 +10,6 @@ import {
   formatAdminDateTime,
 } from "@/app/(workspace)/admin/admin-format";
 import { AdminPanel } from "@/app/(workspace)/admin/admin-panel";
-import { AdminStatCard } from "@/app/(workspace)/admin/admin-stat-card";
 import { AdminStatusBadge } from "@/app/(workspace)/admin/admin-status-badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -115,94 +114,70 @@ export default async function AdminUserDetailsPage({
   );
 
   return (
-    <main className="m-0 mx-auto grid w-[min(1420px,100%)] grid-cols-1 gap-4.5 p-0">
-      <section
-        className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-5 rounded-lg border border-hairline bg-card p-5 max-md:grid-cols-1 max-xs:p-4"
-        aria-label="User profile summary"
-      >
-        <div className="grid min-w-0 grid-cols-1 gap-3.5">
-          <Button
-            className="justify-self-start"
-            variant="outline"
-            size="sm"
-            render={<Link href="/admin/users" />}
-          >
-            <ArrowLeft aria-hidden />
-            Back to users
-          </Button>
-          <div className="flex min-w-0 items-center gap-4 max-xs:items-start">
+    <div className="grid w-full max-w-6xl content-start gap-6">
+      <div className="grid gap-3">
+        <Button
+          className="justify-self-start"
+          render={<Link href="/admin/users" />}
+          size="sm"
+          variant="ghost-muted"
+        >
+          <ArrowLeft aria-hidden />
+          Users
+        </Button>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-3.5">
             <AdminAvatar
               avatarUrl={user.avatarUrl ?? null}
               initials={initials}
-              size="xl"
+              size="lg"
             />
-            <div className="grid min-w-0 grid-cols-1 gap-1.5">
-              <h1 className="m-0 truncate font-sans text-3xl leading-tight font-bold text-foreground max-xs:whitespace-normal">
+            <div className="grid min-w-0 gap-0.5">
+              <h1 className="m-0 truncate font-heading text-headline font-semibold">
                 {user.displayName ?? "No name yet"}
               </h1>
-              <p className="m-0 truncate text-body text-muted-foreground max-xs:whitespace-normal">
+              <p className="m-0 truncate text-body text-muted-foreground">
                 {user.email}
               </p>
               {hasStatusAlerts ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  {user.passwordChangeRequiredAt ? (
-                    <AdminStatusBadge status="error" size="lg">
-                      Password change required
-                    </AdminStatusBadge>
-                  ) : null}
-                  {!user.preferences?.onboardingCompletedAt ? (
-                    <AdminStatusBadge status="warning" size="lg">
-                      Onboarding incomplete
-                    </AdminStatusBadge>
-                  ) : null}
-                </div>
+                <p className="m-0 text-meta text-warning-foreground">
+                  {[
+                    user.passwordChangeRequiredAt
+                      ? "Must change password"
+                      : null,
+                    !user.preferences?.onboardingCompletedAt
+                      ? "Setup not finished"
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(", ")}
+                </p>
               ) : null}
             </div>
           </div>
+          <UserDetailActions
+            user={{
+              id: user.id,
+              email: user.email,
+              displayName: user.displayName,
+              isOwner: user.isOwner,
+              isAdmin: user.isAdmin,
+              storageLimitBytes: user.storageLimitBytes?.toString() ?? null,
+            }}
+            canMutate={session.user.isOwner}
+            signInUrl={signInUrl}
+          />
         </div>
-        <UserDetailActions
-          user={{
-            id: user.id,
-            email: user.email,
-            displayName: user.displayName,
-            isOwner: user.isOwner,
-            isAdmin: user.isAdmin,
-            storageLimitBytes: user.storageLimitBytes?.toString() ?? null,
-          }}
-          canMutate={session.user.isOwner}
-          signInUrl={signInUrl}
-        />
-      </section>
-
-      <section
-        className="grid grid-cols-4 gap-3.5 max-md:grid-cols-2 max-xs:grid-cols-1"
-        aria-label="User summary"
-      >
-        <AdminStatCard
-          label="Total used"
-          value={storageUsedLabel}
-          detail={
-            user.storageLimitBytes
-              ? `${formatAdminBytes(user.storageLimitBytes)} quota`
-              : "Unlimited quota"
-          }
-        />
-        <AdminStatCard
-          label="Files"
-          value={String(storageRow?.retainedFileCount ?? 0)}
-          detail="stored files"
-        />
-        <AdminStatCard
-          label="Folders"
-          value={String(storageRow?.retainedFolderCount ?? 0)}
-          detail="stored folders"
-        />
-        <AdminStatCard
-          label="Active devices"
-          value={String(sessions.length)}
-          detail={`Last seen ${lastSeenAt}`}
-        />
-      </section>
+        <p className="m-0 text-meta text-muted-foreground">
+          {storageUsedLabel}
+          {user.storageLimitBytes
+            ? ` of ${formatAdminBytes(user.storageLimitBytes)}`
+            : ", no quota"}{" "}
+          · {storageRow?.retainedFileCount ?? 0} files ·{" "}
+          {storageRow?.retainedFolderCount ?? 0} folders · {sessions.length}{" "}
+          device{sessions.length === 1 ? "" : "s"}, last seen {lastSeenAt}
+        </p>
+      </div>
 
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(320px,0.38fr)] items-start gap-4.5 max-md:grid-cols-1">
         <div className="grid min-w-0 grid-cols-1 gap-4.5">
@@ -307,7 +282,7 @@ export default async function AdminUserDetailsPage({
           />
         </aside>
       </div>
-    </main>
+    </div>
   );
 }
 
@@ -325,10 +300,10 @@ function FactRow({
   code?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-[minmax(145px,0.3fr)_minmax(0,1fr)] items-start gap-4 border-b border-hairline py-3 last:border-b-0 max-md:grid-cols-1 max-md:gap-1.5">
-      <dt className="text-label font-medium text-muted-foreground">{label}</dt>
-      <dd className="m-0 flex min-w-0 flex-wrap items-center gap-2 text-meta text-foreground">
-        <span className="min-w-0 font-semibold wrap-anywhere [&_code]:whitespace-normal">
+    <div className="grid grid-cols-[minmax(140px,0.3fr)_minmax(0,1fr)] items-start gap-4 border-b border-border py-2.5 last:border-b-0 max-md:grid-cols-1 max-md:gap-1">
+      <dt className="text-meta text-muted-foreground">{label}</dt>
+      <dd className="m-0 flex min-w-0 flex-wrap items-center gap-2 text-body text-foreground">
+        <span className="min-w-0 wrap-anywhere [&_code]:text-meta [&_code]:whitespace-normal">
           {code && typeof value === "string" ? <code>{value}</code> : value}
         </span>
         {copyValue ? (

@@ -43,31 +43,7 @@ test("settings keep rejected drafts, reveal errors and reset to the latest save"
   const workerPanel = page.locator("#settings-panel-worker");
   const schedulingPanel = page.locator("#settings-panel-scheduling");
 
-  await page
-    .getByRole("button", {
-      name: "Uploads Upload limits, temporary upload cleanup, and file preview limits",
-      exact: true,
-    })
-    .click();
-  await page
-    .getByRole("button", {
-      name: "Worker Background worker heartbeat tolerance",
-      exact: true,
-    })
-    .click();
-  await page
-    .getByRole("button", {
-      name: "Scheduling Instance time zone and maintenance window",
-      exact: true,
-    })
-    .click();
-  await page
-    .getByRole("button", {
-      name: "Media previews Video preview generation, cleanup, and quality",
-      exact: true,
-    })
-    .click();
-
+  // Sections are plain, so every field is already on the page.
   try {
     await heartbeat.fill("2147483648");
     await timeout.fill("90");
@@ -76,12 +52,6 @@ test("settings keep rejected drafts, reveal errors and reset to the latest save"
     await media.click();
     const draft = await readSettings(page);
 
-    await workerPanel
-      .getByRole("button", {
-        name: "Worker Background worker heartbeat tolerance",
-        exact: true,
-      })
-      .click();
     await page
       .getByRole("searchbox", { name: "Search settings" })
       .fill("scheduling");
@@ -90,9 +60,6 @@ test("settings keep rejected drafts, reveal errors and reset to the latest save"
       .click();
     await expect(heartbeat).toHaveAttribute("aria-invalid", "true");
     await expect(heartbeat).toBeFocused();
-    await expect(
-      workerPanel.locator('[data-slot="collapsible-panel"]'),
-    ).toHaveJSProperty("scrollTop", 0);
     await expect(
       page.getByRole("searchbox", { name: "Search settings" }),
     ).toHaveValue("");
@@ -147,14 +114,6 @@ test("settings keep rejected drafts, reveal errors and reset to the latest save"
     });
   } finally {
     await page.reload();
-    for (const title of [
-      "Uploads Upload limits, temporary upload cleanup, and file preview limits",
-      "Worker Background worker heartbeat tolerance",
-      "Scheduling Instance time zone and maintenance window",
-      "Media previews Video preview generation, cleanup, and quality",
-    ]) {
-      await page.getByRole("button", { name: title, exact: true }).click();
-    }
     await heartbeat.fill(String(original.workerHeartbeatMaxAgeSeconds));
     await timeout.fill(String(original.uploadTimeoutMinutes));
     await chooseTimeZone(page, String(original.timeZone));

@@ -2,8 +2,11 @@ import Link from "next/link";
 import { formatVersionLabel } from "@staaash/config/version";
 
 import { formatAdminBytes } from "@/app/(workspace)/admin/admin-format";
-import { AdminPanel } from "@/app/(workspace)/admin/admin-panel";
-import { AdminStatCard } from "@/app/(workspace)/admin/admin-stat-card";
+import {
+  AdminRow,
+  AdminSection,
+  toneFor,
+} from "@/app/(workspace)/admin/admin-panel";
 import { AdminStatusBadge } from "@/app/(workspace)/admin/admin-status-badge";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -13,110 +16,42 @@ import { getUpdateStatusLabel } from "@/lib/update-status";
 
 export const dynamic = "force-dynamic";
 
-function AvailabilitySummary({
-  health,
-  failedWork,
-}: {
-  health: Awaited<ReturnType<typeof getAdminOverviewSummary>>["health"];
-  failedWork: number;
-}) {
-  return (
-    <div className="mb-4 grid gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-base font-medium">Serving traffic</span>
-        <AdminStatusBadge status={health.ok ? "healthy" : "error"}>
-          {health.ok ? "Ready" : "Unavailable"}
-        </AdminStatusBadge>
-      </div>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-base font-medium">Operational health</span>
-        <AdminStatusBadge status={health.operational.status}>
-          {health.operational.status === "healthy"
-            ? "Healthy"
-            : "Attention needed"}
-        </AdminStatusBadge>
-      </div>
-      {failedWork > 0 && (
-        <p className="m-0 text-meta text-muted-foreground">
-          {failedWork} failed or dead{" "}
-          {failedWork === 1 ? "job needs" : "jobs need"} attention.
-          {health.ok ? " File operations remain available. " : " "}
-          <Link href="/admin/jobs" className="underline">
-            Review failed jobs
-          </Link>
-        </p>
-      )}
-    </div>
-  );
-}
-
 const queueMessage = (
   queue: Awaited<ReturnType<typeof getAdminOverviewSummary>>["health"]["queue"],
 ) =>
   queue.message ??
-  `${queue.queued} queued, ${queue.running} running, ${queue.failed} failed, ${queue.dead} dead`;
+  `${queue.queued} waiting, ${queue.running} running, ${queue.failed} failed, ${queue.dead} dead`;
+
+const plural = (count: number, word: string) =>
+  `${count} ${word}${count === 1 ? "" : "s"}`;
 
 export default async function AdminOverviewPage() {
   const session = await requireAdminPageSession();
   const summary = await getAdminOverviewSummary(session.user.id);
 
   const updateStatus = summary.updates.updateCheckStatus;
-  const updateStatusLabel = getUpdateStatusLabel(
-    updateStatus,
-    summary.updates.latestAvailableVersion,
-  );
-  const retainedBytes = formatAdminBytes(summary.storage.retainedBytes);
   const failedWork = summary.jobs.failed + summary.jobs.dead;
-  const activeWork = summary.jobs.queued + summary.jobs.running;
-
-  const statusCards = [
-    {
-      href: "/admin/users",
-      label: "Users",
-      value: String(summary.users.total),
-      detail: `${summary.users.owners} owner, ${summary.users.admins} admin${summary.users.admins === 1 ? "" : "s"}, ${summary.users.members} member${summary.users.members === 1 ? "" : "s"}`,
-    },
-    {
-      href: "/admin/storage",
-      label: "Storage",
-      value: retainedBytes,
-      detail: `${summary.storage.retainedFileCount} files, ${summary.storage.retainedFolderCount} folders`,
-    },
-    {
-      href: "/admin/jobs",
-      label: "Jobs",
-      value: String(activeWork),
-      detail: `${summary.jobs.queued} queued, ${summary.jobs.running} running`,
-    },
-    {
-      href: "/admin/settings",
-      label: "Version",
-      value: formatVersionLabel(summary.updates.currentVersion),
-      detail: summary.updates.latestAvailableVersion
-        ? `Latest ${formatVersionLabel(summary.updates.latestAvailableVersion)}`
-        : updateStatusLabel,
-    },
-  ];
+  const allHealthy =
+    summary.health.ok && summary.health.operational.status === "healthy";
 
   const healthRows = [
     {
       label: "Database",
-      message: summary.health.checks.database.message ?? "Database reachable.",
+      message: summary.health.checks.database.message ?? "Reachable",
       status: summary.health.checks.database.status,
     },
     {
       label: "Files volume",
-      message:
-        summary.health.checks.storage.message ?? "Storage root writable.",
+      message: summary.health.checks.storage.message ?? "Writable",
       status: summary.health.checks.storage.status,
     },
     {
-      label: "Worker heartbeat",
+      label: "Worker",
       message: summary.health.worker.message,
       status: summary.health.worker.status,
     },
     {
-      label: "Queue backlog",
+      label: "Queue",
       message: queueMessage(summary.health.queue),
       status: summary.health.queue.status,
     },
@@ -133,116 +68,115 @@ export default async function AdminOverviewPage() {
   ];
 
   return (
-    <main className="m-0 mx-auto grid w-[min(1420px,100%)] grid-cols-1 gap-5 p-0 max-sm:gap-4.5">
+    <div className="grid w-full max-w-6xl content-start gap-6">
       <PageHeader
-        size="lg"
-        divider
-        title="Overview"
-        description="Health, storage, jobs, and updates."
-        actions={
-          <>
-            <Button variant="outline" render={<Link href="/admin/jobs" />}>
-              Jobs
-            </Button>
-            <Button variant="outline" render={<Link href="/admin/storage" />}>
-              Storage
-            </Button>
-            <Button variant="outline" render={<Link href="/admin/settings" />}>
-              Settings
-            </Button>
-          </>
+        meta={
+          <AdminStatusBadge status={allHealthy ? "healthy" : "warning"}>
+            {allHealthy ? "Everything is working" : "Something needs attention"}
+          </AdminStatusBadge>
         }
+        title="Overview"
       />
 
-      <section
-        className="grid grid-cols-4 gap-3.5 max-md:grid-cols-2 max-xs:grid-cols-1"
-        aria-label="At a glance"
-      >
-        {statusCards.map((card) => (
-          <AdminStatCard key={card.label} {...card} />
-        ))}
-      </section>
+      {failedWork > 0 ? (
+        <p className="m-0 text-body">
+          {plural(failedWork, "job")} failed.{" "}
+          {summary.health.ok ? "Files keep working. " : ""}
+          <Link className="text-primary-ink underline" href="/admin/jobs">
+            See failed jobs
+          </Link>
+        </p>
+      ) : null}
 
-      <section className="grid grid-cols-[minmax(0,1fr)_340px] items-start gap-4.5 max-lg:grid-cols-1">
-        <AdminPanel
-          title="System health"
-          aside="Availability and operational health."
-        >
-          <AvailabilitySummary
-            health={summary.health}
-            failedWork={failedWork}
-          />
-          <div className="grid grid-cols-1 gap-0 overflow-hidden rounded-lg border border-hairline">
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+        <div className="grid gap-6">
+          <AdminSection title="Health">
             {healthRows.map((row) => (
-              <div
-                className="grid min-h-15 grid-cols-[minmax(190px,0.32fr)_auto_minmax(0,1fr)] items-center gap-3.5 border-b border-hairline px-4 py-3 last:border-b-0 max-md:grid-cols-[minmax(0,1fr)_auto]"
+              <AdminRow
+                detail={row.message}
                 key={row.label}
-              >
-                <span className="text-base font-medium text-foreground">
-                  {row.label}
-                </span>
-                <AdminStatusBadge status={row.status} size="lg" />
-                <span className="min-w-0 truncate text-meta text-muted-foreground max-md:col-span-full max-md:whitespace-normal">
-                  {row.message}
-                </span>
-              </div>
+                label={row.label}
+                tone={toneFor(row.status)}
+              />
             ))}
-          </div>
-        </AdminPanel>
+          </AdminSection>
 
-        <aside
-          className="grid grid-cols-1 gap-3.5 max-lg:grid-cols-3 max-md:grid-cols-2 max-xs:grid-cols-1"
-          aria-label="Operational summary"
-        >
-          <AdminPanel title="Queue" aside={summary.jobs.status}>
-            <dl className="m-0 grid grid-cols-1 gap-0">
-              <RailRow label="Queued" value={summary.jobs.queued} />
-              <RailRow label="Running" value={summary.jobs.running} />
-              <RailRow label="Failed" value={failedWork} />
-            </dl>
-            <RailLink href="/admin/jobs">Open activity</RailLink>
-          </AdminPanel>
+          <AdminSection
+            aside={
+              <Link className="hover:text-foreground" href="/admin/jobs">
+                All jobs
+              </Link>
+            }
+            title="Jobs"
+          >
+            <AdminRow detail={String(summary.jobs.queued)} label="Waiting" />
+            <AdminRow detail={String(summary.jobs.running)} label="Running" />
+            <AdminRow
+              detail={String(failedWork)}
+              label="Failed"
+              tone={failedWork > 0 ? "error" : undefined}
+            />
+          </AdminSection>
+        </div>
 
-          <AdminPanel title="Storage" aside={retainedBytes}>
-            <p className="m-0 text-meta text-muted-foreground">
-              {summary.storage.retainedFileCount} files across{" "}
-              {summary.storage.totalUsers} users.
-            </p>
-            <RailLink href="/admin/storage">Open storage</RailLink>
-          </AdminPanel>
+        <div className="grid gap-6">
+          <AdminSection
+            aside={
+              <Link className="hover:text-foreground" href="/admin/storage">
+                Details
+              </Link>
+            }
+            title="Storage"
+          >
+            <div className="grid gap-1 px-3.5 py-3">
+              <span className="font-heading text-headline font-semibold tabular-nums">
+                {formatAdminBytes(summary.storage.retainedBytes)}
+              </span>
+              <span className="text-meta text-muted-foreground">
+                {plural(summary.storage.retainedFileCount, "file")} in{" "}
+                {plural(summary.storage.retainedFolderCount, "folder")}, across{" "}
+                {plural(summary.storage.totalUsers, "user")}
+              </span>
+            </div>
+          </AdminSection>
 
-          <AdminPanel title="Updates" aside={updateStatusLabel}>
-            <p className="m-0 text-meta text-muted-foreground">
-              {summary.updates.updateCheckMessage ??
-                "No update check has run yet."}
-            </p>
-            <RailLink href="/admin/settings">Open update checks</RailLink>
-          </AdminPanel>
-        </aside>
-      </section>
-    </main>
-  );
-}
+          <AdminSection
+            aside={
+              <Link className="hover:text-foreground" href="/admin/users">
+                Users
+              </Link>
+            }
+            title="People"
+          >
+            <AdminRow
+              detail={`${plural(summary.users.owners, "owner")}, ${plural(summary.users.admins, "admin")}, ${plural(summary.users.members, "member")}`}
+              label={plural(summary.users.total, "account")}
+            />
+          </AdminSection>
 
-function RailRow({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex justify-between gap-3 border-b border-hairline py-2.5 last:border-b-0">
-      <dt className="text-meta text-muted-foreground">{label}</dt>
-      <dd className="m-0 text-base font-semibold text-foreground tabular-nums">
-        {value}
-      </dd>
+          <AdminSection title="Version">
+            <AdminRow
+              action={
+                <Button
+                  render={
+                    <Link href="/admin/settings#settings-panel-updates" />
+                  }
+                  size="sm"
+                  variant="ghost"
+                >
+                  Updates
+                </Button>
+              }
+              detail={getUpdateStatusLabel(
+                updateStatus,
+                summary.updates.latestAvailableVersion,
+              )}
+              label={formatVersionLabel(summary.updates.currentVersion)}
+              tone={updateStatus === "update-available" ? "warning" : undefined}
+            />
+          </AdminSection>
+        </div>
+      </div>
     </div>
-  );
-}
-
-function RailLink({ href, children }: { href: string; children: string }) {
-  return (
-    <Button
-      className="justify-self-start"
-      variant="outline"
-      render={<Link href={href} />}
-    >
-      {children}
-    </Button>
   );
 }

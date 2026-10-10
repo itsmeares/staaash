@@ -7,7 +7,6 @@ import {
   formatAdminDateTime,
 } from "@/app/(workspace)/admin/admin-format";
 import { AdminPanel } from "@/app/(workspace)/admin/admin-panel";
-import { AdminStatCard } from "@/app/(workspace)/admin/admin-stat-card";
 import { AdminStatusBadge } from "@/app/(workspace)/admin/admin-status-badge";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -45,46 +44,16 @@ export default async function AdminStoragePage() {
     (row) => row.retainedBytes > 0n,
   ).length;
 
-  const cards = [
-    {
-      label: "Total used",
-      value: formatAdminBytes(summary.retainedBytes),
-    },
-    {
-      label: "Users",
-      value: `${activeUsers}/${summary.totalUsers}`,
-    },
-    {
-      label: "Files",
-      value: String(summary.retainedFileCount),
-    },
-    {
-      label: "Folders",
-      value: String(summary.retainedFolderCount),
-    },
-  ];
-
   return (
-    <main className="m-0 mx-auto grid w-[min(1420px,100%)] grid-cols-1 gap-5 p-0 max-sm:gap-4.5">
+    <div className="grid w-full max-w-6xl content-start gap-6">
       <PageHeader
-        size="lg"
-        divider
+        description={`${formatAdminBytes(summary.retainedBytes)} in ${summary.retainedFileCount} files and ${summary.retainedFolderCount} folders, trash included. ${activeUsers} of ${summary.totalUsers} users store something.`}
         title="Storage"
-        description="Storage used by files and folders, including items in trash."
       />
 
-      <section
-        className="grid grid-cols-4 gap-3.5 max-md:grid-cols-2 max-xs:grid-cols-1"
-        aria-label="Storage summary"
-      >
-        {cards.map((card) => (
-          <AdminStatCard key={card.label} {...card} />
-        ))}
-      </section>
-
-      <AdminPanel title="Used storage per user">
+      <AdminPanel title="By user">
         <TableFrame>
-          <Table className="min-w-230">
+          <Table className="min-w-180">
             <TableHeader>
               <TableRow>
                 <HeadCell>User</HeadCell>
@@ -153,9 +122,12 @@ export default async function AdminStoragePage() {
         </TableFrame>
       </AdminPanel>
 
-      <AdminPanel title="Storage mutations">
+      <AdminPanel
+        aside="Moves, renames and uploads still finishing"
+        title="Unfinished storage changes"
+      >
         <TableFrame>
-          <Table className="min-w-230">
+          <Table className="min-w-180">
             <TableHeader>
               <TableRow>
                 <HeadCell>Mutation</HeadCell>
@@ -168,9 +140,7 @@ export default async function AdminStoragePage() {
             <TableBody>
               {storageMutations.active.length === 0 ? (
                 <TableRow>
-                  <BodyCell colSpan={5}>
-                    No unfinished storage mutations.
-                  </BodyCell>
+                  <BodyCell colSpan={5}>Nothing is unfinished.</BodyCell>
                 </TableRow>
               ) : (
                 storageMutations.active.map((mutation) => (
@@ -214,20 +184,20 @@ export default async function AdminStoragePage() {
           </Table>
         </TableFrame>
       </AdminPanel>
-    </main>
+    </div>
   );
 }
 
 function TableFrame({ children }: { children: React.ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-hairline">
+    <div className="overflow-x-auto rounded-lg border border-border">
       {children}
     </div>
   );
 }
 
 function HeadCell({ children }: { children: React.ReactNode }) {
-  return <TableHead className="px-5 text-label">{children}</TableHead>;
+  return <TableHead className="px-4 text-label">{children}</TableHead>;
 }
 
 function BodyCell({
@@ -238,7 +208,10 @@ function BodyCell({
   colSpan?: number;
 }) {
   return (
-    <TableCell className="p-5 text-base whitespace-normal" colSpan={colSpan}>
+    <TableCell
+      className="px-4 py-2.5 text-body whitespace-normal"
+      colSpan={colSpan}
+    >
       {children}
     </TableCell>
   );
