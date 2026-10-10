@@ -128,6 +128,9 @@ export function Halftone({
 
   return (
     <canvas
+      // A new canvas per mode: cleanup loses the old context, and a canvas
+      // hands back that same lost context forever.
+      key={still ? "still" : "live"}
       aria-hidden
       className={cn("block size-full bg-[#0d0b09]", className)}
       ref={canvasRef}

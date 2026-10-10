@@ -367,8 +367,19 @@ function WelcomeStep({ onContinue }: { onContinue: () => void }) {
 
     const handleClick = () => advance();
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) return;
-      if (event.key !== "Enter" && event.key !== " ") return;
+      if (
+        event.defaultPrevented ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey
+      )
+        return;
+      if (
+        ["Tab", "Shift", "Control", "Alt", "Meta", "CapsLock"].includes(
+          event.key,
+        )
+      )
+        return;
       event.preventDefault();
       advance();
     };
@@ -395,13 +406,13 @@ function WelcomeStep({ onContinue }: { onContinue: () => void }) {
       </h1>
       <button
         className={cn(
-          "mt-1.5 cursor-pointer rounded-xl border-0 bg-transparent p-0 text-xs font-medium tracking-widest text-muted-foreground uppercase outline-none focus-visible:outline-2 focus-visible:outline-offset-12 focus-visible:outline-primary/55",
+          "mt-1.5 cursor-pointer rounded-xl border-0 bg-transparent p-0 text-meta text-muted-foreground outline-none focus-visible:outline-2 focus-visible:outline-offset-8 focus-visible:outline-primary/55",
           styles.welcomeHint,
         )}
         onClick={advance}
         type="button"
       >
-        Click anywhere to continue
+        Click anywhere or press any key
       </button>
     </section>
   );

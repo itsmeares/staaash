@@ -53,11 +53,15 @@ export function PasswordChangeExperience() {
   }
 
   return (
-    <div className={`grid w-[min(100%,380px)] gap-0 ${styles.formEntering}`}>
-      <div className="mb-4.5 grid gap-4.5">
-        <h1 className="font-heading">Change your password.</h1>
-        <p className="text-xs leading-normal text-muted-foreground">
-          Your password was reset. Choose a new password before continuing.
+    <div
+      className={`grid w-[min(100%,380px)] gap-0 rounded-3xl border border-border bg-card/88 p-6 shadow-dialog backdrop-blur-md ${styles.formEntering}`}
+    >
+      <div className="mb-4.5 grid gap-1.5">
+        <h1 className="m-0 font-heading text-headline font-semibold">
+          Choose a new password
+        </h1>
+        <p className="m-0 text-meta text-muted-foreground">
+          Your password was reset. Pick a new one to continue.
         </p>
       </div>
 
@@ -73,7 +77,7 @@ export function PasswordChangeExperience() {
       <form className="grid gap-4.5" onSubmit={handleSubmit}>
         <div className="grid gap-1.5">
           <label
-            className="text-xs font-medium tracking-wide text-muted-foreground"
+            className="text-meta font-medium text-foreground/90"
             htmlFor="password"
           >
             Password
@@ -94,7 +98,7 @@ export function PasswordChangeExperience() {
 
         <div className="grid gap-1.5">
           <label
-            className="text-xs font-medium tracking-wide text-muted-foreground"
+            className="text-meta font-medium text-foreground/90"
             htmlFor="confirmPassword"
           >
             Confirm password
@@ -110,7 +114,7 @@ export function PasswordChangeExperience() {
         </div>
 
         <Button className="mt-1.5 w-full" type="submit" disabled={pending}>
-          {pending ? "Saving..." : "Save new password"}
+          {pending ? "Saving…" : "Save new password"}
         </Button>
       </form>
     </div>

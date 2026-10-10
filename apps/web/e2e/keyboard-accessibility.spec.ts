@@ -52,7 +52,7 @@ test("sign-in intro opens and submits with keyboard", async ({ page }) => {
   await page.goto("/");
   await expectNoSeriousA11yViolations(page);
   await expect(
-    page.getByRole("button", { name: /Click anywhere to begin/i }),
+    page.getByRole("button", { name: /Click anywhere or press any key/i }),
   ).not.toBeFocused();
   await page.keyboard.press("Enter");
 
@@ -73,7 +73,7 @@ test("incomplete-onboarding user can finish setup with keyboard", async ({
 
   await page.goto("/");
   await expect(
-    page.getByRole("button", { name: /Click anywhere to begin/i }),
+    page.getByRole("button", { name: /Click anywhere or press any key/i }),
   ).not.toBeFocused();
   await page.keyboard.press("Enter");
   await page.getByLabel("Email", { exact: true }).fill(credentials.identifier);
@@ -85,7 +85,7 @@ test("incomplete-onboarding user can finish setup with keyboard", async ({
   ).toBeVisible();
   await expectNoSeriousA11yViolations(page);
   await expect(
-    page.getByRole("button", { name: /Click anywhere to continue/i }),
+    page.getByRole("button", { name: /Click anywhere or press any key/i }),
   ).not.toBeFocused();
   await page.keyboard.press("Enter");
 

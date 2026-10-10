@@ -280,7 +280,7 @@ for (const theme of THEMES) {
         await page.goto("/");
         await shoot(page, `${label}/entry-intro`);
         await page
-          .getByRole("button", { name: "Click anywhere to begin" })
+          .getByRole("button", { name: "Click anywhere or press any key" })
           .click();
         await expect(page.locator("form").first()).toBeVisible();
         await page.waitForTimeout(1200);
@@ -300,7 +300,7 @@ for (const theme of THEMES) {
 
         await page.goto("/");
         await page
-          .getByRole("button", { name: "Click anywhere to begin" })
+          .getByRole("button", { name: "Click anywhere or press any key" })
           .click();
         await page.getByLabel("Email", { exact: true }).fill(identifier);
         await page.getByLabel("Password").fill(password);
@@ -314,7 +314,7 @@ for (const theme of THEMES) {
         await shoot(page, `${label}/onboarding-intro`);
 
         await page
-          .getByRole("button", { name: /Click anywhere to continue/i })
+          .getByRole("button", { name: /Click anywhere or press any key/i })
           .click();
         const steps = [
           "Choose your theme",

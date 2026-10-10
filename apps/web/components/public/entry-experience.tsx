@@ -66,15 +66,27 @@ export function EntryExperience({
     }, 360);
   };
 
-  // The intro is visually mouse-first, but Enter/Space remain hidden shortcuts.
+  // Any click or key brings the form forward; Tab and modifier keys still
+  // move focus as usual.
   useEffect(() => {
     if (phase !== "intro" && phase !== "intro-return") return;
     advancingRef.current = false;
 
     const handleClick = () => advanceToForm();
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) return;
-      if (event.key !== "Enter" && event.key !== " ") return;
+      if (
+        event.defaultPrevented ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey
+      )
+        return;
+      if (
+        ["Tab", "Shift", "Control", "Alt", "Meta", "CapsLock"].includes(
+          event.key,
+        )
+      )
+        return;
       event.preventDefault();
       advanceToForm();
     };
@@ -173,14 +185,14 @@ export function EntryExperience({
         </p>
         <button
           className={cn(
-            "mt-1 cursor-pointer rounded-xl border-0 bg-transparent p-0 text-xs font-medium tracking-widest text-muted-foreground uppercase outline-none focus-visible:outline-2 focus-visible:outline-offset-12 focus-visible:outline-primary/55 disabled:cursor-default",
+            "mt-1 cursor-pointer rounded-xl border-0 bg-transparent p-0 text-meta text-muted-foreground outline-none focus-visible:outline-2 focus-visible:outline-offset-8 focus-visible:outline-primary/55 disabled:cursor-default",
             styles.introHint,
           )}
           disabled={!isActive}
           onClick={advanceToForm}
           type="button"
         >
-          Click anywhere to begin
+          Click anywhere or press any key
         </button>
       </section>
     );
@@ -207,7 +219,7 @@ export function EntryExperience({
     <div
       data-entry-form
       className={cn(
-        "grid w-[min(100%,380px)] gap-0",
+        "grid w-[min(100%,380px)] gap-0 rounded-3xl border border-border bg-card/88 p-6 shadow-dialog backdrop-blur-md",
         phase === "exiting-to-intro" ? styles.formExiting : styles.formEntering,
       )}
     >
@@ -225,7 +237,7 @@ export function EntryExperience({
           <>
             <div className="grid gap-1.5">
               <label
-                className="text-xs font-medium tracking-wide text-muted-foreground"
+                className="text-meta font-medium text-foreground/90"
                 htmlFor="instanceName"
               >
                 Instance name
@@ -241,7 +253,7 @@ export function EntryExperience({
 
             <div className="grid gap-1.5">
               <label
-                className="text-xs font-medium tracking-wide text-muted-foreground"
+                className="text-meta font-medium text-foreground/90"
                 htmlFor="email"
               >
                 Email
@@ -258,7 +270,7 @@ export function EntryExperience({
 
             <div className="grid gap-1.5">
               <label
-                className="text-xs font-medium tracking-wide text-muted-foreground"
+                className="text-meta font-medium text-foreground/90"
                 htmlFor="password"
               >
                 Password
@@ -280,7 +292,7 @@ export function EntryExperience({
           <>
             <div className="grid gap-1.5">
               <label
-                className="text-xs font-medium tracking-wide text-muted-foreground"
+                className="text-meta font-medium text-foreground/90"
                 htmlFor="email"
               >
                 Email
@@ -297,7 +309,7 @@ export function EntryExperience({
 
             <div className="grid gap-1.5">
               <label
-                className="text-xs font-medium tracking-wide text-muted-foreground"
+                className="text-meta font-medium text-foreground/90"
                 htmlFor="password"
               >
                 Password

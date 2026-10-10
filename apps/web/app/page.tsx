@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { getSafeLocalPath, getSingleSearchParam } from "@/app/auth-ui";
 import { EntryRoot } from "@/components/public/entry-root";
+import { resolveAppVersion } from "@/server/app-version";
 import { authService } from "@/server/auth/service";
 import { getCurrentSession } from "@/server/auth/session";
 import { getSystemSettings } from "@/server/settings";
@@ -22,6 +23,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       getSystemSettings(),
     ]);
 
+  const appVersion = resolveAppVersion();
   const next = getSafeLocalPath(
     getSingleSearchParam(resolvedSearchParams, "next"),
     "/files",
@@ -31,6 +33,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     if (session.user.passwordChangeRequiredAt) {
       return (
         <EntryRoot
+          appVersion={appVersion}
           mode="password-change"
           instanceName={setupState.instanceName ?? undefined}
         />
@@ -42,6 +45,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
     }
     return (
       <EntryRoot
+        appVersion={appVersion}
         mode="onboarding"
         instanceName={setupState.instanceName ?? undefined}
         isOwner={session.user.isOwner}
@@ -61,6 +65,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   return (
     <EntryRoot
+      appVersion={appVersion}
       mode={setupState.isBootstrapped ? "signin" : "setup"}
       instanceName={setupState.instanceName ?? undefined}
       next={next}

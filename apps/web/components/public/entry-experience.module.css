@@ -1,4 +1,4 @@
-/* Entry surface backdrop, intro/form/success choreography and silk fade. */
+/* Entry surface backdrop and the intro, form and success choreography. */
 
 @keyframes fadeUp {
   from {
@@ -19,15 +19,6 @@
   to {
     opacity: 0;
     transform: translateY(-14px);
-  }
-}
-
-@keyframes silkFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
   }
 }
 
@@ -78,6 +69,12 @@
 
 .scrimSetup {
   background-image:
+    /* A soft shade behind the hero text keeps it readable over the dots. */
+    radial-gradient(
+      ellipse 42% 34% at 50% 50%,
+      color-mix(in oklab, black 62%, transparent),
+      transparent
+    ),
     linear-gradient(
       to top,
       color-mix(in oklab, black 84%, transparent) 0%,
@@ -124,42 +121,6 @@
       color-mix(in oklab, var(--primary) 10%, transparent),
       transparent 24%
     );
-}
-
-/* ---- Silk ---- */
-
-.silkCanvas {
-  animation: silkFadeIn 1.4s ease-out both;
-}
-
-.silkFallback {
-  position: absolute;
-  inset: -12%;
-  width: 100%;
-  height: 100%;
-  background-image:
-    radial-gradient(
-      circle at 24% 26%,
-      color-mix(in oklab, var(--primary) 72%, transparent),
-      transparent 38%
-    ),
-    radial-gradient(
-      circle at 72% 38%,
-      color-mix(in oklab, var(--primary) 52%, black),
-      transparent 34%
-    ),
-    radial-gradient(
-      circle at 50% 80%,
-      color-mix(in oklab, var(--primary) 38%, black),
-      transparent 42%
-    ),
-    linear-gradient(
-      160deg,
-      color-mix(in oklab, var(--background) 85%, var(--primary)),
-      var(--background)
-    );
-  filter: blur(18px);
-  transform: scale(1.08);
 }
 
 /* ---- Intro ---- */
