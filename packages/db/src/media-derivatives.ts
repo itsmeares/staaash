@@ -1,4 +1,6 @@
 import { getPrisma } from "./client";
+
+export { canHaveThumbnail } from "./viewer-contract";
 import {
   MEDIA_DERIVATIVE_GENERATE_JOB_KIND,
   MEDIA_DERIVATIVE_CLEANUP_JOB_KIND,
@@ -7,8 +9,10 @@ import {
 
 export const DERIVATIVE_KIND_PREVIEW = "preview" as const;
 export const DERIVATIVE_KIND_POSTER = "poster" as const;
+export const DERIVATIVE_KIND_THUMBNAIL = "thumbnail" as const;
 export const DERIVATIVE_PROFILE_1080P = "preview-1080p" as const;
 export const DERIVATIVE_PROFILE_SOCIAL_JPEG = "social-jpeg" as const;
+export const DERIVATIVE_PROFILE_THUMB = "thumb-480" as const;
 
 export const DERIVATIVE_STATUS_QUEUED = "queued" as const;
 export const DERIVATIVE_STATUS_PROCESSING = "processing" as const;
@@ -17,9 +21,14 @@ export const DERIVATIVE_STATUS_FAILED = "failed" as const;
 export const DERIVATIVE_STATUS_STALE = "stale" as const;
 
 export type DerivativeKind =
-  typeof DERIVATIVE_KIND_PREVIEW | typeof DERIVATIVE_KIND_POSTER;
+  | typeof DERIVATIVE_KIND_PREVIEW
+  | typeof DERIVATIVE_KIND_POSTER
+  | typeof DERIVATIVE_KIND_THUMBNAIL;
 export type DerivativeProfile =
-  typeof DERIVATIVE_PROFILE_1080P | typeof DERIVATIVE_PROFILE_SOCIAL_JPEG;
+  | typeof DERIVATIVE_PROFILE_1080P
+  | typeof DERIVATIVE_PROFILE_SOCIAL_JPEG
+  | typeof DERIVATIVE_PROFILE_THUMB;
+
 export type DerivativeStatus =
   | typeof DERIVATIVE_STATUS_QUEUED
   | typeof DERIVATIVE_STATUS_PROCESSING
@@ -84,7 +93,9 @@ export const buildDerivativeStorageKey = (
   const fileName =
     profile === DERIVATIVE_PROFILE_SOCIAL_JPEG
       ? "social-poster.jpg"
-      : `${profile}.mp4`;
+      : profile === DERIVATIVE_PROFILE_THUMB
+        ? "thumb-480.jpg"
+        : `${profile}.mp4`;
   return `derivatives/${ownerUserId}/${fileId}/${fileName}`;
 };
 

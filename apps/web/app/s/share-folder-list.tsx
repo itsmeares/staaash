@@ -2,6 +2,7 @@
 
 import { FolderOpen } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { canHaveThumbnail } from "@staaash/db/viewer-contract";
 
 import { useCoarsePointer } from "@/app/(workspace)/use-coarse-pointer";
 import { formatWorkspaceFileSize } from "@/app/(workspace)/workspace-item-helpers";
@@ -84,6 +85,11 @@ export function ShareFolderList({
     kind: entry.kind,
     name: entry.name,
     mimeType: entry.mimeType,
+    thumbnailUrl:
+      entry.kind === "file" &&
+      canHaveThumbnail(entry.mimeType ?? "", entry.name)
+        ? `${base}/files/${entry.id}/thumbnail`
+        : null,
     sub:
       entry.kind === "file"
         ? `${formatWorkspaceFileSize(entry.sizeBytes)} · ${formatRelativeTime(entry.updatedAt, now, timeZone)}`

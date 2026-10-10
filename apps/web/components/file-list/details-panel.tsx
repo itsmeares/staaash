@@ -29,7 +29,7 @@ import {
 } from "@/lib/media-preview-status";
 import { cn } from "@/lib/utils";
 
-import { ItemIcon, type FileListItem } from "./file-list";
+import { ItemPreview, type FileListItem } from "./file-list";
 
 const DETAILS_KEY = "staaash:details-open";
 
@@ -270,17 +270,12 @@ function DetailsBody({
     <div className="grid">
       <div className="grid gap-3 px-4 pb-3.5">
         {content.preview ?? (
-          <span className="flex aspect-4/3 items-center justify-center overflow-hidden rounded-xl bg-muted">
-            {item.thumbnailUrl ? (
-              <img
-                alt=""
-                className="size-full object-cover"
-                src={item.thumbnailUrl}
-              />
-            ) : (
-              <ItemIcon className="size-14 [&_svg]:size-12" item={item} />
-            )}
-          </span>
+          <ItemPreview
+            className="rounded-xl"
+            fit="contain"
+            iconClassName="size-14 [&_svg]:size-12"
+            item={item}
+          />
         )}
         {content.actions ? (
           <div className="grid grid-cols-2 gap-2">{content.actions}</div>

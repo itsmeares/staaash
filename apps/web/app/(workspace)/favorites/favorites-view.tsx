@@ -21,6 +21,7 @@ import {
 import { ViewToggle } from "@/components/view-toggle";
 import {
   FileList,
+  thumbnailUrlFor,
   ItemIcon,
   MiddleName,
   type FileListColumn,
@@ -173,6 +174,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
     kind: item.kind,
     name: item.name,
     mimeType: item.mimeType,
+    thumbnailUrl: thumbnailUrlFor(item),
     blocked: blockedLabel(item.storageMutationStatus),
     sub: item.locationLabel,
     data: item,

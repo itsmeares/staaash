@@ -3,12 +3,15 @@ import { open } from "node:fs/promises";
 import { getPrisma } from "@staaash/db/client";
 import {
   DERIVATIVE_KIND_PREVIEW,
+  DERIVATIVE_KIND_THUMBNAIL,
   DERIVATIVE_PROFILE_1080P,
+  DERIVATIVE_PROFILE_THUMB,
   DERIVATIVE_STATUS_FAILED,
   DERIVATIVE_STATUS_PROCESSING,
   DERIVATIVE_STATUS_QUEUED,
   DERIVATIVE_STATUS_READY,
   DERIVATIVE_STATUS_STALE,
+  canHaveThumbnail,
   scheduleDerivativeGenerate,
   touchDerivativeViewed,
 } from "@staaash/db/media-derivatives";
@@ -31,6 +34,7 @@ type DerivativeRow = {
   sizeBytes: bigint | null;
   mimeType: string | null;
   status: string;
+  lastViewedAt?: Date | null;
 };
 
 type DbClient = {
@@ -75,6 +79,7 @@ const serveDerivativeBytes = async (
   sizeBytes: number,
   mimeType: string,
   fileName: string,
+  cacheControl = "private, max-age=0, must-revalidate",
 ): Promise<Response | null> => {
   const storagePath = getStoragePath(storageKey);
   let fileHandle;
@@ -88,7 +93,7 @@ const serveDerivativeBytes = async (
   try {
     const rangeHeader = request.headers.get("range");
     const baseHeaders: Record<string, string> = {
-      "cache-control": "private, max-age=0, must-revalidate",
+      "cache-control": cacheControl,
       "content-disposition": buildInlineDisposition(fileName),
       "content-type": mimeType,
       "accept-ranges": "bytes",
@@ -246,4 +251,80 @@ export const createInlineContentResponse = async ({
   }
 
   return createInlineOriginalContentResponse({ request, file });
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The small JPEG lists and the details panel show. When it does not exist
+ * yet it is queued (under the first-view preview setting) and this answers
+ * 404, so the page keeps its type icon until the next visit.
+ */
+export const createThumbnailResponse = async ({
+  request,
+  file,
+}: {
+  request: Request;
+  file: StoredFile;
+}): Promise<Response> => {
+  if (!canHaveThumbnail(file.mimeType, file.name)) {
+    throw new MediaContentError(404, "This file has no thumbnail.");
+  }
+  await assertStorageEntityReadable("file", file.id);
+
+  const db = getPrisma() as unknown as DbClient;
+  const thumbnail = await db.mediaDerivative.findFirst({
+    where: {
+      fileId: file.id,
+      kind: DERIVATIVE_KIND_THUMBNAIL,
+      profile: DERIVATIVE_PROFILE_THUMB,
+    } as object,
+  });
+
+  if (
+    thumbnail?.status === DERIVATIVE_STATUS_READY &&
+    thumbnail.storageKey &&
+    thumbnail.sizeBytes !== null
+  ) {
+    await assertStorageEntityReadable("derivative", thumbnail.id);
+    // The URL carries the file's update time, so a long cache is safe.
+    const response = await serveDerivativeBytes(
+      request,
+      thumbnail.storageKey,
+      Number(thumbnail.sizeBytes),
+      thumbnail.mimeType ?? "image/jpeg",
+      `${file.name}.jpg`,
+      "private, max-age=604800",
+    );
+    if (response) {
+      const now = new Date();
+      // Keeps it from retention cleanup without a write on every request.
+      if (
+        !thumbnail.lastViewedAt ||
+        now.getTime() - thumbnail.lastViewedAt.getTime() > DAY_MS
+      ) {
+        void touchDerivativeViewed(thumbnail.id, now).catch(() => {});
+      }
+      return response;
+    }
+  }
+
+  const settled =
+    thumbnail?.status === DERIVATIVE_STATUS_QUEUED ||
+    thumbnail?.status === DERIVATIVE_STATUS_PROCESSING ||
+    thumbnail?.status === DERIVATIVE_STATUS_FAILED;
+  if (!settled) {
+    const settings = await getSystemSettings();
+    if (shouldGenerateMediaPreview(settings, "first-view")) {
+      await scheduleDerivativeGenerate({
+        fileId: file.id,
+        kind: DERIVATIVE_KIND_THUMBNAIL,
+        profile: DERIVATIVE_PROFILE_THUMB,
+        reason: "first-view",
+      });
+    }
+  }
+  throw new MediaContentError(404, "Thumbnail not ready.", {
+    headers: { "cache-control": "no-store" },
+  });
 };

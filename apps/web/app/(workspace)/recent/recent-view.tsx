@@ -20,6 +20,7 @@ import {
 import { ViewToggle } from "@/components/view-toggle";
 import {
   FileList,
+  thumbnailUrlFor,
   type FileListColumn,
   type FileListItem,
 } from "@/components/file-list/file-list";
@@ -94,6 +95,7 @@ export function RecentView({ error, items, success }: RecentViewProps) {
     kind: item.kind,
     name: item.name,
     mimeType: item.mimeType,
+    thumbnailUrl: thumbnailUrlFor(item),
     blocked: blockedLabel(item.storageMutationStatus),
     dimmed: Boolean(item.deletedAt),
     sub: item.deletedAt

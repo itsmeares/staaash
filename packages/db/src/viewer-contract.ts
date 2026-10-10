@@ -34,3 +34,15 @@ export const resolveViewerKind = (
 
   return null;
 };
+
+/**
+ * Files that get a small thumbnail: photos (HEIC too) and video frames.
+ * SVG is left out because it can carry scripts and FFmpeg cannot draw it.
+ */
+export const canHaveThumbnail = (mimeType: string, fileName?: string) => {
+  const kind = resolveViewerKind(mimeType, fileName);
+  return (
+    (kind === "image" || kind === "video") &&
+    !mimeType.toLowerCase().startsWith("image/svg")
+  );
+};

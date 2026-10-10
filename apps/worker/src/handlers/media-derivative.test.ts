@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   settleDerivativeIfOwned: vi.fn(),
   markDerivativeReady: vi.fn(),
   runFfmpegPoster: vi.fn(),
+  runFfmpegThumbnail: vi.fn(),
   runFfmpegStreamCopy: vi.fn(),
   runFfmpegTranscode: vi.fn(),
   runFfprobe: vi.fn(),
@@ -29,8 +30,13 @@ vi.mock("@staaash/db/client", () => ({
 vi.mock("@staaash/db/media-derivatives", () => ({
   DERIVATIVE_KIND_PREVIEW: "preview",
   DERIVATIVE_KIND_POSTER: "poster",
+  DERIVATIVE_KIND_THUMBNAIL: "thumbnail",
   DERIVATIVE_PROFILE_1080P: "preview-1080p",
   DERIVATIVE_PROFILE_SOCIAL_JPEG: "social-jpeg",
+  DERIVATIVE_PROFILE_THUMB: "thumb-480",
+  canHaveThumbnail: (mimeType: string) =>
+    mimeType !== "image/svg+xml" &&
+    (mimeType.startsWith("image/") || mimeType.startsWith("video/")),
   DERIVATIVE_STATUS_PROCESSING: "processing",
   DERIVATIVE_STATUS_STALE: "stale",
   buildDerivativeStorageKey: mocks.buildDerivativeStorageKey,
@@ -48,6 +54,7 @@ vi.mock("../ffmpeg.js", () => ({
   getFfmpegHealth: mocks.getFfmpegHealth,
   isStreamCopyCompatible: mocks.isStreamCopyCompatible,
   runFfmpegPoster: mocks.runFfmpegPoster,
+  runFfmpegThumbnail: mocks.runFfmpegThumbnail,
   runFfmpegStreamCopy: mocks.runFfmpegStreamCopy,
   runFfmpegTranscode: mocks.runFfmpegTranscode,
   runFfprobe: mocks.runFfprobe,
@@ -377,6 +384,121 @@ describe("media derivative handler", () => {
         ],
       }),
     );
+  });
+
+  const thumbnailSetup = async (mimeType: string) => {
+    tempRoot = await mkdtemp(path.join(os.tmpdir(), "staaash-media-thumb-"));
+    const filesRoot = path.join(tempRoot, "files");
+    const tmpRoot = path.join(filesRoot, "tmp");
+    const sourcePath = path.join(filesRoot, "files", "owner-1", "photo");
+    await mkdir(path.dirname(sourcePath), { recursive: true });
+    await writeFile(sourcePath, "source", "utf8");
+    mocks.buildDerivativeStorageKey.mockReturnValue(
+      "derivatives/owner-1/file-1/thumb-480.jpg",
+    );
+    mocks.upsertDerivativeQueued.mockResolvedValue({
+      id: "thumb-derivative-1",
+      status: "queued",
+    });
+    mocks.getPrisma.mockReturnValue({
+      systemSettings: {
+        findUnique: vi.fn(async () => ({
+          mediaPreviewEnabled: true,
+          mediaPreviewThresholdBytes: 367_001_600n,
+          mediaPreviewMaxHeight: 720,
+          mediaPreviewCrf: 22,
+        })),
+      },
+      file: {
+        findUnique: vi.fn(async () => ({
+          id: "file-1",
+          ownerUserId: "owner-1",
+          mimeType,
+          sizeBytes: 2_000n,
+          storageKey: "files/owner-1/photo",
+          deletedAt: null,
+        })),
+      },
+      mediaDerivative: {
+        update: vi.fn(async () => ({
+          id: "thumb-derivative-1",
+          status: "processing",
+        })),
+        findUnique: vi.fn(async () => ({
+          id: "thumb-derivative-1",
+          status: "processing",
+        })),
+      },
+    });
+    mocks.runFfprobe.mockResolvedValue({
+      streams: [
+        { codec_type: "video", codec_name: "mjpeg", width: 480, height: 320 },
+      ],
+      format: {},
+    });
+    mocks.runFfmpegThumbnail.mockImplementation(
+      async (_inputPath: string, outputPath: string) => {
+        await mkdir(path.dirname(outputPath), { recursive: true });
+        await writeFile(outputPath, "thumb", "utf8");
+      },
+    );
+    const job = createJob();
+    job.payloadJson = {
+      fileId: "file-1",
+      kind: "thumbnail",
+      profile: "thumb-480",
+      reason: "upload",
+    };
+    const storagePaths = {
+      filesRoot,
+      tmpRoot,
+      heartbeatPath: path.join(tmpRoot, "worker-heartbeat.json"),
+      pendingDeleteRoot: path.join(tmpRoot, "pending-delete"),
+      uploadStagingTtlMs: 1,
+    };
+    return { job, storagePaths, sourcePath, tmpRoot };
+  };
+
+  it("publishes small image thumbnails through the journal", async () => {
+    const { job, storagePaths, sourcePath, tmpRoot } =
+      await thumbnailSetup("image/jpeg");
+
+    await expect(
+      handleMediaDerivativeGenerate(job, storagePaths),
+    ).resolves.toBe(false);
+
+    expect(mocks.runFfmpegThumbnail).toHaveBeenCalledWith(
+      sourcePath,
+      path.join(tmpRoot, "derivatives", "thumb-derivative-1.jpg.tmp"),
+      false,
+      expect.any(AbortSignal),
+    );
+    expect(mocks.runWorkerStorageMutation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "derivative_publish",
+        metadataOperations: [
+          expect.objectContaining({
+            data: expect.objectContaining({
+              storageKey: "derivatives/owner-1/file-1/thumb-480.jpg",
+              mimeType: "image/jpeg",
+              width: 480,
+              height: 320,
+            }),
+          }),
+        ],
+      }),
+    );
+  });
+
+  it("skips thumbnails for files that cannot have one", async () => {
+    const { job, storagePaths } = await thumbnailSetup("image/svg+xml");
+
+    await expect(
+      handleMediaDerivativeGenerate(job, storagePaths),
+    ).resolves.toBe(false);
+
+    expect(mocks.upsertDerivativeQueued).not.toHaveBeenCalled();
+    expect(mocks.runFfmpegThumbnail).not.toHaveBeenCalled();
   });
 
   it("settles the derivative as stale when the job is cancelled mid-encode", async () => {

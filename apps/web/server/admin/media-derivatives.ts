@@ -1,4 +1,5 @@
 import { getPrisma } from "@staaash/db/client";
+import { DERIVATIVE_KIND_THUMBNAIL } from "@staaash/db/media-derivatives";
 
 export type AdminMediaDerivativeRow = {
   id: string;
@@ -44,7 +45,11 @@ export const getAdminMediaDerivativeSummary =
     const db = getPrisma();
     const [rows, deletedCount] = await Promise.all([
       db.mediaDerivative.findMany({
-        where: { file: { deletedAt: null } },
+        // Thumbnails are small and automatic; the list is for video previews.
+        where: {
+          file: { deletedAt: null },
+          kind: { not: DERIVATIVE_KIND_THUMBNAIL },
+        },
         orderBy: { updatedAt: "desc" },
         take: 200,
         select: {
@@ -65,7 +70,10 @@ export const getAdminMediaDerivativeSummary =
         },
       }),
       db.mediaDerivative.count({
-        where: { file: { deletedAt: { not: null } } },
+        where: {
+          file: { deletedAt: { not: null } },
+          kind: { not: DERIVATIVE_KIND_THUMBNAIL },
+        },
       }),
     ]);
 

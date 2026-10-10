@@ -43,6 +43,7 @@ import {
 } from "@/components/file-list/details-panel";
 import {
   FileList,
+  thumbnailUrlFor,
   type FileListColumn,
   type FileListItem,
 } from "@/components/file-list/file-list";
@@ -1502,6 +1503,7 @@ export function FilesView({
       kind: "file" as const,
       name: file.name,
       mimeType: file.mimeType,
+      thumbnailUrl: thumbnailUrlFor({ ...file, kind: "file" }),
       blocked: mutationLabel(file),
       dimmed: cutIds.has(file.id),
       flags: flags("file", file.id),

@@ -6,12 +6,15 @@ import type { BackgroundJobRecord } from "@staaash/db/jobs";
 import {
   DERIVATIVE_KIND_POSTER,
   DERIVATIVE_KIND_PREVIEW,
+  DERIVATIVE_KIND_THUMBNAIL,
   DERIVATIVE_PROFILE_1080P,
   DERIVATIVE_PROFILE_SOCIAL_JPEG,
+  DERIVATIVE_PROFILE_THUMB,
   DERIVATIVE_STATUS_FAILED,
   DERIVATIVE_STATUS_PROCESSING,
   DERIVATIVE_STATUS_STALE,
   buildDerivativeStorageKey,
+  canHaveThumbnail,
   markDerivativeReady,
   settleDerivativeIfOwned,
   upsertDerivativeQueued,
@@ -27,6 +30,7 @@ import {
   isStreamCopyCompatible,
   runFfmpegPoster,
   runFfmpegStreamCopy,
+  runFfmpegThumbnail,
   runFfmpegTranscode,
   runFfprobe,
 } from "../ffmpeg.js";
@@ -151,22 +155,29 @@ export const handleMediaDerivativeGenerate = async (
     throw new Error(`File ${payload.fileId} not found or deleted.`);
   }
 
-  if (!file.mimeType.startsWith("video/")) {
+  const isThumbnail = payload.kind === DERIVATIVE_KIND_THUMBNAIL;
+  const isVideo = file.mimeType.startsWith("video/");
+  if (
+    isThumbnail ? !canHaveThumbnail(file.mimeType, file.storageKey) : !isVideo
+  ) {
     return false;
   }
 
-  const kind =
-    payload.kind === DERIVATIVE_KIND_POSTER
+  const kind = isThumbnail
+    ? DERIVATIVE_KIND_THUMBNAIL
+    : payload.kind === DERIVATIVE_KIND_POSTER
       ? DERIVATIVE_KIND_POSTER
       : DERIVATIVE_KIND_PREVIEW;
-  const profile =
-    kind === DERIVATIVE_KIND_POSTER
+  const profile = isThumbnail
+    ? DERIVATIVE_PROFILE_THUMB
+    : kind === DERIVATIVE_KIND_POSTER
       ? DERIVATIVE_PROFILE_SOCIAL_JPEG
       : DERIVATIVE_PROFILE_1080P;
-  const isPoster = kind === DERIVATIVE_KIND_POSTER;
+  // Posters and thumbnails are single JPEG frames.
+  const isPoster = kind !== DERIVATIVE_KIND_PREVIEW;
 
   if (
-    !isPoster &&
+    kind === DERIVATIVE_KIND_PREVIEW &&
     payload.reason !== "manual-regenerate" &&
     file.sizeBytes < settings.mediaPreviewThresholdBytes
   ) {
@@ -263,10 +274,16 @@ export const handleMediaDerivativeGenerate = async (
 
   try {
     await context?.updateProgress({
-      stage: isPoster ? "capturing-poster" : "encoding",
+      stage: isThumbnail
+        ? "capturing-thumbnail"
+        : isPoster
+          ? "capturing-poster"
+          : "encoding",
       fileId: file.id,
     });
-    if (isPoster) {
+    if (isThumbnail) {
+      await runFfmpegThumbnail(inputPath, tmpPath, isVideo, controller.signal);
+    } else if (isPoster) {
       await runFfmpegPoster(inputPath, tmpPath, controller.signal);
     } else if (isStreamCopyCompatible(probe, settings.mediaPreviewMaxHeight)) {
       await runFfmpegStreamCopy(inputPath, tmpPath, controller.signal);

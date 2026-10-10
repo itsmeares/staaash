@@ -7,6 +7,7 @@ import { useTime } from "@/components/time-provider";
 import { Button } from "@/components/ui/button";
 import {
   FileList,
+  thumbnailUrlFor,
   type FileListColumn,
   type FileListItem,
 } from "@/components/file-list/file-list";
@@ -72,6 +73,7 @@ export function SearchResults({
     kind: item.kind,
     name: item.name,
     mimeType: item.mimeType,
+    thumbnailUrl: thumbnailUrlFor(item),
     blocked: item.storageMutationStatus ? "Finishing storage operation" : null,
     sub: item.locationLabel,
     data: item,

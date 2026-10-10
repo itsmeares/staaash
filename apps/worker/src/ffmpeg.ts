@@ -241,3 +241,48 @@ export const runFfmpegPoster = async (
     await runFfmpegPosterFrame(inputPath, outputPath, 0, signal);
   }
 };
+
+const runFfmpegThumbnailFrame = (
+  inputPath: string,
+  outputPath: string,
+  seekSeconds: number | null,
+  signal?: AbortSignal,
+): Promise<void> =>
+  runFfmpegProcess(
+    [
+      "-y",
+      ...(seekSeconds === null ? [] : ["-ss", String(seekSeconds)]),
+      "-i",
+      inputPath,
+      "-frames:v",
+      "1",
+      "-vf",
+      "scale=480:480:force_original_aspect_ratio=decrease",
+      "-q:v",
+      "4",
+      "-f",
+      "image2",
+      outputPath,
+    ],
+    signal,
+  );
+
+/** A 480px JPEG: the picture itself, or a frame one second into a video. */
+export const runFfmpegThumbnail = async (
+  inputPath: string,
+  outputPath: string,
+  isVideo: boolean,
+  signal?: AbortSignal,
+): Promise<void> => {
+  if (!isVideo) {
+    await runFfmpegThumbnailFrame(inputPath, outputPath, null, signal);
+    return;
+  }
+  try {
+    await runFfmpegThumbnailFrame(inputPath, outputPath, 1, signal);
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    // Videos shorter than a second have no frame there.
+    await runFfmpegThumbnailFrame(inputPath, outputPath, 0, signal);
+  }
+};

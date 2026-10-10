@@ -20,6 +20,7 @@ import { getItemVisual } from "@/app/item-visuals";
 import { WorkspaceActionSheet } from "./action-sheet";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuPopup, MenuTrigger } from "@/components/ui/menu";
+import { canHaveThumbnail } from "@staaash/db/viewer-contract";
 import { cn } from "@/lib/utils";
 
 import { splitName } from "./list-model";
@@ -136,20 +137,48 @@ export function ItemIcon({
   );
 }
 
-function Thumb<T extends FileListItem>({ item }: { item: T }) {
+/**
+ * The thumbnail, or the type icon while there is none: thumbnails are made
+ * after upload, so the first view can miss.
+ */
+export function ItemPreview({
+  item,
+  className,
+  iconClassName = "size-10 [&_svg]:size-8",
+  fit = "cover",
+}: {
+  item: Pick<FileListItem, "kind" | "mimeType" | "icon" | "thumbnailUrl">;
+  className?: string;
+  iconClassName?: string;
+  fit?: "cover" | "contain";
+}) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const url =
+    item.thumbnailUrl && item.thumbnailUrl !== failedUrl
+      ? item.thumbnailUrl
+      : null;
   return (
-    <span className="relative flex aspect-4/3 items-center justify-center overflow-hidden rounded-lg bg-muted">
-      {item.thumbnailUrl ? (
+    <span
+      className={cn(
+        "relative flex aspect-4/3 items-center justify-center overflow-hidden rounded-lg bg-muted",
+        className,
+      )}
+    >
+      {url ? (
         <img
           alt=""
-          className="size-full object-cover"
+          className={cn(
+            "size-full",
+            fit === "cover" ? "object-cover" : "object-contain",
+          )}
           decoding="async"
           draggable={false}
           loading="lazy"
-          src={item.thumbnailUrl}
+          src={url}
+          onError={() => setFailedUrl(url)}
         />
       ) : (
-        <ItemIcon className="size-10 [&_svg]:size-8" item={item} />
+        <ItemIcon className={iconClassName} item={item} />
       )}
     </span>
   );
@@ -294,7 +323,7 @@ export function FileList<T extends FileListItem>({
           role="row"
         >
           <div className="contents" role="gridcell">
-            <Thumb item={item} />
+            <ItemPreview item={item} />
             <span className="absolute top-3 left-3">
               <CheckMark selected={selected} />
             </span>
@@ -547,3 +576,14 @@ function SortHead({
     </span>
   );
 }
+
+/** Signed-in thumbnail URL, for files that can have one. */
+export const thumbnailUrlFor = (file: {
+  id: string;
+  kind: "file" | "folder";
+  name: string;
+  mimeType?: string | null;
+}) =>
+  file.kind === "file" && canHaveThumbnail(file.mimeType ?? "", file.name)
+    ? `/api/files/files/${file.id}/thumbnail`
+    : null;

@@ -10,7 +10,12 @@ import {
   StorageAdmissionCancelledError,
 } from "@staaash/db/storage-transactions";
 
-import { scheduleDerivativeGenerate } from "@staaash/db/media-derivatives";
+import {
+  DERIVATIVE_KIND_THUMBNAIL,
+  DERIVATIVE_PROFILE_THUMB,
+  canHaveThumbnail,
+  scheduleDerivativeGenerate,
+} from "@staaash/db/media-derivatives";
 import { getPrisma, Prisma } from "@staaash/db/client";
 
 import { canAccessPrivateNamespace } from "@/server/access";
@@ -5462,8 +5467,8 @@ export const createFilesService = ({
               return;
             }
             const threshold = settings.mediaPreviewThresholdBytes;
-            await Promise.all(
-              uploadedFiles
+            await Promise.all([
+              ...uploadedFiles
                 .filter(
                   (f) =>
                     f.viewerKind === "video" &&
@@ -5476,7 +5481,18 @@ export const createFilesService = ({
                     now: now(),
                   }),
                 ),
-            );
+              ...uploadedFiles
+                .filter((f) => canHaveThumbnail(f.mimeType, f.name))
+                .map((f) =>
+                  scheduleDerivativeGenerate({
+                    fileId: f.id,
+                    kind: DERIVATIVE_KIND_THUMBNAIL,
+                    profile: DERIVATIVE_PROFILE_THUMB,
+                    reason: "upload",
+                    now: now(),
+                  }),
+                ),
+            ]);
           } catch (err) {
             console.error(
               "[files] Failed to schedule preview generation.",
@@ -5956,12 +5972,20 @@ export const createFilesService = ({
 
           const summary = toFileSummary(createdFile);
 
-          if (summary.viewerKind === "video") {
+          if (canHaveThumbnail(summary.mimeType, summary.name)) {
             void (async () => {
               try {
                 const settings = await getSystemSettings();
+                if (!shouldGenerateMediaPreview(settings, "upload")) return;
+                await scheduleDerivativeGenerate({
+                  fileId: createdFile.id,
+                  kind: DERIVATIVE_KIND_THUMBNAIL,
+                  profile: DERIVATIVE_PROFILE_THUMB,
+                  reason: "upload",
+                  now: now(),
+                });
                 if (
-                  shouldGenerateMediaPreview(settings, "upload") &&
+                  summary.viewerKind === "video" &&
                   BigInt(totalSizeBytes) >= settings.mediaPreviewThresholdBytes
                 ) {
                   await scheduleDerivativeGenerate({
