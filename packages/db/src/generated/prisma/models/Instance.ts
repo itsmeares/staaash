@@ -40,10 +40,7 @@ export type InstanceMinAggregateOutputType = {
   authSecret: string | null
   setupCompletedAt: Date | null
   lastUpdateCheckAt: Date | null
-  updateCheckStatus: string | null
-  updateCheckMessage: string | null
-  latestAvailableVersion: string | null
-  checkedVersion: string | null
+  updateCheckError: string | null
   storageProtocolVersion: number | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -55,10 +52,7 @@ export type InstanceMaxAggregateOutputType = {
   authSecret: string | null
   setupCompletedAt: Date | null
   lastUpdateCheckAt: Date | null
-  updateCheckStatus: string | null
-  updateCheckMessage: string | null
-  latestAvailableVersion: string | null
-  checkedVersion: string | null
+  updateCheckError: string | null
   storageProtocolVersion: number | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -70,10 +64,8 @@ export type InstanceCountAggregateOutputType = {
   authSecret: number
   setupCompletedAt: number
   lastUpdateCheckAt: number
-  updateCheckStatus: number
-  updateCheckMessage: number
-  latestAvailableVersion: number
-  checkedVersion: number
+  updateCheckError: number
+  updateReleases: number
   storageProtocolVersion: number
   createdAt: number
   updatedAt: number
@@ -95,10 +87,7 @@ export type InstanceMinAggregateInputType = {
   authSecret?: true
   setupCompletedAt?: true
   lastUpdateCheckAt?: true
-  updateCheckStatus?: true
-  updateCheckMessage?: true
-  latestAvailableVersion?: true
-  checkedVersion?: true
+  updateCheckError?: true
   storageProtocolVersion?: true
   createdAt?: true
   updatedAt?: true
@@ -110,10 +99,7 @@ export type InstanceMaxAggregateInputType = {
   authSecret?: true
   setupCompletedAt?: true
   lastUpdateCheckAt?: true
-  updateCheckStatus?: true
-  updateCheckMessage?: true
-  latestAvailableVersion?: true
-  checkedVersion?: true
+  updateCheckError?: true
   storageProtocolVersion?: true
   createdAt?: true
   updatedAt?: true
@@ -125,10 +111,8 @@ export type InstanceCountAggregateInputType = {
   authSecret?: true
   setupCompletedAt?: true
   lastUpdateCheckAt?: true
-  updateCheckStatus?: true
-  updateCheckMessage?: true
-  latestAvailableVersion?: true
-  checkedVersion?: true
+  updateCheckError?: true
+  updateReleases?: true
   storageProtocolVersion?: true
   createdAt?: true
   updatedAt?: true
@@ -227,10 +211,8 @@ export type InstanceGroupByOutputType = {
   authSecret: string | null
   setupCompletedAt: Date
   lastUpdateCheckAt: Date | null
-  updateCheckStatus: string | null
-  updateCheckMessage: string | null
-  latestAvailableVersion: string | null
-  checkedVersion: string | null
+  updateCheckError: string | null
+  updateReleases: runtime.JsonValue | null
   storageProtocolVersion: number
   createdAt: Date
   updatedAt: Date
@@ -265,10 +247,8 @@ export type InstanceWhereInput = {
   authSecret?: Prisma.StringNullableFilter<"Instance"> | string | null
   setupCompletedAt?: Prisma.DateTimeFilter<"Instance"> | Date | string
   lastUpdateCheckAt?: Prisma.DateTimeNullableFilter<"Instance"> | Date | string | null
-  updateCheckStatus?: Prisma.StringNullableFilter<"Instance"> | string | null
-  updateCheckMessage?: Prisma.StringNullableFilter<"Instance"> | string | null
-  latestAvailableVersion?: Prisma.StringNullableFilter<"Instance"> | string | null
-  checkedVersion?: Prisma.StringNullableFilter<"Instance"> | string | null
+  updateCheckError?: Prisma.StringNullableFilter<"Instance"> | string | null
+  updateReleases?: Prisma.JsonNullableFilter<"Instance">
   storageProtocolVersion?: Prisma.IntFilter<"Instance"> | number
   createdAt?: Prisma.DateTimeFilter<"Instance"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Instance"> | Date | string
@@ -280,10 +260,8 @@ export type InstanceOrderByWithRelationInput = {
   authSecret?: Prisma.SortOrderInput | Prisma.SortOrder
   setupCompletedAt?: Prisma.SortOrder
   lastUpdateCheckAt?: Prisma.SortOrderInput | Prisma.SortOrder
-  updateCheckStatus?: Prisma.SortOrderInput | Prisma.SortOrder
-  updateCheckMessage?: Prisma.SortOrderInput | Prisma.SortOrder
-  latestAvailableVersion?: Prisma.SortOrderInput | Prisma.SortOrder
-  checkedVersion?: Prisma.SortOrderInput | Prisma.SortOrder
+  updateCheckError?: Prisma.SortOrderInput | Prisma.SortOrder
+  updateReleases?: Prisma.SortOrderInput | Prisma.SortOrder
   storageProtocolVersion?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -298,10 +276,8 @@ export type InstanceWhereUniqueInput = Prisma.AtLeast<{
   authSecret?: Prisma.StringNullableFilter<"Instance"> | string | null
   setupCompletedAt?: Prisma.DateTimeFilter<"Instance"> | Date | string
   lastUpdateCheckAt?: Prisma.DateTimeNullableFilter<"Instance"> | Date | string | null
-  updateCheckStatus?: Prisma.StringNullableFilter<"Instance"> | string | null
-  updateCheckMessage?: Prisma.StringNullableFilter<"Instance"> | string | null
-  latestAvailableVersion?: Prisma.StringNullableFilter<"Instance"> | string | null
-  checkedVersion?: Prisma.StringNullableFilter<"Instance"> | string | null
+  updateCheckError?: Prisma.StringNullableFilter<"Instance"> | string | null
+  updateReleases?: Prisma.JsonNullableFilter<"Instance">
   storageProtocolVersion?: Prisma.IntFilter<"Instance"> | number
   createdAt?: Prisma.DateTimeFilter<"Instance"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Instance"> | Date | string
@@ -313,10 +289,8 @@ export type InstanceOrderByWithAggregationInput = {
   authSecret?: Prisma.SortOrderInput | Prisma.SortOrder
   setupCompletedAt?: Prisma.SortOrder
   lastUpdateCheckAt?: Prisma.SortOrderInput | Prisma.SortOrder
-  updateCheckStatus?: Prisma.SortOrderInput | Prisma.SortOrder
-  updateCheckMessage?: Prisma.SortOrderInput | Prisma.SortOrder
-  latestAvailableVersion?: Prisma.SortOrderInput | Prisma.SortOrder
-  checkedVersion?: Prisma.SortOrderInput | Prisma.SortOrder
+  updateCheckError?: Prisma.SortOrderInput | Prisma.SortOrder
+  updateReleases?: Prisma.SortOrderInput | Prisma.SortOrder
   storageProtocolVersion?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -336,10 +310,8 @@ export type InstanceScalarWhereWithAggregatesInput = {
   authSecret?: Prisma.StringNullableWithAggregatesFilter<"Instance"> | string | null
   setupCompletedAt?: Prisma.DateTimeWithAggregatesFilter<"Instance"> | Date | string
   lastUpdateCheckAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Instance"> | Date | string | null
-  updateCheckStatus?: Prisma.StringNullableWithAggregatesFilter<"Instance"> | string | null
-  updateCheckMessage?: Prisma.StringNullableWithAggregatesFilter<"Instance"> | string | null
-  latestAvailableVersion?: Prisma.StringNullableWithAggregatesFilter<"Instance"> | string | null
-  checkedVersion?: Prisma.StringNullableWithAggregatesFilter<"Instance"> | string | null
+  updateCheckError?: Prisma.StringNullableWithAggregatesFilter<"Instance"> | string | null
+  updateReleases?: Prisma.JsonNullableWithAggregatesFilter<"Instance">
   storageProtocolVersion?: Prisma.IntWithAggregatesFilter<"Instance"> | number
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Instance"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"Instance"> | Date | string
@@ -351,10 +323,8 @@ export type InstanceCreateInput = {
   authSecret?: string | null
   setupCompletedAt?: Date | string
   lastUpdateCheckAt?: Date | string | null
-  updateCheckStatus?: string | null
-  updateCheckMessage?: string | null
-  latestAvailableVersion?: string | null
-  checkedVersion?: string | null
+  updateCheckError?: string | null
+  updateReleases?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   storageProtocolVersion?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -366,10 +336,8 @@ export type InstanceUncheckedCreateInput = {
   authSecret?: string | null
   setupCompletedAt?: Date | string
   lastUpdateCheckAt?: Date | string | null
-  updateCheckStatus?: string | null
-  updateCheckMessage?: string | null
-  latestAvailableVersion?: string | null
-  checkedVersion?: string | null
+  updateCheckError?: string | null
+  updateReleases?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   storageProtocolVersion?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -381,10 +349,8 @@ export type InstanceUpdateInput = {
   authSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   setupCompletedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastUpdateCheckAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  updateCheckStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  updateCheckMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  latestAvailableVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  checkedVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  updateCheckError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  updateReleases?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   storageProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -396,10 +362,8 @@ export type InstanceUncheckedUpdateInput = {
   authSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   setupCompletedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastUpdateCheckAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  updateCheckStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  updateCheckMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  latestAvailableVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  checkedVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  updateCheckError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  updateReleases?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   storageProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -411,10 +375,8 @@ export type InstanceCreateManyInput = {
   authSecret?: string | null
   setupCompletedAt?: Date | string
   lastUpdateCheckAt?: Date | string | null
-  updateCheckStatus?: string | null
-  updateCheckMessage?: string | null
-  latestAvailableVersion?: string | null
-  checkedVersion?: string | null
+  updateCheckError?: string | null
+  updateReleases?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   storageProtocolVersion?: number
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -426,10 +388,8 @@ export type InstanceUpdateManyMutationInput = {
   authSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   setupCompletedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastUpdateCheckAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  updateCheckStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  updateCheckMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  latestAvailableVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  checkedVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  updateCheckError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  updateReleases?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   storageProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -441,10 +401,8 @@ export type InstanceUncheckedUpdateManyInput = {
   authSecret?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   setupCompletedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   lastUpdateCheckAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
-  updateCheckStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  updateCheckMessage?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  latestAvailableVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
-  checkedVersion?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  updateCheckError?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  updateReleases?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   storageProtocolVersion?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -456,10 +414,8 @@ export type InstanceCountOrderByAggregateInput = {
   authSecret?: Prisma.SortOrder
   setupCompletedAt?: Prisma.SortOrder
   lastUpdateCheckAt?: Prisma.SortOrder
-  updateCheckStatus?: Prisma.SortOrder
-  updateCheckMessage?: Prisma.SortOrder
-  latestAvailableVersion?: Prisma.SortOrder
-  checkedVersion?: Prisma.SortOrder
+  updateCheckError?: Prisma.SortOrder
+  updateReleases?: Prisma.SortOrder
   storageProtocolVersion?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -475,10 +431,7 @@ export type InstanceMaxOrderByAggregateInput = {
   authSecret?: Prisma.SortOrder
   setupCompletedAt?: Prisma.SortOrder
   lastUpdateCheckAt?: Prisma.SortOrder
-  updateCheckStatus?: Prisma.SortOrder
-  updateCheckMessage?: Prisma.SortOrder
-  latestAvailableVersion?: Prisma.SortOrder
-  checkedVersion?: Prisma.SortOrder
+  updateCheckError?: Prisma.SortOrder
   storageProtocolVersion?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -490,10 +443,7 @@ export type InstanceMinOrderByAggregateInput = {
   authSecret?: Prisma.SortOrder
   setupCompletedAt?: Prisma.SortOrder
   lastUpdateCheckAt?: Prisma.SortOrder
-  updateCheckStatus?: Prisma.SortOrder
-  updateCheckMessage?: Prisma.SortOrder
-  latestAvailableVersion?: Prisma.SortOrder
-  checkedVersion?: Prisma.SortOrder
+  updateCheckError?: Prisma.SortOrder
   storageProtocolVersion?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -535,10 +485,8 @@ export type InstanceSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   authSecret?: boolean
   setupCompletedAt?: boolean
   lastUpdateCheckAt?: boolean
-  updateCheckStatus?: boolean
-  updateCheckMessage?: boolean
-  latestAvailableVersion?: boolean
-  checkedVersion?: boolean
+  updateCheckError?: boolean
+  updateReleases?: boolean
   storageProtocolVersion?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -550,10 +498,8 @@ export type InstanceSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exte
   authSecret?: boolean
   setupCompletedAt?: boolean
   lastUpdateCheckAt?: boolean
-  updateCheckStatus?: boolean
-  updateCheckMessage?: boolean
-  latestAvailableVersion?: boolean
-  checkedVersion?: boolean
+  updateCheckError?: boolean
+  updateReleases?: boolean
   storageProtocolVersion?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -565,10 +511,8 @@ export type InstanceSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exte
   authSecret?: boolean
   setupCompletedAt?: boolean
   lastUpdateCheckAt?: boolean
-  updateCheckStatus?: boolean
-  updateCheckMessage?: boolean
-  latestAvailableVersion?: boolean
-  checkedVersion?: boolean
+  updateCheckError?: boolean
+  updateReleases?: boolean
   storageProtocolVersion?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -580,16 +524,14 @@ export type InstanceSelectScalar = {
   authSecret?: boolean
   setupCompletedAt?: boolean
   lastUpdateCheckAt?: boolean
-  updateCheckStatus?: boolean
-  updateCheckMessage?: boolean
-  latestAvailableVersion?: boolean
-  checkedVersion?: boolean
+  updateCheckError?: boolean
+  updateReleases?: boolean
   storageProtocolVersion?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type InstanceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "authSecret" | "setupCompletedAt" | "lastUpdateCheckAt" | "updateCheckStatus" | "updateCheckMessage" | "latestAvailableVersion" | "checkedVersion" | "storageProtocolVersion" | "createdAt" | "updatedAt", ExtArgs["result"]["instance"]>
+export type InstanceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "name" | "authSecret" | "setupCompletedAt" | "lastUpdateCheckAt" | "updateCheckError" | "updateReleases" | "storageProtocolVersion" | "createdAt" | "updatedAt", ExtArgs["result"]["instance"]>
 
 export type $InstancePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Instance"
@@ -600,10 +542,14 @@ export type $InstancePayload<ExtArgs extends runtime.Types.Extensions.InternalAr
     authSecret: string | null
     setupCompletedAt: Date
     lastUpdateCheckAt: Date | null
-    updateCheckStatus: string | null
-    updateCheckMessage: string | null
-    latestAvailableVersion: string | null
-    checkedVersion: string | null
+    /**
+     * Why the last check failed; null after a successful check.
+     */
+    updateCheckError: string | null
+    /**
+     * Recent releases on the chosen channel, newest first.
+     */
+    updateReleases: runtime.JsonValue | null
     storageProtocolVersion: number
     createdAt: Date
     updatedAt: Date
@@ -1035,10 +981,8 @@ export interface InstanceFieldRefs {
   readonly authSecret: Prisma.FieldRef<"Instance", 'String'>
   readonly setupCompletedAt: Prisma.FieldRef<"Instance", 'DateTime'>
   readonly lastUpdateCheckAt: Prisma.FieldRef<"Instance", 'DateTime'>
-  readonly updateCheckStatus: Prisma.FieldRef<"Instance", 'String'>
-  readonly updateCheckMessage: Prisma.FieldRef<"Instance", 'String'>
-  readonly latestAvailableVersion: Prisma.FieldRef<"Instance", 'String'>
-  readonly checkedVersion: Prisma.FieldRef<"Instance", 'String'>
+  readonly updateCheckError: Prisma.FieldRef<"Instance", 'String'>
+  readonly updateReleases: Prisma.FieldRef<"Instance", 'Json'>
   readonly storageProtocolVersion: Prisma.FieldRef<"Instance", 'Int'>
   readonly createdAt: Prisma.FieldRef<"Instance", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"Instance", 'DateTime'>

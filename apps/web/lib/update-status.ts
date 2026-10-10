@@ -1,24 +1,23 @@
 import { formatVersionLabel } from "@staaash/config/version";
 
-export type UpdateStatus =
-  "up-to-date" | "update-available" | "unavailable" | "error" | null;
+import type { UpdateState } from "@/server/admin/updates";
 
+export type { UpdateState };
+
+/** One short phrase for the update state. */
 export const getUpdateStatusLabel = (
-  status: UpdateStatus,
-  latestVersion: string | null = null,
+  state: Pick<UpdateState, "status" | "missed">,
 ) => {
-  switch (status) {
+  switch (state.status) {
+    case "update-available":
+      return `${formatVersionLabel(state.missed[0]!.version)} is out`;
     case "up-to-date":
       return "Up to date";
-    case "update-available":
-      return latestVersion
-        ? `${formatVersionLabel(latestVersion)} available`
-        : "Update available";
-    case "unavailable":
-      return "Unavailable";
+    case "off":
+      return "Checks are off";
     case "error":
-      return "Check failed";
+      return "The last check failed";
     default:
-      return "Not checked";
+      return "Not checked yet";
   }
 };

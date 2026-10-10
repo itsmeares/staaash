@@ -22,6 +22,7 @@ import {
   type SettingsActionState,
   type SettingsField,
 } from "./settings-schema";
+import { enqueueAdminUpdateCheck } from "@/server/admin/updates";
 
 export async function updateSystemSettings(
   _prevState: SettingsActionState,
@@ -45,11 +46,24 @@ export async function updateSystemSettings(
   }
 
   const db = getPrisma();
+  const previous = await db.systemSettings.findUnique({
+    where: { id: "singleton" },
+  });
   await db.systemSettings.upsert({
     where: { id: "singleton" },
     create: { id: "singleton", ...parsed.data },
     update: parsed.data,
   });
+
+  // A new channel or repository, or checks switched back on: check right away.
+  if (
+    parsed.data.updateCheckEnabled &&
+    (previous?.updateChannel !== parsed.data.updateChannel ||
+      previous?.updateCheckRepository !== parsed.data.updateCheckRepository ||
+      previous?.updateCheckEnabled === false)
+  ) {
+    await enqueueAdminUpdateCheck();
+  }
 
   revalidatePath("/admin/settings");
   return { success: true, values: toSettingsValues(parsed.data) };
@@ -60,6 +74,7 @@ const ownerOnboardingSettingsSchema = z.object({
   mediaPreviewGenerateOnUpload: z.boolean(),
   mediaPreviewGenerateOnFirstView: z.boolean(),
   mediaPreviewGenerateOnShare: z.boolean(),
+  updateCheckEnabled: z.boolean(),
   timeZone: z
     .string()
     .trim()
@@ -72,6 +87,7 @@ export async function saveOwnerOnboardingSettings(input: {
   mediaPreviewGenerateOnUpload: boolean;
   mediaPreviewGenerateOnFirstView: boolean;
   mediaPreviewGenerateOnShare: boolean;
+  updateCheckEnabled: boolean;
   timeZone: string;
 }): Promise<{ error?: string; success?: boolean }> {
   await requireOwnerOnboardingSession();
@@ -91,6 +107,7 @@ export async function saveOwnerOnboardingSettings(input: {
       mediaPreviewGenerateOnFirstView:
         parsed.data.mediaPreviewGenerateOnFirstView,
       mediaPreviewGenerateOnShare: parsed.data.mediaPreviewGenerateOnShare,
+      updateCheckEnabled: parsed.data.updateCheckEnabled,
       timeZone: parsed.data.timeZone,
     },
     update: {
@@ -99,6 +116,7 @@ export async function saveOwnerOnboardingSettings(input: {
       mediaPreviewGenerateOnFirstView:
         parsed.data.mediaPreviewGenerateOnFirstView,
       mediaPreviewGenerateOnShare: parsed.data.mediaPreviewGenerateOnShare,
+      updateCheckEnabled: parsed.data.updateCheckEnabled,
       timeZone: parsed.data.timeZone,
     },
   });

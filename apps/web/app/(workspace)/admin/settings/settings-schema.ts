@@ -50,7 +50,12 @@ export const settingsSchema = z
     previewMaxSourceBytes: integerSetting(),
     previewTextMaxBytes: integerSetting(),
     workerHeartbeatMaxAgeSeconds: integerSetting(),
-    updateCheckIntervalHours: integerSetting(),
+    updateCheckEnabled: checkboxSetting,
+    // "auto" follows the running version: release candidates on a pre-release.
+    updateChannel: z
+      .enum(["auto", "stable", "rc"])
+      .default("auto")
+      .transform((value) => (value === "auto" ? null : value)),
     updateCheckRepository: z.string().trim(),
     timeZone: z
       .string()
@@ -121,7 +126,13 @@ export function toSettingsValues(
       const value = settings[name];
       return [
         name,
-        typeof value === "boolean" ? (value ? "on" : "") : String(value),
+        typeof value === "boolean"
+          ? value
+            ? "on"
+            : ""
+          : value === null || value === undefined
+            ? "auto"
+            : String(value),
       ];
     }),
   ) as SettingsValues;

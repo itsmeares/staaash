@@ -24,7 +24,6 @@ type Prefs = {
   theme: Theme;
   timeZone: string;
   showUpdateNotifications: boolean;
-  enableVersionChecks: boolean;
   displayName: string;
   avatarUrl: string | null;
 };
@@ -75,10 +74,10 @@ export function OnboardingExperience({
     theme: "system",
     timeZone: AUTO_TIME_ZONE,
     showUpdateNotifications: true,
-    enableVersionChecks: true,
     displayName: "",
     avatarUrl: null,
   });
+  const [updateCheckEnabled, setUpdateCheckEnabled] = useState(true);
   const [mediaPreviewEnabled, setMediaPreviewEnabled] = useState(
     initialMediaPreviewEnabled,
   );
@@ -137,6 +136,7 @@ export function OnboardingExperience({
           mediaPreviewGenerateOnUpload,
           mediaPreviewGenerateOnFirstView,
           mediaPreviewGenerateOnShare,
+          updateCheckEnabled,
           // The instance needs a fixed zone for its maintenance schedule.
           timeZone:
             prefs.timeZone === AUTO_TIME_ZONE
@@ -156,7 +156,6 @@ export function OnboardingExperience({
           theme: prefs.theme,
           timeZone: prefs.timeZone,
           showUpdateNotifications: prefs.showUpdateNotifications,
-          enableVersionChecks: prefs.enableVersionChecks,
           displayName: prefs.displayName || null,
           avatarUrl: prefs.avatarUrl,
         }),
@@ -320,14 +319,11 @@ export function OnboardingExperience({
       )}
       {step === "privacy" && isOwner && (
         <PrivacyStep
-          prefs={prefs}
-          onVersionChecksChange={(val) =>
-            setPrefs((p) => ({
-              ...p,
-              enableVersionChecks: val,
-              showUpdateNotifications: val,
-            }))
-          }
+          checksEnabled={updateCheckEnabled}
+          onVersionChecksChange={(val) => {
+            setUpdateCheckEnabled(val);
+            setPrefs((p) => ({ ...p, showUpdateNotifications: val }));
+          }}
           onComplete={advance}
           onBack={goBack}
           pending={false}
@@ -806,7 +802,7 @@ function ProfileStep({
 }
 
 function PrivacyStep({
-  prefs,
+  checksEnabled,
   onVersionChecksChange,
   onComplete,
   onBack,
@@ -814,7 +810,7 @@ function PrivacyStep({
   error,
   isLastStep = true,
 }: {
-  prefs: Prefs;
+  checksEnabled: boolean;
   onVersionChecksChange: (val: boolean) => void;
   onComplete: () => void;
   onBack: () => void;
@@ -846,16 +842,16 @@ function PrivacyStep({
       </div>
 
       <p className="-mt-2 text-sm leading-relaxed text-muted-foreground">
-        Periodically checks GitHub for new releases. Sends no personal data.
-        Disable to keep Staaash fully offline.
+        Sends nothing about you or your files. Turn it off to keep Staaash fully
+        offline.
       </p>
 
       <div className="grid gap-0">
         <ToggleRow
           id="ob-version-checks"
-          label="Version checks"
-          description="Check GitHub for updates and show a badge when a new version is available."
-          checked={prefs.enableVersionChecks}
+          label="Check for new versions"
+          description="Asks GitHub for new releases once an hour and tells you when one is out."
+          checked={checksEnabled}
           onCheckedChange={onVersionChecksChange}
         />
       </div>

@@ -44,6 +44,10 @@ type JobRegistryEntry = {
   scheduleEveryMs?: number | (() => Promise<number>);
   scheduleWindowMs?: number | (() => Promise<number>);
   scheduleDaily?: boolean;
+  /** Next run time for jobs on their own clock, such as the hourly update check. */
+  scheduleNext?: (now: Date) => Promise<Date>;
+  /** Whether a worker start should run the job right away. */
+  runOnStart?: (now: Date) => Promise<boolean>;
   parsePayload: (payloadJson: unknown) => Record<string, unknown>;
   run: (
     job: BackgroundJobRecord,
@@ -75,19 +79,39 @@ const parseWith =
     return parsed.data;
   };
 
-const DEFAULT_UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+const UPDATE_CHECK_RECENT_MS = 60 * 1000;
 
-const getUpdateCheckIntervalMs = async (): Promise<number> => {
+const readInstanceTimes = async () => {
   try {
     const { getPrisma } = await import("@staaash/db/client");
-    const db = getPrisma();
-    const settings = await db.systemSettings.findUnique({
+    return await getPrisma().instance.findUnique({
       where: { id: "singleton" },
+      select: { createdAt: true, lastUpdateCheckAt: true },
     });
-    return (settings?.updateCheckIntervalHours ?? 24) * 60 * 60 * 1000;
   } catch {
-    return DEFAULT_UPDATE_CHECK_INTERVAL_MS;
+    return null;
   }
+};
+
+/**
+ * Hourly, at a point in the hour fixed per install, so many drives do not
+ * ask GitHub at the same moment (Immich does the same).
+ */
+const nextUpdateCheckAt = async (now: Date) => {
+  const instance = await readInstanceTimes();
+  const offsetMs =
+    (((instance?.createdAt.getTime() ?? 0) % 3600_000) + 3600_000) % 3600_000;
+  const hourStart = Math.floor(now.getTime() / HOUR_MS) * HOUR_MS;
+  const candidate = hourStart + offsetMs;
+  return new Date(candidate > now.getTime() ? candidate : candidate + HOUR_MS);
+};
+
+/** After an upgrade or restart, check now unless a check ran a moment ago. */
+const shouldCheckOnStart = async (now: Date) => {
+  const instance = await readInstanceTimes();
+  const last = instance?.lastUpdateCheckAt?.getTime();
+  return last === undefined || now.getTime() - last > UPDATE_CHECK_RECENT_MS;
 };
 
 const getSchedulingSettings = async () => {
@@ -135,8 +159,8 @@ const JOB_REGISTRY: Record<SupportedBackgroundJobKind, JobRegistryEntry> = {
     maxAttempts: 3,
     timeoutMs: 5 * 60 * 1000,
     cancellable: false,
-    scheduleEveryMs: getUpdateCheckIntervalMs,
-    scheduleWindowMs: getUpdateCheckIntervalMs,
+    scheduleNext: nextUpdateCheckAt,
+    runOnStart: shouldCheckOnStart,
     parsePayload: parseWith(emptyPayloadSchema),
     run: handleUpdateCheck,
   },
@@ -215,6 +239,16 @@ const resolveSchedule = async (
         runAt,
       }),
     };
+  }
+
+  if (entry.scheduleNext) {
+    // A start-up run only dedupes against jobs already due, so a queued
+    // future run cannot swallow it.
+    if (runMissingImmediately && (await entry.runOnStart?.(now))) {
+      return { runAt: now, windowEnd: now };
+    }
+    const runAt = await entry.scheduleNext(now);
+    return { runAt, windowEnd: runAt };
   }
 
   if (!entry.scheduleEveryMs) return null;

@@ -74,7 +74,6 @@ type SavePreferencesParams = {
   theme: string;
   timeZone: string;
   showUpdateNotifications: boolean;
-  enableVersionChecks: boolean;
   onboardingCompletedAt?: Date;
   displayName?: string | null;
   avatarUrl?: string | null;
@@ -148,7 +147,6 @@ const toAuthUser = (
         theme: user.preferences.theme,
         timeZone: user.preferences.timeZone,
         showUpdateNotifications: user.preferences.showUpdateNotifications,
-        enableVersionChecks: user.preferences.enableVersionChecks,
         onboardingCompletedAt: user.preferences.onboardingCompletedAt,
       }
     : null,
@@ -662,14 +660,12 @@ const createPrismaAuthRepository = (
           theme: params.theme,
           timeZone: params.timeZone,
           showUpdateNotifications: params.showUpdateNotifications,
-          enableVersionChecks: params.enableVersionChecks,
           onboardingCompletedAt: params.onboardingCompletedAt ?? new Date(),
         },
         update: {
           theme: params.theme,
           timeZone: params.timeZone,
           showUpdateNotifications: params.showUpdateNotifications,
-          enableVersionChecks: params.enableVersionChecks,
           ...(params.onboardingCompletedAt !== undefined
             ? { onboardingCompletedAt: params.onboardingCompletedAt }
             : {}),
@@ -679,7 +675,6 @@ const createPrismaAuthRepository = (
         theme: pref.theme,
         timeZone: pref.timeZone,
         showUpdateNotifications: pref.showUpdateNotifications,
-        enableVersionChecks: pref.enableVersionChecks,
         onboardingCompletedAt: pref.onboardingCompletedAt,
       };
     },

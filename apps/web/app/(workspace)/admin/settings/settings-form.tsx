@@ -34,7 +34,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { getUpdateStatusLabel } from "@/lib/update-status";
-import type { JsonAdminUpdateStatus } from "@/server/admin/types";
+import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
+import type { UpdateState } from "@/lib/update-status";
 
 import { updateSystemSettings } from "./actions";
 import {
@@ -42,11 +43,10 @@ import {
   type SettingsField,
   type SettingsActionState,
 } from "./settings-schema";
-import { UpdateCheckConsole } from "../update-check-console";
 
 type SettingsFormProps = {
   settings: SystemSettings;
-  updateStatus: JsonAdminUpdateStatus;
+  updateState: UpdateState;
 };
 
 type SettingsNumberInputProps = Omit<
@@ -56,7 +56,7 @@ type SettingsNumberInputProps = Omit<
   value: string;
 };
 
-export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
+export function SettingsForm({ settings, updateState }: SettingsFormProps) {
   const [draft, setDraft] = useState(() => toSettingsValues(settings));
   const [savedValues, setSavedValues] = useState(() =>
     toSettingsValues(settings),
@@ -141,9 +141,9 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
       "session max age share max age",
     ),
     updates: matchesSearch(
-      "update checks",
-      "repository source release check interval",
-      "repository check interval github releases",
+      "updates",
+      "check for new versions channel release candidates stable",
+      "repository github releases",
     ),
     worker: matchesSearch(
       "worker",
@@ -356,51 +356,59 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
           </SettingsPanel>
 
           <SettingsPanel
-            title="Update checks"
-            description="Repository source, cadence, and release status"
+            title="Updates"
+            description="When Staaash looks for new versions"
             hidden={!visiblePanels.updates}
             {...panelProps("updates")}
           >
             <SettingsList>
-              <SettingsRow label="Current version">
-                <span className="text-sm leading-snug text-foreground/82">
-                  {updateStatus.currentVersion
-                    ? formatVersionLabel(updateStatus.currentVersion)
-                    : "n/a"}
-                </span>
-              </SettingsRow>
-              <SettingsRow label="Latest published">
-                <span className="text-sm leading-snug text-foreground/82">
-                  {updateStatus.latestAvailableVersion
-                    ? formatVersionLabel(updateStatus.latestAvailableVersion)
-                    : "n/a"}
-                </span>
-              </SettingsRow>
-              <SettingsRow label="Check status">
-                <AdminStatusBadge
-                  status={updateStatus.updateCheckStatus ?? "not checked"}
-                  size="lg"
+              <SettingsFieldRow
+                name="updateCheckEnabled"
+                error={fieldErrors.updateCheckEnabled}
+                hint="Asks GitHub once an hour and when Staaash starts. Nothing about you or your files is sent."
+                label="Check for new versions"
+              >
+                <SettingsToggle
+                  name="updateCheckEnabled"
+                  checked={draft.updateCheckEnabled === "on"}
+                  onCheckedChange={(checked) =>
+                    setField("updateCheckEnabled", checked ? "on" : "")
+                  }
+                  label="Check for new versions"
+                />
+              </SettingsFieldRow>
+              <SettingsFieldRow
+                name="updateChannel"
+                error={fieldErrors.updateChannel}
+                hint={
+                  draft.updateChannel === "auto"
+                    ? `Following this install: ${updateState.channel === "rc" ? "release candidates" : "stable releases"}.`
+                    : "Release candidates come before each stable release."
+                }
+                label="Channel"
+              >
+                <input
+                  name="updateChannel"
+                  type="hidden"
+                  value={draft.updateChannel}
+                />
+                <Tabs
+                  value={draft.updateChannel}
+                  onValueChange={(next) =>
+                    setField("updateChannel", String(next))
+                  }
                 >
-                  {getUpdateStatusLabel(updateStatus.updateCheckStatus)}
-                </AdminStatusBadge>
-              </SettingsRow>
-              <SettingsRow label="Last checked">
-                <span className="text-sm leading-snug text-foreground/82">
-                  {formatAdminDateTime(
-                    updateStatus.lastUpdateCheckAt,
-                    timeZone,
-                  )}
-                </span>
-              </SettingsRow>
-              <SettingsRow label="Last message">
-                <span className="text-sm leading-snug text-foreground/82">
-                  {updateStatus.updateCheckMessage ??
-                    "No update check has run yet."}
-                </span>
-              </SettingsRow>
+                  <TabsList aria-label="Channel">
+                    <TabsTab value="auto">Automatic</TabsTab>
+                    <TabsTab value="stable">Stable</TabsTab>
+                    <TabsTab value="rc">Release candidates</TabsTab>
+                  </TabsList>
+                </Tabs>
+              </SettingsFieldRow>
               <SettingsFieldRow
                 name="updateCheckRepository"
                 error={fieldErrors.updateCheckRepository}
+                hint="Forks can point this at their own releases."
                 label="Repository"
               >
                 <Input
@@ -410,20 +418,13 @@ export function SettingsForm({ settings, updateStatus }: SettingsFormProps) {
                   placeholder="owner/repo"
                 />
               </SettingsFieldRow>
-              <SettingsFieldRow
-                name="updateCheckIntervalHours"
-                error={fieldErrors.updateCheckIntervalHours}
-                label="Check interval (hours)"
-              >
-                <SettingsNumberInput
-                  {...inputProps("updateCheckIntervalHours")}
-                  min={1}
-                />
-              </SettingsFieldRow>
+              <SettingsRow kind="value" label="Status">
+                {getUpdateStatusLabel(updateState)}
+                {updateState.lastCheckedAt
+                  ? `, checked ${formatAdminDateTime(updateState.lastCheckedAt, timeZone)}`
+                  : ""}
+              </SettingsRow>
             </SettingsList>
-            <div className="flex justify-end max-sm:justify-stretch">
-              <UpdateCheckConsole />
-            </div>
             <SettingsPanelActions
               pending={pending}
               state={feedback}

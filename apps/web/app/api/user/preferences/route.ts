@@ -25,7 +25,6 @@ const preferencesSchema = z.object({
     )
     .optional(),
   showUpdateNotifications: z.boolean().optional(),
-  enableVersionChecks: z.boolean().optional(),
   displayName: z.string().trim().max(80).nullable().optional(),
   avatarUrl: z.string().max(300000).nullable().optional(),
 });
@@ -60,10 +59,6 @@ export async function POST(request: NextRequest) {
       showUpdateNotifications:
         parsed.showUpdateNotifications ??
         existingPrefs?.showUpdateNotifications ??
-        true,
-      enableVersionChecks:
-        parsed.enableVersionChecks ??
-        existingPrefs?.enableVersionChecks ??
         true,
       displayName: parsed.displayName,
       avatarUrl: parsed.avatarUrl,

@@ -5,7 +5,7 @@ import {
   getQueueBacklogSummary,
   probeDatabaseReachability,
 } from "@staaash/db/health";
-import { readInstanceUpdateCheck } from "@staaash/db/instance";
+import { readInstanceUpdateState } from "@staaash/db/instance";
 import { listWorkerInstances } from "@staaash/db/jobs";
 import { readLatestRestoreReconciliationRun } from "@staaash/db/reconciliation";
 import { getStorageMutationHealth } from "@staaash/db/storage-mutations";
@@ -13,7 +13,7 @@ import { assertStorageFilesystemSupported } from "@staaash/db/storage-mutation-e
 import { getPrisma } from "@staaash/db/client";
 
 import { resolveAppVersion } from "@/server/app-version";
-import { deriveEffectiveUpdateStatus } from "@/server/update-derive";
+import { deriveUpdateState } from "@/server/admin/updates";
 import { getSystemSettings } from "@/server/settings";
 import { buildRestoreReconciliationHealthSummary } from "@/server/restore";
 import {
@@ -334,27 +334,27 @@ const resolveStorageReadiness = ({
 
 // fallow-ignore-next-line unused-export
 export const resolveVersionHealth = (
-  instanceState: Awaited<ReturnType<typeof readInstanceUpdateCheck>> | null,
+  instanceState: Awaited<ReturnType<typeof readInstanceUpdateState>> | null,
+  settings: Awaited<ReturnType<typeof getSystemSettings>> | null,
 ): InstanceHealthSummary["version"] => {
-  const currentVersion = resolveAppVersion();
-
-  const { updateCheckStatus, updateCheckMessage, latestAvailableVersion } =
-    deriveEffectiveUpdateStatus({
-      currentVersion,
-      persisted: {
-        updateCheckStatus: instanceState?.updateCheckStatus ?? null,
-        updateCheckMessage: instanceState?.updateCheckMessage ?? null,
-        latestAvailableVersion: instanceState?.latestAvailableVersion ?? null,
-        checkedVersion: instanceState?.checkedVersion ?? null,
-      },
-    });
-
+  const state = deriveUpdateState({
+    currentVersion: resolveAppVersion(),
+    instance: instanceState ?? {
+      lastUpdateCheckAt: null,
+      updateCheckError: null,
+      updateReleases: [],
+    },
+    settings: settings ?? {
+      updateCheckEnabled: true,
+      updateChannel: null,
+      updateCheckRepository: "",
+    },
+  });
   return {
-    currentVersion,
-    lastUpdateCheckAt: instanceState?.lastUpdateCheckAt?.toISOString() ?? null,
-    updateCheckStatus,
-    updateCheckMessage,
-    latestAvailableVersion,
+    currentVersion: state.currentVersion,
+    lastUpdateCheckAt: state.lastCheckedAt,
+    updateStatus: state.status,
+    latestVersion: state.latest?.version ?? null,
   };
 };
 
@@ -411,7 +411,7 @@ export const getReadiness = async () => {
     readWorkerHeartbeat(),
     getQueueBacklogSummary(databaseUrl),
     getStorageWarnings(),
-    readInstanceUpdateCheck().catch(() => null),
+    readInstanceUpdateState().catch(() => null),
     readLatestRestoreReconciliationRun().catch(() => null),
     getSystemSettings()
       .then((settings) => ({ settings, error: null }))
@@ -448,7 +448,7 @@ export const getReadiness = async () => {
       storageMutationProbe.health ?? EMPTY_STORAGE_MUTATION_HEALTH,
     storageMutationStatus: storageMutationProbe.health ? undefined : "error",
     storageWarnings,
-    versionInfo: resolveVersionHealth(instanceState),
+    versionInfo: resolveVersionHealth(instanceState, settingsProbe.settings),
   });
 };
 

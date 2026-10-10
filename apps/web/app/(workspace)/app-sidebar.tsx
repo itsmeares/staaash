@@ -3,13 +3,11 @@
 import { Zap } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
 import { formatVersionLabel } from "@staaash/config/version";
 
 import { DriveGlyph } from "@/components/drive-glyph";
-import type { UpdateStatus } from "@/lib/update-status";
 
-import { AboutDialog } from "./about-dialog";
+import { useUpdates } from "./updates";
 import { NewMenu } from "./new-menu";
 import {
   SidebarLink,
@@ -26,10 +24,6 @@ export type ShellInfo = {
   instanceName: string;
   isOwner: boolean;
   appVersion: string;
-  nodeVersion: string;
-  updateStatus: UpdateStatus;
-  latestVersion: string | null;
-  repository: string | null;
   usedBytes: string;
   limitBytes: string | null;
   diskUsedBytes: string | null;
@@ -48,26 +42,21 @@ export function DriveBrand({ instanceName }: { instanceName: string }) {
   );
 }
 
-/** The update note, owners only. Opens the About dialog. */
-export function UpdateNote({
-  latestVersion,
-  onOpen,
-}: {
-  latestVersion: string | null;
-  onOpen: () => void;
-}) {
+/** The update note, for owners who want it. Opens the About dialog. */
+export function UpdateNote() {
+  const { state, notify, openAbout } = useUpdates();
+  const newest = state?.status === "update-available" ? state.missed[0] : null;
+  if (!newest || !notify) return null;
   return (
     <button
       className="flex w-full cursor-pointer items-center gap-2 rounded-lg bg-primary/12 px-2.5 py-2 text-left text-label outline-none hover:bg-primary/16 focus-visible:ring-2 focus-visible:ring-ring"
       type="button"
-      onClick={onOpen}
+      onClick={openAbout}
     >
       <Zap aria-hidden className="size-3.5 shrink-0 text-primary-ink" />
       <span>
-        <b className="font-semibold">
-          {latestVersion ? formatVersionLabel(latestVersion) : "An update"}
-        </b>{" "}
-        is out
+        <b className="font-semibold">{formatVersionLabel(newest.version)}</b> is
+        out
       </span>
       <span className="ms-auto font-medium text-primary-ink">
         What&apos;s new
@@ -76,11 +65,23 @@ export function UpdateNote({
   );
 }
 
+/** The running version; opens the About dialog. */
+export function VersionButton() {
+  const { appVersion, openAbout } = useUpdates();
+  return (
+    <button
+      className="w-fit cursor-pointer rounded-sm px-2.5 text-label text-muted-foreground tabular-nums outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+      type="button"
+      onClick={openAbout}
+    >
+      {formatVersionLabel(appVersion)}
+    </button>
+  );
+}
+
 export function AppSidebar({ info }: { info: ShellInfo }) {
   const pathname = usePathname();
-  const [aboutOpen, setAboutOpen] = useState(false);
   const inAdmin = isAdminPath(pathname);
-  const showNote = info.isOwner && info.updateStatus === "update-available";
 
   return (
     <aside
@@ -115,30 +116,9 @@ export function AppSidebar({ info }: { info: ShellInfo }) {
           diskCapacityBytes={info.diskCapacityBytes}
           isAdmin={info.isOwner}
         />
-        {showNote ? (
-          <UpdateNote
-            latestVersion={info.latestVersion}
-            onOpen={() => setAboutOpen(true)}
-          />
-        ) : null}
-        <button
-          className="w-fit cursor-pointer rounded-sm px-2.5 text-label text-muted-foreground tabular-nums outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-          type="button"
-          onClick={() => setAboutOpen(true)}
-        >
-          {formatVersionLabel(info.appVersion)}
-        </button>
+        <UpdateNote />
+        <VersionButton />
       </div>
-
-      <AboutDialog
-        open={aboutOpen}
-        onOpenChange={setAboutOpen}
-        appVersion={info.appVersion}
-        nodeVersion={info.nodeVersion}
-        updateStatus={info.isOwner ? info.updateStatus : null}
-        latestVersion={info.latestVersion}
-        repository={info.repository}
-      />
     </aside>
   );
 }

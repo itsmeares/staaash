@@ -2,11 +2,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   upsert: vi.fn(),
+  findUnique: vi.fn(),
+  enqueueCheck: vi.fn(),
   requireOwner: vi.fn(),
   revalidatePath: vi.fn(),
 }));
 vi.mock("@staaash/db/client", () => ({
-  getPrisma: () => ({ systemSettings: { upsert: mocks.upsert } }),
+  getPrisma: () => ({
+    systemSettings: { upsert: mocks.upsert, findUnique: mocks.findUnique },
+  }),
+}));
+vi.mock("@/server/admin/updates", () => ({
+  enqueueAdminUpdateCheck: mocks.enqueueCheck,
 }));
 vi.mock("@/server/auth/guards", () => ({
   requireOwnerPageSession: mocks.requireOwner,
@@ -33,7 +40,8 @@ const defaults = {
   previewMaxSourceBytes: 26214400,
   previewTextMaxBytes: 65536,
   workerHeartbeatMaxAgeSeconds: 120,
-  updateCheckIntervalHours: 24,
+  updateCheckEnabled: true,
+  updateChannel: null,
   updateCheckRepository: "owner/repo",
   timeZone: "Europe/London",
   maintenanceRunTime: "02:00",
@@ -65,7 +73,6 @@ const integerFields = [
   "previewMaxSourceBytes",
   "previewTextMaxBytes",
   "workerHeartbeatMaxAgeSeconds",
-  "updateCheckIntervalHours",
   "mediaPreviewRetentionDays",
   "mediaPreviewMaxHeight",
   "zipArchiveRetentionDays",
@@ -82,6 +89,7 @@ describe("admin settings validation", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.requireOwner.mockResolvedValue({ user: { id: "owner" } });
+    mocks.findUnique.mockResolvedValue(defaults);
   });
 
   it.each(integerFields)(
@@ -193,5 +201,29 @@ describe("admin settings validation", () => {
       "Not authorized",
     );
     expect(mocks.upsert).not.toHaveBeenCalled();
+  });
+
+  it("checks for updates right away when the channel changes", async () => {
+    const same = await updateSystemSettings({}, form());
+    expect(same.success).toBe(true);
+    expect(mocks.enqueueCheck).not.toHaveBeenCalled();
+
+    const data = form();
+    data.set("updateChannel", "rc");
+    const result = await updateSystemSettings({}, data);
+    expect(result.values?.updateChannel).toBe("rc");
+    expect(mocks.upsert.mock.calls.at(-1)![0].update).toMatchObject({
+      updateChannel: "rc",
+      updateCheckEnabled: true,
+    });
+    expect(mocks.enqueueCheck).toHaveBeenCalledTimes(1);
+  });
+
+  it("saves Automatic as no stored channel", async () => {
+    const data = form();
+    data.set("updateChannel", "auto");
+    const result = await updateSystemSettings({}, data);
+    expect(result.values?.updateChannel).toBe("auto");
+    expect(mocks.upsert.mock.calls.at(-1)![0].update.updateChannel).toBeNull();
   });
 });

@@ -15,7 +15,6 @@ import {
   Trash2,
 } from "lucide-react";
 import { useState } from "react";
-import { formatVersionLabel } from "@staaash/config/version";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -26,8 +25,7 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 
-import { AboutDialog } from "./about-dialog";
-import { UpdateNote, type ShellInfo } from "./app-sidebar";
+import { UpdateNote, VersionButton, type ShellInfo } from "./app-sidebar";
 import { NewMenu } from "./new-menu";
 import { WorkspaceAvatar } from "./workspace-avatar";
 import { WorkspaceStorage } from "./workspace-storage";
@@ -67,7 +65,6 @@ export function WorkspaceMobileNav({
 }: WorkspaceMobileNavProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [aboutOpen, setAboutOpen] = useState(false);
   const items = info.isOwner
     ? [...moreItems, { href: "/admin", label: "Admin", icon: Shield }]
     : moreItems;
@@ -148,20 +145,9 @@ export function WorkspaceMobileNav({
                   diskCapacityBytes={info.diskCapacityBytes}
                   isAdmin={info.isOwner}
                 />
-                {info.isOwner && info.updateStatus === "update-available" ? (
-                  <UpdateNote
-                    latestVersion={info.latestVersion}
-                    onOpen={() => setAboutOpen(true)}
-                  />
-                ) : null}
+                <UpdateNote />
                 <div className="flex items-center justify-between">
-                  <button
-                    className="cursor-pointer rounded-sm px-2.5 text-label text-muted-foreground tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    type="button"
-                    onClick={() => setAboutOpen(true)}
-                  >
-                    {formatVersionLabel(info.appVersion)}
-                  </button>
+                  <VersionButton />
                   <form action="/api/auth/sign-out" method="post">
                     <input type="hidden" name="next" value="/" />
                     <Button type="submit" variant="ghost-muted">
@@ -175,15 +161,6 @@ export function WorkspaceMobileNav({
           </DrawerPopup>
         </Drawer>
       </nav>
-      <AboutDialog
-        open={aboutOpen}
-        onOpenChange={setAboutOpen}
-        appVersion={info.appVersion}
-        nodeVersion={info.nodeVersion}
-        updateStatus={info.isOwner ? info.updateStatus : null}
-        latestVersion={info.latestVersion}
-        repository={info.repository}
-      />
     </>
   );
 }

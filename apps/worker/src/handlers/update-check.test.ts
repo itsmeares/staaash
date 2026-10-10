@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import packageMetadata from "../../package.json" with { type: "json" };
 
 const writeInstanceUpdateCheck = vi.fn();
 const mockFindUnique = vi.fn();
@@ -10,339 +9,185 @@ vi.mock("@staaash/db/instance", () => ({
 
 vi.mock("@staaash/db/client", () => ({
   getPrisma: () => ({
-    systemSettings: {
-      findUnique: mockFindUnique,
-    },
+    systemSettings: { findUnique: mockFindUnique },
   }),
 }));
 
-const createJob = () =>
-  ({
-    id: "job-1",
-    kind: "update.check",
-    status: "queued",
-    payloadJson: {},
-    dedupeKey: null,
-    runAt: new Date("2026-04-06T12:00:00.000Z"),
-    lockedAt: null,
-    lockedBy: null,
-    attemptCount: 0,
-    maxAttempts: 5,
-    lastError: null,
-    createdAt: new Date("2026-04-06T12:00:00.000Z"),
-    updatedAt: new Date("2026-04-06T12:00:00.000Z"),
-  }) as const;
+const job = {
+  id: "job-1",
+  kind: "update.check",
+  status: "queued",
+  payloadJson: {},
+  dedupeKey: null,
+  runAt: new Date("2026-04-06T12:00:00.000Z"),
+  lockedAt: null,
+  lockedBy: null,
+  attemptCount: 0,
+  maxAttempts: 5,
+  lastError: null,
+  createdAt: new Date("2026-04-06T12:00:00.000Z"),
+  updatedAt: new Date("2026-04-06T12:00:00.000Z"),
+} as const;
 
-const restoreEnvironmentValue = (
-  name: "NODE_ENV" | "APP_VERSION" | "STAAASH_VERSION" | "UPDATE_CHECK_TOKEN",
-  value: string | undefined,
-) => {
-  if (value === undefined) {
-    delete process.env[name];
-  } else {
-    process.env[name] = value;
-  }
+const githubReleases = [
+  { tag_name: "v1.3.0-rc.1", prerelease: true, body: "Try the next one." },
+  {
+    tag_name: "v1.2.1",
+    name: "Staaash 1.2.1",
+    body: "A small fix release.",
+    published_at: "2026-10-01T10:00:00Z",
+    html_url: "https://github.com/itsmeares/staaash/releases/tag/v1.2.1",
+  },
+  { tag_name: "v1.4.0", draft: true, body: "Not published." },
+  { tag_name: "v1.2.0", body: "The redesign." },
+  { tag_name: "nightly", body: "Not a version." },
+];
+
+const stubGitHub = (response: Partial<Response> & { json?: () => unknown }) => {
+  const fetchMock = vi.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => githubReleases,
+    ...response,
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
 };
 
+const savedReleases = () =>
+  (
+    writeInstanceUpdateCheck.mock.calls[0]![0] as {
+      releases: Array<{ version: string }>;
+    }
+  ).releases.map((release) => release.version);
+
 describe("update check handler", () => {
-  let originalNodeEnv: string | undefined;
-  let originalAppVersion: string | undefined;
-  let originalStaaashVersion: string | undefined;
-  let originalUpdateCheckToken: string | undefined;
+  const env = { ...process.env };
 
   beforeEach(() => {
-    originalNodeEnv = process.env.NODE_ENV;
-    originalAppVersion = process.env.APP_VERSION;
-    originalStaaashVersion = process.env.STAAASH_VERSION;
-    originalUpdateCheckToken = process.env.UPDATE_CHECK_TOKEN;
     process.env.NODE_ENV = "production";
-    delete process.env.APP_VERSION;
+    process.env.APP_VERSION = "1.2.0";
     delete process.env.STAAASH_VERSION;
     delete process.env.UPDATE_CHECK_TOKEN;
+    mockFindUnique.mockResolvedValue({
+      updateCheckEnabled: true,
+      updateCheckRepository: "itsmeares/staaash",
+      updateChannel: null,
+    });
   });
 
   afterEach(() => {
-    restoreEnvironmentValue("NODE_ENV", originalNodeEnv);
-    restoreEnvironmentValue("APP_VERSION", originalAppVersion);
-    restoreEnvironmentValue("STAAASH_VERSION", originalStaaashVersion);
-    restoreEnvironmentValue("UPDATE_CHECK_TOKEN", originalUpdateCheckToken);
-    vi.restoreAllMocks();
+    process.env = { ...env };
+    vi.unstubAllGlobals();
     vi.clearAllMocks();
-    mockFindUnique.mockReset();
   });
 
-  it("marks update checks unavailable when no repository is configured", async () => {
-    mockFindUnique.mockResolvedValue(null);
+  it("stores published stable releases, newest first, with their notes", async () => {
+    stubGitHub({});
     const { handleUpdateCheck } = await import("./update-check.js");
 
-    await handleUpdateCheck(createJob());
+    await handleUpdateCheck(job);
 
+    expect(savedReleases()).toEqual(["1.2.1", "1.2.0"]);
     expect(writeInstanceUpdateCheck).toHaveBeenCalledWith(
       expect.objectContaining({
-        updateCheckStatus: "unavailable",
-        updateCheckMessage: "Update checks are not configured.",
-        latestAvailableVersion: null,
-        checkedVersion: null,
+        releases: expect.arrayContaining([
+          {
+            version: "1.2.1",
+            name: "Staaash 1.2.1",
+            notes: "A small fix release.",
+            publishedAt: "2026-10-01T10:00:00Z",
+            url: "https://github.com/itsmeares/staaash/releases/tag/v1.2.1",
+          },
+        ]),
       }),
     );
   });
 
-  it("marks an update as available when the release version is newer", async () => {
-    process.env.APP_VERSION = "0.3.0-beta.1";
+  it("follows release candidates when a pre-release is running", async () => {
+    process.env.APP_VERSION = "1.2.0-rc.3";
+    stubGitHub({});
+    const { handleUpdateCheck } = await import("./update-check.js");
+
+    await handleUpdateCheck(job);
+
+    expect(savedReleases()).toEqual(["1.3.0-rc.1", "1.2.1", "1.2.0"]);
+  });
+
+  it("keeps to stable when the owner picked it, even on a pre-release", async () => {
+    process.env.APP_VERSION = "1.2.0-rc.3";
     mockFindUnique.mockResolvedValue({
+      updateCheckEnabled: true,
+      updateCheckRepository: "itsmeares/staaash",
+      updateChannel: "stable",
+    });
+    stubGitHub({});
+    const { handleUpdateCheck } = await import("./update-check.js");
+
+    await handleUpdateCheck(job);
+
+    expect(savedReleases()).toEqual(["1.2.1", "1.2.0"]);
+  });
+
+  it("does nothing when checks are switched off", async () => {
+    mockFindUnique.mockResolvedValue({
+      updateCheckEnabled: false,
       updateCheckRepository: "itsmeares/staaash",
     });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => [
-          {
-            tag_name: "v0.3.0",
-            draft: false,
-            prerelease: false,
-          },
-        ],
-      }),
-    );
-
+    const fetchMock = stubGitHub({});
     const { handleUpdateCheck } = await import("./update-check.js");
 
-    await handleUpdateCheck(createJob());
+    await handleUpdateCheck(job);
 
-    expect(writeInstanceUpdateCheck).toHaveBeenCalledWith(
-      expect.objectContaining({
-        updateCheckStatus: "update-available",
-        latestAvailableVersion: "0.3.0",
-        checkedVersion: "0.3.0-beta.1",
-      }),
-    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(writeInstanceUpdateCheck).not.toHaveBeenCalled();
   });
 
-  it("uses packaged metadata when APP_VERSION is absent", async () => {
-    mockFindUnique.mockResolvedValue({
-      updateCheckRepository: "itsmeares/staaash",
-    });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => [
-          {
-            tag_name: "v999.0.0",
-            draft: false,
-            prerelease: false,
-          },
-        ],
-      }),
-    );
-
+  it("records an error without releases when GitHub fails", async () => {
+    stubGitHub({ ok: false, status: 503 });
     const { handleUpdateCheck } = await import("./update-check.js");
-    await handleUpdateCheck(createJob());
 
-    expect(writeInstanceUpdateCheck).toHaveBeenCalledWith(
-      expect.objectContaining({
-        updateCheckStatus: "update-available",
-        latestAvailableVersion: "999.0.0",
-        checkedVersion: packageMetadata.version,
-      }),
-    );
+    await handleUpdateCheck(job);
+
+    expect(writeInstanceUpdateCheck).toHaveBeenCalledWith({
+      checkedAt: expect.any(Date),
+      error: "GitHub answered 503.",
+    });
   });
 
-  it("selects highest compatible prerelease by SemVer", async () => {
-    process.env.APP_VERSION = "1.0.0-rc.2";
+  it("records an error when no repository is set", async () => {
     mockFindUnique.mockResolvedValue({
-      updateCheckRepository: "itsmeares/staaash",
+      updateCheckEnabled: true,
+      updateCheckRepository: " ",
     });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => [
-          {
-            tag_name: "v1.0.0-rc.4",
-            draft: false,
-            prerelease: true,
-          },
-          {
-            tag_name: "v1.0.0-rc.10",
-            draft: false,
-            prerelease: true,
-          },
-          {
-            tag_name: "not-a-version",
-            draft: false,
-            prerelease: false,
-          },
-        ],
-      }),
-    );
-
     const { handleUpdateCheck } = await import("./update-check.js");
-    await handleUpdateCheck(createJob());
 
-    expect(writeInstanceUpdateCheck).toHaveBeenCalledWith(
-      expect.objectContaining({
-        updateCheckStatus: "update-available",
-        latestAvailableVersion: "1.0.0-rc.10",
-        checkedVersion: "1.0.0-rc.2",
-      }),
-    );
+    await handleUpdateCheck(job);
+
+    expect(writeInstanceUpdateCheck).toHaveBeenCalledWith({
+      checkedAt: expect.any(Date),
+      error: "No release repository is set.",
+    });
   });
 
-  it("ignores prereleases for stable installs", async () => {
-    process.env.APP_VERSION = "1.0.0";
-    mockFindUnique.mockResolvedValue({
-      updateCheckRepository: "itsmeares/staaash",
-    });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => [
-          {
-            tag_name: "v1.1.0-rc.1",
-            draft: false,
-            prerelease: true,
-          },
-          {
-            tag_name: "v1.0.1",
-            draft: false,
-            prerelease: false,
-          },
-        ],
-      }),
-    );
-
+  it("sends the optional token to GitHub", async () => {
+    process.env.UPDATE_CHECK_TOKEN = "secret-token";
+    const fetchMock = stubGitHub({});
     const { handleUpdateCheck } = await import("./update-check.js");
-    await handleUpdateCheck(createJob());
 
-    expect(writeInstanceUpdateCheck).toHaveBeenCalledWith(
-      expect.objectContaining({
-        updateCheckStatus: "update-available",
-        latestAvailableVersion: "1.0.1",
-        checkedVersion: "1.0.0",
-      }),
-    );
+    await handleUpdateCheck(job);
+
+    const headers = fetchMock.mock.calls[0]![1].headers as Headers;
+    expect(headers.get("Authorization")).toBe("Bearer secret-token");
   });
 
-  it("reports up to date when current prerelease is newest", async () => {
-    process.env.APP_VERSION = "1.0.0-rc.4";
-    mockFindUnique.mockResolvedValue({
-      updateCheckRepository: "itsmeares/staaash",
-    });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => [
-          {
-            tag_name: "v1.0.0-rc.4",
-            draft: false,
-            prerelease: true,
-          },
-          {
-            tag_name: "v1.0.0-rc.3",
-            draft: false,
-            prerelease: true,
-          },
-        ],
-      }),
-    );
-
-    const { handleUpdateCheck } = await import("./update-check.js");
-    await handleUpdateCheck(createJob());
-
-    expect(writeInstanceUpdateCheck).toHaveBeenCalledWith(
-      expect.objectContaining({
-        updateCheckStatus: "up-to-date",
-        latestAvailableVersion: "1.0.0-rc.4",
-        checkedVersion: "1.0.0-rc.4",
-      }),
-    );
-  });
-
-  it("records no compatible release against the current version", async () => {
-    process.env.UPDATE_CHECK_TOKEN = "test-token";
-    mockFindUnique.mockResolvedValue({
-      updateCheckRepository: "itsmeares/staaash",
-    });
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => [],
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    const { handleUpdateCheck } = await import("./update-check.js");
-    await handleUpdateCheck(createJob());
-
-    const request = fetchMock.mock.calls[0]!;
-    expect(request[0]).toContain("/releases?per_page=100");
-    expect((request[1].headers as Headers).get("Authorization")).toBe(
-      "Bearer test-token",
-    );
-    expect(writeInstanceUpdateCheck).toHaveBeenCalledWith(
-      expect.objectContaining({
-        updateCheckStatus: "unavailable",
-        latestAvailableVersion: null,
-        checkedVersion: packageMetadata.version,
-      }),
-    );
-  });
-
-  it("marks missing releases as unavailable rather than errors", async () => {
-    mockFindUnique.mockResolvedValue({
-      updateCheckRepository: "itsmeares/staaash",
-    });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: false,
-        status: 404,
-      }),
-    );
-
+  it("skips outside production", async () => {
+    process.env.NODE_ENV = "development";
+    const fetchMock = stubGitHub({});
     const { handleUpdateCheck } = await import("./update-check.js");
 
-    await handleUpdateCheck(createJob());
+    await handleUpdateCheck(job);
 
-    expect(writeInstanceUpdateCheck).toHaveBeenCalledWith(
-      expect.objectContaining({
-        updateCheckStatus: "unavailable",
-        latestAvailableVersion: null,
-        checkedVersion: packageMetadata.version,
-      }),
-    );
-  });
-
-  it("marks transport or API failures as errors", async () => {
-    mockFindUnique.mockResolvedValue({
-      updateCheckRepository: "itsmeares/staaash",
-    });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: false,
-        status: 500,
-      }),
-    );
-
-    const { handleUpdateCheck } = await import("./update-check.js");
-
-    await handleUpdateCheck(createJob());
-
-    expect(writeInstanceUpdateCheck).toHaveBeenCalledWith(
-      expect.objectContaining({
-        updateCheckStatus: "error",
-        latestAvailableVersion: null,
-        checkedVersion: packageMetadata.version,
-      }),
-    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

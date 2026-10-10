@@ -633,7 +633,6 @@ export const createAuthService = ({
         theme: string;
         timeZone: string;
         showUpdateNotifications: boolean;
-        enableVersionChecks: boolean;
         displayName?: string | null;
         avatarUrl?: string | null;
       },
@@ -643,7 +642,6 @@ export const createAuthService = ({
         theme: prefs.theme,
         timeZone: prefs.timeZone,
         showUpdateNotifications: prefs.showUpdateNotifications,
-        enableVersionChecks: prefs.enableVersionChecks,
         displayName: prefs.displayName,
         avatarUrl: prefs.avatarUrl,
         onboardingCompletedAt: new Date(),

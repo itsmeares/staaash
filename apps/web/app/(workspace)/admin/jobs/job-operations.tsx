@@ -13,6 +13,7 @@ import {
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
+import { subscribeLive } from "@/lib/live-events";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -1759,22 +1760,15 @@ export function JobOperations({
     [lastRuns],
   );
 
-  useEffect(() => {
-    const source = new EventSource("/api/admin/jobs/state/stream");
-    const onState = (event: Event) => {
-      const state = JSON.parse(
-        (event as MessageEvent<string>).data,
-      ) as JsonJobState;
-      setSummary(state.summary);
-      setLastRuns(state.lastRuns);
-    };
-    source.addEventListener("state", onState);
-
-    return () => {
-      source.removeEventListener("state", onState);
-      source.close();
-    };
-  }, []);
+  useEffect(
+    () =>
+      subscribeLive("state", (data) => {
+        const state = data as JsonJobState;
+        setSummary(state.summary);
+        setLastRuns(state.lastRuns);
+      }),
+    [],
+  );
 
   useEffect(() => {
     setNowMs(Date.now());

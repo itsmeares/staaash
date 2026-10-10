@@ -27,7 +27,6 @@ const prefs: UserPreferences = {
   theme: "system",
   timeZone: "UTC",
   showUpdateNotifications: true,
-  enableVersionChecks: true,
   onboardingCompletedAt: now,
 };
 

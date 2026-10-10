@@ -40,10 +40,10 @@ model Instance {
   authSecret             String?
   setupCompletedAt       DateTime  @default(now())
   lastUpdateCheckAt      DateTime?
-  updateCheckStatus      String?
-  updateCheckMessage     String?
-  latestAvailableVersion String?
-  checkedVersion         String?
+  /// Why the last check failed; null after a successful check.
+  updateCheckError       String?
+  /// Recent releases on the chosen channel, newest first.
+  updateReleases         Json?
   storageProtocolVersion Int       @default(2)
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
@@ -63,7 +63,9 @@ model SystemSettings {
   previewMaxSourceBytes              Int      @default(26214400)
   previewTextMaxBytes                Int      @default(65536)
   workerHeartbeatMaxAgeSeconds       Int      @default(120)
-  updateCheckIntervalHours           Int      @default(24)
+  updateCheckEnabled                 Boolean  @default(true)
+  /// "stable" or "rc"; null follows the running version (rc for pre-releases).
+  updateChannel                      String?
   updateCheckRepository              String   @default("itsmeares/staaash")
   timeZone                           String   @default("UTC")
   maintenanceRunTime                 String   @default("02:00")
@@ -120,7 +122,6 @@ model UserPreference {
   theme                   String    @default("system")
   timeZone                String    @default("UTC")
   showUpdateNotifications Boolean   @default(true)
-  enableVersionChecks     Boolean   @default(true)
   onboardingCompletedAt   DateTime?
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt

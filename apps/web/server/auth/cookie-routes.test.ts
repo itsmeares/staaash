@@ -25,7 +25,6 @@ const completedPreferences = {
   theme: "dark",
   timeZone: "UTC",
   showUpdateNotifications: true,
-  enableVersionChecks: true,
   onboardingCompletedAt: new Date("2026-05-10T12:00:00.000Z"),
 };
 

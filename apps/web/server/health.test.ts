@@ -14,9 +14,8 @@ import {
 const baseVersionInfo = {
   currentVersion: "0.3.0-beta.1",
   lastUpdateCheckAt: null,
-  updateCheckStatus: null,
-  updateCheckMessage: null,
-  latestAvailableVersion: null,
+  updateStatus: "unchecked" as const,
+  latestVersion: null,
 };
 
 const baseReconciliation = {
@@ -78,40 +77,34 @@ describe("health summaries", () => {
     expect(summary.version.lastUpdateCheckAt).toBeNull();
   });
 
-  it("does not flip update-available when a real comparison is unavailable", () => {
-    const version = resolveVersionHealth({
-      lastUpdateCheckAt: null,
-      updateCheckStatus: "update-available",
-      updateCheckMessage: "Update available: 1.0.0.",
-      latestAvailableVersion: "1.0.0",
-      checkedVersion: null,
+  it("works out update state against the running version", () => {
+    const version = resolveVersionHealth(
+      {
+        lastUpdateCheckAt: new Date("2026-10-10T12:00:00Z"),
+        updateCheckError: null,
+        updateReleases: [
+          {
+            version: "99.0.0",
+            name: null,
+            notes: "",
+            publishedAt: null,
+            url: null,
+          },
+        ],
+      },
+      {
+        updateCheckEnabled: true,
+        updateChannel: null,
+        updateCheckRepository: "itsmeares/staaash",
+      } as never,
+    );
+
+    expect(version).toMatchObject({
+      lastUpdateCheckAt: "2026-10-10T12:00:00.000Z",
+      updateStatus: "update-available",
+      latestVersion: "99.0.0",
     });
-
-    expect(version.updateCheckStatus).toBe("update-available");
-    expect(version.updateCheckMessage).toBe("Update available: 1.0.0.");
   });
-
-  it.each(["production", "test"])(
-    "invalidates stale version health in %s",
-    (nodeEnv) => {
-      vi.stubEnv("NODE_ENV", nodeEnv);
-
-      const version = resolveVersionHealth({
-        lastUpdateCheckAt: null,
-        updateCheckStatus: "up-to-date",
-        updateCheckMessage: "Instance is up to date.",
-        latestAvailableVersion: "1.0.0",
-        checkedVersion: "1.0.0",
-      });
-
-      expect(version).toMatchObject({
-        currentVersion: "2.0.0",
-        updateCheckStatus: null,
-        latestAvailableVersion: null,
-      });
-      expect(version).not.toHaveProperty("checkedVersion");
-    },
-  );
 
   it("serializes bigint storage warnings for JSON routes", () => {
     const summary = buildInstanceHealthSummary({

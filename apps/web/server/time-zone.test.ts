@@ -19,7 +19,6 @@ const { resolveDisplayTimeZone } = await import("@/server/time-zone");
 
 const user = (timeZone: string) => ({
   preferences: {
-    enableVersionChecks: true,
     onboardingCompletedAt: null,
     showUpdateNotifications: true,
     theme: "system",

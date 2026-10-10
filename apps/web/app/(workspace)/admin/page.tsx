@@ -29,7 +29,7 @@ export default async function AdminOverviewPage() {
   const session = await requireAdminPageSession();
   const summary = await getAdminOverviewSummary(session.user.id);
 
-  const updateStatus = summary.updates.updateCheckStatus;
+  const updateStatus = summary.updates.status;
   const failedWork = summary.jobs.failed + summary.jobs.dead;
   const allHealthy =
     summary.health.ok && summary.health.operational.status === "healthy";
@@ -167,10 +167,7 @@ export default async function AdminOverviewPage() {
                   Updates
                 </Button>
               }
-              detail={getUpdateStatusLabel(
-                updateStatus,
-                summary.updates.latestAvailableVersion,
-              )}
+              detail={getUpdateStatusLabel(summary.updates)}
               label={formatVersionLabel(summary.updates.currentVersion)}
               tone={updateStatus === "update-available" ? "warning" : undefined}
             />

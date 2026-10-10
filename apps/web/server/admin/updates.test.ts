@@ -1,81 +1,124 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-vi.mock("@staaash/db/instance", () => ({
-  readInstanceUpdateCheck: vi.fn(),
-}));
+import { deriveUpdateState } from "@/server/admin/updates";
+import { getUpdateStatusLabel } from "@/lib/update-status";
 
-vi.mock("@/server/app-version", () => ({
-  resolveAppVersion: () => "2.0.0",
-}));
+const release = (version: string, notes = `Notes for ${version}`) => ({
+  version,
+  name: null,
+  notes,
+  publishedAt: null,
+  url: null,
+});
 
-vi.mock("@/server/settings", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/server/settings")>()),
-  getSystemSettings: vi.fn(),
-}));
-
-const { readInstanceUpdateCheck } = await import("@staaash/db/instance");
-const { getSystemSettings } = await import("@/server/settings");
-
-import type { InstanceUpdateCheckState } from "@staaash/db/instance";
-import { getAdminUpdateStatus } from "@/server/admin/updates";
-
-const STALE_UPDATE_ROW: InstanceUpdateCheckState = {
-  lastUpdateCheckAt: new Date("2026-03-01T00:00:00.000Z"),
-  updateCheckStatus: "update-available",
-  updateCheckMessage: "Update available: 2.0.0.",
-  latestAvailableVersion: "2.0.0",
-  checkedVersion: "1.0.0",
+const settings = {
+  updateCheckEnabled: true,
+  updateChannel: null,
+  updateCheckRepository: "itsmeares/staaash",
 };
 
-type SettingsRow = Awaited<ReturnType<typeof getSystemSettings>>;
+const checked = (
+  releases: ReturnType<typeof release>[],
+  error: string | null = null,
+) => ({
+  lastUpdateCheckAt: new Date("2026-10-10T12:00:00Z"),
+  updateCheckError: error,
+  updateReleases: releases,
+});
 
-const SETTINGS: SettingsRow = {
-  updateCheckRepository: "itsmeares/staaash",
-} as SettingsRow;
-
-describe("getAdminUpdateStatus", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(getSystemSettings).mockResolvedValue(SETTINGS);
-    vi.mocked(readInstanceUpdateCheck).mockResolvedValue(STALE_UPDATE_ROW);
+describe("deriveUpdateState", () => {
+  it("lists every release newer than the running version", () => {
+    const state = deriveUpdateState({
+      currentVersion: "1.2.0",
+      instance: checked([release("1.3.1"), release("1.3.0"), release("1.2.0")]),
+      settings,
+    });
+    expect(state.status).toBe("update-available");
+    expect(state.missed.map((entry) => entry.version)).toEqual([
+      "1.3.1",
+      "1.3.0",
+    ]);
+    expect(state.kind).toBe("minor");
+    expect(getUpdateStatusLabel(state)).toBe("v1.3.1 is out");
   });
 
-  afterEach(() => {
-    vi.unstubAllEnvs();
+  it("is up to date straight after an upgrade, with the stored check unchanged", () => {
+    // The same stored releases, read by the new version after the upgrade.
+    const state = deriveUpdateState({
+      currentVersion: "1.3.1",
+      instance: checked([release("1.3.1"), release("1.3.0")]),
+      settings,
+    });
+    expect(state.status).toBe("up-to-date");
+    expect(state.missed).toEqual([]);
   });
 
-  it.each(["production", "test"])(
-    "uses the resolved app version in %s",
-    async (nodeEnv) => {
-      vi.stubEnv("NODE_ENV", nodeEnv);
-
-      const status = await getAdminUpdateStatus();
-
-      expect(status).toMatchObject({
-        currentVersion: "2.0.0",
-        updateCheckStatus: null,
-        updateCheckMessage:
-          "Update check was run against v1.0.0; re-run to refresh.",
-        latestAvailableVersion: null,
-      });
-      expect(status).not.toHaveProperty("checkedVersion");
-    },
-  );
-
-  it("preserves a result checked by the running version", async () => {
-    vi.stubEnv("NODE_ENV", "production");
-    vi.mocked(readInstanceUpdateCheck).mockResolvedValue({
-      ...STALE_UPDATE_ROW,
-      updateCheckMessage: "Update available: 3.0.0.",
-      latestAvailableVersion: "3.0.0",
-      checkedVersion: "2.0.0",
+  it("names the release size so patches can be quiet", () => {
+    const patch = deriveUpdateState({
+      currentVersion: "1.2.0",
+      instance: checked([release("1.2.1")]),
+      settings,
     });
-
-    await expect(getAdminUpdateStatus()).resolves.toMatchObject({
-      currentVersion: "2.0.0",
-      updateCheckStatus: "update-available",
-      updateCheckMessage: "Update available: 3.0.0.",
-      latestAvailableVersion: "3.0.0",
+    const major = deriveUpdateState({
+      currentVersion: "1.2.0",
+      instance: checked([release("2.0.0")]),
+      settings,
     });
+    expect(patch.kind).toBe("patch");
+    expect(major.kind).toBe("major");
+  });
+
+  it("follows release candidates on a pre-release and hides them on stable", () => {
+    const releases = [release("1.3.0-rc.1"), release("1.2.0")];
+    const onRc = deriveUpdateState({
+      currentVersion: "1.2.0-rc.4",
+      instance: checked(releases),
+      settings,
+    });
+    const onStable = deriveUpdateState({
+      currentVersion: "1.2.0",
+      instance: checked(releases),
+      settings: { ...settings, updateChannel: "stable" },
+    });
+    expect(onRc.channel).toBe("rc");
+    expect(onRc.channelChosen).toBe(false);
+    expect(onRc.kind).toBe("prerelease");
+    expect(onStable.status).toBe("up-to-date");
+    expect(onStable.channelChosen).toBe(true);
+  });
+
+  it("reports off, never checked and a failed first check", () => {
+    const off = deriveUpdateState({
+      currentVersion: "1.2.0",
+      instance: checked([release("1.3.0")]),
+      settings: { ...settings, updateCheckEnabled: false },
+    });
+    const never = deriveUpdateState({
+      currentVersion: "1.2.0",
+      instance: {
+        lastUpdateCheckAt: null,
+        updateCheckError: null,
+        updateReleases: [],
+      },
+      settings,
+    });
+    const failed = deriveUpdateState({
+      currentVersion: "1.2.0",
+      instance: checked([], "GitHub answered 503."),
+      settings,
+    });
+    expect(off.status).toBe("off");
+    expect(never.status).toBe("unchecked");
+    expect(failed.status).toBe("error");
+    expect(failed.error).toBe("GitHub answered 503.");
+  });
+
+  it("keeps showing an update when a later check fails", () => {
+    const state = deriveUpdateState({
+      currentVersion: "1.2.0",
+      instance: checked([release("1.3.0")], "GitHub answered 503."),
+      settings,
+    });
+    expect(state.status).toBe("update-available");
   });
 });

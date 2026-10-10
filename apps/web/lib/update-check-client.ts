@@ -1,4 +1,4 @@
-import type { JsonAdminUpdateStatus } from "@/server/admin/types";
+import type { UpdateState } from "@/lib/update-status";
 
 type UpdateCheckJobStatus =
   "queued" | "running" | "succeeded" | "failed" | "dead" | "cancelled";
@@ -9,7 +9,7 @@ export type UpdateCheckPollResponse = {
     status: UpdateCheckJobStatus;
     lastError: string | null;
   };
-  updateStatus: JsonAdminUpdateStatus;
+  updateState: UpdateState;
 };
 
 const readResponseError = async (response: Response) => {
@@ -80,4 +80,15 @@ export const waitForUpdateCheck = async ({
   throw new Error(
     "Update check is still running. Refresh this page to view its result.",
   );
+};
+
+/** Queues a check and waits for it, for the About dialog's Check now. */
+export const checkForUpdatesNow = async () => {
+  const response = await fetch("/api/admin/updates/check", {
+    method: "POST",
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) throw new Error(await readResponseError(response));
+  const { jobId } = (await response.json()) as { jobId: string };
+  return (await waitForUpdateCheck({ jobId })).updateState;
 };

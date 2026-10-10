@@ -1,5 +1,8 @@
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
-import { writeInstanceUpdateCheck } from "@staaash/db/instance";
+import {
+  writeInstanceUpdateCheck,
+  type UpdateRelease,
+} from "@staaash/db/instance";
 import {
   compareSemanticVersions,
   isPrereleaseVersion,
@@ -10,12 +13,17 @@ import { resolveWorkerVersion } from "../runtime-version.js";
 
 type GitHubReleaseResponse = {
   tag_name?: string;
-  name?: string;
+  name?: string | null;
+  body?: string | null;
   draft?: boolean;
   prerelease?: boolean;
+  published_at?: string | null;
+  html_url?: string | null;
 };
 
 const GITHUB_API_ROOT = "https://api.github.com";
+const KEPT_RELEASES = 10;
+const MAX_NOTES_LENGTH = 20_000;
 
 const buildGitHubHeaders = () => {
   const headers = new Headers({
@@ -24,88 +32,42 @@ const buildGitHubHeaders = () => {
     "X-GitHub-Api-Version": "2022-11-28",
   });
   const token = process.env.UPDATE_CHECK_TOKEN?.trim();
-
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
-
+  if (token) headers.set("Authorization", `Bearer ${token}`);
   return headers;
 };
 
-const selectLatestCompatibleRelease = (
+/** Published releases on the channel, newest first. */
+export const selectChannelReleases = (
   releases: GitHubReleaseResponse[],
-  currentVersion: string,
-) => {
-  const includePrereleases = isPrereleaseVersion(currentVersion);
-  const compatibleVersions = releases.flatMap((release) => {
-    if (release.draft) return [];
-
-    const version = normalizeSemanticVersion(release.tag_name ?? release.name);
-    if (!version) return [];
-
-    if (
-      !includePrereleases &&
-      (release.prerelease === true || isPrereleaseVersion(version))
-    ) {
-      return [];
-    }
-
-    return [version];
-  });
-
-  compatibleVersions.sort((left, right) =>
-    compareSemanticVersions(right, left),
-  );
-
-  return compatibleVersions[0] ?? null;
-};
-
-const readLatestGitHubRelease = async (
-  repository: string,
-  currentVersion: string,
-) => {
-  const response = await fetch(
-    `${GITHUB_API_ROOT}/repos/${repository}/releases?per_page=100`,
-    {
-      headers: buildGitHubHeaders(),
-    },
-  );
-
-  if (response.status === 404) {
-    return {
-      status: "unavailable" as const,
-      latestVersion: null,
-      message: `No published GitHub release found for ${repository}.`,
-    };
-  }
-
-  if (!response.ok) {
-    throw new Error(`GitHub release lookup failed with ${response.status}.`);
-  }
-
-  const payload = (await response.json()) as GitHubReleaseResponse[];
-  const latestVersion = selectLatestCompatibleRelease(payload, currentVersion);
-
-  if (!latestVersion) {
-    return {
-      status: "unavailable" as const,
-      latestVersion: null,
-      message: `No compatible published GitHub release found for ${repository}.`,
-    };
-  }
-
-  return {
-    status: "available" as const,
-    latestVersion,
-  };
-};
+  channel: "stable" | "rc",
+): UpdateRelease[] =>
+  releases
+    .flatMap((release) => {
+      if (release.draft) return [];
+      const version = normalizeSemanticVersion(
+        release.tag_name ?? release.name,
+      );
+      if (!version) return [];
+      const isPrerelease =
+        release.prerelease === true || isPrereleaseVersion(version);
+      if (isPrerelease && channel === "stable") return [];
+      return [
+        {
+          version,
+          name: release.name?.trim() || null,
+          notes: (release.body ?? "").slice(0, MAX_NOTES_LENGTH),
+          publishedAt: release.published_at ?? null,
+          url: release.html_url ?? null,
+        },
+      ];
+    })
+    .sort((left, right) => compareSemanticVersions(right.version, left.version))
+    .slice(0, KEPT_RELEASES);
 
 /**
- * Update-check handler.
- *
- * The worker compares the configured app version to the latest GitHub release
- * so the owner admin surface can show current version state without performing
- * request-time upstream fetches.
+ * Asks GitHub for releases and stores the recent ones. Whether an update is
+ * available is worked out when shown, against the running version, so the
+ * answer is right straight after an upgrade.
  */
 export const handleUpdateCheck = async (
   _job: BackgroundJobRecord,
@@ -113,64 +75,48 @@ export const handleUpdateCheck = async (
   if (process.env.NODE_ENV !== "production") return;
 
   const { getPrisma } = await import("@staaash/db/client");
-  const db = getPrisma();
-  const settings = await db.systemSettings.findUnique({
+  const settings = await getPrisma().systemSettings.findUnique({
     where: { id: "singleton" },
   });
-  const repository = settings?.updateCheckRepository?.trim();
-  const currentVersion = resolveWorkerVersion();
+  if (settings && !settings.updateCheckEnabled) return;
 
+  const checkedAt = new Date();
+  const repository = settings?.updateCheckRepository?.trim();
   if (!repository) {
     await writeInstanceUpdateCheck({
-      lastUpdateCheckAt: new Date(),
-      updateCheckStatus: "unavailable",
-      updateCheckMessage: "Update checks are not configured.",
-      latestAvailableVersion: null,
-      checkedVersion: null,
+      checkedAt,
+      error: "No release repository is set.",
     });
     return;
   }
 
+  const channel =
+    settings?.updateChannel === "rc" || settings?.updateChannel === "stable"
+      ? settings.updateChannel
+      : isPrereleaseVersion(resolveWorkerVersion())
+        ? "rc"
+        : "stable";
+
   try {
-    const release = await readLatestGitHubRelease(repository, currentVersion);
-
-    if (release.status === "unavailable") {
-      await writeInstanceUpdateCheck({
-        lastUpdateCheckAt: new Date(),
-        updateCheckStatus: "unavailable",
-        updateCheckMessage: release.message,
-        latestAvailableVersion: null,
-        checkedVersion: currentVersion,
-      });
-      return;
-    }
-
-    const comparison = compareSemanticVersions(
-      currentVersion,
-      release.latestVersion,
+    const response = await fetch(
+      `${GITHUB_API_ROOT}/repos/${repository}/releases?per_page=30`,
+      { headers: buildGitHubHeaders() },
     );
-    const updateCheckStatus =
-      comparison < 0 ? "update-available" : "up-to-date";
-    const updateCheckMessage =
-      comparison < 0
-        ? `Update available: ${release.latestVersion}.`
-        : `Instance is on the latest published release (${release.latestVersion}).`;
-
-    await writeInstanceUpdateCheck({
-      lastUpdateCheckAt: new Date(),
-      updateCheckStatus,
-      updateCheckMessage,
-      latestAvailableVersion: release.latestVersion,
-      checkedVersion: currentVersion,
-    });
+    if (response.status === 404) {
+      throw new Error(`No releases found for ${repository}.`);
+    }
+    if (!response.ok) {
+      throw new Error(`GitHub answered ${response.status}.`);
+    }
+    const releases = selectChannelReleases(
+      (await response.json()) as GitHubReleaseResponse[],
+      channel,
+    );
+    await writeInstanceUpdateCheck({ checkedAt, releases });
   } catch (error) {
     await writeInstanceUpdateCheck({
-      lastUpdateCheckAt: new Date(),
-      updateCheckStatus: "error",
-      updateCheckMessage:
-        error instanceof Error ? error.message : "Update check failed.",
-      latestAvailableVersion: null,
-      checkedVersion: currentVersion,
+      checkedAt,
+      error: error instanceof Error ? error.message : "The check failed.",
     });
   }
 };
