@@ -267,15 +267,17 @@ export function FileList<T extends FileListItem>({
   const sections = groups ?? [{ label: "", items }];
   const isEmpty = sections.every((section) => section.items.length === 0);
 
+  // Touch has no checkboxes, so no column for them.
+  const lead = coarse ? [] : [CHECK_TRACK];
   const tracks = (visible: FileListColumn<T>[]) =>
     [
-      CHECK_TRACK,
+      ...lead,
       "minmax(0,1fr)",
       ...visible.map((c) => c.width),
       ACTIONS_TRACK,
     ].join(" ");
   const style = {
-    "--cols-sm": [CHECK_TRACK, "minmax(0,1fr)", ACTIONS_TRACK].join(" "),
+    "--cols-sm": [...lead, "minmax(0,1fr)", ACTIONS_TRACK].join(" "),
     "--cols-md": tracks(columns.filter((c) => c.priority !== "wide")),
     "--cols-lg": tracks(columns),
   } as CSSProperties;
@@ -364,9 +366,11 @@ export function FileList<T extends FileListItem>({
           )}
           role="row"
         >
-          <span className="flex justify-center" role="gridcell">
-            {coarse ? null : <CheckMark selected={selected} />}
-          </span>
+          {coarse ? null : (
+            <span className="flex justify-center" role="gridcell">
+              <CheckMark selected={selected} />
+            </span>
+          )}
           <span className="flex min-w-0 items-center gap-2.5" role="gridcell">
             <ItemIcon item={item} />
             <span className="grid min-w-0 flex-1">
@@ -444,7 +448,7 @@ export function FileList<T extends FileListItem>({
             data-list-head
             role="row"
           >
-            <span role="columnheader" />
+            {coarse ? null : <span role="columnheader" />}
             <SortHead label="Name" sortKey="name" sort={sort} />
             {columns.map((column) =>
               column.sortable && sort ? (

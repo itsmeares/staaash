@@ -3,14 +3,6 @@
 export type Theme = "light" | "dark" | "system";
 type ResolvedTheme = "light" | "dark";
 
-type ViewTransition = {
-  finished: Promise<void>;
-};
-
-type ViewTransitionDocument = Document & {
-  startViewTransition?: (callback: () => void) => ViewTransition;
-};
-
 const THEME_CLASS_NAMES = ["dark", "light"] as const;
 
 function prefersDarkTheme() {
@@ -60,22 +52,26 @@ export function watchSystemTheme() {
 export function applyThemeWithTransition(theme: Theme) {
   const currentTheme = getCurrentResolvedTheme();
   const nextTheme = getResolvedTheme(theme);
-  const transitionDocument = document as ViewTransitionDocument;
 
   if (
     currentTheme === nextTheme ||
     prefersReducedMotion() ||
-    !transitionDocument.startViewTransition
+    !document.startViewTransition
   ) {
     applyTheme(theme);
     return;
   }
 
-  document.documentElement.dataset.theme = theme;
-  const transition = transitionDocument.startViewTransition(() => {
+  const root = document.documentElement;
+  root.dataset.theme = theme;
+  root.dataset.themeWipe = "";
+  const transition = document.startViewTransition(() => {
     applyResolvedTheme(nextTheme);
   });
 
-  const cleanup = () => applyTheme(theme);
+  const cleanup = () => {
+    delete root.dataset.themeWipe;
+    applyTheme(theme);
+  };
   void transition.finished.then(cleanup, cleanup);
 }

@@ -16,6 +16,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
+import { MiddleName } from "./file-list";
 import { getVisibleDashboardMenuGroups } from "@/app/dashboard-context-menu-model";
 import type { DashboardContextMenuGroup } from "@/app/dashboard-context-menu";
 
@@ -48,7 +49,10 @@ export function WorkspaceActionSheet({
         <DrawerHeader className="gap-0.5">
           <DrawerTitle>{title}</DrawerTitle>
           {itemName ? (
-            <p className="truncate text-xs text-muted-foreground">{itemName}</p>
+            <MiddleName
+              className="text-meta text-muted-foreground"
+              name={itemName}
+            />
           ) : null}
         </DrawerHeader>
 

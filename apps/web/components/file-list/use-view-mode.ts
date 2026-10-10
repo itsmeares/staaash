@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 
 import type { ViewMode } from "@/components/view-toggle";
 
@@ -18,7 +19,22 @@ export function useViewMode(page: string, fallback: ViewMode = "list") {
     view,
     (next: ViewMode) => {
       window.localStorage.setItem(key, next);
-      setView(next);
+      if (
+        !document.startViewTransition ||
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ) {
+        setView(next);
+        return;
+      }
+      // Each item morphs from its list row to its grid card. ponytail: every
+      // item in the list is captured; virtualize the list first if huge
+      // folders make the switch stutter.
+      const root = document.documentElement;
+      root.dataset.viewMorph = "";
+      const transition = document.startViewTransition(() =>
+        flushSync(() => setView(next)),
+      );
+      void transition.finished.finally(() => delete root.dataset.viewMorph);
     },
   ] as const;
 }

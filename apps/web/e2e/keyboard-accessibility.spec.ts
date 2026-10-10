@@ -125,7 +125,9 @@ test("incomplete-onboarding user can finish setup with keyboard", async ({
   await expect(
     page.getByRole("heading", { name: "Privacy & features" }),
   ).not.toBeFocused();
-  const versionChecks = page.getByRole("switch", { name: /Version checks/i });
+  const versionChecks = page.getByRole("switch", {
+    name: /Check for new versions/i,
+  });
   await expect(versionChecks).toBeChecked();
   await versionChecks.press("Space");
   await expect(versionChecks).not.toBeChecked();

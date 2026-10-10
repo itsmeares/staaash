@@ -29,7 +29,7 @@ import {
 } from "@/lib/media-preview-status";
 import { cn } from "@/lib/utils";
 
-import { ItemPreview, type FileListItem } from "./file-list";
+import { ItemPreview, MiddleName, type FileListItem } from "./file-list";
 
 const DETAILS_KEY = "staaash:details-open";
 
@@ -305,8 +305,8 @@ export function DetailsPanel({
   const docked = useMediaQuery("(min-width: 64rem)");
   const header = (
     <div className="flex items-center gap-2 px-4 pt-3.5 pb-3">
-      <h2 className="m-0 min-w-0 flex-1 truncate font-sans text-body font-semibold">
-        {content?.item.name ?? "Details"}
+      <h2 className="m-0 min-w-0 flex-1 font-sans text-body font-semibold">
+        <MiddleName name={content?.item.name ?? "Details"} />
       </h2>
       <Button
         aria-label="Close details"

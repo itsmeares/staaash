@@ -32,26 +32,51 @@
     outline-offset: 4px;
   }
 
-  ::view-transition-group(root) {
+  /* The theme switch wipes diagonally; other view transitions (list to
+     grid) morph. */
+  :root[data-theme-wipe]::view-transition-group(root) {
     animation-duration: 0.7s;
     animation-timing-function: var(--ease-expo-out);
   }
 
-  ::view-transition-new(root) {
+  :root[data-theme-wipe]::view-transition-new(root) {
     animation-name: reveal-light;
     animation-fill-mode: both;
   }
 
-  ::view-transition-old(root),
-  .dark::view-transition-old(root) {
+  :root[data-theme-wipe]::view-transition-old(root),
+  :root[data-theme-wipe].dark::view-transition-old(root) {
     animation: none;
     animation-fill-mode: both;
     z-index: -1;
   }
 
-  .dark::view-transition-new(root) {
+  :root[data-theme-wipe].dark::view-transition-new(root) {
     animation-name: reveal-dark;
     animation-fill-mode: both;
+  }
+
+  :root[data-view-morph] [data-list-item] {
+    view-transition-name: match-element;
+  }
+
+  :root[data-view-morph]::view-transition-group(*) {
+    animation-duration: 0.3s;
+    animation-timing-function: var(--ease-morph);
+  }
+
+  /* Rows and cards differ in shape: show each at its own size, clipped,
+     instead of stretching one into the other. */
+  :root[data-view-morph]::view-transition-image-pair(*) {
+    overflow: clip;
+  }
+
+  :root[data-view-morph]::view-transition-old(*),
+  :root[data-view-morph]::view-transition-new(*) {
+    width: 100%;
+    height: 100%;
+    object-fit: none;
+    object-position: left top;
   }
 
   @keyframes reveal-dark {
@@ -70,5 +95,23 @@
     to {
       clip-path: polygon(171% 50%, 50% 171%, -50% 71%, 50% -71%);
     }
+  }
+}
+
+/* Unlayered, so it outranks every utility: with reduced motion, things
+   appear and move without animating. Spinners keep turning, slowly. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
+    scroll-behavior: auto;
+  }
+
+  .animate-spin {
+    animation-duration: 1.5s;
+    animation-iteration-count: infinite;
   }
 }

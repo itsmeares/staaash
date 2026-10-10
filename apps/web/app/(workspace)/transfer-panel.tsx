@@ -2,15 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import {
-  CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  File,
-  Loader2,
-  X,
-} from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronUp, X } from "lucide-react";
 
+import { ItemIcon, MiddleName } from "@/components/file-list/file-list";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 import {
@@ -22,11 +18,7 @@ import {
 } from "./transfer-context";
 import { startValidatedDownload } from "@/lib/transfers/download";
 
-const rowClass =
-  "flex flex-col gap-1 border-b border-border/60 px-3 py-2 last:border-b-0";
-const iconButtonClass =
-  "inline-flex cursor-pointer items-center justify-center rounded-xs px-1 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-pressed hover:text-foreground";
-const nameClass = "flex-1 truncate text-xs text-foreground";
+const rowClass = "flex min-h-row flex-col justify-center gap-1 px-3 py-2";
 
 // ---------------------------------------------------------------------------
 // Transfer panel (portal-rendered, bottom-right)
@@ -94,23 +86,23 @@ export function TransferPanel() {
   const title = totalCount === 1 ? "1 transfer" : `${totalCount} transfers`;
 
   const panel = (
-    <div className="fixed right-4 bottom-4 z-50 max-w-95 min-w-75 overflow-hidden rounded-md border border-border bg-card shadow-floating max-lg:right-2.5 max-lg:bottom-[calc(76px+env(safe-area-inset-bottom))] max-lg:left-2.5 max-lg:w-auto max-lg:max-w-none max-lg:rounded-xl md:max-lg:landscape:bottom-3.5 md:max-lg:landscape:left-21.5">
-      <div className="flex items-center justify-between gap-2 px-3 py-2.5">
-        <span className="flex-1 text-label font-medium text-foreground">
+    <div className="fixed right-4 bottom-4 z-50 w-90 animate-in overflow-hidden rounded-xl border border-border bg-popover shadow-floating duration-300 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none max-lg:right-2.5 max-lg:bottom-[calc(76px+env(safe-area-inset-bottom))] max-lg:left-2.5 max-lg:w-auto max-lg:max-w-none max-lg:rounded-xl md:max-lg:landscape:bottom-3.5 md:max-lg:landscape:left-21.5">
+      <div className="flex items-center justify-between gap-2 py-1.5 ps-3 pe-1.5">
+        <span className="flex-1 text-body font-medium text-foreground">
           {title}
         </span>
-        <button
-          type="button"
-          className={cn(iconButtonClass, "size-6 p-0")}
-          onClick={() => setCollapsed((c) => !c)}
+        <Button
           aria-label={collapsed ? "Expand" : "Collapse"}
+          onClick={() => setCollapsed((c) => !c)}
+          size="icon-sm"
+          variant="ghost-muted"
         >
-          {collapsed ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </button>
+          {collapsed ? <ChevronUp aria-hidden /> : <ChevronDown aria-hidden />}
+        </Button>
       </div>
 
       {!collapsed && (
-        <div className="max-h-80 overflow-y-auto border-t border-border">
+        <div className="max-h-80 divide-y divide-border/60 overflow-y-auto border-t border-border">
           {panelUploads.map((f) => (
             <PanelUploadRow
               key={f.clientKey}
@@ -164,12 +156,31 @@ function PanelUploadRow({
 
   return (
     <div className={rowClass}>
-      <div className="flex min-w-0 items-center gap-1.5">
-        <File size={13} className="shrink-0 text-muted-foreground" />
-        <span className={nameClass}>{file.name}</span>
+      <div className="flex min-w-0 items-center gap-2">
+        <ItemIcon
+          item={{ kind: "file", mimeType: file.fileRef?.type ?? null }}
+        />
+        <MiddleName className="flex-1 text-body" name={file.name} />
+        {file.status === "error" && onRetry && (
+          <Button onClick={onRetry} size="xs" variant="ghost">
+            Retry
+          </Button>
+        )}
+        {file.status !== "uploading" && (
+          <Button
+            aria-label="Dismiss"
+            onClick={onDismiss}
+            size="icon-xs"
+            variant="ghost-muted"
+          >
+            <X aria-hidden />
+          </Button>
+        )}
+      </div>
+      <div className="grid gap-1.5 ps-7">
         <span
           className={cn(
-            "flex shrink-0 items-center gap-1 text-xs whitespace-nowrap text-muted-foreground",
+            "text-meta text-muted-foreground tabular-nums",
             file.status === "error" && "text-destructive-foreground",
           )}
         >
@@ -177,31 +188,16 @@ function PanelUploadRow({
             {isPhaseStatus ? statusText : ""}
           </span>
           {!isPhaseStatus && statusText}
-          {file.status === "error" && onRetry && (
-            <button type="button" className={iconButtonClass} onClick={onRetry}>
-              Retry
-            </button>
-          )}
-          {file.status !== "uploading" && (
-            <button
-              type="button"
-              className={iconButtonClass}
-              onClick={onDismiss}
-              aria-label="Dismiss"
-            >
-              <X size={11} />
-            </button>
-          )}
         </span>
+        {file.status === "uploading" && (
+          <div className="h-1 overflow-hidden rounded-full bg-foreground/10">
+            <div
+              className="h-full rounded-full bg-primary transition-[width] duration-300 ease-out"
+              style={{ width: `${file.progress}%` }}
+            />
+          </div>
+        )}
       </div>
-      {file.status === "uploading" && (
-        <div className="h-0.75 overflow-hidden rounded-xs bg-foreground/10">
-          <div
-            className="h-full rounded-xs bg-primary transition-[width] duration-300"
-            style={{ width: `${file.progress}%` }}
-          />
-        </div>
-      )}
     </div>
   );
 }
@@ -233,28 +229,34 @@ function PanelDownloadRow({
 
   return (
     <div className={rowClass}>
-      <div className="flex min-w-0 items-center gap-1.5">
+      <div className="flex min-w-0 items-center gap-2">
         {state.status === "ready" && !error ? (
           <CheckCircle2
-            size={13}
-            className="shrink-0 text-success-foreground"
+            aria-hidden
+            className="size-4 shrink-0 text-success-foreground"
           />
         ) : state.status === "error" || error ? null : (
-          <Loader2
-            size={13}
-            className="shrink-0 animate-spin text-muted-foreground"
-          />
+          <Spinner className="size-4 shrink-0 text-muted-foreground" />
         )}
-        <span className={nameClass}>{bodyText}</span>
+        <span
+          className={cn(
+            "flex-1 truncate text-body",
+            error || state.status === "error"
+              ? "text-destructive-foreground"
+              : "text-foreground",
+          )}
+        >
+          {bodyText}
+        </span>
         {state.status !== "processing" && state.status !== "queued" && (
-          <button
-            type="button"
-            className={iconButtonClass}
-            onClick={onClose}
+          <Button
             aria-label="Close"
+            onClick={onClose}
+            size="icon-xs"
+            variant="ghost-muted"
           >
-            <X size={11} />
-          </button>
+            <X aria-hidden />
+          </Button>
         )}
       </div>
     </div>

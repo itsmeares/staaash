@@ -310,17 +310,17 @@ export function formatEta(
   const remainingBytes = totalBytes - transferredBytes;
   const seconds = Math.round(remainingBytes / speed);
   if (seconds < 60)
-    return `(${seconds} ${seconds === 1 ? "second" : "seconds"} left)`;
+    return `${seconds} ${seconds === 1 ? "second" : "seconds"} left`;
   if (seconds < 3600) {
     const m = Math.round(seconds / 60);
-    return `(${m} ${m === 1 ? "minute" : "minutes"} left)`;
+    return `${m} ${m === 1 ? "minute" : "minutes"} left`;
   }
   if (seconds < 86400) {
     const h = Math.round(seconds / 3600);
-    return `(${h} ${h === 1 ? "hour" : "hours"} left)`;
+    return `${h} ${h === 1 ? "hour" : "hours"} left`;
   }
   const d = Math.round(seconds / 86400);
-  return `(${d} ${d === 1 ? "day" : "days"} left)`;
+  return `${d} ${d === 1 ? "day" : "days"} left`;
 }
 
 // ---------------------------------------------------------------------------
