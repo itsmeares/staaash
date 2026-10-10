@@ -4,13 +4,18 @@ import { Share2 } from "lucide-react";
 import { FlashMessage, getSingleSearchParam } from "@/app/auth-ui";
 import { WorkspacePresetPageContextMenu } from "@/app/dashboard-context-menu";
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { formatDateTime } from "@/lib/time";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { getShareBaseUrl } from "@/server/request";
 import { sharingService } from "@/server/sharing/service";
 import { resolveDisplayTimeZone } from "@/server/time-zone";
-import { CollectionEmpty } from "../collection-parts";
 import { SharedTable, type SharedTableItem } from "./shared-table";
 
 export const dynamic = "force-dynamic";
@@ -97,24 +102,25 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
       preset="shared"
     >
       <div className="grid gap-4">
-        <PageHeader
-          meta={allShares.length > 0 ? <Badge>{allShares.length}</Badge> : null}
-          title="Shared"
-        />
+        <PageHeader title="Shared" />
 
         {error ? <FlashMessage>{error}</FlashMessage> : null}
         {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
 
         {allShares.length === 0 ? (
-          <CollectionEmpty
-            description="Create a link from any file or folder."
-            icon={<Share2 aria-hidden />}
-            title="No shared links yet"
-          />
+          <Empty className="min-h-64">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Share2 aria-hidden />
+              </EmptyMedia>
+              <EmptyTitle>Nothing shared yet</EmptyTitle>
+              <EmptyDescription>
+                Choose Share on any file or folder to make a link.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
-          <div className="grid gap-4 max-lg:min-w-0">
-            <SharedTable items={tableItems} />
-          </div>
+          <SharedTable items={tableItems} />
         )}
       </div>
     </WorkspacePresetPageContextMenu>

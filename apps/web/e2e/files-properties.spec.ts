@@ -3,8 +3,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { getOwnerCredentials, signIn } from "./helpers";
 
 const pane = (page: Page) =>
-  page.getByRole("complementary", { name: "Item properties" });
-const row = (page: Page) => page.locator("[data-file-row]").first();
+  page.getByRole("complementary", { name: "Details" });
+const row = (page: Page) => page.locator("[data-list-item]").first();
 const focusedLabel = (page: Page) =>
   page.evaluate(() => document.activeElement?.getAttribute("aria-label"));
 
@@ -15,7 +15,7 @@ const openFiles = async (page: Page) => {
 
 const openProperties = async (page: Page) => {
   await row(page).click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Properties" }).click();
+  await page.getByRole("menuitem", { name: "Details" }).click();
   await expect(pane(page)).toBeVisible();
 };
 
@@ -26,17 +26,17 @@ test("closed pane has no tab stop and is absent from the accessibility tree", as
   await expect(pane(page)).toHaveCount(0);
 
   await openProperties(page);
-  await page.getByRole("button", { name: "Close properties" }).click();
+  await page.getByRole("button", { name: "Close details" }).click();
   await expect(pane(page)).toHaveCount(0);
 
-  await page.locator("[data-explorer-list]").focus();
+  await page.locator("[data-file-list]").focus();
   for (let i = 0; i < 12; i += 1) {
     await page.keyboard.press("Tab");
-    expect(await focusedLabel(page)).not.toBe("Close properties");
+    expect(await focusedLabel(page)).not.toBe("Close details");
   }
   for (let i = 0; i < 12; i += 1) {
     await page.keyboard.press("Shift+Tab");
-    expect(await focusedLabel(page)).not.toBe("Close properties");
+    expect(await focusedLabel(page)).not.toBe("Close details");
   }
 });
 
@@ -44,7 +44,7 @@ test("open pane sits beside the list, leaves the top bar usable and follows the 
   page,
 }) => {
   await openFiles(page);
-  const list = page.locator("[data-explorer-list]");
+  const list = page.locator("[data-file-list]");
   const widthBefore = (await list.boundingBox())!.width;
 
   await openProperties(page);
@@ -74,7 +74,7 @@ test("open pane sits beside the list, leaves the top bar usable and follows the 
   // Keyboard selection drives the pane and focus stays in the list.
   await list.focus();
   await page.keyboard.press("Escape");
-  await expect(pane(page).getByText("Select a single item")).toBeVisible();
+  await expect(pane(page).getByText("Select a file or folder")).toBeVisible();
   await page.keyboard.press("ArrowDown");
   await expect(pane(page).getByText("shared-preview.png")).toBeVisible();
   await expect(row(page)).toBeFocused();
@@ -86,7 +86,7 @@ test("keyboard users reach the pane with Tab and Escape returns to the row", asy
   await openFiles(page);
   await openProperties(page);
 
-  await page.locator("[data-explorer-list]").focus();
+  await page.locator("[data-file-list]").focus();
   await page.keyboard.press("ArrowDown");
   await expect(row(page)).toBeFocused();
 
@@ -106,7 +106,7 @@ test("keyboard users reach the pane with Tab and Escape returns to the row", asy
   await expect(row(page)).toBeFocused();
 
   await openProperties(page);
-  await page.getByRole("button", { name: "Close properties" }).click();
+  await page.getByRole("button", { name: "Close details" }).click();
   await expect(pane(page)).toHaveCount(0);
   await expect(row(page)).toBeFocused();
 });
@@ -118,9 +118,9 @@ test("below the docking width the pane opens as a side sheet and Escape closes i
   await openFiles(page);
 
   await row(page).click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Properties" }).click();
+  await page.getByRole("menuitem", { name: "Details" }).click();
 
-  const sheet = page.getByRole("dialog", { name: "Item properties" });
+  const sheet = page.getByRole("dialog", { name: "Details" });
   await expect(sheet).toBeVisible();
   await expect(sheet.getByText("shared-preview.png")).toBeVisible();
 

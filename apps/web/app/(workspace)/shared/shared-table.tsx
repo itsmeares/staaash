@@ -1,33 +1,38 @@
 "use client";
 
-import Link from "next/link";
+import { ClipboardCopy, KeyRound, Link2, Share2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { KeyRound, Share2 } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 
 import { ShareDialog } from "@/app/(workspace)/files/share-dialog";
-import {
-  DashboardItemContextMenu,
-  type DashboardContextMenuGroup,
-} from "@/app/dashboard-context-menu";
+import type { DashboardContextMenuGroup } from "@/app/dashboard-context-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { toast } from "@/components/ui/toast";
+import {
+  FileList,
+  type FileListColumn,
+  type FileListItem,
+} from "@/components/file-list/file-list";
+import { TypeFilter } from "@/components/file-list/type-filter";
+import { useListSelection } from "@/components/file-list/use-list-selection";
 import { cn } from "@/lib/utils";
 import type { ShareLinkSummary } from "@/server/sharing";
 
+import { useCoarsePointer } from "../use-coarse-pointer";
 import {
-  CollectionEmpty,
-  CollectionToolbar,
-  TypeFilterSelect,
-} from "../collection-parts";
+  filterWorkspaceItems,
+  getWorkspaceLocationLabel,
+  WORKSPACE_ITEM_FILTERS,
+  type WorkspaceItemFilterType,
+} from "../workspace-item-helpers";
 
 export type SharedTableItem = {
   share: ShareLinkSummary;
@@ -37,26 +42,10 @@ export type SharedTableItem = {
   statusLabel: string;
 };
 
-type SharedTableProps = {
-  items: SharedTableItem[];
-};
-
-type SharedFilterType =
-  "all" | "archive" | "audio" | "folder" | "image" | "pdf" | "text" | "video";
-
-const FILTERS: { id: SharedFilterType; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "folder", label: "Folders" },
-  { id: "image", label: "Images" },
-  { id: "pdf", label: "PDFs" },
-  { id: "video", label: "Videos" },
-  { id: "audio", label: "Audio" },
-  { id: "text", label: "Docs" },
-  { id: "archive", label: "Archives" },
-];
+type SharedListItem = FileListItem & { data: SharedTableItem };
 
 const STATUS_VARIANT = {
-  active: "accent",
+  active: "success",
   expired: "neutral",
   revoked: "error",
   "target-unavailable": "neutral",
@@ -68,333 +57,193 @@ const EXPIRY_TONE_CLASS = {
   warning: "font-semibold text-warning-foreground",
 } as const;
 
-function StatusBadge({
-  status,
-  label,
-}: {
-  status: ShareLinkSummary["status"];
-  label: string;
-}) {
-  return (
-    <Badge className="shrink-0" variant={STATUS_VARIANT[status]}>
-      {label}
-    </Badge>
-  );
-}
+const accessLabel = (share: ShareLinkSummary) =>
+  [
+    share.hasPassword ? "Password" : "Anyone with the link",
+    share.downloadDisabled ? "view only" : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
 
-function PasswordHint() {
-  return (
-    <KeyRound
-      aria-label="Password protected"
-      className="text-primary-ink"
-      size={13}
-    />
-  );
-}
+const copyLink = (share: ShareLinkSummary) => {
+  void navigator.clipboard
+    ?.writeText(share.shareUrl)
+    .then(() => toast.success("Link copied."));
+};
 
-function getShareType(share: ShareLinkSummary): SharedFilterType {
-  if (share.target.targetType === "folder") return "folder";
-
-  const mime = share.target.mimeType ?? "";
-  if (mime.startsWith("image/")) return "image";
-  if (mime.startsWith("video/")) return "video";
-  if (mime.startsWith("audio/")) return "audio";
-  if (mime.includes("pdf")) return "pdf";
-  if (
-    mime.startsWith("text/") ||
-    mime.includes("typescript") ||
-    mime.includes("json") ||
-    mime.includes("document")
-  ) {
-    return "text";
-  }
-  if (
-    mime.includes("zip") ||
-    mime.includes("archive") ||
-    mime.includes("tar") ||
-    mime.includes("gzip")
-  ) {
-    return "archive";
-  }
-
-  return "all";
-}
-
-function getShareTypeLabel(share: ShareLinkSummary): string {
-  const type = getShareType(share);
-  if (type === "all")
-    return share.target.targetType === "file" ? "File" : "Folder";
-  if (type === "pdf") return "PDF";
-  return type.charAt(0).toUpperCase() + type.slice(1);
-}
-
-function splitPathLabel(pathLabel: string): string[] {
-  return pathLabel
-    .split("/")
-    .map((part) => part.trim())
-    .filter(Boolean);
-}
-
-function getShareLocationLabel(share: ShareLinkSummary): string {
-  const parts = splitPathLabel(share.target.pathLabel);
-  const pathWithoutSelf =
-    parts.at(-1) === share.target.name ? parts.slice(0, -1) : parts;
-  const withoutRoot =
-    pathWithoutSelf.length > 1 ? pathWithoutSelf.slice(1) : [];
-  return withoutRoot.length > 0 ? `/ ${withoutRoot.join(" / ")} /` : "/";
-}
-
-export function SharedTable({ items }: SharedTableProps) {
+export function SharedTable({ items }: { items: SharedTableItem[] }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
-  const [filterType, setFilterType] = useState<SharedFilterType>("all");
-  const [shareDialogTarget, setShareDialogTarget] = useState<{
-    targetType: "file" | "folder";
-    targetId: string;
-    share: ShareLinkSummary;
-  } | null>(null);
-  const visibleItems = useMemo(() => {
-    if (filterType === "all") return items;
-    return items.filter(({ share }) => getShareType(share) === filterType);
-  }, [filterType, items]);
-  const getShareItemContextGroups = ({
-    canManage,
-    share,
-  }: SharedTableItem): DashboardContextMenuGroup[] => [
-    {
-      actions: [
-        {
-          disabled: !canManage,
-          label: "Manage link",
-          onSelect: () =>
-            setShareDialogTarget({
-              targetType: share.target.targetType,
-              targetId: share.target.id,
-              share,
-            }),
-        },
-      ],
+  const isCoarsePointer = useCoarsePointer();
+  const [filterType, setFilterType] = useState<WorkspaceItemFilterType>("all");
+  const [manage, setManage] = useState<ShareLinkSummary | null>(null);
+
+  const visibleItems = useMemo(
+    () =>
+      filterWorkspaceItems(
+        items.map((item) => ({
+          ...item,
+          kind: item.share.target.targetType,
+          mimeType:
+            item.share.target.targetType === "file"
+              ? item.share.target.mimeType
+              : null,
+        })),
+        filterType,
+      ),
+    [filterType, items],
+  );
+
+  const listItems: SharedListItem[] = visibleItems.map((item) => ({
+    id: item.share.id,
+    kind: item.share.target.targetType,
+    name: item.share.target.name,
+    mimeType: item.mimeType,
+    dimmed: item.share.status !== "active",
+    flags: item.share.hasPassword ? (
+      <KeyRound
+        aria-label="Password protected"
+        className="size-3.5 text-muted-foreground"
+      />
+    ) : null,
+    sub: `${item.statusLabel} · ${item.expiresLabel}`,
+    data: item,
+  }));
+
+  const open = ({ share }: SharedTableItem) => {
+    if (share.target.targetType === "folder")
+      router.push(`/files/f/${share.target.id}`);
+    else router.push(`/files/view/${share.target.id}`);
+  };
+
+  const selection = useListSelection({
+    ids: listItems.map((item) => item.id),
+    coarse: isCoarsePointer,
+    onOpen: (id) => {
+      const item = items.find((candidate) => candidate.share.id === id);
+      if (item && item.canManage) setManage(item.share);
     },
+  });
+
+  const getActions = ({
+    data,
+  }: SharedListItem): DashboardContextMenuGroup[] => [
     {
       actions: [
         {
-          label: "Copy name",
-          onSelect: () => {
-            void navigator.clipboard?.writeText(share.target.name);
-          },
+          disabled: !data.canManage,
+          icon: <Link2 className="size-4" />,
+          label: "Manage link",
+          onSelect: () => setManage(data.share),
+        },
+        {
+          disabled: data.share.status !== "active",
+          icon: <ClipboardCopy className="size-4" />,
+          label: "Copy link",
+          onSelect: () => copyLink(data.share),
+        },
+        {
+          disabled: data.share.status === "target-unavailable",
+          label:
+            data.share.target.targetType === "folder"
+              ? "Open folder"
+              : "Open file",
+          onSelect: () => open(data),
         },
       ],
     },
   ];
 
-  const openManage = (share: ShareLinkSummary) =>
-    setShareDialogTarget({
-      targetType: share.target.targetType,
-      targetId: share.target.id,
-      share,
-    });
+  const columns: FileListColumn<SharedListItem>[] = [
+    {
+      key: "location",
+      label: "Location",
+      width: "minmax(0,0.7fr)",
+      priority: "wide",
+      render: ({ data }) =>
+        getWorkspaceLocationLabel({
+          name: data.share.target.name,
+          pathLabel: data.share.target.pathLabel,
+        }),
+    },
+    {
+      key: "status",
+      label: "Status",
+      width: "7.5rem",
+      render: ({ data }) => (
+        <Badge variant={STATUS_VARIANT[data.share.status]}>
+          {data.statusLabel}
+        </Badge>
+      ),
+    },
+    {
+      key: "expires",
+      label: "Expires",
+      width: "8rem",
+      render: ({ data }) => (
+        <span className={cn(EXPIRY_TONE_CLASS[data.expiryTone])}>
+          {data.expiresLabel}
+        </span>
+      ),
+    },
+    {
+      key: "access",
+      label: "Access",
+      width: "minmax(0,0.6fr)",
+      priority: "wide",
+      render: ({ data }) => accessLabel(data.share),
+    },
+  ];
 
   return (
     <>
-      <CollectionToolbar
-        aria-label="Shared display controls"
-        className="justify-between"
-      >
-        <TypeFilterSelect
-          options={FILTERS}
-          value={filterType}
-          onValueChange={(value) => setFilterType(value as SharedFilterType)}
-        />
-        <Button
-          render={<Link href="/files" />}
-          size="sm"
-          className="max-md:flex-1"
-        >
-          + New share link
-        </Button>
-      </CollectionToolbar>
+      <TypeFilter
+        options={WORKSPACE_ITEM_FILTERS}
+        value={filterType}
+        onValueChange={setFilterType}
+      />
 
-      {visibleItems.length === 0 ? (
-        <CollectionEmpty
-          description="Try a different type."
-          icon={<Share2 aria-hidden />}
-          title="No shared links match that filter"
-        />
-      ) : (
-        <>
-          <div className="hidden gap-2.5 max-xs:grid">
-            {visibleItems.map((item) => {
-              const {
-                share,
-                canManage,
-                expiresLabel,
-                expiryTone,
-                statusLabel,
-              } = item;
-              const locationLabel = getShareLocationLabel(share);
-              return (
-                <DashboardItemContextMenu
-                  groups={getShareItemContextGroups(item)}
-                  key={share.id}
-                >
-                  <article
-                    className={cn(
-                      "grid gap-3 rounded-lg border bg-hover p-3",
-                      share.status !== "active" && "opacity-60",
-                    )}
-                    id={`mobile-${share.id}`}
-                  >
-                    <div className="flex items-center justify-between gap-2.5">
-                      <span
-                        className="min-w-0 truncate text-label font-semibold"
-                        title={share.target.name}
-                      >
-                        {share.target.name}
-                      </span>
-                      <StatusBadge status={share.status} label={statusLabel} />
-                    </div>
-                    <dl className="m-0 grid gap-2 text-label">
-                      {[
-                        ["Location", locationLabel, ""],
-                        ["Type", getShareTypeLabel(share), ""],
-                        [
-                          "Expires",
-                          expiresLabel,
-                          cn("tabular-nums", EXPIRY_TONE_CLASS[expiryTone]),
-                        ],
-                      ].map(([term, value, valueClass]) => (
-                        <div className="grid gap-0.5" key={term}>
-                          <dt className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                            {term}
-                          </dt>
-                          <dd className={cn("m-0 truncate", valueClass)}>
-                            {value}
-                          </dd>
-                        </div>
-                      ))}
-                    </dl>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        disabled={!canManage}
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => openManage(share)}
-                      >
-                        Manage
-                      </Button>
-                      {share.hasPassword ? <PasswordHint /> : null}
-                    </div>
-                  </article>
-                </DashboardItemContextMenu>
-              );
-            })}
-          </div>
+      <FileList
+        coarse={isCoarsePointer}
+        columns={columns}
+        empty={
+          <Empty className="min-h-64">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Share2 aria-hidden />
+              </EmptyMedia>
+              <EmptyTitle>No links of that type</EmptyTitle>
+              <EmptyDescription>Try another type.</EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        }
+        getActions={getActions}
+        items={listItems}
+        label="Shared links"
+        quickActions={({ data }) =>
+          data.canManage ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={(event) => {
+                event.stopPropagation();
+                setManage(data.share);
+              }}
+            >
+              Manage
+            </Button>
+          ) : null
+        }
+        selection={selection}
+      />
 
-          <div className="overflow-hidden rounded-lg border max-xs:hidden">
-            <Table className="min-w-190 table-fixed">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[29%]" scope="col">
-                    Name
-                  </TableHead>
-                  <TableHead className="w-[25%]" scope="col">
-                    Location
-                  </TableHead>
-                  <TableHead className="w-[11%]" scope="col">
-                    Type
-                  </TableHead>
-                  <TableHead className="w-[15%]" scope="col">
-                    Expires
-                  </TableHead>
-                  <TableHead className="w-[11%]" scope="col">
-                    Status
-                  </TableHead>
-                  <TableHead className="w-[9%]" scope="col">
-                    Actions
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visibleItems.map((item) => {
-                  const {
-                    share,
-                    canManage,
-                    expiresLabel,
-                    expiryTone,
-                    statusLabel,
-                  } = item;
-                  const locationLabel = getShareLocationLabel(share);
-
-                  return (
-                    <DashboardItemContextMenu
-                      groups={getShareItemContextGroups(item)}
-                      key={share.id}
-                    >
-                      <TableRow
-                        className={cn(
-                          share.status !== "active" && "opacity-60",
-                        )}
-                        id={share.id}
-                      >
-                        <TableCell className="truncate px-3.5 text-label font-semibold">
-                          <span title={share.target.name}>
-                            {share.target.name}
-                          </span>
-                        </TableCell>
-                        <TableCell className="truncate px-3.5 text-label text-muted-foreground">
-                          <span title={locationLabel}>{locationLabel}</span>
-                        </TableCell>
-                        <TableCell className="truncate px-3.5 text-label text-muted-foreground">
-                          {getShareTypeLabel(share)}
-                        </TableCell>
-                        <TableCell
-                          className={cn(
-                            "truncate px-3.5 text-label tabular-nums",
-                            EXPIRY_TONE_CLASS[expiryTone],
-                          )}
-                        >
-                          {expiresLabel}
-                        </TableCell>
-                        <TableCell className="px-3.5">
-                          <StatusBadge
-                            status={share.status}
-                            label={statusLabel}
-                          />
-                        </TableCell>
-                        <TableCell className="px-3.5">
-                          <div className="flex items-center gap-2">
-                            <Button
-                              disabled={!canManage}
-                              size="xs"
-                              variant="ghost"
-                              onClick={() => openManage(share)}
-                            >
-                              Manage
-                            </Button>
-                            {share.hasPassword ? (
-                              <span title="Password protected">
-                                <PasswordHint />
-                              </span>
-                            ) : null}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    </DashboardItemContextMenu>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </>
-      )}
-
-      {shareDialogTarget ? (
+      {manage ? (
         <ShareDialog
-          targetType={shareDialogTarget.targetType}
-          targetId={shareDialogTarget.targetId}
-          initialShare={shareDialogTarget.share}
+          targetType={manage.target.targetType}
+          targetId={manage.target.id}
+          initialShare={manage}
           onClose={() => {
-            setShareDialogTarget(null);
+            setManage(null);
             startTransition(() => router.refresh());
           }}
         />

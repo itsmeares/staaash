@@ -41,8 +41,8 @@ vi.mock("@/server/sharing/service", () => ({
   sharingService: { getFilesShareLookup: vi.fn() },
 }));
 
-vi.mock("@/app/(workspace)/files/files-explorer", () => ({
-  FilesExplorer: () => null,
+vi.mock("@/app/(workspace)/files/files-view", () => ({
+  FilesView: () => null,
 }));
 
 const { default: FilesFolderPage } =

@@ -3,10 +3,10 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 import { getMemberCredentials, signIn } from "./helpers";
 
 const pane = (page: Page) =>
-  page.getByRole("complementary", { name: "Item properties" });
+  page.getByRole("complementary", { name: "Details" });
 const status = (page: Page) => pane(page).locator('[aria-live="polite"]');
 const fileRow = (page: Page, name: string) =>
-  page.locator("[data-file-row]").filter({ hasText: name });
+  page.locator("[data-list-item]").filter({ hasText: name });
 const fulfill = (route: Route, value: string, httpStatus = 200) =>
   route.fulfill({
     status: httpStatus,
@@ -38,7 +38,7 @@ async function uploadVideo(page: Page, suffix = "a") {
 async function openProperties(page: Page, name: string) {
   await page.reload();
   await fileRow(page, name).click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Properties", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Details", exact: true }).click();
 }
 
 test.beforeEach(async ({ page }) => {
@@ -209,7 +209,7 @@ test("switching videos clears old state and ignores an old Generate response; cl
   const aborted = page.waitForEvent("requestfailed", {
     predicate: (request) => request.url().endsWith(`/${second.id}/derivative`),
   });
-  await pane(page).getByRole("button", { name: "Close properties" }).click();
+  await pane(page).getByRole("button", { name: "Close details" }).click();
   await aborted;
   const closedReads = secondReads;
   await fulfill(lateRead, "ready").catch(() => {});
@@ -230,7 +230,7 @@ test("the mobile drawer updates automatically too", async ({ page }) => {
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await openProperties(page, file.name);
-  const drawer = page.getByRole("dialog", { name: "Item properties" });
+  const drawer = page.getByRole("dialog", { name: "Details" });
   await expect(drawer).toBeVisible();
   await expect(
     drawer.getByText("Not generated", { exact: true }),

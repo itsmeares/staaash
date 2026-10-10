@@ -11,7 +11,7 @@ import { getShareBaseUrl } from "@/server/request";
 import { sharingService } from "@/server/sharing/service";
 import { StorageEntityUnavailableError } from "@/server/storage-read-guard";
 
-import { FilesExplorer } from "../../files-explorer";
+import { FilesView } from "../../files-view";
 
 export const dynamic = "force-dynamic";
 
@@ -79,7 +79,7 @@ export default async function FilesFolderPage({
     ]);
 
     return (
-      <FilesExplorer
+      <FilesView
         currentPath={`/files/f/${folderId}`}
         favoriteFileIds={favorites
           .filter((item) => item.kind === "file")

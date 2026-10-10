@@ -1,29 +1,7 @@
 "use client";
 
-// Favorites intentionally mirrors recent-item storage guards and downloads.
-// fallow-ignore-file code-duplication
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useTransition,
-  type KeyboardEvent,
-  type MouseEvent,
-  type PointerEvent,
-} from "react";
-import { useRouter } from "next/navigation";
-import {
-  Download,
-  ExternalLink,
-  FolderOpen,
-  Heart,
-  MoreHorizontal,
-  Pin,
-  PinOff,
-  RefreshCw,
-} from "lucide-react";
+import { Download, Heart, HeartOff, RefreshCw } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import { FlashMessage } from "@/app/auth-ui";
 import {
@@ -31,50 +9,38 @@ import {
   DashboardPageContextMenu,
   type DashboardContextMenuGroup,
 } from "@/app/dashboard-context-menu";
-import { getItemVisual } from "@/app/item-visuals";
-import { ItemTypeIcon } from "@/app/item-type-icon";
 import { PageHeader } from "@/components/page-header";
-import { SectionLabel } from "@/components/section-label";
 import { useTime } from "@/components/time-provider";
-import { Badge } from "@/components/ui/badge";
-import { ViewToggle, type ViewMode } from "@/components/view-toggle";
-import { formatRelativeTime } from "@/lib/time";
-import { cn } from "@/lib/utils";
-import { startValidatedDownload } from "@/lib/transfers/download";
-
-import { useTransferContext } from "../transfer-context";
-import { useCoarsePointer } from "../use-coarse-pointer";
 import {
-  getWorkspaceItemDownloadHref,
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { ViewToggle } from "@/components/view-toggle";
+import {
+  FileList,
+  ItemIcon,
+  MiddleName,
+  type FileListColumn,
+  type FileListItem,
+} from "@/components/file-list/file-list";
+import { buildItemActions } from "@/components/file-list/item-actions";
+import { TypeFilter } from "@/components/file-list/type-filter";
+import { useListSelection } from "@/components/file-list/use-list-selection";
+import { useViewMode } from "@/components/file-list/use-view-mode";
+import { formatRelativeTime } from "@/lib/time";
+
+import { SelectionBar } from "../selection-bar";
+import { useCoarsePointer } from "../use-coarse-pointer";
+import { useWorkspaceItemActions } from "../use-workspace-item-actions";
+import {
+  formatWorkspaceFileSize,
   WORKSPACE_ITEM_FILTERS,
 } from "../workspace-item-helpers";
-import { WorkspaceActionSheet } from "../workspace-action-sheet";
-import { RubberBandRect, type RubberBand } from "../rubber-band-rect";
-import {
-  COLLECTION_GRID_CARDS,
-  COLLECTION_ROW_LOCATION,
-  COLLECTION_ROW_NAME,
-  COLLECTION_ROW_SIZE,
-  COLLECTION_ROW_TIME,
-  CollectionColumnHead,
-  CollectionEmpty,
-  CollectionGridCard,
-  CollectionRow,
-  CollectionSortButton,
-  CollectionToolbar,
-  GridCardActions,
-  GridCardBody,
-  GridCardPreview,
-  RowActionButton,
-  RowActions,
-  RowIcon,
-  TypeFilterSelect,
-} from "../collection-parts";
-import { SelectionBar } from "../selection-bar";
 import {
   filterFavoriteItems,
-  formatFavoriteFileSize,
-  getFavoriteType,
   getQuickAccessFavorites,
   sortFavoriteItems,
   type FavoriteClientItem,
@@ -89,86 +55,43 @@ type FavoritesViewProps = {
   success?: string | null;
 };
 
-const VIEW_STORAGE_KEY = "staaash:favorites:view";
-const DRAG_THRESHOLD = 5;
+type FavoriteListItem = FileListItem & { data: FavoriteClientItem };
 
-function getItemKey(item: Pick<FavoriteClientItem, "id" | "kind">): string {
-  return `${item.kind}:${item.id}`;
-}
+const blockedLabel = (status?: string) =>
+  status
+    ? status === "recovery_required"
+      ? "Recovery required"
+      : "Finishing storage operation"
+    : null;
 
-function getFavoriteEndpoint(item: FavoriteClientItem): string {
-  return `/api/files/${item.kind === "folder" ? "folders" : "files"}/${item.id}/favorite`;
-}
-
-function getVisual(item: FavoriteClientItem) {
-  return getItemVisual(item.kind, item.kind === "file" ? item.mimeType : null);
-}
-
-// fallow-ignore-next-line complexity
 export function FavoritesView({ error, items, success }: FavoritesViewProps) {
-  const router = useRouter();
-  const [, startTransition] = useTransition();
-  const { handleDownload } = useTransferContext();
   const isCoarsePointer = useCoarsePointer();
   const { now, timeZone } = useTime();
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
-  const [viewReady, setViewReady] = useState(false);
+  const [view, setView] = useViewMode("favorites");
   const [filterType, setFilterType] = useState<FavoriteFilterType>("all");
   const [sortKey, setSortKey] = useState<FavoriteSortKey>("favoritedAt");
   const [sortDirection, setSortDirection] =
     useState<FavoriteSortDirection>("desc");
-  const [removedKeys, setRemovedKeys] = useState<Set<string>>(new Set());
-  const [quickAccessOverrides, setQuickAccessOverrides] = useState<
+  // Optimistic changes until the refreshed list arrives.
+  const [removedIds, setRemovedIds] = useState<ReadonlySet<string>>(new Set());
+  const [pinOverrides, setPinOverrides] = useState<
     Record<string, string | null>
   >({});
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
-  const [lastSelectedKey, setLastSelectedKey] = useState<string | null>(null);
-  const [rubberBand, setRubberBand] = useState<RubberBand | null>(null);
-  const didRubberBand = useRef(false);
-  const dragOrigin = useRef<{ onItem: boolean; x: number; y: number } | null>(
-    null,
-  );
-  const isRubberBanding = useRef(false);
-  const listRef = useRef<HTMLDivElement>(null);
-  const rubberBandStart = useRef<{ startX: number; startY: number } | null>(
-    null,
-  );
-  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const suppressNextClickRef = useRef(false);
-  const [actionSheetItem, setActionSheetItem] =
-    useState<FavoriteClientItem | null>(null);
-
-  useEffect(() => {
-    const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
-    if (stored === "grid" || stored === "list") setViewMode(stored);
-    setViewReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (!viewReady) return;
-    window.localStorage.setItem(VIEW_STORAGE_KEY, viewMode);
-  }, [viewMode, viewReady]);
-
-  useEffect(() => {
-    if (!actionError) return;
-    const timer = window.setTimeout(() => setActionError(null), 4000);
-    return () => window.clearTimeout(timer);
-  }, [actionError]);
+  const actions = useWorkspaceItemActions("/favorites");
 
   const activeItems = useMemo(
     () =>
       items
-        .filter((item) => !removedKeys.has(getItemKey(item)))
-        .map((item) => {
-          const key = getItemKey(item);
-          if (!Object.hasOwn(quickAccessOverrides, key)) return item;
-          return {
-            ...item,
-            quickAccessPinnedAt: quickAccessOverrides[key],
-          };
-        }),
-    [items, quickAccessOverrides, removedKeys],
+        .filter(
+          (item) =>
+            !removedIds.has(item.id) && !actions.trashedIds.has(item.id),
+        )
+        .map((item) =>
+          Object.hasOwn(pinOverrides, item.id)
+            ? { ...item, quickAccessPinnedAt: pinOverrides[item.id] ?? null }
+            : item,
+        ),
+    [actions.trashedIds, items, pinOverrides, removedIds],
   );
   const visibleItems = useMemo(
     () =>
@@ -179,998 +102,243 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
       ),
     [activeItems, filterType, sortDirection, sortKey],
   );
-  const quickAccessItems = useMemo(
-    () => getQuickAccessFavorites(activeItems),
-    [activeItems],
-  );
-  const visibleKeys = useMemo(
-    () =>
-      visibleItems
-        .filter((item) => !item.storageMutationStatus)
-        .map((item) => getItemKey(item)),
-    [visibleItems],
-  );
-  const visibleKeySet = useMemo(() => new Set(visibleKeys), [visibleKeys]);
-  const allVisibleSelected =
-    visibleKeys.length > 0 && visibleKeys.every((key) => selectedKeys.has(key));
-  const selectedItems = visibleItems.filter(
-    (item) => !item.storageMutationStatus && selectedKeys.has(getItemKey(item)),
-  );
-  const visibleItemByKey = useMemo(
-    () => new Map(visibleItems.map((item) => [getItemKey(item), item])),
-    [visibleItems],
-  );
+  const pinnedItems = getQuickAccessFavorites(activeItems);
+  const selectable = visibleItems.filter((item) => !item.storageMutationStatus);
 
-  useEffect(() => {
-    setSelectedKeys((current) => {
-      const next = new Set(
-        [...current].filter((key) => visibleKeySet.has(key)),
-      );
-      return next.size === current.size ? current : next;
-    });
-  }, [visibleKeySet]);
-
-  useEffect(() => {
-    setSelectedKeys(new Set());
-    setLastSelectedKey(null);
-  }, [filterType, viewMode]);
-
-  const toggleSort = (key: FavoriteSortKey) => {
-    if (sortKey === key) {
-      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
-      return;
-    }
-
-    setSortKey(key);
-    setSortDirection(key === "favoritedAt" || key === "size" ? "desc" : "asc");
-  };
-
-  const clearSelection = useCallback(() => {
-    setSelectedKeys(new Set());
-    setLastSelectedKey(null);
-  }, []);
-
-  const selectAllVisible = () => {
-    setSelectedKeys((current) => {
-      if (allVisibleSelected) {
-        setLastSelectedKey(null);
-        return new Set();
-      }
-      setLastSelectedKey(visibleKeys.at(-1) ?? null);
-      return new Set([...current, ...visibleKeys]);
-    });
-  };
-
-  const selectItem = (key: string, event: MouseEvent<HTMLElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (!visibleKeys.includes(key)) return;
-
-    if (event.ctrlKey || event.metaKey) {
-      setSelectedKeys((current) => {
-        const next = new Set(current);
-        if (next.has(key)) next.delete(key);
-        else next.add(key);
-        return next;
-      });
-      setLastSelectedKey(key);
-      return;
-    }
-
-    if (event.shiftKey && lastSelectedKey) {
-      const start = visibleKeys.indexOf(lastSelectedKey);
-      const end = visibleKeys.indexOf(key);
-      if (start >= 0 && end >= 0) {
-        const [from, to] = [Math.min(start, end), Math.max(start, end)];
-        setSelectedKeys(new Set(visibleKeys.slice(from, to + 1)));
-        return;
-      }
-    }
-
-    setSelectedKeys(new Set([key]));
-    setLastSelectedKey(key);
-  };
-
-  const selectItemFromKeyboard = (
-    key: string,
-    event: KeyboardEvent<HTMLElement>,
-  ) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (!visibleKeys.includes(key)) return;
-
-    if (event.ctrlKey || event.metaKey) {
-      setSelectedKeys((current) => {
-        const next = new Set(current);
-        if (next.has(key)) next.delete(key);
-        else next.add(key);
-        return next;
-      });
-      setLastSelectedKey(key);
-      return;
-    }
-
-    if (event.shiftKey && lastSelectedKey) {
-      const start = visibleKeys.indexOf(lastSelectedKey);
-      const end = visibleKeys.indexOf(key);
-      if (start >= 0 && end >= 0) {
-        const [from, to] = [Math.min(start, end), Math.max(start, end)];
-        setSelectedKeys(new Set(visibleKeys.slice(from, to + 1)));
-        return;
-      }
-    }
-
-    setSelectedKeys(new Set([key]));
-    setLastSelectedKey(key);
-  };
-
-  const openItem = (item: FavoriteClientItem) => {
-    if (item.storageMutationStatus) return;
-    if (item.href.startsWith("/files/")) {
-      router.push(item.href);
-      return;
-    }
-
-    window.location.href = item.href;
-  };
-
-  const downloadItem = async (item: FavoriteClientItem) => {
-    if (item.storageMutationStatus) return;
-    if (item.kind === "folder") {
-      await handleDownload([item.id]);
-      return;
-    }
-
-    const downloadHref = getWorkspaceItemDownloadHref(item);
-    if (!downloadHref) return;
-
-    try {
-      await startValidatedDownload(downloadHref, "File download failed");
-    } catch (err) {
-      setActionError(
-        err instanceof Error ? err.message : "File download failed",
-      );
-    }
-  };
-
-  const removeFavorite = async (item: FavoriteClientItem) => {
-    const key = getItemKey(item);
-    setRemovedKeys((current) => new Set(current).add(key));
-
-    try {
-      const res = await fetch(getFavoriteEndpoint(item), {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          isFavorite: false,
-          redirectTo: "/favorites",
-        }),
-      });
-
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        throw new Error(data.error ?? `Remove favorite failed (${res.status})`);
-      }
-
-      startTransition(() => router.refresh());
-    } catch (err) {
-      setRemovedKeys((current) => {
-        const next = new Set(current);
-        next.delete(key);
-        return next;
-      });
-      setActionError(
-        err instanceof Error ? err.message : "Favorite could not be removed.",
-      );
-    }
-  };
-
-  const removeFavorites = async (targets: FavoriteClientItem[]) => {
-    if (targets.length === 0) return;
-
-    const targetKeys = targets.map(getItemKey);
-    clearSelection();
-    setRemovedKeys((current) => new Set([...current, ...targetKeys]));
-
-    const results = await Promise.allSettled(
-      targets.map(async (item) => {
-        const res = await fetch(getFavoriteEndpoint(item), {
-          method: "POST",
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            isFavorite: false,
-            redirectTo: "/favorites",
-          }),
-        });
-
-        if (!res.ok) {
-          const data = (await res.json().catch(() => ({}))) as {
-            error?: string;
-          };
-          throw new Error(
-            data.error ?? `Remove favorite failed (${res.status})`,
-          );
-        }
-      }),
+  const unfavorite = async (targets: FavoriteClientItem[]) => {
+    setRemovedIds(
+      (current) => new Set([...current, ...targets.map((t) => t.id)]),
     );
-
-    const failedKeys = new Set<string>();
-    let removedAny = false;
-
-    results.forEach((result, index) => {
-      if (result.status === "fulfilled") removedAny = true;
-      else failedKeys.add(targetKeys[index]);
-    });
-
-    if (failedKeys.size > 0) {
-      setRemovedKeys((current) => {
-        const next = new Set(current);
-        for (const key of failedKeys) next.delete(key);
-        return next;
-      });
-      setActionError("Some favorites could not be removed.");
+    const results = await Promise.all(
+      targets.map((item) => actions.setFavorite(item, { isFavorite: false })),
+    );
+    const failed = new Set(
+      targets.filter((_, index) => !results[index]).map((t) => t.id),
+    );
+    if (failed.size > 0) {
+      setRemovedIds(
+        (current) => new Set([...current].filter((id) => !failed.has(id))),
+      );
     }
-
-    if (removedAny) startTransition(() => router.refresh());
   };
 
-  const setQuickAccess = async (
-    item: FavoriteClientItem,
-    quickAccessPinned: boolean,
-  ) => {
-    const key = getItemKey(item);
+  const setPinned = async (item: FavoriteClientItem, pinned: boolean) => {
     const previous = item.quickAccessPinnedAt;
-    const nextPinnedAt = quickAccessPinned ? new Date().toISOString() : null;
-
-    setQuickAccessOverrides((current) => ({
+    setPinOverrides((current) => ({
       ...current,
-      [key]: nextPinnedAt,
+      [item.id]: pinned ? new Date().toISOString() : null,
     }));
-
-    try {
-      const res = await fetch(getFavoriteEndpoint(item), {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          quickAccessPinned,
-          redirectTo: "/favorites",
-        }),
-      });
-
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        throw new Error(data.error ?? `Quick access failed (${res.status})`);
-      }
-
-      startTransition(() => router.refresh());
-    } catch (err) {
-      setQuickAccessOverrides((current) => ({
-        ...current,
-        [key]: previous,
-      }));
-      setActionError(
-        err instanceof Error
-          ? err.message
-          : "Quick access could not be updated.",
-      );
-    }
+    const ok = await actions.setFavorite(item, { quickAccessPinned: pinned });
+    if (!ok)
+      setPinOverrides((current) => ({ ...current, [item.id]: previous }));
   };
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Escape") {
-      clearSelection();
-      return;
-    }
-
-    if (
-      (event.key === "Delete" || event.key === "Backspace") &&
-      selectedItems.length > 0
-    ) {
-      event.preventDefault();
-      void removeFavorites(selectedItems);
-      return;
-    }
-
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
-      event.preventDefault();
-      selectAllVisible();
-      return;
-    }
-
-    if (event.key === "Enter" && selectedItems.length === 1) {
-      event.preventDefault();
-      openItem(selectedItems[0]);
-    }
-  };
-
-  const handleFavoritesSurfaceClick = (event: MouseEvent<HTMLDivElement>) => {
-    if (didRubberBand.current) return;
-    if (suppressNextClickRef.current) {
-      suppressNextClickRef.current = false;
-      return;
-    }
-    const target = event.target as HTMLElement;
-    if (target.closest("button, input, select, textarea")) return;
-    if (target.closest("[data-slot^='select']")) return;
-
-    const item = target.closest<HTMLElement>("[data-favorite-item]");
-    const key = item?.dataset.favoriteItem;
-    if (key && visibleItemByKey.has(key)) {
-      const favorite = visibleItemByKey.get(key)!;
-      if (favorite.storageMutationStatus) return;
-      if (isCoarsePointer) {
-        if (selectedKeys.size === 0) {
-          openItem(favorite);
-          return;
-        }
-        setSelectedKeys((current) => {
-          const next = new Set(current);
-          if (next.has(key)) next.delete(key);
-          else next.add(key);
-          return next;
-        });
-        setLastSelectedKey(key);
-        return;
-      }
-      selectItem(key, event);
-      return;
-    }
-
-    clearSelection();
-  };
-
-  const handleFavoritesMouseDown = useCallback(
-    (event: MouseEvent<HTMLDivElement>) => {
-      if (isCoarsePointer) return;
-      if (event.button !== 0) return;
-
-      const target = event.target as HTMLElement;
-      if (target.closest("button, input, select, textarea")) return;
-      if (
-        target.closest(
-          "[data-collection-toolbar], [data-collection-head], [data-slot^='select']",
-        )
-      ) {
-        return;
-      }
-
-      const container = listRef.current;
-      if (!container) return;
-
-      const onItem = Boolean(target.closest("[data-favorite-item]"));
-      const rect = container.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
-
-      dragOrigin.current = { onItem, x, y };
-
-      if (!onItem) {
-        event.preventDefault();
-        rubberBandStart.current = { startX: x, startY: y };
-        isRubberBanding.current = true;
-        setRubberBand({ startX: x, startY: y, currentX: x, currentY: y });
-        if (!event.shiftKey && !event.ctrlKey && !event.metaKey) {
-          clearSelection();
-        }
-      }
+  const selection = useListSelection({
+    ids: selectable.map((item) => item.id),
+    coarse: isCoarsePointer,
+    onOpen: (id) => {
+      const item = items.find((candidate) => candidate.id === id);
+      if (item) actions.open(item);
     },
-    [clearSelection, isCoarsePointer],
+  });
+  const selectedItems = selectable.filter((item) =>
+    selection.selected.has(item.id),
   );
 
-  const clearLongPressTimer = useCallback(() => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-  }, []);
-
-  const handleFavoritePointerDown = (
-    item: FavoriteClientItem,
-    event: PointerEvent<HTMLElement>,
-  ) => {
-    if (!isCoarsePointer || event.pointerType === "mouse") return;
-    const target = event.target as HTMLElement;
-    if (target.closest("button, input, select, textarea, a")) return;
-    clearLongPressTimer();
-    suppressNextClickRef.current = false;
-    const key = getItemKey(item);
-    if (!visibleKeySet.has(key)) return;
-    longPressTimerRef.current = setTimeout(() => {
-      suppressNextClickRef.current = true;
-      setSelectedKeys(new Set([key]));
-      setLastSelectedKey(key);
-    }, 420);
-  };
-
-  const handleFavoriteItemKeyDown = (
-    item: FavoriteClientItem,
-    event: KeyboardEvent<HTMLElement>,
-  ) => {
-    if (event.target !== event.currentTarget) return;
-    if (event.key === "Enter") {
-      event.preventDefault();
-      openItem(item);
-      return;
-    }
-    if (event.key === " ") {
-      selectItemFromKeyboard(getItemKey(item), event);
-    }
-  };
-
-  useEffect(() => {
-    const onMove = (event: globalThis.MouseEvent) => {
-      if (isCoarsePointer) return;
-      const container = listRef.current;
-      if (!container) return;
-
-      const rect = container.getBoundingClientRect();
-      const currentX = event.clientX - rect.left;
-      const currentY = event.clientY - rect.top;
-
-      if (!isRubberBanding.current) {
-        const origin = dragOrigin.current;
-        if (!origin?.onItem) return;
-
-        const dist = Math.hypot(currentX - origin.x, currentY - origin.y);
-        if (dist < DRAG_THRESHOLD) return;
-
-        isRubberBanding.current = true;
-        didRubberBand.current = true;
-        rubberBandStart.current = { startX: origin.x, startY: origin.y };
-        setRubberBand({
-          startX: origin.x,
-          startY: origin.y,
-          currentX,
-          currentY,
-        });
-        clearSelection();
-        return;
-      }
-
-      didRubberBand.current = true;
-      const start = rubberBandStart.current;
-      if (!start) return;
-
-      setRubberBand({
-        startX: start.startX,
-        startY: start.startY,
-        currentX,
-        currentY,
-      });
-
-      const selLeft = Math.min(start.startX, currentX);
-      const selTop = Math.min(start.startY, currentY);
-      const selRight = Math.max(start.startX, currentX);
-      const selBottom = Math.max(start.startY, currentY);
-      const next = new Set<string>();
-
-      container
-        .querySelectorAll<HTMLElement>("[data-favorite-item]")
-        .forEach((element) => {
-          const key = element.dataset.favoriteItem;
-          if (!key || !visibleKeySet.has(key)) return;
-
-          const itemRect = element.getBoundingClientRect();
-          const rowTop = itemRect.top - rect.top;
-          const rowBottom = itemRect.bottom - rect.top;
-          const rowLeft = itemRect.left - rect.left;
-          const rowRight = itemRect.right - rect.left;
-
-          if (!(
-            rowRight < selLeft ||
-            rowLeft > selRight ||
-            rowBottom < selTop ||
-            rowTop > selBottom
-          )) {
-            next.add(key);
-          }
-        });
-
-      setSelectedKeys(next);
-      setLastSelectedKey(
-        next.size > 0 ? (Array.from(next).at(-1) ?? null) : null,
-      );
-    };
-
-    const onUp = () => {
-      dragOrigin.current = null;
-      if (!isRubberBanding.current) return;
-
-      isRubberBanding.current = false;
-      rubberBandStart.current = null;
-      setRubberBand(null);
-      window.setTimeout(() => {
-        didRubberBand.current = false;
-      }, 0);
-    };
-
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-
-    return () => {
-      clearLongPressTimer();
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-  }, [clearLongPressTimer, clearSelection, isCoarsePointer, visibleKeySet]);
-
-  const renderSortButton = (
-    key: FavoriteSortKey,
-    label: string,
-    align: "left" | "right" = "left",
-  ) => (
-    <CollectionSortButton
-      active={sortKey === key}
-      align={align}
-      className={key === "path" || key === "size" ? "max-lg:hidden" : undefined}
-      column={key}
-      direction={sortDirection}
-      label={label}
-      onClick={() => toggleSort(key)}
-    />
-  );
-
-  const renderItemActions = (item: FavoriteClientItem) => {
-    if (item.storageMutationStatus) {
-      return (
-        <Badge size="sm">
-          {item.storageMutationStatus === "recovery_required"
-            ? "Recovery required"
-            : "Finishing storage operation"}
-        </Badge>
-      );
-    }
-    const pinned = item.quickAccessPinnedAt != null;
-
-    if (isCoarsePointer) {
-      return (
-        <RowActionButton
-          aria-label={`Actions for ${item.name}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            setActionSheetItem(item);
-          }}
-        >
-          <MoreHorizontal size={13} aria-hidden />
-        </RowActionButton>
-      );
-    }
-
-    return (
-      <>
-        <RowActionButton
-          aria-label={`Open ${item.name}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            openItem(item);
-          }}
-        >
-          <ExternalLink size={13} aria-hidden />
-        </RowActionButton>
-        <RowActionButton
-          aria-label={`Download ${item.name}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            void downloadItem(item);
-          }}
-        >
-          <Download size={13} aria-hidden />
-        </RowActionButton>
-        <RowActionButton
-          aria-label={
-            pinned
-              ? `Remove ${item.name} from quick access`
-              : `Pin ${item.name} to quick access`
-          }
-          tone={pinned ? "pinned" : "default"}
-          onClick={(event) => {
-            event.stopPropagation();
-            void setQuickAccess(item, !pinned);
-          }}
-        >
-          {pinned ? (
-            <PinOff size={13} aria-hidden />
-          ) : (
-            <Pin size={13} aria-hidden />
-          )}
-        </RowActionButton>
-        <RowActionButton
-          aria-label={`Remove ${item.name} from favorites`}
-          tone="danger"
-          onClick={(event) => {
-            event.stopPropagation();
-            void removeFavorite(item);
-          }}
-        >
-          <Heart size={13} fill="currentColor" aria-hidden />
-        </RowActionButton>
-      </>
-    );
-  };
-
-  const getFavoriteItemContextGroups = (
+  const getActions = (
     item: FavoriteClientItem,
   ): DashboardContextMenuGroup[] => {
-    if (item.storageMutationStatus) return [];
-    const pinned = item.quickAccessPinnedAt != null;
-    const key = getItemKey(item);
     const targets =
-      selectedKeys.has(key) && selectedItems.length > 1
+      selection.selected.has(item.id) && selectedItems.length > 1
         ? selectedItems
         : [item];
-    const bulk = targets.length > 1;
-
-    return [
-      {
-        actions: [
-          {
-            disabled: bulk,
-            icon: <ExternalLink size={13} />,
-            label: "Open",
-            shortcut: "↵",
-            onSelect: () => openItem(item),
-          },
-          {
-            icon: <Download size={13} />,
-            label: bulk
-              ? `Download ${targets.length} selected`
-              : item.kind === "folder"
-                ? "Download as zip"
-                : "Download",
-            onSelect: () =>
-              bulk
-                ? void handleDownload(targets.map((target) => target.id))
-                : void downloadItem(item),
-          },
-        ],
+    const pinned = item.quickAccessPinnedAt != null;
+    return buildItemActions({
+      name: item.name,
+      kind: item.kind,
+      count: targets.length,
+      open: () => actions.open(item),
+      download: () => void actions.download(targets),
+      favorite: { isFavorite: true, run: () => void unfavorite([item]) },
+      pin: { pinned, run: () => void setPinned(item, !pinned) },
+      trash: () => {
+        void actions.trash(targets);
+        selection.clear();
       },
-      {
-        actions: [
-          {
-            disabled: bulk,
-            icon: pinned ? <PinOff size={13} /> : <Pin size={13} />,
-            label: pinned ? "Remove from quick access" : "Pin to quick access",
-            onSelect: () => void setQuickAccess(item, !pinned),
-          },
-          {
-            destructive: true,
-            icon: <Heart size={13} fill="currentColor" />,
-            label: bulk
-              ? `Remove ${targets.length} selected from favorites`
-              : "Remove from favorites",
-            onSelect: () => void removeFavorites(targets),
-          },
-        ],
-      },
-    ];
+    });
   };
 
-  const backgroundMenuGroups: DashboardContextMenuGroup[] = [
+  const listItems: FavoriteListItem[] = visibleItems.map((item) => ({
+    id: item.id,
+    kind: item.kind,
+    name: item.name,
+    mimeType: item.mimeType,
+    blocked: blockedLabel(item.storageMutationStatus),
+    sub: item.locationLabel,
+    data: item,
+  }));
+
+  const columns: FileListColumn<FavoriteListItem>[] = [
     {
-      actions: [
-        {
-          icon: <RefreshCw size={13} />,
-          label: "Refresh",
-          onSelect: () => startTransition(() => router.refresh()),
-        },
-        {
-          icon: <FolderOpen size={13} />,
-          label: "Open files",
-          onSelect: () => router.push("/files"),
-        },
-        {
-          disabled: visibleKeys.length === 0,
-          label: allVisibleSelected ? "Clear selection" : "Select all",
-          onSelect: selectAllVisible,
-        },
-        {
-          hidden: selectedItems.length === 0 || allVisibleSelected,
-          label: "Clear selection",
-          onSelect: clearSelection,
-        },
-      ],
+      key: "path",
+      label: "Location",
+      width: "minmax(0,0.8fr)",
+      priority: "wide",
+      sortable: true,
+      render: (item) => item.data.locationLabel,
     },
     {
+      key: "size",
+      label: "Size",
+      width: "6rem",
+      align: "end",
+      sortable: true,
+      render: (item) =>
+        item.kind === "folder"
+          ? ""
+          : formatWorkspaceFileSize(item.data.sizeBytes),
+    },
+    {
+      key: "favoritedAt",
+      label: "Added",
+      width: "7rem",
+      align: "end",
+      sortable: true,
+      render: (item) =>
+        formatRelativeTime(item.data.favoritedAt, now, timeZone),
+    },
+  ];
+
+  const backgroundGroups: DashboardContextMenuGroup[] = [
+    {
       actions: [
         {
-          hidden: selectedItems.length === 0,
-          icon: <Download size={13} />,
-          label: "Download selected",
-          onSelect: () =>
-            void handleDownload(selectedItems.map((item) => item.id)),
+          icon: <RefreshCw className="size-4" />,
+          label: "Refresh",
+          onSelect: actions.refresh,
         },
         {
-          destructive: true,
-          hidden: selectedItems.length === 0,
-          icon: <Heart size={13} fill="currentColor" />,
-          label: "Remove selected from favorites",
-          onSelect: () => void removeFavorites(selectedItems),
+          disabled: selectable.length === 0,
+          label: "Select all",
+          onSelect: selection.selectAll,
         },
       ],
     },
   ];
 
-  const renderRubberBand = () => <RubberBandRect rubberBand={rubberBand} />;
-
   return (
     <DashboardPageContextMenu
-      className="flex min-h-0 flex-col gap-4.5 max-lg:min-w-0"
-      groups={backgroundMenuGroups}
-      tabIndex={-1}
-      onKeyDown={handleKeyDown}
+      className="grid min-h-0 content-start gap-4"
+      groups={backgroundGroups}
     >
-      <PageHeader
-        title="Favorites"
-        meta={
-          <>
-            {activeItems.length > 0 ? (
-              <Badge>{activeItems.length}</Badge>
-            ) : null}
-            {selectedItems.length > 0 ? (
-              <Badge variant="accent">{selectedItems.length} selected</Badge>
-            ) : null}
-          </>
-        }
-      />
+      <PageHeader title="Favorites" />
 
       {error ? <FlashMessage>{error}</FlashMessage> : null}
       {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
-      {actionError ? <FlashMessage>{actionError}</FlashMessage> : null}
+      {actions.error ? <FlashMessage>{actions.error}</FlashMessage> : null}
 
-      <div
-        ref={listRef}
-        className="relative flex min-h-0 flex-col gap-4.5 select-none"
-        onClickCapture={handleFavoritesSurfaceClick}
-        onMouseDownCapture={handleFavoritesMouseDown}
-      >
-        {renderRubberBand()}
-
-        <CollectionToolbar aria-label="Favorites display controls">
-          <TypeFilterSelect
-            options={WORKSPACE_ITEM_FILTERS}
-            value={filterType}
-            onValueChange={(value) =>
-              setFilterType(value as FavoriteFilterType)
-            }
-          />
-          <ViewToggle
-            className="ml-auto shrink-0"
-            value={viewMode}
-            onValueChange={setViewMode}
-          />
-        </CollectionToolbar>
-
-        {quickAccessItems.length > 0 ? (
-          <section aria-labelledby="fav-qa">
-            <h2 id="fav-qa" className="m-0 mb-2">
-              <SectionLabel>Quick access</SectionLabel>
-            </h2>
-            <div className="grid grid-cols-3 gap-2.5 max-md:grid-cols-1">
-              {quickAccessItems.map((item) => {
-                const visual = getVisual(item);
-                return (
-                  <DashboardItemContextMenu
-                    groups={getFavoriteItemContextGroups(item)}
-                    key={`${item.kind}-${item.id}`}
-                  >
-                    <button
-                      className="flex min-w-0 items-center gap-3 rounded-lg border border-hairline px-3.5 py-3 text-left text-foreground transition-[border-color,filter] duration-100 outline-none hover:border-line-strong hover:brightness-98 focus-visible:border-line-strong focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none"
-                      style={{ background: visual.background }}
-                      type="button"
-                      onClick={() => openItem(item)}
-                    >
-                      <ItemTypeIcon
-                        className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg"
-                        size={18}
-                        visual={visual}
-                      />
-                      <span className="grid min-w-0 gap-0.5">
-                        <span
-                          className="truncate text-label leading-snug font-semibold"
-                          title={item.name}
-                        >
-                          {item.name}
-                        </span>
-                        <small className="text-xs text-muted-foreground">
-                          {formatRelativeTime(
-                            item.quickAccessPinnedAt ?? item.favoritedAt,
-                            now,
-                            timeZone,
-                          )}
-                        </small>
-                      </span>
-                    </button>
-                  </DashboardItemContextMenu>
-                );
-              })}
-            </div>
-          </section>
-        ) : null}
-
-        {visibleItems.length === 0 ? (
-          <CollectionEmpty
-            description={
-              activeItems.length === 0
-                ? "Add favorites from files, search, or recent. Pin favorites here for quick access."
-                : "Try a different type."
-            }
-            icon={<Heart aria-hidden />}
-            title={
-              activeItems.length === 0
-                ? "No favorites yet"
-                : "No favorites match that filter"
-            }
-          />
-        ) : viewMode === "list" ? (
-          <div className="grid min-h-0 max-md:pb-22 pointer-coarse:pb-22">
-            <CollectionColumnHead aria-label="Favorites columns">
-              <span aria-hidden />
-              {renderSortButton("name", "Name")}
-              {renderSortButton("path", "Location")}
-              {renderSortButton("size", "Size", "right")}
-              {renderSortButton("favoritedAt", "Added", "right")}
-            </CollectionColumnHead>
-
-            {visibleItems.map((item) => {
-              const key = getItemKey(item);
-              const selected = selectedKeys.has(key);
-
-              return (
-                <DashboardItemContextMenu
-                  groups={getFavoriteItemContextGroups(item)}
-                  key={key}
-                >
-                  <CollectionRow
-                    data-favorite-item={key}
-                    tabIndex={0}
-                    role="button"
-                    aria-pressed={selected}
-                    selected={selected}
-                    onKeyDown={(event) =>
-                      handleFavoriteItemKeyDown(item, event)
-                    }
-                    onDoubleClick={(event) => {
-                      event.stopPropagation();
-                      openItem(item);
-                    }}
-                    onPointerCancel={clearLongPressTimer}
-                    onPointerDown={(event) =>
-                      handleFavoritePointerDown(item, event)
-                    }
-                    onPointerLeave={clearLongPressTimer}
-                    onPointerUp={clearLongPressTimer}
-                  >
-                    <RowIcon visual={getVisual(item)} />
-                    <span className={COLLECTION_ROW_NAME} title={item.name}>
-                      <span className="truncate">{item.name}</span>
-                    </span>
-                    <span
-                      className={COLLECTION_ROW_LOCATION}
-                      title={item.locationLabel}
-                    >
-                      {item.locationLabel}
-                    </span>
-                    <span className={COLLECTION_ROW_SIZE}>
-                      {formatFavoriteFileSize(item.sizeBytes)}
-                    </span>
-                    <span className={COLLECTION_ROW_TIME}>
-                      {formatRelativeTime(item.favoritedAt, now, timeZone)}
-                    </span>
-                    <RowActions>{renderItemActions(item)}</RowActions>
-                  </CollectionRow>
-                </DashboardItemContextMenu>
-              );
-            })}
-          </div>
-        ) : (
-          <div
-            className={cn(
-              COLLECTION_GRID_CARDS,
-              "pb-14 max-md:pb-22 pointer-coarse:pb-22",
-            )}
+      {pinnedItems.length > 0 ? (
+        <section aria-labelledby="favorites-pinned" className="grid gap-2">
+          <h2
+            className="m-0 font-sans text-meta font-semibold"
+            id="favorites-pinned"
           >
-            {visibleItems.map((item) => {
-              const key = getItemKey(item);
-              const selected = selectedKeys.has(key);
-              const visual = getVisual(item);
-              return (
-                <DashboardItemContextMenu
-                  groups={getFavoriteItemContextGroups(item)}
-                  key={key}
+            Pinned
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {pinnedItems.map((item) => (
+              <DashboardItemContextMenu groups={getActions(item)} key={item.id}>
+                <button
+                  className="flex h-10 max-w-64 min-w-0 cursor-pointer items-center gap-2.5 rounded-lg border border-border bg-card ps-3 pe-3.5 text-body outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
+                  type="button"
+                  onClick={() => actions.open(item)}
                 >
-                  <CollectionGridCard
-                    data-favorite-item={key}
-                    tabIndex={0}
-                    role="button"
-                    aria-pressed={selected}
-                    selected={selected}
-                    onKeyDown={(event) =>
-                      handleFavoriteItemKeyDown(item, event)
-                    }
-                    onDoubleClick={(event) => {
-                      event.stopPropagation();
-                      openItem(item);
-                    }}
-                    onPointerCancel={clearLongPressTimer}
-                    onPointerDown={(event) =>
-                      handleFavoritePointerDown(item, event)
-                    }
-                    onPointerLeave={clearLongPressTimer}
-                    onPointerUp={clearLongPressTimer}
-                  >
-                    <GridCardPreview visual={visual}>
-                      <Badge
-                        className="absolute top-1.75 right-2"
-                        size="sm"
-                        style={{
-                          background: visual.background,
-                          color: visual.color,
-                        }}
-                      >
-                        {getFavoriteType(item) === "all"
-                          ? "FILE"
-                          : getFavoriteType(item).toUpperCase()}
-                      </Badge>
-                    </GridCardPreview>
-                    <GridCardBody
-                      end={formatFavoriteFileSize(item.sizeBytes)}
-                      name={item.name}
-                      start={formatRelativeTime(
-                        item.favoritedAt,
-                        now,
-                        timeZone,
-                      )}
-                    />
-                    <GridCardActions placement="bottom">
-                      {renderItemActions(item)}
-                    </GridCardActions>
-                  </CollectionGridCard>
-                </DashboardItemContextMenu>
-              );
-            })}
+                  <ItemIcon item={item} />
+                  <MiddleName className="font-medium" name={item.name} />
+                </button>
+              </DashboardItemContextMenu>
+            ))}
           </div>
-        )}
-      </div>
-      {isCoarsePointer && selectedItems.length > 0 ? (
-        <SelectionBar
-          actions={[
-            {
-              label: "Download",
-              onClick: () =>
-                void handleDownload(selectedItems.map((item) => item.id)),
-            },
-            {
-              destructive: true,
-              label: "Remove",
-              onClick: () => void removeFavorites(selectedItems),
-            },
-            { label: "Clear", onClick: clearSelection },
-          ]}
-          count={selectedItems.length}
-        />
+        </section>
       ) : null}
-      <WorkspaceActionSheet
-        groups={
-          actionSheetItem ? getFavoriteItemContextGroups(actionSheetItem) : []
+
+      <div className="flex items-center gap-3">
+        <TypeFilter
+          options={WORKSPACE_ITEM_FILTERS}
+          value={filterType}
+          onValueChange={setFilterType}
+        />
+        <ViewToggle
+          className="ms-auto shrink-0"
+          value={view}
+          onValueChange={setView}
+        />
+      </div>
+
+      <FileList
+        coarse={isCoarsePointer}
+        columns={columns}
+        empty={
+          <Empty className="min-h-64">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Heart aria-hidden />
+              </EmptyMedia>
+              <EmptyTitle>
+                {activeItems.length === 0
+                  ? "No favorites yet"
+                  : "Nothing of that type"}
+              </EmptyTitle>
+              <EmptyDescription>
+                {activeItems.length === 0
+                  ? "Add favorites from any file or folder menu. Pin the ones you open most."
+                  : "Try another type."}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         }
-        itemName={actionSheetItem?.name}
-        open={actionSheetItem !== null}
-        onOpenChange={(open) => {
-          if (!open) setActionSheetItem(null);
+        getActions={(item) => getActions(item.data)}
+        items={listItems}
+        label="Favorites"
+        selection={selection}
+        sort={{
+          key: sortKey,
+          direction: sortDirection,
+          onSort: (key) => {
+            const next = key as FavoriteSortKey;
+            if (next === sortKey) {
+              setSortDirection((current) =>
+                current === "asc" ? "desc" : "asc",
+              );
+            } else {
+              setSortKey(next);
+              setSortDirection(
+                next === "favoritedAt" || next === "size" ? "desc" : "asc",
+              );
+            }
+          },
         }}
+        view={view}
+      />
+
+      <SelectionBar
+        actions={[
+          {
+            label: "Download",
+            icon: Download,
+            onClick: () => void actions.download(selectedItems),
+          },
+          {
+            label: "Remove",
+            icon: HeartOff,
+            onClick: () => {
+              void unfavorite(selectedItems);
+              selection.clear();
+            },
+          },
+        ]}
+        count={selectedItems.length}
+        onClear={selection.clear}
       />
     </DashboardPageContextMenu>
   );

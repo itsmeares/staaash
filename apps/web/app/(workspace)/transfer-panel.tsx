@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { usePathname } from "next/navigation";
 import {
   CheckCircle2,
   ChevronDown,
@@ -37,13 +36,11 @@ export function TransferPanel() {
   const {
     uploadingFiles,
     activeDownload,
-    currentFilesViewFolderId,
     dismissUpload,
     retryUpload,
     dismissDownload,
   } = useTransferContext();
 
-  const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -86,18 +83,8 @@ export function TransferPanel() {
     }
   }, [activeDownload?.state.status, dismissDownload, downloadError]);
 
-  const isOnFilesRoute =
-    pathname === "/files" || pathname.startsWith("/files/");
-
-  // Show uploads in panel only when they don't belong to the currently visible
-  // folder (those appear inline in the file list instead).
-  const panelUploads = isOnFilesRoute
-    ? uploadingFiles.filter(
-        (f) =>
-          f.folderId !== currentFilesViewFolderId &&
-          f.folderUploadRootId !== currentFilesViewFolderId,
-      )
-    : uploadingFiles;
+  // Every upload shows here; lists pick up finished files on refresh.
+  const panelUploads = uploadingFiles;
 
   const shouldShow = panelUploads.length > 0 || activeDownload !== null;
 

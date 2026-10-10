@@ -10,15 +10,14 @@ import {
 } from "@/app/pagination-controls";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
-import { SectionLabel } from "@/components/section-label";
-import { Badge } from "@/components/ui/badge";
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { RetrievalItemList } from "../retrieval-item-list";
+import { toRecentClientItem } from "../recent/recent-helpers";
+import { SearchResults } from "./search-results";
 
 export const dynamic = "force-dynamic";
 
@@ -61,67 +60,48 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   return (
     <WorkspacePresetPageContextMenu
-      className="grid gap-4.5 max-lg:min-w-0"
+      className="grid content-start gap-4 max-lg:min-w-0"
       preset="search"
     >
       <PageHeader
-        description="Find active files and folders by name, extension, or path segment."
-        divider
-        meta={
-          query.length > 0 ? (
-            <Badge>
-              {allItems.length} match{allItems.length === 1 ? "" : "es"}
-            </Badge>
-          ) : null
+        description={
+          query.length > 0
+            ? `${allItems.length} result${allItems.length === 1 ? "" : "s"}`
+            : undefined
         }
-        title="Search"
+        title={query.length > 0 ? `Results for "${query}"` : "Search"}
       />
 
       {error ? <FlashMessage>{error}</FlashMessage> : null}
       {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
 
-      <section className="grid gap-3.5" aria-labelledby="search-results">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3.5 gap-y-2 max-xs:flex-col">
-          <h2 id="search-results" className="m-0">
-            <SectionLabel>Results</SectionLabel>
-          </h2>
-          <p className="m-0 text-label text-muted-foreground">
-            Query:{" "}
-            {query.length > 0 ? (
-              <strong className="font-semibold text-foreground">{query}</strong>
-            ) : (
-              "enter a search above"
-            )}
-          </p>
-        </div>
-
-        {query.length === 0 ? (
-          <Empty className="min-h-48">
-            <EmptyHeader>
-              <EmptyTitle>Search your files</EmptyTitle>
-              <EmptyDescription>
-                Use the top-bar search field to find active files and folders by
-                name, extension, or path segment.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          <>
-            <RetrievalItemList
-              currentPath={currentPath}
-              emptyDescription="Try a different name, extension, or folder."
-              emptyTitle="No results match that search"
-              items={items}
-              showMatchKind
-            />
-            <PaginationControls
-              buildHref={buildHref}
-              page={page}
-              totalPages={totalPages}
-            />
-          </>
-        )}
-      </section>
+      {query.length === 0 || items.length === 0 ? (
+        <Empty className="min-h-64">
+          <EmptyHeader>
+            <EmptyTitle>
+              {query.length === 0 ? "Search your files" : "Nothing matches"}
+            </EmptyTitle>
+            <EmptyDescription>
+              {query.length === 0
+                ? "Type a name, an extension or a folder in the search box. Press / to jump there."
+                : "Try part of the name, an extension like pdf, or a folder name."}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <>
+          <SearchResults
+            currentPath={currentPath}
+            items={items.map(toRecentClientItem)}
+            query={query}
+          />
+          <PaginationControls
+            buildHref={buildHref}
+            page={page}
+            totalPages={totalPages}
+          />
+        </>
+      )}
     </WorkspacePresetPageContextMenu>
   );
 }

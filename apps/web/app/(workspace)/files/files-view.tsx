@@ -2,30 +2,59 @@
 
 import {
   startTransition,
-  useCallback,
   useEffect,
   useRef,
   useState,
+  type KeyboardEvent,
 } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { Download, FolderPlus, Loader2, RefreshCw, Upload } from "lucide-react";
+import {
+  Download,
+  FolderInput,
+  FolderPlus,
+  Info,
+  Link2,
+  Loader2,
+  RefreshCw,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { toast } from "@/components/ui/toast";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogPanel,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Input } from "@/components/ui/input";
+import { ViewToggle } from "@/components/view-toggle";
+import {
+  DetailsPanel,
+  DetailsSection,
+  FOLDER_ICON_MAP,
+  FolderIconPicker,
+  MediaPreviewSection,
+  useDetailsPanel,
+  type DetailsContent,
+} from "@/components/file-list/details-panel";
+import {
+  FileList,
+  type FileListColumn,
+  type FileListItem,
+} from "@/components/file-list/file-list";
+import { buildItemActions } from "@/components/file-list/item-actions";
+import { getRenameCursorPosition } from "@/components/file-list/list-model";
+import { useListSelection } from "@/components/file-list/use-list-selection";
+import { useViewMode } from "@/components/file-list/use-view-mode";
+import { useTime } from "@/components/time-provider";
 import { randomClientId } from "@/lib/client-id";
-import { cn } from "@/lib/utils";
+import { formatDateTime, formatRelativeTime } from "@/lib/time";
 import { FlashMessage } from "@/app/auth-ui";
 import { DashboardPageContextMenu } from "@/app/dashboard-context-menu";
-import { ItemTypeIcon } from "@/app/item-type-icon";
 import { getItemVisual } from "@/app/item-visuals";
 import { startValidatedDownload } from "@/lib/transfers/download";
 import {
@@ -38,25 +67,17 @@ import type {
   BatchMoveOperationResponse,
   BatchMoveResult,
   BatchMoveResponse,
+  FileSummary,
   FilesListing,
+  FolderSummary,
 } from "@/server/files/types";
 import type { ShareFilesLookup } from "@/server/sharing";
 
 import { Breadcrumbs } from "../breadcrumbs";
-import { RubberBandRect, type RubberBand } from "../rubber-band-rect";
 import { SelectionBar } from "../selection-bar";
 import { WorkspacePage } from "../workspace-page";
+import { formatWorkspaceFileSize } from "../workspace-item-helpers";
 import styles from "./explorer.module.css";
-import { FilesRow } from "./files-row";
-import {
-  ROW_BASE,
-  ROW_GRID,
-  ROW_ICON,
-  ROW_ICON_CELL,
-  ROW_META,
-  ROW_NAME,
-  ROW_NAME_CELL,
-} from "./files-row-styles";
 import {
   buildBatchMoveFailureMessage,
   getMoveItemsForInteraction,
@@ -65,17 +86,9 @@ import {
   getStorageMutationItemIds,
   reconcileCutItems,
 } from "./files-move";
-import { FilesPropertiesPanel } from "./files-properties-panel";
 import { ShareDialog } from "./share-dialog";
 import { CreateFolderDialog } from "../create-folder-dialog";
-import {
-  useTransferContext,
-  type UploadingFile,
-  CHUNKED_UPLOAD_THRESHOLD,
-  formatBytes,
-  formatSpeed,
-  formatEta,
-} from "../transfer-context";
+import { useTransferContext } from "../transfer-context";
 import { useCoarsePointer } from "../use-coarse-pointer";
 import type { ShareLinkSummary } from "@/server/sharing";
 
@@ -197,6 +210,11 @@ const loadResumableSessions = (folderId: string): ResumableSessionSummary[] => {
 // Props
 // ---------------------------------------------------------------------------
 
+type FilesListItem = FileListItem & {
+  data: FolderSummary | FileSummary;
+  sizeBytes: number | null;
+};
+
 type FilesViewProps = {
   listing: FilesListing;
   currentPath: string;
@@ -230,8 +248,6 @@ const isBatchMoveOperationResponse = (
   );
 };
 
-// ---------------------------------------------------------------------------
-
 export function FilesView({
   listing,
   currentPath,
@@ -246,20 +262,11 @@ export function FilesView({
   const isCoarsePointer = useCoarsePointer();
 
   // ---- Transfer context (upload + download state lives in WorkspaceProvider) ----
-  const {
-    uploadingFiles,
-    beginUpload,
-    dismissUpload,
-    retryUpload,
-    handleDownload,
-    registerFileInput,
-  } = useTransferContext();
-
-  // ---- Selection ----
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
-  const selectedIdsRef = useRef(selectedIds);
-  selectedIdsRef.current = selectedIds;
+  const { uploadingFiles, beginUpload, handleDownload, registerFileInput } =
+    useTransferContext();
+  const { now, timeZone } = useTime();
+  const [view, setView] = useViewMode("files");
+  const details = useDetailsPanel();
 
   // ---- Optimistic trash ----
   // Items moved to trash are filtered out client-side before the server-side
@@ -352,15 +359,6 @@ export function FilesView({
     });
   }, [listing]);
   useEffect(() => {
-    const blockedIds = getStorageMutationItemIds(listing);
-    setSelectedIds((current) => {
-      const next = new Set(
-        Array.from(current).filter((id) => !blockedIds.has(id)),
-      );
-      return next.size === current.size ? current : next;
-    });
-  }, [listing]);
-  useEffect(() => {
     if (!trashError) return;
     const t = setTimeout(() => setTrashError(null), 4000);
     return () => clearTimeout(t);
@@ -379,9 +377,6 @@ export function FilesView({
     setCutItems(items);
   };
 
-  // ---- Properties panel ----
-  const [propertiesOpen, setPropertiesOpen] = useState(false);
-
   // ---- Folder icons ----
   const [folderIcons, setFolderIcons] = useState<Record<string, string>>({});
 
@@ -394,7 +389,6 @@ export function FilesView({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const draggedItemsRef = useRef<BatchMoveItem[]>([]);
-  const contextMoveItemsRef = useRef<BatchMoveItem[]>([]);
   const storageMutationKeysRef = useRef(new Map<string, string>());
   const dragPreviewRef = useRef<HTMLDivElement | null>(null);
   const getStorageMutationKey = (logicalAction: string) => {
@@ -447,31 +441,8 @@ export function FilesView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---- Rubber-band ----
-  const [rubberBand, setRubberBand] = useState<RubberBand | null>(null);
-  const isRubberBanding = useRef(false);
-  const rubberBandStart = useRef<{ startX: number; startY: number } | null>(
-    null,
-  );
-  // True from the moment rubber-band is committed until after the next click
-  // event fires, so we can suppress spurious row-click / deselect callbacks.
-  const didRubberBand = useRef(false);
-  const listRef = useRef<HTMLDivElement>(null);
-  const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  const focusRowById = useCallback((id: string) => {
-    const row =
-      rowRefs.current.get(id) ??
-      Array.from(
-        listRef.current?.querySelectorAll<HTMLElement>("[data-file-row]") ?? [],
-      ).find((element) => element.dataset.fileRow === id);
-
-    row?.focus({ preventScroll: true });
-  }, []);
-
   // ---- Paste animation ----
   const [justMovedIds, setJustMovedIds] = useState<Set<string>>(new Set());
-
-  // ---- Shortcut legend ----
 
   // ---- Share dialog ----
   const [shareDialogTarget, setShareDialogTarget] = useState<{
@@ -520,9 +491,17 @@ export function FilesView({
     ...visibleFiles.map((f) => ({ kind: "file" as const, id: f.id })),
   ].filter((item) => !storageMutationItemIds.has(item.id));
 
+  const selection = useListSelection({
+    ids: allItems.map((item) => item.id),
+    coarse: isCoarsePointer,
+    onOpen: (id) => openItem(id),
+    onKey: (event, selected) => handleListKey(event, selected),
+  });
+  const selectedIds = selection.selected;
+
   const getSelectedItemIds = () =>
     allItems
-      .filter((item) => selectedIdsRef.current.has(item.id))
+      .filter((item) => selection.getSelected().has(item.id))
       .map((item) => item.id);
 
   const getItemName = (item: BatchMoveItem) =>
@@ -537,23 +516,9 @@ export function FilesView({
   ): BatchMoveItem[] =>
     getMoveItemsForInteraction({
       allItems,
-      selectedIds: selectedIdsRef.current,
+      selectedIds: selection.getSelected(),
       target: { id, kind },
     });
-
-  const handleItemContextMenu = (id: string, kind: BatchMoveItem["kind"]) => {
-    const current = selectedIdsRef.current;
-    contextMoveItemsRef.current = getMoveItemsForInteraction({
-      allItems,
-      selectedIds: current,
-      target: { id, kind },
-    });
-    if (current.has(id)) return;
-    const next = new Set([id]);
-    selectedIdsRef.current = next;
-    setSelectedIds(next);
-    setLastSelectedId(id);
-  };
 
   // ---- Load persisted state ----
   useEffect(() => {
@@ -569,187 +534,53 @@ export function FilesView({
   }, [listing, pathname]);
 
   // ---------------------------------------------------------------------------
-  // Selection handlers
+  // Keyboard: the shared list handles moving and selecting; these are Files'
+  // own keys.
   // ---------------------------------------------------------------------------
 
-  const handleRowClick = useCallback(
-    (id: string, e: React.MouseEvent) => {
-      e.preventDefault();
-      // A rubber-band drag just ended — the click event is a ghost from
-      // the mouseup; ignore it so we don't clobber the band selection.
-      if (didRubberBand.current) return;
-
-      if (isCoarsePointer && selectedIdsRef.current.size > 0) {
-        setSelectedIds((prev) => {
-          const next = new Set(prev);
-          if (next.has(id)) next.delete(id);
-          else next.add(id);
-          return next;
-        });
-        setLastSelectedId(id);
-        return;
+  const handleListKey = (
+    event: KeyboardEvent<HTMLElement>,
+    selected: string[],
+  ) => {
+    const ctrl = event.ctrlKey || event.metaKey;
+    const key = event.key.toLowerCase();
+    if (ctrl && key === "x" && selected.length > 0) {
+      event.preventDefault();
+      cutSelectedItems();
+      return true;
+    }
+    if (ctrl && key === "v" && cutItems.length > 0) {
+      event.preventDefault();
+      void handlePaste();
+      return true;
+    }
+    if (
+      (event.key === "Delete" || event.key === "Backspace") &&
+      selected.length > 0
+    ) {
+      event.preventDefault();
+      void handleTrashSelected();
+      return true;
+    }
+    if (event.key === "Escape" && (cutItems.length > 0 || renamingId)) {
+      setRenamingId(null);
+      updateCutItems([]);
+      clearCutItems();
+      return false;
+    }
+    if (event.key === "F2" && selected.length === 1) {
+      const id = selected[0]!;
+      const name =
+        listing.childFolders.find((f) => f.id === id)?.name ??
+        listing.files.find((f) => f.id === id)?.name;
+      if (name) {
+        event.preventDefault();
+        beginRename(id, name);
+        return true;
       }
-
-      if (e.ctrlKey || e.metaKey) {
-        setSelectedIds((prev) => {
-          const next = new Set(prev);
-          if (next.has(id)) next.delete(id);
-          else next.add(id);
-          return next;
-        });
-        setLastSelectedId(id);
-      } else if (e.shiftKey && lastSelectedId) {
-        const ids = allItems.map((i) => i.id);
-        const a = ids.indexOf(lastSelectedId);
-        const b = ids.indexOf(id);
-        const [from, to] = [Math.min(a, b), Math.max(a, b)];
-        setSelectedIds(new Set(ids.slice(from, to + 1)));
-      } else {
-        setSelectedIds(new Set([id]));
-        setLastSelectedId(id);
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isCoarsePointer, lastSelectedId, allItems.length],
-  );
-
-  const selectSingleItem = useCallback((id: string) => {
-    setSelectedIds(new Set([id]));
-    setLastSelectedId(id);
-  }, []);
-
-  // ---------------------------------------------------------------------------
-  // Keyboard shortcuts
-  // ---------------------------------------------------------------------------
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (!listRef.current?.contains(target)) return;
-      if (
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable
-      )
-        return;
-
-      const ctrl = e.ctrlKey || e.metaKey;
-
-      // Ctrl+A — select all
-      if (ctrl && e.key === "a") {
-        e.preventDefault();
-        setSelectedIds(new Set(allItems.map((i) => i.id)));
-        return;
-      }
-
-      // Ctrl+X — cut
-      if (ctrl && e.key === "x" && selectedIds.size > 0) {
-        e.preventDefault();
-        const items = allItems
-          .filter((i) => selectedIds.has(i.id))
-          .map((i) => {
-            const data =
-              i.kind === "folder"
-                ? listing.childFolders.find((f) => f.id === i.id)
-                : listing.files.find((f) => f.id === i.id);
-            return { id: i.id, kind: i.kind, name: data?.name ?? "" };
-          });
-        updateCutItems(items);
-        persistCutItems(items);
-        return;
-      }
-
-      // Ctrl+V — paste
-      if (ctrl && e.key === "v" && cutItems.length > 0) {
-        e.preventDefault();
-        handlePaste();
-        return;
-      }
-
-      // Delete / Backspace — trash
-      if (
-        (e.key === "Delete" || e.key === "Backspace") &&
-        selectedIds.size > 0
-      ) {
-        e.preventDefault();
-        handleTrashSelected();
-        return;
-      }
-
-      // Escape — deselect / cancel cut / cancel rename
-      if (e.key === "Escape") {
-        setSelectedIds(new Set());
-        setRenamingId(null);
-        updateCutItems([]);
-        clearCutItems();
-        return;
-      }
-
-      // F2 — rename focused
-      if (e.key === "F2" && selectedIds.size === 1) {
-        const id = Array.from(selectedIds)[0];
-        const item = allItems.find((i) => i.id === id);
-        if (!item) return;
-        const data =
-          item.kind === "folder"
-            ? listing.childFolders.find((f) => f.id === id)
-            : listing.files.find((f) => f.id === id);
-        if (data) beginRename(id, data.name);
-        return;
-      }
-
-      // Arrow up/down — navigate rows
-      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-        e.preventDefault();
-        const ids = allItems.map((i) => i.id);
-        const focused =
-          selectedIds.size > 0
-            ? Array.from(selectedIds)[selectedIds.size - 1]
-            : null;
-        const idx = focused ? ids.indexOf(focused) : -1;
-        const next =
-          e.key === "ArrowUp"
-            ? Math.max(0, idx - 1)
-            : Math.min(ids.length - 1, idx + 1);
-        if (ids[next]) {
-          setSelectedIds(new Set([ids[next]]));
-          setLastSelectedId(ids[next]);
-          requestAnimationFrame(() => focusRowById(ids[next]));
-        }
-        return;
-      }
-
-      // Space — select the focused row or first row when the list itself is focused
-      if (e.key === " ") {
-        const focusedRow = target.closest<HTMLElement>("[data-file-row]");
-        const id = focusedRow?.dataset.fileRow ?? allItems[0]?.id;
-        if (id) {
-          e.preventDefault();
-          setSelectedIds(new Set([id]));
-          setLastSelectedId(id);
-          requestAnimationFrame(() => focusRowById(id));
-        }
-        return;
-      }
-
-      // Enter — open item
-      if (e.key === "Enter" && selectedIds.size === 1) {
-        e.preventDefault();
-        const id = Array.from(selectedIds)[0];
-        openItem(id);
-      }
-    };
-
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allItems, selectedIds, cutItems, lastSelectedId]);
-
-  useEffect(() => {
-    if (selectedIds.size !== 1) return;
-    const id = Array.from(selectedIds)[0];
-    focusRowById(id);
-  }, [focusRowById, selectedIds]);
+    }
+    return false;
+  };
 
   // ---------------------------------------------------------------------------
   // Item actions
@@ -877,10 +708,10 @@ export function FilesView({
   const handleTrashSelected = async () => {
     const items = allItems.filter((i) => selectedIds.has(i.id));
     if (items.length === 0) {
-      setSelectedIds(new Set());
+      selection.update(new Set());
       return;
     }
-    setSelectedIds(new Set());
+    selection.update(new Set());
     setTrashedIds((prev) => {
       const next = new Set(prev);
       for (const item of items) next.add(item.id);
@@ -1036,14 +867,13 @@ export function FilesView({
       for (const id of movedFromCurrentFolderIds) next.add(id);
       return next;
     });
-    setSelectedIds((current) => {
+    selection.update((current) => {
       const next = new Set(current);
       for (const item of operation.items) next.delete(item.id);
       for (const id of failedIds) next.add(id);
       return next;
     });
     if (failures.length > 0) {
-      setLastSelectedId(failures.at(-1)?.id ?? null);
     }
 
     if (operation.source === "paste") {
@@ -1161,12 +991,11 @@ export function FilesView({
       next.set(clientId, nextOperation);
       return next;
     });
-    setSelectedIds((current) => {
+    selection.update((current) => {
       const next = new Set(current);
       for (const id of itemIds) next.delete(id);
       return next;
     });
-    setLastSelectedId(null);
 
     const logicalAction = `move:${destinationFolderId}:${items
       .map((item) => `${item.kind}:${item.id}`)
@@ -1238,7 +1067,7 @@ export function FilesView({
           error instanceof Error ? error.message : "Items could not be moved.",
         retrying: false,
       }));
-      setSelectedIds((current) => {
+      selection.update((current) => {
         const next = new Set(current);
         for (const id of itemIds) next.add(id);
         return next;
@@ -1305,7 +1134,6 @@ export function FilesView({
         : (shareLookup.sharesByFolderId[targetId] ?? null);
     setShareDialogTarget({ targetType, targetId, share });
   };
-
   // ---------------------------------------------------------------------------
   // Upload
   // ---------------------------------------------------------------------------
@@ -1412,10 +1240,7 @@ export function FilesView({
   ) => {
     const items = getInteractionItems(id, kind);
     draggedItemsRef.current = items;
-    if (!selectedIdsRef.current.has(id)) {
-      setSelectedIds(new Set([id]));
-      setLastSelectedId(id);
-    }
+    if (!selection.getSelected().has(id)) selection.selectOnly(id);
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData(INTERNAL_ITEM_DRAG_TYPE, JSON.stringify(items));
     event.dataTransfer.setData("text/plain", `${items.length} Staaash item(s)`);
@@ -1540,193 +1365,6 @@ export function FilesView({
   const handleFolderInputChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     handleUploadInputChange(e, folderInputRef);
 
-  // ---------------------------------------------------------------------------
-  // Rubber-band
-  // ---------------------------------------------------------------------------
-
-  const handleListMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (isCoarsePointer) return;
-      if (e.button !== 0) return;
-      const target = e.target as HTMLElement;
-      // Portaled menus are React children of the list but not part of its DOM
-      if (!listRef.current?.contains(target)) return;
-      // Let rename inputs and buttons handle their own events
-      if (target.closest("input, button")) return;
-      // Never start rubber-band from the header toolbar
-      if (target.closest("[data-explorer-header]")) return;
-
-      if (target.closest("[data-file-row]")) return;
-
-      const container = listRef.current!;
-      const rect = container.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-
-      // Rubber-band starts from empty list space. Row drags move items.
-      e.preventDefault();
-      rubberBandStart.current = { startX: x, startY: y };
-      isRubberBanding.current = true;
-      setRubberBand({ startX: x, startY: y, currentX: x, currentY: y });
-      if (!e.shiftKey && !e.ctrlKey && !e.metaKey) setSelectedIds(new Set());
-    },
-    [isCoarsePointer],
-  );
-
-  // Attach rubber-band move/end handlers to window so they fire even when the
-  // mouse escapes the list element. All state is accessed via refs so there
-  // are no stale closures and the effect never needs to re-run.
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (isCoarsePointer) return;
-      const container = listRef.current;
-      if (!container) return;
-
-      const rect = container.getBoundingClientRect();
-      const currentX = e.clientX - rect.left;
-      const currentY = e.clientY - rect.top;
-
-      if (!isRubberBanding.current) return;
-
-      const start = rubberBandStart.current;
-      if (!start) return;
-
-      didRubberBand.current = true;
-      // Files and recent use the same pointer rectangle shape.
-      // fallow-ignore-next-line code-duplication
-      setRubberBand({
-        startX: start.startX,
-        startY: start.startY,
-        currentX,
-        currentY,
-      });
-
-      const selLeft = Math.min(start.startX, currentX);
-      const selTop = Math.min(start.startY, currentY);
-      const selRight = Math.max(start.startX, currentX);
-      const selBottom = Math.max(start.startY, currentY);
-
-      const next = new Set<string>();
-      container
-        .querySelectorAll<HTMLElement>("[data-file-row]")
-        .forEach((el) => {
-          const id = el.dataset.fileRow;
-          if (!id || el.getAttribute("aria-disabled") === "true") return;
-
-          const rowRect = el.getBoundingClientRect();
-          const rowTop = rowRect.top - rect.top;
-          const rowBottom = rowRect.bottom - rect.top;
-          const rowLeft = rowRect.left - rect.left;
-          const rowRight = rowRect.right - rect.left;
-
-          if (!(
-            rowRight < selLeft ||
-            rowLeft > selRight ||
-            rowBottom < selTop ||
-            rowTop > selBottom
-          )) {
-            next.add(id);
-          }
-        });
-      setSelectedIds(next);
-      setLastSelectedId(
-        next.size > 0 ? (Array.from(next).at(-1) ?? null) : null,
-      );
-    };
-
-    const onUp = () => {
-      if (!isRubberBanding.current) return;
-      isRubberBanding.current = false;
-      rubberBandStart.current = null;
-      setRubberBand(null);
-      // didRubberBand stays true until after the click event fires (which
-      // happens synchronously after mouseup, before any setTimeout callback).
-      setTimeout(() => {
-        didRubberBand.current = false;
-      }, 0);
-    };
-
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-  }, [isCoarsePointer]);
-
-  // ---------------------------------------------------------------------------
-  // Properties panel target
-  // ---------------------------------------------------------------------------
-
-  // The pane follows the selection and only describes a single item.
-  const propertiesItem = (() => {
-    if (selectedIds.size !== 1) return null;
-    const id = Array.from(selectedIds)[0];
-    const folder = listing.childFolders.find((f) => f.id === id);
-    if (folder) return { kind: "folder" as const, data: folder };
-    const file = listing.files.find((f) => f.id === id);
-    if (file) return { kind: "file" as const, data: file };
-    return null;
-  })();
-
-  const openProperties = (id: string) => {
-    selectSingleItem(id);
-    setPropertiesOpen(true);
-  };
-
-  const closeProperties = () => {
-    // Hand focus back before the pane unmounts so it does not fall to <body>.
-    if (selectedIds.size === 1) focusRowById(Array.from(selectedIds)[0]);
-    else listRef.current?.focus();
-    setPropertiesOpen(false);
-  };
-
-  // ---------------------------------------------------------------------------
-  // Merged file list (files + active uploads sorted alphabetically)
-  // ---------------------------------------------------------------------------
-
-  type MergedFileEntry =
-    | { kind: "file"; file: (typeof listing.files)[0] }
-    | { kind: "upload"; upload: UploadingFile }
-    | { kind: "ghost"; name: string; size: number; storageKey: string };
-
-  const activeUploads = uploadingFiles.filter(
-    (f) =>
-      (f.folderId === listing.currentFolder.id ||
-        f.folderUploadRootId === listing.currentFolder.id) &&
-      (f.status !== "done" ||
-        !f.fileId ||
-        !visibleFiles.some((lf) => lf.id === f.fileId)),
-  );
-
-  // Ghost rows for sessions not already being actively uploaded or already in the listing
-  const activeUploadNames = new Set(uploadingFiles.map((f) => f.name));
-  const existingFileNames = new Set(visibleFiles.map((f) => f.name));
-  const ghostEntries = resumableSessions.filter(
-    (s) => !activeUploadNames.has(s.name) && !existingFileNames.has(s.name),
-  );
-
-  const mergedFileEntries: MergedFileEntry[] = [
-    ...visibleFiles.map((f) => ({ kind: "file" as const, file: f })),
-    ...activeUploads.map((u) => ({ kind: "upload" as const, upload: u })),
-    ...ghostEntries.map((s) => ({ kind: "ghost" as const, ...s })),
-  ];
-  mergedFileEntries.sort((a, b) => {
-    const na =
-      a.kind === "file"
-        ? a.file.name
-        : a.kind === "upload"
-          ? a.upload.name
-          : a.name;
-    const nb =
-      b.kind === "file"
-        ? b.file.name
-        : b.kind === "upload"
-          ? b.upload.name
-          : b.name;
-    return na.localeCompare(nb, undefined, { sensitivity: "base" });
-  });
-
   const cutSelectedItems = () => {
     const items = allItems.filter((item) => selectedIds.has(item.id));
     const cut = items.map((item) => {
@@ -1780,7 +1418,7 @@ export function FilesView({
         {
           label: "Select all",
           onSelect: () =>
-            setSelectedIds(new Set(allItems.map((item) => item.id))),
+            selection.update(new Set(allItems.map((item) => item.id))),
         },
       ],
     },
@@ -1806,7 +1444,7 @@ export function FilesView({
             label: target.pathLabel,
             onSelect: () =>
               void moveItems(
-                allItems.filter((item) => selectedIdsRef.current.has(item.id)),
+                allItems.filter((item) => selection.getSelected().has(item.id)),
                 target.id,
               ),
           })),
@@ -1821,15 +1459,258 @@ export function FilesView({
       ],
     },
   ];
+  // ---------------------------------------------------------------------------
+  // List items, columns and actions
+  // ---------------------------------------------------------------------------
+
+  const cutIds = new Set(cutItems.map((item) => item.id));
+  const shareFor = (kind: "folder" | "file", id: string) =>
+    (kind === "folder"
+      ? shareLookup.sharesByFolderId[id]
+      : shareLookup.sharesByFileId[id]) ?? null;
+  const mutationLabel = (data: FolderSummary | FileSummary) =>
+    data.storageMutation
+      ? data.storageMutation.status === "recovery_required"
+        ? "Recovery required"
+        : "Finishing storage operation"
+      : null;
+  const flags = (kind: "folder" | "file", id: string) => {
+    const shared = shareFor(kind, id)?.status === "active";
+    return shared ? (
+      <Link2
+        aria-label="Shared"
+        className="size-3.5 shrink-0 text-muted-foreground"
+      />
+    ) : null;
+  };
+
+  const listItems: FilesListItem[] = [
+    ...visibleFolders.map((folder) => ({
+      id: folder.id,
+      kind: "folder" as const,
+      name: folder.name,
+      icon: FOLDER_ICON_MAP[folderIcons[folder.id] ?? ""],
+      blocked: mutationLabel(folder),
+      dimmed: cutIds.has(folder.id),
+      flags: flags("folder", folder.id),
+      sub: formatRelativeTime(folder.updatedAt, now, timeZone),
+      data: folder,
+      sizeBytes: null,
+    })),
+    ...visibleFiles.map((file) => ({
+      id: file.id,
+      kind: "file" as const,
+      name: file.name,
+      mimeType: file.mimeType,
+      blocked: mutationLabel(file),
+      dimmed: cutIds.has(file.id),
+      flags: flags("file", file.id),
+      sub: `${formatWorkspaceFileSize(file.sizeBytes)} · ${formatRelativeTime(file.updatedAt, now, timeZone)}`,
+      data: file,
+      sizeBytes: file.sizeBytes,
+    })),
+  ];
+
+  const columns: FileListColumn<FilesListItem>[] = [
+    {
+      key: "size",
+      label: "Size",
+      width: "6rem",
+      align: "end",
+      render: (item) =>
+        item.sizeBytes === null ? "" : formatWorkspaceFileSize(item.sizeBytes),
+    },
+    {
+      key: "modified",
+      label: "Modified",
+      width: "8rem",
+      align: "end",
+      render: (item) => (
+        <span suppressHydrationWarning>
+          {formatRelativeTime(item.data.updatedAt, now, timeZone)}
+        </span>
+      ),
+    },
+  ];
+
+  const moveTargetsFor = (items: BatchMoveItem[]) => {
+    // Folders cannot move into themselves or their own subfolders.
+    const allowed = items
+      .filter((item) => item.kind === "folder")
+      .map(
+        (item) =>
+          new Set(listing.availableMoveTargetIdsByFolderId[item.id] ?? []),
+      );
+    return backgroundMoveTargets
+      .filter((target) => allowed.every((ids) => ids.has(target.id)))
+      .map((target) => ({ id: target.id, label: target.pathLabel }));
+  };
+
+  const cutItemsOf = (items: BatchMoveItem[]) => {
+    const cut = items.map((item) => ({
+      id: item.id,
+      kind: item.kind,
+      name: getItemName(item),
+    }));
+    updateCutItems(cut);
+    persistCutItems(cut);
+  };
+
+  const getActions = (item: FilesListItem) => {
+    const targets = getInteractionItems(item.id, item.kind);
+    const bulk = targets.length > 1;
+    const isFavorite =
+      item.kind === "folder"
+        ? favoriteFolderSet.has(item.id)
+        : favoriteFileSet.has(item.id);
+    const viewable =
+      item.kind === "folder" ||
+      ("viewerKind" in item.data && Boolean(item.data.viewerKind));
+    return buildItemActions({
+      name: item.name,
+      kind: item.kind,
+      count: targets.length,
+      open: () => openItem(item.id),
+      openLabel: viewable ? "Open" : "Download",
+      share: {
+        manage: shareFor(item.kind, item.id) !== null,
+        run: () => handleShare(item.kind, item.id),
+      },
+      download: viewable
+        ? () =>
+            bulk || item.kind === "folder"
+              ? void handleDownload(targets.map((target) => target.id))
+              : void downloadFile(item.id)
+        : bulk
+          ? () => void handleDownload(targets.map((target) => target.id))
+          : undefined,
+      rename: () => beginRename(item.id, item.name),
+      cut: () => cutItemsOf(targets),
+      moveTo: {
+        targets: moveTargetsFor(targets),
+        run: (destination) => void moveItems(targets, destination),
+      },
+      favorite: {
+        isFavorite,
+        run: () => void toggleFavorite(item.id, item.kind, isFavorite),
+      },
+      details: () => {
+        selection.selectOnly(item.id);
+        details.setOpen(true);
+      },
+      trash: () =>
+        bulk ? void handleTrashSelected() : void trashItem(item.id, item.kind),
+    });
+  };
+
+  // ---------------------------------------------------------------------------
+  // Details panel
+  // ---------------------------------------------------------------------------
+
+  const detailsItem =
+    selectedIds.size === 1
+      ? listItems.find((item) => selectedIds.has(item.id))
+      : undefined;
+  const locationLabel = listing.breadcrumbs
+    .map((crumb, index) => (index === 0 ? "Files" : crumb.name))
+    .join(" / ");
+  const detailsContent: DetailsContent | null = detailsItem
+    ? (() => {
+        const { data } = detailsItem;
+        const share = shareFor(detailsItem.kind, detailsItem.id);
+        const visual = getItemVisual(detailsItem.kind, detailsItem.mimeType);
+        const extension = detailsItem.name.includes(".")
+          ? detailsItem.name.split(".").pop()?.toUpperCase()
+          : null;
+        return {
+          item: detailsItem,
+          actions: (
+            <>
+              <Button
+                size="sm"
+                onClick={() => handleShare(detailsItem.kind, detailsItem.id)}
+              >
+                <Link2 aria-hidden />
+                {share ? "Manage link" : "Share"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  detailsItem.kind === "folder"
+                    ? void handleDownload([detailsItem.id])
+                    : void downloadFile(detailsItem.id)
+                }
+              >
+                <Download aria-hidden />
+                Download
+              </Button>
+            </>
+          ),
+          rows: [
+            [
+              "Kind",
+              detailsItem.kind === "folder"
+                ? "Folder"
+                : `${visual.label}${extension ? ` · ${extension}` : ""}`,
+            ],
+            ...(detailsItem.sizeBytes === null
+              ? []
+              : [
+                  ["Size", formatWorkspaceFileSize(detailsItem.sizeBytes)] as [
+                    string,
+                    string,
+                  ],
+                ]),
+            ["Location", locationLabel],
+            ["Modified", formatDateTime(data.updatedAt, timeZone)],
+            ["Created", formatDateTime(data.createdAt, timeZone)],
+          ],
+          sections: (
+            <>
+              <DetailsSection title="Sharing">
+                <p className="m-0 text-meta text-muted-foreground">
+                  {share
+                    ? share.status === "active"
+                      ? "Anyone with the link can open this."
+                      : "The link is no longer active."
+                    : "Not shared."}
+                </p>
+              </DetailsSection>
+              {detailsItem.mimeType?.startsWith("video/") ? (
+                <MediaPreviewSection
+                  fileId={detailsItem.id}
+                  key={detailsItem.id}
+                />
+              ) : null}
+              {detailsItem.kind === "folder" ? (
+                <FolderIconPicker
+                  active={folderIcons[detailsItem.id] ?? "Folder"}
+                  onPick={(name) => setFolderIcon(detailsItem.id, name)}
+                />
+              ) : null}
+            </>
+          ),
+        };
+      })()
+    : null;
+
+  // Uploads that a previous visit left unfinished; picking the same file resumes it.
+  const activeUploadNames = new Set(uploadingFiles.map((f) => f.name));
+  const existingFileNames = new Set(visibleFiles.map((f) => f.name));
+  const unfinishedUploads = resumableSessions.filter(
+    (s) => !activeUploadNames.has(s.name) && !existingFileNames.has(s.name),
+  );
+
+  const selectedItems = allItems.filter((item) => selectedIds.has(item.id));
 
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
 
   return (
-    <div className="lg:flex lg:items-start lg:gap-6">
-      <WorkspacePage className="min-w-0 lg:flex-1">
-        {/* Flash messages */}
+    <div className="flex items-start gap-4">
+      <WorkspacePage className="min-w-0 flex-1">
         {error ? <FlashMessage>{error}</FlashMessage> : null}
         {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
         {trashError ? <FlashMessage>{trashError}</FlashMessage> : null}
@@ -1856,7 +1737,7 @@ export function FilesView({
                   {retryItems.length > 0 ? (
                     <Button
                       size="xs"
-                      variant="secondary"
+                      variant="outline"
                       disabled={operation.retrying}
                       onClick={() => void retryFailedMove(operation.clientId)}
                     >
@@ -1869,519 +1750,257 @@ export function FilesView({
           })}
 
         <DashboardPageContextMenu
-          className="relative isolate grid min-h-[calc(100vh-100px)] content-start max-lg:min-w-0"
+          className="relative isolate grid min-h-[calc(100dvh-9rem)] content-start gap-3"
           groups={backgroundMenuGroups}
           ignoreSelector="[data-explorer-header]"
-          onMouseDown={handleListMouseDown}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
-          {/* ---- Header ---- */}
-          <div
+          <header
+            className="flex flex-wrap items-center gap-x-3 gap-y-2"
             data-explorer-header
-            className="flex flex-wrap items-start justify-between gap-4 border-b border-hairline pb-7 max-md:items-stretch max-md:gap-3 pointer-coarse:items-stretch pointer-coarse:gap-3"
           >
-            <div className="grid min-w-0 gap-1.5">
-              <div className="flex flex-wrap items-center gap-3 max-md:flex-col max-md:items-start max-md:gap-2 pointer-coarse:flex-col pointer-coarse:items-start pointer-coarse:gap-2">
-                <Breadcrumbs
-                  items={listing.breadcrumbs.map((crumb, index) => ({
-                    id: crumb.id,
-                    label: index === 0 ? "Files" : crumb.name,
-                    href: crumb.href,
-                    isDropTarget: dropTargetId === crumb.id,
-                    onDragOver: (event) => handleMoveDragOver(crumb.id, event),
-                    onDragLeave: (event) =>
-                      handleMoveDragLeave(crumb.id, event),
-                    onDrop: (event) => handleMoveDrop(crumb.id, event),
-                  }))}
+            <Breadcrumbs
+              className="min-w-0 flex-1"
+              items={listing.breadcrumbs.map((crumb, index) => ({
+                id: crumb.id,
+                label: index === 0 ? "Files" : crumb.name,
+                href: crumb.href,
+                isDropTarget: dropTargetId === crumb.id,
+                onDragOver: (event) => handleMoveDragOver(crumb.id, event),
+                onDragLeave: (event) => handleMoveDragLeave(crumb.id, event),
+                onDrop: (event) => handleMoveDrop(crumb.id, event),
+              }))}
+            />
+            {movingIds.size > 0 ? (
+              <Badge variant="info" role="status" aria-live="polite">
+                <Loader2
+                  aria-hidden
+                  className="animate-spin motion-reduce:animate-none"
                 />
-                <p className="sr-only" aria-live="polite">
-                  {selectedIds.size === 0
-                    ? "No items selected"
-                    : `${selectedIds.size} item${selectedIds.size === 1 ? "" : "s"} selected`}
-                </p>
-                {(selectedIds.size > 0 ||
-                  cutItems.length > 0 ||
-                  movingIds.size > 0) && (
-                  <div className="flex items-center gap-2">
-                    {movingIds.size > 0 && (
-                      <Badge variant="info" role="status" aria-live="polite">
-                        <Loader2
-                          aria-hidden
-                          className="animate-spin motion-reduce:animate-none"
-                          size={12}
-                        />
-                        Moving {movingIds.size} item
-                        {movingIds.size === 1 ? "" : "s"}…
-                      </Badge>
-                    )}
-                    {selectedIds.size > 0 && (
-                      <>
-                        <Badge variant="accent">
-                          {selectedIds.size} selected
-                        </Badge>
-                        <Badge
-                          render={
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleDownload(getSelectedItemIds())
-                              }
-                              title={`Download ${selectedIds.size} item${selectedIds.size !== 1 ? "s" : ""} as zip`}
-                            />
-                          }
-                        >
-                          <Download size={12} />
-                          Download
-                        </Badge>
-                      </>
-                    )}
-                    {cutItems.length > 0 && selectedIds.size === 0 && (
-                      <Badge
-                        render={
-                          <button
-                            type="button"
-                            onClick={handlePaste}
-                            title="Paste here (Ctrl+V)"
-                          />
-                        }
-                      >
-                        {cutItems.length} item{cutItems.length !== 1 ? "s" : ""}{" "}
-                        cut — paste here
-                      </Badge>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
+                Moving {movingIds.size} item{movingIds.size === 1 ? "" : "s"}
+              </Badge>
+            ) : null}
+            <ViewToggle value={view} onValueChange={setView} />
+            <Button
+              aria-label="Details"
+              aria-pressed={details.open}
+              size="icon"
+              title="Details (I)"
+              variant={details.open ? "secondary" : "ghost-muted"}
+              onClick={details.toggle}
+            >
+              <Info aria-hidden />
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              hidden
+              onChange={handleFileInputChange}
+              aria-hidden
+            />
+            <input
+              ref={folderInputRef}
+              type="file"
+              multiple
+              hidden
+              onChange={handleFolderInputChange}
+              aria-hidden
+            />
+          </header>
+          <p className="sr-only" aria-live="polite">
+            {selectedIds.size === 0
+              ? "No items selected"
+              : `${selectedIds.size} item${selectedIds.size === 1 ? "" : "s"} selected`}
+          </p>
 
-            <div className="flex shrink-0 items-center gap-2 pt-1 max-md:w-full pointer-coarse:w-full">
-              <Button
-                variant="secondary"
-                onClick={() => setNewFolderOpen(true)}
-              >
-                <FolderPlus aria-hidden />
-                New folder
+          {cutItems.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg bg-hover px-3 py-1.5 text-meta">
+              <span className="flex-1">
+                {cutItems.length} item{cutItems.length === 1 ? "" : "s"} cut.
+                Open a folder and paste them there.
+              </span>
+              <Button size="xs" onClick={() => void handlePaste()}>
+                Paste here
               </Button>
-
               <Button
-                variant="secondary"
-                onClick={() => folderInputRef.current?.click()}
+                size="xs"
+                variant="ghost"
+                onClick={() => {
+                  updateCutItems([]);
+                  clearCutItems();
+                }}
               >
-                <FolderPlus aria-hidden />
-                Upload folder
+                Cancel
               </Button>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                hidden
-                onChange={handleFileInputChange}
-                aria-hidden
-              />
-              <input
-                ref={folderInputRef}
-                type="file"
-                multiple
-                hidden
-                onChange={handleFolderInputChange}
-                aria-hidden
-              />
             </div>
-          </div>
+          ) : null}
 
-          {/* ---- List ---- */}
-          <div
-            ref={listRef}
-            className="relative min-h-50 pt-3.5 pb-10 outline-none select-none focus-visible:rounded-lg focus-visible:outline-2 focus-visible:outline-offset-6 focus-visible:outline-ring/60 max-md:pb-22.5 pointer-coarse:pb-22.5"
-            data-explorer-list
-            role="grid"
-            aria-label={`${listing.currentFolder.name} files`}
-            tabIndex={0}
-            onClick={(e) => {
-              // A rubber-band drag just ended — skip this ghost click entirely
-              if (didRubberBand.current) return;
-              // Plain click on empty space deselects. Clicks in portaled menus
-              // bubble here through the React tree and must not.
-              const target = e.target as HTMLElement;
-              if (
-                e.currentTarget.contains(target) &&
-                !target.closest("[data-file-row]")
-              ) {
-                setSelectedIds(new Set());
-              }
-            }}
-          >
-            {/* Column headers */}
-            {(listing.childFolders.length > 0 || listing.files.length > 0) && (
-              <div
-                className={cn(
-                  ROW_GRID,
-                  "items-start pt-0.5 pr-2 pb-2 pl-1 text-xs font-medium tracking-wide text-muted-foreground max-md:hidden lg:min-h-12 lg:pt-1.5 lg:pr-3 lg:pb-3 lg:pl-2 lg:text-label pointer-coarse:hidden [&>span:nth-last-child(-n+2)]:text-right",
-                )}
-                aria-hidden
+          {unfinishedUploads.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg bg-hover px-3 py-1.5 text-meta">
+              <span className="min-w-0 flex-1 truncate">
+                {unfinishedUploads.length === 1
+                  ? `${unfinishedUploads[0]!.name} didn't finish uploading.`
+                  : `${unfinishedUploads.length} uploads didn't finish.`}{" "}
+                Pick the same{" "}
+                {unfinishedUploads.length === 1 ? "file" : "files"} to resume.
+              </span>
+              <Button size="xs" onClick={() => fileInputRef.current?.click()}>
+                Resume
+              </Button>
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={() => {
+                  for (const session of unfinishedUploads) {
+                    localStorage.removeItem(session.storageKey);
+                  }
+                  setResumableSessions([]);
+                }}
               >
-                <span />
-                <span>Name</span>
-                <span>Size</span>
-                <span>Modified</span>
-              </div>
-            )}
-            <RubberBandRect rubberBand={rubberBand} />
+                Dismiss
+              </Button>
+            </div>
+          ) : null}
 
-            {/* ---- Folders ---- */}
-            {visibleFolders.map((folder) => {
-              const availableMoveTargetIds = new Set(
-                listing.availableMoveTargetIdsByFolderId[folder.id] ?? [],
-              );
-              const availableMoveTargets = listing.moveTargets.filter((t) =>
-                availableMoveTargetIds.has(t.id),
-              );
-              return (
-                <FilesRow
-                  key={folder.id}
-                  kind="folder"
-                  data={folder}
-                  isSelected={selectedIds.has(folder.id)}
-                  selectedCount={selectedIds.size}
-                  isCut={cutItems.some((c) => c.id === folder.id)}
-                  isJustMoved={justMovedIds.has(folder.id)}
-                  isRenaming={renamingId === folder.id}
-                  renameValue={renameValue}
-                  isFavorite={favoriteFolderSet.has(folder.id)}
-                  folderIconName={folderIcons[folder.id] ?? "Folder"}
-                  availableMoveTargets={availableMoveTargets}
-                  shareProps={{
-                    share: shareLookup.sharesByFolderId[folder.id] ?? null,
-                    targetId: folder.id,
-                    targetType: "folder",
-                    currentPath,
-                    onShare: () => handleShare("folder", folder.id),
-                  }}
-                  onRenameChange={setRenameValue}
-                  onRenameSubmit={() => submitRename(folder.id, "folder")}
-                  onRenameCancel={cancelRename}
-                  onClick={(e) => handleRowClick(folder.id, e)}
-                  onContextMenu={() =>
-                    handleItemContextMenu(folder.id, "folder")
-                  }
-                  onLongPress={() => selectSingleItem(folder.id)}
-                  onOpen={() => openItem(folder.id)}
-                  onStartRename={() => beginRename(folder.id, folder.name)}
-                  onFavorite={() =>
-                    toggleFavorite(
-                      folder.id,
-                      "folder",
-                      favoriteFolderSet.has(folder.id),
-                    )
-                  }
-                  onTrash={() => {
-                    if (selectedIds.has(folder.id) && selectedIds.size > 1) {
-                      handleTrashSelected();
-                    } else {
-                      trashItem(folder.id, "folder");
-                    }
-                  }}
-                  onProperties={() => openProperties(folder.id)}
-                  onCut={() => {
-                    // Folder and file rows intentionally share this selection behavior.
-                    // fallow-ignore-next-line code-duplication
-                    if (selectedIds.has(folder.id) && selectedIds.size > 1) {
-                      const items = allItems
-                        .filter((i) => selectedIdsRef.current.has(i.id))
-                        .map((i) => {
-                          const data =
-                            i.kind === "folder"
-                              ? listing.childFolders.find((f) => f.id === i.id)
-                              : listing.files.find((f) => f.id === i.id);
-                          return {
-                            id: i.id,
-                            kind: i.kind as CutItem["kind"],
-                            name: data?.name ?? "",
-                          };
-                        });
-                      updateCutItems(items);
-                      persistCutItems(items);
-                    } else {
-                      const item: CutItem = {
-                        id: folder.id,
-                        kind: "folder",
-                        name: folder.name,
-                      };
-                      updateCutItems([item]);
-                      persistCutItems([item]);
-                    }
-                  }}
-                  onMoveTo={(dest) => {
-                    const items =
-                      contextMoveItemsRef.current.length > 0
-                        ? [...contextMoveItemsRef.current]
-                        : getInteractionItems(folder.id, "folder");
-                    contextMoveItemsRef.current = [];
-                    void moveItems(items, dest);
-                  }}
-                  onDownload={() => {
-                    const current = getSelectedItemIds();
-                    const idsToDownload =
-                      current.includes(folder.id) && current.length > 1
-                        ? current
-                        : [folder.id];
-                    handleDownload(idsToDownload);
-                  }}
-                  rowRef={(el) => {
-                    if (el) rowRefs.current.set(folder.id, el);
-                    else rowRefs.current.delete(folder.id);
-                  }}
-                  onDragStart={(event) =>
-                    handleItemDragStart(folder.id, "folder", event)
-                  }
-                  onDragEnd={handleItemDragEnd}
-                  isDropTarget={dropTargetId === folder.id}
-                  onMoveDragOver={(event) =>
-                    handleMoveDragOver(folder.id, event)
-                  }
-                  onMoveDragLeave={(event) =>
-                    handleMoveDragLeave(folder.id, event)
-                  }
-                  onMoveDrop={(event) => handleMoveDrop(folder.id, event)}
-                  touchMode={isCoarsePointer}
-                />
-              );
-            })}
-
-            {/* ---- Empty state ---- */}
-            {mergedFileEntries.length === 0 && visibleFolders.length === 0 && (
-              <div className="mt-1 grid min-h-[min(52vh,480px)] place-content-center justify-items-center gap-4 rounded-lg border border-dashed border-line-strong px-4.5 py-8.5 text-sm text-muted-foreground max-md:min-h-60 max-md:px-3.5 max-md:py-7">
-                <div className="grid justify-items-center gap-1 text-center">
-                  <strong className="text-meta font-semibold text-foreground/90">
-                    No files here yet
-                  </strong>
-                  <span className="max-w-[34ch] leading-snug">
-                    Drop files or folders here to upload.
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  <Button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      fileInputRef.current?.click();
-                    }}
-                  >
-                    <Upload />
+          <FileList
+            coarse={isCoarsePointer}
+            columns={columns}
+            empty={
+              <Empty className="min-h-[min(48vh,420px)]">
+                <EmptyHeader>
+                  <EmptyTitle>This folder is empty</EmptyTitle>
+                  <EmptyDescription>
+                    Drop files or folders here, or add something new.
+                  </EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent className="flex-row flex-wrap justify-center">
+                  <Button onClick={() => fileInputRef.current?.click()}>
+                    <Upload aria-hidden />
                     Upload files
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      folderInputRef.current?.click();
-                    }}
+                    onClick={() => setNewFolderOpen(true)}
                   >
-                    <FolderPlus />
-                    Upload folder
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setNewFolderOpen(true);
-                    }}
-                  >
-                    <FolderPlus />
+                    <FolderPlus aria-hidden />
                     New folder
                   </Button>
-                </div>
-              </div>
-            )}
-
-            {/* ---- Files + uploading rows merged, sorted alphabetically ---- */}
-            {mergedFileEntries.map((entry) => {
-              if (entry.kind === "ghost") {
-                return (
-                  <GhostUploadRow
-                    key={entry.storageKey}
-                    name={entry.name}
-                    size={entry.size}
-                    onDismiss={() => {
-                      localStorage.removeItem(entry.storageKey);
-                      setResumableSessions((prev) =>
-                        prev.filter((s) => s.storageKey !== entry.storageKey),
-                      );
-                    }}
-                    onDoubleClick={() => fileInputRef.current?.click()}
-                  />
-                );
-              }
-              if (entry.kind === "upload") {
-                const f = entry.upload;
-                return (
-                  <UploadingRow
-                    key={f.clientKey}
-                    file={f}
-                    onDismiss={() => dismissUpload(f.clientKey)}
-                    onRetry={
-                      f.fileRef ? () => retryUpload(f.clientKey) : undefined
-                    }
-                  />
-                );
-              }
-              const file = entry.file;
-              const doneUpload = uploadingFiles.find(
-                (f) => f.fileId === file.id && f.status === "done",
-              );
-              if (doneUpload) {
-                return (
-                  <UploadingRow
-                    key={doneUpload.clientKey}
-                    file={doneUpload}
-                    onDismiss={() => dismissUpload(doneUpload.clientKey)}
-                    onRetry={undefined}
-                  />
-                );
-              }
-              const availableMoveTargets = listing.moveTargets.filter(
-                (t) => t.id !== listing.currentFolder.id,
-              );
-              return (
-                <FilesRow
-                  key={file.id}
-                  kind="file"
-                  data={file}
-                  isSelected={selectedIds.has(file.id)}
-                  selectedCount={selectedIds.size}
-                  isCut={cutItems.some((c) => c.id === file.id)}
-                  isJustMoved={justMovedIds.has(file.id)}
-                  isRenaming={renamingId === file.id}
-                  renameValue={renameValue}
-                  isFavorite={favoriteFileSet.has(file.id)}
-                  availableMoveTargets={availableMoveTargets}
-                  shareProps={{
-                    share: shareLookup.sharesByFileId[file.id] ?? null,
-                    targetId: file.id,
-                    targetType: "file",
-                    currentPath,
-                    onShare: () => handleShare("file", file.id),
-                  }}
-                  onRenameChange={setRenameValue}
-                  onRenameSubmit={() => submitRename(file.id, "file")}
-                  onRenameCancel={cancelRename}
-                  onClick={(e) => handleRowClick(file.id, e)}
-                  onContextMenu={() => handleItemContextMenu(file.id, "file")}
-                  onLongPress={() => selectSingleItem(file.id)}
-                  onOpen={() => openItem(file.id)}
-                  onStartRename={() => beginRename(file.id, file.name)}
-                  onFavorite={() =>
-                    toggleFavorite(
-                      file.id,
-                      "file",
-                      favoriteFileSet.has(file.id),
-                    )
+                </EmptyContent>
+              </Empty>
+            }
+            getActions={getActions}
+            itemClassName={(item) =>
+              dropTargetId === item.id
+                ? "bg-primary/14 ring-1 ring-primary/50"
+                : justMovedIds.has(item.id)
+                  ? styles.justMoved
+                  : undefined
+            }
+            itemProps={(item) => ({
+              draggable: !isCoarsePointer && renamingId !== item.id,
+              onDragStart: (event) =>
+                handleItemDragStart(item.id, item.kind, event),
+              onDragEnd: handleItemDragEnd,
+              ...(item.kind === "folder"
+                ? {
+                    onDragOver: (event) => handleMoveDragOver(item.id, event),
+                    onDragLeave: (event) => handleMoveDragLeave(item.id, event),
+                    onDrop: (event) => handleMoveDrop(item.id, event),
                   }
-                  onTrash={() => {
-                    if (selectedIds.has(file.id) && selectedIds.size > 1) {
-                      handleTrashSelected();
-                    } else {
-                      trashItem(file.id, "file");
-                    }
-                  }}
-                  onProperties={() => openProperties(file.id)}
-                  onCut={() => {
-                    if (selectedIds.has(file.id) && selectedIds.size > 1) {
-                      const items = allItems
-                        .filter((i) => selectedIdsRef.current.has(i.id))
-                        .map((i) => {
-                          const data =
-                            i.kind === "folder"
-                              ? listing.childFolders.find((f) => f.id === i.id)
-                              : listing.files.find((f) => f.id === i.id);
-                          return {
-                            id: i.id,
-                            kind: i.kind as CutItem["kind"],
-                            name: data?.name ?? "",
-                          };
-                        });
-                      updateCutItems(items);
-                      persistCutItems(items);
-                    } else {
-                      const item: CutItem = {
-                        id: file.id,
-                        kind: "file",
-                        name: file.name,
-                      };
-                      updateCutItems([item]);
-                      persistCutItems([item]);
-                    }
-                  }}
-                  onMoveTo={(dest) => {
-                    const items =
-                      contextMoveItemsRef.current.length > 0
-                        ? [...contextMoveItemsRef.current]
-                        : getInteractionItems(file.id, "file");
-                    contextMoveItemsRef.current = [];
-                    void moveItems(items, dest);
-                  }}
-                  onDownload={() => {
-                    const current = getSelectedItemIds();
-                    if (current.includes(file.id) && current.length > 1) {
-                      handleDownload(current);
-                      return;
-                    }
-                    void downloadFile(file.id);
-                  }}
-                  rowRef={(el) => {
-                    if (el) rowRefs.current.set(file.id, el);
-                    else rowRefs.current.delete(file.id);
-                  }}
-                  onDragStart={(event) =>
-                    handleItemDragStart(file.id, "file", event)
-                  }
-                  onDragEnd={handleItemDragEnd}
-                  touchMode={isCoarsePointer}
-                />
-              );
+                : {}),
             })}
-          </div>
+            items={listItems}
+            label={`${listing.currentFolder.name} files`}
+            renderName={(item) =>
+              renamingId === item.id ? (
+                <Input
+                  autoFocus
+                  aria-label={`Rename ${item.name}`}
+                  className="w-full"
+                  size="sm"
+                  value={renameValue}
+                  onBlur={() => void submitRename(item.id, item.kind)}
+                  onChange={(event) => setRenameValue(event.target.value)}
+                  onClick={(event) => event.stopPropagation()}
+                  onFocus={(event) => {
+                    const position = getRenameCursorPosition(
+                      item.name,
+                      item.kind,
+                    );
+                    event.currentTarget.setSelectionRange(position, position);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void submitRename(item.id, item.kind);
+                    } else if (event.key === "Escape") {
+                      event.preventDefault();
+                      cancelRename();
+                    }
+                    event.stopPropagation();
+                  }}
+                />
+              ) : undefined
+            }
+            selection={selection}
+            view={view}
+          />
 
-          {isCoarsePointer && selectedIds.size > 0 ? (
-            <SelectionBar
-              count={selectedIds.size}
-              actions={[
-                {
-                  label: "Download",
-                  onClick: () => handleDownload(getSelectedItemIds()),
-                },
-                { label: "Cut", onClick: cutSelectedItems },
-                {
-                  label: "Trash",
-                  onClick: handleTrashSelected,
-                  destructive: true,
-                },
-                { label: "Clear", onClick: () => setSelectedIds(new Set()) },
-              ]}
-            />
-          ) : null}
-
-          {/* ---- Drag-to-upload overlay ---- */}
-          {isDragOver && (
+          {isDragOver ? (
             <div
               className="pointer-events-none absolute -inset-1 z-30 flex animate-overlay-in items-center justify-center rounded-2xl border-2 border-dashed border-primary/50 bg-card motion-reduce:animate-none"
               aria-hidden
             >
               <div className="grid justify-items-center gap-3 text-center">
-                <Upload size={32} className="text-primary opacity-70" />
-                <p className="font-heading text-meta font-semibold text-primary-ink">
-                  Drop files or folders into "{listing.currentFolder.name}"
+                <Upload className="size-8 text-primary" />
+                <p className="m-0 font-heading text-body font-semibold">
+                  Drop to upload into {listing.currentFolder.name}
                 </p>
               </div>
             </div>
-          )}
+          ) : null}
         </DashboardPageContextMenu>
 
-        {/* ---- Share dialog ---- */}
-        {shareDialogTarget && (
+        <SelectionBar
+          actions={[
+            {
+              label: "Share",
+              icon: Link2,
+              disabled: selectedItems.length !== 1,
+              onClick: () => {
+                const only = selectedItems[0];
+                if (only) handleShare(only.kind, only.id);
+              },
+            },
+            {
+              label: "Download",
+              icon: Download,
+              onClick: () => void handleDownload(getSelectedItemIds()),
+            },
+            {
+              label: "Move",
+              icon: FolderInput,
+              menu: moveTargetsFor(selectedItems).map((target) => ({
+                label: target.label,
+                onClick: () => void moveItems(selectedItems, target.id),
+              })),
+            },
+            {
+              label: "Trash",
+              icon: Trash2,
+              destructive: true,
+              onClick: () => void handleTrashSelected(),
+            },
+          ]}
+          count={selectedIds.size}
+          onClear={selection.clear}
+        />
+
+        {shareDialogTarget ? (
           <ShareDialog
             targetType={shareDialogTarget.targetType}
             targetId={shareDialogTarget.targetId}
@@ -2391,7 +2010,7 @@ export function FilesView({
               startTransition(() => router.refresh());
             }}
           />
-        )}
+        ) : null}
 
         <CreateFolderDialog
           open={newFolderOpen}
@@ -2401,201 +2020,17 @@ export function FilesView({
         />
       </WorkspacePage>
 
-      {/* ---- Properties pane ---- */}
-      {propertiesOpen && (
-        <FilesPropertiesPanel
-          item={propertiesItem}
-          folderIcons={folderIcons}
-          onSetFolderIcon={setFolderIcon}
-          onClose={closeProperties}
-          share={
-            propertiesItem
-              ? propertiesItem.kind === "file"
-                ? (shareLookup.sharesByFileId[propertiesItem.data.id] ?? null)
-                : (shareLookup.sharesByFolderId[propertiesItem.data.id] ?? null)
-              : null
+      {details.open ? (
+        <DetailsPanel
+          content={detailsContent}
+          emptyText={
+            selectedIds.size > 1
+              ? `${selectedIds.size} items selected.`
+              : "Select a file or folder to see its details."
           }
-          onShare={
-            propertiesItem
-              ? () => handleShare(propertiesItem.kind, propertiesItem.data.id)
-              : undefined
-          }
+          onClose={() => details.setOpen(false)}
         />
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Uploading row
-// ---------------------------------------------------------------------------
-
-const UPLOAD_ROW_STATUS =
-  "flex min-w-0 items-center justify-end overflow-hidden text-right text-xs whitespace-nowrap text-muted-foreground max-md:col-start-3 pointer-coarse:col-start-3";
-
-function UploadRowActions({
-  onRetry,
-  retryLabel = "Retry",
-  onDismiss,
-}: {
-  onRetry?: (e: React.MouseEvent) => void;
-  retryLabel?: string;
-  onDismiss?: (e: React.MouseEvent) => void;
-}) {
-  return (
-    <>
-      {onRetry && (
-        <Button size="xs" variant="outline" className="ml-2" onClick={onRetry}>
-          {retryLabel}
-        </Button>
-      )}
-      {onDismiss && (
-        <Button
-          size="icon-xs"
-          variant="ghost"
-          className="ml-1"
-          onClick={onDismiss}
-          aria-label="Dismiss"
-        >
-          ✕
-        </Button>
-      )}
-    </>
-  );
-}
-
-function UploadingRow({
-  file,
-  onDismiss,
-  onRetry,
-}: {
-  file: UploadingFile;
-  onDismiss: () => void;
-  onRetry?: () => void;
-}) {
-  const eta = formatEta(file.size, file.transferredBytes, file.speed);
-  const visual = getItemVisual("file", file.fileRef?.type);
-  const statusText =
-    file.status === "error"
-      ? (file.error ?? "Upload failed")
-      : file.status === "done"
-        ? "Done"
-        : file.resumeHint && file.progress === 0
-          ? file.resumeHint
-          : file.statusLabel
-            ? file.statusLabel
-            : `${file.progress}% · ${formatSpeed(file.speed)}${eta ? ` · ${eta}` : ""}`;
-  const isPhaseStatus =
-    file.status === "uploading" && Boolean(file.statusLabel);
-
-  return (
-    <div className={cn(ROW_GRID, ROW_BASE, "bg-hover/60")} role="row">
-      <div className={ROW_ICON_CELL} role="gridcell">
-        <ItemTypeIcon
-          className={ROW_ICON}
-          size={16}
-          tone="plain"
-          visual={visual}
-        />
-      </div>
-      <div className={ROW_NAME_CELL} role="gridcell">
-        <span className={ROW_NAME} title={file.name}>
-          {file.name}
-        </span>
-      </div>
-      <span className={ROW_META} role="gridcell">
-        {formatBytes(file.size)}
-      </span>
-      <span
-        className={cn(
-          UPLOAD_ROW_STATUS,
-          file.status === "error" && "text-destructive-foreground",
-        )}
-        role="gridcell"
-        title={statusText}
-      >
-        <span className="min-w-0 flex-1 truncate">
-          <span aria-live="polite" aria-atomic="true">
-            {isPhaseStatus ? statusText : ""}
-          </span>
-          {!isPhaseStatus && statusText}
-        </span>
-        <UploadRowActions
-          onRetry={file.status === "error" ? onRetry : undefined}
-          onDismiss={file.status !== "uploading" ? onDismiss : undefined}
-        />
-      </span>
-      {file.status === "uploading" && (
-        <div className="absolute right-2 bottom-px left-1 h-0.5 overflow-hidden rounded-full bg-line-strong">
-          <div
-            className="h-full rounded-full bg-primary transition-[width] duration-200"
-            style={{ width: `${file.progress}%` }}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Ghost upload row (resumable session persisted from a previous visit)
-// ---------------------------------------------------------------------------
-
-function GhostUploadRow({
-  name,
-  size,
-  onDismiss,
-  onDoubleClick,
-}: {
-  name: string;
-  size: number;
-  onDismiss: () => void;
-  onDoubleClick: () => void;
-}) {
-  const visual = getItemVisual("file");
-  return (
-    <div
-      className={cn(
-        ROW_GRID,
-        ROW_BASE,
-        "cursor-pointer bg-transparent opacity-55 outline outline-1 outline-muted-foreground/50 outline-dashed hover:bg-transparent hover:opacity-75",
-      )}
-      onDoubleClick={onDoubleClick}
-      role="row"
-    >
-      <div className={ROW_ICON_CELL} role="gridcell">
-        <ItemTypeIcon
-          className={ROW_ICON}
-          size={16}
-          tone="plain"
-          visual={visual}
-        />
-      </div>
-      <div className={ROW_NAME_CELL} role="gridcell">
-        <span className={ROW_NAME} title={name}>
-          {name}
-        </span>
-      </div>
-      <span className={ROW_META} role="gridcell">
-        {formatBytes(size)}
-      </span>
-      <span className={UPLOAD_ROW_STATUS} role="gridcell">
-        <span className="min-w-0 flex-1 truncate">Incomplete</span>
-        <UploadRowActions
-          retryLabel="Resume"
-          onRetry={(e) => {
-            e.stopPropagation();
-            onDoubleClick();
-          }}
-          onDismiss={(e) => {
-            e.stopPropagation();
-            onDismiss();
-          }}
-        />
-      </span>
-      <div className="absolute right-2 bottom-px left-1 h-0.5 overflow-hidden rounded-full bg-muted-foreground/15">
-        <div className="h-full w-[35%] rounded-full bg-muted-foreground opacity-40" />
-      </div>
+      ) : null}
     </div>
   );
 }

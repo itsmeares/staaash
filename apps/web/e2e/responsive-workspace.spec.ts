@@ -34,7 +34,7 @@ test("phone workspace shell exposes bottom nav, upload, and touch file actions",
   await page.getByRole("menuitem", { name: "Upload files" }).click();
   await fileChooser;
 
-  const row = page.locator("[data-file-row]", {
+  const row = page.locator("[data-list-item]", {
     hasText: "shared-preview.png",
   });
   await expect(row).toBeVisible();
@@ -50,7 +50,7 @@ test("phone workspace shell exposes bottom nav, upload, and touch file actions",
     clientY: 24,
     pointerType: "touch",
   });
-  await expect(page.getByText("1 item", { exact: true })).toBeVisible();
+  await expect(page.getByText("1 selected", { exact: true })).toBeVisible();
 
   await row
     .getByRole("button", { name: /Actions for shared-preview\.png/ })

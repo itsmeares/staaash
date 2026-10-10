@@ -158,7 +158,7 @@ for (const theme of THEMES) {
         await page.goto("/files");
         await settle(page);
 
-        const row = page.locator("[data-file-row]", {
+        const row = page.locator("[data-list-item]", {
           hasText: "shared-preview.png",
         });
         await expect(row).toBeVisible();
@@ -211,7 +211,10 @@ for (const theme of THEMES) {
             await page.goto("/files");
             await settle(page);
             await page
-              .getByRole("button", { name: "New folder" })
+              .getByRole("button", { name: "New", exact: true })
+              .click({ timeout: 5_000 });
+            await page
+              .getByRole("menuitem", { name: "New folder" })
               .click({ timeout: 5_000 });
             await expect(page.getByRole("dialog").first()).toBeVisible({
               timeout: 5_000,

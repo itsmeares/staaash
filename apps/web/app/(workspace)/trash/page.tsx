@@ -34,7 +34,13 @@ export default async function TrashPage({ searchParams }: TrashPageProps) {
       isTrashEmpty={isEmpty}
       preset="trash"
     >
-      <TrashView error={error} items={items} success={success} />
+      <TrashView
+        error={error}
+        items={items}
+        // The worker reads the same setting; 30 days unless an operator changed it.
+        retentionDays={Number(process.env.TRASH_RETENTION_DAYS) || 30}
+        success={success}
+      />
     </WorkspacePresetPageContextMenu>
   );
 }

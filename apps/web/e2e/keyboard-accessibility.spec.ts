@@ -166,8 +166,8 @@ test("files rows move focus with keyboard and open selected item", async ({
   await expect(page.getByText("shared-preview.png")).toBeVisible();
   await expectNoSeriousA11yViolations(page);
 
-  const list = page.locator("[data-explorer-list]");
-  const firstRow = page.locator("[data-file-row]").first();
+  const list = page.locator("[data-file-list]");
+  const firstRow = page.locator("[data-list-item]").first();
 
   await list.focus();
   await page.keyboard.press("ArrowDown");

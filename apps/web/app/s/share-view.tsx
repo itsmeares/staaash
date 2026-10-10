@@ -5,7 +5,6 @@ import { TextFileViewer } from "@/app/text-file-viewer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Empty, EmptyDescription } from "@/components/ui/empty";
 import {
   InputGroup,
   InputGroupAddon,
@@ -15,10 +14,9 @@ import { PageHeader } from "@/components/page-header";
 import { DateTime } from "@/components/time-provider";
 
 import { FlashMessage, getSingleSearchParam } from "@/app/auth-ui";
-import { getItemVisual } from "@/app/item-visuals";
-import { ItemTypeIcon } from "@/app/item-type-icon";
 import { authService } from "@/server/auth/service";
 import { ShareAudioPlayer } from "./share-audio-player";
+import { ShareFolderList } from "./share-folder-list";
 import type { FileSummary } from "@/server/files/types";
 import { ShareError } from "@/server/sharing/errors";
 import { isPublicShareFileNativeViewSafe } from "@/server/media/public-share-content-policy";
@@ -394,116 +392,27 @@ export function ShareView({
         </nav>
       ) : null}
 
-      <Card className="gap-4 p-6 max-sm:p-4.5">
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="m-0 text-sm font-semibold">Folders</h2>
-          <Badge>{resolution.listing.childFolders.length}</Badge>
-        </div>
-
-        {resolution.listing.childFolders.length === 0 ? (
-          <Empty className="py-4 md:py-4">
-            <EmptyDescription>No folders here.</EmptyDescription>
-          </Empty>
-        ) : (
-          <div className="grid gap-2">
-            {resolution.listing.childFolders.map((folder) => (
-              <article
-                className="rounded-lg border border-hairline px-3.5 py-2.5"
-                key={folder.id}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <ItemTypeIcon
-                      className="inline-flex size-6.5 shrink-0 items-center justify-center rounded-sm"
-                      visual={getItemVisual("folder")}
-                    />
-                    <div className="grid min-w-0 gap-1">
-                      <Link
-                        className="truncate text-label font-medium text-foreground hover:underline"
-                        href={`/s/${encodeURIComponent(token)}/f/${folder.id}`}
-                      >
-                        {folder.name}
-                      </Link>
-                      <p className="m-0 text-xs text-muted-foreground">
-                        Updated <DateTime value={folder.updatedAt} />
-                      </p>
-                    </div>
-                  </div>
-                  <Badge>Folder</Badge>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </Card>
-
-      <Card className="gap-4 p-6 max-sm:p-4.5">
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="m-0 text-sm font-semibold">Files</h2>
-          <Badge>{resolution.listing.files.length}</Badge>
-        </div>
-
-        {resolution.listing.files.length === 0 ? (
-          <Empty className="py-4 md:py-4">
-            <EmptyDescription>No files here.</EmptyDescription>
-          </Empty>
-        ) : (
-          <div className="grid gap-2">
-            {resolution.listing.files.map((file) => (
-              <article
-                className="rounded-lg border border-hairline px-3.5 py-2.5"
-                key={file.id}
-              >
-                <div className="flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-start">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <ItemTypeIcon
-                      className="inline-flex size-6.5 shrink-0 items-center justify-center rounded-sm"
-                      visual={getItemVisual("file", file.mimeType)}
-                    />
-                    <div className="grid min-w-0 gap-1">
-                      <h3 className="m-0 truncate text-label font-medium text-foreground">
-                        {file.name}
-                      </h3>
-                      <p className="m-0 text-xs text-muted-foreground">
-                        {file.mimeType} · {formatBytes(file.sizeBytes)} ·
-                        updated <DateTime value={file.updatedAt} />
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    {file.viewerKind ? (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        render={
-                          <Link
-                            href={`/s/${encodeURIComponent(token)}/files/${file.id}`}
-                          />
-                        }
-                      >
-                        Open
-                      </Button>
-                    ) : null}
-                    {!resolution.share.downloadDisabled ? (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        render={
-                          <a
-                            href={`/s/${encodeURIComponent(token)}/files/${file.id}/download`}
-                          />
-                        }
-                      >
-                        Download
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </Card>
+      <ShareFolderList
+        downloadDisabled={resolution.share.downloadDisabled}
+        entries={[
+          ...resolution.listing.childFolders.map((folder) => ({
+            id: folder.id,
+            kind: "folder" as const,
+            name: folder.name,
+            updatedAt: folder.updatedAt.toISOString(),
+          })),
+          ...resolution.listing.files.map((file) => ({
+            id: file.id,
+            kind: "file" as const,
+            name: file.name,
+            mimeType: file.mimeType,
+            sizeBytes: file.sizeBytes,
+            hasViewer: Boolean(file.viewerKind),
+            updatedAt: file.updatedAt.toISOString(),
+          })),
+        ]}
+        token={token}
+      />
 
       <SharedVia />
     </main>

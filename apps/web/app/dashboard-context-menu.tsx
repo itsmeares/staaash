@@ -28,6 +28,15 @@ import {
 } from "@/components/ui/context-menu";
 
 import {
+  MenuItem,
+  MenuSeparator,
+  MenuShortcut,
+  MenuSub,
+  MenuSubPopup,
+  MenuSubTrigger,
+} from "@/components/ui/menu";
+
+import {
   getVisibleDashboardMenuGroups,
   type DashboardContextMenuActionModel,
   type DashboardContextMenuGroupModel,
@@ -91,6 +100,51 @@ function DashboardContextMenuItems({ groups }: DashboardContextMenuItemsProps) {
               )}
             </Fragment>
           ))}
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
+/** The same actions in a dropdown menu, for "More actions" buttons. */
+export function DashboardMenuItems({ groups }: DashboardContextMenuItemsProps) {
+  const visibleGroups = getVisibleDashboardMenuGroups(groups);
+
+  return (
+    <>
+      {visibleGroups.map((group, groupIndex) => (
+        <Fragment key={groupIndex}>
+          {groupIndex > 0 ? <MenuSeparator /> : null}
+          {group.actions.map((action) =>
+            action.subActions && action.subActions.length > 0 ? (
+              <MenuSub key={action.label}>
+                <MenuSubTrigger>
+                  {action.icon}
+                  {action.label}
+                </MenuSubTrigger>
+                <MenuSubPopup>
+                  <DashboardMenuItems
+                    groups={[{ actions: action.subActions }]}
+                  />
+                </MenuSubPopup>
+              </MenuSub>
+            ) : (
+              <MenuItem
+                disabled={action.disabled}
+                key={action.label}
+                variant={action.destructive ? "destructive" : "default"}
+                onClick={() => {
+                  if (!action.disabled) action.onSelect?.();
+                }}
+              >
+                {action.icon}
+                {action.label}
+                {action.shortcut ? (
+                  <MenuShortcut>{action.shortcut}</MenuShortcut>
+                ) : null}
+              </MenuItem>
+            ),
+          )}
         </Fragment>
       ))}
     </>
