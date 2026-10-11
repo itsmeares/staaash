@@ -58,6 +58,7 @@ const createPrismaRetrievalRepository = ({
     listFilesByOwner(ownerUserId, options = {}) {
       return getFilesRepo().listFilesByOwner(ownerUserId, {
         includeDeleted: options.includeDeleted ?? false,
+        favoritesOnly: options.favoritesOnly,
       });
     },
 

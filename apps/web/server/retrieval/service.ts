@@ -363,21 +363,13 @@ export const createRetrievalService = ({
       actorUserId,
     }: FilesActor): Promise<FavoriteRetrievalItem[]> {
       const activeRepo = await resolveRepo();
-      const [
-        filesRoot,
-        folders,
-        files,
-        favoriteFiles,
-        favoriteFolders,
-        favoriteState,
-      ] = await Promise.all([
+      const [filesRoot, folders, files, favoriteState] = await Promise.all([
         activeRepo.ensureFilesRoot(actorUserId),
         activeRepo.listFoldersByOwner(actorUserId),
-        activeRepo.listFilesByOwner(actorUserId),
-        activeRepo.listFavoriteFiles(actorUserId),
-        activeRepo.listFavoriteFolders(actorUserId),
+        activeRepo.listFilesByOwner(actorUserId, { favoritesOnly: true }),
         getFavoriteState(actorUserId),
       ]);
+      const { favoriteFiles, favoriteFolders } = favoriteState;
       const folderMap = buildFolderMap(folders);
       const folderById = new Map(folders.map((folder) => [folder.id, folder]));
       const fileById = new Map(files.map((file) => [file.id, file]));

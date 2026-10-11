@@ -181,6 +181,12 @@ const createMemoryRepository = () => {
         .filter(
           (file) =>
             file.ownerUserId === ownerUserId &&
+            (!options.favoritesOnly ||
+              state.favoriteFiles.some(
+                (favorite) =>
+                  favorite.userId === ownerUserId &&
+                  favorite.fileId === file.id,
+              )) &&
             (options.includeDeleted || file.deletedAt === null),
         )
         .map(cloneFile);

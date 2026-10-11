@@ -282,7 +282,7 @@ export type FilesRepository = {
   ): Promise<FolderSummary[]>;
   listFilesByOwner(
     ownerUserId: string,
-    options?: ListFilesOptions,
+    options?: ListFilesOptions & { favoritesOnly?: boolean },
   ): Promise<StoredFile[]>;
   searchFilesByOwner(
     ownerUserId: string,
@@ -460,6 +460,9 @@ export const createPrismaFilesRepository = (
       const files = await client.file.findMany({
         where: {
           ownerUserId,
+          ...(options.favoritesOnly
+            ? { favorites: { some: { userId: ownerUserId } } }
+            : {}),
           ...(options.includeDeleted ? {} : { deletedAt: null }),
         },
         orderBy: [
