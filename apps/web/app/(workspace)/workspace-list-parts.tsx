@@ -72,8 +72,9 @@ export function ListToolbar({
   view: ViewMode;
   onViewChange: (view: ViewMode) => void;
 }) {
+  // min-w-0: the chip row scrolls instead of widening the page on phones.
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex min-w-0 items-center gap-3">
       <TypeFilter
         options={WORKSPACE_ITEM_FILTERS}
         value={filter}
