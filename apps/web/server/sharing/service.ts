@@ -333,7 +333,10 @@ export const createSharingService = ({
     return { secret, base };
   };
 
-  const resolveFilesState = async (ownerUserId: string) => {
+  const resolveFilesState = async (
+    ownerUserId: string,
+    sharedFileId?: string | null,
+  ) => {
     const activeFilesRepo = await resolveFilesRepo();
     const filesRootPromise = filesRepo
       ? activeFilesRepo.ensureFilesRoot(ownerUserId)
@@ -343,9 +346,15 @@ export const createSharingService = ({
       activeFilesRepo.listFoldersByOwner(ownerUserId, {
         includeDeleted: true,
       }),
-      activeFilesRepo.listFilesByOwner(ownerUserId, {
-        includeDeleted: true,
-      }),
+      sharedFileId === undefined
+        ? activeFilesRepo.listFilesByOwner(ownerUserId, {
+            includeDeleted: true,
+          })
+        : sharedFileId
+          ? activeFilesRepo
+              .findFileById(sharedFileId)
+              .then((file) => (file?.ownerUserId === ownerUserId ? [file] : []))
+          : [],
     ]);
     if (!filesRoot) throw new StorageProtocolNotReadyError();
 
@@ -944,7 +953,10 @@ export const createSharingService = ({
     }): Promise<PublicShareResolution> {
       const share = await getValidatedPublicShare(token);
       const filesRepo = await resolveFilesRepo();
-      const rootState = await resolveFilesState(share.createdByUserId);
+      const rootState = await resolveFilesState(
+        share.createdByUserId,
+        share.targetType === "file" ? share.fileId : undefined,
+      );
       const access = getAccessState({
         share,
         shareAccessCookieValue,
@@ -971,7 +983,7 @@ export const createSharingService = ({
       }
 
       if (share.targetType === "file") {
-        const file = await filesRepo.findFileById(share.fileId!);
+        const file = rootState.fileMap.get(share.fileId!);
 
         assertActiveTarget({
           targetType: "file",

@@ -84,7 +84,7 @@ export type RetrievalRepository = {
   ): Promise<FolderSummary[]>;
   listFilesByOwner(
     ownerUserId: string,
-    options?: RetrievalListOptions,
+    options?: RetrievalListOptions & { favoritesOnly?: boolean },
   ): Promise<FileSummary[]>;
   searchFilesByOwner(
     ownerUserId: string,

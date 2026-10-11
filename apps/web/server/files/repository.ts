@@ -58,6 +58,7 @@ type ListFoldersOptions = {
 };
 
 type ListFilesOptions = {
+  favoritesOnly?: boolean;
   includeDeleted?: boolean;
   includeMissing?: boolean;
 };
@@ -460,6 +461,9 @@ export const createPrismaFilesRepository = (
       const files = await client.file.findMany({
         where: {
           ownerUserId,
+          ...(options.favoritesOnly
+            ? { favorites: { some: { userId: ownerUserId } } }
+            : {}),
           ...(options.includeDeleted ? {} : { deletedAt: null }),
         },
         orderBy: [
