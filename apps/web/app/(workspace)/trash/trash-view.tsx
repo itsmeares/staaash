@@ -1,11 +1,13 @@
 "use client";
 
 import { RotateCcw, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { FlashMessage } from "@/app/auth-ui";
 import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
 import { PageHeader } from "@/components/page-header";
+import { confirmAction } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { useTime } from "@/components/time-provider";
 import {
@@ -28,6 +30,7 @@ import { formatRelativeTime } from "@/lib/time";
 import { SelectionBar } from "../selection-bar";
 import { useCoarsePointer } from "../use-coarse-pointer";
 import { blockedLabel, sizeColumn } from "../workspace-item-helpers";
+import { moveTrash, showUndo } from "../undo";
 import { EmptyTrashAction } from "./trash-file-actions";
 import {
   filterTrashItems,
@@ -56,6 +59,7 @@ export function TrashView({
   success,
   retentionDays,
 }: TrashViewProps) {
+  const router = useRouter();
   const isCoarsePointer = useCoarsePointer();
   const { now, timeZone } = useTime();
   const [filterType, setFilterType] = useState<TrashFilterType>("all");
@@ -73,31 +77,40 @@ export function TrashView({
     targets: TrashClientItem[],
     action: "restore" | "delete",
   ) => {
+    if (action === "restore") {
+      const restored = await moveTrash(targets, "restore", "/trash");
+      if (restored.length < targets.length) setActionError("Restore failed.");
+      router.refresh();
+      showUndo({
+        items: restored,
+        done: "restore",
+        redirectTo: "/trash",
+        onUndone: () => router.refresh(),
+      });
+      return;
+    }
     try {
       for (const item of targets) {
         await submitStorageMutationPost({
-          action: `/api/files/${kindPath(item)}/${item.id}/${action}`,
+          action: `/api/files/${kindPath(item)}/${item.id}/delete`,
           fields: { redirectTo: "/trash" },
-          logicalAction: `trash-${action}:${item.kind}:${item.id}`,
+          logicalAction: `trash-delete:${item.kind}:${item.id}`,
         });
       }
-      window.location.reload();
+      router.refresh();
     } catch (caught) {
       setActionError(
-        caught instanceof Error
-          ? caught.message
-          : action === "restore"
-            ? "Restore failed."
-            : "Delete failed.",
+        caught instanceof Error ? caught.message : "Delete failed.",
       );
     }
   };
-  const deleteForever = (item: TrashClientItem) => {
-    if (
-      window.confirm(`Delete ${item.name} for good? This cannot be undone.`)
-    ) {
-      void run([item], "delete");
-    }
+  const deleteForever = async (item: TrashClientItem) => {
+    const ok = await confirmAction({
+      title: `Delete ${item.name} for good?`,
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (ok) void run([item], "delete");
   };
 
   const { selection, selectedItems, targetsFor } = useItemSelection({
@@ -202,7 +215,7 @@ export function TrashView({
             // Folders leave trash with Empty trash, which removes the whole tree.
             deleteForever:
               item.kind === "file" && targets.length === 1
-                ? () => deleteForever(item)
+                ? () => void deleteForever(item)
                 : undefined,
           });
         }}

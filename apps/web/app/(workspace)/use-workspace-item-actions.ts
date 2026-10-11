@@ -10,6 +10,7 @@ import { startValidatedDownload } from "@/lib/transfers/download";
 
 import type { SelectionBarAction } from "./selection-bar";
 import { useTransferContext } from "./transfer-context";
+import { moveTrash, showUndo } from "./undo";
 
 /** The fields Recent, Favorites and Search all carry for each item. */
 type WorkspaceActionItem = {
@@ -82,27 +83,30 @@ export function useWorkspaceItemActions(redirectTo: string) {
     setTrashedIds(
       (current) => new Set([...current, ...targets.map((t) => t.id)]),
     );
-    const results = await Promise.allSettled(
-      targets.map((item) =>
-        submitStorageMutationPost({
-          action: `/api/files/${kindPath(item)}/${item.id}/trash`,
-          fields: { redirectTo },
-          logicalAction: `${redirectTo}:trash:${item.kind}:${item.id}`,
-        }),
-      ),
-    );
-    const failed = new Set(
-      targets
-        .filter((_, index) => results[index]!.status === "rejected")
-        .map((t) => t.id),
-    );
-    if (failed.size > 0) {
+    const moved = await moveTrash(targets, "trash", redirectTo);
+    if (moved.length < targets.length) {
+      const failed = new Set(
+        targets.filter((t) => !moved.includes(t)).map((t) => t.id),
+      );
       setTrashedIds(
         (current) => new Set([...current].filter((id) => !failed.has(id))),
       );
       setError("Some items could not be moved to trash.");
     }
-    if (failed.size < targets.length) refresh();
+    if (moved.length === 0) return;
+    refresh();
+    showUndo({
+      items: moved,
+      done: "trash",
+      redirectTo,
+      onUndone: () => {
+        const back = new Set(moved.map((t) => t.id));
+        setTrashedIds(
+          (current) => new Set([...current].filter((id) => !back.has(id))),
+        );
+        refresh();
+      },
+    });
   };
 
   const restore = async (item: WorkspaceActionItem) => {

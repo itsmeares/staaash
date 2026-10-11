@@ -90,7 +90,8 @@ import {
   reconcileCutItems,
 } from "./files-move";
 import { ShareDialog } from "./share-dialog";
-import { CreateFolderDialog } from "../create-folder-dialog";
+import { NewFolderRow, NewFolderSheet } from "./new-folder-row";
+import { showUndo } from "../undo";
 import { useTransferContext } from "../transfer-context";
 import { useCoarsePointer } from "../use-coarse-pointer";
 import type { ShareLinkSummary } from "@/server/sharing";
@@ -435,10 +436,14 @@ export function FilesView({
   // Auto-open file picker when navigated here via Upload button from another route.
   useEffect(() => {
     const upload = rawSearchParams.get("upload");
-    if (upload === "1" || upload === "folder") {
-      (upload === "folder" ? folderInputRef : fileInputRef).current?.click();
+    const wantsFolder = rawSearchParams.get("new") === "folder";
+    if (upload === "1" || upload === "folder" || wantsFolder) {
+      if (wantsFolder) setNewFolderOpen(true);
+      else
+        (upload === "folder" ? folderInputRef : fileInputRef).current?.click();
       const next = new URLSearchParams(rawSearchParams.toString());
       next.delete("upload");
+      next.delete("new");
       const qs = next.toString();
       router.replace(`${pathname}${qs ? `?${qs}` : ""}`);
     }
@@ -453,10 +458,21 @@ export function FilesView({
     targetType: "file" | "folder";
     targetId: string;
     share: ShareLinkSummary | null;
+    name?: string;
   } | null>(null);
 
-  // ---- New folder dialog ----
+  // ---- New folder ----
   const [newFolderOpen, setNewFolderOpen] = useState(false);
+  // The New menu, Home and ⌘⇧N all ask the open folder for a new folder.
+  useEffect(() => {
+    const open = () => setNewFolderOpen(true);
+    window.addEventListener("staaash:new-folder", open);
+    return () => window.removeEventListener("staaash:new-folder", open);
+  }, []);
+  const finishNewFolder = (created: boolean) => {
+    setNewFolderOpen(false);
+    if (created) startTransition(() => router.refresh());
+  };
 
   // ---- Flash messages ----
   const error =
@@ -804,6 +820,20 @@ export function FilesView({
     throw new Error(data.error ?? `Trash failed (${res.status})`);
   };
 
+  const offerUndo = (items: { id: string; kind: "folder" | "file" }[]) =>
+    showUndo({
+      items,
+      done: "trash",
+      redirectTo: currentPath,
+      onUndone: () => {
+        const back = new Set(items.map((item) => item.id));
+        setTrashedIds(
+          (prev) => new Set([...prev].filter((id) => !back.has(id))),
+        );
+        startTransition(() => router.refresh());
+      },
+    });
+
   const trashItem = async (id: string, kind: "folder" | "file") => {
     setTrashedIds((prev) => {
       const next = new Set(prev);
@@ -813,6 +843,7 @@ export function FilesView({
     try {
       await moveToTrash(id, kind);
       startTransition(() => router.refresh());
+      offerUndo([{ id, kind }]);
     } catch (err) {
       setTrashedIds((prev) => {
         const next = new Set(prev);
@@ -837,12 +868,12 @@ export function FilesView({
       for (const item of items) next.add(item.id);
       return next;
     });
-    let succeeded = false;
+    const moved: typeof items = [];
     const failedIds = new Set<string>();
     for (const item of items) {
       try {
         await moveToTrash(item.id, item.kind);
-        succeeded = true;
+        moved.push(item);
       } catch {
         failedIds.add(item.id);
       }
@@ -855,7 +886,10 @@ export function FilesView({
       });
       setTrashError("Some items could not be moved to trash.");
     }
-    if (succeeded) startTransition(() => router.refresh());
+    if (moved.length > 0) {
+      startTransition(() => router.refresh());
+      offerUndo(moved.map(({ id, kind }) => ({ id, kind })));
+    }
   };
 
   const finishPasteMove = (
@@ -1252,7 +1286,15 @@ export function FilesView({
       targetType === "file"
         ? (shareLookup.sharesByFileId[targetId] ?? null)
         : (shareLookup.sharesByFolderId[targetId] ?? null);
-    setShareDialogTarget({ targetType, targetId, share });
+    const name =
+      targetType === "file"
+        ? listing.files.find((file) => file.id === targetId)?.name
+        : (listing.childFolders.find((folder) => folder.id === targetId)
+            ?.name ??
+          (listing.currentFolder.id === targetId
+            ? listing.currentFolder.name
+            : undefined));
+    setShareDialogTarget({ targetType, targetId, share, name });
   };
   // ---------------------------------------------------------------------------
   // Upload
@@ -2007,6 +2049,16 @@ export function FilesView({
           ) : null}
 
           <FileList
+            leading={
+              newFolderOpen && !isCoarsePointer ? (
+                <NewFolderRow
+                  parentId={listing.currentFolder.id}
+                  redirectTo={currentPath}
+                  view={view}
+                  onDone={finishNewFolder}
+                />
+              ) : null
+            }
             coarse={isCoarsePointer}
             columns={columns}
             empty={
@@ -2143,6 +2195,7 @@ export function FilesView({
 
         {shareDialogTarget ? (
           <ShareDialog
+            name={shareDialogTarget.name}
             targetType={shareDialogTarget.targetType}
             targetId={shareDialogTarget.targetId}
             initialShare={shareDialogTarget.share}
@@ -2153,12 +2206,13 @@ export function FilesView({
           />
         ) : null}
 
-        <CreateFolderDialog
-          open={newFolderOpen}
-          onOpenChange={setNewFolderOpen}
-          parentId={listing.currentFolder.id}
-          redirectTo={currentPath}
-        />
+        {newFolderOpen && isCoarsePointer ? (
+          <NewFolderSheet
+            parentId={listing.currentFolder.id}
+            redirectTo={currentPath}
+            onDone={finishNewFolder}
+          />
+        ) : null}
       </WorkspacePage>
 
       {viewerIndex >= 0 ? (

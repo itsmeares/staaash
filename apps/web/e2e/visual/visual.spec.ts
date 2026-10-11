@@ -207,7 +207,7 @@ for (const theme of THEMES) {
             await page.keyboard.press("Escape");
           });
 
-          await attempt("new folder dialog", async () => {
+          await attempt("new folder", async () => {
             await page.goto("/files");
             await settle(page);
             await page
@@ -216,10 +216,10 @@ for (const theme of THEMES) {
             await page
               .getByRole("menuitem", { name: "New folder" })
               .click({ timeout: 5_000 });
-            await expect(page.getByRole("dialog").first()).toBeVisible({
+            await expect(page.getByLabel("New folder name")).toBeVisible({
               timeout: 5_000,
             });
-            await shoot(page, `${label}/files-new-folder-dialog`);
+            await shoot(page, `${label}/files-new-folder`);
             await page.keyboard.press("Escape");
           });
         }

@@ -85,6 +85,8 @@ type FileListProps<T extends FileListItem> = {
   empty?: ReactNode;
   /** Rendered after the items, inside the list. */
   children?: ReactNode;
+  /** Rendered before the first item, in the list's own layout (new folder). */
+  leading?: ReactNode;
   className?: string;
 };
 
@@ -237,6 +239,7 @@ export function FileList<T extends FileListItem>({
   sort,
   empty,
   children,
+  leading,
   className,
 }: FileListProps<T>) {
   const [sheetItem, setSheetItem] = useState<T | null>(null);
@@ -456,10 +459,13 @@ export function FileList<T extends FileListItem>({
           </div>
         ) : null}
 
-        {isEmpty ? empty : null}
+        {isEmpty && !leading ? empty : null}
 
-        {sections.map((section) =>
-          section.items.length === 0 ? null : (
+        {(isEmpty && leading
+          ? [{ label: "", items: [] as T[] }]
+          : sections
+        ).map((section, index) =>
+          section.items.length === 0 && !(leading && index === 0) ? null : (
             <div className="grid" key={section.label} role="rowgroup">
               {section.label ? (
                 <div
@@ -476,6 +482,7 @@ export function FileList<T extends FileListItem>({
                     : "grid gap-px pt-1"
                 }
               >
+                {index === 0 ? leading : null}
                 {section.items.map(renderItem)}
               </div>
             </div>

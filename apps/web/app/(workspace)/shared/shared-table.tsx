@@ -239,6 +239,7 @@ export function SharedTable({ items }: { items: SharedTableItem[] }) {
 
       {manage ? (
         <ShareDialog
+          name={manage.target.name}
           targetType={manage.target.targetType}
           targetId={manage.target.id}
           initialShare={manage}

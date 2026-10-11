@@ -1,8 +1,8 @@
 "use client";
 
 import { FolderPlus, FolderUp, Info, Plus, Upload } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +14,6 @@ import {
   MenuTrigger,
 } from "@/components/ui/menu";
 
-import { CreateFolderDialog } from "./create-folder-dialog";
 import { useTransferContext } from "./transfer-context";
 
 const isTyping = (target: EventTarget | null) =>
@@ -29,9 +28,18 @@ const isTyping = (target: EventTarget | null) =>
  */
 export function NewMenu({ fab = false }: { fab?: boolean }) {
   const router = useRouter();
-  const pathname = usePathname();
   const { currentFilesViewFolderId } = useTransferContext();
-  const [folderOpen, setFolderOpen] = useState(false);
+
+  const newFolder = () => {
+    if (currentFilesViewFolderId) {
+      window.dispatchEvent(new Event("staaash:new-folder"));
+    } else {
+      router.push("/files?new=folder");
+    }
+  };
+
+  const newFolderRef = useRef(newFolder);
+  newFolderRef.current = newFolder;
 
   // The phone's floating button mounts a second menu; one listener is enough.
   useEffect(() => {
@@ -44,7 +52,7 @@ export function NewMenu({ fab = false }: { fab?: boolean }) {
         !isTyping(e.target)
       ) {
         e.preventDefault();
-        setFolderOpen(true);
+        newFolderRef.current();
       }
     };
     document.addEventListener("keydown", onKey);
@@ -79,7 +87,7 @@ export function NewMenu({ fab = false }: { fab?: boolean }) {
           {fab ? null : "New"}
         </MenuTrigger>
         <MenuPopup align={fab ? "end" : "start"} className="w-60">
-          <MenuItem onClick={() => setFolderOpen(true)}>
+          <MenuItem onClick={newFolder}>
             <FolderPlus aria-hidden />
             New folder
             <MenuShortcut>⌘⇧N</MenuShortcut>
@@ -108,12 +116,6 @@ export function NewMenu({ fab = false }: { fab?: boolean }) {
           ) : null}
         </MenuPopup>
       </Menu>
-      <CreateFolderDialog
-        open={folderOpen}
-        onOpenChange={setFolderOpen}
-        parentId={currentFilesViewFolderId}
-        redirectTo={pathname}
-      />
     </>
   );
 }

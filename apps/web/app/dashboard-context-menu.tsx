@@ -13,6 +13,8 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
+import { confirmAction } from "@/components/confirm-dialog";
+import { toast } from "@/components/ui/toast";
 import { FolderOpen, RefreshCw } from "lucide-react";
 
 import {
@@ -236,16 +238,23 @@ export function DashboardPageContextMenu({
   );
 }
 
-function submitDashboardPostForm({
+export const EMPTY_TRASH_CONFIRM = {
+  title: "Empty trash?",
+  description: "Everything in it is deleted for good.",
+  confirmLabel: "Empty trash",
+  destructive: true,
+};
+
+async function submitDashboardPostForm({
   action,
-  confirmMessage,
+  confirm,
   fields,
 }: {
   action: string;
-  confirmMessage?: string;
+  confirm?: Parameters<typeof confirmAction>[0];
   fields?: Record<string, string>;
 }) {
-  if (confirmMessage && !window.confirm(confirmMessage)) return;
+  if (confirm && !(await confirmAction(confirm))) return;
   void submitStorageMutationPost({
     action,
     fields,
@@ -255,7 +264,7 @@ function submitDashboardPostForm({
       window.location.href = fields?.redirectTo ?? window.location.href;
     })
     .catch((error) =>
-      window.alert(
+      toast.error(
         error instanceof Error ? error.message : "Storage operation failed.",
       ),
     );
@@ -298,8 +307,7 @@ export function WorkspacePresetPageContextMenu({
           onSelect: () =>
             submitDashboardPostForm({
               action: "/api/files/trash/clear",
-              confirmMessage:
-                "Empty trash? This permanently deletes all trashed folder trees and standalone files.",
+              confirm: EMPTY_TRASH_CONFIRM,
               fields: { redirectTo: "/trash" },
             }),
         },

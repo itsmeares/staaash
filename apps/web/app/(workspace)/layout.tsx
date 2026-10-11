@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { DriveGlyph } from "@/components/drive-glyph";
 import { SkipLink } from "@/components/skip-link";
+import { ConfirmHost } from "@/components/confirm-dialog";
 import { ToastProvider } from "@/components/ui/toast";
 import { getInitials } from "@/lib/user";
 import { authService } from "@/server/auth/service";
@@ -113,6 +114,7 @@ export default async function WorkspaceLayout({
 
         {/* Kept outside the shell grid: fixed elements still take a grid cell. */}
         <ToastProvider position="bottom-right" />
+        <ConfirmHost />
       </UpdatesProvider>
     </TimeRoot>
   );
