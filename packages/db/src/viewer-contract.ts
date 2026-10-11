@@ -42,7 +42,9 @@ export const resolveViewerKind = (
 export const canHaveThumbnail = (mimeType: string, fileName?: string) => {
   const kind = resolveViewerKind(mimeType, fileName);
   return (
-    (kind === "image" || kind === "video") &&
+    // Audio counts for its embedded album art; files without one settle as
+    // failed once and keep their icon.
+    (kind === "image" || kind === "video" || kind === "audio") &&
     !mimeType.toLowerCase().startsWith("image/svg")
   );
 };

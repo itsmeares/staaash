@@ -36,7 +36,10 @@ vi.mock("@staaash/db/media-derivatives", () => ({
   DERIVATIVE_PROFILE_THUMB: "thumb-480",
   canHaveThumbnail: (mimeType: string) =>
     mimeType !== "image/svg+xml" &&
-    (mimeType.startsWith("image/") || mimeType.startsWith("video/")),
+    (mimeType.startsWith("image/") ||
+      mimeType.startsWith("video/") ||
+      mimeType.startsWith("audio/")),
+  DERIVATIVE_STATUS_FAILED: "failed",
   DERIVATIVE_STATUS_PROCESSING: "processing",
   DERIVATIVE_STATUS_STALE: "stale",
   buildDerivativeStorageKey: mocks.buildDerivativeStorageKey,
@@ -487,6 +490,46 @@ describe("media derivative handler", () => {
           }),
         ],
       }),
+    );
+  });
+
+  it("makes a music file's thumbnail from its album art", async () => {
+    const { job, storagePaths, sourcePath } =
+      await thumbnailSetup("audio/mpeg");
+    mocks.runFfprobe.mockResolvedValue({
+      streams: [
+        { codec_type: "audio", codec_name: "mp3" },
+        { codec_type: "video", codec_name: "mjpeg", width: 480, height: 480 },
+      ],
+      format: {},
+    });
+
+    await handleMediaDerivativeGenerate(job, storagePaths);
+
+    expect(mocks.runFfmpegThumbnail).toHaveBeenCalledWith(
+      sourcePath,
+      expect.any(String),
+      false,
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("settles a music file without album art once, without retrying", async () => {
+    const { job, storagePaths } = await thumbnailSetup("audio/mpeg");
+    mocks.runFfprobe.mockResolvedValue({
+      streams: [{ codec_type: "audio", codec_name: "mp3" }],
+      format: {},
+    });
+
+    await expect(
+      handleMediaDerivativeGenerate(job, storagePaths),
+    ).resolves.toBe(true);
+
+    expect(mocks.runFfmpegThumbnail).not.toHaveBeenCalled();
+    expect(mocks.settleDerivativeIfOwned).toHaveBeenCalledWith(
+      "thumb-derivative-1",
+      job.id,
+      expect.objectContaining({ status: "failed" }),
     );
   });
 

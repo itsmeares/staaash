@@ -267,7 +267,10 @@ const runFfmpegThumbnailFrame = (
     signal,
   );
 
-/** A 480px JPEG: the picture itself, or a frame one second into a video. */
+/**
+ * A 480px JPEG: the picture itself, a music file's album art, or a frame one
+ * second into a video.
+ */
 export const runFfmpegThumbnail = async (
   inputPath: string,
   outputPath: string,

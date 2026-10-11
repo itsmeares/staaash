@@ -241,6 +241,20 @@ export const handleMediaDerivativeGenerate = async (
     throw err;
   }
 
+  // Music files carry their cover as an attached picture; without one there
+  // is nothing to make, and retrying won't change that.
+  if (
+    isThumbnail &&
+    file.mimeType.startsWith("audio/") &&
+    !probe.streams.some((stream) => stream.codec_type === "video")
+  ) {
+    await settleDerivativeIfOwned(derivative.id, job.id, {
+      status: DERIVATIVE_STATUS_FAILED,
+      error: "No cover art in this file.",
+    });
+    return true;
+  }
+
   let cancelledByAdmin = false;
   const controller = new AbortController();
   const abortFromContext = () => {
