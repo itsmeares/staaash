@@ -7,21 +7,21 @@ import { Halftone } from "@/components/halftone";
 // Slow connections and two-core machines get one still frame.
 const SLOW_CONNECTIONS = new Set(["slow-2g", "2g", "3g"]);
 
-const prefersStill = () => {
+const onSlowConnection = () => {
   const { connection } = navigator as Navigator & {
     connection?: { effectiveType?: string; saveData?: boolean };
   };
-  const slowConnection =
-    connection?.saveData ||
-    SLOW_CONNECTIONS.has(connection?.effectiveType ?? "");
-  // hardwareConcurrency is 0 or missing where browsers hide it.
-  const weakCpu = (navigator.hardwareConcurrency || 8) <= 2;
   return (
-    slowConnection ||
-    weakCpu ||
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    connection?.saveData === true ||
+    SLOW_CONNECTIONS.has(connection?.effectiveType ?? "")
   );
 };
+
+const prefersStill = () =>
+  onSlowConnection() ||
+  // hardwareConcurrency is 0 or missing where browsers hide it.
+  (navigator.hardwareConcurrency || 8) <= 2 ||
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** The sign-in, setup and onboarding backdrop: the halftone field. */
 export function EntryBackground() {
