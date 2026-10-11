@@ -58,7 +58,6 @@ type ListFoldersOptions = {
 };
 
 type ListFilesOptions = {
-  favoritesOnly?: boolean;
   includeDeleted?: boolean;
   includeMissing?: boolean;
 };
@@ -283,7 +282,7 @@ export type FilesRepository = {
   ): Promise<FolderSummary[]>;
   listFilesByOwner(
     ownerUserId: string,
-    options?: ListFilesOptions,
+    options?: ListFilesOptions & { favoritesOnly?: boolean },
   ): Promise<StoredFile[]>;
   searchFilesByOwner(
     ownerUserId: string,
