@@ -1,4 +1,5 @@
 import React from "react";
+import { formatBytes } from "@/lib/format-bytes";
 import Link from "next/link";
 import { Download } from "lucide-react";
 
@@ -26,13 +27,6 @@ import type {
   PublicShareResolution,
   ShareLinkSummary,
 } from "@/server/sharing/types";
-
-const formatBytes = (value: number) => {
-  if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`;
-  if (value < 1024 * 1024 * 1024)
-    return `${(value / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(value / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-};
 
 function getRelativeExpiry(expiresAt: Date | string): string {
   const diffDays = Math.ceil(
@@ -213,6 +207,8 @@ export function ShareLockedView({
   );
 }
 
+// The share page covers every viewer kind, password, expiry and download rule.
+// fallow-ignore-next-line complexity
 export function ShareFilePage({
   backHref,
   backLabel = "Back",

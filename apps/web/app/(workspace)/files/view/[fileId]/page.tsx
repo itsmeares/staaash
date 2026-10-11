@@ -17,6 +17,8 @@ type FilesFileViewerPageProps = {
   }>;
 };
 
+// Missing, unavailable, unsupported and viewable files each go somewhere else.
+// fallow-ignore-next-line complexity
 export default async function FilesFileViewerPage({
   params,
 }: FilesFileViewerPageProps) {

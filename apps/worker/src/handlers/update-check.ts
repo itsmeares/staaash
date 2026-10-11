@@ -37,11 +37,13 @@ const buildGitHubHeaders = () => {
 };
 
 /** Published releases on the channel, newest first. */
-export const selectChannelReleases = (
+const selectChannelReleases = (
   releases: GitHubReleaseResponse[],
   channel: "stable" | "rc",
 ): UpdateRelease[] =>
   releases
+    // GitHub releases arrive loosely typed; each field is checked once here.
+    // fallow-ignore-next-line complexity
     .flatMap((release) => {
       if (release.draft) return [];
       const version = normalizeSemanticVersion(

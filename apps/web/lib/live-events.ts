@@ -19,6 +19,8 @@ let sourceWithJobs = false;
 
 // One EventSource per tab. It asks for job state only while something
 // listens for it, and reconnects when that changes.
+// Opens, keeps or closes the one stream as listeners come and go.
+// fallow-ignore-next-line complexity
 const sync = () => {
   const wanted = listeners.update.size + listeners.state.size > 0;
   const withJobs = listeners.state.size > 0;

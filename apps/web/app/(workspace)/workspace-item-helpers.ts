@@ -1,3 +1,8 @@
+import type {
+  FileListColumn,
+  FileListItem,
+} from "@/components/file-list/file-list";
+import { formatBytes } from "@/lib/format-bytes";
 export type WorkspaceItemFilterType =
   "all" | "archive" | "audio" | "folder" | "image" | "pdf" | "text" | "video";
 
@@ -26,11 +31,6 @@ type WorkspaceSortableItem = {
   sizeBytes?: number;
 };
 
-type WorkspaceDownloadItem = {
-  id: string;
-  kind: "file" | "folder";
-};
-
 export const WORKSPACE_ITEM_FILTERS: WorkspaceItemFilterOption[] = [
   { id: "all", label: "All" },
   { id: "folder", label: "Folders" },
@@ -54,6 +54,8 @@ export function getWorkspaceLocationLabel(item: WorkspaceLocationItem): string {
   return withoutRoot.length > 0 ? withoutRoot.join(" / ") : "/";
 }
 
+// Exported for its test.
+// fallow-ignore-next-line unused-export
 export function getWorkspaceItemType(
   item: WorkspaceTypeItem,
 ): WorkspaceItemFilterType {
@@ -93,12 +95,7 @@ export function filterWorkspaceItems<T extends WorkspaceTypeItem>(
 }
 
 export function formatWorkspaceFileSize(bytes?: number): string {
-  if (bytes == null) return "-";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  if (bytes < 1024 * 1024 * 1024)
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  return bytes == null ? "-" : formatBytes(bytes);
 }
 
 export function compareWorkspaceStrings(left: string, right: string): number {
@@ -135,9 +132,22 @@ export function sortWorkspaceItems<T extends WorkspaceSortableItem>(
   });
 }
 
-export function getWorkspaceItemDownloadHref(
-  item: WorkspaceDownloadItem,
-): string | null {
-  if (item.kind === "folder") return null;
-  return `/api/files/files/${item.id}/download`;
-}
+/** The Size column every workspace list shows; folders leave it blank. */
+export const sizeColumn = <
+  T extends FileListItem & { data: { sizeBytes?: number } },
+>(): FileListColumn<T> => ({
+  key: "size",
+  label: "Size",
+  width: "6rem",
+  align: "end",
+  render: (item) =>
+    item.kind === "folder" ? "" : formatWorkspaceFileSize(item.data.sizeBytes),
+});
+
+/** Why a row can't be used right now, while a storage change is in flight. */
+export const blockedLabel = (status?: string) =>
+  status
+    ? status === "recovery_required"
+      ? "Recovery required"
+      : "Finishing storage operation"
+    : null;

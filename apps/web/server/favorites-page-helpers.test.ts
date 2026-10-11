@@ -2,9 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   filterFavoriteItems,
-  formatFavoriteFileSize,
   getFavoriteLocationLabel,
-  getFavoriteType,
   getQuickAccessFavorites,
   sortFavoriteItems,
   toFavoriteClientItem,
@@ -87,33 +85,6 @@ describe("favorites page helpers", () => {
     });
   });
 
-  it("maps file and folder types for filters", () => {
-    expect(
-      getFavoriteType(clientItem({ kind: "folder", mimeType: undefined })),
-    ).toBe("folder");
-    expect(getFavoriteType(clientItem({ mimeType: "image/png" }))).toBe(
-      "image",
-    );
-    expect(getFavoriteType(clientItem({ mimeType: "video/mp4" }))).toBe(
-      "video",
-    );
-    expect(getFavoriteType(clientItem({ mimeType: "audio/wav" }))).toBe(
-      "audio",
-    );
-    expect(getFavoriteType(clientItem({ mimeType: "application/pdf" }))).toBe(
-      "pdf",
-    );
-    expect(getFavoriteType(clientItem({ mimeType: "text/markdown" }))).toBe(
-      "text",
-    );
-    expect(getFavoriteType(clientItem({ mimeType: "application/zip" }))).toBe(
-      "archive",
-    );
-    expect(
-      getFavoriteType(clientItem({ mimeType: "application/octet-stream" })),
-    ).toBe("all");
-  });
-
   it("filters, sorts, and picks quick access favorites", () => {
     const items = [
       clientItem({
@@ -163,13 +134,5 @@ describe("favorites page helpers", () => {
       "b",
       "c",
     ]);
-  });
-
-  it("formats size and relative favorite time labels", () => {
-    expect(formatFavoriteFileSize(undefined)).toBe("-");
-    expect(formatFavoriteFileSize(400)).toBe("400 B");
-    expect(formatFavoriteFileSize(4200)).toBe("4 KB");
-    expect(formatFavoriteFileSize(2_400_000)).toBe("2.3 MB");
-    expect(formatFavoriteFileSize(4_500_000_000)).toBe("4.2 GB");
   });
 });

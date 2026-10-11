@@ -3,8 +3,6 @@ import type { FavoriteRetrievalItem } from "@/server/retrieval/types";
 import {
   compareWorkspaceStrings,
   filterWorkspaceItems,
-  formatWorkspaceFileSize,
-  getWorkspaceItemType,
   getWorkspaceLocationLabel,
   sortWorkspaceItems,
   type WorkspaceItemFilterType,
@@ -54,21 +52,11 @@ export function toFavoriteClientItem(
   };
 }
 
-export function getFavoriteType(
-  item: Pick<FavoriteClientItem, "kind" | "mimeType">,
-): FavoriteFilterType {
-  return getWorkspaceItemType(item);
-}
-
 export function filterFavoriteItems(
   items: FavoriteClientItem[],
   filterType: FavoriteFilterType,
 ): FavoriteClientItem[] {
   return filterWorkspaceItems(items, filterType);
-}
-
-export function formatFavoriteFileSize(bytes?: number): string {
-  return formatWorkspaceFileSize(bytes);
 }
 
 export function sortFavoriteItems(

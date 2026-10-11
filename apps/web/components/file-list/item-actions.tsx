@@ -44,6 +44,8 @@ const plural = (count: number) => `${count} item${count === 1 ? "" : "s"}`;
  * anything missing is left out. `count` is how many items the action
  * covers when the clicked item is part of a selection.
  */
+// Each handler a page may pass adds or leaves out one menu entry.
+// fallow-ignore-next-line complexity
 export function buildItemActions({
   name,
   kind,

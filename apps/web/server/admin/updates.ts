@@ -60,6 +60,8 @@ const releaseKind = (from: string, to: string): UpdateState["kind"] => {
  * Works out the update state when it is shown, against the running
  * version, so it is right straight after an upgrade.
  */
+// Checks off, never run, failed, current and behind are separate states.
+// fallow-ignore-next-line complexity
 export const deriveUpdateState = ({
   currentVersion,
   instance,

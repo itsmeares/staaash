@@ -236,7 +236,7 @@ export function DashboardPageContextMenu({
   );
 }
 
-export function submitDashboardPostForm({
+function submitDashboardPostForm({
   action,
   confirmMessage,
   fields,

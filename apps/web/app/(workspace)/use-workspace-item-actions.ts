@@ -1,15 +1,18 @@
 "use client";
 
+import { Download, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
 import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
+import { buildItemActions } from "@/components/file-list/item-actions";
 import { startValidatedDownload } from "@/lib/transfers/download";
 
+import type { SelectionBarAction } from "./selection-bar";
 import { useTransferContext } from "./transfer-context";
 
 /** The fields Recent, Favorites and Search all carry for each item. */
-export type WorkspaceActionItem = {
+type WorkspaceActionItem = {
   id: string;
   kind: "file" | "folder";
   name: string;
@@ -161,3 +164,57 @@ export function useWorkspaceItemActions(redirectTo: string) {
     refresh,
   };
 }
+
+type WorkspaceItemActions = ReturnType<typeof useWorkspaceItemActions>;
+
+/**
+ * The menu for an item outside trash: open, download, favorite, trash.
+ * `extra` replaces or adds entries, like Favorites' remove and pin.
+ */
+export const liveItemMenu = (
+  actions: WorkspaceItemActions,
+  item: WorkspaceActionItem & { isFavorite?: boolean },
+  targets: WorkspaceActionItem[],
+  onTrashed?: () => void,
+  extra?: Partial<Parameters<typeof buildItemActions>[0]>,
+) => {
+  const isFavorite = item.isFavorite ?? false;
+  return buildItemActions({
+    name: item.name,
+    kind: item.kind,
+    count: targets.length,
+    open: () => actions.open(item),
+    download: () => void actions.download(targets),
+    favorite: {
+      isFavorite,
+      run: () => void actions.setFavorite(item, { isFavorite: !isFavorite }),
+    },
+    trash: () => {
+      void actions.trash(targets);
+      onTrashed?.();
+    },
+    ...extra,
+  });
+};
+
+/** Download and Trash for the selection bar. */
+export const downloadAndTrash = (
+  actions: WorkspaceItemActions,
+  selected: WorkspaceActionItem[],
+  onTrashed: () => void,
+): SelectionBarAction[] => [
+  {
+    label: "Download",
+    icon: Download,
+    onClick: () => void actions.download(selected),
+  },
+  {
+    label: "Trash",
+    icon: Trash2,
+    destructive: true,
+    onClick: () => {
+      void actions.trash(selected);
+      onTrashed();
+    },
+  },
+];

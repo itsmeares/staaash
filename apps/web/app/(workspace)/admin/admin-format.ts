@@ -6,25 +6,6 @@ export const formatAdminDateTime = (
   timeZone: string,
 ) => (value ? formatDateTime(value, timeZone) : "n/a");
 
-export const formatAdminBytes = (value: bigint | number) => {
-  const size = typeof value === "bigint" ? Number(value) : value;
-
-  if (!Number.isFinite(size) || size <= 0) {
-    return "0 B";
-  }
-
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let unitIndex = 0;
-  let scaled = size;
-
-  while (scaled >= 1024 && unitIndex < units.length - 1) {
-    scaled /= 1024;
-    unitIndex += 1;
-  }
-
-  return `${scaled.toFixed(scaled >= 100 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
-};
-
 export const capitalize = (value: string) =>
   value.charAt(0).toUpperCase() + value.slice(1);
 

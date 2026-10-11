@@ -53,6 +53,8 @@ const readCompletedUpdateCheck = (body: UpdateCheckPollResponse) => {
   return null;
 };
 
+// Exported for its polling test.
+// fallow-ignore-next-line unused-export
 export const waitForUpdateCheck = async ({
   jobId,
   fetchStatus = fetch,

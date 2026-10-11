@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
+import { useAdvanceOnInput } from "./use-advance-on-input";
 import styles from "./entry-experience.module.css";
 
 export type Phase =
@@ -66,40 +67,10 @@ export function EntryExperience({
     }, 360);
   };
 
-  // Any click or key brings the form forward; Tab and modifier keys still
-  // move focus as usual.
-  useEffect(() => {
-    if (phase !== "intro" && phase !== "intro-return") return;
-    advancingRef.current = false;
-
-    const handleClick = () => advanceToForm();
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.defaultPrevented ||
-        event.ctrlKey ||
-        event.metaKey ||
-        event.altKey
-      )
-        return;
-      if (
-        ["Tab", "Shift", "Control", "Alt", "Meta", "CapsLock"].includes(
-          event.key,
-        )
-      )
-        return;
-      event.preventDefault();
-      advanceToForm();
-    };
-
-    document.addEventListener("click", handleClick);
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("click", handleClick);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase]);
+  useAdvanceOnInput(
+    advanceToForm,
+    phase === "intro" || phase === "intro-return",
+  );
 
   // Focus first field when form appears
   useEffect(() => {

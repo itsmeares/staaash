@@ -15,7 +15,8 @@ import { TextFileViewer } from "@/app/text-file-viewer";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-import { ItemPreview, MiddleName } from "./file-list";
+import { ItemPreview } from "./file-list";
+import { MiddleName } from "./middle-name";
 
 export type ViewerFile = {
   id: string;
@@ -33,6 +34,8 @@ const reducedMotion = () =>
  * through the set, Esc closes. When `origin` is the clicked thumbnail, an
  * image grows out of it.
  */
+// Image, video, audio and unsupported files, plus the filmstrip and zoom.
+// fallow-ignore-next-line complexity
 export function MediaViewer({
   files,
   index,

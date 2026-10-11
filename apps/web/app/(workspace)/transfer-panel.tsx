@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckCircle2, ChevronDown, ChevronUp, X } from "lucide-react";
 
-import { ItemIcon, MiddleName } from "@/components/file-list/file-list";
+import { ItemIcon } from "@/components/file-list/file-list";
+import { MiddleName } from "@/components/file-list/middle-name";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,8 @@ const rowClass = "flex min-h-row flex-col justify-center gap-1 px-3 py-2";
 // Transfer panel (portal-rendered, bottom-right)
 // ---------------------------------------------------------------------------
 
+// Uploads and archive downloads share one panel and their own lifecycles.
+// fallow-ignore-next-line complexity
 export function TransferPanel() {
   const {
     uploadingFiles,

@@ -22,7 +22,7 @@ import {
   type SelectionState,
 } from "./list-model";
 
-export type RubberBand = {
+type RubberBand = {
   startX: number;
   startY: number;
   currentX: number;
@@ -67,6 +67,8 @@ export type ListSelectionOptions = {
   onKey?: (event: KeyboardEvent<HTMLElement>, selected: string[]) => boolean;
 };
 
+// The selection model keeps mouse, keyboard and touch in one state.
+// fallow-ignore-next-line complexity
 export function useListSelection({
   ids,
   onOpen,
@@ -196,6 +198,8 @@ export function useListSelection({
   const listProps = {
     ref: listRef,
     tabIndex: 0,
+    // Rubber band starts only on empty space, not on rows or controls.
+    // fallow-ignore-next-line complexity
     onMouseDown: (event: MouseEvent<HTMLDivElement>) => {
       if (coarse || event.button !== 0) return;
       const target = event.target as HTMLElement;
@@ -225,6 +229,8 @@ export function useListSelection({
         clear();
       }
     },
+    // The list keyboard model: arrows, ranges, select all, open and escape.
+    // fallow-ignore-next-line complexity
     onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
       if (isTyping(event.target)) return;
       const current = stateRef.current;
@@ -282,6 +288,8 @@ export function useListSelection({
     "aria-disabled": disabled || undefined,
     tabIndex:
       state.last === id || (state.last === null && id === ids[0]) ? 0 : -1,
+    // Plain, Ctrl/Cmd, Shift and touch clicks each select differently.
+    // fallow-ignore-next-line complexity
     onClick: (event: MouseEvent<HTMLElement>) => {
       if (disabled) return;
       if (suppressClick.current) {
@@ -375,3 +383,43 @@ export function useListSelection({
 }
 
 export type ListSelection = ReturnType<typeof useListSelection>;
+
+/**
+ * Selection over items rather than ids. A right-click acts on the whole
+ * selection when the item is part of it, otherwise on that item alone.
+ * Delete and Backspace hand the selection to `onDelete`.
+ */
+export function useItemSelection<T extends { id: string }>({
+  items,
+  coarse,
+  onOpen,
+  onDelete,
+}: {
+  items: T[];
+  coarse: boolean;
+  onOpen?: (item: T) => void;
+  onDelete?: (items: T[]) => void;
+}) {
+  const selection = useListSelection({
+    ids: items.map((item) => item.id),
+    coarse,
+    onOpen: (id) => {
+      const item = items.find((candidate) => candidate.id === id);
+      if (item) onOpen?.(item);
+    },
+    onKey: (event, selected) => {
+      if (event.key !== "Delete" && event.key !== "Backspace") return false;
+      if (!onDelete || selected.length === 0) return false;
+      event.preventDefault();
+      onDelete(items.filter((item) => selected.includes(item.id)));
+      selection.clear();
+      return true;
+    },
+  });
+  const selectedItems = items.filter((item) => selection.selected.has(item.id));
+  const targetsFor = (item: T) =>
+    selection.selected.has(item.id) && selectedItems.length > 1
+      ? selectedItems
+      : [item];
+  return { selection, selectedItems, targetsFor };
+}

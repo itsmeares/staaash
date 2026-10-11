@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { applyTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
+import { useAdvanceOnInput } from "./use-advance-on-input";
 import styles from "./onboarding-experience.module.css";
 
 type Theme = "light" | "dark" | "system";
@@ -362,37 +363,7 @@ function WelcomeStep({ onContinue }: { onContinue: () => void }) {
     onContinue();
   };
 
-  useEffect(() => {
-    advancingRef.current = false;
-
-    const handleClick = () => advance();
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.defaultPrevented ||
-        event.ctrlKey ||
-        event.metaKey ||
-        event.altKey
-      )
-        return;
-      if (
-        ["Tab", "Shift", "Control", "Alt", "Meta", "CapsLock"].includes(
-          event.key,
-        )
-      )
-        return;
-      event.preventDefault();
-      advance();
-    };
-
-    document.addEventListener("click", handleClick);
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("click", handleClick);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onContinue]);
+  useAdvanceOnInput(advance);
 
   return (
     <section className="grid w-full cursor-default gap-5 text-center outline-none select-none md:gap-7">

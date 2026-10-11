@@ -5,20 +5,17 @@ import { useEffect, useState } from "react";
 import { Halftone } from "@/components/halftone";
 
 // Slow connections and two-core machines get one still frame.
+const SLOW_CONNECTIONS = new Set(["slow-2g", "2g", "3g"]);
+
 const prefersStill = () => {
-  const connection = (
-    navigator as Navigator & {
-      connection?: { effectiveType?: string; saveData?: boolean };
-    }
-  ).connection;
+  const { connection } = navigator as Navigator & {
+    connection?: { effectiveType?: string; saveData?: boolean };
+  };
   const slowConnection =
     connection?.saveData ||
-    connection?.effectiveType === "slow-2g" ||
-    connection?.effectiveType === "2g" ||
-    connection?.effectiveType === "3g";
-  const weakCpu =
-    typeof navigator.hardwareConcurrency === "number" &&
-    navigator.hardwareConcurrency <= 2;
+    SLOW_CONNECTIONS.has(connection?.effectiveType ?? "");
+  // hardwareConcurrency is 0 or missing where browsers hide it.
+  const weakCpu = (navigator.hardwareConcurrency || 8) <= 2;
   return (
     slowConnection ||
     weakCpu ||

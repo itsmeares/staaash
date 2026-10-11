@@ -30,11 +30,6 @@ export const TRASH_FILTERS: { id: TrashFilterType; label: string }[] = [
   { id: "file", label: "Files" },
 ];
 
-export const TRASH_SORT_OPTIONS: { id: TrashSortOrder; label: string }[] = [
-  { id: "newest", label: "Newest" },
-  { id: "oldest", label: "Oldest" },
-];
-
 export type TrashGroupLabel = DateGroupLabel;
 
 export type TrashGroup<T> = {

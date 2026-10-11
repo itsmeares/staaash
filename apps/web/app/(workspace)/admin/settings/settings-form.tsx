@@ -1,5 +1,6 @@
 "use client";
 
+import { formatBytes } from "@/lib/format-bytes";
 import {
   type ClipboardEvent,
   type InputHTMLAttributes,
@@ -16,10 +17,7 @@ import { formatVersionLabel } from "@staaash/config/version";
 import type { SystemSettings } from "@staaash/db/client";
 
 import { AdminStatusBadge } from "@/app/(workspace)/admin/admin-status-badge";
-import {
-  formatAdminBytes,
-  formatAdminDateTime,
-} from "@/app/(workspace)/admin/admin-format";
+import { formatAdminDateTime } from "@/app/(workspace)/admin/admin-format";
 import {
   SettingsAccordion,
   SettingsFormStatus,
@@ -212,7 +210,7 @@ export function SettingsForm({ settings, updateState }: SettingsFormProps) {
                   min={1}
                 />
                 <span className="basis-full text-right text-xs whitespace-nowrap text-muted-foreground">
-                  {formatAdminBytes(Number(settings.maxUploadBytes))}
+                  {formatBytes(Number(settings.maxUploadBytes))}
                 </span>
               </SettingsFieldRow>
               <SettingsFieldRow
@@ -268,7 +266,7 @@ export function SettingsForm({ settings, updateState }: SettingsFormProps) {
                   min={1}
                 />
                 <span className="basis-full text-right text-xs whitespace-nowrap text-muted-foreground">
-                  {formatAdminBytes(
+                  {formatBytes(
                     Number(settings.resumableMaxReservedBytesPerUser),
                   )}
                 </span>
@@ -284,7 +282,7 @@ export function SettingsForm({ settings, updateState }: SettingsFormProps) {
                   min={1}
                 />
                 <span className="basis-full text-right text-xs whitespace-nowrap text-muted-foreground">
-                  {formatAdminBytes(
+                  {formatBytes(
                     Number(settings.resumableMaxReservedBytesInstance),
                   )}
                 </span>
@@ -299,7 +297,7 @@ export function SettingsForm({ settings, updateState }: SettingsFormProps) {
                   min={1}
                 />
                 <span className="basis-full text-right text-xs whitespace-nowrap text-muted-foreground">
-                  {formatAdminBytes(settings.previewMaxSourceBytes)}
+                  {formatBytes(settings.previewMaxSourceBytes)}
                 </span>
               </SettingsFieldRow>
               <SettingsFieldRow
@@ -578,9 +576,7 @@ export function SettingsForm({ settings, updateState }: SettingsFormProps) {
                   min={1}
                 />
                 <span className="basis-full text-right text-xs whitespace-nowrap text-muted-foreground">
-                  {formatAdminBytes(
-                    Number(settings.mediaPreviewThresholdBytes),
-                  )}
+                  {formatBytes(Number(settings.mediaPreviewThresholdBytes))}
                 </span>
               </SettingsFieldRow>
               <SettingsFieldRow

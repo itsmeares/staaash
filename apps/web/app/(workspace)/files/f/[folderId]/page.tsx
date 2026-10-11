@@ -6,12 +6,11 @@ import { isFilesError } from "@/server/files/errors";
 import { filesService } from "@/server/files/service";
 import type { FilesListing } from "@/server/files/types";
 import { recordFolderAccessBestEffort } from "@/server/retrieval/recent-tracking";
-import { retrievalService } from "@/server/retrieval/service";
 import { getShareBaseUrl } from "@/server/request";
-import { sharingService } from "@/server/sharing/service";
 import { StorageEntityUnavailableError } from "@/server/storage-read-guard";
 
 import { FilesView } from "../../files-view";
+import { loadFilesViewProps } from "../../load-files-view";
 
 export const dynamic = "force-dynamic";
 
@@ -63,33 +62,18 @@ export default async function FilesFolderPage({
       folderId: listing.currentFolder.id,
       source: "files-folder-page",
     });
-    const [shareLookup, favorites] = await Promise.all([
-      sharingService.getFilesShareLookup({
-        actorUserId: session.user.id,
-        actorRole: session.user.role,
-        currentFolderId: listing.currentFolder.id,
-        childFolderIds: listing.childFolders.map((folder) => folder.id),
-        fileIds: listing.files.map((file) => file.id),
-        baseUrl,
-      }),
-      retrievalService.listFavorites({
-        actorUserId: session.user.id,
-        actorRole: session.user.role,
-      }),
-    ]);
+    const props = await loadFilesViewProps({
+      actorUserId: session.user.id,
+      actorRole: session.user.role,
+      listing,
+      baseUrl,
+    });
 
     return (
       <FilesView
+        {...props}
         currentPath={`/files/f/${folderId}`}
-        favoriteFileIds={favorites
-          .filter((item) => item.kind === "file")
-          .map((item) => item.id)}
-        favoriteFolderIds={favorites
-          .filter((item) => item.kind === "folder")
-          .map((item) => item.id)}
-        listing={listing}
         searchParams={resolvedSearchParams}
-        shareLookup={shareLookup}
       />
     );
   } catch (error) {

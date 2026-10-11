@@ -1,7 +1,7 @@
 import Link from "next/link";
+import { formatBytes } from "@/lib/format-bytes";
 import { formatVersionLabel } from "@staaash/config/version";
 
-import { formatAdminBytes } from "@/app/(workspace)/admin/admin-format";
 import {
   AdminRow,
   AdminSection,
@@ -25,6 +25,8 @@ const queueMessage = (
 const plural = (count: number, word: string) =>
   `${count} ${word}${count === 1 ? "" : "s"}`;
 
+// Each overview row picks its tone from its own health signal.
+// fallow-ignore-next-line complexity
 export default async function AdminOverviewPage() {
   const session = await requireAdminPageSession();
   const summary = await getAdminOverviewSummary(session.user.id);
@@ -130,7 +132,7 @@ export default async function AdminOverviewPage() {
           >
             <div className="grid gap-1 px-3.5 py-3">
               <span className="font-heading text-headline font-semibold tabular-nums">
-                {formatAdminBytes(summary.storage.retainedBytes)}
+                {formatBytes(summary.storage.retainedBytes)}
               </span>
               <span className="text-meta text-muted-foreground">
                 {plural(summary.storage.retainedFileCount, "file")} in{" "}

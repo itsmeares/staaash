@@ -4,7 +4,6 @@ import {
   compareWorkspaceStrings,
   filterWorkspaceItems,
   formatWorkspaceFileSize,
-  getWorkspaceItemDownloadHref,
   getWorkspaceItemType,
   getWorkspaceLocationLabel,
   sortWorkspaceItems,
@@ -95,6 +94,7 @@ describe("workspace item helpers", () => {
     expect(formatWorkspaceFileSize(4200)).toBe("4 KB");
     expect(formatWorkspaceFileSize(2_400_000)).toBe("2.3 MB");
     expect(formatWorkspaceFileSize(4_500_000_000)).toBe("4.2 GB");
+    expect(formatWorkspaceFileSize(796_660_000_000)).toBe("742 GB");
   });
 
   it("sorts with workspace string and tie-break rules", () => {
@@ -116,14 +116,5 @@ describe("workspace item helpers", () => {
     expect(
       sortWorkspaceItems(items, "desc", () => 0).map((entry) => entry.id),
     ).toEqual(["file-a", "folder-a", "file-b"]);
-  });
-
-  it("builds direct file download hrefs and leaves folders to archive flow", () => {
-    expect(getWorkspaceItemDownloadHref({ id: "file-1", kind: "file" })).toBe(
-      "/api/files/files/file-1/download",
-    );
-    expect(
-      getWorkspaceItemDownloadHref({ id: "folder-1", kind: "folder" }),
-    ).toBeNull();
   });
 });

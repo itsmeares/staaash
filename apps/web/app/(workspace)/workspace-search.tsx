@@ -26,6 +26,8 @@ type Result = {
  * The top bar search: results appear as you type, folders first. Enter opens
  * the highlighted result, Shift+Enter or See all opens the results page.
  */
+// Instant results: typing, arrows, Enter, Shift+Enter and closing.
+// fallow-ignore-next-line complexity
 export function WorkspaceSearch() {
   const router = useRouter();
   const listId = useId();

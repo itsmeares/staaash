@@ -58,6 +58,8 @@ export type NavigationKey =
  * Arrow keys move the selection. In a grid, up and down jump a row of
  * `columns` items; with shift the range grows from the anchor.
  */
+// Arrow, Home, End and page keys move differently in lists and grids.
+// fallow-ignore-next-line complexity
 export function moveSelection(
   state: SelectionState,
   key: NavigationKey,

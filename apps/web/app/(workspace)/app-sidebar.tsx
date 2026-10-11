@@ -30,7 +30,7 @@ export type ShellInfo = {
   diskCapacityBytes: string | null;
 };
 
-export function DriveBrand({ instanceName }: { instanceName: string }) {
+function DriveBrand({ instanceName }: { instanceName: string }) {
   return (
     <Link
       className="flex items-center gap-2.5 rounded-lg px-2.5 py-1 font-heading text-xl leading-tight font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"

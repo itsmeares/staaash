@@ -120,6 +120,8 @@ function ReleaseNotesText({ notes }: { notes: string }) {
   );
 }
 
+// Release notes show whatever each release carries: name, date, link, notes.
+// fallow-ignore-next-line complexity
 function ReleaseNotesDialog({
   state,
   open,
@@ -202,6 +204,8 @@ function ReleaseNotesDialog({
   );
 }
 
+// The About dialog shows a different line for every update state.
+// fallow-ignore-next-line complexity
 function AboutDialog({
   open,
   onOpenChange,
@@ -435,6 +439,8 @@ export function UpdatesProvider({
 
   const newest =
     state?.status === "update-available" ? state.missed[0] : undefined;
+  // The toast fires once per version, and only for patch and release candidate updates.
+  // fallow-ignore-next-line complexity
   useEffect(() => {
     if (!notify || !newest || !state) return;
     const key = `${TOLD_KEY}${newest.version}`;

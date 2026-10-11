@@ -260,6 +260,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * yet it is queued (under the first-view preview setting) and this answers
  * 404, so the page keeps its type icon until the next visit.
  */
+// Settings, eligibility, ready, queued and failed thumbnails each answer differently.
+// fallow-ignore-next-line complexity
 export const createThumbnailResponse = async ({
   request,
   file,

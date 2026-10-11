@@ -1,18 +1,7 @@
 import { NextRequest } from "next/server";
 
-import { getRequestSession } from "@/server/auth/guards";
-import { notSignedInResponse } from "@/server/auth/http";
-import { FilesError } from "@/server/files/errors";
-import { getAccessiblePrivateFile } from "@/server/files/viewer";
-import {
-  createMediaErrorResponse,
-  MediaContentError,
-} from "@/server/media/content-response";
 import { createInlineContentResponse } from "@/server/media/derivative-content-response";
-import {
-  createStorageEntityUnavailableResponse,
-  StorageEntityUnavailableError,
-} from "@/server/storage-read-guard";
+import { respondWithPrivateFile } from "@/server/media/private-file-route";
 
 type RouteContext = {
   params: Promise<{
@@ -22,38 +11,11 @@ type RouteContext = {
 
 export async function GET(request: NextRequest, { params }: RouteContext) {
   const { fileId } = await params;
-  const session = await getRequestSession(request);
-
-  if (!session) {
-    return notSignedInResponse(request, `/api/files/files/${fileId}/content`);
-  }
-
-  try {
-    const file = await getAccessiblePrivateFile({
-      actorRole: session.user.role,
-      actorUserId: session.user.id,
-      fileId,
-    });
-
-    return await createInlineContentResponse({
-      request,
-      file,
-    });
-  } catch (error) {
-    if (error instanceof StorageEntityUnavailableError) {
-      return createStorageEntityUnavailableResponse(error);
-    }
-    if (error instanceof FilesError) {
-      return Response.json(
-        { error: error.message, code: error.code },
-        { status: error.status },
-      );
-    }
-
-    if (error instanceof MediaContentError) {
-      return createMediaErrorResponse(error);
-    }
-
-    return Response.json({ error: "Content unavailable." }, { status: 404 });
-  }
+  return respondWithPrivateFile({
+    request,
+    fileId,
+    path: `/api/files/files/${fileId}/content`,
+    unavailable: "Content unavailable.",
+    respond: (file) => createInlineContentResponse({ request, file }),
+  });
 }

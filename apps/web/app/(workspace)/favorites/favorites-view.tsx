@@ -1,14 +1,10 @@
 "use client";
 
-import { Download, Heart, HeartOff, RefreshCw } from "lucide-react";
+import { Download, Heart, HeartOff } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { FlashMessage } from "@/app/auth-ui";
-import {
-  DashboardItemContextMenu,
-  DashboardPageContextMenu,
-  type DashboardContextMenuGroup,
-} from "@/app/dashboard-context-menu";
+import { DashboardPageContextMenu } from "@/app/dashboard-context-menu";
 import { PageHeader } from "@/components/page-header";
 import { useTime } from "@/components/time-provider";
 import {
@@ -18,35 +14,35 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { ViewToggle } from "@/components/view-toggle";
 import {
   FileList,
-  thumbnailUrlFor,
-  ItemIcon,
-  MiddleName,
   type FileListColumn,
   type FileListItem,
 } from "@/components/file-list/file-list";
-import { buildItemActions } from "@/components/file-list/item-actions";
-import { TypeFilter } from "@/components/file-list/type-filter";
-import { useListSelection } from "@/components/file-list/use-list-selection";
+import { useItemSelection } from "@/components/file-list/use-list-selection";
+import { useListSort } from "@/components/file-list/use-list-sort";
 import { useViewMode } from "@/components/file-list/use-view-mode";
 import { formatRelativeTime } from "@/lib/time";
 
 import { SelectionBar } from "../selection-bar";
-import { useCoarsePointer } from "../use-coarse-pointer";
-import { useWorkspaceItemActions } from "../use-workspace-item-actions";
 import {
-  formatWorkspaceFileSize,
-  WORKSPACE_ITEM_FILTERS,
-} from "../workspace-item-helpers";
+  toWorkspaceListItem,
+  listBackgroundMenu,
+  ListToolbar,
+  PinnedChips,
+} from "../workspace-list-parts";
+import { useCoarsePointer } from "../use-coarse-pointer";
+import {
+  liveItemMenu,
+  useWorkspaceItemActions,
+} from "../use-workspace-item-actions";
+import { sizeColumn } from "../workspace-item-helpers";
 import {
   filterFavoriteItems,
   getQuickAccessFavorites,
   sortFavoriteItems,
   type FavoriteClientItem,
   type FavoriteFilterType,
-  type FavoriteSortDirection,
   type FavoriteSortKey,
 } from "./favorites-helpers";
 
@@ -58,21 +54,14 @@ type FavoritesViewProps = {
 
 type FavoriteListItem = FileListItem & { data: FavoriteClientItem };
 
-const blockedLabel = (status?: string) =>
-  status
-    ? status === "recovery_required"
-      ? "Recovery required"
-      : "Finishing storage operation"
-    : null;
-
+// Favorites adds optimistic remove and pin on top of the shared list.
+// fallow-ignore-next-line complexity
 export function FavoritesView({ error, items, success }: FavoritesViewProps) {
   const isCoarsePointer = useCoarsePointer();
   const { now, timeZone } = useTime();
   const [view, setView] = useViewMode("favorites");
   const [filterType, setFilterType] = useState<FavoriteFilterType>("all");
-  const [sortKey, setSortKey] = useState<FavoriteSortKey>("favoritedAt");
-  const [sortDirection, setSortDirection] =
-    useState<FavoriteSortDirection>("desc");
+  const sort = useListSort<FavoriteSortKey>("favoritedAt", "desc");
   // Optimistic changes until the refreshed list arrives.
   const [removedIds, setRemovedIds] = useState<ReadonlySet<string>>(new Set());
   const [pinOverrides, setPinOverrides] = useState<
@@ -98,10 +87,10 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
     () =>
       sortFavoriteItems(
         filterFavoriteItems(activeItems, filterType),
-        sortKey,
-        sortDirection,
+        sort.key,
+        sort.direction,
       ),
-    [activeItems, filterType, sortDirection, sortKey],
+    [activeItems, filterType, sort.direction, sort.key],
   );
   const pinnedItems = getQuickAccessFavorites(activeItems);
   const selectable = visibleItems.filter((item) => !item.storageMutationStatus);
@@ -134,51 +123,21 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
       setPinOverrides((current) => ({ ...current, [item.id]: previous }));
   };
 
-  const selection = useListSelection({
-    ids: selectable.map((item) => item.id),
+  const { selection, selectedItems, targetsFor } = useItemSelection({
+    items: selectable,
     coarse: isCoarsePointer,
-    onOpen: (id) => {
-      const item = items.find((candidate) => candidate.id === id);
-      if (item) actions.open(item);
-    },
+    onOpen: actions.open,
   });
-  const selectedItems = selectable.filter((item) =>
-    selection.selected.has(item.id),
-  );
 
-  const getActions = (
-    item: FavoriteClientItem,
-  ): DashboardContextMenuGroup[] => {
-    const targets =
-      selection.selected.has(item.id) && selectedItems.length > 1
-        ? selectedItems
-        : [item];
+  const getActions = (item: FavoriteClientItem) => {
     const pinned = item.quickAccessPinnedAt != null;
-    return buildItemActions({
-      name: item.name,
-      kind: item.kind,
-      count: targets.length,
-      open: () => actions.open(item),
-      download: () => void actions.download(targets),
+    return liveItemMenu(actions, item, targetsFor(item), selection.clear, {
       favorite: { isFavorite: true, run: () => void unfavorite([item]) },
       pin: { pinned, run: () => void setPinned(item, !pinned) },
-      trash: () => {
-        void actions.trash(targets);
-        selection.clear();
-      },
     });
   };
 
-  const listItems: FavoriteListItem[] = visibleItems.map((item) => ({
-    id: item.id,
-    kind: item.kind,
-    name: item.name,
-    mimeType: item.mimeType,
-    thumbnailUrl: thumbnailUrlFor(item),
-    blocked: blockedLabel(item.storageMutationStatus),
-    sub: item.locationLabel,
-    data: item,
-  }));
+  const listItems: FavoriteListItem[] = visibleItems.map(toWorkspaceListItem);
 
   const columns: FileListColumn<FavoriteListItem>[] = [
     {
@@ -189,17 +148,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
       sortable: true,
       render: (item) => item.data.locationLabel,
     },
-    {
-      key: "size",
-      label: "Size",
-      width: "6rem",
-      align: "end",
-      sortable: true,
-      render: (item) =>
-        item.kind === "folder"
-          ? ""
-          : formatWorkspaceFileSize(item.data.sizeBytes),
-    },
+    { ...sizeColumn<FavoriteListItem>(), sortable: true },
     {
       key: "favoritedAt",
       label: "Added",
@@ -211,22 +160,11 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
     },
   ];
 
-  const backgroundGroups: DashboardContextMenuGroup[] = [
-    {
-      actions: [
-        {
-          icon: <RefreshCw className="size-4" />,
-          label: "Refresh",
-          onSelect: actions.refresh,
-        },
-        {
-          disabled: selectable.length === 0,
-          label: "Select all",
-          onSelect: selection.selectAll,
-        },
-      ],
-    },
-  ];
+  const backgroundGroups = listBackgroundMenu(
+    actions.refresh,
+    selection.selectAll,
+    selectable.length,
+  );
 
   return (
     <DashboardPageContextMenu
@@ -247,35 +185,20 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
           >
             Pinned
           </h2>
-          <div className="flex flex-wrap gap-2">
-            {pinnedItems.map((item) => (
-              <DashboardItemContextMenu groups={getActions(item)} key={item.id}>
-                <button
-                  className="flex h-10 max-w-64 min-w-0 cursor-pointer items-center gap-2.5 rounded-lg border border-border bg-card ps-3 pe-3.5 text-body outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
-                  type="button"
-                  onClick={() => actions.open(item)}
-                >
-                  <ItemIcon item={item} />
-                  <MiddleName className="font-medium" name={item.name} />
-                </button>
-              </DashboardItemContextMenu>
-            ))}
-          </div>
+          <PinnedChips
+            items={pinnedItems}
+            menuFor={getActions}
+            onOpen={actions.open}
+          />
         </section>
       ) : null}
 
-      <div className="flex items-center gap-3">
-        <TypeFilter
-          options={WORKSPACE_ITEM_FILTERS}
-          value={filterType}
-          onValueChange={setFilterType}
-        />
-        <ViewToggle
-          className="ms-auto shrink-0"
-          value={view}
-          onValueChange={setView}
-        />
-      </div>
+      <ListToolbar
+        filter={filterType}
+        view={view}
+        onFilterChange={setFilterType}
+        onViewChange={setView}
+      />
 
       <FileList
         coarse={isCoarsePointer}
@@ -303,23 +226,7 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
         items={listItems}
         label="Favorites"
         selection={selection}
-        sort={{
-          key: sortKey,
-          direction: sortDirection,
-          onSort: (key) => {
-            const next = key as FavoriteSortKey;
-            if (next === sortKey) {
-              setSortDirection((current) =>
-                current === "asc" ? "desc" : "asc",
-              );
-            } else {
-              setSortKey(next);
-              setSortDirection(
-                next === "favoritedAt" || next === "size" ? "desc" : "asc",
-              );
-            }
-          },
-        }}
+        sort={sort}
         view={view}
       />
 

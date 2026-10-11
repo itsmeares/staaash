@@ -29,7 +29,8 @@ import {
 } from "@/lib/media-preview-status";
 import { cn } from "@/lib/utils";
 
-import { ItemPreview, MiddleName, type FileListItem } from "./file-list";
+import { ItemPreview, type FileListItem } from "./file-list";
+import { MiddleName } from "./middle-name";
 
 const DETAILS_KEY = "staaash:details-open";
 
@@ -66,7 +67,7 @@ export function useDetailsPanel() {
   return { open, setOpen: set, toggle: () => set(!open) };
 }
 
-export const FOLDER_ICON_OPTIONS: Array<{
+const FOLDER_ICON_OPTIONS: Array<{
   name: string;
   icon: LucideIcon;
   label: string;
@@ -104,7 +105,7 @@ export function DetailsSection({
   );
 }
 
-export function DetailsRows({ rows }: { rows: Array<[string, ReactNode]> }) {
+function DetailsRows({ rows }: { rows: Array<[string, ReactNode]> }) {
   return (
     <dl className="m-0 grid gap-1.5 text-meta">
       {rows.map(([label, value]) => (
@@ -126,6 +127,8 @@ function previewStatusLabel(
 }
 
 /** Preview status for videos, with generate and regenerate. */
+// One branch per preview state, each with its own action.
+// fallow-ignore-next-line complexity
 export function MediaPreviewSection({ fileId }: { fileId: string }) {
   const [state, setState] = useState<MediaPreviewState | null>(null);
   const [queuing, setQueuing] = useState(false);

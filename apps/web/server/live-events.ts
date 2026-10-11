@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import { UPDATE_STATE_CHANGED_CHANNEL } from "@staaash/db/instance";
 import { BACKGROUND_JOB_STATE_CHANGED_CHANNEL } from "@staaash/db/jobs";
 
-export type LiveChannel = "jobs" | "updates";
+type LiveChannel = "jobs" | "updates";
 
 type PgClient = {
   connect(): Promise<void>;

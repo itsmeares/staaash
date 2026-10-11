@@ -2,9 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   filterRecentItems,
-  formatRecentFileSize,
   getRecentLocationLabel,
-  getRecentType,
   groupRecentItems,
   sortRecentItems,
   toRecentClientItem,
@@ -83,27 +81,6 @@ describe("recent page helpers", () => {
     });
   });
 
-  it("maps file and folder types for filters", () => {
-    expect(
-      getRecentType(clientItem({ kind: "folder", mimeType: undefined })),
-    ).toBe("folder");
-    expect(getRecentType(clientItem({ mimeType: "image/png" }))).toBe("image");
-    expect(getRecentType(clientItem({ mimeType: "video/mp4" }))).toBe("video");
-    expect(getRecentType(clientItem({ mimeType: "audio/wav" }))).toBe("audio");
-    expect(getRecentType(clientItem({ mimeType: "application/pdf" }))).toBe(
-      "pdf",
-    );
-    expect(getRecentType(clientItem({ mimeType: "text/markdown" }))).toBe(
-      "text",
-    );
-    expect(getRecentType(clientItem({ mimeType: "application/zip" }))).toBe(
-      "archive",
-    );
-    expect(
-      getRecentType(clientItem({ mimeType: "application/octet-stream" })),
-    ).toBe("all");
-  });
-
   it("filters and sorts recent items", () => {
     const items = [
       clientItem({
@@ -163,13 +140,5 @@ describe("recent page helpers", () => {
       "This month",
       "Older",
     ]);
-  });
-
-  it("formats size labels", () => {
-    expect(formatRecentFileSize(undefined)).toBe("-");
-    expect(formatRecentFileSize(400)).toBe("400 B");
-    expect(formatRecentFileSize(4200)).toBe("4 KB");
-    expect(formatRecentFileSize(2_400_000)).toBe("2.3 MB");
-    expect(formatRecentFileSize(4_500_000_000)).toBe("4.2 GB");
   });
 });

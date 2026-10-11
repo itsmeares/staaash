@@ -1,5 +1,6 @@
 "use client";
 
+import { formatBytes } from "@/lib/format-bytes";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -32,10 +33,7 @@ import {
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
-import {
-  formatAdminBytes,
-  formatAdminDateTime,
-} from "@/app/(workspace)/admin/admin-format";
+import { formatAdminDateTime } from "@/app/(workspace)/admin/admin-format";
 import { AdminPanel } from "@/app/(workspace)/admin/admin-panel";
 import { useTime } from "@/components/time-provider";
 import { cn } from "@/lib/utils";
@@ -568,7 +566,7 @@ function getPayloadFileId(job: JsonBackgroundJob | null) {
 }
 
 function formatBytesString(value: string | null) {
-  return value ? formatAdminBytes(BigInt(value)) : "n/a";
+  return value ? formatBytes(BigInt(value)) : "n/a";
 }
 
 function getDerivativeTone(status: string) {

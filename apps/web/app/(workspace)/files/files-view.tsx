@@ -51,6 +51,7 @@ import { buildItemActions } from "@/components/file-list/item-actions";
 import { MediaViewer } from "@/components/file-list/media-viewer";
 import { getRenameCursorPosition } from "@/components/file-list/list-model";
 import { useListSelection } from "@/components/file-list/use-list-selection";
+import { useListSort } from "@/components/file-list/use-list-sort";
 import { useViewMode } from "@/components/file-list/use-view-mode";
 import { useTime } from "@/components/time-provider";
 import { randomClientId } from "@/lib/client-id";
@@ -268,10 +269,7 @@ export function FilesView({
     useTransferContext();
   const { now, timeZone } = useTime();
   const [view, setView] = useViewMode("files");
-  const [sort, setSort] = useState<{ key: string; direction: "asc" | "desc" }>({
-    key: "name",
-    direction: "asc",
-  });
+  const sort = useListSort<"name" | "size" | "modified">("name", "asc");
   const details = useDetailsPanel();
 
   // ---- Optimistic trash ----
@@ -525,11 +523,12 @@ export function FilesView({
             });
     return sort.direction === "asc" ? delta : -delta;
   };
+  const dataOf = (item: BatchMoveItem) =>
+    item.kind === "folder"
+      ? listing.childFolders.find((folder) => folder.id === item.id)
+      : listing.files.find((file) => file.id === item.id);
   const sortKeyOf = (item: BatchMoveItem) => {
-    const data =
-      item.kind === "folder"
-        ? listing.childFolders.find((folder) => folder.id === item.id)
-        : listing.files.find((file) => file.id === item.id);
+    const data = dataOf(item);
     return {
       kind: item.kind,
       name: data?.name ?? "",
@@ -588,6 +587,8 @@ export function FilesView({
   // own keys.
   // ---------------------------------------------------------------------------
 
+  // The Files keyboard map: one branch per shortcut.
+  // fallow-ignore-next-line complexity
   const handleListKey = (
     event: KeyboardEvent<HTMLElement>,
     selected: string[],
@@ -1486,13 +1487,11 @@ export function FilesView({
 
   const cutSelectedItems = () => {
     const items = allItems.filter((item) => selectedIds.has(item.id));
-    const cut = items.map((item) => {
-      const data =
-        item.kind === "folder"
-          ? listing.childFolders.find((folder) => folder.id === item.id)
-          : listing.files.find((file) => file.id === item.id);
-      return { id: item.id, kind: item.kind, name: data?.name ?? "" };
-    });
+    const cut = items.map((item) => ({
+      id: item.id,
+      kind: item.kind,
+      name: dataOf(item)?.name ?? "",
+    }));
     updateCutItems(cut);
     persistCutItems(cut);
   };
@@ -1754,7 +1753,9 @@ export function FilesView({
     .map((crumb, index) => (index === 0 ? "Files" : crumb.name))
     .join(" / ");
   const detailsContent: DetailsContent | null = detailsItem
-    ? (() => {
+    ? // Details differ for files and folders, shared and favorite items.
+      // fallow-ignore-next-line complexity
+      (() => {
         const { data } = detailsItem;
         const share = shareFor(detailsItem.kind, detailsItem.id);
         const visual = getItemVisual(detailsItem.kind, detailsItem.mimeType);
@@ -2053,19 +2054,7 @@ export function FilesView({
                 : {}),
             })}
             items={sortedItems}
-            sort={{
-              key: sort.key,
-              direction: sort.direction,
-              onSort: (key) =>
-                setSort((current) =>
-                  current.key === key
-                    ? {
-                        key,
-                        direction: current.direction === "asc" ? "desc" : "asc",
-                      }
-                    : { key, direction: key === "name" ? "asc" : "desc" },
-                ),
-            }}
+            sort={sort}
             label={`${listing.currentFolder.name} files`}
             renderName={(item) =>
               renamingId === item.id ? (

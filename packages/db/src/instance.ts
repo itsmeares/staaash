@@ -43,18 +43,22 @@ export const readInstanceUpdateState = async (
   client?: InstanceClient,
 ): Promise<InstanceUpdateState> => {
   const activeClient = client ?? (getPrisma() as unknown as InstanceClient);
-  const row = await activeClient.instance.findUnique({
+  const row = (await activeClient.instance.findUnique({
     where: { id: "singleton" },
     select: {
       lastUpdateCheckAt: true,
       updateCheckError: true,
       updateReleases: true,
     },
-  });
+  })) ?? {
+    lastUpdateCheckAt: null,
+    updateCheckError: null,
+    updateReleases: [],
+  };
   return {
-    lastUpdateCheckAt: row?.lastUpdateCheckAt ?? null,
-    updateCheckError: row?.updateCheckError ?? null,
-    updateReleases: Array.isArray(row?.updateReleases)
+    lastUpdateCheckAt: row.lastUpdateCheckAt,
+    updateCheckError: row.updateCheckError,
+    updateReleases: Array.isArray(row.updateReleases)
       ? row.updateReleases.filter(isRelease)
       : [],
   };

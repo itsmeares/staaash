@@ -61,6 +61,8 @@ export function ShortcutsDialog() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
+    // Global shortcuts stay out of text fields and open dialogs.
+    // fallow-ignore-next-line complexity
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target)) return;
       if (e.key === "?") {

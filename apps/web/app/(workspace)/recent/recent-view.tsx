@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Download, RefreshCw, Trash2 } from "lucide-react";
+import { Clock } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { FlashMessage } from "@/app/auth-ui";
@@ -17,33 +17,36 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { ViewToggle } from "@/components/view-toggle";
 import {
   FileList,
-  thumbnailUrlFor,
   type FileListColumn,
   type FileListItem,
 } from "@/components/file-list/file-list";
 import { buildItemActions } from "@/components/file-list/item-actions";
-import { TypeFilter } from "@/components/file-list/type-filter";
-import { useListSelection } from "@/components/file-list/use-list-selection";
+import { useItemSelection } from "@/components/file-list/use-list-selection";
+import { useListSort } from "@/components/file-list/use-list-sort";
 import { useViewMode } from "@/components/file-list/use-view-mode";
 import { formatRelativeTime } from "@/lib/time";
 
 import { SelectionBar } from "../selection-bar";
-import { useCoarsePointer } from "../use-coarse-pointer";
-import { useWorkspaceItemActions } from "../use-workspace-item-actions";
 import {
-  formatWorkspaceFileSize,
-  WORKSPACE_ITEM_FILTERS,
-} from "../workspace-item-helpers";
+  toWorkspaceListItem,
+  listBackgroundMenu,
+  ListToolbar,
+} from "../workspace-list-parts";
+import { useCoarsePointer } from "../use-coarse-pointer";
+import {
+  downloadAndTrash,
+  liveItemMenu,
+  useWorkspaceItemActions,
+} from "../use-workspace-item-actions";
+import { sizeColumn } from "../workspace-item-helpers";
 import {
   filterRecentItems,
   groupRecentItems,
   sortRecentItems,
   type RecentClientItem,
   type RecentFilterType,
-  type RecentSortDirection,
   type RecentSortKey,
 } from "./recent-helpers";
 
@@ -55,21 +58,12 @@ type RecentViewProps = {
 
 type RecentListItem = FileListItem & { data: RecentClientItem };
 
-const blockedLabel = (status?: string) =>
-  status
-    ? status === "recovery_required"
-      ? "Recovery required"
-      : "Finishing storage operation"
-    : null;
-
 export function RecentView({ error, items, success }: RecentViewProps) {
   const isCoarsePointer = useCoarsePointer();
   const { now, timeZone } = useTime();
   const [view, setView] = useViewMode("recent");
   const [filterType, setFilterType] = useState<RecentFilterType>("all");
-  const [sortKey, setSortKey] = useState<RecentSortKey>("uploadedAt");
-  const [sortDirection, setSortDirection] =
-    useState<RecentSortDirection>("desc");
+  const sort = useListSort<RecentSortKey>("uploadedAt", "desc");
   const actions = useWorkspaceItemActions("/recent");
 
   // Items stay in Recent after trashing, faded, so they can come back.
@@ -84,24 +78,18 @@ export function RecentView({ error, items, success }: RecentViewProps) {
           ),
           filterType,
         ),
-        sortKey,
-        sortDirection,
+        sort.key,
+        sort.direction,
       ),
-    [actions.trashedIds, filterType, items, sortDirection, sortKey],
+    [actions.trashedIds, filterType, items, sort.direction, sort.key],
   );
 
   const toListItem = (item: RecentClientItem): RecentListItem => ({
-    id: item.id,
-    kind: item.kind,
-    name: item.name,
-    mimeType: item.mimeType,
-    thumbnailUrl: thumbnailUrlFor(item),
-    blocked: blockedLabel(item.storageMutationStatus),
+    ...toWorkspaceListItem(item),
     dimmed: Boolean(item.deletedAt),
     sub: item.deletedAt
       ? "In trash"
       : `${item.locationLabel} · ${formatRelativeTime(item.uploadedAt, now, timeZone)}`,
-    data: item,
   });
   const listItems = visibleItems.map(toListItem);
   const groups = groupRecentItems(visibleItems, now, timeZone).map((group) => ({
@@ -112,35 +100,12 @@ export function RecentView({ error, items, success }: RecentViewProps) {
     (item) => !item.deletedAt && !item.storageMutationStatus,
   );
 
-  const selection = useListSelection({
-    ids: selectable.map((item) => item.id),
+  const { selection, selectedItems, targetsFor } = useItemSelection({
+    items: selectable,
     coarse: isCoarsePointer,
-    onOpen: (id) => {
-      const item = items.find((candidate) => candidate.id === id);
-      if (item) actions.open(item);
-    },
-    onKey: (event, selected) => {
-      if (
-        (event.key === "Delete" || event.key === "Backspace") &&
-        selected.length > 0
-      ) {
-        event.preventDefault();
-        void actions.trash(
-          selectable.filter((item) => selected.includes(item.id)),
-        );
-        selection.clear();
-        return true;
-      }
-      return false;
-    },
+    onOpen: actions.open,
+    onDelete: (targets) => void actions.trash(targets),
   });
-  const selectedItems = selectable.filter((item) =>
-    selection.selected.has(item.id),
-  );
-  const targetsFor = (item: RecentClientItem) =>
-    selection.selected.has(item.id) && selectedItems.length > 1
-      ? selectedItems
-      : [item];
 
   const getActions = ({
     data: item,
@@ -152,23 +117,7 @@ export function RecentView({ error, items, success }: RecentViewProps) {
         restore: () => void actions.restore(item),
       });
     }
-    const targets = targetsFor(item);
-    return buildItemActions({
-      name: item.name,
-      kind: item.kind,
-      count: targets.length,
-      open: () => actions.open(item),
-      download: () => void actions.download(targets),
-      favorite: {
-        isFavorite: item.isFavorite,
-        run: () =>
-          void actions.setFavorite(item, { isFavorite: !item.isFavorite }),
-      },
-      trash: () => {
-        void actions.trash(targets);
-        selection.clear();
-      },
-    });
+    return liveItemMenu(actions, item, targetsFor(item), selection.clear);
   };
 
   const columns: FileListColumn<RecentListItem>[] = [
@@ -180,17 +129,7 @@ export function RecentView({ error, items, success }: RecentViewProps) {
       sortable: true,
       render: (item) => item.data.locationLabel,
     },
-    {
-      key: "size",
-      label: "Size",
-      width: "6rem",
-      align: "end",
-      sortable: true,
-      render: (item) =>
-        item.kind === "folder"
-          ? ""
-          : formatWorkspaceFileSize(item.data.sizeBytes),
-    },
+    { ...sizeColumn<RecentListItem>(), sortable: true },
     {
       key: "uploadedAt",
       label: "Added",
@@ -204,22 +143,11 @@ export function RecentView({ error, items, success }: RecentViewProps) {
     },
   ];
 
-  const backgroundGroups: DashboardContextMenuGroup[] = [
-    {
-      actions: [
-        {
-          icon: <RefreshCw className="size-4" />,
-          label: "Refresh",
-          onSelect: actions.refresh,
-        },
-        {
-          disabled: selectable.length === 0,
-          label: "Select all",
-          onSelect: selection.selectAll,
-        },
-      ],
-    },
-  ];
+  const backgroundGroups = listBackgroundMenu(
+    actions.refresh,
+    selection.selectAll,
+    selectable.length,
+  );
 
   return (
     <DashboardPageContextMenu
@@ -232,18 +160,12 @@ export function RecentView({ error, items, success }: RecentViewProps) {
       {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
       {actions.error ? <FlashMessage>{actions.error}</FlashMessage> : null}
 
-      <div className="flex items-center gap-3">
-        <TypeFilter
-          options={WORKSPACE_ITEM_FILTERS}
-          value={filterType}
-          onValueChange={setFilterType}
-        />
-        <ViewToggle
-          className="ms-auto shrink-0"
-          value={view}
-          onValueChange={setView}
-        />
-      </div>
+      <ListToolbar
+        filter={filterType}
+        view={view}
+        onFilterChange={setFilterType}
+        onViewChange={setView}
+      />
 
       <FileList
         coarse={isCoarsePointer}
@@ -272,43 +194,12 @@ export function RecentView({ error, items, success }: RecentViewProps) {
         items={listItems}
         label="Recent files"
         selection={selection}
-        sort={{
-          key: sortKey,
-          direction: sortDirection,
-          onSort: (key) => {
-            const next = key as RecentSortKey;
-            if (next === sortKey) {
-              setSortDirection((current) =>
-                current === "asc" ? "desc" : "asc",
-              );
-            } else {
-              setSortKey(next);
-              setSortDirection(
-                next === "uploadedAt" || next === "size" ? "desc" : "asc",
-              );
-            }
-          },
-        }}
+        sort={sort}
         view={view}
       />
 
       <SelectionBar
-        actions={[
-          {
-            label: "Download",
-            icon: Download,
-            onClick: () => void actions.download(selectedItems),
-          },
-          {
-            label: "Trash",
-            icon: Trash2,
-            destructive: true,
-            onClick: () => {
-              void actions.trash(selectedItems);
-              selection.clear();
-            },
-          },
-        ]}
+        actions={downloadAndTrash(actions, selectedItems, selection.clear)}
         count={selectedItems.length}
         onClear={selection.clear}
       />

@@ -9,17 +9,20 @@ import {
   FileList,
   ItemIcon,
   ItemPreview,
-  MiddleName,
   thumbnailUrlFor,
   type FileListItem,
 } from "@/components/file-list/file-list";
-import { buildItemActions } from "@/components/file-list/item-actions";
-import { useListSelection } from "@/components/file-list/use-list-selection";
+import { MiddleName } from "@/components/file-list/middle-name";
+import { useItemSelection } from "@/components/file-list/use-list-selection";
 import { formatRelativeTime } from "@/lib/time";
 
 import type { RecentClientItem } from "../recent/recent-helpers";
 import { useCoarsePointer } from "../use-coarse-pointer";
-import { useWorkspaceItemActions } from "../use-workspace-item-actions";
+import { PinnedChips } from "../workspace-list-parts";
+import {
+  liveItemMenu,
+  useWorkspaceItemActions,
+} from "../use-workspace-item-actions";
 import { formatHomeExpiryTime } from "./home-helpers";
 
 export type HomeShare = {
@@ -79,26 +82,12 @@ export function HomeSections({
   );
 
   const menuFor = (item: RecentClientItem) =>
-    buildItemActions({
-      name: item.name,
-      kind: item.kind,
-      open: () => actions.open(item),
-      download: () => void actions.download([item]),
-      favorite: {
-        isFavorite: item.isFavorite,
-        run: () =>
-          void actions.setFavorite(item, { isFavorite: !item.isFavorite }),
-      },
-      trash: () => void actions.trash([item]),
-    });
+    liveItemMenu(actions, item, [item]);
 
-  const selection = useListSelection({
-    ids: visibleRecent.map((item) => item.id),
+  const { selection } = useItemSelection({
+    items: visibleRecent,
     coarse,
-    onOpen: (id) => {
-      const item = recent.find((candidate) => candidate.id === id);
-      if (item) actions.open(item);
-    },
+    onOpen: actions.open,
   });
 
   const recentItems: HomeListItem[] = visibleRecent.map((item) => ({
@@ -166,20 +155,12 @@ export function HomeSections({
             linkLabel="Favorites"
             title="Pinned"
           />
-          <div className="flex flex-wrap gap-2" id="home-pinned">
-            {pinned.map((item) => (
-              <DashboardItemContextMenu groups={menuFor(item)} key={item.id}>
-                <button
-                  className="flex h-10 max-w-64 min-w-0 cursor-pointer items-center gap-2.5 rounded-lg border border-border bg-card ps-3 pe-3.5 text-body outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
-                  type="button"
-                  onClick={() => actions.open(item)}
-                >
-                  <ItemIcon item={item} />
-                  <MiddleName className="font-medium" name={item.name} />
-                </button>
-              </DashboardItemContextMenu>
-            ))}
-          </div>
+          <PinnedChips
+            id="home-pinned"
+            items={pinned}
+            menuFor={menuFor}
+            onOpen={actions.open}
+          />
         </section>
       ) : null}
 

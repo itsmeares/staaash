@@ -1,14 +1,12 @@
 import Link from "next/link";
+import { formatBytes } from "@/lib/format-bytes";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 
 import { AdminAvatar } from "@/app/(workspace)/admin/admin-avatar";
-import {
-  formatAdminBytes,
-  formatAdminDateTime,
-} from "@/app/(workspace)/admin/admin-format";
+import { formatAdminDateTime } from "@/app/(workspace)/admin/admin-format";
 import { AdminPanel } from "@/app/(workspace)/admin/admin-panel";
 import { AdminStatusBadge } from "@/app/(workspace)/admin/admin-status-badge";
 import { Button } from "@/components/ui/button";
@@ -96,7 +94,7 @@ export default async function AdminUserDetailsPage({
   const initials =
     user.displayName?.slice(0, 1).toUpperCase() ??
     user.email.slice(0, 1).toUpperCase();
-  const storageUsedLabel = formatAdminBytes(usage.usedBytes);
+  const storageUsedLabel = formatBytes(usage.usedBytes);
   const quotaPercent = getQuotaPercent(usage.usedBytes, user.storageLimitBytes);
   const quotaPercentLabel =
     quotaPercent === null ? null : formatPercent(quotaPercent);
@@ -171,7 +169,7 @@ export default async function AdminUserDetailsPage({
         <p className="m-0 text-meta text-muted-foreground">
           {storageUsedLabel}
           {user.storageLimitBytes
-            ? ` of ${formatAdminBytes(user.storageLimitBytes)}`
+            ? ` of ${formatBytes(user.storageLimitBytes)}`
             : ", no quota"}{" "}
           · {storageRow?.retainedFileCount ?? 0} files ·{" "}
           {storageRow?.retainedFolderCount ?? 0} folders · {sessions.length}{" "}
@@ -222,7 +220,7 @@ export default async function AdminUserDetailsPage({
                 label="Quota"
                 value={
                   user.storageLimitBytes
-                    ? formatAdminBytes(user.storageLimitBytes)
+                    ? formatBytes(user.storageLimitBytes)
                     : "Unlimited"
                 }
                 detail={

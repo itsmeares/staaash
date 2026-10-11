@@ -22,12 +22,12 @@ import {
 } from "@/components/file-list/file-list";
 import { buildItemActions } from "@/components/file-list/item-actions";
 import { TypeFilter } from "@/components/file-list/type-filter";
-import { useListSelection } from "@/components/file-list/use-list-selection";
+import { useItemSelection } from "@/components/file-list/use-list-selection";
 import { formatRelativeTime } from "@/lib/time";
 
 import { SelectionBar } from "../selection-bar";
 import { useCoarsePointer } from "../use-coarse-pointer";
-import { formatWorkspaceFileSize } from "../workspace-item-helpers";
+import { blockedLabel, sizeColumn } from "../workspace-item-helpers";
 import { EmptyTrashAction } from "./trash-file-actions";
 import {
   filterTrashItems,
@@ -100,25 +100,17 @@ export function TrashView({
     }
   };
 
-  const selection = useListSelection({
-    ids: selectable.map((item) => item.id),
+  const { selection, selectedItems, targetsFor } = useItemSelection({
+    items: selectable,
     coarse: isCoarsePointer,
-    onOpen: () => {},
   });
-  const selectedItems = selectable.filter((item) =>
-    selection.selected.has(item.id),
-  );
 
   const toListItem = (item: TrashClientItem): TrashListItem => ({
     id: item.id,
     kind: item.kind,
     name: item.name,
     mimeType: item.mimeType,
-    blocked: item.storageMutationStatus
-      ? item.storageMutationStatus === "recovery_required"
-        ? "Recovery required"
-        : "Finishing storage operation"
-      : null,
+    blocked: blockedLabel(item.storageMutationStatus),
     sub: `From ${item.originalPathLabel} · ${formatRelativeTime(item.deletedAt, now, timeZone)}`,
     data: item,
   });
@@ -141,16 +133,7 @@ export function TrashView({
         </span>
       ),
     },
-    {
-      key: "size",
-      label: "Size",
-      width: "6rem",
-      align: "end",
-      render: (item) =>
-        item.kind === "folder"
-          ? ""
-          : formatWorkspaceFileSize(item.data.sizeBytes),
-    },
+    sizeColumn<TrashListItem>(),
     {
       key: "deleted",
       label: "Deleted",
@@ -210,10 +193,7 @@ export function TrashView({
           </Empty>
         }
         getActions={({ data: item }) => {
-          const targets =
-            selection.selected.has(item.id) && selectedItems.length > 1
-              ? selectedItems
-              : [item];
+          const targets = targetsFor(item);
           return buildItemActions({
             name: item.name,
             kind: item.kind,

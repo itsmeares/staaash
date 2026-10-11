@@ -56,6 +56,8 @@ export async function GET(request: NextRequest) {
         send("update", payload);
       };
 
+      // Sends only the parts that changed, and stops quietly once the stream closes.
+      // fallow-ignore-next-line complexity
       const sendState = async () => {
         if (closed) return;
         if (stateInFlight) {

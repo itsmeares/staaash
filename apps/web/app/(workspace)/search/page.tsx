@@ -25,6 +25,8 @@ type SearchPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+// Empty, short, filtered and full queries each render differently.
+// fallow-ignore-next-line complexity
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const [resolvedSearchParams, session] = await Promise.all([
     searchParams,

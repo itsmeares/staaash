@@ -16,7 +16,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
-import { MiddleName } from "./file-list";
+import { MiddleName } from "./middle-name";
 import { getVisibleDashboardMenuGroups } from "@/app/dashboard-context-menu-model";
 import type { DashboardContextMenuGroup } from "@/app/dashboard-context-menu";
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatBytes } from "@/lib/format-bytes";
 import { cn } from "@/lib/utils";
 
 type WorkspaceStorageProps = {
@@ -9,14 +10,6 @@ type WorkspaceStorageProps = {
   diskCapacityBytes: string | null;
   isAdmin: boolean;
 };
-
-function fmt(n: number): string {
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-  if (n < 1024 * 1024 * 1024 * 1024)
-    return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-  return `${(n / (1024 * 1024 * 1024 * 1024)).toFixed(2)} TB`;
-}
 
 // Bronze until space gets tight; color only when something needs attention.
 function barColor(pct: number): string {
@@ -49,7 +42,9 @@ export function WorkspaceStorage({
       : 0;
 
   const label =
-    denom !== null ? `${fmt(num)} of ${fmt(denom)}` : `${fmt(num)} used`;
+    denom !== null
+      ? `${formatBytes(num)} of ${formatBytes(denom)}`
+      : `${formatBytes(num)} used`;
 
   return (
     <div className="flex flex-col gap-2 px-2.5">

@@ -1,11 +1,9 @@
 // Pending and recovery-required tables intentionally share one status layout.
 // fallow-ignore-file code-duplication
+import { formatBytes } from "@/lib/format-bytes";
 import Link from "next/link";
 
-import {
-  formatAdminBytes,
-  formatAdminDateTime,
-} from "@/app/(workspace)/admin/admin-format";
+import { formatAdminDateTime } from "@/app/(workspace)/admin/admin-format";
 import { AdminPanel } from "@/app/(workspace)/admin/admin-panel";
 import { AdminStatusBadge } from "@/app/(workspace)/admin/admin-status-badge";
 import { PageHeader } from "@/components/page-header";
@@ -47,7 +45,7 @@ export default async function AdminStoragePage() {
   return (
     <div className="grid w-full max-w-6xl content-start gap-6">
       <PageHeader
-        description={`${formatAdminBytes(summary.retainedBytes)} in ${summary.retainedFileCount} files and ${summary.retainedFolderCount} folders, trash included. ${activeUsers} of ${summary.totalUsers} users store something.`}
+        description={`${formatBytes(summary.retainedBytes)} in ${summary.retainedFileCount} files and ${summary.retainedFolderCount} folders, trash included. ${activeUsers} of ${summary.totalUsers} users store something.`}
         title="Storage"
       />
 
@@ -96,7 +94,7 @@ export default async function AdminStoragePage() {
                     <BodyCell>
                       <div className="grid min-w-47 grid-cols-1 gap-2">
                         <strong className="text-body font-semibold">
-                          {formatAdminBytes(row.retainedBytes)}
+                          {formatBytes(row.retainedBytes)}
                         </strong>
                         <Progress
                           aria-label="Share of the largest user's storage"

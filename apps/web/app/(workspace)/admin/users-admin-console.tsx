@@ -1,5 +1,6 @@
 "use client";
 
+import { formatBytes } from "@/lib/format-bytes";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useMemo, useState, useTransition } from "react";
@@ -42,7 +43,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import { formatAdminBytes } from "./admin-format";
 import { AdminAvatar } from "./admin-avatar";
 import { AdminStatusBadge } from "./admin-status-badge";
 import { AdminToggleField } from "./admin-toggle-field";
@@ -95,9 +95,7 @@ const fromGibInput = (value: string) => {
 };
 
 const quotaLabel = (user: AdminUser) =>
-  user.storageLimitBytes
-    ? formatAdminBytes(BigInt(user.storageLimitBytes))
-    : "∞";
+  user.storageLimitBytes ? formatBytes(BigInt(user.storageLimitBytes)) : "∞";
 
 const roleLabel = (user: AdminUser) =>
   user.isOwner ? "owner" : user.isAdmin ? "admin" : "member";
@@ -467,7 +465,7 @@ export function UsersAdminConsole({
                     <TableCell className="px-4 py-2.5">
                       <div className="grid gap-1.5">
                         <span className="text-meta tabular-nums">
-                          {formatAdminBytes(BigInt(user.storageUsedBytes))} of{" "}
+                          {formatBytes(BigInt(user.storageUsedBytes))} of{" "}
                           {user.storageLimitBytes
                             ? quotaLabel(user)
                             : "unlimited"}

@@ -8,8 +8,6 @@ import type { RetrievalItem } from "@/server/retrieval/types";
 import {
   compareWorkspaceStrings,
   filterWorkspaceItems,
-  formatWorkspaceFileSize,
-  getWorkspaceItemType,
   getWorkspaceLocationLabel,
   sortWorkspaceItems,
   type WorkspaceItemFilterType,
@@ -66,21 +64,11 @@ export function toRecentClientItem(item: RetrievalItem): RecentClientItem {
   };
 }
 
-export function getRecentType(
-  item: Pick<RecentClientItem, "kind" | "mimeType">,
-): RecentFilterType {
-  return getWorkspaceItemType(item);
-}
-
 export function filterRecentItems(
   items: RecentClientItem[],
   filterType: RecentFilterType,
 ): RecentClientItem[] {
   return filterWorkspaceItems(items, filterType);
-}
-
-export function formatRecentFileSize(bytes?: number): string {
-  return formatWorkspaceFileSize(bytes);
 }
 
 export function sortRecentItems(

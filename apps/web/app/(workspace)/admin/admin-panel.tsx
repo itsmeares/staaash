@@ -69,7 +69,7 @@ const DOT = {
 } as const;
 
 /** A dot that only takes a color when something needs attention. */
-export function StatusDot({ tone }: { tone: keyof typeof DOT }) {
+function StatusDot({ tone }: { tone: keyof typeof DOT }) {
   return (
     <span
       aria-hidden

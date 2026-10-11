@@ -29,7 +29,7 @@ It supports resumable uploads, public links, media previews, multiple users, sto
     <td colspan="2">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="../docs/assets/readme/home-dashboard-dark.png">
-        <img src="../docs/assets/readme/home-dashboard-light.png" alt="Staaash home dashboard with pinned items, recent activity, populated folders, and a shared folder">
+        <img src="../docs/assets/readme/home-dashboard-light.png" alt="Staaash home with recent files as thumbnails, pinned items, recent activity, and shared links">
       </picture>
     </td>
   </tr>
@@ -37,13 +37,13 @@ It supports resumable uploads, public links, media previews, multiple users, sto
     <td width="50%">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="../docs/assets/readme/files-dark.png">
-        <img src="../docs/assets/readme/files-light.png" alt="Staaash files view with folders, files, sizes, and modification dates">
+        <img src="../docs/assets/readme/files-light.png" alt="Staaash folder in grid view with photo and video thumbnails">
       </picture>
     </td>
     <td width="50%">
       <picture>
         <source media="(prefers-color-scheme: dark)" srcset="../docs/assets/readme/share-page-dark.png">
-        <img src="../docs/assets/readme/share-page-light.png" alt="Staaash public file share with an inline media preview">
+        <img src="../docs/assets/readme/share-page-light.png" alt="Staaash public link to a video, playing inline">
       </picture>
     </td>
   </tr>

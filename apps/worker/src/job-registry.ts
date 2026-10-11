@@ -221,6 +221,8 @@ export const getJobRegistryEntry = (kind: string) =>
 const resolveMaybeAsyncMs = async (value: number | (() => Promise<number>)) =>
   typeof value === "number" ? value : value();
 
+// Each recurring job kind keeps its own schedule rule.
+// fallow-ignore-next-line complexity
 const resolveSchedule = async (
   entry: JobRegistryEntry,
   now: Date,

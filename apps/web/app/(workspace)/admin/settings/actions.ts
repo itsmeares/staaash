@@ -24,6 +24,8 @@ import {
 } from "./settings-schema";
 import { enqueueAdminUpdateCheck } from "@/server/admin/updates";
 
+// Validation, save and the follow-up jobs each setting change needs.
+// fallow-ignore-next-line complexity
 export async function updateSystemSettings(
   _prevState: SettingsActionState,
   formData: FormData,

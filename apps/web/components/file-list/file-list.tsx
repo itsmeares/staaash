@@ -18,12 +18,12 @@ import {
 import { ItemTypeIcon } from "@/app/item-type-icon";
 import { getItemVisual } from "@/app/item-visuals";
 import { WorkspaceActionSheet } from "./action-sheet";
+import { MiddleName } from "./middle-name";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuPopup, MenuTrigger } from "@/components/ui/menu";
 import { canHaveThumbnail } from "@staaash/db/viewer-contract";
 import { cn } from "@/lib/utils";
 
-import { splitName } from "./list-model";
 import type { ListSelection } from "./use-list-selection";
 
 export type FileListItem = {
@@ -56,13 +56,13 @@ export type FileListColumn<T> = {
   sortable?: boolean;
 };
 
-export type FileListSort = {
+type FileListSort = {
   key: string;
   direction: "asc" | "desc";
   onSort: (key: string) => void;
 };
 
-export type FileListGroup<T> = { label: string; items: T[] };
+type FileListGroup<T> = { label: string; items: T[] };
 
 type FileListProps<T extends FileListItem> = {
   label: string;
@@ -90,31 +90,6 @@ type FileListProps<T extends FileListItem> = {
 
 const CHECK_TRACK = "1.75rem";
 const ACTIONS_TRACK = "minmax(2.25rem,auto)";
-
-/** Name that keeps its end visible when cut short. */
-export function MiddleName({
-  name,
-  className,
-}: {
-  name: string;
-  className?: string;
-}) {
-  const { head, tail } = splitName(name);
-  return (
-    <span className={cn("flex min-w-0", className)} title={name}>
-      {/* Screen readers get the whole name once, not two halves. */}
-      <span className="sr-only">{name}</span>
-      <span aria-hidden className="truncate">
-        {head}
-      </span>
-      {tail ? (
-        <span aria-hidden className="shrink-0 whitespace-pre">
-          {tail}
-        </span>
-      ) : null}
-    </span>
-  );
-}
 
 export function ItemIcon({
   item,
@@ -245,6 +220,8 @@ function MoreActions({
  * The one file list: rows or cards, selection, keyboard, right-click and
  * touch actions. Pages decide the columns and the actions.
  */
+// The list shell: head, sections, empty state, rubber band and phone sheet.
+// fallow-ignore-next-line complexity
 export function FileList<T extends FileListItem>({
   label,
   items,
@@ -290,6 +267,8 @@ export function FileList<T extends FileListItem>({
       column.align === "end" && "text-right",
     );
 
+  // One row renderer for list and grid, with every optional part a page can pass.
+  // fallow-ignore-next-line complexity
   const renderItem = (item: T) => {
     const selected = selection.selected.has(item.id);
     const disabled = Boolean(item.blocked);
@@ -537,6 +516,8 @@ export function FileList<T extends FileListItem>({
   );
 }
 
+// Header cells show sort state, direction and alignment.
+// fallow-ignore-next-line complexity
 function SortHead({
   label,
   sortKey,
