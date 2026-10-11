@@ -15,6 +15,7 @@ import { TextFileViewer } from "@/app/text-file-viewer";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+import { AudioPlayer } from "./audio-player";
 import { ItemPreview } from "./file-list";
 import { MiddleName } from "./middle-name";
 
@@ -132,10 +133,12 @@ export function MediaViewer({
         Your browser could not play this video.
       </video>
     ) : file.viewerKind === "audio" ? (
-      <div className="grid w-full max-w-md gap-4 rounded-2xl bg-card p-6 text-card-foreground">
-        <MiddleName className="font-medium" name={file.name} />
-        <audio autoPlay className="w-full" controls key={file.id} src={href} />
-      </div>
+      <AudioPlayer
+        coverUrl={file.thumbnailUrl}
+        key={file.id}
+        name={file.name}
+        src={href}
+      />
     ) : file.viewerKind === "pdf" ? (
       <embed
         className="size-full rounded-lg bg-white"
@@ -145,7 +148,7 @@ export function MediaViewer({
       />
     ) : (
       <div className="flex size-full max-w-4xl overflow-hidden rounded-xl bg-card text-card-foreground">
-        <TextFileViewer contentHref={href} key={file.id} />
+        <TextFileViewer contentHref={href} key={file.id} name={file.name} />
       </div>
     );
 
@@ -153,7 +156,9 @@ export function MediaViewer({
     <div
       aria-label={file.name}
       aria-modal
-      className="fixed inset-0 z-50 flex animate-in flex-col bg-black text-white duration-260 fade-in motion-reduce:animate-none"
+      // The page stays visible behind, blurred and dimmed, so clicking it
+      // reads as "back". Reduced transparency gets a plain dark dim.
+      className="fixed inset-0 z-50 flex animate-in flex-col bg-black/60 text-white backdrop-blur-md duration-260 fade-in motion-reduce:animate-none contrast-more:bg-black/90 contrast-more:backdrop-blur-none [@media(prefers-reduced-transparency:reduce)]:bg-black/90 [@media(prefers-reduced-transparency:reduce)]:backdrop-blur-none"
       role="dialog"
     >
       <header className="flex h-14 shrink-0 items-center gap-2 px-3">
@@ -196,7 +201,12 @@ export function MediaViewer({
         ) : null}
       </header>
 
-      <div className="relative flex min-h-0 flex-1 items-center justify-center px-4 pb-4 sm:px-16">
+      <div
+        className="relative flex min-h-0 flex-1 items-center justify-center px-4 pb-4 sm:px-16"
+        onClick={(event) => {
+          if (event.target === event.currentTarget) onClose();
+        }}
+      >
         {content}
         {index > 0 ? (
           <Button
@@ -228,7 +238,8 @@ export function MediaViewer({
           className="shrink-0 [scrollbar-width:none] overflow-x-auto px-4 pb-4"
           ref={filmRef}
         >
-          <div className="mx-auto flex w-max gap-1.5">
+          {/* Padding keeps the current item's ring from being clipped. */}
+          <div className="mx-auto flex w-max gap-1.5 p-1">
             {files.map((entry, entryIndex) => (
               <button
                 aria-current={entryIndex === index}

@@ -7,6 +7,7 @@ import { DriveGlyph } from "@/components/drive-glyph";
 import { cn } from "@/lib/utils";
 
 import { TextFileViewer } from "@/app/text-file-viewer";
+import { AudioPlayer } from "@/components/file-list/audio-player";
 import { Button } from "@/components/ui/button";
 import {
   InputGroup,
@@ -17,7 +18,6 @@ import { DateTime } from "@/components/time-provider";
 
 import { FlashMessage, getSingleSearchParam } from "@/app/auth-ui";
 import { authService } from "@/server/auth/service";
-import { ShareAudioPlayer } from "./share-audio-player";
 import { ShareFolderList } from "./share-folder-list";
 import type { FileSummary } from "@/server/files/types";
 import { ShareError } from "@/server/sharing/errors";
@@ -275,7 +275,7 @@ export function ShareFilePage({
       </div>
 
       {file.viewerKind === "audio" && safeNativeInline ? (
-        <ShareAudioPlayer src={contentHref} fileName={file.name} />
+        <AudioPlayer name={file.name} src={contentHref} />
       ) : file.viewerKind === "pdf" && safeNativeInline ? (
         <embed
           src={contentHref}
@@ -284,7 +284,7 @@ export function ShareFilePage({
         />
       ) : canViewTextSource ? (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
-          <TextFileViewer contentHref={contentHref} />
+          <TextFileViewer contentHref={contentHref} name={file.name} />
         </div>
       ) : (file.viewerKind === "image" || file.viewerKind === "video") &&
         safeNativeInline ? (
