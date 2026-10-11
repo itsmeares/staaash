@@ -7,6 +7,7 @@ import {
   HeartOff,
   Info,
   Link2,
+  Palette,
   PencilLine,
   Pin,
   PinOff,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 
 import type { DashboardContextMenuGroup } from "@/app/dashboard-context-menu";
+import { FOLDER_SWATCHES, folderColorStyle } from "@/lib/folder-color";
 
 export type ItemActionHandlers = {
   open?: () => void;
@@ -24,6 +26,8 @@ export type ItemActionHandlers = {
   share?: { manage: boolean; run: () => void };
   download?: () => void;
   rename?: () => void;
+  /** Folders only: a color from the swatches, or null for the default. */
+  color?: { current: string | null; run: (color: string | null) => void };
   cut?: () => void;
   moveTo?: {
     targets: Array<{ id: string; label: string }>;
@@ -95,6 +99,27 @@ export function buildItemActions({
           label: "Rename",
           shortcut: "F2",
           onSelect: handlers.rename,
+        },
+        {
+          hidden: !handlers.color || bulk,
+          icon: <Palette className={icon} />,
+          label: "Color",
+          subActions: FOLDER_SWATCHES.map((swatch) => ({
+            icon: (
+              <span
+                aria-hidden
+                className="size-3.5 rounded-full"
+                style={{ background: folderColorStyle(swatch.name)?.color }}
+              />
+            ),
+            label: swatch.label,
+            shortcut:
+              (handlers.color?.current ?? "stone") === swatch.name
+                ? "✓"
+                : undefined,
+            onSelect: () =>
+              handlers.color?.run(swatch.name === "stone" ? null : swatch.name),
+          })),
         },
         {
           hidden: !handlers.cut,

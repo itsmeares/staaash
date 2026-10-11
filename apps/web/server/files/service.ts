@@ -2514,6 +2514,29 @@ export const createFilesService = ({
   };
 
   return {
+    /**
+     * Color and icon are metadata only: nothing on disk changes, so they are
+     * written directly rather than through the storage journal.
+     */
+    async setFolderAppearance({
+      actorRole,
+      actorUserId,
+      folderId,
+      color,
+      icon,
+    }: FolderLookupInput & { color?: string | null; icon?: string | null }) {
+      const folder = assertActiveFolder(
+        await getOwnedFolder({ actorRole, actorUserId, folderId }),
+      );
+      return (await resolveRepo()).updateFolder({
+        id: folder.id,
+        ...(color === undefined ? {} : { color }),
+        ...(icon === undefined ? {} : { icon }),
+        // A new color isn't an edit; the folder keeps its modified time.
+        updatedAt: folder.updatedAt,
+      });
+    },
+
     async ensureFilesRoot(ownerUserId: string) {
       return ensureFilesRoot(ownerUserId);
     },

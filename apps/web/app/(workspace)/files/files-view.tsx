@@ -90,6 +90,7 @@ import {
   reconcileCutItems,
 } from "./files-move";
 import { ShareDialog } from "./share-dialog";
+import { FolderColorPicker } from "@/components/file-list/folder-color-picker";
 import { NewFolderRow, NewFolderSheet } from "./new-folder-row";
 import { showUndo } from "../undo";
 import { useTransferContext } from "../transfer-context";
@@ -100,7 +101,6 @@ import type { ShareLinkSummary } from "@/server/sharing";
 // Persistence helpers
 // ---------------------------------------------------------------------------
 
-const FOLDER_ICON_KEY = "staaash:folder-icons";
 const CUT_STATE_KEY = "staaash:cut-items";
 const UPLOAD_SESSION_KEY_PREFIX = "staaash:upload-session";
 const INTERNAL_ITEM_DRAG_TYPE = "application/x-staaash-items";
@@ -124,21 +124,6 @@ type ResumableSessionSummary = {
   name: string;
   size: number;
   storageKey: string;
-};
-
-const loadFolderIcons = (): Record<string, string> => {
-  try {
-    if (typeof window === "undefined") return {};
-    return JSON.parse(sessionStorage.getItem(FOLDER_ICON_KEY) ?? "{}");
-  } catch {
-    return {};
-  }
-};
-
-const persistFolderIcon = (folderId: string, iconName: string) => {
-  const icons = loadFolderIcons();
-  icons[folderId] = iconName;
-  sessionStorage.setItem(FOLDER_ICON_KEY, JSON.stringify(icons));
 };
 
 const loadCutItems = (): CutItem[] => {
@@ -383,7 +368,18 @@ export function FilesView({
   };
 
   // ---- Folder icons ----
-  const [folderIcons, setFolderIcons] = useState<Record<string, string>>({});
+  // Color and icon changes show at once; the refreshed listing confirms them.
+  const [appearance, setAppearance] = useState<
+    Record<string, { color?: string | null; icon?: string | null }>
+  >({});
+  const colorOf = (folder: { id: string; color?: string | null }) =>
+    appearance[folder.id]?.color !== undefined
+      ? (appearance[folder.id]!.color ?? null)
+      : (folder.color ?? null);
+  const iconOf = (folder: { id: string; icon?: string | null }) =>
+    appearance[folder.id]?.icon !== undefined
+      ? (appearance[folder.id]!.icon ?? null)
+      : (folder.icon ?? null);
 
   // ---- Upload drag state ----
   const [isDragOver, setIsDragOver] = useState(false);
@@ -587,7 +583,6 @@ export function FilesView({
 
   // ---- Load persisted state ----
   useEffect(() => {
-    setFolderIcons(loadFolderIcons());
     const saved = loadCutItems();
     if (saved.length > 0) updateCutItems(saved);
   }, []);
@@ -1276,9 +1271,35 @@ export function FilesView({
   // Folder icons
   // ---------------------------------------------------------------------------
 
-  const setFolderIcon = (folderId: string, iconName: string) => {
-    setFolderIcons((prev) => ({ ...prev, [folderId]: iconName }));
-    persistFolderIcon(folderId, iconName);
+  const previewAppearance = (
+    folderId: string,
+    patch: { color?: string | null; icon?: string | null },
+  ) =>
+    setAppearance((prev) => ({
+      ...prev,
+      [folderId]: { ...prev[folderId], ...patch },
+    }));
+
+  const saveAppearance = async (
+    folderId: string,
+    patch: { color?: string | null; icon?: string | null },
+  ) => {
+    previewAppearance(folderId, patch);
+    const response = await fetch(`/api/files/folders/${folderId}/appearance`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    }).catch(() => null);
+    if (!response?.ok) {
+      setAppearance((prev) => {
+        const next = { ...prev };
+        delete next[folderId];
+        return next;
+      });
+      toast.error("The folder could not be changed.");
+      return;
+    }
+    startTransition(() => router.refresh());
   };
 
   const handleShare = (targetType: "file" | "folder", targetId: string) => {
@@ -1649,7 +1670,8 @@ export function FilesView({
       id: folder.id,
       kind: "folder" as const,
       name: folder.name,
-      icon: FOLDER_ICON_MAP[folderIcons[folder.id] ?? ""],
+      icon: FOLDER_ICON_MAP[iconOf(folder) ?? ""],
+      color: colorOf(folder),
       blocked: mutationLabel(folder),
       dimmed: cutIds.has(folder.id),
       flags: flags("folder", folder.id),
@@ -1765,6 +1787,13 @@ export function FilesView({
           ? () => void handleDownload(targets.map((target) => target.id))
           : undefined,
       rename: () => beginRename(item.id, item.name),
+      color:
+        item.kind === "folder"
+          ? {
+              current: colorOf(item.data),
+              run: (color) => void saveAppearance(item.id, { color }),
+            }
+          : undefined,
       cut: () => cutItemsOf(targets),
       moveTo: {
         targets: moveTargetsFor(targets),
@@ -1866,10 +1895,28 @@ export function FilesView({
                 />
               ) : null}
               {detailsItem.kind === "folder" ? (
-                <FolderIconPicker
-                  active={folderIcons[detailsItem.id] ?? "Folder"}
-                  onPick={(name) => setFolderIcon(detailsItem.id, name)}
-                />
+                <>
+                  <DetailsSection title="Color">
+                    <FolderColorPicker
+                      key={detailsItem.id}
+                      value={colorOf(detailsItem.data)}
+                      onPick={(color) =>
+                        void saveAppearance(detailsItem.id, { color })
+                      }
+                      onPreview={(color) =>
+                        previewAppearance(detailsItem.id, { color })
+                      }
+                    />
+                  </DetailsSection>
+                  <FolderIconPicker
+                    active={iconOf(detailsItem.data) ?? "Folder"}
+                    onPick={(name) =>
+                      void saveAppearance(detailsItem.id, {
+                        icon: name === "Folder" ? null : name,
+                      })
+                    }
+                  />
+                </>
               ) : null}
             </>
           ),

@@ -24,6 +24,7 @@ type ListedItem = {
   mimeType?: string;
   locationLabel: string;
   storageMutationStatus?: string;
+  color?: string | null;
 };
 
 /** A Recent, Favorites or Search item as a `FileList` row. */
@@ -32,6 +33,7 @@ export const toWorkspaceListItem = <T extends ListedItem>(item: T) => ({
   kind: item.kind,
   name: item.name,
   mimeType: item.mimeType,
+  color: item.color,
   thumbnailUrl: thumbnailUrlFor(item),
   blocked: blockedLabel(item.storageMutationStatus),
   sub: item.locationLabel,

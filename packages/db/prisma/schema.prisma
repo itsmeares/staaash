@@ -122,6 +122,13 @@ model UserPreference {
   theme                   String    @default("system")
   timeZone                String    @default("UTC")
   showUpdateNotifications Boolean   @default(true)
+  showFolderPreviews      Boolean   @default(true)
+  /// "home" or "files".
+  startPage               String    @default("home")
+  /// "list" or "grid", used until a page has its own remembered choice.
+  defaultView             String    @default("list")
+  /// "auto" follows the browser's locale; otherwise "12h" or "24h".
+  clockFormat             String    @default("auto")
   onboardingCompletedAt   DateTime?
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
@@ -150,6 +157,10 @@ model Folder {
   parentId    String?
   name        String
   isFilesRoot Boolean          @default(false)
+  /// A named swatch ("blue") or a custom "#rrggbb"; null is the default gray.
+  color       String?
+  /// A lucide icon name from the folder icon picker; null is the folder icon.
+  icon        String?
   deletedAt   DateTime?
   storageRevision Int             @default(0)
   trashEntryId String?

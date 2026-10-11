@@ -16,6 +16,7 @@ import {
   type DashboardContextMenuGroup,
 } from "@/app/dashboard-context-menu";
 import { ItemTypeIcon } from "@/app/item-type-icon";
+import { folderColorStyle } from "@/lib/folder-color";
 import { getItemVisual } from "@/app/item-visuals";
 import { WorkspaceActionSheet } from "./action-sheet";
 import { MiddleName } from "./middle-name";
@@ -33,6 +34,8 @@ export type FileListItem = {
   mimeType?: string | null;
   /** A custom folder icon. */
   icon?: LucideIcon;
+  /** A folder color: a swatch name or a custom "#rrggbb". */
+  color?: string | null;
   thumbnailUrl?: string | null;
   /** Why the item cannot be used right now, such as a storage operation. */
   blocked?: string | null;
@@ -96,9 +99,30 @@ export function ItemIcon({
   item,
   className,
 }: {
-  item: Pick<FileListItem, "kind" | "mimeType" | "icon">;
+  item: Pick<FileListItem, "kind" | "mimeType" | "icon" | "color">;
   className?: string;
 }) {
+  const tint = item.kind === "folder" ? folderColorStyle(item.color) : null;
+  if (tint) {
+    return (
+      <span
+        className={cn(
+          "inline-flex size-5 shrink-0 items-center justify-center rounded-sm",
+          className,
+        )}
+        style={{ background: tint.tile }}
+      >
+        <ItemTypeIcon
+          className="inline-flex"
+          color={tint.color}
+          icon={item.icon}
+          size={18}
+          tone="plain"
+          visual={getItemVisual(item.kind, item.mimeType)}
+        />
+      </span>
+    );
+  }
   return (
     <ItemTypeIcon
       className={cn(
@@ -123,7 +147,10 @@ export function ItemPreview({
   iconClassName = "size-10 [&_svg]:size-8",
   fit = "cover",
 }: {
-  item: Pick<FileListItem, "kind" | "mimeType" | "icon" | "thumbnailUrl">;
+  item: Pick<
+    FileListItem,
+    "kind" | "mimeType" | "icon" | "thumbnailUrl" | "color"
+  >;
   className?: string;
   iconClassName?: string;
   fit?: "cover" | "contain";
@@ -133,12 +160,20 @@ export function ItemPreview({
     item.thumbnailUrl && item.thumbnailUrl !== failedUrl
       ? item.thumbnailUrl
       : null;
+  const tint = item.kind === "folder" ? folderColorStyle(item.color) : null;
   return (
     <span
       className={cn(
         "relative flex aspect-4/3 items-center justify-center overflow-hidden rounded-lg bg-muted",
         className,
       )}
+      style={
+        tint
+          ? {
+              background: `color-mix(in oklab, ${tint.color} 16%, transparent)`,
+            }
+          : undefined
+      }
     >
       {url ? (
         <img

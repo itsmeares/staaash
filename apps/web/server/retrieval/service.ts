@@ -162,6 +162,7 @@ const toFolderItem = ({
   deletedAt: folder.deletedAt,
   isFavorite: favoriteFolderIds.has(folder.id),
   parentId: folder.parentId,
+  color: folder.color ?? null,
   storageMutation: null,
 });
 

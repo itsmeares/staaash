@@ -16,6 +16,7 @@ export type FavoriteClientItem = {
   id: string;
   kind: FavoriteRetrievalItem["kind"];
   locationLabel: string;
+  color?: string | null;
   mimeType?: string;
   name: string;
   parentId?: string | null;
@@ -42,6 +43,7 @@ export function toFavoriteClientItem(
     href: item.href,
     id: item.id,
     kind: item.kind,
+    color: item.kind === "folder" ? (item.color ?? null) : undefined,
     locationLabel: getFavoriteLocationLabel(item),
     mimeType: item.kind === "file" ? item.mimeType : undefined,
     name: item.name,

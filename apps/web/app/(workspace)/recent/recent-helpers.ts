@@ -22,6 +22,7 @@ export type RecentClientItem = {
   isFavorite: boolean;
   kind: RetrievalItem["kind"];
   locationLabel: string;
+  color?: string | null;
   mimeType?: string;
   name: string;
   parentId?: string | null;
@@ -54,6 +55,7 @@ export function toRecentClientItem(item: RetrievalItem): RecentClientItem {
     id: item.id,
     isFavorite: item.isFavorite,
     kind: item.kind,
+    color: item.kind === "folder" ? (item.color ?? null) : undefined,
     locationLabel: getRecentLocationLabel(item),
     mimeType: item.kind === "file" ? item.mimeType : undefined,
     name: item.name,

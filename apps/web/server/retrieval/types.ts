@@ -14,6 +14,7 @@ export type RetrievalItem =
       isFavorite: boolean;
       matchKind?: SearchMatchKind;
       parentId: string | null;
+      color?: string | null;
       storageMutation?: StorageMutationState | null;
     }
   | {

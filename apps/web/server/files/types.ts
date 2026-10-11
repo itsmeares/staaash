@@ -14,6 +14,10 @@ export type FolderSummary = {
   parentId: string | null;
   name: string;
   isFilesRoot: boolean;
+  /** A named swatch or a custom "#rrggbb"; null is the default. */
+  color?: string | null;
+  /** A folder icon name; null is the plain folder. */
+  icon?: string | null;
   deletedAt: Date | null;
   storageRevision?: number;
   trashEntryId?: string | null;

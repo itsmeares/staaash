@@ -30,6 +30,10 @@ export type UserPreferenceMinAggregateOutputType = {
   theme: string | null
   timeZone: string | null
   showUpdateNotifications: boolean | null
+  showFolderPreviews: boolean | null
+  startPage: string | null
+  defaultView: string | null
+  clockFormat: string | null
   onboardingCompletedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -41,6 +45,10 @@ export type UserPreferenceMaxAggregateOutputType = {
   theme: string | null
   timeZone: string | null
   showUpdateNotifications: boolean | null
+  showFolderPreviews: boolean | null
+  startPage: string | null
+  defaultView: string | null
+  clockFormat: string | null
   onboardingCompletedAt: Date | null
   createdAt: Date | null
   updatedAt: Date | null
@@ -52,6 +60,10 @@ export type UserPreferenceCountAggregateOutputType = {
   theme: number
   timeZone: number
   showUpdateNotifications: number
+  showFolderPreviews: number
+  startPage: number
+  defaultView: number
+  clockFormat: number
   onboardingCompletedAt: number
   createdAt: number
   updatedAt: number
@@ -65,6 +77,10 @@ export type UserPreferenceMinAggregateInputType = {
   theme?: true
   timeZone?: true
   showUpdateNotifications?: true
+  showFolderPreviews?: true
+  startPage?: true
+  defaultView?: true
+  clockFormat?: true
   onboardingCompletedAt?: true
   createdAt?: true
   updatedAt?: true
@@ -76,6 +92,10 @@ export type UserPreferenceMaxAggregateInputType = {
   theme?: true
   timeZone?: true
   showUpdateNotifications?: true
+  showFolderPreviews?: true
+  startPage?: true
+  defaultView?: true
+  clockFormat?: true
   onboardingCompletedAt?: true
   createdAt?: true
   updatedAt?: true
@@ -87,6 +107,10 @@ export type UserPreferenceCountAggregateInputType = {
   theme?: true
   timeZone?: true
   showUpdateNotifications?: true
+  showFolderPreviews?: true
+  startPage?: true
+  defaultView?: true
+  clockFormat?: true
   onboardingCompletedAt?: true
   createdAt?: true
   updatedAt?: true
@@ -171,6 +195,10 @@ export type UserPreferenceGroupByOutputType = {
   theme: string
   timeZone: string
   showUpdateNotifications: boolean
+  showFolderPreviews: boolean
+  startPage: string
+  defaultView: string
+  clockFormat: string
   onboardingCompletedAt: Date | null
   createdAt: Date
   updatedAt: Date
@@ -203,6 +231,10 @@ export type UserPreferenceWhereInput = {
   theme?: Prisma.StringFilter<"UserPreference"> | string
   timeZone?: Prisma.StringFilter<"UserPreference"> | string
   showUpdateNotifications?: Prisma.BoolFilter<"UserPreference"> | boolean
+  showFolderPreviews?: Prisma.BoolFilter<"UserPreference"> | boolean
+  startPage?: Prisma.StringFilter<"UserPreference"> | string
+  defaultView?: Prisma.StringFilter<"UserPreference"> | string
+  clockFormat?: Prisma.StringFilter<"UserPreference"> | string
   onboardingCompletedAt?: Prisma.DateTimeNullableFilter<"UserPreference"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"UserPreference"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"UserPreference"> | Date | string
@@ -215,6 +247,10 @@ export type UserPreferenceOrderByWithRelationInput = {
   theme?: Prisma.SortOrder
   timeZone?: Prisma.SortOrder
   showUpdateNotifications?: Prisma.SortOrder
+  showFolderPreviews?: Prisma.SortOrder
+  startPage?: Prisma.SortOrder
+  defaultView?: Prisma.SortOrder
+  clockFormat?: Prisma.SortOrder
   onboardingCompletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -230,6 +266,10 @@ export type UserPreferenceWhereUniqueInput = Prisma.AtLeast<{
   theme?: Prisma.StringFilter<"UserPreference"> | string
   timeZone?: Prisma.StringFilter<"UserPreference"> | string
   showUpdateNotifications?: Prisma.BoolFilter<"UserPreference"> | boolean
+  showFolderPreviews?: Prisma.BoolFilter<"UserPreference"> | boolean
+  startPage?: Prisma.StringFilter<"UserPreference"> | string
+  defaultView?: Prisma.StringFilter<"UserPreference"> | string
+  clockFormat?: Prisma.StringFilter<"UserPreference"> | string
   onboardingCompletedAt?: Prisma.DateTimeNullableFilter<"UserPreference"> | Date | string | null
   createdAt?: Prisma.DateTimeFilter<"UserPreference"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"UserPreference"> | Date | string
@@ -242,6 +282,10 @@ export type UserPreferenceOrderByWithAggregationInput = {
   theme?: Prisma.SortOrder
   timeZone?: Prisma.SortOrder
   showUpdateNotifications?: Prisma.SortOrder
+  showFolderPreviews?: Prisma.SortOrder
+  startPage?: Prisma.SortOrder
+  defaultView?: Prisma.SortOrder
+  clockFormat?: Prisma.SortOrder
   onboardingCompletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -259,6 +303,10 @@ export type UserPreferenceScalarWhereWithAggregatesInput = {
   theme?: Prisma.StringWithAggregatesFilter<"UserPreference"> | string
   timeZone?: Prisma.StringWithAggregatesFilter<"UserPreference"> | string
   showUpdateNotifications?: Prisma.BoolWithAggregatesFilter<"UserPreference"> | boolean
+  showFolderPreviews?: Prisma.BoolWithAggregatesFilter<"UserPreference"> | boolean
+  startPage?: Prisma.StringWithAggregatesFilter<"UserPreference"> | string
+  defaultView?: Prisma.StringWithAggregatesFilter<"UserPreference"> | string
+  clockFormat?: Prisma.StringWithAggregatesFilter<"UserPreference"> | string
   onboardingCompletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"UserPreference"> | Date | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"UserPreference"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"UserPreference"> | Date | string
@@ -269,6 +317,10 @@ export type UserPreferenceCreateInput = {
   theme?: string
   timeZone?: string
   showUpdateNotifications?: boolean
+  showFolderPreviews?: boolean
+  startPage?: string
+  defaultView?: string
+  clockFormat?: string
   onboardingCompletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -281,6 +333,10 @@ export type UserPreferenceUncheckedCreateInput = {
   theme?: string
   timeZone?: string
   showUpdateNotifications?: boolean
+  showFolderPreviews?: boolean
+  startPage?: string
+  defaultView?: string
+  clockFormat?: string
   onboardingCompletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -291,6 +347,10 @@ export type UserPreferenceUpdateInput = {
   theme?: Prisma.StringFieldUpdateOperationsInput | string
   timeZone?: Prisma.StringFieldUpdateOperationsInput | string
   showUpdateNotifications?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  showFolderPreviews?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  startPage?: Prisma.StringFieldUpdateOperationsInput | string
+  defaultView?: Prisma.StringFieldUpdateOperationsInput | string
+  clockFormat?: Prisma.StringFieldUpdateOperationsInput | string
   onboardingCompletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -303,6 +363,10 @@ export type UserPreferenceUncheckedUpdateInput = {
   theme?: Prisma.StringFieldUpdateOperationsInput | string
   timeZone?: Prisma.StringFieldUpdateOperationsInput | string
   showUpdateNotifications?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  showFolderPreviews?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  startPage?: Prisma.StringFieldUpdateOperationsInput | string
+  defaultView?: Prisma.StringFieldUpdateOperationsInput | string
+  clockFormat?: Prisma.StringFieldUpdateOperationsInput | string
   onboardingCompletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -314,6 +378,10 @@ export type UserPreferenceCreateManyInput = {
   theme?: string
   timeZone?: string
   showUpdateNotifications?: boolean
+  showFolderPreviews?: boolean
+  startPage?: string
+  defaultView?: string
+  clockFormat?: string
   onboardingCompletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -324,6 +392,10 @@ export type UserPreferenceUpdateManyMutationInput = {
   theme?: Prisma.StringFieldUpdateOperationsInput | string
   timeZone?: Prisma.StringFieldUpdateOperationsInput | string
   showUpdateNotifications?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  showFolderPreviews?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  startPage?: Prisma.StringFieldUpdateOperationsInput | string
+  defaultView?: Prisma.StringFieldUpdateOperationsInput | string
+  clockFormat?: Prisma.StringFieldUpdateOperationsInput | string
   onboardingCompletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -335,6 +407,10 @@ export type UserPreferenceUncheckedUpdateManyInput = {
   theme?: Prisma.StringFieldUpdateOperationsInput | string
   timeZone?: Prisma.StringFieldUpdateOperationsInput | string
   showUpdateNotifications?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  showFolderPreviews?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  startPage?: Prisma.StringFieldUpdateOperationsInput | string
+  defaultView?: Prisma.StringFieldUpdateOperationsInput | string
+  clockFormat?: Prisma.StringFieldUpdateOperationsInput | string
   onboardingCompletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -351,6 +427,10 @@ export type UserPreferenceCountOrderByAggregateInput = {
   theme?: Prisma.SortOrder
   timeZone?: Prisma.SortOrder
   showUpdateNotifications?: Prisma.SortOrder
+  showFolderPreviews?: Prisma.SortOrder
+  startPage?: Prisma.SortOrder
+  defaultView?: Prisma.SortOrder
+  clockFormat?: Prisma.SortOrder
   onboardingCompletedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -362,6 +442,10 @@ export type UserPreferenceMaxOrderByAggregateInput = {
   theme?: Prisma.SortOrder
   timeZone?: Prisma.SortOrder
   showUpdateNotifications?: Prisma.SortOrder
+  showFolderPreviews?: Prisma.SortOrder
+  startPage?: Prisma.SortOrder
+  defaultView?: Prisma.SortOrder
+  clockFormat?: Prisma.SortOrder
   onboardingCompletedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -373,6 +457,10 @@ export type UserPreferenceMinOrderByAggregateInput = {
   theme?: Prisma.SortOrder
   timeZone?: Prisma.SortOrder
   showUpdateNotifications?: Prisma.SortOrder
+  showFolderPreviews?: Prisma.SortOrder
+  startPage?: Prisma.SortOrder
+  defaultView?: Prisma.SortOrder
+  clockFormat?: Prisma.SortOrder
   onboardingCompletedAt?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
@@ -415,6 +503,10 @@ export type UserPreferenceCreateWithoutUserInput = {
   theme?: string
   timeZone?: string
   showUpdateNotifications?: boolean
+  showFolderPreviews?: boolean
+  startPage?: string
+  defaultView?: string
+  clockFormat?: string
   onboardingCompletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -425,6 +517,10 @@ export type UserPreferenceUncheckedCreateWithoutUserInput = {
   theme?: string
   timeZone?: string
   showUpdateNotifications?: boolean
+  showFolderPreviews?: boolean
+  startPage?: string
+  defaultView?: string
+  clockFormat?: string
   onboardingCompletedAt?: Date | string | null
   createdAt?: Date | string
   updatedAt?: Date | string
@@ -451,6 +547,10 @@ export type UserPreferenceUpdateWithoutUserInput = {
   theme?: Prisma.StringFieldUpdateOperationsInput | string
   timeZone?: Prisma.StringFieldUpdateOperationsInput | string
   showUpdateNotifications?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  showFolderPreviews?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  startPage?: Prisma.StringFieldUpdateOperationsInput | string
+  defaultView?: Prisma.StringFieldUpdateOperationsInput | string
+  clockFormat?: Prisma.StringFieldUpdateOperationsInput | string
   onboardingCompletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -461,6 +561,10 @@ export type UserPreferenceUncheckedUpdateWithoutUserInput = {
   theme?: Prisma.StringFieldUpdateOperationsInput | string
   timeZone?: Prisma.StringFieldUpdateOperationsInput | string
   showUpdateNotifications?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  showFolderPreviews?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  startPage?: Prisma.StringFieldUpdateOperationsInput | string
+  defaultView?: Prisma.StringFieldUpdateOperationsInput | string
+  clockFormat?: Prisma.StringFieldUpdateOperationsInput | string
   onboardingCompletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -474,6 +578,10 @@ export type UserPreferenceSelect<ExtArgs extends runtime.Types.Extensions.Intern
   theme?: boolean
   timeZone?: boolean
   showUpdateNotifications?: boolean
+  showFolderPreviews?: boolean
+  startPage?: boolean
+  defaultView?: boolean
+  clockFormat?: boolean
   onboardingCompletedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -486,6 +594,10 @@ export type UserPreferenceSelectCreateManyAndReturn<ExtArgs extends runtime.Type
   theme?: boolean
   timeZone?: boolean
   showUpdateNotifications?: boolean
+  showFolderPreviews?: boolean
+  startPage?: boolean
+  defaultView?: boolean
+  clockFormat?: boolean
   onboardingCompletedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -498,6 +610,10 @@ export type UserPreferenceSelectUpdateManyAndReturn<ExtArgs extends runtime.Type
   theme?: boolean
   timeZone?: boolean
   showUpdateNotifications?: boolean
+  showFolderPreviews?: boolean
+  startPage?: boolean
+  defaultView?: boolean
+  clockFormat?: boolean
   onboardingCompletedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
@@ -510,12 +626,16 @@ export type UserPreferenceSelectScalar = {
   theme?: boolean
   timeZone?: boolean
   showUpdateNotifications?: boolean
+  showFolderPreviews?: boolean
+  startPage?: boolean
+  defaultView?: boolean
+  clockFormat?: boolean
   onboardingCompletedAt?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type UserPreferenceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "theme" | "timeZone" | "showUpdateNotifications" | "onboardingCompletedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["userPreference"]>
+export type UserPreferenceOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "theme" | "timeZone" | "showUpdateNotifications" | "showFolderPreviews" | "startPage" | "defaultView" | "clockFormat" | "onboardingCompletedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["userPreference"]>
 export type UserPreferenceInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }
@@ -537,6 +657,19 @@ export type $UserPreferencePayload<ExtArgs extends runtime.Types.Extensions.Inte
     theme: string
     timeZone: string
     showUpdateNotifications: boolean
+    showFolderPreviews: boolean
+    /**
+     * "home" or "files".
+     */
+    startPage: string
+    /**
+     * "list" or "grid", used until a page has its own remembered choice.
+     */
+    defaultView: string
+    /**
+     * "auto" follows the browser's locale; otherwise "12h" or "24h".
+     */
+    clockFormat: string
     onboardingCompletedAt: Date | null
     createdAt: Date
     updatedAt: Date
@@ -969,6 +1102,10 @@ export interface UserPreferenceFieldRefs {
   readonly theme: Prisma.FieldRef<"UserPreference", 'String'>
   readonly timeZone: Prisma.FieldRef<"UserPreference", 'String'>
   readonly showUpdateNotifications: Prisma.FieldRef<"UserPreference", 'Boolean'>
+  readonly showFolderPreviews: Prisma.FieldRef<"UserPreference", 'Boolean'>
+  readonly startPage: Prisma.FieldRef<"UserPreference", 'String'>
+  readonly defaultView: Prisma.FieldRef<"UserPreference", 'String'>
+  readonly clockFormat: Prisma.FieldRef<"UserPreference", 'String'>
   readonly onboardingCompletedAt: Prisma.FieldRef<"UserPreference", 'DateTime'>
   readonly createdAt: Prisma.FieldRef<"UserPreference", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"UserPreference", 'DateTime'>
