@@ -92,7 +92,6 @@ export function AppSidebar({ info }: { info: ShellInfo }) {
 
       {inAdmin ? (
         <div className="flex flex-col gap-1">
-          <SidebarLink item={backToDriveItem} />
           <h2 className="m-0 px-2.5 pt-2 pb-1 font-sans text-label font-medium text-muted-foreground">
             Admin
           </h2>
@@ -108,7 +107,12 @@ export function AppSidebar({ info }: { info: ShellInfo }) {
       )}
 
       <div className="mt-auto flex flex-col gap-2.5">
-        {info.isOwner && !inAdmin ? <SidebarLink item={adminLinkItem} /> : null}
+        {/* Admin and its way back share one spot, so the same click undoes itself. */}
+        {inAdmin ? (
+          <SidebarLink item={backToDriveItem} />
+        ) : info.isOwner ? (
+          <SidebarLink item={adminLinkItem} />
+        ) : null}
         <WorkspaceStorage
           usedBytes={info.usedBytes}
           limitBytes={info.limitBytes}

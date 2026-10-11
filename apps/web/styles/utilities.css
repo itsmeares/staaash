@@ -5,3 +5,12 @@
   scrollbar-color: color-mix(in oklab, var(--foreground) 14%, transparent)
     transparent;
 }
+
+/* "You are here": the active nav item and the chosen option of a segmented
+   control. Buttons use an outline instead, so selected and pressable never
+   look alike. */
+@utility selected-pill {
+  background-color: color-mix(in oklab, var(--foreground) 8%, transparent);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklab, var(--foreground) 9%, transparent);
+}

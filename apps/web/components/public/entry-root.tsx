@@ -11,7 +11,6 @@ import { EntryBackground } from "./entry-background";
 type EntryRootProps = {
   mode: "setup" | "signin" | "onboarding" | "password-change";
   instanceName?: string;
-  appVersion?: string;
   next?: string;
   isOwner?: boolean;
   initialMediaPreviewEnabled?: boolean;
@@ -23,7 +22,6 @@ type EntryRootProps = {
 export function EntryRoot({
   mode,
   instanceName,
-  appVersion,
   next,
   isOwner = false,
   initialMediaPreviewEnabled = true,
@@ -42,7 +40,6 @@ export function EntryRoot({
   if (mode === "onboarding") {
     return (
       <EntryShell
-        appVersion={appVersion}
         background={<EntryBackground />}
         instanceName={instanceName}
         contentClassName="justify-center"
@@ -71,7 +68,6 @@ export function EntryRoot({
   if (mode === "password-change") {
     return (
       <EntryShell
-        appVersion={appVersion}
         background={<EntryBackground />}
         instanceName={instanceName}
         contentClassName="justify-center"
@@ -84,7 +80,6 @@ export function EntryRoot({
 
   return (
     <EntryShell
-      appVersion={appVersion}
       background={<EntryBackground />}
       instanceName={instanceName}
       contentClassName="justify-center"

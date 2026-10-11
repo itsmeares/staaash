@@ -63,7 +63,7 @@ export function TabsList({
           "absolute bottom-0 left-0 h-(--active-tab-height) w-(--active-tab-width) translate-x-(--active-tab-left) -translate-y-(--active-tab-bottom) transition-[width,translate] duration-270 ease-slide motion-reduce:transition-none",
           variant === "underline"
             ? "z-10 bg-primary data-[orientation=horizontal]:h-0.5 data-[orientation=horizontal]:translate-y-px data-[orientation=vertical]:w-0.5 data-[orientation=vertical]:-translate-x-px"
-            : "-z-1 rounded-md bg-popover shadow-raised ring-1 ring-border dark:bg-accent",
+            : "-z-1 rounded-md selected-pill",
         )}
         data-slot="tab-indicator"
       />

@@ -122,7 +122,7 @@ export function SidebarNav({
       {pill ? (
         <span
           aria-hidden
-          className="absolute inset-x-0 top-0 rounded-lg bg-card shadow-raised ring-1 ring-border transition-[translate,height] duration-270 ease-slide motion-reduce:transition-none"
+          className="absolute inset-x-0 top-0 rounded-lg selected-pill transition-[translate,height] duration-270 ease-slide motion-reduce:transition-none"
           style={{ height: pill.height, translate: `0 ${pill.top}px` }}
         />
       ) : null}
@@ -136,7 +136,7 @@ export function SidebarNav({
             className={cn(
               itemClass,
               active &&
-                "font-semibold not-group-data-ready/nav:bg-card not-group-data-ready/nav:shadow-raised not-group-data-ready/nav:ring-1 not-group-data-ready/nav:ring-border hover:bg-transparent [&_svg]:text-primary",
+                "font-semibold not-group-data-ready/nav:selected-pill hover:bg-transparent [&_svg]:text-primary",
             )}
             href={item.href}
           >

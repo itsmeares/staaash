@@ -2,6 +2,7 @@
 
 import {
   ArrowUpDown,
+  Check,
   Keyboard,
   LogOut,
   Moon,
@@ -10,7 +11,9 @@ import {
   Sun,
   SunMoon,
 } from "lucide-react";
-import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +34,35 @@ import { applyThemeWithTransition, type Theme } from "@/lib/theme";
 import { openShortcuts } from "./shortcuts-dialog";
 import { useTransferContext } from "./transfer-context";
 import { WorkspaceAvatar } from "./workspace-avatar";
+import { isAdminPath } from "./workspace-nav";
+
+/** An app link in the menu; on its own page it only shows a check. */
+function PageLink({
+  href,
+  current,
+  children,
+}: {
+  href: string;
+  current: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <MenuLinkItem
+      aria-current={current ? "page" : undefined}
+      render={<Link href={href} />}
+      onClick={(event) => {
+        if (current) event.preventDefault();
+      }}
+    >
+      {children}
+      {current ? (
+        <span className="ms-auto flex text-primary">
+          <Check aria-hidden className="size-4" />
+        </span>
+      ) : null}
+    </MenuLinkItem>
+  );
+}
 
 type TopbarActionsProps = {
   userLabel: string | null;
@@ -92,6 +124,7 @@ export function TopbarActions({
   avatarUrl,
   initialTheme,
 }: TopbarActionsProps) {
+  const pathname = usePathname();
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const ThemeIcon = THEME_ICONS[theme];
 
@@ -140,15 +173,15 @@ export function TopbarActions({
             </div>
           </div>
           <MenuSeparator />
-          <MenuLinkItem href="/settings">
+          <PageLink current={pathname === "/settings"} href="/settings">
             <Settings2 aria-hidden />
             Settings
-          </MenuLinkItem>
+          </PageLink>
           {isOwner ? (
-            <MenuLinkItem href="/admin">
+            <PageLink current={isAdminPath(pathname)} href="/admin">
               <Shield aria-hidden />
               Admin
-            </MenuLinkItem>
+            </PageLink>
           ) : null}
           <MenuSub>
             <MenuSubTrigger>
@@ -175,7 +208,11 @@ export function TopbarActions({
           <MenuSeparator />
           <form action="/api/auth/sign-out" className="contents" method="post">
             <input type="hidden" name="next" value="/" />
-            <MenuItem nativeButton render={<button type="submit" />}>
+            <MenuItem
+              className="w-full"
+              nativeButton
+              render={<button type="submit" />}
+            >
               <LogOut aria-hidden />
               Sign out
             </MenuItem>

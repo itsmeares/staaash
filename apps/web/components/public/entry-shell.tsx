@@ -2,8 +2,6 @@ import React from "react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { formatVersionLabel } from "@staaash/config/version";
-
 import { DriveGlyph } from "@/components/drive-glyph";
 import { SkipLink } from "@/components/skip-link";
 import { cn } from "@/lib/utils";
@@ -13,8 +11,6 @@ import styles from "./entry-experience.module.css";
 type EntryShellProps = {
   children: ReactNode;
   instanceName?: string;
-  /** Shown in the footer; the release name joins it when one is chosen. */
-  appVersion?: string;
   background?: ReactNode;
   className?: string;
   contentClassName?: string;
@@ -28,7 +24,6 @@ const brandClassName =
 export function EntryShell({
   children,
   instanceName = "Staaash",
-  appVersion,
   background,
   className,
   contentClassName,
@@ -94,11 +89,6 @@ export function EntryShell({
         >
           {children}
         </div>
-        {appVersion ? (
-          <footer className="text-center text-label text-muted-foreground">
-            Staaash {formatVersionLabel(appVersion)}
-          </footer>
-        ) : null}
       </div>
     </main>
   );

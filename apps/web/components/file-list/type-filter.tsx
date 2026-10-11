@@ -27,8 +27,7 @@ export function TypeFilter<T extends string>({
             aria-checked={active}
             className={cn(
               "h-7 shrink-0 cursor-pointer rounded-md border border-input px-2.5 text-meta font-medium whitespace-nowrap text-foreground transition-colors duration-150 outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
-              active &&
-                "border-transparent bg-popover shadow-raised ring-1 ring-border hover:bg-popover dark:bg-accent",
+              active && "border-transparent selected-pill hover:selected-pill",
             )}
             key={option.id}
             role="radio"
