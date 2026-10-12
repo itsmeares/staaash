@@ -18,8 +18,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useLayoutEffect, useRef, useState } from "react";
 
+import { GlidingPill, useGlidingPill } from "@/components/gliding-pill";
 import { cn } from "@/lib/utils";
 
 export type WorkspaceNavItem = {
@@ -97,35 +97,17 @@ export function SidebarNav({
   label: string;
 }) {
   const pathname = usePathname();
-  const listRef = useRef<HTMLElement>(null);
-  const [pill, setPill] = useState<{ top: number; height: number } | null>(
-    null,
-  );
   const activeHref = items.find((item) => isItemActive(pathname, item))?.href;
-
-  useLayoutEffect(() => {
-    const active = listRef.current?.querySelector<HTMLElement>(
-      '[aria-current="page"]',
-    );
-    setPill(
-      active ? { top: active.offsetTop, height: active.offsetHeight } : null,
-    );
-  }, [activeHref]);
+  const { ref, pill } = useGlidingPill<HTMLElement>(activeHref);
 
   return (
     <nav
-      ref={listRef}
+      ref={ref}
       aria-label={label}
       className="group/nav relative flex flex-col gap-px"
       data-ready={pill ? "" : undefined}
     >
-      {pill ? (
-        <span
-          aria-hidden
-          className="absolute inset-x-0 top-0 rounded-lg selected-pill transition-[translate,height] duration-270 ease-slide motion-reduce:transition-none"
-          style={{ height: pill.height, translate: `0 ${pill.top}px` }}
-        />
-      ) : null}
+      <GlidingPill pill={pill} />
       {items.map((item) => {
         const active = item.href === activeHref;
         const Icon = item.icon;

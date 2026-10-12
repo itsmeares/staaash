@@ -8,6 +8,7 @@ const {
   UPDATE_CHECK_JOB_KIND,
   claimDueBackgroundJob,
   cancelBackgroundJob,
+  dismissBackgroundJob,
   ensureBackgroundJobScheduled,
   getQueueOperationalSummary,
   listBackgroundJobEvents,
@@ -789,6 +790,41 @@ describe("background jobs", () => {
       cancelledByUserId: null,
       lastError: null,
     });
+  });
+
+  it("dismisses only failed jobs, and a dismissed job can still be retried", async () => {
+    const now = new Date("2026-04-01T12:00:00.000Z");
+    const events: MemoryEvent[] = [];
+    const jobs = [
+      createJob({ id: "dead-1", status: "dead", lastError: "File gone." }),
+      createJob({ id: "busy-1", status: "running" }),
+    ];
+    const client = createClient(jobs, events);
+
+    await expect(
+      dismissBackgroundJob({ jobId: "busy-1", actorUserId: "owner-1", client }),
+    ).rejects.toThrow("Only failed or dead jobs can be dismissed.");
+
+    await dismissBackgroundJob({
+      jobId: "dead-1",
+      actorUserId: "owner-1",
+      now,
+      client,
+    });
+    expect(jobs[0]).toMatchObject({
+      status: "cancelled",
+      cancelledAt: now,
+      cancelledByUserId: "owner-1",
+    });
+    expect(events.map((event) => event.type)).toContain("dismissed");
+
+    await retryBackgroundJob({
+      jobId: "dead-1",
+      actorUserId: "owner-1",
+      now,
+      client,
+    });
+    expect(jobs[0]).toMatchObject({ status: "queued" });
   });
 
   it("stales the derivative owned by a cancelled generate job", async () => {

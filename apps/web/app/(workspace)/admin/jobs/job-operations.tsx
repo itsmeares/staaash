@@ -998,8 +998,11 @@ function useJobDetails() {
   };
 }
 
-/** Retry or cancel one run; the server's message when it refuses. */
-async function sendJobAction(jobId: string, action: "retry" | "cancel") {
+/** Retry, cancel or dismiss one run; the server's message when it refuses. */
+async function sendJobAction(
+  jobId: string,
+  action: "retry" | "cancel" | "dismiss",
+) {
   const res = await fetch(`/api/admin/jobs/${jobId}/${action}`, {
     method: "POST",
   });
@@ -1726,13 +1729,20 @@ function JobActivityPanel({
 function ProblemRow({
   job,
   nowMs,
-  onRetried,
+  onDone,
 }: {
   job: JsonBackgroundJob;
   nowMs: number;
-  onRetried: () => void;
+  onDone: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
+  // Either way the job leaves this list; Retry runs it again, Dismiss
+  // keeps it in history as cancelled.
+  const act = async (action: "retry" | "dismiss") => {
+    const message = await sendJobAction(job.id, action);
+    if (message) setError(message);
+    else onDone();
+  };
   return (
     <div className="flex min-h-15 items-center gap-3 border-t border-border px-4 py-2.5 first:border-t-0">
       <span
@@ -1749,22 +1759,10 @@ function ProblemRow({
           {formatRelativeTime(job.updatedAt, nowMs)}
         </span>
       </span>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={async () => {
-          const response = await fetch(`/api/admin/jobs/${job.id}/retry`, {
-            method: "POST",
-          });
-          if (response.ok) onRetried();
-          else {
-            const body = (await response.json().catch(() => null)) as {
-              error?: string;
-            } | null;
-            setError(body?.error ?? "Retry failed.");
-          }
-        }}
-      >
+      <Button size="sm" variant="ghost" onClick={() => void act("dismiss")}>
+        Dismiss
+      </Button>
+      <Button size="sm" variant="outline" onClick={() => void act("retry")}>
         Retry
       </Button>
     </div>
@@ -1871,7 +1869,7 @@ export function JobOperations({
                 job={job}
                 key={job.id}
                 nowMs={nowMs}
-                onRetried={() =>
+                onDone={() =>
                   setProblems((list) =>
                     list.filter((entry) => entry.id !== job.id),
                   )

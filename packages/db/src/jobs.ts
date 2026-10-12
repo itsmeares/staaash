@@ -762,6 +762,53 @@ export const retryBackgroundJob = async ({
   });
 };
 
+/**
+ * An owner has seen a failed job and doesn't want it retried. It stays in
+ * history as cancelled, so Retry can still bring it back.
+ */
+export const dismissBackgroundJob = async ({
+  jobId,
+  actorUserId,
+  now = new Date(),
+  client,
+}: {
+  jobId: string;
+  actorUserId: string;
+  now?: Date;
+  client?: BackgroundJobClient;
+}) => {
+  const activeClient = getClient(client);
+
+  return activeClient.$transaction(async (tx) => {
+    const job = await tx.backgroundJob.findUnique({ where: { id: jobId } });
+    if (!job) throw new Error(`Background job ${jobId} not found.`);
+    if (job.status !== "failed" && job.status !== "dead") {
+      throw new Error("Only failed or dead jobs can be dismissed.");
+    }
+
+    const updated = await tx.backgroundJob.update({
+      where: { id: jobId },
+      data: {
+        status: "cancelled",
+        cancelledAt: now,
+        cancelledByUserId: actorUserId,
+      },
+    });
+
+    await tx.backgroundJobEvent.create({
+      data: {
+        jobId,
+        type: "dismissed",
+        message: "Dismissed by admin.",
+        metadataJson: { actorUserId },
+      },
+    });
+    await notifyBackgroundJobStateChanged(tx, jobId);
+
+    return updated;
+  });
+};
+
 export const scheduleZipArchiveGenerate = async ({
   archiveId,
   now = new Date(),

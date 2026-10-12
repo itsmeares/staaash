@@ -134,7 +134,7 @@ export function SignIn({
 }
 
 const field =
-  "h-11 border-white/18 bg-black/30 text-base backdrop-blur-sm placeholder:text-white/40";
+  "border-white/18 bg-black/30 backdrop-blur-sm placeholder:text-white/40";
 
 function SignInForm({
   instanceName,
@@ -171,6 +171,7 @@ function SignInForm({
         Email
         <Input
           ref={emailRef}
+          size="lg"
           autoComplete="email"
           className={field}
           id="email"
@@ -187,6 +188,7 @@ function SignInForm({
         Password
         <Input
           ref={passwordRef}
+          size="lg"
           aria-describedby={error ? "signin-error" : undefined}
           aria-invalid={error ? true : undefined}
           autoComplete="current-password"
@@ -206,7 +208,12 @@ function SignInForm({
           </span>
         ) : null}
       </label>
-      <Button className="mt-2 h-11 w-full" disabled={pending} type="submit">
+      <Button
+        className="mt-2 w-full"
+        disabled={pending}
+        size="lg"
+        type="submit"
+      >
         {pending ? "Signing in…" : "Sign in"}
       </Button>
     </form>

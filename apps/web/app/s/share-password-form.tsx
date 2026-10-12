@@ -28,13 +28,14 @@ export function SharePasswordForm({
       <div className="flex gap-2">
         <Input
           ref={input}
+          size="lg"
           aria-describedby={error ? "share-password-error" : undefined}
           aria-invalid={error ? true : undefined}
           aria-label="Password"
           autoComplete="current-password"
           autoFocus
           className={cn(
-            "h-11 flex-1 border-white/18 bg-black/30 text-base backdrop-blur-sm placeholder:text-white/40",
+            "flex-1 border-white/18 bg-black/30 backdrop-blur-sm placeholder:text-white/40",
             error && "border-destructive/70",
           )}
           id="share-password"
@@ -43,7 +44,7 @@ export function SharePasswordForm({
           required
           type="password"
         />
-        <Button className="h-11 px-5" type="submit">
+        <Button size="lg" type="submit">
           Open
         </Button>
       </div>

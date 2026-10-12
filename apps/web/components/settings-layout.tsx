@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { GlidingPill, useGlidingPill } from "@/components/gliding-pill";
 import { cn } from "@/lib/utils";
 
 export type SettingsCategory = {
@@ -43,6 +44,7 @@ export function SettingsLayout({
   );
   const current = open ?? (wide ? categories[0]?.id : null);
   const showIndex = wide || current === null;
+  const { ref, pill } = useGlidingPill<HTMLElement>(`${current}:${wide}`);
 
   return (
     <div className="grid items-start gap-8 lg:grid-cols-[12.5rem_minmax(0,40rem)]">
@@ -50,17 +52,21 @@ export function SettingsLayout({
         <nav
           aria-label="Settings"
           className={cn(
-            "grid gap-px",
-            !wide && "overflow-hidden rounded-2xl border border-border",
+            "group/nav relative grid gap-px",
+            !wide &&
+              "animate-in overflow-hidden rounded-2xl border border-border duration-200 ease-out fade-in slide-in-from-left-3 motion-reduce:animate-none",
           )}
+          data-ready={wide && pill ? "" : undefined}
+          ref={ref}
         >
+          {wide ? <GlidingPill pill={pill} /> : null}
           {categories.map(({ id, label, icon: Icon }) => (
             <button
               aria-current={id === current ? "page" : undefined}
               className={cn(
                 "flex cursor-pointer items-center gap-2.5 text-left text-body outline-none focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4 [&_svg]:shrink-0",
                 wide
-                  ? "h-9 rounded-lg px-2.5 text-muted-foreground hover:bg-hover hover:text-foreground aria-[current=page]:selected-pill aria-[current=page]:font-semibold aria-[current=page]:text-foreground aria-[current=page]:[&_svg]:text-primary"
+                  ? "relative h-9 rounded-lg px-2.5 text-muted-foreground transition-colors duration-150 hover:bg-hover hover:text-foreground aria-[current=page]:font-semibold aria-[current=page]:text-foreground aria-[current=page]:not-group-data-ready/nav:selected-pill aria-[current=page]:hover:bg-transparent motion-reduce:transition-none aria-[current=page]:[&_svg]:text-primary"
                   : "min-h-13 border-t border-border px-4 first:border-t-0 hover:bg-hover [&_svg]:text-muted-foreground",
               )}
               key={id}
@@ -78,7 +84,11 @@ export function SettingsLayout({
         {categories.map(({ id, label, content }) => (
           <section
             aria-label={label}
-            className={cn("grid gap-3.5", id !== current && "hidden")}
+            className={cn(
+              "grid animate-in gap-3.5 duration-200 ease-out fade-in slide-in-from-bottom-1 motion-reduce:animate-none",
+              !wide && "slide-in-from-bottom-0 slide-in-from-right-3",
+              id !== current && "hidden",
+            )}
             key={id}
           >
             <div className="flex items-center gap-1">
