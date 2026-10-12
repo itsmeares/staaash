@@ -163,6 +163,22 @@ const createMemoryRepository = () => {
   };
 
   const repo: FilesRepository = {
+    async findActiveNameConflict({
+      ownerUserId,
+      parentId,
+      name,
+      excludeFolderId,
+      excludeFileId,
+    }) {
+      const folder = (await repo.listChildFolders(ownerUserId, parentId)).find(
+        (item) => item.name === name && item.id !== excludeFolderId,
+      );
+      if (folder) return { kind: "folder", item: folder };
+      const file = (await repo.listChildFiles(ownerUserId, parentId)).find(
+        (item) => item.name === name && item.id !== excludeFileId,
+      );
+      return file ? { kind: "file", item: file } : null;
+    },
     async ensureFilesRoot(ownerUserId) {
       const existing = state.folders.find(
         (folder) => folder.ownerUserId === ownerUserId && folder.isFilesRoot,
