@@ -21,10 +21,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       getCurrentSession(),
       getSystemSettings(),
     ]);
-  const next = getSafeLocalPath(
-    getSingleSearchParam(resolvedSearchParams, "next"),
-    "/files",
-  );
+  // Without ?next, sign-in goes to the person's start page.
+  const rawNext = getSingleSearchParam(resolvedSearchParams, "next");
+  const next = rawNext ? getSafeLocalPath(rawNext, "/files") : undefined;
 
   if (session) {
     if (session.user.passwordChangeRequiredAt) {

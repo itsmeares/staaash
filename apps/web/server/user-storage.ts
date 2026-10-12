@@ -118,3 +118,76 @@ export const getInstanceDiskInfo = async (): Promise<DiskInfo | null> => {
     return null;
   }
 };
+
+export type StorageBreakdown = {
+  usedBytes: number;
+  limitBytes: number | null;
+  byKind: Record<"photos" | "videos" | "audio" | "documents" | "trash", number>;
+  trashItems: number;
+  activeShares: number;
+  passwordShares: number;
+};
+
+/** What one person stores, split the way Settings → Storage shows it. */
+export const getStorageBreakdown = async (
+  userId: string,
+): Promise<StorageBreakdown> => {
+  const client = getPrisma();
+  const now = new Date();
+  const [usage, user, kinds, trash, shares, passwordShares] = await Promise.all(
+    [
+      getUserStorageUsed(userId),
+      client.user.findUnique({
+        where: { id: userId },
+        select: { storageLimitBytes: true },
+      }),
+      client.$queryRaw<Array<{ kind: string; bytes: bigint }>>`
+      SELECT CASE
+          WHEN "mimeType" LIKE 'image/%' THEN 'photos'
+          WHEN "mimeType" LIKE 'video/%' THEN 'videos'
+          WHEN "mimeType" LIKE 'audio/%' THEN 'audio'
+          ELSE 'documents'
+        END AS kind,
+        COALESCE(SUM("sizeBytes"), 0)::bigint AS bytes
+      FROM "File"
+      WHERE "ownerUserId" = ${userId} AND "deletedAt" IS NULL
+      GROUP BY 1`,
+      client.file.aggregate({
+        where: { ownerUserId: userId, deletedAt: { not: null } },
+        _sum: { sizeBytes: true },
+        _count: true,
+      }),
+      client.shareLink.count({
+        where: {
+          createdByUserId: userId,
+          revokedAt: null,
+          expiresAt: { gt: now },
+        },
+      }),
+      client.shareLink.count({
+        where: {
+          createdByUserId: userId,
+          revokedAt: null,
+          expiresAt: { gt: now },
+          passwordHash: { not: null },
+        },
+      }),
+    ],
+  );
+  const byKind = { photos: 0, videos: 0, audio: 0, documents: 0, trash: 0 };
+  for (const row of kinds) {
+    byKind[row.kind as keyof typeof byKind] = Number(row.bytes);
+  }
+  byKind.trash = Number(trash._sum.sizeBytes ?? 0n);
+  return {
+    usedBytes: Number(usage.usedBytes),
+    limitBytes:
+      user?.storageLimitBytes && user.storageLimitBytes > 0n
+        ? Number(user.storageLimitBytes)
+        : null,
+    byKind,
+    trashItems: trash._count,
+    activeShares: shares,
+    passwordShares,
+  };
+};

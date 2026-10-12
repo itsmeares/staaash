@@ -42,6 +42,7 @@ export async function TimeRoot({
   return (
     <TimeProvider
       autoDetect={autoDetect}
+      clock={user?.preferences?.clockFormat === "12h" ? "12h" : "24h"}
       serverNow={Date.now()}
       timeZone={timeZone}
     >

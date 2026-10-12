@@ -1,10 +1,11 @@
-import { AUTO_TIME_ZONE } from "@staaash/config/time-zone";
-
 import { FlashMessage } from "@/app/auth-ui";
-
 import { PageHeader } from "@/components/page-header";
-import { DateTime } from "@/components/time-provider";
+import type { Theme } from "@/lib/theme";
+import { roleLabel } from "@/lib/user";
+import { describeDevice } from "@/lib/user-agent";
 import { requireSignedInPageSession } from "@/server/auth/guards";
+import { authService } from "@/server/auth/service";
+import { getStorageBreakdown } from "@/server/user-storage";
 
 import { WorkspacePage } from "../workspace-page";
 import { PersonalSettings } from "./preferences-form";
@@ -21,6 +22,10 @@ export default async function SettingsPage({
     requireSignedInPageSession("/?next=/settings"),
   ]);
   const prefs = session.user.preferences;
+  const [storage, sessions] = await Promise.all([
+    getStorageBreakdown(session.user.id),
+    authService.listOwnSessions(session.user.id),
+  ]);
 
   return (
     <WorkspacePage className="w-full content-start gap-6">
@@ -29,22 +34,32 @@ export default async function SettingsPage({
         <FlashMessage>Only owners can open the admin pages.</FlashMessage>
       ) : null}
       <PersonalSettings
-        email={session.user.email}
-        initialShowUpdates={prefs?.showUpdateNotifications ?? true}
-        initialTheme={(prefs?.theme as "light" | "dark" | "system") ?? "system"}
-        initialTimeZone={prefs?.timeZone ?? AUTO_TIME_ZONE}
         isOwner={session.user.isAdmin}
-        name={session.user.displayName}
-        role={
-          session.user.isOwner
-            ? "Owner"
-            : session.user.isAdmin
-              ? "Admin"
-              : "Member"
-        }
-        session={{
-          signedIn: <DateTime value={session.createdAt} />,
-          expires: <DateTime value={session.expiresAt} />,
+        prefs={{
+          theme: prefs.theme as Theme,
+          timeZone: prefs.timeZone,
+          showUpdateNotifications: prefs.showUpdateNotifications,
+          showFolderPreviews: prefs.showFolderPreviews,
+          startPage: prefs.startPage as "home" | "files",
+          defaultView: prefs.defaultView as "list" | "grid",
+          clockFormat: prefs.clockFormat as "12h" | "24h",
+        }}
+        sessions={sessions
+          .map((entry) => ({
+            id: entry.id,
+            device: describeDevice(entry.userAgent),
+            ipAddress: entry.ipAddress,
+            lastSeenAt: entry.lastSeenAt?.toISOString() ?? null,
+            createdAt: entry.createdAt.toISOString(),
+            current: entry.id === session.id,
+          }))
+          .sort((a, b) => Number(b.current) - Number(a.current))}
+        storage={storage}
+        profile={{
+          name: session.user.displayName,
+          email: session.user.email,
+          avatarUrl: session.user.avatarUrl,
+          role: roleLabel(session.user.role),
         }}
       />
     </WorkspacePage>

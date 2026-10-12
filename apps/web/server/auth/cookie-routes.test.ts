@@ -265,7 +265,10 @@ describe("auth cookie routes", () => {
 
   it("sets non-secure preference cookies over plain HTTP", async () => {
     getSession.mockResolvedValueOnce(completedSession("system"));
-    savePreferences.mockResolvedValueOnce(completedPreferences);
+    savePreferences.mockImplementationOnce(async (_userId, saved) => ({
+      ...completedPreferences,
+      ...saved,
+    }));
     const { POST } = await import("@/app/api/user/preferences/route");
 
     const response = await POST(
@@ -291,7 +294,10 @@ describe("auth cookie routes", () => {
 
   it("sets secure preference cookies behind forwarded HTTPS", async () => {
     getSession.mockResolvedValueOnce(completedSession("system"));
-    savePreferences.mockResolvedValueOnce(completedPreferences);
+    savePreferences.mockImplementationOnce(async (_userId, saved) => ({
+      ...completedPreferences,
+      ...saved,
+    }));
     const { POST } = await import("@/app/api/user/preferences/route");
 
     const response = await POST(

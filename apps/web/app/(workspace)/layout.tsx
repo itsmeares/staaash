@@ -9,6 +9,7 @@ import { authService } from "@/server/auth/service";
 import { resolveAppVersion } from "@/server/app-version";
 import { getCurrentSession } from "@/server/auth/session";
 import { getUpdateState } from "@/server/admin/updates";
+import { DefaultViewProvider } from "@/components/file-list/use-view-mode";
 import { TimeRoot } from "@/server/time-zone";
 import { getInstanceDiskInfo, getUserStorageUsed } from "@/server/user-storage";
 
@@ -54,68 +55,70 @@ export default async function WorkspaceLayout({
 
   return (
     <TimeRoot user={session?.user}>
-      <UpdatesProvider
-        appVersion={appVersion}
-        initialState={updateState}
-        nodeVersion={process.version}
-        notify={session?.user.preferences?.showUpdateNotifications ?? true}
-      >
-        <SkipLink />
-        <div className="grid h-dvh w-full grid-cols-1 overflow-hidden bg-background lg:grid-cols-[var(--spacing-sidebar)_minmax(0,1fr)]">
-          <AppSidebar info={info} />
+      <DefaultViewProvider value={session?.user.preferences?.defaultView}>
+        <UpdatesProvider
+          appVersion={appVersion}
+          initialState={updateState}
+          nodeVersion={process.version}
+          notify={session?.user.preferences?.showUpdateNotifications ?? true}
+        >
+          <SkipLink />
+          <div className="grid h-dvh w-full grid-cols-1 overflow-hidden bg-background lg:grid-cols-[var(--spacing-sidebar)_minmax(0,1fr)]">
+            <AppSidebar info={info} />
 
-          <div className="flex min-h-0 min-w-0 flex-col">
-            <header className="flex h-14 shrink-0 items-center gap-2 px-3 lg:gap-3 lg:ps-0.5 lg:pe-3.5">
-              <Link
-                aria-label={info.instanceName}
-                className="rounded-md p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
-                href="/home"
+            <div className="flex min-h-0 min-w-0 flex-col">
+              <header className="flex h-14 shrink-0 items-center gap-2 px-3 lg:gap-3 lg:ps-0.5 lg:pe-3.5">
+                <Link
+                  aria-label={info.instanceName}
+                  className="rounded-md p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
+                  href="/home"
+                >
+                  <DriveGlyph />
+                </Link>
+                <WorkspaceSearch />
+                {session ? (
+                  <div className="ms-auto">
+                    <TopbarActions
+                      userLabel={userLabel}
+                      email={session.user.email}
+                      initials={initials}
+                      isOwner={info.isOwner}
+                      avatarUrl={session.user.avatarUrl ?? null}
+                      initialTheme={
+                        (session.user.preferences?.theme as
+                          "light" | "dark" | "system") ?? "system"
+                      }
+                    />
+                  </div>
+                ) : null}
+              </header>
+
+              <main
+                className="min-h-0 w-full min-w-0 flex-1 scrollbar-thin overflow-x-hidden overflow-y-auto bg-card px-4 pt-4 pb-[calc(96px+env(safe-area-inset-bottom))] max-lg:border-t max-lg:border-border lg:mx-0 lg:me-3 lg:mb-3 lg:w-auto lg:rounded-xl lg:border lg:border-border lg:px-6 lg:pt-5 lg:pb-12"
+                data-workspace-content
+                id="main-content"
+                tabIndex={-1}
               >
-                <DriveGlyph />
-              </Link>
-              <WorkspaceSearch />
-              {session ? (
-                <div className="ms-auto">
-                  <TopbarActions
-                    userLabel={userLabel}
-                    email={session.user.email}
-                    initials={initials}
-                    isOwner={info.isOwner}
-                    avatarUrl={session.user.avatarUrl ?? null}
-                    initialTheme={
-                      (session.user.preferences?.theme as
-                        "light" | "dark" | "system") ?? "system"
-                    }
-                  />
-                </div>
-              ) : null}
-            </header>
-
-            <main
-              className="min-h-0 w-full min-w-0 flex-1 scrollbar-thin overflow-x-hidden overflow-y-auto bg-card px-4 pt-4 pb-[calc(96px+env(safe-area-inset-bottom))] max-lg:border-t max-lg:border-border lg:mx-0 lg:me-3 lg:mb-3 lg:w-auto lg:rounded-xl lg:border lg:border-border lg:px-6 lg:pt-5 lg:pb-12"
-              data-workspace-content
-              id="main-content"
-              tabIndex={-1}
-            >
-              {children}
-            </main>
+                {children}
+              </main>
+            </div>
           </div>
-        </div>
-        {session ? (
-          <WorkspaceMobileNav
-            info={info}
-            avatarUrl={session.user.avatarUrl ?? null}
-            initials={initials}
-            userLabel={userLabel}
-            email={session.user.email}
-          />
-        ) : null}
-        <ShortcutsDialog />
+          {session ? (
+            <WorkspaceMobileNav
+              info={info}
+              avatarUrl={session.user.avatarUrl ?? null}
+              initials={initials}
+              userLabel={userLabel}
+              email={session.user.email}
+            />
+          ) : null}
+          <ShortcutsDialog />
 
-        {/* Kept outside the shell grid: fixed elements still take a grid cell. */}
-        <ToastProvider position="bottom-right" />
-        <ConfirmHost />
-      </UpdatesProvider>
+          {/* Kept outside the shell grid: fixed elements still take a grid cell. */}
+          <ToastProvider position="bottom-right" />
+          <ConfirmHost />
+        </UpdatesProvider>
+      </DefaultViewProvider>
     </TimeRoot>
   );
 }

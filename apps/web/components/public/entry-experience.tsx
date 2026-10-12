@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
+import { startPath } from "@/lib/start-page";
+
 import { useAdvanceOnInput } from "./use-advance-on-input";
 import styles from "./entry-experience.module.css";
 
@@ -99,7 +101,10 @@ export function EntryExperience({
       const json = await res.json();
 
       if (res.ok) {
-        const dest = mode === "signin" && next ? next : "/files";
+        const dest =
+          mode === "signin" && next
+            ? next
+            : startPath(json.user?.preferences?.startPage);
         const needsOnboarding = !json.user?.preferences?.onboardingCompletedAt;
 
         if (needsOnboarding) {

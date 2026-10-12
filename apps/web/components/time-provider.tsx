@@ -9,7 +9,7 @@ import {
 
 import { formatDateTime } from "@/lib/time";
 
-type TimeContextValue = { now: Date; timeZone: string };
+type TimeContextValue = { now: Date; timeZone: string; clock: string };
 
 const TimeContext = createContext<TimeContextValue | null>(null);
 
@@ -24,7 +24,10 @@ export function TimeProvider({
   children,
   serverNow,
   timeZone: serverTimeZone,
+  clock = "24h",
 }: {
+  /** "12h" or "24h", from Settings → Date and time. */
+  clock?: string;
   autoDetect: boolean;
   children: React.ReactNode;
   serverNow: number;
@@ -53,8 +56,8 @@ export function TimeProvider({
   }, []);
 
   const value = useMemo(
-    () => ({ now: new Date(nowMs), timeZone }),
-    [nowMs, timeZone],
+    () => ({ now: new Date(nowMs), timeZone, clock }),
+    [nowMs, timeZone, clock],
   );
 
   return <TimeContext value={value}>{children}</TimeContext>;
@@ -68,9 +71,11 @@ export function useTime(): TimeContextValue {
 
 // Absolute date and time in the viewer's zone. Usable from server components.
 export function DateTime({ value }: { value: Date | string }) {
-  const { timeZone } = useTime();
+  const { timeZone, clock } = useTime();
   const date = typeof value === "string" ? new Date(value) : value;
   return (
-    <time dateTime={date.toISOString()}>{formatDateTime(date, timeZone)}</time>
+    <time dateTime={date.toISOString()}>
+      {formatDateTime(date, timeZone, clock)}
+    </time>
   );
 }

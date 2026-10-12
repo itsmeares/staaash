@@ -29,15 +29,21 @@ function zonedDayNumber(date: Date, timeZone: string) {
   return Date.UTC(year, month - 1, day) / DAY_MS;
 }
 
-export function formatDateTime(value: DateInput, timeZone: string) {
-  let formatter = dateTimeFormatters.get(timeZone);
+export function formatDateTime(
+  value: DateInput,
+  timeZone: string,
+  clock: string = "24h",
+) {
+  const key = `${timeZone}|${clock}`;
+  let formatter = dateTimeFormatters.get(key);
   if (!formatter) {
     formatter = new Intl.DateTimeFormat("en-GB", {
       dateStyle: "medium",
       timeStyle: "short",
       timeZone,
+      hour12: clock === "12h",
     });
-    dateTimeFormatters.set(timeZone, formatter);
+    dateTimeFormatters.set(key, formatter);
   }
   return formatter.format(toDate(value));
 }

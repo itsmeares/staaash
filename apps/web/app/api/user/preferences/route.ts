@@ -1,3 +1,5 @@
+// Mutation routes intentionally share origin, auth, and response guards.
+// fallow-ignore-file code-duplication
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -25,6 +27,10 @@ const preferencesSchema = z.object({
     )
     .optional(),
   showUpdateNotifications: z.boolean().optional(),
+  showFolderPreviews: z.boolean().optional(),
+  startPage: z.enum(["home", "files"]).optional(),
+  defaultView: z.enum(["list", "grid"]).optional(),
+  clockFormat: z.enum(["12h", "24h"]).optional(),
   displayName: z.string().trim().max(80).nullable().optional(),
   avatarUrl: z.string().max(300000).nullable().optional(),
 });
@@ -46,23 +52,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await readJsonBody(request);
-    const parsed = preferencesSchema.parse(body);
-    const existingPrefs = session.user.preferences;
-    const theme = parsed.theme ?? existingPrefs?.theme ?? "system";
-    const timeZone =
-      parsed.timeZone ?? existingPrefs?.timeZone ?? AUTO_TIME_ZONE;
-
-    await authService.savePreferences(session.user.id, {
-      theme,
-      timeZone,
-      showUpdateNotifications:
-        parsed.showUpdateNotifications ??
-        existingPrefs?.showUpdateNotifications ??
-        true,
-      displayName: parsed.displayName,
-      avatarUrl: parsed.avatarUrl,
-    });
+    const parsed = preferencesSchema.parse(await readJsonBody(request));
+    const { theme } = await authService.savePreferences(
+      session.user.id,
+      parsed,
+    );
 
     const response = NextResponse.json({ ok: true });
     response.cookies.set(buildOnboardedCookie(request));

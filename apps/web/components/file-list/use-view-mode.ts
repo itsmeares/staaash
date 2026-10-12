@@ -1,14 +1,39 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  createContext,
+  createElement,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import { flushSync } from "react-dom";
 
 import type { ViewMode } from "@/components/view-toggle";
 
+const DefaultView = createContext<ViewMode>("list");
+
+/** The person's "Lists open in" choice, used until a page remembers its own. */
+export function DefaultViewProvider({
+  value,
+  children,
+}: {
+  value: string | null | undefined;
+  children: ReactNode;
+}) {
+  return createElement(
+    DefaultView,
+    { value: value === "grid" ? "grid" : "list" },
+    children,
+  );
+}
+
 /** List or grid, remembered per page on this device. */
-export function useViewMode(page: string, fallback: ViewMode = "list") {
+export function useViewMode(page: string, fallback?: ViewMode) {
   const key = `staaash:view:${page}`;
-  const [view, setView] = useState<ViewMode>(fallback);
+  const preferred = useContext(DefaultView);
+  const [view, setView] = useState<ViewMode>(fallback ?? preferred);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(key);

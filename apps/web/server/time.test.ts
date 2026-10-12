@@ -123,6 +123,9 @@ describe("zoned formatting", () => {
     expect(formatDateTime(value, "UTC")).toBe("1 Jul 2026, 12:00");
     expect(formatDateTime(value, "Europe/London")).toBe("1 Jul 2026, 13:00");
     expect(formatDateTime(value, "America/New_York")).toBe("1 Jul 2026, 08:00");
+    expect(formatDateTime(value, "UTC", "12h")).toMatch(
+      /^1 Jul 2026, 12:00\spm$/i,
+    );
   });
 
   it("reads the hour in the requested zone", () => {

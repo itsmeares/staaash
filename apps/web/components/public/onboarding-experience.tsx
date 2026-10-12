@@ -14,6 +14,8 @@ import { Switch } from "@/components/ui/switch";
 import { applyTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
+import { readAvatar } from "@/lib/avatar";
+
 import { useAdvanceOnInput } from "./use-advance-on-input";
 import styles from "./onboarding-experience.module.css";
 
@@ -636,24 +638,7 @@ function ProfileStep({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = 256;
-        canvas.height = 256;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-        const size = Math.min(img.width, img.height);
-        const sx = (img.width - size) / 2;
-        const sy = (img.height - size) / 2;
-        ctx.drawImage(img, sx, sy, size, size, 0, 0, 256, 256);
-        onAvatarChange(canvas.toDataURL("image/jpeg", 0.85));
-      };
-      img.src = evt.target?.result as string;
-    };
-    reader.readAsDataURL(file);
+    void readAvatar(file).then(onAvatarChange);
     e.target.value = "";
   }
 

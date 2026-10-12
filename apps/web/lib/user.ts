@@ -10,3 +10,7 @@ export function getInitials(displayName: string | null, email: string): string {
   const localPart = email.split("@")[0] || email;
   return localPart.slice(0, 2).toUpperCase();
 }
+
+const ROLE_LABELS = { owner: "Owner", admin: "Admin", member: "Member" };
+
+export const roleLabel = (role: keyof typeof ROLE_LABELS) => ROLE_LABELS[role];

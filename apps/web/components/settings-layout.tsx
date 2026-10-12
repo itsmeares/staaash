@@ -28,6 +28,7 @@ export type SettingsCategory = {
  * category opens as its own page. Hidden categories stay mounted so their
  * fields remain in the surrounding form.
  */
+// fallow-ignore-next-line complexity
 export function SettingsLayout({
   categories,
   initial = null,
@@ -74,24 +75,28 @@ export function SettingsLayout({
         </nav>
       ) : null}
       <div className={cn(!wide && current === null && "hidden")}>
-        {!wide && current !== null ? (
-          <Button
-            className="-ms-2 mb-3"
-            size="sm"
-            variant="ghost-muted"
-            onClick={() => setOpen(null)}
-          >
-            <ChevronLeft aria-hidden />
-            Settings
-          </Button>
-        ) : null}
         {categories.map(({ id, label, content }) => (
           <section
             aria-label={label}
             className={cn("grid gap-3.5", id !== current && "hidden")}
             key={id}
           >
-            <h2 className="m-0 font-heading text-lg font-semibold">{label}</h2>
+            <div className="flex items-center gap-1">
+              {wide ? null : (
+                <Button
+                  aria-label="Back to Settings"
+                  className="-ms-2"
+                  size="icon-sm"
+                  variant="ghost-muted"
+                  onClick={() => setOpen(null)}
+                >
+                  <ChevronLeft aria-hidden />
+                </Button>
+              )}
+              <h2 className="m-0 font-heading text-lg font-semibold">
+                {label}
+              </h2>
+            </div>
             {content}
           </section>
         ))}

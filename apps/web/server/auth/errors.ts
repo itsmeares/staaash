@@ -2,6 +2,7 @@ export type AuthErrorCode =
   | "ACCESS_DENIED"
   | "INVALID_IDENTIFIER"
   | "INVALID_CREDENTIALS"
+  | "CURRENT_PASSWORD_WRONG"
   | "NOT_SIGNED_IN"
   | "PASSWORD_INVALID"
   | "PASSWORD_CONFIRMATION_MISMATCH"
@@ -18,6 +19,7 @@ const authErrorMessages: Record<AuthErrorCode, string> = {
   ACCESS_DENIED: "You do not have access to that surface.",
   INVALID_IDENTIFIER: "Enter a valid email address.",
   INVALID_CREDENTIALS: "Email or password is incorrect.",
+  CURRENT_PASSWORD_WRONG: "That is not your current password.",
   NOT_SIGNED_IN: "Not signed in.",
   PASSWORD_INVALID: "Password must be 12-128 characters.",
   PASSWORD_CONFIRMATION_MISMATCH: "Passwords do not match.",
@@ -36,6 +38,7 @@ const authErrorStatuses: Record<AuthErrorCode, number> = {
   ACCESS_DENIED: 403,
   INVALID_IDENTIFIER: 400,
   INVALID_CREDENTIALS: 401,
+  CURRENT_PASSWORD_WRONG: 400,
   NOT_SIGNED_IN: 401,
   PASSWORD_INVALID: 400,
   PASSWORD_CONFIRMATION_MISMATCH: 400,

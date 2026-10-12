@@ -8,6 +8,6 @@ ALTER TABLE "Folder"
 -- page Staaash opens on, list or grid by default, and the clock format.
 ALTER TABLE "UserPreference"
   ADD COLUMN "showFolderPreviews" BOOLEAN NOT NULL DEFAULT true,
-  ADD COLUMN "startPage" TEXT NOT NULL DEFAULT 'home',
+  ADD COLUMN "startPage" TEXT NOT NULL DEFAULT 'files',
   ADD COLUMN "defaultView" TEXT NOT NULL DEFAULT 'list',
-  ADD COLUMN "clockFormat" TEXT NOT NULL DEFAULT 'auto';
+  ADD COLUMN "clockFormat" TEXT NOT NULL DEFAULT '24h';

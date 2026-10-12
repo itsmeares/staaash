@@ -124,11 +124,11 @@ model UserPreference {
   showUpdateNotifications Boolean   @default(true)
   showFolderPreviews      Boolean   @default(true)
   /// "home" or "files".
-  startPage               String    @default("home")
+  startPage               String    @default("files")
   /// "list" or "grid", used until a page has its own remembered choice.
   defaultView             String    @default("list")
-  /// "auto" follows the browser's locale; otherwise "12h" or "24h".
-  clockFormat             String    @default("auto")
+  /// "12h" or "24h".
+  clockFormat             String    @default("24h")
   onboardingCompletedAt   DateTime?
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt

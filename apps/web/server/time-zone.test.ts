@@ -24,7 +24,7 @@ const user = (timeZone: string) => ({
     showFolderPreviews: true,
     startPage: "home",
     defaultView: "list",
-    clockFormat: "auto",
+    clockFormat: "24h",
     theme: "system",
     timeZone,
   },

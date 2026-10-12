@@ -6,6 +6,7 @@ import {
   getSessionTokenFromCookieStore,
 } from "@/server/auth/session";
 import { authService } from "@/server/auth/service";
+import { startPath } from "@/lib/start-page";
 import { getBaseUrl } from "@/server/request";
 
 export async function GET(request: NextRequest) {
@@ -18,7 +19,10 @@ export async function GET(request: NextRequest) {
   }
 
   const response = NextResponse.redirect(
-    new URL("/files", getBaseUrl(request.headers)),
+    new URL(
+      startPath(session.user.preferences.startPage),
+      getBaseUrl(request.headers),
+    ),
   );
   response.cookies.set(buildOnboardedCookie(request));
   response.cookies.set(

@@ -6,6 +6,8 @@ import {
   type UserPreference,
 } from "@staaash/db/client";
 
+import { AUTO_TIME_ZONE } from "@staaash/config/time-zone";
+
 import { AuthError } from "@/server/auth/errors";
 import type {
   AuthSession,
@@ -71,9 +73,13 @@ type ChangeRequiredPasswordParams = {
 
 type SavePreferencesParams = {
   userId: string;
-  theme: string;
-  timeZone: string;
-  showUpdateNotifications: boolean;
+  theme?: string;
+  timeZone?: string;
+  showUpdateNotifications?: boolean;
+  showFolderPreviews?: boolean;
+  startPage?: string;
+  defaultView?: string;
+  clockFormat?: string;
   onboardingCompletedAt?: Date;
   displayName?: string | null;
   avatarUrl?: string | null;
@@ -657,19 +663,33 @@ const createPrismaAuthRepository = (
         });
       }
 
+      // Only the ones a caller sends; the rest keep their stored value.
+      const prefs = Object.fromEntries(
+        (
+          [
+            "theme",
+            "timeZone",
+            "showUpdateNotifications",
+            "showFolderPreviews",
+            "startPage",
+            "defaultView",
+            "clockFormat",
+          ] as const
+        )
+          .filter((key) => params[key] !== undefined)
+          .map((key) => [key, params[key]]),
+      );
       const pref = await client.userPreference.upsert({
         where: { userId: params.userId },
         create: {
           userId: params.userId,
-          theme: params.theme,
-          timeZone: params.timeZone,
-          showUpdateNotifications: params.showUpdateNotifications,
+          // The column default is UTC; a new account follows its browser.
+          timeZone: AUTO_TIME_ZONE,
+          ...prefs,
           onboardingCompletedAt: params.onboardingCompletedAt ?? new Date(),
         },
         update: {
-          theme: params.theme,
-          timeZone: params.timeZone,
-          showUpdateNotifications: params.showUpdateNotifications,
+          ...prefs,
           ...(params.onboardingCompletedAt !== undefined
             ? { onboardingCompletedAt: params.onboardingCompletedAt }
             : {}),

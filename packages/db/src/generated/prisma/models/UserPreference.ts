@@ -667,7 +667,7 @@ export type $UserPreferencePayload<ExtArgs extends runtime.Types.Extensions.Inte
      */
     defaultView: string
     /**
-     * "auto" follows the browser's locale; otherwise "12h" or "24h".
+     * "12h" or "24h".
      */
     clockFormat: string
     onboardingCompletedAt: Date | null
