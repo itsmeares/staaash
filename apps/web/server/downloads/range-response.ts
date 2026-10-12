@@ -25,6 +25,58 @@ const parseSingleByteRange = (
   return { start, end };
 };
 
+/** The file's bytes, or one range of them; the handle closes when done. */
+const streamFile = (
+  fileHandle: FileHandle,
+  range?: { start: number; end: number },
+) => {
+  const nodeStream = fileHandle.createReadStream({
+    ...range,
+    highWaterMark: 512 * 1024,
+  });
+  nodeStream.on("close", () => {
+    fileHandle.close().catch(() => {});
+  });
+  return nodeStream as unknown as ReadableStream;
+};
+
+/**
+ * The whole file (no range asked), one range of it, or 416 when the range
+ * can't be served. `range` is null for a range header that didn't parse.
+ */
+export const respondWithFile = (
+  fileHandle: FileHandle,
+  sizeBytes: number,
+  headers: Record<string, string>,
+  range: { start: number; end: number } | null | undefined,
+) => {
+  if (range === undefined) {
+    return new Response(streamFile(fileHandle), {
+      status: 200,
+      headers: { ...headers, "content-length": String(sizeBytes) },
+    });
+  }
+  if (range === null) {
+    void fileHandle.close().catch(() => {});
+    return new Response("Range not satisfiable.", {
+      status: 416,
+      headers: {
+        "content-range": `bytes */${sizeBytes}`,
+        "content-type": "text/plain; charset=utf-8",
+      },
+    });
+  }
+  const { start, end } = range;
+  return new Response(streamFile(fileHandle, range), {
+    status: 206,
+    headers: {
+      ...headers,
+      "content-length": String(end - start + 1),
+      "content-range": `bytes ${start}-${end}/${sizeBytes}`,
+    },
+  });
+};
+
 export const createRangeResponseFromHandle = (
   request: Request,
   fileHandle: FileHandle,
@@ -40,45 +92,12 @@ export const createRangeResponseFromHandle = (
     "x-content-type-options": "nosniff",
   };
 
-  const createStream = (options?: { start: number; end: number }) => {
-    const nodeStream = fileHandle.createReadStream({
-      ...options,
-      highWaterMark: 512 * 1024,
-    });
-    nodeStream.on("close", () => {
-      fileHandle.close().catch(() => {});
-    });
-    return nodeStream as unknown as ReadableStream;
-  };
-
-  if (!rangeHeader) {
-    return new Response(createStream(), {
-      status: 200,
-      headers: { ...baseHeaders, "content-length": String(sizeBytes) },
-    });
-  }
-
-  const range = parseSingleByteRange(rangeHeader, sizeBytes);
-  if (!range) {
-    void fileHandle.close().catch(() => {});
-    return new Response("Range not satisfiable.", {
-      status: 416,
-      headers: {
-        "content-range": `bytes */${sizeBytes}`,
-        "content-type": "text/plain; charset=utf-8",
-      },
-    });
-  }
-
-  const { start, end } = range;
-  return new Response(createStream({ start, end }), {
-    status: 206,
-    headers: {
-      ...baseHeaders,
-      "content-length": String(end - start + 1),
-      "content-range": `bytes ${start}-${end}/${sizeBytes}`,
-    },
-  });
+  return respondWithFile(
+    fileHandle,
+    sizeBytes,
+    baseHeaders,
+    rangeHeader ? parseSingleByteRange(rangeHeader, sizeBytes) : undefined,
+  );
 };
 
 export const createRangeResponseFromPath = async (

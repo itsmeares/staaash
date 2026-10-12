@@ -144,6 +144,8 @@ const normalizeTemporaryPasswordInput = (
   };
 };
 
+// Exported for its unit tests.
+// fallow-ignore-next-line unused-export
 export const createAuthService = ({
   repo,
   crypto = authCrypto,
@@ -228,6 +230,14 @@ export const createAuthService = ({
     }
 
     return actor;
+  };
+
+  /** An admin looking up someone; missing people are an error. */
+  const requireUser = async (actorUserId: string, targetUserId: string) => {
+    await requireAdmin(actorUserId);
+    const user = await (await resolveRepo()).findUserById(targetUserId);
+    if (!user) throw new AuthError("USER_NOT_FOUND");
+    return user;
   };
 
   const requireOwner = async (actorUserId: string) => {
@@ -420,25 +430,10 @@ export const createAuthService = ({
       return (await resolveRepo()).listUsers();
     },
 
-    async getUser(actorUserId: string, targetUserId: string) {
-      await requireAdmin(actorUserId);
-      const user = await (await resolveRepo()).findUserById(targetUserId);
-
-      if (!user) {
-        throw new AuthError("USER_NOT_FOUND");
-      }
-
-      return user;
-    },
+    getUser: requireUser,
 
     async listUserSessions(actorUserId: string, targetUserId: string) {
-      await requireAdmin(actorUserId);
-      const user = await (await resolveRepo()).findUserById(targetUserId);
-
-      if (!user) {
-        throw new AuthError("USER_NOT_FOUND");
-      }
-
+      await requireUser(actorUserId, targetUserId);
       return (await resolveRepo()).listUserSessions(targetUserId);
     },
 

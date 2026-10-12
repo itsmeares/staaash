@@ -317,6 +317,8 @@ export type FilesRepository = {
   deleteFolders(folderIds: string[]): Promise<number>;
 };
 
+// Exported for its unit tests.
+// fallow-ignore-next-line unused-export
 export const createPrismaFilesRepository = (
   client?: FilesPrismaClient,
 ): FilesRepository => {

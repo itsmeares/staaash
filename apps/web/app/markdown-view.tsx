@@ -77,9 +77,16 @@ const components: Components = {
   ),
 };
 
-export default function MarkdownView({ text }: { text: string }) {
+export default function MarkdownView({
+  text,
+  className = "mx-auto max-w-[68ch] px-8 py-8",
+}: {
+  text: string;
+  /** The page around the text; the file viewer centers it with room. */
+  className?: string;
+}) {
   return (
-    <article className="mx-auto max-w-[68ch] px-8 py-8 text-body">
+    <article className={`text-body ${className}`}>
       <ReactMarkdown components={components} remarkPlugins={[remarkGfm]}>
         {text}
       </ReactMarkdown>

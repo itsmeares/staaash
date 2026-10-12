@@ -41,6 +41,8 @@ function getDeletedAt(value: Date | null, fallback: Date): string {
   return (value ?? fallback).toISOString();
 }
 
+// Exported for its unit tests.
+// fallow-ignore-next-line unused-export
 export function toTrashClientItem(
   item: TrashFolderSummary | TrashFileSummary,
 ): TrashClientItem {

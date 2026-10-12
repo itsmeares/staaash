@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { isFilesError } from "@/server/files/errors";
 import { filesService } from "@/server/files/service";
+import type { AuthUser } from "@/server/auth/types";
 import type { FilesListing } from "@/server/files/types";
 import { recordFolderAccessBestEffort } from "@/server/retrieval/recent-tracking";
 import { getShareBaseUrl } from "@/server/request";
@@ -21,6 +22,34 @@ type FilesFolderPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+/**
+ * The folder's listing, or the page that fits why it can't be shown:
+ * storage busy, missing, or someone else's (which reads as missing).
+ */
+const loadFolderListing = async (
+  user: { id: string; role: AuthUser["role"] },
+  folderId: string,
+): Promise<FilesListing> => {
+  try {
+    return await filesService.getFilesListing({
+      actorUserId: user.id,
+      actorRole: user.role,
+      folderId,
+    });
+  } catch (error) {
+    if (error instanceof StorageEntityUnavailableError) {
+      redirect(
+        `/files/storage-unavailable?folderId=${encodeURIComponent(folderId)}`,
+      );
+    }
+    if (!isFilesError(error)) throw error;
+    if (error.code === "FOLDER_NOT_FOUND" || error.code === "ACCESS_DENIED") {
+      notFound();
+    }
+    redirect(`/files?error=${encodeURIComponent(error.message)}`);
+  }
+};
+
 export default async function FilesFolderPage({
   params,
   searchParams,
@@ -35,60 +64,28 @@ export default async function FilesFolderPage({
     `/?next=${encodeURIComponent(`/files/f/${folderId}`)}`,
   );
 
-  try {
-    let listing: FilesListing;
-    try {
-      listing = await filesService.getFilesListing({
-        actorUserId: session.user.id,
-        actorRole: session.user.role,
-        folderId,
-      });
-    } catch (error) {
-      if (error instanceof StorageEntityUnavailableError) {
-        redirect(
-          `/files/storage-unavailable?folderId=${encodeURIComponent(folderId)}`,
-        );
-      }
-      throw error;
-    }
+  const listing = await loadFolderListing(session.user, folderId);
+  if (listing.currentFolder.isFilesRoot) redirect("/files");
 
-    if (listing.currentFolder.isFilesRoot) {
-      redirect("/files");
-    }
+  await recordFolderAccessBestEffort({
+    actorUserId: session.user.id,
+    actorRole: session.user.role,
+    folderId: listing.currentFolder.id,
+    source: "files-folder-page",
+  });
+  const props = await loadFilesViewProps({
+    actorUserId: session.user.id,
+    actorRole: session.user.role,
+    listing,
+    baseUrl,
+    showFolderPreviews: session.user.preferences?.showFolderPreviews ?? true,
+  });
 
-    await recordFolderAccessBestEffort({
-      actorUserId: session.user.id,
-      actorRole: session.user.role,
-      folderId: listing.currentFolder.id,
-      source: "files-folder-page",
-    });
-    const props = await loadFilesViewProps({
-      actorUserId: session.user.id,
-      actorRole: session.user.role,
-      listing,
-      baseUrl,
-      showFolderPreviews: session.user.preferences?.showFolderPreviews ?? true,
-    });
-
-    return (
-      <FilesView
-        {...props}
-        currentPath={`/files/f/${folderId}`}
-        searchParams={resolvedSearchParams}
-      />
-    );
-  } catch (error) {
-    // Someone else's folder reads as missing too, so it doesn't leak.
-    if (
-      isFilesError(error) &&
-      (error.code === "FOLDER_NOT_FOUND" || error.code === "ACCESS_DENIED")
-    ) {
-      notFound();
-    }
-    if (isFilesError(error)) {
-      redirect(`/files?error=${encodeURIComponent(error.message)}`);
-    }
-
-    throw error;
-  }
+  return (
+    <FilesView
+      {...props}
+      currentPath={`/files/f/${folderId}`}
+      searchParams={resolvedSearchParams}
+    />
+  );
 }

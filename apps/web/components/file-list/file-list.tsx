@@ -204,35 +204,60 @@ function FolderPeek({
   );
 }
 
+type PreviewItem = Pick<
+  FileListItem,
+  "kind" | "mimeType" | "icon" | "thumbnailUrl" | "color" | "previewUrls"
+>;
+
+const tintOf = (item: PreviewItem) =>
+  item.kind === "folder" ? (folderColorStyle(item.color)?.color ?? null) : null;
+
 export function ItemPreview({
   item,
   className,
   iconClassName = "size-10 [&_svg]:size-8",
   fit = "cover",
 }: {
-  item: Pick<
-    FileListItem,
-    "kind" | "mimeType" | "icon" | "thumbnailUrl" | "color" | "previewUrls"
-  >;
+  item: PreviewItem;
   className?: string;
   iconClassName?: string;
   fit?: "cover" | "contain";
+}) {
+  const tint = tintOf(item);
+  const peek = item.kind === "folder" ? (item.previewUrls ?? []) : [];
+  if (peek.length > 0) {
+    return <FolderPeek className={className} color={tint} urls={peek} />;
+  }
+  return (
+    <PreviewTile
+      className={className}
+      fit={fit}
+      iconClassName={iconClassName}
+      item={item}
+      tint={tint}
+    />
+  );
+}
+
+/** The thumbnail when there is one, the icon when it's missing or broken. */
+function PreviewTile({
+  item,
+  tint,
+  className,
+  iconClassName,
+  fit,
+}: {
+  item: PreviewItem;
+  tint: string | null;
+  className?: string;
+  iconClassName: string;
+  fit: "cover" | "contain";
 }) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const url =
     item.thumbnailUrl && item.thumbnailUrl !== failedUrl
       ? item.thumbnailUrl
       : null;
-  const tint = item.kind === "folder" ? folderColorStyle(item.color) : null;
-  if (item.kind === "folder" && item.previewUrls?.length) {
-    return (
-      <FolderPeek
-        className={className}
-        color={tint?.color ?? null}
-        urls={item.previewUrls}
-      />
-    );
-  }
   return (
     <span
       className={cn(
@@ -241,9 +266,7 @@ export function ItemPreview({
       )}
       style={
         tint
-          ? {
-              background: `color-mix(in oklab, ${tint.color} 16%, transparent)`,
-            }
+          ? { background: `color-mix(in oklab, ${tint} 16%, transparent)` }
           : undefined
       }
     >

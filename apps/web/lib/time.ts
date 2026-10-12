@@ -61,18 +61,6 @@ function formatShortDate(value: DateInput, timeZone: string) {
   return formatter.format(toDate(value));
 }
 
-export function getZonedHour(now: Date, timeZone: string) {
-  return (
-    Number(
-      new Intl.DateTimeFormat("en-GB", {
-        hour: "2-digit",
-        hourCycle: "h23",
-        timeZone,
-      }).format(now),
-    ) % 24
-  );
-}
-
 const plural = (count: number, unit: string) =>
   `${count} ${unit}${count === 1 ? "" : "s"} ago`;
 
@@ -141,4 +129,24 @@ export function getDateGroup(
   if (days <= daysSinceMonday) return "This week";
   if (days < 30) return "This month";
   return "Older";
+}
+
+const MINUTES_UNTIL: [unit: string, size: number, below: number][] = [
+  ["minute", 1, 60],
+  ["hour", 60, 24 * 60],
+  ["day", 24 * 60, 7 * 24 * 60],
+  ["week", 7 * 24 * 60, 9 * 7 * 24 * 60],
+  ["month", 30 * 24 * 60, 365 * 24 * 60],
+  ["year", 365 * 24 * 60, Infinity],
+];
+
+/** "5 minutes", "2 weeks": how long until a share link stops working. */
+export function formatTimeUntil(value: Date | string, now: Date): string {
+  const minutes = Math.ceil(
+    (new Date(value).getTime() - now.getTime()) / 60_000,
+  );
+  if (minutes <= 0) return "expired";
+  const [unit, size] = MINUTES_UNTIL.find(([, , below]) => minutes < below)!;
+  const count = Math.ceil(minutes / size);
+  return `${count} ${unit}${count === 1 ? "" : "s"}`;
 }

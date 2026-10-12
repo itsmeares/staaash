@@ -1,3 +1,5 @@
+// Mutation routes intentionally share origin, auth, and response guards.
+// fallow-ignore-file code-duplication
 import { NextRequest, NextResponse } from "next/server";
 
 import { getRequestSession } from "@/server/auth/guards";

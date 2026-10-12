@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  toFavoriteClientItem,
   filterFavoriteItems,
-  getFavoriteLocationLabel,
   getQuickAccessFavorites,
   sortFavoriteItems,
-  toFavoriteClientItem,
   type FavoriteClientItem,
 } from "@/app/(workspace)/favorites/favorites-helpers";
 import type { FavoriteRetrievalItem } from "@/server/retrieval/types";
@@ -63,8 +62,8 @@ const clientItem = (
 
 describe("favorites page helpers", () => {
   it("serializes retrieval items with favorite time and compact location", () => {
-    expect(getFavoriteLocationLabel(makeFile())).toBe("Design");
-    expect(getFavoriteLocationLabel(makeFolder())).toBe("/");
+    expect(toFavoriteClientItem(makeFile()).locationLabel).toBe("Design");
+    expect(toFavoriteClientItem(makeFolder()).locationLabel).toBe("/");
 
     expect(
       toFavoriteClientItem(

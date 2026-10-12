@@ -11,7 +11,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { formatDateTime } from "@/lib/time";
+import { formatDateTime, formatTimeUntil } from "@/lib/time";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { getShareBaseUrl } from "@/server/request";
 import { sharingService } from "@/server/sharing/service";
@@ -26,30 +26,6 @@ const shareStatusLabel = {
   revoked: "Revoked",
   "target-unavailable": "Unavailable",
 } as const;
-
-function getRelativeExpiry(expiresAt: Date | string): string {
-  const d = new Date(expiresAt);
-  const diffMs = d.getTime() - Date.now();
-  const diffSeconds = Math.ceil(diffMs / 1000);
-  if (diffSeconds <= 0) return "expired";
-  if (diffSeconds < 60)
-    return `${diffSeconds} second${diffSeconds === 1 ? "" : "s"}`;
-
-  const diffMinutes = Math.ceil(diffSeconds / 60);
-  if (diffMinutes < 60)
-    return `${diffMinutes} minute${diffMinutes === 1 ? "" : "s"}`;
-
-  const diffHours = Math.ceil(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? "" : "s"}`;
-
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays === 1) return "1 day";
-  if (diffDays < 7) return `${diffDays} days`;
-  if (diffDays < 60)
-    return `${Math.ceil(diffDays / 7)} week${Math.ceil(diffDays / 7) === 1 ? "" : "s"}`;
-  if (diffDays < 365) return `${Math.floor(diffDays / 30)} months`;
-  return `${Math.floor(diffDays / 365)}y`;
-}
 
 function getExpiryTone(
   expiresAt: Date | string,
@@ -89,7 +65,7 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
     canManage: share.status !== "target-unavailable",
     expiresLabel:
       share.status === "active"
-        ? getRelativeExpiry(share.expiresAt)
+        ? formatTimeUntil(share.expiresAt, new Date())
         : formatDateTime(share.expiresAt, userTimeZone),
     expiryTone:
       share.status === "active" ? getExpiryTone(share.expiresAt) : "default",

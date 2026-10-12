@@ -6,12 +6,12 @@ import {
 import type { RetrievalItem } from "@/server/retrieval/types";
 
 import {
-  compareWorkspaceStrings,
+  compareListItems,
   filterWorkspaceItems,
-  getWorkspaceLocationLabel,
   sortWorkspaceItems,
   type WorkspaceItemFilterType,
   type WorkspaceSortDirection,
+  toWorkspaceListFields,
 } from "../workspace-item-helpers";
 
 export type RecentClientItem = {
@@ -43,25 +43,11 @@ export type RecentGroup<T> = {
   items: T[];
 };
 
-export function getRecentLocationLabel(item: RetrievalItem): string {
-  return getWorkspaceLocationLabel(item);
-}
-
 export function toRecentClientItem(item: RetrievalItem): RecentClientItem {
   return {
-    folderId: item.kind === "file" ? item.folderId : undefined,
+    ...toWorkspaceListFields(item),
     deletedAt: item.deletedAt?.toISOString() ?? null,
-    href: item.href,
-    id: item.id,
     isFavorite: item.isFavorite,
-    kind: item.kind,
-    color: item.kind === "folder" ? (item.color ?? null) : undefined,
-    locationLabel: getRecentLocationLabel(item),
-    mimeType: item.kind === "file" ? item.mimeType : undefined,
-    name: item.name,
-    parentId: item.kind === "folder" ? item.parentId : undefined,
-    sizeBytes: item.kind === "file" ? item.sizeBytes : undefined,
-    storageMutationStatus: item.storageMutation?.status,
     uploadedAt: item.updatedAt.toISOString(),
   };
 }
@@ -78,20 +64,11 @@ export function sortRecentItems(
   sortKey: RecentSortKey,
   sortDirection: RecentSortDirection,
 ): RecentClientItem[] {
-  return sortWorkspaceItems(items, sortDirection, (left, right) => {
-    if (sortKey === "name") {
-      return compareWorkspaceStrings(left.name, right.name);
-    }
-    if (sortKey === "path") {
-      return compareWorkspaceStrings(left.locationLabel, right.locationLabel);
-    }
-    if (sortKey === "size") {
-      return (left.sizeBytes ?? -1) - (right.sizeBytes ?? -1);
-    }
-    return (
-      new Date(left.uploadedAt).getTime() - new Date(right.uploadedAt).getTime()
-    );
-  });
+  return sortWorkspaceItems(
+    items,
+    sortDirection,
+    compareListItems(sortKey, (item: RecentClientItem) => item.uploadedAt),
+  );
 }
 
 export function groupRecentItems<T extends { uploadedAt: string }>(

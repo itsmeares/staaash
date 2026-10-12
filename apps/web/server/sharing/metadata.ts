@@ -128,6 +128,8 @@ const buildGenericShareMetadata = ({
   };
 };
 
+// Exported for its unit tests.
+// fallow-ignore-next-line unused-export
 export const buildShareMetadata = ({
   baseUrl,
   instanceName: rawInstanceName,

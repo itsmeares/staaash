@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { formatRelativeTime } from "@/lib/time";
 
-import { formatHomeExpiryTime } from "@/app/(workspace)/home/home-helpers";
+import { formatTimeUntil } from "@/lib/time";
 
 describe("home dashboard helpers", () => {
   it("formats relative time labels", () => {
@@ -28,17 +28,10 @@ describe("home dashboard helpers", () => {
   it("formats future expiry labels", () => {
     const now = new Date("2026-05-16T12:00:00.000Z");
 
-    expect(formatHomeExpiryTime("2026-05-16T12:05:00.000Z", now)).toBe(
-      "5 mins",
-    );
-    expect(formatHomeExpiryTime("2026-05-16T14:00:00.000Z", now)).toBe(
-      "2 hours",
-    );
-    expect(formatHomeExpiryTime("2026-05-20T12:00:00.000Z", now)).toBe(
-      "4 days",
-    );
-    expect(formatHomeExpiryTime("2026-05-15T12:00:00.000Z", now)).toBe(
-      "expired",
-    );
+    expect(formatTimeUntil("2026-05-16T12:05:00.000Z", now)).toBe("5 minutes");
+    expect(formatTimeUntil("2026-05-16T14:00:00.000Z", now)).toBe("2 hours");
+    expect(formatTimeUntil("2026-05-20T12:00:00.000Z", now)).toBe("4 days");
+    expect(formatTimeUntil("2026-06-13T12:00:00.000Z", now)).toBe("4 weeks");
+    expect(formatTimeUntil("2026-05-15T12:00:00.000Z", now)).toBe("expired");
   });
 });

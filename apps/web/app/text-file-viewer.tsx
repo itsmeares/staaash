@@ -10,10 +10,68 @@ import { cn } from "@/lib/utils";
 
 // Only markdown files pay for the renderer.
 const MarkdownView = dynamic(() => import("./markdown-view"), {
-  loading: () => <p className="m-0 p-6 text-muted-foreground">Loading…</p>,
+  loading: () => <Note>Loading…</Note>,
 });
 
 const isMarkdown = (name: string) => /\.(md|markdown|mdown)$/i.test(name);
+
+/** The file's text, or null while it loads; "failed" if it couldn't. */
+function useFileText(href: string) {
+  const [text, setText] = useState<string | null | "failed">(null);
+  useEffect(() => {
+    fetch(href)
+      .then((response) => response.text())
+      .then(setText)
+      .catch(() => setText("failed"));
+  }, [href]);
+  return text;
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <Button
+      size="sm"
+      variant="ghost-muted"
+      onClick={async () => {
+        await navigator.clipboard.writeText(text).catch(() => undefined);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+    >
+      {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
+      {copied ? "Copied" : "Copy"}
+    </Button>
+  );
+}
+
+/** Numbered lines; long ones wrap unless Wrap is off. */
+function CodeView({ text, wrap }: { text: string; wrap: boolean }) {
+  const lines = text.replace(/\n$/, "").split("\n");
+  return (
+    <pre className="m-0 grid grid-cols-[auto_1fr] py-3 font-mono text-[13px] leading-relaxed">
+      {lines.map((line, index) => (
+        <code className="contents" key={index}>
+          <span className="px-4 text-right text-muted-foreground tabular-nums select-none">
+            {index + 1}
+          </span>
+          <span
+            className={cn(
+              "pe-4",
+              wrap ? "break-words whitespace-pre-wrap" : "whitespace-pre",
+            )}
+          >
+            {line || " "}
+          </span>
+        </code>
+      ))}
+    </pre>
+  );
+}
+
+const Note = ({ children }: { children: string }) => (
+  <p className="m-0 p-6 text-muted-foreground">{children}</p>
+);
 
 /** Text files: a code view with line numbers; markdown opens formatted. */
 export function TextFileViewer({
@@ -24,38 +82,14 @@ export function TextFileViewer({
   name: string;
 }) {
   const markdown = isMarkdown(name);
-  const [text, setText] = useState<string | null>(null);
-  const [failed, setFailed] = useState(false);
+  const text = useFileText(contentHref);
   const [mode, setMode] = useState<"formatted" | "source">(
     markdown ? "formatted" : "source",
   );
   const [wrap, setWrap] = useState(true);
-  const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    fetch(contentHref)
-      .then((response) => response.text())
-      .then(setText)
-      .catch(() => setFailed(true));
-  }, [contentHref]);
-
-  if (failed) {
-    return (
-      <p className="m-0 p-6 text-muted-foreground">
-        This file could not be loaded.
-      </p>
-    );
-  }
-  if (text === null) {
-    return <p className="m-0 p-6 text-muted-foreground">Loading…</p>;
-  }
-
-  const lines = text.replace(/\n$/, "").split("\n");
-  const copy = async () => {
-    await navigator.clipboard.writeText(text).catch(() => undefined);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
+  if (text === "failed") return <Note>This file could not be loaded.</Note>;
+  if (text === null) return <Note>Loading…</Note>;
 
   return (
     <div className="flex min-h-0 w-full flex-col">
@@ -85,32 +119,13 @@ export function TextFileViewer({
             Wrap
           </Button>
         ) : null}
-        <Button size="sm" variant="ghost-muted" onClick={() => void copy()}>
-          {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
-          {copied ? "Copied" : "Copy"}
-        </Button>
+        <CopyButton text={text} />
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
         {mode === "formatted" ? (
           <MarkdownView text={text} />
         ) : (
-          <pre className="m-0 grid grid-cols-[auto_1fr] py-3 font-mono text-[13px] leading-relaxed">
-            {lines.map((line, index) => (
-              <code className="contents" key={index}>
-                <span className="px-4 text-right text-muted-foreground tabular-nums select-none">
-                  {index + 1}
-                </span>
-                <span
-                  className={cn(
-                    "pe-4",
-                    wrap ? "break-words whitespace-pre-wrap" : "whitespace-pre",
-                  )}
-                >
-                  {line || " "}
-                </span>
-              </code>
-            ))}
-          </pre>
+          <CodeView text={text} wrap={wrap} />
         )}
       </div>
     </div>

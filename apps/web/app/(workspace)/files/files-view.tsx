@@ -239,6 +239,29 @@ const isBatchMoveOperationResponse = (
   );
 };
 
+/**
+ * Many items or a folder go as a zip. A file the browser can't show isn't
+ * offered alone, since Open already downloads it.
+ */
+const pickDownload = (choice: {
+  many: boolean;
+  viewable: boolean;
+  all: () => void;
+  one: () => void;
+}) => (choice.many ? choice.all : choice.viewable ? choice.one : undefined);
+
+/** A file or folder's name from what this page already loaded. */
+const nameInListing = (
+  listing: FilesListing,
+  kind: "file" | "folder",
+  id: string,
+) =>
+  kind === "file"
+    ? listing.files.find((file) => file.id === id)?.name
+    : [listing.currentFolder, ...listing.childFolders].find(
+        (folder) => folder.id === id,
+      )?.name;
+
 export function FilesView({
   listing,
   currentPath,
@@ -1306,19 +1329,12 @@ export function FilesView({
   };
 
   const handleShare = (targetType: "file" | "folder", targetId: string) => {
-    const share =
-      targetType === "file"
-        ? (shareLookup.sharesByFileId[targetId] ?? null)
-        : (shareLookup.sharesByFolderId[targetId] ?? null);
-    const name =
-      targetType === "file"
-        ? listing.files.find((file) => file.id === targetId)?.name
-        : (listing.childFolders.find((folder) => folder.id === targetId)
-            ?.name ??
-          (listing.currentFolder.id === targetId
-            ? listing.currentFolder.name
-            : undefined));
-    setShareDialogTarget({ targetType, targetId, share, name });
+    setShareDialogTarget({
+      targetType,
+      targetId,
+      share: shareFor(targetType, targetId),
+      name: nameInListing(listing, targetType, targetId),
+    });
   };
   // ---------------------------------------------------------------------------
   // Upload
@@ -1769,13 +1785,14 @@ export function FilesView({
   const getActions = (item: FilesListItem) => {
     const targets = getInteractionItems(item.id, item.kind);
     const bulk = targets.length > 1;
-    const isFavorite =
-      item.kind === "folder"
-        ? favoriteFolderSet.has(item.id)
-        : favoriteFileSet.has(item.id);
+    const isFavorite = (
+      item.kind === "folder" ? favoriteFolderSet : favoriteFileSet
+    ).has(item.id);
     const viewable =
       item.kind === "folder" ||
       ("viewerKind" in item.data && Boolean(item.data.viewerKind));
+    const downloadAll = () =>
+      void handleDownload(targets.map((target) => target.id));
     return buildItemActions({
       name: item.name,
       kind: item.kind,
@@ -1786,14 +1803,12 @@ export function FilesView({
         manage: shareFor(item.kind, item.id) !== null,
         run: () => handleShare(item.kind, item.id),
       },
-      download: viewable
-        ? () =>
-            bulk || item.kind === "folder"
-              ? void handleDownload(targets.map((target) => target.id))
-              : void downloadFile(item.id)
-        : bulk
-          ? () => void handleDownload(targets.map((target) => target.id))
-          : undefined,
+      download: pickDownload({
+        many: bulk || item.kind === "folder",
+        viewable,
+        all: downloadAll,
+        one: () => void downloadFile(item.id),
+      }),
       rename: () => beginRename(item.id, item.name),
       color:
         item.kind === "folder"

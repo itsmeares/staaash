@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { ArrowRight, ExternalLink, RotateCw, Zap } from "lucide-react";
 import {
   createContext,
@@ -29,6 +30,9 @@ import { toastManager } from "@/components/ui/toast";
 import { subscribeLive } from "@/lib/live-events";
 import { formatDateTime, formatRelativeTime } from "@/lib/time";
 import { checkForUpdatesNow } from "@/lib/update-check-client";
+
+// Notes are opened rarely; the renderer loads when they are.
+const MarkdownView = dynamic(() => import("@/app/markdown-view"));
 import { getUpdateStatusLabel, type UpdateState } from "@/lib/update-status";
 
 type UpdatesContext = {
@@ -64,61 +68,6 @@ const leadLine = (notes: string) =>
         .trim(),
     )
     .find((line) => line.length > 12) ?? null;
-
-/**
- * Release notes are markdown. This draws headings, lists, links and
- * paragraphs as plain elements, which covers what release notes use.
- */
-function ReleaseNotesText({ notes }: { notes: string }) {
-  const blocks: ReactNode[] = [];
-  let list: string[] = [];
-  const inline = (text: string) =>
-    text.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/(\*\*|__|`)/g, "");
-  const flush = () => {
-    if (list.length === 0) return;
-    blocks.push(
-      <ul className="m-0 grid list-disc gap-1 ps-5" key={blocks.length}>
-        {list.map((item, index) => (
-          <li key={index}>{inline(item)}</li>
-        ))}
-      </ul>,
-    );
-    list = [];
-  };
-  for (const raw of notes.split("\n")) {
-    const line = raw.trim();
-    if (/^[-*] /.test(line)) {
-      list.push(line.slice(2));
-      continue;
-    }
-    flush();
-    if (!line) continue;
-    if (line.startsWith("#")) {
-      blocks.push(
-        <h3
-          className="m-0 mt-2 font-sans text-body font-semibold"
-          key={blocks.length}
-        >
-          {inline(line.replace(/^#+\s*/, ""))}
-        </h3>,
-      );
-    } else {
-      blocks.push(
-        <p className="m-0" key={blocks.length}>
-          {inline(line)}
-        </p>,
-      );
-    }
-  }
-  flush();
-  return blocks.length > 0 ? (
-    <div className="grid gap-2 text-body text-foreground/90">{blocks}</div>
-  ) : (
-    <p className="m-0 text-body text-muted-foreground">
-      No notes for this release.
-    </p>
-  );
-}
 
 // Release notes show whatever each release carries: name, date, link, notes.
 // fallow-ignore-next-line complexity
@@ -180,7 +129,16 @@ function ReleaseNotesDialog({
                   </span>
                 ) : null}
               </div>
-              <ReleaseNotesText notes={release.notes} />
+              {release.notes.trim() ? (
+                <MarkdownView
+                  className="[&>:first-child]:mt-0"
+                  text={release.notes}
+                />
+              ) : (
+                <p className="m-0 text-body text-muted-foreground">
+                  No notes for this release.
+                </p>
+              )}
             </article>
           ) : (
             <p className="m-0 text-body text-muted-foreground">

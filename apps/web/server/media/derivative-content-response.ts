@@ -27,6 +27,7 @@ import {
   createInlineOriginalContentResponse,
   parseSingleByteRange,
 } from "./content-response";
+import { respondWithFile } from "@/server/downloads/range-response";
 
 type DerivativeRow = {
   id: string;
@@ -100,53 +101,24 @@ const serveDerivativeBytes = async (
       "x-content-type-options": "nosniff",
     };
 
-    const createStream = (options?: { start: number; end: number }) => {
-      const nodeStream = fileHandle!.createReadStream({
-        ...options,
-        highWaterMark: 512 * 1024,
-      });
-      nodeStream.on("close", () => {
-        fileHandle!.close().catch(() => {});
-      });
-      return nodeStream;
+    const parseRange = (header: string) => {
+      try {
+        return parseSingleByteRange(header, sizeBytes, {
+          openEndedRangeBytes: mimeType.toLowerCase().startsWith("video/")
+            ? INLINE_MEDIA_OPEN_ENDED_RANGE_BYTES
+            : undefined,
+        });
+      } catch {
+        return null;
+      }
     };
 
-    if (!rangeHeader) {
-      return new Response(createStream() as unknown as BodyInit, {
-        status: 200,
-        headers: { ...baseHeaders, "content-length": String(sizeBytes) },
-      });
-    }
-
-    let range: { start: number; end: number };
-    try {
-      range = parseSingleByteRange(rangeHeader, sizeBytes, {
-        openEndedRangeBytes: mimeType.toLowerCase().startsWith("video/")
-          ? INLINE_MEDIA_OPEN_ENDED_RANGE_BYTES
-          : undefined,
-      });
-    } catch {
-      await fileHandle.close();
-      return new Response("Range not satisfiable.", {
-        status: 416,
-        headers: {
-          "content-range": `bytes */${sizeBytes}`,
-          "content-type": "text/plain; charset=utf-8",
-        },
-      });
-    }
-
-    const { start, end } = range;
-    const contentLength = end - start + 1;
-
-    return new Response(createStream({ start, end }) as unknown as BodyInit, {
-      status: 206,
-      headers: {
-        ...baseHeaders,
-        "content-length": String(contentLength),
-        "content-range": `bytes ${start}-${end}/${sizeBytes}`,
-      },
-    });
+    return respondWithFile(
+      fileHandle,
+      sizeBytes,
+      baseHeaders,
+      rangeHeader ? parseRange(rangeHeader) : undefined,
+    );
   } catch (error) {
     try {
       await fileHandle.close();

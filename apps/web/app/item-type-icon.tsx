@@ -12,7 +12,7 @@ import type { CSSProperties } from "react";
 
 import type { ItemVisual, ItemVisualKind } from "@/app/item-visuals";
 
-export const itemVisualIconMap: Record<ItemVisualKind, LucideIcon> = {
+const itemVisualIconMap: Record<ItemVisualKind, LucideIcon> = {
   archive: Archive,
   audio: Music,
   file: File,

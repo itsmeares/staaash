@@ -115,6 +115,38 @@ export type AuthRepository = {
   savePreferences(params: SavePreferencesParams): Promise<UserPreferences>;
 };
 
+const isMissingRecord = (error: unknown) =>
+  error instanceof Prisma.PrismaClientKnownRequestError &&
+  error.code === "P2025";
+
+/**
+ * A new password and every other session signed out, in one transaction,
+ * so a stolen session can't outlive the password it was opened with.
+ */
+const replacePassword = (
+  client: AuthPrismaClient,
+  userId: string,
+  now: Date,
+  data: Prisma.UserUpdateInput,
+  keepSessionId?: string,
+) =>
+  client.$transaction(async (tx: Prisma.TransactionClient) => {
+    const user = await tx.user.update({
+      where: { id: userId },
+      data,
+      include: { preferences: true },
+    });
+    await tx.session.updateMany({
+      where: {
+        userId,
+        revokedAt: null,
+        ...(keepSessionId ? { id: { not: keepSessionId } } : {}),
+      },
+      data: { revokedAt: now },
+    });
+    return toAuthUser(user);
+  });
+
 const toUserRole = (user: Pick<User, "isOwner" | "isAdmin">) =>
   user.isOwner ? "owner" : user.isAdmin ? "admin" : "member";
 
@@ -456,94 +488,38 @@ const createPrismaAuthRepository = (
     },
 
     async setTemporaryPassword(params) {
-      const client = getClient();
-
       try {
-        return await client.$transaction(
-          async (tx: Prisma.TransactionClient) => {
-            const user = await tx.user.update({
-              where: { id: params.userId },
-              data: {
-                passwordHash: params.passwordHash,
-                passwordChangeRequiredAt: params.requirePasswordChange
-                  ? params.now
-                  : null,
-                temporaryPasswordIssuedAt: params.now,
-                temporaryPasswordIssuedByUserId: params.issuedByUserId,
-              },
-              include: {
-                preferences: true,
-              },
-            });
-
-            await tx.session.updateMany({
-              where: {
-                userId: params.userId,
-                revokedAt: null,
-              },
-              data: {
-                revokedAt: params.now,
-              },
-            });
-
-            return toAuthUser(user);
-          },
-        );
+        return await replacePassword(getClient(), params.userId, params.now, {
+          passwordHash: params.passwordHash,
+          passwordChangeRequiredAt: params.requirePasswordChange
+            ? params.now
+            : null,
+          temporaryPasswordIssuedAt: params.now,
+          temporaryPasswordIssuedByUserId: params.issuedByUserId,
+        });
       } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === "P2025"
-        ) {
-          throw new AuthError("USER_NOT_FOUND");
-        }
+        if (isMissingRecord(error)) throw new AuthError("USER_NOT_FOUND");
         throw error;
       }
     },
 
     async changeRequiredPassword(params) {
-      const client = getClient();
-
       try {
-        return await client.$transaction(
-          async (tx: Prisma.TransactionClient) => {
-            const user = await tx.user.update({
-              where: { id: params.userId },
-              data: {
-                passwordHash: params.passwordHash,
-                passwordChangeRequiredAt: null,
-                temporaryPasswordIssuedAt: null,
-                temporaryPasswordIssuedByUserId: null,
-                updatedAt: params.now,
-              },
-              include: {
-                preferences: true,
-              },
-            });
-
-            await tx.session.updateMany({
-              where: {
-                userId: params.userId,
-                revokedAt: null,
-                id: {
-                  not: params.currentSessionId,
-                },
-              },
-              data: {
-                revokedAt: params.now,
-              },
-            });
-
-            return toAuthUser(user);
+        return await replacePassword(
+          getClient(),
+          params.userId,
+          params.now,
+          {
+            passwordHash: params.passwordHash,
+            passwordChangeRequiredAt: null,
+            temporaryPasswordIssuedAt: null,
+            temporaryPasswordIssuedByUserId: null,
+            updatedAt: params.now,
           },
+          params.currentSessionId,
         );
       } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === "P2025"
-        ) {
-          return null;
-        }
-
+        if (isMissingRecord(error)) return null;
         throw error;
       }
     },

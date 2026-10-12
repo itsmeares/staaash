@@ -8,6 +8,7 @@ import { getInitials } from "@/lib/user";
 import { authService } from "@/server/auth/service";
 import { resolveAppVersion } from "@/server/app-version";
 import { getCurrentSession } from "@/server/auth/session";
+import type { AuthUser } from "@/server/auth/types";
 import { getUpdateState } from "@/server/admin/updates";
 import { DefaultViewProvider } from "@/components/file-list/use-view-mode";
 import { TimeRoot } from "@/server/time-zone";
@@ -22,6 +23,46 @@ import { WorkspaceMobileNav } from "./workspace-mobile-nav";
 
 export const dynamic = "force-dynamic";
 
+/** The signed-in person as the top bar and menus show them. */
+const personOf = (user: AuthUser) => {
+  const {
+    theme = "system",
+    defaultView,
+    showUpdateNotifications = true,
+  } = user.preferences ?? {};
+  return {
+    label: user.displayName ?? user.email,
+    email: user.email,
+    initials: getInitials(user.displayName, user.email),
+    avatarUrl: user.avatarUrl,
+    theme: theme as "light" | "dark" | "system",
+    defaultView,
+    notify: showUpdateNotifications,
+  };
+};
+
+/** What the sidebar and top bar show: the drive, its space, and the version. */
+const loadShell = async (user: AuthUser) => {
+  const isOwner = user.isAdmin;
+  const [usage, diskInfo, updateState, setupState] = await Promise.all([
+    getUserStorageUsed(user.id),
+    getInstanceDiskInfo(),
+    // Update news is for owners; members only see the version.
+    isOwner ? getUpdateState().catch(() => null) : null,
+    authService.getSetupState(),
+  ]);
+  const info: ShellInfo = {
+    instanceName: setupState.instanceName?.trim() || "Staaash",
+    isOwner,
+    appVersion: resolveAppVersion(),
+    usedBytes: usage.usedBytes.toString(),
+    limitBytes: user.storageLimitBytes?.toString() ?? null,
+    diskUsedBytes: diskInfo?.usedBytes?.toString() ?? null,
+    diskCapacityBytes: diskInfo?.capacityBytes?.toString() ?? null,
+  };
+  return { info, updateState, person: personOf(user) };
+};
+
 export default async function WorkspaceLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
@@ -29,39 +70,16 @@ export default async function WorkspaceLayout({
   // Signed-out visitors only reach here on a wrong address; that page is
   // the halftone, not an empty drive.
   if (!session) return children;
-  const userLabel = session.user.displayName ?? session.user.email;
-
-  const isOwner = session.user.isAdmin;
-  const [usage, diskInfo, updateState, setupState] = await Promise.all([
-    getUserStorageUsed(session.user.id),
-    getInstanceDiskInfo(),
-    // Update news is for owners; members only see the version.
-    isOwner ? getUpdateState().catch(() => null) : null,
-    authService.getSetupState(),
-  ]);
-
-  const appVersion = resolveAppVersion();
-
-  const info: ShellInfo = {
-    instanceName: setupState.instanceName?.trim() || "Staaash",
-    isOwner,
-    appVersion,
-    usedBytes: usage.usedBytes.toString(),
-    limitBytes: session.user.storageLimitBytes?.toString() ?? null,
-    diskUsedBytes: diskInfo?.usedBytes?.toString() ?? null,
-    diskCapacityBytes: diskInfo?.capacityBytes?.toString() ?? null,
-  };
-
-  const initials = getInitials(session.user.displayName, session.user.email);
+  const { info, updateState, person } = await loadShell(session.user);
 
   return (
     <TimeRoot user={session.user}>
-      <DefaultViewProvider value={session.user.preferences?.defaultView}>
+      <DefaultViewProvider value={person.defaultView}>
         <UpdatesProvider
-          appVersion={appVersion}
+          appVersion={info.appVersion}
           initialState={updateState}
           nodeVersion={process.version}
-          notify={session.user.preferences?.showUpdateNotifications ?? true}
+          notify={person.notify}
         >
           <SkipLink />
           <div className="grid h-dvh w-full grid-cols-1 overflow-hidden bg-background lg:grid-cols-[var(--spacing-sidebar)_minmax(0,1fr)]">
@@ -79,15 +97,12 @@ export default async function WorkspaceLayout({
                 <WorkspaceSearch />
                 <div className="ms-auto">
                   <TopbarActions
-                    userLabel={userLabel}
-                    email={session.user.email}
-                    initials={initials}
+                    userLabel={person.label}
+                    email={person.email}
+                    initials={person.initials}
                     isOwner={info.isOwner}
-                    avatarUrl={session.user.avatarUrl ?? null}
-                    initialTheme={
-                      (session.user.preferences?.theme as
-                        "light" | "dark" | "system") ?? "system"
-                    }
+                    avatarUrl={person.avatarUrl}
+                    initialTheme={person.theme}
                   />
                 </div>
               </header>
@@ -104,10 +119,10 @@ export default async function WorkspaceLayout({
           </div>
           <WorkspaceMobileNav
             info={info}
-            avatarUrl={session.user.avatarUrl ?? null}
-            initials={initials}
-            userLabel={userLabel}
-            email={session.user.email}
+            avatarUrl={person.avatarUrl}
+            initials={person.initials}
+            userLabel={person.label}
+            email={person.email}
           />
           <ShortcutsDialog />
 

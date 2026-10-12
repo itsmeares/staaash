@@ -952,6 +952,67 @@ function JobDetailsModal({
   );
 }
 
+/** The details panel's state, and the selected run's events as they load. */
+function useJobDetails() {
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [history, setHistory] = useState<JsonBackgroundJob[] | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [selectedHistoryJobId, setSelectedHistoryJobId] = useState<
+    string | null
+  >(null);
+  const [events, setEvents] = useState<JsonJobEvent[] | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!detailsOpen || !selectedHistoryJobId) return;
+
+    let cancelled = false;
+    setEvents(null);
+    void fetch(`/api/admin/jobs/${selectedHistoryJobId}/events`)
+      .then(async (res) => {
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        setEvents(data.items ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setEvents([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [detailsOpen, selectedHistoryJobId]);
+
+  return {
+    detailsOpen,
+    setDetailsOpen,
+    history,
+    setHistory,
+    historyLoading,
+    setHistoryLoading,
+    selectedHistoryJobId,
+    setSelectedHistoryJobId,
+    events,
+    actionError,
+    setActionError,
+  };
+}
+
+/** Retry or cancel one run; the server's message when it refuses. */
+async function sendJobAction(jobId: string, action: "retry" | "cancel") {
+  const res = await fetch(`/api/admin/jobs/${jobId}/${action}`, {
+    method: "POST",
+  });
+  if (res.ok) return null;
+  const body = (await res.json().catch(() => null)) as {
+    error?: string;
+  } | null;
+  return body?.error ?? `Request failed (${res.status}).`;
+}
+
+// One row per job kind with its run, history and details; the logic is in
+// the helpers above, what's left is wiring.
+// fallow-ignore-next-line complexity
 function JobTaskCard({
   derivativeActions,
   derivatives,
@@ -976,14 +1037,19 @@ function JobTaskCard({
   const canRunManually = MANUAL_RUN_JOB_KINDS.has(kind);
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [history, setHistory] = useState<JsonBackgroundJob[] | null>(null);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [selectedHistoryJobId, setSelectedHistoryJobId] = useState<
-    string | null
-  >(null);
-  const [events, setEvents] = useState<JsonJobEvent[] | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const {
+    detailsOpen,
+    setDetailsOpen,
+    history,
+    setHistory,
+    historyLoading,
+    setHistoryLoading,
+    selectedHistoryJobId,
+    setSelectedHistoryJobId,
+    events,
+    actionError,
+    setActionError,
+  } = useJobDetails();
 
   const displayStatus = lastRun
     ? getJobDisplayStatus(lastRun, workerRunningJobIds)
@@ -996,26 +1062,6 @@ function JobTaskCard({
   });
   const primaryActionIsCommand =
     primaryActionLabel === "Run now" || primaryActionLabel === "Retry";
-
-  useEffect(() => {
-    if (!detailsOpen || !selectedHistoryJobId) return;
-
-    let cancelled = false;
-    setEvents(null);
-    void fetch(`/api/admin/jobs/${selectedHistoryJobId}/events`)
-      .then(async (res) => {
-        if (!res.ok || cancelled) return;
-        const data = await res.json();
-        setEvents(data.items ?? []);
-      })
-      .catch(() => {
-        if (!cancelled) setEvents([]);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [detailsOpen, selectedHistoryJobId]);
 
   useEffect(() => {
     if (!detailsOpen || !lastRun) return;
@@ -1095,12 +1141,8 @@ function JobTaskCard({
   const postJobAction = async (jobId: string, action: "retry" | "cancel") => {
     setActionError(null);
     setRunError(null);
-    const res = await fetch(`/api/admin/jobs/${jobId}/${action}`, {
-      method: "POST",
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => null);
-      const message = body?.error ?? `Request failed (${res.status}).`;
+    const message = await sendJobAction(jobId, action);
+    if (message) {
       setActionError(message);
       setRunError(message);
       return;
@@ -1324,15 +1366,20 @@ function JobActivityPanel({
   });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedKind, setSelectedKind] = useState<string | null>(null);
-  const [history, setHistory] = useState<JsonBackgroundJob[] | null>(null);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [selectedHistoryJobId, setSelectedHistoryJobId] = useState<
-    string | null
-  >(null);
-  const [events, setEvents] = useState<JsonJobEvent[] | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const {
+    detailsOpen,
+    setDetailsOpen,
+    history,
+    setHistory,
+    historyLoading,
+    setHistoryLoading,
+    selectedHistoryJobId,
+    setSelectedHistoryJobId,
+    events,
+    actionError,
+    setActionError,
+  } = useJobDetails();
 
   const selectedHistoryJob =
     history?.find((job) => job.id === selectedHistoryJobId) ??
@@ -1424,26 +1471,6 @@ function JobActivityPanel({
     );
   }, [liveJobs, selectedHistoryJobId]);
 
-  useEffect(() => {
-    if (!detailsOpen || !selectedHistoryJobId) return;
-
-    let cancelled = false;
-    setEvents(null);
-    void fetch(`/api/admin/jobs/${selectedHistoryJobId}/events`)
-      .then(async (res) => {
-        if (!res.ok || cancelled) return;
-        const data = await res.json();
-        setEvents(data.items ?? []);
-      })
-      .catch(() => {
-        if (!cancelled) setEvents([]);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [detailsOpen, selectedHistoryJobId]);
-
   const refreshActivity = async () => {
     const data = await fetchActivityJobs({
       filter,
@@ -1487,12 +1514,9 @@ function JobActivityPanel({
   const postJobAction = async (jobId: string, action: "retry" | "cancel") => {
     if (!selectedKind) return;
     setActionError(null);
-    const res = await fetch(`/api/admin/jobs/${jobId}/${action}`, {
-      method: "POST",
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => null);
-      setActionError(body?.error ?? `Request failed (${res.status}).`);
+    const message = await sendJobAction(jobId, action);
+    if (message) {
+      setActionError(message);
       return;
     }
     await Promise.all([refreshActivity(), refreshHistory(selectedKind, jobId)]);

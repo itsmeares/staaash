@@ -4,12 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DateTime, TimeProvider, useTime } from "@/components/time-provider";
 import { TimeZonePicker } from "@/components/time-zone-picker";
-import {
-  formatDateTime,
-  formatRelativeTime,
-  getDateGroup,
-  getZonedHour,
-} from "@/lib/time";
+import { formatDateTime, formatRelativeTime, getDateGroup } from "@/lib/time";
 
 describe("formatRelativeTime", () => {
   const now = new Date("2026-05-19T12:00:00.000Z");
@@ -126,12 +121,6 @@ describe("zoned formatting", () => {
     expect(formatDateTime(value, "UTC", "12h")).toMatch(
       /^1 Jul 2026, 12:00\spm$/i,
     );
-  });
-
-  it("reads the hour in the requested zone", () => {
-    const now = new Date("2026-07-01T23:30:00.000Z");
-    expect(getZonedHour(now, "UTC")).toBe(23);
-    expect(getZonedHour(now, "Asia/Tokyo")).toBe(8);
   });
 });
 

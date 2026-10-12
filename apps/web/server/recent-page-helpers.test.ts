@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  toRecentClientItem,
   filterRecentItems,
-  getRecentLocationLabel,
   groupRecentItems,
   sortRecentItems,
-  toRecentClientItem,
   type RecentClientItem,
 } from "@/app/(workspace)/recent/recent-helpers";
 import type { RetrievalItem } from "@/server/retrieval/types";
@@ -60,8 +59,8 @@ const clientItem = (
 
 describe("recent page helpers", () => {
   it("serializes retrieval items with compact location labels", () => {
-    expect(getRecentLocationLabel(makeFile())).toBe("Design");
-    expect(getRecentLocationLabel(makeFolder())).toBe("/");
+    expect(toRecentClientItem(makeFile()).locationLabel).toBe("Design");
+    expect(toRecentClientItem(makeFolder()).locationLabel).toBe("/");
 
     expect(
       toRecentClientItem(

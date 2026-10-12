@@ -14,7 +14,7 @@ import {
 } from "@/components/file-list/file-list";
 import { MiddleName } from "@/components/file-list/middle-name";
 import { useItemSelection } from "@/components/file-list/use-list-selection";
-import { formatRelativeTime } from "@/lib/time";
+import { formatRelativeTime, formatTimeUntil } from "@/lib/time";
 
 import type { RecentClientItem } from "../recent/recent-helpers";
 import { useCoarsePointer } from "../use-coarse-pointer";
@@ -23,7 +23,6 @@ import {
   liveItemMenu,
   useWorkspaceItemActions,
 } from "../use-workspace-item-actions";
-import { formatHomeExpiryTime } from "./home-helpers";
 
 export type HomeShare = {
   id: string;
@@ -209,7 +208,7 @@ export function HomeSections({
                       <span className="truncate text-label text-muted-foreground">
                         {share.hasPassword ? "Password, " : ""}
                         {share.downloadDisabled ? "view only, " : ""}
-                        expires in {formatHomeExpiryTime(share.expiresAt, now)}
+                        expires in {formatTimeUntil(share.expiresAt, now)}
                       </span>
                     </span>
                     <Link2

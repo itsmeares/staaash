@@ -143,12 +143,8 @@ export const findReadyDerivative = async (
   kind: DerivativeKind = DERIVATIVE_KIND_PREVIEW,
   profile: DerivativeProfile = DERIVATIVE_PROFILE_1080P,
   client?: DerivativeClient,
-): Promise<MediaDerivativeRecord | null> => {
-  const db = client ?? (getPrisma() as unknown as DerivativeClient);
-  return db.mediaDerivative.findFirst({
-    where: { fileId, kind, profile, status: DERIVATIVE_STATUS_READY },
-  });
-};
+): Promise<MediaDerivativeRecord | null> =>
+  findDerivative(fileId, kind, profile, client, DERIVATIVE_STATUS_READY);
 
 export const findReadyPosterDerivative = async (
   fileId: string,
@@ -166,9 +162,12 @@ export const findDerivative = async (
   kind: DerivativeKind = DERIVATIVE_KIND_PREVIEW,
   profile: DerivativeProfile = DERIVATIVE_PROFILE_1080P,
   client?: DerivativeClient,
+  status?: string,
 ): Promise<MediaDerivativeRecord | null> => {
   const db = client ?? (getPrisma() as unknown as DerivativeClient);
-  return db.mediaDerivative.findFirst({ where: { fileId, kind, profile } });
+  return db.mediaDerivative.findFirst({
+    where: { fileId, kind, profile, ...(status ? { status } : {}) },
+  });
 };
 
 export const upsertDerivativeQueued = async (

@@ -11,6 +11,7 @@ import { TextFileViewer } from "@/app/text-file-viewer";
 import { AudioPlayer } from "@/components/file-list/audio-player";
 import { Button } from "@/components/ui/button";
 import { DateTime } from "@/components/time-provider";
+import { formatTimeUntil } from "@/lib/time";
 
 import { FlashMessage, getSingleSearchParam } from "@/app/auth-ui";
 import { authService } from "@/server/auth/service";
@@ -25,23 +26,10 @@ import type {
   ShareLinkSummary,
 } from "@/server/sharing/types";
 
-function getRelativeExpiry(expiresAt: Date | string): string {
-  const diffDays = Math.ceil(
-    (new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
-  );
-  if (diffDays <= 0) return "Expired";
-  if (diffDays === 1) return "Expires tomorrow";
-  if (diffDays < 7) return `Expires in ${diffDays} days`;
-  if (diffDays < 60) {
-    const weeks = Math.ceil(diffDays / 7);
-    return `Expires in ${weeks} week${weeks === 1 ? "" : "s"}`;
-  }
-  return `Expires in ${Math.floor(diffDays / 30)} months`;
-}
-
 const Expiry = ({ expiresAt }: { expiresAt: Date | string }) => (
   <span title={new Date(expiresAt).toISOString()}>
-    {getRelativeExpiry(expiresAt)}, <DateTime value={expiresAt} />
+    Expires in {formatTimeUntil(expiresAt, new Date())},{" "}
+    <DateTime value={expiresAt} />
   </span>
 );
 

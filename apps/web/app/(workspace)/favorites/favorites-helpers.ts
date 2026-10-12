@@ -1,12 +1,13 @@
 import type { FavoriteRetrievalItem } from "@/server/retrieval/types";
 
 import {
+  compareListItems,
   compareWorkspaceStrings,
   filterWorkspaceItems,
-  getWorkspaceLocationLabel,
   sortWorkspaceItems,
   type WorkspaceItemFilterType,
   type WorkspaceSortDirection,
+  toWorkspaceListFields,
 } from "../workspace-item-helpers";
 
 export type FavoriteClientItem = {
@@ -30,27 +31,13 @@ export type FavoriteFilterType = WorkspaceItemFilterType;
 export type FavoriteSortKey = "favoritedAt" | "name" | "path" | "size";
 export type FavoriteSortDirection = WorkspaceSortDirection;
 
-export function getFavoriteLocationLabel(item: FavoriteRetrievalItem): string {
-  return getWorkspaceLocationLabel(item);
-}
-
 export function toFavoriteClientItem(
   item: FavoriteRetrievalItem,
 ): FavoriteClientItem {
   return {
+    ...toWorkspaceListFields(item),
     favoritedAt: item.favoritedAt.toISOString(),
-    folderId: item.kind === "file" ? item.folderId : undefined,
-    href: item.href,
-    id: item.id,
-    kind: item.kind,
-    color: item.kind === "folder" ? (item.color ?? null) : undefined,
-    locationLabel: getFavoriteLocationLabel(item),
-    mimeType: item.kind === "file" ? item.mimeType : undefined,
-    name: item.name,
-    parentId: item.kind === "folder" ? item.parentId : undefined,
     quickAccessPinnedAt: item.quickAccessPinnedAt?.toISOString() ?? null,
-    sizeBytes: item.kind === "file" ? item.sizeBytes : undefined,
-    storageMutationStatus: item.storageMutation?.status,
   };
 }
 
@@ -69,21 +56,7 @@ export function sortFavoriteItems(
   return sortWorkspaceItems(
     items,
     sortDirection,
-    (left, right) => {
-      if (sortKey === "name") {
-        return compareWorkspaceStrings(left.name, right.name);
-      }
-      if (sortKey === "path") {
-        return compareWorkspaceStrings(left.locationLabel, right.locationLabel);
-      }
-      if (sortKey === "size") {
-        return (left.sizeBytes ?? -1) - (right.sizeBytes ?? -1);
-      }
-      return (
-        new Date(left.favoritedAt).getTime() -
-        new Date(right.favoritedAt).getTime()
-      );
-    },
+    compareListItems(sortKey, (item: FavoriteClientItem) => item.favoritedAt),
     { includeKindTieBreak: true },
   );
 }
