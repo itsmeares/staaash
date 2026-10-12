@@ -4,7 +4,6 @@ import Link from "next/link";
 import { Download } from "lucide-react";
 
 import { DriveGlyph } from "@/components/drive-glyph";
-import { EntryBackground } from "@/components/public/entry-background";
 import { EntryShell } from "@/components/public/entry-shell";
 import { cn } from "@/lib/utils";
 
@@ -126,12 +125,7 @@ const DEAD_LINK = new Set<ShareError["code"]>([
 async function HalftonePage({ children }: { children: React.ReactNode }) {
   const setupState = await authService.getSetupState();
   return (
-    <EntryShell
-      background={<EntryBackground />}
-      contentClassName="justify-center"
-      instanceName={setupState.instanceName?.trim() || "Staaash"}
-      scrimVariant="setup"
-    >
+    <EntryShell instanceName={setupState.instanceName?.trim() || "Staaash"}>
       <div className="grid justify-items-center gap-3 text-center [text-shadow:0_1px_12px_rgb(0_0_0/0.7)]">
         {children}
       </div>

@@ -306,30 +306,24 @@ for (const theme of THEMES) {
         await page.getByLabel("Password").fill(password);
         await page.getByRole("button", { name: "Sign in" }).press("Enter");
 
-        const intro = page.getByRole("heading", {
-          name: "Before you dive in.",
-        });
-        await expect(intro).toBeVisible({ timeout: 20_000 });
-        await page.waitForTimeout(1500);
-        await shoot(page, `${label}/onboarding-intro`);
-
-        await page
-          .getByRole("button", { name: /Click anywhere or press any key/i })
-          .click();
         const steps = [
-          "Choose your theme",
-          "Set your time zone",
-          "Your profile",
-          "Privacy & features",
+          "Choose a look",
+          "Check your time",
+          "Your name",
+          "A few choices",
         ];
         for (const [index, heading] of steps.entries()) {
           await expect(
             page.getByRole("heading", { name: heading }),
-          ).toBeVisible({ timeout: 10_000 });
+          ).toBeAttached({ timeout: 20_000 });
           await page.waitForTimeout(900);
           await shoot(page, `${label}/onboarding-step-${index + 1}`);
-          if (index < steps.length - 1) {
-            await page.getByRole("button", { name: "Continue" }).click();
+          if (heading === "Choose a look") {
+            await page.getByRole("radio", { name: "Dark" }).click();
+          } else if (index < steps.length - 1) {
+            await page
+              .getByRole("button", { name: /Continue|That's my time/ })
+              .click();
           }
         }
 

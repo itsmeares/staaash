@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 
 import { THEME_COOKIE_NAME } from "@/server/auth/session";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme-boot";
+import { Curtain } from "@/components/curtain";
 import { ThemeWatcher } from "@/components/theme-watcher";
 import { TransferRoot } from "./transfer-root";
 import "./globals.css";
@@ -124,6 +125,7 @@ export default async function RootLayout({
       <body suppressHydrationWarning>
         <ThemeWatcher />
         <TransferRoot>{children}</TransferRoot>
+        <Curtain />
       </body>
     </html>
   );
