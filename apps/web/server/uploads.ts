@@ -221,7 +221,7 @@ export const createUploadSession = (
 export const computeFileSha256 = async (filePath: string) =>
   new Promise<string>((resolve, reject) => {
     const hash = createHash("sha256");
-    const stream = createReadStream(filePath);
+    const stream = createReadStream(filePath, { highWaterMark: 512 * 1024 });
 
     stream.on("data", (chunk) => hash.update(chunk));
     stream.on("error", reject);

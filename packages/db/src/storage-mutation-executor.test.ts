@@ -22,9 +22,31 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 
 import {
   assertStorageFilesystemSupported,
+  calculateStorageFileChecksum,
   calculateCapturedTreeManifestDigest,
   StorageFilesystemUnsupportedError,
 } from "./storage-mutation-executor";
+
+it("fingerprints binary originals across read boundaries, including the final byte", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "staaash-fingerprint-"));
+  const bytes = Buffer.alloc(1024 * 1024 + 17);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = i % 251;
+  const expected =
+    "f4bf9b8dec6e3e28b2ec33266145d244fe97a6bce1ec054ace053bab67d2ef9a";
+  try {
+    await writeFile(path.join(root, "payload.bin"), bytes);
+    expect(await calculateStorageFileChecksum(root, "payload.bin")).toBe(
+      expected,
+    );
+    bytes[bytes.length - 1] ^= 1;
+    await writeFile(path.join(root, "payload.bin"), bytes);
+    expect(await calculateStorageFileChecksum(root, "payload.bin")).not.toBe(
+      expected,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 describe("storage tree manifests", () => {
   it("does not confuse record separators inside logical paths", () => {

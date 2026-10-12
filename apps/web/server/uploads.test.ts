@@ -1,4 +1,4 @@
-import { readdir, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -63,6 +63,33 @@ describe("upload guardrails", () => {
 
     expect(result.checksumMatches).toBe(true);
     expect(result.status).toBe("verified");
+  });
+
+  it("verifies a binary file across read boundaries and rejects a changed final byte", async () => {
+    const directory = await mkdtemp(
+      path.join(os.tmpdir(), "staaash-checksum-"),
+    );
+    const filePath = path.join(directory, "payload.bin");
+    const bytes = Buffer.alloc(1024 * 1024 + 17);
+    for (let i = 0; i < bytes.length; i++) bytes[i] = i % 251;
+    const expected =
+      "f4bf9b8dec6e3e28b2ec33266145d244fe97a6bce1ec054ace053bab67d2ef9a";
+    try {
+      await writeFile(filePath, bytes);
+      expect(await verifyUploadChecksum(filePath, expected)).toMatchObject({
+        status: "verified",
+        actualChecksum: expected,
+        checksumMatches: true,
+      });
+      bytes[bytes.length - 1] ^= 1;
+      await writeFile(filePath, bytes);
+      expect(await verifyUploadChecksum(filePath, expected)).toMatchObject({
+        status: "failed",
+        checksumMatches: false,
+      });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 
   it("cleans up staged uploads after the retention window", async () => {

@@ -144,7 +144,9 @@ const pathState = async (candidate: string) => {
 
 const sha256File = async (filePath: string) => {
   const hash = createHash("sha256");
-  for await (const chunk of createReadStream(filePath)) {
+  for await (const chunk of createReadStream(filePath, {
+    highWaterMark: 512 * 1024,
+  })) {
     hash.update(chunk as Buffer);
   }
   return hash.digest("hex");
