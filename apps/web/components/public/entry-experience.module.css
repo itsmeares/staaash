@@ -191,3 +191,10 @@
     animation: none;
   }
 }
+
+/* ---- Sign-in ---- */
+
+/* Text sits straight on the dots, so it carries its own shadow. */
+.readable {
+  text-shadow: 0 1px 12px rgb(0 0 0 / 0.7);
+}

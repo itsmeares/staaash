@@ -4,21 +4,19 @@ import Link from "next/link";
 import { Download } from "lucide-react";
 
 import { DriveGlyph } from "@/components/drive-glyph";
+import { EntryBackground } from "@/components/public/entry-background";
+import { EntryShell } from "@/components/public/entry-shell";
 import { cn } from "@/lib/utils";
 
 import { TextFileViewer } from "@/app/text-file-viewer";
 import { AudioPlayer } from "@/components/file-list/audio-player";
 import { Button } from "@/components/ui/button";
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@/components/ui/input-group";
 import { DateTime } from "@/components/time-provider";
 
 import { FlashMessage, getSingleSearchParam } from "@/app/auth-ui";
 import { authService } from "@/server/auth/service";
 import { ShareFolderList } from "./share-folder-list";
+import { SharePasswordForm } from "./share-password-form";
 import type { FileSummary } from "@/server/files/types";
 import { ShareError } from "@/server/sharing/errors";
 import { isPublicShareFileNativeViewSafe } from "@/server/media/public-share-content-policy";
@@ -90,12 +88,14 @@ async function ShareShell({
   );
 }
 
-const shareErrorCopy: Record<
-  ShareError["code"],
-  {
-    title: string;
-    description: string;
-  }
+const shareErrorCopy: Partial<
+  Record<
+    ShareError["code"],
+    {
+      title: string;
+      description: string;
+    }
+  >
 > = {
   SHARE_ACCESS_DENIED: {
     title: "This folder isn't part of the link",
@@ -107,41 +107,58 @@ const shareErrorCopy: Record<
     description:
       "You can look at what's here, but this link doesn't allow downloads.",
   },
-  SHARE_EXPIRED: {
-    title: "This link has expired",
-    description: "Ask the person who sent it for a new one.",
-  },
-  SHARE_INVALID: {
-    title: "This link no longer works",
-    description:
-      "It may have been turned off. Ask the person who sent it for a new one.",
-  },
-  SHARE_NOT_FOUND: {
-    title: "We couldn't find this link",
-    description:
-      "Check that the address is complete, or ask for the link again.",
-  },
-  SHARE_PASSWORD_INVALID: {
-    title: "That password didn't work",
-    description: "Check it and try again.",
-  },
-  SHARE_PASSWORD_REQUIRED: {
-    title: "This link has a password",
-    description: "Enter it to see what was shared.",
-  },
   SHARE_STORAGE_UNAVAILABLE: {
     title: "Back in a moment",
     description:
       "The drive is finishing a storage task. Try again in a minute.",
   },
-  SHARE_TARGET_UNAVAILABLE: {
-    title: "This item isn't shared anymore",
-    description: "The owner moved it or took it out of sharing.",
-  },
 };
 
+// Dead links all read the same, so a visitor can't tell which ones existed.
+const DEAD_LINK = new Set<ShareError["code"]>([
+  "SHARE_EXPIRED",
+  "SHARE_INVALID",
+  "SHARE_NOT_FOUND",
+  "SHARE_TARGET_UNAVAILABLE",
+]);
+
+/** Before a visitor is let in, the page is the halftone, like sign-in. */
+async function HalftonePage({ children }: { children: React.ReactNode }) {
+  const setupState = await authService.getSetupState();
+  return (
+    <EntryShell
+      background={<EntryBackground />}
+      contentClassName="justify-center"
+      instanceName={setupState.instanceName?.trim() || "Staaash"}
+      scrimVariant="setup"
+    >
+      <div className="grid justify-items-center gap-3 text-center [text-shadow:0_1px_12px_rgb(0_0_0/0.7)]">
+        {children}
+      </div>
+    </EntryShell>
+  );
+}
+
 export function ShareErrorView({ error }: { error: ShareError }) {
-  const copy = shareErrorCopy[error.code];
+  if (DEAD_LINK.has(error.code)) {
+    return (
+      <HalftonePage>
+        <h1 className="m-0 font-heading text-[clamp(2.25rem,6vw,3rem)] leading-tight font-normal tracking-tight">
+          This link doesn&apos;t work
+          <br />
+          any more.
+        </h1>
+        <p className="m-0 max-w-90 text-body text-foreground/80">
+          It may have expired or been turned off. Ask the person who sent it for
+          a new one.
+        </p>
+      </HalftonePage>
+    );
+  }
+  const copy = shareErrorCopy[error.code] ?? {
+    title: "Something went wrong",
+    description: "Try again in a minute.",
+  };
   return (
     <ShareShell width="narrow">
       <div className="grid justify-items-center gap-2 pt-16 text-center">
@@ -159,51 +176,30 @@ export function ShareErrorView({ error }: { error: ShareError }) {
 export function ShareLockedView({
   error,
   redirectPath,
-  success,
   token,
 }: {
   error: string | null;
   redirectPath: string;
-  success: string | null;
   token: string;
 }) {
   return (
-    <ShareShell width="narrow">
-      <div className="grid gap-4 pt-16" data-share-locked>
-        <div className="grid gap-1 text-center">
-          <h1 className="m-0 font-heading text-headline font-semibold">
-            This link has a password
-          </h1>
-          <p className="m-0 text-body text-muted-foreground">
-            Enter it to see what was shared.
-          </p>
-        </div>
-        {error ? <FlashMessage>{error}</FlashMessage> : null}
-        {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
-        <form action={`/s/${encodeURIComponent(token)}/unlock`} method="post">
-          <input name="redirectTo" type="hidden" value={redirectPath} />
-          <label className="sr-only" htmlFor="share-password">
-            Password
-          </label>
-          <InputGroup>
-            <InputGroupInput
-              autoComplete="current-password"
-              autoFocus
-              id="share-password"
-              name="password"
-              placeholder="Password"
-              required
-              type="password"
-            />
-            <InputGroupAddon align="inline-end">
-              <Button size="sm" type="submit">
-                Open
-              </Button>
-            </InputGroupAddon>
-          </InputGroup>
-        </form>
+    <HalftonePage>
+      <div className="grid justify-items-center gap-3" data-share-locked>
+        <h1 className="m-0 font-heading text-[clamp(2rem,5vw,2.5rem)] leading-tight font-normal tracking-tight">
+          Something is waiting
+          <br />
+          for you.
+        </h1>
+        <p className="m-0 text-body text-foreground/80">
+          Enter the password you were given.
+        </p>
+        <SharePasswordForm
+          action={`/s/${encodeURIComponent(token)}/unlock`}
+          error={error}
+          redirectPath={redirectPath}
+        />
       </div>
-    </ShareShell>
+    </HalftonePage>
   );
 }
 
@@ -348,7 +344,6 @@ export function ShareView({
       <ShareLockedView
         error={error ?? null}
         redirectPath={lockedRedirectPath}
-        success={success ?? null}
         token={token}
       />
     );

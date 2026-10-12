@@ -18,7 +18,7 @@ export type AuthErrorCode =
 const authErrorMessages: Record<AuthErrorCode, string> = {
   ACCESS_DENIED: "You do not have access to that surface.",
   INVALID_IDENTIFIER: "Enter a valid email address.",
-  INVALID_CREDENTIALS: "Email or password is incorrect.",
+  INVALID_CREDENTIALS: "That email and password don't match.",
   CURRENT_PASSWORD_WRONG: "That is not your current password.",
   NOT_SIGNED_IN: "Not signed in.",
   PASSWORD_INVALID: "Password must be 12-128 characters.",

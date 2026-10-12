@@ -26,12 +26,15 @@ export default async function WorkspaceLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const session = await getCurrentSession();
-  const userLabel = session?.user.displayName ?? session?.user.email ?? null;
+  // Signed-out visitors only reach here on a wrong address; that page is
+  // the halftone, not an empty drive.
+  if (!session) return children;
+  const userLabel = session.user.displayName ?? session.user.email;
 
-  const isOwner = session?.user.isAdmin ?? false;
+  const isOwner = session.user.isAdmin;
   const [usage, diskInfo, updateState, setupState] = await Promise.all([
-    session ? getUserStorageUsed(session.user.id) : null,
-    session ? getInstanceDiskInfo() : null,
+    getUserStorageUsed(session.user.id),
+    getInstanceDiskInfo(),
     // Update news is for owners; members only see the version.
     isOwner ? getUpdateState().catch(() => null) : null,
     authService.getSetupState(),
@@ -43,24 +46,22 @@ export default async function WorkspaceLayout({
     instanceName: setupState.instanceName?.trim() || "Staaash",
     isOwner,
     appVersion,
-    usedBytes: (usage?.usedBytes ?? 0n).toString(),
-    limitBytes: session?.user.storageLimitBytes?.toString() ?? null,
+    usedBytes: usage.usedBytes.toString(),
+    limitBytes: session.user.storageLimitBytes?.toString() ?? null,
     diskUsedBytes: diskInfo?.usedBytes?.toString() ?? null,
     diskCapacityBytes: diskInfo?.capacityBytes?.toString() ?? null,
   };
 
-  const initials = session
-    ? getInitials(session.user.displayName, session.user.email)
-    : "??";
+  const initials = getInitials(session.user.displayName, session.user.email);
 
   return (
-    <TimeRoot user={session?.user}>
-      <DefaultViewProvider value={session?.user.preferences?.defaultView}>
+    <TimeRoot user={session.user}>
+      <DefaultViewProvider value={session.user.preferences?.defaultView}>
         <UpdatesProvider
           appVersion={appVersion}
           initialState={updateState}
           nodeVersion={process.version}
-          notify={session?.user.preferences?.showUpdateNotifications ?? true}
+          notify={session.user.preferences?.showUpdateNotifications ?? true}
         >
           <SkipLink />
           <div className="grid h-dvh w-full grid-cols-1 overflow-hidden bg-background lg:grid-cols-[var(--spacing-sidebar)_minmax(0,1fr)]">
@@ -76,21 +77,19 @@ export default async function WorkspaceLayout({
                   <DriveGlyph />
                 </Link>
                 <WorkspaceSearch />
-                {session ? (
-                  <div className="ms-auto">
-                    <TopbarActions
-                      userLabel={userLabel}
-                      email={session.user.email}
-                      initials={initials}
-                      isOwner={info.isOwner}
-                      avatarUrl={session.user.avatarUrl ?? null}
-                      initialTheme={
-                        (session.user.preferences?.theme as
-                          "light" | "dark" | "system") ?? "system"
-                      }
-                    />
-                  </div>
-                ) : null}
+                <div className="ms-auto">
+                  <TopbarActions
+                    userLabel={userLabel}
+                    email={session.user.email}
+                    initials={initials}
+                    isOwner={info.isOwner}
+                    avatarUrl={session.user.avatarUrl ?? null}
+                    initialTheme={
+                      (session.user.preferences?.theme as
+                        "light" | "dark" | "system") ?? "system"
+                    }
+                  />
+                </div>
               </header>
 
               <main
@@ -103,15 +102,13 @@ export default async function WorkspaceLayout({
               </main>
             </div>
           </div>
-          {session ? (
-            <WorkspaceMobileNav
-              info={info}
-              avatarUrl={session.user.avatarUrl ?? null}
-              initials={initials}
-              userLabel={userLabel}
-              email={session.user.email}
-            />
-          ) : null}
+          <WorkspaceMobileNav
+            info={info}
+            avatarUrl={session.user.avatarUrl ?? null}
+            initials={initials}
+            userLabel={userLabel}
+            email={session.user.email}
+          />
           <ShortcutsDialog />
 
           {/* Kept outside the shell grid: fixed elements still take a grid cell. */}

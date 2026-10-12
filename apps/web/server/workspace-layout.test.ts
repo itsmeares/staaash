@@ -148,11 +148,34 @@ describe("WorkspaceLayout", () => {
       instanceName: "Ares Cloud",
     });
 
+    mocks.getCurrentSession.mockResolvedValue({
+      user: {
+        id: "u1",
+        email: "member@example.com",
+        displayName: null,
+        isAdmin: false,
+        isOwner: false,
+        avatarUrl: null,
+        storageLimitBytes: null,
+        preferences: {},
+      },
+    });
+
     const { default: WorkspaceLayout } =
       await import("@/app/(workspace)/layout");
     const page = await WorkspaceLayout({ children: "Files" });
     const markup = renderToStaticMarkup(page);
 
     expect(markup).toContain('data-testid="sidebar">Ares Cloud|');
+  });
+
+  it("shows signed-out visitors the page alone, without a drive around it", async () => {
+    const { default: WorkspaceLayout } =
+      await import("@/app/(workspace)/layout");
+    const markup = renderToStaticMarkup(
+      await WorkspaceLayout({ children: "Not here" }),
+    );
+
+    expect(markup).toBe("Not here");
   });
 });

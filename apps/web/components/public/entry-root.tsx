@@ -84,7 +84,10 @@ export function EntryRoot({
       instanceName={instanceName}
       contentClassName="justify-center"
       scrimVariant="setup"
-      onBrandClick={phase === "form" ? handleBrandClick : undefined}
+      onBrandClick={
+        mode === "setup" && phase === "form" ? handleBrandClick : undefined
+      }
+      showBrand={mode === "setup"}
     >
       <EntryExperience
         mode={mode}

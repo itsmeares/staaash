@@ -16,6 +16,8 @@ type EntryShellProps = {
   contentClassName?: string;
   scrimVariant?: "gateway" | "setup";
   onBrandClick?: () => void;
+  /** Off where the drive's name is already the page's heading. */
+  showBrand?: boolean;
 };
 
 const brandClassName =
@@ -29,6 +31,7 @@ export function EntryShell({
   contentClassName,
   scrimVariant = "gateway",
   onBrandClick,
+  showBrand = true,
 }: EntryShellProps) {
   return (
     <main
@@ -63,8 +66,8 @@ export function EntryShell({
       />
 
       <div className="relative mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-6 py-6 sm:px-8 lg:px-10">
-        <header className="flex items-center justify-between gap-4">
-          {onBrandClick ? (
+        <header className="flex min-h-7 items-center justify-between gap-4">
+          {!showBrand ? null : onBrandClick ? (
             <button
               className={brandClassName}
               onClick={onBrandClick}

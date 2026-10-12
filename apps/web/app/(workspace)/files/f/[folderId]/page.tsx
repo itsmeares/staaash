@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { isFilesError } from "@/server/files/errors";
@@ -78,6 +78,13 @@ export default async function FilesFolderPage({
       />
     );
   } catch (error) {
+    // Someone else's folder reads as missing too, so it doesn't leak.
+    if (
+      isFilesError(error) &&
+      (error.code === "FOLDER_NOT_FOUND" || error.code === "ACCESS_DENIED")
+    ) {
+      notFound();
+    }
     if (isFilesError(error)) {
       redirect(`/files?error=${encodeURIComponent(error.message)}`);
     }

@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { startPath } from "@/lib/start-page";
 
 import { useAdvanceOnInput } from "./use-advance-on-input";
+import { useShake } from "./use-shake";
 import styles from "./entry-experience.module.css";
 
 export type Phase =
@@ -190,13 +191,28 @@ export function EntryExperience({
     );
   }
 
-  // Form (including exiting-to-intro state)
+  const exiting = phase === "exiting-to-intro";
+
+  if (mode === "signin") {
+    return (
+      <SignInForm
+        error={error}
+        exiting={exiting}
+        firstFieldRef={firstFieldRef}
+        instanceName={instanceName ?? "Staaash"}
+        pending={pending}
+        onSubmit={handleSubmit}
+      />
+    );
+  }
+
+  // Setup (including exiting-to-intro state)
   return (
     <div
       data-entry-form
       className={cn(
         "grid w-[min(100%,380px)] gap-0 rounded-3xl border border-border bg-card/88 p-6 shadow-dialog backdrop-blur-md",
-        phase === "exiting-to-intro" ? styles.formExiting : styles.formEntering,
+        exiting ? styles.formExiting : styles.formEntering,
       )}
     >
       {error && (
@@ -209,108 +225,151 @@ export function EntryExperience({
       )}
 
       <form className="grid gap-4.5" onSubmit={handleSubmit}>
-        {mode === "setup" ? (
-          <>
-            <div className="grid gap-1.5">
-              <label
-                className="text-meta font-medium text-foreground/90"
-                htmlFor="instanceName"
-              >
-                Instance name
-              </label>
-              <Input
-                ref={firstFieldRef}
-                id="instanceName"
-                name="instanceName"
-                placeholder="Staaash Home Drive"
-                required
-              />
-            </div>
+        <div className="grid gap-1.5">
+          <label
+            className="text-meta font-medium text-foreground/90"
+            htmlFor="instanceName"
+          >
+            Instance name
+          </label>
+          <Input
+            ref={firstFieldRef}
+            id="instanceName"
+            name="instanceName"
+            placeholder="Staaash Home Drive"
+            required
+          />
+        </div>
 
-            <div className="grid gap-1.5">
-              <label
-                className="text-meta font-medium text-foreground/90"
-                htmlFor="email"
-              >
-                Email
-              </label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                placeholder="john@example.com"
-                required
-              />
-            </div>
+        <div className="grid gap-1.5">
+          <label
+            className="text-meta font-medium text-foreground/90"
+            htmlFor="email"
+          >
+            Email
+          </label>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            placeholder="john@example.com"
+            required
+          />
+        </div>
 
-            <div className="grid gap-1.5">
-              <label
-                className="text-meta font-medium text-foreground/90"
-                htmlFor="password"
-              >
-                Password
-              </label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                minLength={12}
-                required
-              />
-              <span className="text-xs leading-normal text-muted-foreground">
-                At least 12 characters.
-              </span>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="grid gap-1.5">
-              <label
-                className="text-meta font-medium text-foreground/90"
-                htmlFor="email"
-              >
-                Email
-              </label>
-              <Input
-                ref={firstFieldRef}
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-              />
-            </div>
-
-            <div className="grid gap-1.5">
-              <label
-                className="text-meta font-medium text-foreground/90"
-                htmlFor="password"
-              >
-                Password
-              </label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-              />
-            </div>
-          </>
-        )}
+        <div className="grid gap-1.5">
+          <label
+            className="text-meta font-medium text-foreground/90"
+            htmlFor="password"
+          >
+            Password
+          </label>
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="new-password"
+            minLength={12}
+            required
+          />
+          <span className="text-xs leading-normal text-muted-foreground">
+            At least 12 characters.
+          </span>
+        </div>
 
         <Button className="mt-1.5 w-full" type="submit" disabled={pending}>
-          {pending
-            ? mode === "setup"
-              ? "Setting up…"
-              : "Signing in…"
-            : mode === "setup"
-              ? "Create owner and continue"
-              : "Sign in"}
+          {pending ? "Setting up…" : "Create owner and continue"}
         </Button>
       </form>
     </div>
+  );
+}
+
+/**
+ * No card: the drive's name and two fields straight on the halftone. A wrong
+ * password shakes the field once, says so under it and clears it.
+ */
+function SignInForm({
+  instanceName,
+  error,
+  pending,
+  exiting,
+  firstFieldRef,
+  onSubmit,
+}: {
+  instanceName: string;
+  error: string | null;
+  pending: boolean;
+  exiting: boolean;
+  firstFieldRef: React.RefObject<HTMLInputElement | null>;
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+}) {
+  const passwordRef = useRef<HTMLInputElement>(null);
+
+  useShake(passwordRef, error);
+
+  const field =
+    "h-11 border-white/18 bg-black/30 text-base backdrop-blur-sm placeholder:text-white/40";
+
+  return (
+    <form
+      data-entry-form
+      className={cn(
+        "grid w-[min(100%,340px)] gap-4",
+        styles.readable,
+        exiting ? styles.formExiting : styles.formEntering,
+      )}
+      onSubmit={onSubmit}
+    >
+      <h1 className="mb-3 text-center font-heading text-[clamp(2.25rem,6vw,3.25rem)] leading-none font-normal tracking-tight">
+        {instanceName}
+      </h1>
+      <label
+        className="grid gap-1.5 text-meta text-foreground/80"
+        htmlFor="email"
+      >
+        Email
+        <Input
+          ref={firstFieldRef}
+          autoComplete="email"
+          className={field}
+          id="email"
+          name="email"
+          placeholder="you@example.com"
+          required
+          type="email"
+        />
+      </label>
+      <label
+        className="grid gap-1.5 text-meta text-foreground/80"
+        htmlFor="password"
+      >
+        Password
+        <Input
+          ref={passwordRef}
+          aria-describedby={error ? "signin-error" : undefined}
+          aria-invalid={error ? true : undefined}
+          autoComplete="current-password"
+          className={cn(field, error && "border-destructive/70")}
+          id="password"
+          name="password"
+          required
+          type="password"
+        />
+        {error ? (
+          <span
+            className="text-label text-destructive-foreground"
+            id="signin-error"
+            role="alert"
+          >
+            {error}
+          </span>
+        ) : null}
+      </label>
+      <Button className="mt-2 h-11 w-full" disabled={pending} type="submit">
+        {pending ? "Signing in…" : "Sign in"}
+      </Button>
+    </form>
   );
 }

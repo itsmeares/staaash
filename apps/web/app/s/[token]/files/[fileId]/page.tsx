@@ -67,7 +67,6 @@ export default async function SharedNestedFilePage({
         <ShareLockedView
           error={(resolvedSearchParams.error as string | undefined) ?? null}
           redirectPath={`/s/${encodeURIComponent(token)}/files/${fileId}`}
-          success={(resolvedSearchParams.success as string | undefined) ?? null}
           token={token}
         />
       );
