@@ -27,6 +27,10 @@ const prefs: UserPreferences = {
   theme: "system",
   timeZone: "UTC",
   showUpdateNotifications: true,
+  showFolderPreviews: true,
+  startPage: "home",
+  defaultView: "list",
+  clockFormat: "auto",
   onboardingCompletedAt: now,
 };
 

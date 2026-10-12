@@ -147,6 +147,10 @@ const toAuthUser = (
         theme: user.preferences.theme,
         timeZone: user.preferences.timeZone,
         showUpdateNotifications: user.preferences.showUpdateNotifications,
+        showFolderPreviews: user.preferences.showFolderPreviews,
+        startPage: user.preferences.startPage,
+        defaultView: user.preferences.defaultView,
+        clockFormat: user.preferences.clockFormat,
         onboardingCompletedAt: user.preferences.onboardingCompletedAt,
       }
     : null,
@@ -675,6 +679,10 @@ const createPrismaAuthRepository = (
         theme: pref.theme,
         timeZone: pref.timeZone,
         showUpdateNotifications: pref.showUpdateNotifications,
+        showFolderPreviews: pref.showFolderPreviews,
+        startPage: pref.startPage,
+        defaultView: pref.defaultView,
+        clockFormat: pref.clockFormat,
         onboardingCompletedAt: pref.onboardingCompletedAt,
       };
     },

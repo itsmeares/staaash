@@ -67,6 +67,7 @@ export default async function FilesFolderPage({
       actorRole: session.user.role,
       listing,
       baseUrl,
+      showFolderPreviews: session.user.preferences?.showFolderPreviews ?? true,
     });
 
     return (

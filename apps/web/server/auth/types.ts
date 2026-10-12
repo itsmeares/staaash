@@ -4,6 +4,10 @@ export type UserPreferences = {
   theme: string;
   timeZone: string;
   showUpdateNotifications: boolean;
+  showFolderPreviews: boolean;
+  startPage: string;
+  defaultView: string;
+  clockFormat: string;
   onboardingCompletedAt: Date | null;
 };
 

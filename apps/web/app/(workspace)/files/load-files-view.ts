@@ -8,11 +8,13 @@ export async function loadFilesViewProps({
   actorRole,
   listing,
   baseUrl,
+  showFolderPreviews,
 }: {
   actorUserId: string;
   actorRole: Parameters<typeof retrievalService.listFavorites>[0]["actorRole"];
   listing: FilesListing;
   baseUrl: string;
+  showFolderPreviews: boolean;
 }) {
   const [shareLookup, favorites] = await Promise.all([
     sharingService.getFilesShareLookup({
@@ -30,6 +32,7 @@ export async function loadFilesViewProps({
   return {
     listing,
     shareLookup,
+    showFolderPreviews,
     favoriteFileIds: idsOf("file"),
     favoriteFolderIds: idsOf("folder"),
   };

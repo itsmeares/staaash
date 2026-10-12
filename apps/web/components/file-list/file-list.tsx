@@ -36,6 +36,8 @@ export type FileListItem = {
   icon?: LucideIcon;
   /** A folder color: a swatch name or a custom "#rrggbb". */
   color?: string | null;
+  /** Thumbnails of photos inside a folder, peeking out of its card. */
+  previewUrls?: string[];
   thumbnailUrl?: string | null;
   /** Why the item cannot be used right now, such as a storage operation. */
   blocked?: string | null;
@@ -141,6 +143,67 @@ export function ItemIcon({
  * The thumbnail, or the type icon while there is none: thumbnails are made
  * after upload, so the first view can miss.
  */
+/** Up to two photos tucked into a folder shape, for grid folder cards. */
+function FolderPeek({
+  urls,
+  color,
+  className,
+}: {
+  urls: string[];
+  color: string | null;
+  className?: string;
+}) {
+  const [failed, setFailed] = useState<string[]>([]);
+  const shown = urls.filter((url) => !failed.includes(url));
+  const photo =
+    "absolute top-[12%] aspect-4/3 w-[44%] rounded-md object-cover shadow-[0_2px_6px_rgb(0_0_0/0.3)]";
+  return (
+    <span
+      className={cn(
+        "relative flex aspect-4/3 overflow-hidden rounded-lg bg-muted",
+        className,
+      )}
+      style={
+        color
+          ? { background: `color-mix(in oklab, ${color} 12%, transparent)` }
+          : undefined
+      }
+    >
+      {shown.slice(0, 2).map((url, index) => (
+        <img
+          alt=""
+          className={cn(
+            photo,
+            index === 0 ? "left-[36%] rotate-6" : "left-[20%] -rotate-8",
+          )}
+          decoding="async"
+          draggable={false}
+          key={url}
+          loading="lazy"
+          src={url}
+          style={{ zIndex: 2 - index }}
+          onError={() => setFailed((list) => [...list, url])}
+        />
+      ))}
+      <svg
+        aria-hidden
+        className="absolute bottom-[6%] left-[12%] z-3 h-[56%] w-[76%]"
+        preserveAspectRatio="none"
+        viewBox="0 0 100 60"
+      >
+        <path
+          d="M0 8a6 6 0 0 1 6-6h24l6 6h58a6 6 0 0 1 6 6v40a6 6 0 0 1-6 6H6a6 6 0 0 1-6-6z"
+          fill={
+            color
+              ? `color-mix(in oklab, ${color} 38%, var(--card))`
+              : "color-mix(in oklab, var(--foreground) 14%, var(--card))"
+          }
+        />
+      </svg>
+    </span>
+  );
+}
+
 export function ItemPreview({
   item,
   className,
@@ -149,7 +212,7 @@ export function ItemPreview({
 }: {
   item: Pick<
     FileListItem,
-    "kind" | "mimeType" | "icon" | "thumbnailUrl" | "color"
+    "kind" | "mimeType" | "icon" | "thumbnailUrl" | "color" | "previewUrls"
   >;
   className?: string;
   iconClassName?: string;
@@ -161,6 +224,15 @@ export function ItemPreview({
       ? item.thumbnailUrl
       : null;
   const tint = item.kind === "folder" ? folderColorStyle(item.color) : null;
+  if (item.kind === "folder" && item.previewUrls?.length) {
+    return (
+      <FolderPeek
+        className={className}
+        color={tint?.color ?? null}
+        urls={item.previewUrls}
+      />
+    );
+  }
   return (
     <span
       className={cn(

@@ -209,6 +209,8 @@ type FilesViewProps = {
   currentPath: string;
   searchParams: Record<string, string | string[] | undefined>;
   shareLookup: ShareFilesLookup;
+  /** Photos peek out of folder cards in grid view (Settings → Appearance). */
+  showFolderPreviews: boolean;
   favoriteFileIds: string[];
   favoriteFolderIds: string[];
 };
@@ -242,6 +244,7 @@ export function FilesView({
   currentPath,
   searchParams,
   shareLookup,
+  showFolderPreviews,
   favoriteFileIds,
   favoriteFolderIds,
 }: FilesViewProps) {
@@ -1672,6 +1675,11 @@ export function FilesView({
       name: folder.name,
       icon: FOLDER_ICON_MAP[iconOf(folder) ?? ""],
       color: colorOf(folder),
+      previewUrls: showFolderPreviews
+        ? (listing.folderPreviews[folder.id] ?? []).map(
+            (id) => `/api/files/files/${id}/thumbnail`,
+          )
+        : undefined,
       blocked: mutationLabel(folder),
       dimmed: cutIds.has(folder.id),
       flags: flags("folder", folder.id),

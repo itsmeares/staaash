@@ -19,6 +19,7 @@ import {
 import { getPrisma, Prisma } from "@staaash/db/client";
 
 import { canAccessPrivateNamespace } from "@/server/access";
+import { listFolderPreviewFileIds } from "@/server/files/folder-previews";
 import { shouldGenerateMediaPreview } from "@/server/media/preview-generation-policy";
 import { getSystemSettings } from "@/server/settings";
 import {
@@ -2567,6 +2568,11 @@ export const createFilesService = ({
           includeDeleted: false,
         }),
       ]);
+      const folderPreviews = !repo
+        ? await listFolderPreviewFileIds(
+            childFolders.map((folder) => folder.id),
+          )
+        : {};
       const moveData = await buildMoveTargets(filesRoot);
       const [folderMutationStates, fileMutationStates] = !repo
         ? await Promise.all([
@@ -2617,6 +2623,7 @@ export const createFilesService = ({
       return {
         ownerUserId: currentFolder.ownerUserId,
         currentFolder,
+        folderPreviews,
         breadcrumbs: await buildBreadcrumbs(currentFolder, filesRoot),
         childFolders: childFolders.map((folder) => ({
           ...folder,

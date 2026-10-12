@@ -108,6 +108,8 @@ export type FilesListing = {
   files: FileSummary[];
   moveTargets: MoveTarget[];
   availableMoveTargetIdsByFolderId: Record<string, string[]>;
+  /** Up to two file ids per child folder whose thumbnails can peek out. */
+  folderPreviews: Record<string, string[]>;
 };
 
 export type FolderRestoreLocation = {

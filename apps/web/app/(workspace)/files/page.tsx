@@ -29,6 +29,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
     actorRole: session.user.role,
     listing,
     baseUrl,
+    showFolderPreviews: session.user.preferences?.showFolderPreviews ?? true,
   });
 
   return (
