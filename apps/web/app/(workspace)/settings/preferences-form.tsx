@@ -11,14 +11,18 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+import { AUTO_TIME_ZONE } from "@staaash/config/time-zone";
 
 import { EMPTY_TRASH_CONFIRM } from "@/app/dashboard-context-menu";
 import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
 import { confirmAction } from "@/components/confirm-dialog";
 import { DeviceList } from "@/components/device-list";
 import type { Device } from "@/lib/user-agent";
+import { MiniDrive } from "@/components/mini-drive";
 import {
+  ChangedDot,
   SettingsCard,
   SettingsLayout,
   SettingsRow,
@@ -26,6 +30,11 @@ import {
 import { TimeZonePicker } from "@/components/time-zone-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsiblePanel,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -38,21 +47,17 @@ import { Switch } from "@/components/ui/switch";
 import { toast, toastManager } from "@/components/ui/toast";
 import { readAvatar } from "@/lib/avatar";
 import { formatBytes } from "@/lib/format-bytes";
-import { applyThemeWithTransition, type Theme } from "@/lib/theme";
+import { applyTheme, applyThemeWithTransition, type Theme } from "@/lib/theme";
 import { getInitials } from "@/lib/user";
 import { cn } from "@/lib/utils";
 import type { StorageBreakdown } from "@/server/user-storage";
 
 import { WorkspaceAvatar } from "../workspace-avatar";
 
-const THEMES: { value: Theme; label: string; swatch: string }[] = [
-  {
-    value: "system",
-    label: "System",
-    swatch: "linear-gradient(90deg,#f6f4f1 50%,#1a1816 50%)",
-  },
-  { value: "light", label: "Light", swatch: "#f6f4f1" },
-  { value: "dark", label: "Dark", swatch: "#1a1816" },
+const THEMES: { value: Theme; label: string }[] = [
+  { value: "system", label: "System" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
 ];
 
 const KINDS = [
@@ -71,6 +76,19 @@ type Preferences = {
   startPage: "home" | "files";
   defaultView: "list" | "grid";
   clockFormat: "12h" | "24h";
+};
+
+type PreferenceKey = keyof Preferences;
+
+// The column defaults, except time: a new account follows its browser.
+const DEFAULTS: Preferences = {
+  theme: "system",
+  timeZone: AUTO_TIME_ZONE,
+  showUpdateNotifications: true,
+  showFolderPreviews: true,
+  startPage: "files",
+  defaultView: "list",
+  clockFormat: "24h",
 };
 
 type Profile = {
@@ -100,7 +118,6 @@ const failed = (caught: unknown, fallback: string) =>
 const saved = () =>
   toastManager.add({ title: "Saved", type: "success", timeout: 1500 });
 
-/** Each change saves on its own and says so, so there's no Save button. */
 const useSave = () => {
   const router = useRouter();
   return async (
@@ -108,12 +125,11 @@ const useSave = () => {
       displayName?: string | null;
       avatarUrl?: string | null;
     },
-    refresh = false,
   ) => {
     try {
       await post("/api/user/preferences", change);
       saved();
-      if (refresh) router.refresh();
+      router.refresh();
       return true;
     } catch (caught) {
       failed(caught, "Could not save.");
@@ -122,19 +138,67 @@ const useSave = () => {
   };
 };
 
-/** One saved preference: the control shows the new value right away. */
-const usePreferences = (initial: Preferences) => {
+const differing = (
+  a: Preferences,
+  b: Preferences,
+  keys = Object.keys(a) as PreferenceKey[],
+) => keys.filter((key) => a[key] !== b[key]);
+
+type Draft = {
+  values: Preferences;
+  isChanged: (key: PreferenceKey) => boolean;
+  set: <K extends PreferenceKey>(key: K, value: Preferences[K]) => void;
+};
+
+/**
+ * Changes wait for Save. The theme shows right away so it can be judged, and
+ * goes back when it's discarded or the page is left without saving.
+ */
+const usePreferenceDraft = (initial: Preferences) => {
   const save = useSave();
+  const [saved, setSaved] = useState(initial);
   const [values, setValues] = useState(initial);
-  const change = <K extends keyof Preferences>(
-    key: K,
-    value: Preferences[K],
-    refresh = false,
-  ) => {
-    setValues((previous) => ({ ...previous, [key]: value }));
-    void save({ [key]: value }, refresh);
+  const [saving, setSaving] = useState(false);
+  const changed = differing(values, saved);
+  const savedTheme = useRef(initial.theme);
+
+  useEffect(() => {
+    savedTheme.current = saved.theme;
+  }, [saved.theme]);
+  useEffect(() => () => applyTheme(savedTheme.current), []);
+
+  const replace = (next: Preferences) => {
+    if (next.theme !== values.theme) applyThemeWithTransition(next.theme);
+    setValues(next);
   };
-  return [values, change] as const;
+  const commit = async () => {
+    setSaving(true);
+    const ok = await save(
+      Object.fromEntries(changed.map((key) => [key, values[key]])),
+    );
+    setSaving(false);
+    if (ok) setSaved(values);
+  };
+
+  const draft: Draft = {
+    values,
+    isChanged: (key) => values[key] !== saved[key],
+    set: (key, value) => replace({ ...values, [key]: value }),
+  };
+  const category = (keys: PreferenceKey[]) => ({
+    changed: differing(values, saved, keys).length > 0,
+    onReset: differing(values, DEFAULTS, keys).length
+      ? () =>
+          replace({
+            ...values,
+            ...Object.fromEntries(keys.map((key) => [key, DEFAULTS[key]])),
+          })
+      : undefined,
+  });
+  const pending = changed.length
+    ? { saving, onSave: () => void commit(), onDiscard: () => replace(saved) }
+    : null;
+  return { draft, category, pending };
 };
 
 function Choice<T extends string>({
@@ -217,6 +281,7 @@ function ProfileEditor({
       <label className={fieldLabel}>
         Name
         <Input
+          autoFocus
           size="sm"
           value={name}
           onChange={(event) => setName(event.target.value)}
@@ -229,10 +294,10 @@ function ProfileEditor({
         <Button
           size="sm"
           onClick={async () => {
-            const ok = await save(
-              { displayName: name.trim() || null, avatarUrl: avatar },
-              true,
-            );
+            const ok = await save({
+              displayName: name.trim() || null,
+              avatarUrl: avatar,
+            });
             if (ok) onDone();
           }}
         >
@@ -265,6 +330,7 @@ function PasswordEditor({ onDone }: { onDone: () => void }) {
         Current password
         <Input
           autoComplete="current-password"
+          autoFocus
           name="currentPassword"
           required
           size="sm"
@@ -305,51 +371,58 @@ function PasswordEditor({ onDone }: { onDone: () => void }) {
   );
 }
 
+// Carries the row border so the row inside keeps its own first-child rule.
+const expandRow = "border-t border-border first:border-t-0";
+
 function ProfileSettings({ profile }: { profile: Profile }) {
   const [editing, setEditing] = useState<"profile" | "password" | null>(null);
   const done = () => setEditing(null);
+  const toggle = (which: "profile" | "password") => (open: boolean) =>
+    setEditing(open ? which : null);
 
   return (
     <SettingsCard>
-      <div className="flex items-center gap-3 px-4 py-3">
-        <WorkspaceAvatar
-          avatarUrl={profile.avatarUrl}
-          initials={getInitials(profile.name, profile.email)}
-        />
-        <span className="grid min-w-0 flex-1">
-          <span className="truncate text-body font-medium">
-            {profile.name ?? profile.email}
+      <Collapsible
+        className={expandRow}
+        open={editing === "profile"}
+        onOpenChange={toggle("profile")}
+      >
+        <div className="flex items-center gap-3 px-4 py-3">
+          <WorkspaceAvatar
+            avatarUrl={profile.avatarUrl}
+            initials={getInitials(profile.name, profile.email)}
+          />
+          <span className="grid min-w-0 flex-1">
+            <span className="truncate text-body font-medium">
+              {profile.name ?? profile.email}
+            </span>
+            <span className="truncate text-label text-muted-foreground">
+              {profile.email}
+            </span>
           </span>
-          <span className="truncate text-label text-muted-foreground">
-            {profile.email}
-          </span>
-        </span>
-        {editing === "profile" ? null : (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setEditing("profile")}
-          >
+          <CollapsibleTrigger render={<Button size="sm" variant="outline" />}>
             <PencilLine aria-hidden />
             Edit
-          </Button>
-        )}
-      </div>
-      {editing === "profile" ? (
-        <ProfileEditor profile={profile} onDone={done} />
-      ) : null}
-      <SettingsRow label="Password">
-        {editing === "password" ? null : (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setEditing("password")}
-          >
+          </CollapsibleTrigger>
+        </div>
+        <CollapsiblePanel>
+          <ProfileEditor profile={profile} onDone={done} />
+        </CollapsiblePanel>
+      </Collapsible>
+      <Collapsible
+        className={expandRow}
+        open={editing === "password"}
+        onOpenChange={toggle("password")}
+      >
+        <SettingsRow label="Password">
+          <CollapsibleTrigger render={<Button size="sm" variant="outline" />}>
             Change
-          </Button>
-        )}
-      </SettingsRow>
-      {editing === "password" ? <PasswordEditor onDone={done} /> : null}
+          </CollapsibleTrigger>
+        </SettingsRow>
+        <CollapsiblePanel>
+          <PasswordEditor onDone={done} />
+        </CollapsiblePanel>
+      </Collapsible>
       <SettingsRow label="Role">
         <Badge variant="neutral">{profile.role}</Badge>
       </SettingsRow>
@@ -357,8 +430,8 @@ function ProfileSettings({ profile }: { profile: Profile }) {
   );
 }
 
-function AppearanceSettings({ prefs }: { prefs: Preferences }) {
-  const [values, change] = usePreferences(prefs);
+function AppearanceSettings({ draft }: { draft: Draft }) {
+  const { values, isChanged, set } = draft;
   return (
     <SettingsCard>
       <div
@@ -366,41 +439,41 @@ function AppearanceSettings({ prefs }: { prefs: Preferences }) {
         className="grid grid-cols-3 gap-2 p-3.5"
         role="radiogroup"
       >
-        {THEMES.map((option) => (
-          <button
-            aria-checked={values.theme === option.value}
-            className={cn(
-              "grid cursor-pointer gap-1.5 rounded-xl border border-border p-1.5 text-meta outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring",
-              values.theme === option.value &&
-                "border-primary ring-2 ring-primary/30",
-            )}
-            key={option.value}
-            role="radio"
-            type="button"
-            onClick={() => {
-              applyThemeWithTransition(option.value);
-              change("theme", option.value);
-            }}
-          >
-            <span
-              className="block h-12 rounded-lg border border-border"
-              style={{ background: option.swatch }}
-            />
-            {option.label}
-          </button>
-        ))}
+        {THEMES.map((option) => {
+          const selected = values.theme === option.value;
+          return (
+            <button
+              aria-checked={selected}
+              className={cn(
+                "grid cursor-pointer gap-2 rounded-xl border border-border p-2 text-meta transition-colors outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring",
+                selected && "border-primary ring-2 ring-primary/30",
+              )}
+              key={option.value}
+              role="radio"
+              type="button"
+              onClick={() => set("theme", option.value)}
+            >
+              <MiniDrive theme={option.value} />
+              <span className="flex items-center justify-center gap-1.5">
+                {option.label}
+                {selected && isChanged("theme") ? <ChangedDot /> : null}
+              </span>
+            </button>
+          );
+        })}
       </div>
       <SettingsRow
+        changed={isChanged("showFolderPreviews")}
         hint="Photos peek out of folders in grid view"
         label="Show what's inside folders"
       >
         <Switch
           aria-label="Show what's inside folders"
           checked={values.showFolderPreviews}
-          onCheckedChange={(next) => change("showFolderPreviews", next, true)}
+          onCheckedChange={(next) => set("showFolderPreviews", next)}
         />
       </SettingsRow>
-      <SettingsRow label="Start page">
+      <SettingsRow changed={isChanged("startPage")} label="Start page">
         <Choice
           label="Start page"
           options={[
@@ -408,10 +481,11 @@ function AppearanceSettings({ prefs }: { prefs: Preferences }) {
             { value: "home", label: "Home" },
           ]}
           value={values.startPage}
-          onChange={(next) => change("startPage", next)}
+          onChange={(next) => set("startPage", next)}
         />
       </SettingsRow>
       <SettingsRow
+        changed={isChanged("defaultView")}
         hint="Until you switch a page yourself"
         label="Lists open in"
       >
@@ -422,25 +496,25 @@ function AppearanceSettings({ prefs }: { prefs: Preferences }) {
             { value: "grid", label: "Grid view" },
           ]}
           value={values.defaultView}
-          onChange={(next) => change("defaultView", next, true)}
+          onChange={(next) => set("defaultView", next)}
         />
       </SettingsRow>
     </SettingsCard>
   );
 }
 
-function TimeSettings({ prefs }: { prefs: Preferences }) {
-  const [values, change] = usePreferences(prefs);
+function TimeSettings({ draft }: { draft: Draft }) {
+  const { values, isChanged, set } = draft;
   return (
     <SettingsCard>
-      <SettingsRow label="Time zone">
+      <SettingsRow changed={isChanged("timeZone")} label="Time zone">
         <TimeZonePicker
           allowAuto
           value={values.timeZone}
-          onChange={(next) => change("timeZone", next, true)}
+          onChange={(next) => set("timeZone", next)}
         />
       </SettingsRow>
-      <SettingsRow label="Clock">
+      <SettingsRow changed={isChanged("clockFormat")} label="Clock">
         <Choice
           label="Clock"
           options={[
@@ -448,7 +522,7 @@ function TimeSettings({ prefs }: { prefs: Preferences }) {
             { value: "12h", label: "12-hour" },
           ]}
           value={values.clockFormat}
-          onChange={(next) => change("clockFormat", next, true)}
+          onChange={(next) => set("clockFormat", next)}
         />
       </SettingsRow>
     </SettingsCard>
@@ -554,20 +628,19 @@ function StorageSettings({ storage }: { storage: StorageBreakdown }) {
   );
 }
 
-function UpdateSettings({ prefs }: { prefs: Preferences }) {
-  const [values, change] = usePreferences(prefs);
+function UpdateSettings({ draft }: { draft: Draft }) {
+  const { values, isChanged, set } = draft;
   return (
     <SettingsCard>
       <SettingsRow
+        changed={isChanged("showUpdateNotifications")}
         hint="A note in the sidebar and a short announcement"
         label="Tell me about new versions"
       >
         <Switch
           aria-label="Tell me about new versions"
           checked={values.showUpdateNotifications}
-          onCheckedChange={(next) =>
-            change("showUpdateNotifications", next, true)
-          }
+          onCheckedChange={(next) => set("showUpdateNotifications", next)}
         />
       </SettingsRow>
     </SettingsCard>
@@ -587,6 +660,7 @@ export function PersonalSettings({
   storage: StorageBreakdown;
   sessions: Device[];
 }) {
+  const { draft, category, pending } = usePreferenceDraft(prefs);
   const categories = [
     {
       id: "profile",
@@ -598,13 +672,15 @@ export function PersonalSettings({
       id: "appearance",
       label: "Appearance",
       icon: Palette,
-      content: <AppearanceSettings prefs={prefs} />,
+      content: <AppearanceSettings draft={draft} />,
+      ...category(["theme", "showFolderPreviews", "startPage", "defaultView"]),
     },
     {
       id: "time",
       label: "Date and time",
       icon: Clock,
-      content: <TimeSettings prefs={prefs} />,
+      content: <TimeSettings draft={draft} />,
+      ...category(["timeZone", "clockFormat"]),
     },
     {
       id: "storage",
@@ -632,9 +708,10 @@ export function PersonalSettings({
       id: "updates",
       label: "Updates",
       icon: RefreshCw,
-      content: <UpdateSettings prefs={prefs} />,
+      content: <UpdateSettings draft={draft} />,
+      ...category(["showUpdateNotifications"]),
     });
   }
 
-  return <SettingsLayout categories={categories} />;
+  return <SettingsLayout categories={categories} pending={pending} />;
 }

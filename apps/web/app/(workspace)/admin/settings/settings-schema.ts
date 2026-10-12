@@ -137,3 +137,34 @@ export function toSettingsValues(
     }),
   ) as SettingsValues;
 }
+
+/** What Reset to defaults puts back: the column defaults in schema.prisma. */
+export const SETTINGS_DEFAULTS: SettingsValues = {
+  sessionMaxAgeDays: "30",
+  shareMaxAgeDays: "30",
+  maxUploadBytes: "10737418240",
+  uploadTimeoutMinutes: "60",
+  uploadStagingRetentionHours: "2",
+  resumableMaxActiveSessionsPerUser: "4",
+  resumableMaxActiveSessionsInstance: "32",
+  resumableMaxReservedBytesPerUser: "21474836480",
+  resumableMaxReservedBytesInstance: "107374182400",
+  previewMaxSourceBytes: "26214400",
+  previewTextMaxBytes: "65536",
+  workerHeartbeatMaxAgeSeconds: "120",
+  updateCheckEnabled: "on",
+  updateChannel: "auto",
+  updateCheckRepository: "itsmeares/staaash",
+  timeZone: DEFAULT_TIME_ZONE,
+  maintenanceRunTime: DEFAULT_MAINTENANCE_RUN_TIME,
+  mediaPreviewEnabled: "on",
+  mediaPreviewGenerateOnUpload: "",
+  mediaPreviewGenerateOnFirstView: "on",
+  mediaPreviewGenerateOnShare: "on",
+  mediaPreviewThresholdBytes: "367001600",
+  mediaPreviewRetentionDays: "14",
+  mediaPreviewMaxHeight: "1080",
+  zipArchiveRetentionDays: "7",
+  mediaPreviewCrf: "22",
+  mediaPreviewMaxConcurrentJobs: "1",
+};

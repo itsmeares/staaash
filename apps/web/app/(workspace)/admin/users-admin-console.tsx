@@ -154,7 +154,6 @@ function InviteDialog({ signInUrl }: { signInUrl: string }) {
             units={BYTES}
             value={limit}
             onChange={setLimit}
-            onCommit={() => undefined}
           />
         </Field>
         <TemporaryPasswordFields />

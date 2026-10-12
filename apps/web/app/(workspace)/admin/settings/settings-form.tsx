@@ -10,13 +10,7 @@ import {
   RefreshCw,
   Upload,
 } from "lucide-react";
-import {
-  useActionState,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useActionState, useState, type ReactNode } from "react";
 
 import type { SystemSettings } from "@staaash/db/client";
 
@@ -47,9 +41,11 @@ import { getUpdateStatusLabel, type UpdateState } from "@/lib/update-status";
 
 import { updateSystemSettings } from "./actions";
 import {
+  SETTINGS_DEFAULTS,
   toSettingsValues,
   type SettingsActionState,
   type SettingsField,
+  type SettingsValues,
 } from "./settings-schema";
 
 const MINUTES: Unit[] = [
@@ -80,10 +76,43 @@ const CHANNELS = [
   { value: "rc", label: "Release candidates" },
 ];
 
-/**
- * Drive-wide settings. Every change saves on its own: switches and menus at
- * once, typed values when the field is left.
- */
+// The settings each category holds, for its changed dot and reset.
+const SECTIONS: Record<string, SettingsField[]> = {
+  uploads: [
+    "maxUploadBytes",
+    "uploadTimeoutMinutes",
+    "uploadStagingRetentionHours",
+    "resumableMaxActiveSessionsPerUser",
+    "resumableMaxActiveSessionsInstance",
+    "resumableMaxReservedBytesPerUser",
+    "resumableMaxReservedBytesInstance",
+  ],
+  previews: ["previewMaxSourceBytes", "previewTextMaxBytes"],
+  media: [
+    "mediaPreviewEnabled",
+    "mediaPreviewGenerateOnUpload",
+    "mediaPreviewGenerateOnFirstView",
+    "mediaPreviewGenerateOnShare",
+    "mediaPreviewThresholdBytes",
+    "mediaPreviewRetentionDays",
+    "mediaPreviewMaxHeight",
+    "mediaPreviewCrf",
+    "mediaPreviewMaxConcurrentJobs",
+  ],
+  sessions: ["sessionMaxAgeDays", "shareMaxAgeDays"],
+  downloads: ["zipArchiveRetentionDays"],
+  updates: ["updateCheckEnabled", "updateChannel", "updateCheckRepository"],
+  scheduling: ["timeZone", "maintenanceRunTime"],
+  worker: ["workerHeartbeatMaxAgeSeconds"],
+};
+
+const differs = (
+  a: SettingsValues,
+  b: SettingsValues,
+  fields: SettingsField[],
+) => fields.some((name) => a[name] !== b[name]);
+
+/** Drive-wide settings. Changes wait for Save, which checks them all at once. */
 export function SettingsForm({
   settings,
   updateState: initialUpdateState,
@@ -94,15 +123,20 @@ export function SettingsForm({
   section?: string | null;
 }) {
   const { timeZone } = useTime();
-  const formRef = useRef<HTMLFormElement>(null);
-  const [draft, setDraft] = useState(() => toSettingsValues(settings));
+  const [saved, setSaved] = useState(() => toSettingsValues(settings));
+  const [draft, setDraft] = useState(saved);
+  const [errors, setErrors] = useState<SettingsActionState["fieldErrors"]>({});
+  // Bumped when values are swapped in, so number fields show them.
+  const [version, setVersion] = useState(0);
   const [updateState, setUpdateState] = useState(initialUpdateState);
   const [checking, setChecking] = useState(false);
-  const [submitTick, setSubmitTick] = useState(0);
-  const [state, action] = useActionState(
+  const [, action, saving] = useActionState(
     async (previous: SettingsActionState, data: FormData) => {
       const result = await updateSystemSettings(previous, data);
-      if (result.success) {
+      setErrors(result.fieldErrors ?? {});
+      if (result.values) {
+        setSaved(result.values);
+        setDraft(result.values);
         toastManager.add({ title: "Saved", type: "success", timeout: 1500 });
       } else if (result.error) {
         toast.error(result.error);
@@ -111,25 +145,24 @@ export function SettingsForm({
     },
     {},
   );
-  const errors = state.fieldErrors ?? {};
 
-  // Submit after React has rendered the new value into the form.
-  useEffect(() => {
-    if (submitTick > 0) formRef.current?.requestSubmit();
-  }, [submitTick]);
-  const commit = () => setSubmitTick((tick) => tick + 1);
   const set = (name: SettingsField, value: string) =>
     setDraft((previous) => ({ ...previous, [name]: value }));
+  const replace = (next: SettingsValues) => {
+    setDraft(next);
+    setVersion((current) => current + 1);
+  };
+  const dirty = differs(draft, saved, Object.keys(saved) as SettingsField[]);
 
   const unit = (name: SettingsField, units: Unit[]) => (
     <UnitField
       id={`settings-${name}`}
-      invalid={Boolean(errors[name])}
+      invalid={Boolean(errors?.[name])}
+      key={`${name}:${version}`}
       name={name}
       units={units}
       value={draft[name]}
       onChange={(value) => set(name, value)}
-      onCommit={commit}
     />
   );
   const toggle = (name: SettingsField) => (
@@ -138,10 +171,7 @@ export function SettingsForm({
       <Switch
         checked={draft[name] === "on"}
         id={`settings-${name}`}
-        onCheckedChange={(checked) => {
-          set(name, checked ? "on" : "");
-          commit();
-        }}
+        onCheckedChange={(checked) => set(name, checked ? "on" : "")}
       />
     </>
   );
@@ -152,7 +182,8 @@ export function SettingsForm({
     control: ReactNode,
   ) => (
     <SettingsRow
-      error={errors[name]}
+      changed={draft[name] !== saved[name]}
+      error={errors?.[name]}
       hint={hint}
       htmlFor={`settings-${name}`}
       key={name}
@@ -371,10 +402,7 @@ export function SettingsForm({
               />
               <Select
                 value={draft.updateChannel}
-                onValueChange={(value) => {
-                  set("updateChannel", String(value));
-                  commit();
-                }}
+                onValueChange={(value) => set("updateChannel", String(value))}
               >
                 <SelectTrigger
                   className="w-full sm:w-50"
@@ -406,7 +434,6 @@ export function SettingsForm({
               name="updateCheckRepository"
               placeholder="owner/repo"
               value={draft.updateCheckRepository}
-              onBlur={commit}
               onChange={(event) =>
                 set("updateCheckRepository", event.target.value)
               }
@@ -446,10 +473,7 @@ export function SettingsForm({
               id="settings-timeZone"
               name="timeZone"
               value={draft.timeZone}
-              onChange={(value) => {
-                set("timeZone", value);
-                commit();
-              }}
+              onChange={(value) => set("timeZone", value)}
             />,
           )}
           {row(
@@ -461,7 +485,6 @@ export function SettingsForm({
               name="maintenanceRunTime"
               type="time"
               value={draft.maintenanceRunTime}
-              onBlur={commit}
               onChange={(event) =>
                 set("maintenanceRunTime", event.target.value)
               }
@@ -485,16 +508,44 @@ export function SettingsForm({
         </SettingsCard>
       ),
     },
-  ];
+  ].map((category) => {
+    const fields = SECTIONS[category.id]!;
+    return {
+      ...category,
+      changed: differs(draft, saved, fields),
+      onReset: differs(draft, SETTINGS_DEFAULTS, fields)
+        ? () =>
+            replace({
+              ...draft,
+              ...Object.fromEntries(
+                fields.map((name) => [name, SETTINGS_DEFAULTS[name]]),
+              ),
+            })
+        : undefined,
+    };
+  });
 
   return (
     <form
       action={action}
       aria-label="Drive settings"
-      ref={formRef}
       onResetCapture={(event) => event.preventDefault()}
     >
-      <SettingsLayout categories={categories} initial={section} />
+      <SettingsLayout
+        categories={categories}
+        initial={section}
+        pending={
+          dirty
+            ? {
+                saving,
+                onDiscard: () => {
+                  replace(saved);
+                  setErrors({});
+                },
+              }
+            : null
+        }
+      />
     </form>
   );
 }

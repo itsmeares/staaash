@@ -337,51 +337,10 @@
   transform: none;
 }
 
-/* A tiny picture of the drive in each theme. */
+/* The drive picture, sized for a half of the screen. */
 .mini {
-  display: grid;
-  grid-template-columns: 52px 1fr;
   width: 220px;
-  height: 130px;
-  overflow: hidden;
-  border-radius: 12px;
   box-shadow: 0 18px 40px -18px rgb(0 0 0 / 0.6);
-}
-
-.half[data-theme="dark"] .mini {
-  background: #1a1816;
-  border: 1px solid rgb(255 255 255 / 0.1);
-}
-
-.half[data-theme="light"] .mini {
-  background: #fbfaf7;
-  border: 1px solid rgb(0 0 0 / 0.08);
-}
-
-.mini i {
-  display: block;
-  height: 6px;
-  margin: 8px 8px 0;
-  border-radius: 3px;
-  background: rgb(127 127 127 / 0.22);
-}
-
-.mini > span:first-child {
-  padding-top: 6px;
-  background: rgb(127 127 127 / 0.08);
-}
-
-.mini > span:last-child i:nth-child(1) {
-  width: 40%;
-  height: 9px;
-}
-
-.mini > span:last-child i:nth-child(2) {
-  width: 85%;
-}
-
-.mini > span:last-child i:nth-child(3) {
-  width: 70%;
 }
 
 @media (max-width: 640px) {
@@ -391,7 +350,6 @@
 
   .mini {
     width: 160px;
-    height: 94px;
   }
 }
 

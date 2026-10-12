@@ -24,7 +24,7 @@ async function useSeconds(page: Page) {
   await page.getByRole("option", { name: "sec", exact: true }).click();
 }
 
-test("settings save on change, show errors where they happen and survive a reload", async ({
+test("settings wait for Save, show errors where they happen and survive a reload", async ({
   page,
 }) => {
   await signIn(page, { ...getOwnerCredentials(), next: "/admin/settings" });
@@ -33,8 +33,18 @@ test("settings save on change, show errors where they happen and survive a reloa
     exact: true,
   });
   const media = page.getByRole("switch", { name: "Media previews" });
+  const save = page.getByRole("button", { name: "Save", exact: true });
+  const savedToast = page.getByText("Saved", { exact: true }).first();
 
   try {
+    await openCategory(page, "Media previews");
+    await media.click();
+    await page.getByRole("button", { name: "Discard", exact: true }).click();
+    await expect(media).toBeChecked({
+      checked: original.mediaPreviewEnabled === "on",
+    });
+    await expect(save).toBeHidden();
+
     await openCategory(page, "Worker");
     await useSeconds(page);
     await heartbeat.fill("2147483648");
@@ -45,15 +55,12 @@ test("settings save on change, show errors where they happen and survive a reloa
     );
 
     await heartbeat.fill("180");
-    await heartbeat.press("Enter");
-    await expect(page.getByText("Saved", { exact: true })).toBeVisible();
-    await expect(heartbeat).not.toHaveAttribute("aria-invalid", "true");
-
     await openCategory(page, "Media previews");
     await media.click();
-    await expect(
-      page.getByText("Saved", { exact: true }).first(),
-    ).toBeVisible();
+    await save.click();
+    await expect(savedToast).toBeVisible();
+    await expect(heartbeat).not.toHaveAttribute("aria-invalid", "true");
+    await expect(save).toBeHidden();
 
     await page.reload();
     const saved = await readSettings(page);
@@ -66,11 +73,11 @@ test("settings save on change, show errors where they happen and survive a reloa
     await openCategory(page, "Worker");
     await useSeconds(page);
     await heartbeat.fill(String(original.workerHeartbeatMaxAgeSeconds));
-    await heartbeat.press("Enter");
     await openCategory(page, "Media previews");
     await media.setChecked(original.mediaPreviewEnabled === "on");
-    await expect(
-      page.getByText("Saved", { exact: true }).first(),
-    ).toBeVisible();
+    if (await save.isVisible()) {
+      await save.click();
+      await expect(savedToast).toBeVisible();
+    }
   }
 });

@@ -6,6 +6,7 @@ import { AUTO_TIME_ZONE, getBrowserTimeZone } from "@staaash/config/time-zone";
 import { saveOwnerOnboardingSettings } from "@/app/(workspace)/admin/settings/actions";
 import { raiseCurtain } from "@/components/curtain";
 import { DriveGlyph } from "@/components/drive-glyph";
+import { MiniDrive } from "@/components/mini-drive";
 import { TimeZonePicker } from "@/components/time-zone-picker";
 import { startPath } from "@/lib/start-page";
 import { applyTheme } from "@/lib/theme";
@@ -107,23 +108,6 @@ function Clock({ zone }: { zone: string }) {
         minute: "2-digit",
         timeZone: zone,
       }).format(now)}
-    </span>
-  );
-}
-
-function MiniDrive() {
-  return (
-    <span aria-hidden className={styles.mini}>
-      <span>
-        <i />
-        <i />
-        <i />
-      </span>
-      <span>
-        <i />
-        <i />
-        <i />
-      </span>
     </span>
   );
 }
@@ -337,7 +321,7 @@ function LookScreen({
           <span aria-hidden className={styles.check}>
             ✓
           </span>
-          <MiniDrive />
+          <MiniDrive className={styles.mini} theme={option} />
           <span className={styles.halfName}>
             {option === "dark" ? "Dark" : "Light"}
           </span>

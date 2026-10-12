@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -23,6 +26,7 @@ vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 
 import { updateSystemSettings } from "@/app/(workspace)/admin/settings/actions";
 import {
+  SETTINGS_DEFAULTS,
   settingsSchema,
   toSettingsValues,
 } from "@/app/(workspace)/admin/settings/settings-schema";
@@ -225,5 +229,31 @@ describe("admin settings validation", () => {
     const result = await updateSystemSettings({}, data);
     expect(result.values?.updateChannel).toBe("auto");
     expect(mocks.upsert.mock.calls.at(-1)![0].update.updateChannel).toBeNull();
+  });
+});
+
+describe("admin settings defaults", () => {
+  it("resets to the column defaults in schema.prisma", () => {
+    const schema = readFileSync(
+      path.resolve(__dirname, "../../../../packages/db/prisma/schema.prisma"),
+      "utf8",
+    );
+    const model = schema.match(/model SystemSettings \{([^}]*)\}/)![1]!;
+    const columns = Object.fromEntries(
+      [...model.matchAll(/^\s*(\w+)\s+\w+\??.*?(?:@default\((.*?)\))?\s*$/gm)]
+        .filter(([, name]) => name! in SETTINGS_DEFAULTS)
+        .map(([, name, value]) => [
+          name,
+          value === undefined
+            ? null
+            : value === "true" || value === "false"
+              ? value === "true"
+              : value.replace(/^"|"$/g, ""),
+        ]),
+    );
+    expect(Object.keys(columns).sort()).toEqual(
+      Object.keys(SETTINGS_DEFAULTS).sort(),
+    );
+    expect(toSettingsValues(columns)).toEqual(SETTINGS_DEFAULTS);
   });
 });

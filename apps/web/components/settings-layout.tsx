@@ -1,7 +1,17 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, type LucideIcon } from "lucide-react";
-import { useState, type ComponentProps, type ReactNode } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw,
+  type LucideIcon,
+} from "lucide-react";
+import {
+  useEffect,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 
 import { useMediaQuery } from "@/app/(workspace)/use-media-query";
 import { Button } from "@/components/ui/button";
@@ -21,7 +31,55 @@ export type SettingsCategory = {
   label: string;
   icon: LucideIcon;
   content: ReactNode;
+  /** Has changes that aren't saved yet. */
+  changed?: boolean;
+  /** Puts this category back to its defaults; left out when it already is. */
+  onReset?: () => void;
 };
+
+/** Unsaved changes: the bar under the categories saves or drops them. */
+export type SettingsPending = {
+  saving: boolean;
+  onDiscard: () => void;
+  /** Left out inside a form, where Save submits it. */
+  onSave?: () => void;
+};
+
+/** Marks a setting or category with changes that aren't saved yet. */
+export function ChangedDot() {
+  return (
+    <span
+      aria-label="Changed"
+      className="size-1.5 shrink-0 rounded-full bg-primary"
+      role="img"
+    />
+  );
+}
+
+function SaveBar({ pending }: { pending: SettingsPending }) {
+  return (
+    <div className="sticky bottom-4 z-10 flex animate-in items-center gap-2 rounded-2xl border border-border bg-popover py-2 ps-4 pe-2 shadow-floating duration-200 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none max-lg:bottom-[calc(76px+env(safe-area-inset-bottom))] lg:col-start-2">
+      <ChangedDot />
+      <span className="flex-1 text-body font-medium">Unsaved changes</span>
+      <Button
+        disabled={pending.saving}
+        size="sm"
+        variant="ghost"
+        onClick={pending.onDiscard}
+      >
+        Discard
+      </Button>
+      <Button
+        disabled={pending.saving}
+        size="sm"
+        type={pending.onSave ? "button" : "submit"}
+        onClick={pending.onSave}
+      >
+        {pending.saving ? "Saving…" : "Save"}
+      </Button>
+    </div>
+  );
+}
 
 /**
  * Both Settings pages: an index on the left that switches categories, one
@@ -33,10 +91,12 @@ export type SettingsCategory = {
 export function SettingsLayout({
   categories,
   initial = null,
+  pending = null,
 }: {
   categories: SettingsCategory[];
   /** Category to open first, e.g. from a link to one setting. */
   initial?: string | null;
+  pending?: SettingsPending | null;
 }) {
   const wide = useMediaQuery("(min-width: 64rem)");
   const [open, setOpen] = useState<string | null>(
@@ -45,6 +105,15 @@ export function SettingsLayout({
   const current = open ?? (wide ? categories[0]?.id : null);
   const showIndex = wide || current === null;
   const { ref, pill } = useGlidingPill<HTMLElement>(`${current}:${wide}`);
+  const dirty = pending !== null;
+
+  // A reload or closed tab would drop the changes without a word.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
 
   return (
     <div className="grid items-start gap-8 lg:grid-cols-[12.5rem_minmax(0,40rem)]">
@@ -60,7 +129,7 @@ export function SettingsLayout({
           ref={ref}
         >
           {wide ? <GlidingPill pill={pill} /> : null}
-          {categories.map(({ id, label, icon: Icon }) => (
+          {categories.map(({ id, label, icon: Icon, changed }) => (
             <button
               aria-current={id === current ? "page" : undefined}
               className={cn(
@@ -75,13 +144,14 @@ export function SettingsLayout({
             >
               <Icon aria-hidden />
               <span className="flex-1">{label}</span>
+              {changed ? <ChangedDot /> : null}
               {wide ? null : <ChevronRight aria-hidden />}
             </button>
           ))}
         </nav>
       ) : null}
       <div className={cn(!wide && current === null && "hidden")}>
-        {categories.map(({ id, label, content }) => (
+        {categories.map(({ id, label, content, onReset }) => (
           <section
             aria-label={label}
             className={cn(
@@ -103,14 +173,21 @@ export function SettingsLayout({
                   <ChevronLeft aria-hidden />
                 </Button>
               )}
-              <h2 className="m-0 font-heading text-lg font-semibold">
+              <h2 className="m-0 flex-1 font-heading text-lg font-semibold">
                 {label}
               </h2>
+              {onReset ? (
+                <Button size="sm" variant="ghost-muted" onClick={onReset}>
+                  <RotateCcw aria-hidden />
+                  Reset to defaults
+                </Button>
+              ) : null}
             </div>
             {content}
           </section>
         ))}
       </div>
+      {pending ? <SaveBar pending={pending} /> : null}
     </div>
   );
 }
@@ -129,20 +206,25 @@ export function SettingsRow({
   hint,
   error,
   htmlFor,
+  changed,
   children,
 }: {
   label: ReactNode;
   hint?: ReactNode;
   error?: string;
   htmlFor?: string;
+  changed?: boolean;
   children?: ReactNode;
 }) {
   return (
     <div className="grid min-h-14 items-center gap-x-4 gap-y-2 border-t border-border px-4 py-2.5 first:border-t-0 sm:grid-cols-[minmax(0,1fr)_12.5rem]">
       <div className="grid min-w-0 gap-0.5">
-        <label className="text-body font-medium" htmlFor={htmlFor}>
-          {label}
-        </label>
+        <span className="flex items-center gap-2">
+          <label className="text-body font-medium" htmlFor={htmlFor}>
+            {label}
+          </label>
+          {changed ? <ChangedDot /> : null}
+        </span>
         {hint ? (
           <span className="text-label text-muted-foreground">{hint}</span>
         ) : null}
@@ -190,7 +272,8 @@ export function UnitField({
   value: string;
   units: Unit[];
   onChange: (value: string) => void;
-  onCommit: () => void;
+  /** Saves right away, for forms without a Save button. */
+  onCommit?: () => void;
   invalid?: boolean;
   /** Shown when empty, e.g. "No limit". Without it the field is required. */
   placeholder?: string;
@@ -237,7 +320,7 @@ export function UnitField({
           emit(event.target.value, unit);
         }}
         onKeyDown={(event) => {
-          if (event.key === "Enter") {
+          if (event.key === "Enter" && onCommit) {
             event.preventDefault();
             onCommit();
           }
@@ -250,7 +333,7 @@ export function UnitField({
             const next = units.find((entry) => entry.label === label) ?? unit;
             setUnit(next);
             emit(text, next);
-            onCommit();
+            onCommit?.();
           }}
         >
           <SelectTrigger
