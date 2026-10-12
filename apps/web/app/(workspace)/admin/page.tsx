@@ -160,9 +160,7 @@ export default async function AdminOverviewPage() {
             <AdminRow
               action={
                 <Button
-                  render={
-                    <Link href="/admin/settings#settings-panel-updates" />
-                  }
+                  render={<Link href="/admin/settings?section=updates" />}
                   size="sm"
                   variant="ghost"
                 >
