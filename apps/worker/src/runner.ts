@@ -243,10 +243,13 @@ export class WorkerRunner {
     try {
       entry.parsePayload(job.payloadJson);
       await context.emitEvent("started", "Job handler started.");
-      const result = await entry.run(job, this.options.storagePaths, context);
+      await entry.run(job, this.options.storagePaths, context);
       const current = await findBackgroundJobById({ jobId: job.id });
 
-      if (result?.cancelled || current?.status === "cancelled") {
+      // Only the stored status says a job was cancelled. A handler that stops
+      // early for its own reasons is finished; leaving the job running would
+      // hand it back out when the lease runs out, forever.
+      if (current?.status === "cancelled") {
         await context.emitEvent("cancel_ack", "Worker observed cancellation.");
         return;
       }

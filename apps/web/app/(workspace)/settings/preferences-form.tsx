@@ -4,11 +4,9 @@ import {
   Clock,
   HardDrive,
   KeyRound,
-  Monitor,
   Palette,
   PencilLine,
   RefreshCw,
-  Smartphone,
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
@@ -18,12 +16,13 @@ import { useRef, useState } from "react";
 import { EMPTY_TRASH_CONFIRM } from "@/app/dashboard-context-menu";
 import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
 import { confirmAction } from "@/components/confirm-dialog";
+import { DeviceList } from "@/components/device-list";
+import type { Device } from "@/lib/user-agent";
 import {
   SettingsCard,
   SettingsLayout,
   SettingsRow,
 } from "@/components/settings-layout";
-import { useTime } from "@/components/time-provider";
 import { TimeZonePicker } from "@/components/time-zone-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,7 +39,6 @@ import { toast, toastManager } from "@/components/ui/toast";
 import { readAvatar } from "@/lib/avatar";
 import { formatBytes } from "@/lib/format-bytes";
 import { applyThemeWithTransition, type Theme } from "@/lib/theme";
-import { formatRelativeTime } from "@/lib/time";
 import { getInitials } from "@/lib/user";
 import { cn } from "@/lib/utils";
 import type { StorageBreakdown } from "@/server/user-storage";
@@ -64,15 +62,6 @@ const KINDS = [
   { key: "documents", label: "Documents", color: "var(--primary)" },
   { key: "trash", label: "Trash", color: "var(--muted-foreground)" },
 ] as const;
-
-export type DeviceSession = {
-  id: string;
-  device: string;
-  ipAddress: string | null;
-  lastSeenAt: string | null;
-  createdAt: string;
-  current: boolean;
-};
 
 type Preferences = {
   theme: Theme;
@@ -565,79 +554,6 @@ function StorageSettings({ storage }: { storage: StorageBreakdown }) {
   );
 }
 
-const PHONE = /iPhone|iPad|Android/;
-
-function DeviceSettings({ sessions: initial }: { sessions: DeviceSession[] }) {
-  const { now, timeZone } = useTime();
-  const [sessions, setSessions] = useState(initial);
-
-  const signOut = async (sessionId?: string) => {
-    try {
-      await post("/api/user/sessions/revoke", sessionId ? { sessionId } : {});
-      setSessions((list) =>
-        list.filter((session) =>
-          sessionId ? session.id !== sessionId : session.current,
-        ),
-      );
-      saved();
-    } catch (caught) {
-      failed(caught, "Could not sign out.");
-    }
-  };
-
-  return (
-    <div className="grid gap-3">
-      <SettingsCard>
-        {sessions.map((session) => {
-          const Icon = PHONE.test(session.device) ? Smartphone : Monitor;
-          const seen = session.current
-            ? "This browser"
-            : `Last seen ${formatRelativeTime(session.lastSeenAt ?? session.createdAt, now, timeZone, "long")}`;
-          return (
-            <div
-              className="flex min-h-14 items-center gap-3 border-t border-border px-4 py-2.5 first:border-t-0"
-              key={session.id}
-            >
-              <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-hover text-muted-foreground">
-                <Icon aria-hidden className="size-4" />
-              </span>
-              <span className="grid min-w-0 flex-1">
-                <span className="truncate text-body font-medium">
-                  {session.device}
-                </span>
-                <span className="truncate text-label text-muted-foreground">
-                  {[seen, session.ipAddress].filter(Boolean).join(" · ")}
-                </span>
-              </span>
-              {session.current ? (
-                <Badge variant="success">You're here</Badge>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => void signOut(session.id)}
-                >
-                  Sign out
-                </Button>
-              )}
-            </div>
-          );
-        })}
-      </SettingsCard>
-      {sessions.length > 1 ? (
-        <Button
-          className="justify-self-end"
-          size="sm"
-          variant="outline"
-          onClick={() => void signOut()}
-        >
-          Sign out everywhere else
-        </Button>
-      ) : null}
-    </div>
-  );
-}
-
 function UpdateSettings({ prefs }: { prefs: Preferences }) {
   const [values, change] = usePreferences(prefs);
   return (
@@ -669,7 +585,7 @@ export function PersonalSettings({
   isOwner: boolean;
   prefs: Preferences;
   storage: StorageBreakdown;
-  sessions: DeviceSession[];
+  sessions: Device[];
 }) {
   const categories = [
     {
@@ -700,7 +616,15 @@ export function PersonalSettings({
       id: "signed-in",
       label: "Signed in",
       icon: KeyRound,
-      content: <DeviceSettings sessions={sessions} />,
+      content: (
+        <DeviceList
+          devices={sessions}
+          onSignOut={(sessionId) =>
+            post("/api/user/sessions/revoke", { sessionId })
+          }
+          onSignOutOthers={() => post("/api/user/sessions/revoke", {})}
+        />
+      ),
     },
   ];
   if (isOwner) {

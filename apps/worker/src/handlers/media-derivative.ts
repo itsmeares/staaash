@@ -112,7 +112,7 @@ export const handleMediaDerivativeGenerate = async (
   job: BackgroundJobRecord,
   storagePaths: WorkerStoragePaths,
   context?: JobContext,
-): Promise<boolean> => {
+): Promise<void> => {
   const health = getFfmpegHealth();
   if (!health.available) {
     throw new Error(
@@ -135,7 +135,7 @@ export const handleMediaDerivativeGenerate = async (
   const settings: SystemSettingsRecord = rawSettings ?? DEFAULT_SETTINGS;
 
   if (!settings.mediaPreviewEnabled) {
-    return false;
+    return;
   }
 
   const file = await prisma.file.findUnique({
@@ -160,7 +160,7 @@ export const handleMediaDerivativeGenerate = async (
   if (
     isThumbnail ? !canHaveThumbnail(file.mimeType, file.storageKey) : !isVideo
   ) {
-    return false;
+    return;
   }
 
   const kind = isThumbnail
@@ -181,7 +181,7 @@ export const handleMediaDerivativeGenerate = async (
     payload.reason !== "manual-regenerate" &&
     file.sizeBytes < settings.mediaPreviewThresholdBytes
   ) {
-    return false;
+    return;
   }
 
   const derivative = await upsertDerivativeQueued(
@@ -192,7 +192,7 @@ export const handleMediaDerivativeGenerate = async (
   );
   const publishMutationId = `derivative-publish-${derivative.id}-${job.id}`;
   if ((await assertWorkerMutationMayStart(publishMutationId)) === "succeeded") {
-    return false;
+    return;
   }
 
   await (getPrisma() as unknown as PrismaClient).mediaDerivative.update({
@@ -252,7 +252,7 @@ export const handleMediaDerivativeGenerate = async (
       status: DERIVATIVE_STATUS_FAILED,
       error: "No cover art in this file.",
     });
-    return true;
+    return;
   }
 
   let cancelledByAdmin = false;
@@ -316,7 +316,7 @@ export const handleMediaDerivativeGenerate = async (
       await settleDerivativeIfOwned(derivative.id, job.id, {
         status: DERIVATIVE_STATUS_STALE,
       });
-      return true;
+      return;
     }
     await settleDerivativeIfOwned(derivative.id, job.id, {
       status: DERIVATIVE_STATUS_FAILED,
@@ -362,7 +362,7 @@ export const handleMediaDerivativeGenerate = async (
   });
   if (current?.status === DERIVATIVE_STATUS_STALE) {
     await rm(tmpPath, { force: true });
-    return true;
+    return;
   }
 
   const tmpKey = path
@@ -440,6 +440,4 @@ export const handleMediaDerivativeGenerate = async (
   });
 
   await context?.updateProgress({ stage: "ready", fileId: file.id });
-
-  return false;
 };

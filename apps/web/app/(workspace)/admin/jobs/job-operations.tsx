@@ -1505,14 +1505,9 @@ function JobActivityPanel({
     >
       <div className="flex flex-wrap items-start justify-between gap-4.5 max-md:grid">
         <div className="min-w-0 flex-[1_1_280px]">
-          <h2 className="m-0 font-sans text-base leading-tight font-semibold">
-            {view === "jobs" ? "Job activity" : "Preview files"}
+          <h2 className="m-0 font-heading text-body font-semibold">
+            {view === "jobs" ? "Activity" : "Preview files"}
           </h2>
-          <p className="m-0 mt-1.5 text-label leading-normal text-muted-foreground md:text-meta">
-            {view === "jobs"
-              ? "Recent queued, running, failed, and completed work."
-              : "Generated preview files, pins, cleanup state, and manual recovery."}
-          </p>
         </div>
         <div className="flex min-w-0 flex-[1_1_420px] flex-wrap items-start justify-end gap-2.5 max-md:grid max-md:justify-stretch">
           <ToggleGroup
@@ -1703,8 +1698,58 @@ function JobActivityPanel({
   );
 }
 
+/** One failed job, newest first, with the error it stopped on. */
+function ProblemRow({
+  job,
+  nowMs,
+  onRetried,
+}: {
+  job: JsonBackgroundJob;
+  nowMs: number;
+  onRetried: () => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <div className="flex min-h-15 items-center gap-3 border-t border-border px-4 py-2.5 first:border-t-0">
+      <span
+        aria-hidden
+        className="size-2 shrink-0 rounded-full bg-destructive"
+      />
+      <span className="grid min-w-0 flex-1">
+        <span className="truncate text-body font-medium">
+          {formatJobKind(job.kind)}
+          {job.fileName ? ` · ${job.fileName}` : ""}
+        </span>
+        <span className="truncate text-label text-muted-foreground">
+          {error ?? job.lastError ?? "Stopped without a message"} ·{" "}
+          {formatRelativeTime(job.updatedAt, nowMs)}
+        </span>
+      </span>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={async () => {
+          const response = await fetch(`/api/admin/jobs/${job.id}/retry`, {
+            method: "POST",
+          });
+          if (response.ok) onRetried();
+          else {
+            const body = (await response.json().catch(() => null)) as {
+              error?: string;
+            } | null;
+            setError(body?.error ?? "Retry failed.");
+          }
+        }}
+      >
+        Retry
+      </Button>
+    </div>
+  );
+}
+
 type Props = {
   derivativeActions: MediaDerivativeActions;
+  initialProblems: JsonBackgroundJob[];
   initialDerivatives: JsonAdminMediaDerivativeSummary;
   initialLastRuns: Record<string, JsonBackgroundJob | null>;
   initialSummary: JsonJobSummary;
@@ -1713,6 +1758,7 @@ type Props = {
 
 export function JobOperations({
   derivativeActions,
+  initialProblems,
   initialDerivatives,
   initialLastRuns,
   initialSummary,
@@ -1720,6 +1766,7 @@ export function JobOperations({
 }: Props) {
   const [summary, setSummary] = useState(initialSummary);
   const [lastRuns, setLastRuns] = useState(initialLastRuns);
+  const [problems, setProblems] = useState(initialProblems);
   const { now, timeZone } = useTime();
   const [nowMs, setNowMs] = useState(() => now.getTime());
   const failedCount = summary.failed + summary.dead;
@@ -1778,7 +1825,10 @@ export function JobOperations({
     <div className="grid w-full max-w-6xl grid-cols-1 content-start gap-6">
       <PageHeader
         actions={
-          <Button render={<Link href="/admin/settings" />} variant="outline">
+          <Button
+            render={<Link href="/admin/settings?section=scheduling" />}
+            variant="outline"
+          >
             Schedule
           </Button>
         }
@@ -1786,20 +1836,39 @@ export function JobOperations({
         title="Jobs"
       />
 
-      <section
-        aria-label="Background jobs"
-        className="overflow-hidden rounded-xl border border-border bg-card"
-      >
-        {jobKinds.map((kind) => {
-          const lastRun = lastRuns[kind] ?? null;
-          return (
+      {problems.length > 0 ? (
+        <section aria-label="Needs a look" className="grid gap-2.5">
+          <h2 className="m-0 font-heading text-body font-semibold">
+            Needs a look
+          </h2>
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            {problems.map((job) => (
+              <ProblemRow
+                job={job}
+                key={job.id}
+                nowMs={nowMs}
+                onRetried={() =>
+                  setProblems((list) =>
+                    list.filter((entry) => entry.id !== job.id),
+                  )
+                }
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section aria-label="Scheduled" className="grid gap-2.5">
+        <h2 className="m-0 font-heading text-body font-semibold">Scheduled</h2>
+        <div className="overflow-hidden rounded-2xl border border-border bg-card">
+          {jobKinds.map((kind) => (
             <JobTaskCard
               derivativeActions={derivativeActions}
               derivatives={initialDerivatives.rows}
               timeZone={timeZone}
               key={kind}
               kind={kind}
-              lastRun={lastRun}
+              lastRun={lastRuns[kind] ?? null}
               nowMs={nowMs}
               onLastRunChange={(updatedKind, job) => {
                 setLastRuns((current) => ({
@@ -1809,8 +1878,8 @@ export function JobOperations({
               }}
               workerRunningJobIds={workerRunningJobIds}
             />
-          );
-        })}
+          ))}
+        </div>
       </section>
 
       <JobActivityPanel

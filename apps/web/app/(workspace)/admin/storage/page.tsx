@@ -1,216 +1,175 @@
-// Pending and recovery-required tables intentionally share one status layout.
-// fallow-ignore-file code-duplication
-import { formatBytes } from "@/lib/format-bytes";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
-import { formatAdminDateTime } from "@/app/(workspace)/admin/admin-format";
-import { AdminPanel } from "@/app/(workspace)/admin/admin-panel";
-import { AdminStatusBadge } from "@/app/(workspace)/admin/admin-status-badge";
+import { AdminAvatar } from "@/app/(workspace)/admin/admin-avatar";
 import { PageHeader } from "@/components/page-header";
+import { SettingsCard } from "@/components/settings-layout";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { formatBytes } from "@/lib/format-bytes";
+import { getInitials } from "@/lib/user";
 import { getAdminStorageSummary } from "@/server/admin/storage";
 import { requireAdminPageSession } from "@/server/auth/guards";
-import { resolveDisplayTimeZone } from "@/server/time-zone";
+import { getInstanceDiskInfo } from "@/server/user-storage";
 import { getStorageMutationHealth } from "@staaash/db/storage-mutations";
+
+import { DiskBar } from "../disk-bar";
 import { retryStorageMutationAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-const getUsagePercent = (value: bigint, maxValue: bigint) => {
-  if (maxValue <= 0n) return 0;
-  return Number((value * 10000n) / maxValue) / 100;
-};
+const plural = (count: number, word: string) =>
+  `${count} ${word}${count === 1 ? "" : "s"}`;
 
-export default async function AdminStoragePage() {
-  const [summary, storageMutations, session] = await Promise.all([
-    getAdminStorageSummary(),
-    getStorageMutationHealth(),
-    requireAdminPageSession(),
-  ]);
-  const { timeZone } = await resolveDisplayTimeZone(session.user);
-  const topUsage = summary.rows[0]?.retainedBytes ?? 0n;
-  const activeUsers = summary.rows.filter(
-    (row) => row.retainedBytes > 0n,
-  ).length;
+/** "file_move" reads as "File move". */
+const words = (value: string) =>
+  value.charAt(0).toUpperCase() + value.slice(1).replaceAll("_", " ");
 
+function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="grid w-full max-w-6xl content-start gap-6">
-      <PageHeader
-        description={`${formatBytes(summary.retainedBytes)} in ${summary.retainedFileCount} files and ${summary.retainedFolderCount} folders, trash included. ${activeUsers} of ${summary.totalUsers} users store something.`}
-        title="Storage"
-      />
-
-      <AdminPanel title="By user">
-        <TableFrame>
-          <Table className="min-w-180">
-            <TableHeader>
-              <TableRow>
-                <HeadCell>User</HeadCell>
-                <HeadCell>Role</HeadCell>
-                <HeadCell>Used</HeadCell>
-                <HeadCell>Items</HeadCell>
-                <HeadCell>Last activity</HeadCell>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {summary.rows.map((row) => {
-                const role = row.isOwner
-                  ? "owner"
-                  : row.isAdmin
-                    ? "admin"
-                    : "member";
-                const usagePercent = getUsagePercent(
-                  row.retainedBytes,
-                  topUsage,
-                );
-
-                return (
-                  <TableRow className="group cursor-pointer" key={row.userId}>
-                    <BodyCell>
-                      <div className="grid min-w-0 grid-cols-1 gap-1">
-                        <Link
-                          className="inline-block max-w-full truncate text-body font-semibold text-foreground group-hover:text-primary-ink group-hover:underline group-hover:decoration-primary/50 group-hover:underline-offset-3 after:absolute after:inset-0 after:z-10 after:content-[''] focus-visible:outline-none focus-visible:after:rounded-lg focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring/80"
-                          href={`/admin/users/${row.userId}`}
-                        >
-                          {row.displayName ?? row.email}
-                        </Link>
-                        <span className="text-meta text-muted-foreground">
-                          {row.email}
-                        </span>
-                      </div>
-                    </BodyCell>
-                    <BodyCell>
-                      <AdminStatusBadge status={role} />
-                    </BodyCell>
-                    <BodyCell>
-                      <div className="grid min-w-47 grid-cols-1 gap-2">
-                        <strong className="text-body font-semibold">
-                          {formatBytes(row.retainedBytes)}
-                        </strong>
-                        <Progress
-                          aria-label="Share of the largest user's storage"
-                          value={usagePercent}
-                        />
-                      </div>
-                    </BodyCell>
-                    <BodyCell>
-                      <span className="text-meta text-muted-foreground">
-                        {row.retainedFileCount} files
-                        <br />
-                        {row.retainedFolderCount} folders
-                      </span>
-                    </BodyCell>
-                    <BodyCell>
-                      {formatAdminDateTime(row.lastContentActivityAt, timeZone)}
-                    </BodyCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableFrame>
-      </AdminPanel>
-
-      <AdminPanel
-        aside="Moves, renames and uploads still finishing"
-        title="Unfinished storage changes"
-      >
-        <TableFrame>
-          <Table className="min-w-180">
-            <TableHeader>
-              <TableRow>
-                <HeadCell>Mutation</HeadCell>
-                <HeadCell>Owner</HeadCell>
-                <HeadCell>Phase</HeadCell>
-                <HeadCell>Safe paths</HeadCell>
-                <HeadCell>Action</HeadCell>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {storageMutations.active.length === 0 ? (
-                <TableRow>
-                  <BodyCell colSpan={5}>Nothing is unfinished.</BodyCell>
-                </TableRow>
-              ) : (
-                storageMutations.active.map((mutation) => (
-                  <TableRow key={mutation.id}>
-                    <BodyCell>
-                      <strong>{mutation.kind}</strong>
-                      <br />
-                      <span className="text-meta text-muted-foreground">
-                        {mutation.id}
-                      </span>
-                    </BodyCell>
-                    <BodyCell>{mutation.ownerUserId}</BodyCell>
-                    <BodyCell>
-                      <AdminStatusBadge status={mutation.status} />
-                    </BodyCell>
-                    <BodyCell>
-                      {mutation.safePathLabels.length > 0
-                        ? mutation.safePathLabels.join(", ")
-                        : "Redacted"}
-                    </BodyCell>
-                    <BodyCell>
-                      {mutation.canRetryNow ? (
-                        <form action={retryStorageMutationAction}>
-                          <input
-                            name="mutationId"
-                            type="hidden"
-                            value={mutation.id}
-                          />
-                          <Button type="submit" variant="outline" size="sm">
-                            Retry now
-                          </Button>
-                        </form>
-                      ) : (
-                        "Automatic recovery"
-                      )}
-                    </BodyCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableFrame>
-      </AdminPanel>
-    </div>
-  );
-}
-
-function TableFrame({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="overflow-x-auto rounded-lg border border-border">
+    <section className="grid gap-2.5">
+      <h2 className="m-0 font-heading text-body font-semibold">{title}</h2>
       {children}
-    </div>
+    </section>
   );
 }
 
-function HeadCell({ children }: { children: React.ReactNode }) {
-  return <TableHead className="px-4 text-label">{children}</TableHead>;
-}
+const rowClass =
+  "flex min-h-15 items-center gap-3 border-t border-border px-4 py-2.5 first:border-t-0";
 
-function BodyCell({
-  children,
-  colSpan,
+type Mutation = Awaited<
+  ReturnType<typeof getStorageMutationHealth>
+>["active"][number];
+
+/** One unfinished change; the journal finishes most on its own. */
+function MutationRow({
+  mutation,
+  owner,
 }: {
-  children: React.ReactNode;
-  colSpan?: number;
+  mutation: Mutation;
+  owner: string;
 }) {
   return (
-    <TableCell
-      className="px-4 py-2.5 text-body whitespace-normal"
-      colSpan={colSpan}
-    >
-      {children}
-    </TableCell>
+    <div className={rowClass}>
+      <span className="grid min-w-0 flex-1">
+        <span className="truncate text-body font-medium">
+          {words(mutation.kind)} · {owner}
+        </span>
+        <span className="truncate text-label text-muted-foreground">
+          {(mutation.status === "recovery_required" && mutation.lastError) ||
+            mutation.safePathLabels.join(", ") ||
+            mutation.id}
+        </span>
+      </span>
+      <Badge
+        variant={mutation.status === "recovery_required" ? "error" : "warning"}
+      >
+        {words(mutation.status)}
+      </Badge>
+      {mutation.canRetryNow ? (
+        <form action={retryStorageMutationAction}>
+          <input name="mutationId" type="hidden" value={mutation.id} />
+          <Button size="sm" type="submit" variant="outline">
+            Retry now
+          </Button>
+        </form>
+      ) : (
+        <span className="text-label text-muted-foreground">
+          {mutation.status === "recovery_required"
+            ? "Files kept, needs a look"
+            : "Finishing on its own"}
+        </span>
+      )}
+    </div>
+  );
+}
+
+export default async function AdminStoragePage() {
+  await requireAdminPageSession();
+  const [summary, mutations, disk] = await Promise.all([
+    getAdminStorageSummary(),
+    getStorageMutationHealth(),
+    getInstanceDiskInfo(),
+  ]);
+  const largest = summary.rows[0]?.retainedBytes ?? 0n;
+  const nameOf = new Map(
+    summary.rows.map((row) => [row.userId, row.displayName ?? row.email]),
+  );
+
+  return (
+    <div className="grid w-full max-w-3xl content-start gap-6">
+      <PageHeader title="Storage" />
+
+      {disk ? (
+        <SettingsCard>
+          <div className="px-4 py-3.5">
+            <DiskBar
+              capacityBytes={disk.capacityBytes}
+              staaashBytes={summary.retainedBytes}
+              usedBytes={disk.usedBytes}
+            />
+          </div>
+        </SettingsCard>
+      ) : null}
+
+      <Group title="By person">
+        <SettingsCard>
+          {summary.rows.map((row) => (
+            <Link
+              className={`${rowClass} outline-none hover:bg-hover focus-visible:bg-hover`}
+              href={`/admin/users/${row.userId}`}
+              key={row.userId}
+            >
+              <AdminAvatar
+                avatarUrl={null}
+                initials={getInitials(row.displayName, row.email)}
+                size="sm"
+              />
+              <span className="grid min-w-0 flex-1">
+                <span className="truncate text-body font-medium">
+                  {row.displayName ?? row.email}
+                </span>
+                <span className="truncate text-label text-muted-foreground">
+                  {row.retainedFileCount + row.retainedFolderCount === 0
+                    ? "Nothing yet"
+                    : `${plural(row.retainedFileCount, "file")} · ${plural(row.retainedFolderCount, "folder")}`}
+                </span>
+              </span>
+              <span className="grid w-36 gap-1.5 text-end">
+                <span className="text-label tabular-nums">
+                  {formatBytes(row.retainedBytes)}
+                </span>
+                <span className="block h-1 overflow-hidden rounded-full bg-pressed">
+                  <span
+                    className="block h-full rounded-full bg-primary"
+                    style={{
+                      width: `${largest > 0n ? Number((row.retainedBytes * 100n) / largest) : 0}%`,
+                    }}
+                  />
+                </span>
+              </span>
+            </Link>
+          ))}
+        </SettingsCard>
+      </Group>
+
+      <Group title="Unfinished changes">
+        <SettingsCard>
+          {mutations.active.length === 0 ? (
+            <p className="m-0 px-4 py-3.5 text-body text-muted-foreground">
+              Nothing unfinished
+            </p>
+          ) : (
+            mutations.active.map((mutation) => (
+              <MutationRow
+                key={mutation.id}
+                mutation={mutation}
+                owner={nameOf.get(mutation.ownerUserId) ?? mutation.ownerUserId}
+              />
+            ))
+          )}
+        </SettingsCard>
+      </Group>
+    </div>
   );
 }

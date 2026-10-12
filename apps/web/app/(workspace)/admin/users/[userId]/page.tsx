@@ -1,84 +1,98 @@
+import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
-import { formatBytes } from "@/lib/format-bytes";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
-import { ArrowLeft } from "lucide-react";
 
 import { AdminAvatar } from "@/app/(workspace)/admin/admin-avatar";
-import { formatAdminDateTime } from "@/app/(workspace)/admin/admin-format";
-import { AdminPanel } from "@/app/(workspace)/admin/admin-panel";
-import { AdminStatusBadge } from "@/app/(workspace)/admin/admin-status-badge";
+import { SettingsCard, SettingsRow } from "@/components/settings-layout";
+import { DateTime } from "@/components/time-provider";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import { formatBytes } from "@/lib/format-bytes";
+import { accountNote, getInitials } from "@/lib/user";
+import { toDevice } from "@/lib/user-agent";
 import { requireAdminPageSession } from "@/server/auth/guards";
 import { authService } from "@/server/auth/service";
 import { getAdminStorageSummary } from "@/server/admin/storage";
 import { getBaseUrl } from "@/server/request";
 import { getUserStorageUsed } from "@/server/user-storage";
-import { resolveDisplayTimeZone } from "@/server/time-zone";
 
-import { AuthorizedDevicesPanel } from "./authorized-devices-panel";
-import { UserDetailActions } from "./user-detail-actions";
+import { AccountCard, SignInCard } from "./user-account";
 import { UserDetailCopyButton } from "./user-detail-copy-button";
 
 export const dynamic = "force-dynamic";
 
-type AdminUserDetailsPageProps = {
-  params: Promise<{
-    userId: string;
-  }>;
-};
+function Group({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="grid gap-2.5">
+      <h2 className="m-0 font-heading text-body font-semibold">{title}</h2>
+      {children}
+    </section>
+  );
+}
 
-const roleLabel = (user: { isOwner: boolean; isAdmin: boolean }) =>
-  user.isOwner ? "owner" : user.isAdmin ? "admin" : "member";
+const plural = (count: number, word: string) =>
+  `${count} ${word}${count === 1 ? "" : "s"}`;
 
-const parseDeviceLabel = (userAgent: string | null) => {
-  if (!userAgent) return "Unknown device";
+function StorageCard({
+  used,
+  limit,
+  files,
+  folders,
+  lastChange,
+}: {
+  used: bigint;
+  limit: bigint | null;
+  files: number;
+  folders: number;
+  lastChange: Date | null;
+}) {
+  const percent = limit
+    ? Math.min(100, Number((used * 1000n) / limit) / 10)
+    : null;
+  return (
+    <SettingsCard>
+      <div className="grid gap-2.5 px-4 py-3.5">
+        <span className="text-body">
+          <b className="font-semibold tabular-nums">{formatBytes(used)}</b>{" "}
+          <span className="text-muted-foreground">
+            {limit ? `of ${formatBytes(limit)}` : "used"}
+          </span>
+        </span>
+        {percent === null ? null : (
+          <span className="block h-2 overflow-hidden rounded-full bg-hover">
+            <span
+              className="block h-full rounded-full bg-primary"
+              style={{ width: `${percent}%` }}
+            />
+          </span>
+        )}
+        <span className="text-label text-muted-foreground">
+          {plural(files, "file")} · {plural(folders, "folder")}
+          {lastChange ? (
+            <>
+              {" "}
+              · last change <DateTime value={lastChange} />
+            </>
+          ) : null}
+        </span>
+      </div>
+    </SettingsCard>
+  );
+}
 
-  const os = userAgent.includes("Windows")
-    ? "Windows"
-    : userAgent.includes("Mac OS")
-      ? "macOS"
-      : userAgent.includes("Linux")
-        ? "Linux"
-        : userAgent.includes("Android")
-          ? "Android"
-          : userAgent.includes("iPhone") || userAgent.includes("iPad")
-            ? "iOS"
-            : "Device";
-
-  const browser = userAgent.includes("Firefox/")
-    ? "Firefox"
-    : userAgent.includes("Edg/")
-      ? "Edge"
-      : userAgent.includes("Chrome/")
-        ? "Chrome"
-        : userAgent.includes("Safari/")
-          ? "Safari"
-          : "Browser";
-
-  return `${os} - ${browser}`;
-};
-
-const getQuotaPercent = (usedBytes: bigint, quotaBytes: bigint | null) => {
-  if (!quotaBytes || quotaBytes <= 0n) return null;
-  return Number((usedBytes * 1000n) / quotaBytes) / 10;
-};
-
-const formatPercent = (value: number) =>
-  `${value.toFixed(value >= 100 || Number.isInteger(value) ? 0 : 1)}%`;
-
-export default async function AdminUserDetailsPage({
+// Only fallbacks for a user with no files yet; the cards hold the logic.
+// fallow-ignore-next-line complexity
+export default async function AdminUserPage({
   params,
-}: AdminUserDetailsPageProps) {
+}: {
+  params: Promise<{ userId: string }>;
+}) {
   const [{ userId }, session, h] = await Promise.all([
     params,
     requireAdminPageSession(),
     headers(),
   ]);
-  const { timeZone } = await resolveDisplayTimeZone(session.user);
-
   const [user, sessions, usage, storageSummary] = await Promise.all([
     authService.getUser(session.user.id, userId).catch((error) => {
       if (error?.code === "USER_NOT_FOUND") notFound();
@@ -88,231 +102,95 @@ export default async function AdminUserDetailsPage({
     getUserStorageUsed(userId),
     getAdminStorageSummary(),
   ]);
-  const storageRow = storageSummary.rows.find((row) => row.userId === user.id);
-  const signInUrl = new URL("/", getBaseUrl(h)).toString();
-  const role = roleLabel(user);
-  const initials =
-    user.displayName?.slice(0, 1).toUpperCase() ??
-    user.email.slice(0, 1).toUpperCase();
-  const storageUsedLabel = formatBytes(usage.usedBytes);
-  const quotaPercent = getQuotaPercent(usage.usedBytes, user.storageLimitBytes);
-  const quotaPercentLabel =
-    quotaPercent === null ? null : formatPercent(quotaPercent);
-  const quotaBarPercent =
-    quotaPercent === null ? 0 : Math.max(0, Math.min(quotaPercent, 100));
-  const mostRecentSession = sessions[0] ?? null;
-  const lastSeenAt = mostRecentSession
-    ? formatAdminDateTime(
-        mostRecentSession.lastSeenAt ?? mostRecentSession.createdAt,
-        timeZone,
-      )
-    : "n/a";
-  const hasStatusAlerts = Boolean(
-    user.passwordChangeRequiredAt || !user.preferences?.onboardingCompletedAt,
-  );
+  const row = storageSummary.rows.find((entry) => entry.userId === user.id);
+  const canEdit = session.user.isOwner;
+  const limit = user.storageLimitBytes;
+  const note = accountNote(user);
 
   return (
-    <div className="grid w-full max-w-6xl content-start gap-6">
+    <div className="grid w-full max-w-2xl content-start gap-6">
       <div className="grid gap-3">
         <Button
-          className="justify-self-start"
+          className="-ms-2 justify-self-start"
           render={<Link href="/admin/users" />}
           size="sm"
           variant="ghost-muted"
         >
-          <ArrowLeft aria-hidden />
+          <ChevronLeft aria-hidden />
           Users
         </Button>
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-3.5">
-            <AdminAvatar
-              avatarUrl={user.avatarUrl ?? null}
-              initials={initials}
-              size="lg"
-            />
-            <div className="grid min-w-0 gap-0.5">
-              <h1 className="m-0 truncate font-heading text-headline font-semibold">
-                {user.displayName ?? "No name yet"}
-              </h1>
-              <p className="m-0 truncate text-body text-muted-foreground">
-                {user.email}
-              </p>
-              {hasStatusAlerts ? (
-                <p className="m-0 text-meta text-warning-foreground">
-                  {[
-                    user.passwordChangeRequiredAt
-                      ? "Must change password"
-                      : null,
-                    !user.preferences?.onboardingCompletedAt
-                      ? "Setup not finished"
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(", ")}
-                </p>
-              ) : null}
-            </div>
+        <div className="flex min-w-0 items-center gap-3.5">
+          <AdminAvatar
+            avatarUrl={user.avatarUrl}
+            initials={getInitials(user.displayName, user.email)}
+            size="lg"
+          />
+          <div className="grid min-w-0 gap-0.5">
+            <h1 className="m-0 truncate font-heading text-headline font-semibold">
+              {user.displayName ?? user.email}
+            </h1>
+            <p className="m-0 truncate text-body text-muted-foreground">
+              {note ? (
+                <span className="text-warning-foreground">{note}</span>
+              ) : (
+                user.email
+              )}
+            </p>
           </div>
-          <UserDetailActions
-            user={{
-              id: user.id,
-              email: user.email,
-              displayName: user.displayName,
-              isOwner: user.isOwner,
-              isAdmin: user.isAdmin,
-              storageLimitBytes: user.storageLimitBytes?.toString() ?? null,
-            }}
-            canMutate={session.user.isOwner}
-            signInUrl={signInUrl}
-          />
         </div>
-        <p className="m-0 text-meta text-muted-foreground">
-          {storageUsedLabel}
-          {user.storageLimitBytes
-            ? ` of ${formatBytes(user.storageLimitBytes)}`
-            : ", no quota"}{" "}
-          · {storageRow?.retainedFileCount ?? 0} files ·{" "}
-          {storageRow?.retainedFolderCount ?? 0} folders · {sessions.length}{" "}
-          device{sessions.length === 1 ? "" : "s"}, last seen {lastSeenAt}
-        </p>
       </div>
 
-      <div className="grid grid-cols-[minmax(0,1fr)_minmax(320px,0.38fr)] items-start gap-4.5 max-md:grid-cols-1">
-        <div className="grid min-w-0 grid-cols-1 gap-4.5">
-          <AdminPanel title="Account">
-            <dl className="m-0 grid grid-cols-1 gap-0">
-              <FactRow label="Name" value={user.displayName ?? "No name yet"} />
-              <FactRow
-                label="Role"
-                value={<AdminStatusBadge status={role} />}
-              />
-              <FactRow
-                label="Email"
-                value={user.email}
-                copyValue={user.email}
-              />
-              <FactRow
-                label="Created"
-                value={formatAdminDateTime(user.createdAt, timeZone)}
-              />
-              <FactRow
-                label="Updated"
-                value={formatAdminDateTime(user.updatedAt, timeZone)}
-              />
-              <FactRow
-                label="User ID"
-                value={user.id}
-                copyValue={user.id}
-                code
-              />
-              <FactRow
-                label="Storage ID"
-                value={user.storageId}
-                copyValue={user.storageId}
-                code
-              />
-            </dl>
-          </AdminPanel>
+      <Group title="Account">
+        <AccountCard
+          account={{
+            id: user.id,
+            email: user.email,
+            displayName: user.displayName,
+            isOwner: user.isOwner,
+            isAdmin: user.isAdmin,
+            storageLimitBytes: limit?.toString() ?? "",
+          }}
+          canEdit={canEdit}
+        />
+      </Group>
 
-          <AdminPanel title="Storage">
-            <dl className="m-0 grid grid-cols-1 gap-0">
-              <FactRow
-                label="Quota"
-                value={
-                  user.storageLimitBytes
-                    ? formatBytes(user.storageLimitBytes)
-                    : "Unlimited"
-                }
-                detail={
-                  quotaPercentLabel ? `${quotaPercentLabel} used` : undefined
-                }
-              />
-              <FactRow
-                label="Last content activity"
-                value={formatAdminDateTime(
-                  storageRow?.lastContentActivityAt ?? null,
-                  timeZone,
-                )}
-              />
-            </dl>
-            {quotaPercentLabel ? (
-              <div className="grid grid-cols-1 gap-2 pt-0.5">
-                <Progress aria-label="Quota used" value={quotaBarPercent} />
-                <p className="m-0 text-label text-muted-foreground">
-                  {quotaPercentLabel} of quota used
-                </p>
-              </div>
-            ) : null}
-          </AdminPanel>
-        </div>
+      <Group title="Storage">
+        <StorageCard
+          files={row?.retainedFileCount ?? 0}
+          folders={row?.retainedFolderCount ?? 0}
+          lastChange={row?.lastContentActivityAt ?? null}
+          limit={limit}
+          used={usage.usedBytes}
+        />
+      </Group>
 
-        <aside className="grid min-w-0 grid-cols-1 gap-4.5">
-          <AdminPanel title="Security">
-            <dl className="m-0 grid grid-cols-1 gap-0">
-              <FactRow label="Active devices" value={String(sessions.length)} />
-              <FactRow label="Last seen" value={lastSeenAt} />
-              <FactRow
-                label="Password change"
-                value={user.passwordChangeRequiredAt ? "Required" : "Clear"}
-              />
-              <FactRow
-                label="Onboarding"
-                value={
-                  user.preferences?.onboardingCompletedAt
-                    ? `Complete, ${formatAdminDateTime(user.preferences.onboardingCompletedAt, timeZone)}`
-                    : "Incomplete"
-                }
-              />
-            </dl>
-          </AdminPanel>
+      <Group title="Signed in">
+        <SignInCard
+          canEdit={canEdit}
+          devices={sessions.map((entry) => toDevice(entry, session.id))}
+          signInUrl={new URL("/", getBaseUrl(h)).toString()}
+          userId={user.id}
+        />
+      </Group>
 
-          <AuthorizedDevicesPanel
-            userId={user.id}
-            sessions={sessions.map((deviceSession) => ({
-              id: deviceSession.id,
-              label: parseDeviceLabel(deviceSession.userAgent),
-              ipAddress: deviceSession.ipAddress,
-              lastSeenAt: deviceSession.lastSeenAt?.toISOString() ?? null,
-              createdAt: deviceSession.createdAt.toISOString(),
-              isCurrent: deviceSession.id === session.id,
-            }))}
-            canRevoke={session.user.isOwner}
-          />
-        </aside>
-      </div>
-    </div>
-  );
-}
-
-function FactRow({
-  copyValue,
-  detail,
-  label,
-  value,
-  code,
-}: {
-  copyValue?: string;
-  detail?: string;
-  label: string;
-  value: ReactNode;
-  code?: boolean;
-}) {
-  return (
-    <div className="grid grid-cols-[minmax(140px,0.3fr)_minmax(0,1fr)] items-start gap-4 border-b border-border py-2.5 last:border-b-0 max-md:grid-cols-1 max-md:gap-1">
-      <dt className="text-meta text-muted-foreground">{label}</dt>
-      <dd className="m-0 flex min-w-0 flex-wrap items-center gap-2 text-body text-foreground">
-        <span className="min-w-0 wrap-anywhere [&_code]:text-meta [&_code]:whitespace-normal">
-          {code && typeof value === "string" ? <code>{value}</code> : value}
-        </span>
-        {copyValue ? (
-          <UserDetailCopyButton label={label} value={copyValue} />
-        ) : null}
-        {detail ? (
-          <small className="basis-full text-label text-muted-foreground">
-            {detail}
-          </small>
-        ) : null}
-      </dd>
+      <Group title="Details">
+        <SettingsCard>
+          <SettingsRow label="Joined">
+            <DateTime value={user.createdAt} />
+          </SettingsRow>
+          <SettingsRow label="Folder on disk">
+            <span className="flex min-w-0 items-center gap-2">
+              <code className="truncate text-label">
+                files/{user.storageId}
+              </code>
+              <UserDetailCopyButton
+                label="folder"
+                value={`files/${user.storageId}`}
+              />
+            </span>
+          </SettingsRow>
+        </SettingsCard>
+      </Group>
     </div>
   );
 }

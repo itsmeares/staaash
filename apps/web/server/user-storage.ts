@@ -3,6 +3,7 @@ import { statfs } from "node:fs/promises";
 import { getPrisma, type Prisma } from "@staaash/db/client";
 
 import { FilesError } from "@/server/files/errors";
+import { getStorageRoot } from "@/server/storage";
 import {
   getQuotaUsageInTransaction,
   lockUserQuotaRow,
@@ -110,7 +111,8 @@ export type DiskInfo = {
 
 export const getInstanceDiskInfo = async (): Promise<DiskInfo | null> => {
   try {
-    const s = await statfs(process.cwd());
+    // The files volume, which may be its own mount, not the app directory.
+    const s = await statfs(getStorageRoot());
     const capacity = BigInt(s.blocks) * BigInt(s.bsize);
     const free = BigInt(s.bfree) * BigInt(s.bsize);
     return { capacityBytes: capacity, usedBytes: capacity - free };

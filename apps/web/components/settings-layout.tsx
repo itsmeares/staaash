@@ -171,23 +171,37 @@ export function UnitField({
   onChange,
   onCommit,
   invalid,
+  placeholder,
+  emptyUnit,
 }: {
   id: string;
   name: string;
-  /** In the base unit. */
+  /** In the base unit; "" when `placeholder` allows leaving it empty. */
   value: string;
   units: Unit[];
   onChange: (value: string) => void;
   onCommit: () => void;
   invalid?: boolean;
+  /** Shown when empty, e.g. "No limit". Without it the field is required. */
+  placeholder?: string;
+  /** The unit an empty field starts in. */
+  emptyUnit?: string;
 }) {
-  const base = Number(value);
-  const [unit, setUnit] = useState(() => pickUnit(base, units));
-  const [text, setText] = useState(() => trimNumber(base / unit.factor));
+  const empty = value === "";
+  const [unit, setUnit] = useState(() =>
+    empty
+      ? (units.find((entry) => entry.label === emptyUnit) ?? units[0]!)
+      : pickUnit(Number(value), units),
+  );
+  const [text, setText] = useState(() =>
+    empty ? "" : trimNumber(Number(value) / unit.factor),
+  );
 
   const emit = (nextText: string, nextUnit: Unit) => {
     const number = Number(nextText);
-    if (nextText.trim() !== "" && Number.isFinite(number)) {
+    if (nextText.trim() === "") {
+      if (placeholder) onChange("");
+    } else if (Number.isFinite(number)) {
       onChange(String(Math.round(number * nextUnit.factor)));
     }
   };
@@ -205,6 +219,7 @@ export function UnitField({
         className="min-w-0 bg-transparent px-2.5 text-body tabular-nums outline-none"
         id={id}
         inputMode="decimal"
+        placeholder={placeholder}
         value={text}
         onBlur={onCommit}
         onChange={(event) => {

@@ -36,31 +36,6 @@ export function AdminPanel({
   );
 }
 
-/** A heading with rows under it, the plain admin section. */
-export function AdminSection({
-  title,
-  aside,
-  children,
-}: {
-  title: string;
-  aside?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <section className="grid min-w-0 content-start gap-2">
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="m-0 font-sans text-body font-semibold">{title}</h2>
-        {aside ? (
-          <div className="text-meta text-muted-foreground">{aside}</div>
-        ) : null}
-      </div>
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
-        {children}
-      </div>
-    </section>
-  );
-}
-
 const DOT = {
   ok: "bg-success",
   warning: "bg-warning",
@@ -90,11 +65,11 @@ export function AdminRow({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 border-t border-border px-3.5 py-2 first:border-t-0">
+    <div className="flex min-h-11 items-center gap-x-3 border-t border-border px-3.5 py-2 first:border-t-0">
       {tone ? <StatusDot tone={tone} /> : null}
-      <span className="text-body font-medium">{label}</span>
+      <span className="shrink-0 text-body font-medium">{label}</span>
       {detail ? (
-        <span className="ms-auto min-w-0 truncate text-meta text-muted-foreground">
+        <span className="ms-auto min-w-0 text-end text-meta text-muted-foreground">
           {detail}
         </span>
       ) : null}

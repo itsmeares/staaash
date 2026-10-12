@@ -10,6 +10,7 @@ import {
 } from "@/app/pagination-controls";
 import { requireAdminPageSession } from "@/server/auth/guards";
 import { authService } from "@/server/auth/service";
+import { accountNote } from "@/lib/user";
 import { getBaseUrl } from "@/server/request";
 import { getUserStorageUsed } from "@/server/user-storage";
 
@@ -37,19 +38,6 @@ export default async function AdminUsersPage({
 
   if (totalPages > 0 && page > totalPages) redirect(buildHref(1));
 
-  const summary = {
-    total: allUsers.length,
-    owners: allUsers.filter((user) => user.isOwner).length,
-    admins: allUsers.filter((user) => !user.isOwner && user.isAdmin).length,
-    members: allUsers.filter((user) => !user.isOwner && !user.isAdmin).length,
-    pendingOnboarding: allUsers.filter(
-      (user) => !user.preferences?.onboardingCompletedAt,
-    ).length,
-    passwordChangeRequired: allUsers.filter(
-      (user) => user.passwordChangeRequiredAt,
-    ).length,
-  };
-
   const users = allUsers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const usageByUserId = new Map(
     await Promise.all(
@@ -61,31 +49,24 @@ export default async function AdminUsersPage({
   );
 
   return (
-    <main className="m-0 grid w-full grid-cols-1 gap-7 p-0">
+    <main className="m-0 grid w-full gap-4 p-0">
       <UsersAdminConsole
-        appUrl={baseUrl}
-        canMutateUsers={session.user.isOwner}
-        initialUsers={users.map((user) => ({
+        canInvite={session.user.isOwner}
+        signInUrl={new URL("/", baseUrl).toString()}
+        users={users.map((user) => ({
           id: user.id,
           email: user.email,
-          storageId: user.storageId,
           displayName: user.displayName,
-          isOwner: user.isOwner,
-          isAdmin: user.isAdmin,
-          createdAt: user.createdAt.toISOString(),
-          updatedAt: user.updatedAt.toISOString(),
+          avatarUrl: user.avatarUrl,
+          role: user.role,
           storageLimitBytes: user.storageLimitBytes?.toString() ?? null,
           storageUsedBytes: (usageByUserId.get(user.id) ?? 0n).toString(),
-          passwordChangeRequiredAt:
-            user.passwordChangeRequiredAt?.toISOString() ?? null,
-          onboardingCompletedAt:
-            user.preferences?.onboardingCompletedAt?.toISOString() ?? null,
+          note: accountNote(user),
         }))}
-        summary={summary}
       />
 
       {totalPages > 1 ? (
-        <div className="mx-auto flex w-[min(1180px,100%)] justify-end max-sm:w-full">
+        <div className="flex max-w-4xl justify-end">
           <PaginationControls
             buildHref={buildHref}
             page={page}

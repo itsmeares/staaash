@@ -2,7 +2,7 @@ import { FlashMessage } from "@/app/auth-ui";
 import { PageHeader } from "@/components/page-header";
 import type { Theme } from "@/lib/theme";
 import { roleLabel } from "@/lib/user";
-import { describeDevice } from "@/lib/user-agent";
+import { toDevice } from "@/lib/user-agent";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { authService } from "@/server/auth/service";
 import { getStorageBreakdown } from "@/server/user-storage";
@@ -45,14 +45,7 @@ export default async function SettingsPage({
           clockFormat: prefs.clockFormat as "12h" | "24h",
         }}
         sessions={sessions
-          .map((entry) => ({
-            id: entry.id,
-            device: describeDevice(entry.userAgent),
-            ipAddress: entry.ipAddress,
-            lastSeenAt: entry.lastSeenAt?.toISOString() ?? null,
-            createdAt: entry.createdAt.toISOString(),
-            current: entry.id === session.id,
-          }))
+          .map((entry) => toDevice(entry, session.id))
           .sort((a, b) => Number(b.current) - Number(a.current))}
         storage={storage}
         profile={{

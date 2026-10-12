@@ -14,3 +14,14 @@ export function getInitials(displayName: string | null, email: string): string {
 const ROLE_LABELS = { owner: "Owner", admin: "Admin", member: "Member" };
 
 export const roleLabel = (role: keyof typeof ROLE_LABELS) => ROLE_LABELS[role];
+
+/** What an admin should know about an account before anything else. */
+export const accountNote = (user: {
+  passwordChangeRequiredAt: Date | null;
+  preferences: { onboardingCompletedAt: Date | null } | null;
+}) =>
+  !user.preferences?.onboardingCompletedAt
+    ? "Hasn't finished setup"
+    : user.passwordChangeRequiredAt
+      ? "Picks a new password at sign-in"
+      : null;

@@ -32,10 +32,6 @@ import type { JobContext } from "./job-context.js";
 import { TerminalJobError } from "./job-context.js";
 import { nextDailyRunAtUtc, nextDailyWindowEndUtc } from "./scheduling.js";
 
-type JobHandlerResult = {
-  cancelled?: boolean;
-};
-
 type JobRegistryEntry = {
   kind: SupportedBackgroundJobKind;
   maxAttempts: number;
@@ -53,7 +49,7 @@ type JobRegistryEntry = {
     job: BackgroundJobRecord,
     storagePaths: WorkerStoragePaths,
     context: JobContext,
-  ) => Promise<JobHandlerResult | void>;
+  ) => Promise<unknown>;
 };
 
 const emptyPayloadSchema = z.record(z.string(), z.unknown()).default({});
@@ -179,13 +175,7 @@ const JOB_REGISTRY: Record<SupportedBackgroundJobKind, JobRegistryEntry> = {
     timeoutMs: 6 * 60 * 60 * 1000,
     cancellable: true,
     parsePayload: parseWith(derivativePayloadSchema),
-    run: async (job, storagePaths, context) => ({
-      cancelled: await handleMediaDerivativeGenerate(
-        job,
-        storagePaths,
-        context,
-      ),
-    }),
+    run: handleMediaDerivativeGenerate,
   },
   [MEDIA_DERIVATIVE_CLEANUP_JOB_KIND]: {
     kind: MEDIA_DERIVATIVE_CLEANUP_JOB_KIND,

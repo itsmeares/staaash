@@ -1,177 +1,167 @@
+import { AlertTriangle, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { formatBytes } from "@/lib/format-bytes";
-import { formatVersionLabel } from "@staaash/config/version";
+import type { ReactNode } from "react";
 
-import {
-  AdminRow,
-  AdminSection,
-  toneFor,
-} from "@/app/(workspace)/admin/admin-panel";
-import { AdminStatusBadge } from "@/app/(workspace)/admin/admin-status-badge";
+import { AdminRow, toneFor } from "@/app/(workspace)/admin/admin-panel";
 import { PageHeader } from "@/components/page-header";
+import { SettingsCard } from "@/components/settings-layout";
 import { Button } from "@/components/ui/button";
+import { formatBytes } from "@/lib/format-bytes";
+import { getUpdateStatusLabel } from "@/lib/update-status";
 import { requireAdminPageSession } from "@/server/auth/guards";
 import { getAdminOverviewSummary } from "@/server/admin/overview";
-import { getUpdateStatusLabel } from "@/lib/update-status";
+import { getInstanceDiskInfo } from "@/server/user-storage";
+import { formatVersionLabel } from "@staaash/config/version";
+
+import { CheckUpdatesButton } from "./check-updates-button";
+import { DiskBar } from "./disk-bar";
 
 export const dynamic = "force-dynamic";
 
-const queueMessage = (
-  queue: Awaited<ReturnType<typeof getAdminOverviewSummary>>["health"]["queue"],
-) =>
-  queue.message ??
-  `${queue.queued} waiting, ${queue.running} running, ${queue.failed} failed, ${queue.dead} dead`;
+type Summary = Awaited<ReturnType<typeof getAdminOverviewSummary>>;
 
 const plural = (count: number, word: string) =>
   `${count} ${word}${count === 1 ? "" : "s"}`;
 
-// Each overview row picks its tone from its own health signal.
-// fallow-ignore-next-line complexity
+function Group({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="grid content-start gap-2.5">
+      <h2 className="m-0 font-heading text-body font-semibold">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+/** One line that says whether anything needs the owner, and what. */
+function StatusLine({ summary }: { summary: Summary }) {
+  const { failed, dead } = summary.jobs;
+  if (failed + dead === 0) return null;
+  const safe = summary.health.ok ? " Files are safe." : "";
+  // Failed jobs are retried by the worker; dead ones have given up.
+  const next = dead > 0 ? "" : " They retry on their own.";
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-warning/30 bg-warning/8 px-4 py-3">
+      <AlertTriangle aria-hidden className="size-4 text-warning-foreground" />
+      <span className="flex-1 text-body">
+        <b className="font-semibold">
+          {plural(failed + dead, "job")} {dead > 0 ? "need a look." : "failed."}
+        </b>
+        <span className="text-muted-foreground">
+          {safe}
+          {next}
+        </span>
+      </span>
+      <Button render={<Link href="/admin/jobs" />} size="sm" variant="outline">
+        See jobs
+      </Button>
+    </div>
+  );
+}
+
+const healthRows = ({ health }: Summary) =>
+  [
+    [
+      "Database",
+      health.checks.database.status,
+      health.checks.database.message ?? "Reachable",
+    ],
+    [
+      "Files volume",
+      health.checks.storage.status,
+      health.checks.storage.message ?? "Writable",
+    ],
+    ["Worker", health.worker.status, health.worker.message],
+    [
+      "Disk space",
+      health.storageWarnings.status,
+      health.storageWarnings.message,
+    ],
+    [
+      "Restore check",
+      health.reconciliation.status,
+      health.reconciliation.message,
+    ],
+  ] as const;
+
 export default async function AdminOverviewPage() {
   const session = await requireAdminPageSession();
-  const summary = await getAdminOverviewSummary(session.user.id);
-
-  const updateStatus = summary.updates.status;
-  const failedWork = summary.jobs.failed + summary.jobs.dead;
-  const allHealthy =
-    summary.health.ok && summary.health.operational.status === "healthy";
-
-  const healthRows = [
-    {
-      label: "Database",
-      message: summary.health.checks.database.message ?? "Reachable",
-      status: summary.health.checks.database.status,
-    },
-    {
-      label: "Files volume",
-      message: summary.health.checks.storage.message ?? "Writable",
-      status: summary.health.checks.storage.status,
-    },
-    {
-      label: "Worker",
-      message: summary.health.worker.message,
-      status: summary.health.worker.status,
-    },
-    {
-      label: "Queue",
-      message: queueMessage(summary.health.queue),
-      status: summary.health.queue.status,
-    },
-    {
-      label: "Disk",
-      message: summary.health.storageWarnings.message,
-      status: summary.health.storageWarnings.status,
-    },
-    {
-      label: "Restore check",
-      message: summary.health.reconciliation.message,
-      status: summary.health.reconciliation.status,
-    },
-  ];
+  const [summary, disk] = await Promise.all([
+    getAdminOverviewSummary(session.user.id),
+    getInstanceDiskInfo(),
+  ]);
+  const { users, updates } = summary;
+  const roles = [
+    users.owners && plural(users.owners, "owner"),
+    users.admins && plural(users.admins, "admin"),
+    users.members && plural(users.members, "member"),
+  ].filter(Boolean);
 
   return (
-    <div className="grid w-full max-w-6xl content-start gap-6">
-      <PageHeader
-        meta={
-          <AdminStatusBadge status={allHealthy ? "healthy" : "warning"}>
-            {allHealthy ? "Everything is working" : "Something needs attention"}
-          </AdminStatusBadge>
-        }
-        title="Overview"
-      />
-
-      {failedWork > 0 ? (
-        <p className="m-0 text-body">
-          {plural(failedWork, "job")} failed.{" "}
-          {summary.health.ok ? "Files keep working. " : ""}
-          <Link className="text-primary-ink underline" href="/admin/jobs">
-            See failed jobs
-          </Link>
-        </p>
-      ) : null}
-
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-        <div className="grid gap-6">
-          <AdminSection title="Health">
-            {healthRows.map((row) => (
+    <div className="grid w-full max-w-5xl content-start gap-6">
+      <PageHeader title="Overview" />
+      <StatusLine summary={summary} />
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <Group title="Health">
+          <SettingsCard>
+            {healthRows(summary).map(([label, status, message]) => (
               <AdminRow
-                detail={row.message}
-                key={row.label}
-                label={row.label}
-                tone={toneFor(row.status)}
+                detail={message}
+                key={label}
+                label={label}
+                tone={toneFor(status)}
               />
             ))}
-          </AdminSection>
-
-          <AdminSection
-            aside={
-              <Link className="hover:text-foreground" href="/admin/jobs">
-                All jobs
-              </Link>
-            }
-            title="Jobs"
-          >
-            <AdminRow detail={String(summary.jobs.queued)} label="Waiting" />
-            <AdminRow detail={String(summary.jobs.running)} label="Running" />
-            <AdminRow
-              detail={String(failedWork)}
-              label="Failed"
-              tone={failedWork > 0 ? "error" : undefined}
-            />
-          </AdminSection>
-        </div>
-
+          </SettingsCard>
+        </Group>
         <div className="grid gap-6">
-          <AdminSection
-            aside={
-              <Link className="hover:text-foreground" href="/admin/storage">
-                Details
+          <Group title="Disk">
+            <SettingsCard>
+              <div className="px-4 py-3.5">
+                {disk ? (
+                  <DiskBar
+                    capacityBytes={disk.capacityBytes}
+                    staaashBytes={summary.storage.retainedBytes}
+                    usedBytes={disk.usedBytes}
+                  />
+                ) : (
+                  <span className="text-body">
+                    {formatBytes(summary.storage.retainedBytes)} in Staaash
+                  </span>
+                )}
+              </div>
+            </SettingsCard>
+          </Group>
+          <Group title="People">
+            <SettingsCard>
+              <Link
+                className="block outline-none hover:bg-hover focus-visible:bg-hover"
+                href="/admin/users"
+              >
+                <AdminRow
+                  action={
+                    <ChevronRight
+                      aria-hidden
+                      className="size-4 text-muted-foreground"
+                    />
+                  }
+                  detail={roles.join(", ")}
+                  label={plural(users.total, "account")}
+                />
               </Link>
-            }
-            title="Storage"
-          >
-            <div className="grid gap-1 px-3.5 py-3">
-              <span className="font-heading text-headline font-semibold tabular-nums">
-                {formatBytes(summary.storage.retainedBytes)}
-              </span>
-              <span className="text-meta text-muted-foreground">
-                {plural(summary.storage.retainedFileCount, "file")} in{" "}
-                {plural(summary.storage.retainedFolderCount, "folder")}, across{" "}
-                {plural(summary.storage.totalUsers, "user")}
-              </span>
-            </div>
-          </AdminSection>
-
-          <AdminSection
-            aside={
-              <Link className="hover:text-foreground" href="/admin/users">
-                Users
-              </Link>
-            }
-            title="People"
-          >
-            <AdminRow
-              detail={`${plural(summary.users.owners, "owner")}, ${plural(summary.users.admins, "admin")}, ${plural(summary.users.members, "member")}`}
-              label={plural(summary.users.total, "account")}
-            />
-          </AdminSection>
-
-          <AdminSection title="Version">
-            <AdminRow
-              action={
-                <Button
-                  render={<Link href="/admin/settings?section=updates" />}
-                  size="sm"
-                  variant="ghost"
-                >
-                  Updates
-                </Button>
-              }
-              detail={getUpdateStatusLabel(summary.updates)}
-              label={formatVersionLabel(summary.updates.currentVersion)}
-              tone={updateStatus === "update-available" ? "warning" : undefined}
-            />
-          </AdminSection>
+            </SettingsCard>
+          </Group>
+          <Group title="Version">
+            <SettingsCard>
+              <AdminRow
+                action={<CheckUpdatesButton />}
+                detail={getUpdateStatusLabel(updates)}
+                label={formatVersionLabel(updates.currentVersion)}
+                tone={
+                  updates.status === "update-available" ? "warning" : undefined
+                }
+              />
+            </SettingsCard>
+          </Group>
         </div>
       </div>
     </div>

@@ -225,7 +225,7 @@ describe("media derivative handler", () => {
         pendingDeleteRoot: path.join(tmpRoot, "pending-delete"),
         uploadStagingTtlMs: 1,
       }),
-    ).resolves.toBe(false);
+    ).resolves.toBeUndefined();
 
     expect(mocks.runFfprobe).toHaveBeenCalledWith(sourcePath);
     expect(mocks.runFfprobe).toHaveBeenCalledWith(
@@ -360,7 +360,7 @@ describe("media derivative handler", () => {
         pendingDeleteRoot: path.join(tmpRoot, "pending-delete"),
         uploadStagingTtlMs: 1,
       }),
-    ).resolves.toBe(false);
+    ).resolves.toBeUndefined();
 
     expect(mocks.runFfmpegPoster).toHaveBeenCalledWith(
       sourcePath,
@@ -468,7 +468,7 @@ describe("media derivative handler", () => {
 
     await expect(
       handleMediaDerivativeGenerate(job, storagePaths),
-    ).resolves.toBe(false);
+    ).resolves.toBeUndefined();
 
     expect(mocks.runFfmpegThumbnail).toHaveBeenCalledWith(
       sourcePath,
@@ -523,7 +523,7 @@ describe("media derivative handler", () => {
 
     await expect(
       handleMediaDerivativeGenerate(job, storagePaths),
-    ).resolves.toBe(true);
+    ).resolves.toBeUndefined();
 
     expect(mocks.runFfmpegThumbnail).not.toHaveBeenCalled();
     expect(mocks.settleDerivativeIfOwned).toHaveBeenCalledWith(
@@ -538,7 +538,7 @@ describe("media derivative handler", () => {
 
     await expect(
       handleMediaDerivativeGenerate(job, storagePaths),
-    ).resolves.toBe(false);
+    ).resolves.toBeUndefined();
 
     expect(mocks.upsertDerivativeQueued).not.toHaveBeenCalled();
     expect(mocks.runFfmpegThumbnail).not.toHaveBeenCalled();
@@ -601,7 +601,7 @@ describe("media derivative handler", () => {
         emitEvent: vi.fn(async () => undefined),
         updateProgress: vi.fn(async () => undefined),
       }),
-    ).resolves.toBe(true);
+    ).resolves.toBeUndefined();
 
     expect(mocks.settleDerivativeIfOwned).toHaveBeenCalledWith(
       "derivative-1",

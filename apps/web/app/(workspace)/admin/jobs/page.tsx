@@ -1,6 +1,7 @@
 import { ALL_SUPPORTED_JOB_KINDS } from "@staaash/db/jobs";
 
 import {
+  getAdminJobList,
   getAdminJobSummary,
   getLastRunPerKind,
   toJsonAdminJob,
@@ -22,11 +23,13 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function AdminJobsPage() {
-  const [lastRunPerKind, queueSummary, mediaDerivatives] = await Promise.all([
-    getLastRunPerKind(),
-    getAdminJobSummary(),
-    getAdminMediaDerivativeSummary(),
-  ]);
+  const [lastRunPerKind, queueSummary, mediaDerivatives, problems] =
+    await Promise.all([
+      getLastRunPerKind(),
+      getAdminJobSummary(),
+      getAdminMediaDerivativeSummary(),
+      getAdminJobList({ status: ["failed", "dead"], limit: 20 }),
+    ]);
 
   const initialLastRuns: Record<string, JsonBackgroundJob | null> =
     Object.fromEntries(
@@ -45,6 +48,7 @@ export default async function AdminJobsPage() {
           removeDerivative,
           setPinDerivative,
         }}
+        initialProblems={problems.items.map(toJsonAdminJob)}
         initialDerivatives={toJsonAdminMediaDerivativeSummary(mediaDerivatives)}
         initialLastRuns={initialLastRuns}
         initialSummary={toJsonAdminJobSummary(queueSummary)}
