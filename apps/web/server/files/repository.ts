@@ -269,6 +269,17 @@ const createCanonicalRoot = async (
 };
 
 export type FilesRepository = {
+  findActiveNameConflict(input: {
+    ownerUserId: string;
+    parentId: string;
+    name: string;
+    excludeFolderId?: string;
+    excludeFileId?: string;
+  }): Promise<
+    | { kind: "folder"; item: FolderSummary }
+    | { kind: "file"; item: StoredFile }
+    | null
+  >;
   ensureFilesRoot(ownerUserId: string): Promise<FolderSummary>;
   findFilesRoot?(ownerUserId: string): Promise<FolderSummary | null>;
   findFolderById(folderId: string): Promise<FolderSummary | null>;
@@ -292,7 +303,7 @@ export type FilesRepository = {
   ): Promise<FolderSummary[]>;
   listFilesByOwner(
     ownerUserId: string,
-    options?: ListFilesOptions,
+    options?: ListFilesOptions & { favoritesOnly?: boolean },
   ): Promise<StoredFile[]>;
   searchFilesByOwner(
     ownerUserId: string,
@@ -326,6 +337,42 @@ export const createPrismaFilesRepository = (
     client ?? (getPrisma() as unknown as FilesPrismaClient);
 
   return {
+    async findActiveNameConflict({
+      ownerUserId,
+      parentId,
+      name,
+      excludeFolderId,
+      excludeFileId,
+    }) {
+      const client = getClient();
+      const [folder, file] = await Promise.all([
+        client.folder.findFirst({
+          where: {
+            ownerUserId,
+            parentId,
+            name,
+            deletedAt: null,
+            ...(excludeFolderId ? { id: { not: excludeFolderId } } : {}),
+          },
+          orderBy: { createdAt: "asc" },
+          select: folderSelect,
+        }),
+        client.file.findFirst({
+          where: {
+            ownerUserId,
+            folderId: parentId,
+            originalName: name,
+            deletedAt: null,
+            storageStatus: "available",
+            ...(excludeFileId ? { id: { not: excludeFileId } } : {}),
+          },
+          orderBy: { createdAt: "asc" },
+          select: fileSelect,
+        }),
+      ]);
+      if (folder) return { kind: "folder", item: toFolderSummary(folder) };
+      return file ? { kind: "file", item: toStoredFile(file) } : null;
+    },
     async findFilesRoot(ownerUserId) {
       const roots = sortLegacyRoots(
         await listLegacyRoots(getClient(), ownerUserId),
@@ -472,6 +519,9 @@ export const createPrismaFilesRepository = (
       const files = await client.file.findMany({
         where: {
           ownerUserId,
+          ...(options.favoritesOnly
+            ? { favorites: { some: { userId: ownerUserId } } }
+            : {}),
           ...(options.includeDeleted ? {} : { deletedAt: null }),
         },
         orderBy: [

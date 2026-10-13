@@ -420,16 +420,6 @@ const ensureFolderUploadPath = async ({
   return parentFolder;
 };
 
-type ActiveNameConflict =
-  | {
-      kind: "file";
-      item: StoredFile;
-    }
-  | {
-      kind: "folder";
-      item: FolderSummary;
-    };
-
 type UploadConflictItem = {
   clientKey: string;
   originalName: string;
@@ -1708,54 +1698,6 @@ export const createFilesService = ({
     };
   };
 
-  const findActiveNameConflict = async ({
-    ownerUserId,
-    parentId,
-    name,
-    excludeFolderId,
-    excludeFileId,
-  }: {
-    ownerUserId: string;
-    parentId: string;
-    name: string;
-    excludeFolderId?: string;
-    excludeFileId?: string;
-  }): Promise<ActiveNameConflict | null> => {
-    const activeRepo = await resolveRepo();
-    const [folders, files] = await Promise.all([
-      activeRepo.listChildFolders(ownerUserId, parentId, {
-        includeDeleted: false,
-      }),
-      activeRepo.listChildFiles(ownerUserId, parentId, {
-        includeDeleted: false,
-      }),
-    ]);
-
-    const conflictingFolder = folders.find(
-      (folder) => folder.name === name && folder.id !== excludeFolderId,
-    );
-
-    if (conflictingFolder) {
-      return {
-        kind: "folder",
-        item: conflictingFolder,
-      };
-    }
-
-    const conflictingFile = files.find(
-      (file) => file.name === name && file.id !== excludeFileId,
-    );
-
-    if (conflictingFile) {
-      return {
-        kind: "file",
-        item: conflictingFile,
-      };
-    }
-
-    return null;
-  };
-
   const assertNoFolderNameConflict = async ({
     ownerUserId,
     parentId,
@@ -1767,7 +1709,8 @@ export const createFilesService = ({
     name: string;
     excludeFolderId?: string;
   }) => {
-    const conflict = await findActiveNameConflict({
+    const activeRepo = await resolveRepo();
+    const conflict = await activeRepo.findActiveNameConflict({
       ownerUserId,
       parentId,
       name,
@@ -1790,7 +1733,8 @@ export const createFilesService = ({
     name: string;
     excludeFileId?: string;
   }) => {
-    const conflict = await findActiveNameConflict({
+    const activeRepo = await resolveRepo();
+    const conflict = await activeRepo.findActiveNameConflict({
       ownerUserId,
       parentId,
       name,
@@ -5071,7 +5015,7 @@ export const createFilesService = ({
                   return;
                 }
               }
-              const activeConflict = await findActiveNameConflict({
+              const activeConflict = await activeRepo.findActiveNameConflict({
                 ownerUserId: targetFolder.ownerUserId,
                 parentId: targetFolder.id,
                 name: normalizedName,
@@ -5651,7 +5595,7 @@ export const createFilesService = ({
         // Commit callback preserves session and metadata transaction ordering.
         // fallow-ignore-next-line complexity
         callback: async () => {
-          const activeConflict = await findActiveNameConflict({
+          const activeConflict = await activeRepo.findActiveNameConflict({
             ownerUserId: targetFolder.ownerUserId,
             parentId: targetFolder.id,
             name: normalizedName,

@@ -44,6 +44,7 @@ vi.mock("@/server/storage-read-guard", async (importOriginal) => {
 });
 
 import { buildShareAccessCookie } from "@/server/sharing/access-cookie";
+import { StorageEntityUnavailableError } from "@/server/storage-read-guard";
 import { ShareError } from "@/server/sharing/errors";
 import { createSharingService } from "@/server/sharing/service";
 import type { SharingRepository } from "@/server/sharing/repository";
@@ -364,6 +365,91 @@ describe("sharing service", () => {
     expect(reissued.share.id).toBe(created.share.id);
     expect(reissued.share.tokenLookupKey).not.toBe(originalTokenLookupKey);
     expect(reissued.shareUrl).not.toBe(originalShareUrl);
+  });
+
+  it("resolves a single-file share without reading unrelated files", async () => {
+    const sharingRepo = createFakeSharingRepository();
+    const filesRepo = { ...fakeFilesRepo };
+    const service = createSharingService({
+      repo: sharingRepo.repo,
+      filesRepo,
+      now: () => fixedNow,
+    });
+    const created = await service.createOrReissueShare({
+      actorUserId: "user-1",
+      actorRole: "member",
+      targetType: "file",
+      fileId: childFile.id,
+    });
+    filesRepo.listFilesByOwner = async () => {
+      throw new Error("Public file reads must not load the owner's library");
+    };
+
+    const resolved = await service.resolvePublicShare({ token: created.token });
+    expect(resolved.kind).toBe("file");
+    expect(resolved.share.target.pathLabel).toBe(
+      "Files / Projects / 2026 / notes.txt",
+    );
+    expect(
+      await service.getSharedFileDownload({ token: created.token }),
+    ).toMatchObject({ file: childFile });
+    expect(
+      storageMutationMocks.assertStorageEntityReadable,
+    ).toHaveBeenCalledWith("file", childFile.id);
+
+    storageMutationMocks.assertStorageEntityReadable.mockRejectedValueOnce(
+      new StorageEntityUnavailableError({
+        id: "mutation-file",
+        kind: "move",
+        status: "recovery_required",
+      }),
+    );
+    await expect(
+      service.getSharedFileDownload({ token: created.token }),
+    ).rejects.toMatchObject({ code: "STORAGE_RECOVERY_REQUIRED", status: 503 });
+  });
+
+  it.each([
+    "deleted file",
+    "deleted ancestor",
+    "missing file",
+    "foreign owner",
+  ])("rejects a single-file share with a %s", async (reason) => {
+    const sharingRepo = createFakeSharingRepository();
+    const filesRepo = { ...fakeFilesRepo };
+    const service = createSharingService({
+      repo: sharingRepo.repo,
+      filesRepo,
+      now: () => fixedNow,
+    });
+    const created = await service.createOrReissueShare({
+      actorUserId: "user-1",
+      actorRole: "member",
+      targetType: "file",
+      fileId: childFile.id,
+    });
+    filesRepo.findFileById = async () =>
+      reason === "missing file"
+        ? null
+        : {
+            ...childFile,
+            deletedAt: reason === "deleted file" ? fixedNow : null,
+            ownerUserId:
+              reason === "foreign owner" ? "user-2" : childFile.ownerUserId,
+          };
+    filesRepo.listFoldersByOwner = async () => [
+      filesRoot,
+      childFolder,
+      siblingFolder,
+      {
+        ...sharedFolder,
+        deletedAt: reason === "deleted ancestor" ? fixedNow : null,
+      },
+    ];
+
+    await expect(
+      service.getSharedFileDownload({ token: created.token }),
+    ).rejects.toMatchObject({ code: "SHARE_TARGET_UNAVAILABLE" });
   });
 
   it("requires password unlock and invalidates access after password rotation", async () => {

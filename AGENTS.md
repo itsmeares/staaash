@@ -216,3 +216,5 @@ procedures.
 When old documentation becomes wrong, rewrite or remove it. Do not add a second
 explanation beside it. Do not commit plans, research notes, or agent scratch
 files. Keep them outside the worktree.
+
+Do not include Postplan URLs, uploaded HTML plan links, or local artifact paths in PR descriptions, issue comments, or other public repository content unless the user wants it. Put relevant findings and measurements directly in the PR instead.
