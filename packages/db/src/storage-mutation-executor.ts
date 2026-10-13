@@ -1,5 +1,4 @@
 import { createHash, randomUUID } from "node:crypto";
-import { createReadStream } from "node:fs";
 import {
   lstat,
   mkdir,
@@ -142,12 +141,24 @@ const pathState = async (candidate: string) => {
   }
 };
 
-const sha256File = async (filePath: string) => {
-  const hash = createHash("sha256");
-  for await (const chunk of createReadStream(filePath)) {
-    hash.update(chunk as Buffer);
+export const computeFileSha256 = async (filePath: string) => {
+  const file = await open(filePath, "r");
+  try {
+    const hash = createHash("sha256");
+    // Reuse the buffer, growing it only when a file fills the initial read.
+    let buffer = Buffer.allocUnsafe(64 * 1024);
+    while (true) {
+      const { bytesRead } = await file.read(buffer, 0, buffer.length, null);
+      if (bytesRead === 0) break;
+      hash.update(buffer.subarray(0, bytesRead));
+      if (bytesRead === buffer.length && buffer.length < 1024 * 1024) {
+        buffer = Buffer.allocUnsafe(1024 * 1024);
+      }
+    }
+    return hash.digest("hex");
+  } finally {
+    await file.close();
   }
-  return hash.digest("hex");
 };
 
 export const requireStorageRegularFile = async (
@@ -170,7 +181,7 @@ export const calculateStorageFileChecksum = async (
   storageKey: string,
 ) => {
   const candidate = await requireStorageRegularFile(filesRoot, storageKey);
-  return sha256File(candidate);
+  return computeFileSha256(candidate);
 };
 
 const readTreeManifestRecords = async (treeRoot: string) => {
@@ -194,7 +205,7 @@ const readTreeManifestRecords = async (treeRoot: string) => {
       } else if (entry.isFile()) {
         const info = await lstat(entryPath);
         records.push(
-          `F ${relative} ${info.size} ${await sha256File(entryPath)}`,
+          `F ${relative} ${info.size} ${await computeFileSha256(entryPath)}`,
         );
       } else {
         throw new StorageMutationAmbiguityError(
@@ -306,7 +317,8 @@ const assertExpectedNodeChecksum = async (
   step: StorageMutationStep,
 ) => {
   if (!step.expectedChecksum) return;
-  const checksum = state.type === "file" ? await sha256File(candidate) : null;
+  const checksum =
+    state.type === "file" ? await computeFileSha256(candidate) : null;
   if (checksum !== step.expectedChecksum.toLowerCase()) {
     throw new StorageMutationAmbiguityError(
       "Mutation path checksum differs from intent.",

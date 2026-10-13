@@ -1,5 +1,4 @@
 import { createHash, randomUUID } from "node:crypto";
-import { createReadStream } from "node:fs";
 import { copyFile, mkdir, opendir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { createWriteStream } from "node:fs";
@@ -8,6 +7,7 @@ import { Readable } from "node:stream";
 import { z } from "zod";
 
 import { resolveUploadStagingRetentionHours } from "@staaash/config";
+import { computeFileSha256 } from "@staaash/db/storage-mutation-executor";
 
 import { env } from "@/lib/env";
 import { getSystemSettings } from "@/server/settings";
@@ -21,6 +21,8 @@ import {
   commitStagedUploadWithLock,
   replaceCommittedUploadWithLock,
 } from "@/server/storage-mutations";
+
+export { computeFileSha256 };
 
 const EXTENSION_MIME_FALLBACKS: Record<string, string> = {
   heic: "image/heic",
@@ -217,16 +219,6 @@ export const createUploadSession = (
     conflictStrategy,
   };
 };
-
-export const computeFileSha256 = async (filePath: string) =>
-  new Promise<string>((resolve, reject) => {
-    const hash = createHash("sha256");
-    const stream = createReadStream(filePath);
-
-    stream.on("data", (chunk) => hash.update(chunk));
-    stream.on("error", reject);
-    stream.on("end", () => resolve(hash.digest("hex")));
-  });
 
 export const verifyUploadChecksum = async (
   filePath: string,
