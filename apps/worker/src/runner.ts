@@ -25,6 +25,7 @@ import {
 } from "./job-registry.js";
 import { TerminalJobError, getErrorMessage } from "./job-context.js";
 import { recoverStorageMutations } from "./handlers/storage-mutation-recovery.js";
+import { JobNotifications } from "./job-notifications.js";
 
 const MIN_IDLE_DELAY_MS = 1_000;
 const MAX_IDLE_DELAY_MS = 30_000;
@@ -48,6 +49,10 @@ export class WorkerRunner {
   private activeJob: ActiveJobState | null = null;
   private storageMutationLoop: Promise<void> | null = null;
   private schedulerTimer: NodeJS.Timeout | null = null;
+  private idleWait = new AbortController();
+  private readonly jobNotifications = new JobNotifications(() => {
+    this.idleWait.abort();
+  });
 
   constructor(
     private readonly options: {
@@ -69,6 +74,9 @@ export class WorkerRunner {
     }, SCHEDULER_TICK_MS);
 
     while (!this.stopping) {
+      // Arm before querying so a notification between the last claim and sleep is retained.
+      this.idleWait = new AbortController();
+      this.jobNotifications.connect();
       try {
         const processed = await this.drainDueJobs();
         this.idleDelayMs = processed
@@ -86,7 +94,11 @@ export class WorkerRunner {
           status: "idle",
           currentJobId: null,
         }).catch(() => undefined);
-        await delay(this.idleDelayMs);
+        await delay(this.idleDelayMs, undefined, {
+          signal: this.idleWait.signal,
+        }).catch((error: unknown) => {
+          if (!isAbortError(error)) throw error;
+        });
       }
     }
 
@@ -95,6 +107,8 @@ export class WorkerRunner {
 
   async stop(timeoutMs = 25_000) {
     this.stopping = true;
+    this.idleWait.abort();
+    this.jobNotifications.close();
     if (this.schedulerTimer) clearInterval(this.schedulerTimer);
     this.activeJob?.controller.abort();
 
