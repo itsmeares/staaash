@@ -104,6 +104,28 @@ const collectDescendantFolderIds = (
   return result;
 };
 
+const buildFileArchivePath = (
+  file: StoredFileRecord,
+  folderMap: Map<string, FolderRecord>,
+  descendantsByRootId: Map<string, Set<string>>,
+): string => {
+  const parentFolder = file.folderId ? folderMap.get(file.folderId) : undefined;
+  if (!parentFolder) return file.originalName;
+
+  // Overlapping selections keep the first requested root as the file's path.
+  for (const [rootFolderId, descendants] of descendantsByRootId) {
+    if (!descendants.has(parentFolder.id)) continue;
+    const rootFolder = folderMap.get(rootFolderId);
+    if (!rootFolder) return file.originalName;
+    return path.posix.join(
+      rootFolder.name,
+      ...buildFolderSegments({ folder: parentFolder, folderMap, rootFolderId }),
+      file.originalName,
+    );
+  }
+  return file.originalName;
+};
+
 export const handleZipArchiveGenerate = async (
   job: BackgroundJobRecord,
   storagePaths: WorkerStoragePaths,
@@ -140,13 +162,11 @@ export const handleZipArchiveGenerate = async (
     const prisma = getPrisma() as unknown as PrismaClient;
     await context?.updateProgress({ stage: "loading_selection", archiveId });
 
-    const allFolders = await prisma.folder.findMany({
-      where: { ownerUserId: userId, deletedAt: null } as object,
-    });
-
-    const allFiles = await prisma.file.findMany({
-      where: { ownerUserId: userId, deletedAt: null } as object,
-    });
+    const allFolders = folderIds.length
+      ? await prisma.folder.findMany({
+          where: { ownerUserId: userId, deletedAt: null } as object,
+        })
+      : [];
 
     const folderMap = new Map(allFolders.map((f) => [f.id, f]));
 
@@ -174,19 +194,23 @@ export const handleZipArchiveGenerate = async (
     }
 
     // Collect files: directly requested + inside expanded folders
-    const requestedFileSet = new Set(fileIds);
-    const filesToZip = allFiles.filter(
-      (f) =>
-        requestedFileSet.has(f.id) ||
-        (f.folderId !== null && allDescendantFolderIds.has(f.folderId)),
-    );
+    const filesToZip = await prisma.file.findMany({
+      where: {
+        ownerUserId: userId,
+        deletedAt: null,
+        OR: [
+          { id: { in: fileIds } },
+          { folderId: { in: [...allDescendantFolderIds] } },
+        ],
+      },
+    });
 
     // Determine zip filename
     let fileName: string;
     if (folderIds.length === 1 && fileIds.length === 0) {
       fileName = `${folderMap.get(folderIds[0])?.name ?? "archive"}.zip`;
     } else if (folderIds.length === 0 && fileIds.length === 1) {
-      fileName = `${allFiles.find((f) => f.id === fileIds[0])?.originalName ?? "file"}.zip`;
+      fileName = `${filesToZip.find((f) => f.id === fileIds[0])?.originalName ?? "file"}.zip`;
     } else {
       fileName = "staaash-files.zip";
     }
@@ -206,7 +230,7 @@ export const handleZipArchiveGenerate = async (
       if (!rootFolder) continue;
       zipFile.addEmptyDirectory(`${rootFolder.name}/`);
 
-      for (const descendantId of allDescendantFolderIds) {
+      for (const descendantId of descendantsByRootId.get(rootFolderId) ?? []) {
         if (descendantId === rootFolderId) continue;
         const descendant = folderMap.get(descendantId);
         if (!descendant) continue;
@@ -241,45 +265,10 @@ export const handleZipArchiveGenerate = async (
         file.storageKey,
       );
 
-      let archivePath: string;
-
-      if (file.folderId && allDescendantFolderIds.has(file.folderId)) {
-        // File is inside a requested folder subtree — find which root it belongs to
-        const parentFolder = folderMap.get(file.folderId);
-        if (!parentFolder) {
-          archivePath = file.originalName;
-        } else {
-          let rootFolderId: string | null = null;
-          for (const [reqFolderId, descendants] of descendantsByRootId) {
-            if (descendants.has(file.folderId)) {
-              rootFolderId = reqFolderId;
-              break;
-            }
-          }
-
-          if (rootFolderId) {
-            const rootFolder = folderMap.get(rootFolderId);
-            if (rootFolder) {
-              const segments = buildFolderSegments({
-                folder: parentFolder,
-                folderMap,
-                rootFolderId,
-              });
-              archivePath = path.posix.join(
-                rootFolder.name,
-                ...segments,
-                file.originalName,
-              );
-            } else {
-              archivePath = file.originalName;
-            }
-          } else {
-            archivePath = file.originalName;
-          }
-        }
-      } else {
-        archivePath = file.originalName;
-      }
+      const archivePath =
+        file.folderId && allDescendantFolderIds.has(file.folderId)
+          ? buildFileArchivePath(file, folderMap, descendantsByRootId)
+          : file.originalName;
 
       zipFile.addFile(filePath, archivePath, { compressionLevel: 9 });
     }

@@ -122,6 +122,7 @@ vi.mock("@/server/uploads/session-service", () => ({
 }));
 vi.mock("@/server/files/repository", () => ({
   prismaFilesRepository: { findFileById: vi.fn(), findFolderById: vi.fn() },
+  findArchiveSelectionItems: vi.fn(),
 }));
 vi.mock("@staaash/db/jobs", () => ({
   scheduleZipArchiveGenerate: mocks.scheduleJob,
