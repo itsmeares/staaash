@@ -6,7 +6,6 @@ import {
   buildZipContentKey,
   findOrCreateZipArchive,
   ZIP_ARCHIVE_STATUS_FAILED,
-  ZIP_ARCHIVE_STATUS_READY,
 } from "@staaash/db/zip-archives";
 
 import { canAccessPrivateNamespace } from "@/server/access";
@@ -18,7 +17,7 @@ import {
   readJsonBody,
 } from "@/server/auth/http";
 import { FilesError } from "@/server/files/errors";
-import { prismaFilesRepository } from "@/server/files/repository";
+import { findArchiveSelectionItems } from "@/server/files/repository";
 import { getSystemSettings } from "@/server/settings";
 
 const bodySchema = z.object({
@@ -47,16 +46,13 @@ export async function POST(request: NextRequest): Promise<Response> {
     const fileIds: string[] = [];
     const folderIds: string[] = [];
 
-    // Batch-fetch files and folders to determine type and verify access
-    const [allFiles, allFolders] = await Promise.all([
-      Promise.all(ids.map((id) => prismaFilesRepository.findFileById(id))),
-      Promise.all(ids.map((id) => prismaFilesRepository.findFolderById(id))),
-    ]);
+    const { files, folders } = await findArchiveSelectionItems(ids);
+    const filesById = new Map(files.map((file) => [file.id, file]));
+    const foldersById = new Map(folders.map((folder) => [folder.id, folder]));
 
-    for (let i = 0; i < ids.length; i++) {
-      const id = ids[i];
-      const file = allFiles[i];
-      const folder = allFolders[i];
+    for (const id of ids) {
+      const file = filesById.get(id);
+      const folder = foldersById.get(id);
 
       if (file && !file.deletedAt) {
         if (

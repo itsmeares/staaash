@@ -1,6 +1,6 @@
 import os from "node:os";
 import path from "node:path";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -173,5 +173,84 @@ describe("zip archive handler", () => {
         ],
       }),
     );
+  });
+
+  it("keeps each selected folder's empty descendants under its own root", async () => {
+    tempRoot = await mkdtemp(path.join(os.tmpdir(), "staaash-zip-folders-"));
+    mocks.findZipArchiveById.mockResolvedValue({
+      id: "archive-1",
+      userId: "owner-1",
+      status: "queued",
+      storageRevision: 0,
+      idsJson: { fileIds: [], folderIds: ["a", "b"] },
+    });
+    const folders = [
+      { id: "a", name: "Alpha", parentId: null },
+      { id: "a-child", name: "Empty-A", parentId: "a" },
+      { id: "b", name: "Beta", parentId: null },
+      { id: "b-child", name: "Empty-B", parentId: "b" },
+      { id: "unselected", name: "Other", parentId: null },
+    ].map((folder) => ({
+      ...folder,
+      ownerUserId: "owner-1",
+      isFilesRoot: false,
+      deletedAt: null,
+      storageRevision: 0,
+    }));
+    mocks.getPrisma.mockReturnValue({
+      folder: { findMany: async () => folders },
+      file: { findMany: async () => [] },
+    });
+    await handleZipArchiveGenerate(createJob(), {
+      filesRoot: tempRoot,
+      tmpRoot: path.join(tempRoot, "tmp"),
+      heartbeatPath: path.join(tempRoot, "heartbeat.json"),
+      pendingDeleteRoot: path.join(tempRoot, "pending-delete"),
+      uploadStagingTtlMs: 1,
+    });
+    // Read the ZIP's central directory to check the actual published entry names.
+    const bytes = await readFile(
+      path.join(tempRoot, "tmp/archives/archive-1.zip.tmp"),
+    );
+    const end = bytes.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+    let offset = bytes.readUInt32LE(end + 16);
+    const names: string[] = [];
+    for (let i = 0; i < bytes.readUInt16LE(end + 10); i++) {
+      expect(bytes.readUInt32LE(offset)).toBe(0x02014b50);
+      const length = bytes.readUInt16LE(offset + 28);
+      names.push(bytes.subarray(offset + 46, offset + 46 + length).toString());
+      offset +=
+        46 +
+        length +
+        bytes.readUInt16LE(offset + 30) +
+        bytes.readUInt16LE(offset + 32);
+    }
+    expect(names.sort()).toEqual([
+      "Alpha/",
+      "Alpha/Empty-A/",
+      "Beta/",
+      "Beta/Empty-B/",
+    ]);
+  });
+
+  it("does not publish an archive when a selected file has an unfinished mutation", async () => {
+    tempRoot = await mkdtemp(path.join(os.tmpdir(), "staaash-zip-blocked-"));
+    mocks.getPrisma.mockReturnValue({
+      file: { findMany: async () => [{ id: "file-1", storageRevision: 0 }] },
+    });
+    mocks.listBlockingStorageMutationsForEntities.mockResolvedValue([
+      { mutation: { id: "unfinished" } },
+    ]);
+    await expect(
+      handleZipArchiveGenerate(createJob(), {
+        filesRoot: tempRoot,
+        tmpRoot: path.join(tempRoot, "tmp"),
+        heartbeatPath: path.join(tempRoot, "heartbeat.json"),
+        pendingDeleteRoot: path.join(tempRoot, "pending-delete"),
+        uploadStagingTtlMs: 1,
+      }),
+    ).rejects.toThrow();
+    expect(mocks.runWorkerStorageMutation).not.toHaveBeenCalled();
+    expect(mocks.updateZipArchiveFailed).not.toHaveBeenCalled();
   });
 });

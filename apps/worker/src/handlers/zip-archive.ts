@@ -140,13 +140,11 @@ export const handleZipArchiveGenerate = async (
     const prisma = getPrisma() as unknown as PrismaClient;
     await context?.updateProgress({ stage: "loading_selection", archiveId });
 
-    const allFolders = await prisma.folder.findMany({
-      where: { ownerUserId: userId, deletedAt: null } as object,
-    });
-
-    const allFiles = await prisma.file.findMany({
-      where: { ownerUserId: userId, deletedAt: null } as object,
-    });
+    const allFolders = folderIds.length
+      ? await prisma.folder.findMany({
+          where: { ownerUserId: userId, deletedAt: null } as object,
+        })
+      : [];
 
     const folderMap = new Map(allFolders.map((f) => [f.id, f]));
 
@@ -174,19 +172,23 @@ export const handleZipArchiveGenerate = async (
     }
 
     // Collect files: directly requested + inside expanded folders
-    const requestedFileSet = new Set(fileIds);
-    const filesToZip = allFiles.filter(
-      (f) =>
-        requestedFileSet.has(f.id) ||
-        (f.folderId !== null && allDescendantFolderIds.has(f.folderId)),
-    );
+    const filesToZip = await prisma.file.findMany({
+      where: {
+        ownerUserId: userId,
+        deletedAt: null,
+        OR: [
+          { id: { in: fileIds } },
+          { folderId: { in: [...allDescendantFolderIds] } },
+        ],
+      },
+    });
 
     // Determine zip filename
     let fileName: string;
     if (folderIds.length === 1 && fileIds.length === 0) {
       fileName = `${folderMap.get(folderIds[0])?.name ?? "archive"}.zip`;
     } else if (folderIds.length === 0 && fileIds.length === 1) {
-      fileName = `${allFiles.find((f) => f.id === fileIds[0])?.originalName ?? "file"}.zip`;
+      fileName = `${filesToZip.find((f) => f.id === fileIds[0])?.originalName ?? "file"}.zip`;
     } else {
       fileName = "staaash-files.zip";
     }
@@ -206,7 +208,7 @@ export const handleZipArchiveGenerate = async (
       if (!rootFolder) continue;
       zipFile.addEmptyDirectory(`${rootFolder.name}/`);
 
-      for (const descendantId of allDescendantFolderIds) {
+      for (const descendantId of descendantsByRootId.get(rootFolderId) ?? []) {
         if (descendantId === rootFolderId) continue;
         const descendant = folderMap.get(descendantId);
         if (!descendant) continue;
