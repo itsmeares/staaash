@@ -141,11 +141,11 @@ const JOB_META: Record<string, { name: string; desc: string }> = {
     desc: "Remove stale or orphaned preview files from storage.",
   },
   "zip.archive.generate": {
-    name: "Archive Generate",
+    name: "Create zip files",
     desc: "Build downloadable zip archives for selected files and folders.",
   },
   "zip.archive.cleanup": {
-    name: "Archive Cleanup",
+    name: "Clean zip files",
     desc: "Remove expired generated zip archives from storage.",
   },
 };

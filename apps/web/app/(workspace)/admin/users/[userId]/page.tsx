@@ -108,7 +108,7 @@ export default async function AdminUserPage({
   const note = accountNote(user);
 
   return (
-    <div className="grid w-full max-w-2xl content-start gap-6">
+    <div className="grid w-full max-w-3xl content-start gap-6">
       <div className="grid gap-3">
         <Button
           className="-ms-2 justify-self-start"

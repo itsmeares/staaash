@@ -30,12 +30,12 @@ export function Breadcrumbs({
       {items.map((item, index) => {
         if (index === items.length - 1) {
           return (
-            <span
+            <h1
               key={item.id}
               className="m-0 font-heading text-headline leading-tight font-semibold tracking-tight text-foreground max-xs:text-xl"
             >
               {item.label}
-            </span>
+            </h1>
           );
         }
         return (

@@ -1,6 +1,12 @@
 "use client";
 
-import { ClipboardCopy, KeyRound, Link2, Share2 } from "lucide-react";
+import {
+  ClipboardCopy,
+  KeyRound,
+  Link2,
+  Settings2,
+  Share2,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
@@ -223,14 +229,16 @@ export function SharedTable({ items }: { items: SharedTableItem[] }) {
         quickActions={({ data }) =>
           data.canManage ? (
             <Button
-              size="sm"
-              variant="ghost"
+              aria-label={`Manage the link to ${data.share.target.name}`}
+              size="icon-sm"
+              title="Manage"
+              variant="ghost-muted"
               onClick={(event) => {
                 event.stopPropagation();
                 setManage(data.share);
               }}
             >
-              Manage
+              <Settings2 aria-hidden />
             </Button>
           ) : null
         }

@@ -29,7 +29,11 @@ import { UpdateNote, VersionButton, type ShellInfo } from "./app-sidebar";
 import { NewMenu } from "./new-menu";
 import { WorkspaceAvatar } from "./workspace-avatar";
 import { WorkspaceStorage } from "./workspace-storage";
-import { isItemActive, type WorkspaceNavItem } from "./workspace-nav";
+import {
+  isAdminPath,
+  isItemActive,
+  type WorkspaceNavItem,
+} from "./workspace-nav";
 
 type WorkspaceMobileNavProps = {
   info: ShellInfo;
@@ -69,10 +73,12 @@ export function WorkspaceMobileNav({
     ? [...moreItems, { href: "/admin", label: "Admin", icon: Shield }]
     : moreItems;
   const moreActive = items.some((item) => isItemActive(pathname, item));
+  // Settings pages have nothing to add to, and their save bar sits there.
+  const showNew = !isAdminPath(pathname) && pathname !== "/settings";
 
   return (
     <>
-      <NewMenu fab />
+      {showNew ? <NewMenu fab /> : null}
       <nav
         aria-label="Drive"
         className="fixed inset-x-0 bottom-0 z-36 grid grid-cols-4 gap-1 border-t border-border bg-card px-2 pt-1 pb-[max(6px,env(safe-area-inset-bottom))] lg:hidden"

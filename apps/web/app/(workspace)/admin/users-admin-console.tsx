@@ -177,7 +177,7 @@ export function UsersAdminConsole({
   canInvite: boolean;
 }) {
   return (
-    <div className="grid w-full max-w-4xl content-start gap-6">
+    <div className="grid w-full max-w-3xl content-start gap-6">
       <PageHeader
         actions={canInvite ? <InviteDialog signInUrl={signInUrl} /> : null}
         title="Users"

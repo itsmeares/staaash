@@ -638,7 +638,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
               f.clientKey === clientKey
                 ? {
                     ...f,
-                    statusLabel: "Checking existing upload...",
+                    statusLabel: "Checking existing upload…",
                     resumeHint: undefined,
                   }
                 : f,
@@ -755,7 +755,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
               f.clientKey === clientKey
                 ? {
                     ...f,
-                    statusLabel: "Checking existing upload...",
+                    statusLabel: "Checking existing upload…",
                     resumeHint: undefined,
                   }
                 : f,
@@ -803,7 +803,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
           progress: 100,
           transferredBytes: file.size,
           speed: 0,
-          statusLabel: "Verifying upload...",
+          statusLabel: "Verifying upload…",
         });
         const data = await completeResumableUploadSession({
           sessionId,
@@ -908,7 +908,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
         progress: 100,
         transferredBytes: file.size,
         speed: 0,
-        statusLabel: "Preparing checksum...",
+        statusLabel: "Preparing checksum…",
       });
       await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
       if (signal.aborted) {
@@ -916,7 +916,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
       }
       const expectedChecksum = hasher.digest("hex");
 
-      updateUploadingFile(clientKey, { statusLabel: "Verifying upload..." });
+      updateUploadingFile(clientKey, { statusLabel: "Verifying upload…" });
       const data = await completeResumableUploadSession({
         sessionId,
         expectedChecksum,
@@ -995,7 +995,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
           statusLabel:
             selection.directoryPaths.length === 0
               ? undefined
-              : "Preparing folders...",
+              : "Preparing folders…",
         },
       ]);
 
@@ -1105,7 +1105,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
                 f.folderUploadRootId &&
                 !f.folderId &&
                 getUploadDirectoryPath(f.name) !== ""
-                  ? "Preparing folders..."
+                  ? "Preparing folders…"
                   : undefined,
             }
           : f,

@@ -95,7 +95,9 @@ type FileListProps<T extends FileListItem> = {
   className?: string;
 };
 
-const ACTIONS_TRACK = "minmax(2.25rem,auto)";
+// Fixed, because each row is its own grid: an auto track would size per row
+// and pull the cells away from the header. Room for More and one icon button.
+const actionsTrack = (quick: boolean) => (quick ? "4.25rem" : "2.25rem");
 
 export function ItemIcon({
   item,
@@ -376,10 +378,11 @@ export function FileList<T extends FileListItem>({
   const sections = groups ?? [{ label: "", items }];
   const isEmpty = sections.every((section) => section.items.length === 0);
 
+  const actions = actionsTrack(Boolean(quickActions));
   const tracks = (visible: FileListColumn<T>[]) =>
-    ["minmax(0,1fr)", ...visible.map((c) => c.width), ACTIONS_TRACK].join(" ");
+    ["minmax(0,1fr)", ...visible.map((c) => c.width), actions].join(" ");
   const style = {
-    "--cols-sm": ["minmax(0,1fr)", ACTIONS_TRACK].join(" "),
+    "--cols-sm": ["minmax(0,1fr)", actions].join(" "),
     "--cols-md": tracks(columns.filter((c) => c.priority !== "wide")),
     "--cols-lg": tracks(columns),
   } as CSSProperties;

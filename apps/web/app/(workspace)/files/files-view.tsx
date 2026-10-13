@@ -2011,7 +2011,7 @@ export function FilesView({
           onDrop={handleDrop}
         >
           <header
-            className="flex flex-wrap items-center gap-x-3 gap-y-2"
+            className="flex flex-wrap items-start gap-x-3 gap-y-2"
             data-explorer-header
           >
             <Breadcrumbs

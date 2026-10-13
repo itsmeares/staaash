@@ -66,7 +66,7 @@ export default async function AdminUsersPage({
       />
 
       {totalPages > 1 ? (
-        <div className="flex max-w-4xl justify-end">
+        <div className="flex max-w-3xl justify-end">
           <PaginationControls
             buildHref={buildHref}
             page={page}

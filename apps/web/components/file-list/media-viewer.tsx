@@ -7,7 +7,7 @@ import {
   ExternalLink,
   X,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import type { ViewerKind } from "@staaash/db/viewer-contract";
 
@@ -26,6 +26,8 @@ export type ViewerFile = {
   viewerKind: ViewerKind;
   thumbnailUrl?: string | null;
 };
+
+const noSubscription = () => () => {};
 
 const reducedMotion = () =>
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -58,6 +60,12 @@ export function MediaViewer({
   const closeRef = useRef<HTMLButtonElement>(null);
   const filmRef = useRef<HTMLDivElement>(null);
   const grownFrom = useRef<string | null>(null);
+  // The viewer lives in <body>, which a page link renders without at first.
+  const inBrowser = useSyncExternalStore(
+    noSubscription,
+    () => true,
+    () => false,
+  );
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -152,6 +160,7 @@ export function MediaViewer({
       </div>
     );
 
+  if (!inBrowser) return null;
   return createPortal(
     <div
       aria-label={file.name}

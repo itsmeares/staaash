@@ -25,8 +25,7 @@ export function EmptyTrashAction({ disabled }: { disabled: boolean }) {
   return (
     <Button
       disabled={disabled}
-      size="xs"
-      variant="destructive"
+      variant="destructive-outline"
       onClick={() => void emptyTrash()}
     >
       Empty trash
