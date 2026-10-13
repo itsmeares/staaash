@@ -104,6 +104,28 @@ const collectDescendantFolderIds = (
   return result;
 };
 
+const buildFileArchivePath = (
+  file: StoredFileRecord,
+  folderMap: Map<string, FolderRecord>,
+  descendantsByRootId: Map<string, Set<string>>,
+): string => {
+  const parentFolder = file.folderId ? folderMap.get(file.folderId) : undefined;
+  if (!parentFolder) return file.originalName;
+
+  // Overlapping selections keep the first requested root as the file's path.
+  for (const [rootFolderId, descendants] of descendantsByRootId) {
+    if (!descendants.has(parentFolder.id)) continue;
+    const rootFolder = folderMap.get(rootFolderId);
+    if (!rootFolder) return file.originalName;
+    return path.posix.join(
+      rootFolder.name,
+      ...buildFolderSegments({ folder: parentFolder, folderMap, rootFolderId }),
+      file.originalName,
+    );
+  }
+  return file.originalName;
+};
+
 export const handleZipArchiveGenerate = async (
   job: BackgroundJobRecord,
   storagePaths: WorkerStoragePaths,
@@ -243,45 +265,10 @@ export const handleZipArchiveGenerate = async (
         file.storageKey,
       );
 
-      let archivePath: string;
-
-      if (file.folderId && allDescendantFolderIds.has(file.folderId)) {
-        // File is inside a requested folder subtree — find which root it belongs to
-        const parentFolder = folderMap.get(file.folderId);
-        if (!parentFolder) {
-          archivePath = file.originalName;
-        } else {
-          let rootFolderId: string | null = null;
-          for (const [reqFolderId, descendants] of descendantsByRootId) {
-            if (descendants.has(file.folderId)) {
-              rootFolderId = reqFolderId;
-              break;
-            }
-          }
-
-          if (rootFolderId) {
-            const rootFolder = folderMap.get(rootFolderId);
-            if (rootFolder) {
-              const segments = buildFolderSegments({
-                folder: parentFolder,
-                folderMap,
-                rootFolderId,
-              });
-              archivePath = path.posix.join(
-                rootFolder.name,
-                ...segments,
-                file.originalName,
-              );
-            } else {
-              archivePath = file.originalName;
-            }
-          } else {
-            archivePath = file.originalName;
-          }
-        }
-      } else {
-        archivePath = file.originalName;
-      }
+      const archivePath =
+        file.folderId && allDescendantFolderIds.has(file.folderId)
+          ? buildFileArchivePath(file, folderMap, descendantsByRootId)
+          : file.originalName;
 
       zipFile.addFile(filePath, archivePath, { compressionLevel: 9 });
     }
