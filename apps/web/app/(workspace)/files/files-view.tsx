@@ -2303,7 +2303,14 @@ export function FilesView({
               ? `${selectedIds.size} items selected.`
               : "Select a file or folder to see its details."
           }
-          onClose={() => details.setOpen(false)}
+          onClose={() => {
+            // Hand focus back before the pane unmounts so it doesn't fall to <body>.
+            if (selectedIds.size === 1)
+              selection.focusItem([...selectedIds][0]!);
+            else
+              document.querySelector<HTMLElement>("[data-file-list]")?.focus();
+            details.setOpen(false);
+          }}
         />
       ) : null}
     </div>
