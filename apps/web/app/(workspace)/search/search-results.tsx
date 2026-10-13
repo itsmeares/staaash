@@ -1,6 +1,7 @@
 "use client";
 
 import { FolderOpen } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { FlashMessage } from "@/app/auth-ui";
 import { useTime } from "@/components/time-provider";
@@ -13,6 +14,7 @@ import {
 } from "@/components/file-list/file-list";
 import { useItemSelection } from "@/components/file-list/use-list-selection";
 import { useViewMode } from "@/components/file-list/use-view-mode";
+import { PageHeader } from "@/components/page-header";
 import { ViewToggle } from "@/components/view-toggle";
 import { formatRelativeTime } from "@/lib/time";
 
@@ -29,14 +31,22 @@ import { sizeColumn } from "../workspace-item-helpers";
 
 type SearchListItem = FileListItem & { data: RecentClientItem };
 
+/** Results with their header, which holds the list or grid choice. */
 export function SearchResults({
   items,
   query,
   currentPath,
+  title,
+  description,
+  notices,
 }: {
   items: RecentClientItem[];
   query: string;
   currentPath: string;
+  title: string;
+  description?: string;
+  /** Messages from the last action, shown under the header. */
+  notices: ReactNode;
 }) {
   const isCoarsePointer = useCoarsePointer();
   const { now, timeZone } = useTime();
@@ -73,10 +83,13 @@ export function SearchResults({
 
   return (
     <>
+      <PageHeader
+        actions={<ViewToggle value={view} onValueChange={setView} />}
+        description={description}
+        title={title}
+      />
+      {notices}
       {actions.error ? <FlashMessage>{actions.error}</FlashMessage> : null}
-      <div className="flex justify-end">
-        <ViewToggle value={view} onValueChange={setView} />
-      </div>
       <FileList
         coarse={isCoarsePointer}
         columns={columns}

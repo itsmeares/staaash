@@ -8,14 +8,8 @@ import {
 } from "@/app/dashboard-context-menu";
 import { ItemIcon, thumbnailUrlFor } from "@/components/file-list/file-list";
 import { MiddleName } from "@/components/file-list/middle-name";
-import { TypeFilter } from "@/components/file-list/type-filter";
-import { ViewToggle, type ViewMode } from "@/components/view-toggle";
 
-import {
-  blockedLabel,
-  WORKSPACE_ITEM_FILTERS,
-  type WorkspaceItemFilterType,
-} from "./workspace-item-helpers";
+import { blockedLabel } from "./workspace-item-helpers";
 
 type ListedItem = {
   id: string;
@@ -61,35 +55,6 @@ export const listBackgroundMenu = (
     ],
   },
 ];
-
-/** The type filter and the list/grid switch above a list. */
-export function ListToolbar({
-  filter,
-  onFilterChange,
-  view,
-  onViewChange,
-}: {
-  filter: WorkspaceItemFilterType;
-  onFilterChange: (filter: WorkspaceItemFilterType) => void;
-  view: ViewMode;
-  onViewChange: (view: ViewMode) => void;
-}) {
-  // min-w-0: the chip row scrolls instead of widening the page on phones.
-  return (
-    <div className="flex min-w-0 items-center gap-3">
-      <TypeFilter
-        options={WORKSPACE_ITEM_FILTERS}
-        value={filter}
-        onValueChange={onFilterChange}
-      />
-      <ViewToggle
-        className="ms-auto shrink-0"
-        value={view}
-        onValueChange={onViewChange}
-      />
-    </div>
-  );
-}
 
 /** Pinned files and folders as chips, on Home and Favorites. */
 export function PinnedChips<T extends ListedItem>({

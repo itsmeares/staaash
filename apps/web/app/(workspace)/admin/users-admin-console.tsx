@@ -125,7 +125,7 @@ function InviteDialog({ signInUrl }: { signInUrl: string }) {
       <AdminFormDialog
         submitLabel="Invite"
         title="Invite someone"
-        trigger={<Button className="max-sm:w-full" />}
+        trigger={<Button />}
         triggerLabel={
           <>
             <Plus aria-hidden />

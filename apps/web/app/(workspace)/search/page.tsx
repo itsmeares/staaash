@@ -60,42 +60,49 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const error = getSingleSearchParam(resolvedSearchParams, "error");
   const success = getSingleSearchParam(resolvedSearchParams, "success");
 
+  const title = query.length > 0 ? `Results for "${query}"` : "Search";
+  const description =
+    query.length > 0
+      ? `${allItems.length} result${allItems.length === 1 ? "" : "s"}`
+      : undefined;
+  const notices = (
+    <>
+      {error ? <FlashMessage>{error}</FlashMessage> : null}
+      {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
+    </>
+  );
+
   return (
     <WorkspacePresetPageContextMenu
       className="grid content-start gap-4 max-lg:min-w-0"
       preset="search"
     >
-      <PageHeader
-        description={
-          query.length > 0
-            ? `${allItems.length} result${allItems.length === 1 ? "" : "s"}`
-            : undefined
-        }
-        title={query.length > 0 ? `Results for "${query}"` : "Search"}
-      />
-
-      {error ? <FlashMessage>{error}</FlashMessage> : null}
-      {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
-
       {query.length === 0 || items.length === 0 ? (
-        <Empty className="min-h-64">
-          <EmptyHeader>
-            <EmptyTitle>
-              {query.length === 0 ? "Search your files" : "Nothing matches"}
-            </EmptyTitle>
-            <EmptyDescription>
-              {query.length === 0
-                ? "Type a name, an extension or a folder in the search box. Press / to jump there."
-                : "Try part of the name, an extension like pdf, or a folder name."}
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+        <>
+          <PageHeader title={title} description={description} />
+          {notices}
+          <Empty className="min-h-64">
+            <EmptyHeader>
+              <EmptyTitle>
+                {query.length === 0 ? "Search your files" : "Nothing matches"}
+              </EmptyTitle>
+              <EmptyDescription>
+                {query.length === 0
+                  ? "Type a name, an extension or a folder in the search box. Press / to jump there."
+                  : "Try part of the name, an extension like pdf, or a folder name."}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        </>
       ) : (
         <>
           <SearchResults
             currentPath={currentPath}
+            description={description}
             items={items.map(toRecentClientItem)}
+            notices={notices}
             query={query}
+            title={title}
           />
           <PaginationControls
             buildHref={buildHref}

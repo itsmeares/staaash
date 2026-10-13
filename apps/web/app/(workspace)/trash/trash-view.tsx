@@ -25,6 +25,7 @@ import {
 import { buildItemActions } from "@/components/file-list/item-actions";
 import { TypeFilter } from "@/components/file-list/type-filter";
 import { useItemSelection } from "@/components/file-list/use-list-selection";
+import { useListSort } from "@/components/file-list/use-list-sort";
 import { formatRelativeTime } from "@/lib/time";
 
 import { SelectionBar } from "../selection-bar";
@@ -39,6 +40,7 @@ import {
   TRASH_FILTERS,
   type TrashClientItem,
   type TrashFilterType,
+  type TrashSortKey,
 } from "./trash-helpers";
 
 type TrashViewProps = {
@@ -63,12 +65,17 @@ export function TrashView({
   const isCoarsePointer = useCoarsePointer();
   const { now, timeZone } = useTime();
   const [filterType, setFilterType] = useState<TrashFilterType>("all");
-  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const sort = useListSort<TrashSortKey>("deletedAt", "desc");
   const [actionError, setActionError] = useState<string | null>(null);
 
   const visibleItems = useMemo(
-    () => sortTrashItems(filterTrashItems(items, filterType), sortOrder),
-    [filterType, items, sortOrder],
+    () =>
+      sortTrashItems(
+        filterTrashItems(items, filterType),
+        sort.key,
+        sort.direction,
+      ),
+    [filterType, items, sort.direction, sort.key],
   );
   const selectable = visibleItems.filter((item) => !item.storageMutationStatus);
 
@@ -124,34 +131,39 @@ export function TrashView({
     name: item.name,
     mimeType: item.mimeType,
     blocked: blockedLabel(item.storageMutationStatus),
-    sub: `From ${item.originalPathLabel} · ${formatRelativeTime(item.deletedAt, now, timeZone)}`,
+    sub: `From ${item.locationLabel} · ${formatRelativeTime(item.deletedAt, now, timeZone)}`,
     data: item,
   });
-  const groups = groupTrashItems(visibleItems, sortOrder, now, timeZone).map(
-    (group) => ({
-      label: group.label,
-      items: group.items.map(toListItem),
-    }),
-  );
+  const groups = groupTrashItems(
+    visibleItems,
+    sort.key === "deletedAt" && sort.direction === "asc",
+    now,
+    timeZone,
+  ).map((group) => ({
+    label: group.label,
+    items: group.items.map(toListItem),
+  }));
 
   const columns: FileListColumn<TrashListItem>[] = [
     {
-      key: "from",
+      key: "path",
       label: "Restores to",
       width: "minmax(0,0.8fr)",
       priority: "wide",
+      sortable: true,
       render: (item) => (
         <span title={`Restores to ${item.data.restoreTargetLabel}`}>
-          {item.data.originalPathLabel}
+          {item.data.locationLabel}
         </span>
       ),
     },
-    sizeColumn<TrashListItem>(),
+    { ...sizeColumn<TrashListItem>(), sortable: true },
     {
-      key: "deleted",
+      key: "deletedAt",
       label: "Deleted",
       width: "7rem",
       align: "end",
+      sortable: true,
       render: (item) => formatRelativeTime(item.data.deletedAt, now, timeZone),
     },
   ];
@@ -168,22 +180,11 @@ export function TrashView({
       {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
       {actionError ? <FlashMessage>{actionError}</FlashMessage> : null}
 
-      <div className="flex items-center gap-3">
-        <TypeFilter
-          options={TRASH_FILTERS}
-          value={filterType}
-          onValueChange={setFilterType}
-        />
-        <TypeFilter
-          label="Order"
-          options={[
-            { id: "newest" as const, label: "Newest first" },
-            { id: "oldest" as const, label: "Oldest first" },
-          ]}
-          value={sortOrder}
-          onValueChange={setSortOrder}
-        />
-      </div>
+      <TypeFilter
+        options={TRASH_FILTERS}
+        value={filterType}
+        onValueChange={setFilterType}
+      />
 
       <FileList
         coarse={isCoarsePointer}
@@ -237,6 +238,7 @@ export function TrashView({
           </Button>
         )}
         selection={selection}
+        sort={sort}
       />
 
       <SelectionBar

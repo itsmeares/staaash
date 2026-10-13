@@ -7,6 +7,7 @@ import {
   toTrashClientItem,
   toTrashClientItems,
   type TrashClientItem,
+  type TrashSortKey,
 } from "@/app/(workspace)/trash/trash-helpers";
 import type {
   FileSummary,
@@ -80,7 +81,7 @@ const clientItem = (
   kind: "file",
   mimeType: "application/pdf",
   name: "passport.pdf",
-  originalPathLabel: "Files / Identity / passport.pdf",
+  locationLabel: "Files / Identity / passport.pdf",
   restoreTargetLabel: "Files",
   sizeBytes: 2400000,
   ...overrides,
@@ -93,7 +94,7 @@ describe("trash page helpers", () => {
       id: "folder-1",
       kind: "folder",
       name: "Archive",
-      originalPathLabel: "Files / Archive",
+      locationLabel: "Files / Archive",
       restoreTargetLabel: "Files",
     });
 
@@ -145,16 +146,12 @@ describe("trash page helpers", () => {
       "new",
       "old",
     ]);
-    expect(sortTrashItems(items, "newest").map((item) => item.id)).toEqual([
-      "new",
-      "folder",
-      "old",
-    ]);
-    expect(sortTrashItems(items, "oldest").map((item) => item.id)).toEqual([
-      "old",
-      "folder",
-      "new",
-    ]);
+    const ids = (key: TrashSortKey, direction: "asc" | "desc") =>
+      sortTrashItems(items, key, direction).map((item) => item.id);
+    expect(ids("deletedAt", "desc")).toEqual(["new", "folder", "old"]);
+    expect(ids("deletedAt", "asc")).toEqual(["old", "folder", "new"]);
+    expect(ids("name", "asc")).toEqual(["old", "folder", "new"]);
+    expect(ids("size", "desc")).toEqual(["new", "old", "folder"]);
   });
 
   it("groups deleted items by deleted date and reverses for oldest first", () => {
@@ -171,10 +168,10 @@ describe("trash page helpers", () => {
     ];
 
     expect(
-      groupTrashItems(items, "newest", now, "UTC").map((group) => group.label),
+      groupTrashItems(items, false, now, "UTC").map((group) => group.label),
     ).toEqual(["Today", "Yesterday", "This week", "This month", "Older"]);
     expect(
-      groupTrashItems(items, "oldest", now, "UTC").map((group) => group.label),
+      groupTrashItems(items, true, now, "UTC").map((group) => group.label),
     ).toEqual(["Older", "This month", "This week", "Yesterday", "Today"]);
   });
 });

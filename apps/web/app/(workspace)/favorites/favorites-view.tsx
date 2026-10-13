@@ -5,7 +5,9 @@ import { useMemo, useState } from "react";
 
 import { FlashMessage } from "@/app/auth-ui";
 import { DashboardPageContextMenu } from "@/app/dashboard-context-menu";
+import { TypeFilter } from "@/components/file-list/type-filter";
 import { PageHeader } from "@/components/page-header";
+import { ViewToggle } from "@/components/view-toggle";
 import { useTime } from "@/components/time-provider";
 import {
   Empty,
@@ -28,7 +30,6 @@ import { SelectionBar } from "../selection-bar";
 import {
   toWorkspaceListItem,
   listBackgroundMenu,
-  ListToolbar,
   PinnedChips,
 } from "../workspace-list-parts";
 import { useCoarsePointer } from "../use-coarse-pointer";
@@ -36,7 +37,7 @@ import {
   liveItemMenu,
   useWorkspaceItemActions,
 } from "../use-workspace-item-actions";
-import { sizeColumn } from "../workspace-item-helpers";
+import { sizeColumn, WORKSPACE_ITEM_FILTERS } from "../workspace-item-helpers";
 import {
   filterFavoriteItems,
   getQuickAccessFavorites,
@@ -171,7 +172,10 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
       className="grid min-h-0 content-start gap-4"
       groups={backgroundGroups}
     >
-      <PageHeader title="Favorites" />
+      <PageHeader
+        actions={<ViewToggle value={view} onValueChange={setView} />}
+        title="Favorites"
+      />
 
       {error ? <FlashMessage>{error}</FlashMessage> : null}
       {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
@@ -193,11 +197,10 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
         </section>
       ) : null}
 
-      <ListToolbar
-        filter={filterType}
-        view={view}
-        onFilterChange={setFilterType}
-        onViewChange={setView}
+      <TypeFilter
+        options={WORKSPACE_ITEM_FILTERS}
+        value={filterType}
+        onValueChange={setFilterType}
       />
 
       <FileList
