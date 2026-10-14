@@ -22,6 +22,10 @@
     "./version": {
       "types": "./dist/version.d.ts",
       "default": "./dist/version.js"
+    },
+    "./zip": {
+      "types": "./dist/zip.d.ts",
+      "default": "./dist/zip.js"
     }
   },
   "types": "./dist/index.d.ts",
@@ -34,6 +38,10 @@
   "devDependencies": {
     "@types/node": "^24.19.2",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.3",
+    "@types/yazl": "^3.3.1"
+  },
+  "dependencies": {
+    "yazl": "^3.3.1"
   }
 }
