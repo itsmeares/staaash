@@ -118,4 +118,20 @@ describe("ZIP compression", () => {
       })(),
     ).rejects.toMatchObject({ code: "ENOENT" });
   });
+
+  it("does not open the next file when cancelled between entries", async () => {
+    const filePath = path.join(root, "empty.txt");
+    await writeFile(filePath, "");
+    const output = await createZipArchiveStream([
+      { filePath, archivePath: "first.txt" },
+      { filePath, archivePath: "second.txt" },
+    ]);
+    const closed = once(output, "close");
+    output.on("data", (chunk: Buffer) => {
+      if (chunk.length >= 4 && chunk.readUInt32LE(0) === 0x08074b50)
+        output.destroy();
+    });
+    await closed;
+    expect(createReadStream).toHaveBeenCalledTimes(1);
+  });
 });

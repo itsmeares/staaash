@@ -74,7 +74,8 @@ export const createZipArchiveStream = async (
   for (const directory of directories) zip.addEmptyDirectory(directory);
   for (const entry of entries) {
     zip.addReadStreamLazy(entry.archivePath, entry.options, (callback) => {
-      if (output.destroyed) return;
+      if (output.destroyed)
+        return callback(new Error("Archive stream closed."), output);
       source = createReadStream(entry.filePath);
       source.on("error", (error) => output.destroy(error));
       callback(null, source);
