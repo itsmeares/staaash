@@ -70,6 +70,17 @@ describe("ZIP compression", () => {
     },
   );
 
+  it("compresses files with noise at the start, middle, and end", async () => {
+    const bytes = Buffer.alloc(2 * 1024 * 1024);
+    const lastOffset = bytes.length - 65536;
+    for (const offset of [0, Math.floor(lastOffset / 2), lastOffset]) {
+      randomBytes(65536).copy(bytes, offset);
+    }
+    const file = path.join(root, "mixed.bin");
+    await writeFile(file, bytes);
+    expect(await compressionMethod(file)).toBe(8);
+  });
+
   it("rejects an unreadable source instead of choosing a compression level", async () => {
     await expect(
       compressionMethod(path.join(root, "missing")),

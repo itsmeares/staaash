@@ -13,8 +13,13 @@ const getZipCompressionLevel = async (file: FileHandle, size: number) => {
   if (size < sampleBytes) return 6;
   const sample = Buffer.alloc(sampleBytes);
   const lastOffset = size - sampleBytes;
+  const offsets = new Set(
+    [0, 4, 8, 1, 2, 3, 5, 6, 7].map((part) =>
+      Math.floor((lastOffset * part) / 8),
+    ),
+  );
   // shortcut: samples can miss compressible regions; scan whole files if size must be bounded.
-  for (const offset of new Set([0, Math.floor(lastOffset / 2), lastOffset])) {
+  for (const offset of offsets) {
     const { bytesRead } = await file.read(sample, 0, sampleBytes, offset);
     if (bytesRead !== sampleBytes) return 6;
     const compressed = await compress(sample, { level: 1 });
