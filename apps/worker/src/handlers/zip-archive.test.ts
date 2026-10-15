@@ -1,4 +1,6 @@
 import os from "node:os";
+import { randomBytes } from "node:crypto";
+import { inflateRawSync } from "node:zlib";
 import path from "node:path";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 
@@ -260,6 +262,89 @@ describe("zip archive handler", () => {
           "direct.txt",
         ].sort(),
       );
+    },
+  );
+
+  it.each([
+    { name: "random.txt", content: randomBytes(262144), method: 0 },
+    {
+      name: "document.jpg",
+      content: Buffer.from("generated document\n".repeat(15000)),
+      method: 8,
+    },
+  ])(
+    "preserves $name bytes with ZIP method $method",
+    async ({ name, content, method }) => {
+      tempRoot = await mkdtemp(path.join(os.tmpdir(), "staaash-zip-content-"));
+      await writeFile(path.join(tempRoot, name), content);
+      mocks.getPrisma.mockReturnValue({
+        file: {
+          findMany: async () => [
+            {
+              id: "file-1",
+              originalName: name,
+              storageKey: name,
+              folderId: null,
+              storageRevision: 0,
+            },
+          ],
+        },
+      });
+      await handleZipArchiveGenerate(createJob(), {
+        filesRoot: tempRoot,
+        tmpRoot: path.join(tempRoot, "tmp"),
+        heartbeatPath: path.join(tempRoot, "heartbeat.json"),
+        pendingDeleteRoot: path.join(tempRoot, "pending-delete"),
+        uploadStagingTtlMs: 1,
+      });
+      const bytes = await readFile(
+        path.join(tempRoot, "tmp/archives/archive-1.zip.tmp"),
+      );
+      const end = bytes.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+      const central = bytes.readUInt32LE(end + 16);
+      expect(bytes.readUInt16LE(central + 10)).toBe(method);
+      const start = 30 + bytes.readUInt16LE(26) + bytes.readUInt16LE(28);
+      const payload = bytes.subarray(
+        start,
+        start + bytes.readUInt32LE(central + 20),
+      );
+      const extracted = method === 0 ? payload : inflateRawSync(payload);
+      expect(extracted.equals(content)).toBe(true);
+      expect(mocks.runWorkerStorageMutation).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each(["missing", "directory"])(
+    "fails an archive with a %s source without publishing it",
+    async (source) => {
+      tempRoot = await mkdtemp(path.join(os.tmpdir(), "staaash-zip-missing-"));
+      if (source === "directory") await mkdir(path.join(tempRoot, source));
+      mocks.getPrisma.mockReturnValue({
+        file: {
+          findMany: async () => [
+            {
+              id: "file-1",
+              originalName: source,
+              storageKey: source,
+              storageRevision: 0,
+            },
+          ],
+        },
+      });
+      await expect(
+        handleZipArchiveGenerate(createJob(), {
+          filesRoot: tempRoot,
+          tmpRoot: path.join(tempRoot, "tmp"),
+          heartbeatPath: path.join(tempRoot, "heartbeat.json"),
+          pendingDeleteRoot: path.join(tempRoot, "pending-delete"),
+          uploadStagingTtlMs: 1,
+        }),
+      ).rejects.toThrow(source === "missing" ? "ENOENT" : "not a file");
+      expect(mocks.updateZipArchiveFailed).toHaveBeenCalledWith(
+        "archive-1",
+        expect.any(String),
+      );
+      expect(mocks.runWorkerStorageMutation).not.toHaveBeenCalled();
     },
   );
 

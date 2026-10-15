@@ -1,7 +1,10 @@
 import { Readable } from "node:stream";
 import path from "node:path";
 
-import yazl from "yazl";
+import {
+  buildArchiveFolderSegments,
+  createZipArchiveStream,
+} from "@staaash/config/zip";
 
 import { getStoragePath } from "@/server/storage";
 import type {
@@ -10,26 +13,6 @@ import type {
   StoredFile,
 } from "@/server/files/types";
 import { assertStorageEntityReadable } from "@/server/storage-read-guard";
-
-const buildFolderSegments = ({
-  folder,
-  folderMap,
-  rootFolderId,
-}: {
-  folder: FolderSummary;
-  folderMap: Map<string, FolderSummary>;
-  rootFolderId: string;
-}) => {
-  const names: string[] = [];
-  let current: FolderSummary | undefined = folder;
-
-  while (current && current.id !== rootFolderId) {
-    names.unshift(current.name);
-    current = current.parentId ? folderMap.get(current.parentId) : undefined;
-  }
-
-  return names;
-};
 
 const buildFileArchivePath = ({
   file,
@@ -45,7 +28,7 @@ const buildFileArchivePath = ({
       ? folderMap.get(file.folderId)
       : rootFolder;
   const segments = parent
-    ? buildFolderSegments({
+    ? buildArchiveFolderSegments({
         folder: parent,
         folderMap,
         rootFolderId: rootFolder.id,
@@ -71,10 +54,9 @@ export const createSharedFolderArchive = async ({
     ),
     ...files.map((file) => assertStorageEntityReadable("file", file.id)),
   ]);
-  const zipFile = new yazl.ZipFile();
   const folderMap = new Map(folders.map((folder) => [folder.id, folder]));
 
-  zipFile.addEmptyDirectory(`${rootFolder.name}/`);
+  const directories = [`${rootFolder.name}/`];
 
   for (const folder of folders) {
     if (folder.id === rootFolder.id) {
@@ -83,33 +65,26 @@ export const createSharedFolderArchive = async ({
 
     const folderPath = path.posix.join(
       rootFolder.name,
-      ...buildFolderSegments({
+      ...buildArchiveFolderSegments({
         folder,
         folderMap,
         rootFolderId: rootFolder.id,
       }),
     );
 
-    zipFile.addEmptyDirectory(`${folderPath}/`);
+    directories.push(`${folderPath}/`);
   }
 
-  for (const file of files) {
-    zipFile.addFile(
-      getStoragePath(file.storageKey),
-      buildFileArchivePath({
-        file,
-        folderMap,
-        rootFolder,
-      }),
-    );
-  }
-
-  zipFile.end();
+  const output = await createZipArchiveStream(
+    files.map((file) => ({
+      filePath: getStoragePath(file.storageKey),
+      archivePath: buildFileArchivePath({ file, folderMap, rootFolder }),
+    })),
+    directories,
+  );
 
   return {
     fileName: `${rootFolder.name}.zip`,
-    stream: Readable.toWeb(
-      zipFile.outputStream as unknown as Readable,
-    ) as ReadableStream,
+    stream: Readable.toWeb(output) as ReadableStream,
   };
 };
