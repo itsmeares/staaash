@@ -1,5 +1,5 @@
 import path from "node:path";
-import { defineConfig } from "vitest/config";
+import { defineConfig } from "vite-plus";
 
 process.env.AUTH_SECRET ??= "test-placeholder-secret";
 process.env.DATABASE_URL ??=

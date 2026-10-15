@@ -84,7 +84,10 @@ export type BatchMoveResponse = {
 };
 
 export type BatchMoveOperationStatus =
-  "queued" | "running" | "succeeded" | "recovery_required";
+  | "queued"
+  | "running"
+  | "succeeded"
+  | "recovery_required";
 
 export type BatchMoveOperationResponse = {
   operationId: string;

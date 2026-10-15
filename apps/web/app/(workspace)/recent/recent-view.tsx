@@ -567,12 +567,14 @@ export function RecentView({ error, items, success }: RecentViewProps) {
           const rowLeft = itemRect.left - rect.left;
           const rowRight = itemRect.right - rect.left;
 
-          if (!(
-            rowRight < selLeft ||
-            rowLeft > selRight ||
-            rowBottom < selTop ||
-            rowTop > selBottom
-          )) {
+          if (
+            !(
+              rowRight < selLeft ||
+              rowLeft > selRight ||
+              rowBottom < selTop ||
+              rowTop > selBottom
+            )
+          ) {
             next.add(id);
           }
         });

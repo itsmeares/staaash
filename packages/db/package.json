@@ -61,10 +61,10 @@
     }
   },
   "scripts": {
-    "build": "tsup",
+    "build": "vp pack",
     "lint": "tsc --noEmit -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --passWithNoTests",
+    "test": "vp test run --passWithNoTests",
     "db:generate": "prisma generate"
   },
   "dependencies": {
@@ -76,8 +76,8 @@
     "@types/node": "^24.19.2",
     "@types/pg": "^8.23.1",
     "prisma": "^7.10.0",
-    "tsup": "^8.5.1",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.3"
+    "vitest": "catalog:",
+    "vite-plus": "catalog:"
   }
 }

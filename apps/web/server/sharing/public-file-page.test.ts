@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { renderToReadableStream } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { TimeProvider } from "@/components/time-provider";
 import type { FileSummary, FolderSummary } from "@/server/files/types";

@@ -1,7 +1,10 @@
 import { getPrisma } from "./client";
 
 export type UpdateCheckStatus =
-  "unavailable" | "up-to-date" | "update-available" | "error";
+  | "unavailable"
+  | "up-to-date"
+  | "update-available"
+  | "error";
 
 export type InstanceUpdateCheckState = {
   lastUpdateCheckAt: Date | null;

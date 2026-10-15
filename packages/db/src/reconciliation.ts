@@ -1,7 +1,10 @@
 import { getPrisma } from "./client";
 
 export type RestoreReconciliationStatus =
-  "queued" | "running" | "succeeded" | "failed";
+  | "queued"
+  | "running"
+  | "succeeded"
+  | "failed";
 
 export type RestoreReconciliationMissingOriginal = {
   fileId: string;

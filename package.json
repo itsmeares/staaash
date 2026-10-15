@@ -18,30 +18,23 @@
     "db:build": "pnpm --filter @staaash/db build",
     "db:test": "pnpm --filter @staaash/db test",
     "db:lint": "pnpm --filter @staaash/db lint",
-    "build": "turbo build",
-    "lint": "turbo lint",
-    "typecheck": "turbo typecheck",
-    "test": "turbo test",
+    "build": "vp run -r build",
+    "lint": "vp run -r lint",
+    "typecheck": "vp run -r typecheck",
+    "test": "vp run -r test",
     "test:postgres": "pnpm --filter web test:postgres",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "prepare": "husky",
+    "format": "vp fmt .",
+    "format:check": "vp fmt --check .",
+    "prepare": "vp config",
     "db:generate": "pnpm --filter @staaash/db db:generate",
     "db:push": "pnpm --filter @staaash/db exec prisma db push",
     "app:clear-caches": "node scripts/clear-caches.mjs",
     "app:reset-local-data": "node scripts/reset-local-data.mjs",
     "quality:fallow": "fallow audit --base origin/main --gate new-only --production-dead-code --production-health --production-dupes --no-css --max-crap 60"
   },
-  "lint-staged": {
-    "*.{js,jsx,ts,tsx,mjs,cjs,json,md,yml,yaml,css}": "prettier --write --ignore-unknown"
-  },
   "devDependencies": {
     "fallow": "3.33.1",
-    "husky": "9.1.7",
-    "lint-staged": "17.6.0",
-    "prettier": "3.9.10",
-    "prettier-plugin-tailwindcss": "0.8.1",
-    "turbo": "^2.11.7",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vite-plus": "catalog:"
   }
 }

@@ -14,7 +14,7 @@
     "postbuild": "node scripts/check-built-runtime.mjs",
     "lint": "tsc --noEmit -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --passWithNoTests"
+    "test": "vp test run --passWithNoTests"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",
@@ -27,6 +27,6 @@
   "devDependencies": {
     "@types/node": "^24.19.2",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.3"
+    "vite-plus": "catalog:"
   }
 }

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { FileSummary, FolderSummary } from "@/server/files/types";
 import type { PublicShareResolution, ShareLinkSummary } from "./types";

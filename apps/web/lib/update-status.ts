@@ -1,7 +1,11 @@
 import { formatVersionLabel } from "@staaash/config/version";
 
 export type UpdateStatus =
-  "up-to-date" | "update-available" | "unavailable" | "error" | null;
+  | "up-to-date"
+  | "update-available"
+  | "unavailable"
+  | "error"
+  | null;
 
 export const getUpdateStatusLabel = (
   status: UpdateStatus,

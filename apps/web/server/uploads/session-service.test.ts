@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 const reserve = vi.hoisted(() => vi.fn());
 vi.mock("@/server/uploads/admission", () => ({
   reserveResumableSession: reserve,

@@ -6,7 +6,14 @@ import {
   STAGING_CLEANUP_JOB_KIND,
   type BackgroundJobRecord,
 } from "@staaash/db/jobs";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vite-plus/test";
 
 const getPrismaMock = vi.fn();
 

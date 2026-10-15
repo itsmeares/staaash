@@ -2,7 +2,7 @@ import os from "node:os";
 import path from "node:path";
 import { mkdir, rm, symlink, writeFile } from "node:fs/promises";
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 vi.mock("@staaash/db/reconciliation", () => ({
   completeRestoreReconciliationRun: vi.fn(async (value) => value),

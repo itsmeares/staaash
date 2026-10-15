@@ -1,0 +1,132 @@
+{
+  "files": {
+    "packages/config/dist/index.js": {
+      "size": 662,
+      "mtime_nanos": 1792095209275731303,
+      "mode": 420,
+      "is_dir": false
+    },
+    "packages/config/dist/runtime-paths.js": {
+      "size": 788,
+      "mtime_nanos": 1792095209216731225,
+      "mode": 420,
+      "is_dir": false
+    },
+    "packages/config/dist/zip.d.ts": {
+      "size": 503,
+      "mtime_nanos": 1792095209313731353,
+      "mode": 420,
+      "is_dir": false
+    },
+    "packages/config/dist": {
+      "size": 0,
+      "mtime_nanos": 0,
+      "mode": 0,
+      "is_dir": true
+    },
+    "packages/config/dist/zip.js": {
+      "size": 3235,
+      "mtime_nanos": 1792095209310731349,
+      "mode": 420,
+      "is_dir": false
+    },
+    "packages/config/dist/zip.test.js": {
+      "size": 7989,
+      "mtime_nanos": 1792095209320731362,
+      "mode": 420,
+      "is_dir": false
+    },
+    "packages/config/dist/version.js": {
+      "size": 4244,
+      "mtime_nanos": 1792095209266731291,
+      "mode": 420,
+      "is_dir": false
+    },
+    "packages/config/dist/upload-staging.js": {
+      "size": 743,
+      "mtime_nanos": 1792095209225731237,
+      "mode": 420,
+      "is_dir": false
+    },
+    "packages/config/dist/zip.test.d.ts": {
+      "size": 11,
+      "mtime_nanos": 1792095209322731365,
+      "mode": 420,
+      "is_dir": false
+    },
+    "packages/config/dist/upload-staging.d.ts": {
+      "size": 320,
+      "mtime_nanos": 1792095209248146838,
+      "mode": 420,
+      "is_dir": false
+    },
+    "packages/config/dist/release.d.ts": {
+      "size": 6330,
+      "mtime_nanos": 1792095209307458279,
+      "mode": 420,
+      "is_dir": false
+    },
+    "packages/config/dist/runtime-paths.d.ts": {
+      "size": 168,
+      "mtime_nanos": 1792095209223731235,
+      "mode": 420,
+      "is_dir": false
+    },
+    "packages/config/dist/time-zone.js": {
+      "size": 1615,
+      "mtime_nanos": 1792095209252959795,
+      "mode": 420,
+      "is_dir": false
+    },
+    "packages/config/dist/index.d.ts": {
+      "size": 662,
+      "mtime_nanos": 1792095209276731304,
+      "mode": 420,
+      "is_dir": false
+    },
+    "packages/config/dist/version.d.ts": {
+      "size": 944,
+      "mtime_nanos": 1792095209274959314,
+      "mode": 420,
+      "is_dir": false
+    },
+    "packages/config/.turbo/turbo-build.log": {
+      "size": 24,
+      "mtime_nanos": 1792095209368731425,
+      "mode": 420,
+      "is_dir": false
+    },
+    "packages/config/dist/release.js": {
+      "size": 15767,
+      "mtime_nanos": 1792095209293364450,
+      "mode": 420,
+      "is_dir": false
+    },
+    "packages/config/dist/time-zone.d.ts": {
+      "size": 767,
+      "mtime_nanos": 1792095209260333206,
+      "mode": 420,
+      "is_dir": false
+    }
+  },
+  "order": [
+    "packages/config/.turbo/turbo-build.log",
+    "packages/config/dist",
+    "packages/config/dist/index.d.ts",
+    "packages/config/dist/index.js",
+    "packages/config/dist/release.d.ts",
+    "packages/config/dist/release.js",
+    "packages/config/dist/runtime-paths.d.ts",
+    "packages/config/dist/runtime-paths.js",
+    "packages/config/dist/time-zone.d.ts",
+    "packages/config/dist/time-zone.js",
+    "packages/config/dist/upload-staging.d.ts",
+    "packages/config/dist/upload-staging.js",
+    "packages/config/dist/version.d.ts",
+    "packages/config/dist/version.js",
+    "packages/config/dist/zip.d.ts",
+    "packages/config/dist/zip.js",
+    "packages/config/dist/zip.test.d.ts",
+    "packages/config/dist/zip.test.js"
+  ]
+}

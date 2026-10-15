@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 // Text colors must reach WCAG AA (4.5:1) on every surface they can sit on,
 // in both themes. scripts/check-styles.mjs keeps components to the text

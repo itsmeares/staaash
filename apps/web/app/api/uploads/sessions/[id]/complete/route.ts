@@ -210,7 +210,9 @@ const commitUploadedFile = async (
       totalSizeBytes: uploadSession.totalSizeBytes,
       contentChecksum: expectedChecksum,
       conflictStrategy: uploadSession.conflictStrategy as
-        "fail" | "safeRename" | "replace",
+        | "fail"
+        | "safeRename"
+        | "replace",
     });
     return Response.json(file, { status: 201 });
   } catch (error) {

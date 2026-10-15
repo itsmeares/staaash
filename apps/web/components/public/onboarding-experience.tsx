@@ -18,7 +18,13 @@ import styles from "./onboarding-experience.module.css";
 
 type Theme = "light" | "dark" | "system";
 type OnboardingStep =
-  "welcome" | "theme" | "timezone" | "profile" | "privacy" | "media" | "done";
+  | "welcome"
+  | "theme"
+  | "timezone"
+  | "profile"
+  | "privacy"
+  | "media"
+  | "done";
 
 type Prefs = {
   theme: Theme;

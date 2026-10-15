@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { UploadTaskPool } from "@/lib/transfers/upload-task-pool";
 

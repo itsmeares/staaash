@@ -3,7 +3,10 @@ import type { ShareTargetType } from "@staaash/db/client";
 import type { FileSummary, FolderSummary } from "@/server/files/types";
 
 export type ShareLinkStatus =
-  "active" | "expired" | "revoked" | "target-unavailable";
+  | "active"
+  | "expired"
+  | "revoked"
+  | "target-unavailable";
 
 export type StoredShareLink = {
   id: string;

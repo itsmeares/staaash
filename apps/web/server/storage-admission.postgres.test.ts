@@ -2,7 +2,7 @@ import { randomUUID, createHash } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { Client } from "pg";
-import { beforeAll, describe, expect, inject, it } from "vitest";
+import { beforeAll, describe, expect, inject, it } from "vite-plus/test";
 import {
   getPostgresPool,
   getPrisma,
