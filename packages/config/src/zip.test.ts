@@ -3,7 +3,7 @@ import { once } from "node:events";
 import { createReadStream } from "node:fs";
 import { Writable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, open, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -12,6 +12,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("node:fs", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs")>();
   return { ...actual, createReadStream: vi.fn(actual.createReadStream) };
+});
+vi.mock("node:fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs/promises")>();
+  return { ...actual, open: vi.fn(actual.open) };
 });
 
 import { createZipArchiveStream } from "./zip.js";
@@ -32,6 +36,12 @@ describe("ZIP compression", () => {
     root = await mkdtemp(path.join(os.tmpdir(), "staaash-compression-"));
   });
   afterEach(async () => {
+    vi.mocked(open).mockReset();
+    const actual =
+      await vi.importActual<typeof import("node:fs/promises")>(
+        "node:fs/promises",
+      );
+    vi.mocked(open).mockImplementation(actual.open);
     await rm(root, { recursive: true, force: true });
   });
 
@@ -86,6 +96,65 @@ describe("ZIP compression", () => {
       compressionMethod(path.join(root, "missing")),
     ).rejects.toMatchObject({ code: "ENOENT" });
   });
+
+  it.each(["finish", "cancel", "fail"])(
+    "streams the first file while a later sample waits, then %s",
+    async (action) => {
+      const first = path.join(root, "first.bin");
+      const second = path.join(root, "second.bin");
+      await writeFile(first, randomBytes(128 * 1024));
+      await writeFile(second, randomBytes(128 * 1024));
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let sampling = false;
+      const original = vi.mocked(open).getMockImplementation()!;
+      const handles: Awaited<ReturnType<typeof open>>[] = [];
+      vi.mocked(open).mockImplementation(async (...args) => {
+        const handle = await original(...args);
+        handles.push(handle);
+        if (args[0] === second) {
+          const read = handle.read.bind(handle);
+          vi.spyOn(handle, "read").mockImplementation(async (...args) => {
+            sampling = true;
+            await gate;
+            if (action === "fail") throw new Error("sample read failed");
+            return Reflect.apply(read, handle, args) as ReturnType<typeof read>;
+          });
+        }
+        return handle;
+      });
+      let received = 0;
+      let output:
+        Awaited<ReturnType<typeof createZipArchiveStream>> | undefined;
+      const download = createZipArchiveStream([
+        { filePath: first, archivePath: "first.bin" },
+        { filePath: second, archivePath: "second.bin" },
+      ]).then(async (stream) => {
+        output = stream;
+        for await (const chunk of stream) received += chunk.length;
+      });
+      const completed = download.catch((error: unknown) => error);
+      try {
+        await vi.waitFor(() => expect(sampling).toBe(true));
+        await vi.waitFor(() => expect(received).toBeGreaterThan(65536));
+        if (action === "cancel") output!.destroy();
+      } finally {
+        release();
+      }
+      const error = await completed;
+      if (action === "fail")
+        expect(error).toMatchObject({ message: "sample read failed" });
+      if (action === "finish") expect(error).toBeUndefined();
+      await vi.waitFor(() =>
+        expect(handles.every((handle) => handle.fd === -1)).toBe(true),
+      );
+      expect(createReadStream).toHaveBeenCalledTimes(
+        action === "finish" ? 2 : 1,
+      );
+    },
+  );
   it.each(["failed output", "cancelled download"])(
     "closes the source after a %s",
     async (reason) => {
@@ -94,6 +163,7 @@ describe("ZIP compression", () => {
       const output = await createZipArchiveStream([
         { filePath, archivePath: "large.bin" },
       ]);
+      await once(output, "readable");
       const source = vi.mocked(createReadStream).mock.results[0]!.value;
       const closed = once(source, "close");
       if (reason === "failed output") {

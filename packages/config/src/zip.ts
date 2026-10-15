@@ -1,5 +1,5 @@
 import { createReadStream, type ReadStream } from "node:fs";
-import { open, type FileHandle } from "node:fs/promises";
+import { open } from "node:fs/promises";
 import { Readable } from "node:stream";
 import { promisify } from "node:util";
 import { deflateRaw } from "node:zlib";
@@ -9,7 +9,7 @@ import yazl from "yazl";
 const compress = promisify(deflateRaw);
 const sampleBytes = 64 * 1024;
 
-const getZipCompressionLevel = async (file: FileHandle, size: number) => {
+const getZipCompressionLevel = async (filePath: string, size: number) => {
   if (size < sampleBytes) return 6;
   const sample = Buffer.alloc(sampleBytes);
   const lastOffset = size - sampleBytes;
@@ -18,14 +18,19 @@ const getZipCompressionLevel = async (file: FileHandle, size: number) => {
       Math.floor((lastOffset * part) / 8),
     ),
   );
-  // shortcut: samples can miss compressible regions; scan whole files if size must be bounded.
-  for (const offset of offsets) {
-    const { bytesRead } = await file.read(sample, 0, sampleBytes, offset);
-    if (bytesRead !== sampleBytes) return 6;
-    const compressed = await compress(sample, { level: 1 });
-    if (compressed.length < sampleBytes * 0.98) return 6;
+  const file = await open(filePath, "r");
+  try {
+    // shortcut: samples can miss compressible regions; scan whole files if size must be bounded.
+    for (const offset of offsets) {
+      const { bytesRead } = await file.read(sample, 0, sampleBytes, offset);
+      if (bytesRead !== sampleBytes) return 6;
+      const compressed = await compress(sample, { level: 1 });
+      if (compressed.length < sampleBytes * 0.98) return 6;
+    }
+    return 0;
+  } finally {
+    await file.close();
   }
-  return 0;
 };
 
 type ArchiveFolder = { id: string; parentId: string | null; name: string };
@@ -52,7 +57,9 @@ export const createZipArchiveStream = async (
   files: { filePath: string; archivePath: string }[],
   directories: string[] = [],
 ) => {
-  const entries = [];
+  const entries: ((typeof files)[number] & {
+    options: Pick<yazl.ReadStreamOptions, "size" | "mtime" | "mode">;
+  })[] = [];
   for (const file of files) {
     const source = await open(file.filePath, "r");
     try {
@@ -64,7 +71,6 @@ export const createZipArchiveStream = async (
           size: stats.size,
           mtime: stats.mtime,
           mode: stats.mode,
-          compressionLevel: await getZipCompressionLevel(source, stats.size),
         },
       });
     } finally {
@@ -77,15 +83,28 @@ export const createZipArchiveStream = async (
   output.on("close", () => source?.destroy());
   zip.on("error", (error) => output.destroy(error));
   for (const directory of directories) zip.addEmptyDirectory(directory);
-  for (const entry of entries) {
-    zip.addReadStreamLazy(entry.archivePath, entry.options, (callback) => {
-      if (output.destroyed)
-        return callback(new Error("Archive stream closed."), output);
-      source = createReadStream(entry.filePath);
-      source.on("error", (error) => output.destroy(error));
-      callback(null, source);
-    });
-  }
-  zip.end();
+  const addFiles = async () => {
+    for (const entry of entries) {
+      if (output.destroyed) return;
+      const compressionLevel = await getZipCompressionLevel(
+        entry.filePath,
+        entry.options.size,
+      );
+      if (output.destroyed) return;
+      zip.addReadStreamLazy(
+        entry.archivePath,
+        { ...entry.options, compressionLevel },
+        (callback) => {
+          if (output.destroyed)
+            return callback(new Error("Archive stream closed."), output);
+          source = createReadStream(entry.filePath);
+          source.on("error", (error) => output.destroy(error));
+          callback(null, source);
+        },
+      );
+    }
+    zip.end();
+  };
+  void addFiles().catch((error) => output.destroy(error));
   return output;
 };
