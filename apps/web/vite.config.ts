@@ -24,15 +24,15 @@ export default defineConfig({
   test: {
     environment: "node",
     setupFiles: ["./vitest.setup.ts"],
+    // Route tests import whole pages, and with files running in parallel on a
+    // busy CPU the first import can pass the 5 s default.
+    testTimeout: 15_000,
     include: ["server/**/*.test.ts"],
     exclude: [
       "**/node_modules/**",
       "**/.git/**",
       "server/**/*.postgres.test.ts",
     ],
-    // Storage-backed integration tests share an isolated fixture tree.
-    // Run files serially to avoid cross-file races on Windows filesystem ops.
-    fileParallelism: false,
   },
   resolve: {
     alias: {

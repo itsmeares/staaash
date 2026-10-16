@@ -9,9 +9,64 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  validate:
-    name: Lint, test, and build
+  checks:
+    name: Lint, test, and build checks
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://staaash:staaash@localhost:5432/staaash_test
+      UPLOAD_LOCATION: ./.data/files
+      AUTH_SECRET: ci-placeholder-secret-should-not-be-used-in-production
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: voidzero-dev/setup-vp@6a033122543ee100d01838245fe74a26a038da6d # v1.21.2
+        with:
+          node-version: 24.22.0
+          cache: true
+
+      - name: Generate Prisma client
+        run: vp run db:generate
+
+      - name: Check formatting
+        run: vp run format:check
+
+      - name: Lint
+        run: vp run lint
+
+      - name: Fallow new-code gate
+        run: vp run quality:fallow
+
+      - name: Test
+        run: vp run test
+
+      - name: Restore Next.js build cache
+        uses: actions/cache/restore@v6
+        with:
+          path: apps/web/.next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+
+      - name: Build
+        run: vp run build
+
+      # Only main saves the cache, so pull requests never fill the cache quota.
+      - name: Save Next.js build cache
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v6
+        with:
+          path: apps/web/.next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+
+  postgres:
+    name: PostgreSQL integration tests
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -35,8 +90,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
 
       - uses: voidzero-dev/setup-vp@6a033122543ee100d01838245fe74a26a038da6d # v1.21.2
         with:
@@ -49,23 +102,18 @@ jobs:
       - name: Build @staaash/db
         run: vp run --filter @staaash/db build
 
-      - name: Check formatting
-        run: vp run format:check
-
-      - name: Lint
-        run: vp run lint
-
-      - name: Fallow new-code gate
-        run: vp run quality:fallow
-
-      - name: Test
-        run: vp run test
-
       - name: PostgreSQL integration tests
         run: vp run test:postgres
 
-      - name: Build
-        run: vp run build
+  # Keeps the required status check name stable for the branch ruleset.
+  validate:
+    name: Lint, test, and build
+    needs: [checks, postgres]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every check to pass
+        run: test "${{ needs.checks.result }}" = success -a "${{ needs.postgres.result }}" = success
 
   arm64:
     name: Docker smoke tests (ARM64)
@@ -104,6 +152,8 @@ jobs:
           load: true
           platforms: linux/arm64
           tags: ghcr.io/itsmeares/staaash:ci-arm64
+          cache-from: type=gha,scope=staaash-ci-arm64
+          cache-to: type=gha,mode=max,scope=staaash-ci-arm64
 
       - name: Start PostgreSQL
         run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d db
