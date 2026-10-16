@@ -152,8 +152,6 @@ jobs:
           load: true
           platforms: linux/arm64
           tags: ghcr.io/itsmeares/staaash:ci-arm64
-          cache-from: type=gha,scope=staaash-ci-arm64
-          cache-to: type=gha,mode=max,scope=staaash-ci-arm64
 
       - name: Start PostgreSQL
         run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d db
