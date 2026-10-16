@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, ArrowUp, Check, MoreHorizontal } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, MoreHorizontal, Play } from "lucide-react";
 import {
   Fragment,
   useState,
@@ -297,6 +297,42 @@ function PreviewTile({
   );
 }
 
+/** A row's thumbnail, or its type icon (on a tile on phones). */
+function RowLead({
+  item,
+  className,
+}: {
+  item: PreviewItem;
+  className?: string;
+}) {
+  if (!item.thumbnailUrl) {
+    return (
+      <span
+        className={cn(
+          "grid size-full place-items-center rounded-lg max-sm:bg-hover",
+          className,
+        )}
+      >
+        <ItemIcon item={item} />
+      </span>
+    );
+  }
+  return (
+    <span className={cn("relative block size-full", className)}>
+      <ItemPreview
+        className="aspect-square size-full rounded-md inset-ring inset-ring-foreground/8 max-sm:rounded-lg"
+        iconClassName="size-5"
+        item={item}
+      />
+      {item.mimeType?.startsWith("video/") ? (
+        <span className="absolute right-0.5 bottom-0.5 grid size-3 place-items-center rounded-xs bg-black/55 text-white">
+          <Play aria-hidden className="size-2 fill-current" />
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 function CheckMark({ selected }: { selected: boolean }) {
   return (
     <span
@@ -410,9 +446,16 @@ export function FileList<T extends FileListItem>({
     const actions = disabled ? [] : (getActions?.(item) ?? []);
     const base = selection.itemProps(item.id, { disabled });
     const extra = disabled ? {} : (itemProps?.(item) ?? {});
-    const name = renderName?.(item) ?? (
-      <MiddleName className="font-medium" name={item.name} />
-    );
+    // Touch grid cards wrap long names onto a second line before cutting.
+    const name =
+      renderName?.(item) ??
+      (coarse && view === "grid" ? (
+        <span className="line-clamp-2 font-medium wrap-anywhere">
+          {item.name}
+        </span>
+      ) : (
+        <MiddleName className="font-medium" name={item.name} />
+      ));
     const moreActions =
       actions.length > 0 ? (
         <MoreActions
@@ -443,18 +486,20 @@ export function FileList<T extends FileListItem>({
             <span className="absolute top-3 left-3">
               <CheckMark selected={selected} />
             </span>
-            {moreActions ? (
+            {/* Touch cards have no "…": press and hold selects, and the
+                selection offers the actions. */}
+            {moreActions && !coarse ? (
               <span
                 className={cn(
                   "absolute top-2.5 right-2.5 rounded-md bg-card/90 opacity-0 shadow-raised group-hover/item:opacity-100 focus-within:opacity-100",
-                  (coarse || selected) && "opacity-100",
+                  selected && "opacity-100",
                 )}
               >
                 {moreActions}
               </span>
             ) : null}
-            <span className="flex min-w-0 items-center gap-2 px-1 pb-0.5 text-body">
-              <ItemIcon className="size-4 [&_svg]:size-4" item={item} />
+            <span className="flex min-w-0 items-start gap-2 px-1 pb-0.5 text-body">
+              <ItemIcon className="mt-0.5 size-4 [&_svg]:size-4" item={item} />
               <span className="min-w-0 flex-1">{name}</span>
               {item.flags}
             </span>
@@ -483,8 +528,8 @@ export function FileList<T extends FileListItem>({
           <span className="flex min-w-0 items-center gap-2.5" role="gridcell">
             {/* The checkbox takes the icon's place on hover or when selected,
                 so no column is kept empty for it. Touch selects by long press. */}
-            <span className="relative grid size-5 shrink-0 place-items-center">
-              <ItemIcon
+            <span className="relative grid size-7 shrink-0 place-items-center max-sm:size-10">
+              <RowLead
                 className={cn(
                   !coarse && "group-hover/item:opacity-0",
                   selected && !coarse && "opacity-0",

@@ -6,7 +6,7 @@ import {
   boxFromPoints,
   boxesIntersect,
   emptySelection,
-  getRenameCursorPosition,
+  getRenameSelectionEnd,
   moveSelection,
   pruneSelection,
   splitName,
@@ -156,15 +156,15 @@ describe("splitName", () => {
   });
 });
 
-describe("getRenameCursorPosition", () => {
+describe("getRenameSelectionEnd", () => {
   it("stops before the last extension of files", () => {
-    expect(getRenameCursorPosition("document.pdf", "file")).toBe(8);
-    expect(getRenameCursorPosition("archive.tar.gz", "file")).toBe(11);
-    expect(getRenameCursorPosition("README", "file")).toBe(6);
-    expect(getRenameCursorPosition(".env", "file")).toBe(4);
+    expect(getRenameSelectionEnd("document.pdf", "file")).toBe(8);
+    expect(getRenameSelectionEnd("archive.tar.gz", "file")).toBe(11);
+    expect(getRenameSelectionEnd("README", "file")).toBe(6);
+    expect(getRenameSelectionEnd(".env", "file")).toBe(4);
   });
 
   it("goes to the end of folder names", () => {
-    expect(getRenameCursorPosition("Projects", "folder")).toBe(8);
+    expect(getRenameSelectionEnd("Projects", "folder")).toBe(8);
   });
 });

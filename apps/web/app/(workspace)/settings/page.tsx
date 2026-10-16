@@ -1,4 +1,3 @@
-import { FlashMessage } from "@/app/auth-ui";
 import { PageHeader } from "@/components/page-header";
 import type { Theme } from "@/lib/theme";
 import { roleLabel } from "@/lib/user";
@@ -12,15 +11,8 @@ import { PersonalSettings } from "./preferences-form";
 
 export const dynamic = "force-dynamic";
 
-export default async function SettingsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
-  const [{ error }, session] = await Promise.all([
-    searchParams,
-    requireSignedInPageSession("/?next=/settings"),
-  ]);
+export default async function SettingsPage() {
+  const session = await requireSignedInPageSession("/?next=/settings");
   const prefs = session.user.preferences;
   const [storage, sessions] = await Promise.all([
     getStorageBreakdown(session.user.id),
@@ -30,9 +22,6 @@ export default async function SettingsPage({
   return (
     <WorkspacePage className="w-full content-start gap-6">
       <PageHeader title="Settings" />
-      {error === "admin" ? (
-        <FlashMessage>Only owners can open the admin pages.</FlashMessage>
-      ) : null}
       <PersonalSettings
         isOwner={session.user.isAdmin}
         prefs={{

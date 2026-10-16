@@ -1,24 +1,14 @@
 "use client";
 
-import { Clock } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { FlashMessage } from "@/app/auth-ui";
 import {
   DashboardPageContextMenu,
   type DashboardContextMenuGroup,
 } from "@/app/dashboard-context-menu";
-import { TypeFilter } from "@/components/file-list/type-filter";
 import { PageHeader } from "@/components/page-header";
-import { ViewToggle } from "@/components/view-toggle";
 import { useTime } from "@/components/time-provider";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import {
   FileList,
   type FileListColumn,
@@ -32,6 +22,7 @@ import { formatRelativeTime } from "@/lib/time";
 
 import { SelectionBar } from "../selection-bar";
 import {
+  TypeAndView,
   toWorkspaceListItem,
   listBackgroundMenu,
 } from "../workspace-list-parts";
@@ -41,7 +32,7 @@ import {
   liveItemMenu,
   useWorkspaceItemActions,
 } from "../use-workspace-item-actions";
-import { sizeColumn, WORKSPACE_ITEM_FILTERS } from "../workspace-item-helpers";
+import { sizeColumn } from "../workspace-item-helpers";
 import {
   filterRecentItems,
   groupRecentItems,
@@ -52,14 +43,12 @@ import {
 } from "./recent-helpers";
 
 type RecentViewProps = {
-  error?: string | null;
   items: RecentClientItem[];
-  success?: string | null;
 };
 
 type RecentListItem = FileListItem & { data: RecentClientItem };
 
-export function RecentView({ error, items, success }: RecentViewProps) {
+export function RecentView({ items }: RecentViewProps) {
   const isCoarsePointer = useCoarsePointer();
   const { now, timeZone } = useTime();
   const [view, setView] = useViewMode("recent");
@@ -156,18 +145,15 @@ export function RecentView({ error, items, success }: RecentViewProps) {
       groups={backgroundGroups}
     >
       <PageHeader
-        actions={<ViewToggle value={view} onValueChange={setView} />}
+        actions={
+          <TypeAndView
+            type={filterType}
+            view={view}
+            onTypeChange={setFilterType}
+            onViewChange={setView}
+          />
+        }
         title="Recent"
-      />
-
-      {error ? <FlashMessage>{error}</FlashMessage> : null}
-      {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
-      {actions.error ? <FlashMessage>{actions.error}</FlashMessage> : null}
-
-      <TypeFilter
-        options={WORKSPACE_ITEM_FILTERS}
-        value={filterType}
-        onValueChange={setFilterType}
       />
 
       <FileList
@@ -176,19 +162,11 @@ export function RecentView({ error, items, success }: RecentViewProps) {
         empty={
           <Empty className="min-h-64">
             <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Clock aria-hidden />
-              </EmptyMedia>
               <EmptyTitle>
                 {items.length === 0
                   ? "Nothing added yet"
                   : "Nothing of that type"}
               </EmptyTitle>
-              <EmptyDescription>
-                {items.length === 0
-                  ? "Files and folders you add show up here."
-                  : "Try another type."}
-              </EmptyDescription>
             </EmptyHeader>
           </Empty>
         }

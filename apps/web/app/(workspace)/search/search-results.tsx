@@ -3,7 +3,6 @@
 import { FolderOpen } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { FlashMessage } from "@/app/auth-ui";
 import { useTime } from "@/components/time-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -89,7 +88,6 @@ export function SearchResults({
         title={title}
       />
       {notices}
-      {actions.error ? <FlashMessage>{actions.error}</FlashMessage> : null}
       <FileList
         coarse={isCoarsePointer}
         columns={columns}

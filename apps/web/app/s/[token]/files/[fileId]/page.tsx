@@ -97,7 +97,6 @@ export default async function SharedNestedFilePage({
         file={file}
         headerLabel="Shared file"
         preview={preview}
-        searchParams={resolvedSearchParams}
         share={resolution.share}
       />
     );

@@ -1,16 +1,8 @@
 import { headers } from "next/headers";
-import { Share2 } from "lucide-react";
 
-import { FlashMessage, getSingleSearchParam } from "@/app/auth-ui";
 import { WorkspacePresetPageContextMenu } from "@/app/dashboard-context-menu";
 import { PageHeader } from "@/components/page-header";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { formatDateTime, formatTimeUntil } from "@/lib/time";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { getShareBaseUrl } from "@/server/request";
@@ -38,19 +30,12 @@ function getExpiryTone(
   return "default";
 }
 
-type SharedPageProps = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
-
-export default async function SharedPage({ searchParams }: SharedPageProps) {
-  const [resolvedSearchParams, session, h] = await Promise.all([
-    searchParams,
+export default async function SharedPage() {
+  const [session, h] = await Promise.all([
     requireSignedInPageSession("/?next=/shared"),
     headers(),
   ]);
   const baseUrl = getShareBaseUrl(h);
-  const error = getSingleSearchParam(resolvedSearchParams, "error");
-  const success = getSingleSearchParam(resolvedSearchParams, "success");
   const shares = await sharingService.listOwnedShares({
     actorUserId: session.user.id,
     actorRole: session.user.role,
@@ -80,19 +65,10 @@ export default async function SharedPage({ searchParams }: SharedPageProps) {
       <div className="grid gap-4">
         <PageHeader title="Shared" />
 
-        {error ? <FlashMessage>{error}</FlashMessage> : null}
-        {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
-
         {allShares.length === 0 ? (
           <Empty className="min-h-64">
             <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Share2 aria-hidden />
-              </EmptyMedia>
               <EmptyTitle>Nothing shared yet</EmptyTitle>
-              <EmptyDescription>
-                Choose Share on any file or folder to make a link.
-              </EmptyDescription>
             </EmptyHeader>
           </Empty>
         ) : (

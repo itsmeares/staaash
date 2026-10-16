@@ -148,8 +148,8 @@ export function splitName(
   };
 }
 
-/** Rename puts the cursor before the extension, so typing replaces the name. */
-export const getRenameCursorPosition = (
+/** Rename selects the name up to the extension, so typing replaces it. */
+export const getRenameSelectionEnd = (
   name: string,
   kind: "folder" | "file",
 ) => {

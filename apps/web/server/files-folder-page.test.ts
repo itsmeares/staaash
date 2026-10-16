@@ -65,7 +65,6 @@ describe("private files folder page", () => {
     await expect(
       FilesFolderPage({
         params: Promise.resolve({ folderId: "folder-1" }),
-        searchParams: Promise.resolve({}),
       }),
     ).rejects.toThrow("redirect:/files/storage-unavailable?folderId=folder-1");
   });

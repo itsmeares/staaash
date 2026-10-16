@@ -43,9 +43,9 @@ export const WORKSPACE_ITEM_FILTERS: WorkspaceItemFilterOption[] = [
   { id: "all", label: "All" },
   { id: "folder", label: "Folders" },
   { id: "image", label: "Images" },
-  { id: "pdf", label: "PDFs" },
   { id: "video", label: "Videos" },
   { id: "audio", label: "Audio" },
+  { id: "pdf", label: "PDFs" },
   { id: "text", label: "Docs" },
   { id: "archive", label: "Archives" },
 ];

@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { DateTime } from "@/components/time-provider";
 import { formatTimeUntil } from "@/lib/time";
 
-import { FlashMessage, getSingleSearchParam } from "@/app/auth-ui";
+import { getSingleSearchParam } from "@/app/auth-ui";
 import { authService } from "@/server/auth/service";
 import { ShareFolderList } from "./share-folder-list";
 import { SharePasswordForm } from "./share-password-form";
@@ -195,7 +195,6 @@ export function ShareFilePage({
   file,
   headerLabel,
   preview,
-  searchParams,
   share,
 }: {
   backHref?: string;
@@ -205,11 +204,8 @@ export function ShareFilePage({
   file: FileSummary;
   headerLabel: string;
   preview?: PublicShareFilePreview | null;
-  searchParams: Record<string, string | string[] | undefined>;
   share: Pick<ShareLinkSummary, "downloadDisabled" | "expiresAt">;
 }) {
-  const error = getSingleSearchParam(searchParams, "error");
-  const success = getSingleSearchParam(searchParams, "success");
   const ext = file.name.includes(".")
     ? file.name.split(".").pop()?.toLowerCase()
     : null;
@@ -220,9 +216,6 @@ export function ShareFilePage({
 
   return (
     <ShareShell>
-      {error ? <FlashMessage>{error}</FlashMessage> : null}
-      {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
-
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="grid min-w-0 gap-1">
           <h1 className="m-0 truncate font-heading text-headline font-semibold">
@@ -310,8 +303,8 @@ export function ShareView({
   token,
   searchParams,
 }: ShareViewProps) {
+  // A wrong password comes back as ?error= and shows under the field.
   const error = getSingleSearchParam(searchParams, "error");
-  const success = getSingleSearchParam(searchParams, "success");
   const isLocked =
     resolution.access.requiresPassword && !resolution.access.isUnlocked;
   const lockedRedirectPath =
@@ -339,7 +332,6 @@ export function ShareView({
         file={resolution.file}
         headerLabel="Shared file"
         preview={filePreview}
-        searchParams={searchParams}
         share={resolution.share}
       />
     );
@@ -349,9 +341,6 @@ export function ShareView({
   const itemCount = listing.childFolders.length + listing.files.length;
   return (
     <ShareShell>
-      {error ? <FlashMessage>{error}</FlashMessage> : null}
-      {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
-
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="grid min-w-0 gap-1">
           {listing.breadcrumbs.length > 1 ? (

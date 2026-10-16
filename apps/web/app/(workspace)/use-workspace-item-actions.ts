@@ -2,10 +2,11 @@
 
 import { Download, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
 import { buildItemActions } from "@/components/file-list/item-actions";
+import { toast } from "@/components/ui/toast";
 import { startValidatedDownload } from "@/lib/transfers/download";
 
 import type { SelectionBarAction } from "./selection-bar";
@@ -35,18 +36,11 @@ export function useWorkspaceItemActions(redirectTo: string) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const { handleDownload } = useTransferContext();
-  const [error, setError] = useState<string | null>(null);
   const [trashedIds, setTrashedIds] = useState<ReadonlySet<string>>(new Set());
 
-  useEffect(() => {
-    if (!error) return;
-    const timer = window.setTimeout(() => setError(null), 4000);
-    return () => window.clearTimeout(timer);
-  }, [error]);
-
   const refresh = () => startTransition(() => router.refresh());
-  const fail = (caught: unknown, fallback: string) =>
-    setError(caught instanceof Error ? caught.message : fallback);
+  const fail = (caught: unknown, fallback: string, retry?: () => void) =>
+    toast.error(caught instanceof Error ? caught.message : fallback, { retry });
 
   const download = async (items: WorkspaceActionItem[]) => {
     const usable = items.filter((item) => !item.storageMutationStatus);
@@ -59,7 +53,7 @@ export function useWorkspaceItemActions(redirectTo: string) {
           "File download failed",
         );
       } catch (caught) {
-        fail(caught, "File download failed");
+        fail(caught, "File download failed", () => void download(items));
       }
       return;
     }
@@ -91,7 +85,10 @@ export function useWorkspaceItemActions(redirectTo: string) {
       setTrashedIds(
         (current) => new Set([...current].filter((id) => !failed.has(id))),
       );
-      setError("Some items could not be moved to trash.");
+      const left = targets.filter((t) => failed.has(t.id));
+      toast.error("Some items could not be moved to trash.", {
+        retry: () => void trash(left),
+      });
     }
     if (moved.length === 0) return;
     refresh();
@@ -121,7 +118,7 @@ export function useWorkspaceItemActions(redirectTo: string) {
       );
       refresh();
     } catch (caught) {
-      fail(caught, "Restore failed.");
+      fail(caught, "Restore failed.", () => void restore(item));
     }
   };
 
@@ -157,7 +154,6 @@ export function useWorkspaceItemActions(redirectTo: string) {
   };
 
   return {
-    error,
     trashedIds,
     open,
     download,

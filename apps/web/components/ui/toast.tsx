@@ -7,6 +7,7 @@ import {
   InfoIcon,
   LoaderCircleIcon,
   TriangleAlertIcon,
+  XIcon,
 } from "lucide-react";
 import type React from "react";
 import { cn } from "@/lib/utils";
@@ -158,6 +159,18 @@ function Toasts({
                     {toast.actionProps.children}
                   </Toast.Action>
                 )}
+                {/* Staaash: errors stay until closed. */}
+                {toast.type === "error" ? (
+                  <Toast.Close
+                    aria-label="Close"
+                    className={buttonVariants({
+                      size: "icon-xs",
+                      variant: "ghost-muted",
+                    })}
+                  >
+                    <XIcon aria-hidden />
+                  </Toast.Close>
+                ) : null}
               </Toast.Content>
             </Toast.Root>
           );
@@ -315,8 +328,18 @@ type ToastOptions = { description?: React.ReactNode };
 export const toast = {
   success: (title: React.ReactNode, options?: ToastOptions) =>
     toastManager.add({ title, type: "success", ...options }),
-  error: (title: React.ReactNode, options?: ToastOptions) =>
-    toastManager.add({ title, type: "error", ...options }),
+  // Staaash: errors stay until closed, with Retry when there is one.
+  error: (
+    title: React.ReactNode,
+    { retry, ...options }: ToastOptions & { retry?: () => void } = {},
+  ) =>
+    toastManager.add({
+      title,
+      type: "error",
+      timeout: 0,
+      ...(retry ? { actionProps: { children: "Retry", onClick: retry } } : {}),
+      ...options,
+    }),
   info: (title: React.ReactNode, options?: ToastOptions) =>
     toastManager.add({ title, type: "info", ...options }),
 };

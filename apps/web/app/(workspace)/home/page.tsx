@@ -1,14 +1,11 @@
 import { headers } from "next/headers";
-import { FolderPlus } from "lucide-react";
 
 import { WorkspacePresetPageContextMenu } from "@/app/dashboard-context-menu";
 import { PageHeader } from "@/components/page-header";
 import {
   Empty,
   EmptyContent,
-  EmptyDescription,
   EmptyHeader,
-  EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
 import { requireSignedInPageSession } from "@/server/auth/guards";
@@ -61,13 +58,7 @@ export default async function HomePage() {
       {isEmpty ? (
         <Empty className="min-h-[min(52vh,520px)]">
           <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <FolderPlus aria-hidden />
-            </EmptyMedia>
             <EmptyTitle>Add your first file</EmptyTitle>
-            <EmptyDescription>
-              Upload something now, or start with a folder.
-            </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <HomePrimaryActions className="justify-center" />

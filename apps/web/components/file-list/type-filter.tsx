@@ -1,43 +1,62 @@
 "use client";
 
-import { cn } from "@/lib/utils";
+import { ChevronDown, X } from "lucide-react";
 
-/** A row of chips that filters a list by type. */
+import { Button } from "@/components/ui/button";
+import {
+  Menu,
+  MenuPopup,
+  MenuRadioGroup,
+  MenuRadioItem,
+  MenuTrigger,
+} from "@/components/ui/menu";
+
+/**
+ * One "Type" button beside list/grid. While a type is on it shows the type,
+ * and one click clears it.
+ */
 export function TypeFilter<T extends string>({
   options,
   value,
   onValueChange,
-  label = "Filter by type",
 }: {
   options: Array<{ id: T; label: string }>;
   value: T;
   onValueChange: (value: T) => void;
-  label?: string;
 }) {
+  const [all, ...types] = options;
+  const active = types.find((option) => option.id === value);
+  if (active && all) {
+    return (
+      <Button
+        aria-label={`Showing ${active.label}. Show all types`}
+        size="sm"
+        variant="tinted"
+        onClick={() => onValueChange(all.id)}
+      >
+        {active.label}
+        <X aria-hidden />
+      </Button>
+    );
+  }
   return (
-    <div
-      aria-label={label}
-      className="-mx-1 flex min-w-0 [scrollbar-width:none] gap-1.5 overflow-x-auto px-1 py-0.5"
-      role="radiogroup"
-    >
-      {options.map((option) => {
-        const active = option.id === value;
-        return (
-          <button
-            aria-checked={active}
-            className={cn(
-              "h-7 shrink-0 cursor-pointer rounded-md border border-input px-2.5 text-meta font-medium whitespace-nowrap text-foreground transition-colors duration-150 outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
-              active && "border-transparent selected-pill hover:selected-pill",
-            )}
-            key={option.id}
-            role="radio"
-            type="button"
-            onClick={() => onValueChange(option.id)}
-          >
-            {option.label}
-          </button>
-        );
-      })}
-    </div>
+    <Menu>
+      <MenuTrigger render={<Button size="sm" variant="outline" />}>
+        Type
+        <ChevronDown aria-hidden />
+      </MenuTrigger>
+      <MenuPopup align="end" className="w-44">
+        <MenuRadioGroup
+          value={value}
+          onValueChange={(next) => onValueChange(next as T)}
+        >
+          {types.map((option) => (
+            <MenuRadioItem key={option.id} value={option.id}>
+              {option.label}
+            </MenuRadioItem>
+          ))}
+        </MenuRadioGroup>
+      </MenuPopup>
+    </Menu>
   );
 }

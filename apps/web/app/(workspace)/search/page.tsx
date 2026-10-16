@@ -1,4 +1,4 @@
-import { FlashMessage, getSingleSearchParam } from "@/app/auth-ui";
+import { getSingleSearchParam } from "@/app/auth-ui";
 import { WorkspacePresetPageContextMenu } from "@/app/dashboard-context-menu";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { retrievalService } from "@/server/retrieval/service";
@@ -10,12 +10,7 @@ import {
 } from "@/app/pagination-controls";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { toRecentClientItem } from "../recent/recent-helpers";
 import { SearchResults } from "./search-results";
 
@@ -57,20 +52,13 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const items = allItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const currentPath =
     query.length > 0 ? `/search?q=${encodeURIComponent(query)}` : "/search";
-  const error = getSingleSearchParam(resolvedSearchParams, "error");
-  const success = getSingleSearchParam(resolvedSearchParams, "success");
 
   const title = query.length > 0 ? `Results for "${query}"` : "Search";
   const description =
     query.length > 0
       ? `${allItems.length} result${allItems.length === 1 ? "" : "s"}`
       : undefined;
-  const notices = (
-    <>
-      {error ? <FlashMessage>{error}</FlashMessage> : null}
-      {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
-    </>
-  );
+  const notices = <></>;
 
   return (
     <WorkspacePresetPageContextMenu
@@ -84,13 +72,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           <Empty className="min-h-64">
             <EmptyHeader>
               <EmptyTitle>
-                {query.length === 0 ? "Search your files" : "Nothing matches"}
-              </EmptyTitle>
-              <EmptyDescription>
                 {query.length === 0
-                  ? "Type a name, an extension or a folder in the search box. Press / to jump there."
-                  : "Try part of the name, an extension like pdf, or a folder name."}
-              </EmptyDescription>
+                  ? "Search your files"
+                  : `Nothing matches "${query}"`}
+              </EmptyTitle>
             </EmptyHeader>
           </Empty>
         </>

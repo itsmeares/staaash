@@ -1,21 +1,12 @@
 "use client";
 
-import { Download, Heart, HeartOff } from "lucide-react";
+import { Download, HeartOff } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { FlashMessage } from "@/app/auth-ui";
 import { DashboardPageContextMenu } from "@/app/dashboard-context-menu";
-import { TypeFilter } from "@/components/file-list/type-filter";
 import { PageHeader } from "@/components/page-header";
-import { ViewToggle } from "@/components/view-toggle";
 import { useTime } from "@/components/time-provider";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import {
   FileList,
   type FileListColumn,
@@ -28,6 +19,7 @@ import { formatRelativeTime } from "@/lib/time";
 
 import { SelectionBar } from "../selection-bar";
 import {
+  TypeAndView,
   toWorkspaceListItem,
   listBackgroundMenu,
   PinnedChips,
@@ -37,7 +29,7 @@ import {
   liveItemMenu,
   useWorkspaceItemActions,
 } from "../use-workspace-item-actions";
-import { sizeColumn, WORKSPACE_ITEM_FILTERS } from "../workspace-item-helpers";
+import { sizeColumn } from "../workspace-item-helpers";
 import {
   filterFavoriteItems,
   getQuickAccessFavorites,
@@ -48,16 +40,14 @@ import {
 } from "./favorites-helpers";
 
 type FavoritesViewProps = {
-  error?: string | null;
   items: FavoriteClientItem[];
-  success?: string | null;
 };
 
 type FavoriteListItem = FileListItem & { data: FavoriteClientItem };
 
 // Favorites adds optimistic remove and pin on top of the shared list.
 // fallow-ignore-next-line complexity
-export function FavoritesView({ error, items, success }: FavoritesViewProps) {
+export function FavoritesView({ items }: FavoritesViewProps) {
   const isCoarsePointer = useCoarsePointer();
   const { now, timeZone } = useTime();
   const [view, setView] = useViewMode("favorites");
@@ -173,13 +163,16 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
       groups={backgroundGroups}
     >
       <PageHeader
-        actions={<ViewToggle value={view} onValueChange={setView} />}
+        actions={
+          <TypeAndView
+            type={filterType}
+            view={view}
+            onTypeChange={setFilterType}
+            onViewChange={setView}
+          />
+        }
         title="Favorites"
       />
-
-      {error ? <FlashMessage>{error}</FlashMessage> : null}
-      {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
-      {actions.error ? <FlashMessage>{actions.error}</FlashMessage> : null}
 
       {pinnedItems.length > 0 ? (
         <section aria-labelledby="favorites-pinned" className="grid gap-2">
@@ -197,31 +190,17 @@ export function FavoritesView({ error, items, success }: FavoritesViewProps) {
         </section>
       ) : null}
 
-      <TypeFilter
-        options={WORKSPACE_ITEM_FILTERS}
-        value={filterType}
-        onValueChange={setFilterType}
-      />
-
       <FileList
         coarse={isCoarsePointer}
         columns={columns}
         empty={
           <Empty className="min-h-64">
             <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Heart aria-hidden />
-              </EmptyMedia>
               <EmptyTitle>
                 {activeItems.length === 0
                   ? "No favorites yet"
                   : "Nothing of that type"}
               </EmptyTitle>
-              <EmptyDescription>
-                {activeItems.length === 0
-                  ? "Add favorites from any file or folder menu. Pin the ones you open most."
-                  : "Try another type."}
-              </EmptyDescription>
             </EmptyHeader>
           </Empty>
         }

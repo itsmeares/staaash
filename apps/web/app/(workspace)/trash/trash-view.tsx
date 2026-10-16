@@ -1,22 +1,16 @@
 "use client";
 
-import { RotateCcw, Trash2 } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
-import { FlashMessage } from "@/app/auth-ui";
 import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
 import { PageHeader } from "@/components/page-header";
 import { confirmAction } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
 import { useTime } from "@/components/time-provider";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import {
   FileList,
   type FileListColumn,
@@ -30,23 +24,24 @@ import { formatRelativeTime } from "@/lib/time";
 
 import { SelectionBar } from "../selection-bar";
 import { useCoarsePointer } from "../use-coarse-pointer";
-import { blockedLabel, sizeColumn } from "../workspace-item-helpers";
+import {
+  WORKSPACE_ITEM_FILTERS,
+  blockedLabel,
+  filterWorkspaceItems,
+  sizeColumn,
+  type WorkspaceItemFilterType,
+} from "../workspace-item-helpers";
 import { moveTrash, showUndo } from "../undo";
 import { EmptyTrashAction } from "./trash-file-actions";
 import {
-  filterTrashItems,
   groupTrashItems,
   sortTrashItems,
-  TRASH_FILTERS,
   type TrashClientItem,
-  type TrashFilterType,
   type TrashSortKey,
 } from "./trash-helpers";
 
 type TrashViewProps = {
-  error?: string | null;
   items: TrashClientItem[];
-  success?: string | null;
   retentionDays: number;
 };
 
@@ -55,23 +50,17 @@ type TrashListItem = FileListItem & { data: TrashClientItem };
 const kindPath = (item: TrashClientItem) =>
   item.kind === "folder" ? "folders" : "files";
 
-export function TrashView({
-  error,
-  items,
-  success,
-  retentionDays,
-}: TrashViewProps) {
+export function TrashView({ items, retentionDays }: TrashViewProps) {
   const router = useRouter();
   const isCoarsePointer = useCoarsePointer();
   const { now, timeZone } = useTime();
-  const [filterType, setFilterType] = useState<TrashFilterType>("all");
+  const [filterType, setFilterType] = useState<WorkspaceItemFilterType>("all");
   const sort = useListSort<TrashSortKey>("deletedAt", "desc");
-  const [actionError, setActionError] = useState<string | null>(null);
 
   const visibleItems = useMemo(
     () =>
       sortTrashItems(
-        filterTrashItems(items, filterType),
+        filterWorkspaceItems(items, filterType),
         sort.key,
         sort.direction,
       ),
@@ -86,7 +75,7 @@ export function TrashView({
   ) => {
     if (action === "restore") {
       const restored = await moveTrash(targets, "restore", "/trash");
-      if (restored.length < targets.length) setActionError("Restore failed.");
+      if (restored.length < targets.length) toast.error("Restore failed.");
       router.refresh();
       showUndo({
         items: restored,
@@ -106,9 +95,7 @@ export function TrashView({
       }
       router.refresh();
     } catch (caught) {
-      setActionError(
-        caught instanceof Error ? caught.message : "Delete failed.",
-      );
+      toast.error(caught instanceof Error ? caught.message : "Delete failed.");
     }
   };
   const deleteForever = async (item: TrashClientItem) => {
@@ -171,19 +158,18 @@ export function TrashView({
   return (
     <div className="grid min-h-0 content-start gap-4">
       <PageHeader
-        actions={<EmptyTrashAction disabled={items.length === 0} />}
+        actions={
+          <>
+            <TypeFilter
+              options={WORKSPACE_ITEM_FILTERS}
+              value={filterType}
+              onValueChange={setFilterType}
+            />
+            <EmptyTrashAction disabled={items.length === 0} />
+          </>
+        }
         description={`Items here are deleted for good after ${retentionDays} days.`}
         title="Trash"
-      />
-
-      {error ? <FlashMessage>{error}</FlashMessage> : null}
-      {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
-      {actionError ? <FlashMessage>{actionError}</FlashMessage> : null}
-
-      <TypeFilter
-        options={TRASH_FILTERS}
-        value={filterType}
-        onValueChange={setFilterType}
       />
 
       <FileList
@@ -192,17 +178,9 @@ export function TrashView({
         empty={
           <Empty className="min-h-64">
             <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Trash2 aria-hidden />
-              </EmptyMedia>
               <EmptyTitle>
                 {items.length === 0 ? "Trash is empty" : "Nothing of that type"}
               </EmptyTitle>
-              <EmptyDescription>
-                {items.length === 0
-                  ? "Things you delete wait here before they're gone for good."
-                  : "Try another type."}
-              </EmptyDescription>
             </EmptyHeader>
           </Empty>
         }

@@ -51,6 +51,9 @@ export const buttonVariants = cva(
         // the filled selected-pill instead.
         outline:
           "border-foreground/13 bg-transparent text-foreground hover:bg-hover data-pressed:bg-pressed *:data-[slot=button-loading-indicator]:text-foreground",
+        // Staaash: a filter that is on, tinted like the badges.
+        tinted:
+          "border-transparent bg-primary/14 text-foreground hover:bg-primary/20 data-pressed:bg-primary/20 *:data-[slot=button-loading-indicator]:text-foreground",
         secondary:
           "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/90 data-pressed:bg-secondary/90 *:data-[slot=button-loading-indicator]:text-secondary-foreground [:active,[data-pressed]]:bg-secondary/80",
         // Staaash variants, after T3 Code's: quiet toolbar buttons and
@@ -58,7 +61,7 @@ export const buttonVariants = cva(
         "ghost-muted":
           "border-transparent text-muted-foreground hover:bg-accent hover:text-foreground aria-expanded:bg-accent aria-expanded:text-foreground data-pressed:bg-accent data-pressed:text-foreground",
         "ghost-destructive":
-          "border-transparent text-muted-foreground hover:bg-accent hover:text-destructive-foreground data-pressed:bg-accent",
+          "border-transparent text-destructive-foreground hover:bg-destructive/8 data-pressed:bg-destructive/8 *:data-[slot=button-loading-indicator]:text-destructive-foreground",
         "media-close":
           "border-transparent bg-black/65 text-white shadow-sm ring-1 ring-white/20 hover:bg-black/80 focus-visible:ring-white [&_svg:not([class*='opacity-'])]:opacity-100",
         media:

@@ -1,19 +1,12 @@
 "use client";
 
-import { FolderOpen } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { canHaveThumbnail } from "@staaash/db/viewer-contract";
 
 import { useCoarsePointer } from "@/app/(workspace)/use-coarse-pointer";
 import { formatWorkspaceFileSize } from "@/app/(workspace)/workspace-item-helpers";
 import { useTime } from "@/components/time-provider";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { ViewToggle } from "@/components/view-toggle";
 import {
   FileList,
@@ -128,13 +121,7 @@ export function ShareFolderList({
         empty={
           <Empty className="min-h-48">
             <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <FolderOpen aria-hidden />
-              </EmptyMedia>
               <EmptyTitle>This folder is empty</EmptyTitle>
-              <EmptyDescription>
-                Nothing has been added here yet.
-              </EmptyDescription>
             </EmptyHeader>
           </Empty>
         }

@@ -26,12 +26,12 @@ import { Button } from "@/components/ui/button";
 import {
   Empty,
   EmptyContent,
-  EmptyDescription,
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Input } from "@/components/ui/input";
 import { ViewToggle } from "@/components/view-toggle";
+import { TypeFilter } from "@/components/file-list/type-filter";
 import {
   DetailsPanel,
   DetailsSection,
@@ -49,14 +49,13 @@ import {
 } from "@/components/file-list/file-list";
 import { buildItemActions } from "@/components/file-list/item-actions";
 import { MediaViewer } from "@/components/file-list/media-viewer";
-import { getRenameCursorPosition } from "@/components/file-list/list-model";
+import { getRenameSelectionEnd } from "@/components/file-list/list-model";
 import { useListSelection } from "@/components/file-list/use-list-selection";
 import { useListSort } from "@/components/file-list/use-list-sort";
 import { useViewMode } from "@/components/file-list/use-view-mode";
 import { useTime } from "@/components/time-provider";
 import { randomClientId } from "@/lib/client-id";
 import { formatDateTime, formatRelativeTime } from "@/lib/time";
-import { FlashMessage } from "@/app/auth-ui";
 import { DashboardPageContextMenu } from "@/app/dashboard-context-menu";
 import { getItemVisual } from "@/app/item-visuals";
 import { startValidatedDownload } from "@/lib/transfers/download";
@@ -79,7 +78,12 @@ import type { ShareFilesLookup } from "@/server/sharing";
 import { Breadcrumbs } from "../breadcrumbs";
 import { SelectionBar } from "../selection-bar";
 import { WorkspacePage } from "../workspace-page";
-import { formatWorkspaceFileSize } from "../workspace-item-helpers";
+import {
+  WORKSPACE_ITEM_FILTERS,
+  filterWorkspaceItems,
+  formatWorkspaceFileSize,
+  type WorkspaceItemFilterType,
+} from "../workspace-item-helpers";
 import styles from "./explorer.module.css";
 import {
   buildBatchMoveFailureMessage,
@@ -119,6 +123,17 @@ type MoveOperation = {
   preservedFailures: Extract<BatchMoveResult, { status: "failed" }>[];
   error: string | null;
   retrying: boolean;
+};
+
+const isFailedMove = (operation: MoveOperation) =>
+  operation.status === "failed" ||
+  operation.status === "recovery_required" ||
+  (operation.status === "succeeded" &&
+    (operation.response?.failedCount ?? 0) > 0);
+
+const retryableMoveItems = (operation: MoveOperation) => {
+  if (operation.response) return getRetryableMoveItems(operation.response);
+  return operation.status === "failed" ? operation.items : [];
 };
 type ResumableSessionSummary = {
   name: string;
@@ -207,7 +222,6 @@ type FilesListItem = FileListItem & {
 type FilesViewProps = {
   listing: FilesListing;
   currentPath: string;
-  searchParams: Record<string, string | string[] | undefined>;
   shareLookup: ShareFilesLookup;
   /** Photos peek out of folder cards in grid view (Settings → Appearance). */
   showFolderPreviews: boolean;
@@ -265,7 +279,6 @@ const nameInListing = (
 export function FilesView({
   listing,
   currentPath,
-  searchParams,
   shareLookup,
   showFolderPreviews,
   favoriteFileIds,
@@ -361,7 +374,6 @@ export function FilesView({
   const [optimisticallyMovedIds, setOptimisticallyMovedIds] = useState<
     Set<string>
   >(new Set());
-  const [trashError, setTrashError] = useState<string | null>(null);
   useEffect(() => {
     setTrashedIds(new Set());
   }, [listing]);
@@ -374,11 +386,30 @@ export function FilesView({
       return next.size === current.size ? current : next;
     });
   }, [listing]);
+
+  // A failed move shows one toast; Retry clears the mark so a second
+  // failure shows again.
+  const toastedMoves = useRef(new Set<string>());
   useEffect(() => {
-    if (!trashError) return;
-    const t = setTimeout(() => setTrashError(null), 4000);
-    return () => clearTimeout(t);
-  }, [trashError]);
+    for (const operation of moveOperations.values()) {
+      if (operation.retrying) {
+        toastedMoves.current.delete(operation.clientId);
+        continue;
+      }
+      if (!isFailedMove(operation)) continue;
+      if (toastedMoves.current.has(operation.clientId)) continue;
+      toastedMoves.current.add(operation.clientId);
+      const retryItems = retryableMoveItems(operation);
+      toast.error(operation.error ?? "Some items could not be moved.", {
+        retry:
+          retryItems.length > 0
+            ? () => void retryFailedMove(operation.clientId)
+            : undefined,
+      });
+    }
+  }, [moveOperations]);
+
+  const [filterType, setFilterType] = useState<WorkspaceItemFilterType>("all");
 
   // ---- Rename ----
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -495,12 +526,6 @@ export function FilesView({
     setNewFolderOpen(false);
     if (created) startTransition(() => router.refresh());
   };
-
-  // ---- Flash messages ----
-  const error =
-    typeof searchParams.error === "string" ? searchParams.error : null;
-  const success =
-    typeof searchParams.success === "string" ? searchParams.success : null;
 
   // ---- Sets ----
   const favoriteFileSet = new Set(favoriteFileIds);
@@ -681,9 +706,9 @@ export function FilesView({
         "File download failed",
       );
     } catch (err) {
-      setTrashError(
-        err instanceof Error ? err.message : "File download failed",
-      );
+      toast.error(err instanceof Error ? err.message : "File download failed", {
+        retry: () => void downloadFile(id),
+      });
     }
   };
 
@@ -871,7 +896,7 @@ export function FilesView({
         next.delete(id);
         return next;
       });
-      setTrashError(
+      toast.error(
         err instanceof Error ? err.message : "Failed to move to trash",
       );
     }
@@ -905,7 +930,7 @@ export function FilesView({
         for (const id of failedIds) next.delete(id);
         return next;
       });
-      setTrashError("Some items could not be moved to trash.");
+      toast.error("Some items could not be moved to trash.");
     }
     if (moved.length > 0) {
       startTransition(() => router.refresh());
@@ -1742,21 +1767,22 @@ export function FilesView({
     },
   ];
 
-  const sortedItems = [...listItems].sort((left, right) =>
-    compareForSort(
-      {
-        kind: left.kind,
-        name: left.name,
-        size: left.sizeBytes ?? 0,
-        updatedAt: left.data.updatedAt,
-      },
-      {
-        kind: right.kind,
-        name: right.name,
-        size: right.sizeBytes ?? 0,
-        updatedAt: right.data.updatedAt,
-      },
-    ),
+  const sortedItems = filterWorkspaceItems(listItems, filterType).sort(
+    (left, right) =>
+      compareForSort(
+        {
+          kind: left.kind,
+          name: left.name,
+          size: left.sizeBytes ?? 0,
+          updatedAt: left.data.updatedAt,
+        },
+        {
+          kind: right.kind,
+          name: right.name,
+          size: right.sizeBytes ?? 0,
+          updatedAt: right.data.updatedAt,
+        },
+      ),
   );
 
   const moveTargetsFor = (items: BatchMoveItem[]) => {
@@ -1963,44 +1989,6 @@ export function FilesView({
   return (
     <div className="flex items-start gap-4">
       <WorkspacePage className="min-w-0 flex-1">
-        {error ? <FlashMessage>{error}</FlashMessage> : null}
-        {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
-        {trashError ? <FlashMessage>{trashError}</FlashMessage> : null}
-        {Array.from(moveOperations.values())
-          .filter(
-            (operation) =>
-              operation.status === "failed" ||
-              operation.status === "recovery_required" ||
-              (operation.status === "succeeded" &&
-                (operation.response?.failedCount ?? 0) > 0),
-          )
-          .map((operation) => {
-            const retryItems = operation.response
-              ? getRetryableMoveItems(operation.response)
-              : operation.status === "failed"
-                ? operation.items
-                : [];
-            return (
-              <FlashMessage key={operation.clientId}>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <span className="flex-1 basis-60">
-                    {operation.error ?? "Some items could not be moved."}
-                  </span>
-                  {retryItems.length > 0 ? (
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      disabled={operation.retrying}
-                      onClick={() => void retryFailedMove(operation.clientId)}
-                    >
-                      Retry
-                    </Button>
-                  ) : null}
-                </div>
-              </FlashMessage>
-            );
-          })}
-
         <DashboardPageContextMenu
           className="relative isolate grid min-h-[calc(100dvh-9rem)] content-start gap-3"
           groups={backgroundMenuGroups}
@@ -2035,6 +2023,11 @@ export function FilesView({
                 Moving {movingIds.size} item{movingIds.size === 1 ? "" : "s"}
               </Badge>
             ) : null}
+            <TypeFilter
+              options={WORKSPACE_ITEM_FILTERS}
+              value={filterType}
+              onValueChange={setFilterType}
+            />
             <ViewToggle value={view} onValueChange={setView} />
             <Button
               aria-label="Details"
@@ -2132,27 +2125,32 @@ export function FilesView({
             coarse={isCoarsePointer}
             columns={columns}
             empty={
-              <Empty className="min-h-[min(48vh,420px)]">
-                <EmptyHeader>
-                  <EmptyTitle>This folder is empty</EmptyTitle>
-                  <EmptyDescription>
-                    Drop files or folders here, or add something new.
-                  </EmptyDescription>
-                </EmptyHeader>
-                <EmptyContent className="flex-row flex-wrap justify-center">
-                  <Button onClick={() => fileInputRef.current?.click()}>
-                    <Upload aria-hidden />
-                    Upload files
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setNewFolderOpen(true)}
-                  >
-                    <FolderPlus aria-hidden />
-                    New folder
-                  </Button>
-                </EmptyContent>
-              </Empty>
+              listItems.length > 0 ? (
+                <Empty className="min-h-64">
+                  <EmptyHeader>
+                    <EmptyTitle>Nothing of that type</EmptyTitle>
+                  </EmptyHeader>
+                </Empty>
+              ) : (
+                <Empty className="min-h-[min(48vh,420px)]">
+                  <EmptyHeader>
+                    <EmptyTitle>This folder is empty</EmptyTitle>
+                  </EmptyHeader>
+                  <EmptyContent className="flex-row flex-wrap justify-center">
+                    <Button onClick={() => fileInputRef.current?.click()}>
+                      <Upload aria-hidden />
+                      Upload files
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setNewFolderOpen(true)}
+                    >
+                      <FolderPlus aria-hidden />
+                      New folder
+                    </Button>
+                  </EmptyContent>
+                </Empty>
+              )
             }
             getActions={getActions}
             itemClassName={(item) =>
@@ -2190,11 +2188,10 @@ export function FilesView({
                   onChange={(event) => setRenameValue(event.target.value)}
                   onClick={(event) => event.stopPropagation()}
                   onFocus={(event) => {
-                    const position = getRenameCursorPosition(
-                      item.name,
-                      item.kind,
+                    event.currentTarget.setSelectionRange(
+                      0,
+                      getRenameSelectionEnd(item.name, item.kind),
                     );
-                    event.currentTarget.setSelectionRange(position, position);
                   }}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {

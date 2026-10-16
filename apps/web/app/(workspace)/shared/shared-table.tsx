@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  ClipboardCopy,
-  KeyRound,
-  Link2,
-  Settings2,
-  Share2,
-} from "lucide-react";
+import { ClipboardCopy, KeyRound, Link2, Settings2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 
@@ -14,13 +8,7 @@ import { ShareDialog } from "@/app/(workspace)/files/share-dialog";
 import type { DashboardContextMenuGroup } from "@/app/dashboard-context-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { toast } from "@/components/ui/toast";
 import {
   FileList,
@@ -215,11 +203,7 @@ export function SharedTable({ items }: { items: SharedTableItem[] }) {
         empty={
           <Empty className="min-h-64">
             <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <Share2 aria-hidden />
-              </EmptyMedia>
               <EmptyTitle>No links of that type</EmptyTitle>
-              <EmptyDescription>Try another type.</EmptyDescription>
             </EmptyHeader>
           </Empty>
         }

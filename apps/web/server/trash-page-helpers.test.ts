@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
-  filterTrashItems,
   groupTrashItems,
   sortTrashItems,
   toTrashClientItem,
@@ -142,10 +141,6 @@ describe("trash page helpers", () => {
       }),
     ];
 
-    expect(filterTrashItems(items, "file").map((item) => item.id)).toEqual([
-      "new",
-      "old",
-    ]);
     const ids = (key: TrashSortKey, direction: "asc" | "desc") =>
       sortTrashItems(items, key, direction).map((item) => item.id);
     expect(ids("deletedAt", "desc")).toEqual(["new", "folder", "old"]);

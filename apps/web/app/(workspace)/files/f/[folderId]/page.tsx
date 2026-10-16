@@ -19,7 +19,6 @@ type FilesFolderPageProps = {
   params: Promise<{
     folderId: string;
   }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
 /**
@@ -52,13 +51,8 @@ const loadFolderListing = async (
 
 export default async function FilesFolderPage({
   params,
-  searchParams,
 }: FilesFolderPageProps) {
-  const [{ folderId }, resolvedSearchParams, h] = await Promise.all([
-    params,
-    searchParams,
-    headers(),
-  ]);
+  const [{ folderId }, h] = await Promise.all([params, headers()]);
   const baseUrl = getShareBaseUrl(h);
   const session = await requireSignedInPageSession(
     `/?next=${encodeURIComponent(`/files/f/${folderId}`)}`,
@@ -81,11 +75,5 @@ export default async function FilesFolderPage({
     showFolderPreviews: session.user.preferences?.showFolderPreviews ?? true,
   });
 
-  return (
-    <FilesView
-      {...props}
-      currentPath={`/files/f/${folderId}`}
-      searchParams={resolvedSearchParams}
-    />
-  );
+  return <FilesView {...props} currentPath={`/files/f/${folderId}`} />;
 }

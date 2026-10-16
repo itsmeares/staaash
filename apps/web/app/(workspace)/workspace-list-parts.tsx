@@ -8,8 +8,14 @@ import {
 } from "@/app/dashboard-context-menu";
 import { ItemIcon, thumbnailUrlFor } from "@/components/file-list/file-list";
 import { MiddleName } from "@/components/file-list/middle-name";
+import { TypeFilter } from "@/components/file-list/type-filter";
+import { ViewToggle } from "@/components/view-toggle";
 
-import { blockedLabel } from "./workspace-item-helpers";
+import {
+  WORKSPACE_ITEM_FILTERS,
+  blockedLabel,
+  type WorkspaceItemFilterType,
+} from "./workspace-item-helpers";
 
 type ListedItem = {
   id: string;
@@ -83,5 +89,29 @@ export function PinnedChips<T extends ListedItem>({
         </DashboardItemContextMenu>
       ))}
     </div>
+  );
+}
+
+/** The Type button and list/grid, at the right of a list's title. */
+export function TypeAndView({
+  type,
+  onTypeChange,
+  view,
+  onViewChange,
+}: {
+  type: WorkspaceItemFilterType;
+  onTypeChange: (type: WorkspaceItemFilterType) => void;
+  view: "list" | "grid";
+  onViewChange: (view: "list" | "grid") => void;
+}) {
+  return (
+    <>
+      <TypeFilter
+        options={WORKSPACE_ITEM_FILTERS}
+        value={type}
+        onValueChange={onTypeChange}
+      />
+      <ViewToggle value={view} onValueChange={onViewChange} />
+    </>
   );
 }

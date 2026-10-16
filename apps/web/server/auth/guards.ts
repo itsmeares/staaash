@@ -38,7 +38,9 @@ export const requireAdminPageSession = async () => {
   const session = await requireSignedInPageSession("/?next=/admin");
 
   if (!canAccessAdminSurface(session.user.role)) {
-    redirect("/settings?error=admin");
+    redirect(
+      `/settings?error=${encodeURIComponent("Only owners can open the admin pages.")}`,
+    );
   }
 
   return session;

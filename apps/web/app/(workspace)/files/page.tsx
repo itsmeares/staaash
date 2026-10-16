@@ -9,13 +9,8 @@ import { loadFilesViewProps } from "./load-files-view";
 
 export const dynamic = "force-dynamic";
 
-type FilesPageProps = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
-
-export default async function FilesPage({ searchParams }: FilesPageProps) {
-  const [resolvedSearchParams, session, h] = await Promise.all([
-    searchParams,
+export default async function FilesPage() {
+  const [session, h] = await Promise.all([
     requireSignedInPageSession("/?next=/files"),
     headers(),
   ]);
@@ -32,11 +27,5 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
     showFolderPreviews: session.user.preferences?.showFolderPreviews ?? true,
   });
 
-  return (
-    <FilesView
-      {...props}
-      currentPath="/files"
-      searchParams={resolvedSearchParams}
-    />
-  );
+  return <FilesView {...props} currentPath="/files" />;
 }

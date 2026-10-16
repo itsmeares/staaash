@@ -28,14 +28,7 @@ export type TrashClientItem = {
   storageMutationStatus?: string;
 };
 
-export type TrashFilterType = "all" | "file" | "folder";
 export type TrashSortKey = "name" | "path" | "size" | "deletedAt";
-
-export const TRASH_FILTERS: { id: TrashFilterType; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "folder", label: "Folders" },
-  { id: "file", label: "Files" },
-];
 
 export type TrashGroupLabel = DateGroupLabel;
 
@@ -80,14 +73,6 @@ export function toTrashClientItem(
 
 export function toTrashClientItems(listing: TrashListing): TrashClientItem[] {
   return [...listing.items, ...listing.files].map(toTrashClientItem);
-}
-
-export function filterTrashItems(
-  items: TrashClientItem[],
-  filterType: TrashFilterType,
-): TrashClientItem[] {
-  if (filterType === "all") return items;
-  return items.filter((item) => item.kind === filterType);
 }
 
 export function sortTrashItems(

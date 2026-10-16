@@ -101,11 +101,6 @@ export function WorkspaceActionSheet({
                           {action.icon}
                         </span>
                         <span>{action.label}</span>
-                        {action.shortcut ? (
-                          <span className="ms-auto text-xs text-muted-foreground">
-                            {action.shortcut}
-                          </span>
-                        ) : null}
                       </DrawerMenuItem>
                     )}
                   </Fragment>
