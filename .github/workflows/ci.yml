@@ -142,16 +142,12 @@ jobs:
       - name: Generate Prisma client
         run: vp run db:generate
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
       - name: Build ARM64 image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          load: true
-          platforms: linux/arm64
-          tags: ghcr.io/itsmeares/staaash:ci-arm64
+        run: |
+          docker build \
+            --platform linux/arm64 \
+            -t ghcr.io/itsmeares/staaash:ci-arm64 \
+            .
 
       - name: Start PostgreSQL
         run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d db
@@ -194,7 +190,7 @@ jobs:
           '
 
       - name: Install Playwright Chromium
-        run: vp exec --filter web playwright install --with-deps chromium
+        run: vp exec --filter web playwright install --with-deps --only-shell chromium
 
       - name: Run ARM64 Playwright smoke tests
         run: >-
