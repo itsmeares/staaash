@@ -99,8 +99,8 @@ jobs:
       - name: Generate Prisma client
         run: vp run db:generate
 
-      - name: Build @staaash/db
-        run: vp run --filter @staaash/db build
+      - name: Build shared packages
+        run: vp run build:deps
 
       - name: PostgreSQL integration tests
         run: vp run test:postgres
