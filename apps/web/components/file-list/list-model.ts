@@ -52,7 +52,12 @@ export function applyTap(state: SelectionState, id: string): SelectionState {
 }
 
 export type NavigationKey =
-  "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" | "Home" | "End";
+  | "ArrowUp"
+  | "ArrowDown"
+  | "ArrowLeft"
+  | "ArrowRight"
+  | "Home"
+  | "End";
 
 /**
  * Arrow keys move the selection. In a grid, up and down jump a row of

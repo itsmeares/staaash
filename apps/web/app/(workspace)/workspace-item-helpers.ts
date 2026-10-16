@@ -5,7 +5,14 @@ import type {
 import { formatBytes } from "@/lib/format-bytes";
 import type { RetrievalItem } from "@/server/retrieval/types";
 export type WorkspaceItemFilterType =
-  "all" | "archive" | "audio" | "folder" | "image" | "pdf" | "text" | "video";
+  | "all"
+  | "archive"
+  | "audio"
+  | "folder"
+  | "image"
+  | "pdf"
+  | "text"
+  | "video";
 
 export type WorkspaceItemFilterOption = {
   id: WorkspaceItemFilterType;

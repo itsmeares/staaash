@@ -37,7 +37,10 @@ export type DerivativeStatus =
   | typeof DERIVATIVE_STATUS_STALE;
 
 export type DerivativeGenerateReason =
-  "share-created" | "upload" | "first-view" | "manual-regenerate";
+  | "share-created"
+  | "upload"
+  | "first-view"
+  | "manual-regenerate";
 
 export type MediaDerivativeRecord = {
   id: string;

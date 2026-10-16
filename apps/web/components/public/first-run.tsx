@@ -28,7 +28,11 @@ type StepId =
 
 /** Who is arriving decides the steps. */
 export type FirstRunKind =
-  "owner-setup" | "owner" | "member" | "member-password" | "password";
+  | "owner-setup"
+  | "owner"
+  | "member"
+  | "member-password"
+  | "password";
 
 const STEPS: Record<FirstRunKind, StepId[]> = {
   "owner-setup": [

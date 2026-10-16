@@ -1,5 +1,10 @@
 export type MediaPreviewStatus =
-  "none" | "queued" | "processing" | "ready" | "failed" | "stale";
+  | "none"
+  | "queued"
+  | "processing"
+  | "ready"
+  | "failed"
+  | "stale";
 export type MediaPreviewState = { status: MediaPreviewStatus };
 
 export const MEDIA_PREVIEW_LABELS: Record<MediaPreviewStatus, string> = {

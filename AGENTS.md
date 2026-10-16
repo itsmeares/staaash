@@ -157,10 +157,9 @@ behavior. Test what a user can observe, not the implementation.
 
 Run checks for the changed area only:
 
-- `pnpm --filter web test server/foo.test.ts` for touched tests. Same for
+- `vp run --filter web test server/foo.test.ts` for touched tests. Same for
   `worker` and `@staaash/db`.
-- `pnpm --filter web typecheck`. `pnpm --filter web lint` also runs the style
-  check.
+- `pnpm lint` runs the Vite+ linter with type checking, and the style check.
 - `pnpm --filter web test:postgres <files>` for database behavior. It needs a
   reachable PostgreSQL.
 - `pnpm quality:fallow`, which only checks new code against `origin/main`.

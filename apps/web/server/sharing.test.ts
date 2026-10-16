@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { renderToReadableStream } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 vi.mock("@/server/auth/service", () => ({
   authService: {

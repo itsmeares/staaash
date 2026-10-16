@@ -1,11 +1,13 @@
 import path from "node:path";
 import { mkdir, rm, stat } from "node:fs/promises";
-import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createWriteStream } from "node:fs";
 
-import yazl from "yazl";
 import { z } from "zod";
+import {
+  buildArchiveFolderSegments,
+  createZipArchiveStream,
+} from "@staaash/config/zip";
 import { getPrisma } from "@staaash/db/client";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
 import {
@@ -68,24 +70,6 @@ const zipArchiveIdsSchema = z.object({
   folderIds: z.array(z.string()),
 });
 
-const buildFolderSegments = ({
-  folder,
-  folderMap,
-  rootFolderId,
-}: {
-  folder: FolderRecord;
-  folderMap: Map<string, FolderRecord>;
-  rootFolderId: string;
-}): string[] => {
-  const names: string[] = [];
-  let current: FolderRecord | undefined = folder;
-  while (current && current.id !== rootFolderId) {
-    names.unshift(current.name);
-    current = current.parentId ? folderMap.get(current.parentId) : undefined;
-  }
-  return names;
-};
-
 const collectDescendantFolderIds = (
   rootId: string,
   childrenByParentId: Map<string, FolderRecord[]>,
@@ -102,6 +86,32 @@ const collectDescendantFolderIds = (
     }
   }
   return result;
+};
+
+const buildFileArchivePath = (
+  file: StoredFileRecord,
+  folderMap: Map<string, FolderRecord>,
+  descendantsByRootId: Map<string, Set<string>>,
+): string => {
+  const parentFolder = file.folderId ? folderMap.get(file.folderId) : undefined;
+  if (!parentFolder) return file.originalName;
+
+  // Overlapping selections keep the first requested root as the file's path.
+  for (const [rootFolderId, descendants] of descendantsByRootId) {
+    if (!descendants.has(parentFolder.id)) continue;
+    const rootFolder = folderMap.get(rootFolderId);
+    if (!rootFolder) return file.originalName;
+    return path.posix.join(
+      rootFolder.name,
+      ...buildArchiveFolderSegments({
+        folder: parentFolder,
+        folderMap,
+        rootFolderId,
+      }),
+      file.originalName,
+    );
+  }
+  return file.originalName;
 };
 
 export const handleZipArchiveGenerate = async (
@@ -140,13 +150,11 @@ export const handleZipArchiveGenerate = async (
     const prisma = getPrisma() as unknown as PrismaClient;
     await context?.updateProgress({ stage: "loading_selection", archiveId });
 
-    const allFolders = await prisma.folder.findMany({
-      where: { ownerUserId: userId, deletedAt: null } as object,
-    });
-
-    const allFiles = await prisma.file.findMany({
-      where: { ownerUserId: userId, deletedAt: null } as object,
-    });
+    const allFolders = folderIds.length
+      ? await prisma.folder.findMany({
+          where: { ownerUserId: userId, deletedAt: null } as object,
+        })
+      : [];
 
     const folderMap = new Map(allFolders.map((f) => [f.id, f]));
 
@@ -174,19 +182,23 @@ export const handleZipArchiveGenerate = async (
     }
 
     // Collect files: directly requested + inside expanded folders
-    const requestedFileSet = new Set(fileIds);
-    const filesToZip = allFiles.filter(
-      (f) =>
-        requestedFileSet.has(f.id) ||
-        (f.folderId !== null && allDescendantFolderIds.has(f.folderId)),
-    );
+    const filesToZip = await prisma.file.findMany({
+      where: {
+        ownerUserId: userId,
+        deletedAt: null,
+        OR: [
+          { id: { in: fileIds } },
+          { folderId: { in: [...allDescendantFolderIds] } },
+        ],
+      },
+    });
 
     // Determine zip filename
     let fileName: string;
     if (folderIds.length === 1 && fileIds.length === 0) {
       fileName = `${folderMap.get(folderIds[0])?.name ?? "archive"}.zip`;
     } else if (folderIds.length === 0 && fileIds.length === 1) {
-      fileName = `${allFiles.find((f) => f.id === fileIds[0])?.originalName ?? "file"}.zip`;
+      fileName = `${filesToZip.find((f) => f.id === fileIds[0])?.originalName ?? "file"}.zip`;
     } else {
       fileName = "staaash-files.zip";
     }
@@ -197,34 +209,6 @@ export const handleZipArchiveGenerate = async (
       fileCount: filesToZip.length,
     });
 
-    // Build zip
-    const zipFile = new yazl.ZipFile();
-
-    // Add folder directories for each requested root + all descendants
-    for (const rootFolderId of folderIds) {
-      const rootFolder = folderMap.get(rootFolderId);
-      if (!rootFolder) continue;
-      zipFile.addEmptyDirectory(`${rootFolder.name}/`);
-
-      for (const descendantId of allDescendantFolderIds) {
-        if (descendantId === rootFolderId) continue;
-        const descendant = folderMap.get(descendantId);
-        if (!descendant) continue;
-
-        // Only include descendants of this root
-        const segments = buildFolderSegments({
-          folder: descendant,
-          folderMap,
-          rootFolderId,
-        });
-        if (segments.length === 0) continue;
-
-        const folderPath = path.posix.join(rootFolder.name, ...segments);
-        zipFile.addEmptyDirectory(`${folderPath}/`);
-      }
-    }
-
-    // Add files
     const blockedFiles = await listBlockingStorageMutationsForEntities({
       entityType: "file",
       entityIds: filesToZip.map((file) => file.id),
@@ -235,62 +219,43 @@ export const handleZipArchiveGenerate = async (
         new Error("An archive source has an unfinished storage mutation."),
       );
     }
-    for (const file of filesToZip) {
-      const filePath = safeResolveStoragePath(
-        storagePaths.filesRoot,
-        file.storageKey,
-      );
+    const entries = filesToZip.map((file) => ({
+      filePath: safeResolveStoragePath(storagePaths.filesRoot, file.storageKey),
+      archivePath:
+        file.folderId && allDescendantFolderIds.has(file.folderId)
+          ? buildFileArchivePath(file, folderMap, descendantsByRootId)
+          : file.originalName,
+    }));
+    const directories: string[] = [];
 
-      let archivePath: string;
+    // Add folder directories for each requested root + all descendants
+    for (const rootFolderId of folderIds) {
+      const rootFolder = folderMap.get(rootFolderId);
+      if (!rootFolder) continue;
+      directories.push(`${rootFolder.name}/`);
 
-      if (file.folderId && allDescendantFolderIds.has(file.folderId)) {
-        // File is inside a requested folder subtree — find which root it belongs to
-        const parentFolder = folderMap.get(file.folderId);
-        if (!parentFolder) {
-          archivePath = file.originalName;
-        } else {
-          let rootFolderId: string | null = null;
-          for (const [reqFolderId, descendants] of descendantsByRootId) {
-            if (descendants.has(file.folderId)) {
-              rootFolderId = reqFolderId;
-              break;
-            }
-          }
+      for (const descendantId of descendantsByRootId.get(rootFolderId) ?? []) {
+        if (descendantId === rootFolderId) continue;
+        const descendant = folderMap.get(descendantId);
+        if (!descendant) continue;
 
-          if (rootFolderId) {
-            const rootFolder = folderMap.get(rootFolderId);
-            if (rootFolder) {
-              const segments = buildFolderSegments({
-                folder: parentFolder,
-                folderMap,
-                rootFolderId,
-              });
-              archivePath = path.posix.join(
-                rootFolder.name,
-                ...segments,
-                file.originalName,
-              );
-            } else {
-              archivePath = file.originalName;
-            }
-          } else {
-            archivePath = file.originalName;
-          }
-        }
-      } else {
-        archivePath = file.originalName;
+        // Only include descendants of this root
+        const segments = buildArchiveFolderSegments({
+          folder: descendant,
+          folderMap,
+          rootFolderId,
+        });
+        if (segments.length === 0) continue;
+
+        const folderPath = path.posix.join(rootFolder.name, ...segments);
+        directories.push(`${folderPath}/`);
       }
-
-      zipFile.addFile(filePath, archivePath, { compressionLevel: 9 });
     }
 
-    zipFile.end();
+    const output = await createZipArchiveStream(entries, directories);
 
     // Write zip stream to temp file
-    await pipeline(
-      zipFile.outputStream as unknown as Readable,
-      createWriteStream(tmpPath),
-    );
+    await pipeline(output, createWriteStream(tmpPath));
 
     // Move to final location
     const storageKey = `archives/${archiveId}.zip`;

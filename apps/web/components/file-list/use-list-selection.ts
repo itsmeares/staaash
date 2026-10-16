@@ -365,7 +365,8 @@ export function useListSelection({
     /** Replaces the selection, or derives it from the current one. */
     update: (
       next:
-        Iterable<string> | ((current: ReadonlySet<string>) => Iterable<string>),
+        | Iterable<string>
+        | ((current: ReadonlySet<string>) => Iterable<string>),
     ) => {
       const set = new Set(
         typeof next === "function" ? next(stateRef.current.selected) : next,

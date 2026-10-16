@@ -39,7 +39,10 @@ export type RestoreReconciliationReport = {
 };
 
 export type RestoreReconciliationRunStatus =
-  "queued" | "running" | "succeeded" | "failed";
+  | "queued"
+  | "running"
+  | "succeeded"
+  | "failed";
 
 export type RestoreReconciliationHealthSummary = {
   status: HealthCheckStatus;

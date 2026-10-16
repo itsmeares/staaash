@@ -1,6 +1,6 @@
 import { createElement, Fragment } from "react";
 import { renderToString } from "react-dom/server";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { DateTime, TimeProvider, useTime } from "@/components/time-provider";
 import { TimeZonePicker } from "@/components/time-zone-picker";

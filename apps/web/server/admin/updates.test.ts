@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 import { deriveUpdateState } from "@/server/admin/updates";
 import { getUpdateStatusLabel } from "@/lib/update-status";

@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 const createProcess = (code: number) => {
   const proc = new EventEmitter() as EventEmitter & { kill: () => void };

@@ -1,6 +1,6 @@
 import { Readable } from "node:stream";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 const openMock = vi.fn();
 const getStoragePathMock = vi.fn();

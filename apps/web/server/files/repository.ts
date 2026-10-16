@@ -3,6 +3,19 @@ import { resolveViewerKind } from "@staaash/db/viewer-contract";
 
 import type { FolderSummary, StoredFile } from "@/server/files/types";
 
+export const findArchiveSelectionItems = async (ids: string[]) => {
+  const client = getPrisma();
+  const select = { id: true, ownerUserId: true, deletedAt: true } as const;
+  const [files, folders] = await Promise.all([
+    client.file.findMany({
+      where: { id: { in: ids }, storageStatus: "available" },
+      select: { ...select, sizeBytes: true },
+    }),
+    client.folder.findMany({ where: { id: { in: ids } }, select }),
+  ]);
+  return { files, folders };
+};
+
 const folderSelect = {
   id: true,
   ownerUserId: true,

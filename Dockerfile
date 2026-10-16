@@ -1,9 +1,11 @@
-FROM node:24.21.0-alpine AS base
+FROM node:24.22.0-alpine AS base
 RUN corepack enable
 
 # ── Install dependencies ──────────────────────────────────────────────────────
 FROM base AS install
 WORKDIR /app
+# The image has no git, so the prepare script cannot install commit hooks.
+ENV VP_GIT_HOOKS=0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json ./apps/web/
 COPY apps/worker/package.json ./apps/worker/
@@ -21,7 +23,7 @@ RUN pnpm run db:generate && pnpm build && \
     cp -r apps/worker/dist /deploy/worker/dist
 
 # ── Runner ────────────────────────────────────────────────────────────────────
-FROM node:24.21.0-alpine AS runner
+FROM node:24.22.0-alpine AS runner
 RUN apk add --no-cache openssl ffmpeg
 WORKDIR /app
 ENV NODE_ENV=production

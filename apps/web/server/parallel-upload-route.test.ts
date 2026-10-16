@@ -4,7 +4,14 @@ import os from "node:os";
 import path from "node:path";
 
 import { NextRequest } from "next/server";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vite-plus/test";
 
 import { StorageMutationConflictError } from "@staaash/db/storage-mutations";
 

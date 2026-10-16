@@ -11,6 +11,7 @@ import {
   recordBackgroundJobEvent,
   renewBackgroundJobLease,
   type BackgroundJobRecord,
+  type BackgroundJobLane,
 } from "@staaash/db/jobs";
 import {
   failRestoreReconciliationRun,
@@ -25,18 +26,13 @@ import {
 } from "./job-registry.js";
 import { TerminalJobError, getErrorMessage } from "./job-context.js";
 import { recoverStorageMutations } from "./handlers/storage-mutation-recovery.js";
+import { JobNotifications } from "./job-notifications.js";
 
 const MIN_IDLE_DELAY_MS = 1_000;
 const MAX_IDLE_DELAY_MS = 30_000;
 const SCHEDULER_TICK_MS = 60_000;
 const MOVE_STORAGE_MUTATION_CONCURRENCY = 5;
 const STORAGE_MUTATION_POLL_MS = 1_000;
-
-type ActiveJobState = {
-  jobId: string;
-  controller: AbortController;
-  done: Promise<void>;
-};
 
 const isAbortError = (error: unknown) =>
   error instanceof Error &&
@@ -45,30 +41,40 @@ const isAbortError = (error: unknown) =>
 export class WorkerRunner {
   private stopping = false;
   private idleDelayMs = MIN_IDLE_DELAY_MS;
-  private activeJob: ActiveJobState | null = null;
+  private activeJobController: AbortController | null = null;
+  private processing: Promise<boolean> | null = null;
   private storageMutationLoop: Promise<void> | null = null;
   private schedulerTimer: NodeJS.Timeout | null = null;
+  private idleWait = new AbortController();
+  private readonly jobNotifications = new JobNotifications(() => {
+    this.idleWait.abort();
+  });
 
   constructor(
     private readonly options: {
       workerId: string;
       storagePaths: WorkerStoragePaths;
       leaseMs?: number;
+      lane?: BackgroundJobLane;
     },
   ) {}
 
   async start() {
-    const storageMutationLoop = this.runStorageMutationLoop();
-    this.storageMutationLoop = storageMutationLoop;
-    this.schedulerTimer = setInterval(() => {
-      void schedulePeriodicJobs().catch((error) => {
-        console.warn("[worker] Failed to schedule periodic jobs.", {
-          error: getErrorMessage(error),
+    if (this.options.lane !== "small-archive") {
+      this.storageMutationLoop = this.runStorageMutationLoop();
+      this.schedulerTimer = setInterval(() => {
+        void schedulePeriodicJobs().catch((error) => {
+          console.warn("[worker] Failed to schedule periodic jobs.", {
+            error: getErrorMessage(error),
+          });
         });
-      });
-    }, SCHEDULER_TICK_MS);
+      }, SCHEDULER_TICK_MS);
+    }
 
     while (!this.stopping) {
+      // Arm before querying so a notification between the last claim and sleep is retained.
+      this.idleWait = new AbortController();
+      this.jobNotifications.connect();
       try {
         const processed = await this.drainDueJobs();
         this.idleDelayMs = processed
@@ -86,25 +92,31 @@ export class WorkerRunner {
           status: "idle",
           currentJobId: null,
         }).catch(() => undefined);
-        await delay(this.idleDelayMs);
+        await delay(this.idleDelayMs, undefined, {
+          signal: this.idleWait.signal,
+        }).catch((error: unknown) => {
+          if (!isAbortError(error)) throw error;
+        });
       }
     }
 
-    await storageMutationLoop;
+    await this.storageMutationLoop;
   }
 
   async stop(timeoutMs = 25_000) {
     this.stopping = true;
+    this.idleWait.abort();
+    this.jobNotifications.close();
     if (this.schedulerTimer) clearInterval(this.schedulerTimer);
-    this.activeJob?.controller.abort();
+    this.activeJobController?.abort();
 
-    const active = [this.activeJob?.done, this.storageMutationLoop].filter(
-      (value): value is Promise<void> => Boolean(value),
+    const active = [this.processing, this.storageMutationLoop].filter(
+      (value) => value !== null,
     );
     if (active.length === 0) return;
 
     await Promise.race([
-      Promise.all(active).then(() => undefined),
+      Promise.allSettled(active).then(() => undefined),
       delay(timeoutMs, undefined, { ref: false }).then(() => undefined),
     ]);
   }
@@ -133,7 +145,13 @@ export class WorkerRunner {
     let processed = false;
 
     while (!this.stopping) {
-      const didProcess = await this.processNextJob();
+      this.processing = this.processNextJob();
+      let didProcess: boolean;
+      try {
+        didProcess = await this.processing;
+      } finally {
+        this.processing = null;
+      }
       if (!didProcess) return processed;
       processed = true;
     }
@@ -144,23 +162,20 @@ export class WorkerRunner {
   async processNextJob(): Promise<boolean> {
     const job = await claimDueBackgroundJob({
       workerId: this.options.workerId,
+      lane: this.options.lane,
       leaseMs: this.options.leaseMs ?? BACKGROUND_JOB_LEASE_MS,
     });
 
-    if (!job) return false;
+    // A claim completed during shutdown is left leased for restart recovery.
+    if (!job || this.stopping) return false;
 
     const controller = new AbortController();
-    const done = this.runClaimedJob(job, controller);
-    this.activeJob = {
-      jobId: job.id,
-      controller,
-      done,
-    };
+    this.activeJobController = controller;
 
     try {
-      await done;
+      await this.runClaimedJob(job, controller);
     } finally {
-      this.activeJob = null;
+      this.activeJobController = null;
       await heartbeatWorkerInstance({
         id: this.options.workerId,
         status: "idle",

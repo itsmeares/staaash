@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 const {
   BACKGROUND_JOB_LEASE_MS,
@@ -16,6 +16,7 @@ const {
   markBackgroundJobTerminal,
   renewBackgroundJobLease,
   retryBackgroundJob,
+  scheduleZipArchiveGenerate,
 } = await import("./jobs");
 
 type DateComparisonFilter = {
@@ -111,9 +112,14 @@ const createClient = (
       return true;
     }
 
-    const entries = Object.entries(where).filter(([key]) => key !== "OR");
+    if (where.NOT && matchesWhere(job, where.NOT as Record<string, unknown>)) {
+      return false;
+    }
+    const entries = Object.entries(where).filter(
+      ([key]) => key !== "OR" && key !== "NOT",
+    );
     const directMatch = entries.every(([key, value]) => {
-      if (key === "runAt" || key === "lockedAt") {
+      if (key === "runAt" || key === "lockedAt" || key === "leaseExpiresAt") {
         const dateFilter =
           value && typeof value === "object"
             ? (value as DateComparisonFilter)
@@ -408,6 +414,125 @@ const createJob = (overrides: Partial<MemoryJob>): MemoryJob => ({
 });
 
 describe("background jobs", () => {
+  it.each([
+    { sourceSizeBytes: 0n, fileCount: 1, lane: "small-archive" },
+    {
+      sourceSizeBytes: 8n * 1024n * 1024n,
+      fileCount: 32,
+      lane: "small-archive",
+    },
+    { sourceSizeBytes: 8n * 1024n * 1024n + 1n, fileCount: 1, lane: "general" },
+    { sourceSizeBytes: 1n, fileCount: 33, lane: "general" },
+    { sourceSizeBytes: undefined, fileCount: 1, lane: "general" },
+    { sourceSizeBytes: 1n, fileCount: undefined, lane: "general" },
+    { sourceSizeBytes: 0n, fileCount: 0, lane: "general" },
+    { sourceSizeBytes: 1n, fileCount: 1, folderCount: 1, lane: "general" },
+  ] as const)(
+    "routes an archive with $fileCount files and $sourceSizeBytes bytes to $lane",
+    async ({ lane, ...size }) => {
+      const now = new Date("2026-04-01T12:00:00.000Z");
+      const client = createClient([]);
+      const { job } = await scheduleZipArchiveGenerate({
+        archiveId: "archive",
+        ...size,
+        now,
+        client,
+      });
+      expect(job.queueName).toBe("default");
+      const otherLane = lane === "general" ? "small-archive" : "general";
+      expect(
+        await claimDueBackgroundJob({
+          workerId: "other",
+          lane: otherLane,
+          now,
+          client,
+        }),
+      ).toBeNull();
+      expect(
+        await claimDueBackgroundJob({ workerId: "right", lane, now, client }),
+      ).toMatchObject({ id: job.id });
+    },
+  );
+
+  it("reserves the small lane for marked archives and reclaims their expired leases", async () => {
+    const now = new Date("2026-04-01T12:00:00.000Z");
+    const jobs = [
+      createJob({ id: "cleanup", kind: "staging.cleanup", priority: 1 }),
+      createJob({ id: "large", kind: "zip.archive.generate" }),
+      createJob({
+        id: "small",
+        kind: "zip.archive.generate",
+        priority: 1,
+        status: "running",
+        leaseExpiresAt: new Date(now.getTime() - 1),
+      }),
+    ];
+    const client = createClient(jobs);
+    const claims = await Promise.all(
+      ["one", "two"].map((workerId) =>
+        claimDueBackgroundJob({ workerId, lane: "small-archive", now, client }),
+      ),
+    );
+    expect(claims.filter(Boolean)).toHaveLength(1);
+    expect(claims.find(Boolean)).toMatchObject({ id: "small" });
+    expect(
+      await claimDueBackgroundJob({ workerId: "general", now, client }),
+    ).toMatchObject({ id: "cleanup" });
+  });
+
+  it("keeps a small archive in its lane after failure, cancellation and retry", async () => {
+    const now = new Date("2026-04-01T12:00:00.000Z");
+    const jobs = [
+      createJob({
+        id: "small",
+        kind: "zip.archive.generate",
+        priority: 1,
+        status: "running",
+        lockedBy: "small-worker",
+        attemptCount: 1,
+      }),
+    ];
+    const client = createClient(jobs);
+    await markBackgroundJobFailed({
+      jobId: "small",
+      workerId: "small-worker",
+      errorMessage: "temporary failure",
+      now,
+      client,
+    });
+    expect(
+      await claimDueBackgroundJob({
+        workerId: "small-worker",
+        lane: "small-archive",
+        now,
+        client,
+      }),
+    ).toBeNull();
+    await cancelBackgroundJob({
+      jobId: "small",
+      actorUserId: "owner",
+      now,
+      client,
+    });
+    await retryBackgroundJob({
+      jobId: "small",
+      actorUserId: "owner",
+      now,
+      client,
+    });
+    expect(
+      await claimDueBackgroundJob({ workerId: "general", now, client }),
+    ).toBeNull();
+    expect(
+      await claimDueBackgroundJob({
+        workerId: "small-worker",
+        lane: "small-archive",
+        now,
+        client,
+      }),
+    ).toMatchObject({ id: "small", attemptCount: 2 });
+  });
+
   it("schedules a new job when an older running lease is stale", async () => {
     const now = new Date("2026-04-01T12:00:00.000Z");
     const jobs = [

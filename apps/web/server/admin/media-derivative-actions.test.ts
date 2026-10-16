@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const mocks = vi.hoisted(() => ({
   findDerivative: vi.fn(),
@@ -19,7 +19,8 @@ vi.mock("@staaash/db/client", () => ({
     backgroundJob: { findFirst: mocks.findJob },
   }),
 }));
-vi.mock("@staaash/db/jobs", () => ({
+vi.mock("@staaash/db/jobs", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@staaash/db/jobs")>()),
   cancelBackgroundJob: mocks.cancelBackgroundJob,
 }));
 vi.mock("@staaash/db/media-derivatives", async (importOriginal) => ({

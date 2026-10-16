@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { queuedXhrUpload } from "@/lib/transfers/request-queue";
 
@@ -36,7 +36,8 @@ class MockXMLHttpRequest {
       this.responseText = response.responseText;
     }
     const onProgress = this.upload.onprogress as
-      ((event: ProgressEvent) => void) | null;
+      | ((event: ProgressEvent) => void)
+      | null;
     const onLoad = this.onload as ((event: ProgressEvent) => void) | null;
     onProgress?.({
       lengthComputable: true,

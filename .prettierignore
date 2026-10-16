@@ -1,7 +1,0 @@
-packages/db/src/generated/prisma/
-pnpm-lock.yaml
-.data/
-.next/
-coverage/
-dist/
-.fallow/

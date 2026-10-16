@@ -113,7 +113,8 @@ export const isFilesError = (error: unknown): error is FilesError =>
   error instanceof FilesError;
 
 export type ResumableCompletionErrorCode =
-  "RESUMABLE_COMMIT_RETRYABLE" | "RESUMABLE_COMMIT_AMBIGUOUS";
+  | "RESUMABLE_COMMIT_RETRYABLE"
+  | "RESUMABLE_COMMIT_AMBIGUOUS";
 
 const resumableCompletionErrorDetails: Record<
   ResumableCompletionErrorCode,

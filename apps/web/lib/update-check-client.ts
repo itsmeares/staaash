@@ -1,7 +1,12 @@
 import type { UpdateState } from "@/lib/update-status";
 
 type UpdateCheckJobStatus =
-  "queued" | "running" | "succeeded" | "failed" | "dead" | "cancelled";
+  | "queued"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "dead"
+  | "cancelled";
 
 export type UpdateCheckPollResponse = {
   job: {

@@ -2,7 +2,14 @@ import os from "node:os";
 import path from "node:path";
 import { access, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vite-plus/test";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
 
 const getPrismaMock = vi.fn();
@@ -125,7 +132,8 @@ const createMockPrisma = ({
       }),
       findUnique: vi.fn(async (args: object) => {
         const id = ((args as { where?: { id?: string } }).where?.id ?? null) as
-          string | null;
+          | string
+          | null;
 
         return files.find((file) => file.id === id) ?? null;
       }),
@@ -191,7 +199,8 @@ const createMockPrisma = ({
       }),
       findUnique: vi.fn(async (args: object) => {
         const id = ((args as { where?: { id?: string } }).where?.id ?? null) as
-          string | null;
+          | string
+          | null;
         const baseFolder = folders.find((folder) => folder.id === id) ?? null;
 
         if (id && revalidateFolderById.has(id)) {

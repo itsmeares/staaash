@@ -1,5 +1,12 @@
 export type ItemVisualKind =
-  "archive" | "audio" | "file" | "folder" | "image" | "pdf" | "text" | "video";
+  | "archive"
+  | "audio"
+  | "file"
+  | "folder"
+  | "image"
+  | "pdf"
+  | "text"
+  | "video";
 
 export type ItemVisual = {
   kind: ItemVisualKind;

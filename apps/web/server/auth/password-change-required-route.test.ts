@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 const { changeRequiredPassword, getSession } = vi.hoisted(() => ({
   changeRequiredPassword: vi.fn(),

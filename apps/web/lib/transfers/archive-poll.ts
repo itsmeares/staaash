@@ -23,7 +23,8 @@ const fetchArchiveStatus = (archiveId: string, signal: AbortSignal) =>
   );
 
 type PollOutcome =
-  ArchivePollResult | { status: "processing"; fileCount?: number };
+  | ArchivePollResult
+  | { status: "processing"; fileCount?: number };
 
 async function readOutcome(res: Response): Promise<PollOutcome> {
   if (!res.ok) {

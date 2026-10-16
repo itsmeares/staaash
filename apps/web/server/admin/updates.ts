@@ -20,7 +20,11 @@ import { getSystemSettings } from "@/server/settings";
 export type { UpdateRelease };
 
 export type UpdateStatus =
-  "update-available" | "up-to-date" | "error" | "off" | "unchecked";
+  | "update-available"
+  | "up-to-date"
+  | "error"
+  | "off"
+  | "unchecked";
 
 export type UpdateState = {
   currentVersion: string;

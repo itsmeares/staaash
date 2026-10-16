@@ -102,7 +102,11 @@ export function formatRelativeTime(
 }
 
 export type DateGroupLabel =
-  "Today" | "Yesterday" | "This week" | "This month" | "Older";
+  | "Today"
+  | "Yesterday"
+  | "This week"
+  | "This month"
+  | "Older";
 
 export const DATE_GROUP_ORDER: DateGroupLabel[] = [
   "Today",

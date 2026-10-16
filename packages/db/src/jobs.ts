@@ -10,6 +10,8 @@ export const ZIP_ARCHIVE_GENERATE_JOB_KIND = "zip.archive.generate" as const;
 export const ZIP_ARCHIVE_CLEANUP_JOB_KIND = "zip.archive.cleanup" as const;
 
 export const DEFAULT_BACKGROUND_JOB_QUEUE = "default";
+const SMALL_ARCHIVE_PRIORITY = 1;
+export type BackgroundJobLane = "general" | "small-archive";
 export const STAGING_CLEANUP_SCHEDULE_WINDOW_MS = 15 * 60 * 1000;
 export const BACKGROUND_JOB_LEASE_MS = 60_000;
 export const BACKGROUND_JOB_RETRY_DELAY_MS = 30_000;
@@ -38,7 +40,12 @@ export const ALL_SUPPORTED_JOB_KINDS: SupportedBackgroundJobKind[] = [
 ];
 
 export type BackgroundJobStatus =
-  "queued" | "running" | "succeeded" | "failed" | "dead" | "cancelled";
+  | "queued"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "dead"
+  | "cancelled";
 
 export type BackgroundJobRecord = {
   id: string;
@@ -338,12 +345,14 @@ export const ensureBackgroundJobScheduled = async ({
 export const claimDueBackgroundJob = async ({
   workerId,
   queueName = DEFAULT_BACKGROUND_JOB_QUEUE,
+  lane = "general",
   leaseMs = BACKGROUND_JOB_LEASE_MS,
   now = new Date(),
   client,
 }: {
   workerId: string;
   queueName?: string;
+  lane?: BackgroundJobLane;
   leaseMs?: number;
   now?: Date;
   client?: BackgroundJobClient;
@@ -352,9 +361,15 @@ export const claimDueBackgroundJob = async ({
 
   return activeClient.$transaction(async (tx) => {
     const staleLeaseCutoff = new Date(now.getTime() - BACKGROUND_JOB_LEASE_MS);
+    const smallArchive = {
+      kind: ZIP_ARCHIVE_GENERATE_JOB_KIND,
+      priority: SMALL_ARCHIVE_PRIORITY,
+    };
     const job = await tx.backgroundJob.findFirst({
       where: {
-        kind: { in: ALL_SUPPORTED_JOB_KINDS },
+        ...(lane === "small-archive"
+          ? smallArchive
+          : { kind: { in: ALL_SUPPORTED_JOB_KINDS }, NOT: smallArchive }),
         queueName,
         OR: [
           { status: "queued", runAt: { lte: now } },
@@ -811,17 +826,36 @@ export const dismissBackgroundJob = async ({
 
 export const scheduleZipArchiveGenerate = async ({
   archiveId,
+  sourceSizeBytes,
+  fileCount = 0,
+  folderCount = 0,
   now = new Date(),
+  client,
 }: {
   archiveId: string;
+  sourceSizeBytes?: bigint;
+  fileCount?: number;
+  folderCount?: number;
   now?: Date;
+  client?: BackgroundJobClient;
 }) =>
   ensureBackgroundJobScheduled({
     kind: ZIP_ARCHIVE_GENERATE_JOB_KIND,
     runAt: now,
     payloadJson: { archiveId },
     dedupeKey: `${ZIP_ARCHIVE_GENERATE_JOB_KIND}:${archiveId}`,
+    // Keep the default queue so older workers can still drain these jobs.
+    priority:
+      folderCount === 0 &&
+      sourceSizeBytes !== undefined &&
+      sourceSizeBytes >= 0n &&
+      sourceSizeBytes <= 8n * 1024n * 1024n &&
+      fileCount > 0 &&
+      fileCount <= 32
+        ? SMALL_ARCHIVE_PRIORITY
+        : 0,
     now,
+    client,
   });
 
 export const registerWorkerInstance = async ({

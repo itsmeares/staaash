@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { AuthError } from "@/server/auth/errors";
 import { createAuthService } from "@/server/auth/service";

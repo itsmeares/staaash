@@ -6,7 +6,7 @@ import {
   inject,
   it,
   vi,
-} from "vitest";
+} from "vite-plus/test";
 
 import { assertIsolatedPostgresTestTarget } from "../../vitest.postgres.global";
 

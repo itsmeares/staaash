@@ -1,4 +1,4 @@
-import "vitest";
+import "vite-plus/test";
 
 declare module "vitest" {
   export interface ProvidedContext {
