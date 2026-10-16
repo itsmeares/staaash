@@ -15,8 +15,8 @@
     "start": "next start",
     "lint": "node scripts/check-styles.mjs && tsc --noEmit --incremental false -p tsconfig.json",
     "typecheck": "tsc --noEmit --incremental false -p tsconfig.json",
-    "test": "vitest run",
-    "test:postgres": "vitest run --config vitest.postgres.config.ts",
+    "test": "vp test run",
+    "test:postgres": "vp test run --config vitest.postgres.config.ts",
     "e2e": "playwright test",
     "e2e:visual": "playwright test -c playwright.visual.config.ts"
   },
@@ -52,6 +52,7 @@
     "@types/react-dom": "^19.3.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.3"
+    "vitest": "catalog:",
+    "vite-plus": "catalog:"
   }
 }

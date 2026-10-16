@@ -31,7 +31,11 @@ import { applyThemeWithTransition, type Theme } from "@/lib/theme";
 import { WorkspaceAvatar } from "./workspace-avatar";
 
 type UpdateStatus =
-  "up-to-date" | "update-available" | "unavailable" | "error" | null;
+  | "up-to-date"
+  | "update-available"
+  | "unavailable"
+  | "error"
+  | null;
 
 interface TopbarActionsProps {
   userLabel: string | null;

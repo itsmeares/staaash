@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { getRequestSession } from "@/server/auth/guards";
 import { POST as createArchive } from "@/app/api/files/archives/route";

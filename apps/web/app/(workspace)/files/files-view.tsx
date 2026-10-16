@@ -1634,12 +1634,14 @@ export function FilesView({
           const rowLeft = rowRect.left - rect.left;
           const rowRight = rowRect.right - rect.left;
 
-          if (!(
-            rowRight < selLeft ||
-            rowLeft > selRight ||
-            rowBottom < selTop ||
-            rowTop > selBottom
-          )) {
+          if (
+            !(
+              rowRight < selLeft ||
+              rowLeft > selRight ||
+              rowBottom < selTop ||
+              rowTop > selBottom
+            )
+          ) {
             next.add(id);
           }
         });

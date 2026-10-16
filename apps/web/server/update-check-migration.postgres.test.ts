@@ -1,7 +1,14 @@
 import { readFile } from "node:fs/promises";
 
 import { Client } from "pg";
-import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  describe,
+  expect,
+  inject,
+  it,
+} from "vite-plus/test";
 
 const migrationPath = new URL(
   "../../../packages/db/prisma/migrations/20260831000000_add_instance_checked_version/migration.sql",

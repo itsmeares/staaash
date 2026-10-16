@@ -4,7 +4,14 @@ import os from "node:os";
 import path from "node:path";
 import { inflateRawSync } from "node:zlib";
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vite-plus/test";
 import type { FolderSummary, StoredFile } from "@/server/files/types";
 
 const mocks = vi.hoisted(() => ({

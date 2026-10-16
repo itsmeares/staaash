@@ -1,5 +1,12 @@
 export type WorkspaceItemFilterType =
-  "all" | "archive" | "audio" | "folder" | "image" | "pdf" | "text" | "video";
+  | "all"
+  | "archive"
+  | "audio"
+  | "folder"
+  | "image"
+  | "pdf"
+  | "text"
+  | "video";
 
 export type WorkspaceItemFilterOption = {
   id: WorkspaceItemFilterType;

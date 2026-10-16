@@ -10,7 +10,7 @@ import {
   expect,
   it,
   vi,
-} from "vitest";
+} from "vite-plus/test";
 
 import type { StoredFile } from "@/server/files/types";
 import { ShareError, type ShareErrorCode } from "@/server/sharing/errors";

@@ -58,7 +58,7 @@
     {
       "description": "Group workspace tooling minor updates",
       "matchManagers": ["npm"],
-      "matchPackageNames": ["pnpm", "turbo", "typescript", "tsup", "tsx"],
+      "matchPackageNames": ["pnpm", "typescript", "tsx"],
       "matchUpdateTypes": ["minor"],
       "groupName": "workspace tooling"
     },

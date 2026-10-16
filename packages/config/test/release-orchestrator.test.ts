@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
   appendReleaseProvenance,
@@ -38,6 +38,7 @@ import {
   validateResolvedRelease,
   verifyPreflightToolingIdentity,
   waitForRequiredCi,
+  // @ts-expect-error untyped plain JS release tooling
 } from "../../../scripts/release/index.mjs";
 
 const localAssets = {
@@ -1066,7 +1067,11 @@ describe("release asset upload orchestration", () => {
           },
           assetRoot: () => repositoryRoot,
         },
-        verifyAssets: async ({ release: verifiedRelease }) => {
+        verifyAssets: async ({
+          release: verifiedRelease,
+        }: {
+          release: unknown;
+        }) => {
           expect(verifiedRelease).toBe(refreshed);
           events.push("verify");
         },

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { normalizeFolderName } from "@/server/files/storage-layout";
 
 const mocks = vi.hoisted(() => ({

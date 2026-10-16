@@ -47,7 +47,7 @@ import {
   expect,
   inject,
   it,
-} from "vitest";
+} from "vite-plus/test";
 
 import { recoverStorageMutations } from "../../worker/src/handlers/storage-mutation-recovery.js";
 import { hashWorkerStorageRequest } from "../../worker/src/durable-storage-mutation.js";

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 const requireOwnerApiSession = vi.fn();
 const enforceSameOrigin = vi.fn();

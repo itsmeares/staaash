@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { GET } from "@/app/api/files/move/[mutationId]/route";
 import { getRequestSession } from "@/server/auth/guards";

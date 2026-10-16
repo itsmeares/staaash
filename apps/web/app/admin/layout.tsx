@@ -35,7 +35,9 @@ export default async function AdminLayout({
               avatarUrl={session.user.avatarUrl ?? null}
               initialTheme={
                 (session.user.preferences?.theme as
-                  "light" | "dark" | "system") ?? "system"
+                  | "light"
+                  | "dark"
+                  | "system") ?? "system"
               }
             />
           </header>

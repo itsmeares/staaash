@@ -22,7 +22,7 @@ import {
   inject,
   it,
   vi,
-} from "vitest";
+} from "vite-plus/test";
 
 import { PATCH as patchUpload } from "@/app/api/uploads/sessions/[id]/route";
 import { getRequestSession } from "@/server/auth/guards";

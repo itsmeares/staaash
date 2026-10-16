@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { StorageEntityUnavailableError } from "@/server/storage-read-guard";
 import { getRefreshDelay } from "@/app/(workspace)/files/storage-unavailable/storage-unavailable-view";

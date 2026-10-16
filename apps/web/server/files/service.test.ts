@@ -3,7 +3,7 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { Prisma } from "@staaash/db/client";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { FilesError } from "@/server/files/errors";
 import type { FilesRepository } from "@/server/files/repository";

@@ -7,7 +7,14 @@ import { mkdtemp, open, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vite-plus/test";
 
 vi.mock("node:fs", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs")>();
@@ -127,7 +134,8 @@ describe("ZIP compression", () => {
       });
       let received = 0;
       let output:
-        Awaited<ReturnType<typeof createZipArchiveStream>> | undefined;
+        | Awaited<ReturnType<typeof createZipArchiveStream>>
+        | undefined;
       const download = createZipArchiveStream([
         { filePath: first, archivePath: "first.bin" },
         { filePath: second, archivePath: "second.bin" },

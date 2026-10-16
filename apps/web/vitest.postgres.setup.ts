@@ -1,4 +1,4 @@
-import { inject } from "vitest";
+import { inject } from "vite-plus/test";
 
 process.env.DATABASE_URL = inject("postgresDatabaseUrl");
 process.env.POSTGRES_TEST_DATABASE_URL = inject("postgresDatabaseUrl");

@@ -194,7 +194,8 @@ function MediaPreviewSection({ fileId }: { fileId: string }) {
 // ---------------------------------------------------------------------------
 
 type PropertiesItem =
-  { kind: "folder"; data: FolderSummary } | { kind: "file"; data: FileSummary };
+  | { kind: "folder"; data: FolderSummary }
+  | { kind: "file"; data: FileSummary };
 
 type FilesPropertiesPanelProps = {
   /** The single selected item, or null when nothing or several items are selected. */

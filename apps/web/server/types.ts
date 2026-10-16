@@ -39,7 +39,10 @@ export type RestoreReconciliationReport = {
 };
 
 export type RestoreReconciliationRunStatus =
-  "queued" | "running" | "succeeded" | "failed";
+  | "queued"
+  | "running"
+  | "succeeded"
+  | "failed";
 
 export type RestoreReconciliationHealthSummary = {
   status: HealthCheckStatus;
@@ -113,7 +116,11 @@ export type InstanceHealthSummary = {
     currentVersion: string;
     lastUpdateCheckAt: string | null;
     updateCheckStatus:
-      "up-to-date" | "update-available" | "unavailable" | "error" | null;
+      | "up-to-date"
+      | "update-available"
+      | "unavailable"
+      | "error"
+      | null;
     updateCheckMessage: string | null;
     latestAvailableVersion: string | null;
   };

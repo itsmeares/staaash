@@ -108,7 +108,11 @@ export type StorageMutationStatus =
   | "retrying"
   | "recovery_required";
 type StorageMutationAction =
-  "mkdir" | "rename" | "delete_file" | "delete_tree" | "remove_empty_directory";
+  | "mkdir"
+  | "rename"
+  | "delete_file"
+  | "delete_tree"
+  | "remove_empty_directory";
 
 export type StorageMutationStepInput = {
   action: StorageMutationAction;

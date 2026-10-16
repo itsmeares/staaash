@@ -1,7 +1,12 @@
 import type { JsonAdminUpdateStatus } from "@/server/admin/types";
 
 type UpdateCheckJobStatus =
-  "queued" | "running" | "succeeded" | "failed" | "dead" | "cancelled";
+  | "queued"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "dead"
+  | "cancelled";
 
 export type UpdateCheckPollResponse = {
   job: {

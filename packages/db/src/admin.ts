@@ -88,7 +88,9 @@ export type AdminStorageUsageSummary = {
 
 export type AdminBackgroundJobListFilters = {
   status?:
-    BackgroundJobRecord["status"] | BackgroundJobRecord["status"][] | null;
+    | BackgroundJobRecord["status"]
+    | BackgroundJobRecord["status"][]
+    | null;
   kind?: string | null;
   limit?: number;
   cursor?: string | null;

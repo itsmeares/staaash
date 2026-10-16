@@ -1,6 +1,13 @@
 import type { JobContext } from "./job-context.js";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vite-plus/test";
 
 const mocks = vi.hoisted(() => ({
   run: vi.fn(),
