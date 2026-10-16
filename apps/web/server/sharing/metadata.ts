@@ -9,7 +9,7 @@ import { authService } from "@/server/auth/service";
 import type { FileSummary } from "@/server/files/types";
 
 import { sharingService } from "./service";
-import type { PublicShareResolution } from "./types";
+import type { PublicShareContext } from "./types";
 
 const DEFAULT_INSTANCE_NAME = "Staaash";
 const PLAYABLE_VIDEO_TYPES = new Set(["video/mp4", "video/webm"]);
@@ -277,7 +277,7 @@ const getReadyPosterImageMetadata = async (
   };
 };
 
-const shouldExposeShareDetails = (resolution: PublicShareResolution) =>
+const shouldExposeShareDetails = (resolution: PublicShareContext) =>
   resolution.share.status === "active" && !resolution.share.hasPassword;
 
 const buildRootSharePath = (token: string) => `/s/${encodeURIComponent(token)}`;
@@ -323,7 +323,7 @@ export const getSharePageMetadata = async ({
     });
 
   try {
-    const resolution = await sharingService.resolvePublicShare({
+    const resolution = await sharingService.resolvePublicShareContext({
       token,
       requestedFolderId: folderId,
       shareAccessCookieValue,

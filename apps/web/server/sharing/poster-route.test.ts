@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
   findReadyPosterDerivative: vi.fn(),
   getSharedNestedFileContent: vi.fn(),
   getStoragePath: vi.fn(),
-  resolvePublicShare: vi.fn(),
+  getSharedFileContent: vi.fn(),
   assertStorageEntityReadable: vi.fn(),
 }));
 
@@ -59,7 +59,7 @@ vi.mock("@/server/storage", () => ({
 vi.mock("@/server/sharing/service", () => ({
   sharingService: {
     getSharedNestedFileContent: mocks.getSharedNestedFileContent,
-    resolvePublicShare: mocks.resolvePublicShare,
+    getSharedFileContent: mocks.getSharedFileContent,
   },
 }));
 
@@ -80,17 +80,9 @@ const makeFile = () => ({
 });
 
 const makeResolution = (overrides: object = {}) => ({
-  kind: "file",
-  share: {
-    id: "share-1",
-    hasPassword: false,
-    status: "active",
-  },
-  access: {
-    requiresPassword: false,
-    isUnlocked: true,
-  },
   file: makeFile(),
+  downloadDisabled: false,
+  hasPassword: false,
   ...overrides,
 });
 
@@ -108,7 +100,7 @@ describe("public share poster route", () => {
     vi.clearAllMocks();
     mocks.cookieGet.mockReturnValue(null);
     mocks.getStoragePath.mockReturnValue(posterPath);
-    mocks.resolvePublicShare.mockResolvedValue(makeResolution());
+    mocks.getSharedFileContent.mockResolvedValue(makeResolution());
     mocks.findReadyPosterDerivative.mockResolvedValue({
       storageKey: "derivatives/user-1/file-1/social-poster.jpg",
       mimeType: "image/jpeg",
@@ -140,15 +132,7 @@ describe("public share poster route", () => {
 
   it("returns a ready poster for nested files in folder shares", async () => {
     const { GET } = await import("@/app/s/[token]/files/[fileId]/poster/route");
-    mocks.resolvePublicShare.mockResolvedValue(
-      makeResolution({
-        kind: "folder",
-        listing: {
-          rootFolder: { id: "folder-1", ownerUserId: "user-1" },
-        },
-      }),
-    );
-    mocks.getSharedNestedFileContent.mockResolvedValue({ file: makeFile() });
+    mocks.getSharedNestedFileContent.mockResolvedValue(makeResolution());
 
     const response = await GET(
       new Request("http://localhost/s/token/files/file-1/poster"),
@@ -179,13 +163,9 @@ describe("public share poster route", () => {
 
   it("returns 404 for passworded shares", async () => {
     const { GET } = await import("@/app/s/[token]/poster/route");
-    mocks.resolvePublicShare.mockResolvedValue(
+    mocks.getSharedFileContent.mockResolvedValue(
       makeResolution({
-        share: {
-          id: "share-1",
-          hasPassword: true,
-          status: "active",
-        },
+        hasPassword: true,
       }),
     );
 

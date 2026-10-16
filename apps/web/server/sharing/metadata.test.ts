@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   findReadyPosterDerivative: vi.fn(),
   getSetupState: vi.fn(),
   getSharedNestedFileContent: vi.fn(),
-  resolvePublicShare: vi.fn(),
+  resolvePublicShareContext: vi.fn(),
 }));
 
 vi.mock("@staaash/db/media-derivatives", () => ({
@@ -25,7 +25,7 @@ vi.mock("@/server/auth/service", () => ({
 vi.mock("@/server/sharing/service", () => ({
   sharingService: {
     getSharedNestedFileContent: mocks.getSharedNestedFileContent,
-    resolvePublicShare: mocks.resolvePublicShare,
+    resolvePublicShareContext: mocks.resolvePublicShareContext,
   },
 }));
 
@@ -269,7 +269,7 @@ describe("share metadata", () => {
   });
 
   it("uses ready derivative dimensions for resolved video shares", async () => {
-    mocks.resolvePublicShare.mockResolvedValue(
+    mocks.resolvePublicShareContext.mockResolvedValue(
       makeFileResolution({
         file: makeFile({
           name: "clip.mkv",
@@ -303,7 +303,7 @@ describe("share metadata", () => {
   });
 
   it("emits poster image metadata for resolved video shares", async () => {
-    mocks.resolvePublicShare.mockResolvedValue(
+    mocks.resolvePublicShareContext.mockResolvedValue(
       makeFileResolution({
         file: makeFile({
           name: "clip.mp4",
@@ -366,7 +366,7 @@ describe("share metadata", () => {
   });
 
   it("hides passworded share details from metadata", async () => {
-    mocks.resolvePublicShare.mockResolvedValue(
+    mocks.resolvePublicShareContext.mockResolvedValue(
       makeFileResolution({
         share: makeShare({ hasPassword: true }),
         access: {
@@ -387,7 +387,7 @@ describe("share metadata", () => {
   });
 
   it("returns generic noindex metadata for invalid shares", async () => {
-    mocks.resolvePublicShare.mockRejectedValue(new Error("missing"));
+    mocks.resolvePublicShareContext.mockRejectedValue(new Error("missing"));
 
     const metadata = await getSharePageMetadata({
       baseUrl: "https://files.example",
@@ -417,7 +417,7 @@ describe("share metadata", () => {
   });
 
   it("emits nested shared file metadata from folder shares", async () => {
-    mocks.resolvePublicShare.mockResolvedValue(makeFolderResolution());
+    mocks.resolvePublicShareContext.mockResolvedValue(makeFolderResolution());
     mocks.getSharedNestedFileContent.mockResolvedValue({
       file: makeFile({
         id: "nested-file",

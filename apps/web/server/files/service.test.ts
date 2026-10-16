@@ -206,6 +206,44 @@ const createMemoryRepository = () => {
       return folder ? cloneFolder(folder) : null;
     },
 
+    async listFolderAncestors(ownerUserId, folderId) {
+      const folders: FolderSummary[] = [];
+      let folder = await repo.findFolderById(folderId);
+      while (
+        folder &&
+        folder.ownerUserId === ownerUserId &&
+        !folders.some(({ id }) => id === folder!.id)
+      ) {
+        folders.push(folder);
+        folder = folder.parentId
+          ? await repo.findFolderById(folder.parentId)
+          : null;
+      }
+      return folders;
+    },
+    async listFolderSubtree(ownerUserId, folderId) {
+      const root = await repo.findFolderById(folderId);
+      if (!root || root.ownerUserId !== ownerUserId || root.deletedAt)
+        return [];
+      const folders = [root];
+      for (const folder of folders) {
+        folders.push(
+          ...(await repo.listChildFolders(ownerUserId, folder.id)).filter(
+            (child) => !folders.some(({ id }) => id === child.id),
+          ),
+        );
+      }
+      return folders;
+    },
+    async listFilesInFolders(ownerUserId, folderIds) {
+      return (
+        await Promise.all(
+          folderIds.map((id) =>
+            repo.listChildFiles(ownerUserId, id, { includeMissing: true }),
+          ),
+        )
+      ).flat();
+    },
     async findFileById(fileId, options = {}) {
       const file = state.files.find(
         (candidate) =>
