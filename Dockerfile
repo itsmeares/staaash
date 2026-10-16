@@ -4,6 +4,8 @@ RUN corepack enable
 # ── Install dependencies ──────────────────────────────────────────────────────
 FROM base AS install
 WORKDIR /app
+# The image has no git, so the prepare script cannot install commit hooks.
+ENV VP_GIT_HOOKS=0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json ./apps/web/
 COPY apps/worker/package.json ./apps/worker/
