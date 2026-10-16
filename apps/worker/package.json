@@ -15,7 +15,7 @@
     "@staaash/db": "workspace:*",
     "date-fns": "^4.4.0",
     "tsx": "^4.23.15",
-    "zod": "^4.6.6"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
