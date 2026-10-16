@@ -4,7 +4,6 @@ import { defineConfig } from "vite-plus";
 process.env.AUTH_SECRET ??= "test-placeholder-secret";
 process.env.DATABASE_URL ??=
   "postgresql://staaash:staaash@localhost:5432/staaash";
-process.env.UPLOAD_LOCATION = path.resolve(__dirname, ".tmp", "vitest-files");
 
 export default defineConfig({
   run: {

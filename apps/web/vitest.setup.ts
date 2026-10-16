@@ -1,4 +1,14 @@
+import path from "node:path";
 import { vi } from "vite-plus/test";
+
+// Files in one worker run one after another, so one storage root per worker
+// keeps parallel test files from deleting each other's fixtures.
+process.env.UPLOAD_LOCATION = path.resolve(
+  __dirname,
+  ".tmp",
+  "vitest-files",
+  process.env.VITEST_POOL_ID ?? "0",
+);
 
 const defaultSystemSettings = {
   id: "singleton",
