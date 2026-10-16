@@ -7,6 +7,15 @@ process.env.DATABASE_URL ??=
 process.env.UPLOAD_LOCATION = path.resolve(__dirname, ".tmp", "vitest-files");
 
 export default defineConfig({
+  run: {
+    tasks: {
+      test: {
+        command: "vp test run",
+        dependsOn: [{ task: "build", from: "dependencies" }],
+        cache: false,
+      },
+    },
+  },
   oxc: {
     jsx: {
       runtime: "automatic",
