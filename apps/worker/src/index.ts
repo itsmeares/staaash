@@ -29,6 +29,10 @@ const workerId = `${os.hostname()}-${process.pid}-${Date.now()}`;
 const workerVersion = resolveWorkerVersion();
 const workerHeartbeatMs = 30_000;
 const maintenanceMs = 60_000;
+const workers = (["general", "small-archive"] as const).map((lane) => {
+  const id = `${workerId}-${lane}`;
+  return { id, lane };
+});
 
 const runMaintenance = async () => {
   await recoverPendingDeletes({
@@ -70,16 +74,19 @@ const main = async () => {
   await mkdir(storagePaths.tmpRoot, { recursive: true });
   await writeHeartbeat(storagePaths.heartbeatPath);
 
-  await registerWorkerInstance({
-    id: workerId,
-    hostname: os.hostname(),
-    pid: process.pid,
-    version: workerVersion,
-    metadataJson: {
-      platform: process.platform,
-      node: process.version,
-    },
-  });
+  for (const worker of workers) {
+    await registerWorkerInstance({
+      id: worker.id,
+      hostname: os.hostname(),
+      pid: process.pid,
+      version: workerVersion,
+      metadataJson: {
+        platform: process.platform,
+        node: process.version,
+        lane: worker.lane,
+      },
+    });
+  }
 
   await waitForStorageProtocolReady({
     runMaintenance: runMaintenanceSafely,
@@ -110,21 +117,33 @@ const main = async () => {
     void runMaintenanceSafely();
   }, maintenanceMs);
 
-  const runner = new WorkerRunner({ workerId, storagePaths });
+  const generalRunner = new WorkerRunner({
+    workerId: workers[0].id,
+    storagePaths,
+  });
+  const smallArchiveRunner = new WorkerRunner({
+    workerId: workers[1].id,
+    storagePaths,
+    lane: "small-archive",
+  });
 
   const stop = async (signal: NodeJS.Signals) => {
     console.info("[worker] Shutdown requested.", { signal });
     clearInterval(heartbeatTimer);
     clearInterval(maintenanceTimer);
-    await runner.stop();
-    await markWorkerInstanceStopped({ id: workerId }).catch(() => undefined);
+    await Promise.all([generalRunner.stop(), smallArchiveRunner.stop()]);
+    await Promise.all(
+      workers.map(({ id }) =>
+        markWorkerInstanceStopped({ id }).catch(() => undefined),
+      ),
+    );
     process.exit(0);
   };
 
   process.once("SIGINT", (signal) => void stop(signal));
   process.once("SIGTERM", (signal) => void stop(signal));
 
-  await runner.start();
+  await Promise.all([generalRunner.start(), smallArchiveRunner.start()]);
 };
 
 void main().catch((error) => {

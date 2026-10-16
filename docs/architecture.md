@@ -21,6 +21,20 @@ This is intentionally a small, explicit architecture. The repo is trying to make
 - separate runtime for background behavior
 - intended home for cleanup, reconciliation, and other queued work
 - operationally visible through admin health surfaces
+- one general job slot and one small-archive slot per worker process, with
+  separate lease owners and health records
+- the small-archive slot accepts ZIPs of at most 32 directly selected files and
+  8 MiB of source data, using metadata from the authorized selection
+- folders and unknown sizes stay in the general slot; batch-move recovery keeps
+  its existing separate limit
+
+Both job slots use the default database queue. Small archives have priority 1
+and the general slot excludes those marked ZIP jobs. Older workers still drain
+the same queue after a rollback. Already queued jobs without the marker keep
+their original general-slot behavior. Retry preserves the marker. Source bytes
+are measured at enqueue time, so these limits bound the known selection, not
+execution time. Each slot has one notification connection and keeps polling as
+a fallback. The process starts the periodic scheduler and move recovery once.
 
 ### PostgreSQL
 

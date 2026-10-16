@@ -45,6 +45,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     const fileIds: string[] = [];
     const folderIds: string[] = [];
+    let sourceSizeBytes = 0n;
 
     const { files, folders } = await findArchiveSelectionItems(ids);
     const filesById = new Map(files.map((file) => [file.id, file]));
@@ -65,6 +66,7 @@ export async function POST(request: NextRequest): Promise<Response> {
           throw new FilesError("ACCESS_DENIED");
         }
         fileIds.push(id);
+        sourceSizeBytes += file.sizeBytes;
       } else if (folder && !folder.deletedAt) {
         if (
           !canAccessPrivateNamespace({
@@ -97,7 +99,12 @@ export async function POST(request: NextRequest): Promise<Response> {
     });
 
     if (created || archive.status === ZIP_ARCHIVE_STATUS_FAILED) {
-      await scheduleZipArchiveGenerate({ archiveId: archive.id });
+      await scheduleZipArchiveGenerate({
+        archiveId: archive.id,
+        sourceSizeBytes,
+        fileCount: fileIds.length,
+        folderCount: folderIds.length,
+      });
     }
 
     return Response.json({

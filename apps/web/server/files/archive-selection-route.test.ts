@@ -27,7 +27,7 @@ const item = (
   id: string,
   ownerUserId = "alice",
   deletedAt: Date | null = null,
-) => ({ id, ownerUserId, deletedAt });
+) => ({ id, ownerUserId, deletedAt, sizeBytes: 10n });
 const request = (ids: string[]) =>
   POST(
     new NextRequest("http://localhost/api/files/archives", {
@@ -68,7 +68,26 @@ describe("archive selection", () => {
         idsJson: { fileIds: ["a", "b", "a"], folderIds: ["folder"] },
       }),
     );
-    expect(mocks.schedule).toHaveBeenCalledWith({ archiveId: "zip" });
+    expect(mocks.schedule).toHaveBeenCalledWith({
+      archiveId: "zip",
+      sourceSizeBytes: 30n,
+      fileCount: 3,
+      folderCount: 1,
+    });
+  });
+
+  it("uses only selected file sizes when scheduling a direct-file archive", async () => {
+    mocks.selection.mockResolvedValue({
+      files: [{ ...item("a"), sizeBytes: 5_000_000n }, item("b")],
+      folders: [],
+    });
+    expect((await request(["a", "b"])).status).toBe(200);
+    expect(mocks.schedule).toHaveBeenCalledWith({
+      archiveId: "zip",
+      sourceSizeBytes: 5_000_010n,
+      fileCount: 2,
+      folderCount: 0,
+    });
   });
 
   it.each(["owner", "admin", "member"])(
