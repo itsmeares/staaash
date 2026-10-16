@@ -9,7 +9,7 @@ export const findArchiveSelectionItems = async (ids: string[]) => {
   const [files, folders] = await Promise.all([
     client.file.findMany({
       where: { id: { in: ids }, storageStatus: "available" },
-      select,
+      select: { ...select, sizeBytes: true },
     }),
     client.folder.findMany({ where: { id: { in: ids } }, select }),
   ]);

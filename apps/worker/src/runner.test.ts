@@ -1,5 +1,5 @@
 import type { JobContext } from "./job-context.js";
-import type { BackgroundJobRecord } from "@staaash/db/jobs";
+import type { BackgroundJobRecord, BackgroundJobLane } from "@staaash/db/jobs";
 import {
   afterEach,
   beforeEach,
@@ -17,6 +17,10 @@ const mocks = vi.hoisted(() => ({
   heartbeat: vi.fn(),
   connect: vi.fn(),
   close: vi.fn(),
+  recover: vi.fn().mockResolvedValue(undefined),
+  schedule: vi.fn().mockResolvedValue(undefined),
+  renew: vi.fn().mockResolvedValue(undefined),
+  wakes: [] as (() => void)[],
   wake: () => {},
 }));
 // The fake clock does not replace node:timers/promises.
@@ -47,7 +51,7 @@ vi.mock("@staaash/db/jobs", async (importOriginal) => ({
   findBackgroundJobById: mocks.find,
   markBackgroundJobSucceeded: mocks.succeeded,
   recordBackgroundJobEvent: vi.fn().mockResolvedValue(undefined),
-  renewBackgroundJobLease: vi.fn().mockResolvedValue(undefined),
+  renewBackgroundJobLease: mocks.renew,
 }));
 vi.mock("./job-registry.js", () => ({
   getJobRegistryEntry: () => ({
@@ -57,15 +61,16 @@ vi.mock("./job-registry.js", () => ({
     run: mocks.run,
   }),
   scheduleNextPeriodicRun: vi.fn().mockResolvedValue(undefined),
-  schedulePeriodicJobs: vi.fn().mockResolvedValue(undefined),
+  schedulePeriodicJobs: mocks.schedule,
 }));
 vi.mock("./handlers/storage-mutation-recovery.js", () => ({
-  recoverStorageMutations: vi.fn().mockResolvedValue(undefined),
+  recoverStorageMutations: mocks.recover,
 }));
 vi.mock("./job-notifications.js", () => ({
   JobNotifications: class {
     constructor(wake: () => void) {
       mocks.wake = wake;
+      mocks.wakes.push(wake);
     }
     connect = mocks.connect;
     close = mocks.close;
@@ -74,9 +79,10 @@ vi.mock("./job-notifications.js", () => ({
 
 import { WorkerRunner } from "./runner.js";
 
-const makeRunner = () =>
+const makeRunner = (lane: BackgroundJobLane = "general") =>
   new WorkerRunner({
-    workerId: "test-worker",
+    workerId: `test-${lane}`,
+    lane,
     storagePaths: {
       filesRoot: "/unused",
       tmpRoot: "/unused/tmp",
@@ -93,8 +99,10 @@ describe("worker idle wake-up", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    mocks.wakes = [];
+    mocks.run.mockReset();
     mocks.find.mockResolvedValue({ status: "running" });
-    mocks.claim.mockResolvedValue(null);
+    mocks.claim.mockReset().mockResolvedValue(null);
     mocks.heartbeat.mockResolvedValue(undefined);
   });
   afterEach(() => {
@@ -200,5 +208,115 @@ describe("worker idle wake-up", () => {
     await vi.advanceTimersByTimeAsync(1000);
     await Promise.all([running, stopped]);
     expect(mocks.claim).toHaveBeenCalledTimes(before);
+  });
+
+  it("runs small archives while a general job is blocked, with one job per lane", async () => {
+    const jobs = {
+      general: ["large-one", "large-two"],
+      "small-archive": ["small-one", "small-two"],
+    };
+    const active = new Map<string, () => void>();
+    mocks.claim.mockImplementation(
+      async ({
+        lane,
+        workerId,
+      }: {
+        lane: BackgroundJobLane;
+        workerId: string;
+      }) => {
+        const id = jobs[lane].shift();
+        return id
+          ? { id, kind: "zip.archive.generate", lockedBy: workerId }
+          : null;
+      },
+    );
+    mocks.run.mockImplementation(async (job: BackgroundJobRecord) => {
+      await new Promise<void>((resolve) => active.set(job.id, resolve));
+    });
+    const runners = [makeRunner(), makeRunner("small-archive")];
+    const running = runners.map((runner) => runner.start());
+    await flush();
+    expect([...active.keys()]).toEqual(["large-one", "small-one"]);
+    mocks.wakes.forEach((wake) => wake());
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(mocks.claim).toHaveBeenCalledTimes(2);
+    expect(mocks.renew).toHaveBeenCalledWith(
+      expect.objectContaining({ jobId: "large-one", workerId: "test-general" }),
+    );
+    expect(mocks.renew).toHaveBeenCalledWith(
+      expect.objectContaining({
+        jobId: "small-one",
+        workerId: "test-small-archive",
+      }),
+    );
+    active.get("small-one")!();
+    await flush();
+    expect(active.has("small-two")).toBe(true);
+    expect(active.has("large-two")).toBe(false);
+    active.get("small-two")!();
+    await flush();
+    expect(mocks.succeeded).toHaveBeenCalledTimes(2);
+    expect(mocks.heartbeat).not.toHaveBeenCalledWith(
+      expect.objectContaining({ id: "test-general", status: "idle" }),
+    );
+    const stopped = runners.map((runner) => runner.stop());
+    active.get("large-one")!();
+    await vi.advanceTimersByTimeAsync(1000);
+    await Promise.all([...running, ...stopped]);
+    expect(active.has("large-two")).toBe(false);
+  });
+
+  it("does not run maintenance or claim general jobs in the small-archive runner", async () => {
+    const runner = makeRunner("small-archive");
+    const running = runner.start();
+    await vi.advanceTimersByTimeAsync(61_000);
+    expect(mocks.schedule).not.toHaveBeenCalled();
+    expect(mocks.recover).not.toHaveBeenCalled();
+    expect(
+      mocks.claim.mock.calls.every(
+        ([options]) => options.lane === "small-archive",
+      ),
+    ).toBe(true);
+    await runner.stop();
+    await running;
+  });
+
+  it("waits for an in-flight claim on shutdown without starting its job", async () => {
+    let finishClaim = (_job: object) => {};
+    mocks.claim.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishClaim = resolve;
+      }),
+    );
+    const runner = makeRunner("small-archive");
+    const running = runner.start();
+    await flush();
+    let stopped = false;
+    const stopping = runner.stop().then(() => {
+      stopped = true;
+    });
+    await flush();
+    expect(stopped).toBe(false);
+    finishClaim({ id: "late-claim", kind: "zip.archive.generate" });
+    await Promise.all([running, stopping]);
+    expect(mocks.run).not.toHaveBeenCalled();
+    expect(stopped).toBe(true);
+  });
+
+  it("finishes shutdown when an in-flight claim fails", async () => {
+    let failClaim = (_error: Error) => {};
+    mocks.claim.mockReturnValueOnce(
+      new Promise((_, reject) => {
+        failClaim = reject;
+      }),
+    );
+    const runner = makeRunner("small-archive");
+    const running = runner.start();
+    await flush();
+    const stopping = runner.stop();
+    const settled = Promise.all([running, stopping]);
+    failClaim(new Error("Database connection closed"));
+    await expect(settled).resolves.toEqual([undefined, undefined]);
+    expect(mocks.run).not.toHaveBeenCalled();
   });
 });
