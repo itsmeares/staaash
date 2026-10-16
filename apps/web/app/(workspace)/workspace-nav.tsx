@@ -30,6 +30,8 @@ export type WorkspaceNavItem = {
   matchPrefix?: string;
   /** Active only on the exact path. */
   exact?: boolean;
+  /** A shorter label for the rail. */
+  short?: string;
 };
 
 export const driveNavItems: WorkspaceNavItem[] = [
@@ -58,6 +60,7 @@ export const adminLinkItem: WorkspaceNavItem = {
 export const backToDriveItem: WorkspaceNavItem = {
   href: "/files",
   label: "Back to drive",
+  short: "Drive",
   icon: ArrowLeft,
 };
 
@@ -73,13 +76,39 @@ export const isAdminPath = (pathname: string) =>
 const itemClass =
   "relative flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-body text-foreground outline-none transition-colors duration-150 hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground";
 
+// The rail: icon over a small label, in a 56px column.
+const railItemClass =
+  "relative grid w-14 justify-items-center gap-0.75 rounded-lg py-1.5 text-tab text-muted-foreground outline-none transition-colors duration-150 hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none [&_svg]:size-4 [&_svg]:shrink-0";
+
+const looks = {
+  sidebar: {
+    item: itemClass,
+    active: "font-semibold",
+    stroke: undefined,
+    label: (item: WorkspaceNavItem) => item.label,
+  },
+  rail: {
+    item: railItemClass,
+    active: "text-foreground",
+    stroke: 1.75,
+    label: (item: WorkspaceNavItem) => item.short ?? item.label,
+  },
+};
+
 /** A plain sidebar link, for items outside the main list. */
-export function SidebarLink({ item }: { item: WorkspaceNavItem }) {
+export function SidebarLink({
+  item,
+  rail = false,
+}: {
+  item: WorkspaceNavItem;
+  rail?: boolean;
+}) {
   const Icon = item.icon;
+  const look = looks[rail ? "rail" : "sidebar"];
   return (
-    <Link className={itemClass} href={item.href}>
-      <Icon aria-hidden />
-      <span className="truncate">{item.label}</span>
+    <Link className={look.item} href={item.href}>
+      <Icon aria-hidden strokeWidth={look.stroke} />
+      <span className="truncate">{look.label(item)}</span>
     </Link>
   );
 }
@@ -92,19 +121,25 @@ export function SidebarLink({ item }: { item: WorkspaceNavItem }) {
 export function SidebarNav({
   items,
   label,
+  rail = false,
 }: {
   items: WorkspaceNavItem[];
   label: string;
+  rail?: boolean;
 }) {
   const pathname = usePathname();
   const activeHref = items.find((item) => isItemActive(pathname, item))?.href;
   const { ref, pill } = useGlidingPill<HTMLElement>(activeHref);
+  const look = looks[rail ? "rail" : "sidebar"];
 
   return (
     <nav
       ref={ref}
       aria-label={label}
-      className="group/nav relative flex flex-col gap-px"
+      className={cn(
+        "group/nav relative flex flex-col",
+        rail ? "w-14 gap-0.5" : "gap-px",
+      )}
       data-ready={pill ? "" : undefined}
     >
       <GlidingPill pill={pill} />
@@ -116,14 +151,16 @@ export function SidebarNav({
             key={item.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              itemClass,
-              active &&
-                "font-semibold not-group-data-ready/nav:selected-pill hover:bg-transparent [&_svg]:text-primary",
+              look.item,
+              active && [
+                look.active,
+                "not-group-data-ready/nav:selected-pill hover:bg-transparent [&_svg]:text-primary",
+              ],
             )}
             href={item.href}
           >
-            <Icon aria-hidden />
-            <span className="truncate">{item.label}</span>
+            <Icon aria-hidden strokeWidth={look.stroke} />
+            <span className="truncate">{look.label(item)}</span>
           </Link>
         );
       })}

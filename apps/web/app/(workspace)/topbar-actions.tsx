@@ -5,15 +5,12 @@ import {
   Check,
   Keyboard,
   LogOut,
-  Moon,
   Settings2,
   Shield,
-  Sun,
-  SunMoon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -21,15 +18,9 @@ import {
   MenuItem,
   MenuLinkItem,
   MenuPopup,
-  MenuRadioGroup,
-  MenuRadioItem,
   MenuSeparator,
-  MenuSub,
-  MenuSubPopup,
-  MenuSubTrigger,
   MenuTrigger,
 } from "@/components/ui/menu";
-import { applyThemeWithTransition, type Theme } from "@/lib/theme";
 
 import { openShortcuts } from "./shortcuts-dialog";
 import { useTransferContext } from "./transfer-context";
@@ -70,21 +61,7 @@ type TopbarActionsProps = {
   initials: string;
   isOwner: boolean;
   avatarUrl: string | null;
-  initialTheme: Theme;
 };
-
-const THEME_CYCLE: Theme[] = ["system", "light", "dark"];
-const THEME_ICONS = { system: SunMoon, light: Sun, dark: Moon } as const;
-const THEME_LABELS = { system: "System", light: "Light", dark: "Dark" };
-
-function saveTheme(theme: Theme) {
-  applyThemeWithTransition(theme);
-  fetch("/api/user/preferences", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ theme }),
-  }).catch(() => {});
-}
 
 /** Shows while files move; opens the transfer panel. */
 function TransfersIndicator() {
@@ -122,34 +99,11 @@ export function TopbarActions({
   initials,
   isOwner,
   avatarUrl,
-  initialTheme,
 }: TopbarActionsProps) {
   const pathname = usePathname();
-  const [theme, setTheme] = useState<Theme>(initialTheme);
-  const ThemeIcon = THEME_ICONS[theme];
-
-  const changeTheme = (next: Theme) => {
-    setTheme(next);
-    saveTheme(next);
-  };
-
   return (
     <div className="flex shrink-0 items-center gap-1">
       <TransfersIndicator />
-
-      <Button
-        aria-label={`Theme: ${THEME_LABELS[theme]}. Switch theme`}
-        size="icon"
-        title={`Theme: ${THEME_LABELS[theme]}`}
-        variant="ghost-muted"
-        onClick={() =>
-          changeTheme(
-            THEME_CYCLE[(THEME_CYCLE.indexOf(theme) + 1) % THEME_CYCLE.length]!,
-          )
-        }
-      >
-        <ThemeIcon aria-hidden />
-      </Button>
 
       <Menu>
         <MenuTrigger
@@ -183,24 +137,6 @@ export function TopbarActions({
               Admin
             </PageLink>
           ) : null}
-          <MenuSub>
-            <MenuSubTrigger>
-              <ThemeIcon aria-hidden />
-              Theme
-            </MenuSubTrigger>
-            <MenuSubPopup>
-              <MenuRadioGroup
-                value={theme}
-                onValueChange={(value) => changeTheme(value as Theme)}
-              >
-                {THEME_CYCLE.map((option) => (
-                  <MenuRadioItem key={option} value={option}>
-                    {THEME_LABELS[option]}
-                  </MenuRadioItem>
-                ))}
-              </MenuRadioGroup>
-            </MenuSubPopup>
-          </MenuSub>
           <MenuItem onClick={openShortcuts}>
             <Keyboard aria-hidden />
             Keyboard shortcuts

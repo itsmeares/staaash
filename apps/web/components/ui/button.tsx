@@ -29,6 +29,12 @@ export const buttonVariants = cva(
         xl: "h-11 px-[calc(--spacing(4)-1px)] text-lg sm:h-10 sm:text-base [&_svg:not([class*='size-'])]:size-5 sm:[&_svg:not([class*='size-'])]:size-4.5",
         // Staaash: the sidebar New button.
         new: "h-10 gap-2 rounded-lg px-4 font-semibold before:rounded-[calc(var(--radius-lg)-1px)] sm:h-9",
+        // Staaash: the rail's New tile.
+        tile: "size-11 rounded-xl before:rounded-[calc(var(--radius-xl)-1px)] [&_svg:not([class*='size-'])]:size-5 sm:[&_svg:not([class*='size-'])]:size-5",
+        // Staaash: the phone bar's round +. The ring is the bar's colour, so
+        // the circle looks lifted out of the bar; the + turns into × while
+        // its panel is open.
+        fab: "size-13 rounded-full ring-5 ring-background before:rounded-full active:scale-97 [&_svg]:transition-transform [&_svg]:duration-270 [&_svg]:ease-slide data-popup-open:[&_svg]:rotate-45 motion-reduce:[&_svg]:transition-none [&_svg:not([class*='size-'])]:size-6 sm:[&_svg:not([class*='size-'])]:size-6",
         xs: "h-7 gap-1 rounded-md px-[calc(--spacing(2)-1px)] text-sm before:rounded-[calc(var(--radius-md)-1px)] sm:h-6 sm:text-xs [&_svg:not([class*='size-'])]:size-4 sm:[&_svg:not([class*='size-'])]:size-3.5",
       },
       variant: {

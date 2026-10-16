@@ -58,7 +58,7 @@ export function ChangedDot() {
 
 function SaveBar({ pending }: { pending: SettingsPending }) {
   return (
-    <div className="sticky bottom-4 z-10 flex animate-in items-center gap-2 rounded-2xl border border-border bg-popover py-2 ps-4 pe-2 shadow-floating duration-200 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none max-lg:bottom-[calc(76px+env(safe-area-inset-bottom))] lg:col-start-2">
+    <div className="sticky bottom-4 z-10 flex animate-in items-center gap-2 rounded-2xl border border-border bg-popover py-2 ps-4 pe-2 shadow-floating duration-200 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none max-sm:bottom-[calc(76px+env(safe-area-inset-bottom))] lg:col-start-2">
       <ChangedDot />
       <span className="flex-1 text-body font-medium">Unsaved changes</span>
       <Button

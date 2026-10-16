@@ -14,7 +14,7 @@ import { DefaultViewProvider } from "@/components/file-list/use-view-mode";
 import { TimeRoot } from "@/server/time-zone";
 import { getInstanceDiskInfo, getUserStorageUsed } from "@/server/user-storage";
 
-import { AppSidebar, type ShellInfo } from "./app-sidebar";
+import { AppRail, AppSidebar, type ShellInfo } from "./app-sidebar";
 import { ShortcutsDialog } from "./shortcuts-dialog";
 import { TopbarActions } from "./topbar-actions";
 import { UpdatesProvider } from "./updates";
@@ -25,17 +25,13 @@ export const dynamic = "force-dynamic";
 
 /** The signed-in person as the top bar and menus show them. */
 const personOf = (user: AuthUser) => {
-  const {
-    theme = "system",
-    defaultView,
-    showUpdateNotifications = true,
-  } = user.preferences ?? {};
+  const { defaultView, showUpdateNotifications = true } =
+    user.preferences ?? {};
   return {
     label: user.displayName ?? user.email,
     email: user.email,
     initials: getInitials(user.displayName, user.email),
     avatarUrl: user.avatarUrl,
-    theme: theme as "light" | "dark" | "system",
     defaultView,
     notify: showUpdateNotifications,
   };
@@ -82,18 +78,23 @@ export default async function WorkspaceLayout({
           notify={person.notify}
         >
           <SkipLink />
-          <div className="grid h-dvh w-full grid-cols-1 overflow-hidden bg-background lg:grid-cols-[var(--spacing-sidebar)_minmax(0,1fr)]">
+          <div className="grid h-dvh w-full grid-cols-1 overflow-hidden bg-background rail:grid-cols-[var(--spacing-rail)_minmax(0,1fr)] desk:grid-cols-[var(--spacing-sidebar)_minmax(0,1fr)]">
             <AppSidebar info={info} />
+            <AppRail info={info} />
 
             <div className="flex min-h-0 min-w-0 flex-col">
-              <header className="flex h-14 shrink-0 items-center gap-2 px-3 lg:gap-3 lg:ps-0.5 lg:pe-3.5">
+              <header className="flex h-14 shrink-0 items-center gap-2 px-3 sm:gap-3 sm:ps-0.5 sm:pe-3.5">
                 <Link
                   aria-label={info.instanceName}
-                  className="rounded-md p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
+                  className="rounded-md p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring sm:hidden short:block"
                   href="/home"
                 >
                   <DriveGlyph />
                 </Link>
+                {/* Beside the rail's glyph (or the top bar's on short screens). */}
+                <span className="hidden max-w-40 shrink-0 truncate text-body font-medium rail:block">
+                  {info.instanceName}
+                </span>
                 <WorkspaceSearch />
                 <div className="ms-auto">
                   <TopbarActions
@@ -102,13 +103,12 @@ export default async function WorkspaceLayout({
                     initials={person.initials}
                     isOwner={info.isOwner}
                     avatarUrl={person.avatarUrl}
-                    initialTheme={person.theme}
                   />
                 </div>
               </header>
 
               <main
-                className="min-h-0 w-full min-w-0 flex-1 scrollbar-thin overflow-x-hidden overflow-y-auto bg-card px-4 pt-4 pb-[calc(96px+env(safe-area-inset-bottom))] max-lg:border-t max-lg:border-border lg:mx-0 lg:me-3 lg:mb-3 lg:w-auto lg:rounded-xl lg:border lg:border-border lg:px-6 lg:pt-5 lg:pb-12"
+                className="min-h-0 w-full min-w-0 flex-1 scrollbar-thin overflow-x-hidden overflow-y-auto bg-card px-4 pt-4 pb-[calc(96px+env(safe-area-inset-bottom))] max-sm:border-t max-sm:border-border sm:me-3 sm:mb-3 sm:w-auto sm:rounded-xl sm:border sm:border-border sm:pb-12 desk:px-6 desk:pt-5"
                 data-workspace-content
                 id="main-content"
                 tabIndex={-1}

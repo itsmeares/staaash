@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/drawer";
 
 import { UpdateNote, VersionButton, type ShellInfo } from "./app-sidebar";
-import { NewMenu } from "./new-menu";
+import { NewTiles } from "./new-menu";
 import { WorkspaceAvatar } from "./workspace-avatar";
 import { WorkspaceStorage } from "./workspace-storage";
 import {
@@ -43,11 +43,18 @@ type WorkspaceMobileNavProps = {
   email: string;
 };
 
-const tabItems: WorkspaceNavItem[] = [
-  { href: "/home", label: "Home", icon: Home },
-  { href: "/files", label: "Files", icon: FolderOpen, matchPrefix: "/files" },
-  { href: "/shared", label: "Shared", icon: Share2 },
-];
+const homeTab: WorkspaceNavItem = { href: "/home", label: "Home", icon: Home };
+const filesTab: WorkspaceNavItem = {
+  href: "/files",
+  label: "Files",
+  icon: FolderOpen,
+  matchPrefix: "/files",
+};
+const sharedTab: WorkspaceNavItem = {
+  href: "/shared",
+  label: "Shared",
+  icon: Share2,
+};
 
 const moreItems: WorkspaceNavItem[] = [
   { href: "/recent", label: "Recent", icon: Clock },
@@ -57,9 +64,23 @@ const moreItems: WorkspaceNavItem[] = [
 ];
 
 const tabClass =
-  "flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-lg text-label font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring aria-[current=page]:text-foreground [&_svg]:size-5 aria-[current=page]:[&_svg]:text-primary";
+  "flex min-w-0 flex-col items-center justify-center gap-1 text-tab text-muted-foreground outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset motion-reduce:transition-none aria-[current=page]:text-foreground [&_svg]:size-5 [&_svg]:transition-colors [&_svg]:duration-150 aria-[current=page]:[&_svg]:text-primary";
 
-/** Phone tabs, the floating New button and the More sheet. */
+function Tab({ item, pathname }: { item: WorkspaceNavItem; pathname: string }) {
+  const Icon = item.icon;
+  return (
+    <Link
+      aria-current={isItemActive(pathname, item) ? "page" : undefined}
+      className={tabClass}
+      href={item.href}
+    >
+      <Icon aria-hidden strokeWidth={1.75} />
+      <span>{item.label}</span>
+    </Link>
+  );
+}
+
+/** Phone tabs with the round + in the middle, and the More sheet. */
 export function WorkspaceMobileNav({
   info,
   avatarUrl,
@@ -77,96 +98,87 @@ export function WorkspaceMobileNav({
   const showNew = !isAdminPath(pathname) && pathname !== "/settings";
 
   return (
-    <>
-      {showNew ? <NewMenu fab /> : null}
-      <nav
-        aria-label="Drive"
-        className="fixed inset-x-0 bottom-0 z-36 grid grid-cols-4 gap-1 border-t border-border bg-card px-2 pt-1 pb-[max(6px,env(safe-area-inset-bottom))] lg:hidden"
-        data-workspace-mobile-nav
-      >
-        {tabItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <Link
-              aria-current={isItemActive(pathname, item) ? "page" : undefined}
-              className={tabClass}
-              href={item.href}
-              key={item.href}
-            >
-              <Icon aria-hidden />
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
+    <nav
+      aria-label="Drive"
+      className="fixed inset-x-0 bottom-0 z-36 grid h-[calc(4.125rem+env(safe-area-inset-bottom))] grid-cols-[1fr_1fr_5.75rem_1fr_1fr] border-t border-border bg-background pb-[max(6px,env(safe-area-inset-bottom))] sm:hidden"
+      data-workspace-mobile-nav
+    >
+      <Tab item={homeTab} pathname={pathname} />
+      <Tab item={filesTab} pathname={pathname} />
+      <div className="relative">
+        {showNew ? (
+          <NewTiles className="absolute -top-3.5 left-1/2 -ms-6.5" />
+        ) : null}
+      </div>
+      <Tab item={sharedTab} pathname={pathname} />
 
-        <Drawer open={open} onOpenChange={setOpen}>
-          <DrawerTrigger
-            aria-current={moreActive ? "page" : undefined}
-            className={tabClass}
-          >
-            <MoreHorizontal aria-hidden />
-            <span>More</span>
-          </DrawerTrigger>
-          <DrawerPopup showBar>
-            <DrawerTitle className="sr-only">More</DrawerTitle>
-            <DrawerPanel className="grid gap-3 pb-4">
-              <div className="flex items-center gap-2.5 px-1">
-                <WorkspaceAvatar avatarUrl={avatarUrl} initials={initials} />
-                <div className="grid min-w-0 leading-tight">
-                  <span className="truncate text-body font-semibold">
-                    {userLabel ?? email}
-                  </span>
-                  <span className="truncate text-label text-muted-foreground">
-                    {email}
-                  </span>
-                </div>
+      <Drawer open={open} onOpenChange={setOpen}>
+        <DrawerTrigger
+          aria-current={moreActive ? "page" : undefined}
+          className={tabClass}
+        >
+          <MoreHorizontal aria-hidden strokeWidth={1.75} />
+          <span>More</span>
+        </DrawerTrigger>
+        <DrawerPopup showBar>
+          <DrawerTitle className="sr-only">More</DrawerTitle>
+          <DrawerPanel className="grid gap-3 pb-4">
+            <div className="flex items-center gap-2.5 px-1">
+              <WorkspaceAvatar avatarUrl={avatarUrl} initials={initials} />
+              <div className="grid min-w-0 leading-tight">
+                <span className="truncate text-body font-semibold">
+                  {userLabel ?? email}
+                </span>
+                <span className="truncate text-label text-muted-foreground">
+                  {email}
+                </span>
               </div>
+            </div>
 
-              <div className="grid gap-0.5">
-                {items.map((item) => {
-                  const Icon = item.icon;
-                  const active = isItemActive(pathname, item);
-                  return (
-                    <Button
-                      aria-current={active ? "page" : undefined}
-                      className="w-full justify-start"
-                      key={item.href}
-                      render={<Link href={item.href} />}
-                      size="lg"
-                      variant={active ? "secondary" : "ghost"}
-                      onClick={() => setOpen(false)}
-                    >
-                      <Icon aria-hidden />
-                      {item.label}
-                    </Button>
-                  );
-                })}
-              </div>
+            <div className="grid gap-0.5">
+              {items.map((item) => {
+                const Icon = item.icon;
+                const active = isItemActive(pathname, item);
+                return (
+                  <Button
+                    aria-current={active ? "page" : undefined}
+                    className="w-full justify-start"
+                    key={item.href}
+                    render={<Link href={item.href} />}
+                    size="lg"
+                    variant={active ? "secondary" : "ghost"}
+                    onClick={() => setOpen(false)}
+                  >
+                    <Icon aria-hidden />
+                    {item.label}
+                  </Button>
+                );
+              })}
+            </div>
 
-              <div className="grid gap-2.5 border-t border-border pt-3">
-                <WorkspaceStorage
-                  usedBytes={info.usedBytes}
-                  limitBytes={info.limitBytes}
-                  diskUsedBytes={info.diskUsedBytes}
-                  diskCapacityBytes={info.diskCapacityBytes}
-                  isAdmin={info.isOwner}
-                />
-                <UpdateNote />
-                <div className="flex items-center justify-between">
-                  <VersionButton />
-                  <form action="/api/auth/sign-out" method="post">
-                    <input type="hidden" name="next" value="/" />
-                    <Button type="submit" variant="ghost-muted">
-                      <LogOut aria-hidden />
-                      Sign out
-                    </Button>
-                  </form>
-                </div>
+            <div className="grid gap-2.5 border-t border-border pt-3">
+              <WorkspaceStorage
+                usedBytes={info.usedBytes}
+                limitBytes={info.limitBytes}
+                diskUsedBytes={info.diskUsedBytes}
+                diskCapacityBytes={info.diskCapacityBytes}
+                isAdmin={info.isOwner}
+              />
+              <UpdateNote />
+              <div className="flex items-center justify-between">
+                <VersionButton />
+                <form action="/api/auth/sign-out" method="post">
+                  <input type="hidden" name="next" value="/" />
+                  <Button type="submit" variant="ghost-muted">
+                    <LogOut aria-hidden />
+                    Sign out
+                  </Button>
+                </form>
               </div>
-            </DrawerPanel>
-          </DrawerPopup>
-        </Drawer>
-      </nav>
-    </>
+            </div>
+          </DrawerPanel>
+        </DrawerPopup>
+      </Drawer>
+    </nav>
   );
 }

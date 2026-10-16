@@ -85,7 +85,7 @@ export function AppSidebar({ info }: { info: ShellInfo }) {
 
   return (
     <aside
-      className="hidden min-h-0 flex-col gap-3 overflow-y-auto px-2.5 pt-3.5 pb-3 lg:flex"
+      className="hidden min-h-0 flex-col gap-3 overflow-y-auto px-2.5 pt-3.5 pb-3 desk:flex"
       data-workspace-sidebar
     >
       <DriveBrand instanceName={info.instanceName} />
@@ -122,6 +122,42 @@ export function AppSidebar({ info }: { info: ShellInfo }) {
         />
         <UpdateNote />
         <VersionButton />
+      </div>
+    </aside>
+  );
+}
+
+/** Tablets and phones held sideways: icons with small labels. */
+export function AppRail({ info }: { info: ShellInfo }) {
+  const pathname = usePathname();
+  const inAdmin = isAdminPath(pathname);
+
+  return (
+    <aside
+      className="hidden min-h-0 flex-col items-center gap-2 overflow-y-auto pb-1.5 rail:flex short:pt-1.5"
+      data-workspace-rail
+    >
+      <Link
+        aria-label={info.instanceName}
+        className="flex h-14 shrink-0 items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring short:hidden"
+        href="/home"
+      >
+        <DriveGlyph />
+      </Link>
+      {inAdmin ? (
+        <SidebarNav items={adminNavItems} label="Admin" rail />
+      ) : (
+        <>
+          <NewMenu rail />
+          <SidebarNav items={driveNavItems} label="Drive" rail />
+        </>
+      )}
+      <div className="mt-auto">
+        {inAdmin ? (
+          <SidebarLink item={backToDriveItem} rail />
+        ) : info.isOwner ? (
+          <SidebarLink item={adminLinkItem} rail />
+        ) : null}
       </div>
     </aside>
   );

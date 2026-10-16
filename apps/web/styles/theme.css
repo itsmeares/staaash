@@ -4,6 +4,12 @@
  */
 
 @custom-variant dark (&:is(.dark, .dark *));
+/* Shell layouts: phones below 640px get the bottom bar (max-sm), tablets and
+   short screens such as phones held sideways get the rail, desktops the
+   sidebar. */
+@custom-variant rail (@media (width >= 40rem) and ((width < 64rem) or (height < 31.25rem)));
+@custom-variant desk (@media (width >= 64rem) and (height >= 31.25rem));
+@custom-variant short (@media (height < 31.25rem));
 
 @theme {
   --font-sans: var(--font-switzer), "Segoe UI", sans-serif;
@@ -11,6 +17,8 @@
   --font-mono: var(--font-jetbrains-mono), monospace;
 
   /* Type scale: Tailwind's steps plus Staaash's product sizes. */
+  --text-tab: 0.65625rem;
+  --text-tab--line-height: 1.2;
   --text-label: 0.75rem;
   --text-label--line-height: 1.35;
   --text-meta: 0.8125rem;
@@ -41,9 +49,10 @@
   --shadow-rail: -12px 0 40px -20px oklch(0 0 0 / 0.35);
   --shadow-raised: var(--edge-drop), var(--edge-highlight);
 
-  /* Breakpoints: xs 560 · sm 640 · md 720 · lg 1024 · xl 1280 */
+  /* Breakpoints: xs 560 · sm 640 · md 720 · lg 1024 · xl 1280 · 3xl 1600 */
   --breakpoint-xs: 35rem;
   --breakpoint-md: 45rem;
+  --breakpoint-3xl: 100rem;
 
   /* Product sizes: h-control, h-row, w-sidebar, max-w-settings, … */
   --spacing-control: 2rem;
@@ -52,6 +61,7 @@
   --spacing-row-sm: 2.5rem;
   --spacing-row-home: 3.5rem;
   --spacing-sidebar: 15rem;
+  --spacing-rail: 4rem;
   --spacing-admin-sidebar: 18.75rem;
   --container-settings: 57.5rem;
 

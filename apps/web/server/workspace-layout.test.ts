@@ -61,6 +61,7 @@ vi.mock("@/app/(workspace)/app-sidebar", () => ({
       { "data-testid": "sidebar" },
       describeInfo(props),
     ),
+  AppRail: () => null,
 }));
 
 vi.mock("@/app/(workspace)/topbar-actions", () => ({

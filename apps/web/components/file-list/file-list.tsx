@@ -282,6 +282,11 @@ function PreviewTile({
           decoding="async"
           draggable={false}
           loading="lazy"
+          ref={(img) => {
+            // A server-rendered image can fail before React listens for
+            // errors; catch that on mount.
+            if (img?.complete && img.naturalWidth === 0) setFailedUrl(url);
+          }}
           src={url}
           onError={() => setFailedUrl(url)}
         />
@@ -379,12 +384,14 @@ export function FileList<T extends FileListItem>({
   const isEmpty = sections.every((section) => section.items.length === 0);
 
   const actions = actionsTrack(Boolean(quickActions));
-  const tracks = (visible: FileListColumn<T>[]) =>
-    ["minmax(0,1fr)", ...visible.map((c) => c.width), actions].join(" ");
+  const tracks = (visible: FileListColumn<T>[], name = "minmax(0,1fr)") =>
+    [name, ...visible.map((c) => c.width), actions].join(" ");
   const style = {
     "--cols-sm": ["minmax(0,1fr)", actions].join(" "),
     "--cols-md": tracks(columns.filter((c) => c.priority !== "wide")),
-    "--cols-lg": tracks(columns),
+    // On very wide screens the name stops growing, so size and date stay
+    // next to it.
+    "--cols-lg": tracks(columns, "minmax(0,56rem)"),
   } as CSSProperties;
   const gridCols =
     "grid grid-cols-(--cols-sm) items-center gap-x-3 @xl/list:grid-cols-(--cols-md) @4xl/list:grid-cols-(--cols-lg)";

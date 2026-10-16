@@ -15,6 +15,7 @@ import {
 import { MiddleName } from "@/components/file-list/middle-name";
 import { useItemSelection } from "@/components/file-list/use-list-selection";
 import { formatRelativeTime, formatTimeUntil } from "@/lib/time";
+import { cn } from "@/lib/utils";
 
 import type { RecentClientItem } from "../recent/recent-helpers";
 import { useCoarsePointer } from "../use-coarse-pointer";
@@ -108,11 +109,15 @@ export function HomeSections({
           >
             Pick up where you left off
           </h2>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {pickUp.map((item) => (
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 3xl:grid-cols-6">
+            {pickUp.map((item, index) => (
               <DashboardItemContextMenu groups={menuFor(item)} key={item.id}>
                 <button
-                  className="grid min-w-0 cursor-pointer overflow-hidden rounded-xl border border-border bg-card text-left outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring"
+                  className={cn(
+                    "grid min-w-0 cursor-pointer overflow-hidden rounded-xl border border-border bg-card text-left outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring",
+                    // The fifth and sixth only fill the wide row.
+                    index >= 4 && "hidden 3xl:grid",
+                  )}
                   type="button"
                   onClick={() => actions.open(item)}
                 >

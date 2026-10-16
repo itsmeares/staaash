@@ -27,7 +27,7 @@ export function SelectionBar({
   return (
     <div
       aria-label="Selection"
-      className="fixed bottom-[calc(80px+env(safe-area-inset-bottom))] left-1/2 z-38 flex max-w-[calc(100vw-1.5rem)] -translate-x-1/2 animate-in items-center gap-0.5 rounded-xl border border-border bg-popover p-1 shadow-selection-bar duration-260 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none lg:bottom-6 lg:left-[calc(50%+var(--spacing-sidebar)/2)]"
+      className="fixed bottom-[calc(92px+env(safe-area-inset-bottom))] left-1/2 z-38 flex max-w-[calc(100vw-1.5rem)] -translate-x-1/2 animate-in items-center gap-0.5 rounded-xl border border-border bg-popover p-1 shadow-selection-bar duration-260 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none sm:bottom-6 rail:left-[calc(50%+var(--spacing-rail)/2)] desk:left-[calc(50%+var(--spacing-sidebar)/2)]"
       data-slot="selection-bar"
       role="toolbar"
     >

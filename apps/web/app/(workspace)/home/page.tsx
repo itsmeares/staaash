@@ -77,7 +77,7 @@ export default async function HomePage() {
         <HomeSections
           pickUp={recentItems
             .filter((item) => item.kind === "file")
-            .slice(0, 4)}
+            .slice(0, 6)}
           pinned={pinned}
           recent={recentItems.slice(0, 8)}
           shares={shares.active.slice(0, 5).map((share) => ({
