@@ -87,6 +87,10 @@ type FileListProps<T extends FileListItem> = {
   /** Extra classes per item, for drop targets and highlights. */
   itemClassName?: (item: T) => string | undefined;
   sort?: FileListSort;
+  /** Column titles above the rows. Without them the second line always shows. */
+  head?: boolean;
+  /** Grid cards as square tiles: photos and videos without a caption. */
+  tiles?: boolean;
   empty?: ReactNode;
   /** Rendered after the items, inside the list. */
   children?: ReactNode;
@@ -410,6 +414,8 @@ export function FileList<T extends FileListItem>({
   itemProps,
   itemClassName,
   sort,
+  head = true,
+  tiles = false,
   empty,
   children,
   leading,
@@ -429,6 +435,11 @@ export function FileList<T extends FileListItem>({
     // next to it.
     "--cols-lg": tracks(columns, "minmax(0,56rem)"),
   } as CSSProperties;
+  const sectionClass = {
+    list: "grid gap-px pt-1",
+    grid: "grid grid-cols-[repeat(auto-fill,minmax(10.5rem,1fr))] gap-2 pt-2",
+    tiles: "grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2 pt-2",
+  }[view === "grid" && tiles ? "tiles" : view];
   const gridCols =
     "grid grid-cols-(--cols-sm) items-center gap-x-3 @xl/list:grid-cols-(--cols-md) @4xl/list:grid-cols-(--cols-lg)";
   const columnCell = (column: FileListColumn<T>) =>
@@ -482,7 +493,10 @@ export function FileList<T extends FileListItem>({
           role="row"
         >
           <div className="contents" role="gridcell">
-            <ItemPreview item={item} />
+            <ItemPreview
+              className={tiles ? "aspect-square" : undefined}
+              item={item}
+            />
             <span className="absolute top-3 left-3">
               <CheckMark selected={selected} />
             </span>
@@ -498,12 +512,20 @@ export function FileList<T extends FileListItem>({
                 {moreActions}
               </span>
             ) : null}
-            <span className="flex min-w-0 items-start gap-2 px-1 pb-0.5 text-body">
-              <ItemIcon className="mt-0.5 size-4 [&_svg]:size-4" item={item} />
-              <span className="min-w-0 flex-1">{name}</span>
-              {item.flags}
-            </span>
-            {item.blocked || item.sub ? (
+            {/* Timeline tiles show photos bare; the name is in the tooltip. */}
+            {tiles && item.thumbnailUrl ? (
+              <span className="sr-only">{item.name}</span>
+            ) : (
+              <span className="flex min-w-0 items-start gap-2 px-1 pb-0.5 text-body">
+                <ItemIcon
+                  className="mt-0.5 size-4 [&_svg]:size-4"
+                  item={item}
+                />
+                <span className="min-w-0 flex-1">{name}</span>
+                {item.flags}
+              </span>
+            )}
+            {(item.blocked || item.sub) && !tiles ? (
               <span className="truncate px-1 text-label text-muted-foreground">
                 {item.blocked ?? item.sub}
               </span>
@@ -555,7 +577,7 @@ export function FileList<T extends FileListItem>({
                 <span
                   className={cn(
                     "truncate text-label text-muted-foreground",
-                    columns.length > 0 && "@xl/list:hidden",
+                    head && columns.length > 0 && "@xl/list:hidden",
                   )}
                 >
                   {item.sub}
@@ -608,7 +630,7 @@ export function FileList<T extends FileListItem>({
         className="relative min-h-40 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
         role="grid"
       >
-        {view === "list" && !isEmpty && columns.length > 0 ? (
+        {view === "list" && head && !isEmpty && columns.length > 0 ? (
           <div
             className={cn(
               gridCols,
@@ -660,13 +682,7 @@ export function FileList<T extends FileListItem>({
                   <span role="columnheader">{section.label}</span>
                 </div>
               ) : null}
-              <div
-                className={
-                  view === "grid"
-                    ? "grid grid-cols-[repeat(auto-fill,minmax(10.5rem,1fr))] gap-2 pt-2"
-                    : "grid gap-px pt-1"
-                }
-              >
+              <div className={sectionClass}>
                 {index === 0 ? leading : null}
                 {section.items.map(renderItem)}
               </div>

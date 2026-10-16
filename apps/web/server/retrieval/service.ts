@@ -22,6 +22,8 @@ import { getStorageMutationStateMap } from "@/server/storage-read-guard";
 import type {
   FavoriteMutationResult,
   FavoriteRetrievalItem,
+  RecentAction,
+  RecentRetrievalItem,
   RetrievalItem,
   RetrievalRepository,
 } from "./types";
@@ -53,10 +55,12 @@ type FolderQuickAccessInput = FilesActor & {
 
 type FileAccessInput = FilesActor & {
   fileId: string;
+  action: RecentAction;
 };
 
 type FolderAccessInput = FilesActor & {
   folderId: string;
+  action: RecentAction;
 };
 
 const getFolderHref = (folder: Pick<FolderSummary, "id" | "isFilesRoot">) =>
@@ -515,7 +519,10 @@ export const createRetrievalService = ({
       );
     },
 
-    async listRecent({ actorUserId }: FilesActor): Promise<RetrievalItem[]> {
+    /** Activity, newest first. Trashed items stay, so Recent can say so. */
+    async listRecent({
+      actorUserId,
+    }: FilesActor): Promise<RecentRetrievalItem[]> {
       const activeRepo = await resolveRepo();
       const [
         filesRoot,
@@ -526,8 +533,8 @@ export const createRetrievalService = ({
         favoriteState,
       ] = await Promise.all([
         activeRepo.ensureFilesRoot(actorUserId),
-        activeRepo.listFoldersByOwner(actorUserId),
-        activeRepo.listFilesByOwner(actorUserId),
+        activeRepo.listFoldersByOwner(actorUserId, { includeDeleted: true }),
+        activeRepo.listFilesByOwner(actorUserId, { includeDeleted: true }),
         activeRepo.listRecentFiles(actorUserId),
         activeRepo.listRecentFolders(actorUserId),
         getFavoriteState(actorUserId),
@@ -535,87 +542,47 @@ export const createRetrievalService = ({
       const folderMap = buildFolderMap(folders);
       const folderById = new Map(folders.map((folder) => [folder.id, folder]));
       const fileById = new Map(files.map((file) => [file.id, file]));
-      const items = [
-        ...recentFolders.map((recent) => ({
-          kind: "folder" as const,
-          lastInteractedAt: recent.lastInteractedAt,
-          item: recent.folderId ? folderById.get(recent.folderId) : null,
-        })),
-        ...recentFiles.map((recent) => ({
-          kind: "file" as const,
-          lastInteractedAt: recent.lastInteractedAt,
-          item: recent.fileId ? fileById.get(recent.fileId) : null,
-        })),
-      ]
-        .filter(
-          (
-            entry,
-          ): entry is
-            | {
-                kind: "folder";
-                lastInteractedAt: Date;
-                item: FolderSummary;
-              }
-            | {
-                kind: "file";
-                lastInteractedAt: Date;
-                item: FileSummary;
-              } =>
-            entry.item != null &&
-            !(
-              entry.kind === "folder" &&
-              (entry.item as FolderSummary).isFilesRoot
-            ),
-        )
-        .sort(
-          (left, right) =>
-            right.lastInteractedAt.getTime() -
-              left.lastInteractedAt.getTime() ||
-            compareRetrievalItems(
-              left.kind === "folder"
-                ? toFolderItem({
-                    folder: left.item as FolderSummary,
-                    folderMap,
-                    filesRoot,
-                    favoriteFolderIds: favoriteState.favoriteFolderIds,
-                  })
-                : toFileItem({
-                    file: left.item as FileSummary,
-                    folderMap,
-                    filesRoot,
-                    favoriteFileIds: favoriteState.favoriteFileIds,
-                  }),
-              right.kind === "folder"
-                ? toFolderItem({
-                    folder: right.item as FolderSummary,
-                    folderMap,
-                    filesRoot,
-                    favoriteFolderIds: favoriteState.favoriteFolderIds,
-                  })
-                : toFileItem({
-                    file: right.item as FileSummary,
-                    folderMap,
-                    filesRoot,
-                    favoriteFileIds: favoriteState.favoriteFileIds,
-                  }),
-            ),
-        );
-
-      return decorateRetrievalStorageState(
-        items.map((entry) =>
-          entry.kind === "folder"
-            ? toFolderItem({
-                folder: entry.item as FolderSummary,
+      const items: RecentRetrievalItem[] = [
+        ...recentFolders.flatMap((recent) => {
+          const folder = folderById.get(recent.folderId);
+          if (!folder || folder.isFilesRoot) return [];
+          return [
+            {
+              ...toFolderItem({
+                folder,
                 folderMap,
                 filesRoot,
                 favoriteFolderIds: favoriteState.favoriteFolderIds,
-              })
-            : toFileItem({
-                file: entry.item as FileSummary,
+              }),
+              lastInteractedAt: recent.lastInteractedAt,
+              lastAction: recent.lastAction,
+            },
+          ];
+        }),
+        ...recentFiles.flatMap((recent) => {
+          const file = fileById.get(recent.fileId);
+          if (!file) return [];
+          return [
+            {
+              ...toFileItem({
+                file,
                 folderMap,
                 filesRoot,
                 favoriteFileIds: favoriteState.favoriteFileIds,
               }),
+              lastInteractedAt: recent.lastInteractedAt,
+              lastAction: recent.lastAction,
+            },
+          ];
+        }),
+      ];
+
+      return decorateRetrievalStorageState(
+        items.sort(
+          (left, right) =>
+            right.lastInteractedAt.getTime() -
+              left.lastInteractedAt.getTime() ||
+            compareRetrievalItems(left, right),
         ),
       );
     },
@@ -782,6 +749,7 @@ export const createRetrievalService = ({
       actorUserId,
       actorRole,
       fileId,
+      action,
     }: FileAccessInput): Promise<void> {
       const activeRepo = await resolveRepo();
       const file = assertFileAccess(
@@ -796,6 +764,7 @@ export const createRetrievalService = ({
         userId: actorUserId,
         fileId: file.id,
         lastInteractedAt: now(),
+        lastAction: action,
       });
     },
 
@@ -803,6 +772,7 @@ export const createRetrievalService = ({
       actorUserId,
       actorRole,
       folderId,
+      action,
     }: FolderAccessInput): Promise<void> {
       const activeRepo = await resolveRepo();
       const folder = assertFolderAccess(
@@ -821,6 +791,7 @@ export const createRetrievalService = ({
         userId: actorUserId,
         folderId: folder.id,
         lastInteractedAt: now(),
+        lastAction: action,
       });
     },
   };

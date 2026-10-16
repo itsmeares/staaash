@@ -3,7 +3,8 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   toRecentClientItem,
   filterRecentItems,
-  groupRecentItems,
+  batchActivity,
+  batchLabel,
   sortRecentItems,
   type RecentClientItem,
 } from "@/app/(workspace)/recent/recent-helpers";
@@ -52,7 +53,7 @@ const clientItem = (
   mimeType: "image/png",
   name: "hero.png",
   sizeBytes: 2400000,
-  uploadedAt: "2026-05-19T10:00:00.000Z",
+  at: "2026-05-19T10:00:00.000Z",
   deletedAt: null,
   ...overrides,
 });
@@ -76,7 +77,7 @@ describe("recent page helpers", () => {
       deletedAt: "2026-05-20T08:00:00.000Z",
       locationLabel: "Client / Reports",
       mimeType: "application/pdf",
-      uploadedAt: "2026-05-19T10:00:00.000Z",
+      at: "2026-05-19T10:00:00.000Z",
     });
   });
 
@@ -115,29 +116,48 @@ describe("recent page helpers", () => {
     ).toEqual(["b", "a", "c"]);
   });
 
-  it("groups recent items into date buckets", () => {
-    const now = new Date("2026-05-21T12:00:00.000Z");
-    const grouped = groupRecentItems(
-      [
-        clientItem({ id: "today", uploadedAt: "2026-05-21T11:00:00.000Z" }),
-        clientItem({
-          id: "yesterday",
-          uploadedAt: "2026-05-20T11:00:00.000Z",
-        }),
-        clientItem({ id: "week", uploadedAt: "2026-05-19T11:00:00.000Z" }),
-        clientItem({ id: "month", uploadedAt: "2026-05-01T11:00:00.000Z" }),
-        clientItem({ id: "older", uploadedAt: "2026-03-01T11:00:00.000Z" }),
-      ],
-      now,
-      "UTC",
-    );
-
-    expect(grouped.map((group) => group.label)).toEqual([
-      "Today",
-      "Yesterday",
-      "This week",
-      "This month",
-      "Older",
+  it("folds bursts of uploads into one folder into one row", () => {
+    const upload = (id: string, at: string, folderId = "photos") =>
+      clientItem({
+        id,
+        at,
+        folderId,
+        lastAction: "uploaded",
+        locationLabel: "Photos / Lisbon",
+        mimeType: "image/jpeg",
+      });
+    const rows = batchActivity([
+      clientItem({
+        id: "opened",
+        at: "2026-05-21T11:30:00.000Z",
+        lastAction: "opened",
+      }),
+      upload("p1", "2026-05-21T11:00:00.000Z"),
+      upload("p2", "2026-05-21T10:58:00.000Z"),
+      upload("p3", "2026-05-21T10:55:00.000Z"),
+      upload("p4", "2026-05-21T10:50:00.000Z"),
+      // An hour later than the burst: its own row.
+      upload("late", "2026-05-21T09:00:00.000Z"),
+      // Three into another folder are not enough for a batch.
+      upload("o1", "2026-05-21T08:00:00.000Z", "other"),
+      upload("o2", "2026-05-21T07:59:00.000Z", "other"),
+      upload("o3", "2026-05-21T07:58:00.000Z", "other"),
     ]);
+
+    expect(rows.map((row) => row.id)).toEqual([
+      "opened",
+      "batch:p1",
+      "late",
+      "o1",
+      "o2",
+      "o3",
+    ]);
+    expect(rows[1]?.batch?.map((item) => item.id)).toEqual([
+      "p1",
+      "p2",
+      "p3",
+      "p4",
+    ]);
+    expect(batchLabel(rows[1]!)).toBe("Uploaded 4 photos to Lisbon");
   });
 });

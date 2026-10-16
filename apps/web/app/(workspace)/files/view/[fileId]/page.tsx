@@ -35,7 +35,7 @@ export default async function FilesFileViewerPage({
     await recordFileAccessBestEffort({
       ...actor,
       fileId: file.id,
-      source: "files-file-viewer-page",
+      action: "opened",
     });
 
     // Arrows move through the other viewable files in the same folder.

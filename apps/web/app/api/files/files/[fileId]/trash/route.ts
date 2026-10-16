@@ -64,7 +64,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       actorUserId: session.user.id,
       actorRole: session.user.role,
       fileId,
-      source: "trash-file-route",
+      action: "trashed",
     });
 
     return attachStorageMutationHeader(

@@ -20,7 +20,7 @@ import { buildItemActions } from "@/components/file-list/item-actions";
 import { TypeFilter } from "@/components/file-list/type-filter";
 import { useItemSelection } from "@/components/file-list/use-list-selection";
 import { useListSort } from "@/components/file-list/use-list-sort";
-import { formatRelativeTime } from "@/lib/time";
+import { formatRelativeTime, groupByDate } from "@/lib/time";
 
 import { SelectionBar } from "../selection-bar";
 import { useCoarsePointer } from "../use-coarse-pointer";
@@ -34,7 +34,6 @@ import {
 import { moveTrash, showUndo } from "../undo";
 import { EmptyTrashAction } from "./trash-file-actions";
 import {
-  groupTrashItems,
   sortTrashItems,
   type TrashClientItem,
   type TrashSortKey,
@@ -121,11 +120,12 @@ export function TrashView({ items, retentionDays }: TrashViewProps) {
     sub: `From ${item.locationLabel} · ${formatRelativeTime(item.deletedAt, now, timeZone)}`,
     data: item,
   });
-  const groups = groupTrashItems(
+  const groups = groupByDate(
     visibleItems,
-    sort.key === "deletedAt" && sort.direction === "asc",
+    (item) => item.deletedAt,
     now,
     timeZone,
+    sort.key === "deletedAt" && sort.direction === "asc",
   ).map((group) => ({
     label: group.label,
     items: group.items.map(toListItem),

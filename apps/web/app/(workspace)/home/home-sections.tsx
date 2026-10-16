@@ -95,7 +95,7 @@ export function HomeSections({
     kind: item.kind,
     name: item.name,
     mimeType: item.mimeType,
-    sub: `${item.locationLabel} · ${formatRelativeTime(item.uploadedAt, now, timeZone)}`,
+    sub: `${item.locationLabel} · ${formatRelativeTime(item.at, now, timeZone)}`,
     data: item,
   }));
 
@@ -136,12 +136,7 @@ export function HomeSections({
                         name={item.name}
                       />
                       <span className="truncate text-label text-muted-foreground">
-                        {formatRelativeTime(
-                          item.uploadedAt,
-                          now,
-                          timeZone,
-                          "long",
-                        )}
+                        {formatRelativeTime(item.at, now, timeZone, "long")}
                       </span>
                     </span>
                   </span>

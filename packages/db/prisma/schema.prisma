@@ -129,6 +129,8 @@ model UserPreference {
   defaultView             String    @default("list")
   /// "12h" or "24h".
   clockFormat             String    @default("24h")
+  /// Pinned favorites also listed in the sidebar and the phone's More sheet.
+  showPinsInSidebar       Boolean   @default(false)
   onboardingCompletedAt   DateTime?
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
@@ -241,25 +243,41 @@ model FavoriteFolder {
   @@index([userId, quickAccessPinnedAt])
 }
 
+/// What someone last did with an item, shown in Recent.
+enum RecentAction {
+  opened
+  uploaded
+  created
+  renamed
+  moved
+  downloaded
+  trashed
+  restored
+}
+
 model RecentFile {
-  id               String   @id @default(cuid())
+  id               String        @id @default(cuid())
   userId           String
   fileId           String
   lastInteractedAt DateTime
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  file             File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  /// Empty for rows recorded before actions were kept.
+  lastAction       RecentAction?
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  file             File          @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
   @@unique([userId, fileId])
   @@index([userId, lastInteractedAt])
 }
 
 model RecentFolder {
-  id               String   @id @default(cuid())
+  id               String        @id @default(cuid())
   userId           String
   folderId         String
   lastInteractedAt DateTime
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  folder           Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  /// Empty for rows recorded before actions were kept.
+  lastAction       RecentAction?
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder           Folder        @relation(fields: [folderId], references: [id], onDelete: Cascade)
 
   @@unique([userId, folderId])
   @@index([userId, lastInteractedAt])

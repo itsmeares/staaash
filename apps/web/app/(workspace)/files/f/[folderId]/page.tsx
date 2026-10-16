@@ -65,7 +65,7 @@ export default async function FilesFolderPage({
     actorUserId: session.user.id,
     actorRole: session.user.role,
     folderId: listing.currentFolder.id,
-    source: "files-folder-page",
+    action: "opened",
   });
   const props = await loadFilesViewProps({
     actorUserId: session.user.id,

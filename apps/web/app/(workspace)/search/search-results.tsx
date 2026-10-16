@@ -76,7 +76,7 @@ export function SearchResults({
       width: "7rem",
       align: "end",
       priority: "wide",
-      render: (item) => formatRelativeTime(item.data.uploadedAt, now, timeZone),
+      render: (item) => formatRelativeTime(item.data.at, now, timeZone),
     },
   ];
 

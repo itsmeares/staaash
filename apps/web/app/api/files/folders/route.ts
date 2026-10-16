@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       actorUserId: session.user.id,
       actorRole: session.user.role,
       folderId: result.folder.id,
-      source: "create-folder-route",
+      action: "created",
     });
 
     return attachStorageMutationHeader(

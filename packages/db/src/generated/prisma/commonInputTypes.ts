@@ -297,6 +297,23 @@ export type EnumFileStorageStatusWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedEnumFileStorageStatusFilter<$PrismaModel>
 }
 
+export type EnumRecentActionNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.RecentAction | Prisma.EnumRecentActionFieldRefInput<$PrismaModel> | null
+  in?: $Enums.RecentAction[] | Prisma.ListEnumRecentActionFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.RecentAction[] | Prisma.ListEnumRecentActionFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumRecentActionNullableFilter<$PrismaModel> | $Enums.RecentAction | null
+}
+
+export type EnumRecentActionNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.RecentAction | Prisma.EnumRecentActionFieldRefInput<$PrismaModel> | null
+  in?: $Enums.RecentAction[] | Prisma.ListEnumRecentActionFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.RecentAction[] | Prisma.ListEnumRecentActionFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumRecentActionNullableWithAggregatesFilter<$PrismaModel> | $Enums.RecentAction | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumRecentActionNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumRecentActionNullableFilter<$PrismaModel>
+}
+
 export type EnumShareTargetTypeFilter<$PrismaModel = never> = {
   equals?: $Enums.ShareTargetType | Prisma.EnumShareTargetTypeFieldRefInput<$PrismaModel>
   in?: $Enums.ShareTargetType[] | Prisma.ListEnumShareTargetTypeFieldRefInput<$PrismaModel>
@@ -731,6 +748,23 @@ export type NestedEnumFileStorageStatusWithAggregatesFilter<$PrismaModel = never
   _count?: Prisma.NestedIntFilter<$PrismaModel>
   _min?: Prisma.NestedEnumFileStorageStatusFilter<$PrismaModel>
   _max?: Prisma.NestedEnumFileStorageStatusFilter<$PrismaModel>
+}
+
+export type NestedEnumRecentActionNullableFilter<$PrismaModel = never> = {
+  equals?: $Enums.RecentAction | Prisma.EnumRecentActionFieldRefInput<$PrismaModel> | null
+  in?: $Enums.RecentAction[] | Prisma.ListEnumRecentActionFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.RecentAction[] | Prisma.ListEnumRecentActionFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumRecentActionNullableFilter<$PrismaModel> | $Enums.RecentAction | null
+}
+
+export type NestedEnumRecentActionNullableWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.RecentAction | Prisma.EnumRecentActionFieldRefInput<$PrismaModel> | null
+  in?: $Enums.RecentAction[] | Prisma.ListEnumRecentActionFieldRefInput<$PrismaModel> | null
+  notIn?: $Enums.RecentAction[] | Prisma.ListEnumRecentActionFieldRefInput<$PrismaModel> | null
+  not?: Prisma.NestedEnumRecentActionNullableWithAggregatesFilter<$PrismaModel> | $Enums.RecentAction | null
+  _count?: Prisma.NestedIntNullableFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumRecentActionNullableFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumRecentActionNullableFilter<$PrismaModel>
 }
 
 export type NestedEnumShareTargetTypeFilter<$PrismaModel = never> = {

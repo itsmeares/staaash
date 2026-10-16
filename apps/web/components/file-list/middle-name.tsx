@@ -15,7 +15,8 @@ export function MiddleName({
     <span className={cn("flex min-w-0", className)} title={name}>
       {/* Screen readers get the whole name once, not two halves. */}
       <span className="sr-only">{name}</span>
-      <span aria-hidden className="truncate">
+      {/* Pre keeps a space at the cut, which nowrap would drop. */}
+      <span aria-hidden className="truncate whitespace-pre">
         {head}
       </span>
       {tail ? (

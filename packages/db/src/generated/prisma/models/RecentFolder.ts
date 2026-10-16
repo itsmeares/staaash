@@ -29,6 +29,7 @@ export type RecentFolderMinAggregateOutputType = {
   userId: string | null
   folderId: string | null
   lastInteractedAt: Date | null
+  lastAction: $Enums.RecentAction | null
 }
 
 export type RecentFolderMaxAggregateOutputType = {
@@ -36,6 +37,7 @@ export type RecentFolderMaxAggregateOutputType = {
   userId: string | null
   folderId: string | null
   lastInteractedAt: Date | null
+  lastAction: $Enums.RecentAction | null
 }
 
 export type RecentFolderCountAggregateOutputType = {
@@ -43,6 +45,7 @@ export type RecentFolderCountAggregateOutputType = {
   userId: number
   folderId: number
   lastInteractedAt: number
+  lastAction: number
   _all: number
 }
 
@@ -52,6 +55,7 @@ export type RecentFolderMinAggregateInputType = {
   userId?: true
   folderId?: true
   lastInteractedAt?: true
+  lastAction?: true
 }
 
 export type RecentFolderMaxAggregateInputType = {
@@ -59,6 +63,7 @@ export type RecentFolderMaxAggregateInputType = {
   userId?: true
   folderId?: true
   lastInteractedAt?: true
+  lastAction?: true
 }
 
 export type RecentFolderCountAggregateInputType = {
@@ -66,6 +71,7 @@ export type RecentFolderCountAggregateInputType = {
   userId?: true
   folderId?: true
   lastInteractedAt?: true
+  lastAction?: true
   _all?: true
 }
 
@@ -146,6 +152,7 @@ export type RecentFolderGroupByOutputType = {
   userId: string
   folderId: string
   lastInteractedAt: Date
+  lastAction: $Enums.RecentAction | null
   _count: RecentFolderCountAggregateOutputType | null
   _min: RecentFolderMinAggregateOutputType | null
   _max: RecentFolderMaxAggregateOutputType | null
@@ -174,6 +181,7 @@ export type RecentFolderWhereInput = {
   userId?: Prisma.StringFilter<"RecentFolder"> | string
   folderId?: Prisma.StringFilter<"RecentFolder"> | string
   lastInteractedAt?: Prisma.DateTimeFilter<"RecentFolder"> | Date | string
+  lastAction?: Prisma.EnumRecentActionNullableFilter<"RecentFolder"> | $Enums.RecentAction | null
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   folder?: Prisma.XOR<Prisma.FolderScalarRelationFilter, Prisma.FolderWhereInput>
 }
@@ -183,6 +191,7 @@ export type RecentFolderOrderByWithRelationInput = {
   userId?: Prisma.SortOrder
   folderId?: Prisma.SortOrder
   lastInteractedAt?: Prisma.SortOrder
+  lastAction?: Prisma.SortOrderInput | Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
   folder?: Prisma.FolderOrderByWithRelationInput
 }
@@ -196,6 +205,7 @@ export type RecentFolderWhereUniqueInput = Prisma.AtLeast<{
   userId?: Prisma.StringFilter<"RecentFolder"> | string
   folderId?: Prisma.StringFilter<"RecentFolder"> | string
   lastInteractedAt?: Prisma.DateTimeFilter<"RecentFolder"> | Date | string
+  lastAction?: Prisma.EnumRecentActionNullableFilter<"RecentFolder"> | $Enums.RecentAction | null
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   folder?: Prisma.XOR<Prisma.FolderScalarRelationFilter, Prisma.FolderWhereInput>
 }, "id" | "userId_folderId">
@@ -205,6 +215,7 @@ export type RecentFolderOrderByWithAggregationInput = {
   userId?: Prisma.SortOrder
   folderId?: Prisma.SortOrder
   lastInteractedAt?: Prisma.SortOrder
+  lastAction?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.RecentFolderCountOrderByAggregateInput
   _max?: Prisma.RecentFolderMaxOrderByAggregateInput
   _min?: Prisma.RecentFolderMinOrderByAggregateInput
@@ -218,11 +229,13 @@ export type RecentFolderScalarWhereWithAggregatesInput = {
   userId?: Prisma.StringWithAggregatesFilter<"RecentFolder"> | string
   folderId?: Prisma.StringWithAggregatesFilter<"RecentFolder"> | string
   lastInteractedAt?: Prisma.DateTimeWithAggregatesFilter<"RecentFolder"> | Date | string
+  lastAction?: Prisma.EnumRecentActionNullableWithAggregatesFilter<"RecentFolder"> | $Enums.RecentAction | null
 }
 
 export type RecentFolderCreateInput = {
   id?: string
   lastInteractedAt: Date | string
+  lastAction?: $Enums.RecentAction | null
   user: Prisma.UserCreateNestedOneWithoutRecentFoldersInput
   folder: Prisma.FolderCreateNestedOneWithoutRecentsInput
 }
@@ -232,11 +245,13 @@ export type RecentFolderUncheckedCreateInput = {
   userId: string
   folderId: string
   lastInteractedAt: Date | string
+  lastAction?: $Enums.RecentAction | null
 }
 
 export type RecentFolderUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   lastInteractedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastAction?: Prisma.NullableEnumRecentActionFieldUpdateOperationsInput | $Enums.RecentAction | null
   user?: Prisma.UserUpdateOneRequiredWithoutRecentFoldersNestedInput
   folder?: Prisma.FolderUpdateOneRequiredWithoutRecentsNestedInput
 }
@@ -246,6 +261,7 @@ export type RecentFolderUncheckedUpdateInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   folderId?: Prisma.StringFieldUpdateOperationsInput | string
   lastInteractedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastAction?: Prisma.NullableEnumRecentActionFieldUpdateOperationsInput | $Enums.RecentAction | null
 }
 
 export type RecentFolderCreateManyInput = {
@@ -253,11 +269,13 @@ export type RecentFolderCreateManyInput = {
   userId: string
   folderId: string
   lastInteractedAt: Date | string
+  lastAction?: $Enums.RecentAction | null
 }
 
 export type RecentFolderUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   lastInteractedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastAction?: Prisma.NullableEnumRecentActionFieldUpdateOperationsInput | $Enums.RecentAction | null
 }
 
 export type RecentFolderUncheckedUpdateManyInput = {
@@ -265,6 +283,7 @@ export type RecentFolderUncheckedUpdateManyInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   folderId?: Prisma.StringFieldUpdateOperationsInput | string
   lastInteractedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastAction?: Prisma.NullableEnumRecentActionFieldUpdateOperationsInput | $Enums.RecentAction | null
 }
 
 export type RecentFolderListRelationFilter = {
@@ -287,6 +306,7 @@ export type RecentFolderCountOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   folderId?: Prisma.SortOrder
   lastInteractedAt?: Prisma.SortOrder
+  lastAction?: Prisma.SortOrder
 }
 
 export type RecentFolderMaxOrderByAggregateInput = {
@@ -294,6 +314,7 @@ export type RecentFolderMaxOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   folderId?: Prisma.SortOrder
   lastInteractedAt?: Prisma.SortOrder
+  lastAction?: Prisma.SortOrder
 }
 
 export type RecentFolderMinOrderByAggregateInput = {
@@ -301,6 +322,7 @@ export type RecentFolderMinOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   folderId?: Prisma.SortOrder
   lastInteractedAt?: Prisma.SortOrder
+  lastAction?: Prisma.SortOrder
 }
 
 export type RecentFolderCreateNestedManyWithoutUserInput = {
@@ -390,6 +412,7 @@ export type RecentFolderUncheckedUpdateManyWithoutFolderNestedInput = {
 export type RecentFolderCreateWithoutUserInput = {
   id?: string
   lastInteractedAt: Date | string
+  lastAction?: $Enums.RecentAction | null
   folder: Prisma.FolderCreateNestedOneWithoutRecentsInput
 }
 
@@ -397,6 +420,7 @@ export type RecentFolderUncheckedCreateWithoutUserInput = {
   id?: string
   folderId: string
   lastInteractedAt: Date | string
+  lastAction?: $Enums.RecentAction | null
 }
 
 export type RecentFolderCreateOrConnectWithoutUserInput = {
@@ -433,11 +457,13 @@ export type RecentFolderScalarWhereInput = {
   userId?: Prisma.StringFilter<"RecentFolder"> | string
   folderId?: Prisma.StringFilter<"RecentFolder"> | string
   lastInteractedAt?: Prisma.DateTimeFilter<"RecentFolder"> | Date | string
+  lastAction?: Prisma.EnumRecentActionNullableFilter<"RecentFolder"> | $Enums.RecentAction | null
 }
 
 export type RecentFolderCreateWithoutFolderInput = {
   id?: string
   lastInteractedAt: Date | string
+  lastAction?: $Enums.RecentAction | null
   user: Prisma.UserCreateNestedOneWithoutRecentFoldersInput
 }
 
@@ -445,6 +471,7 @@ export type RecentFolderUncheckedCreateWithoutFolderInput = {
   id?: string
   userId: string
   lastInteractedAt: Date | string
+  lastAction?: $Enums.RecentAction | null
 }
 
 export type RecentFolderCreateOrConnectWithoutFolderInput = {
@@ -477,11 +504,13 @@ export type RecentFolderCreateManyUserInput = {
   id?: string
   folderId: string
   lastInteractedAt: Date | string
+  lastAction?: $Enums.RecentAction | null
 }
 
 export type RecentFolderUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   lastInteractedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastAction?: Prisma.NullableEnumRecentActionFieldUpdateOperationsInput | $Enums.RecentAction | null
   folder?: Prisma.FolderUpdateOneRequiredWithoutRecentsNestedInput
 }
 
@@ -489,23 +518,27 @@ export type RecentFolderUncheckedUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   folderId?: Prisma.StringFieldUpdateOperationsInput | string
   lastInteractedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastAction?: Prisma.NullableEnumRecentActionFieldUpdateOperationsInput | $Enums.RecentAction | null
 }
 
 export type RecentFolderUncheckedUpdateManyWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   folderId?: Prisma.StringFieldUpdateOperationsInput | string
   lastInteractedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastAction?: Prisma.NullableEnumRecentActionFieldUpdateOperationsInput | $Enums.RecentAction | null
 }
 
 export type RecentFolderCreateManyFolderInput = {
   id?: string
   userId: string
   lastInteractedAt: Date | string
+  lastAction?: $Enums.RecentAction | null
 }
 
 export type RecentFolderUpdateWithoutFolderInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   lastInteractedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastAction?: Prisma.NullableEnumRecentActionFieldUpdateOperationsInput | $Enums.RecentAction | null
   user?: Prisma.UserUpdateOneRequiredWithoutRecentFoldersNestedInput
 }
 
@@ -513,12 +546,14 @@ export type RecentFolderUncheckedUpdateWithoutFolderInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   lastInteractedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastAction?: Prisma.NullableEnumRecentActionFieldUpdateOperationsInput | $Enums.RecentAction | null
 }
 
 export type RecentFolderUncheckedUpdateManyWithoutFolderInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   lastInteractedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastAction?: Prisma.NullableEnumRecentActionFieldUpdateOperationsInput | $Enums.RecentAction | null
 }
 
 
@@ -528,6 +563,7 @@ export type RecentFolderSelect<ExtArgs extends runtime.Types.Extensions.Internal
   userId?: boolean
   folderId?: boolean
   lastInteractedAt?: boolean
+  lastAction?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   folder?: boolean | Prisma.FolderDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["recentFolder"]>
@@ -537,6 +573,7 @@ export type RecentFolderSelectCreateManyAndReturn<ExtArgs extends runtime.Types.
   userId?: boolean
   folderId?: boolean
   lastInteractedAt?: boolean
+  lastAction?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   folder?: boolean | Prisma.FolderDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["recentFolder"]>
@@ -546,6 +583,7 @@ export type RecentFolderSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.
   userId?: boolean
   folderId?: boolean
   lastInteractedAt?: boolean
+  lastAction?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   folder?: boolean | Prisma.FolderDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["recentFolder"]>
@@ -555,9 +593,10 @@ export type RecentFolderSelectScalar = {
   userId?: boolean
   folderId?: boolean
   lastInteractedAt?: boolean
+  lastAction?: boolean
 }
 
-export type RecentFolderOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "folderId" | "lastInteractedAt", ExtArgs["result"]["recentFolder"]>
+export type RecentFolderOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "folderId" | "lastInteractedAt" | "lastAction", ExtArgs["result"]["recentFolder"]>
 export type RecentFolderInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   folder?: boolean | Prisma.FolderDefaultArgs<ExtArgs>
@@ -582,6 +621,10 @@ export type $RecentFolderPayload<ExtArgs extends runtime.Types.Extensions.Intern
     userId: string
     folderId: string
     lastInteractedAt: Date
+    /**
+     * Empty for rows recorded before actions were kept.
+     */
+    lastAction: $Enums.RecentAction | null
   }, ExtArgs["result"]["recentFolder"]>
   composites: {}
 }
@@ -1011,6 +1054,7 @@ export interface RecentFolderFieldRefs {
   readonly userId: Prisma.FieldRef<"RecentFolder", 'String'>
   readonly folderId: Prisma.FieldRef<"RecentFolder", 'String'>
   readonly lastInteractedAt: Prisma.FieldRef<"RecentFolder", 'DateTime'>
+  readonly lastAction: Prisma.FieldRef<"RecentFolder", 'RecentAction'>
 }
     
 

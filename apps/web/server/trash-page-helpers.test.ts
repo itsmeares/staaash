@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
-  groupTrashItems,
   sortTrashItems,
   toTrashClientItem,
   toTrashClientItems,
@@ -147,26 +146,5 @@ describe("trash page helpers", () => {
     expect(ids("deletedAt", "asc")).toEqual(["old", "folder", "new"]);
     expect(ids("name", "asc")).toEqual(["old", "folder", "new"]);
     expect(ids("size", "desc")).toEqual(["new", "old", "folder"]);
-  });
-
-  it("groups deleted items by deleted date and reverses for oldest first", () => {
-    const now = new Date("2026-05-21T12:00:00.000Z");
-    const items = [
-      clientItem({ id: "today", deletedAt: "2026-05-21T11:00:00.000Z" }),
-      clientItem({
-        id: "yesterday",
-        deletedAt: "2026-05-20T11:00:00.000Z",
-      }),
-      clientItem({ id: "week", deletedAt: "2026-05-19T11:00:00.000Z" }),
-      clientItem({ id: "month", deletedAt: "2026-05-01T11:00:00.000Z" }),
-      clientItem({ id: "older", deletedAt: "2026-03-01T11:00:00.000Z" }),
-    ];
-
-    expect(
-      groupTrashItems(items, false, now, "UTC").map((group) => group.label),
-    ).toEqual(["Today", "Yesterday", "This week", "This month", "Older"]);
-    expect(
-      groupTrashItems(items, true, now, "UTC").map((group) => group.label),
-    ).toEqual(["Older", "This month", "This week", "Yesterday", "Today"]);
   });
 });

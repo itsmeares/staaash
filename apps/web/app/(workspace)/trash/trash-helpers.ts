@@ -1,8 +1,3 @@
-import {
-  DATE_GROUP_ORDER,
-  getDateGroup,
-  type DateGroupLabel,
-} from "@/lib/time";
 import type {
   TrashFileSummary,
   TrashFolderSummary,
@@ -29,13 +24,6 @@ export type TrashClientItem = {
 };
 
 export type TrashSortKey = "name" | "path" | "size" | "deletedAt";
-
-export type TrashGroupLabel = DateGroupLabel;
-
-export type TrashGroup<T> = {
-  items: T[];
-  label: TrashGroupLabel;
-};
 
 function getDeletedAt(value: Date | null, fallback: Date): string {
   return (value ?? fallback).toISOString();
@@ -86,27 +74,4 @@ export function sortTrashItems(
     compareListItems(sortKey, (item: TrashClientItem) => item.deletedAt),
     { includeKindTieBreak: true },
   );
-}
-
-export function groupTrashItems<T extends { deletedAt: string }>(
-  items: T[],
-  oldestFirst: boolean,
-  now: Date,
-  timeZone: string,
-): TrashGroup<T>[] {
-  const map = new Map<TrashGroupLabel, T[]>();
-
-  for (const item of items) {
-    const label = getDateGroup(item.deletedAt, now, timeZone);
-    map.set(label, [...(map.get(label) ?? []), item]);
-  }
-
-  const order = oldestFirst
-    ? [...DATE_GROUP_ORDER].reverse()
-    : DATE_GROUP_ORDER;
-
-  return order.flatMap((label) => {
-    const group = map.get(label);
-    return group ? [{ label, items: group }] : [];
-  });
 }

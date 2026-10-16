@@ -13,7 +13,10 @@ import { getShareBaseUrl } from "@/server/request";
 import { retrievalService } from "@/server/retrieval/service";
 import { sharingService } from "@/server/sharing/service";
 
-import { toRecentClientItem } from "../recent/recent-helpers";
+import {
+  toActivityClientItem,
+  toRecentClientItem,
+} from "../recent/recent-helpers";
 import { HomePrimaryActions } from "./home-actions";
 import { HomeSections } from "./home-sections";
 
@@ -31,7 +34,9 @@ export default async function HomePage() {
     sharingService.listOwnedShares({ ...actor, baseUrl: getShareBaseUrl(h) }),
   ]);
 
-  const recentItems = recent.map(toRecentClientItem);
+  const recentItems = recent
+    .filter((item) => !item.deletedAt)
+    .map(toActivityClientItem);
   // Pinned first, then the newest favorites.
   const pinned = [...favorites]
     .sort(
@@ -43,7 +48,9 @@ export default async function HomePage() {
     .slice(0, 8)
     .map(toRecentClientItem);
   const isEmpty =
-    favorites.length === 0 && recent.length === 0 && shares.active.length === 0;
+    favorites.length === 0 &&
+    recentItems.length === 0 &&
+    shares.active.length === 0;
 
   return (
     <WorkspacePresetPageContextMenu

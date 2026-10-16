@@ -30,7 +30,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     actorUserId: session.user.id,
     actorRole: session.user.role,
     fileId,
-    source: "files-viewer-overlay",
+    action: "opened",
   });
   return new NextResponse(null, { status: 204 });
 }

@@ -29,6 +29,7 @@ export type RecentFileMinAggregateOutputType = {
   userId: string | null
   fileId: string | null
   lastInteractedAt: Date | null
+  lastAction: $Enums.RecentAction | null
 }
 
 export type RecentFileMaxAggregateOutputType = {
@@ -36,6 +37,7 @@ export type RecentFileMaxAggregateOutputType = {
   userId: string | null
   fileId: string | null
   lastInteractedAt: Date | null
+  lastAction: $Enums.RecentAction | null
 }
 
 export type RecentFileCountAggregateOutputType = {
@@ -43,6 +45,7 @@ export type RecentFileCountAggregateOutputType = {
   userId: number
   fileId: number
   lastInteractedAt: number
+  lastAction: number
   _all: number
 }
 
@@ -52,6 +55,7 @@ export type RecentFileMinAggregateInputType = {
   userId?: true
   fileId?: true
   lastInteractedAt?: true
+  lastAction?: true
 }
 
 export type RecentFileMaxAggregateInputType = {
@@ -59,6 +63,7 @@ export type RecentFileMaxAggregateInputType = {
   userId?: true
   fileId?: true
   lastInteractedAt?: true
+  lastAction?: true
 }
 
 export type RecentFileCountAggregateInputType = {
@@ -66,6 +71,7 @@ export type RecentFileCountAggregateInputType = {
   userId?: true
   fileId?: true
   lastInteractedAt?: true
+  lastAction?: true
   _all?: true
 }
 
@@ -146,6 +152,7 @@ export type RecentFileGroupByOutputType = {
   userId: string
   fileId: string
   lastInteractedAt: Date
+  lastAction: $Enums.RecentAction | null
   _count: RecentFileCountAggregateOutputType | null
   _min: RecentFileMinAggregateOutputType | null
   _max: RecentFileMaxAggregateOutputType | null
@@ -174,6 +181,7 @@ export type RecentFileWhereInput = {
   userId?: Prisma.StringFilter<"RecentFile"> | string
   fileId?: Prisma.StringFilter<"RecentFile"> | string
   lastInteractedAt?: Prisma.DateTimeFilter<"RecentFile"> | Date | string
+  lastAction?: Prisma.EnumRecentActionNullableFilter<"RecentFile"> | $Enums.RecentAction | null
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   file?: Prisma.XOR<Prisma.FileScalarRelationFilter, Prisma.FileWhereInput>
 }
@@ -183,6 +191,7 @@ export type RecentFileOrderByWithRelationInput = {
   userId?: Prisma.SortOrder
   fileId?: Prisma.SortOrder
   lastInteractedAt?: Prisma.SortOrder
+  lastAction?: Prisma.SortOrderInput | Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
   file?: Prisma.FileOrderByWithRelationInput
 }
@@ -196,6 +205,7 @@ export type RecentFileWhereUniqueInput = Prisma.AtLeast<{
   userId?: Prisma.StringFilter<"RecentFile"> | string
   fileId?: Prisma.StringFilter<"RecentFile"> | string
   lastInteractedAt?: Prisma.DateTimeFilter<"RecentFile"> | Date | string
+  lastAction?: Prisma.EnumRecentActionNullableFilter<"RecentFile"> | $Enums.RecentAction | null
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   file?: Prisma.XOR<Prisma.FileScalarRelationFilter, Prisma.FileWhereInput>
 }, "id" | "userId_fileId">
@@ -205,6 +215,7 @@ export type RecentFileOrderByWithAggregationInput = {
   userId?: Prisma.SortOrder
   fileId?: Prisma.SortOrder
   lastInteractedAt?: Prisma.SortOrder
+  lastAction?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.RecentFileCountOrderByAggregateInput
   _max?: Prisma.RecentFileMaxOrderByAggregateInput
   _min?: Prisma.RecentFileMinOrderByAggregateInput
@@ -218,11 +229,13 @@ export type RecentFileScalarWhereWithAggregatesInput = {
   userId?: Prisma.StringWithAggregatesFilter<"RecentFile"> | string
   fileId?: Prisma.StringWithAggregatesFilter<"RecentFile"> | string
   lastInteractedAt?: Prisma.DateTimeWithAggregatesFilter<"RecentFile"> | Date | string
+  lastAction?: Prisma.EnumRecentActionNullableWithAggregatesFilter<"RecentFile"> | $Enums.RecentAction | null
 }
 
 export type RecentFileCreateInput = {
   id?: string
   lastInteractedAt: Date | string
+  lastAction?: $Enums.RecentAction | null
   user: Prisma.UserCreateNestedOneWithoutRecentFilesInput
   file: Prisma.FileCreateNestedOneWithoutRecentsInput
 }
@@ -232,11 +245,13 @@ export type RecentFileUncheckedCreateInput = {
   userId: string
   fileId: string
   lastInteractedAt: Date | string
+  lastAction?: $Enums.RecentAction | null
 }
 
 export type RecentFileUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   lastInteractedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastAction?: Prisma.NullableEnumRecentActionFieldUpdateOperationsInput | $Enums.RecentAction | null
   user?: Prisma.UserUpdateOneRequiredWithoutRecentFilesNestedInput
   file?: Prisma.FileUpdateOneRequiredWithoutRecentsNestedInput
 }
@@ -246,6 +261,7 @@ export type RecentFileUncheckedUpdateInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   fileId?: Prisma.StringFieldUpdateOperationsInput | string
   lastInteractedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastAction?: Prisma.NullableEnumRecentActionFieldUpdateOperationsInput | $Enums.RecentAction | null
 }
 
 export type RecentFileCreateManyInput = {
@@ -253,11 +269,13 @@ export type RecentFileCreateManyInput = {
   userId: string
   fileId: string
   lastInteractedAt: Date | string
+  lastAction?: $Enums.RecentAction | null
 }
 
 export type RecentFileUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   lastInteractedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastAction?: Prisma.NullableEnumRecentActionFieldUpdateOperationsInput | $Enums.RecentAction | null
 }
 
 export type RecentFileUncheckedUpdateManyInput = {
@@ -265,6 +283,7 @@ export type RecentFileUncheckedUpdateManyInput = {
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   fileId?: Prisma.StringFieldUpdateOperationsInput | string
   lastInteractedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastAction?: Prisma.NullableEnumRecentActionFieldUpdateOperationsInput | $Enums.RecentAction | null
 }
 
 export type RecentFileListRelationFilter = {
@@ -287,6 +306,7 @@ export type RecentFileCountOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   fileId?: Prisma.SortOrder
   lastInteractedAt?: Prisma.SortOrder
+  lastAction?: Prisma.SortOrder
 }
 
 export type RecentFileMaxOrderByAggregateInput = {
@@ -294,6 +314,7 @@ export type RecentFileMaxOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   fileId?: Prisma.SortOrder
   lastInteractedAt?: Prisma.SortOrder
+  lastAction?: Prisma.SortOrder
 }
 
 export type RecentFileMinOrderByAggregateInput = {
@@ -301,6 +322,7 @@ export type RecentFileMinOrderByAggregateInput = {
   userId?: Prisma.SortOrder
   fileId?: Prisma.SortOrder
   lastInteractedAt?: Prisma.SortOrder
+  lastAction?: Prisma.SortOrder
 }
 
 export type RecentFileCreateNestedManyWithoutUserInput = {
@@ -387,9 +409,14 @@ export type RecentFileUncheckedUpdateManyWithoutFileNestedInput = {
   deleteMany?: Prisma.RecentFileScalarWhereInput | Prisma.RecentFileScalarWhereInput[]
 }
 
+export type NullableEnumRecentActionFieldUpdateOperationsInput = {
+  set?: $Enums.RecentAction | null
+}
+
 export type RecentFileCreateWithoutUserInput = {
   id?: string
   lastInteractedAt: Date | string
+  lastAction?: $Enums.RecentAction | null
   file: Prisma.FileCreateNestedOneWithoutRecentsInput
 }
 
@@ -397,6 +424,7 @@ export type RecentFileUncheckedCreateWithoutUserInput = {
   id?: string
   fileId: string
   lastInteractedAt: Date | string
+  lastAction?: $Enums.RecentAction | null
 }
 
 export type RecentFileCreateOrConnectWithoutUserInput = {
@@ -433,11 +461,13 @@ export type RecentFileScalarWhereInput = {
   userId?: Prisma.StringFilter<"RecentFile"> | string
   fileId?: Prisma.StringFilter<"RecentFile"> | string
   lastInteractedAt?: Prisma.DateTimeFilter<"RecentFile"> | Date | string
+  lastAction?: Prisma.EnumRecentActionNullableFilter<"RecentFile"> | $Enums.RecentAction | null
 }
 
 export type RecentFileCreateWithoutFileInput = {
   id?: string
   lastInteractedAt: Date | string
+  lastAction?: $Enums.RecentAction | null
   user: Prisma.UserCreateNestedOneWithoutRecentFilesInput
 }
 
@@ -445,6 +475,7 @@ export type RecentFileUncheckedCreateWithoutFileInput = {
   id?: string
   userId: string
   lastInteractedAt: Date | string
+  lastAction?: $Enums.RecentAction | null
 }
 
 export type RecentFileCreateOrConnectWithoutFileInput = {
@@ -477,11 +508,13 @@ export type RecentFileCreateManyUserInput = {
   id?: string
   fileId: string
   lastInteractedAt: Date | string
+  lastAction?: $Enums.RecentAction | null
 }
 
 export type RecentFileUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   lastInteractedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastAction?: Prisma.NullableEnumRecentActionFieldUpdateOperationsInput | $Enums.RecentAction | null
   file?: Prisma.FileUpdateOneRequiredWithoutRecentsNestedInput
 }
 
@@ -489,23 +522,27 @@ export type RecentFileUncheckedUpdateWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   fileId?: Prisma.StringFieldUpdateOperationsInput | string
   lastInteractedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastAction?: Prisma.NullableEnumRecentActionFieldUpdateOperationsInput | $Enums.RecentAction | null
 }
 
 export type RecentFileUncheckedUpdateManyWithoutUserInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   fileId?: Prisma.StringFieldUpdateOperationsInput | string
   lastInteractedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastAction?: Prisma.NullableEnumRecentActionFieldUpdateOperationsInput | $Enums.RecentAction | null
 }
 
 export type RecentFileCreateManyFileInput = {
   id?: string
   userId: string
   lastInteractedAt: Date | string
+  lastAction?: $Enums.RecentAction | null
 }
 
 export type RecentFileUpdateWithoutFileInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   lastInteractedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastAction?: Prisma.NullableEnumRecentActionFieldUpdateOperationsInput | $Enums.RecentAction | null
   user?: Prisma.UserUpdateOneRequiredWithoutRecentFilesNestedInput
 }
 
@@ -513,12 +550,14 @@ export type RecentFileUncheckedUpdateWithoutFileInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   lastInteractedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastAction?: Prisma.NullableEnumRecentActionFieldUpdateOperationsInput | $Enums.RecentAction | null
 }
 
 export type RecentFileUncheckedUpdateManyWithoutFileInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   userId?: Prisma.StringFieldUpdateOperationsInput | string
   lastInteractedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  lastAction?: Prisma.NullableEnumRecentActionFieldUpdateOperationsInput | $Enums.RecentAction | null
 }
 
 
@@ -528,6 +567,7 @@ export type RecentFileSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   userId?: boolean
   fileId?: boolean
   lastInteractedAt?: boolean
+  lastAction?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   file?: boolean | Prisma.FileDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["recentFile"]>
@@ -537,6 +577,7 @@ export type RecentFileSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   userId?: boolean
   fileId?: boolean
   lastInteractedAt?: boolean
+  lastAction?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   file?: boolean | Prisma.FileDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["recentFile"]>
@@ -546,6 +587,7 @@ export type RecentFileSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   userId?: boolean
   fileId?: boolean
   lastInteractedAt?: boolean
+  lastAction?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   file?: boolean | Prisma.FileDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["recentFile"]>
@@ -555,9 +597,10 @@ export type RecentFileSelectScalar = {
   userId?: boolean
   fileId?: boolean
   lastInteractedAt?: boolean
+  lastAction?: boolean
 }
 
-export type RecentFileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "fileId" | "lastInteractedAt", ExtArgs["result"]["recentFile"]>
+export type RecentFileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "fileId" | "lastInteractedAt" | "lastAction", ExtArgs["result"]["recentFile"]>
 export type RecentFileInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   file?: boolean | Prisma.FileDefaultArgs<ExtArgs>
@@ -582,6 +625,10 @@ export type $RecentFilePayload<ExtArgs extends runtime.Types.Extensions.Internal
     userId: string
     fileId: string
     lastInteractedAt: Date
+    /**
+     * Empty for rows recorded before actions were kept.
+     */
+    lastAction: $Enums.RecentAction | null
   }, ExtArgs["result"]["recentFile"]>
   composites: {}
 }
@@ -1011,6 +1058,7 @@ export interface RecentFileFieldRefs {
   readonly userId: Prisma.FieldRef<"RecentFile", 'String'>
   readonly fileId: Prisma.FieldRef<"RecentFile", 'String'>
   readonly lastInteractedAt: Prisma.FieldRef<"RecentFile", 'DateTime'>
+  readonly lastAction: Prisma.FieldRef<"RecentFile", 'RecentAction'>
 }
     
 

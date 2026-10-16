@@ -2412,6 +2412,7 @@ export const UserPreferenceScalarFieldEnum = {
   startPage: 'startPage',
   defaultView: 'defaultView',
   clockFormat: 'clockFormat',
+  showPinsInSidebar: 'showPinsInSidebar',
   onboardingCompletedAt: 'onboardingCompletedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -2502,7 +2503,8 @@ export const RecentFileScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
   fileId: 'fileId',
-  lastInteractedAt: 'lastInteractedAt'
+  lastInteractedAt: 'lastInteractedAt',
+  lastAction: 'lastAction'
 } as const
 
 export type RecentFileScalarFieldEnum = (typeof RecentFileScalarFieldEnum)[keyof typeof RecentFileScalarFieldEnum]
@@ -2512,7 +2514,8 @@ export const RecentFolderScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
   folderId: 'folderId',
-  lastInteractedAt: 'lastInteractedAt'
+  lastInteractedAt: 'lastInteractedAt',
+  lastAction: 'lastAction'
 } as const
 
 export type RecentFolderScalarFieldEnum = (typeof RecentFolderScalarFieldEnum)[keyof typeof RecentFolderScalarFieldEnum]
@@ -2940,6 +2943,20 @@ export type EnumFileStorageStatusFieldRefInput<$PrismaModel> = FieldRefInputType
  * Reference to a field of type 'FileStorageStatus[]'
  */
 export type ListEnumFileStorageStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'FileStorageStatus[]'>
+    
+
+
+/**
+ * Reference to a field of type 'RecentAction'
+ */
+export type EnumRecentActionFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'RecentAction'>
+    
+
+
+/**
+ * Reference to a field of type 'RecentAction[]'
+ */
+export type ListEnumRecentActionFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'RecentAction[]'>
     
 
 
