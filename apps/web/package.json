@@ -3,22 +3,16 @@
   "version": "1.2.0",
   "private": true,
   "scripts": {
-    "build:deps": "pnpm --filter @staaash/config build && pnpm --filter @staaash/db build",
-    "predev": "pnpm run build:deps",
-    "prelint": "node ../../scripts/build-check-deps.mjs && next typegen",
-    "pretest": "node ../../scripts/build-check-deps.mjs",
-    "pretypecheck": "node ../../scripts/build-check-deps.mjs && next typegen",
+    "predev": "vp run -w build:deps",
     "dev": "next dev",
     "e2e:prepare": "node scripts/e2e-bootstrap.mjs && node --env-file-if-exists=.env.local scripts/e2e-install-extensions.mjs",
     "build": "next build",
     "postbuild": "node scripts/check-built-runtime.mjs",
     "start": "next start",
-    "lint": "node scripts/check-styles.mjs && tsc --noEmit --incremental false -p tsconfig.json",
-    "typecheck": "tsc --noEmit --incremental false -p tsconfig.json",
-    "test": "vp test run",
     "test:postgres": "vp test run --config vitest.postgres.config.ts",
     "e2e": "playwright test",
-    "e2e:visual": "playwright test -c playwright.visual.config.ts"
+    "e2e:visual": "playwright test -c playwright.visual.config.ts",
+    "check:styles": "node scripts/check-styles.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

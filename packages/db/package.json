@@ -62,9 +62,6 @@
   },
   "scripts": {
     "build": "vp pack",
-    "lint": "tsc --noEmit -p tsconfig.json",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vp test run --passWithNoTests",
     "db:generate": "prisma generate"
   },
   "dependencies": {
