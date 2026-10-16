@@ -661,168 +661,109 @@ export const markBackgroundJobFailed = async ({
   });
 };
 
-export const cancelBackgroundJob = async ({
-  jobId,
-  actorUserId,
-  now = new Date(),
-  client,
-}: {
+type AdminJobActionInput = {
   jobId: string;
   actorUserId: string;
   now?: Date;
   client?: BackgroundJobClient;
-}) => {
-  const activeClient = getClient(client);
+};
 
-  return activeClient.$transaction(async (tx) => {
+const runAdminJobAction = (
+  { jobId, actorUserId, now = new Date(), client }: AdminJobActionInput,
+  action: {
+    from: BackgroundJobStatus[];
+    refusal: string;
+    data: (now: Date, actorUserId: string) => object;
+    event: { type: string; message: string };
+    after?: (
+      tx: BackgroundJobClient,
+      job: BackgroundJobRecord,
+    ) => Promise<unknown>;
+  },
+) =>
+  getClient(client).$transaction(async (tx) => {
     const job = await tx.backgroundJob.findUnique({ where: { id: jobId } });
     if (!job) throw new Error(`Background job ${jobId} not found.`);
-    if (job.status !== "queued" && job.status !== "running") {
-      throw new Error("Only queued or running jobs can be cancelled.");
-    }
+    if (!action.from.includes(job.status)) throw new Error(action.refusal);
 
     const updated = await tx.backgroundJob.update({
       where: { id: jobId },
-      data: {
-        status: "cancelled",
-        cancelledAt: now,
-        cancelledByUserId: actorUserId,
-        completedAt: now,
-        lockedAt: null,
-        lockedBy: null,
-        leaseExpiresAt: null,
-        lastError: "Cancelled by admin.",
-        errorCode: "cancelled",
-      },
+      data: action.data(now, actorUserId),
     });
+    await action.after?.(tx, job);
+    await tx.backgroundJobEvent.create({
+      data: { jobId, ...action.event, metadataJson: { actorUserId } },
+    });
+    await notifyBackgroundJobStateChanged(tx, jobId);
 
-    if (job.kind === MEDIA_DERIVATIVE_GENERATE_JOB_KIND) {
+    return updated;
+  });
+
+export const cancelBackgroundJob = (input: AdminJobActionInput) =>
+  runAdminJobAction(input, {
+    from: ["queued", "running"],
+    refusal: "Only queued or running jobs can be cancelled.",
+    data: (now, actorUserId) => ({
+      status: "cancelled",
+      cancelledAt: now,
+      cancelledByUserId: actorUserId,
+      completedAt: now,
+      lockedAt: null,
+      lockedBy: null,
+      leaseExpiresAt: null,
+      lastError: "Cancelled by admin.",
+      errorCode: "cancelled",
+    }),
+    event: { type: "cancelled", message: "Cancelled by admin." },
+    after: async (tx, job) => {
+      if (job.kind !== MEDIA_DERIVATIVE_GENERATE_JOB_KIND) return;
       // Same states as DERIVATIVE_STATUS_*; media-derivatives.ts imports this
       // module, so the constants cannot be imported here.
       await tx.mediaDerivative.updateMany({
         where: {
-          generationJobId: jobId,
+          generationJobId: job.id,
           status: { in: ["queued", "processing"] },
         },
         data: { status: "stale", storageKey: null, sizeBytes: null },
       });
-    }
-
-    await tx.backgroundJobEvent.create({
-      data: {
-        jobId,
-        type: "cancelled",
-        message: "Cancelled by admin.",
-        metadataJson: { actorUserId },
-      },
-    });
-    await notifyBackgroundJobStateChanged(tx, jobId);
-
-    return updated;
+    },
   });
-};
 
-export const retryBackgroundJob = async ({
-  jobId,
-  actorUserId,
-  now = new Date(),
-  client,
-}: {
-  jobId: string;
-  actorUserId: string;
-  now?: Date;
-  client?: BackgroundJobClient;
-}) => {
-  const activeClient = getClient(client);
-
-  return activeClient.$transaction(async (tx) => {
-    const job = await tx.backgroundJob.findUnique({ where: { id: jobId } });
-    if (!job) throw new Error(`Background job ${jobId} not found.`);
-    if (
-      job.status !== "failed" &&
-      job.status !== "dead" &&
-      job.status !== "cancelled"
-    ) {
-      throw new Error("Only failed, dead, or cancelled jobs can be retried.");
-    }
-
-    const updated = await tx.backgroundJob.update({
-      where: { id: jobId },
-      data: {
-        status: "queued",
-        runAt: now,
-        lockedAt: null,
-        lockedBy: null,
-        leaseExpiresAt: null,
-        completedAt: null,
-        cancelledAt: null,
-        cancelledByUserId: null,
-        lastError: null,
-        errorCode: null,
-        progressJson: {},
-      },
-    });
-
-    await tx.backgroundJobEvent.create({
-      data: {
-        jobId,
-        type: "retry_requested",
-        message: "Retry requested by admin.",
-        metadataJson: { actorUserId },
-      },
-    });
-    await notifyBackgroundJobStateChanged(tx, jobId);
-
-    return updated;
+export const retryBackgroundJob = (input: AdminJobActionInput) =>
+  runAdminJobAction(input, {
+    from: ["failed", "dead", "cancelled"],
+    refusal: "Only failed, dead, or cancelled jobs can be retried.",
+    data: (now) => ({
+      status: "queued",
+      runAt: now,
+      lockedAt: null,
+      lockedBy: null,
+      leaseExpiresAt: null,
+      completedAt: null,
+      cancelledAt: null,
+      cancelledByUserId: null,
+      lastError: null,
+      errorCode: null,
+      progressJson: {},
+    }),
+    event: { type: "retry_requested", message: "Retry requested by admin." },
   });
-};
 
 /**
  * An owner has seen a failed job and doesn't want it retried. It stays in
  * history as cancelled, so Retry can still bring it back.
  */
-export const dismissBackgroundJob = async ({
-  jobId,
-  actorUserId,
-  now = new Date(),
-  client,
-}: {
-  jobId: string;
-  actorUserId: string;
-  now?: Date;
-  client?: BackgroundJobClient;
-}) => {
-  const activeClient = getClient(client);
-
-  return activeClient.$transaction(async (tx) => {
-    const job = await tx.backgroundJob.findUnique({ where: { id: jobId } });
-    if (!job) throw new Error(`Background job ${jobId} not found.`);
-    if (job.status !== "failed" && job.status !== "dead") {
-      throw new Error("Only failed or dead jobs can be dismissed.");
-    }
-
-    const updated = await tx.backgroundJob.update({
-      where: { id: jobId },
-      data: {
-        status: "cancelled",
-        cancelledAt: now,
-        cancelledByUserId: actorUserId,
-      },
-    });
-
-    await tx.backgroundJobEvent.create({
-      data: {
-        jobId,
-        type: "dismissed",
-        message: "Dismissed by admin.",
-        metadataJson: { actorUserId },
-      },
-    });
-    await notifyBackgroundJobStateChanged(tx, jobId);
-
-    return updated;
+export const dismissBackgroundJob = (input: AdminJobActionInput) =>
+  runAdminJobAction(input, {
+    from: ["failed", "dead"],
+    refusal: "Only failed or dead jobs can be dismissed.",
+    data: (now, actorUserId) => ({
+      status: "cancelled",
+      cancelledAt: now,
+      cancelledByUserId: actorUserId,
+    }),
+    event: { type: "dismissed", message: "Dismissed by admin." },
   });
-};
 
 export const scheduleZipArchiveGenerate = async ({
   archiveId,

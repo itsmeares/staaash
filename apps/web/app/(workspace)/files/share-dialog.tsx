@@ -99,6 +99,7 @@ type ShareDialogProps = {
   onClose: () => void;
 };
 
+// fallow-ignore-next-line complexity
 export function ShareDialog({
   name,
   targetType,

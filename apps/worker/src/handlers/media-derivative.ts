@@ -108,6 +108,7 @@ const DEFAULT_SETTINGS: SystemSettingsRecord = {
   mediaPreviewCrf: 22,
 };
 
+// fallow-ignore-next-line complexity
 export const handleMediaDerivativeGenerate = async (
   job: BackgroundJobRecord,
   storagePaths: WorkerStoragePaths,

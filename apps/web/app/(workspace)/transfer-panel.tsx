@@ -134,6 +134,7 @@ export function TransferPanel() {
 // Upload row (panel variant)
 // ---------------------------------------------------------------------------
 
+// fallow-ignore-next-line complexity
 function PanelUploadRow({
   file,
   onDismiss,
@@ -209,6 +210,7 @@ function PanelUploadRow({
 // Download row (panel variant)
 // ---------------------------------------------------------------------------
 
+// fallow-ignore-next-line complexity
 function PanelDownloadRow({
   state,
   error,

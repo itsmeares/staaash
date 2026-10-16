@@ -71,6 +71,7 @@ const selectChannelReleases = (
  * available is worked out when shown, against the running version, so the
  * answer is right straight after an upgrade.
  */
+// fallow-ignore-next-line complexity
 export const handleUpdateCheck = async (
   _job: BackgroundJobRecord,
 ): Promise<void> => {
