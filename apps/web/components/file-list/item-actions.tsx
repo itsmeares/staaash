@@ -75,6 +75,7 @@ export function buildItemActions({
           hidden: !handlers.share || bulk,
           icon: <Link2 className={icon} />,
           label: handlers.share?.manage ? "Manage link" : "Share",
+          quick: "Share",
           onSelect: handlers.share?.run,
         },
         {
@@ -85,6 +86,7 @@ export function buildItemActions({
             : kind === "folder"
               ? "Download as zip"
               : "Download",
+          quick: "Download",
           onSelect: handlers.download,
         },
       ],
@@ -131,6 +133,7 @@ export function buildItemActions({
           hidden: !handlers.move,
           icon: <FolderInput className={icon} />,
           label: bulk ? `Move ${plural(count)}…` : "Move…",
+          quick: "Move",
           onSelect: handlers.move,
         },
         {
@@ -176,6 +179,7 @@ export function buildItemActions({
           hidden: !handlers.restore,
           icon: <RotateCcw className={icon} />,
           label: bulk ? `Restore ${plural(count)}` : "Restore",
+          quick: "Restore",
           onSelect: handlers.restore,
         },
         {
@@ -183,6 +187,7 @@ export function buildItemActions({
           hidden: !handlers.trash,
           icon: <Trash2 className={icon} />,
           label: bulk ? `Move ${plural(count)} to trash` : "Move to trash",
+          quick: "Trash",
           shortcut: "⌫",
           onSelect: handlers.trash,
         },
@@ -191,6 +196,7 @@ export function buildItemActions({
           hidden: !handlers.deleteForever,
           icon: <Trash2 className={icon} />,
           label: "Delete forever",
+          quick: "Delete",
           onSelect: handlers.deleteForever,
         },
       ],

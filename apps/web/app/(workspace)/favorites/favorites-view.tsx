@@ -228,6 +228,7 @@ export function FavoritesView({ items }: FavoritesViewProps) {
         ]}
         count={selectedItems.length}
         onClear={selection.clear}
+        onSelectAll={selection.selectAll}
       />
     </DashboardPageContextMenu>
   );

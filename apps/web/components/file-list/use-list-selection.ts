@@ -328,8 +328,10 @@ export function useListSelection({
       if ((event.target as HTMLElement).closest("button, input")) return;
       onOpen(id);
     },
-    onContextMenu: () => {
-      if (disabled || stateRef.current.selected.has(id)) return;
+    onContextMenu: (event: MouseEvent<HTMLElement>) => {
+      // On touch a long press selects; the browser's own menu would cover it.
+      if (coarse) event.preventDefault();
+      if (disabled || coarse || stateRef.current.selected.has(id)) return;
       selectOnly(id);
     },
     onPointerDown: (event: PointerEvent<HTMLElement>) => {

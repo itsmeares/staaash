@@ -568,7 +568,16 @@ export function FileList<T extends FileListItem>({
                 )}
                 item={item}
               />
-              {coarse ? null : (
+              {coarse ? (
+                selected ? (
+                  <span
+                    aria-hidden
+                    className="absolute -right-1 -bottom-1 grid size-4.5 place-items-center rounded-full bg-primary text-primary-foreground ring-2 ring-card"
+                  >
+                    <Check className="size-3" strokeWidth={3} />
+                  </span>
+                ) : null
+              ) : (
                 <span className="absolute inset-0 grid place-items-center">
                   <CheckMark selected={selected} />
                 </span>
@@ -621,7 +630,11 @@ export function FileList<T extends FileListItem>({
       );
 
     return actions.length > 0 ? (
-      <DashboardItemContextMenu groups={actions} key={item.id}>
+      <DashboardItemContextMenu
+        disabled={coarse}
+        groups={actions}
+        key={item.id}
+      >
         {body}
       </DashboardItemContextMenu>
     ) : (
@@ -727,7 +740,19 @@ export function FileList<T extends FileListItem>({
       </div>
       <WorkspaceActionSheet
         groups={sheetItem ? (getActions?.(sheetItem) ?? []) : []}
-        itemName={sheetItem?.name}
+        item={
+          sheetItem && {
+            name: sheetItem.name,
+            sub: sheetItem.sub,
+            preview: (
+              <ItemPreview
+                className="aspect-square w-12 shrink-0 rounded-lg"
+                iconClassName="size-6 [&_svg]:size-6"
+                item={sheetItem}
+              />
+            ),
+          }
+        }
         open={sheetItem !== null}
         onOpenChange={(open) => {
           if (!open) setSheetItem(null);

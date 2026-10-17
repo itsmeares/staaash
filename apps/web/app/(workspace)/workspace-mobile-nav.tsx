@@ -101,7 +101,7 @@ export function WorkspaceMobileNav({
   return (
     <nav
       aria-label="Drive"
-      className="fixed inset-x-0 bottom-0 z-36 grid h-[calc(4.125rem+env(safe-area-inset-bottom))] grid-cols-[1fr_1fr_5.75rem_1fr_1fr] border-t border-border bg-background pb-[max(6px,env(safe-area-inset-bottom))] sm:hidden"
+      className="fixed inset-x-0 bottom-0 z-36 grid h-[calc(4.125rem+env(safe-area-inset-bottom))] grid-cols-[1fr_1fr_5.75rem_1fr_1fr] border-t border-border bg-background pb-[max(6px,env(safe-area-inset-bottom))] sm:hidden [body:has([data-slot=media-viewer])_&]:hidden [body:has([data-slot=phone-selection])_&]:hidden"
       data-workspace-mobile-nav
     >
       <Tab item={homeTab} pathname={pathname} />

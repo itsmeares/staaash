@@ -312,6 +312,7 @@ export function RecentView({
         actions={downloadAndTrash(actions, picked, selection.clear)}
         count={picked.length}
         onClear={selection.clear}
+        onSelectAll={selection.selectAll}
       />
     </DashboardPageContextMenu>
   );

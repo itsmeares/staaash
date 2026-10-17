@@ -52,6 +52,8 @@ export type DashboardContextMenuAction = DashboardContextMenuActionModel & {
   onSelect?: () => void;
   shortcut?: string;
   destructive?: boolean;
+  /** A short name for the phone sheet's big buttons, when it gets one. */
+  quick?: string;
   subActions?: DashboardContextMenuAction[];
 };
 
@@ -155,9 +157,11 @@ export function DashboardMenuItems({ groups }: DashboardContextMenuItemsProps) {
 
 export function DashboardItemContextMenu({
   children,
+  disabled,
   groups,
 }: {
   children: ReactElement;
+  disabled?: boolean;
   groups: DashboardContextMenuGroup[];
 }) {
   const trigger = isValidElement<Record<string, unknown>>(children)
@@ -167,7 +171,7 @@ export function DashboardItemContextMenu({
     : children;
 
   return (
-    <ContextMenu>
+    <ContextMenu disabled={disabled}>
       <ContextMenuTrigger render={trigger} />
       <ContextMenuPopup>
         <DashboardContextMenuItems groups={groups} />

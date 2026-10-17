@@ -176,6 +176,7 @@ export function SearchResults({
         actions={downloadAndTrash(actions, selectedItems, selection.clear)}
         count={selectedItems.length}
         onClear={selection.clear}
+        onSelectAll={selection.selectAll}
       />
     </>
   );

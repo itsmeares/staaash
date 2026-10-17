@@ -2254,6 +2254,7 @@ export function FilesView({
           ]}
           count={selectedIds.size}
           onClear={selection.clear}
+          onSelectAll={selection.selectAll}
         />
 
         {shareDialogTarget ? (
@@ -2285,6 +2286,36 @@ export function FilesView({
           origin={viewerOrigin.current}
           onClose={closeViewer}
           onIndexChange={moveViewer}
+          actions={(file) => [
+            {
+              label: "Share",
+              icon: <Link2 aria-hidden />,
+              onClick: () => handleShare("file", file.id),
+            },
+            {
+              label: "Download",
+              icon: <Download aria-hidden />,
+              onClick: () => void downloadFile(file.id),
+            },
+            {
+              label: "Details",
+              icon: <Info aria-hidden />,
+              onClick: () => {
+                closeViewer();
+                selection.selectOnly(file.id);
+                details.setOpen(true);
+              },
+            },
+            {
+              label: "Trash",
+              icon: <Trash2 aria-hidden />,
+              destructive: true,
+              onClick: () => {
+                closeViewer();
+                void trashItem(file.id, "file");
+              },
+            },
+          ]}
         />
       ) : null}
 

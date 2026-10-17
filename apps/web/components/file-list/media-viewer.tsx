@@ -7,7 +7,13 @@ import {
   ExternalLink,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 import type { ViewerKind } from "@staaash/db/viewer-contract";
 
@@ -18,6 +24,69 @@ import { cn } from "@/lib/utils";
 import { AudioPlayer } from "./audio-player";
 import { ItemPreview } from "./file-list";
 import { MiddleName } from "./middle-name";
+import { useViewerGestures } from "./use-viewer-gestures";
+
+/** A button in the phone viewer's bottom bar. */
+export type ViewerAction = {
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+  destructive?: boolean;
+};
+
+/** Phones: dots for where you are in the set, then the actions. */
+function PhoneViewerBar({
+  actions,
+  className,
+  count,
+  index,
+}: {
+  actions?: ViewerAction[];
+  className: string;
+  count: number;
+  index: number;
+}) {
+  return (
+    <div
+      className={cn(
+        "grid shrink-0 gap-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:hidden",
+        className,
+      )}
+    >
+      {count > 1 && count <= 15 ? (
+        <div aria-hidden className="flex justify-center gap-1.5">
+          {Array.from({ length: count }, (_, at) => (
+            <span
+              className={cn(
+                "size-1.5 rounded-full bg-white/40",
+                at === index && "bg-white",
+              )}
+              key={at}
+            />
+          ))}
+        </div>
+      ) : null}
+      {actions ? (
+        <div className="grid auto-cols-fr grid-flow-col">
+          {actions.map((action) => (
+            <button
+              className={cn(
+                "grid cursor-pointer justify-items-center gap-1 text-tab text-white outline-none focus-visible:ring-2 focus-visible:ring-white [&_svg]:size-5",
+                action.destructive && "text-destructive-foreground",
+              )}
+              key={action.label}
+              type="button"
+              onClick={action.onClick}
+            >
+              {action.icon}
+              {action.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export type ViewerFile = {
   id: string;
@@ -47,6 +116,7 @@ export function MediaViewer({
   origin,
   contentHref = (id) => `/api/files/files/${id}/content`,
   downloadHref = (id) => `/api/files/files/${id}/download`,
+  actions,
 }: {
   files: ViewerFile[];
   index: number;
@@ -55,8 +125,24 @@ export function MediaViewer({
   origin?: DOMRect | null;
   contentHref?: (id: string) => string;
   downloadHref?: ((id: string) => string) | null;
+  /** Phones show these along the bottom: Share, Download, Details, Trash. */
+  actions?: (file: ViewerFile) => ViewerAction[];
 }) {
   const file = files[index];
+  // A tap on the photo hides the controls, another brings them back.
+  const [chrome, setChrome] = useState(true);
+  const gestures = useViewerGestures({
+    onNext: () => index < files.length - 1 && onIndexChange(index + 1),
+    onPrevious: () => index > 0 && onIndexChange(index - 1),
+    onClose,
+    onTap: () => setChrome((shown) => !shown),
+  });
+  const { reset } = gestures;
+  useEffect(() => reset(), [file?.id, reset]);
+  const hideable = cn(
+    "transition-opacity duration-150 motion-reduce:transition-none",
+    !chrome && "pointer-events-none opacity-0",
+  );
   const closeRef = useRef<HTMLButtonElement>(null);
   const filmRef = useRef<HTMLDivElement>(null);
   const grownFrom = useRef<string | null>(null);
@@ -122,11 +208,14 @@ export function MediaViewer({
   const content =
     file.viewerKind === "image" ? (
       <img
+        {...gestures.handlers}
         alt={file.name}
         className="max-h-full max-w-full object-contain select-none"
+        draggable={false}
         key={file.id}
         onLoad={(event) => growFromOrigin(event.currentTarget)}
         src={href}
+        style={gestures.style}
       />
     ) : file.viewerKind === "video" ? (
       <video
@@ -165,12 +254,15 @@ export function MediaViewer({
     <div
       aria-label={file.name}
       aria-modal
+      data-slot="media-viewer"
       // The page stays visible behind, blurred and dimmed, so clicking it
       // reads as "back". Reduced transparency gets a plain dark dim.
       className="fixed inset-0 z-50 flex animate-in flex-col bg-black/60 text-white backdrop-blur-md duration-260 fade-in motion-reduce:animate-none contrast-more:bg-black/90 contrast-more:backdrop-blur-none [@media(prefers-reduced-transparency:reduce)]:bg-black/90 [@media(prefers-reduced-transparency:reduce)]:backdrop-blur-none"
       role="dialog"
     >
-      <header className="flex h-14 shrink-0 items-center gap-2 px-3">
+      <header
+        className={cn("flex h-14 shrink-0 items-center gap-2 px-3", hideable)}
+      >
         <Button
           aria-label="Close"
           ref={closeRef}
@@ -200,6 +292,8 @@ export function MediaViewer({
         ) : null}
         {downloadHref ? (
           <Button
+            // Phones with actions already have Download in the bottom bar.
+            className={actions ? "max-sm:hidden" : undefined}
             render={<a href={downloadHref(file.id)} />}
             size="sm"
             variant="media"
@@ -220,7 +314,7 @@ export function MediaViewer({
         {index > 0 ? (
           <Button
             aria-label="Previous"
-            className="left-2"
+            className={cn("left-2 max-sm:hidden", hideable)}
             size="icon-lg"
             variant="media-navigation"
             onClick={() => onIndexChange(index - 1)}
@@ -231,7 +325,7 @@ export function MediaViewer({
         {index < files.length - 1 ? (
           <Button
             aria-label="Next"
-            className="right-2"
+            className={cn("right-2 max-sm:hidden", hideable)}
             size="icon-lg"
             variant="media-navigation"
             onClick={() => onIndexChange(index + 1)}
@@ -244,7 +338,10 @@ export function MediaViewer({
       {files.length > 1 ? (
         <div
           aria-label="Files in this folder"
-          className="shrink-0 [scrollbar-width:none] overflow-x-auto px-4 pb-4"
+          className={cn(
+            "shrink-0 [scrollbar-width:none] overflow-x-auto px-4 pb-4 max-sm:hidden",
+            hideable,
+          )}
           ref={filmRef}
         >
           {/* Padding keeps the current item's ring from being clipped. */}
@@ -275,6 +372,12 @@ export function MediaViewer({
           </div>
         </div>
       ) : null}
+      <PhoneViewerBar
+        actions={actions?.(file)}
+        className={hideable}
+        count={files.length}
+        index={index}
+      />
     </div>,
     document.body,
   );

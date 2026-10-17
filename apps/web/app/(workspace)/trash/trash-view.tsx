@@ -251,6 +251,7 @@ export function TrashView({ items, retentionDays }: TrashViewProps) {
         ]}
         count={selectedItems.length}
         onClear={selection.clear}
+        onSelectAll={selection.selectAll}
       />
     </div>
   );
