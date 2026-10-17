@@ -18,6 +18,7 @@ import {
 
 import type { DashboardContextMenuGroup } from "@/app/dashboard-context-menu";
 import { FOLDER_SWATCHES, folderColorStyle } from "@/lib/folder-color";
+import { copyText } from "@/lib/clipboard";
 
 export type ItemActionHandlers = {
   open?: () => void;
@@ -171,7 +172,7 @@ export function buildItemActions({
           hidden: bulk,
           icon: <ClipboardCopy className={icon} />,
           label: "Copy name",
-          onSelect: () => void navigator.clipboard?.writeText(name),
+          onSelect: () => void copyText(name),
         },
       ],
     },

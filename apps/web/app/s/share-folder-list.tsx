@@ -1,5 +1,6 @@
 "use client";
 
+import { Play } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { canHaveThumbnail } from "@staaash/db/viewer-contract";
 
@@ -7,15 +8,12 @@ import { useCoarsePointer } from "@/app/(workspace)/use-coarse-pointer";
 import { formatWorkspaceFileSize } from "@/app/(workspace)/workspace-item-helpers";
 import { useTime } from "@/components/time-provider";
 import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { ViewToggle } from "@/components/view-toggle";
 import {
   FileList,
   type FileListColumn,
   type FileListItem,
 } from "@/components/file-list/file-list";
-import { buildItemActions } from "@/components/file-list/item-actions";
 import { useListSelection } from "@/components/file-list/use-list-selection";
-import { useViewMode } from "@/components/file-list/use-view-mode";
 import { formatRelativeTime } from "@/lib/time";
 
 export type ShareListEntry = {
@@ -33,7 +31,11 @@ type ShareListItem = FileListItem & { data: ShareListEntry };
 const isMedia = (entry: ShareListEntry) =>
   entry.mimeType?.startsWith("image/") || entry.mimeType?.startsWith("video/");
 
-/** A shared folder's contents, read-only, for visitors. */
+/**
+ * A shared folder for visitors: photos and videos as a gallery of justified
+ * rows at their own shape, everything else listed below. Read-only, so no
+ * menus.
+ */
 export function ShareFolderList({
   token,
   entries,
@@ -46,12 +48,15 @@ export function ShareFolderList({
   const router = useRouter();
   const isCoarsePointer = useCoarsePointer();
   const { now, timeZone } = useTime();
-  const files = entries.filter((entry) => entry.kind === "file");
-  // Photo and video folders open as a grid.
-  const mostlyMedia =
-    files.length > 0 && files.filter(isMedia).length * 2 >= files.length;
-  const [view, setView] = useViewMode("share", mostlyMedia ? "grid" : "list");
   const base = `/s/${encodeURIComponent(token)}`;
+  const thumbnailOf = (entry: ShareListEntry) =>
+    entry.kind === "file" && canHaveThumbnail(entry.mimeType ?? "", entry.name)
+      ? `${base}/files/${entry.id}/thumbnail`
+      : null;
+  const gallery = entries.filter(
+    (entry) => isMedia(entry) && thumbnailOf(entry),
+  );
+  const listed = entries.filter((entry) => !gallery.includes(entry));
 
   const download = (entry: ShareListEntry) => {
     if (!downloadDisabled && entry.kind === "file") {
@@ -65,7 +70,7 @@ export function ShareFolderList({
   };
 
   const selection = useListSelection({
-    ids: entries.map((entry) => entry.id),
+    ids: listed.map((entry) => entry.id),
     coarse: isCoarsePointer,
     onOpen: (id) => {
       const entry = entries.find((candidate) => candidate.id === id);
@@ -73,16 +78,12 @@ export function ShareFolderList({
     },
   });
 
-  const items: ShareListItem[] = entries.map((entry) => ({
+  const items: ShareListItem[] = listed.map((entry) => ({
     id: entry.id,
     kind: entry.kind,
     name: entry.name,
     mimeType: entry.mimeType,
-    thumbnailUrl:
-      entry.kind === "file" &&
-      canHaveThumbnail(entry.mimeType ?? "", entry.name)
-        ? `${base}/files/${entry.id}/thumbnail`
-        : null,
+    thumbnailUrl: thumbnailOf(entry),
     sub:
       entry.kind === "file"
         ? `${formatWorkspaceFileSize(entry.sizeBytes)} · ${formatRelativeTime(entry.updatedAt, now, timeZone)}`
@@ -110,39 +111,59 @@ export function ShareFolderList({
     },
   ];
 
+  if (entries.length === 0) {
+    return (
+      <Empty className="min-h-48">
+        <EmptyHeader>
+          <EmptyTitle>This folder is empty</EmptyTitle>
+        </EmptyHeader>
+      </Empty>
+    );
+  }
+
   return (
-    <div className="grid gap-3">
-      <div className="flex justify-end">
-        <ViewToggle value={view} onValueChange={setView} />
-      </div>
-      <FileList
-        coarse={isCoarsePointer}
-        columns={columns}
-        empty={
-          <Empty className="min-h-48">
-            <EmptyHeader>
-              <EmptyTitle>This folder is empty</EmptyTitle>
-            </EmptyHeader>
-          </Empty>
-        }
-        getActions={({ data }) =>
-          buildItemActions({
-            name: data.name,
-            kind: data.kind,
-            open: () => open(data),
-            openLabel:
-              data.kind === "file" && !data.hasViewer ? "Download" : "Open",
-            download:
-              data.kind === "file" && data.hasViewer && !downloadDisabled
-                ? () => download(data)
-                : undefined,
-          })
-        }
-        items={items}
-        label="Shared folder contents"
-        selection={selection}
-        view={view}
-      />
+    <div className="grid gap-5">
+      {gallery.length > 0 ? (
+        // Each tile takes its photo's width at the row height, then rows
+        // stretch to the edge; the filler keeps the last row from stretching.
+        <ul
+          aria-label="Photos and videos"
+          className="m-0 flex list-none flex-wrap gap-1.5 p-0 after:flex-[999] after:content-['']"
+        >
+          {gallery.map((entry) => (
+            <li className="relative h-28 grow sm:h-52" key={entry.id}>
+              <button
+                aria-label={entry.name}
+                className="block size-full cursor-pointer overflow-hidden rounded-md bg-muted outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                type="button"
+                onClick={() => open(entry)}
+              >
+                <img
+                  alt=""
+                  className="h-full w-auto min-w-full object-cover"
+                  decoding="async"
+                  loading="lazy"
+                  src={thumbnailOf(entry) ?? undefined}
+                />
+              </button>
+              {entry.mimeType?.startsWith("video/") ? (
+                <span className="pointer-events-none absolute right-2 bottom-2 grid size-6 place-items-center rounded-sm bg-black/55 text-white">
+                  <Play aria-hidden className="size-3 fill-current" />
+                </span>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {listed.length > 0 ? (
+        <FileList
+          coarse={isCoarsePointer}
+          columns={columns}
+          items={items}
+          label="Shared folder contents"
+          selection={selection}
+        />
+      ) : null}
     </div>
   );
 }

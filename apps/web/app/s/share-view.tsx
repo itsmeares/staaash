@@ -10,8 +10,8 @@ import { cn } from "@/lib/utils";
 import { TextFileViewer } from "@/app/text-file-viewer";
 import { AudioPlayer } from "@/components/file-list/audio-player";
 import { Button } from "@/components/ui/button";
-import { DateTime } from "@/components/time-provider";
-import { formatTimeUntil } from "@/lib/time";
+import { DayMonth } from "@/components/time-provider";
+import { getFolderSizeBytes } from "@/server/files/folder-size";
 
 import { getSingleSearchParam } from "@/app/auth-ui";
 import { authService } from "@/server/auth/service";
@@ -26,12 +26,39 @@ import type {
   ShareLinkSummary,
 } from "@/server/sharing/types";
 
-const Expiry = ({ expiresAt }: { expiresAt: Date | string }) => (
-  <span title={new Date(expiresAt).toISOString()}>
-    Expires in {formatTimeUntil(expiresAt, new Date())},{" "}
-    <DateTime value={expiresAt} />
-  </span>
-);
+/** Top right of every shared page: when the link stops, then Download. */
+function ShareActions({
+  expiresAt,
+  downloadDisabled,
+  downloadHref,
+  label = "Download",
+  children,
+}: {
+  expiresAt: Date | string;
+  downloadDisabled: boolean;
+  downloadHref?: string;
+  label?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="flex shrink-0 flex-wrap items-center gap-3">
+      <span className="text-label text-muted-foreground">
+        Link expires <DayMonth value={expiresAt} />
+      </span>
+      {children}
+      {downloadDisabled ? (
+        <span className="text-label text-muted-foreground">
+          Downloads are off
+        </span>
+      ) : downloadHref ? (
+        <Button render={<a href={downloadHref} />}>
+          <Download aria-hidden />
+          {label}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
 
 /**
  * Every public page: the drive's name on top, the content, and a quiet
@@ -193,7 +220,6 @@ export function ShareFilePage({
   contentHref,
   downloadHref,
   file,
-  headerLabel,
   preview,
   share,
 }: {
@@ -202,47 +228,35 @@ export function ShareFilePage({
   contentHref: string;
   downloadHref?: string;
   file: FileSummary;
-  headerLabel: string;
   preview?: PublicShareFilePreview | null;
   share: Pick<ShareLinkSummary, "downloadDisabled" | "expiresAt">;
 }) {
-  const ext = file.name.includes(".")
-    ? file.name.split(".").pop()?.toLowerCase()
-    : null;
-  const formatLabel = ext ?? file.mimeType;
   const safeNativeInline = isPublicShareFileNativeViewSafe(file, preview);
   const canViewTextSource =
     file.viewerKind === "text" && (safeNativeInline || !share.downloadDisabled);
 
   return (
     <ShareShell>
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="grid min-w-0 gap-1">
           <h1 className="m-0 truncate font-heading text-headline font-semibold">
             {file.name}
           </h1>
           <p className="m-0 text-meta text-muted-foreground">
-            {formatLabel?.toUpperCase()} · {formatBytes(file.sizeBytes)} ·{" "}
-            <Expiry expiresAt={share.expiresAt} />
+            {formatBytes(file.sizeBytes)}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <ShareActions
+          downloadDisabled={share.downloadDisabled}
+          downloadHref={downloadHref}
+          expiresAt={share.expiresAt}
+        >
           {backHref ? (
             <Button render={<Link href={backHref} />} variant="outline">
               {backLabel}
             </Button>
           ) : null}
-          {!share.downloadDisabled && downloadHref ? (
-            <Button render={<a href={downloadHref} />}>
-              <Download aria-hidden />
-              Download
-            </Button>
-          ) : share.downloadDisabled ? (
-            <span className="text-meta text-muted-foreground">
-              Downloads are off
-            </span>
-          ) : null}
-        </div>
+        </ShareActions>
       </div>
 
       {file.viewerKind === "audio" && safeNativeInline ? (
@@ -259,13 +273,22 @@ export function ShareFilePage({
         </div>
       ) : (file.viewerKind === "image" || file.viewerKind === "video") &&
         safeNativeInline ? (
-        <section className="flex min-h-64 items-center justify-center overflow-hidden rounded-xl bg-black">
+        <section className="relative flex min-h-64 items-center justify-center overflow-hidden rounded-xl bg-black">
           {file.viewerKind === "image" ? (
-            <img
-              alt={file.name}
-              src={contentHref}
-              className="block max-h-[72vh] max-w-full object-contain"
-            />
+            <>
+              {/* The photo at its own size, on a blur of itself. */}
+              <img
+                alt=""
+                aria-hidden
+                src={contentHref}
+                className="absolute inset-0 size-full scale-110 object-cover opacity-50 blur-2xl"
+              />
+              <img
+                alt={file.name}
+                src={contentHref}
+                className="relative block max-h-[72vh] max-w-full object-contain"
+              />
+            </>
           ) : (
             <video
               controls
@@ -297,7 +320,7 @@ type ShareViewProps = {
   searchParams: Record<string, string | string[] | undefined>;
 };
 
-export function ShareView({
+export async function ShareView({
   filePreview,
   resolution,
   token,
@@ -330,7 +353,6 @@ export function ShareView({
         contentHref={`/s/${encodeURIComponent(token)}/content`}
         downloadHref={`/s/${encodeURIComponent(token)}/download`}
         file={resolution.file}
-        headerLabel="Shared file"
         preview={filePreview}
         share={resolution.share}
       />
@@ -338,10 +360,10 @@ export function ShareView({
   }
 
   const { listing, share } = resolution;
-  const itemCount = listing.childFolders.length + listing.files.length;
+  const sizeBytes = await getFolderSizeBytes(listing.currentFolder.id);
   return (
     <ShareShell>
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="grid min-w-0 gap-1">
           {listing.breadcrumbs.length > 1 ? (
             <nav
@@ -362,19 +384,15 @@ export function ShareView({
             {listing.currentFolder.name}
           </h1>
           <p className="m-0 text-meta text-muted-foreground">
-            {itemCount} item{itemCount === 1 ? "" : "s"} ·{" "}
-            <Expiry expiresAt={share.expiresAt} />
-            {share.downloadDisabled ? " · Downloads are off" : ""}
+            {formatBytes(sizeBytes)}
           </p>
         </div>
-        {!share.downloadDisabled ? (
-          <Button
-            render={<a href={`/s/${encodeURIComponent(token)}/archive`} />}
-          >
-            <Download aria-hidden />
-            Download all
-          </Button>
-        ) : null}
+        <ShareActions
+          downloadDisabled={share.downloadDisabled}
+          downloadHref={`/s/${encodeURIComponent(token)}/archive`}
+          expiresAt={share.expiresAt}
+          label="Download all"
+        />
       </div>
 
       <ShareFolderList

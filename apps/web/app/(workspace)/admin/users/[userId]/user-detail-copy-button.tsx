@@ -4,6 +4,7 @@ import { Check, Copy } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { copyText } from "@/lib/clipboard";
 
 type CopyState = "idle" | "copied" | "failed";
 
@@ -30,7 +31,7 @@ export function UserDetailCopyButton({
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
 
     try {
-      await navigator.clipboard.writeText(value);
+      await copyText(value);
       setCopyState("copied");
     } catch {
       setCopyState("failed");

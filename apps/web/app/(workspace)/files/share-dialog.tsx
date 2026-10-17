@@ -25,6 +25,7 @@ import { Switch } from "@/components/ui/switch";
 import { confirmAction } from "@/components/confirm-dialog";
 import type { ShareLinkSummary } from "@/server/sharing";
 import type { ManagedShareView } from "@/server/sharing/mutation-response";
+import { copyText } from "@/lib/clipboard";
 
 type DialogShare = {
   id: string;
@@ -272,7 +273,7 @@ export function ShareDialog({
   const copyUrl = async () => {
     if (!dialogShare?.shareUrl) return;
     try {
-      await navigator.clipboard.writeText(dialogShare.shareUrl);
+      await copyText(dialogShare.shareUrl);
     } catch {
       const ta = document.createElement("textarea");
       ta.value = dialogShare.shareUrl;

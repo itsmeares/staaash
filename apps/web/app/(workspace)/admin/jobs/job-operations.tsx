@@ -53,6 +53,7 @@ import {
   MediaDerivativeRowActions,
   type MediaDerivativeAction,
 } from "./media-derivative-row-actions";
+import { copyText } from "@/lib/clipboard";
 
 export type JsonBackgroundJob = {
   id: string;
@@ -935,7 +936,7 @@ function JobDetailsModal({
                   <Button
                     variant="outline"
                     onClick={() => {
-                      void navigator.clipboard.writeText(selectedHistoryJob.id);
+                      void copyText(selectedHistoryJob.id);
                     }}
                   >
                     Copy ID

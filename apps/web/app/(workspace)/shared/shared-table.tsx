@@ -33,6 +33,7 @@ import {
 import { useListSelection } from "@/components/file-list/use-list-selection";
 import { useViewMode } from "@/components/file-list/use-view-mode";
 import { formatDayMonth, formatTimeUntil } from "@/lib/time";
+import { copyText } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 import type { ShareLinkSummary } from "@/server/sharing";
 
@@ -49,9 +50,10 @@ type LinkItem = FileListItem & { data: ShareLinkSummary };
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 const copyLink = (share: ShareLinkSummary) => {
-  void navigator.clipboard
-    ?.writeText(share.shareUrl)
-    .then(() => toast.success("Link copied."));
+  copyText(share.shareUrl).then(
+    () => toast.success("Link copied."),
+    () => toast.error("The link could not be copied."),
+  );
 };
 
 const deleteLink = async (share: ShareLinkSummary) => {

@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { copyText } from "@/lib/clipboard";
 
 // Only markdown files pay for the renderer.
 const MarkdownView = dynamic(() => import("./markdown-view"), {
@@ -34,7 +35,7 @@ function CopyButton({ text }: { text: string }) {
       size="sm"
       variant="ghost-muted"
       onClick={async () => {
-        await navigator.clipboard.writeText(text).catch(() => undefined);
+        await copyText(text).catch(() => undefined);
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}

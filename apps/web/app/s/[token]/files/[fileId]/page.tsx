@@ -95,7 +95,6 @@ export default async function SharedNestedFilePage({
         contentHref={`/s/${encodeURIComponent(token)}/files/${file.id}/content`}
         downloadHref={`/s/${encodeURIComponent(token)}/files/${file.id}/download`}
         file={file}
-        headerLabel="Shared file"
         preview={preview}
         share={resolution.share}
       />

@@ -7,7 +7,7 @@ import {
   getBrowserTimeZone,
 } from "@staaash/config/time-zone";
 
-import { formatDateTime } from "@/lib/time";
+import { formatDateTime, formatDayMonth } from "@/lib/time";
 
 type TimeContextValue = { now: Date; timeZone: string; clock: string };
 
@@ -70,6 +70,15 @@ export function useTime(): TimeContextValue {
 }
 
 // Absolute date and time in the viewer's zone. Usable from server components.
+/** "17 Oct" in the viewer's zone. */
+export function DayMonth({ value }: { value: Date | string }) {
+  const { timeZone } = useTime();
+  const date = typeof value === "string" ? new Date(value) : value;
+  return (
+    <time dateTime={date.toISOString()}>{formatDayMonth(date, timeZone)}</time>
+  );
+}
+
 export function DateTime({ value }: { value: Date | string }) {
   const { timeZone, clock } = useTime();
   const date = typeof value === "string" ? new Date(value) : value;

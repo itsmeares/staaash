@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { toastManager } from "@/components/ui/toast";
 
 import { AdminToggleField } from "./admin-toggle-field";
+import { copyText } from "@/lib/clipboard";
 
 export type TemporaryPassword = {
   email: string;
@@ -148,7 +149,7 @@ export function TemporaryPasswordDialog({
           <Button
             onClick={async () => {
               if (!result) return;
-              await navigator.clipboard.writeText(
+              await copyText(
                 `Sign in at: ${result.signInUrl}\nEmail: ${result.email}\nPassword: ${result.temporaryPassword}`,
               );
               toastManager.add({
