@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const mocks = vi.hoisted(() => ({
-  userList: vi.fn(),
   uploadAggregate: vi.fn(),
   mutationAggregate: vi.fn(),
   findUnique: vi.fn(),
@@ -15,7 +14,6 @@ vi.mock("@staaash/db/client", () => ({
 import { FilesError } from "@/server/files/errors";
 import {
   assertUserStorageQuotaAvailable,
-  getInstanceStorageUsed,
   getUserStorageUsed,
 } from "./user-storage";
 
@@ -25,11 +23,10 @@ describe("user storage usage", () => {
     mocks.mutationAggregate.mockResolvedValue({
       _sum: { reservedBytes: null },
     });
-    mocks.userList.mockResolvedValue([]);
     mocks.getPrisma.mockReturnValue({
       uploadSession: { aggregate: mocks.uploadAggregate },
       storageMutation: { aggregate: mocks.mutationAggregate },
-      user: { findUnique: mocks.findUnique, findMany: mocks.userList },
+      user: { findUnique: mocks.findUnique },
     });
   });
 
@@ -68,7 +65,7 @@ describe("user storage usage", () => {
     });
   });
 
-  it("uses zero for empty user and instance aggregates", async () => {
+  it("uses zero when the user and reservations are absent", async () => {
     mocks.findUnique.mockResolvedValue(null);
     mocks.uploadAggregate.mockResolvedValue({
       _sum: { totalSizeBytes: null },
@@ -79,7 +76,6 @@ describe("user storage usage", () => {
       reservedBytes: 0n,
       usedBytes: 0n,
     });
-    await expect(getInstanceStorageUsed()).resolves.toBe(0n);
   });
 
   it("rejects uploads exceeding a configured user limit", async () => {

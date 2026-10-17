@@ -16,7 +16,7 @@ export const verifyCommittedStorageUsage = async () => {
     data: { committedStorageBytes: null },
   });
   throw new Error(
-    "Committed storage usage does not match file metadata. Storage writes are blocked for affected accounts. Rebuild usage with all writers stopped before restarting.",
+    "Committed storage usage does not match file metadata. A startup audit failure prevents web and worker startup for the entire instance, even if only one account is affected. A restore audit failure stops reconciliation. Affected totals remain unavailable. Stop all writers, investigate the mismatch, and rebuild usage before restarting.",
   );
 };
 

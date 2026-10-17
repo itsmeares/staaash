@@ -116,6 +116,11 @@ it("serializes concurrent quota writes without overshooting", async () => {
 });
 
 it("quarantines a mismatched counter and blocks both admission and file growth", async () => {
+  await db.systemSettings.upsert({
+    where: { id: "singleton" },
+    create: { id: "singleton" },
+    update: {},
+  });
   const owner = await user();
   await db.file.create({ data: file(owner.id, 10n) });
   await db.$transaction(async (tx) => {

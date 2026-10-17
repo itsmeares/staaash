@@ -120,8 +120,12 @@ admissions wait for capacity.
 
 Committed usage is database-maintained metadata. It includes trashed and missing
 files. A startup or restore audit compares each stored total with file rows.
-If they disagree, Staaash blocks affected accounts by marking their total NULL.
-It does not guess a smaller total or silently reset usage.
+If they disagree, Staaash marks affected totals NULL. During startup, even one
+mismatched account prevents service for the entire instance: the worker exits,
+and the web process fails server preparation and returns 500. During restore,
+the audit stops reconciliation. An already running process rejects quota
+admission and file growth for accounts with NULL totals. Staaash does not guess
+a smaller total or silently reset usage.
 
 Stop both web and worker, and take a database backup before repairing a mismatch.
 Investigate how the database became inconsistent. Restore a matching backup if

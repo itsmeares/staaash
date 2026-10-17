@@ -100,21 +100,6 @@ export const withUserQuotaWrite = async <T>({
     return callback(tx);
   });
 
-// fallow-ignore-next-line unused-export
-export const getInstanceStorageUsed = async (): Promise<bigint> => {
-  const users = await getPrisma().user.findMany({
-    select: { committedStorageBytes: true },
-  });
-  let total = 0n;
-  for (const user of users) {
-    if (user.committedStorageBytes === null) {
-      throw new UploadAdmissionError("UPLOAD_STORAGE_CAPACITY_UNAVAILABLE");
-    }
-    total += user.committedStorageBytes;
-  }
-  return total;
-};
-
 export type DiskInfo = {
   capacityBytes: bigint;
   usedBytes: bigint;

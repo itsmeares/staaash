@@ -30,7 +30,6 @@ vi.mock("@/server/time-zone", () => ({
 
 vi.mock("@/server/user-storage", () => ({
   getInstanceDiskInfo: vi.fn(() => null),
-  getInstanceStorageUsed: vi.fn(() => 0n),
   getUserStorageUsed: vi.fn(() => ({ usedBytes: 0n })),
 }));
 

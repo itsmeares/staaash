@@ -92,9 +92,13 @@ their existing expiry and staging-release rules. The initial migration locks
 users and files while it backfills and verifies totals.
 
 Web and worker startup, and restore reconciliation, compare stored usage with
-file metadata. A mismatch sets affected totals to NULL and stops startup or the
-audit. NULL blocks quota admission and file growth until an operator rebuilds
-usage with all writers stopped. See the repair procedure in
+file metadata. A mismatch sets affected totals to NULL. A startup audit failure
+blocks service for the entire instance, even if only one account is affected:
+the worker exits, and the web process fails server preparation and returns 500.
+A restore audit failure stops reconciliation. This policy stops startup before
+recovery can change files while accounting is inconsistent. NULL also blocks
+quota admission and file growth in an already running process. An operator must
+investigate and rebuild usage with all writers stopped. See the repair procedure in
 [`resumable uploads`](operations/resumable-uploads.md#repairing-committed-usage).
 
 ## Boundaries And Non-Goals
