@@ -41,10 +41,7 @@ export async function updateSystemSettings(
       const field = issue.path[0] as SettingsField;
       fieldErrors[field] ??= issue.message;
     }
-    return {
-      error: "Check the highlighted settings. Nothing was saved.",
-      fieldErrors,
-    };
+    return { fieldErrors };
   }
 
   const db = getPrisma();

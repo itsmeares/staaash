@@ -271,6 +271,8 @@ export function ContextMenuShortcut({
 }: React.ComponentProps<"kbd">): React.ReactElement {
   return (
     <kbd
+      // A visual hint; the item's name stays the action alone.
+      aria-hidden
       className={cn(
         "ms-auto font-sans text-xs font-medium tracking-widest text-muted-foreground",
         className,

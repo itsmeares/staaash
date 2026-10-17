@@ -145,8 +145,11 @@ test("share dialog traps focus and returns focus on Escape", async ({
     next: "/shared",
   });
 
-  const manageButton = page.getByRole("button", { name: "Manage" }).first();
-  await manageButton.press("Enter");
+  const firstRow = page.locator("[data-list-item]").first();
+  await page.locator("[data-file-list]").focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(firstRow).toBeFocused();
+  await page.keyboard.press("Enter");
 
   const dialog = page.getByRole("dialog", { name: "Share" });
   await expect(dialog).toBeVisible();
@@ -171,5 +174,5 @@ test("share dialog traps focus and returns focus on Escape", async ({
 
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
-  await expect(manageButton).toBeFocused();
+  await expect(firstRow).toBeFocused();
 });

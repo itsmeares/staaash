@@ -9,7 +9,7 @@ import { MiddleName } from "@/components/file-list/middle-name";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverPopup, PopoverTrigger } from "@/components/ui/popover";
 import { Spinner } from "@/components/ui/spinner";
-import { toastManager } from "@/components/ui/toast";
+import { toast, toastManager } from "@/components/ui/toast";
 import { formatBytes } from "@/lib/format-bytes";
 import { startValidatedDownload } from "@/lib/transfers/download";
 import { cn } from "@/lib/utils";
@@ -166,15 +166,14 @@ function UploadRow({
   );
 }
 
-const downloadNote = (state: DownloadProgressState, error: string | null) => {
-  if (error) return error;
+const downloadNote = (state: DownloadProgressState) => {
   if (state.status === "queued") return "Waiting for the worker";
   if (state.status === "processing") {
     return state.fileCount != null
       ? `Packing ${state.fileCount} file${state.fileCount === 1 ? "" : "s"} into a zip`
       : "Packing a zip";
   }
-  return state.status === "ready" ? "Download started" : state.message;
+  return "Download started";
 };
 
 function Section({
@@ -252,14 +251,12 @@ function useFinishedUploads(
 /** A zip that's ready downloads on its own and leaves the list soon after. */
 function useReadyArchive() {
   const { activeDownload, dismissDownload } = useTransferContext();
-  const [error, setError] = useState<string | null>(null);
   const status = activeDownload?.state.status;
   const archiveId = activeDownload?.archiveId;
 
   useEffect(() => {
     if (status !== "ready" || !archiveId) return;
     let cancelled = false;
-    setError(null);
     startValidatedDownload(
       `/api/files/archives/${archiveId}/download`,
       "Archive download failed",
@@ -268,20 +265,16 @@ function useReadyArchive() {
         if (!cancelled) window.setTimeout(dismissDownload, 3000);
       })
       .catch((caught) => {
-        if (!cancelled) {
-          setError(
-            caught instanceof Error
-              ? caught.message
-              : "Archive download failed",
-          );
-        }
+        if (cancelled) return;
+        dismissDownload();
+        toast.error(
+          caught instanceof Error ? caught.message : "Archive download failed",
+        );
       });
     return () => {
       cancelled = true;
     };
   }, [archiveId, dismissDownload, status]);
-
-  return error;
 }
 
 /** Where a batch stands; exported for its test. */
@@ -380,11 +373,11 @@ function UnfinishedRow({
   );
 }
 
-function ZipRow({ error }: { error: string | null }) {
+function ZipRow() {
   const { activeDownload, dismissDownload } = useTransferContext();
   if (!activeDownload) return null;
   const { state } = activeDownload;
-  const ready = state.status === "ready" && !error;
+  const ready = state.status === "ready";
   return (
     <Section title="Other">
       <div className="flex items-center gap-2.5 py-1.5">
@@ -395,14 +388,8 @@ function ZipRow({ error }: { error: string | null }) {
             <Spinner className="size-4 text-muted-foreground" />
           )}
         </span>
-        <span
-          className={cn(
-            "min-w-0 flex-1 truncate text-body",
-            (error || state.status === "error") &&
-              "text-destructive-foreground",
-          )}
-        >
-          {downloadNote(state, error)}
+        <span className="min-w-0 flex-1 truncate text-body">
+          {downloadNote(state)}
         </span>
         <Button
           aria-label="Close"
@@ -542,7 +529,7 @@ export function Transfers() {
     useTransferContext();
   const phone = useMediaQuery("(max-width: 39.99rem)");
   const justDone = useFinishedUploads(uploadingFiles, dismissUpload);
-  const archiveError = useReadyArchive();
+  useReadyArchive();
   const { unfinished, forget } = useUnfinishedUploads(uploadingFiles);
   const summary = summarize(uploadingFiles);
   const needsYou = summary.failed.length + unfinished.length > 0;
@@ -575,7 +562,7 @@ export function Transfers() {
               unfinished={unfinished}
               onForget={forget}
             />
-            <ZipRow error={archiveError} />
+            <ZipRow />
           </div>
           <DoneFooter
             done={summary.done.length}

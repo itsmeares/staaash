@@ -62,8 +62,7 @@ export type UploadingFile = {
 export type DownloadProgressState =
   | { status: "queued" }
   | { status: "processing"; fileCount?: number }
-  | { status: "ready"; archiveId: string }
-  | { status: "error"; message: string };
+  | { status: "ready"; archiveId: string };
 
 type TransferContextValue = {
   uploadingFiles: UploadingFile[];
@@ -436,14 +435,18 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
     }).then((result) => {
       if (!result) return;
       clearActiveDownloadPointer(archiveId);
-      setActiveDownload({
-        archiveId,
-        state:
-          result.status === "ready"
-            ? { status: "ready", archiveId }
-            : { status: "error", message: result.message },
-      });
+      if (result.status === "ready") {
+        setActiveDownload({ archiveId, state: { status: "ready", archiveId } });
+      } else {
+        failDownload(result.message);
+      }
     });
+  };
+
+  // A failed zip leaves the list and stays as a toast until closed.
+  const failDownload = (message: string) => {
+    setActiveDownload(null);
+    toast.error(message);
   };
 
   // Resume any in-progress download on mount
@@ -490,13 +493,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
         const data = (await res.json().catch(() => ({}))) as {
           error?: string;
         };
-        setActiveDownload({
-          archiveId: "",
-          state: {
-            status: "error",
-            message: data.error ?? "Failed to start download.",
-          },
-        });
+        failDownload(data.error ?? "Failed to start download.");
         return;
       }
 
@@ -514,13 +511,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
-      setActiveDownload({
-        archiveId: "",
-        state: {
-          status: "error",
-          message: err instanceof Error ? err.message : "Download failed.",
-        },
-      });
+      failDownload(err instanceof Error ? err.message : "Download failed.");
     }
   };
 

@@ -53,7 +53,11 @@ test("phone workspace shell exposes bottom nav, upload, and touch file actions",
     clientY: 24,
     pointerType: "touch",
   });
-  await expect(page.getByText("1 selected", { exact: true })).toBeVisible();
+  await expect(
+    page
+      .locator("[data-slot=phone-selection]")
+      .getByText("1 selected", { exact: true }),
+  ).toBeVisible();
 
   await row
     .getByRole("button", { name: /Actions for shared-preview\.png/ })

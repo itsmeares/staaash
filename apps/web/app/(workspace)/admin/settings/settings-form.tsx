@@ -138,8 +138,6 @@ export function SettingsForm({
         setSaved(result.values);
         setDraft(result.values);
         toastManager.add({ title: "Saved", type: "success", timeout: 1500 });
-      } else if (result.error) {
-        toast.error(result.error);
       }
       return result;
     },

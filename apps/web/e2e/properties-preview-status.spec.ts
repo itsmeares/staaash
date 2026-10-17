@@ -68,10 +68,12 @@ test("open Properties follows generation and stops checking at Ready", async ({
   );
   await openProperties(page, file.name);
   await expect(status(page)).toHaveText("Not generated");
-  await pane(page).getByRole("button", { name: "Generate preview" }).click();
+  await pane(page)
+    .getByRole("button", { name: "Generate", exact: true })
+    .click();
   await expect(status(page)).toHaveText("Queued…");
   await expect(
-    pane(page).getByRole("button", { name: "Generate preview" }),
+    pane(page).getByRole("button", { name: "Generate", exact: true }),
   ).toBeDisabled();
   await expect(status(page)).toHaveText("Generating…", { timeout: 10_000 });
   await expect(status(page)).toHaveText("Ready", { timeout: 10_000 });
@@ -101,7 +103,7 @@ test("an unavailable initial check recovers automatically without claiming Not g
   await openProperties(page, file.name);
   await expect(status(page)).toHaveText("Unavailable");
   await expect(
-    pane(page).getByRole("button", { name: "Generate preview" }),
+    pane(page).getByRole("button", { name: "Generate", exact: true }),
   ).toBeDisabled();
   await expect(
     pane(page).getByText(
@@ -133,13 +135,16 @@ for (const terminal of ["failed", "stale"]) {
     });
     await openProperties(page, file.name);
     await expect(status(page)).toHaveText("Not generated");
-    await pane(page).getByRole("button", { name: "Generate preview" }).click();
+    await pane(page)
+      .getByRole("button", { name: "Generate", exact: true })
+      .click();
     await expect(status(page)).toHaveText(
       terminal === "failed" ? "Failed" : "Stale",
     );
     await expect(
       pane(page).getByRole("button", {
-        name: terminal === "failed" ? "Generate preview" : "Regenerate",
+        name: terminal === "failed" ? "Generate" : "Regenerate",
+        exact: true,
       }),
     ).toBeEnabled();
     const settledReads = reads;
@@ -197,14 +202,16 @@ test("switching videos clears old state and ignores an old Generate response; cl
   await fileRow(page, second.name).click();
   await expect(status(page)).toHaveText("Loading…");
   await expect(
-    pane(page).getByRole("button", { name: "Generate preview" }),
+    pane(page).getByRole("button", { name: "Generate", exact: true }),
   ).toBeDisabled();
   releasePost();
   await expect(status(page)).toHaveText("Loading…");
   releaseRead();
   await expect(status(page)).toHaveText("Not generated");
   const initialSecondReads = secondReads;
-  await pane(page).getByRole("button", { name: "Generate preview" }).click();
+  await pane(page)
+    .getByRole("button", { name: "Generate", exact: true })
+    .click();
   await expect.poll(() => secondReads).toBeGreaterThan(initialSecondReads);
   const aborted = page.waitForEvent("requestfailed", {
     predicate: (request) => request.url().endsWith(`/${second.id}/derivative`),
@@ -235,7 +242,7 @@ test("the mobile drawer updates automatically too", async ({ page }) => {
   await expect(
     drawer.getByText("Not generated", { exact: true }),
   ).toBeVisible();
-  await drawer.getByRole("button", { name: "Generate preview" }).click();
+  await drawer.getByRole("button", { name: "Generate", exact: true }).click();
   await expect(drawer.getByText("Ready", { exact: true })).toBeVisible();
   await expect(
     drawer.getByRole("button", { name: "Regenerate" }),

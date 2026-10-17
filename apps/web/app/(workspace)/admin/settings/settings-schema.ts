@@ -112,7 +112,6 @@ export const settingsSchema = z
 export type SettingsField = keyof z.infer<typeof settingsSchema>;
 export type SettingsValues = Record<SettingsField, string>;
 export type SettingsActionState = {
-  error?: string;
   fieldErrors?: Partial<Record<SettingsField, string>>;
   success?: boolean;
   values?: SettingsValues;

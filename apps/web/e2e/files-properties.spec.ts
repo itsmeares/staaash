@@ -74,7 +74,8 @@ test("open pane sits beside the list, leaves the top bar usable and follows the 
   // Keyboard selection drives the pane and focus stays in the list.
   await list.focus();
   await page.keyboard.press("Escape");
-  await expect(pane(page).getByText("Select a file or folder")).toBeVisible();
+  // With nothing selected the pane describes the open folder.
+  await expect(pane(page).getByText("Inside")).toBeVisible();
   await page.keyboard.press("ArrowDown");
   await expect(pane(page).getByText("shared-preview.png")).toBeVisible();
   await expect(row(page)).toBeFocused();
