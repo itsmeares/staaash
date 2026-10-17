@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, HeartOff, Pin } from "lucide-react";
+import { Download, FolderInput, HeartOff, Pin } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { DashboardPageContextMenu } from "@/app/dashboard-context-menu";
@@ -208,6 +208,14 @@ export function FavoritesView({ items }: FavoritesViewProps) {
             label: "Download",
             icon: Download,
             onClick: () => void actions.download(selectedItems),
+          },
+          {
+            label: "Move",
+            icon: FolderInput,
+            onClick: () => {
+              void actions.move(selectedItems);
+              selection.clear();
+            },
           },
           {
             label: "Remove",

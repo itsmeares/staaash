@@ -30,10 +30,8 @@ export type ItemActionHandlers = {
   /** Folders only: a color from the swatches, or null for the default. */
   color?: { current: string | null; run: (color: string | null) => void };
   cut?: () => void;
-  moveTo?: {
-    targets: Array<{ id: string; label: string }>;
-    run: (id: string) => void;
-  };
+  /** Opens the move picker. */
+  move?: () => void;
   favorite?: { isFavorite: boolean; run: () => void };
   pin?: { pinned: boolean; run: () => void };
   details?: () => void;
@@ -130,14 +128,10 @@ export function buildItemActions({
           onSelect: handlers.cut,
         },
         {
-          hidden: !handlers.moveTo,
-          disabled: (handlers.moveTo?.targets.length ?? 0) === 0,
+          hidden: !handlers.move,
           icon: <FolderInput className={icon} />,
-          label: bulk ? `Move ${plural(count)} to` : "Move to",
-          subActions: handlers.moveTo?.targets.map((target) => ({
-            label: target.label,
-            onSelect: () => handlers.moveTo?.run(target.id),
-          })),
+          label: bulk ? `Move ${plural(count)}…` : "Move…",
+          onSelect: handlers.move,
         },
         {
           hidden: !handlers.favorite || bulk,

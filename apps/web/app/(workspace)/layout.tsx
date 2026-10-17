@@ -24,6 +24,7 @@ import {
   type ShellPin,
 } from "./app-sidebar";
 import { pinnedFavorites } from "./favorites/favorites-helpers";
+import { MoveHost } from "./move-dialog";
 import { ShortcutsDialog } from "./shortcuts-dialog";
 import { TopbarActions } from "./topbar-actions";
 import { UpdatesProvider } from "./updates";
@@ -161,6 +162,7 @@ export default async function WorkspaceLayout({
             <FlashToasts />
           </Suspense>
           <ConfirmHost />
+          <MoveHost />
         </UpdatesProvider>
       </DefaultViewProvider>
     </TimeRoot>

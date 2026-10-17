@@ -14,14 +14,15 @@ import {
   FolderPlus,
   Info,
   Link2,
-  Loader2,
   RefreshCw,
+  Scissors,
   Trash2,
   Upload,
+  X,
 } from "lucide-react";
-import { toast } from "@/components/ui/toast";
+import { Spinner } from "@/components/ui/spinner";
+import { toast, toastManager } from "@/components/ui/toast";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -76,7 +77,14 @@ import type {
 import type { ShareFilesLookup } from "@/server/sharing";
 
 import { Breadcrumbs } from "../breadcrumbs";
-import { SelectionBar } from "../selection-bar";
+import { chooseMoveDestination } from "../move-dialog";
+import {
+  INTERNAL_ITEM_DRAG_TYPE,
+  createDragPreview,
+  setDragTip,
+  type DraggedItems,
+} from "../drag-items";
+import { SelectionBar, floatingBarClass } from "../selection-bar";
 import { WorkspacePage } from "../workspace-page";
 import {
   WORKSPACE_ITEM_FILTERS,
@@ -90,6 +98,7 @@ import {
   getMoveItemsForInteraction,
   getOptimisticSourceMoveIds,
   getRetryableMoveItems,
+  isBatchMoveOperationResponse,
   getStorageMutationItemIds,
   reconcileCutItems,
 } from "./files-move";
@@ -107,7 +116,6 @@ import type { ShareLinkSummary } from "@/server/sharing";
 
 const CUT_STATE_KEY = "staaash:cut-items";
 const UPLOAD_SESSION_KEY_PREFIX = "staaash:upload-session";
-const INTERNAL_ITEM_DRAG_TYPE = "application/x-staaash-items";
 
 type CutItem = { id: string; kind: "folder" | "file"; name: string };
 type MoveRequestSource = "direct" | "paste";
@@ -234,24 +242,6 @@ const getListedItemIds = (listing: FilesListing) =>
     ...listing.childFolders.map((folder) => folder.id),
     ...listing.files.map((file) => file.id),
   ]);
-
-const isBatchMoveOperationResponse = (
-  value: unknown,
-): value is BatchMoveOperationResponse => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-  const candidate = value as {
-    operationId?: unknown;
-    status?: unknown;
-  };
-  return (
-    typeof candidate.operationId === "string" &&
-    ["queued", "running", "succeeded", "recovery_required"].includes(
-      candidate.status as string,
-    )
-  );
-};
 
 /**
  * Many items or a folder go as a zip. A file the browser can't show isn't
@@ -448,7 +438,9 @@ export function FilesView({
   const folderInputRef = useRef<HTMLInputElement>(null);
   const draggedItemsRef = useRef<BatchMoveItem[]>([]);
   const storageMutationKeysRef = useRef(new Map<string, string>());
-  const dragPreviewRef = useRef<HTMLDivElement | null>(null);
+  const dragPreviewRef = useRef<ReturnType<typeof createDragPreview> | null>(
+    null,
+  );
   const getStorageMutationKey = (logicalAction: string) => {
     const existing = storageMutationKeysRef.current.get(logicalAction);
     if (existing) return existing;
@@ -539,24 +531,21 @@ export function FilesView({
       )
       .flatMap((operation) => operation.items.map((item) => item.id)),
   );
+  // Moving items stay in place, faded, until the move is done.
   const visibleFolders = listing.childFolders.filter(
-    (f) =>
-      !trashedIds.has(f.id) &&
-      !movingIds.has(f.id) &&
-      !optimisticallyMovedIds.has(f.id),
+    (f) => !trashedIds.has(f.id) && !optimisticallyMovedIds.has(f.id),
   );
   const visibleFiles = listing.files.filter(
-    (f) =>
-      !trashedIds.has(f.id) &&
-      !movingIds.has(f.id) &&
-      !optimisticallyMovedIds.has(f.id),
+    (f) => !trashedIds.has(f.id) && !optimisticallyMovedIds.has(f.id),
   );
 
   // Flat ordered list of all items (folders first, then files)
   const allItems: BatchMoveItem[] = [
     ...visibleFolders.map((f) => ({ kind: "folder" as const, id: f.id })),
     ...visibleFiles.map((f) => ({ kind: "file" as const, id: f.id })),
-  ].filter((item) => !storageMutationItemIds.has(item.id));
+  ].filter(
+    (item) => !storageMutationItemIds.has(item.id) && !movingIds.has(item.id),
+  );
 
   // Folders stay above files whatever the order.
   const compareForSort = (
@@ -1073,8 +1062,13 @@ export function FilesView({
       for (const id of failedIds) next.add(id);
       return next;
     });
-    if (failures.length > 0) {
-    }
+    offerMoveUndo(
+      clientId,
+      operation.destinationFolderId,
+      result.results.flatMap((item) =>
+        item.status === "moved" ? [{ id: item.id, kind: item.kind }] : [],
+      ),
+    );
 
     if (operation.source === "paste") {
       finishPasteMove(result, operation.items);
@@ -1275,6 +1269,72 @@ export function FilesView({
     }
   };
 
+  // Where user-started moves came from, for Undo, and destination names.
+  const moveOrigins = useRef(new Map<string, { id: string; name: string }>());
+  const folderNames = useRef(new Map<string, string>());
+
+  const startMove = (
+    items: BatchMoveItem[],
+    destination: { id: string; name: string },
+    source: MoveRequestSource = "direct",
+  ) => {
+    const clientId = randomClientId();
+    folderNames.current.set(destination.id, destination.name);
+    moveOrigins.current.set(clientId, {
+      id: listing.currentFolder.id,
+      name: listing.currentFolder.name,
+    });
+    return moveItems(items, destination.id, source, clientId);
+  };
+
+  const offerMoveUndo = (
+    clientId: string,
+    destinationId: string,
+    moved: BatchMoveItem[],
+  ) => {
+    const origin = moveOrigins.current.get(clientId);
+    moveOrigins.current.delete(clientId);
+    if (!origin || moved.length === 0) return;
+    const what = moved.length === 1 ? "1 item" : `${moved.length} items`;
+    toastManager.add({
+      title: `Moved ${what} to ${folderNames.current.get(destinationId) ?? "the folder"}`,
+      actionProps: {
+        children: "Undo",
+        // The toast outlives this render's listing: what comes back must not
+        // count as listed here, nor stay hidden as moved away.
+        onClick: () => {
+          const back = new Set(moved.map((item) => item.id));
+          setOptimisticallyMovedIds(
+            (current) => new Set([...current].filter((id) => !back.has(id))),
+          );
+          void moveItems(
+            moved,
+            origin.id,
+            "direct",
+            randomClientId(),
+            new Set(),
+          );
+        },
+      },
+    });
+  };
+
+  const pickAndMove = async (items: BatchMoveItem[]) => {
+    const destination = await chooseMoveDestination(
+      items.map((item) => ({
+        ...item,
+        name: getItemName(item),
+        parentId: listing.currentFolder.id,
+      })),
+    );
+    if (destination) void startMove(items, destination);
+  };
+
+  const folderNameIn = (id: string) =>
+    listing.childFolders.find((folder) => folder.id === id)?.name ??
+    listing.breadcrumbs.find((crumb) => crumb.id === id)?.name ??
+    "the folder";
+
   const handlePaste = async () => {
     if (cutItems.length === 0) return;
     const dest = listing.currentFolder.id;
@@ -1282,7 +1342,11 @@ export function FilesView({
       .filter((item) => !storageMutationItemIds.has(item.id))
       .map(({ id, kind }) => ({ id, kind }));
     if (attemptedItems.length === 0) return;
-    await moveItems(attemptedItems, dest, "paste");
+    await startMove(
+      attemptedItems,
+      { id: dest, name: listing.currentFolder.name },
+      "paste",
+    );
   };
 
   const retryFailedMove = async (clientId: string) => {
@@ -1369,20 +1433,8 @@ export function FilesView({
     draggedItemsRef.current.length > 0 ||
     event.dataTransfer.types.includes(INTERNAL_ITEM_DRAG_TYPE);
 
-  const positionDragPreview = (clientX: number, clientY: number) => {
-    const preview = dragPreviewRef.current;
-    if (!preview || (clientX === 0 && clientY === 0)) return;
-    const left = Math.min(
-      clientX + 18,
-      window.innerWidth - preview.offsetWidth - 12,
-    );
-    const top = Math.min(
-      clientY + 18,
-      window.innerHeight - preview.offsetHeight - 12,
-    );
-    preview.style.left = `${Math.max(12, left)}px`;
-    preview.style.top = `${Math.max(12, top)}px`;
-  };
+  const positionDragPreview = (clientX: number, clientY: number) =>
+    dragPreviewRef.current?.move(clientX, clientY);
 
   const clearDragPreview = () => {
     dragPreviewRef.current?.remove();
@@ -1413,6 +1465,7 @@ export function FilesView({
     if (isInternalItemDrag(e)) {
       e.preventDefault();
       positionDragPreview(e.clientX, e.clientY);
+      setDragTip("");
       e.dataTransfer.dropEffect = "none";
       return;
     }
@@ -1469,47 +1522,24 @@ export function FilesView({
     draggedItemsRef.current = items;
     if (!selection.getSelected().has(id)) selection.selectOnly(id);
     event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData(INTERNAL_ITEM_DRAG_TYPE, JSON.stringify(items));
+    const dragged: DraggedItems = { items, from: listing.currentFolder.id };
+    event.dataTransfer.setData(
+      INTERNAL_ITEM_DRAG_TYPE,
+      JSON.stringify(dragged),
+    );
     event.dataTransfer.setData("text/plain", `${items.length} Staaash item(s)`);
 
     clearDragPreview();
-    const preview = document.createElement("div");
-    preview.className = styles.dragPreview;
-    preview.dataset.stackDepth = String(Math.min(items.length, 3));
-    preview.setAttribute("aria-hidden", "true");
-
-    const stackDepth = Math.min(items.length, 3);
-    for (let layerIndex = stackDepth - 1; layerIndex >= 1; layerIndex--) {
-      const layer = document.createElement("div");
-      layer.className = styles.dragPreviewLayer;
-      layer.dataset.layer = String(layerIndex);
-      preview.append(layer);
-    }
-
-    const row = document.createElement("div");
-    row.className = styles.dragPreviewRow;
-    const icon = event.currentTarget
-      .querySelector("[data-row-icon]")
-      ?.cloneNode(true);
-    const name = event.currentTarget
-      .querySelector("[data-row-name]")
-      ?.cloneNode(true);
-    if (icon) row.append(icon);
-    if (name) row.append(name);
-
-    preview.append(row);
-    if (items.length > 1) {
-      preview.dataset.hasCount = "";
-      const count = document.createElement("span");
-      count.className = styles.dragPreviewCount;
-      count.textContent = `${items.length} items`;
-      preview.append(count);
-    }
-
-    preview.style.transform = "none";
-    document.body.append(preview);
-    dragPreviewRef.current = preview;
-
+    dragPreviewRef.current = createDragPreview(
+      items.map((item) => {
+        const file =
+          item.kind === "file"
+            ? listing.files.find((candidate) => candidate.id === item.id)
+            : undefined;
+        return file ? thumbnailUrlFor({ ...file, kind: "file" }) : null;
+      }),
+      items.length,
+    );
     positionDragPreview(event.clientX, event.clientY);
 
     const transparentDragImage = document.createElement("canvas");
@@ -1542,6 +1572,11 @@ export function FilesView({
     positionDragPreview(event.clientX, event.clientY);
     event.dataTransfer.dropEffect = "move";
     setDropTargetId(destinationFolderId);
+    setDragTip(
+      destinationFolderId === listing.currentFolder.id
+        ? ""
+        : `Move to ${folderNameIn(destinationFolderId)}`,
+    );
   };
 
   const handleMoveDragLeave = (
@@ -1570,7 +1605,10 @@ export function FilesView({
     ) {
       return;
     }
-    void moveItems(items, destinationFolderId);
+    void startMove(items, {
+      id: destinationFolderId,
+      name: folderNameIn(destinationFolderId),
+    });
   };
 
   const handleUploadInputChange = (
@@ -1601,11 +1639,9 @@ export function FilesView({
     }));
     updateCutItems(cut);
     persistCutItems(cut);
+    // Cut items fade in place; the cut bar takes over from the selection.
+    selection.update(new Set());
   };
-
-  const backgroundMoveTargets = listing.moveTargets.filter(
-    (target) => target.id !== listing.currentFolder.id,
-  );
 
   const backgroundMenuGroups = [
     {
@@ -1662,17 +1698,12 @@ export function FilesView({
           onSelect: cutSelectedItems,
         },
         {
-          disabled: backgroundMoveTargets.length === 0,
           hidden: selectedIds.size === 0,
-          label: `Move ${selectedIds.size} item${selectedIds.size !== 1 ? "s" : ""} to…`,
-          subActions: backgroundMoveTargets.map((target) => ({
-            label: target.pathLabel,
-            onSelect: () =>
-              void moveItems(
-                allItems.filter((item) => selection.getSelected().has(item.id)),
-                target.id,
-              ),
-          })),
+          label: `Move ${selectedIds.size} item${selectedIds.size !== 1 ? "s" : ""}…`,
+          onSelect: () =>
+            void pickAndMove(
+              allItems.filter((item) => selection.getSelected().has(item.id)),
+            ),
         },
         {
           destructive: true,
@@ -1709,6 +1740,9 @@ export function FilesView({
     ) : null;
   };
 
+  const movingMark = (
+    <Spinner aria-hidden className="size-3.5 text-muted-foreground" />
+  );
   const listItems: FilesListItem[] = [
     ...visibleFolders.map((folder) => ({
       id: folder.id,
@@ -1721,9 +1755,9 @@ export function FilesView({
             (id) => `/api/files/files/${id}/thumbnail`,
           )
         : undefined,
-      blocked: mutationLabel(folder),
+      blocked: movingIds.has(folder.id) ? "Moving…" : mutationLabel(folder),
       dimmed: cutIds.has(folder.id),
-      flags: flags("folder", folder.id),
+      flags: movingIds.has(folder.id) ? movingMark : flags("folder", folder.id),
       sub: formatRelativeTime(folder.updatedAt, now, timeZone),
       data: folder,
       sizeBytes: null,
@@ -1734,9 +1768,9 @@ export function FilesView({
       name: file.name,
       mimeType: file.mimeType,
       thumbnailUrl: thumbnailUrlFor({ ...file, kind: "file" }),
-      blocked: mutationLabel(file),
+      blocked: movingIds.has(file.id) ? "Moving…" : mutationLabel(file),
       dimmed: cutIds.has(file.id),
-      flags: flags("file", file.id),
+      flags: movingIds.has(file.id) ? movingMark : flags("file", file.id),
       sub: `${formatWorkspaceFileSize(file.sizeBytes)} · ${formatRelativeTime(file.updatedAt, now, timeZone)}`,
       data: file,
       sizeBytes: file.sizeBytes,
@@ -1785,19 +1819,6 @@ export function FilesView({
       ),
   );
 
-  const moveTargetsFor = (items: BatchMoveItem[]) => {
-    // Folders cannot move into themselves or their own subfolders.
-    const allowed = items
-      .filter((item) => item.kind === "folder")
-      .map(
-        (item) =>
-          new Set(listing.availableMoveTargetIdsByFolderId[item.id] ?? []),
-      );
-    return backgroundMoveTargets
-      .filter((target) => allowed.every((ids) => ids.has(target.id)))
-      .map((target) => ({ id: target.id, label: target.pathLabel }));
-  };
-
   const cutItemsOf = (items: BatchMoveItem[]) => {
     const cut = items.map((item) => ({
       id: item.id,
@@ -1806,6 +1827,8 @@ export function FilesView({
     }));
     updateCutItems(cut);
     persistCutItems(cut);
+    // Cut items fade in place; the cut bar takes over from the selection.
+    selection.update(new Set());
   };
 
   const getActions = (item: FilesListItem) => {
@@ -1844,10 +1867,7 @@ export function FilesView({
             }
           : undefined,
       cut: () => cutItemsOf(targets),
-      moveTo: {
-        targets: moveTargetsFor(targets),
-        run: (destination) => void moveItems(targets, destination),
-      },
+      move: () => void pickAndMove(targets),
       favorite: {
         isFavorite,
         run: () => void toggleFavorite(item.id, item.kind, isFavorite),
@@ -2014,15 +2034,6 @@ export function FilesView({
                 onDrop: (event) => handleMoveDrop(crumb.id, event),
               }))}
             />
-            {movingIds.size > 0 ? (
-              <Badge variant="info" role="status" aria-live="polite">
-                <Loader2
-                  aria-hidden
-                  className="animate-spin motion-reduce:animate-none"
-                />
-                Moving {movingIds.size} item{movingIds.size === 1 ? "" : "s"}
-              </Badge>
-            ) : null}
             <TypeFilter
               options={WORKSPACE_ITEM_FILTERS}
               value={filterType}
@@ -2061,28 +2072,6 @@ export function FilesView({
               ? "No items selected"
               : `${selectedIds.size} item${selectedIds.size === 1 ? "" : "s"} selected`}
           </p>
-
-          {cutItems.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg bg-hover px-3 py-1.5 text-meta">
-              <span className="flex-1">
-                {cutItems.length} item{cutItems.length === 1 ? "" : "s"} cut.
-                Open a folder and paste them there.
-              </span>
-              <Button size="xs" onClick={() => void handlePaste()}>
-                Paste here
-              </Button>
-              <Button
-                size="xs"
-                variant="ghost"
-                onClick={() => {
-                  updateCutItems([]);
-                  clearCutItems();
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
-          ) : null}
 
           {unfinishedUploads.length > 0 ? (
             <div className="flex flex-wrap items-center gap-2 rounded-lg bg-hover px-3 py-1.5 text-meta">
@@ -2225,6 +2214,37 @@ export function FilesView({
           ) : null}
         </DashboardPageContextMenu>
 
+        {cutItems.length > 0 && selectedIds.size === 0 ? (
+          <div
+            aria-label="Cut items"
+            className={floatingBarClass}
+            role="toolbar"
+          >
+            <Scissors
+              aria-hidden
+              className="ms-2 size-4 text-muted-foreground"
+            />
+            <span className="px-1.5 text-body font-medium whitespace-nowrap tabular-nums">
+              {cutItems.length === 1
+                ? "1 item cut"
+                : `${cutItems.length} items cut`}
+            </span>
+            <Button size="sm" onClick={() => void handlePaste()}>
+              Paste here
+            </Button>
+            <Button
+              aria-label="Forget cut items"
+              size="icon-sm"
+              variant="ghost-muted"
+              onClick={() => {
+                updateCutItems([]);
+                clearCutItems();
+              }}
+            >
+              <X aria-hidden />
+            </Button>
+          </div>
+        ) : null}
         <SelectionBar
           actions={[
             {
@@ -2244,10 +2264,7 @@ export function FilesView({
             {
               label: "Move",
               icon: FolderInput,
-              menu: moveTargetsFor(selectedItems).map((target) => ({
-                label: target.label,
-                onClick: () => void moveItems(selectedItems, target.id),
-              })),
+              onClick: () => void pickAndMove(selectedItems),
             },
             {
               label: "Trash",

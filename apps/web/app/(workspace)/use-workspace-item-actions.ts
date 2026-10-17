@@ -1,14 +1,16 @@
 "use client";
 
-import { Download, Trash2 } from "lucide-react";
+import { Download, FolderInput, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
 import { buildItemActions } from "@/components/file-list/item-actions";
-import { toast } from "@/components/ui/toast";
+import { toast, toastManager } from "@/components/ui/toast";
 import { startValidatedDownload } from "@/lib/transfers/download";
 
+import { submitMove } from "./files/files-move";
+import { chooseMoveDestination } from "./move-dialog";
 import type { SelectionBarAction } from "./selection-bar";
 import { useTransferContext } from "./transfer-context";
 import { moveTrash, showUndo } from "./undo";
@@ -122,6 +124,67 @@ export function useWorkspaceItemActions(redirectTo: string) {
     }
   };
 
+  /** Picks a folder, moves there, and offers to move everything back. */
+  const move = async (items: WorkspaceActionItem[]) => {
+    const targets = items.filter((item) => !item.storageMutationStatus);
+    const parentOf = (item: WorkspaceActionItem) =>
+      (item.kind === "file" ? item.folderId : item.parentId) ?? null;
+    const destination = await chooseMoveDestination(
+      targets.map((item) => ({ ...item, parentId: parentOf(item) })),
+    );
+    if (!destination) return;
+    try {
+      const result = await submitMove(
+        targets.map(({ id, kind }) => ({ id, kind })),
+        destination.id,
+      );
+      const moved = targets.filter((item) =>
+        result.results.some((r) => r.id === item.id && r.status === "moved"),
+      );
+      refresh();
+      if (result.failedCount > 0) {
+        toast.error(`${result.failedCount} could not be moved.`);
+      }
+      if (moved.length === 0) return;
+      const what = moved.length === 1 ? "1 item" : `${moved.length} items`;
+      toastManager.add({
+        title: `Moved ${what} to ${destination.name}`,
+        actionProps: {
+          children: "Undo",
+          onClick: () => void moveBack(moved, parentOf),
+        },
+      });
+    } catch (caught) {
+      fail(caught, "Items could not be moved.", () => void move(items));
+    }
+  };
+
+  // Undo: each item goes back to the folder it came from.
+  const moveBack = async (
+    items: WorkspaceActionItem[],
+    parentOf: (item: WorkspaceActionItem) => string | null,
+  ) => {
+    const byParent = new Map<string | null, WorkspaceActionItem[]>();
+    for (const item of items) {
+      byParent.set(parentOf(item), [
+        ...(byParent.get(parentOf(item)) ?? []),
+        item,
+      ]);
+    }
+    try {
+      for (const [parent, group] of byParent) {
+        if (!parent) continue;
+        await submitMove(
+          group.map(({ id, kind }) => ({ id, kind })),
+          parent,
+        );
+      }
+    } catch (caught) {
+      fail(caught, "Items could not be moved back.");
+    }
+    refresh();
+  };
+
   /** Favorite on or off, or pin on or off; returns whether it worked. */
   const setFavorite = async (
     item: WorkspaceActionItem,
@@ -156,6 +219,7 @@ export function useWorkspaceItemActions(redirectTo: string) {
   return {
     trashedIds,
     open,
+    move,
     download,
     showInFolder,
     trash,
@@ -189,6 +253,7 @@ export const liveItemMenu = (
       isFavorite,
       run: () => void actions.setFavorite(item, { isFavorite: !isFavorite }),
     },
+    move: () => void actions.move(targets),
     trash: () => {
       void actions.trash(targets);
       onTrashed?.();
@@ -197,7 +262,7 @@ export const liveItemMenu = (
   });
 };
 
-/** Download and Trash for the selection bar. */
+/** Download, Move and Trash for the selection bar. */
 export const downloadAndTrash = (
   actions: WorkspaceItemActions,
   selected: WorkspaceActionItem[],
@@ -207,6 +272,14 @@ export const downloadAndTrash = (
     label: "Download",
     icon: Download,
     onClick: () => void actions.download(selected),
+  },
+  {
+    label: "Move",
+    icon: FolderInput,
+    onClick: () => {
+      void actions.move(selected);
+      onTrashed();
+    },
   },
   {
     label: "Trash",

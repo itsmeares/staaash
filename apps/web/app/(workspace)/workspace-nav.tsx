@@ -17,13 +17,18 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import { GlidingPill, useGlidingPill } from "@/components/gliding-pill";
 import { ItemIcon, thumbnailUrlFor } from "@/components/file-list/file-list";
 import { cn } from "@/lib/utils";
 
+import { toastManager } from "@/components/ui/toast";
+
 import type { ShellPin } from "./app-sidebar";
+import { dropTargetProps, type DraggedItems } from "./drag-items";
+import { submitMove } from "./files/files-move";
+import { moveTrash, showUndo } from "./undo";
 
 export type WorkspaceNavItem = {
   href: string;
@@ -98,6 +103,55 @@ const looks = {
   },
 };
 
+const itemsLabel = (count: number) =>
+  count === 1 ? "1 item" : `${count} items`;
+
+/** Items dropped on Trash go there at once, with Undo. */
+function useDropActions() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const refresh = () => router.refresh();
+  return {
+    trash: async ({ items }: DraggedItems) => {
+      const moved = await moveTrash(items, "trash", pathname);
+      refresh();
+      showUndo({
+        items: moved,
+        done: "trash",
+        redirectTo: pathname,
+        onUndone: refresh,
+      });
+    },
+    moveTo: async ({ items, from }: DraggedItems, folder: ShellPin) => {
+      if (folder.id === from) return;
+      try {
+        const result = await submitMove(items, folder.id);
+        const moved = items.filter((item) =>
+          result.results.some((r) => r.id === item.id && r.status === "moved"),
+        );
+        refresh();
+        if (moved.length === 0) return;
+        toastManager.add({
+          title: `Moved ${itemsLabel(moved.length)} to ${folder.name}`,
+          actionProps: {
+            children: "Undo",
+            onClick: () => void submitMove(moved, from).then(refresh),
+          },
+        });
+      } catch (caught) {
+        toastManager.add({
+          title:
+            caught instanceof Error
+              ? caught.message
+              : "Items could not be moved.",
+          type: "error",
+          timeout: 0,
+        });
+      }
+    },
+  };
+}
+
 /** A plain sidebar link, for items outside the main list. */
 export function SidebarLink({
   item,
@@ -134,6 +188,7 @@ export function SidebarNav({
   const activeHref = items.find((item) => isItemActive(pathname, item))?.href;
   const { ref, pill } = useGlidingPill<HTMLElement>(activeHref);
   const look = looks[rail ? "rail" : "sidebar"];
+  const drop = useDropActions();
 
   return (
     <nav
@@ -152,6 +207,12 @@ export function SidebarNav({
         return (
           <Link
             key={item.href}
+            {...(item.href === "/trash"
+              ? dropTargetProps(
+                  "Move to trash",
+                  (dragged) => void drop.trash(dragged),
+                )
+              : {})}
             aria-current={active ? "page" : undefined}
             className={cn(
               look.item,
@@ -174,6 +235,7 @@ export function SidebarNav({
 /** Pinned favorites under the drive links, for people who turned them on. */
 export function SidebarPins({ pins }: { pins: ShellPin[] }) {
   const pathname = usePathname();
+  const drop = useDropActions();
   if (pins.length === 0) return null;
   return (
     <nav aria-label="Pinned" className="flex flex-col gap-px">
@@ -184,6 +246,12 @@ export function SidebarPins({ pins }: { pins: ShellPin[] }) {
         const thumbnail = thumbnailUrlFor(pin);
         return (
           <Link
+            {...(pin.kind === "folder"
+              ? dropTargetProps(
+                  `Move to ${pin.name}`,
+                  (dragged) => void drop.moveTo(dragged, pin),
+                )
+              : {})}
             aria-current={pathname === pin.href ? "page" : undefined}
             className={cn(itemClass, "h-8 aria-[current=page]:selected-pill")}
             href={pin.href}

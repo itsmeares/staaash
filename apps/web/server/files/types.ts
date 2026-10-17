@@ -58,11 +58,14 @@ export type FilesBreadcrumb = {
   href: string;
 };
 
+/** A folder in the move picker's tree. */
 export type MoveTarget = {
   id: string;
+  parentId: string | null;
   name: string;
   pathLabel: string;
   isFilesRoot: boolean;
+  color: string | null;
 };
 
 export type BatchMoveItem = {
@@ -109,8 +112,6 @@ export type FilesListing = {
   breadcrumbs: FilesBreadcrumb[];
   childFolders: FolderSummary[];
   files: FileSummary[];
-  moveTargets: MoveTarget[];
-  availableMoveTargetIdsByFolderId: Record<string, string[]>;
   /** Up to two file ids per child folder whose thumbnails can peek out. */
   folderPreviews: Record<string, string[]>;
 };

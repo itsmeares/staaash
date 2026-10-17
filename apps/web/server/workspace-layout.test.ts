@@ -72,6 +72,10 @@ vi.mock("@/app/(workspace)/workspace-search", () => ({
   WorkspaceSearch: () => null,
 }));
 
+vi.mock("@/app/(workspace)/move-dialog", () => ({
+  MoveHost: () => null,
+}));
+
 vi.mock("@/app/(workspace)/shortcuts-dialog", () => ({
   ShortcutsDialog: () => null,
 }));

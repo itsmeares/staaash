@@ -1586,9 +1586,11 @@ export const createFilesService = ({
       visited.add(folder.id);
       ordered.push({
         id: folder.id,
+        parentId: folder.parentId,
         name: folder.name,
         pathLabel: pathNames.join(" / "),
         isFilesRoot: folder.isFilesRoot,
+        color: folder.color ?? null,
       });
 
       const children = childrenByParent.get(folder.id) ?? [];
@@ -1606,10 +1608,7 @@ export const createFilesService = ({
       }
     }
 
-    return {
-      childrenByParent,
-      moveTargets: ordered,
-    };
+    return ordered;
   };
 
   const getRestoreLocation = async (
@@ -2517,7 +2516,6 @@ export const createFilesService = ({
             childFolders.map((folder) => folder.id),
           )
         : {};
-      const moveData = await buildMoveTargets(filesRoot);
       const [folderMutationStates, fileMutationStates] = !repo
         ? await Promise.all([
             getStorageMutationStateMap(
@@ -2530,40 +2528,6 @@ export const createFilesService = ({
             ),
           ])
         : [new Map(), new Map()];
-      const descendantIdsByFolderId = new Map<string, string[]>();
-      const collectVisibleDescendantIds = (folderId: string): string[] => {
-        const cached = descendantIdsByFolderId.get(folderId);
-
-        if (cached) {
-          return cached;
-        }
-
-        const children = moveData.childrenByParent.get(folderId) ?? [];
-        const descendants = children.flatMap((child) => [
-          child.id,
-          ...collectVisibleDescendantIds(child.id),
-        ]);
-        descendantIdsByFolderId.set(folderId, descendants);
-
-        return descendants;
-      };
-      const availableMoveTargetIdsByFolderId = Object.fromEntries(
-        childFolders.map((folder) => {
-          const blockedTargetIds = new Set([
-            currentFolder.id,
-            folder.id,
-            ...collectVisibleDescendantIds(folder.id),
-          ]);
-
-          return [
-            folder.id,
-            moveData.moveTargets
-              .filter((target) => !blockedTargetIds.has(target.id))
-              .map((target) => target.id),
-          ];
-        }),
-      );
-
       return {
         ownerUserId: currentFolder.ownerUserId,
         currentFolder,
@@ -2577,9 +2541,12 @@ export const createFilesService = ({
           ...toFileSummary(file),
           storageMutation: fileMutationStates.get(file.id) ?? null,
         })),
-        moveTargets: moveData.moveTargets,
-        availableMoveTargetIdsByFolderId,
       };
+    },
+
+    /** Every folder in the person's own drive, for the move picker. */
+    async listFolderTree({ actorUserId }: FilesActor): Promise<MoveTarget[]> {
+      return buildMoveTargets(await ensureFilesRoot(actorUserId));
     },
 
     async listTrashFolders({
