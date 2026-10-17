@@ -95,6 +95,7 @@ export function HomeSections({
     kind: item.kind,
     name: item.name,
     mimeType: item.mimeType,
+    thumbnailUrl: thumbnailUrlFor(item),
     sub: `${item.locationLabel} · ${formatRelativeTime(item.at, now, timeZone)}`,
     data: item,
   }));

@@ -53,12 +53,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const currentPath =
     query.length > 0 ? `/search?q=${encodeURIComponent(query)}` : "/search";
 
-  const title = query.length > 0 ? `Results for "${query}"` : "Search";
-  const description =
-    query.length > 0
-      ? `${allItems.length} result${allItems.length === 1 ? "" : "s"}`
-      : undefined;
-  const notices = <></>;
+  // The query stays in the top box, so the title stays quiet.
+  const title = <span className="text-muted-foreground">Search</span>;
 
   return (
     <WorkspacePresetPageContextMenu
@@ -67,8 +63,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     >
       {query.length === 0 || items.length === 0 ? (
         <>
-          <PageHeader title={title} description={description} />
-          {notices}
+          <PageHeader title={title} />
           <Empty className="min-h-64">
             <EmptyHeader>
               <EmptyTitle>
@@ -83,9 +78,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         <>
           <SearchResults
             currentPath={currentPath}
-            description={description}
             items={items.map(toRecentClientItem)}
-            notices={notices}
             query={query}
             title={title}
           />
