@@ -299,7 +299,7 @@ export type FilesRepository = {
   findFolderById(folderId: string): Promise<FolderSummary | null>;
   listFolderAncestors(
     ownerUserId: string,
-    folderId: string,
+    folderIds: string[],
   ): Promise<FolderSummary[]>;
   listFolderSubtree(
     ownerUserId: string,
@@ -330,6 +330,11 @@ export type FilesRepository = {
   listFilesByOwner(
     ownerUserId: string,
     options?: ListFilesOptions & { favoritesOnly?: boolean },
+  ): Promise<StoredFile[]>;
+  listFilesByIds(
+    ownerUserId: string,
+    fileIds: string[],
+    options?: ListFilesOptions,
   ): Promise<StoredFile[]>;
   searchFilesByOwner(
     ownerUserId: string,
@@ -494,12 +499,13 @@ export const createPrismaFilesRepository = (
       return folder ? toFolderSummary(folder) : null;
     },
 
-    async listFolderAncestors(ownerUserId, folderId) {
+    async listFolderAncestors(ownerUserId, folderIds) {
+      if (folderIds.length === 0) return [];
       const client = getClient();
       const ids = await client.$queryRaw<{ id: string }[]>`
         WITH RECURSIVE ancestors AS (
           SELECT id, "parentId" FROM "Folder"
-          WHERE id = ${folderId} AND "ownerUserId" = ${ownerUserId}
+          WHERE id = ANY(${folderIds}::text[]) AND "ownerUserId" = ${ownerUserId}
           UNION
           SELECT parent.id, parent."parentId" FROM "Folder" parent
           JOIN ancestors child ON parent.id = child."parentId"
@@ -628,20 +634,28 @@ export const createPrismaFilesRepository = (
         return [];
       }
 
-      const prisma = getPrisma();
+      const prisma = getClient();
       const matchingIds = new Set<string>();
+      const namePattern = trimmed.replace(/[\\%_]/g, "\\$&");
 
       await Promise.all([
         trimmed.length > 0
-          ? prisma.$queryRaw<{ id: string }[]>`
+          ? prisma.$queryRaw<{ pattern: string }[]>`
+              SELECT '%' || unaccent(lower(${namePattern})) || '%' AS pattern
+            `
+              // A separate query keeps unaccent out of every scanned row.
+              .then(
+                ([{ pattern }]) => prisma.$queryRaw<{ id: string }[]>`
                 SELECT id FROM "File"
                 WHERE "ownerUserId" = ${ownerUserId}
                   AND "deletedAt" IS NULL
                   AND "storageStatus" = 'available'::"FileStorageStatus"
-                  AND unaccent(lower("originalName")) LIKE '%' || unaccent(lower(${trimmed})) || '%'
-              `.then((rows) => {
-              for (const r of rows) matchingIds.add(r.id);
-            })
+                  AND "searchName" LIKE ${pattern}
+              `,
+              )
+              .then((rows) => {
+                for (const r of rows) matchingIds.add(r.id);
+              })
           : Promise.resolve(),
         folderIds.length > 0
           ? prisma.file
@@ -667,11 +681,27 @@ export const createPrismaFilesRepository = (
       const files = await prisma.file.findMany({
         where: {
           id: { in: [...matchingIds] },
+          ownerUserId,
+          deletedAt: null,
           storageStatus: "available",
         },
         select: fileSelect,
       });
 
+      return files.map(toStoredFile);
+    },
+
+    async listFilesByIds(ownerUserId, fileIds, options = {}) {
+      if (fileIds.length === 0) return [];
+      const files = await getClient().file.findMany({
+        where: {
+          ownerUserId,
+          id: { in: fileIds },
+          ...(options.includeDeleted ? {} : { deletedAt: null }),
+          ...(options.includeMissing ? {} : { storageStatus: "available" }),
+        },
+        select: fileSelect,
+      });
       return files.map(toStoredFile);
     },
 

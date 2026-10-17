@@ -42,7 +42,7 @@ import {
   verifyShareAccessCookie,
 } from "./access-cookie";
 import { ShareError } from "./errors";
-import type { SharingRepository } from "./repository";
+import type { SharingRepository, ShareTargetIds } from "./repository";
 import type {
   PublicShareResolution,
   PublicShareContext,
@@ -678,7 +678,9 @@ export const createSharingService = ({
     const ancestorId =
       share.targetType === "file" ? file!.folderId : folder!.id;
     const folders = ancestorId
-      ? await repository.listFolderAncestors(share.createdByUserId, ancestorId)
+      ? await repository.listFolderAncestors(share.createdByUserId, [
+          ancestorId,
+        ])
       : [];
     const folderMap = buildFolderMap(folders);
     assertActiveTarget({
@@ -710,7 +712,7 @@ export const createSharingService = ({
       throw new ShareError("SHARE_ACCESS_DENIED");
     const ancestors = await repository.listFolderAncestors(
       share.createdByUserId,
-      file.folderId,
+      [file.folderId],
     );
     const folderMap = buildFolderMap(ancestors);
     if (
@@ -772,7 +774,7 @@ export const createSharingService = ({
     if (currentFolderId !== rootFolder.id) {
       const ancestors = await repository.listFolderAncestors(
         rootFolder.ownerUserId,
-        currentFolderId,
+        [currentFolderId],
       );
       for (const folder of ancestors) folderMap.set(folder.id, folder);
     }
@@ -910,6 +912,51 @@ export const createSharingService = ({
     };
   };
 
+  const resolveOwnedShares = async (
+    ownerUserId: string,
+    baseUrl?: string,
+    targets?: ShareTargetIds,
+  ) => {
+    const repository = await resolveFilesRepo();
+    const [shares, filesRoot] = await Promise.all([
+      (await resolveRepo()).listSharesByCreator(ownerUserId, targets),
+      findFilesRoot(ownerUserId),
+    ]);
+    const files = await repository.listFilesByIds(
+      ownerUserId,
+      shares.flatMap((share) => (share.fileId ? [share.fileId] : [])),
+      { includeDeleted: true, includeMissing: true },
+    );
+    const folders = await repository.listFolderAncestors(ownerUserId, [
+      ...shares.flatMap((share) => (share.folderId ? [share.folderId] : [])),
+      ...files.flatMap((file) => (file.folderId ? [file.folderId] : [])),
+    ]);
+    const folderMap = buildFolderMap(folders);
+    const fileMap = new Map(files.map((file) => [file.id, file]));
+    const { secret, base } = await resolveSecretAndBaseUrl(baseUrl);
+    const summaries = shares.map((share) => {
+      const target = buildTargetSummary({
+        share,
+        fileMap,
+        folderMap,
+        filesRoot,
+      });
+      return toShareSummary(
+        {
+          share,
+          target: target.summary,
+          targetUnavailable: target.targetUnavailable,
+        },
+        secret,
+        base,
+      );
+    });
+    return {
+      active: summaries.filter((share) => share.status === "active"),
+      inactive: summaries.filter((share) => share.status !== "active"),
+    };
+  };
+
   return {
     async createOrReissueShare({
       actorUserId,
@@ -1009,40 +1056,11 @@ export const createSharingService = ({
       actorUserId,
       baseUrl,
     }: FilesActor & { baseUrl?: string }) {
-      const [shares, { filesRoot, folderMap, fileMap }] = await Promise.all([
-        (await resolveRepo()).listSharesByCreator(actorUserId),
-        resolveFilesState(actorUserId),
-      ]);
-      const { secret, base } = await resolveSecretAndBaseUrl(baseUrl);
-
-      const summaries = shares.map((share) => {
-        const target = buildTargetSummary({
-          share,
-          fileMap,
-          folderMap,
-          filesRoot,
-        });
-
-        return toShareSummary(
-          {
-            share,
-            target: target.summary,
-            targetUnavailable: target.targetUnavailable,
-          },
-          secret,
-          base,
-        );
-      });
-
-      return {
-        active: summaries.filter((share) => share.status === "active"),
-        inactive: summaries.filter((share) => share.status !== "active"),
-      };
+      return resolveOwnedShares(actorUserId, baseUrl);
     },
 
     async getFilesShareLookup({
       actorUserId,
-      actorRole,
       currentFolderId,
       childFolderIds,
       fileIds,
@@ -1053,10 +1071,9 @@ export const createSharingService = ({
       fileIds: string[];
       baseUrl?: string;
     }): Promise<ShareFilesLookup> {
-      const grouped = await this.listOwnedShares({
-        actorUserId,
-        actorRole,
-        baseUrl,
+      const grouped = await resolveOwnedShares(actorUserId, baseUrl, {
+        folderIds: [currentFolderId, ...childFolderIds],
+        fileIds,
       });
       const allShares = [...grouped.active, ...grouped.inactive];
       const folderIdSet = new Set([currentFolderId, ...childFolderIds]);

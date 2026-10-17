@@ -22,7 +22,7 @@ type ShareLinkRecord = Prisma.ShareLinkGetPayload<{
   select: typeof shareLinkSelect;
 }>;
 
-type CreateShareParams = {
+type SaveShareForTargetParams = {
   createdByUserId: string;
   targetType: "file" | "folder";
   fileId?: string | null;
@@ -45,11 +45,9 @@ type UpdateShareParams = {
   revokedAt?: Date | null;
 };
 
-type SaveShareForTargetParams = CreateShareParams;
-
 type SharingPrismaClient = Pick<
   ReturnType<typeof getPrisma>,
-  "shareLink" | "$transaction"
+  "shareLink" | "$transaction" | "$queryRaw"
 >;
 
 const toStoredShareLink = (shareLink: ShareLinkRecord): StoredShareLink => ({
@@ -68,6 +66,8 @@ const toStoredShareLink = (shareLink: ShareLinkRecord): StoredShareLink => ({
   updatedAt: shareLink.updatedAt,
 });
 
+export type ShareTargetIds = { fileIds: string[]; folderIds: string[] };
+
 export type SharingRepository = {
   findShareById(shareId: string): Promise<StoredShareLink | null>;
   findShareByFileId(fileId: string): Promise<StoredShareLink | null>;
@@ -75,11 +75,13 @@ export type SharingRepository = {
   findShareByTokenLookupKey(
     tokenLookupKey: string,
   ): Promise<StoredShareLink | null>;
-  listSharesByCreator(createdByUserId: string): Promise<StoredShareLink[]>;
+  listSharesByCreator(
+    createdByUserId: string,
+    targets?: ShareTargetIds,
+  ): Promise<StoredShareLink[]>;
   saveShareForTarget(
     params: SaveShareForTargetParams,
   ): Promise<StoredShareLink>;
-  createShare(params: CreateShareParams): Promise<StoredShareLink>;
   updateShare(params: UpdateShareParams): Promise<StoredShareLink>;
   deleteShare(shareId: string): Promise<void>;
 };
@@ -139,22 +141,20 @@ const createPrismaSharingRepository = (
       return shareLink ? toStoredShareLink(shareLink) : null;
     },
 
-    async listSharesByCreator(createdByUserId) {
+    async listSharesByCreator(createdByUserId, targets) {
       const client = getClient();
-      const shareLinks = await client.shareLink.findMany({
-        where: {
-          createdByUserId,
-        },
-        orderBy: [
-          {
-            revokedAt: "asc",
-          },
-          {
-            updatedAt: "desc",
-          },
-        ],
-        select: shareLinkSelect,
-      });
+      // Array parameters keep large folders below the bind-parameter limit.
+      const shareLinks = await client.$queryRaw<ShareLinkRecord[]>(Prisma.sql`
+        SELECT * FROM "ShareLink"
+        WHERE "createdByUserId" = ${createdByUserId}
+        ${
+          targets
+            ? Prisma.sql`AND ("fileId" = ANY(${targets.fileIds}::text[])
+                              OR "folderId" = ANY(${targets.folderIds}::text[]))`
+            : Prisma.empty
+        }
+        ORDER BY "revokedAt" ASC, "updatedAt" DESC
+      `);
 
       return shareLinks.map(toStoredShareLink);
     },
@@ -217,27 +217,6 @@ const createPrismaSharingRepository = (
       });
     },
 
-    async createShare(params) {
-      const client = getClient();
-      const shareLink = await client.shareLink.create({
-        data: {
-          createdByUserId: params.createdByUserId,
-          targetType: params.targetType,
-          fileId: params.fileId ?? null,
-          folderId: params.folderId ?? null,
-          tokenLookupKey: params.tokenLookupKey,
-          tokenHash: params.tokenHash,
-          passwordHash: params.passwordHash,
-          downloadDisabled: params.downloadDisabled,
-          expiresAt: params.expiresAt,
-          revokedAt: params.revokedAt ?? null,
-        },
-        select: shareLinkSelect,
-      });
-
-      return toStoredShareLink(shareLink);
-    },
-
     async updateShare(params) {
       const client = getClient();
       const data: Prisma.ShareLinkUpdateInput = {};
@@ -292,5 +271,4 @@ const createPrismaSharingRepository = (
   };
 };
 
-// fallow-ignore-next-line unused-export
 export const prismaSharingRepository = createPrismaSharingRepository();

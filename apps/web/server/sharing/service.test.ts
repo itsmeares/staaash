@@ -180,8 +180,15 @@ const createFakeSharingRepository = () => {
         state.find((share) => share.tokenLookupKey === tokenLookupKey) ?? null
       );
     },
-    async listSharesByCreator(createdByUserId) {
-      return state.filter((share) => share.createdByUserId === createdByUserId);
+    async listSharesByCreator(createdByUserId, targets) {
+      return state.filter(
+        (share) =>
+          share.createdByUserId === createdByUserId &&
+          (!targets ||
+            (share.fileId !== null && targets.fileIds.includes(share.fileId)) ||
+            (share.folderId !== null &&
+              targets.folderIds.includes(share.folderId))),
+      );
     },
     async saveShareForTarget(params) {
       const existing =
@@ -200,9 +207,6 @@ const createFakeSharingRepository = () => {
         return existing;
       }
 
-      return repo.createShare(params);
-    },
-    async createShare(params) {
       const share: StoredShareLink = {
         id: `share-${state.length + 1}`,
         createdByUserId: params.createdByUserId,
@@ -294,19 +298,21 @@ const fakeFilesRepo = {
   async listFolderAncestors(
     this: FilesRepository,
     ownerUserId: string,
-    folderId: string,
+    folderIds: string[],
   ) {
     const folders: FolderSummary[] = [];
-    let folder = await this.findFolderById(folderId);
-    while (
-      folder &&
-      folder.ownerUserId === ownerUserId &&
-      !folders.some(({ id }) => id === folder!.id)
-    ) {
-      folders.push(folder);
-      folder = folder.parentId
-        ? await this.findFolderById(folder.parentId)
-        : null;
+    for (const folderId of folderIds) {
+      let folder = await this.findFolderById(folderId);
+      while (
+        folder &&
+        folder.ownerUserId === ownerUserId &&
+        !folders.some(({ id }) => id === folder!.id)
+      ) {
+        folders.push(folder);
+        folder = folder.parentId
+          ? await this.findFolderById(folder.parentId)
+          : null;
+      }
     }
     return folders;
   },
@@ -345,6 +351,11 @@ const fakeFilesRepo = {
   },
   async listFoldersByOwner() {
     return [filesRoot, sharedFolder, childFolder, siblingFolder];
+  },
+  async listFilesByIds(ownerUserId: string, fileIds: string[]) {
+    return [sharedFile, childFile].filter(
+      (file) => file.ownerUserId === ownerUserId && fileIds.includes(file.id),
+    );
   },
   async listFilesByOwner() {
     return [sharedFile, childFile].filter(

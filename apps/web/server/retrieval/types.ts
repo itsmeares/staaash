@@ -98,6 +98,15 @@ export type RetrievalRepository = {
   ensureFilesRoot(ownerUserId: string): Promise<FolderSummary>;
   findFolderById(folderId: string): Promise<FolderSummary | null>;
   findFileById(fileId: string): Promise<FileSummary | null>;
+  listFolderAncestors(
+    ownerUserId: string,
+    folderIds: string[],
+  ): Promise<FolderSummary[]>;
+  listFilesByIds(
+    ownerUserId: string,
+    fileIds: string[],
+    options?: RetrievalListOptions,
+  ): Promise<FileSummary[]>;
   listFoldersByOwner(
     ownerUserId: string,
     options?: RetrievalListOptions,

@@ -189,6 +189,7 @@ model File {
   ownerUserId             String
   folderId                String?
   originalName            String
+  searchName              String            @default("")
   storageKey              String            @unique
   storageStatus           FileStorageStatus @default(available)
   storageCheckedAt        DateTime?
@@ -212,6 +213,7 @@ model File {
 
   @@index([ownerUserId, folderId, deletedAt])
   @@index([ownerUserId, folderId, deletedAt, storageStatus])
+  @@index([searchName(ops: raw("gin_trgm_ops"))], type: Gin, map: "File_searchName_trgm_idx", where: raw("\"deletedAt\" IS NULL AND \"storageStatus\" = 'available'::\"FileStorageStatus\""))
   @@index([trashEntryId])
 }
 

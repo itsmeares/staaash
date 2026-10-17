@@ -75,6 +75,15 @@ possible byte and fail closed until an operator investigates.
 - restore requires reconciliation instead of silent best effort
 - preview-capable media is viewed from original bytes; restore does not regenerate derivative previews
 
+Search name candidates use `File.searchName`, derived with the same PostgreSQL
+normalization as the name query. A database trigger updates it in the same
+transaction as inserts and name changes, including journal and worker writes.
+The trigram index covers active, available files. Folder paths remain computed
+from current metadata, so moving a folder does not rewrite descendant search
+names. Changing the normalization rules requires backfilling the stored values.
+The initial migration backfills names and builds the index under an exclusive
+`File` table lock. Startup waits for that migration before serving requests.
+
 ## Boundaries And Non-Goals
 
 - no microservice split in v1

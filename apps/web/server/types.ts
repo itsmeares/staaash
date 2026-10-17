@@ -6,12 +6,6 @@ export type SearchMatchKind = "exact" | "prefix" | "substring";
 
 export type HealthCheckStatus = "healthy" | "warning" | "error";
 
-export type SearchNormalizationPolicy = {
-  caseInsensitive: true;
-  accentInsensitive: true;
-  tokenizedPathMatching: true;
-};
-
 export type SearchResultItem = {
   id: string;
   name: string;

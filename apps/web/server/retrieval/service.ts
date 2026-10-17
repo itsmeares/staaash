@@ -16,6 +16,7 @@ import {
   compareSearchResults,
   getSearchMatchKind,
   normalizeSearchText,
+  prepareSearchCandidate,
 } from "@/server/search";
 import { getStorageMutationStateMap } from "@/server/storage-read-guard";
 
@@ -26,6 +27,7 @@ import type {
   RecentRetrievalItem,
   RetrievalItem,
   RetrievalRepository,
+  RetrievalListOptions,
 } from "./types";
 
 type CreateRetrievalServiceOptions = {
@@ -86,41 +88,40 @@ const computeMatchingFolderAndDescendantIds = (
     .filter(
       (f) =>
         !f.isFilesRoot &&
-        getSearchMatchKind(normalizedQuery, f.name, "") !== null,
+        getSearchMatchKind(
+          normalizedQuery,
+          prepareSearchCandidate(f.name, ""),
+        ) !== null,
     )
     .map((f) => f.id);
 
-  const result = new Set<string>();
-  const queue = [...seeds];
-  while (queue.length > 0) {
-    const id = queue.shift()!;
-    result.add(id);
+  const result = new Set(seeds);
+  const queue = [...result];
+  for (let index = 0; index < queue.length; index++) {
+    const id = queue[index];
     for (const child of childrenMap.get(id) ?? []) {
-      if (!result.has(child)) queue.push(child);
+      if (!result.has(child)) {
+        result.add(child);
+        queue.push(child);
+      }
     }
   }
   return [...result];
 };
 
-const compareRetrievalItems = (left: RetrievalItem, right: RetrievalItem) => {
-  const pathDelta = normalizeSearchText(left.pathLabel).localeCompare(
-    normalizeSearchText(right.pathLabel),
-  );
+const prepareRetrievalItem = <T extends RetrievalItem>(item: T) => ({
+  item,
+  sortPath: normalizeSearchText(item.pathLabel),
+  sortName: normalizeSearchText(item.name),
+});
 
-  if (pathDelta !== 0) {
-    return pathDelta;
-  }
-
-  const nameDelta = normalizeSearchText(left.name).localeCompare(
-    normalizeSearchText(right.name),
-  );
-
-  if (nameDelta !== 0) {
-    return nameDelta;
-  }
-
-  return left.id.localeCompare(right.id);
-};
+const compareRetrievalItems = (
+  left: ReturnType<typeof prepareRetrievalItem>,
+  right: ReturnType<typeof prepareRetrievalItem>,
+) =>
+  left.sortPath.localeCompare(right.sortPath) ||
+  left.sortName.localeCompare(right.sortName) ||
+  left.item.id.localeCompare(right.item.id);
 
 const decorateRetrievalStorageState = async <T extends RetrievalItem>(
   items: T[],
@@ -282,14 +283,34 @@ export const createRetrievalService = ({
     };
   };
 
+  const resolveReferencedItems = async (
+    ownerUserId: string,
+    files: FileSummary[],
+    folderIds: string[],
+    options: RetrievalListOptions = {},
+  ) => {
+    const repository = await resolveRepo();
+    const folders = await repository.listFolderAncestors(ownerUserId, [
+      ...folderIds,
+      ...files.flatMap((file) => (file.folderId ? [file.folderId] : [])),
+    ]);
+    return {
+      fileMap: new Map(files.map((file) => [file.id, file])),
+      folderMap: buildFolderMap(
+        folders.filter((folder) => options.includeDeleted || !folder.deletedAt),
+      ),
+    };
+  };
+
   return {
     async search({
       actorUserId,
       query,
     }: FilesActor & { query: string }): Promise<RetrievalItem[]> {
       const trimmedQuery = query.trim();
+      const normalizedQuery = normalizeSearchText(trimmedQuery);
 
-      if (trimmedQuery.length === 0) {
+      if (normalizedQuery.length === 0) {
         return [];
       }
 
@@ -300,7 +321,6 @@ export const createRetrievalService = ({
         getFavoriteState(actorUserId),
       ]);
 
-      const normalizedQuery = normalizeSearchText(trimmedQuery);
       const matchingFolderIds = computeMatchingFolderAndDescendantIds(
         folders,
         normalizedQuery,
@@ -335,31 +355,22 @@ export const createRetrievalService = ({
       return decorateRetrievalStorageState(
         baseItems
           .flatMap((item) => {
-            const matchKind = getSearchMatchKind(
-              trimmedQuery,
-              item.name,
-              item.pathLabel,
-            );
-
-            return matchKind ? [{ ...item, matchKind }] : [];
+            const candidate = prepareSearchCandidate(item.name, item.pathLabel);
+            const matchKind = getSearchMatchKind(normalizedQuery, candidate);
+            return matchKind
+              ? [
+                  {
+                    ...item,
+                    matchKind,
+                    normalizedName: candidate.normalizedName,
+                    normalizedPath: candidate.normalizedPath,
+                  },
+                ]
+              : [];
           })
-          .sort((left, right) =>
-            compareSearchResults(
-              {
-                id: left.id,
-                name: left.name,
-                path: left.pathLabel,
-                updatedAt: left.updatedAt,
-                matchKind: left.matchKind!,
-              },
-              {
-                id: right.id,
-                name: right.name,
-                path: right.pathLabel,
-                updatedAt: right.updatedAt,
-                matchKind: right.matchKind!,
-              },
-            ),
+          .sort(compareSearchResults)
+          .map(
+            ({ normalizedName: _name, normalizedPath: _path, ...item }) => item,
           ),
       );
     },
@@ -368,104 +379,62 @@ export const createRetrievalService = ({
       actorUserId,
     }: FilesActor): Promise<FavoriteRetrievalItem[]> {
       const activeRepo = await resolveRepo();
-      const [filesRoot, folders, files, favoriteState] = await Promise.all([
+      const [filesRoot, files, favoriteState] = await Promise.all([
         activeRepo.ensureFilesRoot(actorUserId),
-        activeRepo.listFoldersByOwner(actorUserId),
         activeRepo.listFilesByOwner(actorUserId, { favoritesOnly: true }),
         getFavoriteState(actorUserId),
       ]);
       const { favoriteFiles, favoriteFolders } = favoriteState;
-      const folderMap = buildFolderMap(folders);
-      const folderById = new Map(folders.map((folder) => [folder.id, folder]));
-      const fileById = new Map(files.map((file) => [file.id, file]));
+      const { folderMap, fileMap } = await resolveReferencedItems(
+        actorUserId,
+        files,
+        favoriteFolders.map((f) => f.folderId),
+      );
       const items = [
-        ...favoriteFolders.map((favorite) => ({
-          kind: "folder" as const,
-          createdAt: favorite.createdAt,
-          quickAccessPinnedAt: favorite.quickAccessPinnedAt,
-          item: favorite.folderId ? folderById.get(favorite.folderId) : null,
-        })),
-        ...favoriteFiles.map((favorite) => ({
-          kind: "file" as const,
-          createdAt: favorite.createdAt,
-          quickAccessPinnedAt: favorite.quickAccessPinnedAt,
-          item: favorite.fileId ? fileById.get(favorite.fileId) : null,
-        })),
+        ...favoriteFolders.flatMap((favorite) => {
+          const folder = folderMap.get(favorite.folderId);
+          return folder && !folder.isFilesRoot
+            ? [
+                {
+                  ...toFolderItem({
+                    folder,
+                    folderMap,
+                    filesRoot,
+                    favoriteFolderIds: favoriteState.favoriteFolderIds,
+                  }),
+                  favoritedAt: favorite.createdAt,
+                  quickAccessPinnedAt: favorite.quickAccessPinnedAt,
+                },
+              ]
+            : [];
+        }),
+        ...favoriteFiles.flatMap((favorite) => {
+          const file = fileMap.get(favorite.fileId);
+          return file
+            ? [
+                {
+                  ...toFileItem({
+                    file,
+                    folderMap,
+                    filesRoot,
+                    favoriteFileIds: favoriteState.favoriteFileIds,
+                  }),
+                  favoritedAt: favorite.createdAt,
+                  quickAccessPinnedAt: favorite.quickAccessPinnedAt,
+                },
+              ]
+            : [];
+        }),
       ]
-        .filter(
-          (
-            entry,
-          ): entry is
-            | {
-                kind: "folder";
-                createdAt: Date;
-                quickAccessPinnedAt: Date | null;
-                item: FolderSummary;
-              }
-            | {
-                kind: "file";
-                createdAt: Date;
-                quickAccessPinnedAt: Date | null;
-                item: FileSummary;
-              } =>
-            entry.item != null &&
-            !(
-              entry.kind === "folder" &&
-              (entry.item as FolderSummary).isFilesRoot
-            ),
-        )
+        .map(prepareRetrievalItem)
         .sort(
           (left, right) =>
-            right.createdAt.getTime() - left.createdAt.getTime() ||
-            compareRetrievalItems(
-              left.kind === "folder"
-                ? toFolderItem({
-                    folder: left.item as FolderSummary,
-                    folderMap,
-                    filesRoot,
-                    favoriteFolderIds: favoriteState.favoriteFolderIds,
-                  })
-                : toFileItem({
-                    file: left.item as FileSummary,
-                    folderMap,
-                    filesRoot,
-                    favoriteFileIds: favoriteState.favoriteFileIds,
-                  }),
-              right.kind === "folder"
-                ? toFolderItem({
-                    folder: right.item as FolderSummary,
-                    folderMap,
-                    filesRoot,
-                    favoriteFolderIds: favoriteState.favoriteFolderIds,
-                  })
-                : toFileItem({
-                    file: right.item as FileSummary,
-                    folderMap,
-                    filesRoot,
-                    favoriteFileIds: favoriteState.favoriteFileIds,
-                  }),
-            ),
-        );
-
-      return decorateRetrievalStorageState(
-        items.map((entry) => ({
-          ...(entry.kind === "folder"
-            ? toFolderItem({
-                folder: entry.item as FolderSummary,
-                folderMap,
-                filesRoot,
-                favoriteFolderIds: favoriteState.favoriteFolderIds,
-              })
-            : toFileItem({
-                file: entry.item as FileSummary,
-                folderMap,
-                filesRoot,
-                favoriteFileIds: favoriteState.favoriteFileIds,
-              })),
-          favoritedAt: entry.createdAt,
-          quickAccessPinnedAt: entry.quickAccessPinnedAt,
-        })),
-      ) as Promise<FavoriteRetrievalItem[]>;
+            right.item.favoritedAt.getTime() -
+              left.item.favoritedAt.getTime() ||
+            compareRetrievalItems(left, right),
+        )
+        .map(({ item }) => item);
+      return decorateRetrievalStorageState(items);
     },
 
     async listRecentlyAdded({
@@ -510,10 +479,14 @@ export const createRetrievalService = ({
 
       return decorateRetrievalStorageState(
         items
+          .map(({ item, createdAt }) => ({
+            ...prepareRetrievalItem(item),
+            createdAt,
+          }))
           .sort(
             (left, right) =>
               right.createdAt.getTime() - left.createdAt.getTime() ||
-              compareRetrievalItems(left.item, right.item),
+              compareRetrievalItems(left, right),
           )
           .map((entry) => entry.item),
       );
@@ -524,67 +497,68 @@ export const createRetrievalService = ({
       actorUserId,
     }: FilesActor): Promise<RecentRetrievalItem[]> {
       const activeRepo = await resolveRepo();
-      const [
-        filesRoot,
-        folders,
+      const [filesRoot, recentFiles, recentFolders, favoriteState] =
+        await Promise.all([
+          activeRepo.ensureFilesRoot(actorUserId),
+          activeRepo.listRecentFiles(actorUserId),
+          activeRepo.listRecentFolders(actorUserId),
+          getFavoriteState(actorUserId),
+        ]);
+      const files = await activeRepo.listFilesByIds(
+        actorUserId,
+        recentFiles.map((r) => r.fileId),
+        { includeDeleted: true },
+      );
+      const { folderMap, fileMap } = await resolveReferencedItems(
+        actorUserId,
         files,
-        recentFiles,
-        recentFolders,
-        favoriteState,
-      ] = await Promise.all([
-        activeRepo.ensureFilesRoot(actorUserId),
-        activeRepo.listFoldersByOwner(actorUserId, { includeDeleted: true }),
-        activeRepo.listFilesByOwner(actorUserId, { includeDeleted: true }),
-        activeRepo.listRecentFiles(actorUserId),
-        activeRepo.listRecentFolders(actorUserId),
-        getFavoriteState(actorUserId),
-      ]);
-      const folderMap = buildFolderMap(folders);
-      const folderById = new Map(folders.map((folder) => [folder.id, folder]));
-      const fileById = new Map(files.map((file) => [file.id, file]));
-      const items: RecentRetrievalItem[] = [
+        recentFolders.map((r) => r.folderId),
+        { includeDeleted: true },
+      );
+      const items = [
         ...recentFolders.flatMap((recent) => {
-          const folder = folderById.get(recent.folderId);
-          if (!folder || folder.isFilesRoot) return [];
-          return [
-            {
-              ...toFolderItem({
-                folder,
-                folderMap,
-                filesRoot,
-                favoriteFolderIds: favoriteState.favoriteFolderIds,
-              }),
-              lastInteractedAt: recent.lastInteractedAt,
-              lastAction: recent.lastAction,
-            },
-          ];
+          const folder = folderMap.get(recent.folderId);
+          return folder && !folder.isFilesRoot
+            ? [
+                prepareRetrievalItem({
+                  ...toFolderItem({
+                    folder,
+                    folderMap,
+                    filesRoot,
+                    favoriteFolderIds: favoriteState.favoriteFolderIds,
+                  }),
+                  lastInteractedAt: recent.lastInteractedAt,
+                  lastAction: recent.lastAction,
+                }),
+              ]
+            : [];
         }),
         ...recentFiles.flatMap((recent) => {
-          const file = fileById.get(recent.fileId);
-          if (!file) return [];
-          return [
-            {
-              ...toFileItem({
-                file,
-                folderMap,
-                filesRoot,
-                favoriteFileIds: favoriteState.favoriteFileIds,
-              }),
-              lastInteractedAt: recent.lastInteractedAt,
-              lastAction: recent.lastAction,
-            },
-          ];
+          const file = fileMap.get(recent.fileId);
+          return file
+            ? [
+                prepareRetrievalItem({
+                  ...toFileItem({
+                    file,
+                    folderMap,
+                    filesRoot,
+                    favoriteFileIds: favoriteState.favoriteFileIds,
+                  }),
+                  lastInteractedAt: recent.lastInteractedAt,
+                  lastAction: recent.lastAction,
+                }),
+              ]
+            : [];
         }),
-      ];
-
-      return decorateRetrievalStorageState(
-        items.sort(
+      ]
+        .sort(
           (left, right) =>
-            right.lastInteractedAt.getTime() -
-              left.lastInteractedAt.getTime() ||
+            right.item.lastInteractedAt.getTime() -
+              left.item.lastInteractedAt.getTime() ||
             compareRetrievalItems(left, right),
-        ),
-      );
+        )
+        .map(({ item }) => item);
+      return decorateRetrievalStorageState(items);
     },
 
     async setFileFavorite({
