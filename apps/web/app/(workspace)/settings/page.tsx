@@ -1,102 +1,50 @@
-import { FlashMessage, getSingleSearchParam } from "@/app/auth-ui";
-import { AUTO_TIME_ZONE } from "@staaash/config/time-zone";
 import { PageHeader } from "@/components/page-header";
-import { DateTime } from "@/components/time-provider";
-import {
-  SettingsAccordion,
-  SettingsList,
-  SettingsPanel,
-  SettingsRow,
-} from "@/components/settings-panel";
-import { Button } from "@/components/ui/button";
+import type { Theme } from "@/lib/theme";
+import { roleLabel } from "@/lib/user";
+import { toDevice } from "@/lib/user-agent";
 import { requireSignedInPageSession } from "@/server/auth/guards";
+import { authService } from "@/server/auth/service";
+import { getStorageBreakdown } from "@/server/user-storage";
+
 import { WorkspacePage } from "../workspace-page";
-import { PreferencesForm } from "./preferences-form";
+import { PersonalSettings } from "./preferences-form";
 
 export const dynamic = "force-dynamic";
 
-type SettingsPageProps = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
-
-export default async function SettingsPage({
-  searchParams,
-}: SettingsPageProps) {
-  const [resolvedSearchParams, session] = await Promise.all([
-    searchParams,
-    requireSignedInPageSession("/?next=/settings"),
-  ]);
-  const error = getSingleSearchParam(resolvedSearchParams, "error");
-  const success = getSingleSearchParam(resolvedSearchParams, "success");
-  const errorMessage =
-    error === "admin" ? "Admin access is restricted to admins." : error;
-
+export default async function SettingsPage() {
+  const session = await requireSignedInPageSession("/?next=/settings");
   const prefs = session.user.preferences;
+  const [storage, sessions] = await Promise.all([
+    getStorageBreakdown(session.user.id),
+    authService.listOwnSessions(session.user.id),
+  ]);
 
   return (
-    <WorkspacePage className="mx-auto w-full max-w-settings content-start gap-4.5">
+    <WorkspacePage className="w-full content-start gap-6">
       <PageHeader title="Settings" />
-
-      {errorMessage ? <FlashMessage>{errorMessage}</FlashMessage> : null}
-      {success ? <FlashMessage tone="success">{success}</FlashMessage> : null}
-
-      <SettingsAccordion>
-        <SettingsPanel
-          title="Preferences"
-          description="Theme, time zone, and update notices"
-        >
-          <PreferencesForm
-            initialTheme={
-              (prefs?.theme as "light" | "dark" | "system") ?? "system"
-            }
-            initialTimeZone={prefs?.timeZone ?? AUTO_TIME_ZONE}
-            initialShowUpdateNotifications={
-              prefs?.showUpdateNotifications ?? true
-            }
-            initialEnableVersionChecks={prefs?.enableVersionChecks ?? true}
-          />
-        </SettingsPanel>
-
-        <SettingsPanel title="Account" description="Identity and access">
-          <SettingsList>
-            <SettingsRow kind="value" label="Display name">
-              {session.user.displayName ?? "Not set"}
-            </SettingsRow>
-            <SettingsRow kind="value" label="Email">
-              {session.user.email}
-            </SettingsRow>
-            <SettingsRow kind="value" label="Access">
-              {session.user.isOwner
-                ? "Owner"
-                : session.user.isAdmin
-                  ? "Admin"
-                  : "Member"}
-            </SettingsRow>
-          </SettingsList>
-        </SettingsPanel>
-
-        <SettingsPanel title="Session" description="Current browser session">
-          <SettingsList>
-            <SettingsRow kind="value" label="Session ID">
-              <code>{session.id}</code>
-            </SettingsRow>
-            <SettingsRow kind="value" label="Created">
-              <DateTime value={session.createdAt} />
-            </SettingsRow>
-            <SettingsRow kind="value" label="Expires">
-              <DateTime value={session.expiresAt} />
-            </SettingsRow>
-            <SettingsRow kind="value" label="Sign out">
-              <form action="/api/auth/sign-out" method="post">
-                <input type="hidden" name="next" value="/" />
-                <Button type="submit" variant="destructive-outline">
-                  Sign out
-                </Button>
-              </form>
-            </SettingsRow>
-          </SettingsList>
-        </SettingsPanel>
-      </SettingsAccordion>
+      <PersonalSettings
+        isOwner={session.user.isAdmin}
+        prefs={{
+          theme: prefs.theme as Theme,
+          timeZone: prefs.timeZone,
+          showUpdateNotifications: prefs.showUpdateNotifications,
+          showFolderPreviews: prefs.showFolderPreviews,
+          showPinsInSidebar: prefs.showPinsInSidebar,
+          startPage: prefs.startPage as "home" | "files",
+          defaultView: prefs.defaultView as "list" | "grid",
+          clockFormat: prefs.clockFormat as "12h" | "24h",
+        }}
+        sessions={sessions
+          .map((entry) => toDevice(entry, session.id))
+          .sort((a, b) => Number(b.current) - Number(a.current))}
+        storage={storage}
+        profile={{
+          name: session.user.displayName,
+          email: session.user.email,
+          avatarUrl: session.user.avatarUrl,
+          role: roleLabel(session.user.role),
+        }}
+      />
     </WorkspacePage>
   );
 }

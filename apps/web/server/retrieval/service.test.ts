@@ -304,13 +304,14 @@ const createMemoryRepository = () => {
       return true;
     },
 
-    async upsertRecentFile({ userId, fileId, lastInteractedAt }) {
+    async upsertRecentFile({ userId, fileId, lastInteractedAt, lastAction }) {
       const existing = state.recentFiles.find(
         (recent) => recent.userId === userId && recent.fileId === fileId,
       );
 
       if (existing) {
         existing.lastInteractedAt = lastInteractedAt;
+        existing.lastAction = lastAction;
         return;
       }
 
@@ -318,16 +319,23 @@ const createMemoryRepository = () => {
         userId,
         fileId,
         lastInteractedAt,
+        lastAction,
       });
     },
 
-    async upsertRecentFolder({ userId, folderId, lastInteractedAt }) {
+    async upsertRecentFolder({
+      userId,
+      folderId,
+      lastInteractedAt,
+      lastAction,
+    }) {
       const existing = state.recentFolders.find(
         (recent) => recent.userId === userId && recent.folderId === folderId,
       );
 
       if (existing) {
         existing.lastInteractedAt = lastInteractedAt;
+        existing.lastAction = lastAction;
         return;
       }
 
@@ -335,6 +343,7 @@ const createMemoryRepository = () => {
         userId,
         folderId,
         lastInteractedAt,
+        lastAction,
       });
     },
   };

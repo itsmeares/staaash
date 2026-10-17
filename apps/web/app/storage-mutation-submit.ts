@@ -32,4 +32,5 @@ export const submitStorageMutationPost = async ({
     throw new Error(body.error ?? "Storage operation failed.");
   }
   storageMutationKeys.delete(logicalAction);
+  return (await response.json().catch(() => null)) as unknown;
 };

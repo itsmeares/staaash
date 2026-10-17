@@ -27,7 +27,11 @@ const prefs: UserPreferences = {
   theme: "system",
   timeZone: "UTC",
   showUpdateNotifications: true,
-  enableVersionChecks: true,
+  showFolderPreviews: true,
+  showPinsInSidebar: false,
+  startPage: "home",
+  defaultView: "list",
+  clockFormat: "24h",
   onboardingCompletedAt: now,
 };
 
@@ -365,6 +369,95 @@ describe("auth service", () => {
     expect(result.temporaryPassword).toBe("new-member-pass");
     expect(result.user.passwordChangeRequiredAt).toEqual(now);
     expect(state.sessions[0]?.revokedAt).toEqual(now);
+  });
+
+  it("changes your own password only with the current one and keeps this browser", async () => {
+    const state: State = { users: [], sessions: [] };
+    const service = createAuthService({
+      repo: createRepo(state),
+      now: () => now,
+      sessionMaxAgeDays: 30,
+    });
+    await service.bootstrap({
+      instanceName: "Test Staaash",
+      email: "owner@example.com",
+      password: "long-owner-password",
+    });
+    const here = await service.signIn({
+      email: "owner@example.com",
+      password: "long-owner-password",
+    });
+    await service.signIn({
+      email: "owner@example.com",
+      password: "long-owner-password",
+    });
+    const userId = here.user.id;
+    const change = {
+      password: "brand-new-password",
+      confirmPassword: "brand-new-password",
+    };
+
+    await expect(
+      service.changeOwnPassword(userId, here.session.id, {
+        ...change,
+        currentPassword: "wrong-password-here",
+      }),
+    ).rejects.toMatchObject({ code: "CURRENT_PASSWORD_WRONG" });
+
+    await service.changeOwnPassword(userId, here.session.id, {
+      ...change,
+      currentPassword: "long-owner-password",
+    });
+
+    expect(
+      (await service.listOwnSessions(userId)).map((session) => session.id),
+    ).toEqual([here.session.id]);
+    await expect(
+      service.signIn({
+        email: "owner@example.com",
+        password: "brand-new-password",
+      }),
+    ).resolves.toBeTruthy();
+  });
+
+  it("signs out your other devices but never this one or someone else's", async () => {
+    const state: State = { users: [], sessions: [] };
+    const service = createAuthService({
+      repo: createRepo(state),
+      now: () => now,
+      sessionMaxAgeDays: 30,
+    });
+    await service.bootstrap({
+      instanceName: "Test Staaash",
+      email: "owner@example.com",
+      password: "long-owner-password",
+    });
+    const signIn = () =>
+      service.signIn({
+        email: "owner@example.com",
+        password: "long-owner-password",
+      });
+    const here = await signIn();
+    const phone = await signIn();
+    const laptop = await signIn();
+    const userId = here.user.id;
+
+    await expect(
+      service.revokeOwnSessions(userId, here.session.id, here.session.id),
+    ).rejects.toMatchObject({ code: "CURRENT_SESSION_REVOKE_BLOCKED" });
+    await service.revokeOwnSessions("someone-else", "x", phone.session.id);
+    const ids = async () =>
+      (await service.listOwnSessions(userId)).map((session) => session.id);
+    expect(await ids()).toContain(phone.session.id);
+
+    await service.revokeOwnSessions(userId, here.session.id, phone.session.id);
+    expect(await ids()).not.toContain(phone.session.id);
+    expect(await ids()).toContain(laptop.session.id);
+
+    await service.revokeOwnSessions(userId, here.session.id);
+    expect(
+      (await service.listOwnSessions(userId)).map((session) => session.id),
+    ).toEqual([here.session.id]);
   });
 
   it("changes a required password while preserving only the current session", async () => {

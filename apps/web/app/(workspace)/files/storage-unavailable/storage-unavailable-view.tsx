@@ -6,7 +6,6 @@ import { Loader2, RefreshCw } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
-import { SectionLabel } from "@/components/section-label";
 
 const NORMAL_WAIT_MS = 30_000;
 const LONG_WAIT_MS = 5 * 60_000;
@@ -30,29 +29,26 @@ const getStorageUnavailableCopy = ({
 }) => {
   if (recoveryRequired) {
     return {
-      eyebrow: "Move incomplete",
-      heading: "This operation could not finish.",
-      message: "Use Refresh to check again or go back to Files.",
+      heading: "A move could not finish",
+      message:
+        "Every file is kept safe. Refresh to check again, or go back to Files.",
     };
   }
   if (elapsedMs >= LONG_WAIT_MS) {
     return {
-      eyebrow: "Folder unavailable",
-      heading: "This is taking longer than usual.",
-      message: "We are keeping your files safe while this finishes.",
+      heading: "This is taking longer than usual",
+      message: "Your files stay safe while it finishes.",
     };
   }
   if (elapsedMs >= NORMAL_WAIT_MS) {
     return {
-      eyebrow: "Folder unavailable",
-      heading: "Folder is still getting ready.",
-      message: "The folder will open automatically when it is ready.",
+      heading: "This folder is still getting ready",
+      message: "It opens by itself when it's ready.",
     };
   }
   return {
-    eyebrow: "Folder unavailable",
-    heading: "Folder is getting ready.",
-    message: "The folder will open automatically when it is ready.",
+    heading: "This folder is getting ready",
+    message: "It opens by itself when it's ready.",
   };
 };
 
@@ -96,37 +92,32 @@ export function StorageUnavailableView({
 
   return (
     <section className="grid min-h-[min(58vh,520px)] place-items-center">
-      <div className="grid w-[min(560px,100%)] justify-items-center gap-4.5 rounded-xl border border-hairline bg-card px-6 py-[clamp(28px,5vw,56px)] text-center">
+      <div className="grid max-w-md justify-items-center gap-4 text-center">
         {!recoveryRequired && (
           <Loader2
             aria-hidden
-            className="animate-spin text-primary motion-reduce:animate-none"
+            className="size-6 animate-spin text-muted-foreground motion-reduce:animate-none"
             data-storage-unavailable-spinner
-            size={34}
-            strokeWidth={1.8}
           />
         )}
 
-        <div className="grid justify-items-center gap-2" aria-live="polite">
-          <SectionLabel className="text-xs">{copy.eyebrow}</SectionLabel>
-          <h1 className="max-w-[28ch] font-heading text-3xl leading-tight font-semibold">
+        <div className="grid justify-items-center gap-1.5" aria-live="polite">
+          <h1 className="m-0 font-heading text-headline font-semibold">
             {copy.heading}
           </h1>
-          <p className="max-w-[44ch] text-sm leading-normal text-muted-foreground">
-            {copy.message}
-          </p>
+          <p className="m-0 text-body text-muted-foreground">{copy.message}</p>
         </div>
 
         <div className="flex flex-wrap justify-center gap-2">
           <Button
-            variant="secondary"
+            variant="outline"
             disabled={isRefreshing}
             onClick={() => startTransition(() => router.refresh())}
           >
             <RefreshCw aria-hidden />
             Refresh
           </Button>
-          <Button variant="secondary" render={<Link href="/files" />}>
+          <Button variant="ghost" render={<Link href="/files" />}>
             Back to Files
           </Button>
         </div>

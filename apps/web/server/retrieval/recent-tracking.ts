@@ -1,32 +1,34 @@
 import type { FilesActor } from "@/server/files/types";
 
 import { retrievalService } from "./service";
+import type { RecentAction } from "./types";
 
 type FileAccessInput = FilesActor & {
   fileId: string;
-  source: string;
+  action: RecentAction;
 };
 
 type FolderAccessInput = FilesActor & {
   folderId: string;
-  source: string;
+  action: RecentAction;
 };
 
 export const recordFileAccessBestEffort = async ({
   actorUserId,
   actorRole,
   fileId,
-  source,
+  action,
 }: FileAccessInput): Promise<void> => {
   try {
     await retrievalService.recordFileAccess({
       actorUserId,
       actorRole,
       fileId,
+      action,
     });
   } catch (error) {
     console.error("recent-tracking: failed to record file access", {
-      source,
+      action,
       targetKind: "file",
       targetId: fileId,
       actorUserId,
@@ -39,17 +41,18 @@ export const recordFolderAccessBestEffort = async ({
   actorUserId,
   actorRole,
   folderId,
-  source,
+  action,
 }: FolderAccessInput): Promise<void> => {
   try {
     await retrievalService.recordFolderAccess({
       actorUserId,
       actorRole,
       folderId,
+      action,
     });
   } catch (error) {
     console.error("recent-tracking: failed to record folder access", {
-      source,
+      action,
       targetKind: "folder",
       targetId: folderId,
       actorUserId,

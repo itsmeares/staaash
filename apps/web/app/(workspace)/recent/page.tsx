@@ -1,33 +1,26 @@
-import { getSingleSearchParam } from "@/app/auth-ui";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { retrievalService } from "@/server/retrieval/service";
 
-import { toRecentClientItem } from "./recent-helpers";
+import { toActivityClientItem, toRecentClientItem } from "./recent-helpers";
 import { RecentView } from "./recent-view";
 
 export const dynamic = "force-dynamic";
 
-type RecentPageProps = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
-
-export default async function RecentPage({ searchParams }: RecentPageProps) {
-  const [resolvedSearchParams, session] = await Promise.all([
+/** Activity (what you did) by default; `?show=added` lists everything added. */
+export default async function RecentPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ show?: string }>;
+}) {
+  const [{ show }, session] = await Promise.all([
     searchParams,
     requireSignedInPageSession("/?next=/recent"),
   ]);
-  const allItems = await retrievalService.listRecentlyAdded({
-    actorUserId: session.user.id,
-    actorRole: session.user.role,
-  });
-  const error = getSingleSearchParam(resolvedSearchParams, "error");
-  const success = getSingleSearchParam(resolvedSearchParams, "success");
-
-  return (
-    <RecentView
-      error={error}
-      items={allItems.map(toRecentClientItem)}
-      success={success}
-    />
-  );
+  const actor = { actorUserId: session.user.id, actorRole: session.user.role };
+  if (show === "added") {
+    const items = await retrievalService.listRecentlyAdded(actor);
+    return <RecentView items={items.map(toRecentClientItem)} show="added" />;
+  }
+  const items = await retrievalService.listRecent(actor);
+  return <RecentView items={items.map(toActivityClientItem)} show="activity" />;
 }

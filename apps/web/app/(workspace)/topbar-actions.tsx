@@ -1,18 +1,10 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { formatVersionLabel } from "@staaash/config/version";
-import {
-  Upload,
-  Sun,
-  Moon,
-  SunMoon,
-  Bell,
-  Settings2,
-  Wrench,
-  LogOut,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Check, Keyboard, LogOut, Settings2, Shield } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
+
 import {
   Menu,
   MenuItem,
@@ -21,38 +13,47 @@ import {
   MenuSeparator,
   MenuTrigger,
 } from "@/components/ui/menu";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { applyThemeWithTransition, type Theme } from "@/lib/theme";
 
+import { openShortcuts } from "./shortcuts-dialog";
+import { Transfers } from "./transfers";
 import { WorkspaceAvatar } from "./workspace-avatar";
+import { isAdminPath } from "./workspace-nav";
 
-type UpdateStatus =
-  | "up-to-date"
-  | "update-available"
-  | "unavailable"
-  | "error"
-  | null;
+/** An app link in the menu; on its own page it only shows a check. */
+function PageLink({
+  href,
+  current,
+  children,
+}: {
+  href: string;
+  current: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <MenuLinkItem
+      aria-current={current ? "page" : undefined}
+      render={<Link href={href} />}
+      onClick={(event) => {
+        if (current) event.preventDefault();
+      }}
+    >
+      {children}
+      {current ? (
+        <span className="ms-auto flex text-primary">
+          <Check aria-hidden className="size-4" />
+        </span>
+      ) : null}
+    </MenuLinkItem>
+  );
+}
 
-interface TopbarActionsProps {
+type TopbarActionsProps = {
   userLabel: string | null;
   email: string;
   initials: string;
   isOwner: boolean;
   avatarUrl: string | null;
-  initialTheme: Theme;
-  initialShowUpdateNotifications: boolean;
-  initialEnableVersionChecks: boolean;
-  updateStatus: UpdateStatus;
-  latestVersion: string | null;
-  repository: string | null;
-}
-
-const THEME_CYCLE: Theme[] = ["system", "light", "dark"];
-const THEME_ICONS = { system: SunMoon, light: Sun, dark: Moon } as const;
+};
 
 export function TopbarActions({
   userLabel,
@@ -60,156 +61,57 @@ export function TopbarActions({
   initials,
   isOwner,
   avatarUrl,
-  initialTheme,
-  initialShowUpdateNotifications,
-  initialEnableVersionChecks,
-  updateStatus,
-  latestVersion,
-  repository,
 }: TopbarActionsProps) {
-  const [theme, setTheme] = useState<Theme>(initialTheme);
-  const showUpdateNotificationsRef = useRef(initialShowUpdateNotifications);
-  const enableVersionChecksRef = useRef(initialEnableVersionChecks);
-
-  function handleUploadClick() {
-    window.dispatchEvent(new Event("staaash:upload-click"));
-  }
-
-  function handleThemeCycle() {
-    const idx = THEME_CYCLE.indexOf(theme);
-    const next = THEME_CYCLE[(idx + 1) % THEME_CYCLE.length]!;
-    setTheme(next);
-    applyThemeWithTransition(next);
-    fetch("/api/user/preferences", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        theme: next,
-        showUpdateNotifications: showUpdateNotificationsRef.current,
-        enableVersionChecks: enableVersionChecksRef.current,
-      }),
-    }).catch(() => {});
-  }
-
-  const ThemeIcon = THEME_ICONS[theme];
-  const hasUpdate = updateStatus === "update-available";
-  const releaseUrl = repository
-    ? `https://github.com/${repository}/releases`
-    : null;
-
+  const pathname = usePathname();
   return (
-    <div className="flex shrink-0 items-center gap-1 max-xs:w-full max-xs:justify-end lg:gap-2">
-      <Button
-        className="lg:w-auto lg:px-3.5"
-        onClick={handleUploadClick}
-        size="icon"
-        title="Upload files"
-        aria-label="Upload files"
-        variant="ghost"
-      >
-        <Upload size={15} strokeWidth={2} aria-hidden />
-        <span className="max-lg:hidden">Upload</span>
-      </Button>
-
-      <Button
-        onClick={handleThemeCycle}
-        size="icon"
-        title={`Theme: ${theme}`}
-        aria-label={`Toggle theme (currently ${theme})`}
-        variant="ghost"
-      >
-        <ThemeIcon size={15} strokeWidth={2} aria-hidden />
-      </Button>
-
-      <Popover>
-        <PopoverTrigger
-          render={<Button className="relative" size="icon" variant="ghost" />}
-          aria-label="Notifications"
-        >
-          <Bell size={15} strokeWidth={2} aria-hidden />
-          {hasUpdate && (
-            <span
-              className="absolute top-2.5 right-2.5 size-2 rounded-full border-2 border-background bg-destructive"
-              aria-hidden
-            />
-          )}
-        </PopoverTrigger>
-        <PopoverContent side="bottom" align="end" className="w-55">
-          {hasUpdate ? (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-label font-medium lg:text-meta">
-                {latestVersion
-                  ? `${formatVersionLabel(latestVersion)} available`
-                  : "Update available"}
-              </span>
-              {releaseUrl && (
-                <a
-                  href={releaseUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-primary-ink hover:underline lg:text-meta"
-                >
-                  View releases
-                </a>
-              )}
-            </div>
-          ) : (
-            <p className="m-0 text-label text-muted-foreground lg:text-meta">
-              No new notifications
-            </p>
-          )}
-        </PopoverContent>
-      </Popover>
+    <div className="flex shrink-0 items-center gap-1">
+      <Transfers />
 
       <Menu>
         <MenuTrigger
-          className="cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           aria-label="Profile menu"
+          className="ms-1 cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <WorkspaceAvatar
-            avatarUrl={avatarUrl}
-            initials={initials}
-            className="lg:size-11"
-          />
+          <WorkspaceAvatar avatarUrl={avatarUrl} initials={initials} />
         </MenuTrigger>
-        <MenuPopup align="end" className="w-70">
-          <div className="mb-1 flex flex-col items-center rounded-lg bg-primary/10 px-4 pt-5 pb-4">
-            <WorkspaceAvatar
-              avatarUrl={avatarUrl}
-              initials={initials}
-              className="mb-2.5 size-12"
-            />
-            {userLabel && (
-              <span className="text-center text-sm leading-tight font-semibold lg:text-body">
-                {userLabel}
+        <MenuPopup align="end" className="w-64">
+          <div className="flex items-center gap-2.5 px-2 py-2">
+            <WorkspaceAvatar avatarUrl={avatarUrl} initials={initials} />
+            <div className="grid min-w-0 leading-tight">
+              {userLabel ? (
+                <span className="truncate text-body font-semibold">
+                  {userLabel}
+                </span>
+              ) : null}
+              <span className="truncate text-label text-muted-foreground">
+                {email}
               </span>
-            )}
-            <span className="mt-px text-center text-xs text-muted-foreground lg:text-meta">
-              {email}
-            </span>
+            </div>
           </div>
-
-          <MenuLinkItem href="/settings">
-            <Settings2 size={14} strokeWidth={2} aria-hidden />
-            Settings
-          </MenuLinkItem>
-          {isOwner && (
-            <MenuLinkItem href="/admin">
-              <Wrench size={14} strokeWidth={2} aria-hidden />
-              Admin
-            </MenuLinkItem>
-          )}
-
           <MenuSeparator />
-
+          <PageLink current={pathname === "/settings"} href="/settings">
+            <Settings2 aria-hidden />
+            Settings
+          </PageLink>
+          {isOwner ? (
+            <PageLink current={isAdminPath(pathname)} href="/admin">
+              <Shield aria-hidden />
+              Admin
+            </PageLink>
+          ) : null}
+          <MenuItem onClick={openShortcuts}>
+            <Keyboard aria-hidden />
+            Keyboard shortcuts
+          </MenuItem>
+          <MenuSeparator />
           <form action="/api/auth/sign-out" className="contents" method="post">
             <input type="hidden" name="next" value="/" />
             <MenuItem
+              className="w-full"
               nativeButton
               render={<button type="submit" />}
-              variant="destructive"
             >
-              <LogOut size={14} strokeWidth={2} aria-hidden />
+              <LogOut aria-hidden />
               Sign out
             </MenuItem>
           </form>

@@ -8,7 +8,7 @@ import {
   formatDateTime,
   formatRelativeTime,
   getDateGroup,
-  getZonedHour,
+  groupByDate,
 } from "@/lib/time";
 
 describe("formatRelativeTime", () => {
@@ -37,49 +37,73 @@ describe("formatRelativeTime", () => {
 });
 
 describe("getDateGroup", () => {
+  const label = (value: string, now: Date, zone = "UTC") =>
+    getDateGroup(value, now, zone).label;
+
   it("buckets by calendar day in the viewer's zone, not elapsed hours", () => {
     // 01:00 Thursday in London, the upload was 23:30 Wednesday London time.
     const now = new Date("2026-05-21T00:00:00.000Z");
     const upload = "2026-05-20T22:30:00.000Z";
 
-    expect(getDateGroup(upload, now, "UTC")).toBe("Yesterday");
-    expect(getDateGroup(upload, now, "Europe/London")).toBe("Yesterday");
-    expect(getDateGroup(upload, now, "America/New_York")).toBe("Today");
-    expect(getDateGroup("2026-05-20T23:30:00.000Z", now, "Europe/London")).toBe(
+    expect(label(upload, now)).toBe("Yesterday");
+    expect(label(upload, now, "Europe/London")).toBe("Yesterday");
+    expect(label(upload, now, "America/New_York")).toBe("Today");
+    expect(label("2026-05-20T23:30:00.000Z", now, "Europe/London")).toBe(
       "Today",
     );
   });
 
-  it("starts the week on Monday", () => {
-    // Thursday 21 May 2026.
+  it("names this week's days, then months, with the year when it differs", () => {
+    // Thursday 21 May 2026; the week started on Monday 18 May.
     const now = new Date("2026-05-21T12:00:00.000Z");
-    expect(getDateGroup("2026-05-18T08:00:00.000Z", now, "UTC")).toBe(
-      "This week",
-    );
-    expect(getDateGroup("2026-05-17T08:00:00.000Z", now, "UTC")).toBe(
-      "This month",
-    );
-    expect(getDateGroup("2026-03-01T08:00:00.000Z", now, "UTC")).toBe("Older");
+    expect(label("2026-05-18T08:00:00.000Z", now)).toBe("Monday");
+    expect(label("2026-05-17T08:00:00.000Z", now)).toBe("May");
+    expect(label("2026-03-01T08:00:00.000Z", now)).toBe("March");
+    expect(label("2025-12-24T08:00:00.000Z", now)).toBe("December 2025");
 
-    // On a Monday only today and yesterday come before "This month".
+    // On a Monday only today and yesterday come before the month.
     const monday = new Date("2026-05-18T12:00:00.000Z");
-    expect(getDateGroup("2026-05-16T12:00:00.000Z", monday, "UTC")).toBe(
-      "This month",
-    );
+    expect(label("2026-05-16T12:00:00.000Z", monday)).toBe("May");
+  });
+
+  it("orders groups newest first, or oldest first", () => {
+    const now = new Date("2026-05-21T12:00:00.000Z");
+    const dates = [
+      "2026-03-01T08:00:00.000Z",
+      "2026-05-21T08:00:00.000Z",
+      "2026-05-19T08:00:00.000Z",
+      "2025-12-24T08:00:00.000Z",
+    ];
+    const labels = (oldestFirst: boolean) =>
+      groupByDate(dates, (date) => date, now, "UTC", oldestFirst).map(
+        (group) => group.label,
+      );
+    expect(labels(false)).toEqual([
+      "Today",
+      "Tuesday",
+      "March",
+      "December 2025",
+    ]);
+    expect(labels(true)).toEqual([
+      "December 2025",
+      "March",
+      "Tuesday",
+      "Today",
+    ]);
   });
 
   it("handles the 2026 daylight-saving ends", () => {
     // London falls back on 25 Oct 2026, New York on 1 Nov 2026. Those days
     // are 25 hours long, which breaks "days = elapsed / 24h" maths.
     expect(
-      getDateGroup(
+      label(
         "2026-10-25T00:30:00.000Z",
         new Date("2026-10-25T23:30:00.000Z"),
         "Europe/London",
       ),
     ).toBe("Today");
     expect(
-      getDateGroup(
+      label(
         "2026-10-31T23:30:00.000Z",
         new Date("2026-11-02T04:30:00.000Z"),
         "America/New_York",
@@ -123,12 +147,9 @@ describe("zoned formatting", () => {
     expect(formatDateTime(value, "UTC")).toBe("1 Jul 2026, 12:00");
     expect(formatDateTime(value, "Europe/London")).toBe("1 Jul 2026, 13:00");
     expect(formatDateTime(value, "America/New_York")).toBe("1 Jul 2026, 08:00");
-  });
-
-  it("reads the hour in the requested zone", () => {
-    const now = new Date("2026-07-01T23:30:00.000Z");
-    expect(getZonedHour(now, "UTC")).toBe(23);
-    expect(getZonedHour(now, "Asia/Tokyo")).toBe(8);
+    expect(formatDateTime(value, "UTC", "12h")).toMatch(
+      /^1 Jul 2026, 12:00\spm$/i,
+    );
   });
 });
 

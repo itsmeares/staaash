@@ -4,8 +4,7 @@ import { enforceSameOrigin, requireOwnerApiSession } from "@/server/admin/http";
 import {
   enqueueAdminUpdateCheck,
   getAdminUpdateCheckJob,
-  getAdminUpdateStatus,
-  toJsonAdminUpdateStatus,
+  getUpdateState,
 } from "@/server/admin/updates";
 
 export async function GET(request: NextRequest) {
@@ -34,7 +33,7 @@ export async function GET(request: NextRequest) {
       status: job.status,
       lastError: job.lastError,
     },
-    updateStatus: toJsonAdminUpdateStatus(await getAdminUpdateStatus()),
+    updateState: await getUpdateState(),
   });
 }
 

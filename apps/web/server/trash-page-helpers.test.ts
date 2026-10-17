@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
-  filterTrashItems,
-  groupTrashItems,
+  daysLeft,
+  daysLeftLabel,
   sortTrashItems,
   toTrashClientItem,
   toTrashClientItems,
   type TrashClientItem,
+  type TrashSortKey,
 } from "@/app/(workspace)/trash/trash-helpers";
 import type {
   FileSummary,
@@ -80,7 +81,7 @@ const clientItem = (
   kind: "file",
   mimeType: "application/pdf",
   name: "passport.pdf",
-  originalPathLabel: "Files / Identity / passport.pdf",
+  locationLabel: "Files / Identity / passport.pdf",
   restoreTargetLabel: "Files",
   sizeBytes: 2400000,
   ...overrides,
@@ -93,7 +94,7 @@ describe("trash page helpers", () => {
       id: "folder-1",
       kind: "folder",
       name: "Archive",
-      originalPathLabel: "Files / Archive",
+      locationLabel: "Files / Archive",
       restoreTargetLabel: "Files",
     });
 
@@ -141,40 +142,27 @@ describe("trash page helpers", () => {
       }),
     ];
 
-    expect(filterTrashItems(items, "file").map((item) => item.id)).toEqual([
-      "new",
-      "old",
-    ]);
-    expect(sortTrashItems(items, "newest").map((item) => item.id)).toEqual([
-      "new",
-      "folder",
-      "old",
-    ]);
-    expect(sortTrashItems(items, "oldest").map((item) => item.id)).toEqual([
-      "old",
-      "folder",
-      "new",
-    ]);
+    const ids = (key: TrashSortKey, direction: "asc" | "desc") =>
+      sortTrashItems(items, key, direction).map((item) => item.id);
+    expect(ids("deletedAt", "desc")).toEqual(["new", "folder", "old"]);
+    expect(ids("deletedAt", "asc")).toEqual(["old", "folder", "new"]);
+    expect(ids("name", "asc")).toEqual(["old", "folder", "new"]);
+    expect(ids("size", "desc")).toEqual(["new", "old", "folder"]);
   });
 
-  it("groups deleted items by deleted date and reverses for oldest first", () => {
+  it("counts whole days left before trash is emptied", () => {
     const now = new Date("2026-05-21T12:00:00.000Z");
-    const items = [
-      clientItem({ id: "today", deletedAt: "2026-05-21T11:00:00.000Z" }),
-      clientItem({
-        id: "yesterday",
-        deletedAt: "2026-05-20T11:00:00.000Z",
-      }),
-      clientItem({ id: "week", deletedAt: "2026-05-19T11:00:00.000Z" }),
-      clientItem({ id: "month", deletedAt: "2026-05-01T11:00:00.000Z" }),
-      clientItem({ id: "older", deletedAt: "2026-03-01T11:00:00.000Z" }),
-    ];
-
-    expect(
-      groupTrashItems(items, "newest", now, "UTC").map((group) => group.label),
-    ).toEqual(["Today", "Yesterday", "This week", "This month", "Older"]);
-    expect(
-      groupTrashItems(items, "oldest", now, "UTC").map((group) => group.label),
-    ).toEqual(["Older", "This month", "This week", "Yesterday", "Today"]);
+    const left = (deletedAt: string) => daysLeft(deletedAt, 30, now, "UTC");
+    // Just deleted: the full 30 days.
+    expect(left("2026-05-21T11:00:00.000Z")).toBe(30);
+    // Goes tomorrow morning, then later today.
+    expect(left("2026-04-22T09:00:00.000Z")).toBe(1);
+    expect(left("2026-04-21T23:00:00.000Z")).toBe(0);
+    expect(left("2026-03-01T00:00:00.000Z")).toBe(0);
+    expect([0, 1, 12].map(daysLeftLabel)).toEqual([
+      "Today",
+      "Tomorrow",
+      "12 days",
+    ]);
   });
 });

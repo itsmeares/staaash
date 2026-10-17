@@ -25,7 +25,7 @@ describe("recent-tracking best-effort helpers", () => {
         actorUserId: "user-1",
         actorRole: "member",
         fileId: "file-1",
-        source: "test-source",
+        action: "opened",
       }),
     ).resolves.toBeUndefined();
 
@@ -33,7 +33,7 @@ describe("recent-tracking best-effort helpers", () => {
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining("recent-tracking"),
       expect.objectContaining({
-        source: "test-source",
+        action: "opened",
         targetKind: "file",
         targetId: "file-1",
         actorUserId: "user-1",
@@ -57,7 +57,7 @@ describe("recent-tracking best-effort helpers", () => {
         actorUserId: "user-1",
         actorRole: "member",
         folderId: "folder-1",
-        source: "test-folder-source",
+        action: "renamed",
       }),
     ).resolves.toBeUndefined();
 
@@ -65,7 +65,7 @@ describe("recent-tracking best-effort helpers", () => {
     expect(consoleSpy).toHaveBeenCalledWith(
       expect.stringContaining("recent-tracking"),
       expect.objectContaining({
-        source: "test-folder-source",
+        action: "renamed",
         targetKind: "folder",
         targetId: "folder-1",
         actorUserId: "user-1",
@@ -89,7 +89,7 @@ describe("recent-tracking best-effort helpers", () => {
         actorUserId: "user-1",
         actorRole: "member",
         fileId: "file-1",
-        source: "test-source",
+        action: "opened",
       }),
     ).resolves.toBeUndefined();
 

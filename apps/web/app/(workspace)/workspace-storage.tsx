@@ -1,6 +1,6 @@
 "use client";
 
-import { SectionLabel } from "@/components/section-label";
+import { formatBytes } from "@/lib/format-bytes";
 import { cn } from "@/lib/utils";
 
 type WorkspaceStorageProps = {
@@ -11,17 +11,10 @@ type WorkspaceStorageProps = {
   isAdmin: boolean;
 };
 
-function fmt(n: number): string {
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-  if (n < 1024 * 1024 * 1024 * 1024)
-    return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-  return `${(n / (1024 * 1024 * 1024 * 1024)).toFixed(2)} TB`;
-}
-
+// Bronze until space gets tight; color only when something needs attention.
 function barColor(pct: number): string {
-  if (pct <= 65) return "bg-success";
-  if (pct <= 85) return "bg-warning";
+  if (pct <= 85) return "bg-primary";
+  if (pct <= 95) return "bg-warning";
   return "bg-destructive";
 }
 
@@ -49,13 +42,14 @@ export function WorkspaceStorage({
       : 0;
 
   const label =
-    denom !== null ? `${fmt(num)} of ${fmt(denom)}` : `${fmt(num)} used`;
+    denom !== null
+      ? `${formatBytes(num)} of ${formatBytes(denom)}`
+      : `${formatBytes(num)} used`;
 
   return (
-    <div className="flex flex-col gap-1.5 px-0.5">
-      <SectionLabel>Storage</SectionLabel>
+    <div className="flex flex-col gap-2 px-2.5">
       <div
-        className="h-1.5 overflow-hidden rounded-full bg-foreground/15"
+        className="h-1 overflow-hidden rounded-full bg-pressed"
         role="meter"
         aria-valuenow={pct}
         aria-valuemin={0}
@@ -70,7 +64,7 @@ export function WorkspaceStorage({
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="truncate text-xs text-muted-foreground lg:text-meta">
+      <span className="truncate text-label text-muted-foreground tabular-nums">
         {label}
       </span>
     </div>

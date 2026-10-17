@@ -67,7 +67,6 @@ export default async function SharedNestedFilePage({
         <ShareLockedView
           error={(resolvedSearchParams.error as string | undefined) ?? null}
           redirectPath={`/s/${encodeURIComponent(token)}/files/${fileId}`}
-          success={(resolvedSearchParams.success as string | undefined) ?? null}
           token={token}
         />
       );
@@ -96,9 +95,7 @@ export default async function SharedNestedFilePage({
         contentHref={`/s/${encodeURIComponent(token)}/files/${file.id}/content`}
         downloadHref={`/s/${encodeURIComponent(token)}/files/${file.id}/download`}
         file={file}
-        headerLabel="Shared file"
         preview={preview}
-        searchParams={resolvedSearchParams}
         share={resolution.share}
       />
     );

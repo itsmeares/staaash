@@ -29,15 +29,32 @@ function zonedDayNumber(date: Date, timeZone: string) {
   return Date.UTC(year, month - 1, day) / DAY_MS;
 }
 
-export function formatDateTime(value: DateInput, timeZone: string) {
-  let formatter = dateTimeFormatters.get(timeZone);
+/** Calendar days from today to `value` in `timeZone`: 0 today, 1 tomorrow. */
+export function calendarDaysUntil(
+  value: DateInput,
+  now: Date,
+  timeZone: string,
+) {
+  return (
+    zonedDayNumber(toDate(value), timeZone) - zonedDayNumber(now, timeZone)
+  );
+}
+
+export function formatDateTime(
+  value: DateInput,
+  timeZone: string,
+  clock: string = "24h",
+) {
+  const key = `${timeZone}|${clock}`;
+  let formatter = dateTimeFormatters.get(key);
   if (!formatter) {
     formatter = new Intl.DateTimeFormat("en-GB", {
       dateStyle: "medium",
       timeStyle: "short",
       timeZone,
+      hour12: clock === "12h",
     });
-    dateTimeFormatters.set(timeZone, formatter);
+    dateTimeFormatters.set(key, formatter);
   }
   return formatter.format(toDate(value));
 }
@@ -55,16 +72,50 @@ function formatShortDate(value: DateInput, timeZone: string) {
   return formatter.format(toDate(value));
 }
 
-export function getZonedHour(now: Date, timeZone: string) {
-  return (
-    Number(
-      new Intl.DateTimeFormat("en-GB", {
-        hour: "2-digit",
-        hourCycle: "h23",
-        timeZone,
-      }).format(now),
-    ) % 24
-  );
+const dayMonthFormatters = new Map<string, Intl.DateTimeFormat>();
+
+/** "11 Oct": a day in this or a recent year, for "Expired 11 Oct". */
+export function formatDayMonth(value: DateInput, timeZone: string) {
+  let formatter = dayMonthFormatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-GB", {
+      day: "numeric",
+      month: "short",
+      timeZone,
+    });
+    dayMonthFormatters.set(timeZone, formatter);
+  }
+  return formatter.format(toDate(value));
+}
+
+const clockFormatters = new Map<string, Intl.DateTimeFormat>();
+
+/** "10:51" (or "10:51 AM"): the time of day, for lists grouped by day. */
+function formatClock(value: DateInput, timeZone: string, clock = "24h") {
+  const key = `${timeZone}|${clock}`;
+  let formatter = clockFormatters.get(key);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: clock === "12h",
+      timeZone,
+    });
+    clockFormatters.set(key, formatter);
+  }
+  return formatter.format(toDate(value));
+}
+
+/** The time within this week's day groups, the date further back. */
+export function formatGroupedTime(
+  value: DateInput,
+  now: Date,
+  timeZone: string,
+  clock = "24h",
+) {
+  return getDateGroup(value, now, timeZone).rank < 7
+    ? formatClock(value, timeZone, clock)
+    : formatShortDate(value, timeZone);
 }
 
 const plural = (count: number, unit: string) =>
@@ -107,36 +158,117 @@ export function formatRelativeTime(
   return formatShortDate(date, timeZone);
 }
 
-export type DateGroupLabel =
-  | "Today"
-  | "Yesterday"
-  | "This week"
-  | "This month"
-  | "Older";
+const monthFormatters = new Map<string, Intl.DateTimeFormat>();
 
-export const DATE_GROUP_ORDER: DateGroupLabel[] = [
-  "Today",
-  "Yesterday",
-  "This week",
-  "This month",
-  "Older",
+// The weekday, month and year `date` falls on in `timeZone`.
+function zonedParts(date: Date, timeZone: string) {
+  let formatter = monthFormatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en", {
+      month: "long",
+      weekday: "long",
+      year: "numeric",
+      timeZone,
+    });
+    monthFormatters.set(timeZone, formatter);
+  }
+  const parts = formatter.formatToParts(date);
+  const part = (type: string) =>
+    parts.find((entry) => entry.type === type)?.value ?? "";
+  return {
+    weekday: part("weekday"),
+    month: part("month"),
+    year: Number(part("year")),
+  };
+}
+
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
-// Calendar buckets in the viewer's zone. Weeks start on Monday.
+/**
+ * Calendar buckets in the viewer's zone: Today, Yesterday, the weekday names
+ * of this week (weeks start on Monday), then months, with the year when it
+ * is not this year. `rank` grows with age, so buckets sort newest first.
+ * Exported for its test.
+ */
+// fallow-ignore-next-line unused-export
 export function getDateGroup(
   value: DateInput,
   now: Date,
   timeZone: string,
-): DateGroupLabel {
+): { label: string; rank: number } {
+  const date = toDate(value);
   const today = zonedDayNumber(now, timeZone);
-  const days = Math.max(0, today - zonedDayNumber(toDate(value), timeZone));
+  const days = Math.max(0, today - zonedDayNumber(date, timeZone));
 
-  if (days === 0) return "Today";
-  if (days === 1) return "Yesterday";
+  if (days === 0) return { label: "Today", rank: 0 };
+  if (days === 1) return { label: "Yesterday", rank: 1 };
 
   // 1970-01-01 was a Thursday; (day + 3) % 7 is 0 on Mondays.
   const daysSinceMonday = (today + 3) % 7;
-  if (days <= daysSinceMonday) return "This week";
-  if (days < 30) return "This month";
-  return "Older";
+  const then = zonedParts(date, timeZone);
+  if (days <= daysSinceMonday) return { label: then.weekday, rank: days };
+
+  const current = zonedParts(now, timeZone);
+  const monthsAgo =
+    current.year * 12 +
+    MONTHS.indexOf(current.month) -
+    (then.year * 12 + MONTHS.indexOf(then.month));
+  return {
+    label:
+      then.year === current.year ? then.month : `${then.month} ${then.year}`,
+    rank: 7 + monthsAgo,
+  };
+}
+
+/** Items in date buckets; `oldestFirst` flips the bucket order. */
+export function groupByDate<T>(
+  items: T[],
+  dateOf: (item: T) => DateInput,
+  now: Date,
+  timeZone: string,
+  oldestFirst = false,
+): { label: string; items: T[] }[] {
+  const groups = new Map<string, { rank: number; items: T[] }>();
+  for (const item of items) {
+    const { label, rank } = getDateGroup(dateOf(item), now, timeZone);
+    const group = groups.get(label) ?? { rank, items: [] };
+    group.items.push(item);
+    groups.set(label, group);
+  }
+  return [...groups.entries()]
+    .sort(([, a], [, b]) => (oldestFirst ? b.rank - a.rank : a.rank - b.rank))
+    .map(([label, group]) => ({ label, items: group.items }));
+}
+
+const MINUTES_UNTIL: [unit: string, size: number, below: number][] = [
+  ["minute", 1, 60],
+  ["hour", 60, 24 * 60],
+  ["day", 24 * 60, 7 * 24 * 60],
+  ["week", 7 * 24 * 60, 9 * 7 * 24 * 60],
+  ["month", 30 * 24 * 60, 365 * 24 * 60],
+  ["year", 365 * 24 * 60, Infinity],
+];
+
+/** "5 minutes", "2 weeks": how long until a share link stops working. */
+export function formatTimeUntil(value: Date | string, now: Date): string {
+  const minutes = Math.ceil(
+    (new Date(value).getTime() - now.getTime()) / 60_000,
+  );
+  if (minutes <= 0) return "expired";
+  const [unit, size] = MINUTES_UNTIL.find(([, , below]) => minutes < below)!;
+  const count = Math.ceil(minutes / size);
+  return `${count} ${unit}${count === 1 ? "" : "s"}`;
 }

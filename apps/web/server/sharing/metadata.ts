@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { formatBytes } from "@/lib/format-bytes";
 import {
   findReadyDerivative,
   findReadyPosterDerivative,
@@ -90,12 +91,6 @@ const getOriginalVideoEmbedMetadata = (
 const toAbsoluteUrl = (path: string, baseUrl: string) =>
   new URL(path, baseUrl).toString();
 
-const formatBytes = (value: number) =>
-  new Intl.NumberFormat("en-GB", {
-    maximumFractionDigits: 1,
-    notation: "standard",
-  }).format(value / (1024 * 1024)) + " MB";
-
 const buildGenericDescription = (instanceName: string) =>
   `A file or folder shared via ${instanceName}.`;
 
@@ -133,6 +128,8 @@ const buildGenericShareMetadata = ({
   };
 };
 
+// Exported for its unit tests.
+// fallow-ignore-next-line unused-export
 export const buildShareMetadata = ({
   baseUrl,
   instanceName: rawInstanceName,

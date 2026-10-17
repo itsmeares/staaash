@@ -137,7 +137,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       actorUserId: session.user.id,
       actorRole: session.user.role,
       fileId: file.id,
-      source: "download-file-route",
+      action: "downloaded",
     });
 
     return createRangeResponseFromHandle(

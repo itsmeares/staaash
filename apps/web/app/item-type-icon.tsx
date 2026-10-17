@@ -12,7 +12,7 @@ import type { CSSProperties } from "react";
 
 import type { ItemVisual, ItemVisualKind } from "@/app/item-visuals";
 
-export const itemVisualIconMap: Record<ItemVisualKind, LucideIcon> = {
+const itemVisualIconMap: Record<ItemVisualKind, LucideIcon> = {
   archive: Archive,
   audio: Music,
   file: File,
@@ -28,18 +28,21 @@ export function ItemTypeIcon({
   icon,
   size = 14,
   tone = "filled",
+  color,
   visual,
 }: {
   className?: string;
   icon?: LucideIcon;
   size?: number;
   tone?: "filled" | "plain";
+  /** Overrides the type color, for colored folders. */
+  color?: string;
   visual: ItemVisual;
 }) {
   const Icon = icon ?? itemVisualIconMap[visual.kind];
   const filled = tone === "filled";
   const style: CSSProperties = {
-    color: visual.color,
+    color: color ?? visual.color,
     ...(filled ? { background: visual.background } : {}),
   };
 

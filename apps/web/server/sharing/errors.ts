@@ -15,7 +15,7 @@ const shareErrorMessages: Record<ShareErrorCode, string> = {
   SHARE_EXPIRED: "That shared link has expired.",
   SHARE_INVALID: "That shared link is not valid.",
   SHARE_NOT_FOUND: "That shared link could not be found.",
-  SHARE_PASSWORD_INVALID: "That password did not unlock the shared link.",
+  SHARE_PASSWORD_INVALID: "That password isn't right.",
   SHARE_PASSWORD_REQUIRED: "That shared link requires a password.",
   SHARE_STORAGE_UNAVAILABLE:
     "That shared item is temporarily unavailable while storage recovery finishes.",

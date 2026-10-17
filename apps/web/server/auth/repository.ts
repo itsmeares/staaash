@@ -6,6 +6,8 @@ import {
   type UserPreference,
 } from "@staaash/db/client";
 
+import { AUTO_TIME_ZONE } from "@staaash/config/time-zone";
+
 import { AuthError } from "@/server/auth/errors";
 import type {
   AuthSession,
@@ -71,10 +73,14 @@ type ChangeRequiredPasswordParams = {
 
 type SavePreferencesParams = {
   userId: string;
-  theme: string;
-  timeZone: string;
-  showUpdateNotifications: boolean;
-  enableVersionChecks: boolean;
+  theme?: string;
+  timeZone?: string;
+  showUpdateNotifications?: boolean;
+  showFolderPreviews?: boolean;
+  showPinsInSidebar?: boolean;
+  startPage?: string;
+  defaultView?: string;
+  clockFormat?: string;
   onboardingCompletedAt?: Date;
   displayName?: string | null;
   avatarUrl?: string | null;
@@ -109,6 +115,38 @@ export type AuthRepository = {
   touchSessionLastSeen(id: string, seenAt: Date): Promise<void>;
   savePreferences(params: SavePreferencesParams): Promise<UserPreferences>;
 };
+
+const isMissingRecord = (error: unknown) =>
+  error instanceof Prisma.PrismaClientKnownRequestError &&
+  error.code === "P2025";
+
+/**
+ * A new password and every other session signed out, in one transaction,
+ * so a stolen session can't outlive the password it was opened with.
+ */
+const replacePassword = (
+  client: AuthPrismaClient,
+  userId: string,
+  now: Date,
+  data: Prisma.UserUpdateInput,
+  keepSessionId?: string,
+) =>
+  client.$transaction(async (tx: Prisma.TransactionClient) => {
+    const user = await tx.user.update({
+      where: { id: userId },
+      data,
+      include: { preferences: true },
+    });
+    await tx.session.updateMany({
+      where: {
+        userId,
+        revokedAt: null,
+        ...(keepSessionId ? { id: { not: keepSessionId } } : {}),
+      },
+      data: { revokedAt: now },
+    });
+    return toAuthUser(user);
+  });
 
 const toUserRole = (user: Pick<User, "isOwner" | "isAdmin">) =>
   user.isOwner ? "owner" : user.isAdmin ? "admin" : "member";
@@ -148,7 +186,11 @@ const toAuthUser = (
         theme: user.preferences.theme,
         timeZone: user.preferences.timeZone,
         showUpdateNotifications: user.preferences.showUpdateNotifications,
-        enableVersionChecks: user.preferences.enableVersionChecks,
+        showFolderPreviews: user.preferences.showFolderPreviews,
+        showPinsInSidebar: user.preferences.showPinsInSidebar,
+        startPage: user.preferences.startPage,
+        defaultView: user.preferences.defaultView,
+        clockFormat: user.preferences.clockFormat,
         onboardingCompletedAt: user.preferences.onboardingCompletedAt,
       }
     : null,
@@ -448,94 +490,38 @@ const createPrismaAuthRepository = (
     },
 
     async setTemporaryPassword(params) {
-      const client = getClient();
-
       try {
-        return await client.$transaction(
-          async (tx: Prisma.TransactionClient) => {
-            const user = await tx.user.update({
-              where: { id: params.userId },
-              data: {
-                passwordHash: params.passwordHash,
-                passwordChangeRequiredAt: params.requirePasswordChange
-                  ? params.now
-                  : null,
-                temporaryPasswordIssuedAt: params.now,
-                temporaryPasswordIssuedByUserId: params.issuedByUserId,
-              },
-              include: {
-                preferences: true,
-              },
-            });
-
-            await tx.session.updateMany({
-              where: {
-                userId: params.userId,
-                revokedAt: null,
-              },
-              data: {
-                revokedAt: params.now,
-              },
-            });
-
-            return toAuthUser(user);
-          },
-        );
+        return await replacePassword(getClient(), params.userId, params.now, {
+          passwordHash: params.passwordHash,
+          passwordChangeRequiredAt: params.requirePasswordChange
+            ? params.now
+            : null,
+          temporaryPasswordIssuedAt: params.now,
+          temporaryPasswordIssuedByUserId: params.issuedByUserId,
+        });
       } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === "P2025"
-        ) {
-          throw new AuthError("USER_NOT_FOUND");
-        }
+        if (isMissingRecord(error)) throw new AuthError("USER_NOT_FOUND");
         throw error;
       }
     },
 
     async changeRequiredPassword(params) {
-      const client = getClient();
-
       try {
-        return await client.$transaction(
-          async (tx: Prisma.TransactionClient) => {
-            const user = await tx.user.update({
-              where: { id: params.userId },
-              data: {
-                passwordHash: params.passwordHash,
-                passwordChangeRequiredAt: null,
-                temporaryPasswordIssuedAt: null,
-                temporaryPasswordIssuedByUserId: null,
-                updatedAt: params.now,
-              },
-              include: {
-                preferences: true,
-              },
-            });
-
-            await tx.session.updateMany({
-              where: {
-                userId: params.userId,
-                revokedAt: null,
-                id: {
-                  not: params.currentSessionId,
-                },
-              },
-              data: {
-                revokedAt: params.now,
-              },
-            });
-
-            return toAuthUser(user);
+        return await replacePassword(
+          getClient(),
+          params.userId,
+          params.now,
+          {
+            passwordHash: params.passwordHash,
+            passwordChangeRequiredAt: null,
+            temporaryPasswordIssuedAt: null,
+            temporaryPasswordIssuedByUserId: null,
+            updatedAt: params.now,
           },
+          params.currentSessionId,
         );
       } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === "P2025"
-        ) {
-          return null;
-        }
-
+        if (isMissingRecord(error)) return null;
         throw error;
       }
     },
@@ -655,21 +641,34 @@ const createPrismaAuthRepository = (
         });
       }
 
+      // Only the ones a caller sends; the rest keep their stored value.
+      const prefs = Object.fromEntries(
+        (
+          [
+            "theme",
+            "timeZone",
+            "showUpdateNotifications",
+            "showFolderPreviews",
+            "showPinsInSidebar",
+            "startPage",
+            "defaultView",
+            "clockFormat",
+          ] as const
+        )
+          .filter((key) => params[key] !== undefined)
+          .map((key) => [key, params[key]]),
+      );
       const pref = await client.userPreference.upsert({
         where: { userId: params.userId },
         create: {
           userId: params.userId,
-          theme: params.theme,
-          timeZone: params.timeZone,
-          showUpdateNotifications: params.showUpdateNotifications,
-          enableVersionChecks: params.enableVersionChecks,
+          // The column default is UTC; a new account follows its browser.
+          timeZone: AUTO_TIME_ZONE,
+          ...prefs,
           onboardingCompletedAt: params.onboardingCompletedAt ?? new Date(),
         },
         update: {
-          theme: params.theme,
-          timeZone: params.timeZone,
-          showUpdateNotifications: params.showUpdateNotifications,
-          enableVersionChecks: params.enableVersionChecks,
+          ...prefs,
           ...(params.onboardingCompletedAt !== undefined
             ? { onboardingCompletedAt: params.onboardingCompletedAt }
             : {}),
@@ -679,7 +678,11 @@ const createPrismaAuthRepository = (
         theme: pref.theme,
         timeZone: pref.timeZone,
         showUpdateNotifications: pref.showUpdateNotifications,
-        enableVersionChecks: pref.enableVersionChecks,
+        showFolderPreviews: pref.showFolderPreviews,
+        showPinsInSidebar: pref.showPinsInSidebar,
+        startPage: pref.startPage,
+        defaultView: pref.defaultView,
+        clockFormat: pref.clockFormat,
         onboardingCompletedAt: pref.onboardingCompletedAt,
       };
     },

@@ -48,7 +48,7 @@ vi.mock("@staaash/db/health", () => ({
   })),
 }));
 vi.mock("@staaash/db/instance", () => ({
-  readInstanceUpdateCheck: vi.fn(async () => null),
+  readInstanceUpdateState: vi.fn(async () => null),
 }));
 vi.mock("@staaash/db/jobs", () => ({
   listWorkerInstances: vi.fn(async () => [

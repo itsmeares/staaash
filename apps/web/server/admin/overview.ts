@@ -2,7 +2,7 @@ import { authService } from "@/server/auth/service";
 import { getAdminHealthSummary } from "@/server/health";
 
 import { getAdminStorageSummary } from "./storage";
-import { getAdminUpdateStatus } from "./updates";
+import { getUpdateState } from "./updates";
 import type { AdminOverviewSummary } from "./types";
 
 export const getAdminOverviewSummary = async (
@@ -11,7 +11,7 @@ export const getAdminOverviewSummary = async (
   const [health, storage, updates, users] = await Promise.all([
     getAdminHealthSummary(),
     getAdminStorageSummary(),
-    getAdminUpdateStatus(),
+    getUpdateState(),
     authService.listUsers(actorUserId),
   ]);
 

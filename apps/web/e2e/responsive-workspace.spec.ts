@@ -32,11 +32,12 @@ test("phone workspace shell exposes bottom nav, upload, and touch file actions",
   const fileChooser = page.waitForEvent("filechooser");
   await page
     .locator("[data-workspace-mobile-nav]")
-    .getByRole("button", { name: "Upload" })
+    .getByRole("button", { name: "New", exact: true })
     .click();
+  await page.getByRole("button", { name: "Upload files" }).click();
   await fileChooser;
 
-  const row = page.locator("[data-file-row]", {
+  const row = page.locator("[data-list-item]", {
     hasText: "shared-preview.png",
   });
   await expect(row).toBeVisible();
@@ -52,7 +53,7 @@ test("phone workspace shell exposes bottom nav, upload, and touch file actions",
     clientY: 24,
     pointerType: "touch",
   });
-  await expect(page.getByText("1 item", { exact: true })).toBeVisible();
+  await expect(page.getByText("1 selected", { exact: true })).toBeVisible();
 
   await row
     .getByRole("button", { name: /Actions for shared-preview\.png/ })
@@ -93,24 +94,29 @@ test("phone workspace routes do not overflow horizontally", async ({
   ).toEqual([]);
 });
 
-test("tablet portrait uses mobile nav and landscape uses compact sidebar", async ({
+test("tablets and short screens use the rail, desktops the sidebar", async ({
   page,
 }) => {
+  const rail = page.locator("[data-workspace-rail]");
+  const sidebar = page.locator("[data-workspace-sidebar]");
+  const tabs = page.locator("[data-workspace-mobile-nav]");
+
   await page.setViewportSize({ width: 768, height: 1024 });
   await signIn(page, getOwnerCredentials());
-  await expect(page.locator("[data-workspace-mobile-nav]")).toBeVisible();
-  await expect(page.locator("[data-workspace-sidebar]")).toBeHidden();
+  await expect(rail).toBeVisible();
+  await expect(tabs).toBeHidden();
+  await expect(sidebar).toBeHidden();
   await expectNoHorizontalOverflow(page);
 
-  await page.setViewportSize({ width: 900, height: 600 });
-  await expect(page.locator("[data-workspace-mobile-nav]")).toBeHidden();
-  await expect(page.locator("[data-workspace-sidebar]")).toBeVisible();
-  await expect
-    .poll(() =>
-      page
-        .locator("[data-workspace-sidebar]")
-        .evaluate((node) => node.getBoundingClientRect().width),
-    )
-    .toBeLessThan(100);
+  // A phone held sideways.
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect(rail).toBeVisible();
+  await expect(tabs).toBeHidden();
+  await expectNoHorizontalOverflow(page);
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect(sidebar).toBeVisible();
+  await expect(rail).toBeHidden();
+  await expect(tabs).toBeHidden();
   await expectNoHorizontalOverflow(page);
 });

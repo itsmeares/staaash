@@ -1,43 +1,34 @@
 "use client";
 
+import { EMPTY_TRASH_CONFIRM } from "@/app/dashboard-context-menu";
 import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
+import { confirmAction } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/toast";
 
-type EmptyTrashActionProps = {
-  disabled: boolean;
-};
-
-export function EmptyTrashAction({ disabled }: EmptyTrashActionProps) {
+export function EmptyTrashAction({ disabled }: { disabled: boolean }) {
+  const emptyTrash = async () => {
+    if (!(await confirmAction(EMPTY_TRASH_CONFIRM))) return;
+    try {
+      await submitStorageMutationPost({
+        action: "/api/files/trash/clear",
+        fields: { redirectTo: "/trash" },
+        logicalAction: "trash-clear",
+      });
+      window.location.reload();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Empty trash failed.",
+      );
+    }
+  };
   return (
-    <form
-      action="/api/files/trash/clear"
-      method="post"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (
-          !window.confirm(
-            "Empty trash? This permanently deletes all trashed folder trees and standalone files.",
-          )
-        ) {
-          return;
-        }
-        void submitStorageMutationPost({
-          action: event.currentTarget.action,
-          fields: { redirectTo: "/trash" },
-          logicalAction: "trash-clear",
-        })
-          .then(() => window.location.reload())
-          .catch((error) =>
-            window.alert(
-              error instanceof Error ? error.message : "Empty trash failed.",
-            ),
-          );
-      }}
+    <Button
+      disabled={disabled}
+      variant="destructive-outline"
+      onClick={() => void emptyTrash()}
     >
-      <input name="redirectTo" type="hidden" value="/trash" />
-      <Button disabled={disabled} size="xs" type="submit" variant="destructive">
-        Empty trash
-      </Button>
-    </form>
+      Empty trash
+    </Button>
   );
 }

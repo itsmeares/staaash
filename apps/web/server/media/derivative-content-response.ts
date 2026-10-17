@@ -3,12 +3,15 @@ import { open } from "node:fs/promises";
 import { getPrisma } from "@staaash/db/client";
 import {
   DERIVATIVE_KIND_PREVIEW,
+  DERIVATIVE_KIND_THUMBNAIL,
   DERIVATIVE_PROFILE_1080P,
+  DERIVATIVE_PROFILE_THUMB,
   DERIVATIVE_STATUS_FAILED,
   DERIVATIVE_STATUS_PROCESSING,
   DERIVATIVE_STATUS_QUEUED,
   DERIVATIVE_STATUS_READY,
   DERIVATIVE_STATUS_STALE,
+  canHaveThumbnail,
   scheduleDerivativeGenerate,
   touchDerivativeViewed,
 } from "@staaash/db/media-derivatives";
@@ -24,6 +27,7 @@ import {
   createInlineOriginalContentResponse,
   parseSingleByteRange,
 } from "./content-response";
+import { respondWithFile } from "@/server/downloads/range-response";
 
 type DerivativeRow = {
   id: string;
@@ -31,6 +35,7 @@ type DerivativeRow = {
   sizeBytes: bigint | null;
   mimeType: string | null;
   status: string;
+  lastViewedAt?: Date | null;
 };
 
 type DbClient = {
@@ -75,6 +80,7 @@ const serveDerivativeBytes = async (
   sizeBytes: number,
   mimeType: string,
   fileName: string,
+  cacheControl = "private, max-age=0, must-revalidate",
 ): Promise<Response | null> => {
   const storagePath = getStoragePath(storageKey);
   let fileHandle;
@@ -88,60 +94,31 @@ const serveDerivativeBytes = async (
   try {
     const rangeHeader = request.headers.get("range");
     const baseHeaders: Record<string, string> = {
-      "cache-control": "private, max-age=0, must-revalidate",
+      "cache-control": cacheControl,
       "content-disposition": buildInlineDisposition(fileName),
       "content-type": mimeType,
       "accept-ranges": "bytes",
       "x-content-type-options": "nosniff",
     };
 
-    const createStream = (options?: { start: number; end: number }) => {
-      const nodeStream = fileHandle!.createReadStream({
-        ...options,
-        highWaterMark: 512 * 1024,
-      });
-      nodeStream.on("close", () => {
-        fileHandle!.close().catch(() => {});
-      });
-      return nodeStream;
+    const parseRange = (header: string) => {
+      try {
+        return parseSingleByteRange(header, sizeBytes, {
+          openEndedRangeBytes: mimeType.toLowerCase().startsWith("video/")
+            ? INLINE_MEDIA_OPEN_ENDED_RANGE_BYTES
+            : undefined,
+        });
+      } catch {
+        return null;
+      }
     };
 
-    if (!rangeHeader) {
-      return new Response(createStream() as unknown as BodyInit, {
-        status: 200,
-        headers: { ...baseHeaders, "content-length": String(sizeBytes) },
-      });
-    }
-
-    let range: { start: number; end: number };
-    try {
-      range = parseSingleByteRange(rangeHeader, sizeBytes, {
-        openEndedRangeBytes: mimeType.toLowerCase().startsWith("video/")
-          ? INLINE_MEDIA_OPEN_ENDED_RANGE_BYTES
-          : undefined,
-      });
-    } catch {
-      await fileHandle.close();
-      return new Response("Range not satisfiable.", {
-        status: 416,
-        headers: {
-          "content-range": `bytes */${sizeBytes}`,
-          "content-type": "text/plain; charset=utf-8",
-        },
-      });
-    }
-
-    const { start, end } = range;
-    const contentLength = end - start + 1;
-
-    return new Response(createStream({ start, end }) as unknown as BodyInit, {
-      status: 206,
-      headers: {
-        ...baseHeaders,
-        "content-length": String(contentLength),
-        "content-range": `bytes ${start}-${end}/${sizeBytes}`,
-      },
-    });
+    return respondWithFile(
+      fileHandle,
+      sizeBytes,
+      baseHeaders,
+      rangeHeader ? parseRange(rangeHeader) : undefined,
+    );
   } catch (error) {
     try {
       await fileHandle.close();
@@ -246,4 +223,82 @@ export const createInlineContentResponse = async ({
   }
 
   return createInlineOriginalContentResponse({ request, file });
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The small JPEG lists and the details panel show. When it does not exist
+ * yet it is queued (under the first-view preview setting) and this answers
+ * 404, so the page keeps its type icon until the next visit.
+ */
+// Settings, eligibility, ready, queued and failed thumbnails each answer differently.
+// fallow-ignore-next-line complexity
+export const createThumbnailResponse = async ({
+  request,
+  file,
+}: {
+  request: Request;
+  file: StoredFile;
+}): Promise<Response> => {
+  if (!canHaveThumbnail(file.mimeType, file.name)) {
+    throw new MediaContentError(404, "This file has no thumbnail.");
+  }
+  await assertStorageEntityReadable("file", file.id);
+
+  const db = getPrisma() as unknown as DbClient;
+  const thumbnail = await db.mediaDerivative.findFirst({
+    where: {
+      fileId: file.id,
+      kind: DERIVATIVE_KIND_THUMBNAIL,
+      profile: DERIVATIVE_PROFILE_THUMB,
+    } as object,
+  });
+
+  if (
+    thumbnail?.status === DERIVATIVE_STATUS_READY &&
+    thumbnail.storageKey &&
+    thumbnail.sizeBytes !== null
+  ) {
+    await assertStorageEntityReadable("derivative", thumbnail.id);
+    // The URL carries the file's update time, so a long cache is safe.
+    const response = await serveDerivativeBytes(
+      request,
+      thumbnail.storageKey,
+      Number(thumbnail.sizeBytes),
+      thumbnail.mimeType ?? "image/jpeg",
+      `${file.name}.jpg`,
+      "private, max-age=604800",
+    );
+    if (response) {
+      const now = new Date();
+      // Keeps it from retention cleanup without a write on every request.
+      if (
+        !thumbnail.lastViewedAt ||
+        now.getTime() - thumbnail.lastViewedAt.getTime() > DAY_MS
+      ) {
+        void touchDerivativeViewed(thumbnail.id, now).catch(() => {});
+      }
+      return response;
+    }
+  }
+
+  const settled =
+    thumbnail?.status === DERIVATIVE_STATUS_QUEUED ||
+    thumbnail?.status === DERIVATIVE_STATUS_PROCESSING ||
+    thumbnail?.status === DERIVATIVE_STATUS_FAILED;
+  if (!settled) {
+    const settings = await getSystemSettings();
+    if (shouldGenerateMediaPreview(settings, "first-view")) {
+      await scheduleDerivativeGenerate({
+        fileId: file.id,
+        kind: DERIVATIVE_KIND_THUMBNAIL,
+        profile: DERIVATIVE_PROFILE_THUMB,
+        reason: "first-view",
+      });
+    }
+  }
+  throw new MediaContentError(404, "Thumbnail not ready.", {
+    headers: { "cache-control": "no-store" },
+  });
 };

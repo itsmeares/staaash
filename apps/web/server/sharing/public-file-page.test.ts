@@ -222,7 +222,7 @@ describe("public shared file pages", () => {
     expect(mocks.getPublicShareFilePreview).toHaveBeenCalledWith(videoFile);
     expect(markup).toContain("<video");
     expect(markup).toContain('src="/s/token/files/video-1/content"');
-    expect(markup).toContain("Downloads off");
+    expect(markup).toContain("Downloads are off");
     expect(markup).not.toContain("derivatives/");
   });
 });

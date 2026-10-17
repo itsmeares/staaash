@@ -12,6 +12,7 @@ import {
   ensureBackgroundJobScheduled,
   getQueueOperationalSummary,
   listBackgroundJobEvents,
+  dismissBackgroundJob,
   retryBackgroundJob,
   type BackgroundJobRecord,
   type QueueOperationalSummary,
@@ -106,6 +107,9 @@ export const cancelAdminJob = async (jobId: string, actorUserId: string) =>
 
 export const retryAdminJob = async (jobId: string, actorUserId: string) =>
   retryBackgroundJob({ jobId, actorUserId });
+
+export const dismissAdminJob = async (jobId: string, actorUserId: string) =>
+  dismissBackgroundJob({ jobId, actorUserId });
 
 export const enqueueAdminStagingCleanup = async (now = new Date()) =>
   ensureBackgroundJobScheduled({

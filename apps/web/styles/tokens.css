@@ -2,80 +2,100 @@
  * Design tokens. Raw values live here once per theme; styles/theme.css maps
  * them to Tailwind utilities. The theme class (.light or .dark) is always set
  * on <html> before paint, see app/layout.tsx.
+ *
+ * Palette "Stone": canvas is the app chrome (sidebar, top bar), card is the
+ * rounded content panel, popover is menus and dialogs.
  */
 
 :root {
   color-scheme: light;
 
   /* Surfaces */
-  --background: oklch(0.982 0.006 78);
-  --foreground: oklch(0.21 0.015 72);
-  --card: oklch(0.992 0.004 78);
-  --card-foreground: oklch(0.22 0.015 72);
-  --popover: oklch(0.992 0.004 78);
-  --popover-foreground: oklch(0.22 0.015 72);
-  --sidebar: color-mix(in oklab, var(--background) 92%, var(--foreground) 8%);
-  --muted: oklch(0.965 0.006 78);
-  --muted-foreground: oklch(0.48 0.014 72);
-  --accent: oklch(0.95 0.01 78);
-  --accent-foreground: oklch(0.24 0.018 72);
-  --secondary: oklch(0.955 0.007 78);
-  --secondary-foreground: oklch(0.24 0.018 72);
+  --background: oklch(0.968 0.0035 75);
+  --foreground: oklch(0.22 0.007 70);
+  --card: oklch(0.997 0.0012 80);
+  --card-foreground: oklch(0.22 0.007 70);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.007 70);
+  --sidebar: oklch(0.968 0.0035 75);
+  --muted: oklch(0.955 0.004 75);
+  --muted-foreground: oklch(0.49 0.009 70);
+  --accent: oklch(0.945 0.004 75);
+  --accent-foreground: oklch(0.22 0.007 70);
+  --secondary: oklch(0.95 0.004 75);
+  --secondary-foreground: oklch(0.22 0.007 70);
 
-  /* Action */
-  --primary: oklch(0.48 0.09 78);
-  --primary-foreground: oklch(0.98 0.004 78);
-  --destructive: oklch(0.577 0.245 27.325);
+  /* Action: bronze */
+  --primary: oklch(0.52 0.095 68);
+  --primary-foreground: oklch(1 0 0);
+  --destructive: oklch(0.55 0.2 27);
 
   /* Lines and focus */
-  --border: oklch(0.9 0.009 78);
-  --input: oklch(0.9 0.009 78);
-  --ring: oklch(0.68 0.06 80);
+  --border: oklch(0.918 0.004 75);
+  --input: oklch(0.875 0.005 75);
+  --ring: oklch(0.52 0.095 68);
 
   /* Status hues. The base color is used for tinted fills, the -foreground
      color for text and icons on those fills. */
-  --success: oklch(0.64 0.11 145);
-  --success-foreground: oklch(0.46 0.12 145);
-  --info: oklch(0.65 0.1 210);
-  --info-foreground: oklch(0.43 0.1 210);
-  --warning: oklch(0.74 0.1 78);
-  --warning-foreground: oklch(0.48 0.1 78);
-  --destructive-foreground: color-mix(
-    in oklab,
-    var(--destructive) 86%,
-    var(--foreground)
-  );
+  --success: oklch(0.52 0.13 150);
+  --success-foreground: oklch(0.52 0.13 150);
+  --info: oklch(0.52 0.16 255);
+  --info-foreground: oklch(0.52 0.16 255);
+  --warning: oklch(0.58 0.13 65);
+  --warning-foreground: oklch(0.55 0.13 65);
+  --destructive-foreground: oklch(0.55 0.2 27);
+
+  /* File type glyphs */
+  --file-image: #2563eb;
+  --file-video: #9333ea;
+  --file-audio: #16a34a;
+  --file-doc: #78716c;
+  --file-pdf: #dc2626;
+
+  /* Raised edges: a soft drop under controls, a hairline highlight on top */
+  --edge-drop: 0 1px 2px oklch(0 0 0 / 0.06);
+  --edge-highlight: inset 0 -1px oklch(0 0 0 / 0.04);
 }
 
 .dark {
   color-scheme: dark;
 
-  --background: oklch(0.12 0.008 70);
-  --foreground: oklch(0.95 0.008 78);
-  --card: oklch(0.18 0.01 72);
-  --card-foreground: oklch(0.95 0.008 78);
-  --popover: oklch(0.23 0.012 72);
-  --popover-foreground: oklch(0.95 0.008 78);
-  --muted: oklch(0.22 0.01 72);
-  --muted-foreground: oklch(0.78 0.014 76);
-  --accent: oklch(0.23 0.012 72);
-  --accent-foreground: oklch(0.94 0.008 78);
-  --secondary: oklch(0.24 0.01 72);
-  --secondary-foreground: oklch(0.93 0.008 78);
+  --background: oklch(0.135 0.003 70);
+  --foreground: oklch(0.95 0.003 80);
+  --card: oklch(0.172 0.0035 70);
+  --card-foreground: oklch(0.95 0.003 80);
+  --popover: oklch(0.205 0.004 70);
+  --popover-foreground: oklch(0.95 0.003 80);
+  --sidebar: oklch(0.135 0.003 70);
+  --muted: oklch(0.2 0.004 70);
+  --muted-foreground: oklch(0.71 0.007 75);
+  --accent: oklch(0.235 0.004 70);
+  --accent-foreground: oklch(0.95 0.003 80);
+  --secondary: oklch(0.22 0.004 70);
+  --secondary-foreground: oklch(0.95 0.003 80);
 
-  --primary: oklch(0.74 0.08 78);
-  --primary-foreground: oklch(0.18 0.015 72);
-  --destructive: oklch(0.62 0.16 25);
+  --primary: oklch(0.77 0.085 74);
+  --primary-foreground: oklch(0.2 0.02 70);
+  --destructive: oklch(0.72 0.16 25);
 
-  --border: oklch(0.38 0.014 76 / 0.55);
-  --input: oklch(0.23 0.012 72 / 0.92);
-  --ring: oklch(0.82 0.06 80);
+  --border: oklch(1 0 0 / 0.075);
+  --input: oklch(1 0 0 / 0.12);
+  --ring: oklch(0.77 0.085 74);
 
-  --success: oklch(0.67 0.12 145);
-  --success-foreground: oklch(0.78 0.1 145);
-  --info: oklch(0.68 0.1 210);
-  --info-foreground: oklch(0.78 0.1 210);
-  --warning: oklch(0.74 0.1 78);
-  --warning-foreground: oklch(0.82 0.1 78);
-  --destructive-foreground: oklch(0.78 0.16 25);
+  --success: oklch(0.78 0.12 150);
+  --success-foreground: oklch(0.78 0.12 150);
+  --info: oklch(0.76 0.11 250);
+  --info-foreground: oklch(0.76 0.11 250);
+  --warning: oklch(0.82 0.11 80);
+  --warning-foreground: oklch(0.82 0.11 80);
+  --destructive-foreground: oklch(0.72 0.16 25);
+
+  --file-image: #60a5fa;
+  --file-video: #c084fc;
+  --file-audio: #4ade80;
+  --file-doc: #a8a29e;
+  --file-pdf: #f87171;
+
+  --edge-drop: 0 1px 2px oklch(0 0 0 / 0.3);
+  --edge-highlight: inset 0 1px oklch(1 0 0 / 0.05);
 }

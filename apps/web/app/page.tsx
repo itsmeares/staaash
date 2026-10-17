@@ -2,7 +2,8 @@ import React from "react";
 import { redirect } from "next/navigation";
 
 import { getSafeLocalPath, getSingleSearchParam } from "@/app/auth-ui";
-import { EntryRoot } from "@/components/public/entry-root";
+import { SignIn } from "@/components/public/entry-experience";
+import { FirstRun, type FirstRunKind } from "@/components/public/first-run";
 import { authService } from "@/server/auth/service";
 import { getCurrentSession } from "@/server/auth/session";
 import { getSystemSettings } from "@/server/settings";
@@ -13,6 +14,18 @@ type HomePageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+/** Which first-run steps a signed-in person still needs, if any. */
+const firstRunKind = (user: {
+  isOwner: boolean;
+  passwordChangeRequiredAt: Date | null;
+  preferences: { onboardingCompletedAt: Date | null } | null;
+}): FirstRunKind | null => {
+  const onboarded = Boolean(user.preferences?.onboardingCompletedAt);
+  if (onboarded) return user.passwordChangeRequiredAt ? "password" : null;
+  if (user.isOwner) return "owner";
+  return user.passwordChangeRequiredAt ? "member-password" : "member";
+};
+
 export default async function HomePage({ searchParams }: HomePageProps) {
   const [resolvedSearchParams, setupState, session, systemSettings] =
     await Promise.all([
@@ -21,49 +34,32 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       getCurrentSession(),
       getSystemSettings(),
     ]);
-
-  const next = getSafeLocalPath(
-    getSingleSearchParam(resolvedSearchParams, "next"),
-    "/files",
-  );
+  // Without ?next, sign-in goes to the person's start page.
+  const rawNext = getSingleSearchParam(resolvedSearchParams, "next");
+  const next = rawNext ? getSafeLocalPath(rawNext, "/files") : undefined;
+  const instanceName = setupState.instanceName?.trim() || "Staaash";
 
   if (session) {
-    if (session.user.passwordChangeRequiredAt) {
-      return (
-        <EntryRoot
-          mode="password-change"
-          instanceName={setupState.instanceName ?? undefined}
-        />
-      );
-    }
-
-    if (session.user.preferences?.onboardingCompletedAt) {
-      redirect("/api/auth/rehydrate");
-    }
+    const kind = firstRunKind(session.user);
+    if (!kind) redirect("/api/auth/rehydrate");
     return (
-      <EntryRoot
-        mode="onboarding"
-        instanceName={setupState.instanceName ?? undefined}
-        isOwner={session.user.isOwner}
-        initialMediaPreviewEnabled={systemSettings.mediaPreviewEnabled}
-        initialMediaPreviewGenerateOnUpload={
-          systemSettings.mediaPreviewGenerateOnUpload
-        }
-        initialMediaPreviewGenerateOnFirstView={
-          systemSettings.mediaPreviewGenerateOnFirstView
-        }
-        initialMediaPreviewGenerateOnShare={
-          systemSettings.mediaPreviewGenerateOnShare
-        }
+      <FirstRun
+        displayName={session.user.displayName}
+        initialPreviews={{
+          enabled: systemSettings.mediaPreviewEnabled,
+          onUpload: systemSettings.mediaPreviewGenerateOnUpload,
+          onFirstView: systemSettings.mediaPreviewGenerateOnFirstView,
+          onShare: systemSettings.mediaPreviewGenerateOnShare,
+        }}
+        instanceName={instanceName}
+        kind={kind}
       />
     );
   }
 
-  return (
-    <EntryRoot
-      mode={setupState.isBootstrapped ? "signin" : "setup"}
-      instanceName={setupState.instanceName ?? undefined}
-      next={next}
-    />
-  );
+  if (!setupState.isBootstrapped) {
+    return <FirstRun instanceName={instanceName} kind="owner-setup" />;
+  }
+
+  return <SignIn instanceName={instanceName} next={next} />;
 }

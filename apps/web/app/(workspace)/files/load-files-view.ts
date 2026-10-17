@@ -1,0 +1,42 @@
+import { getFolderSizeBytes } from "@/server/files/folder-size";
+import type { FilesListing } from "@/server/files/types";
+import { retrievalService } from "@/server/retrieval/service";
+import { sharingService } from "@/server/sharing/service";
+
+/** Share links and favorites for a Files listing, as `FilesView` props. */
+export async function loadFilesViewProps({
+  actorUserId,
+  actorRole,
+  listing,
+  baseUrl,
+  showFolderPreviews,
+}: {
+  actorUserId: string;
+  actorRole: Parameters<typeof retrievalService.listFavorites>[0]["actorRole"];
+  listing: FilesListing;
+  baseUrl: string;
+  showFolderPreviews: boolean;
+}) {
+  const [shareLookup, favorites, folderSizeBytes] = await Promise.all([
+    sharingService.getFilesShareLookup({
+      actorUserId,
+      actorRole,
+      currentFolderId: listing.currentFolder.id,
+      childFolderIds: listing.childFolders.map((folder) => folder.id),
+      fileIds: listing.files.map((file) => file.id),
+      baseUrl,
+    }),
+    retrievalService.listFavorites({ actorUserId, actorRole }),
+    getFolderSizeBytes(listing.currentFolder.id),
+  ]);
+  const idsOf = (kind: "file" | "folder") =>
+    favorites.filter((item) => item.kind === kind).map((item) => item.id);
+  return {
+    listing,
+    shareLookup,
+    showFolderPreviews,
+    favoriteFileIds: idsOf("file"),
+    favoriteFolderIds: idsOf("folder"),
+    folderSizeBytes,
+  };
+}

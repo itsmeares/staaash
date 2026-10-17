@@ -45,3 +45,17 @@ export const FileStorageStatus = {
 } as const
 
 export type FileStorageStatus = (typeof FileStorageStatus)[keyof typeof FileStorageStatus]
+
+
+export const RecentAction = {
+  opened: 'opened',
+  uploaded: 'uploaded',
+  created: 'created',
+  renamed: 'renamed',
+  moved: 'moved',
+  downloaded: 'downloaded',
+  trashed: 'trashed',
+  restored: 'restored'
+} as const
+
+export type RecentAction = (typeof RecentAction)[keyof typeof RecentAction]

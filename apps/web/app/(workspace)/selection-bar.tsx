@@ -1,36 +1,60 @@
+import { X, type LucideIcon } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 
 export type SelectionBarAction = {
   label: string;
-  onClick: () => void;
+  icon: LucideIcon;
+  onClick?: () => void;
   destructive?: boolean;
+  disabled?: boolean;
 };
 
-/** Floating action bar for touch layouts; hidden from 1024px up. */
+/** The look of bars that float over a list: selection, cut items. */
+export const floatingBarClass =
+  "fixed bottom-[calc(92px+env(safe-area-inset-bottom))] left-1/2 z-38 flex max-w-[calc(100vw-1.5rem)] -translate-x-1/2 animate-in items-center gap-0.5 rounded-xl border border-border bg-popover p-1 shadow-selection-bar duration-260 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none sm:bottom-6 rail:left-[calc(50%+var(--spacing-rail)/2)] desk:left-[calc(50%+var(--spacing-sidebar)/2)]";
+
+/** Floats over the list while items are selected. */
 export function SelectionBar({
   count,
   actions,
+  onClear,
 }: {
   count: number;
   actions: SelectionBarAction[];
+  onClear: () => void;
 }) {
+  if (count === 0) return null;
   return (
     <div
-      className="fixed right-2.5 bottom-[calc(72px+env(safe-area-inset-bottom))] left-2.5 z-38 flex min-h-13 items-center gap-1.5 rounded-xl border bg-card p-1.75 shadow-selection-bar lg:hidden md:max-lg:landscape:bottom-3.5 md:max-lg:landscape:left-21.5"
+      aria-label="Selection"
+      className={floatingBarClass}
       data-slot="selection-bar"
-      role="region"
+      role="toolbar"
     >
-      <span className="min-w-0 flex-1 pl-2 text-xs font-semibold text-muted-foreground">
-        {count} item{count === 1 ? "" : "s"}
+      <Button
+        aria-label="Clear selection"
+        size="icon-sm"
+        variant="ghost-muted"
+        onClick={onClear}
+      >
+        <X aria-hidden />
+      </Button>
+      <span className="px-1.5 text-body font-semibold whitespace-nowrap tabular-nums">
+        {count} selected
       </span>
-      {actions.map((action) => (
+      <span aria-hidden className="mx-1 h-5 w-px bg-border" />
+      {actions.map(({ label, icon: Icon, onClick, destructive, disabled }) => (
         <Button
-          key={action.label}
-          size="xs"
-          variant={action.destructive ? "destructive" : "secondary"}
-          onClick={action.onClick}
+          aria-label={label}
+          disabled={disabled}
+          key={label}
+          size="sm"
+          variant={destructive ? "ghost-destructive" : "ghost"}
+          onClick={onClick}
         >
-          {action.label}
+          <Icon aria-hidden />
+          <span className="max-sm:hidden">{label}</span>
         </Button>
       ))}
     </div>

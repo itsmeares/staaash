@@ -11,9 +11,11 @@ test("member can complete a core files flow", async ({ page }) => {
   await expect(
     page.getByRole("navigation", { name: "Breadcrumb" }).getByText("Files"),
   ).toBeVisible();
-  await page.getByRole("button", { name: "New folder" }).first().click();
-  await page.getByLabel("Folder name").fill(folderName);
-  await page.getByRole("button", { name: "Create" }).click();
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  await page.getByRole("menuitem", { name: "New folder" }).click();
+  const field = page.getByLabel("New folder name");
+  await field.fill(folderName);
+  await field.press("Enter");
 
   await expect(page.getByText(folderName)).toBeVisible();
 });

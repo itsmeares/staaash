@@ -7,6 +7,7 @@ import {
   InfoIcon,
   LoaderCircleIcon,
   TriangleAlertIcon,
+  XIcon,
 } from "lucide-react";
 import type React from "react";
 import { cn } from "@/lib/utils";
@@ -82,7 +83,7 @@ function Toasts({
             <Toast.Root
               key={toast.id}
               className={cn(
-                "absolute z-[calc(9999-var(--toast-index))] h-(--toast-calc-height) w-full rounded-xl border border-hairline bg-[color-mix(in_srgb,var(--popover),var(--color-black)_calc(1%*max(0,var(--toast-index,0))))] text-popover-foreground shadow-panel select-none [transition:transform_.5s_cubic-bezier(.22,1,.36,1),opacity_.5s,height_.15s,background-color_.5s] before:pointer-events-none before:absolute before:inset-0 data-expanded:bg-popover dark:bg-[color-mix(in_srgb,var(--popover),var(--color-black)_calc(6%*max(0,var(--toast-index,0))))] dark:data-expanded:bg-popover",
+                "absolute z-[calc(9999-var(--toast-index))] h-(--toast-calc-height) w-full rounded-xl border bg-[color-mix(in_srgb,var(--popover),var(--color-black)_calc(1%*max(0,var(--toast-index,0))))] text-popover-foreground shadow-lg/5 select-none [transition:transform_.3s_var(--ease-morph),opacity_.3s,height_.15s,background-color_.3s] not-dark:bg-clip-padding before:pointer-events-none before:absolute before:inset-0 before:rounded-[calc(var(--radius-xl)-1px)] before:shadow-[0_1px_--theme(--color-black/4%)] data-ending-style:duration-180 data-ending-style:ease-in data-expanded:bg-popover dark:bg-[color-mix(in_srgb,var(--popover),var(--color-black)_calc(6%*max(0,var(--toast-index,0))))] dark:before:shadow-[0_-1px_--theme(--color-white/6%)] dark:data-expanded:bg-popover",
                 // Base positioning using data-position
                 "data-[position*=right]:right-0 data-[position*=right]:left-auto",
                 "data-[position*=left]:right-auto data-[position*=left]:left-0",
@@ -158,6 +159,18 @@ function Toasts({
                     {toast.actionProps.children}
                   </Toast.Action>
                 )}
+                {/* Staaash: errors stay until closed. */}
+                {toast.type === "error" ? (
+                  <Toast.Close
+                    aria-label="Close"
+                    className={buttonVariants({
+                      size: "icon-xs",
+                      variant: "ghost-muted",
+                    })}
+                  >
+                    <XIcon aria-hidden />
+                  </Toast.Close>
+                ) : null}
               </Toast.Content>
             </Toast.Root>
           );
@@ -202,10 +215,10 @@ function AnchoredToasts({
             >
               <Toast.Root
                 className={cn(
-                  "relative border bg-popover text-xs text-balance text-popover-foreground transition-[scale,opacity] before:pointer-events-none before:absolute before:inset-0 data-ending-style:scale-98 data-ending-style:opacity-0 data-starting-style:scale-98 data-starting-style:opacity-0",
+                  "relative border bg-popover text-xs text-balance text-popover-foreground transition-[scale,opacity] not-dark:bg-clip-padding before:pointer-events-none before:absolute before:inset-0 before:shadow-[0_1px_--theme(--color-black/4%)] data-ending-style:scale-98 data-ending-style:opacity-0 data-starting-style:scale-98 data-starting-style:opacity-0 dark:before:shadow-[0_-1px_--theme(--color-white/6%)]",
                   tooltipStyle
-                    ? "rounded-md shadow-floating before:rounded-[calc(var(--radius-md)-1px)]"
-                    : "rounded-lg shadow-panel before:rounded-[calc(var(--radius-lg)-1px)]",
+                    ? "rounded-md shadow-md/5 before:rounded-[calc(var(--radius-md)-1px)]"
+                    : "rounded-lg shadow-lg/5 before:rounded-[calc(var(--radius-lg)-1px)]",
                 )}
                 {...toastData?.rootProps}
                 data-slot="toast-popup"
@@ -315,8 +328,18 @@ type ToastOptions = { description?: React.ReactNode };
 export const toast = {
   success: (title: React.ReactNode, options?: ToastOptions) =>
     toastManager.add({ title, type: "success", ...options }),
-  error: (title: React.ReactNode, options?: ToastOptions) =>
-    toastManager.add({ title, type: "error", ...options }),
+  // Staaash: errors stay until closed, with Retry when there is one.
+  error: (
+    title: React.ReactNode,
+    { retry, ...options }: ToastOptions & { retry?: () => void } = {},
+  ) =>
+    toastManager.add({
+      title,
+      type: "error",
+      timeout: 0,
+      ...(retry ? { actionProps: { children: "Retry", onClick: retry } } : {}),
+      ...options,
+    }),
   info: (title: React.ReactNode, options?: ToastOptions) =>
     toastManager.add({ title, type: "info", ...options }),
 };

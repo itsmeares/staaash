@@ -438,7 +438,7 @@ describe("folder public link behavior", () => {
 
     expect(markup).toContain('<video controls="" playsInline=""');
     expect(markup).toContain('src="/s/token/content"');
-    expect(markup).toContain("Downloads off");
+    expect(markup).toContain("Downloads are off");
   });
 
   it("does not native-embed a non-allowlisted video without a ready preview", async () => {
