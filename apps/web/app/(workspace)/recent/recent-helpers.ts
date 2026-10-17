@@ -122,7 +122,7 @@ export function batchLabel(row: ActivityRow) {
   const items = row.batch ?? [row];
   const verb = row.lastAction === "moved" ? "Moved" : "Uploaded";
   const folder = row.locationLabel.split(" / ").at(-1);
-  return `${verb} ${items.length} ${nounFor(items)} to ${folder === "/" ? "Files" : folder}`;
+  return `${verb} ${items.length} ${nounFor(items)} to ${folder}`;
 }
 
 export function filterRecentItems(

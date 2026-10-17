@@ -120,9 +120,7 @@ export function SearchResults({
                     <Highlight query={query} text={folder.name} />
                   </span>
                   <span className="truncate text-label text-muted-foreground">
-                    {folder.locationLabel === "/"
-                      ? "Files"
-                      : folder.locationLabel}
+                    {folder.locationLabel}
                   </span>
                 </span>
               </button>

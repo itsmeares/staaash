@@ -59,7 +59,7 @@ export function getWorkspaceLocationLabel(item: WorkspaceLocationItem): string {
     parts.at(-1) === item.name ? parts.slice(0, -1) : parts;
   const withoutRoot =
     pathWithoutSelf.length > 1 ? pathWithoutSelf.slice(1) : [];
-  return withoutRoot.length > 0 ? withoutRoot.join(" / ") : "/";
+  return withoutRoot.length > 0 ? withoutRoot.join(" / ") : "Files";
 }
 
 /** Sorts a retrieval list by name, path, size, or else its own date. */

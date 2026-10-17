@@ -63,7 +63,7 @@ const clientItem = (
 describe("favorites page helpers", () => {
   it("serializes retrieval items with favorite time and compact location", () => {
     expect(toFavoriteClientItem(makeFile()).locationLabel).toBe("Design");
-    expect(toFavoriteClientItem(makeFolder()).locationLabel).toBe("/");
+    expect(toFavoriteClientItem(makeFolder()).locationLabel).toBe("Files");
 
     expect(
       toFavoriteClientItem(

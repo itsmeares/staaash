@@ -61,7 +61,7 @@ const clientItem = (
 describe("recent page helpers", () => {
   it("serializes retrieval items with compact location labels", () => {
     expect(toRecentClientItem(makeFile()).locationLabel).toBe("Design");
-    expect(toRecentClientItem(makeFolder()).locationLabel).toBe("/");
+    expect(toRecentClientItem(makeFolder()).locationLabel).toBe("Files");
 
     expect(
       toRecentClientItem(

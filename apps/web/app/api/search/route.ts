@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
           name: item.name,
           href: item.href,
           mimeType: item.kind === "file" ? item.mimeType : null,
-          location: getWorkspaceLocationLabel(item).replace(/^\/$/, "Files"),
+          location: getWorkspaceLocationLabel(item),
         }),
       ),
     },

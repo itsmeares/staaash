@@ -49,7 +49,7 @@ describe("workspace item helpers", () => {
           pathLabel: "Files / Design",
         }),
       ),
-    ).toBe("/");
+    ).toBe("Files");
   });
 
   it("maps file and folder MIME types to workspace filters", () => {

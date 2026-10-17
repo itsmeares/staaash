@@ -66,8 +66,7 @@ const deleteLink = async (share: ShareLinkSummary) => {
 };
 
 const folderOf = (share: ShareLinkSummary) => {
-  const location = getWorkspaceLocationLabel(share.target);
-  return location === "/" ? "Files" : location;
+  return getWorkspaceLocationLabel(share.target);
 };
 
 const soon = (share: ShareLinkSummary, now: Date) =>

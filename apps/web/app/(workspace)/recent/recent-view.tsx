@@ -50,9 +50,6 @@ import {
 
 type RecentListItem = FileListItem & { data: ActivityRow };
 
-const folderOf = (item: RecentClientItem) =>
-  item.locationLabel === "/" ? "Files" : item.locationLabel;
-
 /** A batch's thumbnails, up to five, then "+N". */
 function BatchStrip({ items }: { items: RecentClientItem[] }) {
   const shown = items.slice(0, 5);
@@ -147,7 +144,9 @@ export function RecentView({
           sub: activity ? (
             <>
               <span className="@xl/list:hidden">{whenOf(row)}</span>
-              <span className="hidden @xl/list:inline">{folderOf(row)}</span>
+              <span className="hidden @xl/list:inline">
+                {row.locationLabel}
+              </span>
             </>
           ) : row.deletedAt ? (
             "In trash"
