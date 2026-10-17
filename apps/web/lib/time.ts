@@ -29,6 +29,17 @@ function zonedDayNumber(date: Date, timeZone: string) {
   return Date.UTC(year, month - 1, day) / DAY_MS;
 }
 
+/** Calendar days from today to `value` in `timeZone`: 0 today, 1 tomorrow. */
+export function calendarDaysUntil(
+  value: DateInput,
+  now: Date,
+  timeZone: string,
+) {
+  return (
+    zonedDayNumber(toDate(value), timeZone) - zonedDayNumber(now, timeZone)
+  );
+}
+
 export function formatDateTime(
   value: DateInput,
   timeZone: string,
@@ -57,6 +68,22 @@ function formatShortDate(value: DateInput, timeZone: string) {
       timeZone,
     });
     shortDateFormatters.set(timeZone, formatter);
+  }
+  return formatter.format(toDate(value));
+}
+
+const dayMonthFormatters = new Map<string, Intl.DateTimeFormat>();
+
+/** "11 Oct": a day in this or a recent year, for "Expired 11 Oct". */
+export function formatDayMonth(value: DateInput, timeZone: string) {
+  let formatter = dayMonthFormatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-GB", {
+      day: "numeric",
+      month: "short",
+      timeZone,
+    });
+    dayMonthFormatters.set(timeZone, formatter);
   }
   return formatter.format(toDate(value));
 }

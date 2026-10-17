@@ -299,6 +299,7 @@ export function RecentView({
         getActions={getActions}
         groups={groups}
         head={!activity}
+        subline={activity ? "always" : "narrow"}
         items={listItems}
         label="Recent files"
         selection={selection}

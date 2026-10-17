@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, HeartOff } from "lucide-react";
+import { Download, HeartOff, Pin } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { DashboardPageContextMenu } from "@/app/dashboard-context-menu";
@@ -22,7 +22,6 @@ import {
   TypeAndView,
   toWorkspaceListItem,
   listBackgroundMenu,
-  PinnedChips,
 } from "../workspace-list-parts";
 import { useCoarsePointer } from "../use-coarse-pointer";
 import {
@@ -32,7 +31,6 @@ import {
 import { sizeColumn } from "../workspace-item-helpers";
 import {
   filterFavoriteItems,
-  getQuickAccessFavorites,
   sortFavoriteItems,
   type FavoriteClientItem,
   type FavoriteFilterType,
@@ -83,7 +81,6 @@ export function FavoritesView({ items }: FavoritesViewProps) {
       ),
     [activeItems, filterType, sort.direction, sort.key],
   );
-  const pinnedItems = getQuickAccessFavorites(activeItems);
   const selectable = visibleItems.filter((item) => !item.storageMutationStatus);
 
   const unfavorite = async (targets: FavoriteClientItem[]) => {
@@ -128,7 +125,16 @@ export function FavoritesView({ items }: FavoritesViewProps) {
     });
   };
 
-  const listItems: FavoriteListItem[] = visibleItems.map(toWorkspaceListItem);
+  const listItems: FavoriteListItem[] = visibleItems.map((item) => ({
+    ...toWorkspaceListItem(item),
+    flags: item.quickAccessPinnedAt ? (
+      <Pin
+        aria-label="Pinned"
+        className="size-3.5 shrink-0 text-muted-foreground"
+        role="img"
+      />
+    ) : null,
+  }));
 
   const columns: FileListColumn<FavoriteListItem>[] = [
     {
@@ -173,22 +179,6 @@ export function FavoritesView({ items }: FavoritesViewProps) {
         }
         title="Favorites"
       />
-
-      {pinnedItems.length > 0 ? (
-        <section aria-labelledby="favorites-pinned" className="grid gap-2">
-          <h2
-            className="m-0 font-sans text-meta font-semibold"
-            id="favorites-pinned"
-          >
-            Pinned
-          </h2>
-          <PinnedChips
-            items={pinnedItems}
-            menuFor={getActions}
-            onOpen={actions.open}
-          />
-        </section>
-      ) : null}
 
       <FileList
         coarse={isCoarsePointer}

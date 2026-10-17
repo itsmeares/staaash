@@ -36,6 +36,8 @@ import { EmptyTrashAction } from "./trash-file-actions";
 import {
   sortTrashItems,
   type TrashClientItem,
+  daysLeft,
+  daysLeftLabel,
   type TrashSortKey,
 } from "./trash-helpers";
 
@@ -125,7 +127,8 @@ export function TrashView({ items, retentionDays }: TrashViewProps) {
     (item) => item.deletedAt,
     now,
     timeZone,
-    sort.key === "deletedAt" && sort.direction === "asc",
+    (sort.key === "deletedAt" || sort.key === "left") &&
+      sort.direction === "asc",
   ).map((group) => ({
     label: group.label,
     items: group.items.map(toListItem),
@@ -153,6 +156,26 @@ export function TrashView({ items, retentionDays }: TrashViewProps) {
       sortable: true,
       render: (item) => formatRelativeTime(item.data.deletedAt, now, timeZone),
     },
+    {
+      key: "left",
+      label: "Left",
+      width: "6rem",
+      align: "end",
+      sortable: true,
+      render: (item) => {
+        const days = daysLeft(
+          item.data.deletedAt,
+          retentionDays,
+          now,
+          timeZone,
+        );
+        return (
+          <span className={days <= 3 ? "text-warning-foreground" : undefined}>
+            {daysLeftLabel(days)}
+          </span>
+        );
+      },
+    },
   ];
 
   return (
@@ -168,7 +191,6 @@ export function TrashView({ items, retentionDays }: TrashViewProps) {
             <EmptyTrashAction disabled={items.length === 0} />
           </>
         }
-        description={`Items here are deleted for good after ${retentionDays} days.`}
         title="Trash"
       />
 

@@ -22,6 +22,7 @@ const user = (timeZone: string) => ({
     onboardingCompletedAt: null,
     showUpdateNotifications: true,
     showFolderPreviews: true,
+    showPinsInSidebar: false,
     startPage: "home",
     defaultView: "list",
     clockFormat: "24h",

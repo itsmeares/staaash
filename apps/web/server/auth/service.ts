@@ -629,6 +629,7 @@ export const createAuthService = ({
         timeZone?: string;
         showUpdateNotifications?: boolean;
         showFolderPreviews?: boolean;
+        showPinsInSidebar?: boolean;
         startPage?: string;
         defaultView?: string;
         clockFormat?: string;

@@ -20,7 +20,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { GlidingPill, useGlidingPill } from "@/components/gliding-pill";
+import { ItemIcon, thumbnailUrlFor } from "@/components/file-list/file-list";
 import { cn } from "@/lib/utils";
+
+import type { ShellPin } from "./app-sidebar";
 
 export type WorkspaceNavItem = {
   href: string;
@@ -161,6 +164,41 @@ export function SidebarNav({
           >
             <Icon aria-hidden strokeWidth={look.stroke} />
             <span className="truncate">{look.label(item)}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+/** Pinned favorites under the drive links, for people who turned them on. */
+export function SidebarPins({ pins }: { pins: ShellPin[] }) {
+  const pathname = usePathname();
+  if (pins.length === 0) return null;
+  return (
+    <nav aria-label="Pinned" className="flex flex-col gap-px">
+      <h2 className="m-0 px-2.5 pt-2 pb-1 font-sans text-label font-medium text-muted-foreground">
+        Pinned
+      </h2>
+      {pins.map((pin) => {
+        const thumbnail = thumbnailUrlFor(pin);
+        return (
+          <Link
+            aria-current={pathname === pin.href ? "page" : undefined}
+            className={cn(itemClass, "h-8 aria-[current=page]:selected-pill")}
+            href={pin.href}
+            key={pin.id}
+          >
+            {thumbnail ? (
+              <img
+                alt=""
+                className="size-4.5 shrink-0 rounded-xs object-cover"
+                src={thumbnail}
+              />
+            ) : (
+              <ItemIcon className="size-4.5 [&_svg]:size-4" item={pin} />
+            )}
+            <span className="truncate">{pin.name}</span>
           </Link>
         );
       })}

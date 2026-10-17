@@ -28,6 +28,7 @@ const preferencesSchema = z.object({
     .optional(),
   showUpdateNotifications: z.boolean().optional(),
   showFolderPreviews: z.boolean().optional(),
+  showPinsInSidebar: z.boolean().optional(),
   startPage: z.enum(["home", "files"]).optional(),
   defaultView: z.enum(["list", "grid"]).optional(),
   clockFormat: z.enum(["12h", "24h"]).optional(),

@@ -28,6 +28,7 @@ const prefs: UserPreferences = {
   timeZone: "UTC",
   showUpdateNotifications: true,
   showFolderPreviews: true,
+  showPinsInSidebar: false,
   startPage: "home",
   defaultView: "list",
   clockFormat: "24h",

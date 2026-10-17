@@ -12,6 +12,7 @@ import { NewMenu } from "./new-menu";
 import {
   SidebarLink,
   SidebarNav,
+  SidebarPins,
   adminLinkItem,
   adminNavItems,
   backToDriveItem,
@@ -20,8 +21,19 @@ import {
 } from "./workspace-nav";
 import { WorkspaceStorage } from "./workspace-storage";
 
+/** A pinned favorite shown under Trash, when the person turned that on. */
+export type ShellPin = {
+  id: string;
+  kind: "file" | "folder";
+  name: string;
+  mimeType?: string;
+  color?: string | null;
+  href: string;
+};
+
 export type ShellInfo = {
   instanceName: string;
+  pins: ShellPin[];
   isOwner: boolean;
   appVersion: string;
   usedBytes: string;
@@ -103,6 +115,7 @@ export function AppSidebar({ info }: { info: ShellInfo }) {
             <NewMenu />
           </div>
           <SidebarNav items={driveNavItems} label="Drive" />
+          <SidebarPins pins={info.pins} />
         </>
       )}
 

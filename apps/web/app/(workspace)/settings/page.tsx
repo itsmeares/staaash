@@ -29,6 +29,7 @@ export default async function SettingsPage() {
           timeZone: prefs.timeZone,
           showUpdateNotifications: prefs.showUpdateNotifications,
           showFolderPreviews: prefs.showFolderPreviews,
+          showPinsInSidebar: prefs.showPinsInSidebar,
           startPage: prefs.startPage as "home" | "files",
           defaultView: prefs.defaultView as "list" | "grid",
           clockFormat: prefs.clockFormat as "12h" | "24h",

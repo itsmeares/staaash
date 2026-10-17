@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   toFavoriteClientItem,
   filterFavoriteItems,
-  getQuickAccessFavorites,
+  pinnedFavorites,
   sortFavoriteItems,
   type FavoriteClientItem,
 } from "@/app/(workspace)/favorites/favorites-helpers";
@@ -129,9 +129,6 @@ describe("favorites page helpers", () => {
     expect(
       sortFavoriteItems(items, "size", "desc").map((item) => item.id),
     ).toEqual(["d", "b", "a", "c"]);
-    expect(getQuickAccessFavorites(items).map((item) => item.id)).toEqual([
-      "b",
-      "c",
-    ]);
+    expect(pinnedFavorites(items).map((item) => item.id)).toEqual(["b", "c"]);
   });
 });

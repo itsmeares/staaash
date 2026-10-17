@@ -12,11 +12,18 @@ import { resolveAppVersion } from "@/server/app-version";
 import { getCurrentSession } from "@/server/auth/session";
 import type { AuthUser } from "@/server/auth/types";
 import { getUpdateState } from "@/server/admin/updates";
+import { retrievalService } from "@/server/retrieval/service";
 import { DefaultViewProvider } from "@/components/file-list/use-view-mode";
 import { TimeRoot } from "@/server/time-zone";
 import { getInstanceDiskInfo, getUserStorageUsed } from "@/server/user-storage";
 
-import { AppRail, AppSidebar, type ShellInfo } from "./app-sidebar";
+import {
+  AppRail,
+  AppSidebar,
+  type ShellInfo,
+  type ShellPin,
+} from "./app-sidebar";
+import { pinnedFavorites } from "./favorites/favorites-helpers";
 import { ShortcutsDialog } from "./shortcuts-dialog";
 import { TopbarActions } from "./topbar-actions";
 import { UpdatesProvider } from "./updates";
@@ -39,18 +46,38 @@ const personOf = (user: AuthUser) => {
   };
 };
 
+/** Pinned favorites for the sidebar, when the person turned them on. */
+const loadPins = async (user: AuthUser): Promise<ShellPin[]> => {
+  if (!user.preferences?.showPinsInSidebar) return [];
+  const favorites = await retrievalService.listFavorites({
+    actorUserId: user.id,
+    actorRole: user.role,
+  });
+  return pinnedFavorites(favorites).map((item) => ({
+    id: item.id,
+    kind: item.kind,
+    name: item.name,
+    href: item.href,
+    ...(item.kind === "file"
+      ? { mimeType: item.mimeType }
+      : { color: item.color ?? null }),
+  }));
+};
+
 /** What the sidebar and top bar show: the drive, its space, and the version. */
 const loadShell = async (user: AuthUser) => {
   const isOwner = user.isAdmin;
-  const [usage, diskInfo, updateState, setupState] = await Promise.all([
+  const [usage, diskInfo, updateState, setupState, pins] = await Promise.all([
     getUserStorageUsed(user.id),
     getInstanceDiskInfo(),
     // Update news is for owners; members only see the version.
     isOwner ? getUpdateState().catch(() => null) : null,
     authService.getSetupState(),
+    loadPins(user),
   ]);
   const info: ShellInfo = {
     instanceName: setupState.instanceName?.trim() || "Staaash",
+    pins,
     isOwner,
     appVersion: resolveAppVersion(),
     usedBytes: usage.usedBytes.toString(),

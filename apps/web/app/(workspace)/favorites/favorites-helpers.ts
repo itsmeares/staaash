@@ -61,20 +61,22 @@ export function sortFavoriteItems(
   );
 }
 
-export function getQuickAccessFavorites(
-  items: FavoriteClientItem[],
-): FavoriteClientItem[] {
-  return [...items]
+/** Pinned favorites, most recently pinned first: Home and the sidebar. */
+export function pinnedFavorites<
+  T extends {
+    id: string;
+    name: string;
+    quickAccessPinnedAt: Date | string | null;
+  },
+>(items: T[]): T[] {
+  const pinnedAt = (item: T) =>
+    new Date(item.quickAccessPinnedAt ?? 0).getTime();
+  return items
     .filter((item) => item.quickAccessPinnedAt != null)
-    .sort((left, right) => {
-      const delta =
-        new Date(right.quickAccessPinnedAt!).getTime() -
-        new Date(left.quickAccessPinnedAt!).getTime();
-
-      if (delta !== 0) return delta;
-      return (
+    .sort(
+      (left, right) =>
+        pinnedAt(right) - pinnedAt(left) ||
         compareWorkspaceStrings(left.name, right.name) ||
-        left.id.localeCompare(right.id)
-      );
-    });
+        left.id.localeCompare(right.id),
+    );
 }

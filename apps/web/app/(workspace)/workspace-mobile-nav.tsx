@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { ItemIcon } from "@/components/file-list/file-list";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -134,6 +135,27 @@ export function WorkspaceMobileNav({
                 </span>
               </div>
             </div>
+
+            {info.pins.length > 0 ? (
+              <div className="grid gap-0.5">
+                <h2 className="m-0 px-1 pb-1 font-sans text-label font-medium text-muted-foreground">
+                  Pinned
+                </h2>
+                {info.pins.map((pin) => (
+                  <Button
+                    className="w-full justify-start"
+                    key={pin.id}
+                    render={<Link href={pin.href} />}
+                    size="lg"
+                    variant="ghost"
+                    onClick={() => setOpen(false)}
+                  >
+                    <ItemIcon item={pin} />
+                    <span className="truncate">{pin.name}</span>
+                  </Button>
+                ))}
+              </div>
+            ) : null}
 
             <div className="grid gap-0.5">
               {items.map((item) => {

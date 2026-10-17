@@ -73,6 +73,7 @@ type Preferences = {
   timeZone: string;
   showUpdateNotifications: boolean;
   showFolderPreviews: boolean;
+  showPinsInSidebar: boolean;
   startPage: "home" | "files";
   defaultView: "list" | "grid";
   clockFormat: "12h" | "24h";
@@ -86,6 +87,7 @@ const DEFAULTS: Preferences = {
   timeZone: AUTO_TIME_ZONE,
   showUpdateNotifications: true,
   showFolderPreviews: true,
+  showPinsInSidebar: false,
   startPage: "files",
   defaultView: "list",
   clockFormat: "24h",
@@ -473,6 +475,17 @@ function AppearanceSettings({ draft }: { draft: Draft }) {
           onCheckedChange={(next) => set("showFolderPreviews", next)}
         />
       </SettingsRow>
+      <SettingsRow
+        changed={isChanged("showPinsInSidebar")}
+        hint="Below Trash, and at the top of More on phones"
+        label="Show pins in the sidebar"
+      >
+        <Switch
+          aria-label="Show pins in the sidebar"
+          checked={values.showPinsInSidebar}
+          onCheckedChange={(next) => set("showPinsInSidebar", next)}
+        />
+      </SettingsRow>
       <SettingsRow changed={isChanged("startPage")} label="Start page">
         <Choice
           label="Start page"
@@ -673,7 +686,13 @@ export function PersonalSettings({
       label: "Appearance",
       icon: Palette,
       content: <AppearanceSettings draft={draft} />,
-      ...category(["theme", "showFolderPreviews", "startPage", "defaultView"]),
+      ...category([
+        "theme",
+        "showFolderPreviews",
+        "showPinsInSidebar",
+        "startPage",
+        "defaultView",
+      ]),
     },
     {
       id: "time",

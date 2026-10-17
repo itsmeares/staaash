@@ -77,6 +77,7 @@ type SavePreferencesParams = {
   timeZone?: string;
   showUpdateNotifications?: boolean;
   showFolderPreviews?: boolean;
+  showPinsInSidebar?: boolean;
   startPage?: string;
   defaultView?: string;
   clockFormat?: string;
@@ -186,6 +187,7 @@ const toAuthUser = (
         timeZone: user.preferences.timeZone,
         showUpdateNotifications: user.preferences.showUpdateNotifications,
         showFolderPreviews: user.preferences.showFolderPreviews,
+        showPinsInSidebar: user.preferences.showPinsInSidebar,
         startPage: user.preferences.startPage,
         defaultView: user.preferences.defaultView,
         clockFormat: user.preferences.clockFormat,
@@ -647,6 +649,7 @@ const createPrismaAuthRepository = (
             "timeZone",
             "showUpdateNotifications",
             "showFolderPreviews",
+            "showPinsInSidebar",
             "startPage",
             "defaultView",
             "clockFormat",
@@ -676,6 +679,7 @@ const createPrismaAuthRepository = (
         timeZone: pref.timeZone,
         showUpdateNotifications: pref.showUpdateNotifications,
         showFolderPreviews: pref.showFolderPreviews,
+        showPinsInSidebar: pref.showPinsInSidebar,
         startPage: pref.startPage,
         defaultView: pref.defaultView,
         clockFormat: pref.clockFormat,

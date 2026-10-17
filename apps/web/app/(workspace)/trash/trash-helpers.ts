@@ -4,6 +4,8 @@ import type {
   TrashListing,
 } from "@/server/files/types";
 
+import { calendarDaysUntil } from "@/lib/time";
+
 import {
   compareListItems,
   sortWorkspaceItems,
@@ -23,7 +25,28 @@ export type TrashClientItem = {
   storageMutationStatus?: string;
 };
 
-export type TrashSortKey = "name" | "path" | "size" | "deletedAt";
+export type TrashSortKey = "name" | "path" | "size" | "deletedAt" | "left";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Calendar days until trash retention deletes an item for good. */
+export const daysLeft = (
+  deletedAt: string,
+  retentionDays: number,
+  now: Date,
+  timeZone: string,
+) =>
+  Math.max(
+    0,
+    calendarDaysUntil(
+      new Date(Date.parse(deletedAt) + retentionDays * DAY_MS),
+      now,
+      timeZone,
+    ),
+  );
+
+export const daysLeftLabel = (days: number) =>
+  days === 0 ? "Today" : days === 1 ? "Tomorrow" : `${days} days`;
 
 function getDeletedAt(value: Date | null, fallback: Date): string {
   return (value ?? fallback).toISOString();

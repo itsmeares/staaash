@@ -17,6 +17,7 @@ import {
   toActivityClientItem,
   toRecentClientItem,
 } from "../recent/recent-helpers";
+import { pinnedFavorites } from "../favorites/favorites-helpers";
 import { HomePrimaryActions } from "./home-actions";
 import { HomeSections } from "./home-sections";
 
@@ -37,16 +38,7 @@ export default async function HomePage() {
   const recentItems = recent
     .filter((item) => !item.deletedAt)
     .map(toActivityClientItem);
-  // Pinned first, then the newest favorites.
-  const pinned = [...favorites]
-    .sort(
-      (left, right) =>
-        (right.quickAccessPinnedAt?.getTime() ?? 0) -
-          (left.quickAccessPinnedAt?.getTime() ?? 0) ||
-        right.favoritedAt.getTime() - left.favoritedAt.getTime(),
-    )
-    .slice(0, 8)
-    .map(toRecentClientItem);
+  const pinned = pinnedFavorites(favorites).map(toRecentClientItem);
   const isEmpty =
     favorites.length === 0 &&
     recentItems.length === 0 &&

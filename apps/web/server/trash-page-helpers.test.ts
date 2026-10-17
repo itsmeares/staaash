@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  daysLeft,
+  daysLeftLabel,
   sortTrashItems,
   toTrashClientItem,
   toTrashClientItems,
@@ -146,5 +148,21 @@ describe("trash page helpers", () => {
     expect(ids("deletedAt", "asc")).toEqual(["old", "folder", "new"]);
     expect(ids("name", "asc")).toEqual(["old", "folder", "new"]);
     expect(ids("size", "desc")).toEqual(["new", "old", "folder"]);
+  });
+
+  it("counts whole days left before trash is emptied", () => {
+    const now = new Date("2026-05-21T12:00:00.000Z");
+    const left = (deletedAt: string) => daysLeft(deletedAt, 30, now, "UTC");
+    // Just deleted: the full 30 days.
+    expect(left("2026-05-21T11:00:00.000Z")).toBe(30);
+    // Goes tomorrow morning, then later today.
+    expect(left("2026-04-22T09:00:00.000Z")).toBe(1);
+    expect(left("2026-04-21T23:00:00.000Z")).toBe(0);
+    expect(left("2026-03-01T00:00:00.000Z")).toBe(0);
+    expect([0, 1, 12].map(daysLeftLabel)).toEqual([
+      "Today",
+      "Tomorrow",
+      "12 days",
+    ]);
   });
 });

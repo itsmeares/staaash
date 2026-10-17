@@ -426,6 +426,95 @@ export const createSharingService = ({
     };
   };
 
+  type TargetSummaryResult = {
+    summary: ShareTargetSummary;
+    targetUnavailable: boolean;
+  };
+
+  // A link whose file or folder is gone still lists, as unavailable.
+  const missingTarget = (share: StoredShareLink, id: string | null) => ({
+    id: id ?? share.id,
+    ownerUserId: share.createdByUserId,
+    ownerStorageId: "unknown",
+    deletedAt: now(),
+  });
+
+  const fileTargetSummary = (
+    share: StoredShareLink,
+    file: StoredFile | undefined,
+    folderMap: Map<string, FolderSummary>,
+    filesRoot: FolderSummary,
+  ): TargetSummaryResult => {
+    if (!file) {
+      return {
+        summary: {
+          ...missingTarget(share, share.fileId),
+          targetType: "file",
+          name: "Unavailable file",
+          folderId: null,
+          mimeType: "application/octet-stream",
+          sizeBytes: 0,
+          pathLabel: "Unavailable file",
+        },
+        targetUnavailable: true,
+      };
+    }
+    return {
+      summary: {
+        targetType: "file",
+        id: file.id,
+        ownerUserId: file.ownerUserId,
+        ownerStorageId: file.ownerStorageId,
+        name: file.name,
+        folderId: file.folderId,
+        mimeType: file.mimeType,
+        sizeBytes: file.sizeBytes,
+        pathLabel: buildFilePathLabel({
+          file: toFileSummary(file),
+          folderMap,
+          filesRoot,
+        }),
+        deletedAt: file.deletedAt,
+      },
+      targetUnavailable: isFileDeletedInTree({ file, folderMap }),
+    };
+  };
+
+  const folderTargetSummary = (
+    share: StoredShareLink,
+    folder: FolderSummary | undefined,
+    folderMap: Map<string, FolderSummary>,
+    filesRoot: FolderSummary,
+  ): TargetSummaryResult => {
+    if (!folder) {
+      return {
+        summary: {
+          ...missingTarget(share, share.folderId),
+          targetType: "folder",
+          name: "Unavailable folder",
+          parentId: null,
+          isFilesRoot: false,
+          pathLabel: "Unavailable folder",
+        },
+        targetUnavailable: true,
+      };
+    }
+    return {
+      summary: {
+        targetType: "folder",
+        id: folder.id,
+        ownerUserId: folder.ownerUserId,
+        ownerStorageId: folder.ownerStorageId,
+        name: folder.name,
+        parentId: folder.parentId,
+        isFilesRoot: folder.isFilesRoot,
+        pathLabel: buildFolderPathLabel({ folder, folderMap, filesRoot }),
+        deletedAt: folder.deletedAt,
+      },
+      targetUnavailable: isFolderDeletedInTree({ folder, folderMap }),
+    };
+  };
+
   const buildTargetSummary = ({
     share,
     fileMap,
@@ -436,57 +525,20 @@ export const createSharingService = ({
     fileMap: Map<string, StoredFile>;
     folderMap: Map<string, FolderSummary>;
     filesRoot: FolderSummary;
-  }): { summary: ShareTargetSummary; targetUnavailable: boolean } => {
-    if (share.targetType === "file") {
-      const file = share.fileId ? fileMap.get(share.fileId) : null;
-
-      return {
-        summary: {
-          targetType: "file",
-          id: file?.id ?? share.fileId ?? share.id,
-          ownerUserId: file?.ownerUserId ?? share.createdByUserId,
-          ownerStorageId: file?.ownerStorageId ?? "unknown",
-          name: file?.name ?? "Unavailable file",
-          folderId: file?.folderId ?? null,
-          mimeType: file?.mimeType ?? "application/octet-stream",
-          sizeBytes: file?.sizeBytes ?? 0,
-          pathLabel: file
-            ? buildFilePathLabel({
-                file: toFileSummary(file),
-                folderMap,
-                filesRoot,
-              })
-            : "Unavailable file",
-          deletedAt: file?.deletedAt ?? now(),
-        },
-        targetUnavailable: !file || isFileDeletedInTree({ file, folderMap }),
-      };
-    }
-
-    const folder = share.folderId ? folderMap.get(share.folderId) : null;
-
-    return {
-      summary: {
-        targetType: "folder",
-        id: folder?.id ?? share.folderId ?? share.id,
-        ownerUserId: folder?.ownerUserId ?? share.createdByUserId,
-        ownerStorageId: folder?.ownerStorageId ?? "unknown",
-        name: folder?.name ?? "Unavailable folder",
-        parentId: folder?.parentId ?? null,
-        isFilesRoot: folder?.isFilesRoot ?? false,
-        pathLabel: folder
-          ? buildFolderPathLabel({
-              folder,
-              folderMap,
-              filesRoot,
-            })
-          : "Unavailable folder",
-        deletedAt: folder?.deletedAt ?? now(),
-      },
-      targetUnavailable:
-        !folder || isFolderDeletedInTree({ folder, folderMap }),
-    };
-  };
+  }): TargetSummaryResult =>
+    share.targetType === "file"
+      ? fileTargetSummary(
+          share,
+          share.fileId ? fileMap.get(share.fileId) : undefined,
+          folderMap,
+          filesRoot,
+        )
+      : folderTargetSummary(
+          share,
+          share.folderId ? folderMap.get(share.folderId) : undefined,
+          folderMap,
+          filesRoot,
+        );
 
   const toShareSummary = (
     {

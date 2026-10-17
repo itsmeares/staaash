@@ -87,8 +87,13 @@ type FileListProps<T extends FileListItem> = {
   /** Extra classes per item, for drop targets and highlights. */
   itemClassName?: (item: T) => string | undefined;
   sort?: FileListSort;
-  /** Column titles above the rows. Without them the second line always shows. */
+  /** Column titles above the rows. */
   head?: boolean;
+  /** The second line shows on narrow lists only, where columns hide, or
+   * always when it says something the columns don't. */
+  subline?: "narrow" | "always";
+  /** Room at the row's end for wider quick actions, such as "Copy link". */
+  quickActionsWidth?: string;
   /** Grid cards as square tiles: photos and videos without a caption. */
   tiles?: boolean;
   empty?: ReactNode;
@@ -415,6 +420,8 @@ export function FileList<T extends FileListItem>({
   itemClassName,
   sort,
   head = true,
+  subline = "narrow",
+  quickActionsWidth,
   tiles = false,
   empty,
   children,
@@ -425,7 +432,10 @@ export function FileList<T extends FileListItem>({
   const sections = groups ?? [{ label: "", items }];
   const isEmpty = sections.every((section) => section.items.length === 0);
 
-  const actions = actionsTrack(Boolean(quickActions));
+  // Touch rows show only "More"; quick actions are for pointers.
+  const actions = coarse
+    ? actionsTrack(false)
+    : (quickActionsWidth ?? actionsTrack(Boolean(quickActions)));
   const tracks = (visible: FileListColumn<T>[], name = "minmax(0,1fr)") =>
     [name, ...visible.map((c) => c.width), actions].join(" ");
   const style = {
@@ -577,7 +587,9 @@ export function FileList<T extends FileListItem>({
                 <span
                   className={cn(
                     "truncate text-label text-muted-foreground",
-                    head && columns.length > 0 && "@xl/list:hidden",
+                    subline === "narrow" &&
+                      columns.length > 0 &&
+                      "@xl/list:hidden",
                   )}
                 >
                   {item.sub}
