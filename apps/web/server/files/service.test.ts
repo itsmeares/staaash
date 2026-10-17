@@ -206,18 +206,20 @@ const createMemoryRepository = () => {
       return folder ? cloneFolder(folder) : null;
     },
 
-    async listFolderAncestors(ownerUserId, folderId) {
+    async listFolderAncestors(ownerUserId, folderIds) {
       const folders: FolderSummary[] = [];
-      let folder = await repo.findFolderById(folderId);
-      while (
-        folder &&
-        folder.ownerUserId === ownerUserId &&
-        !folders.some(({ id }) => id === folder!.id)
-      ) {
-        folders.push(folder);
-        folder = folder.parentId
-          ? await repo.findFolderById(folder.parentId)
-          : null;
+      for (const folderId of folderIds) {
+        let folder = await repo.findFolderById(folderId);
+        while (
+          folder &&
+          folder.ownerUserId === ownerUserId &&
+          !folders.some(({ id }) => id === folder!.id)
+        ) {
+          folders.push(folder);
+          folder = folder.parentId
+            ? await repo.findFolderById(folder.parentId)
+            : null;
+        }
       }
       return folders;
     },
@@ -290,6 +292,17 @@ const createMemoryRepository = () => {
       ).map(cloneFolder);
     },
 
+    async listFilesByIds(ownerUserId, fileIds, options = {}) {
+      return state.files
+        .filter(
+          (file) =>
+            file.ownerUserId === ownerUserId &&
+            fileIds.includes(file.id) &&
+            (options.includeDeleted || !file.deletedAt) &&
+            (options.includeMissing || file.storageStatus === "available"),
+        )
+        .map(cloneFile);
+    },
     async listFilesByOwner(ownerUserId, options = {}) {
       return sortFiles(
         state.files.filter(

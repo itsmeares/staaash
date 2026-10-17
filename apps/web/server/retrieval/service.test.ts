@@ -166,6 +166,33 @@ const createMemoryRepository = () => {
       return file ? cloneFile(file) : null;
     },
 
+    async listFolderAncestors(ownerUserId, folderIds) {
+      const selected = new Map<string, FolderSummary>();
+      for (const id of folderIds) {
+        let folder = state.folders.find(
+          (folder) => folder.id === id && folder.ownerUserId === ownerUserId,
+        );
+        while (folder && !selected.has(folder.id)) {
+          selected.set(folder.id, cloneFolder(folder));
+          folder = state.folders.find(
+            (parent) =>
+              parent.id === folder!.parentId &&
+              parent.ownerUserId === ownerUserId,
+          );
+        }
+      }
+      return [...selected.values()];
+    },
+    async listFilesByIds(ownerUserId, fileIds, options = {}) {
+      return state.files
+        .filter(
+          (file) =>
+            file.ownerUserId === ownerUserId &&
+            fileIds.includes(file.id) &&
+            (options.includeDeleted || !file.deletedAt),
+        )
+        .map(cloneFile);
+    },
     async listFoldersByOwner(ownerUserId, options = {}) {
       return state.folders
         .filter(
@@ -881,4 +908,19 @@ describe("retrieval service", () => {
       }),
     ]);
   });
+});
+
+it("returns no results for an empty normalized query without loading metadata", async () => {
+  const { repo } = createMemoryRepository();
+  const reads = vi
+    .spyOn(repo, "ensureFilesRoot")
+    .mockRejectedValue(new Error("Unexpected metadata read"));
+  expect(
+    await createRetrievalService({ repo }).search({
+      actorUserId: "owner",
+      actorRole: "owner",
+      query: "  \u0301  ",
+    }),
+  ).toEqual([]);
+  expect(reads).not.toHaveBeenCalled();
 });

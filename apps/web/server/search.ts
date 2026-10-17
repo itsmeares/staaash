@@ -1,50 +1,31 @@
-import type {
-  SearchMatchKind,
-  SearchNormalizationPolicy,
-  SearchResultItem,
-} from "@/server/types";
-
-const searchNormalizationPolicy: SearchNormalizationPolicy = {
-  caseInsensitive: true,
-  accentInsensitive: true,
-  tokenizedPathMatching: true,
-};
+import type { SearchMatchKind, SearchResultItem } from "@/server/types";
 
 export const normalizeSearchText = (value: string) =>
   value.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().trim();
 
-export const tokenizeSearchText = (value: string) =>
-  normalizeSearchText(value)
-    .split(/[^a-z0-9]+/g)
-    .filter(Boolean);
+const splitSearchTokens = (normalized: string) =>
+  normalized.split(/[^a-z0-9]+/g).filter(Boolean);
 
-const buildCandidatePool = (name: string, path: string) => {
+export const prepareSearchCandidate = (name: string, path: string) => {
   const normalizedName = normalizeSearchText(name);
   const normalizedPath = normalizeSearchText(path);
-  const tokens = new Set([
-    ...tokenizeSearchText(name),
-    ...tokenizeSearchText(path),
-  ]);
-
   return {
     normalizedName,
     normalizedPath,
-    tokens,
+    tokens: new Set([
+      ...splitSearchTokens(normalizedName),
+      ...splitSearchTokens(normalizedPath),
+    ]),
   };
 };
 
 export const getSearchMatchKind = (
-  query: string,
-  name: string,
-  path: string,
+  normalizedQuery: string,
+  candidate: ReturnType<typeof prepareSearchCandidate>,
 ): SearchMatchKind | null => {
-  const normalizedQuery = normalizeSearchText(query);
-
   if (normalizedQuery.length === 0) {
     return null;
   }
-
-  const candidate = buildCandidatePool(name, path);
 
   if (
     candidate.normalizedName === normalizedQuery ||
@@ -77,9 +58,18 @@ const matchRank: Record<SearchMatchKind, number> = {
   substring: 2,
 };
 
+type SearchSortCandidate = Pick<
+  SearchResultItem,
+  "id" | "updatedAt" | "matchKind"
+> &
+  Pick<
+    ReturnType<typeof prepareSearchCandidate>,
+    "normalizedName" | "normalizedPath"
+  >;
+
 export const compareSearchResults = (
-  left: SearchResultItem,
-  right: SearchResultItem,
+  left: SearchSortCandidate,
+  right: SearchSortCandidate,
 ) => {
   const rankDelta = matchRank[left.matchKind] - matchRank[right.matchKind];
 
@@ -93,17 +83,13 @@ export const compareSearchResults = (
     return updatedAtDelta;
   }
 
-  const pathDelta = normalizeSearchText(left.path).localeCompare(
-    normalizeSearchText(right.path),
-  );
+  const pathDelta = left.normalizedPath.localeCompare(right.normalizedPath);
 
   if (pathDelta !== 0) {
     return pathDelta;
   }
 
-  const nameDelta = normalizeSearchText(left.name).localeCompare(
-    normalizeSearchText(right.name),
-  );
+  const nameDelta = left.normalizedName.localeCompare(right.normalizedName);
 
   if (nameDelta !== 0) {
     return nameDelta;
