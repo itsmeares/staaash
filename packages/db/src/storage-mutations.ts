@@ -583,12 +583,22 @@ const lockOwnerStorageLimit = async (
   tx: Prisma.TransactionClient,
   ownerUserId: string,
 ) => {
-  const users = await tx.$queryRaw<Array<{ storageLimitBytes: bigint | null }>>`
-    SELECT "storageLimitBytes"
+  const users = await tx.$queryRaw<
+    Array<{
+      storageLimitBytes: bigint | null;
+      committedStorageBytes: bigint | null;
+    }>
+  >`
+    SELECT "storageLimitBytes", "committedStorageBytes"
       FROM "User"
      WHERE "id" = ${ownerUserId}
      FOR UPDATE NOWAIT
   `;
+  if (users[0]?.committedStorageBytes === null) {
+    throw new StorageMutationIntentError(
+      "Committed storage usage requires reconciliation.",
+    );
+  }
   const limit = users[0]?.storageLimitBytes;
   return hasEnforcedStorageLimit(limit) ? limit : null;
 };
@@ -601,7 +611,7 @@ const sumOwnerQuotaUsage = async (
 ) => {
   const [usage] = await tx.$queryRaw<Array<{ bytes: string }>>`
     SELECT (
-      COALESCE((SELECT SUM("sizeBytes") FROM "File" WHERE "ownerUserId" = ${ownerUserId}), 0)
+      (SELECT "committedStorageBytes" FROM "User" WHERE id = ${ownerUserId})
       + COALESCE((SELECT SUM("totalSizeBytes") FROM "UploadSession"
           WHERE "ownerUserId" = ${ownerUserId}
             AND (("status" IN ('allocating', 'created', 'receiving') AND "expiresAt" > ${new Date()})

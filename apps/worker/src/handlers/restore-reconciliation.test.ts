@@ -5,6 +5,7 @@ import { mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 vi.mock("@staaash/db/reconciliation", () => ({
+  verifyCommittedStorageUsage: vi.fn(async () => {}),
   completeRestoreReconciliationRun: vi.fn(async (value) => value),
   createRestoreReconciliationRun: vi.fn(async (value) => value),
   findRestoreReconciliationRunByBackgroundJobId: vi.fn(async () => null),
@@ -13,6 +14,7 @@ vi.mock("@staaash/db/reconciliation", () => ({
 }));
 
 const {
+  verifyCommittedStorageUsage,
   completeRestoreReconciliationRun,
   createRestoreReconciliationRun,
   findRestoreReconciliationRunByBackgroundJobId,
@@ -33,6 +35,40 @@ const createTempFilesRoot = () =>
   );
 
 describe("restore reconciliation worker handler", () => {
+  it("stops on inconsistent usage before recovery can change storage", async () => {
+    const failure = new Error(
+      "Committed storage usage does not match file metadata.",
+    );
+    vi.mocked(verifyCommittedStorageUsage).mockRejectedValueOnce(failure);
+    const filesRoot = createTempFilesRoot();
+    await expect(
+      handleRestoreReconciliation(
+        {
+          id: "blocked",
+          kind: "restore.reconcile",
+          status: "running",
+          payloadJson: {},
+          dedupeKey: null,
+          runAt: new Date(),
+          lockedAt: null,
+          lockedBy: null,
+          attemptCount: 1,
+          maxAttempts: 5,
+          lastError: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        {
+          filesRoot,
+          tmpRoot: path.join(filesRoot, "tmp"),
+          heartbeatPath: path.join(filesRoot, "heartbeat"),
+          pendingDeleteRoot: path.join(filesRoot, "pending-delete"),
+          uploadStagingTtlMs: 1,
+        },
+      ),
+    ).rejects.toBe(failure);
+  });
+
   it("detects missing originals from DB metadata", async () => {
     const filesRoot = createTempFilesRoot();
     await mkdir(path.join(filesRoot, "files", "member"), {

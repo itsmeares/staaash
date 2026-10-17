@@ -1,5 +1,25 @@
 import { getPrisma } from "./client";
 
+export const verifyCommittedStorageUsage = async () => {
+  const client = getPrisma();
+  const mismatches = await client.$queryRaw<Array<{ id: string }>>`
+    SELECT u.id FROM "User" u
+    LEFT JOIN (
+      SELECT "ownerUserId", SUM("sizeBytes") AS bytes
+      FROM "File" GROUP BY "ownerUserId"
+    ) totals ON totals."ownerUserId" = u.id
+    WHERE u."committedStorageBytes" IS DISTINCT FROM COALESCE(totals.bytes, 0)
+  `;
+  if (mismatches.length === 0) return;
+  await client.user.updateMany({
+    where: { id: { in: mismatches.map(({ id }) => id) } },
+    data: { committedStorageBytes: null },
+  });
+  throw new Error(
+    "Committed storage usage does not match file metadata. A startup audit failure prevents web and worker startup for the entire instance, even if only one account is affected. A restore audit failure stops reconciliation. Affected totals remain unavailable. Stop all writers, investigate the mismatch, and rebuild usage before restarting.",
+  );
+};
+
 export type RestoreReconciliationStatus =
   | "queued"
   | "running"

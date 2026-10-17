@@ -2395,6 +2395,7 @@ export const UserScalarFieldEnum = {
   temporaryPasswordIssuedAt: 'temporaryPasswordIssuedAt',
   temporaryPasswordIssuedByUserId: 'temporaryPasswordIssuedByUserId',
   storageLimitBytes: 'storageLimitBytes',
+  committedStorageBytes: 'committedStorageBytes',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
