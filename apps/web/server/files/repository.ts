@@ -165,6 +165,7 @@ export type FilesTransactionClient = {
 };
 
 type FilesPrismaClient = FilesTransactionClient & {
+  $queryRaw: Prisma.TransactionClient["$queryRaw"];
   $transaction<T>(fn: (tx: FilesTransactionClient) => Promise<T>): Promise<T>;
 };
 
@@ -296,6 +297,18 @@ export type FilesRepository = {
   ensureFilesRoot(ownerUserId: string): Promise<FolderSummary>;
   findFilesRoot?(ownerUserId: string): Promise<FolderSummary | null>;
   findFolderById(folderId: string): Promise<FolderSummary | null>;
+  listFolderAncestors(
+    ownerUserId: string,
+    folderId: string,
+  ): Promise<FolderSummary[]>;
+  listFolderSubtree(
+    ownerUserId: string,
+    folderId: string,
+  ): Promise<FolderSummary[]>;
+  listFilesInFolders(
+    ownerUserId: string,
+    folderIds: string[],
+  ): Promise<StoredFile[]>;
   findFileById(
     fileId: string,
     options?: FindFileOptions,
@@ -348,6 +361,23 @@ export const createPrismaFilesRepository = (
 ): FilesRepository => {
   const getClient = () =>
     client ?? (getPrisma() as unknown as FilesPrismaClient);
+
+  const findFoldersByIds = async (
+    ownerUserId: string,
+    ids: { id: string }[],
+  ) => {
+    const folders = await getClient().folder.findMany({
+      where: { ownerUserId, id: { in: ids.map(({ id }) => id) } },
+      orderBy: [
+        { isFilesRoot: "desc" },
+        { parentId: "asc" },
+        { name: "asc" },
+        { createdAt: "asc" },
+      ],
+      select: folderSelect,
+    });
+    return folders.map(toFolderSummary);
+  };
 
   return {
     async findActiveNameConflict({
@@ -462,6 +492,49 @@ export const createPrismaFilesRepository = (
       });
 
       return folder ? toFolderSummary(folder) : null;
+    },
+
+    async listFolderAncestors(ownerUserId, folderId) {
+      const client = getClient();
+      const ids = await client.$queryRaw<{ id: string }[]>`
+        WITH RECURSIVE ancestors AS (
+          SELECT id, "parentId" FROM "Folder"
+          WHERE id = ${folderId} AND "ownerUserId" = ${ownerUserId}
+          UNION
+          SELECT parent.id, parent."parentId" FROM "Folder" parent
+          JOIN ancestors child ON parent.id = child."parentId"
+          WHERE parent."ownerUserId" = ${ownerUserId}
+        ) SELECT id FROM ancestors
+      `;
+      return findFoldersByIds(ownerUserId, ids);
+    },
+
+    async listFolderSubtree(ownerUserId, folderId) {
+      const client = getClient();
+      const ids = await client.$queryRaw<{ id: string }[]>`
+        WITH RECURSIVE subtree AS (
+          SELECT id FROM "Folder"
+          WHERE id = ${folderId} AND "ownerUserId" = ${ownerUserId} AND "deletedAt" IS NULL
+          UNION
+          SELECT child.id FROM "Folder" child
+          JOIN subtree parent ON child."parentId" = parent.id
+          WHERE child."ownerUserId" = ${ownerUserId} AND child."deletedAt" IS NULL
+        ) SELECT id FROM subtree
+      `;
+      return findFoldersByIds(ownerUserId, ids);
+    },
+
+    async listFilesInFolders(ownerUserId, folderIds) {
+      const files = await getClient().file.findMany({
+        where: { ownerUserId, folderId: { in: folderIds }, deletedAt: null },
+        orderBy: [
+          { folderId: "asc" },
+          { originalName: "asc" },
+          { createdAt: "asc" },
+        ],
+        select: fileSelect,
+      });
+      return files.map(toStoredFile);
     },
 
     async findFileById(fileId, options = {}) {

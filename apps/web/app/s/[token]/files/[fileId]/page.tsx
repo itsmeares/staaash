@@ -53,7 +53,7 @@ export default async function SharedNestedFilePage({
     cookieStore.get(SHARE_ACCESS_COOKIE_NAME)?.value ?? null;
 
   try {
-    const resolution = await sharingService.resolvePublicShare({
+    const resolution = await sharingService.resolvePublicShareContext({
       token,
       shareAccessCookieValue,
     });

@@ -97,6 +97,15 @@ export type PublicShareResolution =
       listing: SharedFolderListing;
     };
 
+export type PublicShareContext =
+  | Extract<PublicShareResolution, { kind: "file" }>
+  | {
+      kind: "folder";
+      share: ShareLinkSummary;
+      access: ShareAccessState;
+      listing: Pick<SharedFolderListing, "rootFolder" | "currentFolder">;
+    };
+
 export type PublicShareFilePreview = {
   safeInlineMimeType: string | null;
 };

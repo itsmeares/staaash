@@ -44,6 +44,7 @@ vi.mock("@/server/sharing/service", () => ({
   sharingService: {
     getSharedNestedFileContent: mocks.getSharedNestedFileContent,
     resolvePublicShare: mocks.resolvePublicShare,
+    resolvePublicShareContext: mocks.resolvePublicShare,
   },
 }));
 
