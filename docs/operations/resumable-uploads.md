@@ -116,6 +116,33 @@ while failed or cancelled sessions remain staging liabilities until the worker
 confirms file absence. An over-limit active session may still finish, but new
 admissions wait for capacity.
 
+## Repairing committed usage
+
+Committed usage is database-maintained metadata. It includes trashed and missing
+files. A startup or restore audit compares each stored total with file rows.
+If they disagree, Staaash blocks affected accounts by marking their total NULL.
+It does not guess a smaller total or silently reset usage.
+
+Stop both web and worker, and take a database backup before repairing a mismatch.
+Investigate how the database became inconsistent. Restore a matching backup if
+file metadata itself is incomplete. When the file rows are the correct source,
+run this transaction against the instance database:
+
+```sql
+BEGIN;
+LOCK TABLE "User", "File" IN ACCESS EXCLUSIVE MODE;
+ALTER TABLE "User" DISABLE TRIGGER "User_protect_storage_usage";
+UPDATE "User" u SET "committedStorageBytes" = COALESCE(
+  (SELECT SUM("sizeBytes") FROM "File" WHERE "ownerUserId" = u.id), 0
+);
+ALTER TABLE "User" ENABLE TRIGGER "User_protect_storage_usage";
+COMMIT;
+```
+
+Restart web and worker. Both verify the totals before serving work. Run restore
+reconciliation to check the stored originals too. This transaction changes only
+derived usage, preserves timestamps, and does not release upload reservations.
+
 ## Busy admission
 
 Admission uses the shared storage transaction deadlines and bounded waiting

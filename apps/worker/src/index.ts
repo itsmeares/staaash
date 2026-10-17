@@ -6,6 +6,7 @@ import {
   registerWorkerInstance,
 } from "@staaash/db/jobs";
 import { pruneSucceededStorageMutationResults } from "@staaash/db/storage-mutations";
+import { verifyCommittedStorageUsage } from "@staaash/db/reconciliation";
 
 import {
   getWorkerStoragePaths,
@@ -73,6 +74,7 @@ const runMaintenanceSafely = () => {
 const main = async () => {
   await mkdir(storagePaths.tmpRoot, { recursive: true });
   await writeHeartbeat(storagePaths.heartbeatPath);
+  await verifyCommittedStorageUsage();
 
   for (const worker of workers) {
     await registerWorkerInstance({

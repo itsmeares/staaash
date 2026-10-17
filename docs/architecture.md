@@ -84,6 +84,19 @@ names. Changing the normalization rules requires backfilling the stored values.
 The initial migration backfills names and builds the index under an exclusive
 `File` table lock. Startup waits for that migration before serving requests.
 
+`User.committedStorageBytes` counts all retained file rows, including trash and
+missing originals. Statement triggers apply size and owner changes atomically,
+once per affected owner in ID order. Name-only and status-only changes do not
+update the owner row. Upload and journal reservations remain separate and keep
+their existing expiry and staging-release rules. The initial migration locks
+users and files while it backfills and verifies totals.
+
+Web and worker startup, and restore reconciliation, compare stored usage with
+file metadata. A mismatch sets affected totals to NULL and stops startup or the
+audit. NULL blocks quota admission and file growth until an operator rebuilds
+usage with all writers stopped. See the repair procedure in
+[`resumable uploads`](operations/resumable-uploads.md#repairing-committed-usage).
+
 ## Boundaries And Non-Goals
 
 - no microservice split in v1

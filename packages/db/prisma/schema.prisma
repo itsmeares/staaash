@@ -96,6 +96,7 @@ model User {
   temporaryPasswordIssuedAt       DateTime?
   temporaryPasswordIssuedByUserId String?
   storageLimitBytes               BigInt?
+  committedStorageBytes           BigInt?                    @default(0)
   createdAt                       DateTime                   @default(now())
   updatedAt                       DateTime                   @updatedAt
   sessions                        Session[]
@@ -478,6 +479,8 @@ model UploadSession {
   @@index([ownerUserId, status, terminalAt])
   @@index([status, terminalAt])
   @@index([stagingReleasedAt])
+  @@index([ownerUserId], map: "UploadSession_unreleased_owner_idx", where: raw("\"stagingReleasedAt\" IS NULL"))
+  @@index([ownerUserId], map: "UploadSession_terminal_owner_idx", where: raw("\"status\" IN ('completed', 'failed', 'cancelled', 'expired')"))
   @@index([committedFileId])
 }
 
@@ -514,6 +517,7 @@ model StorageMutation {
 
   @@index([status, nextAttemptAt])
   @@index([ownerUserId, status])
+  @@index([ownerUserId], map: "StorageMutation_reserved_owner_idx", where: raw("\"reservedBytes\" IS NOT NULL"))
   @@index([leaseExpiresAt])
   @@index([parentId])
 }

@@ -28,10 +28,12 @@ export type AggregateUser = {
 
 export type UserAvgAggregateOutputType = {
   storageLimitBytes: number | null
+  committedStorageBytes: number | null
 }
 
 export type UserSumAggregateOutputType = {
   storageLimitBytes: bigint | null
+  committedStorageBytes: bigint | null
 }
 
 export type UserMinAggregateOutputType = {
@@ -47,6 +49,7 @@ export type UserMinAggregateOutputType = {
   temporaryPasswordIssuedAt: Date | null
   temporaryPasswordIssuedByUserId: string | null
   storageLimitBytes: bigint | null
+  committedStorageBytes: bigint | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -64,6 +67,7 @@ export type UserMaxAggregateOutputType = {
   temporaryPasswordIssuedAt: Date | null
   temporaryPasswordIssuedByUserId: string | null
   storageLimitBytes: bigint | null
+  committedStorageBytes: bigint | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -81,6 +85,7 @@ export type UserCountAggregateOutputType = {
   temporaryPasswordIssuedAt: number
   temporaryPasswordIssuedByUserId: number
   storageLimitBytes: number
+  committedStorageBytes: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -89,10 +94,12 @@ export type UserCountAggregateOutputType = {
 
 export type UserAvgAggregateInputType = {
   storageLimitBytes?: true
+  committedStorageBytes?: true
 }
 
 export type UserSumAggregateInputType = {
   storageLimitBytes?: true
+  committedStorageBytes?: true
 }
 
 export type UserMinAggregateInputType = {
@@ -108,6 +115,7 @@ export type UserMinAggregateInputType = {
   temporaryPasswordIssuedAt?: true
   temporaryPasswordIssuedByUserId?: true
   storageLimitBytes?: true
+  committedStorageBytes?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -125,6 +133,7 @@ export type UserMaxAggregateInputType = {
   temporaryPasswordIssuedAt?: true
   temporaryPasswordIssuedByUserId?: true
   storageLimitBytes?: true
+  committedStorageBytes?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -142,6 +151,7 @@ export type UserCountAggregateInputType = {
   temporaryPasswordIssuedAt?: true
   temporaryPasswordIssuedByUserId?: true
   storageLimitBytes?: true
+  committedStorageBytes?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -246,6 +256,7 @@ export type UserGroupByOutputType = {
   temporaryPasswordIssuedAt: Date | null
   temporaryPasswordIssuedByUserId: string | null
   storageLimitBytes: bigint | null
+  committedStorageBytes: bigint | null
   createdAt: Date
   updatedAt: Date
   _count: UserCountAggregateOutputType | null
@@ -286,6 +297,7 @@ export type UserWhereInput = {
   temporaryPasswordIssuedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.StringNullableFilter<"User"> | string | null
   storageLimitBytes?: Prisma.BigIntNullableFilter<"User"> | bigint | number | null
+  committedStorageBytes?: Prisma.BigIntNullableFilter<"User"> | bigint | number | null
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"User"> | Date | string
   sessions?: Prisma.SessionListRelationFilter
@@ -316,6 +328,7 @@ export type UserOrderByWithRelationInput = {
   temporaryPasswordIssuedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   temporaryPasswordIssuedByUserId?: Prisma.SortOrderInput | Prisma.SortOrder
   storageLimitBytes?: Prisma.SortOrderInput | Prisma.SortOrder
+  committedStorageBytes?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   sessions?: Prisma.SessionOrderByRelationAggregateInput
@@ -349,6 +362,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   temporaryPasswordIssuedAt?: Prisma.DateTimeNullableFilter<"User"> | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.StringNullableFilter<"User"> | string | null
   storageLimitBytes?: Prisma.BigIntNullableFilter<"User"> | bigint | number | null
+  committedStorageBytes?: Prisma.BigIntNullableFilter<"User"> | bigint | number | null
   createdAt?: Prisma.DateTimeFilter<"User"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"User"> | Date | string
   sessions?: Prisma.SessionListRelationFilter
@@ -379,6 +393,7 @@ export type UserOrderByWithAggregationInput = {
   temporaryPasswordIssuedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   temporaryPasswordIssuedByUserId?: Prisma.SortOrderInput | Prisma.SortOrder
   storageLimitBytes?: Prisma.SortOrderInput | Prisma.SortOrder
+  committedStorageBytes?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.UserCountOrderByAggregateInput
@@ -404,6 +419,7 @@ export type UserScalarWhereWithAggregatesInput = {
   temporaryPasswordIssuedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"User"> | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.StringNullableWithAggregatesFilter<"User"> | string | null
   storageLimitBytes?: Prisma.BigIntNullableWithAggregatesFilter<"User"> | bigint | number | null
+  committedStorageBytes?: Prisma.BigIntNullableWithAggregatesFilter<"User"> | bigint | number | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"User"> | Date | string
 }
@@ -421,6 +437,7 @@ export type UserCreateInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
@@ -451,6 +468,7 @@ export type UserUncheckedCreateInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
@@ -481,6 +499,7 @@ export type UserUpdateInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
@@ -511,6 +530,7 @@ export type UserUncheckedUpdateInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
@@ -541,6 +561,7 @@ export type UserCreateManyInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -558,6 +579,7 @@ export type UserUpdateManyMutationInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -575,6 +597,7 @@ export type UserUncheckedUpdateManyInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -592,12 +615,14 @@ export type UserCountOrderByAggregateInput = {
   temporaryPasswordIssuedAt?: Prisma.SortOrder
   temporaryPasswordIssuedByUserId?: Prisma.SortOrder
   storageLimitBytes?: Prisma.SortOrder
+  committedStorageBytes?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
 
 export type UserAvgOrderByAggregateInput = {
   storageLimitBytes?: Prisma.SortOrder
+  committedStorageBytes?: Prisma.SortOrder
 }
 
 export type UserMaxOrderByAggregateInput = {
@@ -613,6 +638,7 @@ export type UserMaxOrderByAggregateInput = {
   temporaryPasswordIssuedAt?: Prisma.SortOrder
   temporaryPasswordIssuedByUserId?: Prisma.SortOrder
   storageLimitBytes?: Prisma.SortOrder
+  committedStorageBytes?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -630,12 +656,14 @@ export type UserMinOrderByAggregateInput = {
   temporaryPasswordIssuedAt?: Prisma.SortOrder
   temporaryPasswordIssuedByUserId?: Prisma.SortOrder
   storageLimitBytes?: Prisma.SortOrder
+  committedStorageBytes?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
 
 export type UserSumOrderByAggregateInput = {
   storageLimitBytes?: Prisma.SortOrder
+  committedStorageBytes?: Prisma.SortOrder
 }
 
 export type UserScalarRelationFilter = {
@@ -853,6 +881,7 @@ export type UserCreateWithoutPreferencesInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
@@ -882,6 +911,7 @@ export type UserUncheckedCreateWithoutPreferencesInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
@@ -927,6 +957,7 @@ export type UserUpdateWithoutPreferencesInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
@@ -956,6 +987,7 @@ export type UserUncheckedUpdateWithoutPreferencesInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
@@ -985,6 +1017,7 @@ export type UserCreateWithoutSessionsInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   preferences?: Prisma.UserPreferenceCreateNestedOneWithoutUserInput
@@ -1014,6 +1047,7 @@ export type UserUncheckedCreateWithoutSessionsInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   preferences?: Prisma.UserPreferenceUncheckedCreateNestedOneWithoutUserInput
@@ -1059,6 +1093,7 @@ export type UserUpdateWithoutSessionsInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preferences?: Prisma.UserPreferenceUpdateOneWithoutUserNestedInput
@@ -1088,6 +1123,7 @@ export type UserUncheckedUpdateWithoutSessionsInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   preferences?: Prisma.UserPreferenceUncheckedUpdateOneWithoutUserNestedInput
@@ -1117,6 +1153,7 @@ export type UserCreateWithoutFoldersInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
@@ -1146,6 +1183,7 @@ export type UserUncheckedCreateWithoutFoldersInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
@@ -1191,6 +1229,7 @@ export type UserUpdateWithoutFoldersInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
@@ -1220,6 +1259,7 @@ export type UserUncheckedUpdateWithoutFoldersInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
@@ -1249,6 +1289,7 @@ export type UserCreateWithoutFilesInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
@@ -1278,6 +1319,7 @@ export type UserUncheckedCreateWithoutFilesInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
@@ -1323,6 +1365,7 @@ export type UserUpdateWithoutFilesInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
@@ -1352,6 +1395,7 @@ export type UserUncheckedUpdateWithoutFilesInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
@@ -1381,6 +1425,7 @@ export type UserCreateWithoutFavoriteFilesInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
@@ -1410,6 +1455,7 @@ export type UserUncheckedCreateWithoutFavoriteFilesInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
@@ -1455,6 +1501,7 @@ export type UserUpdateWithoutFavoriteFilesInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
@@ -1484,6 +1531,7 @@ export type UserUncheckedUpdateWithoutFavoriteFilesInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
@@ -1513,6 +1561,7 @@ export type UserCreateWithoutFavoriteFoldersInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
@@ -1542,6 +1591,7 @@ export type UserUncheckedCreateWithoutFavoriteFoldersInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
@@ -1587,6 +1637,7 @@ export type UserUpdateWithoutFavoriteFoldersInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
@@ -1616,6 +1667,7 @@ export type UserUncheckedUpdateWithoutFavoriteFoldersInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
@@ -1645,6 +1697,7 @@ export type UserCreateWithoutRecentFilesInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
@@ -1674,6 +1727,7 @@ export type UserUncheckedCreateWithoutRecentFilesInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
@@ -1719,6 +1773,7 @@ export type UserUpdateWithoutRecentFilesInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
@@ -1748,6 +1803,7 @@ export type UserUncheckedUpdateWithoutRecentFilesInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
@@ -1777,6 +1833,7 @@ export type UserCreateWithoutRecentFoldersInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
@@ -1806,6 +1863,7 @@ export type UserUncheckedCreateWithoutRecentFoldersInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
@@ -1851,6 +1909,7 @@ export type UserUpdateWithoutRecentFoldersInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
@@ -1880,6 +1939,7 @@ export type UserUncheckedUpdateWithoutRecentFoldersInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
@@ -1909,6 +1969,7 @@ export type UserCreateWithoutShareLinksInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
@@ -1938,6 +1999,7 @@ export type UserUncheckedCreateWithoutShareLinksInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
@@ -1983,6 +2045,7 @@ export type UserUpdateWithoutShareLinksInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
@@ -2012,6 +2075,7 @@ export type UserUncheckedUpdateWithoutShareLinksInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
@@ -2041,6 +2105,7 @@ export type UserCreateWithoutRestoreReconciliationRunsInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
@@ -2070,6 +2135,7 @@ export type UserUncheckedCreateWithoutRestoreReconciliationRunsInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
@@ -2115,6 +2181,7 @@ export type UserUpdateWithoutRestoreReconciliationRunsInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
@@ -2144,6 +2211,7 @@ export type UserUncheckedUpdateWithoutRestoreReconciliationRunsInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
@@ -2173,6 +2241,7 @@ export type UserCreateWithoutZipArchivesInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
@@ -2202,6 +2271,7 @@ export type UserUncheckedCreateWithoutZipArchivesInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
@@ -2247,6 +2317,7 @@ export type UserUpdateWithoutZipArchivesInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
@@ -2276,6 +2347,7 @@ export type UserUncheckedUpdateWithoutZipArchivesInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
@@ -2305,6 +2377,7 @@ export type UserCreateWithoutStorageMutationsInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
@@ -2334,6 +2407,7 @@ export type UserUncheckedCreateWithoutStorageMutationsInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
@@ -2379,6 +2453,7 @@ export type UserUpdateWithoutStorageMutationsInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
@@ -2408,6 +2483,7 @@ export type UserUncheckedUpdateWithoutStorageMutationsInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
@@ -2437,6 +2513,7 @@ export type UserCreateWithoutTrashEntriesInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionCreateNestedManyWithoutUserInput
@@ -2466,6 +2543,7 @@ export type UserUncheckedCreateWithoutTrashEntriesInput = {
   temporaryPasswordIssuedAt?: Date | string | null
   temporaryPasswordIssuedByUserId?: string | null
   storageLimitBytes?: bigint | number | null
+  committedStorageBytes?: bigint | number | null
   createdAt?: Date | string
   updatedAt?: Date | string
   sessions?: Prisma.SessionUncheckedCreateNestedManyWithoutUserInput
@@ -2511,6 +2589,7 @@ export type UserUpdateWithoutTrashEntriesInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUpdateManyWithoutUserNestedInput
@@ -2540,6 +2619,7 @@ export type UserUncheckedUpdateWithoutTrashEntriesInput = {
   temporaryPasswordIssuedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   temporaryPasswordIssuedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   storageLimitBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  committedStorageBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   sessions?: Prisma.SessionUncheckedUpdateManyWithoutUserNestedInput
@@ -2699,6 +2779,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   temporaryPasswordIssuedAt?: boolean
   temporaryPasswordIssuedByUserId?: boolean
   storageLimitBytes?: boolean
+  committedStorageBytes?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   sessions?: boolean | Prisma.User$sessionsArgs<ExtArgs>
@@ -2730,6 +2811,7 @@ export type UserSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   temporaryPasswordIssuedAt?: boolean
   temporaryPasswordIssuedByUserId?: boolean
   storageLimitBytes?: boolean
+  committedStorageBytes?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["user"]>
@@ -2747,6 +2829,7 @@ export type UserSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   temporaryPasswordIssuedAt?: boolean
   temporaryPasswordIssuedByUserId?: boolean
   storageLimitBytes?: boolean
+  committedStorageBytes?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }, ExtArgs["result"]["user"]>
@@ -2764,11 +2847,12 @@ export type UserSelectScalar = {
   temporaryPasswordIssuedAt?: boolean
   temporaryPasswordIssuedByUserId?: boolean
   storageLimitBytes?: boolean
+  committedStorageBytes?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "storageId" | "displayName" | "avatarUrl" | "passwordHash" | "isOwner" | "isAdmin" | "passwordChangeRequiredAt" | "temporaryPasswordIssuedAt" | "temporaryPasswordIssuedByUserId" | "storageLimitBytes" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
+export type UserOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "email" | "storageId" | "displayName" | "avatarUrl" | "passwordHash" | "isOwner" | "isAdmin" | "passwordChangeRequiredAt" | "temporaryPasswordIssuedAt" | "temporaryPasswordIssuedByUserId" | "storageLimitBytes" | "committedStorageBytes" | "createdAt" | "updatedAt", ExtArgs["result"]["user"]>
 export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   sessions?: boolean | Prisma.User$sessionsArgs<ExtArgs>
   preferences?: boolean | Prisma.User$preferencesArgs<ExtArgs>
@@ -2818,6 +2902,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     temporaryPasswordIssuedAt: Date | null
     temporaryPasswordIssuedByUserId: string | null
     storageLimitBytes: bigint | null
+    committedStorageBytes: bigint | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["user"]>
@@ -3268,6 +3353,7 @@ export interface UserFieldRefs {
   readonly temporaryPasswordIssuedAt: Prisma.FieldRef<"User", 'DateTime'>
   readonly temporaryPasswordIssuedByUserId: Prisma.FieldRef<"User", 'String'>
   readonly storageLimitBytes: Prisma.FieldRef<"User", 'BigInt'>
+  readonly committedStorageBytes: Prisma.FieldRef<"User", 'BigInt'>
   readonly createdAt: Prisma.FieldRef<"User", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"User", 'DateTime'>
 }

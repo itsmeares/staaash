@@ -2453,20 +2453,16 @@ describe("STO-02 durable PostgreSQL protocol", () => {
     const folder = await db.folder.create({
       data: { ownerUserId: user.id, name: "Files", isFilesRoot: true },
     });
-    const files = await Promise.all(
-      Array.from({ length: 1_000 }, (_, index) =>
-        db.file.create({
-          data: {
-            ownerUserId: user.id,
-            folderId: folder.id,
-            originalName: `${index}.bin`,
-            storageKey: `files/${user.storageId}/${index}.bin`,
-            mimeType: "application/octet-stream",
-            sizeBytes: 1n,
-          },
-        }),
-      ),
-    );
+    const files = await db.file.createManyAndReturn({
+      data: Array.from({ length: 1_000 }, (_, index) => ({
+        ownerUserId: user.id,
+        folderId: folder.id,
+        originalName: `${index}.bin`,
+        storageKey: `files/${user.storageId}/${index}.bin`,
+        mimeType: "application/octet-stream",
+        sizeBytes: 1n,
+      })),
+    });
     const deletedAt = "2030-07-20T12:00:00.000Z";
     const operations: StorageMetadataOperation[] = files.map((file) => ({
       action: "update",

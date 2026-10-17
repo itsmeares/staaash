@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const mocks = vi.hoisted(() => ({
-  fileAggregate: vi.fn(),
+  userList: vi.fn(),
   uploadAggregate: vi.fn(),
   mutationAggregate: vi.fn(),
   findUnique: vi.fn(),
@@ -25,17 +25,17 @@ describe("user storage usage", () => {
     mocks.mutationAggregate.mockResolvedValue({
       _sum: { reservedBytes: null },
     });
+    mocks.userList.mockResolvedValue([]);
     mocks.getPrisma.mockReturnValue({
-      file: { aggregate: mocks.fileAggregate },
       uploadSession: { aggregate: mocks.uploadAggregate },
       storageMutation: { aggregate: mocks.mutationAggregate },
-      user: { findUnique: mocks.findUnique },
+      user: { findUnique: mocks.findUnique, findMany: mocks.userList },
     });
   });
 
-  it("returns a user's aggregate usage and preserves bigint precision", async () => {
-    mocks.fileAggregate.mockResolvedValue({
-      _sum: { sizeBytes: 9_007_199_254_740_993n },
+  it("returns a user's stored usage and preserves bigint precision", async () => {
+    mocks.findUnique.mockResolvedValue({
+      committedStorageBytes: 9_007_199_254_740_993n,
     });
     mocks.uploadAggregate.mockResolvedValue({
       _sum: { totalSizeBytes: 7n },
@@ -46,14 +46,10 @@ describe("user storage usage", () => {
       reservedBytes: 7n,
       usedBytes: 9_007_199_254_741_000n,
     });
-    expect(mocks.fileAggregate).toHaveBeenCalledWith({
-      where: { ownerUserId: "user-1" },
-      _sum: { sizeBytes: true },
-    });
   });
 
   it("counts in-flight direct upload reservations as reserved", async () => {
-    mocks.fileAggregate.mockResolvedValue({ _sum: { sizeBytes: 10n } });
+    mocks.findUnique.mockResolvedValue({ committedStorageBytes: 10n });
     mocks.uploadAggregate.mockResolvedValue({
       _sum: { totalSizeBytes: 7n },
     });
@@ -73,7 +69,7 @@ describe("user storage usage", () => {
   });
 
   it("uses zero for empty user and instance aggregates", async () => {
-    mocks.fileAggregate.mockResolvedValue({ _sum: { sizeBytes: null } });
+    mocks.findUnique.mockResolvedValue(null);
     mocks.uploadAggregate.mockResolvedValue({
       _sum: { totalSizeBytes: null },
     });
@@ -87,8 +83,10 @@ describe("user storage usage", () => {
   });
 
   it("rejects uploads exceeding a configured user limit", async () => {
-    mocks.findUnique.mockResolvedValue({ storageLimitBytes: 100n });
-    mocks.fileAggregate.mockResolvedValue({ _sum: { sizeBytes: 99n } });
+    mocks.findUnique.mockResolvedValue({
+      storageLimitBytes: 100n,
+      committedStorageBytes: 99n,
+    });
     mocks.uploadAggregate.mockResolvedValue({
       _sum: { totalSizeBytes: 0n },
     });
@@ -104,7 +102,6 @@ describe("user storage usage", () => {
     await expect(
       assertUserStorageQuotaAvailable("user-1", 1_000n),
     ).resolves.toBeUndefined();
-    expect(mocks.fileAggregate).not.toHaveBeenCalled();
     expect(mocks.uploadAggregate).not.toHaveBeenCalled();
   });
 });

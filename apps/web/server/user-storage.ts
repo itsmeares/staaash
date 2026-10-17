@@ -8,6 +8,7 @@ import {
   getQuotaUsageInTransaction,
   lockUserQuotaRow,
   runUploadTransaction,
+  UploadAdmissionError,
 } from "@/server/uploads/admission";
 
 export type UserStorageUsage = {
@@ -21,9 +22,9 @@ export const getUserStorageUsed = async (
 ): Promise<UserStorageUsage> => {
   const client = getPrisma();
   const [committed, reserved, mutationReserved] = await Promise.all([
-    client.file.aggregate({
-      where: { ownerUserId: userId },
-      _sum: { sizeBytes: true },
+    client.user.findUnique({
+      where: { id: userId },
+      select: { committedStorageBytes: true },
     }),
     client.uploadSession.aggregate({
       where: {
@@ -43,8 +44,11 @@ export const getUserStorageUsed = async (
       _sum: { reservedBytes: true },
     }),
   ]);
+  if (committed?.committedStorageBytes === null) {
+    throw new UploadAdmissionError("UPLOAD_STORAGE_CAPACITY_UNAVAILABLE");
+  }
   const usage = {
-    committedBytes: committed._sum.sizeBytes ?? 0n,
+    committedBytes: committed?.committedStorageBytes ?? 0n,
     reservedBytes:
       (reserved._sum.totalSizeBytes ?? 0n) +
       (mutationReserved._sum.reservedBytes ?? 0n),
@@ -98,10 +102,17 @@ export const withUserQuotaWrite = async <T>({
 
 // fallow-ignore-next-line unused-export
 export const getInstanceStorageUsed = async (): Promise<bigint> => {
-  const result = await getPrisma().file.aggregate({
-    _sum: { sizeBytes: true },
+  const users = await getPrisma().user.findMany({
+    select: { committedStorageBytes: true },
   });
-  return result._sum.sizeBytes ?? 0n;
+  let total = 0n;
+  for (const user of users) {
+    if (user.committedStorageBytes === null) {
+      throw new UploadAdmissionError("UPLOAD_STORAGE_CAPACITY_UNAVAILABLE");
+    }
+    total += user.committedStorageBytes;
+  }
+  return total;
 };
 
 export type DiskInfo = {
