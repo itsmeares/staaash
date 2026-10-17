@@ -219,6 +219,7 @@ export const FileScalarFieldEnum = {
   ownerUserId: 'ownerUserId',
   folderId: 'folderId',
   originalName: 'originalName',
+  searchName: 'searchName',
   storageKey: 'storageKey',
   storageStatus: 'storageStatus',
   storageCheckedAt: 'storageCheckedAt',

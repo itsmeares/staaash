@@ -4,7 +4,7 @@ import {
   compareSearchResults,
   getSearchMatchKind,
   normalizeSearchText,
-  tokenizeSearchText,
+  prepareSearchCandidate,
 } from "@/server/search";
 
 describe("search normalization", () => {
@@ -17,20 +17,19 @@ describe("search normalization", () => {
   });
 
   it("tokenizes extensions and path segments", () => {
-    expect(tokenizeSearchText("Projects/Finance/budget.xlsx")).toEqual([
-      "projects",
-      "finance",
-      "budget",
-      "xlsx",
-    ]);
+    expect(
+      prepareSearchCandidate("budget.xlsx", "Projects/Finance").tokens,
+    ).toEqual(new Set(["projects", "finance", "budget", "xlsx"]));
   });
 
   it("treats exact token matches as strongest", () => {
     expect(
       getSearchMatchKind(
         "budget",
-        "budget.xlsx",
-        "Projects / Finance / budget.xlsx",
+        prepareSearchCandidate(
+          "budget.xlsx",
+          "Projects / Finance / budget.xlsx",
+        ),
       ),
     ).toBe("exact");
   });
@@ -39,8 +38,10 @@ describe("search normalization", () => {
     expect(
       getSearchMatchKind(
         "xlsx",
-        "budget.xlsx",
-        "Projects / Finance / budget.xlsx",
+        prepareSearchCandidate(
+          "budget.xlsx",
+          "Projects / Finance / budget.xlsx",
+        ),
       ),
     ).toBe("exact");
   });
@@ -49,8 +50,10 @@ describe("search normalization", () => {
     expect(
       getSearchMatchKind(
         "finance",
-        "budget.xlsx",
-        "Projects / Finance / budget.xlsx",
+        prepareSearchCandidate(
+          "budget.xlsx",
+          "Projects / Finance / budget.xlsx",
+        ),
       ),
     ).toBe("exact");
   });
@@ -78,7 +81,12 @@ describe("search normalization", () => {
         updatedAt: new Date("2026-03-02T00:00:00.000Z"),
         matchKind: "exact" as const,
       },
-    ].sort(compareSearchResults);
+    ]
+      .map((item) => ({
+        ...item,
+        ...prepareSearchCandidate(item.name, item.path),
+      }))
+      .sort(compareSearchResults);
 
     expect(ranked.map((item) => item.id)).toEqual(["1", "2", "3"]);
   });
@@ -107,7 +115,12 @@ describe("search normalization", () => {
         updatedAt: sharedUpdatedAt,
         matchKind: "exact" as const,
       },
-    ].sort(compareSearchResults);
+    ]
+      .map((item) => ({
+        ...item,
+        ...prepareSearchCandidate(item.name, item.path),
+      }))
+      .sort(compareSearchResults);
 
     expect(ranked.map((item) => item.id)).toEqual(["a", "c", "b"]);
   });

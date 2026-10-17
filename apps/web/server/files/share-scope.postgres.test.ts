@@ -38,12 +38,14 @@ it("scopes ancestry and archives to the owner, stops cycles, and excludes delete
   const foreign = await folder("Foreign", shared.id, { ownerUserId: other.id });
   expect(
     new Set(
-      (await repo.listFolderAncestors(owner.id, empty.id)).map(({ id }) => id),
+      (await repo.listFolderAncestors(owner.id, [empty.id])).map(
+        ({ id }) => id,
+      ),
     ),
   ).toEqual(new Set([root.id, shared.id, child.id, empty.id]));
-  expect(await repo.listFolderAncestors(other.id, child.id)).toEqual([]);
+  expect(await repo.listFolderAncestors(other.id, [child.id])).toEqual([]);
   expect(
-    (await repo.listFolderAncestors(owner.id, hidden.id)).some(
+    (await repo.listFolderAncestors(owner.id, [hidden.id])).some(
       ({ deletedAt }) => deletedAt,
     ),
   ).toBe(true);
@@ -93,7 +95,9 @@ it("scopes ancestry and archives to the owner, stops cycles, and excludes delete
   });
   expect(
     new Set(
-      (await repo.listFolderAncestors(owner.id, child.id)).map(({ id }) => id),
+      (await repo.listFolderAncestors(owner.id, [child.id])).map(
+        ({ id }) => id,
+      ),
     ),
   ).toEqual(new Set([shared.id, child.id]));
   expect(

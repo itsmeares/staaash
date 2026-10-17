@@ -49,6 +49,17 @@ const createPrismaRetrievalRepository = ({
       return getFilesRepo().findFileById(fileId);
     },
 
+    listFolderAncestors(ownerUserId, folderIds) {
+      return getFilesRepo().listFolderAncestors(ownerUserId, folderIds);
+    },
+
+    listFilesByIds(ownerUserId, fileIds, options = {}) {
+      return getFilesRepo().listFilesByIds(ownerUserId, fileIds, {
+        includeMissing: true,
+        includeDeleted: options.includeDeleted,
+      });
+    },
+
     listFoldersByOwner(ownerUserId, options = {}) {
       return getFilesRepo().listFoldersByOwner(ownerUserId, {
         includeDeleted: options.includeDeleted ?? false,
@@ -282,5 +293,4 @@ const createPrismaRetrievalRepository = ({
   };
 };
 
-// fallow-ignore-next-line unused-export
 export const prismaRetrievalRepository = createPrismaRetrievalRepository();
