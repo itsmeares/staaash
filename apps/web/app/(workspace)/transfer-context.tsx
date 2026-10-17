@@ -1,5 +1,6 @@
 "use client";
 
+import { formatBytes } from "@/lib/format-bytes";
 import {
   createContext,
   startTransition,
@@ -54,13 +55,14 @@ export type UploadingFile = {
   fileId?: string;
   folderId?: string;
   folderUploadRootId?: string;
+  /** The folder's name the person uploaded into, for "Uploading to …". */
+  destination?: string;
 };
 
 export type DownloadProgressState =
   | { status: "queued" }
   | { status: "processing"; fileCount?: number }
-  | { status: "ready"; archiveId: string }
-  | { status: "error"; message: string };
+  | { status: "ready"; archiveId: string };
 
 type TransferContextValue = {
   uploadingFiles: UploadingFile[];
@@ -70,6 +72,7 @@ type TransferContextValue = {
     folderId: string,
     currentPath: string,
     selection: FolderUploadSelection,
+    destination?: string,
   ) => void;
   dismissUpload: (clientKey: string) => void;
   retryUpload: (clientKey: string) => void;
@@ -288,19 +291,6 @@ const completeResumableUploadSession = async ({
 // Helpers (also exported for use in display components)
 // ---------------------------------------------------------------------------
 
-export function formatSpeed(bytesPerSec: number): string {
-  if (bytesPerSec < 1024) return `${Math.round(bytesPerSec)} B/s`;
-  if (bytesPerSec < 1024 * 1024)
-    return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
-  return `${(bytesPerSec / 1024 / 1024).toFixed(1)} MB/s`;
-}
-
-export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
 export function formatEta(
   totalBytes: number,
   transferredBytes: number,
@@ -310,17 +300,17 @@ export function formatEta(
   const remainingBytes = totalBytes - transferredBytes;
   const seconds = Math.round(remainingBytes / speed);
   if (seconds < 60)
-    return `(${seconds} ${seconds === 1 ? "second" : "seconds"} left)`;
+    return `${seconds} ${seconds === 1 ? "second" : "seconds"} left`;
   if (seconds < 3600) {
     const m = Math.round(seconds / 60);
-    return `(${m} ${m === 1 ? "minute" : "minutes"} left)`;
+    return `${m} ${m === 1 ? "minute" : "minutes"} left`;
   }
   if (seconds < 86400) {
     const h = Math.round(seconds / 3600);
-    return `(${h} ${h === 1 ? "hour" : "hours"} left)`;
+    return `${h} ${h === 1 ? "hour" : "hours"} left`;
   }
   const d = Math.round(seconds / 86400);
-  return `(${d} ${d === 1 ? "day" : "days"} left)`;
+  return `${d} ${d === 1 ? "day" : "days"} left`;
 }
 
 // ---------------------------------------------------------------------------
@@ -445,14 +435,18 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
     }).then((result) => {
       if (!result) return;
       clearActiveDownloadPointer(archiveId);
-      setActiveDownload({
-        archiveId,
-        state:
-          result.status === "ready"
-            ? { status: "ready", archiveId }
-            : { status: "error", message: result.message },
-      });
+      if (result.status === "ready") {
+        setActiveDownload({ archiveId, state: { status: "ready", archiveId } });
+      } else {
+        failDownload(result.message);
+      }
     });
+  };
+
+  // A failed zip leaves the list and stays as a toast until closed.
+  const failDownload = (message: string) => {
+    setActiveDownload(null);
+    toast.error(message);
   };
 
   // Resume any in-progress download on mount
@@ -499,13 +493,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
         const data = (await res.json().catch(() => ({}))) as {
           error?: string;
         };
-        setActiveDownload({
-          archiveId: "",
-          state: {
-            status: "error",
-            message: data.error ?? "Failed to start download.",
-          },
-        });
+        failDownload(data.error ?? "Failed to start download.");
         return;
       }
 
@@ -523,13 +511,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
-      setActiveDownload({
-        archiveId: "",
-        state: {
-          status: "error",
-          message: err instanceof Error ? err.message : "Download failed.",
-        },
-      });
+      failDownload(err instanceof Error ? err.message : "Download failed.");
     }
   };
 
@@ -643,7 +625,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
               f.clientKey === clientKey
                 ? {
                     ...f,
-                    statusLabel: "Checking existing upload...",
+                    statusLabel: "Checking existing upload…",
                     resumeHint: undefined,
                   }
                 : f,
@@ -760,7 +742,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
               f.clientKey === clientKey
                 ? {
                     ...f,
-                    statusLabel: "Checking existing upload...",
+                    statusLabel: "Checking existing upload…",
                     resumeHint: undefined,
                   }
                 : f,
@@ -808,7 +790,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
           progress: 100,
           transferredBytes: file.size,
           speed: 0,
-          statusLabel: "Verifying upload...",
+          statusLabel: "Verifying upload…",
         });
         const data = await completeResumableUploadSession({
           sessionId,
@@ -913,7 +895,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
         progress: 100,
         transferredBytes: file.size,
         speed: 0,
-        statusLabel: "Preparing checksum...",
+        statusLabel: "Preparing checksum…",
       });
       await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
       if (signal.aborted) {
@@ -921,7 +903,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
       }
       const expectedChecksum = hasher.digest("hex");
 
-      updateUploadingFile(clientKey, { statusLabel: "Verifying upload..." });
+      updateUploadingFile(clientKey, { statusLabel: "Verifying upload…" });
       const data = await completeResumableUploadSession({
         sessionId,
         expectedChecksum,
@@ -972,6 +954,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
     folderId: string,
     currentPath: string,
     selection: FolderUploadSelection,
+    destination?: string,
   ) => {
     if (selection.files.length === 0 && selection.directoryPaths.length === 0) {
       return;
@@ -993,6 +976,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
           transferredBytes: 0,
           speed: 0,
           fileRef: file,
+          destination,
           folderId:
             selection.directoryPaths.length === 0 ? folderId : undefined,
           folderUploadRootId:
@@ -1000,7 +984,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
           statusLabel:
             selection.directoryPaths.length === 0
               ? undefined
-              : "Preparing folders...",
+              : "Preparing folders…",
         },
       ]);
 
@@ -1110,7 +1094,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
                 f.folderUploadRootId &&
                 !f.folderId &&
                 getUploadDirectoryPath(f.name) !== ""
-                  ? "Preparing folders..."
+                  ? "Preparing folders…"
                   : undefined,
             }
           : f,

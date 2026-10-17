@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { enforceSameOrigin, requireOwnerApiSession } from "@/server/admin/http";
 import { jsonErrorResponse, readJsonBody } from "@/server/auth/http";
 import { authService } from "@/server/auth/service";
+import { getBaseUrl } from "@/server/request";
 
 const optionalString = (value: unknown) =>
   typeof value === "string" ? value : undefined;
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         storageLimitBytes: result.user.storageLimitBytes?.toString() ?? null,
       },
       temporaryPassword: result.temporaryPassword,
-      signInUrl: new URL("/", request.nextUrl.origin).toString(),
+      signInUrl: new URL("/", getBaseUrl(request.headers)).toString(),
     });
   } catch (error) {
     return jsonErrorResponse(error);

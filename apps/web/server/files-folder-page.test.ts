@@ -41,8 +41,8 @@ vi.mock("@/server/sharing/service", () => ({
   sharingService: { getFilesShareLookup: vi.fn() },
 }));
 
-vi.mock("@/app/(workspace)/files/files-explorer", () => ({
-  FilesExplorer: () => null,
+vi.mock("@/app/(workspace)/files/files-view", () => ({
+  FilesView: () => null,
 }));
 
 const { default: FilesFolderPage } =
@@ -65,7 +65,6 @@ describe("private files folder page", () => {
     await expect(
       FilesFolderPage({
         params: Promise.resolve({ folderId: "folder-1" }),
-        searchParams: Promise.resolve({}),
       }),
     ).rejects.toThrow("redirect:/files/storage-unavailable?folderId=folder-1");
   });

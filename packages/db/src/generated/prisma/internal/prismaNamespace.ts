@@ -2336,10 +2336,8 @@ export const InstanceScalarFieldEnum = {
   authSecret: 'authSecret',
   setupCompletedAt: 'setupCompletedAt',
   lastUpdateCheckAt: 'lastUpdateCheckAt',
-  updateCheckStatus: 'updateCheckStatus',
-  updateCheckMessage: 'updateCheckMessage',
-  latestAvailableVersion: 'latestAvailableVersion',
-  checkedVersion: 'checkedVersion',
+  updateCheckError: 'updateCheckError',
+  updateReleases: 'updateReleases',
   storageProtocolVersion: 'storageProtocolVersion',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -2362,7 +2360,8 @@ export const SystemSettingsScalarFieldEnum = {
   previewMaxSourceBytes: 'previewMaxSourceBytes',
   previewTextMaxBytes: 'previewTextMaxBytes',
   workerHeartbeatMaxAgeSeconds: 'workerHeartbeatMaxAgeSeconds',
-  updateCheckIntervalHours: 'updateCheckIntervalHours',
+  updateCheckEnabled: 'updateCheckEnabled',
+  updateChannel: 'updateChannel',
   updateCheckRepository: 'updateCheckRepository',
   timeZone: 'timeZone',
   maintenanceRunTime: 'maintenanceRunTime',
@@ -2409,7 +2408,11 @@ export const UserPreferenceScalarFieldEnum = {
   theme: 'theme',
   timeZone: 'timeZone',
   showUpdateNotifications: 'showUpdateNotifications',
-  enableVersionChecks: 'enableVersionChecks',
+  showFolderPreviews: 'showFolderPreviews',
+  startPage: 'startPage',
+  defaultView: 'defaultView',
+  clockFormat: 'clockFormat',
+  showPinsInSidebar: 'showPinsInSidebar',
   onboardingCompletedAt: 'onboardingCompletedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -2440,6 +2443,8 @@ export const FolderScalarFieldEnum = {
   parentId: 'parentId',
   name: 'name',
   isFilesRoot: 'isFilesRoot',
+  color: 'color',
+  icon: 'icon',
   deletedAt: 'deletedAt',
   storageRevision: 'storageRevision',
   trashEntryId: 'trashEntryId',
@@ -2499,7 +2504,8 @@ export const RecentFileScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
   fileId: 'fileId',
-  lastInteractedAt: 'lastInteractedAt'
+  lastInteractedAt: 'lastInteractedAt',
+  lastAction: 'lastAction'
 } as const
 
 export type RecentFileScalarFieldEnum = (typeof RecentFileScalarFieldEnum)[keyof typeof RecentFileScalarFieldEnum]
@@ -2509,7 +2515,8 @@ export const RecentFolderScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
   folderId: 'folderId',
-  lastInteractedAt: 'lastInteractedAt'
+  lastInteractedAt: 'lastInteractedAt',
+  lastAction: 'lastAction'
 } as const
 
 export type RecentFolderScalarFieldEnum = (typeof RecentFolderScalarFieldEnum)[keyof typeof RecentFolderScalarFieldEnum]
@@ -2803,19 +2810,19 @@ export const SortOrder = {
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
 
 
-export const JsonNullValueInput = {
-  JsonNull: JsonNull
-} as const
-
-export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
-
-
 export const NullableJsonNullValueInput = {
   DbNull: DbNull,
   JsonNull: JsonNull
 } as const
 
 export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
+
+
+export const JsonNullValueInput = {
+  JsonNull: JsonNull
+} as const
+
+export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
 
 
 export const QueryMode = {
@@ -2826,14 +2833,6 @@ export const QueryMode = {
 export type QueryMode = (typeof QueryMode)[keyof typeof QueryMode]
 
 
-export const NullsOrder = {
-  first: 'first',
-  last: 'last'
-} as const
-
-export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
-
-
 export const JsonNullValueFilter = {
   DbNull: DbNull,
   JsonNull: JsonNull,
@@ -2841,6 +2840,14 @@ export const JsonNullValueFilter = {
 } as const
 
 export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
+
+
+export const NullsOrder = {
+  first: 'first',
+  last: 'last'
+} as const
+
+export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
 
 
 
@@ -2874,6 +2881,20 @@ export type DateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel
  * Reference to a field of type 'DateTime[]'
  */
 export type ListDateTimeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'DateTime[]'>
+    
+
+
+/**
+ * Reference to a field of type 'Json'
+ */
+export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
+    
+
+
+/**
+ * Reference to a field of type 'QueryMode'
+ */
+export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
     
 
 
@@ -2927,6 +2948,20 @@ export type ListEnumFileStorageStatusFieldRefInput<$PrismaModel> = FieldRefInput
 
 
 /**
+ * Reference to a field of type 'RecentAction'
+ */
+export type EnumRecentActionFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'RecentAction'>
+    
+
+
+/**
+ * Reference to a field of type 'RecentAction[]'
+ */
+export type ListEnumRecentActionFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'RecentAction[]'>
+    
+
+
+/**
  * Reference to a field of type 'ShareTargetType'
  */
 export type EnumShareTargetTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'ShareTargetType'>
@@ -2951,20 +2986,6 @@ export type EnumJobStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$Prisma
  * Reference to a field of type 'JobStatus[]'
  */
 export type ListEnumJobStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'JobStatus[]'>
-    
-
-
-/**
- * Reference to a field of type 'Json'
- */
-export type JsonFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Json'>
-    
-
-
-/**
- * Reference to a field of type 'QueryMode'
- */
-export type EnumQueryModeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'QueryMode'>
     
 
 

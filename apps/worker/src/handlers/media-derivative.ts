@@ -6,12 +6,15 @@ import type { BackgroundJobRecord } from "@staaash/db/jobs";
 import {
   DERIVATIVE_KIND_POSTER,
   DERIVATIVE_KIND_PREVIEW,
+  DERIVATIVE_KIND_THUMBNAIL,
   DERIVATIVE_PROFILE_1080P,
   DERIVATIVE_PROFILE_SOCIAL_JPEG,
+  DERIVATIVE_PROFILE_THUMB,
   DERIVATIVE_STATUS_FAILED,
   DERIVATIVE_STATUS_PROCESSING,
   DERIVATIVE_STATUS_STALE,
   buildDerivativeStorageKey,
+  canHaveThumbnail,
   markDerivativeReady,
   settleDerivativeIfOwned,
   upsertDerivativeQueued,
@@ -27,6 +30,7 @@ import {
   isStreamCopyCompatible,
   runFfmpegPoster,
   runFfmpegStreamCopy,
+  runFfmpegThumbnail,
   runFfmpegTranscode,
   runFfprobe,
 } from "../ffmpeg.js";
@@ -104,11 +108,12 @@ const DEFAULT_SETTINGS: SystemSettingsRecord = {
   mediaPreviewCrf: 22,
 };
 
+// fallow-ignore-next-line complexity
 export const handleMediaDerivativeGenerate = async (
   job: BackgroundJobRecord,
   storagePaths: WorkerStoragePaths,
   context?: JobContext,
-): Promise<boolean> => {
+): Promise<void> => {
   const health = getFfmpegHealth();
   if (!health.available) {
     throw new Error(
@@ -131,7 +136,7 @@ export const handleMediaDerivativeGenerate = async (
   const settings: SystemSettingsRecord = rawSettings ?? DEFAULT_SETTINGS;
 
   if (!settings.mediaPreviewEnabled) {
-    return false;
+    return;
   }
 
   const file = await prisma.file.findUnique({
@@ -151,26 +156,33 @@ export const handleMediaDerivativeGenerate = async (
     throw new Error(`File ${payload.fileId} not found or deleted.`);
   }
 
-  if (!file.mimeType.startsWith("video/")) {
-    return false;
+  const isThumbnail = payload.kind === DERIVATIVE_KIND_THUMBNAIL;
+  const isVideo = file.mimeType.startsWith("video/");
+  if (
+    isThumbnail ? !canHaveThumbnail(file.mimeType, file.storageKey) : !isVideo
+  ) {
+    return;
   }
 
-  const kind =
-    payload.kind === DERIVATIVE_KIND_POSTER
+  const kind = isThumbnail
+    ? DERIVATIVE_KIND_THUMBNAIL
+    : payload.kind === DERIVATIVE_KIND_POSTER
       ? DERIVATIVE_KIND_POSTER
       : DERIVATIVE_KIND_PREVIEW;
-  const profile =
-    kind === DERIVATIVE_KIND_POSTER
+  const profile = isThumbnail
+    ? DERIVATIVE_PROFILE_THUMB
+    : kind === DERIVATIVE_KIND_POSTER
       ? DERIVATIVE_PROFILE_SOCIAL_JPEG
       : DERIVATIVE_PROFILE_1080P;
-  const isPoster = kind === DERIVATIVE_KIND_POSTER;
+  // Posters and thumbnails are single JPEG frames.
+  const isPoster = kind !== DERIVATIVE_KIND_PREVIEW;
 
   if (
-    !isPoster &&
+    kind === DERIVATIVE_KIND_PREVIEW &&
     payload.reason !== "manual-regenerate" &&
     file.sizeBytes < settings.mediaPreviewThresholdBytes
   ) {
-    return false;
+    return;
   }
 
   const derivative = await upsertDerivativeQueued(
@@ -181,7 +193,7 @@ export const handleMediaDerivativeGenerate = async (
   );
   const publishMutationId = `derivative-publish-${derivative.id}-${job.id}`;
   if ((await assertWorkerMutationMayStart(publishMutationId)) === "succeeded") {
-    return false;
+    return;
   }
 
   await (getPrisma() as unknown as PrismaClient).mediaDerivative.update({
@@ -230,6 +242,20 @@ export const handleMediaDerivativeGenerate = async (
     throw err;
   }
 
+  // Music files carry their cover as an attached picture; without one there
+  // is nothing to make, and retrying won't change that.
+  if (
+    isThumbnail &&
+    file.mimeType.startsWith("audio/") &&
+    !probe.streams.some((stream) => stream.codec_type === "video")
+  ) {
+    await settleDerivativeIfOwned(derivative.id, job.id, {
+      status: DERIVATIVE_STATUS_FAILED,
+      error: "No cover art in this file.",
+    });
+    return;
+  }
+
   let cancelledByAdmin = false;
   const controller = new AbortController();
   const abortFromContext = () => {
@@ -263,10 +289,16 @@ export const handleMediaDerivativeGenerate = async (
 
   try {
     await context?.updateProgress({
-      stage: isPoster ? "capturing-poster" : "encoding",
+      stage: isThumbnail
+        ? "capturing-thumbnail"
+        : isPoster
+          ? "capturing-poster"
+          : "encoding",
       fileId: file.id,
     });
-    if (isPoster) {
+    if (isThumbnail) {
+      await runFfmpegThumbnail(inputPath, tmpPath, isVideo, controller.signal);
+    } else if (isPoster) {
       await runFfmpegPoster(inputPath, tmpPath, controller.signal);
     } else if (isStreamCopyCompatible(probe, settings.mediaPreviewMaxHeight)) {
       await runFfmpegStreamCopy(inputPath, tmpPath, controller.signal);
@@ -285,7 +317,7 @@ export const handleMediaDerivativeGenerate = async (
       await settleDerivativeIfOwned(derivative.id, job.id, {
         status: DERIVATIVE_STATUS_STALE,
       });
-      return true;
+      return;
     }
     await settleDerivativeIfOwned(derivative.id, job.id, {
       status: DERIVATIVE_STATUS_FAILED,
@@ -331,7 +363,7 @@ export const handleMediaDerivativeGenerate = async (
   });
   if (current?.status === DERIVATIVE_STATUS_STALE) {
     await rm(tmpPath, { force: true });
-    return true;
+    return;
   }
 
   const tmpKey = path
@@ -409,6 +441,4 @@ export const handleMediaDerivativeGenerate = async (
   });
 
   await context?.updateProgress({ stage: "ready", fileId: file.id });
-
-  return false;
 };

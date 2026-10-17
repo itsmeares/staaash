@@ -1,17 +1,17 @@
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { isFilesError } from "@/server/files/errors";
 import { filesService } from "@/server/files/service";
+import type { AuthUser } from "@/server/auth/types";
 import type { FilesListing } from "@/server/files/types";
 import { recordFolderAccessBestEffort } from "@/server/retrieval/recent-tracking";
-import { retrievalService } from "@/server/retrieval/service";
 import { getShareBaseUrl } from "@/server/request";
-import { sharingService } from "@/server/sharing/service";
 import { StorageEntityUnavailableError } from "@/server/storage-read-guard";
 
-import { FilesExplorer } from "../../files-explorer";
+import { FilesView } from "../../files-view";
+import { loadFilesViewProps } from "../../load-files-view";
 
 export const dynamic = "force-dynamic";
 
@@ -19,84 +19,61 @@ type FilesFolderPageProps = {
   params: Promise<{
     folderId: string;
   }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+/**
+ * The folder's listing, or the page that fits why it can't be shown:
+ * storage busy, missing, or someone else's (which reads as missing).
+ */
+const loadFolderListing = async (
+  user: { id: string; role: AuthUser["role"] },
+  folderId: string,
+): Promise<FilesListing> => {
+  try {
+    return await filesService.getFilesListing({
+      actorUserId: user.id,
+      actorRole: user.role,
+      folderId,
+    });
+  } catch (error) {
+    if (error instanceof StorageEntityUnavailableError) {
+      redirect(
+        `/files/storage-unavailable?folderId=${encodeURIComponent(folderId)}`,
+      );
+    }
+    if (!isFilesError(error)) throw error;
+    if (error.code === "FOLDER_NOT_FOUND" || error.code === "ACCESS_DENIED") {
+      notFound();
+    }
+    redirect(`/files?error=${encodeURIComponent(error.message)}`);
+  }
 };
 
 export default async function FilesFolderPage({
   params,
-  searchParams,
 }: FilesFolderPageProps) {
-  const [{ folderId }, resolvedSearchParams, h] = await Promise.all([
-    params,
-    searchParams,
-    headers(),
-  ]);
+  const [{ folderId }, h] = await Promise.all([params, headers()]);
   const baseUrl = getShareBaseUrl(h);
   const session = await requireSignedInPageSession(
     `/?next=${encodeURIComponent(`/files/f/${folderId}`)}`,
   );
 
-  try {
-    let listing: FilesListing;
-    try {
-      listing = await filesService.getFilesListing({
-        actorUserId: session.user.id,
-        actorRole: session.user.role,
-        folderId,
-      });
-    } catch (error) {
-      if (error instanceof StorageEntityUnavailableError) {
-        redirect(
-          `/files/storage-unavailable?folderId=${encodeURIComponent(folderId)}`,
-        );
-      }
-      throw error;
-    }
+  const listing = await loadFolderListing(session.user, folderId);
+  if (listing.currentFolder.isFilesRoot) redirect("/files");
 
-    if (listing.currentFolder.isFilesRoot) {
-      redirect("/files");
-    }
+  await recordFolderAccessBestEffort({
+    actorUserId: session.user.id,
+    actorRole: session.user.role,
+    folderId: listing.currentFolder.id,
+    action: "opened",
+  });
+  const props = await loadFilesViewProps({
+    actorUserId: session.user.id,
+    actorRole: session.user.role,
+    listing,
+    baseUrl,
+    showFolderPreviews: session.user.preferences?.showFolderPreviews ?? true,
+  });
 
-    await recordFolderAccessBestEffort({
-      actorUserId: session.user.id,
-      actorRole: session.user.role,
-      folderId: listing.currentFolder.id,
-      source: "files-folder-page",
-    });
-    const [shareLookup, favorites] = await Promise.all([
-      sharingService.getFilesShareLookup({
-        actorUserId: session.user.id,
-        actorRole: session.user.role,
-        currentFolderId: listing.currentFolder.id,
-        childFolderIds: listing.childFolders.map((folder) => folder.id),
-        fileIds: listing.files.map((file) => file.id),
-        baseUrl,
-      }),
-      retrievalService.listFavorites({
-        actorUserId: session.user.id,
-        actorRole: session.user.role,
-      }),
-    ]);
-
-    return (
-      <FilesExplorer
-        currentPath={`/files/f/${folderId}`}
-        favoriteFileIds={favorites
-          .filter((item) => item.kind === "file")
-          .map((item) => item.id)}
-        favoriteFolderIds={favorites
-          .filter((item) => item.kind === "folder")
-          .map((item) => item.id)}
-        listing={listing}
-        searchParams={resolvedSearchParams}
-        shareLookup={shareLookup}
-      />
-    );
-  } catch (error) {
-    if (isFilesError(error)) {
-      redirect(`/files?error=${encodeURIComponent(error.message)}`);
-    }
-
-    throw error;
-  }
+  return <FilesView {...props} currentPath={`/files/f/${folderId}`} />;
 }

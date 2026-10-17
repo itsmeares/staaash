@@ -128,6 +128,7 @@ const createPrismaRetrievalRepository = ({
         userId: recent.userId,
         fileId: recent.fileId,
         lastInteractedAt: recent.lastInteractedAt,
+        lastAction: recent.lastAction,
       }));
     },
 
@@ -144,6 +145,7 @@ const createPrismaRetrievalRepository = ({
         userId: recent.userId,
         folderId: recent.folderId,
         lastInteractedAt: recent.lastInteractedAt,
+        lastAction: recent.lastAction,
       }));
     },
 
@@ -249,7 +251,7 @@ const createPrismaRetrievalRepository = ({
       return result.count > 0;
     },
 
-    async upsertRecentFile({ userId, fileId, lastInteractedAt }) {
+    async upsertRecentFile({ userId, fileId, lastInteractedAt, lastAction }) {
       const client = getClient();
 
       await client.recentFile.upsert({
@@ -263,14 +265,21 @@ const createPrismaRetrievalRepository = ({
           userId,
           fileId,
           lastInteractedAt,
+          lastAction,
         },
         update: {
           lastInteractedAt,
+          lastAction,
         },
       });
     },
 
-    async upsertRecentFolder({ userId, folderId, lastInteractedAt }) {
+    async upsertRecentFolder({
+      userId,
+      folderId,
+      lastInteractedAt,
+      lastAction,
+    }) {
       const client = getClient();
 
       await client.recentFolder.upsert({
@@ -284,9 +293,11 @@ const createPrismaRetrievalRepository = ({
           userId,
           folderId,
           lastInteractedAt,
+          lastAction,
         },
         update: {
           lastInteractedAt,
+          lastAction,
         },
       });
     },

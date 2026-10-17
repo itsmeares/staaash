@@ -2,7 +2,7 @@
 
 import { Grid2X2, List } from "lucide-react";
 
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
 
 export type ViewMode = "list" | "grid";
 
@@ -12,30 +12,29 @@ type ViewToggleProps = {
   className?: string;
 };
 
-/** List or grid switch shared by the collection views. */
+/** List or grid switch shared by the collection views. Tabs give it the
+ * gliding indicator. */
 export function ViewToggle({
   value,
   onValueChange,
   className,
 }: ViewToggleProps) {
   return (
-    <ToggleGroup
-      aria-label="View mode"
+    <Tabs
       className={className}
-      size="sm"
-      value={[value]}
-      variant="outline"
+      value={value}
       onValueChange={(next) => {
-        const mode = next[0];
-        if (mode === "list" || mode === "grid") onValueChange(mode);
+        if (next === "list" || next === "grid") onValueChange(next);
       }}
     >
-      <ToggleGroupItem aria-label="List view" value="list">
-        <List aria-hidden />
-      </ToggleGroupItem>
-      <ToggleGroupItem aria-label="Grid view" value="grid">
-        <Grid2X2 aria-hidden />
-      </ToggleGroupItem>
-    </ToggleGroup>
+      <TabsList aria-label="View mode" size="sm">
+        <TabsTab aria-label="List view" value="list">
+          <List aria-hidden />
+        </TabsTab>
+        <TabsTab aria-label="Grid view" value="grid">
+          <Grid2X2 aria-hidden />
+        </TabsTab>
+      </TabsList>
+    </Tabs>
   );
 }

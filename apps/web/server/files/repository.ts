@@ -27,6 +27,8 @@ const folderSelect = {
   parentId: true,
   name: true,
   isFilesRoot: true,
+  color: true,
+  icon: true,
   deletedAt: true,
   storageRevision: true,
   trashEntryId: true,
@@ -102,6 +104,10 @@ type UpdateFolderParams = {
   name?: string;
   parentId?: string | null;
   deletedAt?: Date | null;
+  color?: string | null;
+  icon?: string | null;
+  /** Set to keep the folder's modified time, for changes that aren't edits. */
+  updatedAt?: Date;
 };
 
 type UpdateFileParams = {
@@ -172,6 +178,8 @@ const toFolderSummary = (
     | "parentId"
     | "name"
     | "isFilesRoot"
+    | "color"
+    | "icon"
     | "deletedAt"
     | "storageRevision"
     | "trashEntryId"
@@ -185,6 +193,8 @@ const toFolderSummary = (
   parentId: folder.parentId,
   name: folder.name,
   isFilesRoot: folder.isFilesRoot,
+  color: folder.color,
+  icon: folder.icon,
   deletedAt: folder.deletedAt,
   storageRevision: folder.storageRevision,
   trashEntryId: folder.trashEntryId,
@@ -747,6 +757,10 @@ export const createPrismaFilesRepository = (
       if ("deletedAt" in params) {
         data.deletedAt = params.deletedAt;
       }
+
+      if ("color" in params) data.color = params.color;
+      if ("icon" in params) data.icon = params.icon;
+      if (params.updatedAt) data.updatedAt = params.updatedAt;
 
       const folder = await client.folder.update({
         where: {

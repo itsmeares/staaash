@@ -3,7 +3,7 @@ import type {
   AdminStorageUsageSummary as DbAdminStorageUsageSummary,
   AdminUserStorageRow as DbAdminUserStorageRow,
 } from "@staaash/db/admin";
-import type { UpdateCheckStatus } from "@staaash/db/instance";
+import type { UpdateState } from "./updates";
 
 import type {
   InstanceHealthSummary,
@@ -20,15 +20,6 @@ export type AdminUserStorageRow = DbAdminUserStorageRow;
 export type AdminStorageSummary = DbAdminStorageUsageSummary;
 
 export type AdminJobListResponse = DbAdminBackgroundJobListResult;
-
-export type AdminUpdateStatus = {
-  currentVersion: string;
-  repository: string | null;
-  lastUpdateCheckAt: Date | null;
-  updateCheckStatus: UpdateCheckStatus | null;
-  updateCheckMessage: string | null;
-  latestAvailableVersion: string | null;
-};
 
 export type AdminRestoreReconciliationRun = DbRestoreReconciliationRunRecord;
 
@@ -54,7 +45,7 @@ export type AdminOverviewSummary = {
     admins: number;
     members: number;
   };
-  updates: AdminUpdateStatus;
+  updates: UpdateState;
 };
 
 export type JsonAdminUserStorageRow = Omit<
@@ -100,13 +91,6 @@ export type JsonAdminJobListResponse = Omit<AdminJobListResponse, "items"> & {
       fileName?: string | null;
     }
   >;
-};
-
-export type JsonAdminUpdateStatus = Omit<
-  AdminUpdateStatus,
-  "lastUpdateCheckAt"
-> & {
-  lastUpdateCheckAt: string | null;
 };
 
 export type JsonRestoreReconciliationIssueDetails =

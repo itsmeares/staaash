@@ -1,0 +1,81 @@
+/* A tiny picture of the drive. Colors are fixed so each theme shows itself
+   whatever the page around it uses. */
+
+.mini {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  aspect-ratio: 22 / 13;
+  border-radius: 10px;
+}
+
+/* One border over both halves of the system picture. */
+.mini::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgb(127 127 127 / 0.28);
+}
+
+.pane {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 26% 1fr;
+}
+
+.pane[data-theme="light"] {
+  background: #fbfaf7;
+}
+
+.pane[data-theme="dark"] {
+  background: #1a1816;
+}
+
+/* System: dark takes the lower right, cut on a slant. */
+.pane + .pane {
+  clip-path: polygon(62% 0, 100% 0, 100% 100%, 38% 100%);
+}
+
+.pane > span {
+  display: grid;
+  align-content: start;
+  gap: 7%;
+  padding: 9% 8%;
+}
+
+.pane > span:first-child {
+  gap: 9%;
+  padding-top: 18%;
+  background: rgb(127 127 127 / 0.1);
+}
+
+.pane i {
+  display: block;
+  height: 5px;
+  border-radius: 3px;
+  background: rgb(127 127 127 / 0.28);
+}
+
+.pane > span:first-child i:first-child {
+  background: #d9b77e;
+}
+
+.pane > span:last-child i:nth-child(1) {
+  width: 42%;
+  height: 8px;
+  margin-bottom: 4%;
+}
+
+.pane > span:last-child i:nth-child(2) {
+  width: 88%;
+}
+
+.pane > span:last-child i:nth-child(3) {
+  width: 72%;
+}
+
+.pane > span:last-child i:nth-child(4) {
+  width: 80%;
+}

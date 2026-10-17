@@ -1,14 +1,13 @@
 import type { FavoriteRetrievalItem } from "@/server/retrieval/types";
 
 import {
+  compareListItems,
   compareWorkspaceStrings,
   filterWorkspaceItems,
-  formatWorkspaceFileSize,
-  getWorkspaceItemType,
-  getWorkspaceLocationLabel,
   sortWorkspaceItems,
   type WorkspaceItemFilterType,
   type WorkspaceSortDirection,
+  toWorkspaceListFields,
 } from "../workspace-item-helpers";
 
 export type FavoriteClientItem = {
@@ -18,6 +17,7 @@ export type FavoriteClientItem = {
   id: string;
   kind: FavoriteRetrievalItem["kind"];
   locationLabel: string;
+  color?: string | null;
   mimeType?: string;
   name: string;
   parentId?: string | null;
@@ -31,33 +31,14 @@ export type FavoriteFilterType = WorkspaceItemFilterType;
 export type FavoriteSortKey = "favoritedAt" | "name" | "path" | "size";
 export type FavoriteSortDirection = WorkspaceSortDirection;
 
-export function getFavoriteLocationLabel(item: FavoriteRetrievalItem): string {
-  return getWorkspaceLocationLabel(item);
-}
-
 export function toFavoriteClientItem(
   item: FavoriteRetrievalItem,
 ): FavoriteClientItem {
   return {
+    ...toWorkspaceListFields(item),
     favoritedAt: item.favoritedAt.toISOString(),
-    folderId: item.kind === "file" ? item.folderId : undefined,
-    href: item.href,
-    id: item.id,
-    kind: item.kind,
-    locationLabel: getFavoriteLocationLabel(item),
-    mimeType: item.kind === "file" ? item.mimeType : undefined,
-    name: item.name,
-    parentId: item.kind === "folder" ? item.parentId : undefined,
     quickAccessPinnedAt: item.quickAccessPinnedAt?.toISOString() ?? null,
-    sizeBytes: item.kind === "file" ? item.sizeBytes : undefined,
-    storageMutationStatus: item.storageMutation?.status,
   };
-}
-
-export function getFavoriteType(
-  item: Pick<FavoriteClientItem, "kind" | "mimeType">,
-): FavoriteFilterType {
-  return getWorkspaceItemType(item);
 }
 
 export function filterFavoriteItems(
@@ -65,10 +46,6 @@ export function filterFavoriteItems(
   filterType: FavoriteFilterType,
 ): FavoriteClientItem[] {
   return filterWorkspaceItems(items, filterType);
-}
-
-export function formatFavoriteFileSize(bytes?: number): string {
-  return formatWorkspaceFileSize(bytes);
 }
 
 export function sortFavoriteItems(
@@ -79,39 +56,27 @@ export function sortFavoriteItems(
   return sortWorkspaceItems(
     items,
     sortDirection,
-    (left, right) => {
-      if (sortKey === "name") {
-        return compareWorkspaceStrings(left.name, right.name);
-      }
-      if (sortKey === "path") {
-        return compareWorkspaceStrings(left.locationLabel, right.locationLabel);
-      }
-      if (sortKey === "size") {
-        return (left.sizeBytes ?? -1) - (right.sizeBytes ?? -1);
-      }
-      return (
-        new Date(left.favoritedAt).getTime() -
-        new Date(right.favoritedAt).getTime()
-      );
-    },
+    compareListItems(sortKey, (item: FavoriteClientItem) => item.favoritedAt),
     { includeKindTieBreak: true },
   );
 }
 
-export function getQuickAccessFavorites(
-  items: FavoriteClientItem[],
-): FavoriteClientItem[] {
-  return [...items]
+/** Pinned favorites, most recently pinned first: Home and the sidebar. */
+export function pinnedFavorites<
+  T extends {
+    id: string;
+    name: string;
+    quickAccessPinnedAt: Date | string | null;
+  },
+>(items: T[]): T[] {
+  const pinnedAt = (item: T) =>
+    new Date(item.quickAccessPinnedAt ?? 0).getTime();
+  return items
     .filter((item) => item.quickAccessPinnedAt != null)
-    .sort((left, right) => {
-      const delta =
-        new Date(right.quickAccessPinnedAt!).getTime() -
-        new Date(left.quickAccessPinnedAt!).getTime();
-
-      if (delta !== 0) return delta;
-      return (
+    .sort(
+      (left, right) =>
+        pinnedAt(right) - pinnedAt(left) ||
         compareWorkspaceStrings(left.name, right.name) ||
-        left.id.localeCompare(right.id)
-      );
-    });
+        left.id.localeCompare(right.id),
+    );
 }

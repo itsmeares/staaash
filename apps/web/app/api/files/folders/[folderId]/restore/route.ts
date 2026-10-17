@@ -64,7 +64,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       actorUserId: session.user.id,
       actorRole: session.user.role,
       folderId,
-      source: "restore-folder-route",
+      action: "restored",
     });
     const location = result.restoredTo?.pathLabel ?? "Files";
 

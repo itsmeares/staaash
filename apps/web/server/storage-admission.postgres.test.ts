@@ -165,9 +165,8 @@ describe("readiness and operational history", () => {
         versionInfo: {
           currentVersion: "1.2.0",
           lastUpdateCheckAt: null,
-          updateCheckStatus: null,
-          updateCheckMessage: null,
-          latestAvailableVersion: null,
+          updateStatus: "unchecked",
+          latestVersion: null,
         },
       });
       expect(summary).toMatchObject({

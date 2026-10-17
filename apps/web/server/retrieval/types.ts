@@ -14,6 +14,7 @@ export type RetrievalItem =
       isFavorite: boolean;
       matchKind?: SearchMatchKind;
       parentId: string | null;
+      color?: string | null;
       storageMutation?: StorageMutationState | null;
     }
   | {
@@ -58,16 +59,35 @@ export type FavoriteFolderRecord = {
   quickAccessPinnedAt: Date | null;
 };
 
+/** What someone last did with an item; matches the RecentAction enum. */
+export type RecentAction =
+  | "opened"
+  | "uploaded"
+  | "created"
+  | "renamed"
+  | "moved"
+  | "downloaded"
+  | "trashed"
+  | "restored";
+
+export type RecentRetrievalItem = RetrievalItem & {
+  lastInteractedAt: Date;
+  /** Empty for activity recorded before actions were kept. */
+  lastAction: RecentAction | null;
+};
+
 export type RecentFileRecord = {
   userId: string;
   fileId: string;
   lastInteractedAt: Date;
+  lastAction: RecentAction | null;
 };
 
 export type RecentFolderRecord = {
   userId: string;
   folderId: string;
   lastInteractedAt: Date;
+  lastAction: RecentAction | null;
 };
 
 export type RetrievalListOptions = {
@@ -133,10 +153,12 @@ export type RetrievalRepository = {
     userId: string;
     fileId: string;
     lastInteractedAt: Date;
+    lastAction: RecentAction;
   }): Promise<void>;
   upsertRecentFolder(params: {
     userId: string;
     folderId: string;
     lastInteractedAt: Date;
+    lastAction: RecentAction;
   }): Promise<void>;
 };

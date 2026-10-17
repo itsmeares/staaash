@@ -99,8 +99,8 @@ const checkTheme = (tokens: Record<string, string>) => {
     secondary: rgb("secondary"),
     accent: rgb("accent"),
     sidebar,
-    "sidebar + hover": over(foreground, sidebar, 0.05),
-    "background + pressed": over(foreground, background, 0.08),
+    "sidebar + hover": over(foreground, sidebar, 0.06),
+    "background + pressed": over(foreground, background, 0.09),
     "background + primary/10": over(primary, background, 0.1),
     "admin sidebar (primary/9)": over(primary, background, 0.09),
   };
@@ -131,7 +131,13 @@ describe("text contrast tokens", () => {
 
   it("matches the contrast axe measured for the old light nav", () => {
     // #338: foreground at 60% on the light sidebar measured 4.28:1 in axe.
-    const tokens = themes.light;
+    // These are the light tokens from that time, kept to pin the math.
+    const tokens = {
+      background: "oklch(0.982 0.006 78)",
+      foreground: "oklch(0.21 0.015 72)",
+      sidebar:
+        "color-mix(in oklab, var(--background) 92%, var(--foreground) 8%)",
+    };
     const rgb = (name: string) => oklabToRgb(resolve(tokens, name));
     const sidebar = rgb("sidebar");
     const ratio = contrast(over(rgb("foreground"), sidebar, 0.6), sidebar);

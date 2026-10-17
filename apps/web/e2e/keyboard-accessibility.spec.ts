@@ -52,7 +52,7 @@ test("sign-in intro opens and submits with keyboard", async ({ page }) => {
   await page.goto("/");
   await expectNoSeriousA11yViolations(page);
   await expect(
-    page.getByRole("button", { name: /Click anywhere to begin/i }),
+    page.getByRole("button", { name: /Click anywhere or press any key/i }),
   ).not.toBeFocused();
   await page.keyboard.press("Enter");
 
@@ -72,85 +72,40 @@ test("incomplete-onboarding user can finish setup with keyboard", async ({
   const credentials = getOnboardingCredentials();
 
   await page.goto("/");
-  await expect(
-    page.getByRole("button", { name: /Click anywhere to begin/i }),
-  ).not.toBeFocused();
+  // Keys only advance the intro once the page is interactive.
+  await page.waitForLoadState("networkidle");
   await page.keyboard.press("Enter");
+  await expect(page.locator("[data-entry-form]")).toBeVisible();
   await page.getByLabel("Email", { exact: true }).fill(credentials.identifier);
   await page.getByLabel("Password").fill(credentials.password);
   await page.getByRole("button", { name: "Sign in" }).press("Enter");
 
   await expect(
-    page.getByRole("heading", { name: "Before you dive in." }),
-  ).toBeVisible();
+    page.getByRole("heading", { name: "Choose a look" }),
+  ).toBeAttached({ timeout: 20_000 });
   await expectNoSeriousA11yViolations(page);
+  // Arrow keys pick a half and move on.
+  await page.keyboard.press("ArrowRight");
+
   await expect(
-    page.getByRole("button", { name: /Click anywhere to continue/i }),
-  ).not.toBeFocused();
+    page.getByRole("heading", { name: "Check your time" }),
+  ).toBeAttached();
+  await page.keyboard.press("Enter");
+
+  await expect(page.getByRole("heading", { name: "Your name" })).toBeAttached();
+  await page.keyboard.press("ControlOrMeta+A");
+  await page.keyboard.type("Keyboard E2E");
   await page.keyboard.press("Enter");
 
   await expect(
-    page.getByRole("heading", { name: "Choose your theme" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Choose your theme" }),
-  ).not.toBeFocused();
-  await tabUntilFocused(page, page.getByRole("radio", { name: /System/i }));
-  await page.keyboard.press("ArrowRight");
-  await expect(page.getByRole("radio", { name: /Light/i })).toBeChecked();
-  await page.keyboard.press("ArrowRight");
-  await expect(page.getByRole("radio", { name: /Dark/i })).toBeChecked();
+    page.getByRole("heading", { name: "A few choices" }),
+  ).toBeAttached();
+  const versions = page.getByRole("button", { name: /Check for new versions/ });
+  await tabUntilFocused(page, versions);
   await page.keyboard.press("Enter");
-
-  await expect(
-    page.getByRole("heading", { name: "Set your time zone" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Set your time zone" }),
-  ).not.toBeFocused();
-  await page.getByRole("button", { name: "Continue" }).press("Enter");
-
-  await expect(
-    page.getByRole("heading", { name: "Your profile" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Your profile" }),
-  ).not.toBeFocused();
-  await page.getByLabel("Full name").fill("Keyboard E2E");
-  await page.getByRole("button", { name: "Continue" }).press("Enter");
-
-  await expect(
-    page.getByRole("heading", { name: "Privacy & features" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Privacy & features" }),
-  ).not.toBeFocused();
-  const versionChecks = page.getByRole("switch", { name: /Version checks/i });
-  await expect(versionChecks).toBeChecked();
-  await versionChecks.press("Space");
-  await expect(versionChecks).not.toBeChecked();
-  await page.getByRole("button", { name: "Continue" }).press("Enter");
-
-  await expect(
-    page.getByRole("heading", { name: "Media previews" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Media previews" }),
-  ).not.toBeFocused();
-  const mediaPreviews = page.getByRole("switch", {
-    name: /Enable media previews/i,
-  });
-  await expect(
-    page.getByRole("switch", { name: /Generate on upload/i }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("switch", { name: /Generate on first view/i }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("switch", { name: /Generate when shared/i }),
-  ).toBeVisible();
-  await mediaPreviews.press("Space");
-  await page.getByRole("button", { name: "Enter Staaash" }).press("Enter");
+  await expect(versions).toHaveAccessibleName(/never/);
+  await tabUntilFocused(page, page.getByRole("button", { name: "Finish" }));
+  await page.keyboard.press("Enter");
 
   await page.waitForURL((url) => url.pathname === "/files", {
     timeout: 15_000,
@@ -166,8 +121,8 @@ test("files rows move focus with keyboard and open selected item", async ({
   await expect(page.getByText("shared-preview.png")).toBeVisible();
   await expectNoSeriousA11yViolations(page);
 
-  const list = page.locator("[data-explorer-list]");
-  const firstRow = page.locator("[data-file-row]").first();
+  const list = page.locator("[data-file-list]");
+  const firstRow = page.locator("[data-list-item]").first();
 
   await list.focus();
   await page.keyboard.press("ArrowDown");
@@ -190,8 +145,11 @@ test("share dialog traps focus and returns focus on Escape", async ({
     next: "/shared",
   });
 
-  const manageButton = page.getByRole("button", { name: "Manage" }).first();
-  await manageButton.press("Enter");
+  const firstRow = page.locator("[data-list-item]").first();
+  await page.locator("[data-file-list]").focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(firstRow).toBeFocused();
+  await page.keyboard.press("Enter");
 
   const dialog = page.getByRole("dialog", { name: "Share" });
   await expect(dialog).toBeVisible();
@@ -216,5 +174,5 @@ test("share dialog traps focus and returns focus on Escape", async ({
 
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
-  await expect(manageButton).toBeFocused();
+  await expect(firstRow).toBeFocused();
 });

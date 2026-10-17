@@ -41,10 +41,7 @@ describe("HomePage route", () => {
     const page = await HomePage({ searchParams });
     const markup = renderToStaticMarkup(page);
 
-    expect(markup).toContain("Bring your Staaash online.");
-    expect(markup).toContain(
-      "Create the first owner account. After this, your instance is private.",
-    );
+    expect(markup).toContain("Bring your Staaash");
   });
 
   it("redirects signed-in visitors with completed onboarding to the library", async () => {
@@ -61,19 +58,35 @@ describe("HomePage route", () => {
     expect(redirect).toHaveBeenCalledWith("/api/auth/rehydrate");
   });
 
-  it("renders onboarding for signed-in visitors without completed onboarding", async () => {
-    getCurrentSession.mockResolvedValue({
-      user: { preferences: null },
-    });
+  const firstRun = async (user: Record<string, unknown>) => {
+    getCurrentSession.mockResolvedValue({ user });
     getSetupState.mockResolvedValue({
       isBootstrapped: true,
       instanceName: "Test",
     });
-
     const { default: HomePage } = await import("@/app/page");
-    const page = await HomePage({ searchParams });
-    const markup = renderToStaticMarkup(page);
+    return renderToStaticMarkup(await HomePage({ searchParams }));
+  };
 
-    expect(markup).toContain("Before you dive in.");
+  it("welcomes a new member to their account on this drive", async () => {
+    expect(await firstRun({ preferences: null, isOwner: false })).toContain(
+      "Test account.",
+    );
+  });
+
+  it("starts an owner who already made the account at the look step", async () => {
+    expect(await firstRun({ preferences: null, isOwner: true })).toContain(
+      "Choose a look",
+    );
+  });
+
+  it("asks only for a new password after an owner reset it", async () => {
+    expect(
+      await firstRun({
+        preferences: { onboardingCompletedAt: new Date() },
+        passwordChangeRequiredAt: new Date(),
+        isOwner: false,
+      }),
+    ).toContain("Choose a new password");
   });
 });

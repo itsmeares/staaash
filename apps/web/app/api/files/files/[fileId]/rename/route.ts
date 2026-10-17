@@ -65,7 +65,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       actorUserId: session.user.id,
       actorRole: session.user.role,
       fileId,
-      source: "rename-file-route",
+      action: "renamed",
     });
 
     return attachStorageMutationHeader(

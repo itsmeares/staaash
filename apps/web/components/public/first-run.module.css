@@ -1,0 +1,425 @@
+/* The first run: sentences on the halftone. Text sits straight on the dots,
+   so a soft center shade and a text shadow keep it readable. */
+
+.frame {
+  position: relative;
+  isolation: isolate;
+  min-height: 100dvh;
+  overflow: hidden;
+  background: #0d0b09;
+  color: #f3f1ee;
+}
+
+.shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 50% 42% at 50% 48%,
+    rgb(8 7 6 / 0.7),
+    rgb(8 7 6 / 0.4) 55%,
+    transparent 82%
+  );
+  transition: opacity 0.4s;
+}
+
+.frame[data-step="look"] .shade {
+  opacity: 0;
+}
+
+.readable {
+  text-shadow: 0 2px 28px rgb(0 0 0 / 0.65);
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+
+.step {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 6rem 1.5rem 9rem;
+  text-align: center;
+  animation: enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.display {
+  margin: 0;
+  font: 400 clamp(2.5rem, 7vw, 4rem) / 1.02 var(--font-cabinet);
+  letter-spacing: -0.03em;
+}
+
+/* "Call me [your name]": the field is part of the sentence. */
+.sentence {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 0.25em 0.3em;
+  align-items: baseline;
+  justify-content: center;
+  font: 400 clamp(2rem, 6.5vw, 4rem) / 1.1 var(--font-cabinet);
+  letter-spacing: -0.03em;
+}
+
+.sentence > span {
+  text-align: end;
+}
+
+.sentence.small {
+  font-size: clamp(1.75rem, 5.4vw, 3.4rem);
+}
+
+.field {
+  width: min(11ch, 60vw);
+  border: 0;
+  border-bottom: 2px solid #d9b77e;
+  border-radius: 0;
+  background: none;
+  color: #fff;
+  font: inherit;
+  letter-spacing: inherit;
+  outline: none;
+}
+
+.field::placeholder {
+  color: rgb(243 241 238 / 0.42);
+}
+
+.field:focus-visible {
+  border-bottom-color: #f3d9a6;
+}
+
+.wide {
+  width: min(13ch, 70vw);
+}
+
+@media (max-width: 640px) {
+  .sentence {
+    grid-template-columns: auto;
+    justify-items: center;
+  }
+
+  .sentence > span {
+    text-align: center;
+  }
+}
+
+.choices {
+  max-width: 54rem;
+  margin: 0;
+  font: 400 clamp(1.6rem, 4.4vw, 2.5rem) / 1.35 var(--font-cabinet);
+  letter-spacing: -0.02em;
+}
+
+.flip {
+  border: 0;
+  border-bottom: 2px dashed rgb(217 183 126 / 0.6);
+  background: none;
+  color: #d9b77e;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.flip:focus-visible {
+  outline: 2px solid #f3d9a6;
+  outline-offset: 4px;
+}
+
+.clock {
+  font: 400 clamp(6rem, 22vw, 9.5rem) / 1 var(--font-cabinet);
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+}
+
+.error {
+  position: absolute;
+  margin: 0;
+  bottom: clamp(5rem, 14vh, 7rem);
+  color: #fca5a5;
+  font-size: 0.95rem;
+  text-shadow: 0 1px 10px rgb(0 0 0 / 0.85);
+}
+
+/* Main button: gold text with a gold underline. */
+.nav {
+  position: absolute;
+  right: 0;
+  bottom: clamp(2rem, 7vh, 3.25rem);
+  left: 0;
+  z-index: 4;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.go {
+  border: 0;
+  border-bottom: 2px solid #d9b77e;
+  background: none;
+  color: #f3d9a6;
+  font: 600 1rem var(--font-switzer);
+  padding: 4px 2px;
+  cursor: pointer;
+  text-shadow: 0 1px 10px rgb(0 0 0 / 0.7);
+}
+
+.go:hover,
+.go:focus-visible {
+  color: #fff;
+  border-color: #f3d9a6;
+  outline: none;
+}
+
+.go:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.back {
+  border: 0;
+  background: none;
+  color: #f3f1ee;
+  opacity: 0.9;
+  font: 400 0.9rem var(--font-switzer);
+  cursor: pointer;
+  padding: 4px 2px;
+  text-shadow: 0 1px 10px rgb(0 0 0 / 0.85);
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.95rem;
+  opacity: 0.85;
+  text-shadow: 0 1px 12px rgb(0 0 0 / 0.8);
+}
+
+/* Progress: a 20 by 34 pixel target around each small dot. */
+.dots {
+  position: absolute;
+  top: 1.5rem;
+  left: 50%;
+  z-index: 5;
+  display: flex;
+  transform: translateX(-50%);
+}
+
+.dot {
+  position: relative;
+  width: 6px;
+  height: 6px;
+  box-sizing: content-box;
+  padding: 14px 7px;
+  border: 0;
+  background: none;
+  cursor: default;
+  transition: width 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dot::before {
+  content: "";
+  position: absolute;
+  inset: 14px 7px;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 0.28);
+  transition: background 0.2s;
+}
+
+.dot[data-on]::before {
+  background: #d9b77e;
+}
+
+.dots:hover .dot {
+  width: 22px;
+}
+
+.dot[data-reach] {
+  cursor: pointer;
+}
+
+.dot[data-reach]:hover,
+.dot[data-reach]:focus-visible {
+  width: 38px;
+  outline: none;
+}
+
+.dot[data-reach]:hover::before,
+.dot[data-reach]:focus-visible::before {
+  background: #f3d9a6;
+}
+
+.dot::after {
+  content: attr(data-label);
+  position: absolute;
+  top: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  font: 500 12px var(--font-switzer);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  text-shadow: 0 1px 8px rgb(0 0 0 / 0.9);
+}
+
+.dot:hover::after,
+.dot:focus-visible::after {
+  opacity: 1;
+}
+
+.frame[data-step="look"] .dot:not([data-on])::before {
+  background: rgb(127 127 127 / 0.5);
+}
+
+/* Theme: two halves, nothing chosen until a click. */
+.halves {
+  position: absolute;
+  inset: 0;
+  display: flex;
+}
+
+.half {
+  position: relative;
+  flex: 1;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 1rem;
+  border: 0;
+  cursor: pointer;
+  transition: flex 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.half:hover,
+.half:focus-visible {
+  flex: 1.25;
+  outline: none;
+}
+
+.half[data-theme="dark"] {
+  background: rgb(10 9 8 / 0.45);
+  color: #f3f1ee;
+}
+
+.half[data-theme="light"] {
+  background: rgb(242 238 232 / 0.92);
+  color: #211d19;
+}
+
+.halfName {
+  font: 400 clamp(2.5rem, 6vw, 3.75rem) var(--font-cabinet);
+  letter-spacing: -0.02em;
+}
+
+.check {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #d9b77e;
+  color: #1b1610;
+  opacity: 0;
+  transform: scale(0.6);
+  transition:
+    opacity 0.25s,
+    transform 0.25s;
+}
+
+.half[aria-checked="true"] .check {
+  opacity: 1;
+  transform: none;
+}
+
+/* The drive picture, sized for a half of the screen. */
+.mini {
+  width: 220px;
+  box-shadow: 0 18px 40px -18px rgb(0 0 0 / 0.6);
+}
+
+@media (max-width: 640px) {
+  .halves {
+    flex-direction: column;
+  }
+
+  .mini {
+    width: 160px;
+  }
+}
+
+.info {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-inline-start: 6px;
+  vertical-align: middle;
+  border: 1.5px solid rgb(243 241 238 / 0.55);
+  border-radius: 50%;
+  background: rgb(10 9 8 / 0.4);
+  color: #f3f1ee;
+  font: 600 14px var(--font-switzer);
+  text-shadow: none;
+  cursor: pointer;
+}
+
+.tip {
+  position: absolute;
+  top: 38px;
+  left: 50%;
+  z-index: 6;
+  width: min(330px, 80vw);
+  padding: 12px 14px;
+  transform: translateX(-50%);
+  border: 1px solid rgb(255 255 255 / 0.1);
+  border-radius: 12px;
+  background: rgb(20 19 18 / 0.96);
+  box-shadow: 0 16px 40px -14px rgb(0 0 0 / 0.8);
+  font: 400 13.5px / 1.5 var(--font-switzer);
+  letter-spacing: 0;
+  text-align: start;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.info:hover .tip,
+.info:focus-visible .tip,
+.info[aria-expanded="true"] .tip {
+  opacity: 1;
+}
+
+.brand {
+  position: absolute;
+  top: 1.4rem;
+  left: 1.75rem;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font: 500 1.125rem var(--font-cabinet);
+}
+
+@media (max-width: 640px) {
+  .brand {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step,
+  .half,
+  .dot,
+  .check,
+  .shade {
+    animation: none;
+    transition: none;
+  }
+}

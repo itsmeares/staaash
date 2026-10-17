@@ -42,7 +42,7 @@ const trackEnsuredFolderAccess = async ({
             actorUserId,
             actorRole,
             folderId,
-            source: "ensure-folder-paths-route",
+            action: "uploaded",
           }),
         ),
     );

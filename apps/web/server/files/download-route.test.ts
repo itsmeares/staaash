@@ -181,7 +181,7 @@ describe("private file download route", () => {
       actorUserId: "alice",
       actorRole: "member",
       fileId: "file-1",
-      source: "download-file-route",
+      action: "downloaded",
     });
   });
 

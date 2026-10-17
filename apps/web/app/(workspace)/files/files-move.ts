@@ -1,4 +1,9 @@
-import type { BatchMoveItem, BatchMoveResponse } from "@/server/files/types";
+import { randomClientId } from "@/lib/client-id";
+import type {
+  BatchMoveItem,
+  BatchMoveOperationResponse,
+  BatchMoveResponse,
+} from "@/server/files/types";
 
 export const getMoveItemsForInteraction = ({
   allItems,
@@ -91,3 +96,81 @@ export const buildBatchMoveFailureMessage = ({
 
   return `${response.movedCount} moved. ${response.failedCount} failed — ${detail}`;
 };
+
+export const isBatchMoveOperationResponse = (
+  value: unknown,
+): value is BatchMoveOperationResponse => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const candidate = value as {
+    operationId?: unknown;
+    status?: unknown;
+  };
+  return (
+    typeof candidate.operationId === "string" &&
+    ["queued", "running", "succeeded", "recovery_required"].includes(
+      candidate.status as string,
+    )
+  );
+};
+
+const POLL_MS = 1_000;
+// Ten minutes; a move still running after that shows up after a refresh.
+const MAX_POLLS = 600;
+
+const errorOf = (value: unknown) =>
+  (value as { error?: string } | null)?.error ?? "Items could not be moved.";
+
+const isSettled = (value: unknown): value is BatchMoveOperationResponse =>
+  isBatchMoveOperationResponse(value) &&
+  value.status !== "queued" &&
+  value.status !== "running";
+
+// Follows a queued move until the server says how it ended.
+async function waitForMove(operationId: string | null, first: unknown) {
+  let value = first;
+  for (let polls = 0; ; polls++) {
+    if (isSettled(value)) return value;
+    if (!operationId || polls >= MAX_POLLS) {
+      throw new Error("The move is taking long. Refresh to see where it is.");
+    }
+    await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+    const poll = await fetch(
+      `/api/files/move/${encodeURIComponent(operationId)}`,
+      { headers: { Accept: "application/json" } },
+    );
+    if (poll.status === 404) throw new Error("This move could not be tracked.");
+    value = await poll.json().catch(() => null);
+  }
+}
+
+/**
+ * Moves items and waits until the server finishes, for lists outside Files
+ * (Recent, Favorites, Search, Home). Files tracks its own moves in place.
+ */
+export async function submitMove(
+  items: BatchMoveItem[],
+  destinationFolderId: string,
+): Promise<BatchMoveResponse> {
+  const response = await fetch("/api/files/move", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "Idempotency-Key": randomClientId(),
+    },
+    body: JSON.stringify({ items, destinationFolderId, source: "direct" }),
+  });
+  const value: unknown = await response.json().catch(() => null);
+  const queued = isBatchMoveOperationResponse(value);
+  if (!response.ok && !queued) throw new Error(errorOf(value));
+  const done = await waitForMove(
+    queued ? value.operationId : response.headers.get("X-Storage-Mutation-Id"),
+    value,
+  );
+  if (done.status === "recovery_required" || !done.response) {
+    throw new Error(done.error ?? "This move could not finish.");
+  }
+  return done.response;
+}

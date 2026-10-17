@@ -27,13 +27,14 @@ export function PageHeader({
   return (
     <header
       className={cn(
-        "flex flex-wrap items-start justify-between gap-x-4.5 gap-y-3 max-sm:flex-col",
+        "flex flex-wrap items-start justify-between gap-x-4.5 gap-y-3",
         divider && "border-b border-hairline pb-4",
         className,
       )}
       data-slot="page-header"
     >
-      <div className="grid min-w-0 gap-1.5">
+      {/* Actions that fit stay beside the title; wider ones wrap below it. */}
+      <div className="grid min-w-0 flex-1 basis-56 gap-1.5">
         <div className="flex flex-wrap items-center gap-2.5">
           <h1
             className={cn(
@@ -52,9 +53,7 @@ export function PageHeader({
         ) : null}
       </div>
       {actions ? (
-        <div className="flex flex-wrap items-center gap-2 max-sm:w-full">
-          {actions}
-        </div>
+        <div className="flex flex-wrap items-center gap-2">{actions}</div>
       ) : null}
     </header>
   );

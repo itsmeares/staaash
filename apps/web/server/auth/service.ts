@@ -144,6 +144,8 @@ const normalizeTemporaryPasswordInput = (
   };
 };
 
+// Exported for its unit tests.
+// fallow-ignore-next-line unused-export
 export const createAuthService = ({
   repo,
   crypto = authCrypto,
@@ -228,6 +230,14 @@ export const createAuthService = ({
     }
 
     return actor;
+  };
+
+  /** An admin looking up someone; missing people are an error. */
+  const requireUser = async (actorUserId: string, targetUserId: string) => {
+    await requireAdmin(actorUserId);
+    const user = await (await resolveRepo()).findUserById(targetUserId);
+    if (!user) throw new AuthError("USER_NOT_FOUND");
+    return user;
   };
 
   const requireOwner = async (actorUserId: string) => {
@@ -420,25 +430,10 @@ export const createAuthService = ({
       return (await resolveRepo()).listUsers();
     },
 
-    async getUser(actorUserId: string, targetUserId: string) {
-      await requireAdmin(actorUserId);
-      const user = await (await resolveRepo()).findUserById(targetUserId);
-
-      if (!user) {
-        throw new AuthError("USER_NOT_FOUND");
-      }
-
-      return user;
-    },
+    getUser: requireUser,
 
     async listUserSessions(actorUserId: string, targetUserId: string) {
-      await requireAdmin(actorUserId);
-      const user = await (await resolveRepo()).findUserById(targetUserId);
-
-      if (!user) {
-        throw new AuthError("USER_NOT_FOUND");
-      }
-
+      await requireUser(actorUserId, targetUserId);
       return (await resolveRepo()).listUserSessions(targetUserId);
     },
 
@@ -630,24 +625,84 @@ export const createAuthService = ({
     async savePreferences(
       userId: string,
       prefs: {
-        theme: string;
-        timeZone: string;
-        showUpdateNotifications: boolean;
-        enableVersionChecks: boolean;
+        theme?: string;
+        timeZone?: string;
+        showUpdateNotifications?: boolean;
+        showFolderPreviews?: boolean;
+        showPinsInSidebar?: boolean;
+        startPage?: string;
+        defaultView?: string;
+        clockFormat?: string;
         displayName?: string | null;
         avatarUrl?: string | null;
       },
     ) {
       return (await resolveRepo()).savePreferences({
         userId,
-        theme: prefs.theme,
-        timeZone: prefs.timeZone,
-        showUpdateNotifications: prefs.showUpdateNotifications,
-        enableVersionChecks: prefs.enableVersionChecks,
-        displayName: prefs.displayName,
-        avatarUrl: prefs.avatarUrl,
+        ...prefs,
         onboardingCompletedAt: new Date(),
       });
+    },
+
+    /**
+     * A voluntary password change from Settings. The current password must
+     * match; every other signed-in device is signed out, as after a reset.
+     */
+    async changeOwnPassword(
+      userId: string,
+      currentSessionId: string,
+      input: {
+        currentPassword: string;
+        password: string;
+        confirmPassword: string;
+      },
+    ) {
+      const activeRepo = await resolveRepo();
+      const user = await activeRepo.findUserById(userId);
+      const stored = user ? await activeRepo.findUserByEmail(user.email) : null;
+      if (
+        !stored ||
+        !(await crypto.verifyPassword(
+          input.currentPassword,
+          stored.passwordHash,
+        ))
+      ) {
+        throw new AuthError("CURRENT_PASSWORD_WRONG");
+      }
+      const parsed = requiredPasswordChangeInputSchema.parse(input);
+      if (parsed.password !== parsed.confirmPassword) {
+        throw new AuthError("PASSWORD_CONFIRMATION_MISMATCH");
+      }
+      await activeRepo.changeRequiredPassword({
+        userId,
+        currentSessionId,
+        passwordHash: await crypto.hashPassword(parsed.password),
+        now: now(),
+      });
+    },
+
+    /** The browsers signed in to your own account. */
+    async listOwnSessions(userId: string) {
+      return (await resolveRepo()).listUserSessions(userId);
+    },
+
+    /** Signs one of your own other devices out, or all of them. */
+    async revokeOwnSessions(
+      userId: string,
+      currentSessionId: string,
+      sessionId?: string,
+    ) {
+      if (sessionId === currentSessionId) {
+        throw new AuthError("CURRENT_SESSION_REVOKE_BLOCKED");
+      }
+      const activeRepo = await resolveRepo();
+      const sessions = await activeRepo.listUserSessions(userId);
+      const targets = sessions.filter((session) =>
+        sessionId ? session.id === sessionId : session.id !== currentSessionId,
+      );
+      for (const session of targets) {
+        await activeRepo.revokeSessionById(session.id, now());
+      }
     },
   };
 };

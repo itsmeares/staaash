@@ -40,10 +40,10 @@ model Instance {
   authSecret             String?
   setupCompletedAt       DateTime  @default(now())
   lastUpdateCheckAt      DateTime?
-  updateCheckStatus      String?
-  updateCheckMessage     String?
-  latestAvailableVersion String?
-  checkedVersion         String?
+  /// Why the last check failed; null after a successful check.
+  updateCheckError       String?
+  /// Recent releases on the chosen channel, newest first.
+  updateReleases         Json?
   storageProtocolVersion Int       @default(2)
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
@@ -63,7 +63,9 @@ model SystemSettings {
   previewMaxSourceBytes              Int      @default(26214400)
   previewTextMaxBytes                Int      @default(65536)
   workerHeartbeatMaxAgeSeconds       Int      @default(120)
-  updateCheckIntervalHours           Int      @default(24)
+  updateCheckEnabled                 Boolean  @default(true)
+  /// "stable" or "rc"; null follows the running version (rc for pre-releases).
+  updateChannel                      String?
   updateCheckRepository              String   @default("itsmeares/staaash")
   timeZone                           String   @default("UTC")
   maintenanceRunTime                 String   @default("02:00")
@@ -120,7 +122,15 @@ model UserPreference {
   theme                   String    @default("system")
   timeZone                String    @default("UTC")
   showUpdateNotifications Boolean   @default(true)
-  enableVersionChecks     Boolean   @default(true)
+  showFolderPreviews      Boolean   @default(true)
+  /// "home" or "files".
+  startPage               String    @default("files")
+  /// "list" or "grid", used until a page has its own remembered choice.
+  defaultView             String    @default("list")
+  /// "12h" or "24h".
+  clockFormat             String    @default("24h")
+  /// Pinned favorites also listed in the sidebar and the phone's More sheet.
+  showPinsInSidebar       Boolean   @default(false)
   onboardingCompletedAt   DateTime?
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
@@ -149,6 +159,10 @@ model Folder {
   parentId    String?
   name        String
   isFilesRoot Boolean          @default(false)
+  /// A named swatch ("blue") or a custom "#rrggbb"; null is the default gray.
+  color       String?
+  /// A lucide icon name from the folder icon picker; null is the folder icon.
+  icon        String?
   deletedAt   DateTime?
   storageRevision Int             @default(0)
   trashEntryId String?
@@ -231,25 +245,41 @@ model FavoriteFolder {
   @@index([userId, quickAccessPinnedAt])
 }
 
+/// What someone last did with an item, shown in Recent.
+enum RecentAction {
+  opened
+  uploaded
+  created
+  renamed
+  moved
+  downloaded
+  trashed
+  restored
+}
+
 model RecentFile {
-  id               String   @id @default(cuid())
+  id               String        @id @default(cuid())
   userId           String
   fileId           String
   lastInteractedAt DateTime
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  file             File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  /// Empty for rows recorded before actions were kept.
+  lastAction       RecentAction?
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  file             File          @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
   @@unique([userId, fileId])
   @@index([userId, lastInteractedAt])
 }
 
 model RecentFolder {
-  id               String   @id @default(cuid())
+  id               String        @id @default(cuid())
   userId           String
   folderId         String
   lastInteractedAt DateTime
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  folder           Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  /// Empty for rows recorded before actions were kept.
+  lastAction       RecentAction?
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder           Folder        @relation(fields: [folderId], references: [id], onDelete: Cascade)
 
   @@unique([userId, folderId])
   @@index([userId, lastInteractedAt])

@@ -13,6 +13,8 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
+import { confirmAction } from "@/components/confirm-dialog";
+import { toast } from "@/components/ui/toast";
 import { FolderOpen, RefreshCw } from "lucide-react";
 
 import {
@@ -28,6 +30,15 @@ import {
 } from "@/components/ui/context-menu";
 
 import {
+  MenuItem,
+  MenuSeparator,
+  MenuShortcut,
+  MenuSub,
+  MenuSubPopup,
+  MenuSubTrigger,
+} from "@/components/ui/menu";
+
+import {
   getVisibleDashboardMenuGroups,
   type DashboardContextMenuActionModel,
   type DashboardContextMenuGroupModel,
@@ -41,6 +52,8 @@ export type DashboardContextMenuAction = DashboardContextMenuActionModel & {
   onSelect?: () => void;
   shortcut?: string;
   destructive?: boolean;
+  /** A short name for the phone sheet's big buttons, when it gets one. */
+  quick?: string;
   subActions?: DashboardContextMenuAction[];
 };
 
@@ -97,11 +110,58 @@ function DashboardContextMenuItems({ groups }: DashboardContextMenuItemsProps) {
   );
 }
 
+/** The same actions in a dropdown menu, for "More actions" buttons. */
+export function DashboardMenuItems({ groups }: DashboardContextMenuItemsProps) {
+  const visibleGroups = getVisibleDashboardMenuGroups(groups);
+
+  return (
+    <>
+      {visibleGroups.map((group, groupIndex) => (
+        <Fragment key={groupIndex}>
+          {groupIndex > 0 ? <MenuSeparator /> : null}
+          {group.actions.map((action) =>
+            action.subActions && action.subActions.length > 0 ? (
+              <MenuSub key={action.label}>
+                <MenuSubTrigger>
+                  {action.icon}
+                  {action.label}
+                </MenuSubTrigger>
+                <MenuSubPopup>
+                  <DashboardMenuItems
+                    groups={[{ actions: action.subActions }]}
+                  />
+                </MenuSubPopup>
+              </MenuSub>
+            ) : (
+              <MenuItem
+                disabled={action.disabled}
+                key={action.label}
+                variant={action.destructive ? "destructive" : "default"}
+                onClick={() => {
+                  if (!action.disabled) action.onSelect?.();
+                }}
+              >
+                {action.icon}
+                {action.label}
+                {action.shortcut ? (
+                  <MenuShortcut>{action.shortcut}</MenuShortcut>
+                ) : null}
+              </MenuItem>
+            ),
+          )}
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
 export function DashboardItemContextMenu({
   children,
+  disabled,
   groups,
 }: {
   children: ReactElement;
+  disabled?: boolean;
   groups: DashboardContextMenuGroup[];
 }) {
   const trigger = isValidElement<Record<string, unknown>>(children)
@@ -111,7 +171,7 @@ export function DashboardItemContextMenu({
     : children;
 
   return (
-    <ContextMenu>
+    <ContextMenu disabled={disabled}>
       <ContextMenuTrigger render={trigger} />
       <ContextMenuPopup>
         <DashboardContextMenuItems groups={groups} />
@@ -182,16 +242,23 @@ export function DashboardPageContextMenu({
   );
 }
 
-export function submitDashboardPostForm({
+export const EMPTY_TRASH_CONFIRM = {
+  title: "Empty trash?",
+  description: "Everything in it is deleted for good.",
+  confirmLabel: "Empty trash",
+  destructive: true,
+};
+
+async function submitDashboardPostForm({
   action,
-  confirmMessage,
+  confirm,
   fields,
 }: {
   action: string;
-  confirmMessage?: string;
+  confirm?: Parameters<typeof confirmAction>[0];
   fields?: Record<string, string>;
 }) {
-  if (confirmMessage && !window.confirm(confirmMessage)) return;
+  if (confirm && !(await confirmAction(confirm))) return;
   void submitStorageMutationPost({
     action,
     fields,
@@ -201,7 +268,7 @@ export function submitDashboardPostForm({
       window.location.href = fields?.redirectTo ?? window.location.href;
     })
     .catch((error) =>
-      window.alert(
+      toast.error(
         error instanceof Error ? error.message : "Storage operation failed.",
       ),
     );
@@ -244,8 +311,7 @@ export function WorkspacePresetPageContextMenu({
           onSelect: () =>
             submitDashboardPostForm({
               action: "/api/files/trash/clear",
-              confirmMessage:
-                "Empty trash? This permanently deletes all trashed folder trees and standalone files.",
+              confirm: EMPTY_TRASH_CONFIRM,
               fields: { redirectTo: "/trash" },
             }),
         },

@@ -1,19 +1,16 @@
-import {
-  DATE_GROUP_ORDER,
-  getDateGroup,
-  type DateGroupLabel,
-} from "@/lib/time";
-import type { RetrievalItem } from "@/server/retrieval/types";
+import type {
+  RecentAction,
+  RecentRetrievalItem,
+  RetrievalItem,
+} from "@/server/retrieval/types";
 
 import {
-  compareWorkspaceStrings,
+  compareListItems,
   filterWorkspaceItems,
-  formatWorkspaceFileSize,
-  getWorkspaceItemType,
-  getWorkspaceLocationLabel,
   sortWorkspaceItems,
   type WorkspaceItemFilterType,
   type WorkspaceSortDirection,
+  toWorkspaceListFields,
 } from "../workspace-item-helpers";
 
 export type RecentClientItem = {
@@ -24,52 +21,108 @@ export type RecentClientItem = {
   isFavorite: boolean;
   kind: RetrievalItem["kind"];
   locationLabel: string;
+  color?: string | null;
   mimeType?: string;
   name: string;
   parentId?: string | null;
   sizeBytes?: number;
   storageMutationStatus?: string;
-  uploadedAt: string;
+  /** When it was added, or last used in activity lists. */
+  at: string;
+  lastAction?: RecentAction | null;
 };
 
 export type RecentFilterType = WorkspaceItemFilterType;
 
-export type RecentSortKey = "name" | "path" | "size" | "uploadedAt";
+export type RecentSortKey = "name" | "path" | "size" | "at";
 export type RecentSortDirection = WorkspaceSortDirection;
-
-export type RecentGroupLabel = DateGroupLabel;
-
-export type RecentGroup<T> = {
-  label: RecentGroupLabel;
-  items: T[];
-};
-
-export function getRecentLocationLabel(item: RetrievalItem): string {
-  return getWorkspaceLocationLabel(item);
-}
 
 export function toRecentClientItem(item: RetrievalItem): RecentClientItem {
   return {
-    folderId: item.kind === "file" ? item.folderId : undefined,
+    ...toWorkspaceListFields(item),
     deletedAt: item.deletedAt?.toISOString() ?? null,
-    href: item.href,
-    id: item.id,
     isFavorite: item.isFavorite,
-    kind: item.kind,
-    locationLabel: getRecentLocationLabel(item),
-    mimeType: item.kind === "file" ? item.mimeType : undefined,
-    name: item.name,
-    parentId: item.kind === "folder" ? item.parentId : undefined,
-    sizeBytes: item.kind === "file" ? item.sizeBytes : undefined,
-    storageMutationStatus: item.storageMutation?.status,
-    uploadedAt: item.updatedAt.toISOString(),
+    at: item.updatedAt.toISOString(),
   };
 }
 
-export function getRecentType(
-  item: Pick<RecentClientItem, "kind" | "mimeType">,
-): RecentFilterType {
-  return getWorkspaceItemType(item);
+export const toActivityClientItem = (
+  item: RecentRetrievalItem,
+): RecentClientItem => ({
+  ...toRecentClientItem(item),
+  at: item.lastInteractedAt.toISOString(),
+  lastAction: item.lastAction,
+});
+
+export const ACTION_LABELS: Record<RecentAction, string> = {
+  opened: "Opened",
+  uploaded: "Uploaded",
+  created: "Created",
+  renamed: "Renamed",
+  moved: "Moved here",
+  downloaded: "Downloaded",
+  trashed: "Trashed",
+  restored: "Restored",
+};
+
+/** A row of the activity list: one item, or a burst of them as one row. */
+export type ActivityRow = RecentClientItem & { batch?: RecentClientItem[] };
+
+const BATCHED = new Set<RecentAction>(["uploaded", "moved"]);
+const BATCH_MIN = 4;
+const BATCH_GAP_MS = 10 * 60_000;
+
+const parentOf = (item: RecentClientItem) =>
+  (item.kind === "file" ? item.folderId : item.parentId) ?? null;
+
+const continues = (last: RecentClientItem, item: RecentClientItem) =>
+  !last.deletedAt &&
+  !item.deletedAt &&
+  item.lastAction != null &&
+  BATCHED.has(item.lastAction) &&
+  item.lastAction === last.lastAction &&
+  parentOf(item) === parentOf(last) &&
+  Date.parse(last.at) - Date.parse(item.at) <= BATCH_GAP_MS;
+
+/**
+ * Uploads or moves into one folder close together (newest first, a few
+ * minutes apart) become one row, so 200 photos don't bury everything else.
+ */
+export function batchActivity(items: RecentClientItem[]): ActivityRow[] {
+  const rows: ActivityRow[] = [];
+  let run: RecentClientItem[] = [];
+  const flush = () => {
+    const [first] = run;
+    if (first && run.length >= BATCH_MIN) {
+      rows.push({ ...first, id: `batch:${first.id}`, batch: run });
+    } else {
+      rows.push(...run);
+    }
+    run = [];
+  };
+  for (const item of items) {
+    const last = run.at(-1);
+    if (!last || !continues(last, item)) flush();
+    run.push(item);
+  }
+  flush();
+  return rows;
+}
+
+const nounFor = (items: RecentClientItem[]) => {
+  if (items.every((item) => item.mimeType?.startsWith("image/")))
+    return "photos";
+  if (items.every((item) => item.mimeType?.startsWith("video/")))
+    return "videos";
+  return items.every((item) => item.kind === "file") ? "files" : "items";
+};
+
+/** "Uploaded 12 photos to Wallpapers". */
+export function batchLabel(row: ActivityRow) {
+  const items = row.batch ?? [row];
+  const verb = row.lastAction === "moved" ? "Moved" : "Uploaded";
+  const folder = row.locationLabel.split(" / ").at(-1);
+  return `${verb} ${items.length} ${nounFor(items)} to ${folder}`;
 }
 
 export function filterRecentItems(
@@ -79,45 +132,14 @@ export function filterRecentItems(
   return filterWorkspaceItems(items, filterType);
 }
 
-export function formatRecentFileSize(bytes?: number): string {
-  return formatWorkspaceFileSize(bytes);
-}
-
 export function sortRecentItems(
   items: RecentClientItem[],
   sortKey: RecentSortKey,
   sortDirection: RecentSortDirection,
 ): RecentClientItem[] {
-  return sortWorkspaceItems(items, sortDirection, (left, right) => {
-    if (sortKey === "name") {
-      return compareWorkspaceStrings(left.name, right.name);
-    }
-    if (sortKey === "path") {
-      return compareWorkspaceStrings(left.locationLabel, right.locationLabel);
-    }
-    if (sortKey === "size") {
-      return (left.sizeBytes ?? -1) - (right.sizeBytes ?? -1);
-    }
-    return (
-      new Date(left.uploadedAt).getTime() - new Date(right.uploadedAt).getTime()
-    );
-  });
-}
-
-export function groupRecentItems<T extends { uploadedAt: string }>(
-  items: T[],
-  now: Date,
-  timeZone: string,
-): RecentGroup<T>[] {
-  const map = new Map<RecentGroupLabel, T[]>();
-
-  for (const item of items) {
-    const label = getDateGroup(item.uploadedAt, now, timeZone);
-    map.set(label, [...(map.get(label) ?? []), item]);
-  }
-
-  return DATE_GROUP_ORDER.flatMap((label) => {
-    const group = map.get(label);
-    return group ? [{ label, items: group }] : [];
-  });
+  return sortWorkspaceItems(
+    items,
+    sortDirection,
+    compareListItems(sortKey, (item: RecentClientItem) => item.at),
+  );
 }

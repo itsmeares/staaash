@@ -4,167 +4,80 @@ import { getOwnerCredentials, signIn } from "./helpers";
 
 const readSettings = (page: Page) =>
   page
-    .locator("form")
+    .getByRole("form", { name: "Drive settings" })
     .evaluate((form) =>
       Object.fromEntries(new FormData(form as HTMLFormElement)),
     );
 
-async function chooseTimeZone(page: Page, zone: string) {
-  await page
-    .getByRole("button", { name: "Instance time zone", exact: true })
+const openCategory = (page: Page, name: string) =>
+  page
+    .getByRole("navigation", { name: "Settings" })
+    .getByRole("button", { name, exact: true })
     .click();
-  await page.getByRole("searchbox", { name: "Search time zones" }).fill(zone);
-  await page.getByRole("option", { name: new RegExp(zone) }).click();
+
+// The field opens in whichever unit the stored value divides into.
+async function useSeconds(page: Page) {
+  await page
+    .getByRole("region", { name: "Worker" })
+    .getByRole("combobox", { name: "Unit" })
+    .click();
+  await page.getByRole("option", { name: "sec", exact: true }).click();
 }
 
-test("settings keep rejected drafts, reveal errors and reset to the latest save", async ({
+test("settings wait for Save, show errors where they happen and survive a reload", async ({
   page,
 }) => {
   await signIn(page, { ...getOwnerCredentials(), next: "/admin/settings" });
   const original = await readSettings(page);
-  const nextZone =
-    original.timeZone === "Asia/Tokyo" ? "Europe/London" : "Asia/Tokyo";
-  const heartbeat = page.getByRole("textbox", {
-    name: "Heartbeat max age (seconds)",
+  const heartbeat = page.getByLabel("Worker counts as down after", {
     exact: true,
   });
-  const timeout = page.getByRole("textbox", {
-    name: "Upload timeout (minutes)",
-    exact: true,
-  });
-  const maintenance = page.getByRole("textbox", {
-    name: "Daily maintenance time",
-    exact: true,
-  });
-  const media = page.getByRole("switch", {
-    name: "Enable media previews",
-    exact: true,
-  });
-  const workerPanel = page.locator("#settings-panel-worker");
-  const schedulingPanel = page.locator("#settings-panel-scheduling");
-
-  await page
-    .getByRole("button", {
-      name: "Uploads Upload limits, temporary upload cleanup, and file preview limits",
-      exact: true,
-    })
-    .click();
-  await page
-    .getByRole("button", {
-      name: "Worker Background worker heartbeat tolerance",
-      exact: true,
-    })
-    .click();
-  await page
-    .getByRole("button", {
-      name: "Scheduling Instance time zone and maintenance window",
-      exact: true,
-    })
-    .click();
-  await page
-    .getByRole("button", {
-      name: "Media previews Video preview generation, cleanup, and quality",
-      exact: true,
-    })
-    .click();
+  const media = page.getByRole("switch", { name: "Media previews" });
+  const save = page.getByRole("button", { name: "Save", exact: true });
+  const savedToast = page.getByText("Saved", { exact: true }).first();
 
   try {
-    await heartbeat.fill("2147483648");
-    await timeout.fill("90");
-    await chooseTimeZone(page, nextZone);
-    await maintenance.fill("23:59");
+    await openCategory(page, "Media previews");
     await media.click();
-    const draft = await readSettings(page);
+    await page.getByRole("button", { name: "Discard", exact: true }).click();
+    await expect(media).toBeChecked({
+      checked: original.mediaPreviewEnabled === "on",
+    });
+    await expect(save).toBeHidden();
 
-    await workerPanel
-      .getByRole("button", {
-        name: "Worker Background worker heartbeat tolerance",
-        exact: true,
-      })
-      .click();
-    await page
-      .getByRole("searchbox", { name: "Search settings" })
-      .fill("scheduling");
-    await schedulingPanel
-      .getByRole("button", { name: "Save", exact: true })
-      .click();
+    await openCategory(page, "Worker");
+    await useSeconds(page);
+    await heartbeat.fill("2147483648");
+    await heartbeat.press("Enter");
     await expect(heartbeat).toHaveAttribute("aria-invalid", "true");
-    await expect(heartbeat).toBeFocused();
-    await expect(
-      workerPanel.locator('[data-slot="collapsible-panel"]'),
-    ).toHaveJSProperty("scrollTop", 0);
-    await expect(
-      page.getByRole("searchbox", { name: "Search settings" }),
-    ).toHaveValue("");
-    await expect(workerPanel.getByRole("alert")).toHaveText(
+    await expect(page.getByRole("alert").first()).toHaveText(
       "Use 2,147,483,647 or less.",
     );
-    expect(await readSettings(page)).toEqual(draft);
 
     await heartbeat.fill("180");
-    await workerPanel
-      .getByRole("button", { name: "Save", exact: true })
-      .click();
-    await expect(
-      workerPanel.getByText("Saved.", { exact: true }),
-    ).toBeVisible();
-    await expect(heartbeat).toHaveAttribute("aria-invalid", "false");
-    const saved = await readSettings(page);
-
-    // Save again without changing the timezone to catch stale Reset baselines.
-    await heartbeat.fill("200");
-    await workerPanel
-      .getByRole("button", { name: "Save", exact: true })
-      .click();
-    await expect(
-      workerPanel.getByText("Saved.", { exact: true }),
-    ).toBeVisible();
-    await chooseTimeZone(page, String(original.timeZone));
-    await maintenance.fill("04:00");
-    await timeout.fill("100");
+    await openCategory(page, "Media previews");
     await media.click();
-    await schedulingPanel
-      .getByRole("button", { name: "Reset", exact: true })
-      .click();
-    expect(await readSettings(page)).toEqual({
-      ...saved,
-      workerHeartbeatMaxAgeSeconds: "200",
-    });
-    await expect(
-      page.getByRole("button", { name: "Instance time zone", exact: true }),
-    ).toContainText(nextZone);
+    await save.click();
+    await expect(savedToast).toBeVisible();
+    await expect(heartbeat).not.toHaveAttribute("aria-invalid", "true");
+    await expect(save).toBeHidden();
 
-    await schedulingPanel
-      .getByRole("button", { name: "Save", exact: true })
-      .click();
-    await expect(
-      schedulingPanel.getByText("Saved.", { exact: true }),
-    ).toBeVisible();
     await page.reload();
-    expect(await readSettings(page)).toEqual({
-      ...saved,
-      workerHeartbeatMaxAgeSeconds: "200",
-    });
+    const saved = await readSettings(page);
+    expect(saved.workerHeartbeatMaxAgeSeconds).toBe("180");
+    expect(saved.mediaPreviewEnabled).toBe(
+      original.mediaPreviewEnabled === "on" ? "" : "on",
+    );
   } finally {
     await page.reload();
-    for (const title of [
-      "Uploads Upload limits, temporary upload cleanup, and file preview limits",
-      "Worker Background worker heartbeat tolerance",
-      "Scheduling Instance time zone and maintenance window",
-      "Media previews Video preview generation, cleanup, and quality",
-    ]) {
-      await page.getByRole("button", { name: title, exact: true }).click();
-    }
+    await openCategory(page, "Worker");
+    await useSeconds(page);
     await heartbeat.fill(String(original.workerHeartbeatMaxAgeSeconds));
-    await timeout.fill(String(original.uploadTimeoutMinutes));
-    await chooseTimeZone(page, String(original.timeZone));
-    await maintenance.fill(String(original.maintenanceRunTime));
+    await openCategory(page, "Media previews");
     await media.setChecked(original.mediaPreviewEnabled === "on");
-    await workerPanel
-      .getByRole("button", { name: "Save", exact: true })
-      .click();
-    await expect(
-      workerPanel.getByText("Saved.", { exact: true }),
-    ).toBeVisible();
+    if (await save.isVisible()) {
+      await save.click();
+      await expect(savedToast).toBeVisible();
+    }
   }
 });

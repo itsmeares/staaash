@@ -1,3 +1,9 @@
+import type {
+  FileListColumn,
+  FileListItem,
+} from "@/components/file-list/file-list";
+import { formatBytes } from "@/lib/format-bytes";
+import type { RetrievalItem } from "@/server/retrieval/types";
 export type WorkspaceItemFilterType =
   | "all"
   | "archive"
@@ -33,18 +39,13 @@ type WorkspaceSortableItem = {
   sizeBytes?: number;
 };
 
-type WorkspaceDownloadItem = {
-  id: string;
-  kind: "file" | "folder";
-};
-
 export const WORKSPACE_ITEM_FILTERS: WorkspaceItemFilterOption[] = [
   { id: "all", label: "All" },
   { id: "folder", label: "Folders" },
   { id: "image", label: "Images" },
-  { id: "pdf", label: "PDFs" },
   { id: "video", label: "Videos" },
   { id: "audio", label: "Audio" },
+  { id: "pdf", label: "PDFs" },
   { id: "text", label: "Docs" },
   { id: "archive", label: "Archives" },
 ];
@@ -58,9 +59,45 @@ export function getWorkspaceLocationLabel(item: WorkspaceLocationItem): string {
     parts.at(-1) === item.name ? parts.slice(0, -1) : parts;
   const withoutRoot =
     pathWithoutSelf.length > 1 ? pathWithoutSelf.slice(1) : [];
-  return withoutRoot.length > 0 ? withoutRoot.join(" / ") : "/";
+  return withoutRoot.length > 0 ? withoutRoot.join(" / ") : "Files";
 }
 
+/** Sorts a retrieval list by name, path, size, or else its own date. */
+export const compareListItems =
+  <T extends { name: string; locationLabel: string; sizeBytes?: number }>(
+    sortKey: string,
+    dateOf: (item: T) => string,
+  ) =>
+  (left: T, right: T) => {
+    if (sortKey === "name")
+      return compareWorkspaceStrings(left.name, right.name);
+    if (sortKey === "path") {
+      return compareWorkspaceStrings(left.locationLabel, right.locationLabel);
+    }
+    if (sortKey === "size")
+      return (left.sizeBytes ?? -1) - (right.sizeBytes ?? -1);
+    return new Date(dateOf(left)).getTime() - new Date(dateOf(right)).getTime();
+  };
+
+/** The fields every retrieval list (Recent, Favorites) shows for an item. */
+export const toWorkspaceListFields = (item: RetrievalItem) => ({
+  href: item.href,
+  id: item.id,
+  kind: item.kind,
+  locationLabel: getWorkspaceLocationLabel(item),
+  name: item.name,
+  storageMutationStatus: item.storageMutation?.status,
+  ...(item.kind === "file"
+    ? {
+        folderId: item.folderId,
+        mimeType: item.mimeType,
+        sizeBytes: item.sizeBytes,
+      }
+    : { color: item.color ?? null, parentId: item.parentId }),
+});
+
+// Exported for its test.
+// fallow-ignore-next-line unused-export
 export function getWorkspaceItemType(
   item: WorkspaceTypeItem,
 ): WorkspaceItemFilterType {
@@ -100,12 +137,7 @@ export function filterWorkspaceItems<T extends WorkspaceTypeItem>(
 }
 
 export function formatWorkspaceFileSize(bytes?: number): string {
-  if (bytes == null) return "-";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  if (bytes < 1024 * 1024 * 1024)
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  return bytes == null ? "-" : formatBytes(bytes);
 }
 
 export function compareWorkspaceStrings(left: string, right: string): number {
@@ -142,9 +174,22 @@ export function sortWorkspaceItems<T extends WorkspaceSortableItem>(
   });
 }
 
-export function getWorkspaceItemDownloadHref(
-  item: WorkspaceDownloadItem,
-): string | null {
-  if (item.kind === "folder") return null;
-  return `/api/files/files/${item.id}/download`;
-}
+/** The Size column every workspace list shows; folders leave it blank. */
+export const sizeColumn = <
+  T extends FileListItem & { data: { sizeBytes?: number } },
+>(): FileListColumn<T> => ({
+  key: "size",
+  label: "Size",
+  width: "6rem",
+  align: "end",
+  render: (item) =>
+    item.kind === "folder" ? "" : formatWorkspaceFileSize(item.data.sizeBytes),
+});
+
+/** Why a row can't be used right now, while a storage change is in flight. */
+export const blockedLabel = (status?: string) =>
+  status
+    ? status === "recovery_required"
+      ? "Recovery required"
+      : "Finishing storage operation"
+    : null;

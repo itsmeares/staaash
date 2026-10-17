@@ -53,6 +53,8 @@ const createMemoryRepository = () => {
     parentId: folder.parentId,
     name: folder.name,
     isFilesRoot: folder.isFilesRoot,
+    ...(folder.color === undefined ? {} : { color: folder.color }),
+    ...(folder.icon === undefined ? {} : { icon: folder.icon }),
     deletedAt: folder.deletedAt,
     createdAt: folder.createdAt,
     updatedAt: folder.updatedAt,
@@ -388,7 +390,10 @@ const createMemoryRepository = () => {
         folder.deletedAt = params.deletedAt ?? null;
       }
 
-      folder.updatedAt = nextDate();
+      if ("color" in params) folder.color = params.color ?? null;
+      if ("icon" in params) folder.icon = params.icon ?? null;
+
+      folder.updatedAt = params.updatedAt ?? nextDate();
       return cloneFolder(folder);
     },
 
@@ -599,6 +604,37 @@ describe("files service", { concurrent: false }, () => {
     });
 
     expect(listing.files.map((file) => file.name)).toEqual(["available.txt"]);
+  });
+
+  it("sets a folder's color and icon without counting it as an edit", async () => {
+    const { repo } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureFilesRoot("member-1");
+    const { folder } = await service.createFolder({
+      actorUserId: "member-1",
+      actorRole: "member",
+      parentId: root.id,
+      name: "Taxes",
+    });
+
+    const colored = await service.setFolderAppearance({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: folder.id,
+      color: "#112233",
+      icon: "Star",
+    });
+
+    expect(colored).toMatchObject({ color: "#112233", icon: "Star" });
+    expect(colored.updatedAt).toEqual(folder.updatedAt);
+    await expect(
+      service.setFolderAppearance({
+        actorUserId: "member-2",
+        actorRole: "member",
+        folderId: folder.id,
+        color: "red",
+      }),
+    ).rejects.toBeInstanceOf(FilesError);
   });
 
   it("rejects duplicate active sibling folder names", async () => {

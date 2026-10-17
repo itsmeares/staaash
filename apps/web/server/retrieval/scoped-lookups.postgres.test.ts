@@ -135,9 +135,16 @@ it("keeps sparse retrieval and owned-share results complete without loading unre
       await retrieval.listFavorites({ ...actor, actorRole: "owner" }),
     ).toEqual(favorites);
     const recents = await retrieval.listRecent(actor);
-    expect(recents.map((item) => [item.id, item.pathLabel])).toEqual(
-      favorites.map((item) => [item.id, item.pathLabel]),
-    );
+    // Recent keeps trashed items, so it can say they were trashed.
+    expect(recents.map((item) => [item.name, item.pathLabel])).toEqual([
+      [deep.name, "Files / Projects / Deep"],
+      [alpha.originalName, "Files / Projects / Deep / Álpha.txt"],
+      [beta.originalName, "Files / Projects / Deep / beta.txt"],
+      [deleted.originalName, "Files / Projects / Deep / deleted.txt"],
+      [missing.originalName, "Files / Projects / Deep / missing.txt"],
+      [removed.name, "Files / Trash"],
+      [underDeleted.originalName, "Files / Trash / under-deleted.txt"],
+    ]);
     expect(recents.every((item) => item.isFavorite)).toBe(true);
     const sharing = createSharingService({
       now: () => new Date("2026-10-17T00:00:00Z"),

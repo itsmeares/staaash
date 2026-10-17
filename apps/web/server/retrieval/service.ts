@@ -23,6 +23,8 @@ import { getStorageMutationStateMap } from "@/server/storage-read-guard";
 import type {
   FavoriteMutationResult,
   FavoriteRetrievalItem,
+  RecentAction,
+  RecentRetrievalItem,
   RetrievalItem,
   RetrievalRepository,
   RetrievalListOptions,
@@ -55,10 +57,12 @@ type FolderQuickAccessInput = FilesActor & {
 
 type FileAccessInput = FilesActor & {
   fileId: string;
+  action: RecentAction;
 };
 
 type FolderAccessInput = FilesActor & {
   folderId: string;
+  action: RecentAction;
 };
 
 const getFolderHref = (folder: Pick<FolderSummary, "id" | "isFilesRoot">) =>
@@ -163,6 +167,7 @@ const toFolderItem = ({
   deletedAt: folder.deletedAt,
   isFavorite: favoriteFolderIds.has(folder.id),
   parentId: folder.parentId,
+  color: folder.color ?? null,
   storageMutation: null,
 });
 
@@ -487,7 +492,10 @@ export const createRetrievalService = ({
       );
     },
 
-    async listRecent({ actorUserId }: FilesActor): Promise<RetrievalItem[]> {
+    /** Activity, newest first. Trashed items stay, so Recent can say so. */
+    async listRecent({
+      actorUserId,
+    }: FilesActor): Promise<RecentRetrievalItem[]> {
       const activeRepo = await resolveRepo();
       const [filesRoot, recentFiles, recentFolders, favoriteState] =
         await Promise.all([
@@ -499,28 +507,29 @@ export const createRetrievalService = ({
       const files = await activeRepo.listFilesByIds(
         actorUserId,
         recentFiles.map((r) => r.fileId),
+        { includeDeleted: true },
       );
       const { folderMap, fileMap } = await resolveReferencedItems(
         actorUserId,
         files,
         recentFolders.map((r) => r.folderId),
+        { includeDeleted: true },
       );
       const items = [
         ...recentFolders.flatMap((recent) => {
           const folder = folderMap.get(recent.folderId);
           return folder && !folder.isFilesRoot
             ? [
-                {
-                  ...prepareRetrievalItem(
-                    toFolderItem({
-                      folder,
-                      folderMap,
-                      filesRoot,
-                      favoriteFolderIds: favoriteState.favoriteFolderIds,
-                    }),
-                  ),
+                prepareRetrievalItem({
+                  ...toFolderItem({
+                    folder,
+                    folderMap,
+                    filesRoot,
+                    favoriteFolderIds: favoriteState.favoriteFolderIds,
+                  }),
                   lastInteractedAt: recent.lastInteractedAt,
-                },
+                  lastAction: recent.lastAction,
+                }),
               ]
             : [];
         }),
@@ -528,25 +537,24 @@ export const createRetrievalService = ({
           const file = fileMap.get(recent.fileId);
           return file
             ? [
-                {
-                  ...prepareRetrievalItem(
-                    toFileItem({
-                      file,
-                      folderMap,
-                      filesRoot,
-                      favoriteFileIds: favoriteState.favoriteFileIds,
-                    }),
-                  ),
+                prepareRetrievalItem({
+                  ...toFileItem({
+                    file,
+                    folderMap,
+                    filesRoot,
+                    favoriteFileIds: favoriteState.favoriteFileIds,
+                  }),
                   lastInteractedAt: recent.lastInteractedAt,
-                },
+                  lastAction: recent.lastAction,
+                }),
               ]
             : [];
         }),
       ]
         .sort(
           (left, right) =>
-            right.lastInteractedAt.getTime() -
-              left.lastInteractedAt.getTime() ||
+            right.item.lastInteractedAt.getTime() -
+              left.item.lastInteractedAt.getTime() ||
             compareRetrievalItems(left, right),
         )
         .map(({ item }) => item);
@@ -715,6 +723,7 @@ export const createRetrievalService = ({
       actorUserId,
       actorRole,
       fileId,
+      action,
     }: FileAccessInput): Promise<void> {
       const activeRepo = await resolveRepo();
       const file = assertFileAccess(
@@ -729,6 +738,7 @@ export const createRetrievalService = ({
         userId: actorUserId,
         fileId: file.id,
         lastInteractedAt: now(),
+        lastAction: action,
       });
     },
 
@@ -736,6 +746,7 @@ export const createRetrievalService = ({
       actorUserId,
       actorRole,
       folderId,
+      action,
     }: FolderAccessInput): Promise<void> {
       const activeRepo = await resolveRepo();
       const folder = assertFolderAccess(
@@ -754,6 +765,7 @@ export const createRetrievalService = ({
         userId: actorUserId,
         folderId: folder.id,
         lastInteractedAt: now(),
+        lastAction: action,
       });
     },
   };

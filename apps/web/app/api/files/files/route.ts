@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
           actorUserId: session.user.id,
           actorRole: session.user.role,
           fileId: file.id,
-          source: "upload-files-route",
+          action: "uploaded",
         }),
       ),
     );

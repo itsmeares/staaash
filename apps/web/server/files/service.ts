@@ -10,10 +10,16 @@ import {
   StorageAdmissionCancelledError,
 } from "@staaash/db/storage-transactions";
 
-import { scheduleDerivativeGenerate } from "@staaash/db/media-derivatives";
+import {
+  DERIVATIVE_KIND_THUMBNAIL,
+  DERIVATIVE_PROFILE_THUMB,
+  canHaveThumbnail,
+  scheduleDerivativeGenerate,
+} from "@staaash/db/media-derivatives";
 import { getPrisma, Prisma } from "@staaash/db/client";
 
 import { canAccessPrivateNamespace } from "@/server/access";
+import { listFolderPreviewFileIds } from "@/server/files/folder-previews";
 import { shouldGenerateMediaPreview } from "@/server/media/preview-generation-policy";
 import { getSystemSettings } from "@/server/settings";
 import {
@@ -1580,9 +1586,11 @@ export const createFilesService = ({
       visited.add(folder.id);
       ordered.push({
         id: folder.id,
+        parentId: folder.parentId,
         name: folder.name,
         pathLabel: pathNames.join(" / "),
         isFilesRoot: folder.isFilesRoot,
+        color: folder.color ?? null,
       });
 
       const children = childrenByParent.get(folder.id) ?? [];
@@ -1600,10 +1608,7 @@ export const createFilesService = ({
       }
     }
 
-    return {
-      childrenByParent,
-      moveTargets: ordered,
-    };
+    return ordered;
   };
 
   const getRestoreLocation = async (
@@ -2453,6 +2458,29 @@ export const createFilesService = ({
   };
 
   return {
+    /**
+     * Color and icon are metadata only: nothing on disk changes, so they are
+     * written directly rather than through the storage journal.
+     */
+    async setFolderAppearance({
+      actorRole,
+      actorUserId,
+      folderId,
+      color,
+      icon,
+    }: FolderLookupInput & { color?: string | null; icon?: string | null }) {
+      const folder = assertActiveFolder(
+        await getOwnedFolder({ actorRole, actorUserId, folderId }),
+      );
+      return (await resolveRepo()).updateFolder({
+        id: folder.id,
+        ...(color === undefined ? {} : { color }),
+        ...(icon === undefined ? {} : { icon }),
+        // A new color isn't an edit; the folder keeps its modified time.
+        updatedAt: folder.updatedAt,
+      });
+    },
+
     async ensureFilesRoot(ownerUserId: string) {
       return ensureFilesRoot(ownerUserId);
     },
@@ -2483,7 +2511,11 @@ export const createFilesService = ({
           includeDeleted: false,
         }),
       ]);
-      const moveData = await buildMoveTargets(filesRoot);
+      const folderPreviews = !repo
+        ? await listFolderPreviewFileIds(
+            childFolders.map((folder) => folder.id),
+          )
+        : {};
       const [folderMutationStates, fileMutationStates] = !repo
         ? await Promise.all([
             getStorageMutationStateMap(
@@ -2496,43 +2528,10 @@ export const createFilesService = ({
             ),
           ])
         : [new Map(), new Map()];
-      const descendantIdsByFolderId = new Map<string, string[]>();
-      const collectVisibleDescendantIds = (folderId: string): string[] => {
-        const cached = descendantIdsByFolderId.get(folderId);
-
-        if (cached) {
-          return cached;
-        }
-
-        const children = moveData.childrenByParent.get(folderId) ?? [];
-        const descendants = children.flatMap((child) => [
-          child.id,
-          ...collectVisibleDescendantIds(child.id),
-        ]);
-        descendantIdsByFolderId.set(folderId, descendants);
-
-        return descendants;
-      };
-      const availableMoveTargetIdsByFolderId = Object.fromEntries(
-        childFolders.map((folder) => {
-          const blockedTargetIds = new Set([
-            currentFolder.id,
-            folder.id,
-            ...collectVisibleDescendantIds(folder.id),
-          ]);
-
-          return [
-            folder.id,
-            moveData.moveTargets
-              .filter((target) => !blockedTargetIds.has(target.id))
-              .map((target) => target.id),
-          ];
-        }),
-      );
-
       return {
         ownerUserId: currentFolder.ownerUserId,
         currentFolder,
+        folderPreviews,
         breadcrumbs: await buildBreadcrumbs(currentFolder, filesRoot),
         childFolders: childFolders.map((folder) => ({
           ...folder,
@@ -2542,9 +2541,12 @@ export const createFilesService = ({
           ...toFileSummary(file),
           storageMutation: fileMutationStates.get(file.id) ?? null,
         })),
-        moveTargets: moveData.moveTargets,
-        availableMoveTargetIdsByFolderId,
       };
+    },
+
+    /** Every folder in the person's own drive, for the move picker. */
+    async listFolderTree({ actorUserId }: FilesActor): Promise<MoveTarget[]> {
+      return buildMoveTargets(await ensureFilesRoot(actorUserId));
     },
 
     async listTrashFolders({
@@ -5406,8 +5408,8 @@ export const createFilesService = ({
               return;
             }
             const threshold = settings.mediaPreviewThresholdBytes;
-            await Promise.all(
-              uploadedFiles
+            await Promise.all([
+              ...uploadedFiles
                 .filter(
                   (f) =>
                     f.viewerKind === "video" &&
@@ -5420,7 +5422,18 @@ export const createFilesService = ({
                     now: now(),
                   }),
                 ),
-            );
+              ...uploadedFiles
+                .filter((f) => canHaveThumbnail(f.mimeType, f.name))
+                .map((f) =>
+                  scheduleDerivativeGenerate({
+                    fileId: f.id,
+                    kind: DERIVATIVE_KIND_THUMBNAIL,
+                    profile: DERIVATIVE_PROFILE_THUMB,
+                    reason: "upload",
+                    now: now(),
+                  }),
+                ),
+            ]);
           } catch (err) {
             console.error(
               "[files] Failed to schedule preview generation.",
@@ -5900,12 +5913,20 @@ export const createFilesService = ({
 
           const summary = toFileSummary(createdFile);
 
-          if (summary.viewerKind === "video") {
+          if (canHaveThumbnail(summary.mimeType, summary.name)) {
             void (async () => {
               try {
                 const settings = await getSystemSettings();
+                if (!shouldGenerateMediaPreview(settings, "upload")) return;
+                await scheduleDerivativeGenerate({
+                  fileId: createdFile.id,
+                  kind: DERIVATIVE_KIND_THUMBNAIL,
+                  profile: DERIVATIVE_PROFILE_THUMB,
+                  reason: "upload",
+                  now: now(),
+                });
                 if (
-                  shouldGenerateMediaPreview(settings, "upload") &&
+                  summary.viewerKind === "video" &&
                   BigInt(totalSizeBytes) >= settings.mediaPreviewThresholdBytes
                 ) {
                   await scheduleDerivativeGenerate({

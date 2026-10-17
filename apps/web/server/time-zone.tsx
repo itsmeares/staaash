@@ -13,6 +13,8 @@ import { getSystemSettings } from "@/server/settings";
 // Zone used to render dates for this request: a fixed user preference wins,
 // then the browser zone remembered in a cookie, then the instance zone.
 // `autoDetect` tells the client to correct it from the browser after mount.
+// Exported for its test.
+// fallow-ignore-next-line unused-export
 export const resolveDisplayTimeZone = async (
   user: Pick<AuthUser, "preferences"> | null | undefined,
 ) => {
@@ -42,6 +44,7 @@ export async function TimeRoot({
   return (
     <TimeProvider
       autoDetect={autoDetect}
+      clock={user?.preferences?.clockFormat === "12h" ? "12h" : "24h"}
       serverNow={Date.now()}
       timeZone={timeZone}
     >

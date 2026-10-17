@@ -1,13 +1,16 @@
-import {
-  DATE_GROUP_ORDER,
-  getDateGroup,
-  type DateGroupLabel,
-} from "@/lib/time";
 import type {
   TrashFileSummary,
   TrashFolderSummary,
   TrashListing,
 } from "@/server/files/types";
+
+import { calendarDaysUntil } from "@/lib/time";
+
+import {
+  compareListItems,
+  sortWorkspaceItems,
+  type WorkspaceSortDirection,
+} from "../workspace-item-helpers";
 
 export type TrashClientItem = {
   deletedAt: string;
@@ -15,37 +18,42 @@ export type TrashClientItem = {
   kind: "file" | "folder";
   mimeType?: string;
   name: string;
-  originalPathLabel: string;
+  /** Where it was deleted from. */
+  locationLabel: string;
   restoreTargetLabel: string;
   sizeBytes?: number;
   storageMutationStatus?: string;
 };
 
-export type TrashFilterType = "all" | "file" | "folder";
-export type TrashSortOrder = "newest" | "oldest";
+export type TrashSortKey = "name" | "path" | "size" | "deletedAt" | "left";
 
-export const TRASH_FILTERS: { id: TrashFilterType; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "folder", label: "Folders" },
-  { id: "file", label: "Files" },
-];
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-export const TRASH_SORT_OPTIONS: { id: TrashSortOrder; label: string }[] = [
-  { id: "newest", label: "Newest" },
-  { id: "oldest", label: "Oldest" },
-];
+/** Calendar days until trash retention deletes an item for good. */
+export const daysLeft = (
+  deletedAt: string,
+  retentionDays: number,
+  now: Date,
+  timeZone: string,
+) =>
+  Math.max(
+    0,
+    calendarDaysUntil(
+      new Date(Date.parse(deletedAt) + retentionDays * DAY_MS),
+      now,
+      timeZone,
+    ),
+  );
 
-export type TrashGroupLabel = DateGroupLabel;
-
-export type TrashGroup<T> = {
-  items: T[];
-  label: TrashGroupLabel;
-};
+export const daysLeftLabel = (days: number) =>
+  days === 0 ? "Today" : days === 1 ? "Tomorrow" : `${days} days`;
 
 function getDeletedAt(value: Date | null, fallback: Date): string {
   return (value ?? fallback).toISOString();
 }
 
+// Exported for its unit tests.
+// fallow-ignore-next-line unused-export
 export function toTrashClientItem(
   item: TrashFolderSummary | TrashFileSummary,
 ): TrashClientItem {
@@ -55,7 +63,7 @@ export function toTrashClientItem(
       id: item.folder.id,
       kind: "folder",
       name: item.folder.name,
-      originalPathLabel: item.originalPathLabel,
+      locationLabel: item.originalPathLabel,
       restoreTargetLabel: item.restoreLocation.pathLabel,
       storageMutationStatus: item.folder.storageMutation?.status,
     };
@@ -67,7 +75,7 @@ export function toTrashClientItem(
     kind: "file",
     mimeType: item.file.mimeType,
     name: item.file.name,
-    originalPathLabel: item.originalPathLabel,
+    locationLabel: item.originalPathLabel,
     restoreTargetLabel: item.restoreLocation.pathLabel,
     sizeBytes: item.file.sizeBytes,
     storageMutationStatus: item.file.storageMutation?.status,
@@ -78,59 +86,15 @@ export function toTrashClientItems(listing: TrashListing): TrashClientItem[] {
   return [...listing.items, ...listing.files].map(toTrashClientItem);
 }
 
-export function filterTrashItems(
-  items: TrashClientItem[],
-  filterType: TrashFilterType,
-): TrashClientItem[] {
-  if (filterType === "all") return items;
-  return items.filter((item) => item.kind === filterType);
-}
-
-function compareStrings(left: string, right: string): number {
-  return left.localeCompare(right, undefined, {
-    numeric: true,
-    sensitivity: "base",
-  });
-}
-
 export function sortTrashItems(
   items: TrashClientItem[],
-  sortOrder: TrashSortOrder,
+  sortKey: TrashSortKey,
+  sortDirection: WorkspaceSortDirection,
 ): TrashClientItem[] {
-  const direction = sortOrder === "newest" ? -1 : 1;
-
-  return [...items].sort((left, right) => {
-    const deletedAtDelta =
-      new Date(left.deletedAt).getTime() - new Date(right.deletedAt).getTime();
-
-    if (deletedAtDelta !== 0) return deletedAtDelta * direction;
-
-    return (
-      compareStrings(left.name, right.name) ||
-      compareStrings(left.kind, right.kind) ||
-      left.id.localeCompare(right.id)
-    );
-  });
-}
-
-export function groupTrashItems<T extends { deletedAt: string }>(
-  items: T[],
-  sortOrder: TrashSortOrder,
-  now: Date,
-  timeZone: string,
-): TrashGroup<T>[] {
-  const map = new Map<TrashGroupLabel, T[]>();
-
-  for (const item of items) {
-    const label = getDateGroup(item.deletedAt, now, timeZone);
-    map.set(label, [...(map.get(label) ?? []), item]);
-  }
-
-  const order =
-    sortOrder === "oldest" ? [...DATE_GROUP_ORDER].reverse() : DATE_GROUP_ORDER;
-
-  return order.flatMap((label) => {
-    const group = map.get(label);
-    return group ? [{ label, items: group }] : [];
-  });
+  return sortWorkspaceItems(
+    items,
+    sortDirection,
+    compareListItems(sortKey, (item: TrashClientItem) => item.deletedAt),
+    { includeKindTieBreak: true },
+  );
 }

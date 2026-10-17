@@ -65,7 +65,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       actorUserId: session.user.id,
       actorRole: session.user.role,
       folderId,
-      source: "move-folder-route",
+      action: "moved",
     });
 
     return attachStorageMutationHeader(

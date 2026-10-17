@@ -19,9 +19,13 @@ const { resolveDisplayTimeZone } = await import("@/server/time-zone");
 
 const user = (timeZone: string) => ({
   preferences: {
-    enableVersionChecks: true,
     onboardingCompletedAt: null,
     showUpdateNotifications: true,
+    showFolderPreviews: true,
+    showPinsInSidebar: false,
+    startPage: "home",
+    defaultView: "list",
+    clockFormat: "24h",
     theme: "system",
     timeZone,
   },

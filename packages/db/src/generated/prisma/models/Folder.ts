@@ -40,6 +40,8 @@ export type FolderMinAggregateOutputType = {
   parentId: string | null
   name: string | null
   isFilesRoot: boolean | null
+  color: string | null
+  icon: string | null
   deletedAt: Date | null
   storageRevision: number | null
   trashEntryId: string | null
@@ -53,6 +55,8 @@ export type FolderMaxAggregateOutputType = {
   parentId: string | null
   name: string | null
   isFilesRoot: boolean | null
+  color: string | null
+  icon: string | null
   deletedAt: Date | null
   storageRevision: number | null
   trashEntryId: string | null
@@ -66,6 +70,8 @@ export type FolderCountAggregateOutputType = {
   parentId: number
   name: number
   isFilesRoot: number
+  color: number
+  icon: number
   deletedAt: number
   storageRevision: number
   trashEntryId: number
@@ -89,6 +95,8 @@ export type FolderMinAggregateInputType = {
   parentId?: true
   name?: true
   isFilesRoot?: true
+  color?: true
+  icon?: true
   deletedAt?: true
   storageRevision?: true
   trashEntryId?: true
@@ -102,6 +110,8 @@ export type FolderMaxAggregateInputType = {
   parentId?: true
   name?: true
   isFilesRoot?: true
+  color?: true
+  icon?: true
   deletedAt?: true
   storageRevision?: true
   trashEntryId?: true
@@ -115,6 +125,8 @@ export type FolderCountAggregateInputType = {
   parentId?: true
   name?: true
   isFilesRoot?: true
+  color?: true
+  icon?: true
   deletedAt?: true
   storageRevision?: true
   trashEntryId?: true
@@ -215,6 +227,8 @@ export type FolderGroupByOutputType = {
   parentId: string | null
   name: string
   isFilesRoot: boolean
+  color: string | null
+  icon: string | null
   deletedAt: Date | null
   storageRevision: number
   trashEntryId: string | null
@@ -251,6 +265,8 @@ export type FolderWhereInput = {
   parentId?: Prisma.StringNullableFilter<"Folder"> | string | null
   name?: Prisma.StringFilter<"Folder"> | string
   isFilesRoot?: Prisma.BoolFilter<"Folder"> | boolean
+  color?: Prisma.StringNullableFilter<"Folder"> | string | null
+  icon?: Prisma.StringNullableFilter<"Folder"> | string | null
   deletedAt?: Prisma.DateTimeNullableFilter<"Folder"> | Date | string | null
   storageRevision?: Prisma.IntFilter<"Folder"> | number
   trashEntryId?: Prisma.StringNullableFilter<"Folder"> | string | null
@@ -272,6 +288,8 @@ export type FolderOrderByWithRelationInput = {
   parentId?: Prisma.SortOrderInput | Prisma.SortOrder
   name?: Prisma.SortOrder
   isFilesRoot?: Prisma.SortOrder
+  color?: Prisma.SortOrderInput | Prisma.SortOrder
+  icon?: Prisma.SortOrderInput | Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   storageRevision?: Prisma.SortOrder
   trashEntryId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -297,6 +315,8 @@ export type FolderWhereUniqueInput = Prisma.AtLeast<{
   parentId?: Prisma.StringNullableFilter<"Folder"> | string | null
   name?: Prisma.StringFilter<"Folder"> | string
   isFilesRoot?: Prisma.BoolFilter<"Folder"> | boolean
+  color?: Prisma.StringNullableFilter<"Folder"> | string | null
+  icon?: Prisma.StringNullableFilter<"Folder"> | string | null
   deletedAt?: Prisma.DateTimeNullableFilter<"Folder"> | Date | string | null
   storageRevision?: Prisma.IntFilter<"Folder"> | number
   trashEntryId?: Prisma.StringNullableFilter<"Folder"> | string | null
@@ -318,6 +338,8 @@ export type FolderOrderByWithAggregationInput = {
   parentId?: Prisma.SortOrderInput | Prisma.SortOrder
   name?: Prisma.SortOrder
   isFilesRoot?: Prisma.SortOrder
+  color?: Prisma.SortOrderInput | Prisma.SortOrder
+  icon?: Prisma.SortOrderInput | Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   storageRevision?: Prisma.SortOrder
   trashEntryId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -339,6 +361,8 @@ export type FolderScalarWhereWithAggregatesInput = {
   parentId?: Prisma.StringNullableWithAggregatesFilter<"Folder"> | string | null
   name?: Prisma.StringWithAggregatesFilter<"Folder"> | string
   isFilesRoot?: Prisma.BoolWithAggregatesFilter<"Folder"> | boolean
+  color?: Prisma.StringNullableWithAggregatesFilter<"Folder"> | string | null
+  icon?: Prisma.StringNullableWithAggregatesFilter<"Folder"> | string | null
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Folder"> | Date | string | null
   storageRevision?: Prisma.IntWithAggregatesFilter<"Folder"> | number
   trashEntryId?: Prisma.StringNullableWithAggregatesFilter<"Folder"> | string | null
@@ -350,6 +374,8 @@ export type FolderCreateInput = {
   id?: string
   name: string
   isFilesRoot?: boolean
+  color?: string | null
+  icon?: string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   createdAt?: Date | string
@@ -370,6 +396,8 @@ export type FolderUncheckedCreateInput = {
   parentId?: string | null
   name: string
   isFilesRoot?: boolean
+  color?: string | null
+  icon?: string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   trashEntryId?: string | null
@@ -386,6 +414,8 @@ export type FolderUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -406,6 +436,8 @@ export type FolderUncheckedUpdateInput = {
   parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   trashEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -424,6 +456,8 @@ export type FolderCreateManyInput = {
   parentId?: string | null
   name: string
   isFilesRoot?: boolean
+  color?: string | null
+  icon?: string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   trashEntryId?: string | null
@@ -435,6 +469,8 @@ export type FolderUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -447,6 +483,8 @@ export type FolderUncheckedUpdateManyInput = {
   parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   trashEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -481,6 +519,8 @@ export type FolderCountOrderByAggregateInput = {
   parentId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   isFilesRoot?: Prisma.SortOrder
+  color?: Prisma.SortOrder
+  icon?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
   storageRevision?: Prisma.SortOrder
   trashEntryId?: Prisma.SortOrder
@@ -498,6 +538,8 @@ export type FolderMaxOrderByAggregateInput = {
   parentId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   isFilesRoot?: Prisma.SortOrder
+  color?: Prisma.SortOrder
+  icon?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
   storageRevision?: Prisma.SortOrder
   trashEntryId?: Prisma.SortOrder
@@ -511,6 +553,8 @@ export type FolderMinOrderByAggregateInput = {
   parentId?: Prisma.SortOrder
   name?: Prisma.SortOrder
   isFilesRoot?: Prisma.SortOrder
+  color?: Prisma.SortOrder
+  icon?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
   storageRevision?: Prisma.SortOrder
   trashEntryId?: Prisma.SortOrder
@@ -733,6 +777,8 @@ export type FolderCreateWithoutOwnerInput = {
   id?: string
   name: string
   isFilesRoot?: boolean
+  color?: string | null
+  icon?: string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   createdAt?: Date | string
@@ -751,6 +797,8 @@ export type FolderUncheckedCreateWithoutOwnerInput = {
   parentId?: string | null
   name: string
   isFilesRoot?: boolean
+  color?: string | null
+  icon?: string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   trashEntryId?: string | null
@@ -798,6 +846,8 @@ export type FolderScalarWhereInput = {
   parentId?: Prisma.StringNullableFilter<"Folder"> | string | null
   name?: Prisma.StringFilter<"Folder"> | string
   isFilesRoot?: Prisma.BoolFilter<"Folder"> | boolean
+  color?: Prisma.StringNullableFilter<"Folder"> | string | null
+  icon?: Prisma.StringNullableFilter<"Folder"> | string | null
   deletedAt?: Prisma.DateTimeNullableFilter<"Folder"> | Date | string | null
   storageRevision?: Prisma.IntFilter<"Folder"> | number
   trashEntryId?: Prisma.StringNullableFilter<"Folder"> | string | null
@@ -809,6 +859,8 @@ export type FolderCreateWithoutChildrenInput = {
   id?: string
   name: string
   isFilesRoot?: boolean
+  color?: string | null
+  icon?: string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   createdAt?: Date | string
@@ -828,6 +880,8 @@ export type FolderUncheckedCreateWithoutChildrenInput = {
   parentId?: string | null
   name: string
   isFilesRoot?: boolean
+  color?: string | null
+  icon?: string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   trashEntryId?: string | null
@@ -848,6 +902,8 @@ export type FolderCreateWithoutParentInput = {
   id?: string
   name: string
   isFilesRoot?: boolean
+  color?: string | null
+  icon?: string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   createdAt?: Date | string
@@ -866,6 +922,8 @@ export type FolderUncheckedCreateWithoutParentInput = {
   ownerUserId: string
   name: string
   isFilesRoot?: boolean
+  color?: string | null
+  icon?: string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   trashEntryId?: string | null
@@ -903,6 +961,8 @@ export type FolderUpdateWithoutChildrenInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -922,6 +982,8 @@ export type FolderUncheckedUpdateWithoutChildrenInput = {
   parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   trashEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -953,6 +1015,8 @@ export type FolderCreateWithoutFilesInput = {
   id?: string
   name: string
   isFilesRoot?: boolean
+  color?: string | null
+  icon?: string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   createdAt?: Date | string
@@ -972,6 +1036,8 @@ export type FolderUncheckedCreateWithoutFilesInput = {
   parentId?: string | null
   name: string
   isFilesRoot?: boolean
+  color?: string | null
+  icon?: string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   trashEntryId?: string | null
@@ -1003,6 +1069,8 @@ export type FolderUpdateWithoutFilesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1022,6 +1090,8 @@ export type FolderUncheckedUpdateWithoutFilesInput = {
   parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   trashEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1037,6 +1107,8 @@ export type FolderCreateWithoutFavoritesInput = {
   id?: string
   name: string
   isFilesRoot?: boolean
+  color?: string | null
+  icon?: string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   createdAt?: Date | string
@@ -1056,6 +1128,8 @@ export type FolderUncheckedCreateWithoutFavoritesInput = {
   parentId?: string | null
   name: string
   isFilesRoot?: boolean
+  color?: string | null
+  icon?: string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   trashEntryId?: string | null
@@ -1087,6 +1161,8 @@ export type FolderUpdateWithoutFavoritesInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1106,6 +1182,8 @@ export type FolderUncheckedUpdateWithoutFavoritesInput = {
   parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   trashEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1121,6 +1199,8 @@ export type FolderCreateWithoutRecentsInput = {
   id?: string
   name: string
   isFilesRoot?: boolean
+  color?: string | null
+  icon?: string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   createdAt?: Date | string
@@ -1140,6 +1220,8 @@ export type FolderUncheckedCreateWithoutRecentsInput = {
   parentId?: string | null
   name: string
   isFilesRoot?: boolean
+  color?: string | null
+  icon?: string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   trashEntryId?: string | null
@@ -1171,6 +1253,8 @@ export type FolderUpdateWithoutRecentsInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1190,6 +1274,8 @@ export type FolderUncheckedUpdateWithoutRecentsInput = {
   parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   trashEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1205,6 +1291,8 @@ export type FolderCreateWithoutShareLinkInput = {
   id?: string
   name: string
   isFilesRoot?: boolean
+  color?: string | null
+  icon?: string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   createdAt?: Date | string
@@ -1224,6 +1312,8 @@ export type FolderUncheckedCreateWithoutShareLinkInput = {
   parentId?: string | null
   name: string
   isFilesRoot?: boolean
+  color?: string | null
+  icon?: string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   trashEntryId?: string | null
@@ -1255,6 +1345,8 @@ export type FolderUpdateWithoutShareLinkInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1274,6 +1366,8 @@ export type FolderUncheckedUpdateWithoutShareLinkInput = {
   parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   trashEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1289,6 +1383,8 @@ export type FolderCreateWithoutTrashEntryInput = {
   id?: string
   name: string
   isFilesRoot?: boolean
+  color?: string | null
+  icon?: string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   createdAt?: Date | string
@@ -1308,6 +1404,8 @@ export type FolderUncheckedCreateWithoutTrashEntryInput = {
   parentId?: string | null
   name: string
   isFilesRoot?: boolean
+  color?: string | null
+  icon?: string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   createdAt?: Date | string
@@ -1350,6 +1448,8 @@ export type FolderCreateManyOwnerInput = {
   parentId?: string | null
   name: string
   isFilesRoot?: boolean
+  color?: string | null
+  icon?: string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   trashEntryId?: string | null
@@ -1361,6 +1461,8 @@ export type FolderUpdateWithoutOwnerInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1379,6 +1481,8 @@ export type FolderUncheckedUpdateWithoutOwnerInput = {
   parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   trashEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1396,6 +1500,8 @@ export type FolderUncheckedUpdateManyWithoutOwnerInput = {
   parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   trashEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1408,6 +1514,8 @@ export type FolderCreateManyParentInput = {
   ownerUserId: string
   name: string
   isFilesRoot?: boolean
+  color?: string | null
+  icon?: string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   trashEntryId?: string | null
@@ -1419,6 +1527,8 @@ export type FolderUpdateWithoutParentInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1437,6 +1547,8 @@ export type FolderUncheckedUpdateWithoutParentInput = {
   ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   trashEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1454,6 +1566,8 @@ export type FolderUncheckedUpdateManyWithoutParentInput = {
   ownerUserId?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   trashEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1467,6 +1581,8 @@ export type FolderCreateManyTrashEntryInput = {
   parentId?: string | null
   name: string
   isFilesRoot?: boolean
+  color?: string | null
+  icon?: string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   createdAt?: Date | string
@@ -1477,6 +1593,8 @@ export type FolderUpdateWithoutTrashEntryInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1496,6 +1614,8 @@ export type FolderUncheckedUpdateWithoutTrashEntryInput = {
   parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1513,6 +1633,8 @@ export type FolderUncheckedUpdateManyWithoutTrashEntryInput = {
   parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   name?: Prisma.StringFieldUpdateOperationsInput | string
   isFilesRoot?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  color?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  icon?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1583,6 +1705,8 @@ export type FolderSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   parentId?: boolean
   name?: boolean
   isFilesRoot?: boolean
+  color?: boolean
+  icon?: boolean
   deletedAt?: boolean
   storageRevision?: boolean
   trashEntryId?: boolean
@@ -1605,6 +1729,8 @@ export type FolderSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extens
   parentId?: boolean
   name?: boolean
   isFilesRoot?: boolean
+  color?: boolean
+  icon?: boolean
   deletedAt?: boolean
   storageRevision?: boolean
   trashEntryId?: boolean
@@ -1621,6 +1747,8 @@ export type FolderSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extens
   parentId?: boolean
   name?: boolean
   isFilesRoot?: boolean
+  color?: boolean
+  icon?: boolean
   deletedAt?: boolean
   storageRevision?: boolean
   trashEntryId?: boolean
@@ -1637,6 +1765,8 @@ export type FolderSelectScalar = {
   parentId?: boolean
   name?: boolean
   isFilesRoot?: boolean
+  color?: boolean
+  icon?: boolean
   deletedAt?: boolean
   storageRevision?: boolean
   trashEntryId?: boolean
@@ -1644,7 +1774,7 @@ export type FolderSelectScalar = {
   updatedAt?: boolean
 }
 
-export type FolderOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerUserId" | "parentId" | "name" | "isFilesRoot" | "deletedAt" | "storageRevision" | "trashEntryId" | "createdAt" | "updatedAt", ExtArgs["result"]["folder"]>
+export type FolderOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerUserId" | "parentId" | "name" | "isFilesRoot" | "color" | "icon" | "deletedAt" | "storageRevision" | "trashEntryId" | "createdAt" | "updatedAt", ExtArgs["result"]["folder"]>
 export type FolderInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   parent?: boolean | Prisma.Folder$parentArgs<ExtArgs>
@@ -1685,6 +1815,14 @@ export type $FolderPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     parentId: string | null
     name: string
     isFilesRoot: boolean
+    /**
+     * A named swatch ("blue") or a custom "#rrggbb"; null is the default gray.
+     */
+    color: string | null
+    /**
+     * A lucide icon name from the folder icon picker; null is the folder icon.
+     */
+    icon: string | null
     deletedAt: Date | null
     storageRevision: number
     trashEntryId: string | null
@@ -2126,6 +2264,8 @@ export interface FolderFieldRefs {
   readonly parentId: Prisma.FieldRef<"Folder", 'String'>
   readonly name: Prisma.FieldRef<"Folder", 'String'>
   readonly isFilesRoot: Prisma.FieldRef<"Folder", 'Boolean'>
+  readonly color: Prisma.FieldRef<"Folder", 'String'>
+  readonly icon: Prisma.FieldRef<"Folder", 'String'>
   readonly deletedAt: Prisma.FieldRef<"Folder", 'DateTime'>
   readonly storageRevision: Prisma.FieldRef<"Folder", 'Int'>
   readonly trashEntryId: Prisma.FieldRef<"Folder", 'String'>

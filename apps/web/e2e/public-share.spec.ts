@@ -10,7 +10,7 @@ test("public sharing preserves current view versus download behavior", async ({
   await page.goto(shareUrl);
   await expect(page.getByRole("heading")).toContainText("shared-preview.png");
 
-  const downloadDisabledCopy = page.getByText(/Downloads off/i);
+  const downloadDisabledCopy = page.getByText(/Downloads are off/i);
   const downloadButton = page.getByRole("link", { name: "Download file" });
   const inlinePreview = page.locator("img, video").first();
 

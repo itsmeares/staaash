@@ -6,9 +6,15 @@ import {
   getSessionTokenFromCookieStore,
 } from "@/server/auth/session";
 import { authService } from "@/server/auth/service";
-import type { AuthSession } from "@/server/auth/types";
+import type { AuthSession, UserPreferences } from "@/server/auth/types";
 
-const hasCompletedOnboarding = (session: AuthSession | null) =>
+type OnboardedSession = AuthSession & {
+  user: AuthSession["user"] & { preferences: UserPreferences };
+};
+
+const hasCompletedOnboarding = (
+  session: AuthSession | null,
+): session is OnboardedSession =>
   Boolean(
     session?.user.preferences?.onboardingCompletedAt &&
     !session.user.passwordChangeRequiredAt,
@@ -32,7 +38,9 @@ export const requireAdminPageSession = async () => {
   const session = await requireSignedInPageSession("/?next=/admin");
 
   if (!canAccessAdminSurface(session.user.role)) {
-    redirect("/settings?error=admin");
+    redirect(
+      `/settings?error=${encodeURIComponent("Only owners can open the admin pages.")}`,
+    );
   }
 
   return session;
