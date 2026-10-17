@@ -45,6 +45,7 @@ import { ShareError } from "./errors";
 import type { SharingRepository } from "./repository";
 import type {
   PublicShareResolution,
+  PublicShareContext,
   ShareDownloadResult,
   ShareFilesLookup,
   ShareLinkStatus,
@@ -333,30 +334,33 @@ export const createSharingService = ({
     return { secret, base };
   };
 
-  const resolveFilesState = async (
-    ownerUserId: string,
-    sharedFileId?: string | null,
-  ) => {
+  const findFilesRoot = async (ownerUserId: string) => {
+    const repository = await resolveFilesRepo();
+    const root = filesRepo
+      ? await repository.ensureFilesRoot(ownerUserId)
+      : await repository.findFilesRoot?.(ownerUserId);
+    if (!root) throw new StorageProtocolNotReadyError();
+    return root;
+  };
+
+  const assertFoldersReadable = async (folders: FolderSummary[]) => {
+    const states = await getStorageMutationStateMap(
+      "folder",
+      folders.map(({ id }) => id),
+    );
+    const blocked = states.values().next().value;
+    if (blocked) throw new StorageEntityUnavailableError(blocked);
+  };
+
+  const resolveFilesState = async (ownerUserId: string) => {
     const activeFilesRepo = await resolveFilesRepo();
-    const filesRootPromise = filesRepo
-      ? activeFilesRepo.ensureFilesRoot(ownerUserId)
-      : activeFilesRepo.findFilesRoot?.(ownerUserId);
     const [filesRoot, folders, files] = await Promise.all([
-      filesRootPromise,
+      findFilesRoot(ownerUserId),
       activeFilesRepo.listFoldersByOwner(ownerUserId, {
         includeDeleted: true,
       }),
-      sharedFileId === undefined
-        ? activeFilesRepo.listFilesByOwner(ownerUserId, {
-            includeDeleted: true,
-          })
-        : sharedFileId
-          ? activeFilesRepo
-              .findFileById(sharedFileId)
-              .then((file) => (file?.ownerUserId === ownerUserId ? [file] : []))
-          : [],
+      activeFilesRepo.listFilesByOwner(ownerUserId, { includeDeleted: true }),
     ]);
-    if (!filesRoot) throw new StorageProtocolNotReadyError();
 
     return {
       filesRoot,
@@ -556,6 +560,7 @@ export const createSharingService = ({
       throw new ShareError("SHARE_NOT_FOUND");
     }
 
+    await getAuthSecret();
     if (crypto.hashOpaqueToken(token) !== share.tokenHash) {
       throw new ShareError("SHARE_INVALID");
     }
@@ -588,6 +593,270 @@ export const createSharingService = ({
         passwordHash: share.passwordHash,
       }),
   });
+
+  const findPublicTarget = async (share: StoredShareLink) => {
+    const repository = await resolveFilesRepo();
+    if (share.targetType === "file") {
+      return {
+        file: await repository.findFileById(share.fileId ?? ""),
+        folder: null,
+      };
+    }
+    return {
+      file: null,
+      folder: await repository.findFolderById(share.folderId ?? ""),
+    };
+  };
+
+  const resolvePublicTarget = async ({
+    token,
+    shareAccessCookieValue,
+  }: {
+    token: string;
+    shareAccessCookieValue?: string | null;
+  }) => {
+    const share = await getValidatedPublicShare(token);
+    const repository = await resolveFilesRepo();
+    const [{ file, folder }, filesRoot] = await Promise.all([
+      findPublicTarget(share),
+      findFilesRoot(share.createdByUserId),
+    ]);
+    if ((file ?? folder)?.ownerUserId !== share.createdByUserId)
+      throw new ShareError("SHARE_TARGET_UNAVAILABLE");
+    const ancestorId =
+      share.targetType === "file" ? file!.folderId : folder!.id;
+    const folders = ancestorId
+      ? await repository.listFolderAncestors(share.createdByUserId, ancestorId)
+      : [];
+    const folderMap = buildFolderMap(folders);
+    assertActiveTarget({
+      targetType: share.targetType,
+      file,
+      folder,
+      folderMap,
+    });
+    await assertStorageEntityReadable(share.targetType, (file ?? folder)!.id);
+    await assertFoldersReadable(folders);
+    return {
+      share,
+      access: getAccessState({ share, shareAccessCookieValue }),
+      file,
+      folder,
+      folderMap,
+      filesRoot,
+    };
+  };
+
+  const findSharedNestedFile = async (
+    share: StoredShareLink,
+    rootFolderId: string,
+    fileId: string,
+  ) => {
+    const repository = await resolveFilesRepo();
+    const file = await repository.findFileById(fileId);
+    if (!file || file.ownerUserId !== share.createdByUserId || !file.folderId)
+      throw new ShareError("SHARE_ACCESS_DENIED");
+    const ancestors = await repository.listFolderAncestors(
+      share.createdByUserId,
+      file.folderId,
+    );
+    const folderMap = buildFolderMap(ancestors);
+    if (
+      isFileDeletedInTree({ file, folderMap }) ||
+      !isFolderWithinRoot({ folderId: file.folderId, rootFolderId, folderMap })
+    )
+      throw new ShareError("SHARE_ACCESS_DENIED");
+    await assertFoldersReadable(ancestors);
+    await assertStorageEntityReadable("file", file.id);
+    return file;
+  };
+
+  const resolvePublicFile = async ({
+    token,
+    fileId,
+    shareAccessCookieValue,
+    download = false,
+  }: {
+    token: string;
+    fileId?: string;
+    shareAccessCookieValue?: string | null;
+    download?: boolean;
+  }) => {
+    const resolved = await resolvePublicTarget({
+      token,
+      shareAccessCookieValue,
+    });
+    if (
+      resolved.share.targetType !== (fileId === undefined ? "file" : "folder")
+    ) {
+      throw new ShareError("SHARE_ACCESS_DENIED");
+    }
+    if (!resolved.access.isUnlocked)
+      throw new ShareError("SHARE_PASSWORD_REQUIRED");
+    if (download && resolved.share.downloadDisabled)
+      throw new ShareError("SHARE_DOWNLOAD_DISABLED");
+    const file =
+      fileId === undefined
+        ? resolved.file
+        : await findSharedNestedFile(
+            resolved.share,
+            resolved.folder!.id,
+            fileId,
+          );
+    return {
+      file: file!,
+      downloadDisabled: resolved.share.downloadDisabled,
+      hasPassword: Boolean(resolved.share.passwordHash),
+    };
+  };
+
+  const findPublicFolder = async (
+    rootFolder: FolderSummary,
+    folderMap: Map<string, FolderSummary>,
+    requestedFolderId?: string,
+  ) => {
+    const repository = await resolveFilesRepo();
+    const currentFolderId = requestedFolderId ?? rootFolder.id;
+    if (currentFolderId !== rootFolder.id) {
+      const ancestors = await repository.listFolderAncestors(
+        rootFolder.ownerUserId,
+        currentFolderId,
+      );
+      for (const folder of ancestors) folderMap.set(folder.id, folder);
+    }
+    const currentFolder = folderMap.get(currentFolderId);
+    if (
+      !currentFolder ||
+      isFolderDeletedInTree({
+        folder: currentFolder,
+        folderMap,
+      }) ||
+      !isFolderWithinRoot({
+        folderId: currentFolder.id,
+        rootFolderId: rootFolder.id,
+        folderMap,
+      })
+    ) {
+      throw new ShareError("SHARE_ACCESS_DENIED");
+    }
+
+    await assertFoldersReadable([...folderMap.values()]);
+    return currentFolder;
+  };
+
+  const findSharedFolders = async (
+    ownerUserId: string,
+    rootFolderId: string,
+  ) => {
+    const repository = await resolveFilesRepo();
+    const folders = await repository.listFolderSubtree(
+      ownerUserId,
+      rootFolderId,
+    );
+    const folderMap = buildFolderMap(folders);
+    return folders.filter(
+      (folder) =>
+        !isFolderDeletedInTree({ folder, folderMap }) &&
+        isFolderWithinRoot({ folderId: folder.id, rootFolderId, folderMap }),
+    );
+  };
+
+  const buildPublicBreadcrumbs = (
+    rootFolder: FolderSummary,
+    currentFolder: FolderSummary,
+    folderMap: Map<string, FolderSummary>,
+    token: string,
+  ) => {
+    const breadcrumbs: Array<{ id: string; name: string; href: string }> = [];
+    const trail: FolderSummary[] = [];
+    let pointer: FolderSummary | undefined = currentFolder;
+    const seen = new Set<string>();
+
+    while (pointer && !seen.has(pointer.id)) {
+      trail.unshift(pointer);
+      seen.add(pointer.id);
+
+      if (pointer.id === rootFolder.id) {
+        break;
+      }
+
+      pointer = pointer.parentId ? folderMap.get(pointer.parentId) : undefined;
+    }
+
+    for (const folder of trail) {
+      breadcrumbs.push({
+        id: folder.id,
+        name: folder.name,
+        href:
+          folder.id === rootFolder.id
+            ? `/s/${encodeURIComponent(token)}`
+            : `/s/${encodeURIComponent(token)}/f/${folder.id}`,
+      });
+    }
+
+    return { breadcrumbs, trail };
+  };
+
+  const resolvePublicContext = async ({
+    token,
+    requestedFolderId,
+    shareAccessCookieValue,
+    baseUrl,
+  }: {
+    token: string;
+    requestedFolderId?: string;
+    shareAccessCookieValue?: string | null;
+    baseUrl?: string;
+  }): Promise<{
+    context: PublicShareContext;
+    folderMap: Map<string, FolderSummary>;
+  }> => {
+    const rootState = await resolvePublicTarget({
+      token,
+      shareAccessCookieValue,
+    });
+    const { share, access } = rootState;
+    const target = buildTargetSummary({
+      share,
+      fileMap: new Map(
+        rootState.file ? [[rootState.file.id, rootState.file]] : [],
+      ),
+      folderMap: rootState.folderMap,
+      filesRoot: rootState.filesRoot,
+    });
+    const { secret, base } = await resolveSecretAndBaseUrl(baseUrl);
+    const shareSummary = toShareSummary(
+      { share, target: target.summary, targetUnavailable: false },
+      secret,
+      base,
+    );
+    if (share.targetType === "file") {
+      return {
+        context: {
+          kind: "file",
+          share: shareSummary,
+          access,
+          file: toFileSummary(rootState.file!),
+        },
+        folderMap: rootState.folderMap,
+      };
+    }
+    const rootFolder = rootState.folder!;
+    const currentFolder = await findPublicFolder(
+      rootFolder,
+      rootState.folderMap,
+      requestedFolderId,
+    );
+    return {
+      context: {
+        kind: "folder",
+        share: shareSummary,
+        access,
+        listing: { rootFolder, currentFolder },
+      },
+      folderMap: rootState.folderMap,
+    };
+  };
 
   return {
     async createOrReissueShare({
@@ -940,6 +1209,15 @@ export const createSharingService = ({
       };
     },
 
+    async resolvePublicShareContext(input: {
+      token: string;
+      requestedFolderId?: string;
+      shareAccessCookieValue?: string | null;
+      baseUrl?: string;
+    }): Promise<PublicShareContext> {
+      return (await resolvePublicContext(input)).context;
+    },
+
     async resolvePublicShare({
       token,
       requestedFolderId,
@@ -951,126 +1229,38 @@ export const createSharingService = ({
       shareAccessCookieValue?: string | null;
       baseUrl?: string;
     }): Promise<PublicShareResolution> {
-      const share = await getValidatedPublicShare(token);
-      const filesRepo = await resolveFilesRepo();
-      const rootState = await resolveFilesState(
-        share.createdByUserId,
-        share.targetType === "file" ? share.fileId : undefined,
-      );
-      const access = getAccessState({
-        share,
+      const { context, folderMap } = await resolvePublicContext({
+        token,
+        requestedFolderId,
         shareAccessCookieValue,
+        baseUrl,
       });
-      const target = buildTargetSummary({
-        share,
-        fileMap: rootState.fileMap,
-        folderMap: rootState.folderMap,
-        filesRoot: rootState.filesRoot,
-      });
-      const { secret, base } = await resolveSecretAndBaseUrl(baseUrl);
-      const shareSummary = toShareSummary(
-        {
-          share,
-          target: target.summary,
-          targetUnavailable: target.targetUnavailable,
-        },
-        secret,
-        base,
+      if (context.kind === "file") return context;
+      const { rootFolder, currentFolder } = context.listing;
+      const { access } = context;
+      const filesRepo = await resolveFilesRepo();
+      const { breadcrumbs, trail } = buildPublicBreadcrumbs(
+        rootFolder,
+        currentFolder,
+        folderMap,
+        token,
       );
 
-      if (target.targetUnavailable) {
-        throw new ShareError("SHARE_TARGET_UNAVAILABLE");
-      }
-
-      if (share.targetType === "file") {
-        const file = rootState.fileMap.get(share.fileId!);
-
-        assertActiveTarget({
-          targetType: "file",
-          file,
-          folderMap: rootState.folderMap,
-        });
-        await assertStorageEntityReadable("file", file!.id);
-
-        return {
-          kind: "file",
-          share: shareSummary,
-          access,
-          file: toFileSummary(file!),
-        };
-      }
-
-      const rootFolder = await filesRepo.findFolderById(share.folderId!);
-
-      assertActiveTarget({
-        targetType: "folder",
-        folder: rootFolder,
-        folderMap: rootState.folderMap,
-      });
-      await assertStorageEntityReadable("folder", rootFolder!.id);
-
-      const currentFolder = requestedFolderId
-        ? await filesRepo.findFolderById(requestedFolderId)
-        : rootFolder;
-
-      if (
-        !currentFolder ||
-        currentFolder.deletedAt ||
-        !isFolderWithinRoot({
-          folderId: currentFolder.id,
-          rootFolderId: rootFolder!.id,
-          folderMap: rootState.folderMap,
-        })
-      ) {
-        throw new ShareError("SHARE_ACCESS_DENIED");
-      }
-
-      const breadcrumbs: Array<{ id: string; name: string; href: string }> = [];
-      const trail: FolderSummary[] = [];
-      let pointer: FolderSummary | undefined = currentFolder;
-      const seen = new Set<string>();
-
-      while (pointer && !seen.has(pointer.id)) {
-        trail.unshift(pointer);
-        seen.add(pointer.id);
-
-        if (pointer.id === rootFolder!.id) {
-          break;
-        }
-
-        pointer = pointer.parentId
-          ? rootState.folderMap.get(pointer.parentId)
-          : undefined;
-      }
-
-      for (const folder of trail) {
-        breadcrumbs.push({
-          id: folder.id,
-          name: folder.name,
-          href:
-            folder.id === rootFolder!.id
-              ? `/s/${encodeURIComponent(token)}`
-              : `/s/${encodeURIComponent(token)}/f/${folder.id}`,
-        });
-      }
-
-      const childFolders = access.isUnlocked
-        ? rootState.folders.filter(
-            (folder) =>
-              folder.parentId === currentFolder.id && !folder.deletedAt,
-          )
-        : [];
-      const files = access.isUnlocked
-        ? rootState.files
-            .filter((file) => file.folderId === currentFolder.id)
-            .filter(
-              (file) =>
-                !isFileDeletedInTree({
-                  file,
-                  folderMap: rootState.folderMap,
-                }),
-            )
-        : [];
+      const [childFolders, files] = access.isUnlocked
+        ? await Promise.all([
+            filesRepo.listChildFolders(
+              context.share.createdByUserId,
+              currentFolder.id,
+            ),
+            filesRepo.listChildFiles(
+              context.share.createdByUserId,
+              currentFolder.id,
+              {
+                includeMissing: true,
+              },
+            ),
+          ])
+        : [[], []];
       if (access.isUnlocked) {
         const [folderStates, fileStates] = await Promise.all([
           getStorageMutationStateMap("folder", [
@@ -1089,7 +1279,7 @@ export const createSharingService = ({
 
       return {
         kind: "folder",
-        share: shareSummary,
+        share: context.share,
         access,
         listing: {
           rootFolder: rootFolder!,
@@ -1101,34 +1291,11 @@ export const createSharingService = ({
       };
     },
 
-    async getSharedFileDownload({
-      token,
-      shareAccessCookieValue,
-    }: {
+    async getSharedFileDownload(input: {
       token: string;
       shareAccessCookieValue?: string | null;
     }): Promise<ShareDownloadResult> {
-      const resolved = await this.resolvePublicShare({
-        token,
-        shareAccessCookieValue,
-      });
-
-      if (resolved.kind !== "file") {
-        throw new ShareError("SHARE_ACCESS_DENIED");
-      }
-
-      if (!resolved.access.isUnlocked) {
-        throw new ShareError("SHARE_PASSWORD_REQUIRED");
-      }
-
-      if (resolved.share.downloadDisabled) {
-        throw new ShareError("SHARE_DOWNLOAD_DISABLED");
-      }
-
-      const file = (await (
-        await resolveFilesRepo()
-      ).findFileById(resolved.file.id))!;
-
+      const { file } = await resolvePublicFile({ ...input, download: true });
       return {
         file,
         contentType: file.mimeType || "application/octet-stream",
@@ -1136,54 +1303,12 @@ export const createSharingService = ({
       };
     },
 
-    async getSharedNestedFileDownload({
-      token,
-      fileId,
-      shareAccessCookieValue,
-    }: {
+    async getSharedNestedFileDownload(input: {
       token: string;
       fileId: string;
       shareAccessCookieValue?: string | null;
     }): Promise<ShareDownloadResult> {
-      const resolved = await this.resolvePublicShare({
-        token,
-        shareAccessCookieValue,
-      });
-
-      if (resolved.kind !== "folder") {
-        throw new ShareError("SHARE_ACCESS_DENIED");
-      }
-
-      if (!resolved.access.isUnlocked) {
-        throw new ShareError("SHARE_PASSWORD_REQUIRED");
-      }
-
-      if (resolved.share.downloadDisabled) {
-        throw new ShareError("SHARE_DOWNLOAD_DISABLED");
-      }
-
-      const filesRepo = await resolveFilesRepo();
-      const file = await filesRepo.findFileById(fileId);
-      const libraryState = await resolveFilesState(
-        resolved.listing.rootFolder.ownerUserId,
-      );
-
-      if (
-        !file ||
-        isFileDeletedInTree({
-          file,
-          folderMap: libraryState.folderMap,
-        }) ||
-        !file.folderId ||
-        !isFolderWithinRoot({
-          folderId: file.folderId,
-          rootFolderId: resolved.listing.rootFolder.id,
-          folderMap: libraryState.folderMap,
-        })
-      ) {
-        throw new ShareError("SHARE_ACCESS_DENIED");
-      }
-
+      const { file } = await resolvePublicFile({ ...input, download: true });
       return {
         file,
         contentType: file.mimeType || "application/octet-stream",
@@ -1191,139 +1316,46 @@ export const createSharingService = ({
       };
     },
 
-    async createFolderArchive({
-      token,
-      shareAccessCookieValue,
-    }: {
+    async createFolderArchive(input: {
       token: string;
       shareAccessCookieValue?: string | null;
     }) {
-      const resolved = await this.resolvePublicShare({
-        token,
-        shareAccessCookieValue,
-      });
-
-      if (resolved.kind !== "folder") {
+      const resolved = await resolvePublicTarget(input);
+      if (resolved.share.targetType !== "folder")
         throw new ShareError("SHARE_ACCESS_DENIED");
-      }
-
-      if (!resolved.access.isUnlocked) {
+      if (!resolved.access.isUnlocked)
         throw new ShareError("SHARE_PASSWORD_REQUIRED");
-      }
-
-      if (resolved.share.downloadDisabled) {
+      if (resolved.share.downloadDisabled)
         throw new ShareError("SHARE_DOWNLOAD_DISABLED");
-      }
-
-      const libraryState = await resolveFilesState(
-        resolved.listing.rootFolder.ownerUserId,
+      const repository = await resolveFilesRepo();
+      const folders = await findSharedFolders(
+        resolved.share.createdByUserId,
+        resolved.folder!.id,
       );
-      const folders = libraryState.folders.filter(
-        (folder) =>
-          !folder.deletedAt &&
-          isFolderWithinRoot({
-            folderId: folder.id,
-            rootFolderId: resolved.listing.rootFolder.id,
-            folderMap: libraryState.folderMap,
-          }),
+      const files = await repository.listFilesInFolders(
+        resolved.share.createdByUserId,
+        folders.map(({ id }) => id),
       );
-      const files = libraryState.files.filter(
-        (file) =>
-          !isFileDeletedInTree({
-            file,
-            folderMap: libraryState.folderMap,
-          }) &&
-          file.folderId &&
-          isFolderWithinRoot({
-            folderId: file.folderId,
-            rootFolderId: resolved.listing.rootFolder.id,
-            folderMap: libraryState.folderMap,
-          }),
-      );
-
       return createSharedFolderArchive({
-        rootFolder: resolved.listing.rootFolder,
+        rootFolder: resolved.folder!,
         folders,
         files,
       });
     },
-    async getSharedFileContent({
-      token,
-      shareAccessCookieValue,
-    }: {
+
+    async getSharedFileContent(input: {
       token: string;
       shareAccessCookieValue?: string | null;
-    }): Promise<{ file: StoredFile; downloadDisabled: boolean }> {
-      const resolved = await this.resolvePublicShare({
-        token,
-        shareAccessCookieValue,
-      });
-
-      if (resolved.kind !== "file") {
-        throw new ShareError("SHARE_ACCESS_DENIED");
-      }
-
-      if (!resolved.access.isUnlocked) {
-        throw new ShareError("SHARE_PASSWORD_REQUIRED");
-      }
-
-      // downloadDisabled does NOT block inline viewing — intentional policy
-
-      const file = (await (
-        await resolveFilesRepo()
-      ).findFileById(resolved.file.id))!;
-
-      return { file, downloadDisabled: resolved.share.downloadDisabled };
+    }) {
+      return resolvePublicFile(input);
     },
 
-    async getSharedNestedFileContent({
-      token,
-      fileId,
-      shareAccessCookieValue,
-    }: {
+    async getSharedNestedFileContent(input: {
       token: string;
       fileId: string;
       shareAccessCookieValue?: string | null;
-    }): Promise<{ file: StoredFile; downloadDisabled: boolean }> {
-      const resolved = await this.resolvePublicShare({
-        token,
-        shareAccessCookieValue,
-      });
-
-      if (resolved.kind !== "folder") {
-        throw new ShareError("SHARE_ACCESS_DENIED");
-      }
-
-      if (!resolved.access.isUnlocked) {
-        throw new ShareError("SHARE_PASSWORD_REQUIRED");
-      }
-
-      // downloadDisabled does NOT block inline viewing — intentional policy
-
-      const filesRepo = await resolveFilesRepo();
-      const file = await filesRepo.findFileById(fileId);
-      const libraryState = await resolveFilesState(
-        resolved.listing.rootFolder.ownerUserId,
-      );
-
-      if (
-        !file ||
-        isFileDeletedInTree({
-          file,
-          folderMap: libraryState.folderMap,
-        }) ||
-        !file.folderId ||
-        !isFolderWithinRoot({
-          folderId: file.folderId,
-          rootFolderId: resolved.listing.rootFolder.id,
-          folderMap: libraryState.folderMap,
-        })
-      ) {
-        throw new ShareError("SHARE_ACCESS_DENIED");
-      }
-      await assertStorageEntityReadable("file", file.id);
-
-      return { file, downloadDisabled: resolved.share.downloadDisabled };
+    }) {
+      return resolvePublicFile(input);
     },
   };
 };

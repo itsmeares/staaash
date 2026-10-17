@@ -12,7 +12,11 @@ import type {
   FolderSummary,
   StoredFile,
 } from "@/server/files/types";
-import { assertStorageEntityReadable } from "@/server/storage-read-guard";
+import {
+  assertStorageEntityReadable,
+  getStorageMutationStateMap,
+  StorageEntityUnavailableError,
+} from "@/server/storage-read-guard";
 
 const buildFileArchivePath = ({
   file,
@@ -48,12 +52,18 @@ export const createSharedFolderArchive = async ({
   files: StoredFile[];
 }) => {
   await assertStorageEntityReadable("folder", rootFolder.id);
-  await Promise.all([
-    ...folders.map((folder) =>
-      assertStorageEntityReadable("folder", folder.id),
+  const [folderStates, fileStates] = await Promise.all([
+    getStorageMutationStateMap(
+      "folder",
+      folders.map(({ id }) => id),
     ),
-    ...files.map((file) => assertStorageEntityReadable("file", file.id)),
+    getStorageMutationStateMap(
+      "file",
+      files.map(({ id }) => id),
+    ),
   ]);
+  const blocked = [...folderStates.values(), ...fileStates.values()][0];
+  if (blocked) throw new StorageEntityUnavailableError(blocked);
   const folderMap = new Map(folders.map((folder) => [folder.id, folder]));
 
   const directories = [`${rootFolder.name}/`];

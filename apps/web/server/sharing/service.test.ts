@@ -291,6 +291,58 @@ const fakeFilesRepo = {
       ) ?? null
     );
   },
+  async listFolderAncestors(
+    this: FilesRepository,
+    ownerUserId: string,
+    folderId: string,
+  ) {
+    const folders: FolderSummary[] = [];
+    let folder = await this.findFolderById(folderId);
+    while (
+      folder &&
+      folder.ownerUserId === ownerUserId &&
+      !folders.some(({ id }) => id === folder!.id)
+    ) {
+      folders.push(folder);
+      folder = folder.parentId
+        ? await this.findFolderById(folder.parentId)
+        : null;
+    }
+    return folders;
+  },
+  async listFolderSubtree(ownerUserId: string, folderId: string) {
+    return [filesRoot, sharedFolder, childFolder, siblingFolder].filter(
+      (folder) =>
+        folder.ownerUserId === ownerUserId &&
+        !folder.deletedAt &&
+        (folder.id === folderId || folder.parentId === folderId),
+    );
+  },
+  async listFilesInFolders(ownerUserId: string, folderIds: string[]) {
+    return [sharedFile, childFile].filter(
+      (file) =>
+        file.ownerUserId === ownerUserId &&
+        !file.deletedAt &&
+        file.folderId &&
+        folderIds.includes(file.folderId),
+    );
+  },
+  async listChildFolders(ownerUserId: string, parentId: string) {
+    return [filesRoot, sharedFolder, childFolder, siblingFolder].filter(
+      (folder) =>
+        folder.ownerUserId === ownerUserId &&
+        folder.parentId === parentId &&
+        !folder.deletedAt,
+    );
+  },
+  async listChildFiles(ownerUserId: string, folderId: string) {
+    return [sharedFile, childFile].filter(
+      (file) =>
+        file.ownerUserId === ownerUserId &&
+        file.folderId === folderId &&
+        !file.deletedAt,
+    );
+  },
   async listFoldersByOwner() {
     return [filesRoot, sharedFolder, childFolder, siblingFolder];
   },
@@ -437,7 +489,7 @@ describe("sharing service", () => {
             ownerUserId:
               reason === "foreign owner" ? "user-2" : childFile.ownerUserId,
           };
-    filesRepo.listFoldersByOwner = async () => [
+    filesRepo.listFolderAncestors = async () => [
       filesRoot,
       childFolder,
       siblingFolder,
@@ -561,6 +613,21 @@ describe("sharing service", () => {
       folderId: sharedFolder.id,
       expiresAt: addDays(5),
     });
+    storageMutationMocks.getStorageMutationStateMap.mockImplementation(
+      async (type: string, ids: string[]) =>
+        type === "folder" && ids.includes(siblingFolder.id)
+          ? new Map([
+              [
+                siblingFolder.id,
+                {
+                  id: "private-mutation",
+                  kind: "move",
+                  status: "recovery_required",
+                },
+              ],
+            ])
+          : new Map(),
+    );
 
     await expect(
       service.resolvePublicShare({
@@ -691,6 +758,171 @@ describe("sharing service", () => {
     ).rejects.toMatchObject({ code: "SHARE_ACCESS_DENIED" });
   });
 
+  it("browses and serves nested files without reading the owner's library", async () => {
+    const sharingRepo = createFakeSharingRepository();
+    const filesRepo = { ...fakeFilesRepo };
+    const service = createSharingService({
+      repo: sharingRepo.repo,
+      filesRepo,
+      now: () => fixedNow,
+    });
+    const created = await service.createOrReissueShare({
+      actorUserId: "user-1",
+      actorRole: "member",
+      targetType: "folder",
+      folderId: sharedFolder.id,
+      expiresAt: addDays(5),
+    });
+    filesRepo.listFoldersByOwner = async () => {
+      throw new Error("Unrelated folders must not be loaded");
+    };
+    filesRepo.listFilesByOwner = async () => {
+      throw new Error("Unrelated files must not be loaded");
+    };
+    const listing = await service.resolvePublicShare({ token: created.token });
+    expect(listing).toMatchObject({
+      kind: "folder",
+      listing: {
+        childFolders: [childFolder],
+        files: [expect.objectContaining({ id: sharedFile.id })],
+      },
+    });
+    const nested = await service.resolvePublicShare({
+      token: created.token,
+      requestedFolderId: childFolder.id,
+    });
+    expect(nested).toMatchObject({
+      kind: "folder",
+      listing: {
+        breadcrumbs: [
+          expect.objectContaining({ id: sharedFolder.id }),
+          expect.objectContaining({ id: childFolder.id }),
+        ],
+        files: [expect.objectContaining({ id: childFile.id })],
+      },
+    });
+    expect(
+      await service.getSharedNestedFileContent({
+        token: created.token,
+        fileId: childFile.id,
+      }),
+    ).toMatchObject({ file: childFile });
+    expect(
+      await service.getSharedNestedFileDownload({
+        token: created.token,
+        fileId: childFile.id,
+      }),
+    ).toMatchObject({ file: childFile });
+    expect(
+      storageMutationMocks.assertStorageEntityReadable,
+    ).toHaveBeenCalledWith("file", childFile.id);
+  });
+
+  it("resolves page context without loading folder children", async () => {
+    const sharingRepo = createFakeSharingRepository();
+    const filesRepo = { ...fakeFilesRepo };
+    const service = createSharingService({
+      repo: sharingRepo.repo,
+      filesRepo,
+      now: () => fixedNow,
+    });
+    const created = await service.createOrReissueShare({
+      actorUserId: "user-1",
+      actorRole: "member",
+      targetType: "folder",
+      folderId: sharedFolder.id,
+      expiresAt: addDays(5),
+    });
+    filesRepo.listFoldersByOwner = async () => {
+      throw new Error("Unrelated folders");
+    };
+    filesRepo.listFilesByOwner = async () => {
+      throw new Error("Unrelated files");
+    };
+    filesRepo.listChildFolders = async () => {
+      throw new Error("Children not needed");
+    };
+    filesRepo.listChildFiles = async () => {
+      throw new Error("Children not needed");
+    };
+    expect(
+      await service.resolvePublicShareContext({
+        token: created.token,
+        requestedFolderId: childFolder.id,
+      }),
+    ).toMatchObject({
+      kind: "folder",
+      listing: { rootFolder: sharedFolder, currentFolder: childFolder },
+    });
+  });
+
+  it("rejects empty nested file IDs instead of treating them as a top-level file share", async () => {
+    const sharingRepo = createFakeSharingRepository();
+    const service = createSharingService({
+      repo: sharingRepo.repo,
+      filesRepo: fakeFilesRepo,
+      now: () => fixedNow,
+    });
+    const created = await service.createOrReissueShare({
+      actorUserId: "user-1",
+      actorRole: "member",
+      targetType: "file",
+      fileId: sharedFile.id,
+      expiresAt: addDays(5),
+    });
+    await expect(
+      service.getSharedNestedFileContent({ token: created.token, fileId: "" }),
+    ).rejects.toMatchObject({ code: "SHARE_ACCESS_DENIED" });
+  });
+
+  it("blocks nested downloads when the requested file or an ancestor is recovering", async () => {
+    const sharingRepo = createFakeSharingRepository();
+    const service = createSharingService({
+      repo: sharingRepo.repo,
+      filesRepo: fakeFilesRepo,
+      now: () => fixedNow,
+    });
+    const created = await service.createOrReissueShare({
+      actorUserId: "user-1",
+      actorRole: "member",
+      targetType: "folder",
+      folderId: sharedFolder.id,
+      expiresAt: addDays(5),
+    });
+    const blocked = {
+      id: "mutation-child",
+      kind: "move",
+      status: "recovery_required",
+    };
+    storageMutationMocks.assertStorageEntityReadable.mockImplementation(
+      async (type: string, id: string) => {
+        if (type === "file" && id === childFile.id)
+          throw new StorageEntityUnavailableError(blocked);
+      },
+    );
+    await expect(
+      service.getSharedNestedFileDownload({
+        token: created.token,
+        fileId: childFile.id,
+      }),
+    ).rejects.toMatchObject({ code: "STORAGE_RECOVERY_REQUIRED" });
+    storageMutationMocks.assertStorageEntityReadable.mockResolvedValue(
+      undefined,
+    );
+    storageMutationMocks.getStorageMutationStateMap.mockImplementation(
+      async (type: string, ids: string[]) =>
+        type === "folder" && ids.includes(childFolder.id)
+          ? new Map([[childFolder.id, blocked]])
+          : new Map(),
+    );
+    await expect(
+      service.getSharedNestedFileContent({
+        token: created.token,
+        fileId: childFile.id,
+      }),
+    ).rejects.toMatchObject({ code: "STORAGE_RECOVERY_REQUIRED" });
+  });
+
   it("returns top-level content policy from its single share resolution", async () => {
     const sharingRepo = createFakeSharingRepository();
     const service = createSharingService({
@@ -706,14 +938,18 @@ describe("sharing service", () => {
       expiresAt: addDays(5),
       downloadDisabled: true,
     });
-    const resolveSpy = vi.spyOn(service, "resolvePublicShare");
+    const resolveSpy = vi.spyOn(sharingRepo.repo, "findShareByTokenLookupKey");
 
     const result = await service.getSharedFileContent({
       token: created.token,
     });
 
     expect(resolveSpy).toHaveBeenCalledTimes(1);
-    expect(result).toEqual({ file: sharedFile, downloadDisabled: true });
+    expect(result).toEqual({
+      file: sharedFile,
+      downloadDisabled: true,
+      hasPassword: false,
+    });
   });
 
   it("returns nested content policy from its single share resolution", async () => {
@@ -731,7 +967,7 @@ describe("sharing service", () => {
       expiresAt: addDays(5),
       downloadDisabled: true,
     });
-    const resolveSpy = vi.spyOn(service, "resolvePublicShare");
+    const resolveSpy = vi.spyOn(sharingRepo.repo, "findShareByTokenLookupKey");
 
     const result = await service.getSharedNestedFileContent({
       token: created.token,
@@ -739,7 +975,11 @@ describe("sharing service", () => {
     });
 
     expect(resolveSpy).toHaveBeenCalledTimes(1);
-    expect(result).toEqual({ file: childFile, downloadDisabled: true });
+    expect(result).toEqual({
+      file: childFile,
+      downloadDisabled: true,
+      hasPassword: false,
+    });
   });
 
   it("preserves unavailable-target rejection for public content", async () => {
