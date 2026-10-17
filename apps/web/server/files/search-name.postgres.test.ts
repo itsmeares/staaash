@@ -168,14 +168,14 @@ it("backfills legacy names without changing revisions, and rolls back renames at
     expect(
       (
         await client.query(
-          `SELECT "searchName", "storageRevision", "updatedAt" FROM "File"`,
+          `SELECT "searchName", "storageRevision", "updatedAt"::text AS "updatedAt" FROM "File"`,
         )
       ).rows,
     ).toEqual([
       {
         searchName: "resume.txt",
         storageRevision: 7,
-        updatedAt: new Date("2026-01-01T00:00:00Z"),
+        updatedAt: "2026-01-01 00:00:00",
       },
     ]);
     await client.query(
