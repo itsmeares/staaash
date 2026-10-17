@@ -55,6 +55,8 @@ export type UploadingFile = {
   fileId?: string;
   folderId?: string;
   folderUploadRootId?: string;
+  /** The folder's name the person uploaded into, for "Uploading to …". */
+  destination?: string;
 };
 
 export type DownloadProgressState =
@@ -71,6 +73,7 @@ type TransferContextValue = {
     folderId: string,
     currentPath: string,
     selection: FolderUploadSelection,
+    destination?: string,
   ) => void;
   dismissUpload: (clientKey: string) => void;
   retryUpload: (clientKey: string) => void;
@@ -288,13 +291,6 @@ const completeResumableUploadSession = async ({
 // ---------------------------------------------------------------------------
 // Helpers (also exported for use in display components)
 // ---------------------------------------------------------------------------
-
-export function formatSpeed(bytesPerSec: number): string {
-  if (bytesPerSec < 1024) return `${Math.round(bytesPerSec)} B/s`;
-  if (bytesPerSec < 1024 * 1024)
-    return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
-  return `${(bytesPerSec / 1024 / 1024).toFixed(1)} MB/s`;
-}
 
 export function formatEta(
   totalBytes: number,
@@ -967,6 +963,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
     folderId: string,
     currentPath: string,
     selection: FolderUploadSelection,
+    destination?: string,
   ) => {
     if (selection.files.length === 0 && selection.directoryPaths.length === 0) {
       return;
@@ -988,6 +985,7 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
           transferredBytes: 0,
           speed: 0,
           fileRef: file,
+          destination,
           folderId:
             selection.directoryPaths.length === 0 ? folderId : undefined,
           folderUploadRootId:

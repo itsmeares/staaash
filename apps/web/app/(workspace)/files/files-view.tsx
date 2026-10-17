@@ -85,6 +85,7 @@ import {
   type DraggedItems,
 } from "../drag-items";
 import { SelectionBar, floatingBarClass } from "../selection-bar";
+import { UploadingRow } from "../transfers";
 import { WorkspacePage } from "../workspace-page";
 import {
   WORKSPACE_ITEM_FILTERS,
@@ -115,7 +116,6 @@ import type { ShareLinkSummary } from "@/server/sharing";
 // ---------------------------------------------------------------------------
 
 const CUT_STATE_KEY = "staaash:cut-items";
-const UPLOAD_SESSION_KEY_PREFIX = "staaash:upload-session";
 
 type CutItem = { id: string; kind: "folder" | "file"; name: string };
 type MoveRequestSource = "direct" | "paste";
@@ -143,11 +143,6 @@ const retryableMoveItems = (operation: MoveOperation) => {
   if (operation.response) return getRetryableMoveItems(operation.response);
   return operation.status === "failed" ? operation.items : [];
 };
-type ResumableSessionSummary = {
-  name: string;
-  size: number;
-  storageKey: string;
-};
 
 const loadCutItems = (): CutItem[] => {
   try {
@@ -163,60 +158,6 @@ const persistCutItems = (items: CutItem[]) => {
 };
 
 const clearCutItems = () => sessionStorage.removeItem(CUT_STATE_KEY);
-
-const parseStoredUploadSession = (
-  storageKey: string,
-): ResumableSessionSummary | null => {
-  try {
-    const stored = JSON.parse(localStorage.getItem(storageKey) ?? "null") as {
-      fileName?: unknown;
-      fileSize?: unknown;
-    } | null;
-    if (
-      typeof stored?.fileName !== "string" ||
-      typeof stored.fileSize !== "number"
-    ) {
-      return null;
-    }
-    return {
-      name: stored.fileName,
-      size: stored.fileSize,
-      storageKey,
-    };
-  } catch {
-    return null;
-  }
-};
-
-const parseLegacyUploadSession = (
-  storageKey: string,
-  prefix: string,
-): ResumableSessionSummary | null => {
-  const legacyValue = storageKey.slice(prefix.length);
-  const separatorIndex = legacyValue.lastIndexOf(":");
-  if (separatorIndex <= 0) return null;
-
-  const name = legacyValue.slice(0, separatorIndex);
-  const size = Number.parseInt(legacyValue.slice(separatorIndex + 1), 10);
-  return name && !Number.isNaN(size) ? { name, size, storageKey } : null;
-};
-
-const loadResumableSessions = (folderId: string): ResumableSessionSummary[] => {
-  const prefix = `${UPLOAD_SESSION_KEY_PREFIX}:${folderId}:`;
-  const sessions: ResumableSessionSummary[] = [];
-
-  for (let index = 0; index < localStorage.length; index++) {
-    const storageKey = localStorage.key(index);
-    if (!storageKey?.startsWith(prefix)) continue;
-
-    const session =
-      parseStoredUploadSession(storageKey) ??
-      parseLegacyUploadSession(storageKey, prefix);
-    if (session) sessions.push(session);
-  }
-
-  return sessions;
-};
 
 // ---------------------------------------------------------------------------
 // Props
@@ -235,6 +176,8 @@ type FilesViewProps = {
   showFolderPreviews: boolean;
   favoriteFileIds: string[];
   favoriteFolderIds: string[];
+  /** Everything inside the open folder, for Details with nothing selected. */
+  folderSizeBytes: number;
 };
 
 const getListedItemIds = (listing: FilesListing) =>
@@ -273,6 +216,7 @@ export function FilesView({
   showFolderPreviews,
   favoriteFileIds,
   favoriteFolderIds,
+  folderSizeBytes,
 }: FilesViewProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -430,9 +374,6 @@ export function FilesView({
 
   // ---- Upload drag state ----
   const [isDragOver, setIsDragOver] = useState(false);
-  const [resumableSessions, setResumableSessions] = useState<
-    { name: string; size: number; storageKey: string }[]
-  >([]);
   const dragCounterRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -626,12 +567,6 @@ export function FilesView({
     const saved = loadCutItems();
     if (saved.length > 0) updateCutItems(saved);
   }, []);
-
-  // ---- Scan for resumable upload sessions in this folder ----
-  // Re-run when listing changes (router.refresh clears completed sessions from localStorage)
-  useEffect(() => {
-    setResumableSessions(loadResumableSessions(listing.currentFolder.id));
-  }, [listing, pathname]);
 
   // ---------------------------------------------------------------------------
   // Keyboard: the shared list handles moving and selecting; these are Files'
@@ -1490,7 +1425,12 @@ export function FilesView({
     if (entries.length > 0) {
       void collectDirectoryDropSelection(entries)
         .then((selection) => {
-          beginUpload(listing.currentFolder.id, currentPath, selection);
+          beginUpload(
+            listing.currentFolder.id,
+            currentPath,
+            selection,
+            listing.currentFolder.name,
+          );
         })
         .catch(() => {
           // The browser can expose a directory entry without allowing its
@@ -1500,6 +1440,7 @@ export function FilesView({
               listing.currentFolder.id,
               currentPath,
               flatFileFallback,
+              listing.currentFolder.name,
             );
             return;
           }
@@ -1509,7 +1450,12 @@ export function FilesView({
     }
 
     if (flatFileFallback.files.length > 0) {
-      beginUpload(listing.currentFolder.id, currentPath, flatFileFallback);
+      beginUpload(
+        listing.currentFolder.id,
+        currentPath,
+        flatFileFallback,
+        listing.currentFolder.name,
+      );
     }
   };
 
@@ -1619,7 +1565,12 @@ export function FilesView({
       Array.from(e.target.files ?? []),
     );
     if (selection.files.length > 0) {
-      beginUpload(listing.currentFolder.id, currentPath, selection);
+      beginUpload(
+        listing.currentFolder.id,
+        currentPath,
+        selection,
+        listing.currentFolder.name,
+      );
     }
     if (inputRef.current) inputRef.current.value = "";
   };
@@ -1892,6 +1843,48 @@ export function FilesView({
   const locationLabel = listing.breadcrumbs
     .map((crumb, index) => (index === 0 ? "Files" : crumb.name))
     .join(" / ");
+  // Details dates read "2 days ago"; the exact time is on hover.
+  const when = (value: Date | string) => (
+    <span title={formatDateTime(value, timeZone)}>
+      {formatRelativeTime(value, now, timeZone, "long")}
+    </span>
+  );
+  const count = (n: number, one: string) =>
+    n === 0 ? null : `${n} ${one}${n === 1 ? "" : "s"}`;
+  const { currentFolder } = listing;
+  // With nothing selected, Details describes the open folder.
+  const folderSummary: DetailsContent = {
+    item: {
+      id: currentFolder.id,
+      kind: "folder",
+      name: currentFolder.name,
+      color: colorOf(currentFolder),
+      icon: FOLDER_ICON_MAP[iconOf(currentFolder) ?? ""],
+    },
+    rows: [
+      ["Size", formatWorkspaceFileSize(folderSizeBytes)],
+      [
+        "Inside",
+        [
+          count(listing.childFolders.length, "folder"),
+          count(listing.files.length, "file"),
+        ]
+          .filter(Boolean)
+          .join(", ") || "Empty",
+      ],
+      ["Modified", when(currentFolder.updatedAt)],
+      ["Created", when(currentFolder.createdAt)],
+    ],
+    sections: (
+      <DetailsSection title="Sharing">
+        <p className="m-0 text-meta text-muted-foreground">
+          {shareLookup.currentFolderShare?.status === "active"
+            ? "Anyone with the link can open this."
+            : "Not shared."}
+        </p>
+      </DetailsSection>
+    ),
+  };
   const detailsContent: DetailsContent | null = detailsItem
     ? // Details differ for files and folders, shared and favorite items.
       // fallow-ignore-next-line complexity
@@ -1943,8 +1936,8 @@ export function FilesView({
                   ],
                 ]),
             ["Location", locationLabel],
-            ["Modified", formatDateTime(data.updatedAt, timeZone)],
-            ["Created", formatDateTime(data.createdAt, timeZone)],
+            ["Modified", when(data.updatedAt)],
+            ["Created", when(data.createdAt)],
           ],
           sections: (
             <>
@@ -1991,16 +1984,18 @@ export function FilesView({
           ),
         };
       })()
-    : null;
-
-  // Uploads that a previous visit left unfinished; picking the same file resumes it.
-  const activeUploadNames = new Set(uploadingFiles.map((f) => f.name));
-  const existingFileNames = new Set(visibleFiles.map((f) => f.name));
-  const unfinishedUploads = resumableSessions.filter(
-    (s) => !activeUploadNames.has(s.name) && !existingFileNames.has(s.name),
-  );
+    : selectedIds.size === 0
+      ? folderSummary
+      : null;
 
   const selectedItems = allItems.filter((item) => selectedIds.has(item.id));
+  // Files on their way into this folder show before they land.
+  const uploadsHere = uploadingFiles.filter(
+    (upload) =>
+      upload.status === "uploading" &&
+      upload.folderId === listing.currentFolder.id &&
+      !upload.name.includes("/"),
+  );
 
   // ---------------------------------------------------------------------------
   // Render
@@ -2073,42 +2068,26 @@ export function FilesView({
               : `${selectedIds.size} item${selectedIds.size === 1 ? "" : "s"} selected`}
           </p>
 
-          {unfinishedUploads.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-lg bg-hover px-3 py-1.5 text-meta">
-              <span className="min-w-0 flex-1 truncate">
-                {unfinishedUploads.length === 1
-                  ? `${unfinishedUploads[0]!.name} didn't finish uploading.`
-                  : `${unfinishedUploads.length} uploads didn't finish.`}{" "}
-                Pick the same{" "}
-                {unfinishedUploads.length === 1 ? "file" : "files"} to resume.
-              </span>
-              <Button size="xs" onClick={() => fileInputRef.current?.click()}>
-                Resume
-              </Button>
-              <Button
-                size="xs"
-                variant="ghost"
-                onClick={() => {
-                  for (const session of unfinishedUploads) {
-                    localStorage.removeItem(session.storageKey);
-                  }
-                  setResumableSessions([]);
-                }}
-              >
-                Dismiss
-              </Button>
-            </div>
-          ) : null}
-
           <FileList
             leading={
-              newFolderOpen && !isCoarsePointer ? (
-                <NewFolderRow
-                  parentId={listing.currentFolder.id}
-                  redirectTo={currentPath}
-                  view={view}
-                  onDone={finishNewFolder}
-                />
+              (newFolderOpen && !isCoarsePointer) || uploadsHere.length > 0 ? (
+                <>
+                  {newFolderOpen && !isCoarsePointer ? (
+                    <NewFolderRow
+                      parentId={listing.currentFolder.id}
+                      redirectTo={currentPath}
+                      view={view}
+                      onDone={finishNewFolder}
+                    />
+                  ) : null}
+                  {uploadsHere.map((upload) => (
+                    <UploadingRow
+                      key={upload.clientKey}
+                      upload={upload}
+                      view={view}
+                    />
+                  ))}
+                </>
               ) : null
             }
             coarse={isCoarsePointer}

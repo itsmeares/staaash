@@ -220,7 +220,7 @@ export function FolderIconPicker({
     <DetailsSection title="Folder icon">
       <div
         aria-label="Choose folder icon"
-        className="grid grid-cols-6 gap-1"
+        className="grid grid-cols-[repeat(auto-fill,minmax(2.25rem,1fr))] gap-1"
         role="radiogroup"
       >
         {FOLDER_ICON_OPTIONS.map(({ name, icon: Icon, label }) => (

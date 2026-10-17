@@ -1,18 +1,10 @@
 "use client";
 
-import {
-  ArrowUpDown,
-  Check,
-  Keyboard,
-  LogOut,
-  Settings2,
-  Shield,
-} from "lucide-react";
+import { Check, Keyboard, LogOut, Settings2, Shield } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { Button } from "@/components/ui/button";
 import {
   Menu,
   MenuItem,
@@ -23,7 +15,7 @@ import {
 } from "@/components/ui/menu";
 
 import { openShortcuts } from "./shortcuts-dialog";
-import { useTransferContext } from "./transfer-context";
+import { Transfers } from "./transfers";
 import { WorkspaceAvatar } from "./workspace-avatar";
 import { isAdminPath } from "./workspace-nav";
 
@@ -63,36 +55,6 @@ type TopbarActionsProps = {
   avatarUrl: string | null;
 };
 
-/** Shows while files move; opens the transfer panel. */
-function TransfersIndicator() {
-  const { uploadingFiles, activeDownload } = useTransferContext();
-  const active = uploadingFiles.filter((f) => f.status === "uploading");
-  if (active.length === 0 && !activeDownload) return null;
-
-  const total = active.reduce((sum, f) => sum + f.size, 0);
-  const done = active.reduce((sum, f) => sum + f.transferredBytes, 0);
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-  const label =
-    active.length > 0
-      ? `Uploading ${active.length} ${active.length === 1 ? "file" : "files"}, ${pct}%`
-      : "Preparing a download";
-
-  return (
-    <Button
-      aria-label={label}
-      size="sm"
-      title={label}
-      variant="ghost-muted"
-      onClick={() => window.dispatchEvent(new Event("staaash:transfers-open"))}
-    >
-      <ArrowUpDown aria-hidden />
-      <span className="tabular-nums">
-        {active.length > 0 ? `${pct}%` : "Zip"}
-      </span>
-    </Button>
-  );
-}
-
 export function TopbarActions({
   userLabel,
   email,
@@ -103,7 +65,7 @@ export function TopbarActions({
   const pathname = usePathname();
   return (
     <div className="flex shrink-0 items-center gap-1">
-      <TransfersIndicator />
+      <Transfers />
 
       <Menu>
         <MenuTrigger

@@ -1,3 +1,4 @@
+import { getFolderSizeBytes } from "@/server/files/folder-size";
 import type { FilesListing } from "@/server/files/types";
 import { retrievalService } from "@/server/retrieval/service";
 import { sharingService } from "@/server/sharing/service";
@@ -16,7 +17,7 @@ export async function loadFilesViewProps({
   baseUrl: string;
   showFolderPreviews: boolean;
 }) {
-  const [shareLookup, favorites] = await Promise.all([
+  const [shareLookup, favorites, folderSizeBytes] = await Promise.all([
     sharingService.getFilesShareLookup({
       actorUserId,
       actorRole,
@@ -26,6 +27,7 @@ export async function loadFilesViewProps({
       baseUrl,
     }),
     retrievalService.listFavorites({ actorUserId, actorRole }),
+    getFolderSizeBytes(listing.currentFolder.id),
   ]);
   const idsOf = (kind: "file" | "folder") =>
     favorites.filter((item) => item.kind === kind).map((item) => item.id);
@@ -35,5 +37,6 @@ export async function loadFilesViewProps({
     showFolderPreviews,
     favoriteFileIds: idsOf("file"),
     favoriteFolderIds: idsOf("folder"),
+    folderSizeBytes,
   };
 }
