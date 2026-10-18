@@ -1,5 +1,9 @@
 "use client";
 
+import { useContinuousList } from "@/components/file-list/use-continuous-list";
+import { useListFind } from "@/components/file-list/use-list-find";
+import { loadRecent, selectRecent, resolveActivity } from "../list-actions";
+import { toast } from "@/components/ui/toast";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -38,7 +42,6 @@ import {
 import { sizeColumn } from "../workspace-item-helpers";
 import {
   ACTION_LABELS,
-  batchActivity,
   batchLabel,
   filterRecentItems,
   sortRecentItems,
@@ -51,7 +54,13 @@ import {
 type RecentListItem = FileListItem & { data: ActivityRow };
 
 /** A batch's thumbnails, up to five, then "+N". */
-function BatchStrip({ items }: { items: RecentClientItem[] }) {
+function BatchStrip({
+  items,
+  total = items.length,
+}: {
+  items: RecentClientItem[];
+  total?: number;
+}) {
   const shown = items.slice(0, 5);
   return (
     <span className="flex gap-1.25 pt-1.5">
@@ -65,9 +74,9 @@ function BatchStrip({ items }: { items: RecentClientItem[] }) {
           src={thumbnailUrlFor(item) ?? undefined}
         />
       ))}
-      {items.length > shown.length ? (
+      {total > shown.length ? (
         <span className="grid h-10.5 w-14 place-items-center rounded-md bg-hover text-label text-muted-foreground max-sm:h-8.5 max-sm:w-11">
-          +{items.length - shown.length}
+          +{total - shown.length}
         </span>
       ) : null}
     </span>
@@ -76,10 +85,12 @@ function BatchStrip({ items }: { items: RecentClientItem[] }) {
 
 /** Activity (Opened, Uploaded, …) or everything added, newest first. */
 export function RecentView({
-  items,
+  items: initialItems,
+  total,
   show,
 }: {
-  items: RecentClientItem[];
+  items: ActivityRow[];
+  total: number;
   show: "activity" | "added";
 }) {
   const router = useRouter();
@@ -88,6 +99,18 @@ export function RecentView({
   const [view, setView] = useViewMode("recent");
   const [filterType, setFilterType] = useState<RecentFilterType>("all");
   const sort = useListSort<RecentSortKey>("at", "desc");
+  const finder = useListFind("Find in recent");
+  const { continuous, listQuery } = useRecentList(
+    initialItems,
+    total,
+    show,
+    view,
+    sort,
+    filterType,
+    finder.find,
+  );
+  const items = continuous.items;
+
   const actions = useWorkspaceItemActions("/recent");
   const activity = show === "activity";
 
@@ -114,8 +137,7 @@ export function RecentView({
   ]);
 
   // The timeline grid shows every item; the activity list folds bursts.
-  const rows: ActivityRow[] =
-    activity && view === "list" ? batchActivity(visibleItems) : visibleItems;
+  const rows: ActivityRow[] = visibleItems;
 
   const whenOf = (item: ActivityRow) => {
     const time = formatGroupedTime(item.at, now, timeZone, clock);
@@ -133,7 +155,7 @@ export function RecentView({
           kind: "file",
           name: batchLabel(row),
           mimeType: row.mimeType,
-          sub: <BatchStrip items={row.batch} />,
+          sub: <BatchStrip items={row.batch} total={row.batchSize} />,
           data: row,
         }
       : {
@@ -173,15 +195,79 @@ export function RecentView({
     (row) => !row.deletedAt && !row.storageMutationStatus,
   );
   const itemsOf = (picked: ActivityRow[]) =>
-    picked.flatMap((row) => row.batch ?? [row]);
+    picked.flatMap((row) => (row.batchAnchor ? [row] : (row.batch ?? [row])));
+  const countOf = (picked: ActivityRow[]) =>
+    picked.reduce(
+      (count, row) => count + (row.batchSize ?? row.batch?.length ?? 1),
+      0,
+    );
+  const resolve = async (picked: ActivityRow[]) => {
+    if (!picked.some((row) => row.batchAnchor)) return itemsOf(picked);
+    return resolveActivity(
+      listQuery,
+      picked.map((row) => row.id),
+    );
+  };
+  const resolvedActions = {
+    ...actions,
+    download: async (picked: Parameters<typeof actions.download>[0]) => {
+      try {
+        return await actions.download(await resolve(picked as ActivityRow[]));
+      } catch (cause) {
+        toast.error(
+          cause instanceof Error
+            ? cause.message
+            : "The selection could not load.",
+        );
+      }
+    },
+    move: async (picked: Parameters<typeof actions.move>[0]) => {
+      try {
+        return await actions.move(await resolve(picked as ActivityRow[]));
+      } catch (cause) {
+        toast.error(
+          cause instanceof Error
+            ? cause.message
+            : "The selection could not load.",
+        );
+      }
+    },
+    trash: async (picked: Parameters<typeof actions.trash>[0]) => {
+      try {
+        return await actions.trash(await resolve(picked as ActivityRow[]));
+      } catch (cause) {
+        toast.error(
+          cause instanceof Error
+            ? cause.message
+            : "The selection could not load.",
+        );
+      }
+    },
+  };
 
-  const { selection, selectedItems, targetsFor } = useItemSelection({
-    items: selectable,
-    coarse: isCoarsePointer,
-    onOpen: (row) =>
-      row.batch ? actions.showInFolder(row) : actions.open(row),
-    onDelete: (targets) => void actions.trash(itemsOf(targets)),
-  });
+  const { selection, selectedItems, targetsFor } =
+    useItemSelection<ActivityRow>({
+      items: selectable,
+      loadAll: async () => {
+        const all = await continuous.loadAll();
+        const rows = all;
+        return rows.filter(
+          (item) => !item.deletedAt && !item.storageMutationStatus,
+        );
+      },
+      loadNext: async () => {
+        const all = await continuous.loadMore();
+        const rows = all;
+        return rows.filter(
+          (item) => !item.deletedAt && !item.storageMutationStatus,
+        );
+      },
+      onFind: finder.show,
+      coarse: isCoarsePointer,
+      onOpen: (row) =>
+        row.batch ? actions.showInFolder(row) : actions.open(row),
+      onDelete: (targets) => void resolvedActions.trash(targets),
+    });
 
   const getActions = ({
     data: row,
@@ -193,22 +279,24 @@ export function RecentView({
         restore: () => void actions.restore(row),
       });
     }
-    const targets = itemsOf(targetsFor(row));
+    const targets = targetsFor(row);
     if (row.batch) {
       return buildItemActions({
         name: batchLabel(row),
         kind: "file",
-        count: targets.length,
+        count: countOf(targets),
         open: () => actions.showInFolder(row),
         openLabel: "Show in folder",
-        download: () => void actions.download(targets),
+        download: () => void resolvedActions.download(targets),
         trash: () => {
-          void actions.trash(targets);
+          void resolvedActions.trash(targets);
           selection.clear();
         },
       });
     }
-    return liveItemMenu(actions, row, targets, selection.clear);
+    return liveItemMenu(resolvedActions, row, targets, selection.clear, {
+      count: countOf(targets),
+    });
   };
 
   const columns: FileListColumn<RecentListItem>[] = activity
@@ -249,7 +337,6 @@ export function RecentView({
     selection.selectAll,
     selectable.length,
   );
-  const picked = itemsOf(selectedItems);
 
   return (
     <DashboardPageContextMenu
@@ -281,16 +368,16 @@ export function RecentView({
         title="Recent"
       />
 
+      {finder.field}
       <FileList
+        loading={continuous}
         coarse={isCoarsePointer}
         columns={columns}
         empty={
           <Empty className="min-h-64">
             <EmptyHeader>
               <EmptyTitle>
-                {items.length === 0
-                  ? "Nothing here yet"
-                  : "Nothing of that type"}
+                {!continuous.filtered ? "Nothing here yet" : "Nothing matches"}
               </EmptyTitle>
             </EmptyHeader>
           </Empty>
@@ -308,11 +395,42 @@ export function RecentView({
       />
 
       <SelectionBar
-        actions={downloadAndTrash(actions, picked, selection.clear)}
-        count={picked.length}
+        actions={downloadAndTrash(
+          resolvedActions,
+          selectedItems,
+          selection.clear,
+        )}
+        count={countOf(selectedItems)}
         onClear={selection.clear}
         onSelectAll={selection.selectAll}
       />
     </DashboardPageContextMenu>
   );
+}
+
+function useRecentList(
+  initialItems: ActivityRow[],
+  total: number,
+  show: "activity" | "added",
+  view: "list" | "grid",
+  sort: ReturnType<typeof useListSort<RecentSortKey>>,
+  filterType: RecentFilterType,
+  find: string,
+) {
+  const listQuery = {
+    sort: show === "activity" ? "at" : sort.key,
+    direction: show === "activity" ? ("desc" as const) : sort.direction,
+    filter: filterType,
+    find: find,
+    grouped: show === "activity" && view === "list",
+  };
+  const continuous = useContinuousList<ActivityRow>({
+    name: "recent",
+    items: initialItems,
+    total,
+    query: listQuery,
+    load: (query) => loadRecent(show, query),
+    select: (query) => selectRecent(show, query),
+  });
+  return { continuous, listQuery };
 }

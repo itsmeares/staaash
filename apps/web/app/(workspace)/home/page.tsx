@@ -10,8 +10,8 @@ import {
 } from "@/components/ui/empty";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { getShareBaseUrl } from "@/server/request";
-import { retrievalService } from "@/server/retrieval/service";
-import { sharingService } from "@/server/sharing/service";
+import { getPinnedFavorites, getRetrievalPage } from "@/server/retrieval/page";
+import { getSharesPage } from "@/server/sharing/page";
 
 import {
   toActivityClientItem,
@@ -29,20 +29,25 @@ export default async function HomePage() {
     headers(),
   ]);
   const actor = { actorUserId: session.user.id, actorRole: session.user.role };
-  const [favorites, recent, shares] = await Promise.all([
-    retrievalService.listFavorites(actor),
-    retrievalService.listRecent(actor),
-    sharingService.listOwnedShares({ ...actor, baseUrl: getShareBaseUrl(h) }),
+  const [favorites, recent, pickUp, shares] = await Promise.all([
+    getPinnedFavorites(session.user.id),
+    getRetrievalPage(session.user.id, "recent", { limit: 8, liveOnly: true }),
+    getRetrievalPage(session.user.id, "recent", {
+      limit: 6,
+      liveOnly: true,
+      filesOnly: true,
+    }),
+    getSharesPage(actor, getShareBaseUrl(h), true, { limit: 5 }),
   ]);
 
-  const recentItems = recent
+  const recentItems = recent.items
     .filter((item) => !item.deletedAt)
     .map(toActivityClientItem);
   const pinned = pinnedFavorites(favorites).map(toRecentClientItem);
   const isEmpty =
     favorites.length === 0 &&
     recentItems.length === 0 &&
-    shares.active.length === 0;
+    shares.items.length === 0;
 
   return (
     <WorkspacePresetPageContextMenu
@@ -65,12 +70,10 @@ export default async function HomePage() {
         </Empty>
       ) : (
         <HomeSections
-          pickUp={recentItems
-            .filter((item) => item.kind === "file")
-            .slice(0, 6)}
+          pickUp={pickUp.items.map(toActivityClientItem)}
           pinned={pinned}
           recent={recentItems.slice(0, 8)}
-          shares={shares.active.slice(0, 5).map((share) => ({
+          shares={shares.items.slice(0, 5).map((share) => ({
             id: share.id,
             name: share.target.name,
             kind: share.target.targetType,

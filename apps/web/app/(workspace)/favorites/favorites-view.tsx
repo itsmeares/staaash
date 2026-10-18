@@ -1,5 +1,8 @@
 "use client";
 
+import { useContinuousList } from "@/components/file-list/use-continuous-list";
+import { useListFind } from "@/components/file-list/use-list-find";
+import { loadFavorites, selectFavorites } from "../list-actions";
 import { Download, FolderInput, HeartOff, Pin } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -39,18 +42,38 @@ import {
 
 type FavoritesViewProps = {
   items: FavoriteClientItem[];
+  total: number;
 };
 
 type FavoriteListItem = FileListItem & { data: FavoriteClientItem };
 
 // Favorites adds optimistic remove and pin on top of the shared list.
 // fallow-ignore-next-line complexity
-export function FavoritesView({ items }: FavoritesViewProps) {
+export function FavoritesView({
+  items: initialItems,
+  total,
+}: FavoritesViewProps) {
   const isCoarsePointer = useCoarsePointer();
   const { now, timeZone } = useTime();
   const [view, setView] = useViewMode("favorites");
   const [filterType, setFilterType] = useState<FavoriteFilterType>("all");
   const sort = useListSort<FavoriteSortKey>("favoritedAt", "desc");
+  const finder = useListFind("Find in favorites");
+  const continuous = useContinuousList({
+    name: "favorites",
+    items: initialItems,
+    total,
+    query: {
+      sort: sort.key,
+      direction: sort.direction,
+      filter: filterType,
+      find: finder.find,
+    },
+    load: loadFavorites,
+    select: selectFavorites,
+  });
+  const items = continuous.items;
+
   // Optimistic changes until the refreshed list arrives.
   const [removedIds, setRemovedIds] = useState<ReadonlySet<string>>(new Set());
   const [pinOverrides, setPinOverrides] = useState<
@@ -113,6 +136,21 @@ export function FavoritesView({ items }: FavoritesViewProps) {
 
   const { selection, selectedItems, targetsFor } = useItemSelection({
     items: selectable,
+    loadAll: async () =>
+      (await continuous.loadAll()).filter(
+        (item) =>
+          !item.storageMutationStatus &&
+          !removedIds.has(item.id) &&
+          !actions.trashedIds.has(item.id),
+      ),
+    loadNext: async () =>
+      (await continuous.loadMore()).filter(
+        (item) =>
+          !item.storageMutationStatus &&
+          !removedIds.has(item.id) &&
+          !actions.trashedIds.has(item.id),
+      ),
+    onFind: finder.show,
     coarse: isCoarsePointer,
     onOpen: actions.open,
   });
@@ -180,16 +218,16 @@ export function FavoritesView({ items }: FavoritesViewProps) {
         title="Favorites"
       />
 
+      {finder.field}
       <FileList
+        loading={continuous}
         coarse={isCoarsePointer}
         columns={columns}
         empty={
           <Empty className="min-h-64">
             <EmptyHeader>
               <EmptyTitle>
-                {activeItems.length === 0
-                  ? "No favorites yet"
-                  : "Nothing of that type"}
+                {!continuous.filtered ? "No favorites yet" : "Nothing matches"}
               </EmptyTitle>
             </EmptyHeader>
           </Empty>

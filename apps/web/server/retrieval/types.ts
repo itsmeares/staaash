@@ -45,20 +45,6 @@ export type FavoriteMutationResult = {
   quickAccessPinnedAt?: Date | null;
 };
 
-export type FavoriteFileRecord = {
-  userId: string;
-  fileId: string;
-  createdAt: Date;
-  quickAccessPinnedAt: Date | null;
-};
-
-export type FavoriteFolderRecord = {
-  userId: string;
-  folderId: string;
-  createdAt: Date;
-  quickAccessPinnedAt: Date | null;
-};
-
 /** What someone last did with an item; matches the RecentAction enum. */
 export type RecentAction =
   | "opened"
@@ -76,54 +62,9 @@ export type RecentRetrievalItem = RetrievalItem & {
   lastAction: RecentAction | null;
 };
 
-export type RecentFileRecord = {
-  userId: string;
-  fileId: string;
-  lastInteractedAt: Date;
-  lastAction: RecentAction | null;
-};
-
-export type RecentFolderRecord = {
-  userId: string;
-  folderId: string;
-  lastInteractedAt: Date;
-  lastAction: RecentAction | null;
-};
-
-export type RetrievalListOptions = {
-  includeDeleted?: boolean;
-};
-
 export type RetrievalRepository = {
-  ensureFilesRoot(ownerUserId: string): Promise<FolderSummary>;
   findFolderById(folderId: string): Promise<FolderSummary | null>;
   findFileById(fileId: string): Promise<FileSummary | null>;
-  listFolderAncestors(
-    ownerUserId: string,
-    folderIds: string[],
-  ): Promise<FolderSummary[]>;
-  listFilesByIds(
-    ownerUserId: string,
-    fileIds: string[],
-    options?: RetrievalListOptions,
-  ): Promise<FileSummary[]>;
-  listFoldersByOwner(
-    ownerUserId: string,
-    options?: RetrievalListOptions,
-  ): Promise<FolderSummary[]>;
-  listFilesByOwner(
-    ownerUserId: string,
-    options?: RetrievalListOptions & { favoritesOnly?: boolean },
-  ): Promise<FileSummary[]>;
-  searchFilesByOwner(
-    ownerUserId: string,
-    nameQuery: string,
-    folderIds: string[],
-  ): Promise<FileSummary[]>;
-  listFavoriteFiles(userId: string): Promise<FavoriteFileRecord[]>;
-  listFavoriteFolders(userId: string): Promise<FavoriteFolderRecord[]>;
-  listRecentFiles(userId: string): Promise<RecentFileRecord[]>;
-  listRecentFolders(userId: string): Promise<RecentFolderRecord[]>;
   upsertFileFavorite(params: {
     userId: string;
     fileId: string;

@@ -1,5 +1,11 @@
 import { getPrisma } from "./client";
 
+export const rebuildFolderSizeTotals = async () => {
+  await getPrisma().$queryRaw`
+    SELECT staaash_rebuild_folder_sizes(array_agg(id))::text FROM "Folder"
+  `;
+};
+
 export const verifyCommittedStorageUsage = async () => {
   const client = getPrisma();
   const mismatches = await client.$queryRaw<Array<{ id: string }>>`

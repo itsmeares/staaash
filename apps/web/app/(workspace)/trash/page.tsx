@@ -12,9 +12,10 @@ export default async function TrashPage() {
   const listing = await filesService.listTrashFolders({
     actorUserId: session.user.id,
     actorRole: session.user.role,
+    query: {},
   });
 
-  const totalCount = listing.items.length + listing.files.length;
+  const totalCount = listing.total;
   const isEmpty = totalCount === 0;
   const items = toTrashClientItems(listing);
 
@@ -26,6 +27,7 @@ export default async function TrashPage() {
     >
       <TrashView
         items={items}
+        total={listing.total}
         // The worker reads the same setting; 30 days unless an operator changed it.
         retentionDays={Number(process.env.TRASH_RETENTION_DAYS) || 30}
       />

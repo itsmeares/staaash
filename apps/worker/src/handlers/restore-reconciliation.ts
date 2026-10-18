@@ -8,6 +8,7 @@ import {
   findRestoreReconciliationRunByBackgroundJobId,
   markRestoreReconciliationRunRunning,
   verifyCommittedStorageUsage,
+  rebuildFolderSizeTotals,
   type RestoreReconciliationIssueDetails,
 } from "@staaash/db/reconciliation";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
@@ -568,7 +569,10 @@ export const handleRestoreReconciliation = async (
   storagePaths: WorkerStoragePaths,
   client?: ReconciliationClient,
 ): Promise<void> => {
-  if (!client) await verifyCommittedStorageUsage();
+  if (!client) {
+    await verifyCommittedStorageUsage();
+    await rebuildFolderSizeTotals();
+  }
   const activeClient = await prepareReconciliation(storagePaths, client);
   const triggeredByUserId = readTriggeredByUserId(job.payloadJson);
   await ensureReconciliationRun(job, triggeredByUserId);

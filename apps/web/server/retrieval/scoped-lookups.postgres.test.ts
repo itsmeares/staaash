@@ -1,9 +1,9 @@
+import { getRetrievalPage } from "./page";
 import { randomUUID } from "node:crypto";
 import { expect, it, vi } from "vite-plus/test";
 import { getPrisma } from "@staaash/db/client";
 import { prismaFilesRepository } from "@/server/files/repository";
 import { createSharingService } from "@/server/sharing/service";
-import { createRetrievalService } from "./service";
 
 it("keeps sparse retrieval and owned-share results complete without loading unrelated metadata", async () => {
   const db = getPrisma();
@@ -105,36 +105,35 @@ it("keeps sparse retrieval and owned-share results complete without loading unre
       expiresAt: new Date("2027-01-01"),
     },
   });
-  const listFiles = prismaFilesRepository.listFilesByOwner.bind(
-    prismaFilesRepository,
-  );
   const fileReads = vi
     .spyOn(prismaFilesRepository, "listFilesByOwner")
-    .mockImplementation((ownerUserId, options) => {
-      if (!options?.favoritesOnly) throw new Error("Unrelated owner files");
-      return listFiles(ownerUserId, options);
-    });
+    .mockRejectedValue(new Error("Unrelated owner files"));
   const folderReads = vi
     .spyOn(prismaFilesRepository, "listFoldersByOwner")
     .mockRejectedValue(new Error("Unrelated owner folders"));
   try {
     const actor = { actorUserId: owner.id, actorRole: "member" as const };
-    const retrieval = createRetrievalService();
-    const favorites = await retrieval.listFavorites(actor);
+    const favorites = (await getRetrievalPage(actor.actorUserId, "favorites"))
+      .items;
     expect(favorites.map((item) => [item.name, item.pathLabel])).toEqual([
-      [deep.name, "Files / Projects / Deep"],
-      [alpha.originalName, "Files / Projects / Deep / Álpha.txt"],
-      [beta.originalName, "Files / Projects / Deep / beta.txt"],
-      [missing.originalName, "Files / Projects / Deep / missing.txt"],
       [underDeleted.originalName, "Files / under-deleted.txt"],
+      [missing.originalName, "Files / Projects / Deep / missing.txt"],
+      [deep.name, "Files / Projects / Deep"],
+      [beta.originalName, "Files / Projects / Deep / beta.txt"],
+      [alpha.originalName, "Files / Projects / Deep / Álpha.txt"],
     ]);
     expect(
       favorites.find((item) => item.id === beta.id)?.quickAccessPinnedAt,
     ).toEqual(date);
     expect(
-      await retrieval.listFavorites({ ...actor, actorRole: "owner" }),
+      (
+        await getRetrievalPage(
+          { ...actor, actorRole: "owner" }.actorUserId,
+          "favorites",
+        )
+      ).items,
     ).toEqual(favorites);
-    const recents = await retrieval.listRecent(actor);
+    const recents = (await getRetrievalPage(actor.actorUserId, "recent")).items;
     // Recent keeps trashed items, so it can say they were trashed.
     expect(recents.map((item) => [item.name, item.pathLabel])).toEqual([
       [deep.name, "Files / Projects / Deep"],
@@ -216,8 +215,9 @@ it("keeps sparse retrieval and owned-share results complete without loading unre
       },
     });
     expect(
-      (await retrieval.listRecent(actor)).find((item) => item.id === alpha.id)
-        ?.storageMutation?.id,
+      (await getRetrievalPage(actor.actorUserId, "recent")).items.find(
+        (item) => item.id === alpha.id,
+      )?.storageMutation?.id,
     ).toBe(mutation.id);
     await db.storageMutation.update({
       where: { id: mutation.id },
@@ -228,7 +228,7 @@ it("keeps sparse retrieval and owned-share results complete without loading unre
       data: { name: "Renamed" },
     });
     expect(
-      (await retrieval.listFavorites(actor)).find(
+      (await getRetrievalPage(actor.actorUserId, "favorites")).items.find(
         (item) => item.id === alpha.id,
       )?.pathLabel,
     ).toBe("Files / Projects / Renamed / Álpha.txt");
@@ -245,11 +245,13 @@ it("keeps sparse retrieval and owned-share results complete without loading unre
     await db.favoriteFolder.deleteMany({ where: { userId: owner.id } });
     await db.recentFile.deleteMany({ where: { userId: owner.id } });
     await db.recentFolder.deleteMany({ where: { userId: owner.id } });
-    expect(await retrieval.listFavorites(actor)).toEqual([]);
-    expect(await retrieval.listRecent(actor)).toEqual([]);
     expect(
-      fileReads.mock.calls.every(([, options]) => options?.favoritesOnly),
-    ).toBe(true);
+      (await getRetrievalPage(actor.actorUserId, "favorites")).items,
+    ).toEqual([]);
+    expect((await getRetrievalPage(actor.actorUserId, "recent")).items).toEqual(
+      [],
+    );
+    expect(fileReads).not.toHaveBeenCalled();
     expect(folderReads).not.toHaveBeenCalled();
   } finally {
     fileReads.mockRestore();

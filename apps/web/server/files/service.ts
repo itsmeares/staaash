@@ -1,3 +1,5 @@
+import { hasTrashAncestor, isTrashFolderRoot } from "./trash-roots";
+import { getListWindow, type ListQuery } from "@/server/list-window";
 // Storage mutations deliberately mirror phase ordering across entity kinds.
 // fallow-ignore-file code-duplication
 import { createHash, randomUUID } from "node:crypto";
@@ -1611,90 +1613,84 @@ export const createFilesService = ({
     return ordered;
   };
 
+  const restoreParent = async (
+    parentId: string | null,
+    known?: Map<string, FolderSummary>,
+  ) => {
+    if (!parentId) return null;
+    if (known) return known.get(parentId) ?? null;
+    return (await resolveRepo()).findFolderById(parentId);
+  };
+
   const getRestoreLocation = async (
-    folder: FolderSummary,
+    item: Pick<FolderSummary, "parentId" | "ownerUserId">,
     filesRoot: FolderSummary,
+    knownFolders?: Map<string, FolderSummary>,
   ): Promise<FolderRestoreLocation> => {
-    const activeRepo = await resolveRepo();
-
-    if (folder.parentId) {
-      const parent = await activeRepo.findFolderById(folder.parentId);
-
-      if (
-        parent &&
-        parent.ownerUserId === folder.ownerUserId &&
-        parent.deletedAt === null
-      ) {
-        return {
-          kind: "original-parent",
-          folderId: parent.id,
-          folderName: parent.name,
-          pathLabel: parent.isFilesRoot
-            ? filesRoot.name
-            : buildFolderPathLabel({
-                folder: parent,
-                folderMap: new Map(
-                  (
-                    await activeRepo.listFoldersByOwner(folder.ownerUserId, {
-                      includeDeleted: true,
-                    })
-                  ).map((candidate) => [candidate.id, candidate]),
-                ),
-                filesRoot,
-              }),
-        };
-      }
+    const parent = await restoreParent(item.parentId, knownFolders);
+    if (
+      !parent ||
+      parent.ownerUserId !== item.ownerUserId ||
+      parent.deletedAt
+    ) {
+      return {
+        kind: "files-root",
+        folderId: filesRoot.id,
+        folderName: filesRoot.name,
+        pathLabel: filesRoot.name,
+      };
     }
-
+    const folderMap =
+      knownFolders ??
+      new Map(
+        (
+          await (
+            await resolveRepo()
+          ).listFolderAncestors(item.ownerUserId, [parent.id])
+        ).map((folder) => [folder.id, folder]),
+      );
     return {
-      kind: "files-root",
-      folderId: filesRoot.id,
-      folderName: filesRoot.name,
-      pathLabel: filesRoot.name,
+      kind: "original-parent",
+      folderId: parent.id,
+      folderName: parent.name,
+      pathLabel: buildFolderPathLabel({ folder: parent, folderMap, filesRoot }),
     };
   };
 
-  const getFileRestoreLocation = async (
-    file: StoredFile,
-    filesRoot: FolderSummary,
-  ): Promise<FolderRestoreLocation> => {
+  const readTrashRecords = async (
+    actorUserId: string,
+    query?: ListQuery,
+    selected?: Awaited<ReturnType<typeof getListWindow>>,
+  ) => {
     const activeRepo = await resolveRepo();
-
-    if (file.folderId) {
-      const parent = await activeRepo.findFolderById(file.folderId);
-
-      if (
-        parent &&
-        parent.ownerUserId === file.ownerUserId &&
-        parent.deletedAt === null
-      ) {
-        return {
-          kind: "original-parent",
-          folderId: parent.id,
-          folderName: parent.name,
-          pathLabel: parent.isFilesRoot
-            ? filesRoot.name
-            : buildFolderPathLabel({
-                folder: parent,
-                folderMap: new Map(
-                  (
-                    await activeRepo.listFoldersByOwner(file.ownerUserId, {
-                      includeDeleted: true,
-                    })
-                  ).map((candidate) => [candidate.id, candidate]),
-                ),
-                filesRoot,
-              }),
-        };
-      }
-    }
-
-    return {
-      kind: "files-root",
-      folderId: filesRoot.id,
-      folderName: filesRoot.name,
-      pathLabel: filesRoot.name,
-    };
+    const window =
+      selected ??
+      (repo
+        ? null
+        : await getListWindow({
+            userId: actorUserId,
+            scope: "trash",
+            query,
+            all: !query,
+          }));
+    const ids = window?.items.map((item) => item.id);
+    const files = ids
+      ? await activeRepo.listFilesByIds(actorUserId, ids, {
+          includeDeleted: true,
+          includeMissing: true,
+        })
+      : await activeRepo.listFilesByOwner(actorUserId, {
+          includeDeleted: true,
+        });
+    const folders = ids
+      ? await activeRepo.listFolderAncestors(actorUserId, [
+          ...ids,
+          ...files.flatMap((file) => (file.folderId ? [file.folderId] : [])),
+        ])
+      : await activeRepo.listFoldersByOwner(actorUserId, {
+          includeDeleted: true,
+        });
+    return { window, files, folders };
   };
 
   const assertNoFolderNameConflict = async ({
@@ -2489,7 +2485,13 @@ export const createFilesService = ({
       actorRole,
       actorUserId,
       folderId,
-    }: FilesActor & { folderId?: string | null }): Promise<FilesListing> {
+      query = {},
+      selected,
+    }: FilesActor & {
+      folderId?: string | null;
+      query?: ListQuery;
+      selected?: Awaited<ReturnType<typeof getListWindow>>;
+    }): Promise<FilesListing> {
       const filesRoot = await ensureFilesRoot(actorUserId);
       const currentFolder = folderId
         ? await getActiveOwnedFolder({
@@ -2499,16 +2501,30 @@ export const createFilesService = ({
           })
         : filesRoot;
       const activeRepo = await resolveRepo();
+      const window =
+        selected ??
+        (repo
+          ? null
+          : await getListWindow({
+              userId: actorUserId,
+              scope: "folder",
+              folderId: currentFolder.id,
+              query: { sort: "name", direction: "asc", ...query },
+            }));
+      const ids = window?.items.map((item) => item.id);
+      const order = new Map(ids?.map((id, index) => [id, index]));
       const [childFolders, files] = await Promise.all([
         activeRepo.listChildFolders(
           currentFolder.ownerUserId,
           currentFolder.id,
           {
             includeDeleted: false,
+            ids,
           },
         ),
         activeRepo.listChildFiles(currentFolder.ownerUserId, currentFolder.id, {
           includeDeleted: false,
+          ids,
         }),
       ]);
       const folderPreviews = !repo
@@ -2529,18 +2545,23 @@ export const createFilesService = ({
           ])
         : [new Map(), new Map()];
       return {
+        total: window ? window.total : childFolders.length + files.length,
         ownerUserId: currentFolder.ownerUserId,
         currentFolder,
         folderPreviews,
         breadcrumbs: await buildBreadcrumbs(currentFolder, filesRoot),
-        childFolders: childFolders.map((folder) => ({
-          ...folder,
-          storageMutation: folderMutationStates.get(folder.id) ?? null,
-        })),
-        files: files.map((file) => ({
-          ...toFileSummary(file),
-          storageMutation: fileMutationStates.get(file.id) ?? null,
-        })),
+        childFolders: childFolders
+          .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+          .map((folder) => ({
+            ...folder,
+            storageMutation: folderMutationStates.get(folder.id) ?? null,
+          })),
+        files: files
+          .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+          .map((file) => ({
+            ...toFileSummary(file),
+            storageMutation: fileMutationStates.get(file.id) ?? null,
+          })),
       };
     },
 
@@ -2552,120 +2573,81 @@ export const createFilesService = ({
     async listTrashFolders({
       actorRole,
       actorUserId,
-    }: FilesActor): Promise<TrashListing> {
+      query,
+      selected,
+    }: FilesActor & {
+      query?: ListQuery;
+      selected?: Awaited<ReturnType<typeof getListWindow>>;
+    }): Promise<TrashListing> {
       const filesRoot = await ensureFilesRoot(actorUserId);
-      const activeRepo = await resolveRepo();
-      const [allFolders, allFiles] = await Promise.all([
-        activeRepo.listFoldersByOwner(filesRoot.ownerUserId, {
-          includeDeleted: true,
-        }),
-        activeRepo.listFilesByOwner(filesRoot.ownerUserId, {
-          includeDeleted: true,
-        }),
-      ]);
+      const {
+        window,
+        folders: allFolders,
+        files: allFiles,
+      } = await readTrashRecords(actorUserId, query, selected);
       const folderMap = new Map(
         allFolders.map((folder) => [folder.id, folder]),
       );
-      const items: TrashFolderSummary[] = [];
-      const files: TrashFileSummary[] = [];
-
-      for (const folder of allFolders) {
-        if (!folder.deletedAt || folder.isFilesRoot) {
-          continue;
-        }
-
-        const parent = folder.parentId ? folderMap.get(folder.parentId) : null;
-
-        if (parent?.deletedAt && parent.trashEntryId === folder.trashEntryId) {
-          continue;
-        }
-
-        assertFolderAccess(
-          {
-            actorRole,
-            actorUserId,
-          },
-          folder,
-        );
-
-        items.push({
-          folder,
-          originalPathLabel: buildFolderPathLabel({
+      const listed = window
+        ? new Set(window.items.map((item) => item.id))
+        : null;
+      const folders = allFolders.filter(
+        (folder) =>
+          isTrashFolderRoot(folder, folderMap) &&
+          (!listed || listed.has(folder.id)),
+      );
+      const retainedFiles = allFiles.filter(
+        (file) => file.deletedAt && !hasTrashAncestor(file, folderMap),
+      );
+      const items: TrashFolderSummary[] = await Promise.all(
+        folders.map(async (folder) => {
+          assertFolderAccess({ actorRole, actorUserId }, folder);
+          return {
             folder,
-            folderMap,
-            filesRoot,
-          }),
-          restoreLocation: await getRestoreLocation(folder, filesRoot),
-        });
-      }
-
-      for (const file of allFiles) {
-        if (!file.deletedAt) {
-          continue;
-        }
-
-        assertFileAccess(
-          {
-            actorRole,
-            actorUserId,
-          },
-          file,
-        );
-
-        const fileSummary = toFileSummary(file);
-        let ancestor = file.folderId ? folderMap.get(file.folderId) : null;
-        let hasDeletedAncestor = false;
-
-        while (ancestor) {
-          if (
-            ancestor.deletedAt &&
-            ancestor.trashEntryId === file.trashEntryId
-          ) {
-            hasDeletedAncestor = true;
-            break;
-          }
-
-          ancestor = ancestor.parentId
-            ? folderMap.get(ancestor.parentId)
-            : null;
-        }
-
-        if (hasDeletedAncestor) {
-          continue;
-        }
-
-        files.push({
-          file: fileSummary,
-          originalPathLabel: buildFilePathLabel({
-            file: fileSummary,
-            folderMap,
-            filesRoot,
-          }),
-          restoreLocation: await getFileRestoreLocation(file, filesRoot),
-        });
-      }
-
-      items.sort((left, right) => {
-        const rightTime = right.folder.deletedAt?.getTime() ?? 0;
-        const leftTime = left.folder.deletedAt?.getTime() ?? 0;
-
-        return (
-          rightTime - leftTime ||
-          left.folder.name.localeCompare(right.folder.name)
-        );
-      });
-
-      files.sort((left, right) => {
-        const rightTime = right.file.deletedAt?.getTime() ?? 0;
-        const leftTime = left.file.deletedAt?.getTime() ?? 0;
-
-        return (
-          rightTime - leftTime || left.file.name.localeCompare(right.file.name)
-        );
-      });
-
-      const [folderMutationStates, fileMutationStates] = !repo
-        ? await Promise.all([
+            originalPathLabel: buildFolderPathLabel({
+              folder,
+              folderMap,
+              filesRoot,
+            }),
+            restoreLocation: await getRestoreLocation(
+              folder,
+              filesRoot,
+              folderMap,
+            ),
+          };
+        }),
+      );
+      const files: TrashFileSummary[] = await Promise.all(
+        retainedFiles.map(async (file) => {
+          assertFileAccess({ actorRole, actorUserId }, file);
+          return {
+            file: toFileSummary(file),
+            originalPathLabel: buildFilePathLabel({
+              file,
+              folderMap,
+              filesRoot,
+            }),
+            restoreLocation: await getRestoreLocation(
+              { parentId: file.folderId, ownerUserId: file.ownerUserId },
+              filesRoot,
+              folderMap,
+            ),
+          };
+        }),
+      );
+      items.sort(
+        (a, b) =>
+          (b.folder.deletedAt?.getTime() ?? 0) -
+          (a.folder.deletedAt?.getTime() ?? 0),
+      );
+      files.sort(
+        (a, b) =>
+          (b.file.deletedAt?.getTime() ?? 0) -
+          (a.file.deletedAt?.getTime() ?? 0),
+      );
+      const [folderStates, fileStates] = repo
+        ? [new Map(), new Map()]
+        : await Promise.all([
             getStorageMutationStateMap(
               "folder",
               items.map((item) => item.folder.id),
@@ -2674,23 +2656,23 @@ export const createFilesService = ({
               "file",
               files.map((item) => item.file.id),
             ),
-          ])
-        : [new Map(), new Map()];
-
+          ]);
       return {
+        total: window?.total ?? items.length + files.length,
+        order: window?.items.map((item) => item.id),
         filesRoot,
         items: items.map((item) => ({
           ...item,
           folder: {
             ...item.folder,
-            storageMutation: folderMutationStates.get(item.folder.id) ?? null,
+            storageMutation: folderStates.get(item.folder.id) ?? null,
           },
         })),
         files: files.map((item) => ({
           ...item,
           file: {
             ...item.file,
-            storageMutation: fileMutationStates.get(item.file.id) ?? null,
+            storageMutation: fileStates.get(item.file.id) ?? null,
           },
         })),
       };
@@ -4477,7 +4459,10 @@ export const createFilesService = ({
       }
 
       const filesRoot = await ensureFilesRoot(file.ownerUserId);
-      const restoreLocation = await getFileRestoreLocation(file, filesRoot);
+      const restoreLocation = await getRestoreLocation(
+        { parentId: file.folderId, ownerUserId: file.ownerUserId },
+        filesRoot,
+      );
 
       await assertNoFileNameConflict({
         ownerUserId: file.ownerUserId,

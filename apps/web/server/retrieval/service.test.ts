@@ -1,27 +1,39 @@
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
-
-const storageMutationMocks = vi.hoisted(() => ({
-  getStorageMutationStateMap: vi.fn(),
-}));
-
-vi.mock("@/server/storage-read-guard", () => ({
-  getStorageMutationStateMap: storageMutationMocks.getStorageMutationStateMap,
-}));
+import { describe, expect, it } from "vite-plus/test";
 
 import type { FileSummary, FolderSummary } from "@/server/files/types";
-import { normalizeSearchText } from "@/server/search";
 import { createRetrievalService } from "@/server/retrieval/service";
 import type {
-  FavoriteFileRecord,
-  FavoriteFolderRecord,
-  RecentFileRecord,
-  RecentFolderRecord,
+  RecentAction,
   RetrievalRepository,
 } from "@/server/retrieval/types";
 
-beforeEach(() => {
-  storageMutationMocks.getStorageMutationStateMap.mockResolvedValue(new Map());
-});
+type FavoriteFileRecord = {
+  userId: string;
+  fileId: string;
+  createdAt: Date;
+  quickAccessPinnedAt: Date | null;
+};
+
+type FavoriteFolderRecord = {
+  userId: string;
+  folderId: string;
+  createdAt: Date;
+  quickAccessPinnedAt: Date | null;
+};
+
+type RecentFileRecord = {
+  userId: string;
+  fileId: string;
+  lastInteractedAt: Date;
+  lastAction: RecentAction | null;
+};
+
+type RecentFolderRecord = {
+  userId: string;
+  folderId: string;
+  lastInteractedAt: Date;
+  lastAction: RecentAction | null;
+};
 
 type MemoryState = {
   folders: FolderSummary[];
@@ -150,10 +162,6 @@ const createMemoryRepository = () => {
   };
 
   const repo: RetrievalRepository = {
-    async ensureFilesRoot(ownerUserId) {
-      return cloneFolder(ensureFilesRootRecord(ownerUserId));
-    },
-
     async findFolderById(folderId) {
       const folder = state.folders.find(
         (candidate) => candidate.id === folderId,
@@ -164,93 +172,6 @@ const createMemoryRepository = () => {
     async findFileById(fileId) {
       const file = state.files.find((candidate) => candidate.id === fileId);
       return file ? cloneFile(file) : null;
-    },
-
-    async listFolderAncestors(ownerUserId, folderIds) {
-      const selected = new Map<string, FolderSummary>();
-      for (const id of folderIds) {
-        let folder = state.folders.find(
-          (folder) => folder.id === id && folder.ownerUserId === ownerUserId,
-        );
-        while (folder && !selected.has(folder.id)) {
-          selected.set(folder.id, cloneFolder(folder));
-          folder = state.folders.find(
-            (parent) =>
-              parent.id === folder!.parentId &&
-              parent.ownerUserId === ownerUserId,
-          );
-        }
-      }
-      return [...selected.values()];
-    },
-    async listFilesByIds(ownerUserId, fileIds, options = {}) {
-      return state.files
-        .filter(
-          (file) =>
-            file.ownerUserId === ownerUserId &&
-            fileIds.includes(file.id) &&
-            (options.includeDeleted || !file.deletedAt),
-        )
-        .map(cloneFile);
-    },
-    async listFoldersByOwner(ownerUserId, options = {}) {
-      return state.folders
-        .filter(
-          (folder) =>
-            folder.ownerUserId === ownerUserId &&
-            (options.includeDeleted || folder.deletedAt === null),
-        )
-        .map(cloneFolder);
-    },
-
-    async listFilesByOwner(ownerUserId, options = {}) {
-      return state.files
-        .filter(
-          (file) =>
-            file.ownerUserId === ownerUserId &&
-            (!options.favoritesOnly ||
-              state.favoriteFiles.some(
-                (favorite) =>
-                  favorite.userId === ownerUserId &&
-                  favorite.fileId === file.id,
-              )) &&
-            (options.includeDeleted || file.deletedAt === null),
-        )
-        .map(cloneFile);
-    },
-
-    async searchFilesByOwner(ownerUserId, nameQuery, folderIds) {
-      const normalized = normalizeSearchText(nameQuery);
-      return state.files
-        .filter(
-          (file) =>
-            file.ownerUserId === ownerUserId &&
-            file.deletedAt === null &&
-            ((normalized.length > 0 &&
-              normalizeSearchText(file.name).includes(normalized)) ||
-              folderIds.includes(file.folderId ?? "")),
-        )
-        .map(cloneFile);
-    },
-
-    async listFavoriteFiles(userId) {
-      return state.favoriteFiles.filter(
-        (favorite) => favorite.userId === userId,
-      );
-    },
-
-    async listFavoriteFolders(userId) {
-      return state.favoriteFolders.filter(
-        (favorite) => favorite.userId === userId,
-      );
-    },
-
-    async listRecentFiles(userId) {
-      return state.recentFiles.filter((recent) => recent.userId === userId);
-    },
-
-    async listRecentFolders(userId) {
-      return state.recentFolders.filter((recent) => recent.userId === userId);
     },
 
     async upsertFileFavorite({ userId, fileId, createdAt }) {
@@ -385,183 +306,6 @@ const createMemoryRepository = () => {
 };
 
 describe("retrieval service", () => {
-  it("searches case-insensitively and accent-insensitively", async () => {
-    const { repo, ensureFilesRootRecord, addFile } = createMemoryRepository();
-    const root = ensureFilesRootRecord("alice");
-    const newer = addFile({
-      ownerUserId: "alice",
-      folderId: root.id,
-      name: "Résumé.md",
-    });
-    storageMutationMocks.getStorageMutationStateMap.mockImplementation(
-      async (entityType: string) =>
-        entityType === "file"
-          ? new Map([
-              [
-                newer.id,
-                {
-                  id: "mutation-1",
-                  kind: "upload_create",
-                  status: "finalizing",
-                },
-              ],
-            ])
-          : new Map(),
-    );
-    const service = createRetrievalService({ repo });
-
-    const results = await service.search({
-      actorUserId: "alice",
-      actorRole: "member",
-      query: "resume",
-    });
-
-    expect(results.map((item) => item.name)).toEqual(["Résumé.md"]);
-    expect(results[0]?.matchKind).toBe("exact");
-    expect(results[0]?.storageMutation).toEqual({
-      id: "mutation-1",
-      kind: "upload_create",
-      status: "finalizing",
-    });
-  });
-
-  it("matches extensions and path tokens as exact search hits", async () => {
-    const { repo, ensureFilesRootRecord, addFolder, addFile } =
-      createMemoryRepository();
-    const root = ensureFilesRootRecord("alice");
-    const finance = addFolder({
-      ownerUserId: "alice",
-      parentId: root.id,
-      name: "Finance",
-    });
-    addFile({
-      ownerUserId: "alice",
-      folderId: finance.id,
-      name: "budget.xlsx",
-    });
-    const service = createRetrievalService({ repo });
-
-    const extensionResults = await service.search({
-      actorUserId: "alice",
-      actorRole: "member",
-      query: "xlsx",
-    });
-    const pathResults = await service.search({
-      actorUserId: "alice",
-      actorRole: "member",
-      query: "finance",
-    });
-
-    expect(extensionResults[0]?.matchKind).toBe("exact");
-    expect(pathResults[0]?.matchKind).toBe("exact");
-  });
-
-  it("orders exact matches before prefix and substring matches", async () => {
-    const { repo, ensureFilesRootRecord, addFile } = createMemoryRepository();
-    const root = ensureFilesRootRecord("alice");
-    addFile({
-      ownerUserId: "alice",
-      folderId: root.id,
-      name: "budget",
-      updatedAt: new Date("2026-04-02T11:00:00.000Z"),
-    });
-    addFile({
-      ownerUserId: "alice",
-      folderId: root.id,
-      name: "budgeting.md",
-      updatedAt: new Date("2026-04-02T12:00:00.000Z"),
-    });
-    addFile({
-      ownerUserId: "alice",
-      folderId: root.id,
-      name: "mybudgetsheet.txt",
-      updatedAt: new Date("2026-04-02T13:00:00.000Z"),
-    });
-    const service = createRetrievalService({ repo });
-
-    const results = await service.search({
-      actorUserId: "alice",
-      actorRole: "member",
-      query: "budget",
-    });
-
-    expect(results.map((item) => [item.name, item.matchKind])).toEqual([
-      ["budget", "exact"],
-      ["budgeting.md", "prefix"],
-      ["mybudgetsheet.txt", "substring"],
-    ]);
-  });
-
-  it("breaks search ties deterministically when timestamps match", async () => {
-    const { repo, ensureFilesRootRecord, addFolder, addFile } =
-      createMemoryRepository();
-    const root = ensureFilesRootRecord("alice");
-    const sharedTimestamp = new Date("2026-04-02T12:00:00.000Z");
-    const alpha = addFolder({
-      ownerUserId: "alice",
-      parentId: root.id,
-      name: "Alpha",
-      updatedAt: sharedTimestamp,
-    });
-    const beta = addFolder({
-      ownerUserId: "alice",
-      parentId: root.id,
-      name: "Beta",
-      updatedAt: sharedTimestamp,
-    });
-    addFile({
-      ownerUserId: "alice",
-      folderId: beta.id,
-      name: "report.txt",
-      updatedAt: sharedTimestamp,
-    });
-    addFile({
-      ownerUserId: "alice",
-      folderId: alpha.id,
-      name: "report.txt",
-      updatedAt: sharedTimestamp,
-    });
-    const service = createRetrievalService({ repo });
-
-    const results = await service.search({
-      actorUserId: "alice",
-      actorRole: "member",
-      query: "report",
-    });
-
-    expect(results.map((item) => item.pathLabel)).toEqual([
-      "Files / Alpha / report.txt",
-      "Files / Beta / report.txt",
-    ]);
-  });
-
-  it("excludes trashed items and the library root from search", async () => {
-    const { repo, ensureFilesRootRecord, addFolder, addFile } =
-      createMemoryRepository();
-    const root = ensureFilesRootRecord("alice");
-    addFolder({
-      ownerUserId: "alice",
-      parentId: root.id,
-      name: "Library plans",
-      deletedAt: new Date("2026-04-02T13:00:00.000Z"),
-    });
-    addFile({
-      ownerUserId: "alice",
-      folderId: root.id,
-      name: "library-checklist.txt",
-      deletedAt: new Date("2026-04-02T13:05:00.000Z"),
-    });
-    const service = createRetrievalService({ repo });
-
-    const results = await service.search({
-      actorUserId: "alice",
-      actorRole: "member",
-      query: "library",
-    });
-
-    expect(results).toEqual([]);
-  });
-
   it("adds and removes favorites for files and folders idempotently", async () => {
     const { repo, ensureFilesRootRecord, addFolder, addFile, state } =
       createMemoryRepository();
@@ -650,59 +394,6 @@ describe("retrieval service", () => {
     });
   });
 
-  it("lists favorites as mixed active items ordered by favorite time", async () => {
-    const { repo, ensureFilesRootRecord, addFolder, addFile } =
-      createMemoryRepository();
-    const root = ensureFilesRootRecord("alice");
-    const folder = addFolder({
-      ownerUserId: "alice",
-      parentId: root.id,
-      name: "Projects",
-    });
-    const file = addFile({
-      ownerUserId: "alice",
-      folderId: folder.id,
-      name: "notes.txt",
-    });
-    let currentTime = new Date("2026-04-02T14:00:00.000Z");
-    const service = createRetrievalService({
-      repo,
-      now: () => currentTime,
-    });
-
-    await service.setFolderFavorite({
-      actorUserId: "alice",
-      actorRole: "member",
-      folderId: folder.id,
-      isFavorite: true,
-    });
-    currentTime = new Date("2026-04-02T14:05:00.000Z");
-    await service.setFileFavorite({
-      actorUserId: "alice",
-      actorRole: "member",
-      fileId: file.id,
-      isFavorite: true,
-    });
-
-    const favorites = await service.listFavorites({
-      actorUserId: "alice",
-      actorRole: "member",
-    });
-
-    expect(
-      favorites.map((item) => [
-        item.kind,
-        item.name,
-        item.isFavorite,
-        item.favoritedAt.toISOString(),
-        item.quickAccessPinnedAt,
-      ]),
-    ).toEqual([
-      ["file", "notes.txt", true, "2026-04-02T14:05:00.000Z", null],
-      ["folder", "Projects", true, "2026-04-02T14:00:00.000Z", null],
-    ]);
-  });
-
   it("pins only existing favorites to quick access", async () => {
     const { repo, ensureFilesRootRecord, addFolder, addFile, state } =
       createMemoryRepository();
@@ -776,160 +467,9 @@ describe("retrieval service", () => {
       quickAccessPinned: false,
     });
 
-    const favorites = await service.listFavorites({
-      actorUserId: "alice",
-      actorRole: "member",
-    });
-
-    expect(
-      favorites.map((item) => [
-        item.kind,
-        item.quickAccessPinnedAt?.toISOString() ?? null,
-      ]),
-    ).toEqual([
-      ["folder", "2026-04-02T14:20:00.000Z"],
-      ["file", null],
-    ]);
+    expect(state.favoriteFiles[0]?.quickAccessPinnedAt).toBeNull();
+    expect(state.favoriteFolders[0]?.quickAccessPinnedAt).toEqual(
+      new Date("2026-04-02T14:20:00.000Z"),
+    );
   });
-
-  it("lists recently added files and folders by created time", async () => {
-    const { repo, ensureFilesRootRecord, addFolder, addFile } =
-      createMemoryRepository();
-    const root = ensureFilesRootRecord("alice");
-    const folder = addFolder({
-      ownerUserId: "alice",
-      parentId: root.id,
-      name: "Uploads",
-      createdAt: new Date("2026-05-19T11:00:00.000Z"),
-      updatedAt: new Date("2026-05-19T13:00:00.000Z"),
-    });
-    addFile({
-      ownerUserId: "alice",
-      folderId: root.id,
-      name: "older.bin",
-      mimeType: "application/octet-stream",
-      createdAt: new Date("2026-05-19T10:00:00.000Z"),
-      updatedAt: new Date("2026-05-19T15:00:00.000Z"),
-    });
-    addFile({
-      ownerUserId: "alice",
-      folderId: folder.id,
-      name: "newer.bin",
-      mimeType: "application/octet-stream",
-      createdAt: new Date("2026-05-19T12:00:00.000Z"),
-    });
-    addFile({
-      ownerUserId: "alice",
-      folderId: root.id,
-      name: "trashed.bin",
-      mimeType: "application/octet-stream",
-      createdAt: new Date("2026-05-19T13:00:00.000Z"),
-      deletedAt: new Date("2026-05-19T13:05:00.000Z"),
-    });
-    addFile({
-      ownerUserId: "bob",
-      folderId: null,
-      name: "other.bin",
-      mimeType: "application/octet-stream",
-      createdAt: new Date("2026-05-19T14:00:00.000Z"),
-    });
-    const service = createRetrievalService({ repo });
-
-    const items = await service.listRecentlyAdded({
-      actorUserId: "alice",
-      actorRole: "member",
-    });
-
-    expect(items.map((item) => [item.kind, item.name])).toEqual([
-      ["file", "trashed.bin"],
-      ["file", "newer.bin"],
-      ["folder", "Uploads"],
-      ["file", "older.bin"],
-    ]);
-    expect(items[0]?.deletedAt?.toISOString()).toBe("2026-05-19T13:05:00.000Z");
-    expect(items[3]?.updatedAt.toISOString()).toBe("2026-05-19T10:00:00.000Z");
-  });
-
-  it("lists soft-deleted items on the recent page", async () => {
-    const { repo, ensureFilesRootRecord, addFolder, addFile, state } =
-      createMemoryRepository();
-    const root = ensureFilesRootRecord("alice");
-    const folder = addFolder({
-      ownerUserId: "alice",
-      parentId: root.id,
-      name: "Projects",
-      createdAt: new Date("2026-04-02T15:00:00.000Z"),
-    });
-    const file = addFile({
-      ownerUserId: "alice",
-      folderId: folder.id,
-      name: "notes.txt",
-      createdAt: new Date("2026-04-02T15:10:00.000Z"),
-      deletedAt: new Date("2026-04-02T15:15:00.000Z"),
-    });
-    const deletedFolder = addFolder({
-      ownerUserId: "alice",
-      parentId: root.id,
-      name: "Archive",
-      createdAt: new Date("2026-04-02T15:20:00.000Z"),
-      deletedAt: new Date("2026-04-02T15:25:00.000Z"),
-    });
-    const service = createRetrievalService({ repo });
-
-    const recents = await service.listRecentlyAdded({
-      actorUserId: "alice",
-      actorRole: "member",
-    });
-
-    expect(recents).toEqual([
-      expect.objectContaining({
-        deletedAt: new Date("2026-04-02T15:25:00.000Z"),
-        kind: "folder",
-        name: "Archive",
-      }),
-      expect.objectContaining({
-        deletedAt: new Date("2026-04-02T15:15:00.000Z"),
-        kind: "file",
-        name: "notes.txt",
-      }),
-      expect.objectContaining({
-        deletedAt: null,
-        kind: "folder",
-        name: "Projects",
-      }),
-    ]);
-
-    state.files = state.files.filter((candidate) => candidate.id !== file.id);
-
-    await expect(
-      service.listRecentlyAdded({
-        actorUserId: "alice",
-        actorRole: "member",
-      }),
-    ).resolves.toEqual([
-      expect.objectContaining({
-        kind: "folder",
-        name: "Archive",
-      }),
-      expect.objectContaining({
-        kind: "folder",
-        name: "Projects",
-      }),
-    ]);
-  });
-});
-
-it("returns no results for an empty normalized query without loading metadata", async () => {
-  const { repo } = createMemoryRepository();
-  const reads = vi
-    .spyOn(repo, "ensureFilesRoot")
-    .mockRejectedValue(new Error("Unexpected metadata read"));
-  expect(
-    await createRetrievalService({ repo }).search({
-      actorUserId: "owner",
-      actorRole: "owner",
-      query: "  \u0301  ",
-    }),
-  ).toEqual([]);
-  expect(reads).not.toHaveBeenCalled();
 });

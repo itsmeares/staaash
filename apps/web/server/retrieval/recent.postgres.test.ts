@@ -1,3 +1,4 @@
+import { getRetrievalPage } from "./page";
 import { randomUUID } from "node:crypto";
 import { expect, it } from "vite-plus/test";
 import { getPrisma } from "@staaash/db/client";
@@ -73,7 +74,7 @@ it("keeps what was last done with each item, trashed items included", async () =
     data: { deletedAt: clock },
   });
 
-  const recent = await service.listRecent(actor);
+  const recent = (await getRetrievalPage(actor.actorUserId, "recent")).items;
   expect(
     recent.map((item) => [item.name, item.lastAction, item.deletedAt !== null]),
   ).toEqual([

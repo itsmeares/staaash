@@ -1,7 +1,7 @@
 import { getSingleSearchParam } from "@/app/auth-ui";
 import { WorkspacePresetPageContextMenu } from "@/app/dashboard-context-menu";
 import { requireSignedInPageSession } from "@/server/auth/guards";
-import { retrievalService } from "@/server/retrieval/service";
+import { getSearchPage } from "@/server/retrieval/search-page";
 
 import {
   PAGE_SIZE,
@@ -29,15 +29,11 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   ]);
   const query = getSingleSearchParam(resolvedSearchParams, "q")?.trim() ?? "";
   const page = parsePage(getSingleSearchParam(resolvedSearchParams, "page"));
-  const allItems =
-    query.length > 0
-      ? await retrievalService.search({
-          actorUserId: session.user.id,
-          actorRole: session.user.role,
-          query,
-        })
-      : [];
-  const totalPages = Math.ceil(allItems.length / PAGE_SIZE);
+  const result = await getSearchPage(session.user.id, query, {
+    offset: (page - 1) * PAGE_SIZE,
+    limit: PAGE_SIZE,
+  });
+  const totalPages = Math.ceil(result.total / PAGE_SIZE);
 
   const buildHref = (p: number) => {
     const params = new URLSearchParams();
@@ -49,7 +45,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   if (totalPages > 0 && page > totalPages) redirect(buildHref(1));
 
-  const items = allItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const items = result.items;
   const currentPath =
     query.length > 0 ? `/search?q=${encodeURIComponent(query)}` : "/search";
 

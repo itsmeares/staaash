@@ -9,11 +9,7 @@ import { FilesError } from "@/server/files/errors";
 import type { FilesRepository } from "@/server/files/repository";
 import { createFilesService } from "@/server/files/service";
 import { getStoragePath, getStorageRoot } from "@/server/storage";
-import type {
-  FileSummary,
-  FolderSummary,
-  StoredFile,
-} from "@/server/files/types";
+import type { FolderSummary, StoredFile } from "@/server/files/types";
 
 vi.mock("@/server/user-storage", () => ({
   assertUserStorageQuotaAvailable: vi.fn().mockResolvedValue(undefined),
@@ -316,21 +312,6 @@ const createMemoryRepository = () => {
             (options.includeDeleted ? true : file.deletedAt === null),
         ),
       ).map(cloneFile);
-    },
-
-    async searchFilesByOwner(ownerUserId, nameQuery, folderIds) {
-      const normalized = nameQuery.trim().toLowerCase();
-      return state.files
-        .filter(
-          (file) =>
-            file.ownerUserId === ownerUserId &&
-            file.deletedAt === null &&
-            file.storageStatus === "available" &&
-            ((normalized.length > 0 &&
-              file.name.toLowerCase().includes(normalized)) ||
-              folderIds.includes(file.folderId ?? "")),
-        )
-        .map(cloneFile);
     },
 
     async createFolder(params) {

@@ -1,5 +1,13 @@
 "use client";
 
+import { useContinuousList } from "@/components/file-list/use-continuous-list";
+import { useListFind } from "@/components/file-list/use-list-find";
+import type { ListPage } from "@/server/list-window";
+import {
+  ListLoadingRow,
+  type ListLoading,
+} from "@/components/file-list/list-loading";
+import { loadShares, selectShares } from "../list-actions";
 import {
   ChevronRight,
   ClipboardCopy,
@@ -9,7 +17,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { ShareDialog } from "@/app/(workspace)/files/share-dialog";
 import type { DashboardContextMenuGroup } from "@/app/dashboard-context-menu";
@@ -39,7 +47,6 @@ import type { ShareLinkSummary } from "@/server/sharing";
 
 import { useCoarsePointer } from "../use-coarse-pointer";
 import {
-  filterWorkspaceItems,
   getWorkspaceLocationLabel,
   type WorkspaceItemFilterType,
 } from "../workspace-item-helpers";
@@ -249,8 +256,16 @@ function LinkList({
   view,
   onManage,
   onRemove,
+  loading,
+  loadAll,
+  loadNext,
+  onFind,
 }: {
   shares: ShareLinkSummary[];
+  loading: ListLoading;
+  loadAll: () => Promise<ShareLinkSummary[]>;
+  loadNext: () => Promise<ShareLinkSummary[]>;
+  onFind: () => void;
   label: string;
   head: boolean;
   view: "list" | "grid";
@@ -261,6 +276,9 @@ function LinkList({
   const coarse = useCoarsePointer();
   const selection = useListSelection({
     ids: shares.map((share) => share.id),
+    loadAllIds: async () => (await loadAll()).map((share) => share.id),
+    loadNextIds: async () => (await loadNext()).map((share) => share.id),
+    onFind,
     coarse,
     onOpen: (id) => {
       const share = shares.find((candidate) => candidate.id === id);
@@ -269,6 +287,7 @@ function LinkList({
   });
   return (
     <FileList
+      loading={loading}
       coarse={coarse}
       columns={linkColumns(now, timeZone)}
       getActions={({ data }) =>
@@ -291,39 +310,50 @@ function LinkList({
   );
 }
 
-export function SharedLinks({ shares }: { shares: ShareLinkSummary[] }) {
+export function SharedLinks({
+  livePage,
+  offPage,
+}: {
+  livePage: ListPage<ShareLinkSummary>;
+  offPage: ListPage<ShareLinkSummary>;
+}) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [view, setView] = useViewMode("shared");
   const [filterType, setFilterType] = useState<WorkspaceItemFilterType>("all");
+  const finder = useListFind("Find in shared links");
+  const liveList = useContinuousList({
+    name: "shares-live",
+    items: livePage.items,
+    total: livePage.total,
+    query: { filter: filterType, find: finder.find },
+    load: (query) => loadShares(true, query),
+    select: (query) => selectShares(true, query),
+  });
+  const offList = useContinuousList({
+    name: "shares-off",
+    items: offPage.items,
+    total: offPage.total,
+    query: { filter: filterType, find: finder.find },
+    load: (query) => loadShares(false, query),
+    select: (query) => selectShares(false, query),
+  });
+
   const [manage, setManage] = useState<ShareLinkSummary | null>(null);
   const refresh = () => startTransition(() => router.refresh());
   const remove = (targets: ShareLinkSummary[]) =>
     void removeLinks(targets, refresh);
 
-  const [live, off] = useMemo(() => {
-    const typed = filterWorkspaceItems(
-      shares.map((share) => ({
-        share,
-        kind: share.target.targetType,
-        mimeType:
-          share.target.targetType === "file" ? share.target.mimeType : null,
-      })),
-      filterType,
-    ).map(({ share }) => share);
-    return [
-      typed.filter((share) => share.status === "active"),
-      typed.filter((share) => share.status !== "active"),
-    ];
-  }, [filterType, shares]);
+  const live = liveList.items;
+  const off = offList.items;
 
   const removeAll = async () => {
     const ok = await confirmAction({
-      title: `Delete ${off.length} turned off links?`,
+      title: `Delete ${offList.total} turned off links?`,
       confirmLabel: "Delete all",
       destructive: true,
     });
-    if (ok) remove(off);
+    if (ok) remove(await offList.loadAll());
   };
 
   return (
@@ -340,30 +370,30 @@ export function SharedLinks({ shares }: { shares: ShareLinkSummary[] }) {
         title="Shared"
       />
 
-      {live.length === 0 && off.length === 0 ? (
-        <Empty className="min-h-64">
-          <EmptyHeader>
-            <EmptyTitle>
-              {shares.length === 0
-                ? "Nothing shared yet"
-                : "Nothing of that type"}
-            </EmptyTitle>
-          </EmptyHeader>
-        </Empty>
-      ) : null}
+      {finder.field}
+      {liveList.total === 0 ? <ListLoadingRow {...liveList} /> : null}
+      {offList.total === 0 ? <ListLoadingRow {...offList} /> : null}
+      <LinksEmpty
+        lists={[liveList, offList]}
+        filtered={filterType !== "all" || Boolean(finder.find)}
+      />
 
-      {live.length > 0 ? (
+      {liveList.total > 0 ? (
         <LinkList
           head
           label="Shared links"
           shares={live}
+          loading={liveList}
+          loadAll={liveList.loadAll}
+          loadNext={liveList.loadMore}
+          onFind={finder.show}
           view={view}
           onManage={setManage}
           onRemove={remove}
         />
       ) : null}
 
-      {off.length > 0 ? (
+      {offList.total > 0 ? (
         <Collapsible>
           <div className="flex items-center gap-2 px-1.5 pt-2">
             <CollapsibleTrigger className="group flex cursor-pointer items-center gap-1.5 rounded-sm text-meta font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -387,6 +417,10 @@ export function SharedLinks({ shares }: { shares: ShareLinkSummary[] }) {
               head={false}
               label="Turned off links"
               shares={off}
+              loading={offList}
+              loadAll={offList.loadAll}
+              loadNext={offList.loadMore}
+              onFind={finder.show}
               view={view}
               onManage={setManage}
               onRemove={remove}
@@ -408,5 +442,25 @@ export function SharedLinks({ shares }: { shares: ShareLinkSummary[] }) {
         />
       ) : null}
     </>
+  );
+}
+
+function LinksEmpty({
+  lists,
+  filtered,
+}: {
+  lists: (ListLoading & { total: number })[];
+  filtered: boolean;
+}) {
+  if (lists.some((list) => list.total > 0 || list.loading || list.error))
+    return null;
+  return (
+    <Empty className="min-h-64">
+      <EmptyHeader>
+        <EmptyTitle>
+          {filtered ? "Nothing matches" : "Nothing shared yet"}
+        </EmptyTitle>
+      </EmptyHeader>
+    </Empty>
   );
 }

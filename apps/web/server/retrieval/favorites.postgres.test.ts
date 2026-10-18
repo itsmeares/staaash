@@ -1,7 +1,7 @@
+import { getRetrievalPage } from "./page";
 import { randomUUID } from "node:crypto";
 import { expect, it } from "vite-plus/test";
 import { getPrisma } from "@staaash/db/client";
-import { createRetrievalService } from "./service";
 
 it("returns only the owner's active favorites with paths, order and pins intact", async () => {
   const db = getPrisma();
@@ -62,11 +62,15 @@ it("returns only the owner's active favorites with paths, order and pins intact"
       createdAt: pinnedAt,
     })),
   });
-  const service = createRetrievalService();
-  const favorites = await service.listFavorites({
-    actorUserId: owner.id,
-    actorRole: "member",
-  });
+  const favorites = (
+    await getRetrievalPage(
+      {
+        actorUserId: owner.id,
+        actorRole: "member",
+      }.actorUserId,
+      "favorites",
+    )
+  ).items;
   expect(
     favorites.map((item) => [
       item.id,
@@ -76,18 +80,33 @@ it("returns only the owner's active favorites with paths, order and pins intact"
     ]),
   ).toEqual([
     [folder.id, "Files / Projects", true, null],
-    [missing.id, "Files / Projects / missing.txt", true, null],
     [selected.id, "Files / Projects / selected.txt", true, pinnedAt],
+    [missing.id, "Files / Projects / missing.txt", true, null],
   ]);
   expect(
-    await service.listFavorites({ actorUserId: owner.id, actorRole: "owner" }),
+    (
+      await getRetrievalPage(
+        { actorUserId: owner.id, actorRole: "owner" }.actorUserId,
+        "favorites",
+      )
+    ).items,
   ).toEqual(favorites);
   await db.favoriteFile.deleteMany({ where: { userId: owner.id } });
   await db.favoriteFolder.deleteMany({ where: { userId: owner.id } });
   expect(
-    await service.listFavorites({ actorUserId: owner.id, actorRole: "member" }),
+    (
+      await getRetrievalPage(
+        { actorUserId: owner.id, actorRole: "member" }.actorUserId,
+        "favorites",
+      )
+    ).items,
   ).toEqual([]);
   expect(
-    await service.listFavorites({ actorUserId: owner.id, actorRole: "owner" }),
+    (
+      await getRetrievalPage(
+        { actorUserId: owner.id, actorRole: "owner" }.actorUserId,
+        "favorites",
+      )
+    ).items,
   ).toEqual([]);
 });

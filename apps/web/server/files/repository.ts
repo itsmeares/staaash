@@ -70,11 +70,13 @@ type FileRecord = Prisma.FileGetPayload<{
 
 type ListFoldersOptions = {
   includeDeleted?: boolean;
+  ids?: string[];
 };
 
 type ListFilesOptions = {
   includeDeleted?: boolean;
   includeMissing?: boolean;
+  ids?: string[];
 };
 
 type FindFileOptions = {
@@ -329,17 +331,12 @@ export type FilesRepository = {
   ): Promise<FolderSummary[]>;
   listFilesByOwner(
     ownerUserId: string,
-    options?: ListFilesOptions & { favoritesOnly?: boolean },
+    options?: ListFilesOptions,
   ): Promise<StoredFile[]>;
   listFilesByIds(
     ownerUserId: string,
     fileIds: string[],
     options?: ListFilesOptions,
-  ): Promise<StoredFile[]>;
-  searchFilesByOwner(
-    ownerUserId: string,
-    nameQuery: string,
-    folderIds: string[],
   ): Promise<StoredFile[]>;
   createFolder(params: CreateFolderParams): Promise<FolderSummary>;
   createFile(
@@ -562,6 +559,7 @@ export const createPrismaFilesRepository = (
         where: {
           ownerUserId,
           parentId,
+          ...(options.ids ? { id: { in: options.ids } } : {}),
           ...(options.includeDeleted ? {} : { deletedAt: null }),
         },
         orderBy: [{ name: "asc" }, { createdAt: "asc" }],
@@ -577,6 +575,7 @@ export const createPrismaFilesRepository = (
         where: {
           ownerUserId,
           folderId,
+          ...(options.ids ? { id: { in: options.ids } } : {}),
           ...(options.includeMissing ? {} : { storageStatus: "available" }),
           ...(options.includeDeleted ? {} : { deletedAt: null }),
         },
@@ -611,9 +610,6 @@ export const createPrismaFilesRepository = (
       const files = await client.file.findMany({
         where: {
           ownerUserId,
-          ...(options.favoritesOnly
-            ? { favorites: { some: { userId: ownerUserId } } }
-            : {}),
           ...(options.includeDeleted ? {} : { deletedAt: null }),
         },
         orderBy: [
@@ -621,70 +617,6 @@ export const createPrismaFilesRepository = (
           { originalName: "asc" },
           { createdAt: "asc" },
         ],
-        select: fileSelect,
-      });
-
-      return files.map(toStoredFile);
-    },
-
-    async searchFilesByOwner(ownerUserId, nameQuery, folderIds) {
-      const trimmed = nameQuery.trim();
-
-      if (trimmed.length === 0 && folderIds.length === 0) {
-        return [];
-      }
-
-      const prisma = getClient();
-      const matchingIds = new Set<string>();
-      const namePattern = trimmed.replace(/[\\%_]/g, "\\$&");
-
-      await Promise.all([
-        trimmed.length > 0
-          ? prisma.$queryRaw<{ pattern: string }[]>`
-              SELECT '%' || unaccent(lower(${namePattern})) || '%' AS pattern
-            `
-              // A separate query keeps unaccent out of every scanned row.
-              .then(
-                ([{ pattern }]) => prisma.$queryRaw<{ id: string }[]>`
-                SELECT id FROM "File"
-                WHERE "ownerUserId" = ${ownerUserId}
-                  AND "deletedAt" IS NULL
-                  AND "storageStatus" = 'available'::"FileStorageStatus"
-                  AND "searchName" LIKE ${pattern}
-              `,
-              )
-              .then((rows) => {
-                for (const r of rows) matchingIds.add(r.id);
-              })
-          : Promise.resolve(),
-        folderIds.length > 0
-          ? prisma.file
-              .findMany({
-                where: {
-                  ownerUserId,
-                  deletedAt: null,
-                  storageStatus: "available",
-                  folderId: { in: folderIds },
-                },
-                select: { id: true },
-              })
-              .then((rows) => {
-                for (const r of rows) matchingIds.add(r.id);
-              })
-          : Promise.resolve(),
-      ]);
-
-      if (matchingIds.size === 0) {
-        return [];
-      }
-
-      const files = await prisma.file.findMany({
-        where: {
-          id: { in: [...matchingIds] },
-          ownerUserId,
-          deletedAt: null,
-          storageStatus: "available",
-        },
         select: fileSelect,
       });
 

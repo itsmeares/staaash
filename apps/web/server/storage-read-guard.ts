@@ -1,3 +1,4 @@
+import { Prisma } from "@staaash/db/client";
 import {
   findBlockingStorageMutationForEntity,
   listBlockingStorageMutationsForEntities,
@@ -8,6 +9,23 @@ export type StorageMutationState = {
   kind: string;
   status: string;
 };
+
+export const storageReadPredicate = (
+  userId: string,
+  id: Prisma.Sql,
+  kind: Prisma.Sql,
+) => Prisma.sql`
+  NOT EXISTS (
+    SELECT 1 FROM "StorageMutationEntity" entity JOIN "StorageMutation" mutation ON mutation.id = entity."mutationId"
+    WHERE entity."entityId" = ${id} AND entity."entityType" = ${kind}
+      AND mutation.status IN ('prepared', 'running', 'retrying', 'metadata_committed', 'finalizing', 'recovery_required')
+  ) AND NOT EXISTS (
+    SELECT 1 FROM "StorageMutation" mutation WHERE mutation.kind = 'legacy_recovery' AND mutation.status = 'recovery_required'
+      AND (mutation."ownerUserId" = ${userId} OR EXISTS (
+        SELECT 1 FROM "StorageMutationResource" resource WHERE resource."mutationId" = mutation.id
+          AND resource."resourceKey" = 'storage:global-recovery' AND resource."releasedAt" IS NULL
+      ))
+  )`;
 
 export type StorageMutationEntityType =
   | "file"
