@@ -290,6 +290,9 @@ it("keeps complete folder Details counts across batches and filters", async () =
     where: { id: files[1]!.id },
     data: { deletedAt: new Date() },
   });
+  const previousInstance = await db.instance.findUnique({
+    where: { id: "singleton" },
+  });
   await db.instance.upsert({
     where: { id: "singleton" },
     create: {
@@ -299,23 +302,36 @@ it("keeps complete folder Details counts across batches and filters", async () =
     },
     update: { storageProtocolVersion: 2 },
   });
-  const service = createFilesService();
-  for (const query of [
-    {},
-    { offset: 100 },
-    { filter: "pdf" as const },
-    { find: "nothing matches" },
-  ]) {
-    const listing = await service.getFilesListing({
-      actorUserId: user.id,
-      actorRole: "member",
-      folderId: folder.id,
-      query,
-    });
-    expect(listing.counts).toEqual({ folders: 1, files: 231 });
-    expect(
-      listing.childFolders.length + listing.files.length,
-    ).toBeLessThanOrEqual(100);
+  try {
+    const service = createFilesService();
+    for (const query of [
+      {},
+      { offset: 100 },
+      { filter: "pdf" as const },
+      { find: "nothing matches" },
+    ]) {
+      const listing = await service.getFilesListing({
+        actorUserId: user.id,
+        actorRole: "member",
+        folderId: folder.id,
+        query,
+      });
+      expect(listing.counts).toEqual({ folders: 1, files: 231 });
+      expect(
+        listing.childFolders.length + listing.files.length,
+      ).toBeLessThanOrEqual(100);
+    }
+  } finally {
+    if (previousInstance) {
+      await db.instance.update({
+        where: { id: "singleton" },
+        data: {
+          storageProtocolVersion: previousInstance.storageProtocolVersion,
+        },
+      });
+    } else {
+      await db.instance.delete({ where: { id: "singleton" } });
+    }
   }
 });
 
