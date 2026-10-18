@@ -1850,8 +1850,8 @@ export function FilesView({
       [
         "Inside",
         [
-          count(listing.childFolders.length, "folder"),
-          count(listing.files.length, "file"),
+          count(listing.counts.folders, "folder"),
+          count(listing.counts.files, "file"),
         ]
           .filter(Boolean)
           .join(", ") || "Empty",

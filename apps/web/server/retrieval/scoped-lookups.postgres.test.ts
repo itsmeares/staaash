@@ -112,9 +112,7 @@ it("keeps sparse retrieval and owned-share results complete without loading unre
     .spyOn(prismaFilesRepository, "listFoldersByOwner")
     .mockRejectedValue(new Error("Unrelated owner folders"));
   try {
-    const actor = { actorUserId: owner.id, actorRole: "member" as const };
-    const favorites = (await getRetrievalPage(actor.actorUserId, "favorites"))
-      .items;
+    const favorites = (await getRetrievalPage(owner.id, "favorites")).items;
     expect(favorites.map((item) => [item.name, item.pathLabel])).toEqual([
       [underDeleted.originalName, "Files / under-deleted.txt"],
       [missing.originalName, "Files / Projects / Deep / missing.txt"],
@@ -125,15 +123,7 @@ it("keeps sparse retrieval and owned-share results complete without loading unre
     expect(
       favorites.find((item) => item.id === beta.id)?.quickAccessPinnedAt,
     ).toEqual(date);
-    expect(
-      (
-        await getRetrievalPage(
-          { ...actor, actorRole: "owner" }.actorUserId,
-          "favorites",
-        )
-      ).items,
-    ).toEqual(favorites);
-    const recents = (await getRetrievalPage(actor.actorUserId, "recent")).items;
+    const recents = (await getRetrievalPage(owner.id, "recent")).items;
     // Recent keeps trashed items, so it can say they were trashed.
     expect(recents.map((item) => [item.name, item.pathLabel])).toEqual([
       [deep.name, "Files / Projects / Deep"],
@@ -148,6 +138,7 @@ it("keeps sparse retrieval and owned-share results complete without loading unre
     const sharing = createSharingService({
       now: () => new Date("2026-10-17T00:00:00Z"),
     });
+    const actor = { actorUserId: owner.id, actorRole: "member" as const };
     const summaries = await sharing.listOwnedShares(actor);
     expect(new Set(summaries.active.map((share) => share.id))).toEqual(
       new Set([shares[0].id, shares[1].id, folderShare.id]),
@@ -215,7 +206,7 @@ it("keeps sparse retrieval and owned-share results complete without loading unre
       },
     });
     expect(
-      (await getRetrievalPage(actor.actorUserId, "recent")).items.find(
+      (await getRetrievalPage(owner.id, "recent")).items.find(
         (item) => item.id === alpha.id,
       )?.storageMutation?.id,
     ).toBe(mutation.id);
@@ -228,7 +219,7 @@ it("keeps sparse retrieval and owned-share results complete without loading unre
       data: { name: "Renamed" },
     });
     expect(
-      (await getRetrievalPage(actor.actorUserId, "favorites")).items.find(
+      (await getRetrievalPage(owner.id, "favorites")).items.find(
         (item) => item.id === alpha.id,
       )?.pathLabel,
     ).toBe("Files / Projects / Renamed / Álpha.txt");
@@ -245,12 +236,8 @@ it("keeps sparse retrieval and owned-share results complete without loading unre
     await db.favoriteFolder.deleteMany({ where: { userId: owner.id } });
     await db.recentFile.deleteMany({ where: { userId: owner.id } });
     await db.recentFolder.deleteMany({ where: { userId: owner.id } });
-    expect(
-      (await getRetrievalPage(actor.actorUserId, "favorites")).items,
-    ).toEqual([]);
-    expect((await getRetrievalPage(actor.actorUserId, "recent")).items).toEqual(
-      [],
-    );
+    expect((await getRetrievalPage(owner.id, "favorites")).items).toEqual([]);
+    expect((await getRetrievalPage(owner.id, "recent")).items).toEqual([]);
     expect(fileReads).not.toHaveBeenCalled();
     expect(folderReads).not.toHaveBeenCalled();
   } finally {

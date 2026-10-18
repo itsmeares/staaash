@@ -255,6 +255,14 @@ const createMemoryRepository = () => {
       return file ? cloneFile(file) : null;
     },
 
+    async countChildren(ownerUserId, folderId) {
+      const [folders, files] = await Promise.all([
+        this.listChildFolders(ownerUserId, folderId),
+        this.listChildFiles(ownerUserId, folderId),
+      ]);
+      return { folders: folders.length, files: files.length };
+    },
+
     async listChildFolders(ownerUserId, parentId, options = {}) {
       return sortFolders(
         state.folders.filter(

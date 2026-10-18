@@ -13,14 +13,11 @@ ALTER TABLE "Folder" ADD CONSTRAINT "Folder_treeSizeBytes_nonnegative" CHECK ("t
 CREATE INDEX "Folder_parentId_deletedAt_idx" ON "Folder" ("parentId", "deletedAt");
 CREATE INDEX "File_live_folder_idx" ON "File" ("folderId") WHERE "deletedAt" IS NULL;
 
--- File deltas must see one hierarchy for their entire metadata transaction.
+-- Use one lock mode before any row locks, including transactions that write
+-- files before folders. Upgrading a shared lock here can deadlock two writers.
 CREATE FUNCTION staaash_lock_folder_size_hierarchy() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
-  IF TG_TABLE_NAME = 'File' THEN
-    PERFORM pg_advisory_xact_lock_shared(hashtextextended('staaash:folder-totals:hierarchy', 0));
-  ELSE
-    PERFORM pg_advisory_xact_lock(hashtextextended('staaash:folder-totals:hierarchy', 0));
-  END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('staaash:folder-totals:hierarchy', 0));
   RETURN NULL;
 END $$;
 CREATE TRIGGER "File_lock_folder_sizes" BEFORE INSERT OR DELETE OR UPDATE OF "folderId", "sizeBytes", "deletedAt" ON "File"

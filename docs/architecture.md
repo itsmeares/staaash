@@ -87,9 +87,10 @@ The initial migration backfills names and builds the index under an exclusive
 `Folder.treeSizeBytes` holds the complete size of active files below an active
 folder, including nested folders and missing originals. File and folder statement
 triggers update it in the metadata transaction, so the web app, worker, and
-journal recovery share one rule. File deltas hold a shared hierarchy lock;
-folder moves and deletion changes hold its exclusive lock and rebuild affected
-ancestors. Reads use the stored value. The migration locks folders and files
+journal recovery share one rule. File and folder writes take the same exclusive
+hierarchy lock before row locks. This serializes metadata changes across accounts
+and avoids lock upgrades in transactions that write files before folders. Folder
+moves and deletion changes rebuild affected ancestors. Reads use the stored value. The migration locks folders and files
 while it backfills totals. Restore reconciliation rebuilds these display totals
 after the committed-usage audit succeeds. Display totals do not control quota.
 

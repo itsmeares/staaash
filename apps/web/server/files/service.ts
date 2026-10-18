@@ -2513,7 +2513,7 @@ export const createFilesService = ({
             }));
       const ids = window?.items.map((item) => item.id);
       const order = new Map(ids?.map((id, index) => [id, index]));
-      const [childFolders, files] = await Promise.all([
+      const [childFolders, files, counts] = await Promise.all([
         activeRepo.listChildFolders(
           currentFolder.ownerUserId,
           currentFolder.id,
@@ -2526,6 +2526,7 @@ export const createFilesService = ({
           includeDeleted: false,
           ids,
         }),
+        activeRepo.countChildren(currentFolder.ownerUserId, currentFolder.id),
       ]);
       const folderPreviews = !repo
         ? await listFolderPreviewFileIds(
@@ -2545,6 +2546,7 @@ export const createFilesService = ({
           ])
         : [new Map(), new Map()];
       return {
+        counts,
         total: window ? window.total : childFolders.length + files.length,
         ownerUserId: currentFolder.ownerUserId,
         currentFolder,

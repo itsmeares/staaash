@@ -220,7 +220,7 @@ export function TrashView({
               value={filterType}
               onValueChange={setFilterType}
             />
-            <EmptyTrashAction disabled={!continuous.filtered} />
+            <EmptyTrashAction disabled={total === 0} />
           </>
         }
         title="Trash"

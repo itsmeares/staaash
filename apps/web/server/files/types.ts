@@ -108,6 +108,7 @@ export type BatchMoveOperationResponse = {
 
 export type FilesListing = {
   total: number;
+  counts: { folders: number; files: number };
   ownerUserId: string;
   currentFolder: FolderSummary;
   breadcrumbs: FilesBreadcrumb[];

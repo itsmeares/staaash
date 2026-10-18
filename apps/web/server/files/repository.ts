@@ -137,6 +137,7 @@ type UpdateFilesParams = {
 };
 
 type FolderDelegate = {
+  count(args: { where: Prisma.FolderWhereInput }): Promise<number>;
   findFirst(args: Prisma.FolderFindFirstArgs): Promise<FolderRecord | null>;
   findUnique(args: Prisma.FolderFindUniqueArgs): Promise<FolderRecord | null>;
   findMany(args: Prisma.FolderFindManyArgs): Promise<FolderRecord[]>;
@@ -147,6 +148,7 @@ type FolderDelegate = {
 };
 
 type FileDelegate = {
+  count(args: { where: Prisma.FileWhereInput }): Promise<number>;
   findUnique(args: Prisma.FileFindUniqueArgs): Promise<FileRecord | null>;
   findFirst(args: Prisma.FileFindFirstArgs): Promise<FileRecord | null>;
   findMany(args: Prisma.FileFindManyArgs): Promise<FileRecord[]>;
@@ -315,6 +317,10 @@ export type FilesRepository = {
     fileId: string,
     options?: FindFileOptions,
   ): Promise<StoredFile | null>;
+  countChildren(
+    ownerUserId: string,
+    folderId: string,
+  ): Promise<{ folders: number; files: number }>;
   listChildFolders(
     ownerUserId: string,
     parentId: string,
@@ -551,6 +557,24 @@ export const createPrismaFilesRepository = (
       });
 
       return file ? toStoredFile(file) : null;
+    },
+
+    async countChildren(ownerUserId, folderId) {
+      const client = getClient();
+      const [folders, files] = await Promise.all([
+        client.folder.count({
+          where: { ownerUserId, parentId: folderId, deletedAt: null },
+        }),
+        client.file.count({
+          where: {
+            ownerUserId,
+            folderId,
+            deletedAt: null,
+            storageStatus: "available",
+          },
+        }),
+      ]);
+      return { folders, files };
     },
 
     async listChildFolders(ownerUserId, parentId, options = {}) {

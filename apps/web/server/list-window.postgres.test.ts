@@ -8,6 +8,7 @@ import {
   getActivityPage,
   resolveActivitySelection,
 } from "./retrieval/activity-page";
+import { createFilesService } from "./files/service";
 import { getViewerWindow } from "./files/viewer-window";
 import {
   compareSearchResults,
@@ -268,6 +269,56 @@ it("keeps equal-date activity order and selection across load boundaries", async
   );
 });
 
+it("keeps complete folder Details counts across batches and filters", async () => {
+  const { user, folder, files } = await fixture();
+  await db.folder.createMany({
+    data: [
+      { ownerUserId: user.id, name: "Child", parentId: folder.id },
+      {
+        ownerUserId: user.id,
+        name: "Trashed",
+        parentId: folder.id,
+        deletedAt: new Date(),
+      },
+    ],
+  });
+  await db.file.update({
+    where: { id: files[0]!.id },
+    data: { storageStatus: "missing" },
+  });
+  await db.file.update({
+    where: { id: files[1]!.id },
+    data: { deletedAt: new Date() },
+  });
+  await db.instance.upsert({
+    where: { id: "singleton" },
+    create: {
+      id: "singleton",
+      name: "List regression",
+      storageProtocolVersion: 2,
+    },
+    update: { storageProtocolVersion: 2 },
+  });
+  const service = createFilesService();
+  for (const query of [
+    {},
+    { offset: 100 },
+    { filter: "pdf" as const },
+    { find: "nothing matches" },
+  ]) {
+    const listing = await service.getFilesListing({
+      actorUserId: user.id,
+      actorRole: "member",
+      folderId: folder.id,
+      query,
+    });
+    expect(listing.counts).toEqual({ folders: 1, files: 231 });
+    expect(
+      listing.childFolders.length + listing.files.length,
+    ).toBeLessThanOrEqual(100);
+  }
+});
+
 it("opens a bounded viewer window around a file beyond the first batch", async () => {
   const { user, folder, files } = await fixture();
   const target = files.find((file) => file.originalName === "File 180.txt")!;
@@ -330,30 +381,39 @@ it("keeps recovering files out of quick search and the viewer without hiding pri
       intentJson: {},
     },
   });
-  expect((await getViewerWindow(user.id, folder.id)).total).toBe(0);
-  expect(
-    (await getSearchPage(user.id, "File", { usableOnly: true })).total,
-  ).toBe(0);
-  expect((await getViewerWindow(other.user.id, other.folder.id)).total).toBe(
-    233,
-  );
-  await db.storageMutationResource.create({
-    data: {
-      mutationId: recovery.id,
-      resourceKey: "storage:global-recovery",
-      fenceToken: 1n,
-    },
-  });
-  expect((await getViewerWindow(other.user.id, other.folder.id)).total).toBe(0);
-  await db.storageMutationResource.updateMany({
-    where: { mutationId: recovery.id },
-    data: { releasedAt: new Date() },
-  });
-  expect((await getViewerWindow(other.user.id, other.folder.id)).total).toBe(
-    233,
-  );
-  await db.storageMutation.update({
-    where: { id: recovery.id },
-    data: { status: "succeeded" },
-  });
+  try {
+    expect((await getViewerWindow(user.id, folder.id)).total).toBe(0);
+    expect(
+      (await getSearchPage(user.id, "File", { usableOnly: true })).total,
+    ).toBe(0);
+    expect((await getViewerWindow(other.user.id, other.folder.id)).total).toBe(
+      233,
+    );
+    await db.storageMutationResource.create({
+      data: {
+        mutationId: recovery.id,
+        resourceKey: "storage:global-recovery",
+        fenceToken: 1n,
+      },
+    });
+    expect((await getViewerWindow(other.user.id, other.folder.id)).total).toBe(
+      0,
+    );
+    await db.storageMutationResource.updateMany({
+      where: { mutationId: recovery.id },
+      data: { releasedAt: new Date() },
+    });
+    expect((await getViewerWindow(other.user.id, other.folder.id)).total).toBe(
+      233,
+    );
+  } finally {
+    await db.storageMutationResource.updateMany({
+      where: { mutationId: recovery.id },
+      data: { releasedAt: new Date() },
+    });
+    await db.storageMutation.update({
+      where: { id: recovery.id },
+      data: { status: "succeeded" },
+    });
+  }
 });

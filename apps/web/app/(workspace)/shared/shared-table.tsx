@@ -353,7 +353,14 @@ export function SharedLinks({
       confirmLabel: "Delete all",
       destructive: true,
     });
-    if (ok) remove(await offList.loadAll());
+    if (!ok) return;
+    try {
+      remove(await offList.loadAll());
+    } catch (caught) {
+      toast.error(
+        caught instanceof Error ? caught.message : "Links could not load.",
+      );
+    }
   };
 
   return (

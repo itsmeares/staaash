@@ -6,6 +6,17 @@ import type { ViewerFile } from "./media-viewer";
 import { cn } from "@/lib/utils";
 
 const STEP = 70;
+const BATCH_SIZE = 30;
+
+function visibleRange(element: HTMLDivElement, total: number) {
+  return {
+    start: Math.max(0, Math.floor(element.scrollLeft / STEP) - 3),
+    end: Math.min(
+      total,
+      Math.ceil((element.scrollLeft + element.clientWidth) / STEP) + 3,
+    ),
+  };
+}
 
 export function ViewerFilmstrip({
   files,
@@ -33,9 +44,13 @@ export function ViewerFilmstrip({
     start: Math.max(0, index - 10),
     end: Math.min(total, index + 20),
   });
-  const [loaded, setLoaded] = useState<{ start: number; files: ViewerFile[] }>({
-    start,
-    files,
+  const [loaded, setLoaded] = useState({
+    load,
+    files: new Map<number, ViewerFile>(),
+  });
+  const cache = useRef({
+    load,
+    batches: new Map<number, Promise<ViewerFile[]>>(),
   });
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -43,19 +58,72 @@ export function ViewerFilmstrip({
     const element = ref.current;
     if (!element) return;
     element.scrollLeft = Math.max(0, index * STEP - element.clientWidth / 2);
-    setRange({
-      start: Math.max(0, index - 10),
-      end: Math.min(total, index + 20),
-    });
+    const measure = () => setRange(visibleRange(element, total));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
   }, [index, total]);
   useEffect(() => {
-    if (!load || (range.start >= start && range.end <= start + files.length))
-      return;
+    if (!load) return;
+    const fileAt = (position: number) =>
+      files[position - start] ??
+      (loaded.load === load ? loaded.files.get(position) : undefined);
+    const positions = Array.from(
+      { length: range.end - range.start },
+      (_, n) => range.start + n,
+    );
+    const missing = positions.filter((position) => !fileAt(position));
+    if (!missing.length) return;
+    if (cache.current.load !== load)
+      cache.current = { load, batches: new Map() };
+    const batches = cache.current.batches;
+    const offsets = [
+      ...new Set(
+        missing.map(
+          (position) => Math.floor(position / BATCH_SIZE) * BATCH_SIZE,
+        ),
+      ),
+    ];
+    // Keep nearby batches, including in-flight reads, without retaining the whole folder.
+    for (const offset of batches.keys()) {
+      if (
+        offset + BATCH_SIZE < range.start - BATCH_SIZE ||
+        offset > range.end + BATCH_SIZE
+      )
+        batches.delete(offset);
+    }
     let cancelled = false;
     setError(false);
-    void load(range.start)
-      .then((next) => {
-        if (!cancelled) setLoaded({ start: range.start, files: next });
+    void Promise.all(
+      offsets.map(async (offset) => {
+        let pending = batches.get(offset);
+        if (!pending) {
+          pending = load(offset).catch((caught) => {
+            batches.delete(offset);
+            throw caught;
+          });
+          batches.set(offset, pending);
+        }
+        return { offset, files: await pending };
+      }),
+    )
+      .then((results) => {
+        if (cancelled) return;
+        const next = new Map<number, ViewerFile>();
+        for (const result of results) {
+          result.files.forEach((file, n) => next.set(result.offset + n, file));
+        }
+        for (const position of positions) {
+          const file = fileAt(position);
+          if (file) next.set(position, file);
+        }
+        if (missing.some((position) => !next.has(position))) {
+          offsets.forEach((offset) => batches.delete(offset));
+          setError(true);
+          return;
+        }
+        setLoaded({ load, files: next });
       })
       .catch(() => {
         if (!cancelled) setError(true);
@@ -63,12 +131,13 @@ export function ViewerFilmstrip({
     return () => {
       cancelled = true;
     };
-  }, [range.start, range.end, start, files, load, retry]);
+  }, [range.start, range.end, start, files, load, loaded, retry]);
   useEffect(() => {
     if (hasMore && range.end >= total - 3) void loadMore?.().catch(() => {});
   }, [hasMore, range.end, total, loadMore]);
   const fileAt = (position: number) =>
-    files[position - start] ?? loaded.files[position - loaded.start];
+    files[position - start] ??
+    (loaded.load === load ? loaded.files.get(position) : undefined);
   return (
     <div className={className}>
       {error ? (
@@ -86,11 +155,7 @@ export function ViewerFilmstrip({
         className="[scrollbar-width:none] overflow-x-auto"
         onScroll={(event) => {
           const element = event.currentTarget;
-          const first = Math.max(0, Math.floor(element.scrollLeft / STEP) - 3);
-          const end = Math.min(
-            total,
-            first + Math.ceil(element.clientWidth / STEP) + 6,
-          );
+          const { start: first, end } = visibleRange(element, total);
           setRange((current) =>
             current.start === first && current.end === end
               ? current

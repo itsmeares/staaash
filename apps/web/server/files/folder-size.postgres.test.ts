@@ -155,6 +155,66 @@ it("serializes a hierarchy change with simultaneous uploads", async () => {
   expect(await getFolderSizeBytes(root.id)).toBe(60);
 });
 
+it("commits simultaneous mixed file and folder writes in either order", async () => {
+  const first = await tree();
+  const second = await tree();
+  const clients = [0, 1].map(
+    () => new Client({ connectionString: inject("postgresDatabaseUrl") }),
+  );
+  await Promise.all(clients.map((client) => client.connect()));
+  try {
+    for (const orders of [
+      [true, true],
+      [false, false],
+      [true, false],
+    ]) {
+      const results = await Promise.allSettled(
+        clients.map(async (client, n) => {
+          const item = [first, second][n]!;
+          await client.query("BEGIN");
+          await client.query("SET LOCAL statement_timeout = '4s'");
+          const file = () =>
+            client.query(
+              'UPDATE "File" SET "sizeBytes" = "sizeBytes" + 1 WHERE id = $1',
+              [item.file.id],
+            );
+          const folder = () =>
+            client.query('UPDATE "Folder" SET "parentId" = $1 WHERE id = $2', [
+              item.right.id,
+              item.child.id,
+            ]);
+          if (orders[n]) {
+            await file();
+            await client.query("SELECT pg_sleep(0.1)");
+            await folder();
+          } else {
+            await folder();
+            await client.query("SELECT pg_sleep(0.1)");
+            await file();
+          }
+          await client.query("COMMIT");
+        }),
+      );
+      expect(results).toEqual([
+        { status: "fulfilled", value: undefined },
+        { status: "fulfilled", value: undefined },
+      ]);
+    }
+    for (const item of [first, second]) {
+      expect(await getFolderSizeBytes(item.root.id)).toBe(23);
+      expect(await getFolderSizeBytes(item.left.id)).toBe(0);
+      expect(await getFolderSizeBytes(item.right.id)).toBe(23);
+    }
+  } finally {
+    await Promise.all(
+      clients.map(async (client) => {
+        await client.query("ROLLBACK");
+        await client.end();
+      }),
+    );
+  }
+});
+
 it("backfills old nested metadata without changing revisions or timestamps", async () => {
   const client = new Client({
     connectionString: inject("postgresDatabaseUrl"),

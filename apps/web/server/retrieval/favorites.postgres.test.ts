@@ -62,15 +62,7 @@ it("returns only the owner's active favorites with paths, order and pins intact"
       createdAt: pinnedAt,
     })),
   });
-  const favorites = (
-    await getRetrievalPage(
-      {
-        actorUserId: owner.id,
-        actorRole: "member",
-      }.actorUserId,
-      "favorites",
-    )
-  ).items;
+  const favorites = (await getRetrievalPage(owner.id, "favorites")).items;
   expect(
     favorites.map((item) => [
       item.id,
@@ -83,30 +75,7 @@ it("returns only the owner's active favorites with paths, order and pins intact"
     [selected.id, "Files / Projects / selected.txt", true, pinnedAt],
     [missing.id, "Files / Projects / missing.txt", true, null],
   ]);
-  expect(
-    (
-      await getRetrievalPage(
-        { actorUserId: owner.id, actorRole: "owner" }.actorUserId,
-        "favorites",
-      )
-    ).items,
-  ).toEqual(favorites);
   await db.favoriteFile.deleteMany({ where: { userId: owner.id } });
   await db.favoriteFolder.deleteMany({ where: { userId: owner.id } });
-  expect(
-    (
-      await getRetrievalPage(
-        { actorUserId: owner.id, actorRole: "member" }.actorUserId,
-        "favorites",
-      )
-    ).items,
-  ).toEqual([]);
-  expect(
-    (
-      await getRetrievalPage(
-        { actorUserId: owner.id, actorRole: "owner" }.actorUserId,
-        "favorites",
-      )
-    ).items,
-  ).toEqual([]);
+  expect((await getRetrievalPage(owner.id, "favorites")).items).toEqual([]);
 });
