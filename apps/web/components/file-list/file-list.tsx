@@ -503,8 +503,7 @@ export function FileList<T extends FileListItem>({
             "group/item relative grid min-w-0 cursor-default gap-1.5 rounded-xl border border-transparent p-1.5 outline-none select-none focus-visible:ring-2 focus-visible:ring-ring",
             !selected && "hover:bg-hover",
             selected && "border-primary/45 bg-primary/9",
-            item.dimmed && "opacity-50",
-            disabled && "opacity-60",
+            (item.dimmed || disabled) && "text-muted-foreground",
             itemClassName?.(item),
           )}
           role="row"
@@ -558,8 +557,7 @@ export function FileList<T extends FileListItem>({
             "group/item relative min-h-11 cursor-default rounded-lg px-1.5 py-1 text-body outline-none select-none focus-visible:ring-2 focus-visible:ring-ring max-md:min-h-14",
             !selected && "hover:bg-hover",
             selected && "bg-selected",
-            item.dimmed && "opacity-50",
-            disabled && "opacity-60",
+            (item.dimmed || disabled) && "text-muted-foreground",
             itemClassName?.(item),
           )}
           role="row"

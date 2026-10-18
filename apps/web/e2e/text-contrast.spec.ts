@@ -19,7 +19,7 @@ const expectReadableText = async (page: Page, label: string) => {
 
 for (const colorScheme of ["light", "dark"] as const) {
   test(`text meets contrast in ${colorScheme} theme`, async ({ page }) => {
-    await page.emulateMedia({ colorScheme });
+    await page.emulateMedia({ colorScheme, reducedMotion: "reduce" });
     await signIn(page, getOwnerCredentials());
 
     for (const route of ["/files", "/recent", "/settings", "/admin/settings"]) {
