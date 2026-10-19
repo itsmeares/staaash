@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
-import { canHaveThumbnail } from "@staaash/db/viewer-contract";
+import { getViewerWindow } from "@/server/files/viewer-window";
 
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { isFilesError } from "@/server/files/errors";
-import { filesService } from "@/server/files/service";
+import { prismaFilesRepository } from "@/server/files/repository";
 import { getAccessiblePrivateFile } from "@/server/files/viewer";
 import { recordFileAccessBestEffort } from "@/server/retrieval/recent-tracking";
 
@@ -38,42 +38,26 @@ export default async function FilesFileViewerPage({
       action: "opened",
     });
 
-    // Arrows move through the other viewable files in the same folder.
-    const listing = await filesService
-      .getFilesListing({ ...actor, folderId: file.folderId ?? undefined })
-      .catch(() => null);
-    const siblings = (listing?.files ?? [file]).flatMap((entry) =>
-      entry.viewerKind && !entry.storageMutation
-        ? [
-            {
-              id: entry.id,
-              name: entry.name,
-              mimeType: entry.mimeType,
-              viewerKind: entry.viewerKind,
-              thumbnailUrl: canHaveThumbnail(entry.mimeType, entry.name)
-                ? `/api/files/files/${entry.id}/thumbnail`
-                : null,
-            },
-          ]
-        : [],
+    const root = file.folderId
+      ? null
+      : await prismaFilesRepository.findFilesRoot!(session.user.id);
+    const folderId = file.folderId ?? root!.id;
+    const window = await getViewerWindow(
+      session.user.id,
+      folderId,
+      {},
+      file.id,
     );
-    const files = siblings.some((entry) => entry.id === file.id)
-      ? siblings
-      : [
-          {
-            id: file.id,
-            name: file.name,
-            mimeType: file.mimeType,
-            viewerKind: file.viewerKind,
-            thumbnailUrl: null,
-          },
-        ];
+    if (!window.files.some((entry) => entry.id === file.id)) notFound();
 
     return (
       <StandaloneViewer
         backHref={file.folderId ? `/files/f/${file.folderId}` : "/files"}
         fileId={file.id}
-        files={files}
+        files={window.files}
+        start={window.start}
+        total={window.total}
+        folderId={folderId}
       />
     );
   } catch (error) {

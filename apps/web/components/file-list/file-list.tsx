@@ -1,5 +1,7 @@
 "use client";
 
+import { VirtualSection } from "./virtual-rows";
+import { ListLoadingRow, type ListLoading } from "./list-loading";
 import { ArrowDown, ArrowUp, Check, MoreHorizontal, Play } from "lucide-react";
 import {
   Fragment,
@@ -46,7 +48,7 @@ export type FileListItem = {
   /** Small marks after the name: shared, favorite. */
   flags?: ReactNode;
   /** Second line on phones and in grid cards. */
-  sub?: ReactNode;
+  sub?: ReactNode | (() => ReactNode);
 };
 
 export type FileListColumn<T> = {
@@ -71,6 +73,7 @@ type FileListGroup<T> = { label: string; items: T[] };
 
 type FileListProps<T extends FileListItem> = {
   label: string;
+  loading?: ListLoading;
   items: T[];
   groups?: FileListGroup<T>[];
   columns: FileListColumn<T>[];
@@ -407,6 +410,7 @@ function MoreActions({
 // fallow-ignore-next-line complexity
 export function FileList<T extends FileListItem>({
   label,
+  loading,
   items,
   groups,
   columns,
@@ -445,11 +449,6 @@ export function FileList<T extends FileListItem>({
     // next to it.
     "--cols-lg": tracks(columns, "minmax(0,56rem)"),
   } as CSSProperties;
-  const sectionClass = {
-    list: "grid gap-px pt-1",
-    grid: "grid grid-cols-[repeat(auto-fill,minmax(10.5rem,1fr))] gap-2 pt-2",
-    tiles: "grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2 pt-2",
-  }[view === "grid" && tiles ? "tiles" : view];
   const gridCols =
     "grid grid-cols-(--cols-sm) items-center gap-x-3 @xl/list:grid-cols-(--cols-md) @4xl/list:grid-cols-(--cols-lg)";
   const columnCell = (column: FileListColumn<T>) =>
@@ -459,13 +458,21 @@ export function FileList<T extends FileListItem>({
       column.align === "end" && "text-right",
     );
 
+  const hasRows = !isEmpty || Boolean(leading);
+  const headerRows = Number(
+    view === "list" && head && !isEmpty && columns.length > 0,
+  );
   // One row renderer for list and grid, with every optional part a page can pass.
   // fallow-ignore-next-line complexity
-  const renderItem = (item: T) => {
+  const renderItem = (item: T, index: number) => {
     const selected = selection.selected.has(item.id);
     const disabled = Boolean(item.blocked);
+    const sub = typeof item.sub === "function" ? item.sub() : item.sub;
     const actions = disabled ? [] : (getActions?.(item) ?? []);
-    const base = selection.itemProps(item.id, { disabled });
+    const base = {
+      ...selection.itemProps(item.id, { disabled }),
+      "aria-rowindex": loading && !groups ? index + headerRows + 1 : undefined,
+    };
     const extra = disabled ? {} : (itemProps?.(item) ?? {});
     // Touch grid cards wrap long names onto a second line before cutting.
     const name =
@@ -496,8 +503,7 @@ export function FileList<T extends FileListItem>({
             "group/item relative grid min-w-0 cursor-default gap-1.5 rounded-xl border border-transparent p-1.5 outline-none select-none focus-visible:ring-2 focus-visible:ring-ring",
             !selected && "hover:bg-hover",
             selected && "border-primary/45 bg-primary/9",
-            item.dimmed && "opacity-50",
-            disabled && "opacity-60",
+            (item.dimmed || disabled) && "text-muted-foreground",
             itemClassName?.(item),
           )}
           role="row"
@@ -535,9 +541,9 @@ export function FileList<T extends FileListItem>({
                 {item.flags}
               </span>
             )}
-            {(item.blocked || item.sub) && !tiles ? (
+            {(item.blocked || sub) && !tiles ? (
               <span className="truncate px-1 text-label text-muted-foreground">
-                {item.blocked ?? item.sub}
+                {item.blocked ?? sub}
               </span>
             ) : null}
           </div>
@@ -551,8 +557,7 @@ export function FileList<T extends FileListItem>({
             "group/item relative min-h-11 cursor-default rounded-lg px-1.5 py-1 text-body outline-none select-none focus-visible:ring-2 focus-visible:ring-ring max-md:min-h-14",
             !selected && "hover:bg-hover",
             selected && "bg-selected",
-            item.dimmed && "opacity-50",
-            disabled && "opacity-60",
+            (item.dimmed || disabled) && "text-muted-foreground",
             itemClassName?.(item),
           )}
           role="row"
@@ -592,7 +597,7 @@ export function FileList<T extends FileListItem>({
                 <span className="truncate text-label text-muted-foreground">
                   {item.blocked}
                 </span>
-              ) : item.sub ? (
+              ) : sub ? (
                 <span
                   className={cn(
                     "truncate text-label text-muted-foreground",
@@ -601,7 +606,7 @@ export function FileList<T extends FileListItem>({
                       "@xl/list:hidden",
                   )}
                 >
-                  {item.sub}
+                  {sub}
                 </span>
               ) : null}
             </span>
@@ -650,10 +655,17 @@ export function FileList<T extends FileListItem>({
       <div
         {...selection.listProps}
         aria-label={label}
-        aria-multiselectable
+        aria-multiselectable={hasRows || undefined}
+        aria-rowcount={
+          !hasRows
+            ? undefined
+            : groups
+              ? -1
+              : (loading?.total ?? items.length) + headerRows
+        }
         data-file-list
         className="relative min-h-40 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-        role="grid"
+        role={hasRows ? "grid" : "region"}
       >
         {view === "list" && head && !isEmpty && columns.length > 0 ? (
           <div
@@ -691,29 +703,27 @@ export function FileList<T extends FileListItem>({
           </div>
         ) : null}
 
-        {isEmpty && !leading ? empty : null}
+        {isEmpty && !leading && !loading?.loading && !loading?.error
+          ? empty
+          : null}
 
         {(isEmpty && leading
           ? [{ label: "", items: [] as T[] }]
-          : sections
-        ).map((section, index) =>
-          section.items.length === 0 && !(leading && index === 0) ? null : (
-            <div className="grid" key={section.label} role="rowgroup">
-              {section.label ? (
-                <div
-                  className="px-1.5 pt-4 pb-1.5 text-meta font-semibold"
-                  role="row"
-                >
-                  <span role="columnheader">{section.label}</span>
-                </div>
-              ) : null}
-              <div className={sectionClass}>
-                {index === 0 ? leading : null}
-                {section.items.map(renderItem)}
-              </div>
-            </div>
-          ),
-        )}
+          : sections.filter((section) => section.items.length > 0)
+        ).map((section, index) => (
+          <VirtualSection
+            key={section.label}
+            virtual={Boolean(loading)}
+            browse={loading?.browse}
+            label={section.label}
+            items={section.items}
+            view={view}
+            tiles={tiles}
+            eager={index === 0}
+            leading={index === 0 ? leading : undefined}
+            renderItem={renderItem}
+          />
+        ))}
         {children}
         {selection.rubberBand ? (
           <div
@@ -738,12 +748,16 @@ export function FileList<T extends FileListItem>({
           />
         ) : null}
       </div>
+      {loading ? <ListLoadingRow {...loading} /> : null}
       <WorkspaceActionSheet
         groups={sheetItem ? (getActions?.(sheetItem) ?? []) : []}
         item={
           sheetItem && {
             name: sheetItem.name,
-            sub: sheetItem.sub,
+            sub:
+              typeof sheetItem.sub === "function"
+                ? sheetItem.sub()
+                : sheetItem.sub,
             preview: (
               <ItemPreview
                 className="aspect-square w-12 shrink-0 rounded-lg"

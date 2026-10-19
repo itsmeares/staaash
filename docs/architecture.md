@@ -84,6 +84,16 @@ names. Changing the normalization rules requires backfilling the stored values.
 The initial migration backfills names and builds the index under an exclusive
 `File` table lock. Startup waits for that migration before serving requests.
 
+`Folder.treeSizeBytes` holds the complete size of active files below an active
+folder, including nested folders and missing originals. File and folder statement
+triggers update it in the metadata transaction, so the web app, worker, and
+journal recovery share one rule. File and folder writes take the same exclusive
+hierarchy lock before row locks. This serializes metadata changes across accounts
+and avoids lock upgrades in transactions that write files before folders. Folder
+moves and deletion changes rebuild affected ancestors. Reads use the stored value. The migration locks folders and files
+while it backfills totals. Restore reconciliation rebuilds these display totals
+after the committed-usage audit succeeds. Display totals do not control quota.
+
 `User.committedStorageBytes` counts all retained file rows, including trash and
 missing originals. Statement triggers apply size and owner changes atomically,
 once per affected owner in ID order. Name-only and status-only changes do not

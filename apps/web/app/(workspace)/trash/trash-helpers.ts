@@ -83,7 +83,10 @@ export function toTrashClientItem(
 }
 
 export function toTrashClientItems(listing: TrashListing): TrashClientItem[] {
-  return [...listing.items, ...listing.files].map(toTrashClientItem);
+  const order = new Map(listing.order?.map((id, index) => [id, index]));
+  return [...listing.items, ...listing.files]
+    .map(toTrashClientItem)
+    .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
 }
 
 export function sortTrashItems(

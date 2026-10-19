@@ -166,6 +166,7 @@ model Folder {
   icon        String?
   deletedAt   DateTime?
   storageRevision Int             @default(0)
+  treeSizeBytes BigInt            @default(0)
   trashEntryId String?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
@@ -181,6 +182,7 @@ model Folder {
   @@unique([ownerUserId, parentId, name], where: raw("\"deletedAt\" IS NULL"))
   @@index([ownerUserId, isFilesRoot])
   @@index([ownerUserId, parentId, deletedAt])
+  @@index([parentId, deletedAt])
   @@index([ownerUserId, deletedAt, updatedAt])
   @@index([trashEntryId])
 }
@@ -215,6 +217,7 @@ model File {
   @@index([ownerUserId, folderId, deletedAt])
   @@index([ownerUserId, folderId, deletedAt, storageStatus])
   @@index([searchName(ops: raw("gin_trgm_ops"))], type: Gin, map: "File_searchName_trgm_idx", where: raw("\"deletedAt\" IS NULL AND \"storageStatus\" = 'available'::\"FileStorageStatus\""))
+  @@index([folderId], map: "File_live_folder_idx", where: raw("\"deletedAt\" IS NULL"))
   @@index([trashEntryId])
 }
 

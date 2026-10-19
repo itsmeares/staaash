@@ -83,11 +83,15 @@ export function moveSelection(
   };
   if (step[key] === 0) return state;
   const target =
-    current < 0
-      ? step[key] < 0
+    key === "Home"
+      ? 0
+      : key === "End"
         ? ids.length - 1
-        : 0
-      : Math.min(ids.length - 1, Math.max(0, current + step[key]));
+        : current < 0
+          ? step[key] < 0
+            ? ids.length - 1
+            : 0
+          : Math.min(ids.length - 1, Math.max(0, current + step[key]));
   const id = ids[target]!;
   if (!extend) return { selected: new Set([id]), last: id };
   const anchor = current < 0 ? target : current;

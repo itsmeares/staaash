@@ -3,6 +3,12 @@ import { readFile } from "node:fs/promises";
 import { Client } from "pg";
 import { expect, inject, it } from "vite-plus/test";
 import { getPrisma } from "@staaash/db/client";
+import { getSearchPage } from "@/server/retrieval/search-page";
+import {
+  getSearchMatchKind,
+  normalizeSearchText,
+  prepareSearchCandidate,
+} from "@/server/search";
 import { createPrismaFilesRepository } from "./repository";
 
 it("keeps indexed candidates complete for literal normalized name matching across writes", async () => {
@@ -21,8 +27,11 @@ it("keeps indexed candidates complete for literal normalized name matching acros
       passwordHash: "test-only",
     },
   });
+  const root = await db.folder.create({
+    data: { ownerUserId: owner.id, name: "Files", isFilesRoot: true },
+  });
   const folder = await db.folder.create({
-    data: { ownerUserId: owner.id, name: "Finance" },
+    data: { ownerUserId: owner.id, name: "Finance", parentId: root.id },
   });
   for (const [index, name] of [
     "Résumé.TXT",
@@ -64,6 +73,10 @@ it("keeps indexed candidates complete for literal normalized name matching acros
     });
   }
   const repository = createPrismaFilesRepository();
+  const search = async (query: string) =>
+    (await getSearchPage(owner.id, query)).items.filter(
+      (item) => item.kind === "file",
+    );
   for (const query of [
     "resume",
     "RÉSUMÉ",
@@ -81,18 +94,25 @@ it("keeps indexed candidates complete for literal normalized name matching acros
     "ＡＢＣ",
     "e\u0301",
   ]) {
-    for (const folderIds of [[], [folder.id]]) {
-      const expected = await db.$queryRaw<{ id: string }[]>`
-        SELECT id FROM "File" WHERE "ownerUserId" = ${owner.id}
-        AND "deletedAt" IS NULL AND "storageStatus" = 'available'::"FileStorageStatus"
-        AND (strpos(unaccent(lower("originalName")), unaccent(lower(${query}))) > 0 OR "folderId" = ANY(${folderIds}::text[]))
-      `;
-      expect(
-        (await repository.searchFilesByOwner(owner.id, query, folderIds))
-          .map((file) => file.id)
-          .sort(),
-      ).toEqual(expected.map((file) => file.id).sort());
-    }
+    const candidates = await db.$queryRaw<
+      { id: string; originalName: string; folderId: string | null }[]
+    >`
+      SELECT id, "originalName", "folderId" FROM "File" WHERE "ownerUserId" = ${owner.id}
+      AND "deletedAt" IS NULL AND "storageStatus" = 'available'
+      AND (strpos(unaccent(lower("originalName")), unaccent(lower(${query}))) > 0
+        OR ("folderId" = ${folder.id} AND position(staaash_list_search_text(${query}) in staaash_list_search_text(${folder.name})) > 0))`;
+    const expected = candidates.filter((file) =>
+      getSearchMatchKind(
+        normalizeSearchText(query),
+        prepareSearchCandidate(
+          file.originalName,
+          `Files / ${file.folderId === folder.id ? "Finance / " : ""}${file.originalName}`,
+        ),
+      ),
+    );
+    expect((await search(query)).map((file) => file.id).sort(), query).toEqual(
+      expected.map((file) => file.id).sort(),
+    );
   }
   const renamed = await db.file.findFirstOrThrow({
     where: {
@@ -106,33 +126,23 @@ it("keeps indexed candidates complete for literal normalized name matching acros
     where: { id: renamed.id },
     data: { originalName: "Café.txt", searchName: "forged" },
   });
-  expect(
-    (await repository.searchFilesByOwner(owner.id, "cafe", [])).map(
-      (file) => file.id,
-    ),
-  ).toEqual([renamed.id]);
-  expect(await repository.searchFilesByOwner(owner.id, "forged", [])).toEqual(
-    [],
-  );
+  expect((await search("cafe")).map((file) => file.id)).toEqual([renamed.id]);
+  expect(await search("forged")).toEqual([]);
   await db.file.update({
     where: { id: renamed.id },
     data: { deletedAt: new Date() },
   });
-  expect(await repository.searchFilesByOwner(owner.id, "cafe", [])).toEqual([]);
+  expect(await search("cafe")).toEqual([]);
   await db.file.update({
     where: { id: renamed.id },
     data: { deletedAt: null, storageStatus: "missing" },
   });
-  expect(await repository.searchFilesByOwner(owner.id, "cafe", [])).toEqual([]);
+  expect(await search("cafe")).toEqual([]);
   await db.file.update({
     where: { id: renamed.id },
     data: { storageStatus: "available", folderId: folder.id },
   });
-  expect(
-    (await repository.searchFilesByOwner(owner.id, "cafe", [])).map(
-      (file) => file.id,
-    ),
-  ).toEqual([renamed.id]);
+  expect((await search("cafe")).map((file) => file.id)).toEqual([renamed.id]);
   expect(
     await repository.listFilesByIds(other.id, [renamed.id], {
       includeDeleted: true,

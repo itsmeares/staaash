@@ -1,5 +1,8 @@
 "use client";
 
+import { useContinuousList } from "@/components/file-list/use-continuous-list";
+import { useListFind } from "@/components/file-list/use-list-find";
+import { loadTrash, selectTrash } from "../list-actions";
 import { RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -43,6 +46,7 @@ import {
 
 type TrashViewProps = {
   items: TrashClientItem[];
+  total: number;
   retentionDays: number;
 };
 
@@ -51,12 +55,31 @@ type TrashListItem = FileListItem & { data: TrashClientItem };
 const kindPath = (item: TrashClientItem) =>
   item.kind === "folder" ? "folders" : "files";
 
-export function TrashView({ items, retentionDays }: TrashViewProps) {
+export function TrashView({
+  items: initialItems,
+  total,
+  retentionDays,
+}: TrashViewProps) {
   const router = useRouter();
   const isCoarsePointer = useCoarsePointer();
   const { now, timeZone } = useTime();
   const [filterType, setFilterType] = useState<WorkspaceItemFilterType>("all");
   const sort = useListSort<TrashSortKey>("deletedAt", "desc");
+  const finder = useListFind("Find in trash");
+  const continuous = useContinuousList({
+    name: "trash",
+    items: initialItems,
+    total,
+    query: {
+      sort: sort.key,
+      direction: sort.direction,
+      filter: filterType,
+      find: finder.find,
+    },
+    load: loadTrash,
+    select: selectTrash,
+  });
+  const items = continuous.items;
 
   const visibleItems = useMemo(
     () =>
@@ -110,6 +133,15 @@ export function TrashView({ items, retentionDays }: TrashViewProps) {
 
   const { selection, selectedItems, targetsFor } = useItemSelection({
     items: selectable,
+    loadAll: async () =>
+      (await continuous.loadAll()).filter(
+        (item) => !item.storageMutationStatus,
+      ),
+    loadNext: async () =>
+      (await continuous.loadMore()).filter(
+        (item) => !item.storageMutationStatus,
+      ),
+    onFind: finder.show,
     coarse: isCoarsePointer,
   });
 
@@ -188,20 +220,22 @@ export function TrashView({ items, retentionDays }: TrashViewProps) {
               value={filterType}
               onValueChange={setFilterType}
             />
-            <EmptyTrashAction disabled={items.length === 0} />
+            <EmptyTrashAction disabled={total === 0} />
           </>
         }
         title="Trash"
       />
 
+      {finder.field}
       <FileList
+        loading={continuous}
         coarse={isCoarsePointer}
         columns={columns}
         empty={
           <Empty className="min-h-64">
             <EmptyHeader>
               <EmptyTitle>
-                {items.length === 0 ? "Trash is empty" : "Nothing of that type"}
+                {!continuous.filtered ? "Trash is empty" : "Nothing matches"}
               </EmptyTitle>
             </EmptyHeader>
           </Empty>

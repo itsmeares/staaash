@@ -107,6 +107,8 @@ export type BatchMoveOperationResponse = {
 };
 
 export type FilesListing = {
+  total: number;
+  counts: { folders: number; files: number };
   ownerUserId: string;
   currentFolder: FolderSummary;
   breadcrumbs: FilesBreadcrumb[];
@@ -147,6 +149,8 @@ export type TrashFileSummary = {
 };
 
 export type TrashListing = {
+  total: number;
+  order?: string[];
   filesRoot: FolderSummary;
   items: TrashFolderSummary[];
   files: TrashFileSummary[];

@@ -20,6 +20,8 @@ import {
   Upload,
   X,
 } from "lucide-react";
+import { privateViewerFiles, nextLoadedViewer } from "@/lib/private-viewer";
+import { useFolderList } from "./use-folder-list";
 import { Spinner } from "@/components/ui/spinner";
 import { toast, toastManager } from "@/components/ui/toast";
 
@@ -52,7 +54,6 @@ import { buildItemActions } from "@/components/file-list/item-actions";
 import { MediaViewer } from "@/components/file-list/media-viewer";
 import { getRenameSelectionEnd } from "@/components/file-list/list-model";
 import { useListSelection } from "@/components/file-list/use-list-selection";
-import { useListSort } from "@/components/file-list/use-list-sort";
 import { useViewMode } from "@/components/file-list/use-view-mode";
 import { useTime } from "@/components/time-provider";
 import { randomClientId } from "@/lib/client-id";
@@ -91,7 +92,6 @@ import {
   WORKSPACE_ITEM_FILTERS,
   filterWorkspaceItems,
   formatWorkspaceFileSize,
-  type WorkspaceItemFilterType,
 } from "../workspace-item-helpers";
 import styles from "./explorer.module.css";
 import {
@@ -209,13 +209,18 @@ const nameInListing = (
         (folder) => folder.id === id,
       )?.name;
 
+function prunePendingTrash(current: Set<string>, listed: Set<string>) {
+  const next = new Set([...current].filter((id) => listed.has(id)));
+  return next.size === current.size ? current : next;
+}
+
 export function FilesView({
-  listing,
+  listing: initialListing,
   currentPath,
-  shareLookup,
+  shareLookup: initialShares,
   showFolderPreviews,
-  favoriteFileIds,
-  favoriteFolderIds,
+  favoriteFileIds: initialFavoriteFiles,
+  favoriteFolderIds: initialFavoriteFolders,
   folderSizeBytes,
 }: FilesViewProps) {
   const router = useRouter();
@@ -228,8 +233,25 @@ export function FilesView({
     useTransferContext();
   const { now, timeZone } = useTime();
   const [view, setView] = useViewMode("files");
-  const sort = useListSort<"name" | "size" | "modified">("name", "asc");
   const details = useDetailsPanel();
+  const {
+    continuous,
+    listing,
+    sort,
+    filterType,
+    setFilterType,
+    finder,
+    shareLookup,
+    favoriteFileIds,
+    favoriteFolderIds,
+  } = useFolderList({
+    listing: initialListing,
+    shareLookup: initialShares,
+    showFolderPreviews,
+    favoriteFileIds: initialFavoriteFiles,
+    favoriteFolderIds: initialFavoriteFolders,
+    folderSizeBytes,
+  });
 
   // ---- Optimistic trash ----
   // Items moved to trash are filtered out client-side before the server-side
@@ -309,7 +331,8 @@ export function FilesView({
     Set<string>
   >(new Set());
   useEffect(() => {
-    setTrashedIds(new Set());
+    const listed = getListedItemIds(listing);
+    setTrashedIds((current) => prunePendingTrash(current, listed));
   }, [listing]);
   useEffect(() => {
     const listedIds = getListedItemIds(listing);
@@ -342,8 +365,6 @@ export function FilesView({
       });
     }
   }, [moveOperations]);
-
-  const [filterType, setFilterType] = useState<WorkspaceItemFilterType>("all");
 
   // ---- Rename ----
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -488,54 +509,34 @@ export function FilesView({
     (item) => !storageMutationItemIds.has(item.id) && !movingIds.has(item.id),
   );
 
-  // Folders stay above files whatever the order.
-  const compareForSort = (
-    left: {
-      kind: "folder" | "file";
-      name: string;
-      size: number;
-      updatedAt: Date;
-    },
-    right: {
-      kind: "folder" | "file";
-      name: string;
-      size: number;
-      updatedAt: Date;
-    },
-  ) => {
-    if (left.kind !== right.kind) return left.kind === "folder" ? -1 : 1;
-    const delta =
-      sort.key === "size"
-        ? left.size - right.size
-        : sort.key === "modified"
-          ? new Date(left.updatedAt).getTime() -
-            new Date(right.updatedAt).getTime()
-          : left.name.localeCompare(right.name, undefined, {
-              numeric: true,
-              sensitivity: "base",
-            });
-    return sort.direction === "asc" ? delta : -delta;
-  };
-  const dataOf = (item: BatchMoveItem) =>
-    item.kind === "folder"
-      ? listing.childFolders.find((folder) => folder.id === item.id)
-      : listing.files.find((file) => file.id === item.id);
-  const sortKeyOf = (item: BatchMoveItem) => {
-    const data = dataOf(item);
-    return {
-      kind: item.kind,
-      name: data?.name ?? "",
-      size: data && "sizeBytes" in data ? data.sizeBytes : 0,
-      updatedAt: data?.updatedAt ?? new Date(0),
-    };
-  };
-
+  const itemData = new Map<string, FolderSummary | FileSummary>(
+    [...visibleFolders, ...visibleFiles].map((item) => [item.id, item]),
+  );
+  const dataOf = (item: BatchMoveItem) => itemData.get(item.id);
   const selection = useListSelection({
-    // Arrow keys and shift ranges follow the order on screen.
-    ids: [...allItems]
-      .sort((left, right) => compareForSort(sortKeyOf(left), sortKeyOf(right)))
-      .map((item) => item.id),
+    ids: allItems.map((item) => item.id),
     coarse: isCoarsePointer,
+    loadAllIds: async () =>
+      (await continuous.loadAll())
+        .filter(
+          (item) =>
+            !item.data.storageMutation &&
+            !trashedIds.has(item.id) &&
+            !optimisticallyMovedIds.has(item.id) &&
+            !movingIds.has(item.id),
+        )
+        .map((item) => item.id),
+    loadNextIds: async () =>
+      (await continuous.loadMore())
+        .filter(
+          (item) =>
+            !item.data.storageMutation &&
+            !trashedIds.has(item.id) &&
+            !optimisticallyMovedIds.has(item.id) &&
+            !movingIds.has(item.id),
+        )
+        .map((item) => item.id),
+    onFind: finder.show,
     onOpen: (id) => openItem(id),
     onKey: (event, selected) => handleListKey(event, selected),
   });
@@ -546,11 +547,7 @@ export function FilesView({
       .filter((item) => selection.getSelected().has(item.id))
       .map((item) => item.id);
 
-  const getItemName = (item: BatchMoveItem) =>
-    item.kind === "folder"
-      ? (listing.childFolders.find((folder) => folder.id === item.id)?.name ??
-        item.id)
-      : (listing.files.find((file) => file.id === item.id)?.name ?? item.id);
+  const getItemName = (item: BatchMoveItem) => dataOf(item)?.name ?? item.id;
 
   const getInteractionItems = (
     id: string,
@@ -661,19 +658,7 @@ export function FilesView({
   const viewerId = pathname.startsWith("/files/view/")
     ? decodeURIComponent(pathname.slice("/files/view/".length))
     : null;
-  const viewerFiles = visibleFiles.flatMap((file) =>
-    file.viewerKind && !file.storageMutation
-      ? [
-          {
-            id: file.id,
-            name: file.name,
-            mimeType: file.mimeType,
-            viewerKind: file.viewerKind,
-            thumbnailUrl: thumbnailUrlFor({ ...file, kind: "file" }),
-          },
-        ]
-      : [],
-  );
+  const viewerFiles = privateViewerFiles(visibleFiles);
   const viewerIndex = viewerId
     ? viewerFiles.findIndex((file) => file.id === viewerId)
     : -1;
@@ -712,12 +697,27 @@ export function FilesView({
     }
   };
 
-  const moveViewer = (index: number) => {
-    const next = viewerFiles[index];
-    if (!next) return;
-    viewerOrigin.current = null;
-    window.history.replaceState(null, "", `/files/view/${next.id}`);
-    reportOpened(next.id);
+  const viewerMoving = useRef(false);
+  const moveViewer = async (index: number) => {
+    if (viewerMoving.current) return;
+    viewerMoving.current = true;
+    try {
+      const next = await nextLoadedViewer(
+        index,
+        continuous.items,
+        continuous.total,
+        new Set([...trashedIds, ...optimisticallyMovedIds]),
+        continuous.loadMore,
+      );
+      if (!next) return;
+      viewerOrigin.current = null;
+      window.history.replaceState(null, "", `/files/view/${next.id}`);
+      reportOpened(next.id);
+    } catch {
+      toast.error("The next file could not load. Try again.");
+    } finally {
+      viewerMoving.current = false;
+    }
   };
 
   const beginRename = (id: string, currentName: string) => {
@@ -1629,8 +1629,7 @@ export function FilesView({
         },
         {
           label: "Select all",
-          onSelect: () =>
-            selection.update(new Set(allItems.map((item) => item.id))),
+          onSelect: () => void selection.selectAll(),
         },
       ],
     },
@@ -1709,7 +1708,7 @@ export function FilesView({
       blocked: movingIds.has(folder.id) ? "Moving…" : mutationLabel(folder),
       dimmed: cutIds.has(folder.id),
       flags: movingIds.has(folder.id) ? movingMark : flags("folder", folder.id),
-      sub: formatRelativeTime(folder.updatedAt, now, timeZone),
+      sub: () => formatRelativeTime(folder.updatedAt, now, timeZone),
       data: folder,
       sizeBytes: null,
     })),
@@ -1722,7 +1721,8 @@ export function FilesView({
       blocked: movingIds.has(file.id) ? "Moving…" : mutationLabel(file),
       dimmed: cutIds.has(file.id),
       flags: movingIds.has(file.id) ? movingMark : flags("file", file.id),
-      sub: `${formatWorkspaceFileSize(file.sizeBytes)} · ${formatRelativeTime(file.updatedAt, now, timeZone)}`,
+      sub: () =>
+        `${formatWorkspaceFileSize(file.sizeBytes)} · ${formatRelativeTime(file.updatedAt, now, timeZone)}`,
       data: file,
       sizeBytes: file.sizeBytes,
     })),
@@ -1752,23 +1752,7 @@ export function FilesView({
     },
   ];
 
-  const sortedItems = filterWorkspaceItems(listItems, filterType).sort(
-    (left, right) =>
-      compareForSort(
-        {
-          kind: left.kind,
-          name: left.name,
-          size: left.sizeBytes ?? 0,
-          updatedAt: left.data.updatedAt,
-        },
-        {
-          kind: right.kind,
-          name: right.name,
-          size: right.sizeBytes ?? 0,
-          updatedAt: right.data.updatedAt,
-        },
-      ),
-  );
+  const sortedItems = filterWorkspaceItems(listItems, filterType);
 
   const cutItemsOf = (items: BatchMoveItem[]) => {
     const cut = items.map((item) => ({
@@ -1866,8 +1850,8 @@ export function FilesView({
       [
         "Inside",
         [
-          count(listing.childFolders.length, "folder"),
-          count(listing.files.length, "file"),
+          count(listing.counts.folders, "folder"),
+          count(listing.counts.files, "file"),
         ]
           .filter(Boolean)
           .join(", ") || "Empty",
@@ -2029,6 +2013,7 @@ export function FilesView({
                 onDrop: (event) => handleMoveDrop(crumb.id, event),
               }))}
             />
+            {finder.field}
             <TypeFilter
               options={WORKSPACE_ITEM_FILTERS}
               value={filterType}
@@ -2069,6 +2054,7 @@ export function FilesView({
           </p>
 
           <FileList
+            loading={continuous}
             leading={
               (newFolderOpen && !isCoarsePointer) || uploadsHere.length > 0 ? (
                 <>
@@ -2093,10 +2079,10 @@ export function FilesView({
             coarse={isCoarsePointer}
             columns={columns}
             empty={
-              listItems.length > 0 ? (
+              continuous.filtered ? (
                 <Empty className="min-h-64">
                   <EmptyHeader>
-                    <EmptyTitle>Nothing of that type</EmptyTitle>
+                    <EmptyTitle>Nothing matches</EmptyTitle>
                   </EmptyHeader>
                 </Empty>
               ) : (
@@ -2282,6 +2268,8 @@ export function FilesView({
       {viewerIndex >= 0 ? (
         <MediaViewer
           files={viewerFiles}
+          hasMore={continuous.hasMore}
+          loadMore={continuous.loadMore}
           index={viewerIndex}
           origin={viewerOrigin.current}
           onClose={closeViewer}

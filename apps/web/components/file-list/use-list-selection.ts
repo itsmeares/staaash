@@ -63,6 +63,9 @@ export type ListSelectionOptions = {
   onOpen: (id: string) => void;
   /** Touch layouts: tap opens, long press selects, taps then toggle. */
   coarse: boolean;
+  loadAllIds?: () => Promise<string[]>;
+  loadNextIds?: () => Promise<string[]>;
+  onFind?: () => void;
   /** Runs first; return true when the key was handled. */
   onKey?: (event: KeyboardEvent<HTMLElement>, selected: string[]) => boolean;
 };
@@ -74,6 +77,9 @@ export function useListSelection({
   onOpen,
   coarse,
   onKey,
+  loadAllIds,
+  loadNextIds,
+  onFind,
 }: ListSelectionOptions) {
   const [state, setState] = useState<SelectionState>(emptySelection);
   const [rubberBand, setRubberBand] = useState<RubberBand | null>(null);
@@ -99,9 +105,20 @@ export function useListSelection({
   }, []);
 
   const focusItem = useCallback((id: string) => {
-    listRef.current
-      ?.querySelector<HTMLElement>(`[data-list-item="${CSS.escape(id)}"]`)
-      ?.focus({ preventScroll: false });
+    const container = listRef.current;
+    let attempts = 0;
+    const focus = () => {
+      container?.dispatchEvent(
+        new CustomEvent("staaash:list-focus", { detail: id }),
+      );
+
+      const item = container?.querySelector<HTMLElement>(
+        `[data-list-item="${CSS.escape(id)}"]`,
+      );
+      if (item) item.focus({ preventScroll: false });
+      else if (++attempts < 10) requestAnimationFrame(focus);
+    };
+    requestAnimationFrame(focus);
   }, []);
 
   const clear = useCallback(() => select(emptySelection), [select]);
@@ -109,14 +126,14 @@ export function useListSelection({
     (id: string) => select({ selected: new Set([id]), last: id }),
     [select],
   );
-  const selectAll = useCallback(
-    () =>
-      select({
-        selected: new Set(idsRef.current),
-        last: idsRef.current.at(-1) ?? null,
-      }),
-    [select],
-  );
+  const selectAll = async () => {
+    try {
+      const all = loadAllIds ? await loadAllIds() : idsRef.current;
+      select({ selected: new Set(all), last: all.at(-1) ?? null });
+    } catch {
+      /* The list owns the visible retry message. */
+    }
+  };
 
   const selectedIds = ids.filter((id) => state.selected.has(id));
 
@@ -238,22 +255,40 @@ export function useListSelection({
       if (onKey?.(event, selected)) return;
       const ctrl = event.ctrlKey || event.metaKey;
 
-      if (NAV_KEYS.has(event.key)) {
+      if (ctrl && event.key.toLowerCase() === "f" && onFind) {
         event.preventDefault();
-        const next = moveSelection(
-          current,
-          event.key as NavigationKey,
-          idsRef.current,
-          {
-            columns: listRef.current ? countColumns(listRef.current) : 1,
-            extend: event.shiftKey,
-          },
-        );
-        select(next);
-        if (next.last) requestAnimationFrame(() => focusItem(next.last!));
+        onFind();
+      } else if (NAV_KEYS.has(event.key)) {
+        event.preventDefault();
+        const key = event.key as NavigationKey;
+        const extend = event.shiftKey;
+        const columns = listRef.current ? countColumns(listRef.current) : 1;
+        const move = (ordered: readonly string[]) => {
+          const next = moveSelection(current, key, ordered, {
+            columns,
+            extend,
+          });
+          select(next);
+          if (next.last) focusItem(next.last);
+        };
+        const position = current.last
+          ? idsRef.current.indexOf(current.last)
+          : -1;
+        const load =
+          key === "End"
+            ? loadAllIds
+            : (key === "ArrowDown" || key === "ArrowRight") &&
+                position >= idsRef.current.length - columns
+              ? loadNextIds
+              : undefined;
+        if (load)
+          void load()
+            .then(move)
+            .catch(() => {});
+        else move(idsRef.current);
       } else if (ctrl && event.key.toLowerCase() === "a") {
         event.preventDefault();
-        selectAll();
+        void selectAll();
       } else if (event.key === "Escape" && current.selected.size > 0) {
         event.preventDefault();
         clear();
@@ -397,14 +432,25 @@ export function useItemSelection<T extends { id: string }>({
   coarse,
   onOpen,
   onDelete,
+  loadAll,
+  loadNext,
+  onFind,
 }: {
   items: T[];
   coarse: boolean;
   onOpen?: (item: T) => void;
   onDelete?: (items: T[]) => void;
+  loadAll?: () => Promise<T[]>;
+  loadNext?: () => Promise<T[]>;
+  onFind?: () => void;
 }) {
   const selection = useListSelection({
     ids: items.map((item) => item.id),
+    loadAllIds:
+      loadAll && (async () => (await loadAll()).map((item) => item.id)),
+    loadNextIds:
+      loadNext && (async () => (await loadNext()).map((item) => item.id)),
+    onFind,
     coarse,
     onOpen: (id) => {
       const item = items.find((candidate) => candidate.id === id);
@@ -414,7 +460,8 @@ export function useItemSelection<T extends { id: string }>({
       if (event.key !== "Delete" && event.key !== "Backspace") return false;
       if (!onDelete || selected.length === 0) return false;
       event.preventDefault();
-      onDelete(items.filter((item) => selected.includes(item.id)));
+      const selectedIds = new Set(selected);
+      onDelete(items.filter((item) => selectedIds.has(item.id)));
       selection.clear();
       return true;
     },

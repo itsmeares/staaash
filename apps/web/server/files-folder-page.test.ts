@@ -29,10 +29,6 @@ vi.mock("@/server/retrieval/recent-tracking", () => ({
   recordFolderAccessBestEffort: vi.fn(),
 }));
 
-vi.mock("@/server/retrieval/service", () => ({
-  retrievalService: { listFavorites: vi.fn() },
-}));
-
 vi.mock("@/server/request", () => ({
   getShareBaseUrl: vi.fn(() => "http://localhost"),
 }));

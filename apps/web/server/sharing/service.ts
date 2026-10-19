@@ -1055,8 +1055,9 @@ export const createSharingService = ({
     async listOwnedShares({
       actorUserId,
       baseUrl,
-    }: FilesActor & { baseUrl?: string }) {
-      return resolveOwnedShares(actorUserId, baseUrl);
+      targets,
+    }: FilesActor & { baseUrl?: string; targets?: ShareTargetIds }) {
+      return resolveOwnedShares(actorUserId, baseUrl, targets);
     },
 
     async getFilesShareLookup({

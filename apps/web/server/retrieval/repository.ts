@@ -4,15 +4,8 @@ import {
   prismaFilesRepository,
   type FilesRepository,
 } from "@/server/files/repository";
-import { StorageProtocolNotReadyError } from "@/server/durable-storage-mutation";
 
-import type {
-  FavoriteFileRecord,
-  FavoriteFolderRecord,
-  RecentFileRecord,
-  RecentFolderRecord,
-  RetrievalRepository,
-} from "./types";
+import type { RetrievalRepository } from "./types";
 
 type RetrievalPrismaClient = Pick<
   ReturnType<typeof getPrisma>,
@@ -33,120 +26,12 @@ const createPrismaRetrievalRepository = ({
   const getFilesRepo = () => filesRepo ?? prismaFilesRepository;
 
   return {
-    async ensureFilesRoot(ownerUserId) {
-      const activeFilesRepo = getFilesRepo();
-      if (filesRepo) return activeFilesRepo.ensureFilesRoot(ownerUserId);
-      const root = await activeFilesRepo.findFilesRoot?.(ownerUserId);
-      if (!root) throw new StorageProtocolNotReadyError();
-      return root;
-    },
-
     findFolderById(folderId) {
       return getFilesRepo().findFolderById(folderId);
     },
 
     findFileById(fileId) {
       return getFilesRepo().findFileById(fileId);
-    },
-
-    listFolderAncestors(ownerUserId, folderIds) {
-      return getFilesRepo().listFolderAncestors(ownerUserId, folderIds);
-    },
-
-    listFilesByIds(ownerUserId, fileIds, options = {}) {
-      return getFilesRepo().listFilesByIds(ownerUserId, fileIds, {
-        includeMissing: true,
-        includeDeleted: options.includeDeleted,
-      });
-    },
-
-    listFoldersByOwner(ownerUserId, options = {}) {
-      return getFilesRepo().listFoldersByOwner(ownerUserId, {
-        includeDeleted: options.includeDeleted ?? false,
-      });
-    },
-
-    listFilesByOwner(ownerUserId, options = {}) {
-      return getFilesRepo().listFilesByOwner(ownerUserId, {
-        includeDeleted: options.includeDeleted ?? false,
-        favoritesOnly: options.favoritesOnly,
-      });
-    },
-
-    searchFilesByOwner(ownerUserId, nameQuery, folderIds) {
-      return getFilesRepo().searchFilesByOwner(
-        ownerUserId,
-        nameQuery,
-        folderIds,
-      );
-    },
-
-    async listFavoriteFiles(userId) {
-      const client = getClient();
-      const favorites = await client.favoriteFile.findMany({
-        where: {
-          userId,
-        },
-        orderBy: [{ createdAt: "desc" }, { fileId: "asc" }],
-      });
-
-      return favorites.map((favorite): FavoriteFileRecord => ({
-        userId: favorite.userId,
-        fileId: favorite.fileId,
-        createdAt: favorite.createdAt,
-        quickAccessPinnedAt: favorite.quickAccessPinnedAt,
-      }));
-    },
-
-    async listFavoriteFolders(userId) {
-      const client = getClient();
-      const favorites = await client.favoriteFolder.findMany({
-        where: {
-          userId,
-        },
-        orderBy: [{ createdAt: "desc" }, { folderId: "asc" }],
-      });
-
-      return favorites.map((favorite): FavoriteFolderRecord => ({
-        userId: favorite.userId,
-        folderId: favorite.folderId,
-        createdAt: favorite.createdAt,
-        quickAccessPinnedAt: favorite.quickAccessPinnedAt,
-      }));
-    },
-
-    async listRecentFiles(userId) {
-      const client = getClient();
-      const recents = await client.recentFile.findMany({
-        where: {
-          userId,
-        },
-        orderBy: [{ lastInteractedAt: "desc" }, { fileId: "asc" }],
-      });
-
-      return recents.map((recent): RecentFileRecord => ({
-        userId: recent.userId,
-        fileId: recent.fileId,
-        lastInteractedAt: recent.lastInteractedAt,
-        lastAction: recent.lastAction,
-      }));
-    },
-
-    async listRecentFolders(userId) {
-      const client = getClient();
-      const recents = await client.recentFolder.findMany({
-        where: {
-          userId,
-        },
-        orderBy: [{ lastInteractedAt: "desc" }, { folderId: "asc" }],
-      });
-
-      return recents.map((recent): RecentFolderRecord => ({
-        userId: recent.userId,
-        folderId: recent.folderId,
-        lastInteractedAt: recent.lastInteractedAt,
-        lastAction: recent.lastAction,
-      }));
     },
 
     async upsertFileFavorite({ userId, fileId, createdAt }) {

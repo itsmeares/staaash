@@ -2448,6 +2448,7 @@ export const FolderScalarFieldEnum = {
   icon: 'icon',
   deletedAt: 'deletedAt',
   storageRevision: 'storageRevision',
+  treeSizeBytes: 'treeSizeBytes',
   trashEntryId: 'trashEntryId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'

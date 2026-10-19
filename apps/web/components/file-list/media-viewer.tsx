@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import { AudioPlayer } from "./audio-player";
-import { ItemPreview } from "./file-list";
+import { ViewerFilmstrip } from "./viewer-filmstrip";
 import { MiddleName } from "./middle-name";
 import { useViewerGestures } from "./use-viewer-gestures";
 
@@ -117,7 +117,19 @@ export function MediaViewer({
   contentHref = (id) => `/api/files/files/${id}/content`,
   downloadHref = (id) => `/api/files/files/${id}/download`,
   actions,
+  navigation,
+  hasMore = false,
+  loadMore,
 }: {
+  navigation?: {
+    position: number;
+    total: number;
+    start: number;
+    load: (offset: number) => Promise<ViewerFile[]>;
+    onNavigate: (index: number) => void;
+  };
+  hasMore?: boolean;
+  loadMore?: () => Promise<unknown>;
   files: ViewerFile[];
   index: number;
   onIndexChange: (index: number) => void;
@@ -129,11 +141,16 @@ export function MediaViewer({
   actions?: (file: ViewerFile) => ViewerAction[];
 }) {
   const file = files[index];
+  const position = navigation?.position ?? index;
+  const count = navigation?.total ?? files.length;
+  const navigate = navigation?.onNavigate ?? onIndexChange;
+  const canNext = position < count - 1 || hasMore;
+
   // A tap on the photo hides the controls, another brings them back.
   const [chrome, setChrome] = useState(true);
   const gestures = useViewerGestures({
-    onNext: () => index < files.length - 1 && onIndexChange(index + 1),
-    onPrevious: () => index > 0 && onIndexChange(index - 1),
+    onNext: () => canNext && navigate(position + 1),
+    onPrevious: () => position > 0 && navigate(position - 1),
     onClose,
     onTap: () => setChrome((shown) => !shown),
   });
@@ -144,7 +161,6 @@ export function MediaViewer({
     !chrome && "pointer-events-none opacity-0",
   );
   const closeRef = useRef<HTMLButtonElement>(null);
-  const filmRef = useRef<HTMLDivElement>(null);
   const grownFrom = useRef<string | null>(null);
   // The viewer lives in <body>, which a page link renders without at first.
   const inBrowser = useSyncExternalStore(
@@ -167,21 +183,15 @@ export function MediaViewer({
       if (event.key === "Escape") {
         event.preventDefault();
         onClose();
-      } else if (event.key === "ArrowLeft" && index > 0) {
-        onIndexChange(index - 1);
-      } else if (event.key === "ArrowRight" && index < files.length - 1) {
-        onIndexChange(index + 1);
+      } else if (event.key === "ArrowLeft" && position > 0) {
+        navigate(position - 1);
+      } else if (event.key === "ArrowRight" && canNext) {
+        navigate(position + 1);
       }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [files.length, index, onClose, onIndexChange]);
-
-  useEffect(() => {
-    filmRef.current
-      ?.querySelector<HTMLElement>('[aria-current="true"]')
-      ?.scrollIntoView({ block: "nearest", inline: "center" });
-  }, [index]);
+  }, [canNext, position, onClose, navigate]);
 
   if (!file) return null;
 
@@ -274,9 +284,10 @@ export function MediaViewer({
         </Button>
         <div className="grid min-w-0 flex-1 px-1">
           <MiddleName className="text-body font-medium" name={file.name} />
-          {files.length > 1 ? (
+          {count > 1 ? (
             <span className="text-label text-white/80 tabular-nums">
-              {index + 1} of {files.length}
+              {position + 1} of {count}
+              {hasMore ? "+" : ""}
             </span>
           ) : null}
         </div>
@@ -311,72 +322,48 @@ export function MediaViewer({
         }}
       >
         {content}
-        {index > 0 ? (
+        {position > 0 ? (
           <Button
             aria-label="Previous"
             className={cn("left-2 max-sm:hidden", hideable)}
             size="icon-lg"
             variant="media-navigation"
-            onClick={() => onIndexChange(index - 1)}
+            onClick={() => navigate(position - 1)}
           >
             <ChevronLeft aria-hidden />
           </Button>
         ) : null}
-        {index < files.length - 1 ? (
+        {canNext ? (
           <Button
             aria-label="Next"
             className={cn("right-2 max-sm:hidden", hideable)}
             size="icon-lg"
             variant="media-navigation"
-            onClick={() => onIndexChange(index + 1)}
+            onClick={() => navigate(position + 1)}
           >
             <ChevronRight aria-hidden />
           </Button>
         ) : null}
       </div>
 
-      {files.length > 1 ? (
-        <div
-          aria-label="Files in this folder"
-          className={cn(
-            "shrink-0 [scrollbar-width:none] overflow-x-auto px-4 pb-4 max-sm:hidden",
-            hideable,
-          )}
-          ref={filmRef}
-        >
-          {/* Padding keeps the current item's ring from being clipped. */}
-          <div className="mx-auto flex w-max gap-1.5 p-1">
-            {files.map((entry, entryIndex) => (
-              <button
-                aria-current={entryIndex === index}
-                aria-label={entry.name}
-                className={cn(
-                  "w-16 shrink-0 cursor-pointer rounded-lg opacity-60 ring-2 ring-transparent transition-opacity duration-150 outline-none hover:opacity-100 focus-visible:ring-white",
-                  entryIndex === index && "opacity-100 ring-primary",
-                )}
-                key={entry.id}
-                type="button"
-                onClick={() => onIndexChange(entryIndex)}
-              >
-                <ItemPreview
-                  className="rounded-lg bg-white/10"
-                  iconClassName="size-6 [&_svg]:size-5"
-                  item={{
-                    kind: "file",
-                    mimeType: entry.mimeType,
-                    thumbnailUrl: entry.thumbnailUrl,
-                  }}
-                />
-              </button>
-            ))}
-          </div>
-        </div>
+      {count > 1 ? (
+        <ViewerFilmstrip
+          className={cn("shrink-0 px-4 pb-4 max-sm:hidden", hideable)}
+          files={files}
+          start={navigation?.start}
+          index={position}
+          total={count}
+          load={navigation?.load}
+          onNavigate={navigate}
+          hasMore={hasMore}
+          loadMore={loadMore}
+        />
       ) : null}
       <PhoneViewerBar
         actions={actions?.(file)}
         className={hideable}
-        count={files.length}
-        index={index}
+        count={count}
+        index={position}
       />
     </div>,
     document.body,

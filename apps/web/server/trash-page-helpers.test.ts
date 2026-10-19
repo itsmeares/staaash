@@ -109,6 +109,7 @@ describe("trash page helpers", () => {
 
   it("combines folders and files from a trash listing", () => {
     const listing: TrashListing = {
+      total: 0,
       filesRoot: folderSummary({
         id: "root",
         isFilesRoot: true,

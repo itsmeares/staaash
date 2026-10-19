@@ -12,7 +12,7 @@ import { resolveAppVersion } from "@/server/app-version";
 import { getCurrentSession } from "@/server/auth/session";
 import type { AuthUser } from "@/server/auth/types";
 import { getUpdateState } from "@/server/admin/updates";
-import { retrievalService } from "@/server/retrieval/service";
+import { getPinnedFavorites } from "@/server/retrieval/page";
 import { DefaultViewProvider } from "@/components/file-list/use-view-mode";
 import { TimeRoot } from "@/server/time-zone";
 import { getInstanceDiskInfo, getUserStorageUsed } from "@/server/user-storage";
@@ -50,10 +50,7 @@ const personOf = (user: AuthUser) => {
 /** Pinned favorites for the sidebar, when the person turned them on. */
 const loadPins = async (user: AuthUser): Promise<ShellPin[]> => {
   if (!user.preferences?.showPinsInSidebar) return [];
-  const favorites = await retrievalService.listFavorites({
-    actorUserId: user.id,
-    actorRole: user.role,
-  });
+  const favorites = await getPinnedFavorites(user.id);
   return pinnedFavorites(favorites).map((item) => ({
     id: item.id,
     kind: item.kind,

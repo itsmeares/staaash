@@ -66,48 +66,12 @@ export const ACTION_LABELS: Record<RecentAction, string> = {
 };
 
 /** A row of the activity list: one item, or a burst of them as one row. */
-export type ActivityRow = RecentClientItem & { batch?: RecentClientItem[] };
-
-const BATCHED = new Set<RecentAction>(["uploaded", "moved"]);
-const BATCH_MIN = 4;
-const BATCH_GAP_MS = 10 * 60_000;
-
-const parentOf = (item: RecentClientItem) =>
-  (item.kind === "file" ? item.folderId : item.parentId) ?? null;
-
-const continues = (last: RecentClientItem, item: RecentClientItem) =>
-  !last.deletedAt &&
-  !item.deletedAt &&
-  item.lastAction != null &&
-  BATCHED.has(item.lastAction) &&
-  item.lastAction === last.lastAction &&
-  parentOf(item) === parentOf(last) &&
-  Date.parse(last.at) - Date.parse(item.at) <= BATCH_GAP_MS;
-
-/**
- * Uploads or moves into one folder close together (newest first, a few
- * minutes apart) become one row, so 200 photos don't bury everything else.
- */
-export function batchActivity(items: RecentClientItem[]): ActivityRow[] {
-  const rows: ActivityRow[] = [];
-  let run: RecentClientItem[] = [];
-  const flush = () => {
-    const [first] = run;
-    if (first && run.length >= BATCH_MIN) {
-      rows.push({ ...first, id: `batch:${first.id}`, batch: run });
-    } else {
-      rows.push(...run);
-    }
-    run = [];
-  };
-  for (const item of items) {
-    const last = run.at(-1);
-    if (!last || !continues(last, item)) flush();
-    run.push(item);
-  }
-  flush();
-  return rows;
-}
+export type ActivityRow = RecentClientItem & {
+  batch?: RecentClientItem[];
+  batchSize?: number;
+  batchAnchor?: string;
+  batchNoun?: string;
+};
 
 const nounFor = (items: RecentClientItem[]) => {
   if (items.every((item) => item.mimeType?.startsWith("image/")))
@@ -122,7 +86,7 @@ export function batchLabel(row: ActivityRow) {
   const items = row.batch ?? [row];
   const verb = row.lastAction === "moved" ? "Moved" : "Uploaded";
   const folder = row.locationLabel.split(" / ").at(-1);
-  return `${verb} ${items.length} ${nounFor(items)} to ${folder}`;
+  return `${verb} ${row.batchSize ?? items.length} ${row.batchNoun ?? nounFor(items)} to ${folder}`;
 }
 
 export function filterRecentItems(

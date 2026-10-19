@@ -71,6 +71,11 @@ describe("applyTap", () => {
 });
 
 describe("moveSelection", () => {
+  it("Home and End choose the first and last row before anything is selected", () => {
+    expect(moveSelection(emptySelection, "Home", ids).last).toBe("a");
+    expect(moveSelection(emptySelection, "End", ids).last).toBe("f");
+  });
+
   it("starts at the first or last item", () => {
     expect(sorted(moveSelection(emptySelection, "ArrowDown", ids))).toEqual([
       "a",
