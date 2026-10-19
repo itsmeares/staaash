@@ -1116,6 +1116,93 @@ describe("STO-02 durable PostgreSQL protocol", () => {
     });
   });
 
+  it("rolls back every delete and child link when one revision is stale", async () => {
+    const user = await createUser();
+    const parent = await db.folder.create({
+      data: { ownerUserId: user.id, name: "Parent" },
+    });
+    const child = await db.folder.create({
+      data: { ownerUserId: user.id, name: "Child", parentId: parent.id },
+    });
+    const sibling = await db.folder.create({
+      data: { ownerUserId: user.id, name: "Sibling" },
+    });
+    const files = await Promise.all(
+      ["First", "Second"].map((name) =>
+        db.file.create({
+          data: {
+            ownerUserId: user.id,
+            folderId: parent.id,
+            originalName: name,
+            storageKey: randomUUID(),
+            mimeType: "text/plain",
+            sizeBytes: 1,
+          },
+        }),
+      ),
+    );
+    const remove = (entityType: "file" | "folder", ids: string[]) =>
+      db.$transaction((tx) =>
+        applyStorageMutationIntentMetadata(
+          tx,
+          intent(
+            ids.map((entityId, index) => ({
+              action: "delete",
+              entityType,
+              entityId,
+              preRevision: index,
+            })),
+          ),
+        ),
+      );
+    await expect(
+      remove(
+        "file",
+        files.map(({ id }) => id),
+      ),
+    ).rejects.toThrow("Metadata delete CAS failed");
+    expect(await db.file.count({ where: { ownerUserId: user.id } })).toBe(2);
+    expect(
+      (await db.user.findUniqueOrThrow({ where: { id: user.id } }))
+        .committedStorageBytes,
+    ).toBe(2n);
+    await expect(remove("folder", [parent.id, sibling.id])).rejects.toThrow(
+      "Metadata delete CAS failed",
+    );
+    expect(
+      (await db.folder.findUniqueOrThrow({ where: { id: child.id } })).parentId,
+    ).toBe(parent.id);
+    expect(await db.folder.count({ where: { ownerUserId: user.id } })).toBe(3);
+    expect(
+      (await db.file.findMany({ where: { ownerUserId: user.id } })).every(
+        (file) => file.folderId === parent.id,
+      ),
+    ).toBe(true);
+    await db.$transaction((tx) =>
+      applyStorageMutationIntentMetadata(
+        tx,
+        intent(
+          [parent.id, sibling.id].map((entityId) => ({
+            action: "delete",
+            entityType: "folder",
+            entityId,
+            preRevision: 0,
+          })),
+        ),
+      ),
+    );
+    expect(
+      (await db.folder.findUniqueOrThrow({ where: { id: child.id } })).parentId,
+    ).toBeNull();
+    expect(
+      await db.file.count({ where: { ownerUserId: user.id, folderId: null } }),
+    ).toBe(2);
+    expect(
+      (await db.user.findUniqueOrThrow({ where: { id: user.id } }))
+        .committedStorageBytes,
+    ).toBe(2n);
+  });
+
   it("serializes same-owner namespace plans while unrelated owners proceed", async () => {
     const [firstUser, secondUser] = await Promise.all([
       createUser(),

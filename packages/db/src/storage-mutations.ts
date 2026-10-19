@@ -351,25 +351,6 @@ const updateMetadataEntity = (
   }
 };
 
-const deleteMetadataEntity = (
-  tx: Prisma.TransactionClient,
-  entityType: "file" | "folder" | "derivative" | "archive",
-  args: object,
-) => {
-  switch (entityType) {
-    case "file":
-      return tx.file.deleteMany(args as Prisma.FileDeleteManyArgs);
-    case "folder":
-      return tx.folder.deleteMany(args as Prisma.FolderDeleteManyArgs);
-    case "derivative":
-      return tx.mediaDerivative.deleteMany(
-        args as Prisma.MediaDerivativeDeleteManyArgs,
-      );
-    case "archive":
-      return tx.zipArchive.deleteMany(args as Prisma.ZipArchiveDeleteManyArgs);
-  }
-};
-
 const metadataDateKeys = new Set([
   "deletedAt",
   "storageCheckedAt",
@@ -523,9 +504,13 @@ type UpdateMetadataOperation = Extract<
   StorageMetadataOperation,
   { action: "update" }
 >;
+type DeleteMetadataOperation = Extract<
+  StorageMetadataOperation,
+  { action: "delete" }
+>;
 type NonUpdateMetadataOperation = Exclude<
   StorageMetadataOperation,
-  UpdateMetadataOperation
+  UpdateMetadataOperation | DeleteMetadataOperation
 >;
 
 const parseRecoverableStorageMutationIntent = (
@@ -569,6 +554,37 @@ const takeMetadataUpdateBatch = (
     batch.push(candidate);
   }
   return batch;
+};
+
+const takeMetadataDeleteBatch = (
+  operations: StorageMetadataOperation[],
+  operationIndex: number,
+) => {
+  const batch: DeleteMetadataOperation[] = [];
+  for (const operation of operations.slice(operationIndex)) {
+    if (operation.action !== "delete") break;
+    if (batch[0] && operation.entityType !== batch[0].entityType) break;
+    batch.push(operation);
+  }
+  return batch;
+};
+
+const applyBulkMetadataDeletes = async (
+  tx: Prisma.TransactionClient,
+  operations: DeleteMetadataOperation[],
+) => {
+  const table = metadataTableByType[operations[0].entityType];
+  const count = await tx.$executeRaw`
+    DELETE FROM ${Prisma.raw(`"${table}"`)} AS target
+    USING jsonb_to_recordset(${JSON.stringify(operations)}::jsonb)
+      AS source("entityId" text, "preRevision" integer)
+    WHERE target.id = source."entityId" AND target."storageRevision" = source."preRevision"
+  `;
+  if (count !== operations.length) {
+    throw new StorageMutationIntentError(
+      `Metadata delete CAS failed for ${operations[0].entityType}.`,
+    );
+  }
 };
 
 const assertOneMetadataRow = (count: number, message: string): undefined => {
@@ -659,22 +675,6 @@ const metadataOperationHandlers: Record<
   NonUpdateMetadataOperation["action"],
   MetadataOperationHandler
 > = {
-  delete: async (tx, raw) => {
-    const operation = raw as Extract<
-      NonUpdateMetadataOperation,
-      { action: "delete" }
-    >;
-    const result = await deleteMetadataEntity(tx, operation.entityType, {
-      where: {
-        id: operation.entityId,
-        storageRevision: operation.preRevision,
-      },
-    });
-    assertOneMetadataRow(
-      result.count,
-      `Metadata delete CAS failed for ${operation.entityType}:${operation.entityId}.`,
-    );
-  },
   create_file: async (tx, raw) => {
     const operation = raw as Extract<
       NonUpdateMetadataOperation,
@@ -789,6 +789,12 @@ export const applyStorageMutationIntentMetadata = async (
     if (operation.action === "update") {
       const batch = takeMetadataUpdateBatch(operations, operationIndex);
       await applyBulkMetadataUpdates(tx, batch);
+      operationIndex += batch.length;
+      continue;
+    }
+    if (operation.action === "delete") {
+      const batch = takeMetadataDeleteBatch(operations, operationIndex);
+      await applyBulkMetadataDeletes(tx, batch);
       operationIndex += batch.length;
       continue;
     }

@@ -152,6 +152,32 @@ it("keeps every byte and separate trash entry through scoped folder changes in a
     expect(await db.file.count({ where: { folderId: unrelated.id } })).toBe(
       100000,
     );
+    const wide = (
+      await service.createFolder({ ...actor, parentId: root.id, name: "Wide" })
+    ).folder;
+    const children = Array.from({ length: 1000 }, (_, index) => ({
+      id: randomUUID(),
+      ownerUserId: user.id,
+      parentId: wide.id,
+      name: `Empty ${index}`,
+    }));
+    await db.folder.createMany({ data: children });
+    for (const child of children)
+      await mkdir(getStoragePath(`files/${user.id}/Wide/${child.name}`));
+    await service.trashFolder({ ...actor, folderId: wide.id });
+    await service.restoreFolder({ ...actor, folderId: wide.id });
+    await service.trashFolder({ ...actor, folderId: wide.id });
+    const widePurge = await service.clearTrash(actor);
+    expect(widePurge.deletedFolderCount).toBe(1001);
+    expect(widePurge.deletedFileCount).toBe(0);
+    expect(
+      await db.folder.count({
+        where: { id: { in: [wide.id, ...children.map(({ id }) => id)] } },
+      }),
+    ).toBe(0);
+    expect(await db.file.count({ where: { folderId: unrelated.id } })).toBe(
+      100000,
+    );
     expect(broadFolders).not.toHaveBeenCalled();
     expect(broadFiles).not.toHaveBeenCalled();
   } finally {
