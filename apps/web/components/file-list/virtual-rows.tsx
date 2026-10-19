@@ -96,7 +96,7 @@ function VirtualRows({
     observer.observe(ref.current);
     return () => observer.disconnect();
   }, [visible, grid, tiles]);
-  useEffect(() => setHeight(null), [grid, tiles, width]);
+  useEffect(() => setHeight(null), [grid, tiles, width, ids.join("\n")]);
   return (
     <div
       ref={ref}
