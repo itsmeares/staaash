@@ -1876,6 +1876,50 @@ describe("files service", { concurrent: false }, () => {
     expect(refreshed.files[0]?.id).toBe(upload.uploadedFiles[0]?.id);
   });
 
+  it("restores descendants once in parent-before-child order from unordered subtree results", async () => {
+    await cleanDataRoot();
+    const { repo } = createMemoryRepository();
+    const service = createService(repo);
+    const actor = { actorUserId: "member-1", actorRole: "member" as const };
+    const root = await service.ensureFilesRoot(actor.actorUserId);
+    const parent = await service.createFolder({
+      ...actor,
+      parentId: root.id,
+      name: "Parent",
+    });
+    const child = await service.createFolder({
+      ...actor,
+      parentId: parent.folder.id,
+      name: "Z-child",
+    });
+    const grandchild = await service.createFolder({
+      ...actor,
+      parentId: child.folder.id,
+      name: "A-grandchild",
+    });
+    await service.trashFolder({ ...actor, folderId: parent.folder.id });
+
+    const listFolderSubtree = repo.listFolderSubtree.bind(repo);
+    vi.spyOn(repo, "listFolderSubtree").mockImplementation(async (...args) => {
+      const folders = await listFolderSubtree(...args);
+      return [...folders].reverse().concat(folders);
+    });
+    const updateFolders = vi.spyOn(repo, "updateFolders");
+
+    await service.restoreFolder({ ...actor, folderId: parent.folder.id });
+
+    expect(updateFolders).toHaveBeenCalledExactlyOnceWith({
+      ids: [child.folder.id, grandchild.folder.id],
+      deletedAt: null,
+    });
+    for (const folder of [parent.folder, child.folder, grandchild.folder]) {
+      expect((await repo.findFolderById(folder.id))?.deletedAt).toBeNull();
+    }
+    await expect(
+      access(getStoragePath("files/member-1/Parent/Z-child/A-grandchild")),
+    ).resolves.toBeUndefined();
+  });
+
   it("clearTrash skips a folder tree that becomes active again before the locked delete phase", async () => {
     await cleanDataRoot();
     const { repo, addFolder, addFile } = createMemoryRepository();

@@ -1454,7 +1454,26 @@ export const createFilesService = ({
     const folders = await activeRepo.listFolderSubtree(ownerUserId, folderId, {
       includeDeleted,
     });
-    return folders.filter((folder) => folder.id !== folderId);
+    const childrenByParent = new Map<string | null, FolderSummary[]>();
+    for (const folder of folders) {
+      const children = childrenByParent.get(folder.parentId) ?? [];
+      children.push(folder);
+      childrenByParent.set(folder.parentId, children);
+    }
+
+    // Legacy restores create directories in this order.
+    const descendants: FolderSummary[] = [];
+    const parentIds = [folderId];
+    const visited = new Set([folderId]);
+    for (const parentId of parentIds) {
+      for (const child of childrenByParent.get(parentId) ?? []) {
+        if (visited.has(child.id)) continue;
+        visited.add(child.id);
+        descendants.push(child);
+        parentIds.push(child.id);
+      }
+    }
+    return descendants;
   };
 
   const collectFilesInFolders = async ({
