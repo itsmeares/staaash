@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { getPrisma } from "@staaash/db/client";
+import { getPrisma, type Prisma } from "@staaash/db/client";
 import {
   prepareStorageMutation,
   type StorageMetadataOperation,
@@ -47,6 +47,60 @@ const createFile = (
     contentChecksum: null,
   },
 });
+
+it("checks names without reading files in unrelated folders", async () => {
+  const owner = await createOwner();
+  const unrelated = await db.folder.create({
+    data: { ownerUserId: owner.id, name: "Unrelated" },
+  });
+  const target = await db.folder.create({
+    data: { ownerUserId: owner.id, name: "Target" },
+  });
+  await db.file.createMany({
+    data: Array.from({ length: 2000 }, (_, n) => ({
+      ownerUserId: owner.id,
+      folderId: unrelated.id,
+      originalName: `${n}.txt`,
+      storageKey: randomUUID(),
+      mimeType: "text/plain",
+      sizeBytes: 1,
+    })),
+  });
+  try {
+    await prepareStorageMutation(
+      {
+        kind: "folder_restore",
+        ownerUserId: owner.id,
+        idempotencyKey: randomUUID(),
+        requestHash: randomUUID(),
+        intentJson: {
+          version: 1,
+          metadataOperations: Array.from({ length: 130 }, (_, n) =>
+            createFile(owner.id, target.id, `${n}.txt`),
+          ),
+        },
+        steps: [],
+      },
+      {
+        client: {
+          $transaction: <T>(
+            callback: (tx: Prisma.TransactionClient) => Promise<T>,
+          ) =>
+            db.$transaction(async (tx) => {
+              const result = await callback(tx);
+              const [stat] = await tx.$queryRaw<
+                { reads: bigint }[]
+              >`SELECT seq_tup_read + idx_tup_fetch AS reads FROM pg_stat_xact_user_tables WHERE relid='"File"'::regclass`;
+              expect(Number(stat.reads)).toBe(0);
+              return result;
+            }),
+        },
+      },
+    );
+  } finally {
+    await db.file.deleteMany({ where: { ownerUserId: owner.id } });
+  }
+}, 15000);
 
 it.each([null, "folder"])(
   "rejects the last conflicting target in a batch with parent %s",

@@ -1075,7 +1075,12 @@ const validatePreparedTargets = async (
     planned.add(key);
   }
   if (!targets.length) return;
-  // Separate NULL parents so equality lookups can use the existing folder indexes.
+  const parentIds = [
+    ...new Set(
+      targets.map((target) => target.parentId).filter((id) => id !== null),
+    ),
+  ];
+  // Bind parent IDs before joining names, even when owner statistics are stale.
   const [conflict] = await tx.$queryRaw<Array<{ exists: boolean }>>`
     WITH targets AS (
       SELECT * FROM jsonb_to_recordset(${JSON.stringify(targets)}::jsonb)
@@ -1085,11 +1090,13 @@ const validatePreparedTargets = async (
       SELECT 1 FROM targets target JOIN "File" file
         ON file."folderId" = target."parentId" AND file."originalName" = target.name
       WHERE file."ownerUserId" = ${ownerUserId} AND file."deletedAt" IS NULL
+        AND file."folderId" = ANY(${parentIds}::text[])
         AND file.id <> target."entityId"
       UNION ALL
       SELECT 1 FROM targets target JOIN "Folder" folder
         ON folder."parentId" = target."parentId" AND folder.name = target.name
       WHERE folder."ownerUserId" = ${ownerUserId} AND folder."deletedAt" IS NULL
+        AND folder."parentId" = ANY(${parentIds}::text[])
         AND folder.id <> target."entityId"
       UNION ALL
       SELECT 1 FROM targets target JOIN "File" file ON file."originalName" = target.name
