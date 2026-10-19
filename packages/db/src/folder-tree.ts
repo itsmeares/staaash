@@ -20,13 +20,13 @@ export const readFolderAncestorIds = (
 export const readFolderSubtreeIds = (
   client: FolderQueryClient,
   ownerUserId: string,
-  folderId: string,
-  { includeDeleted = false } = {},
+  folderId: string | string[],
+  { includeDeleted = false, includeDeletedRoots = false } = {},
 ) => client.$queryRaw<{ id: string }[]>`
   WITH RECURSIVE subtree AS (
     SELECT id FROM "Folder"
-    WHERE id = ${folderId} AND "ownerUserId" = ${ownerUserId}
-      ${includeDeleted ? Prisma.empty : Prisma.sql`AND "deletedAt" IS NULL`}
+    WHERE id = ANY(${typeof folderId === "string" ? [folderId] : folderId}::text[]) AND "ownerUserId" = ${ownerUserId}
+      ${includeDeleted || includeDeletedRoots ? Prisma.empty : Prisma.sql`AND "deletedAt" IS NULL`}
     UNION
     SELECT child.id FROM "Folder" child
     JOIN subtree parent ON child."parentId" = parent.id

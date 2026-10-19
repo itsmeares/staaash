@@ -90,7 +90,10 @@ triggers update it in the metadata transaction, so the web app, worker, and
 journal recovery share one rule. File and folder writes take the same exclusive
 hierarchy lock before row locks. This serializes metadata changes across accounts
 and avoids lock upgrades in transactions that write files before folders. Folder
-moves and deletion changes rebuild affected ancestors. Reads use the stored value. The migration locks folders and files
+moves and deletion changes update affected folders and ancestors from their saved
+totals. Restored folders and existing cycles read their direct live files when the
+old total cannot supply that contribution. Unchanged branches use their saved
+totals. Reads use the stored value. The migration locks folders and files
 while it backfills totals. Restore reconciliation rebuilds these display totals
 after the committed-usage audit succeeds. Display totals do not control quota.
 

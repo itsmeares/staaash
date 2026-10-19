@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, it } from "vite-plus/test";
 import { getPrisma } from "@staaash/db/client";
+import { readFolderSubtreeIds } from "@staaash/db/folder-tree";
 import { createPrismaFilesRepository } from "./repository";
 
 it("scopes ancestry and archives to the owner, stops cycles, and excludes deleted branches", async () => {
@@ -64,6 +65,20 @@ it("scopes ancestry and archives to the owner, stops cycles, and excludes delete
         await repo.listFolderSubtree(owner.id, shared.id, {
           includeDeleted: true,
         })
+      ).map(({ id }) => id),
+    ),
+  ).toEqual(new Set([shared.id, child.id, empty.id, deleted.id, hidden.id]));
+  expect(
+    new Set(
+      (
+        await readFolderSubtreeIds(
+          db,
+          owner.id,
+          [shared.id, deleted.id, foreign.id],
+          {
+            includeDeletedRoots: true,
+          },
+        )
       ).map(({ id }) => id),
     ),
   ).toEqual(new Set([shared.id, child.id, empty.id, deleted.id, hidden.id]));

@@ -18,6 +18,7 @@ import {
   prepareDurableStorageMutationParent,
 } from "@/server/durable-storage-mutation";
 import { getPrisma } from "@staaash/db/client";
+import { readFolderSubtreeIds } from "@staaash/db/folder-tree";
 import {
   listRecentBatchMoveMutations,
   type StorageMutationEntityInput,
@@ -51,14 +52,18 @@ const buildMoveGuardEntities = async (
   const folderIds = request.items
     .filter((item) => item.kind === "folder")
     .map((item) => item.id);
+  const subtree = folderIds.length
+    ? await readFolderSubtreeIds(getPrisma(), ownerUserId, folderIds, {
+        includeDeletedRoots: true,
+      })
+    : [];
+  const guardedFolderIds = subtree.map(({ id }) => id);
   const [folders, destination] = await Promise.all([
-    folderIds.length > 0
+    guardedFolderIds.length > 0
       ? getPrisma().folder.findMany({
-          where: { ownerUserId },
+          where: { ownerUserId, id: { in: guardedFolderIds } },
           select: {
             id: true,
-            parentId: true,
-            deletedAt: true,
             storageRevision: true,
           },
         })
@@ -68,30 +73,13 @@ const buildMoveGuardEntities = async (
       select: { id: true, storageRevision: true },
     }),
   ]);
-  const childrenByParent = new Map<string, string[]>();
-  for (const folder of folders) {
-    if (folder.deletedAt) continue;
-    const children = childrenByParent.get(folder.parentId ?? "") ?? [];
-    children.push(folder.id);
-    childrenByParent.set(folder.parentId ?? "", children);
-  }
-  const guardedFolderIds = new Set(folderIds);
-  const pendingFolderIds = [...folderIds];
-  while (pendingFolderIds.length > 0) {
-    const parentId = pendingFolderIds.shift()!;
-    for (const childId of childrenByParent.get(parentId) ?? []) {
-      if (guardedFolderIds.has(childId)) continue;
-      guardedFolderIds.add(childId);
-      pendingFolderIds.push(childId);
-    }
-  }
   const files = await getPrisma().file.findMany({
     where: {
       ownerUserId,
       OR: [
         ...(fileIds.length > 0 ? [{ id: { in: fileIds } }] : []),
-        ...(guardedFolderIds.size > 0
-          ? [{ folderId: { in: [...guardedFolderIds] } }]
+        ...(guardedFolderIds.length > 0
+          ? [{ folderId: { in: guardedFolderIds } }]
           : []),
       ],
     },
@@ -110,9 +98,7 @@ const buildMoveGuardEntities = async (
     });
   };
   for (const file of files) add("file", file);
-  for (const folder of folders) {
-    if (guardedFolderIds.has(folder.id)) add("folder", folder);
-  }
+  for (const folder of folders) add("folder", folder);
   if (destination) add("folder", destination);
   return [...entities.values()];
 };
