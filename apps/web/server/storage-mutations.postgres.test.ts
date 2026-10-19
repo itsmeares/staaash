@@ -2623,6 +2623,110 @@ describe("STO-02 durable PostgreSQL protocol", () => {
     });
   });
 
+  it("recovers a complete folder and file batch without touching unrelated branches", async () => {
+    const user = await createUser();
+    const root = await db.folder.create({
+      data: { ownerUserId: user.id, name: "Files", isFilesRoot: true },
+    });
+    const [source, destination] = await Promise.all([
+      db.folder.create({
+        data: { ownerUserId: user.id, parentId: root.id, name: "Source" },
+      }),
+      db.folder.create({
+        data: { ownerUserId: user.id, parentId: root.id, name: "Destination" },
+      }),
+    ]);
+    await db.folder.createMany({
+      data: Array.from({ length: 1000 }, (_, index) => ({
+        ownerUserId: user.id,
+        parentId: root.id,
+        name: `Unrelated ${index}`,
+      })),
+    });
+    const nested = await db.folder.create({
+      data: { ownerUserId: user.id, parentId: source.id, name: "Nested" },
+    });
+    const bytes = Buffer.from("batch recovery keeps every byte");
+    const files = Array.from({ length: 130 }, (_, index) => ({
+      id: randomUUID(),
+      ownerUserId: user.id,
+      folderId: nested.id,
+      originalName: `${index}.txt`,
+      storageKey: `files/${user.storageId}/Source/Nested/${index}.txt`,
+      mimeType: "text/plain",
+      sizeBytes: bytes.length,
+    }));
+    await db.file.createMany({ data: files });
+    await mkdir(storagePath(`files/${user.storageId}/Source/Nested`), {
+      recursive: true,
+    });
+    await mkdir(storagePath(`files/${user.storageId}/Destination`), {
+      recursive: true,
+    });
+    for (const file of files)
+      await writeFile(storagePath(file.storageKey), bytes);
+    const loose = await db.file.create({
+      data: {
+        ownerUserId: user.id,
+        folderId: root.id,
+        originalName: "Loose.txt",
+        storageKey: `files/${user.storageId}/Loose.txt`,
+        mimeType: "text/plain",
+        sizeBytes: bytes.length,
+      },
+    });
+    await writeFile(storagePath(loose.storageKey), bytes);
+    const parent = await prepareStorageMutationParent({
+      kind: "batch_move",
+      ownerUserId: user.id,
+      idempotencyKey: randomUUID(),
+      requestHash: randomUUID(),
+      intentJson: {
+        version: 1,
+        metadataOperations: [],
+        destinationFolderId: destination.id,
+        items: [
+          { id: source.id, kind: "folder" },
+          { id: loose.id, kind: "file" },
+        ],
+      },
+    });
+    await recoverStorageMutations({
+      storagePaths: storagePaths(),
+      leaseOwner: `folder-batch:${randomUUID()}`,
+    });
+    expect(
+      (
+        await db.storageMutation.findUniqueOrThrow({
+          where: { id: parent.mutation.id },
+        })
+      ).status,
+    ).toBe("succeeded");
+    expect(
+      (await db.folder.findUniqueOrThrow({ where: { id: source.id } }))
+        .parentId,
+    ).toBe(destination.id);
+    expect(
+      await db.folder.count({
+        where: { parentId: root.id, name: { startsWith: "Unrelated " } },
+      }),
+    ).toBe(1000);
+    const moved = await db.file.findMany({ where: { ownerUserId: user.id } });
+    expect(moved).toHaveLength(131);
+    for (const file of moved) {
+      expect(
+        file.storageKey.startsWith(`files/${user.storageId}/Destination/`),
+      ).toBe(true);
+      expect(file.contentChecksum).toBe(checksumOf(bytes));
+      await expectStorageBytes(file.storageKey, bytes);
+    }
+    await expectStorageMissing(`files/${user.storageId}/Source`);
+    expect(
+      (await db.folder.findUniqueOrThrow({ where: { id: destination.id } }))
+        .treeSizeBytes,
+    ).toBe(BigInt(131 * bytes.length));
+  }, 30000);
+
   it("fails closed when reconstructed folder moves contain untracked files", async () => {
     const user = await createUser();
     const filesRoot = await db.folder.create({

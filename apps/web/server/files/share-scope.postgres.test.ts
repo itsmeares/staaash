@@ -58,6 +58,15 @@ it("scopes ancestry and archives to the owner, stops cycles, and excludes delete
       [deleted.id, hidden.id, unrelated.id, foreign.id].includes(id),
     ),
   ).toBe(false);
+  expect(
+    new Set(
+      (
+        await repo.listFolderSubtree(owner.id, shared.id, {
+          includeDeleted: true,
+        })
+      ).map(({ id }) => id),
+    ),
+  ).toEqual(new Set([shared.id, child.id, empty.id, deleted.id, hidden.id]));
   const file = (name: string, folderId: string, overrides = {}) =>
     db.file.create({
       data: {
@@ -72,7 +81,9 @@ it("scopes ancestry and archives to the owner, stops cycles, and excludes delete
     });
   const a = await file("a.txt", child.id);
   const b = await file("b.txt", child.id, { storageStatus: "missing" });
-  await file("deleted.txt", child.id, { deletedAt: new Date() });
+  const trashed = await file("deleted.txt", child.id, {
+    deletedAt: new Date(),
+  });
   await file("private.txt", unrelated.id);
   await file("foreign.txt", child.id, { ownerUserId: other.id });
   await file("hidden.txt", hidden.id);
@@ -84,6 +95,15 @@ it("scopes ancestry and archives to the owner, stops cycles, and excludes delete
       )
     ).map(({ id }) => id),
   ).toEqual([a.id, b.id]);
+  expect(
+    new Set(
+      (
+        await repo.listFilesInFolders(owner.id, [child.id], {
+          includeDeleted: true,
+        })
+      ).map(({ id }) => id),
+    ),
+  ).toEqual(new Set([a.id, b.id, trashed.id]));
   expect(
     (
       await repo.listChildFiles(owner.id, child.id, { includeMissing: true })

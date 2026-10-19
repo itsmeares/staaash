@@ -221,25 +221,32 @@ const createMemoryRepository = () => {
       }
       return folders;
     },
-    async listFolderSubtree(ownerUserId, folderId) {
+    async listFolderSubtree(ownerUserId, folderId, options = {}) {
       const root = await repo.findFolderById(folderId);
-      if (!root || root.ownerUserId !== ownerUserId || root.deletedAt)
+      if (
+        !root ||
+        root.ownerUserId !== ownerUserId ||
+        (!options.includeDeleted && root.deletedAt)
+      )
         return [];
       const folders = [root];
       for (const folder of folders) {
         folders.push(
-          ...(await repo.listChildFolders(ownerUserId, folder.id)).filter(
-            (child) => !folders.some(({ id }) => id === child.id),
-          ),
+          ...(
+            await repo.listChildFolders(ownerUserId, folder.id, options)
+          ).filter((child) => !folders.some(({ id }) => id === child.id)),
         );
       }
       return folders;
     },
-    async listFilesInFolders(ownerUserId, folderIds) {
+    async listFilesInFolders(ownerUserId, folderIds, options = {}) {
       return (
         await Promise.all(
           folderIds.map((id) =>
-            repo.listChildFiles(ownerUserId, id, { includeMissing: true }),
+            repo.listChildFiles(ownerUserId, id, {
+              ...options,
+              includeMissing: true,
+            }),
           ),
         )
       ).flat();
@@ -269,6 +276,7 @@ const createMemoryRepository = () => {
           (folder) =>
             folder.ownerUserId === ownerUserId &&
             folder.parentId === parentId &&
+            (!options.names || options.names.includes(folder.name)) &&
             (options.includeDeleted ? true : folder.deletedAt === null),
         ),
       ).map(cloneFolder);
@@ -280,6 +288,7 @@ const createMemoryRepository = () => {
           (file) =>
             file.ownerUserId === ownerUserId &&
             file.folderId === folderId &&
+            (!options.names || options.names.includes(file.name)) &&
             (options.includeMissing
               ? true
               : file.storageStatus === "available") &&
@@ -1898,6 +1907,7 @@ describe("files service", { concurrent: false }, () => {
       if (result && result.id === trashed.id && !revalidationCalled) {
         revalidationCalled = true;
         // Simulate the folder being restored between snapshot and lock.
+        trashed.deletedAt = null;
         return { ...result, deletedAt: null };
       }
       return result;

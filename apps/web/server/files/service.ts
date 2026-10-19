@@ -258,30 +258,6 @@ type ParsedFolderUploadPath = ReturnType<typeof parseFolderUploadPath>;
 const folderUploadEntryKey = (folderId: string, name: string) =>
   `${folderId}\u0000${name}`;
 
-const buildFolderUploadIndex = (
-  folders: FolderSummary[],
-  files: StoredFile[],
-) => {
-  const folderByParentAndName = new Map<string, FolderSummary>();
-  const fileKeys = new Set<string>();
-
-  for (const folder of folders) {
-    if (folder.parentId) {
-      folderByParentAndName.set(
-        folderUploadEntryKey(folder.parentId, folder.name),
-        folder,
-      );
-    }
-  }
-  for (const file of files) {
-    if (file.folderId) {
-      fileKeys.add(folderUploadEntryKey(file.folderId, file.name));
-    }
-  }
-
-  return { folderByParentAndName, fileKeys };
-};
-
 const isFolderNameConflict = (error: unknown): error is FilesError =>
   error instanceof FilesError && error.code === "FOLDER_NAME_CONFLICT";
 
@@ -301,9 +277,11 @@ const recoverFolderUploadConflict = async ({
   const [existingFolders, existingFiles] = await Promise.all([
     activeRepo.listChildFolders(ownerUserId, parentId, {
       includeDeleted: false,
+      names: [name],
     }),
     activeRepo.listChildFiles(ownerUserId, parentId, {
       includeDeleted: false,
+      names: [name],
     }),
   ]);
   const folder = existingFolders.find((candidate) => candidate.name === name);
@@ -325,6 +303,7 @@ const ensureFolderUploadChild = async ({
   activeRepo,
   folderByParentAndName,
   fileKeys,
+  loadChildren,
   createFolder,
 }: {
   actorRole: FilesActor["actorRole"];
@@ -338,8 +317,13 @@ const ensureFolderUploadChild = async ({
   activeRepo: FilesRepository;
   folderByParentAndName: Map<string, FolderSummary>;
   fileKeys: Set<string>;
+  loadChildren: (parentId: string, parentPath: string) => Promise<void>;
   createFolder: (input: CreateFolderInput) => Promise<FolderMutationResult>;
 }) => {
+  await loadChildren(
+    parentFolder.id,
+    parsed.segments.slice(0, segmentIndex).join("/"),
+  );
   const key = folderUploadEntryKey(parentFolder.id, segment);
   const cachedFolder = folderByParentAndName.get(key);
   if (cachedFolder) return cachedFolder;
@@ -389,6 +373,7 @@ const ensureFolderUploadPath = async ({
   activeRepo,
   folderByParentAndName,
   fileKeys,
+  loadChildren,
   createFolder,
 }: {
   actorRole: FilesActor["actorRole"];
@@ -400,6 +385,7 @@ const ensureFolderUploadPath = async ({
   activeRepo: FilesRepository;
   folderByParentAndName: Map<string, FolderSummary>;
   fileKeys: Set<string>;
+  loadChildren: (parentId: string, parentPath: string) => Promise<void>;
   createFolder: (input: CreateFolderInput) => Promise<FolderMutationResult>;
 }) => {
   let parentFolder = targetFolder;
@@ -416,6 +402,7 @@ const ensureFolderUploadPath = async ({
       activeRepo,
       folderByParentAndName,
       fileKeys,
+      loadChildren,
       createFolder,
     });
   }
@@ -1464,29 +1451,10 @@ export const createFilesService = ({
     includeDeleted?: boolean;
   }) => {
     const activeRepo = await resolveRepo();
-    const descendants: FolderSummary[] = [];
-    const queue = [folderId];
-
-    while (queue.length > 0) {
-      const currentFolderId = queue.shift();
-
-      if (!currentFolderId) {
-        continue;
-      }
-
-      const children = await activeRepo.listChildFolders(
-        ownerUserId,
-        currentFolderId,
-        {
-          includeDeleted,
-        },
-      );
-
-      descendants.push(...children);
-      queue.push(...children.map((child) => child.id));
-    }
-
-    return descendants;
+    const folders = await activeRepo.listFolderSubtree(ownerUserId, folderId, {
+      includeDeleted,
+    });
+    return folders.filter((folder) => folder.id !== folderId);
   };
 
   const collectFilesInFolders = async ({
@@ -1498,16 +1466,27 @@ export const createFilesService = ({
     folderIds: Set<string>;
     includeDeleted?: boolean;
   }) => {
-    const files = await (
-      await resolveRepo()
-    ).listFilesByOwner(ownerUserId, {
-      includeDeleted,
-    });
-
-    return files.filter(
-      (file) => file.folderId && folderIds.has(file.folderId),
+    return (await resolveRepo()).listFilesInFolders(
+      ownerUserId,
+      [...folderIds],
+      { includeDeleted },
     );
   };
+
+  const readFolderMap = async (
+    ownerUserId: string,
+    folderIds: Array<string | null>,
+    descendants: FolderSummary[] = [],
+  ) =>
+    buildFolderMap([
+      ...(await (
+        await resolveRepo()
+      ).listFolderAncestors(
+        ownerUserId,
+        folderIds.filter((id) => id !== null),
+      )),
+      ...descendants,
+    ]);
 
   const buildBreadcrumbs = async (
     currentFolder: FolderSummary,
@@ -1523,14 +1502,16 @@ export const createFilesService = ({
       ];
     }
 
-    const activeRepo = await resolveRepo();
+    const folderMap = await readFolderMap(currentFolder.ownerUserId, [
+      currentFolder.id,
+    ]);
     const trail: FolderSummary[] = [currentFolder];
     const seen = new Set([currentFolder.id]);
     let parentId = currentFolder.parentId;
     let reachedRoot = false;
 
     while (parentId && !seen.has(parentId)) {
-      const parent = await activeRepo.findFolderById(parentId);
+      const parent = folderMap.get(parentId);
 
       if (!parent) {
         break;
@@ -2064,11 +2045,9 @@ export const createFilesService = ({
         parentId,
       });
     }
-    const allFoldersForKey = buildFolderMap(
-      await activeRepo.listFoldersByOwner(folder.ownerUserId, {
-        includeDeleted: true,
-      }),
-    );
+    const allFoldersForKey = await readFolderMap(folder.ownerUserId, [
+      folder.id,
+    ]);
     const trashedStorageKey = buildFolderStorageKey({
       folder,
       folderMap: allFoldersForKey,
@@ -2806,11 +2785,9 @@ export const createFilesService = ({
         name: normalizedName,
       });
       const activeRepo = await resolveRepo();
-      const folderMap = buildFolderMap(
-        await activeRepo.listFoldersByOwner(parentFolder.ownerUserId, {
-          includeDeleted: true,
-        }),
-      );
+      const folderMap = await readFolderMap(parentFolder.ownerUserId, [
+        parentFolder.id,
+      ]);
       const virtualFolder: FolderSummary = {
         id: idempotencyKey
           ? deterministicUuid(
@@ -2933,18 +2910,41 @@ export const createFilesService = ({
         folderId: parentId,
       });
       const activeRepo = await resolveRepo();
-      const [folders, files] = await Promise.all([
-        activeRepo.listFoldersByOwner(targetFolder.ownerUserId, {
-          includeDeleted: false,
-        }),
-        activeRepo.listFilesByOwner(targetFolder.ownerUserId, {
-          includeDeleted: false,
-        }),
-      ]);
-      const { folderByParentAndName, fileKeys } = buildFolderUploadIndex(
-        folders,
-        files,
-      );
+      const namesByParentPath = new Map<string, Set<string>>();
+      for (const parsed of requestedPaths) {
+        for (const [index, segment] of parsed.segments.entries()) {
+          const parentPath = parsed.segments.slice(0, index).join("/");
+          const names = namesByParentPath.get(parentPath) ?? new Set<string>();
+          names.add(segment);
+          namesByParentPath.set(parentPath, names);
+        }
+      }
+      const folderByParentAndName = new Map<string, FolderSummary>();
+      const fileKeys = new Set<string>();
+      const loadedParents = new Set<string>();
+      const loadChildren = async (parentId: string, parentPath: string) => {
+        if (loadedParents.has(parentId)) return;
+        const names = [...namesByParentPath.get(parentPath)!];
+        const [folders, files] = await Promise.all([
+          activeRepo.listChildFolders(targetFolder.ownerUserId, parentId, {
+            names,
+          }),
+          activeRepo.listChildFiles(targetFolder.ownerUserId, parentId, {
+            names,
+            includeMissing: true,
+          }),
+        ]);
+        for (const folder of folders) {
+          folderByParentAndName.set(
+            folderUploadEntryKey(parentId, folder.name),
+            folder,
+          );
+        }
+        for (const file of files) {
+          fileKeys.add(folderUploadEntryKey(parentId, file.name));
+        }
+        loadedParents.add(parentId);
+      };
 
       const resolvedFolders: EnsureFolderPathsResult["folders"] = [];
       const resolvedByCanonicalPath = new Map<string, FolderSummary>();
@@ -2961,6 +2961,7 @@ export const createFilesService = ({
             activeRepo,
             folderByParentAndName,
             fileKeys,
+            loadChildren,
             createFolder: (input) => this.createFolder(input),
           });
           resolvedByCanonicalPath.set(parsed.canonicalPath, folder);
@@ -3036,10 +3037,10 @@ export const createFilesService = ({
         folderIds,
         includeDeleted: true,
       });
-      const currentFolderMap = buildFolderMap(
-        await activeRepo.listFoldersByOwner(folder.ownerUserId, {
-          includeDeleted: true,
-        }),
+      const currentFolderMap = await readFolderMap(
+        folder.ownerUserId,
+        [folder.id],
+        descendants,
       );
       const nextFolder = {
         ...folder,
@@ -3370,10 +3371,10 @@ export const createFilesService = ({
         folderIds,
         includeDeleted: true,
       });
-      const currentFolderMap = buildFolderMap(
-        await activeRepo.listFoldersByOwner(folder.ownerUserId, {
-          includeDeleted: true,
-        }),
+      const currentFolderMap = await readFolderMap(
+        folder.ownerUserId,
+        [folder.id, destinationFolder.id],
+        descendants,
       );
       const nextFolder = {
         ...folder,
@@ -3598,10 +3599,10 @@ export const createFilesService = ({
       });
       const activeRepo = await resolveRepo();
       const filesRoot = await ensureFilesRoot(folder.ownerUserId);
-      const folderMap = buildFolderMap(
-        await activeRepo.listFoldersByOwner(folder.ownerUserId, {
-          includeDeleted: true,
-        }),
+      const folderMap = await readFolderMap(
+        folder.ownerUserId,
+        [folder.id],
+        descendants,
       );
       const previousFileStates: Array<
         Pick<StoredFile, "id" | "storageKey" | "deletedAt">
@@ -3829,10 +3830,10 @@ export const createFilesService = ({
               file.trashEntryId === folder.trashEntryId,
           );
       const activeRepo = await resolveRepo();
-      const currentFolderMap = buildFolderMap(
-        await activeRepo.listFoldersByOwner(folder.ownerUserId, {
-          includeDeleted: true,
-        }),
+      const currentFolderMap = await readFolderMap(
+        folder.ownerUserId,
+        [folder.id, restoreLocation.folderId],
+        descendants,
       );
       const nextFolder = {
         ...folder,
@@ -4106,10 +4107,7 @@ export const createFilesService = ({
         excludeFileId: file.id,
       });
       const activeRepo = await resolveRepo();
-      const allFolders = await activeRepo.listFoldersByOwner(file.ownerUserId, {
-        includeDeleted: true,
-      });
-      const folderMap = buildFolderMap(allFolders);
+      const folderMap = await readFolderMap(file.ownerUserId, [parentId]);
       const nextFile = {
         ...file,
         name: normalizedName,
@@ -4237,11 +4235,9 @@ export const createFilesService = ({
       });
       const activeRepo = await resolveRepo();
       const filesRoot = await ensureFilesRoot(file.ownerUserId);
-      const folderMap = buildFolderMap(
-        await activeRepo.listFoldersByOwner(file.ownerUserId, {
-          includeDeleted: true,
-        }),
-      );
+      const folderMap = await readFolderMap(file.ownerUserId, [
+        destinationFolder.id,
+      ]);
       const nextStorageKey = buildFileStorageKey({
         file: {
           ...file,
@@ -4345,11 +4341,7 @@ export const createFilesService = ({
       });
       const activeRepo = await resolveRepo();
       const filesRoot = await ensureFilesRoot(file.ownerUserId);
-      const folderMap = buildFolderMap(
-        await activeRepo.listFoldersByOwner(file.ownerUserId, {
-          includeDeleted: true,
-        }),
-      );
+      const folderMap = await readFolderMap(file.ownerUserId, [file.folderId]);
       const deletedAt = now();
       const trashEntryId = idempotencyKey
         ? deterministicUuid(`file-trash:${file.id}:${idempotencyKey}`)
@@ -4473,11 +4465,9 @@ export const createFilesService = ({
         excludeFileId: file.id,
       });
       const activeRepo = await resolveRepo();
-      const folderMap = buildFolderMap(
-        await activeRepo.listFoldersByOwner(file.ownerUserId, {
-          includeDeleted: true,
-        }),
-      );
+      const folderMap = await readFolderMap(file.ownerUserId, [
+        restoreLocation.folderId,
+      ]);
       const restoredStorageKey = buildFileStorageKey({
         file: {
           ...file,
@@ -4868,11 +4858,9 @@ export const createFilesService = ({
       }
       const activeRepo = await resolveRepo();
       const filesRoot = await ensureFilesRoot(targetFolder.ownerUserId);
-      const folderMap = buildFolderMap(
-        await activeRepo.listFoldersByOwner(targetFolder.ownerUserId, {
-          includeDeleted: true,
-        }),
-      );
+      const folderMap = await readFolderMap(targetFolder.ownerUserId, [
+        targetFolder.id,
+      ]);
       const targetFolderPath = getStoragePath(
         buildFolderStorageKey({
           folder: targetFolder,
@@ -5516,11 +5504,9 @@ export const createFilesService = ({
         : await ensureFilesRoot(actorUserId);
       const activeRepo = await resolveRepo();
       const filesRoot = await ensureFilesRoot(targetFolder.ownerUserId);
-      const folderMap = buildFolderMap(
-        await activeRepo.listFoldersByOwner(targetFolder.ownerUserId, {
-          includeDeleted: true,
-        }),
-      );
+      const folderMap = await readFolderMap(targetFolder.ownerUserId, [
+        targetFolder.id,
+      ]);
       const durableStagedStorageKey = !repo
         ? storageKeyForAbsolutePath(tmpPath)
         : null;

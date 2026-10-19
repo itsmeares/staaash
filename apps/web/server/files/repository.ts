@@ -1,5 +1,9 @@
 import { Prisma, getPrisma } from "@staaash/db/client";
 import { resolveViewerKind } from "@staaash/db/viewer-contract";
+import {
+  readFolderAncestorIds,
+  readFolderSubtreeIds,
+} from "@staaash/db/folder-tree";
 
 import type { FolderSummary, StoredFile } from "@/server/files/types";
 
@@ -71,12 +75,14 @@ type FileRecord = Prisma.FileGetPayload<{
 type ListFoldersOptions = {
   includeDeleted?: boolean;
   ids?: string[];
+  names?: string[];
 };
 
 type ListFilesOptions = {
   includeDeleted?: boolean;
   includeMissing?: boolean;
   ids?: string[];
+  names?: string[];
 };
 
 type FindFileOptions = {
@@ -308,10 +314,12 @@ export type FilesRepository = {
   listFolderSubtree(
     ownerUserId: string,
     folderId: string,
+    options?: Pick<ListFoldersOptions, "includeDeleted">,
   ): Promise<FolderSummary[]>;
   listFilesInFolders(
     ownerUserId: string,
     folderIds: string[],
+    options?: Pick<ListFilesOptions, "includeDeleted">,
   ): Promise<StoredFile[]>;
   findFileById(
     fileId: string,
@@ -505,37 +513,29 @@ export const createPrismaFilesRepository = (
     async listFolderAncestors(ownerUserId, folderIds) {
       if (folderIds.length === 0) return [];
       const client = getClient();
-      const ids = await client.$queryRaw<{ id: string }[]>`
-        WITH RECURSIVE ancestors AS (
-          SELECT id, "parentId" FROM "Folder"
-          WHERE id = ANY(${folderIds}::text[]) AND "ownerUserId" = ${ownerUserId}
-          UNION
-          SELECT parent.id, parent."parentId" FROM "Folder" parent
-          JOIN ancestors child ON parent.id = child."parentId"
-          WHERE parent."ownerUserId" = ${ownerUserId}
-        ) SELECT id FROM ancestors
-      `;
+      const ids = await readFolderAncestorIds(client, ownerUserId, folderIds);
       return findFoldersByIds(ownerUserId, ids);
     },
 
-    async listFolderSubtree(ownerUserId, folderId) {
+    async listFolderSubtree(ownerUserId, folderId, options) {
       const client = getClient();
-      const ids = await client.$queryRaw<{ id: string }[]>`
-        WITH RECURSIVE subtree AS (
-          SELECT id FROM "Folder"
-          WHERE id = ${folderId} AND "ownerUserId" = ${ownerUserId} AND "deletedAt" IS NULL
-          UNION
-          SELECT child.id FROM "Folder" child
-          JOIN subtree parent ON child."parentId" = parent.id
-          WHERE child."ownerUserId" = ${ownerUserId} AND child."deletedAt" IS NULL
-        ) SELECT id FROM subtree
-      `;
+      const ids = await readFolderSubtreeIds(
+        client,
+        ownerUserId,
+        folderId,
+        options,
+      );
       return findFoldersByIds(ownerUserId, ids);
     },
 
-    async listFilesInFolders(ownerUserId, folderIds) {
+    async listFilesInFolders(ownerUserId, folderIds, options = {}) {
+      if (folderIds.length === 0) return [];
       const files = await getClient().file.findMany({
-        where: { ownerUserId, folderId: { in: folderIds }, deletedAt: null },
+        where: {
+          ownerUserId,
+          folderId: { in: folderIds },
+          ...(options.includeDeleted ? {} : { deletedAt: null }),
+        },
         orderBy: [
           { folderId: "asc" },
           { originalName: "asc" },
@@ -584,6 +584,7 @@ export const createPrismaFilesRepository = (
           ownerUserId,
           parentId,
           ...(options.ids ? { id: { in: options.ids } } : {}),
+          ...(options.names ? { name: { in: options.names } } : {}),
           ...(options.includeDeleted ? {} : { deletedAt: null }),
         },
         orderBy: [{ name: "asc" }, { createdAt: "asc" }],
@@ -600,6 +601,7 @@ export const createPrismaFilesRepository = (
           ownerUserId,
           folderId,
           ...(options.ids ? { id: { in: options.ids } } : {}),
+          ...(options.names ? { originalName: { in: options.names } } : {}),
           ...(options.includeMissing ? {} : { storageStatus: "available" }),
           ...(options.includeDeleted ? {} : { deletedAt: null }),
         },

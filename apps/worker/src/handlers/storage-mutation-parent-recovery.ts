@@ -5,6 +5,10 @@ import { lstat } from "node:fs/promises";
 
 import { getPrisma, type Prisma } from "@staaash/db/client";
 import {
+  readFolderAncestorIds,
+  readFolderSubtreeIds,
+} from "@staaash/db/folder-tree";
+import {
   buildStorageMutationChildRequestHashPayload,
   completeStorageMutationParent,
   recordStorageMutationParentChild,
@@ -174,15 +178,33 @@ const recordChild = async ({
     result: result as Prisma.InputJsonValue,
   });
 
-const buildFolderKeyResolver = async (ownerUserId: string) => {
+const buildFolderKeyResolver = async (
+  ownerUserId: string,
+  destinationId: string,
+  subtreeRootId?: string,
+) => {
   const prisma = getPrisma();
+  const [ancestorIds, subtreeIds] = await Promise.all([
+    readFolderAncestorIds(prisma, ownerUserId, [
+      destinationId,
+      ...(subtreeRootId ? [subtreeRootId] : []),
+    ]),
+    subtreeRootId
+      ? readFolderSubtreeIds(prisma, ownerUserId, subtreeRootId)
+      : [],
+  ]);
   const [owner, folders] = await Promise.all([
     prisma.user.findUniqueOrThrow({
       where: { id: ownerUserId },
       select: { storageId: true },
     }),
     prisma.folder.findMany({
-      where: { ownerUserId },
+      where: {
+        ownerUserId,
+        id: {
+          in: [...new Set([...ancestorIds, ...subtreeIds].map(({ id }) => id))],
+        },
+      },
       select: {
         id: true,
         parentId: true,
@@ -207,7 +229,11 @@ const buildFolderKeyResolver = async (ownerUserId: string) => {
     if (!current?.isFilesRoot) throw new Error("FOLDER_PARENT_MISSING");
     return path.posix.join("files", owner.storageId, ...names);
   };
-  return { folders, folderMap, resolve };
+  const descendantIds = new Set(
+    subtreeIds.map(({ id }) => id).filter((id) => id !== subtreeRootId),
+  );
+  if (descendantIds.has(destinationId)) throw new Error("FOLDER_MOVE_CYCLE");
+  return { descendantIds, folderMap, resolve };
 };
 
 const resolveExistingBatchChild = async ({
@@ -378,26 +404,6 @@ const buildBatchFileMovePlan = async ({
   };
 };
 
-const collectBatchFolderDescendants = (
-  folderId: string,
-  destinationId: string,
-  folders: Awaited<ReturnType<typeof buildFolderKeyResolver>>["folders"],
-) => {
-  const descendantIds = new Set<string>();
-  const queue = [folderId];
-  while (queue.length > 0) {
-    const parentId = queue.shift()!;
-    for (const candidate of folders) {
-      if (candidate.parentId !== parentId || candidate.deletedAt) continue;
-      if (candidate.id === destinationId) throw new Error("FOLDER_MOVE_CYCLE");
-      if (descendantIds.has(candidate.id)) continue;
-      descendantIds.add(candidate.id);
-      queue.push(candidate.id);
-    }
-  }
-  return descendantIds;
-};
-
 const createBatchTargetStorageKey = (
   sourceKey: string,
   targetKey: string,
@@ -505,11 +511,7 @@ const buildBatchFolderMovePlan = async ({
     throw new Error("FOLDER_NOT_FOUND");
   }
   if (folder!.parentId === destination.id) throw new Error("FOLDER_MOVE_NOOP");
-  const descendantIds = collectBatchFolderDescendants(
-    folder!.id,
-    destination.id,
-    layout.folders,
-  );
+  const { descendantIds } = layout;
   const [folderConflict, fileConflict] = await Promise.all([
     prisma.folder.findFirst({
       where: {
@@ -666,7 +668,11 @@ const runBatchMoveChild = async ({
     destinationFolderId,
     parent.ownerUserId,
   );
-  const layout = await buildFolderKeyResolver(parent.ownerUserId);
+  const layout = await buildFolderKeyResolver(
+    parent.ownerUserId,
+    destination.id,
+    item.kind === "folder" ? item.id : undefined,
+  );
   const destinationKey = layout.resolve(destination.id);
   const plan =
     item.kind === "file"
