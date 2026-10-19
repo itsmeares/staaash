@@ -29,7 +29,7 @@ CREATE FUNCTION staaash_rebuild_folder_sizes(target_ids TEXT[]) RETURNS void LAN
 BEGIN
   IF COALESCE(array_length(target_ids, 1), 0) = 0 THEN RETURN; END IF;
   PERFORM pg_advisory_xact_lock(hashtextextended('staaash:folder-totals:hierarchy', 0));
-  PERFORM id FROM "Folder" WHERE id = ANY(target_ids) ORDER BY id FOR UPDATE;
+  PERFORM id FROM "Folder" WHERE id = ANY(target_ids) ORDER BY id FOR NO KEY UPDATE;
   WITH RECURSIVE tree(root_id, id) AS (
     SELECT id, id FROM "Folder" WHERE id = ANY(target_ids) AND "deletedAt" IS NULL
     UNION

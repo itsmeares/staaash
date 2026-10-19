@@ -714,6 +714,7 @@ export function FileList<T extends FileListItem>({
           <VirtualSection
             key={section.label}
             virtual={Boolean(loading)}
+            browse={loading?.browse}
             label={section.label}
             items={section.items}
             view={view}

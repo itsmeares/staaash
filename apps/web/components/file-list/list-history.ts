@@ -7,10 +7,11 @@ export function useListHistory(
   name: string,
   query: string,
   count: number,
+  getCount: () => number,
   restore: (count: number) => Promise<number>,
 ) {
-  const latest = useRef({ count, restore });
-  latest.current = { count, restore };
+  const latest = useRef({ getCount, restore });
+  latest.current = { getCount, restore };
   const paintedCount = useRef(count);
   useLayoutEffect(() => {
     paintedCount.current = count;
@@ -38,7 +39,7 @@ export function useListHistory(
               ...history?.[HISTORY_KEY],
               [name]: {
                 query,
-                count: main.scrollTop === 0 ? 100 : latest.current.count,
+                count: main.scrollTop === 0 ? 100 : latest.current.getCount(),
                 top: main.scrollTop,
               },
             },
@@ -48,6 +49,7 @@ export function useListHistory(
       });
     };
     main.addEventListener("scroll", remember, { passive: true });
+    window.addEventListener("staaash:list-browse", remember);
     if (saved && saved.query === query) {
       void latest.current
         .restore(saved.count)
@@ -72,6 +74,7 @@ export function useListHistory(
       active = false;
       cancelAnimationFrame(frame);
       main.removeEventListener("scroll", remember);
+      window.removeEventListener("staaash:list-browse", remember);
     };
   }, [name, query]);
 }

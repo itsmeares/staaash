@@ -215,6 +215,76 @@ it("commits simultaneous mixed file and folder writes in either order", async ()
   }
 });
 
+it("rebuilds totals while a favorite transaction also changes a file", async () => {
+  const { db, user, root, file } = await tree();
+  const favoriteId = randomUUID();
+  const writer = new Client({
+    connectionString: inject("postgresDatabaseUrl"),
+  });
+  const rebuilder = new Client({
+    connectionString: inject("postgresDatabaseUrl"),
+  });
+  await Promise.all([writer.connect(), rebuilder.connect()]);
+  try {
+    for (const client of [writer, rebuilder]) {
+      await client.query("BEGIN");
+      await client.query("SET LOCAL statement_timeout = '4s'");
+    }
+    await writer.query(
+      'INSERT INTO "FavoriteFolder" (id, "userId", "folderId") VALUES ($1, $2, $3)',
+      [favoriteId, user.id, root.id],
+    );
+    const pid = (await rebuilder.query("SELECT pg_backend_pid() AS pid"))
+      .rows[0].pid as number;
+    let rebuilt = false;
+    const rebuilding = rebuilder
+      .query("SELECT staaash_rebuild_folder_sizes(ARRAY[$1]::text[])", [
+        root.id,
+      ])
+      .then(() => rebuilder.query("COMMIT"))
+      .then(() => {
+        rebuilt = true;
+      });
+    const results = await Promise.allSettled([
+      rebuilding,
+      (async () => {
+        let locked = false;
+        for (let attempt = 0; attempt < 100 && !rebuilt; attempt++) {
+          const locks = await writer.query(
+            "SELECT 1 FROM pg_locks WHERE pid = $1 AND locktype = 'advisory' AND granted",
+            [pid],
+          );
+          if (locks.rowCount) {
+            locked = true;
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        expect(rebuilt || locked).toBe(true);
+        await writer.query('UPDATE "File" SET "sizeBytes" = 21 WHERE id = $1', [
+          file.id,
+        ]);
+        await writer.query("COMMIT");
+      })(),
+    ]);
+    expect(results).toEqual([
+      { status: "fulfilled", value: undefined },
+      { status: "fulfilled", value: undefined },
+    ]);
+    expect(await getFolderSizeBytes(root.id)).toBe(21);
+    expect(
+      await db.favoriteFolder.findUnique({ where: { id: favoriteId } }),
+    ).not.toBeNull();
+  } finally {
+    await Promise.all(
+      [writer, rebuilder].map(async (client) => {
+        await client.query("ROLLBACK");
+        await client.end();
+      }),
+    );
+  }
+});
+
 it("backfills old nested metadata without changing revisions or timestamps", async () => {
   const client = new Client({
     connectionString: inject("postgresDatabaseUrl"),

@@ -36,10 +36,35 @@ test("find, selection, and Back cover rows beyond the first batch", async ({
   const route = `/files/f/${folder.id}`;
   await page.goto(route);
   const list = page.locator("[data-file-list]");
+  const main = page.locator("main[data-workspace-content]");
   await expect(list).toHaveAttribute("aria-rowcount", "106");
   await expect
     .poll(() => page.locator("[data-list-item]").count())
     .toBeLessThan(105);
+  const loading = page
+    .getByRole("status")
+    .filter({ hasText: "Loading more items" });
+  await expect(loading).toBeAttached();
+  await loading.evaluate((element) => {
+    const main = element.closest<HTMLElement>("main[data-workspace-content]")!;
+    main.scrollTop +=
+      element.getBoundingClientRect().top -
+      main.getBoundingClientRect().bottom -
+      300;
+  });
+  await expect(loading).toHaveCount(0);
+  await main.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (id: string) => window.history.state?.staaashLists?.[id]?.top,
+        folder.id,
+      ),
+    )
+    .toBe(0);
+  await page.reload();
   await page.getByRole("button", { name: "Details", exact: true }).click();
   await expect(
     page
@@ -49,6 +74,11 @@ test("find, selection, and Back cover rows beyond the first batch", async ({
   await list.focus();
   await page.keyboard.press("Control+f");
   const find = page.getByRole("textbox", { name: "Find in this folder" });
+  await find.fill("x".repeat(1500));
+  await expect(find).toHaveValue("x".repeat(1024));
+  await expect(
+    page.getByText("Nothing matches", { exact: true }),
+  ).toBeVisible();
   await find.fill("Item 105");
   await expect(page.locator(`[data-list-item="${lastId}"]`)).toBeVisible();
   await expect(list).toHaveAttribute("aria-rowcount", "2");
@@ -74,6 +104,19 @@ test("find, selection, and Back cover rows beyond the first batch", async ({
       .getByRole("toolbar", { name: "Selection", exact: true })
       .getByText("105 selected", { exact: true }),
   ).toBeVisible();
+  const reloaded = page.waitForRequest((request) => {
+    if (!request.headers()["next-action"]) return false;
+    try {
+      return JSON.parse(request.postData() ?? "[]")[1]?.limit === 100;
+    } catch {
+      return false;
+    }
+  });
+  await list.click({ button: "right", position: { x: 5, y: 5 } });
+  await page.getByRole("menuitem", { name: "Refresh", exact: true }).click();
+  await (await reloaded).response();
+  await expect(loading).toHaveCount(1);
+  await list.focus();
   await page.keyboard.press("Escape");
   await page.keyboard.press("Home");
   await page.keyboard.press("Shift+End");
@@ -87,7 +130,6 @@ test("find, selection, and Back cover rows beyond the first batch", async ({
     "aria-rowindex",
     "106",
   );
-  const main = page.locator("main[data-workspace-content]");
   const top = await main.evaluate((element) => element.scrollTop);
   expect(top).toBeGreaterThan(3000);
   await page

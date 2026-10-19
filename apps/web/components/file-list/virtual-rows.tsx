@@ -33,12 +33,14 @@ function VirtualRows({
   tiles,
   children,
   eager = false,
+  browse,
 }: {
   ids: string[];
   eager?: boolean;
   grid: boolean;
   tiles: boolean;
   children: () => ReactNode;
+  browse?: (id: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(eager);
@@ -50,20 +52,27 @@ function VirtualRows({
     if (!element) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry)
+        if (entry) {
+          if (entry.isIntersecting && ids.length)
+            browse?.(ids[ids.length - 1]!);
           setVisible(
             // Keep rows in a grid that is wholly outside the viewport.
             eager ||
               entry.isIntersecting ||
               element.contains(document.activeElement),
           );
+        }
       },
-      { rootMargin: "800px" },
+      {
+        root: element.closest("main[data-workspace-content]"),
+        rootMargin: "800px",
+      },
     );
     observer.observe(element);
     const focus = (event: Event) => {
       const id = (event as CustomEvent<string>).detail;
       if (!ids.includes(id)) return;
+      browse?.(id);
       setVisible(true);
       element.scrollIntoView({ block: "nearest" });
     };
@@ -76,7 +85,7 @@ function VirtualRows({
         .closest("[data-file-list]")
         ?.removeEventListener("staaash:list-focus", focus);
     };
-  }, [ids.join("\n"), eager]);
+  }, [ids.join("\n"), eager, browse]);
   useEffect(() => {
     if (!ref.current) return;
     const observer = new ResizeObserver(([entry]) => {
@@ -108,6 +117,7 @@ export function VirtualSection<T extends { id: string }>({
   eager,
   renderItem,
   virtual,
+  browse,
 }: {
   virtual: boolean;
   items: T[];
@@ -117,6 +127,7 @@ export function VirtualSection<T extends { id: string }>({
   leading?: ReactNode;
   eager: boolean;
   renderItem: (item: T, index: number) => ReactNode;
+  browse?: (id: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(800);
@@ -160,6 +171,7 @@ export function VirtualSection<T extends { id: string }>({
                     tiles={tiles}
                     ids={rows.map((item) => item.id)}
                     key={rows[0]!.id}
+                    browse={browse}
                   >
                     {() => (
                       <>

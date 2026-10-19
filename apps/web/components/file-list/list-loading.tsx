@@ -10,6 +10,7 @@ export type ListLoading = {
   loading: boolean;
   error: string | null;
   loadMore: () => Promise<unknown>;
+  browse?: (id: string) => void;
 };
 
 export function ListLoadingRow({
@@ -25,7 +26,10 @@ export function ListLoadingRow({
       ([entry]) => {
         if (entry?.isIntersecting) void loadMore().catch(() => {});
       },
-      { rootMargin: "600px" },
+      {
+        root: ref.current.closest("main[data-workspace-content]"),
+        rootMargin: "600px",
+      },
     );
     observer.observe(ref.current);
     return () => observer.disconnect();

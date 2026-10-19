@@ -28,6 +28,7 @@ export function useListFind(label: string) {
         aria-label={label}
         placeholder={label}
         value={find}
+        maxLength={1024}
         onChange={(event) => setFind(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
