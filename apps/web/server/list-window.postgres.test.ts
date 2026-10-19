@@ -82,11 +82,12 @@ it("pages the complete natural order, applies filters before the limit, and keep
     ),
   );
   const expected = [...files]
-    .sort((a, b) =>
-      a.originalName.localeCompare(b.originalName, "en", {
-        numeric: true,
-        sensitivity: "base",
-      }),
+    .sort(
+      (a, b) =>
+        a.originalName.localeCompare(b.originalName, "en", {
+          numeric: true,
+          sensitivity: "base",
+        }) || a.id.localeCompare(b.id, "en"),
     )
     .map((file) => file.id);
   expect(pages.map((page) => page.items.length)).toEqual([100, 100, 33]);
