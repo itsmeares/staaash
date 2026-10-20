@@ -3,6 +3,7 @@ import { access, mkdir, rm, stat } from "node:fs/promises";
 
 import { getPrisma } from "@staaash/db/client";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
+import { StorageAdmissionCancelledError } from "@staaash/db/storage-transactions";
 import {
   DERIVATIVE_KIND_POSTER,
   DERIVATIVE_KIND_PREVIEW,
@@ -383,48 +384,58 @@ export const handleMediaDerivativeGenerate = async (
     });
     return;
   }
-  await runWorkerStorageMutation({
-    mutationId: publishMutationId,
-    kind: "derivative_publish",
-    ownerUserId: file.ownerUserId,
-    idempotencyKey: `derivative-publish:${job.id}`,
-    storagePaths,
-    metadataOperations: [
-      {
-        action: "update",
-        entityType: "derivative",
-        entityId: derivative.id,
-        preRevision: derivative.storageRevision ?? 0,
-        data: readyData,
-      },
-    ],
-    steps: buildArtifactPublishSteps({
+  try {
+    await runWorkerStorageMutation({
       mutationId: publishMutationId,
-      tmpKey,
-      storageKey,
-      sizeBytes: BigInt(outputStats.size),
-      checksum: newChecksum,
-      oldChecksum,
-    }),
-    entities: [
-      {
-        entityType: "file",
-        entityId: file.id,
-        preRevision: file.storageRevision,
-        postRevision: file.storageRevision,
-        beforeJson: null,
-        afterJson: null,
-      },
-      {
-        entityType: "derivative",
-        entityId: derivative.id,
-        preRevision: derivative.storageRevision ?? 0,
-        postRevision: (derivative.storageRevision ?? 0) + 1,
-        beforeJson: { status: derivative.status },
-        afterJson: readyData,
-      },
-    ],
-  });
+      kind: "derivative_publish",
+      ownerUserId: file.ownerUserId,
+      idempotencyKey: `derivative-publish:${job.id}`,
+      storagePaths,
+      signal: context?.signal,
+      metadataOperations: [
+        {
+          action: "update",
+          entityType: "derivative",
+          entityId: derivative.id,
+          preRevision: derivative.storageRevision ?? 0,
+          data: readyData,
+        },
+      ],
+      steps: buildArtifactPublishSteps({
+        mutationId: publishMutationId,
+        tmpKey,
+        storageKey,
+        sizeBytes: BigInt(outputStats.size),
+        checksum: newChecksum,
+        oldChecksum,
+      }),
+      entities: [
+        {
+          entityType: "file",
+          entityId: file.id,
+          preRevision: file.storageRevision,
+          postRevision: file.storageRevision,
+          beforeJson: null,
+          afterJson: null,
+        },
+        {
+          entityType: "derivative",
+          entityId: derivative.id,
+          preRevision: derivative.storageRevision ?? 0,
+          postRevision: (derivative.storageRevision ?? 0) + 1,
+          beforeJson: { status: derivative.status },
+          afterJson: readyData,
+        },
+      ],
+    });
+  } catch (error) {
+    if (!(error instanceof StorageAdmissionCancelledError)) throw error;
+    await rm(tmpPath, { force: true });
+    await settleDerivativeIfOwned(derivative.id, job.id, {
+      status: DERIVATIVE_STATUS_STALE,
+    });
+    return;
+  }
 
   await context?.updateProgress({ stage: "ready", fileId: file.id });
 };

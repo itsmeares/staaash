@@ -17,6 +17,7 @@ import {
   failRestoreReconciliationRun,
   markRestoreReconciliationRunQueued,
 } from "@staaash/db/reconciliation";
+import { StorageAdmissionCancelledError } from "@staaash/db/storage-transactions";
 
 import type { WorkerStoragePaths } from "./storage-maintenance.js";
 import {
@@ -35,8 +36,9 @@ const MOVE_STORAGE_MUTATION_CONCURRENCY = 5;
 const STORAGE_MUTATION_POLL_MS = 1_000;
 
 const isAbortError = (error: unknown) =>
-  error instanceof Error &&
-  (error.name === "AbortError" || error.message.includes("aborted"));
+  error instanceof StorageAdmissionCancelledError ||
+  (error instanceof Error &&
+    (error.name === "AbortError" || error.message.includes("aborted")));
 
 export class WorkerRunner {
   private stopping = false;

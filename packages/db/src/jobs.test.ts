@@ -751,6 +751,32 @@ describe("background jobs", () => {
     expect(jobs).toHaveLength(1);
   });
 
+  it("stops scheduling retries when the contention window expires", async () => {
+    const error = Object.assign(new Error("serialization failure"), {
+      code: "P2034",
+    });
+    const client = {
+      ...createClient([]),
+      $transaction: vi.fn().mockRejectedValue(error),
+    };
+    const clock = vi
+      .spyOn(Date, "now")
+      .mockReturnValueOnce(0)
+      .mockReturnValue(5_001);
+    try {
+      await expect(
+        ensureBackgroundJobScheduled({
+          kind: UPDATE_CHECK_JOB_KIND,
+          runAt: new Date("2026-04-01T12:00:00.000Z"),
+          client,
+        }),
+      ).rejects.toBe(error);
+      expect(client.$transaction).toHaveBeenCalledOnce();
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it("multi-kind dispatcher claims the earliest due job across kinds", async () => {
     const now = new Date("2026-04-01T12:00:00.000Z");
     const earlier = new Date(now.getTime() - 1000);

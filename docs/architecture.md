@@ -35,7 +35,11 @@ rejects unsupported media kinds before starting a handler. Media decoders, filte
 and encoders use one thread each. Probes have a one-minute limit and individual
 frame captures have a two-minute limit. Cancellation reaches input and output
 probes as well as encoding, and a child that ignores termination is killed after
-five seconds. Full conversions retain their six-hour job limit.
+five seconds. Full conversions retain their six-hour job limit. Before publishing
+generated output, the worker uses the existing bounded storage-admission wait
+for brief resource conflicts. Accepted journal work keeps control of its bytes
+and recovery; a job does not rebuild an artifact merely because another save
+briefly owns the account lock.
 
 Small archives have priority 1
 and the general slot excludes those marked ZIP jobs. Older workers still drain

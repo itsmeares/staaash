@@ -13,7 +13,6 @@ import type { BackgroundJobRecord } from "@staaash/db/jobs";
 import {
   findZipArchiveById,
   updateZipArchiveProcessing,
-  updateZipArchiveReady,
   updateZipArchiveFailed,
   ZIP_ARCHIVE_STATUS_READY,
 } from "@staaash/db/zip-archives";
@@ -88,6 +87,38 @@ const collectDescendantFolderIds = (
   return result;
 };
 
+const buildArchiveFolderIndex = (
+  allFolders: FolderRecord[],
+  folderIds: string[],
+) => {
+  const folderMap = new Map(allFolders.map((f) => [f.id, f]));
+
+  const childrenByParentId = new Map<string, FolderRecord[]>();
+  for (const folder of allFolders) {
+    if (folder.parentId) {
+      const list = childrenByParentId.get(folder.parentId) ?? [];
+      list.push(folder);
+      childrenByParentId.set(folder.parentId, list);
+    }
+  }
+
+  // Expand each requested folder to all descendants (per-root sets for path building)
+  const allDescendantFolderIds = new Set<string>();
+  const descendantsByRootId = new Map<string, Set<string>>();
+  for (const folderId of folderIds) {
+    const descendants = collectDescendantFolderIds(
+      folderId,
+      childrenByParentId,
+    );
+    descendantsByRootId.set(folderId, descendants);
+    for (const id of descendants) {
+      allDescendantFolderIds.add(id);
+    }
+  }
+
+  return { folderMap, descendantsByRootId, allDescendantFolderIds };
+};
+
 const buildFileArchivePath = (
   file: StoredFileRecord,
   folderMap: Map<string, FolderRecord>,
@@ -156,30 +187,8 @@ export const handleZipArchiveGenerate = async (
         })
       : [];
 
-    const folderMap = new Map(allFolders.map((f) => [f.id, f]));
-
-    const childrenByParentId = new Map<string, FolderRecord[]>();
-    for (const folder of allFolders) {
-      if (folder.parentId) {
-        const list = childrenByParentId.get(folder.parentId) ?? [];
-        list.push(folder);
-        childrenByParentId.set(folder.parentId, list);
-      }
-    }
-
-    // Expand each requested folder to all descendants (per-root sets for path building)
-    const allDescendantFolderIds = new Set<string>();
-    const descendantsByRootId = new Map<string, Set<string>>();
-    for (const folderId of folderIds) {
-      const descendants = collectDescendantFolderIds(
-        folderId,
-        childrenByParentId,
-      );
-      descendantsByRootId.set(folderId, descendants);
-      for (const id of descendants) {
-        allDescendantFolderIds.add(id);
-      }
-    }
+    const { folderMap, descendantsByRootId, allDescendantFolderIds } =
+      buildArchiveFolderIndex(allFolders, folderIds);
 
     // Collect files: directly requested + inside expanded folders
     const filesToZip = await prisma.file.findMany({
@@ -259,10 +268,7 @@ export const handleZipArchiveGenerate = async (
 
     // Move to final location
     const storageKey = `archives/${archiveId}.zip`;
-    const finalPath = safeResolveStoragePath(
-      storagePaths.filesRoot,
-      storageKey,
-    );
+    safeResolveStoragePath(storagePaths.filesRoot, storageKey);
     const { size } = await stat(tmpPath);
     const tmpKey = path
       .relative(storagePaths.filesRoot, tmpPath)
@@ -295,6 +301,7 @@ export const handleZipArchiveGenerate = async (
       ownerUserId: userId,
       idempotencyKey: `archive-publish:${job.id}`,
       storagePaths,
+      signal: context?.signal,
       metadataOperations: [
         {
           action: "update",

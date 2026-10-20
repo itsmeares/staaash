@@ -1,4 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vite-plus/test";
 
 const mocks = vi.hoisted(() => ({
   applyStorageMutationIntentMetadata: vi.fn(),
@@ -52,6 +59,11 @@ describe("worker durable mutation prepare ownership", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.assertStorageFilesystemSupported.mockResolvedValue(undefined);
+    mocks.prepareStorageMutation.mockReset();
+    mocks.findStorageMutation.mockReset().mockResolvedValue(null);
+    mocks.claimAndExecuteStorageMutation
+      .mockReset()
+      .mockResolvedValue(undefined);
   });
 
   it("does not claim a generated source after a definite prepare rejection", async () => {
@@ -109,5 +121,111 @@ describe("generated artifact replacement steps", () => {
       "tmp/incoming/publish-2/a.zip",
     );
     expect(second).not.toEqual(first);
+  });
+});
+
+describe("artifact publication admission", () => {
+  afterEach(() => vi.useRealTimers());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.assertStorageFilesystemSupported.mockResolvedValue(undefined);
+    mocks.prepareStorageMutation.mockReset();
+    mocks.findStorageMutation.mockReset().mockResolvedValue(null);
+    mocks.claimAndExecuteStorageMutation
+      .mockReset()
+      .mockResolvedValue(undefined);
+  });
+
+  it("waits for a brief competing publication without running the job again", async () => {
+    vi.useFakeTimers();
+    const { StorageMutationConflictError } =
+      await import("@staaash/db/storage-mutations");
+    mocks.prepareStorageMutation
+      .mockRejectedValueOnce(
+        new StorageMutationConflictError(
+          "STORAGE_MUTATION_IN_PROGRESS",
+          "other",
+        ),
+      )
+      .mockResolvedValueOnce({
+        replayed: false,
+        mutation: { id: input.mutationId },
+      });
+    const running = runWorkerStorageMutation(input);
+    await vi.advanceTimersByTimeAsync(500);
+    await running;
+    expect(mocks.prepareStorageMutation).toHaveBeenCalledTimes(2);
+    expect(mocks.claimAndExecuteStorageMutation).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the existing bounded wait when a resource never becomes available", async () => {
+    vi.useFakeTimers();
+    const { StorageMutationConflictError } =
+      await import("@staaash/db/storage-mutations");
+    const busy = new StorageMutationConflictError(
+      "STORAGE_MUTATION_IN_PROGRESS",
+      "other",
+    );
+    mocks.prepareStorageMutation.mockRejectedValue(busy);
+    const running = expect(runWorkerStorageMutation(input)).rejects.toBe(busy);
+    await vi.advanceTimersByTimeAsync(5000);
+    await running;
+    expect(mocks.claimAndExecuteStorageMutation).not.toHaveBeenCalled();
+  });
+
+  it("stops admission on cancellation without accepting a new mutation", async () => {
+    vi.useFakeTimers();
+    const { StorageMutationConflictError } =
+      await import("@staaash/db/storage-mutations");
+    mocks.prepareStorageMutation.mockRejectedValue(
+      new StorageMutationConflictError("STORAGE_MUTATION_IN_PROGRESS", "other"),
+    );
+    const controller = new AbortController();
+    const running = expect(
+      runWorkerStorageMutation({ ...input, signal: controller.signal }),
+    ).rejects.toMatchObject({ code: "UPLOAD_CANCELLED" });
+    await vi.advanceTimersByTimeAsync(1);
+    controller.abort();
+    await running;
+    expect(mocks.prepareStorageMutation).toHaveBeenCalledOnce();
+    expect(mocks.claimAndExecuteStorageMutation).not.toHaveBeenCalled();
+  });
+
+  it("does not retry a recovery block as a short resource conflict", async () => {
+    const { StorageMutationConflictError } =
+      await import("@staaash/db/storage-mutations");
+    const blocked = new StorageMutationConflictError(
+      "STORAGE_RECOVERY_REQUIRED",
+      "other",
+    );
+    mocks.prepareStorageMutation.mockRejectedValue(blocked);
+    await expect(runWorkerStorageMutation(input)).rejects.toBe(blocked);
+    expect(mocks.prepareStorageMutation).toHaveBeenCalledOnce();
+  });
+
+  it("keeps durable ownership when an accepted journal appears during the wait", async () => {
+    vi.useFakeTimers();
+    const { StorageMutationConflictError } =
+      await import("@staaash/db/storage-mutations");
+    mocks.prepareStorageMutation
+      .mockRejectedValueOnce(
+        new StorageMutationConflictError(
+          "STORAGE_MUTATION_IN_PROGRESS",
+          "other",
+        ),
+      )
+      .mockResolvedValueOnce({
+        replayed: true,
+        mutation: { id: input.mutationId, status: "prepared" },
+      });
+    const running = expect(
+      runWorkerStorageMutation(input),
+    ).rejects.toMatchObject({
+      name: "StorageMutationOwnedError",
+      mutationId: input.mutationId,
+    });
+    await vi.advanceTimersByTimeAsync(500);
+    await running;
+    expect(mocks.claimAndExecuteStorageMutation).not.toHaveBeenCalled();
   });
 });

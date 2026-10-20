@@ -142,7 +142,7 @@ type BackgroundJobClient = {
   $executeRawUnsafe?(query: string, ...values: unknown[]): Promise<unknown>;
 };
 
-const BACKGROUND_JOB_SCHEDULE_MAX_RETRIES = 3;
+const BACKGROUND_JOB_SCHEDULE_RETRY_WINDOW_MS = 5_000;
 const MAX_STORED_ERROR_LENGTH = 2000;
 
 const getClient = (client?: BackgroundJobClient) =>
@@ -285,11 +285,8 @@ export const ensureBackgroundJobScheduled = async ({
         runAt: { lte: windowEnd },
       };
 
-  for (
-    let attempt = 0;
-    attempt < BACKGROUND_JOB_SCHEDULE_MAX_RETRIES;
-    attempt += 1
-  ) {
+  const retryDeadline = Date.now() + BACKGROUND_JOB_SCHEDULE_RETRY_WINDOW_MS;
+  for (let attempt = 0; ; attempt += 1) {
     try {
       return await activeClient.$transaction(
         async (tx) => {
@@ -331,18 +328,20 @@ export const ensureBackgroundJobScheduled = async ({
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
     } catch (error) {
-      if (
-        attempt === BACKGROUND_JOB_SCHEDULE_MAX_RETRIES - 1 ||
-        !isSerializableTransactionConflict(error)
-      ) {
+      const remainingMs = retryDeadline - Date.now();
+      if (remainingMs <= 0 || !isSerializableTransactionConflict(error)) {
         throw error;
       }
       // Immediate retries collide again when several previews are requested together.
-      await delay((25 + Math.random() * 25) * 2 ** attempt);
+      await delay(
+        Math.min(
+          remainingMs,
+          (25 + Math.random() * 25) * 2 ** Math.min(attempt, 3),
+        ),
+      );
+      if (Date.now() >= retryDeadline) throw error;
     }
   }
-
-  throw new Error("Failed to schedule background job.");
 };
 
 export const claimDueBackgroundJob = async ({

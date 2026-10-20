@@ -15,7 +15,12 @@ import {
   type StorageMutationStepInput,
   findStorageMutation,
   findStorageMutationByIdempotencyKey,
+  StorageMutationConflictError,
 } from "@staaash/db/storage-mutations";
+import {
+  StorageAdmissionBusyError,
+  waitForStorageAdmission,
+} from "@staaash/db/storage-transactions";
 import {
   assertStorageFilesystemSupported,
   calculateStorageFileChecksum,
@@ -142,6 +147,7 @@ type WorkerStorageMutationArgs = {
   resultJson?: Prisma.InputJsonValue;
   requestHashPayload?: unknown;
   resourceKeys?: string[];
+  signal?: AbortSignal;
 };
 
 // Preparation resolution deliberately handles every durable ownership outcome.
@@ -225,6 +231,7 @@ export const runWorkerStorageMutation = async ({
   resultJson,
   requestHashPayload,
   resourceKeys,
+  signal,
 }: WorkerStorageMutationArgs) => {
   await assertStorageFilesystemSupported(storagePaths.filesRoot);
   const intent: RecoverableStorageMutationIntent = {
@@ -237,18 +244,33 @@ export const runWorkerStorageMutation = async ({
   );
   let prepared: Awaited<ReturnType<typeof prepareStorageMutation>>;
   try {
-    prepared = await prepareStorageMutation({
-      id: mutationId,
-      parentId,
-      kind,
-      ownerUserId,
-      idempotencyKey,
-      requestHash,
-      intentJson: intent as unknown as Prisma.InputJsonValue,
-      steps,
-      entities,
-      resourceKeys: resourceKeys ?? (parentId ? [] : [`owner:${ownerUserId}`]),
-    });
+    prepared = await waitForStorageAdmission(
+      (deadline) =>
+        prepareStorageMutation(
+          {
+            id: mutationId,
+            parentId,
+            kind,
+            ownerUserId,
+            idempotencyKey,
+            requestHash,
+            intentJson: intent as unknown as Prisma.InputJsonValue,
+            steps,
+            entities,
+            resourceKeys:
+              resourceKeys ?? (parentId ? [] : [`owner:${ownerUserId}`]),
+          },
+          { deadline, signal },
+        ),
+      {
+        signal,
+        retryable: (error) =>
+          error instanceof StorageAdmissionBusyError ||
+          (error instanceof StorageMutationConflictError &&
+            error.code === "STORAGE_MUTATION_IN_PROGRESS" &&
+            error.mutationId !== mutationId),
+      },
+    );
   } catch (error) {
     return resolvePrepareFailure({
       error,
