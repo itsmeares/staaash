@@ -281,6 +281,7 @@ const recoverFolderUploadConflict = async ({
     }),
     activeRepo.listChildFiles(ownerUserId, parentId, {
       includeDeleted: false,
+      includeMissing: true,
       names: [name],
     }),
   ]);

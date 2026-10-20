@@ -784,6 +784,37 @@ describe("files service", { concurrent: false }, () => {
     ).resolves.toBeUndefined();
   });
 
+  it("rejects a race winner folder when a missing file owns the same name", async () => {
+    const { repo, addFolder, addFile } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureFilesRoot("member-1");
+
+    repo.createFolder = async (params) => {
+      addFolder({
+        ownerUserId: params.ownerUserId,
+        parentId: params.parentId,
+        name: params.name,
+      });
+      addFile({
+        ownerUserId: params.ownerUserId,
+        folderId: params.parentId,
+        name: params.name,
+        storageKey: "files/member-1/Race",
+        storageStatus: "missing",
+      });
+      throw new FilesError("FOLDER_NAME_CONFLICT");
+    };
+
+    await expect(
+      service.ensureFolderPaths({
+        actorUserId: "member-1",
+        actorRole: "member",
+        parentId: root.id,
+        paths: ["Race"],
+      }),
+    ).rejects.toMatchObject({ code: "FOLDER_NAME_CONFLICT" });
+  });
+
   it("rejects a file occupying a required folder path", async () => {
     const { repo, addFile } = createMemoryRepository();
     const service = createService(repo);
