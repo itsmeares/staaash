@@ -5,6 +5,7 @@ import path from "node:path";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
+import { StorageAdmissionCancelledError } from "@staaash/db/storage-transactions";
 import {
   afterEach,
   beforeEach,
@@ -252,11 +253,49 @@ describe("zip archive handler", () => {
       else await vi.advanceTimersByTimeAsync(5100);
       await rejected;
       expect(mocks.runWorkerStorageMutation).not.toHaveBeenCalled();
-      if (stop === "deadline")
-        expect(mocks.updateZipArchiveFailed).not.toHaveBeenCalled();
+      expect(mocks.updateZipArchiveFailed).not.toHaveBeenCalled();
       expect(await readFile(priorOutput, "utf8")).toBe("earlier output");
     },
   );
+
+  it("preserves completed output when publication admission is cancelled", async () => {
+    tempRoot = await mkdtemp(path.join(os.tmpdir(), "staaash-zip-cancel-"));
+    await writeFile(path.join(tempRoot, "source.txt"), "source bytes");
+    mocks.getPrisma.mockReturnValue({
+      file: {
+        findMany: async () => [
+          {
+            id: "file-1",
+            originalName: "source.txt",
+            storageKey: "source.txt",
+            storageRevision: 0,
+          },
+        ],
+      },
+    });
+    const cancelled = new StorageAdmissionCancelledError();
+    mocks.runWorkerStorageMutation.mockRejectedValueOnce(cancelled);
+    const storagePaths = {
+      filesRoot: tempRoot,
+      tmpRoot: path.join(tempRoot, "tmp"),
+      heartbeatPath: path.join(tempRoot, "heartbeat.json"),
+      pendingDeleteRoot: path.join(tempRoot, "pending-delete"),
+      uploadStagingTtlMs: 1,
+    };
+
+    await expect(
+      handleZipArchiveGenerate(createJob(), storagePaths),
+    ).rejects.toBe(cancelled);
+
+    expect(mocks.updateZipArchiveFailed).not.toHaveBeenCalled();
+    const output = await readFile(
+      path.join(tempRoot, "tmp/archives/archive-1.zip.tmp"),
+    );
+    expect(output.readUInt32LE(0)).toBe(0x04034b50);
+    await handleZipArchiveGenerate(createJob(), storagePaths);
+    expect(mocks.runWorkerStorageMutation).toHaveBeenCalledTimes(2);
+    expect(mocks.updateZipArchiveFailed).not.toHaveBeenCalled();
+  });
 
   it.each([
     { folderIds: ["a", "b"], nestedPath: "Alpha/Empty-A/nested.txt" },

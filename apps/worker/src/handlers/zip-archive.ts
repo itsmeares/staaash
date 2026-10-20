@@ -10,7 +10,10 @@ import {
 } from "@staaash/config/zip";
 import { getPrisma } from "@staaash/db/client";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
-import { waitForStorageAdmission } from "@staaash/db/storage-transactions";
+import {
+  StorageAdmissionCancelledError,
+  waitForStorageAdmission,
+} from "@staaash/db/storage-transactions";
 import {
   findZipArchiveById,
   updateZipArchiveProcessing,
@@ -375,7 +378,10 @@ export const handleZipArchiveGenerate = async (
     });
     await context?.updateProgress({ stage: "ready", archiveId });
   } catch (error) {
-    if (error instanceof StorageMutationOwnedError) {
+    if (
+      error instanceof StorageMutationOwnedError ||
+      error instanceof StorageAdmissionCancelledError
+    ) {
       throw error;
     }
     if (wroteTemporaryOutput) await rm(tmpPath, { force: true });
