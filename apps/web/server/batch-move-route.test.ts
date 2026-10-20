@@ -11,6 +11,11 @@ const mocks = vi.hoisted(() => ({
   fileFindMany: vi.fn(),
   folderFindMany: vi.fn(),
   folderFindFirst: vi.fn(),
+  subtreeIds: vi.fn(),
+}));
+
+vi.mock("@staaash/db/folder-tree", () => ({
+  readFolderSubtreeIds: mocks.subtreeIds,
 }));
 
 vi.mock("@/server/durable-storage-mutation", () => ({
@@ -62,6 +67,7 @@ describe("batch move route", () => {
     mocks.folderFindMany.mockResolvedValue([
       { id: "folder-1", storageRevision: 2 },
     ]);
+    mocks.subtreeIds.mockResolvedValue([{ id: "folder-1" }]);
     mocks.folderFindFirst.mockResolvedValue({
       id: "folder-destination",
       storageRevision: 7,
@@ -167,6 +173,10 @@ describe("batch move route", () => {
   });
 
   it("guards nested folders and files during a folder move", async () => {
+    mocks.subtreeIds.mockResolvedValue([
+      { id: "folder-1" },
+      { id: "folder-child" },
+    ]);
     mocks.folderFindMany.mockResolvedValue([
       {
         id: "folder-1",

@@ -221,25 +221,32 @@ const createMemoryRepository = () => {
       }
       return folders;
     },
-    async listFolderSubtree(ownerUserId, folderId) {
+    async listFolderSubtree(ownerUserId, folderId, options = {}) {
       const root = await repo.findFolderById(folderId);
-      if (!root || root.ownerUserId !== ownerUserId || root.deletedAt)
+      if (
+        !root ||
+        root.ownerUserId !== ownerUserId ||
+        (!options.includeDeleted && root.deletedAt)
+      )
         return [];
       const folders = [root];
       for (const folder of folders) {
         folders.push(
-          ...(await repo.listChildFolders(ownerUserId, folder.id)).filter(
-            (child) => !folders.some(({ id }) => id === child.id),
-          ),
+          ...(
+            await repo.listChildFolders(ownerUserId, folder.id, options)
+          ).filter((child) => !folders.some(({ id }) => id === child.id)),
         );
       }
       return folders;
     },
-    async listFilesInFolders(ownerUserId, folderIds) {
+    async listFilesInFolders(ownerUserId, folderIds, options = {}) {
       return (
         await Promise.all(
           folderIds.map((id) =>
-            repo.listChildFiles(ownerUserId, id, { includeMissing: true }),
+            repo.listChildFiles(ownerUserId, id, {
+              ...options,
+              includeMissing: true,
+            }),
           ),
         )
       ).flat();
@@ -269,6 +276,7 @@ const createMemoryRepository = () => {
           (folder) =>
             folder.ownerUserId === ownerUserId &&
             folder.parentId === parentId &&
+            (!options.names || options.names.includes(folder.name)) &&
             (options.includeDeleted ? true : folder.deletedAt === null),
         ),
       ).map(cloneFolder);
@@ -280,6 +288,7 @@ const createMemoryRepository = () => {
           (file) =>
             file.ownerUserId === ownerUserId &&
             file.folderId === folderId &&
+            (!options.names || options.names.includes(file.name)) &&
             (options.includeMissing
               ? true
               : file.storageStatus === "available") &&
@@ -773,6 +782,37 @@ describe("files service", { concurrent: false }, () => {
     await expect(
       access(getStoragePath("files/member-1/Race")),
     ).resolves.toBeUndefined();
+  });
+
+  it("rejects a race winner folder when a missing file owns the same name", async () => {
+    const { repo, addFolder, addFile } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureFilesRoot("member-1");
+
+    repo.createFolder = async (params) => {
+      addFolder({
+        ownerUserId: params.ownerUserId,
+        parentId: params.parentId,
+        name: params.name,
+      });
+      addFile({
+        ownerUserId: params.ownerUserId,
+        folderId: params.parentId,
+        name: params.name,
+        storageKey: "files/member-1/Race",
+        storageStatus: "missing",
+      });
+      throw new FilesError("FOLDER_NAME_CONFLICT");
+    };
+
+    await expect(
+      service.ensureFolderPaths({
+        actorUserId: "member-1",
+        actorRole: "member",
+        parentId: root.id,
+        paths: ["Race"],
+      }),
+    ).rejects.toMatchObject({ code: "FOLDER_NAME_CONFLICT" });
   });
 
   it("rejects a file occupying a required folder path", async () => {
@@ -1867,6 +1907,67 @@ describe("files service", { concurrent: false }, () => {
     expect(refreshed.files[0]?.id).toBe(upload.uploadedFiles[0]?.id);
   });
 
+  it("restores descendants once in parent-before-child order from unordered subtree results", async () => {
+    await cleanDataRoot();
+    const { repo } = createMemoryRepository();
+    const service = createService(repo);
+    const actor = { actorUserId: "member-1", actorRole: "member" as const };
+    const root = await service.ensureFilesRoot(actor.actorUserId);
+    const parent = await service.createFolder({
+      ...actor,
+      parentId: root.id,
+      name: "Parent",
+    });
+    const child = await service.createFolder({
+      ...actor,
+      parentId: parent.folder.id,
+      name: "Z-child",
+    });
+    const grandchild = await service.createFolder({
+      ...actor,
+      parentId: child.folder.id,
+      name: "A-grandchild",
+    });
+    await service.uploadFiles({
+      ...actor,
+      folderId: grandchild.folder.id,
+      items: [
+        {
+          clientKey: "nested-file",
+          originalName: "inside.txt",
+          conflictStrategy: "fail",
+          file: new File(["nested contents"], "inside.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
+    await service.trashFolder({ ...actor, folderId: parent.folder.id });
+
+    const listFolderSubtree = repo.listFolderSubtree.bind(repo);
+    vi.spyOn(repo, "listFolderSubtree").mockImplementation(async (...args) => {
+      const folders = await listFolderSubtree(...args);
+      return [...folders].reverse().concat(folders);
+    });
+    const updateFolders = vi.spyOn(repo, "updateFolders");
+
+    await service.restoreFolder({ ...actor, folderId: parent.folder.id });
+
+    expect(updateFolders).toHaveBeenCalledExactlyOnceWith({
+      ids: [child.folder.id, grandchild.folder.id],
+      deletedAt: null,
+    });
+    for (const folder of [parent.folder, child.folder, grandchild.folder]) {
+      expect((await repo.findFolderById(folder.id))?.deletedAt).toBeNull();
+    }
+    await expect(
+      readFile(
+        getStoragePath("files/member-1/Parent/Z-child/A-grandchild/inside.txt"),
+        "utf8",
+      ),
+    ).resolves.toBe("nested contents");
+  });
+
   it("clearTrash skips a folder tree that becomes active again before the locked delete phase", async () => {
     await cleanDataRoot();
     const { repo, addFolder, addFile } = createMemoryRepository();
@@ -1898,6 +1999,7 @@ describe("files service", { concurrent: false }, () => {
       if (result && result.id === trashed.id && !revalidationCalled) {
         revalidationCalled = true;
         // Simulate the folder being restored between snapshot and lock.
+        trashed.deletedAt = null;
         return { ...result, deletedAt: null };
       }
       return result;

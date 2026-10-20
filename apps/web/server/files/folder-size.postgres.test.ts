@@ -295,7 +295,7 @@ it("backfills old nested metadata without changing revisions or timestamps", asy
     await client.query(`CREATE SCHEMA "${schema}"`);
     await client.query(`SET search_path TO "${schema}", public`);
     await client.query(
-      `CREATE TABLE "Folder" (id TEXT PRIMARY KEY, "parentId" TEXT, "deletedAt" TIMESTAMP, "storageRevision" INT DEFAULT 7, "updatedAt" TIMESTAMP DEFAULT '2026-01-01')`,
+      `CREATE TABLE "Folder" (id TEXT PRIMARY KEY, "parentId" TEXT, "deletedAt" TIMESTAMP, "storageRevision" INT DEFAULT 7, "updatedAt" TIMESTAMP DEFAULT '2026-01-01', "isFilesRoot" BOOLEAN DEFAULT false)`,
     );
     await client.query(
       `CREATE TABLE "File" (id TEXT PRIMARY KEY, "folderId" TEXT, "sizeBytes" BIGINT, "deletedAt" TIMESTAMP)`,
@@ -314,6 +314,15 @@ it("backfills old nested metadata without changing revisions or timestamps", asy
       "utf8",
     );
     await client.query(migration);
+    await client.query(
+      await readFile(
+        new URL(
+          "../../../../packages/db/prisma/migrations/20261019010000_scoped_folder_totals/migration.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
     expect(
       (
         await client.query(
@@ -357,6 +366,23 @@ it("backfills old nested metadata without changing revisions or timestamps", asy
         )
       ).rows[0].bytes,
     ).toBe("9007199254741000");
+    await client.query("BEGIN");
+    await client.query(`UPDATE "Folder" SET "parentId"=NULL WHERE id='child'`);
+    expect(
+      (
+        await client.query(
+          `SELECT "treeSizeBytes"::text AS bytes FROM "Folder" WHERE id='root'`,
+        )
+      ).rows[0].bytes,
+    ).toBe("7");
+    expect(
+      (
+        await client.query(
+          `SELECT "treeSizeBytes"::text AS bytes FROM "Folder" WHERE id='child'`,
+        )
+      ).rows[0].bytes,
+    ).toBe("9007199254740993");
+    await client.query("ROLLBACK");
   } finally {
     await client.query("ROLLBACK");
     await client.query("SET search_path TO public");
@@ -412,4 +438,134 @@ it("adds up live files in a folder and every folder below it", async () => {
   expect(await getFolderSizeBytes(photos.id)).toBe(123);
   expect(await getFolderSizeBytes(lisbon.id)).toBe(23);
   expect(await getFolderSizeBytes(trashed.id)).toBe(0);
+});
+
+const expectFreshTotals = async (ownerUserId: string) => {
+  const wrong = await getPrisma().$queryRaw<{ id: string }[]>`
+    WITH RECURSIVE tree(root_id, id) AS (
+      SELECT id, id FROM "Folder" WHERE "ownerUserId" = ${ownerUserId} AND "deletedAt" IS NULL
+      UNION
+      SELECT tree.root_id, child.id FROM tree JOIN "Folder" child ON child."parentId" = tree.id WHERE child."deletedAt" IS NULL
+    ), totals AS (
+      SELECT tree.root_id, SUM(file."sizeBytes") AS bytes FROM tree JOIN "File" file ON file."folderId" = tree.id AND file."deletedAt" IS NULL GROUP BY tree.root_id
+    )
+    SELECT folder.id FROM "Folder" folder LEFT JOIN totals ON totals.root_id = folder.id
+    WHERE folder."ownerUserId" = ${ownerUserId} AND folder."treeSizeBytes" <> COALESCE(totals.bytes, 0)
+  `;
+  expect(wrong).toEqual([]);
+};
+
+it("keeps mixed parent changes and old cycles exact", async () => {
+  const { db, user, root, left, right, child } = await tree();
+  await db.$executeRaw`UPDATE "Folder" SET "parentId" = CASE WHEN id = ${child.id} THEN ${right.id} ELSE ${left.id} END WHERE id IN (${child.id}, ${right.id})`;
+  await expectFreshTotals(user.id);
+  await db.folder.update({
+    where: { id: left.id },
+    data: { parentId: child.id },
+  });
+  await expectFreshTotals(user.id);
+  await db.folder.update({
+    where: { id: child.id },
+    data: { parentId: root.id },
+  });
+  await expectFreshTotals(user.id);
+  await db.folder.update({
+    where: { id: child.id },
+    data: { parentId: right.id },
+  });
+  await expectFreshTotals(user.id);
+  await db.folder.delete({ where: { id: left.id } });
+  await expectFreshTotals(user.id);
+});
+
+it("changes folders without reading unrelated files at the root or in another branch", async () => {
+  const { db, user, root, left, right, child } = await tree();
+  await db.file.createMany({
+    data: Array.from({ length: 2000 }, (_, index) => ({
+      ownerUserId: user.id,
+      folderId: index < 1000 ? root.id : right.id,
+      originalName: `${index}.txt`,
+      storageKey: randomUUID(),
+      mimeType: "text/plain",
+      sizeBytes: 1,
+    })),
+  });
+  const client = new Client({
+    connectionString: inject("postgresDatabaseUrl"),
+  });
+  await client.connect();
+  try {
+    for (const move of [true, false]) {
+      await client.query("BEGIN");
+      if (move)
+        await client.query('UPDATE "Folder" SET "parentId"=$1 WHERE id=$2', [
+          right.id,
+          child.id,
+        ]);
+      else
+        await client.query(
+          'UPDATE "Folder" SET "deletedAt"=NOW() WHERE id=ANY($1::text[])',
+          [[left.id, child.id]],
+        );
+      const reads = await client.query(
+        `SELECT seq_tup_read + idx_tup_fetch AS reads FROM pg_stat_xact_user_tables WHERE relid='"File"'::regclass`,
+      );
+      expect(Number(reads.rows[0].reads)).toBe(0);
+      const total = await client.query(
+        'SELECT "treeSizeBytes"::text AS bytes FROM "Folder" WHERE id=$1',
+        [root.id],
+      );
+      expect(total.rows[0].bytes).toBe(move ? "2020" : "2000");
+      await client.query("ROLLBACK");
+    }
+  } finally {
+    await client.query("ROLLBACK");
+    await client.end();
+  }
+  await expectFreshTotals(user.id);
+});
+
+it("matches fresh totals after overlapping moves and changes under deleted parents", async () => {
+  const { db, user, root, left, right, child, file } = await tree();
+  const folders = (ids: string[], deletedAt: Date | null) =>
+    db.folder.updateMany({ where: { id: { in: ids } }, data: { deletedAt } });
+  const steps = [
+    () => folders([left.id, child.id], new Date()),
+    () =>
+      db.file.update({
+        where: { id: file.id },
+        data: { folderId: right.id, sizeBytes: 10n },
+      }),
+    () => folders([left.id, child.id], null),
+    () =>
+      db.file.update({
+        where: { id: file.id },
+        data: { folderId: child.id, sizeBytes: 99n },
+      }),
+    () => folders([left.id], new Date()),
+    () => db.file.update({ where: { id: file.id }, data: { sizeBytes: 5n } }),
+    () =>
+      db.folder.update({
+        where: { id: child.id },
+        data: { parentId: right.id },
+      }),
+    () => folders([left.id], null),
+    () =>
+      db.file.update({
+        where: { id: file.id },
+        data: { deletedAt: new Date() },
+      }),
+    () => folders([right.id, child.id], new Date()),
+    () => db.file.update({ where: { id: file.id }, data: { deletedAt: null } }),
+    () => folders([right.id, child.id], null),
+    () =>
+      db.$executeRaw`UPDATE "Folder" SET "parentId" = CASE WHEN id = ${child.id} THEN ${root.id} ELSE ${left.id} END WHERE id IN (${child.id}, ${right.id})`,
+    () => db.folder.delete({ where: { id: right.id } }),
+    () => db.file.delete({ where: { id: file.id } }),
+    () => db.folder.delete({ where: { id: child.id } }),
+  ];
+  for (const step of steps) {
+    await step();
+    await expectFreshTotals(user.id);
+  }
 });

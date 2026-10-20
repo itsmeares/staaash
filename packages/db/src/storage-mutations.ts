@@ -351,25 +351,6 @@ const updateMetadataEntity = (
   }
 };
 
-const deleteMetadataEntity = (
-  tx: Prisma.TransactionClient,
-  entityType: "file" | "folder" | "derivative" | "archive",
-  args: object,
-) => {
-  switch (entityType) {
-    case "file":
-      return tx.file.deleteMany(args as Prisma.FileDeleteManyArgs);
-    case "folder":
-      return tx.folder.deleteMany(args as Prisma.FolderDeleteManyArgs);
-    case "derivative":
-      return tx.mediaDerivative.deleteMany(
-        args as Prisma.MediaDerivativeDeleteManyArgs,
-      );
-    case "archive":
-      return tx.zipArchive.deleteMany(args as Prisma.ZipArchiveDeleteManyArgs);
-  }
-};
-
 const metadataDateKeys = new Set([
   "deletedAt",
   "storageCheckedAt",
@@ -523,9 +504,13 @@ type UpdateMetadataOperation = Extract<
   StorageMetadataOperation,
   { action: "update" }
 >;
+type DeleteMetadataOperation = Extract<
+  StorageMetadataOperation,
+  { action: "delete" }
+>;
 type NonUpdateMetadataOperation = Exclude<
   StorageMetadataOperation,
-  UpdateMetadataOperation
+  UpdateMetadataOperation | DeleteMetadataOperation
 >;
 
 const parseRecoverableStorageMutationIntent = (
@@ -569,6 +554,37 @@ const takeMetadataUpdateBatch = (
     batch.push(candidate);
   }
   return batch;
+};
+
+const takeMetadataDeleteBatch = (
+  operations: StorageMetadataOperation[],
+  operationIndex: number,
+) => {
+  const batch: DeleteMetadataOperation[] = [];
+  for (const operation of operations.slice(operationIndex)) {
+    if (operation.action !== "delete") break;
+    if (batch[0] && operation.entityType !== batch[0].entityType) break;
+    batch.push(operation);
+  }
+  return batch;
+};
+
+const applyBulkMetadataDeletes = async (
+  tx: Prisma.TransactionClient,
+  operations: DeleteMetadataOperation[],
+) => {
+  const table = metadataTableByType[operations[0].entityType];
+  const count = await tx.$executeRaw`
+    DELETE FROM ${Prisma.raw(`"${table}"`)} AS target
+    USING jsonb_to_recordset(${JSON.stringify(operations)}::jsonb)
+      AS source("entityId" text, "preRevision" integer)
+    WHERE target.id = source."entityId" AND target."storageRevision" = source."preRevision"
+  `;
+  if (count !== operations.length) {
+    throw new StorageMutationIntentError(
+      `Metadata delete CAS failed for ${operations[0].entityType}.`,
+    );
+  }
 };
 
 const assertOneMetadataRow = (count: number, message: string): undefined => {
@@ -659,22 +675,6 @@ const metadataOperationHandlers: Record<
   NonUpdateMetadataOperation["action"],
   MetadataOperationHandler
 > = {
-  delete: async (tx, raw) => {
-    const operation = raw as Extract<
-      NonUpdateMetadataOperation,
-      { action: "delete" }
-    >;
-    const result = await deleteMetadataEntity(tx, operation.entityType, {
-      where: {
-        id: operation.entityId,
-        storageRevision: operation.preRevision,
-      },
-    });
-    assertOneMetadataRow(
-      result.count,
-      `Metadata delete CAS failed for ${operation.entityType}:${operation.entityId}.`,
-    );
-  },
   create_file: async (tx, raw) => {
     const operation = raw as Extract<
       NonUpdateMetadataOperation,
@@ -789,6 +789,12 @@ export const applyStorageMutationIntentMetadata = async (
     if (operation.action === "update") {
       const batch = takeMetadataUpdateBatch(operations, operationIndex);
       await applyBulkMetadataUpdates(tx, batch);
+      operationIndex += batch.length;
+      continue;
+    }
+    if (operation.action === "delete") {
+      const batch = takeMetadataDeleteBatch(operations, operationIndex);
+      await applyBulkMetadataDeletes(tx, batch);
       operationIndex += batch.length;
       continue;
     }
@@ -908,71 +914,6 @@ const assertPreparedOwner = (actual: string, expected: string) => {
   }
 };
 
-const resolveUpdatedFileNamespace = async (
-  tx: Prisma.TransactionClient,
-  ownerUserId: string,
-  operation: StorageUpdateOperation,
-): Promise<NamespaceTarget | null> => {
-  const current = await tx.file.findUnique({
-    where: { id: operation.entityId },
-    select: {
-      ownerUserId: true,
-      folderId: true,
-      originalName: true,
-      deletedAt: true,
-    },
-  });
-  if (!current || current.ownerUserId !== ownerUserId) return null;
-  const deletedAt =
-    "deletedAt" in operation.data
-      ? operation.data.deletedAt
-      : current.deletedAt;
-  if (deletedAt !== null) return null;
-  return {
-    entityType: "file",
-    entityId: operation.entityId,
-    parentId:
-      "folderId" in operation.data
-        ? (operation.data.folderId as string | null)
-        : current.folderId,
-    name:
-      "originalName" in operation.data
-        ? String(operation.data.originalName)
-        : current.originalName,
-  };
-};
-
-const resolveUpdatedFolderNamespace = async (
-  tx: Prisma.TransactionClient,
-  ownerUserId: string,
-  operation: StorageUpdateOperation,
-): Promise<NamespaceTarget | null> => {
-  const current = await tx.folder.findUnique({
-    where: { id: operation.entityId },
-    select: {
-      ownerUserId: true,
-      parentId: true,
-      name: true,
-      deletedAt: true,
-    },
-  });
-  if (!current || current.ownerUserId !== ownerUserId) return null;
-  const deletedAt =
-    "deletedAt" in operation.data
-      ? operation.data.deletedAt
-      : current.deletedAt;
-  if (deletedAt !== null) return null;
-  return {
-    entityType: "folder",
-    entityId: operation.entityId,
-    parentId:
-      "parentId" in operation.data
-        ? (operation.data.parentId as string | null)
-        : current.parentId,
-    name: "name" in operation.data ? String(operation.data.name) : current.name,
-  };
-};
-
 const isNamespaceChangingUpdate = (operation: StorageUpdateOperation) =>
   operation.data.deletedAt === null ||
   "name" in operation.data ||
@@ -980,77 +921,143 @@ const isNamespaceChangingUpdate = (operation: StorageUpdateOperation) =>
   "folderId" in operation.data ||
   "parentId" in operation.data;
 
-const resolveUpdatedNamespace = async (
+const readUpdatedNamespaces = async (
   tx: Prisma.TransactionClient,
   ownerUserId: string,
-  operation: StorageMetadataOperation,
-): Promise<NamespaceTarget | null> => {
-  if (operation.action !== "update") return null;
-  if (!isNamespaceChangingUpdate(operation)) return null;
-  if (operation.entityType === "file") {
-    return resolveUpdatedFileNamespace(tx, ownerUserId, operation);
-  }
-  if (operation.entityType === "folder") {
-    return resolveUpdatedFolderNamespace(tx, ownerUserId, operation);
-  }
-  return null;
+  operations: StorageMetadataOperation[],
+) => {
+  const updates = operations.filter(
+    (operation): operation is StorageUpdateOperation =>
+      operation.action === "update" && isNamespaceChangingUpdate(operation),
+  );
+  const idsFor = (entityType: "file" | "folder") =>
+    updates
+      .filter((operation) => operation.entityType === entityType)
+      .map((operation) => operation.entityId);
+  const fileIds = idsFor("file");
+  const folderIds = idsFor("folder");
+  const [files, folders] = await Promise.all([
+    fileIds.length
+      ? tx.file.findMany({
+          where: { ownerUserId, id: { in: fileIds } },
+          select: {
+            id: true,
+            folderId: true,
+            originalName: true,
+            deletedAt: true,
+          },
+        })
+      : [],
+    folderIds.length
+      ? tx.folder.findMany({
+          where: { ownerUserId, id: { in: folderIds } },
+          select: { id: true, parentId: true, name: true, deletedAt: true },
+        })
+      : [],
+  ]);
+  return new Map<string, PreparedNamespace>([
+    ...files.map(
+      (file) =>
+        [
+          `file:${file.id}`,
+          {
+            entityType: "file",
+            parentId: file.folderId,
+            name: file.originalName,
+            deletedAt: file.deletedAt,
+          },
+        ] as const,
+    ),
+    ...folders.map(
+      (folder) =>
+        [
+          `folder:${folder.id}`,
+          {
+            entityType: "folder",
+            parentId: folder.parentId,
+            name: folder.name,
+            deletedAt: folder.deletedAt,
+          },
+        ] as const,
+    ),
+  ]);
 };
 
-const collectPreparedNamespaceOperation = async ({
-  tx,
-  ownerUserId,
-  operation,
-  targets,
-  trashStorageRoots,
-}: {
-  tx: Prisma.TransactionClient;
-  ownerUserId: string;
-  operation: StorageMetadataOperation;
-  targets: NamespaceTarget[];
-  trashStorageRoots: string[];
-}) => {
-  if (operation.action === "create_trash_entry") {
-    if (operation.data.storageRootKey) {
-      trashStorageRoots.push(operation.data.storageRootKey);
-    }
-    return;
-  }
+type PreparedNamespace = {
+  entityType: "file" | "folder";
+  parentId: string | null;
+  name: string;
+  deletedAt: Date | null;
+};
+
+const updatedNamespaceTarget = (
+  operation: StorageUpdateOperation,
+  current: PreparedNamespace,
+): NamespaceTarget | null => {
+  const deletedAt =
+    "deletedAt" in operation.data
+      ? operation.data.deletedAt
+      : current.deletedAt;
+  if (deletedAt !== null) return null;
+  const parentKey = operation.entityType === "file" ? "folderId" : "parentId";
+  const nameKey = operation.entityType === "file" ? "originalName" : "name";
+  return {
+    entityType: current.entityType,
+    entityId: operation.entityId,
+    parentId:
+      parentKey in operation.data
+        ? (operation.data[parentKey] as string | null)
+        : current.parentId,
+    name:
+      nameKey in operation.data
+        ? String(operation.data[nameKey])
+        : current.name,
+  };
+};
+
+const collectPreparedNamespaceOperation = (
+  ownerUserId: string,
+  operation: StorageMetadataOperation,
+  currentNamespaces: Awaited<ReturnType<typeof readUpdatedNamespaces>>,
+): NamespaceTarget | null => {
   if (operation.action === "create_file") {
     assertPreparedOwner(operation.data.ownerUserId, ownerUserId);
-    targets.push({
+    return {
       entityType: "file",
       entityId: operation.data.id,
       parentId: operation.data.folderId,
       name: operation.data.originalName,
-    });
-    return;
+    };
   }
   if (operation.action === "create_folder") {
     assertPreparedOwner(operation.data.ownerUserId, ownerUserId);
-    targets.push({
+    return {
       entityType: "folder",
       entityId: operation.data.id,
       parentId: operation.data.parentId,
       name: operation.data.name,
-    });
-    return;
+    };
   }
-  const target = await resolveUpdatedNamespace(tx, ownerUserId, operation);
-  if (target) targets.push(target);
+  if (operation.action !== "update" || !isNamespaceChangingUpdate(operation))
+    return null;
+  const current = currentNamespaces.get(
+    `${operation.entityType}:${operation.entityId}`,
+  );
+  if (!current) return null;
+  return updatedNamespaceTarget(operation, current);
 };
 
 const validatePreparedTrashRoots = async (
   tx: Prisma.TransactionClient,
   trashStorageRoots: string[],
 ) => {
-  for (const storageRootKey of trashStorageRoots) {
-    const conflict = await tx.trashEntry.findFirst({
-      where: { storageRootKey },
-      select: { id: true },
-    });
-    if (conflict) {
-      throw new StorageMutationConflictError("STORAGE_MUTATION_IN_PROGRESS");
-    }
+  if (!trashStorageRoots.length) return;
+  const conflict = await tx.trashEntry.findFirst({
+    where: { storageRootKey: { in: trashStorageRoots } },
+    select: { id: true },
+  });
+  if (conflict) {
+    throw new StorageMutationConflictError("STORAGE_MUTATION_IN_PROGRESS");
   }
 };
 
@@ -1066,24 +1073,45 @@ const validatePreparedTargets = async (
       throw new StorageMutationConflictError("STORAGE_MUTATION_IN_PROGRESS");
     }
     planned.add(key);
-    const [conflict] = await tx.$queryRaw<Array<{ exists: boolean }>>`
-      SELECT EXISTS (
-        SELECT 1 FROM "File"
-         WHERE "ownerUserId" = ${ownerUserId}
-           AND "folderId" IS NOT DISTINCT FROM ${target.parentId}::text
-           AND "originalName" = ${target.name}
-           AND "deletedAt" IS NULL AND id <> ${target.entityId}
-        UNION ALL
-        SELECT 1 FROM "Folder"
-         WHERE "ownerUserId" = ${ownerUserId}
-           AND "parentId" IS NOT DISTINCT FROM ${target.parentId}::text
-           AND "name" = ${target.name}
-           AND "deletedAt" IS NULL AND id <> ${target.entityId}
-      )
-    `;
-    if (conflict.exists) {
-      throw new StorageMutationConflictError("STORAGE_MUTATION_IN_PROGRESS");
-    }
+  }
+  if (!targets.length) return;
+  const parentIds = [
+    ...new Set(
+      targets.map((target) => target.parentId).filter((id) => id !== null),
+    ),
+  ];
+  // Bind parent IDs before joining names, even when owner statistics are stale.
+  const [conflict] = await tx.$queryRaw<Array<{ exists: boolean }>>`
+    WITH targets AS (
+      SELECT * FROM jsonb_to_recordset(${JSON.stringify(targets)}::jsonb)
+        AS target("entityId" text, "parentId" text, name text)
+    )
+    SELECT EXISTS (
+      SELECT 1 FROM targets target JOIN "File" file
+        ON file."folderId" = target."parentId" AND file."originalName" = target.name
+      WHERE file."ownerUserId" = ${ownerUserId} AND file."deletedAt" IS NULL
+        AND file."folderId" = ANY(${parentIds}::text[])
+        AND file.id <> target."entityId"
+      UNION ALL
+      SELECT 1 FROM targets target JOIN "Folder" folder
+        ON folder."parentId" = target."parentId" AND folder.name = target.name
+      WHERE folder."ownerUserId" = ${ownerUserId} AND folder."deletedAt" IS NULL
+        AND folder."parentId" = ANY(${parentIds}::text[])
+        AND folder.id <> target."entityId"
+      UNION ALL
+      SELECT 1 FROM targets target JOIN "File" file ON file."originalName" = target.name
+      WHERE target."parentId" IS NULL AND file."folderId" IS NULL
+        AND file."ownerUserId" = ${ownerUserId} AND file."deletedAt" IS NULL
+        AND file.id <> target."entityId"
+      UNION ALL
+      SELECT 1 FROM targets target JOIN "Folder" folder ON folder.name = target.name
+      WHERE target."parentId" IS NULL AND folder."parentId" IS NULL
+        AND folder."ownerUserId" = ${ownerUserId} AND folder."deletedAt" IS NULL
+        AND folder.id <> target."entityId"
+    )
+  `;
+  if (conflict.exists) {
+    throw new StorageMutationConflictError("STORAGE_MUTATION_IN_PROGRESS");
   }
 };
 
@@ -1094,16 +1122,26 @@ const validatePreparedNamespaces = async (
 ) => {
   const operations = getPreparedMetadataOperations(intentJson);
   if (!operations) return;
+  const currentNamespaces = await readUpdatedNamespaces(
+    tx,
+    ownerUserId,
+    operations,
+  );
   const targets: NamespaceTarget[] = [];
   const trashStorageRoots: string[] = [];
   for (const operation of operations) {
-    await collectPreparedNamespaceOperation({
-      tx,
+    if (
+      operation.action === "create_trash_entry" &&
+      operation.data.storageRootKey
+    ) {
+      trashStorageRoots.push(operation.data.storageRootKey);
+    }
+    const target = collectPreparedNamespaceOperation(
       ownerUserId,
       operation,
-      targets,
-      trashStorageRoots,
-    });
+      currentNamespaces,
+    );
+    if (target) targets.push(target);
   }
   await validatePreparedTrashRoots(tx, trashStorageRoots);
   await validatePreparedTargets(tx, ownerUserId, targets);

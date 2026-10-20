@@ -7,6 +7,10 @@
     "dist"
   ],
   "exports": {
+    "./folder-tree": {
+      "types": "./dist/folder-tree.d.ts",
+      "default": "./dist/folder-tree.js"
+    },
     "./client": {
       "types": "./dist/client.d.ts",
       "default": "./dist/client.js"
