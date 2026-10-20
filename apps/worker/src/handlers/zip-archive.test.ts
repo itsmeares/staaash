@@ -94,13 +94,17 @@ describe("zip archive handler", () => {
   });
 
   afterEach(async () => {
+    vi.useRealTimers();
     if (tempRoot) {
       await rm(tempRoot, { recursive: true, force: true });
       tempRoot = null;
     }
   });
 
-  it("journals replacement through mutation-scoped incoming and backup paths", async () => {
+  it("waits for a brief source publication, then journals replacement", async () => {
+    mocks.listBlockingStorageMutationsForEntities.mockResolvedValueOnce([
+      { mutation: { id: "thumbnail-publication" } },
+    ]);
     tempRoot = await mkdtemp(path.join(os.tmpdir(), "staaash-zip-archive-"));
     const filesRoot = path.join(tempRoot, "storage");
     const tmpRoot = path.join(filesRoot, "tmp");
@@ -115,6 +119,7 @@ describe("zip archive handler", () => {
     await writeFile(sourcePath, "source bytes");
     await writeFile(existingArchivePath, "old archive");
 
+    let sourceReads = 0;
     mocks.getPrisma.mockReturnValue({
       folder: { findMany: vi.fn(async () => []) },
       file: {
@@ -124,7 +129,10 @@ describe("zip archive handler", () => {
             ownerUserId: "owner-1",
             folderId: null,
             originalName: "source.txt",
-            storageKey: "files/owner-1/source.txt",
+            storageKey:
+              ++sourceReads === 1
+                ? "files/owner-1/old-name.txt"
+                : "files/owner-1/source.txt",
             deletedAt: null,
             storageRevision: 2,
           },
@@ -141,6 +149,10 @@ describe("zip archive handler", () => {
       uploadStagingTtlMs: 1,
     });
 
+    expect(mocks.listBlockingStorageMutationsForEntities).toHaveBeenCalledTimes(
+      2,
+    );
+    expect(mocks.runWorkerStorageMutation).toHaveBeenCalledTimes(1);
     expect(mocks.runWorkerStorageMutation).toHaveBeenCalledWith(
       expect.objectContaining({
         mutationId: "archive-publish-archive-1-job-1",
@@ -183,6 +195,67 @@ describe("zip archive handler", () => {
       }),
     );
   });
+
+  it.each(["deadline", "cancellation"])(
+    "does not read or publish blocked sources after %s",
+    async (stop) => {
+      tempRoot = await mkdtemp(path.join(os.tmpdir(), "staaash-zip-blocked-"));
+      mocks.getPrisma.mockReturnValue({
+        folder: { findMany: vi.fn(async () => []) },
+        file: {
+          findMany: vi.fn(async () => [
+            { id: "file-1", storageKey: "source.txt" },
+          ]),
+        },
+      });
+      mocks.listBlockingStorageMutationsForEntities.mockResolvedValue([
+        { mutation: { id: "source-move" } },
+      ]);
+      vi.useFakeTimers();
+      const controller = new AbortController();
+      const running = handleZipArchiveGenerate(
+        createJob(),
+        {
+          filesRoot: tempRoot,
+          tmpRoot: path.join(tempRoot, "tmp"),
+          heartbeatPath: path.join(tempRoot, "heartbeat.json"),
+          pendingDeleteRoot: path.join(tempRoot, "pending-delete"),
+          uploadStagingTtlMs: 1,
+        },
+        {
+          signal: controller.signal,
+          workerId: "worker-1",
+          storagePaths: {
+            filesRoot: tempRoot,
+            tmpRoot: tempRoot,
+            heartbeatPath: tempRoot,
+            pendingDeleteRoot: tempRoot,
+            uploadStagingTtlMs: 1,
+          },
+          updateProgress: async () => {},
+          emitEvent: async () => {},
+        },
+      );
+      const rejected =
+        stop === "deadline"
+          ? expect(running).rejects.toThrow("source-move")
+          : expect(running).rejects.toMatchObject({ code: "UPLOAD_CANCELLED" });
+      await vi.waitFor(() =>
+        expect(
+          mocks.listBlockingStorageMutationsForEntities,
+        ).toHaveBeenCalled(),
+      );
+      if (stop === "cancellation") controller.abort();
+      else await vi.advanceTimersByTimeAsync(5100);
+      await rejected;
+      expect(mocks.runWorkerStorageMutation).not.toHaveBeenCalled();
+      if (stop === "deadline")
+        expect(mocks.updateZipArchiveFailed).not.toHaveBeenCalled();
+      await expect(
+        readFile(path.join(tempRoot, "tmp/archives/archive-1.zip.tmp")),
+      ).rejects.toMatchObject({ code: "ENOENT" });
+    },
+  );
 
   it.each([
     { folderIds: ["a", "b"], nestedPath: "Alpha/Empty-A/nested.txt" },
@@ -354,25 +427,4 @@ describe("zip archive handler", () => {
       expect(mocks.runWorkerStorageMutation).not.toHaveBeenCalled();
     },
   );
-
-  it("does not publish an archive when a selected file has an unfinished mutation", async () => {
-    tempRoot = await mkdtemp(path.join(os.tmpdir(), "staaash-zip-blocked-"));
-    mocks.getPrisma.mockReturnValue({
-      file: { findMany: async () => [{ id: "file-1", storageRevision: 0 }] },
-    });
-    mocks.listBlockingStorageMutationsForEntities.mockResolvedValue([
-      { mutation: { id: "unfinished" } },
-    ]);
-    await expect(
-      handleZipArchiveGenerate(createJob(), {
-        filesRoot: tempRoot,
-        tmpRoot: path.join(tempRoot, "tmp"),
-        heartbeatPath: path.join(tempRoot, "heartbeat.json"),
-        pendingDeleteRoot: path.join(tempRoot, "pending-delete"),
-        uploadStagingTtlMs: 1,
-      }),
-    ).rejects.toThrow();
-    expect(mocks.runWorkerStorageMutation).not.toHaveBeenCalled();
-    expect(mocks.updateZipArchiveFailed).not.toHaveBeenCalled();
-  });
 });

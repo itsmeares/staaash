@@ -39,7 +39,9 @@ five seconds. Full conversions retain their six-hour job limit. Before publishin
 generated output, the worker uses the existing bounded storage-admission wait
 for brief resource conflicts. Accepted journal work keeps control of its bytes
 and recovery; a job does not rebuild an artifact merely because another save
-briefly owns the account lock.
+briefly owns the account lock. Archive selection also waits through brief source
+locks and reloads its metadata before reading bytes. Persistent locks still stop
+the archive, and cancellation stops the wait.
 
 Small archives have priority 1
 and the general slot excludes those marked ZIP jobs. Older workers still drain

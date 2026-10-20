@@ -10,6 +10,7 @@ import {
 } from "@staaash/config/zip";
 import { getPrisma } from "@staaash/db/client";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
+import { waitForStorageAdmission } from "@staaash/db/storage-transactions";
 import {
   findZipArchiveById,
   updateZipArchiveProcessing,
@@ -181,26 +182,58 @@ export const handleZipArchiveGenerate = async (
     const prisma = getPrisma() as unknown as PrismaClient;
     await context?.updateProgress({ stage: "loading_selection", archiveId });
 
-    const allFolders = folderIds.length
-      ? await prisma.folder.findMany({
-          where: { ownerUserId: userId, deletedAt: null } as object,
-        })
-      : [];
+    const {
+      allFolders,
+      folderMap,
+      descendantsByRootId,
+      allDescendantFolderIds,
+      filesToZip,
+    } = await waitForStorageAdmission(
+      async () => {
+        const allFolders = folderIds.length
+          ? await prisma.folder.findMany({
+              where: { ownerUserId: userId, deletedAt: null } as object,
+            })
+          : [];
 
-    const { folderMap, descendantsByRootId, allDescendantFolderIds } =
-      buildArchiveFolderIndex(allFolders, folderIds);
+        const { folderMap, descendantsByRootId, allDescendantFolderIds } =
+          buildArchiveFolderIndex(allFolders, folderIds);
 
-    // Collect files: directly requested + inside expanded folders
-    const filesToZip = await prisma.file.findMany({
-      where: {
-        ownerUserId: userId,
-        deletedAt: null,
-        OR: [
-          { id: { in: fileIds } },
-          { folderId: { in: [...allDescendantFolderIds] } },
-        ],
+        // Collect files: directly requested + inside expanded folders
+        const filesToZip = await prisma.file.findMany({
+          where: {
+            ownerUserId: userId,
+            deletedAt: null,
+            OR: [
+              { id: { in: fileIds } },
+              { folderId: { in: [...allDescendantFolderIds] } },
+            ],
+          },
+        });
+
+        const blockedFiles = await listBlockingStorageMutationsForEntities({
+          entityType: "file",
+          entityIds: filesToZip.map((file) => file.id),
+        });
+        if (blockedFiles.length > 0) {
+          throw new StorageMutationOwnedError(
+            blockedFiles[0]!.mutation.id,
+            new Error("An archive source has an unfinished storage mutation."),
+          );
+        }
+        return {
+          allFolders,
+          folderMap,
+          descendantsByRootId,
+          allDescendantFolderIds,
+          filesToZip,
+        };
       },
-    });
+      {
+        signal: context?.signal,
+        retryable: (error) => error instanceof StorageMutationOwnedError,
+      },
+    );
 
     // Determine zip filename
     let fileName: string;
@@ -218,16 +251,6 @@ export const handleZipArchiveGenerate = async (
       fileCount: filesToZip.length,
     });
 
-    const blockedFiles = await listBlockingStorageMutationsForEntities({
-      entityType: "file",
-      entityIds: filesToZip.map((file) => file.id),
-    });
-    if (blockedFiles.length > 0) {
-      throw new StorageMutationOwnedError(
-        blockedFiles[0]!.mutation.id,
-        new Error("An archive source has an unfinished storage mutation."),
-      );
-    }
     const entries = filesToZip.map((file) => ({
       filePath: safeResolveStoragePath(storagePaths.filesRoot, file.storageKey),
       archivePath:
