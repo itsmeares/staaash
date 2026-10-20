@@ -1897,6 +1897,20 @@ describe("files service", { concurrent: false }, () => {
       parentId: child.folder.id,
       name: "A-grandchild",
     });
+    await service.uploadFiles({
+      ...actor,
+      folderId: grandchild.folder.id,
+      items: [
+        {
+          clientKey: "nested-file",
+          originalName: "inside.txt",
+          conflictStrategy: "fail",
+          file: new File(["nested contents"], "inside.txt", {
+            type: "text/plain",
+          }),
+        },
+      ],
+    });
     await service.trashFolder({ ...actor, folderId: parent.folder.id });
 
     const listFolderSubtree = repo.listFolderSubtree.bind(repo);
@@ -1916,8 +1930,11 @@ describe("files service", { concurrent: false }, () => {
       expect((await repo.findFolderById(folder.id))?.deletedAt).toBeNull();
     }
     await expect(
-      access(getStoragePath("files/member-1/Parent/Z-child/A-grandchild")),
-    ).resolves.toBeUndefined();
+      readFile(
+        getStoragePath("files/member-1/Parent/Z-child/A-grandchild/inside.txt"),
+        "utf8",
+      ),
+    ).resolves.toBe("nested contents");
   });
 
   it("clearTrash skips a folder tree that becomes active again before the locked delete phase", async () => {
