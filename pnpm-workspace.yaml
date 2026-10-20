@@ -11,7 +11,7 @@ overrides:
   find-my-way: 9.10.0
   hono: 4.13.13
   ip-address: 10.7.4
-  mysql2: 3.24.5
+  mysql2: 3.24.6
   postcss: 8.5.30
   sharp: 0.35.5
   valibot: 1.5.0
@@ -25,7 +25,7 @@ allowBuilds:
   sharp: false
 catalog:
   vite: npm:@voidzero-dev/vite-plus-core@1.2.0
-  vitest: 5.0.4
+  vitest: 5.0.5
   vite-plus: 1.2.0
 peerDependencyRules:
   allowAny:
