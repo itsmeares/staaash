@@ -178,6 +178,7 @@ export const handleZipArchiveGenerate = async (
   await mkdir(tmpDir, { recursive: true });
   const tmpPath = path.resolve(tmpDir, `${archiveId}.zip.tmp`);
 
+  let wroteTemporaryOutput = false;
   try {
     const prisma = getPrisma() as unknown as PrismaClient;
     await context?.updateProgress({ stage: "loading_selection", archiveId });
@@ -287,6 +288,7 @@ export const handleZipArchiveGenerate = async (
     const output = await createZipArchiveStream(entries, directories);
 
     // Write zip stream to temp file
+    wroteTemporaryOutput = true;
     await pipeline(output, createWriteStream(tmpPath));
 
     // Move to final location
@@ -376,7 +378,7 @@ export const handleZipArchiveGenerate = async (
     if (error instanceof StorageMutationOwnedError) {
       throw error;
     }
-    await rm(tmpPath, { force: true });
+    if (wroteTemporaryOutput) await rm(tmpPath, { force: true });
     const message =
       error instanceof Error ? error.message : "Unknown zip error.";
     await updateZipArchiveFailed(archiveId, message);

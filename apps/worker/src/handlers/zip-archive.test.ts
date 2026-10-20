@@ -211,6 +211,9 @@ describe("zip archive handler", () => {
       mocks.listBlockingStorageMutationsForEntities.mockResolvedValue([
         { mutation: { id: "source-move" } },
       ]);
+      const priorOutput = path.join(tempRoot, "tmp/archives/archive-1.zip.tmp");
+      await mkdir(path.dirname(priorOutput), { recursive: true });
+      await writeFile(priorOutput, "earlier output");
       vi.useFakeTimers();
       const controller = new AbortController();
       const running = handleZipArchiveGenerate(
@@ -251,9 +254,7 @@ describe("zip archive handler", () => {
       expect(mocks.runWorkerStorageMutation).not.toHaveBeenCalled();
       if (stop === "deadline")
         expect(mocks.updateZipArchiveFailed).not.toHaveBeenCalled();
-      await expect(
-        readFile(path.join(tempRoot, "tmp/archives/archive-1.zip.tmp")),
-      ).rejects.toMatchObject({ code: "ENOENT" });
+      expect(await readFile(priorOutput, "utf8")).toBe("earlier output");
     },
   );
 
