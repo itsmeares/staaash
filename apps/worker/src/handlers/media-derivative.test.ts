@@ -25,7 +25,7 @@ const mocks = vi.hoisted(() => ({
   runFfmpegTranscode: vi.fn(),
   runFfprobe: vi.fn(),
   upsertDerivativeQueued: vi.fn(),
-  assertWorkerMutationMayStart: vi.fn(),
+  findStorageMutationByIdempotencyKey: vi.fn(),
   findBlockingStorageMutationForEntity: vi.fn(),
   runWorkerStorageMutation: vi.fn(),
 }));
@@ -58,6 +58,8 @@ vi.mock("@staaash/db/media-derivatives", () => ({
 vi.mock("@staaash/db/storage-mutations", () => ({
   findBlockingStorageMutationForEntity:
     mocks.findBlockingStorageMutationForEntity,
+  findStorageMutationByIdempotencyKey:
+    mocks.findStorageMutationByIdempotencyKey,
 }));
 
 vi.mock("../ffmpeg.js", () => ({
@@ -72,7 +74,6 @@ vi.mock("../ffmpeg.js", () => ({
 
 vi.mock("../durable-storage-mutation.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../durable-storage-mutation.js")>()),
-  assertWorkerMutationMayStart: mocks.assertWorkerMutationMayStart,
   runWorkerStorageMutation: mocks.runWorkerStorageMutation,
   StorageMutationOwnedError: class StorageMutationOwnedError extends Error {},
 }));
@@ -121,7 +122,7 @@ describe("media derivative handler", () => {
       id: "derivative-1",
       status: "queued",
     });
-    mocks.assertWorkerMutationMayStart.mockResolvedValue("new");
+    mocks.findStorageMutationByIdempotencyKey.mockResolvedValue(null);
     mocks.findBlockingStorageMutationForEntity.mockResolvedValue(null);
     mocks.runWorkerStorageMutation.mockResolvedValue({ id: "mutation-1" });
     mocks.markDerivativeReady.mockResolvedValue({
@@ -472,6 +473,32 @@ describe("media derivative handler", () => {
     };
     return { job, storagePaths, sourcePath, tmpRoot };
   };
+
+  it("keeps a recovered publication ready when its job runs again", async () => {
+    const { job, storagePaths } = await thumbnailSetup("image/jpeg");
+    mocks.findStorageMutationByIdempotencyKey.mockResolvedValue({
+      id: "recovered-publication",
+      status: "succeeded",
+    });
+    await handleMediaDerivativeGenerate(job, storagePaths);
+    expect(mocks.upsertDerivativeQueued).not.toHaveBeenCalled();
+    expect(mocks.runFfprobe).not.toHaveBeenCalled();
+  });
+
+  it("leaves an unfinished publication to recovery before changing its metadata", async () => {
+    const { job, storagePaths } = await thumbnailSetup("image/jpeg");
+    mocks.findStorageMutationByIdempotencyKey.mockResolvedValue({
+      id: "pending-publication",
+      status: "applying",
+    });
+    const { StorageMutationOwnedError } =
+      await import("../durable-storage-mutation.js");
+    await expect(
+      handleMediaDerivativeGenerate(job, storagePaths),
+    ).rejects.toBeInstanceOf(StorageMutationOwnedError);
+    expect(mocks.upsertDerivativeQueued).not.toHaveBeenCalled();
+    expect(mocks.runFfprobe).not.toHaveBeenCalled();
+  });
 
   it("publishes small image thumbnails through the journal", async () => {
     const { job, storagePaths, sourcePath, tmpRoot } =

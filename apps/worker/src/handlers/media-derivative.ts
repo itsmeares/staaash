@@ -20,7 +20,10 @@ import {
   upsertDerivativeQueued,
 } from "@staaash/db/media-derivatives";
 import { calculateStorageFileChecksum } from "@staaash/db/storage-mutation-executor";
-import { findBlockingStorageMutationForEntity } from "@staaash/db/storage-mutations";
+import {
+  findBlockingStorageMutationForEntity,
+  findStorageMutationByIdempotencyKey,
+} from "@staaash/db/storage-mutations";
 
 import type { WorkerStoragePaths } from "../storage-maintenance.js";
 import type { JobContext } from "../job-context.js";
@@ -35,7 +38,6 @@ import {
   runFfprobe,
 } from "../ffmpeg.js";
 import {
-  assertWorkerMutationMayStart,
   buildArtifactPublishSteps,
   runWorkerStorageMutation,
   StorageMutationOwnedError,
@@ -185,6 +187,14 @@ export const handleMediaDerivativeGenerate = async (
     return;
   }
 
+  const publication = await findStorageMutationByIdempotencyKey(
+    `derivative-publish:${job.id}`,
+  );
+  if (publication) {
+    if (publication.status === "succeeded") return;
+    throw new StorageMutationOwnedError(publication.id);
+  }
+
   const derivative = await upsertDerivativeQueued(
     file.id,
     kind,
@@ -192,9 +202,6 @@ export const handleMediaDerivativeGenerate = async (
     job.id,
   );
   const publishMutationId = `derivative-publish-${derivative.id}-${job.id}`;
-  if ((await assertWorkerMutationMayStart(publishMutationId)) === "succeeded") {
-    return;
-  }
 
   await (getPrisma() as unknown as PrismaClient).mediaDerivative.update({
     where: { id: derivative.id },
