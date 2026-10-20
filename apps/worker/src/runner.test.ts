@@ -214,6 +214,7 @@ describe("worker idle wake-up", () => {
     const jobs = {
       general: ["large-one", "large-two"],
       "small-archive": ["small-one", "small-two"],
+      "small-media": ["thumb-one", "thumb-two"],
     };
     const active = new Map<string, () => void>();
     mocks.claim.mockImplementation(
@@ -233,13 +234,17 @@ describe("worker idle wake-up", () => {
     mocks.run.mockImplementation(async (job: BackgroundJobRecord) => {
       await new Promise<void>((resolve) => active.set(job.id, resolve));
     });
-    const runners = [makeRunner(), makeRunner("small-archive")];
+    const runners = [
+      makeRunner(),
+      makeRunner("small-archive"),
+      makeRunner("small-media"),
+    ];
     const running = runners.map((runner) => runner.start());
     await flush();
-    expect([...active.keys()]).toEqual(["large-one", "small-one"]);
+    expect([...active.keys()]).toEqual(["large-one", "small-one", "thumb-one"]);
     mocks.wakes.forEach((wake) => wake());
     await vi.advanceTimersByTimeAsync(30_000);
-    expect(mocks.claim).toHaveBeenCalledTimes(2);
+    expect(mocks.claim).toHaveBeenCalledTimes(3);
     expect(mocks.renew).toHaveBeenCalledWith(
       expect.objectContaining({ jobId: "large-one", workerId: "test-general" }),
     );
@@ -249,13 +254,17 @@ describe("worker idle wake-up", () => {
         workerId: "test-small-archive",
       }),
     );
+    active.get("thumb-one")!();
+    await flush();
+    expect(active.has("thumb-two")).toBe(true);
+    active.get("thumb-two")!();
     active.get("small-one")!();
     await flush();
     expect(active.has("small-two")).toBe(true);
     expect(active.has("large-two")).toBe(false);
     active.get("small-two")!();
     await flush();
-    expect(mocks.succeeded).toHaveBeenCalledTimes(2);
+    expect(mocks.succeeded).toHaveBeenCalledTimes(4);
     expect(mocks.heartbeat).not.toHaveBeenCalledWith(
       expect.objectContaining({ id: "test-general", status: "idle" }),
     );
@@ -264,22 +273,24 @@ describe("worker idle wake-up", () => {
     await vi.advanceTimersByTimeAsync(1000);
     await Promise.all([...running, ...stopped]);
     expect(active.has("large-two")).toBe(false);
+    expect(mocks.succeeded).toHaveBeenCalledTimes(4);
   });
 
-  it("does not run maintenance or claim general jobs in the small-archive runner", async () => {
-    const runner = makeRunner("small-archive");
-    const running = runner.start();
-    await vi.advanceTimersByTimeAsync(61_000);
-    expect(mocks.schedule).not.toHaveBeenCalled();
-    expect(mocks.recover).not.toHaveBeenCalled();
-    expect(
-      mocks.claim.mock.calls.every(
-        ([options]) => options.lane === "small-archive",
-      ),
-    ).toBe(true);
-    await runner.stop();
-    await running;
-  });
+  it.each(["small-archive", "small-media"] as const)(
+    "does not duplicate maintenance in the %s runner",
+    async (lane) => {
+      const runner = makeRunner(lane);
+      const running = runner.start();
+      await vi.advanceTimersByTimeAsync(61_000);
+      expect(mocks.schedule).not.toHaveBeenCalled();
+      expect(mocks.recover).not.toHaveBeenCalled();
+      expect(
+        mocks.claim.mock.calls.every(([options]) => options.lane === lane),
+      ).toBe(true);
+      await runner.stop();
+      await running;
+    },
+  );
 
   it("waits for an in-flight claim on shutdown without starting its job", async () => {
     let finishClaim = (_job: object) => {};

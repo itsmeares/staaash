@@ -15,7 +15,6 @@ import {
   DERIVATIVE_STATUS_STALE,
   buildDerivativeStorageKey,
   canHaveThumbnail,
-  markDerivativeReady,
   settleDerivativeIfOwned,
   upsertDerivativeQueued,
 } from "@staaash/db/media-derivatives";
@@ -220,7 +219,7 @@ export const handleMediaDerivativeGenerate = async (
     file.id,
     profile,
   );
-  const outputPath = safeResolveStoragePath(storagePaths.filesRoot, storageKey);
+  safeResolveStoragePath(storagePaths.filesRoot, storageKey);
   const tmpDir = path.resolve(storagePaths.tmpRoot, "derivatives");
   const tmpPath = path.resolve(
     tmpDir,
@@ -228,33 +227,6 @@ export const handleMediaDerivativeGenerate = async (
   );
 
   await mkdir(tmpDir, { recursive: true });
-
-  await context?.updateProgress({ stage: "probing", fileId: file.id });
-
-  let probe;
-  try {
-    probe = await runFfprobe(inputPath);
-  } catch (err) {
-    await settleDerivativeIfOwned(derivative.id, job.id, {
-      status: DERIVATIVE_STATUS_FAILED,
-      error: String(err),
-    });
-    throw err;
-  }
-
-  // Music files carry their cover as an attached picture; without one there
-  // is nothing to make, and retrying won't change that.
-  if (
-    isThumbnail &&
-    file.mimeType.startsWith("audio/") &&
-    !probe.streams.some((stream) => stream.codec_type === "video")
-  ) {
-    await settleDerivativeIfOwned(derivative.id, job.id, {
-      status: DERIVATIVE_STATUS_FAILED,
-      error: "No cover art in this file.",
-    });
-    return;
-  }
 
   let cancelledByAdmin = false;
   const controller = new AbortController();
@@ -287,7 +259,24 @@ export const handleMediaDerivativeGenerate = async (
       });
   }, 3000);
 
+  let outputStats;
+  let outputProbe;
   try {
+    if (context?.signal.aborted) abortFromContext();
+    controller.signal.throwIfAborted();
+    await context?.updateProgress({ stage: "probing", fileId: file.id });
+    const probe = await runFfprobe(inputPath, controller.signal);
+    if (
+      isThumbnail &&
+      file.mimeType.startsWith("audio/") &&
+      !probe.streams.some((stream) => stream.codec_type === "video")
+    ) {
+      await settleDerivativeIfOwned(derivative.id, job.id, {
+        status: DERIVATIVE_STATUS_FAILED,
+        error: "No cover art in this file.",
+      });
+      return;
+    }
     await context?.updateProgress({
       stage: isThumbnail
         ? "capturing-thumbnail"
@@ -311,6 +300,10 @@ export const handleMediaDerivativeGenerate = async (
         controller.signal,
       );
     }
+    await context?.updateProgress({ stage: "committing", fileId: file.id });
+    await access(tmpPath);
+    outputStats = await stat(tmpPath);
+    outputProbe = await runFfprobe(tmpPath, controller.signal);
   } catch (err) {
     await rm(tmpPath, { force: true });
     if (cancelledByAdmin) {
@@ -329,20 +322,6 @@ export const handleMediaDerivativeGenerate = async (
     context?.signal.removeEventListener("abort", abortFromContext);
   }
 
-  try {
-    await context?.updateProgress({ stage: "committing", fileId: file.id });
-    await access(tmpPath);
-  } catch (err) {
-    await rm(tmpPath, { force: true });
-    await settleDerivativeIfOwned(derivative.id, job.id, {
-      status: DERIVATIVE_STATUS_FAILED,
-      error: String(err),
-    });
-    throw err;
-  }
-
-  const outputStats = await stat(tmpPath);
-  const outputProbe = await runFfprobe(tmpPath);
   const visualStream = outputProbe.streams.find(
     (s) => s.codec_type === "video",
   );
@@ -397,6 +376,13 @@ export const handleMediaDerivativeGenerate = async (
     status: "ready",
     error: null,
   };
+  if (context?.signal.aborted) {
+    await rm(tmpPath, { force: true });
+    await settleDerivativeIfOwned(derivative.id, job.id, {
+      status: DERIVATIVE_STATUS_STALE,
+    });
+    return;
+  }
   await runWorkerStorageMutation({
     mutationId: publishMutationId,
     kind: "derivative_publish",

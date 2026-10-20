@@ -3,41 +3,64 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
+const FRAME_TIMEOUT_MS = 2 * 60_000;
+const PROBE_TIMEOUT_MS = 60_000;
+const KILL_GRACE_MS = 5_000;
+
 const runFfmpegProcess = (
   args: string[],
   signal?: AbortSignal,
+  timeoutMs?: number,
 ): Promise<void> =>
   new Promise((resolve, reject) => {
-    const proc = spawn("ffmpeg", args, { stdio: "ignore" });
-
-    let killedBySignal = false;
-
-    const onAbort = () => {
-      killedBySignal = true;
-      proc.kill();
-    };
-
     if (signal?.aborted) {
-      proc.kill();
-      killedBySignal = true;
-    } else if (signal) {
-      signal.addEventListener("abort", onAbort, { once: true });
+      reject(signal.reason);
+      return;
     }
-
+    const proc = spawn(
+      "ffmpeg",
+      ["-nostdin", "-threads", "1", "-filter_threads", "1", ...args],
+      { stdio: "ignore" },
+    );
+    let stopped = false;
+    let timedOut = false;
+    let killTimer: NodeJS.Timeout | undefined;
+    const terminate = () => {
+      if (stopped) return;
+      stopped = true;
+      proc.kill("SIGTERM");
+      killTimer = setTimeout(() => proc.kill("SIGKILL"), KILL_GRACE_MS);
+      killTimer.unref();
+    };
+    const timeout =
+      timeoutMs === undefined
+        ? undefined
+        : setTimeout(() => {
+            timedOut = true;
+            terminate();
+          }, timeoutMs);
+    signal?.addEventListener("abort", terminate, { once: true });
+    const cleanup = () => {
+      clearTimeout(timeout);
+      clearTimeout(killTimer);
+      signal?.removeEventListener("abort", terminate);
+    };
     proc.on("close", (code) => {
-      if (signal) signal.removeEventListener("abort", onAbort);
-      if (killedBySignal) {
+      cleanup();
+      if (stopped) {
         reject(
-          Object.assign(new Error("ffmpeg aborted."), { code: "ABORT_ERR" }),
+          new DOMException(
+            timedOut ? "ffmpeg timed out." : "ffmpeg aborted.",
+            timedOut ? "TimeoutError" : "AbortError",
+          ),
         );
-      } else if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`ffmpeg exited with code ${String(code)}.`));
-      }
+      } else if (code === 0) resolve();
+      else reject(new Error(`ffmpeg exited with code ${String(code)}.`));
     });
-
-    proc.on("error", reject);
+    proc.on("error", (error) => {
+      cleanup();
+      reject(error);
+    });
   });
 
 export type FfmpegHealth = {
@@ -56,8 +79,14 @@ const parseVersionLine = (output: string): string | null => {
 
 export const detectFfmpeg = async (): Promise<FfmpegHealth> => {
   const [ffmpegResult, ffprobeResult] = await Promise.allSettled([
-    execFileAsync("ffmpeg", ["-version"]),
-    execFileAsync("ffprobe", ["-version"]),
+    execFileAsync("ffmpeg", ["-version"], {
+      timeout: 10_000,
+      killSignal: "SIGKILL",
+    }),
+    execFileAsync("ffprobe", ["-version"], {
+      timeout: 10_000,
+      killSignal: "SIGKILL",
+    }),
   ]);
 
   const ffmpegOk = ffmpegResult.status === "fulfilled";
@@ -108,16 +137,26 @@ export type FfprobeResult = {
   format: FfprobeFormat;
 };
 
-export const runFfprobe = async (inputPath: string): Promise<FfprobeResult> => {
-  const { stdout } = await execFileAsync("ffprobe", [
-    "-v",
-    "quiet",
-    "-print_format",
-    "json",
-    "-show_streams",
-    "-show_format",
-    inputPath,
-  ]);
+export const runFfprobe = async (
+  inputPath: string,
+  signal?: AbortSignal,
+): Promise<FfprobeResult> => {
+  signal?.throwIfAborted();
+  const { stdout } = await execFileAsync(
+    "ffprobe",
+    [
+      "-v",
+      "quiet",
+      "-threads",
+      "1",
+      "-print_format",
+      "json",
+      "-show_streams",
+      "-show_format",
+      inputPath,
+    ],
+    { signal, timeout: PROBE_TIMEOUT_MS, killSignal: "SIGKILL" },
+  );
   return JSON.parse(stdout) as FfprobeResult;
 };
 
@@ -186,6 +225,8 @@ export const runFfmpegTranscode = (
       `scale=-2:min(ih\\,${maxHeight}):force_original_aspect_ratio=decrease`,
       "-c:v",
       "libx264",
+      "-threads",
+      "1",
       "-preset",
       "medium",
       "-crf",
@@ -218,6 +259,8 @@ const runFfmpegPosterFrame = (
       inputPath,
       "-frames:v",
       "1",
+      "-threads",
+      "1",
       "-vf",
       "scale=min(1280\\,iw):-2",
       "-q:v",
@@ -227,6 +270,7 @@ const runFfmpegPosterFrame = (
       outputPath,
     ],
     signal,
+    FRAME_TIMEOUT_MS,
   );
 
 export const runFfmpegPoster = async (
@@ -237,7 +281,11 @@ export const runFfmpegPoster = async (
   try {
     await runFfmpegPosterFrame(inputPath, outputPath, 1, signal);
   } catch (error) {
-    if (signal?.aborted) throw error;
+    if (
+      signal?.aborted ||
+      (error instanceof Error && error.name === "TimeoutError")
+    )
+      throw error;
     await runFfmpegPosterFrame(inputPath, outputPath, 0, signal);
   }
 };
@@ -256,6 +304,8 @@ const runFfmpegThumbnailFrame = (
       inputPath,
       "-frames:v",
       "1",
+      "-threads",
+      "1",
       "-vf",
       "scale=480:480:force_original_aspect_ratio=decrease",
       "-q:v",
@@ -265,6 +315,7 @@ const runFfmpegThumbnailFrame = (
       outputPath,
     ],
     signal,
+    FRAME_TIMEOUT_MS,
   );
 
 /**
@@ -284,7 +335,11 @@ export const runFfmpegThumbnail = async (
   try {
     await runFfmpegThumbnailFrame(inputPath, outputPath, 1, signal);
   } catch (error) {
-    if (signal?.aborted) throw error;
+    if (
+      signal?.aborted ||
+      (error instanceof Error && error.name === "TimeoutError")
+    )
+      throw error;
     // Videos shorter than a second have no frame there.
     await runFfmpegThumbnailFrame(inputPath, outputPath, 0, signal);
   }

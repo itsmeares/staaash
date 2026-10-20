@@ -30,10 +30,12 @@ const workerId = `${os.hostname()}-${process.pid}-${Date.now()}`;
 const workerVersion = resolveWorkerVersion();
 const workerHeartbeatMs = 30_000;
 const maintenanceMs = 60_000;
-const workers = (["general", "small-archive"] as const).map((lane) => {
-  const id = `${workerId}-${lane}`;
-  return { id, lane };
-});
+const workers = (["general", "small-archive", "small-media"] as const).map(
+  (lane) => {
+    const id = `${workerId}-${lane}`;
+    return { id, lane };
+  },
+);
 
 const runMaintenance = async () => {
   await recoverPendingDeletes({
@@ -128,12 +130,21 @@ const main = async () => {
     storagePaths,
     lane: "small-archive",
   });
+  const smallMediaRunner = new WorkerRunner({
+    workerId: workers[2].id,
+    storagePaths,
+    lane: "small-media",
+  });
 
   const stop = async (signal: NodeJS.Signals) => {
     console.info("[worker] Shutdown requested.", { signal });
     clearInterval(heartbeatTimer);
     clearInterval(maintenanceTimer);
-    await Promise.all([generalRunner.stop(), smallArchiveRunner.stop()]);
+    await Promise.all([
+      generalRunner.stop(),
+      smallArchiveRunner.stop(),
+      smallMediaRunner.stop(),
+    ]);
     await Promise.all(
       workers.map(({ id }) =>
         markWorkerInstanceStopped({ id }).catch(() => undefined),
@@ -145,7 +156,11 @@ const main = async () => {
   process.once("SIGINT", (signal) => void stop(signal));
   process.once("SIGTERM", (signal) => void stop(signal));
 
-  await Promise.all([generalRunner.start(), smallArchiveRunner.start()]);
+  await Promise.all([
+    generalRunner.start(),
+    smallArchiveRunner.start(),
+    smallMediaRunner.start(),
+  ]);
 };
 
 void main().catch((error) => {

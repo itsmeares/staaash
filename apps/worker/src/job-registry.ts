@@ -58,7 +58,7 @@ const restorePayloadSchema = z
   .passthrough();
 const derivativePayloadSchema = z.object({
   fileId: z.string().min(1),
-  kind: z.string().min(1),
+  kind: z.enum(["thumbnail", "poster", "preview"]),
   profile: z.string().min(1),
   reason: z.string().min(1),
 });

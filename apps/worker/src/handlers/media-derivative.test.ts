@@ -234,9 +234,13 @@ describe("media derivative handler", () => {
       }),
     ).resolves.toBeUndefined();
 
-    expect(mocks.runFfprobe).toHaveBeenCalledWith(sourcePath);
+    expect(mocks.runFfprobe).toHaveBeenCalledWith(
+      sourcePath,
+      expect.any(AbortSignal),
+    );
     expect(mocks.runFfprobe).toHaveBeenCalledWith(
       path.join(tmpRoot, "derivatives", "derivative-1.mp4.tmp"),
+      expect.any(AbortSignal),
     );
     expect(mocks.runWorkerStorageMutation).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -549,6 +553,30 @@ describe("media derivative handler", () => {
 
     expect(mocks.upsertDerivativeQueued).not.toHaveBeenCalled();
     expect(mocks.runFfmpegThumbnail).not.toHaveBeenCalled();
+  });
+
+  it("cancels a probe without starting an encoder or publishing output", async () => {
+    const { job, storagePaths } = await thumbnailSetup("image/jpeg");
+    const cancel = new AbortController();
+    mocks.runFfprobe.mockImplementation(async (_input, signal: AbortSignal) => {
+      cancel.abort();
+      expect(signal.aborted).toBe(true);
+      signal.throwIfAborted();
+    });
+    await handleMediaDerivativeGenerate(job, storagePaths, {
+      signal: cancel.signal,
+      workerId: "worker-1",
+      storagePaths,
+      emitEvent: vi.fn(async () => undefined),
+      updateProgress: vi.fn(async () => undefined),
+    });
+    expect(mocks.runFfmpegThumbnail).not.toHaveBeenCalled();
+    expect(mocks.runWorkerStorageMutation).not.toHaveBeenCalled();
+    expect(mocks.settleDerivativeIfOwned).toHaveBeenCalledWith(
+      "thumb-derivative-1",
+      job.id,
+      { status: "stale" },
+    );
   });
 
   it("settles the derivative as stale when the job is cancelled mid-encode", async () => {

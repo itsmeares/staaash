@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vite-plus/test";
+import { Prisma } from "./client";
 
 const {
   BACKGROUND_JOB_LEASE_MS,
@@ -115,8 +116,15 @@ const createClient = (
     if (where.NOT && matchesWhere(job, where.NOT as Record<string, unknown>)) {
       return false;
     }
+    if (
+      where.AND &&
+      !(where.AND as Record<string, unknown>[]).every((condition) =>
+        matchesWhere(job, condition),
+      )
+    )
+      return false;
     const entries = Object.entries(where).filter(
-      ([key]) => key !== "OR" && key !== "NOT",
+      ([key]) => key !== "OR" && key !== "NOT" && key !== "AND",
     );
     const directMatch = entries.every(([key, value]) => {
       if (key === "runAt" || key === "lockedAt" || key === "leaseExpiresAt") {
@@ -133,6 +141,18 @@ const createClient = (
         }
       }
 
+      if (key === "payloadJson") {
+        const filter = value as { path: string[]; equals: unknown };
+        let current: unknown = job.payloadJson;
+        for (const part of filter.path)
+          current =
+            current && typeof current === "object"
+              ? (current as Record<string, unknown>)[part]
+              : undefined;
+        return filter.equals === Prisma.AnyNull
+          ? current == null
+          : current === filter.equals;
+      }
       // Handle { in: [...] } for kind filtering
       if (value && typeof value === "object" && "in" in (value as object)) {
         const inFilter = value as InFilter;

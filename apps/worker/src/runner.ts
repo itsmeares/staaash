@@ -60,7 +60,7 @@ export class WorkerRunner {
   ) {}
 
   async start() {
-    if (this.options.lane !== "small-archive") {
+    if (!this.options.lane || this.options.lane === "general") {
       this.storageMutationLoop = this.runStorageMutationLoop();
       this.schedulerTimer = setInterval(() => {
         void schedulePeriodicJobs().catch((error) => {
@@ -259,28 +259,40 @@ export class WorkerRunner {
       entry.parsePayload(job.payloadJson);
       await context.emitEvent("started", "Job handler started.");
       await entry.run(job, this.options.storagePaths, context);
-      const current = await findBackgroundJobById({ jobId: job.id });
-
-      // Only the stored status says a job was cancelled. A handler that stops
-      // early for its own reasons is finished; leaving the job running would
-      // hand it back out when the lease runs out, forever.
-      if (current?.status === "cancelled") {
-        await context.emitEvent("cancel_ack", "Worker observed cancellation.");
-        return;
-      }
-
-      await markBackgroundJobSucceeded({
-        jobId: job.id,
-        workerId: this.options.workerId,
-      });
-      await scheduleNextPeriodicRun(job.kind as never);
+      await this.finishJob(job, controller.signal);
     } catch (error) {
-      await this.handleJobError(job, error);
+      if (!this.stopping) await this.handleJobError(job, error);
     } finally {
       clearInterval(leaseTimer);
       if (cancelTimer) clearInterval(cancelTimer);
       clearTimeout(timeoutTimer);
     }
+  }
+
+  private async finishJob(job: BackgroundJobRecord, signal: AbortSignal) {
+    const current = await findBackgroundJobById({ jobId: job.id });
+
+    // Only the stored status says a job was cancelled. A handler that stops
+    // early for its own reasons is finished; leaving the job running would
+    // hand it back out when the lease runs out, forever.
+    if (current?.status === "cancelled") {
+      await recordBackgroundJobEvent({
+        jobId: job.id,
+        type: "cancel_ack",
+        message: "Worker observed cancellation.",
+        workerId: this.options.workerId,
+      });
+      return;
+    }
+
+    if (this.stopping) return;
+    signal.throwIfAborted();
+
+    await markBackgroundJobSucceeded({
+      jobId: job.id,
+      workerId: this.options.workerId,
+    });
+    await scheduleNextPeriodicRun(job.kind as never);
   }
 
   private async handleJobError(job: BackgroundJobRecord, error: unknown) {

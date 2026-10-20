@@ -1,4 +1,5 @@
 import { Prisma, getPrisma } from "./client";
+import { setTimeout as delay } from "node:timers/promises";
 
 export const STAGING_CLEANUP_JOB_KIND = "staging.cleanup";
 export const TRASH_RETENTION_JOB_KIND = "trash.retention";
@@ -11,7 +12,7 @@ export const ZIP_ARCHIVE_CLEANUP_JOB_KIND = "zip.archive.cleanup" as const;
 
 export const DEFAULT_BACKGROUND_JOB_QUEUE = "default";
 const SMALL_ARCHIVE_PRIORITY = 1;
-export type BackgroundJobLane = "general" | "small-archive";
+export type BackgroundJobLane = "general" | "small-archive" | "small-media";
 export const STAGING_CLEANUP_SCHEDULE_WINDOW_MS = 15 * 60 * 1000;
 export const BACKGROUND_JOB_LEASE_MS = 60_000;
 export const BACKGROUND_JOB_RETRY_DELAY_MS = 30_000;
@@ -336,6 +337,8 @@ export const ensureBackgroundJobScheduled = async ({
       ) {
         throw error;
       }
+      // Immediate retries collide again when several previews are requested together.
+      await delay((25 + Math.random() * 25) * 2 ** attempt);
     }
   }
 
@@ -365,11 +368,37 @@ export const claimDueBackgroundJob = async ({
       kind: ZIP_ARCHIVE_GENERATE_JOB_KIND,
       priority: SMALL_ARCHIVE_PRIORITY,
     };
+    const smallMedia = {
+      kind: MEDIA_DERIVATIVE_GENERATE_JOB_KIND,
+      AND: [
+        {
+          OR: ["thumbnail", "poster"].map((kind) => ({
+            payloadJson: { path: ["kind"], equals: kind },
+          })),
+        },
+      ],
+    };
     const job = await tx.backgroundJob.findFirst({
       where: {
         ...(lane === "small-archive"
           ? smallArchive
-          : { kind: { in: ALL_SUPPORTED_JOB_KINDS }, NOT: smallArchive }),
+          : lane === "small-media"
+            ? smallMedia
+            : {
+                kind: { in: ALL_SUPPORTED_JOB_KINDS },
+                NOT: smallArchive,
+                // A missing JSON key does not satisfy NOT in PostgreSQL.
+                AND: [
+                  {
+                    OR: [
+                      { NOT: smallMedia },
+                      {
+                        payloadJson: { path: ["kind"], equals: Prisma.AnyNull },
+                      },
+                    ],
+                  },
+                ],
+              }),
         queueName,
         OR: [
           { status: "queued", runAt: { lte: now } },
