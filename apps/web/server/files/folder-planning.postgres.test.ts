@@ -2,10 +2,12 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { getPrisma } from "@staaash/db/client";
+import { STORAGE_MUTATION_MAX_PRECOMMIT_ATTEMPTS } from "@staaash/db/storage-mutation-executor";
 import { beforeAll, expect, it, vi } from "vite-plus/test";
 import { prismaFilesRepository } from "./repository";
 import { createFilesService } from "./service";
-import { getStoragePath } from "../storage";
+import { recoverStorageMutations } from "../../../worker/src/handlers/storage-mutation-recovery.js";
+import { getStoragePath, getStorageRoot } from "../storage";
 
 const db = getPrisma();
 const service = createFilesService();
@@ -259,3 +261,136 @@ it("resolves only requested upload names and keeps missing-file and private-acco
     broadFiles.mockRestore();
   }
 });
+
+it("keeps every byte in trash when request and worker recovery roll back a folder restore", async () => {
+  const { user, root, actor } = await createOwner();
+  const outer = (
+    await service.createFolder({ ...actor, parentId: root.id, name: "Outer" })
+  ).folder;
+  const inner = (
+    await service.createFolder({ ...actor, parentId: outer.id, name: "Inner" })
+  ).folder;
+  const bytes = Buffer.from("rollback keeps these bytes");
+  const files = Array.from({ length: 130 }, (_, index) => ({
+    id: randomUUID(),
+    ownerUserId: user.id,
+    folderId: index === 0 ? inner.id : outer.id,
+    originalName: `${index}.txt`,
+    storageKey: `files/${user.id}/Outer/${index === 0 ? "Inner/" : ""}${index}.txt`,
+    mimeType: "text/plain",
+    sizeBytes: bytes.length,
+    contentChecksum: createHash("sha256").update(bytes).digest("hex"),
+  }));
+  await db.file.createMany({ data: files });
+  for (const file of files)
+    await writeFile(getStoragePath(file.storageKey), bytes);
+  await service.trashFolder({ ...actor, folderId: outer.id });
+  const fileIds = files.map(({ id }) => id);
+  const trashedKeys = (
+    await db.file.findMany({ where: { id: { in: fileIds } } })
+  ).map(({ storageKey }) => storageKey);
+  const expectStillTrashed = async () => {
+    const current = await db.file.findMany({ where: { id: { in: fileIds } } });
+    expect(current.map(({ storageKey }) => storageKey).sort()).toEqual(
+      [...trashedKeys].sort(),
+    );
+    for (const file of current) {
+      expect(file.deletedAt).not.toBeNull();
+      expect(await readFile(getStoragePath(file.storageKey))).toEqual(bytes);
+    }
+    expect(
+      (await db.folder.findUniqueOrThrow({ where: { id: outer.id } }))
+        .deletedAt,
+    ).not.toBeNull();
+    await expect(
+      readFile(getStoragePath(`files/${user.id}/Outer/1.txt`)),
+    ).rejects.toMatchObject({ code: "ENOENT" });
+  };
+  const latestRestore = () =>
+    db.storageMutation.findFirstOrThrow({
+      where: { ownerUserId: user.id, kind: "folder_restore" },
+      orderBy: { createdAt: "desc" },
+    });
+  const suffix = user.id.replaceAll("-", "_");
+  // Fail the metadata commit after the restore has moved bytes on disk.
+  await db.$executeRawUnsafe(`
+    CREATE FUNCTION fail_restore_${suffix}() RETURNS trigger AS $$
+    BEGIN RAISE EXCEPTION 'forced restore failure'; END $$ LANGUAGE plpgsql
+  `);
+  await db.$executeRawUnsafe(`
+    CREATE TRIGGER fail_restore_${suffix} BEFORE UPDATE ON "Folder"
+    FOR EACH ROW WHEN (OLD.id = '${outer.id}' AND OLD."deletedAt" IS NOT NULL
+      AND NEW."deletedAt" IS NULL)
+    EXECUTE FUNCTION fail_restore_${suffix}()
+  `);
+  try {
+    // The request itself rolls back once the attempt cap is reached.
+    await db.$executeRawUnsafe(`
+      CREATE FUNCTION last_attempt_${suffix}() RETURNS trigger AS $$
+      BEGIN NEW."attemptCount" := ${STORAGE_MUTATION_MAX_PRECOMMIT_ATTEMPTS - 1};
+      RETURN NEW; END $$ LANGUAGE plpgsql
+    `);
+    await db.$executeRawUnsafe(`
+      CREATE TRIGGER last_attempt_${suffix} BEFORE INSERT ON "StorageMutation"
+      FOR EACH ROW WHEN (NEW."ownerUserId" = '${user.id}')
+      EXECUTE FUNCTION last_attempt_${suffix}()
+    `);
+    await expect(
+      service.restoreFolder({ ...actor, folderId: outer.id }),
+    ).rejects.toBeDefined();
+    await db.$executeRawUnsafe(
+      `DROP TRIGGER last_attempt_${suffix} ON "StorageMutation"`,
+    );
+    expect((await latestRestore()).status).toBe("aborted");
+    await expectStillTrashed();
+
+    // A transient request failure leaves the restore for worker recovery.
+    await expect(
+      service.restoreFolder({ ...actor, folderId: outer.id }),
+    ).rejects.toBeDefined();
+    const pending = await latestRestore();
+    expect(pending.status).toBe("retrying");
+    await db.storageMutation.update({
+      where: { id: pending.id },
+      data: {
+        attemptCount: STORAGE_MUTATION_MAX_PRECOMMIT_ATTEMPTS - 1,
+        leaseExpiresAt: new Date(0),
+        nextAttemptAt: new Date(0),
+      },
+    });
+    const storageRoot = getStorageRoot();
+    await recoverStorageMutations({
+      storagePaths: {
+        filesRoot: storageRoot,
+        tmpRoot: path.join(storageRoot, "tmp"),
+        heartbeatPath: path.join(storageRoot, "tmp", "worker-heartbeat.json"),
+        pendingDeleteRoot: path.join(storageRoot, "tmp", "pending-delete"),
+        uploadStagingTtlMs: 1,
+      },
+    });
+    expect((await latestRestore()).status).toBe("aborted");
+    await expectStillTrashed();
+  } finally {
+    await db.$executeRawUnsafe(
+      `DROP TRIGGER IF EXISTS last_attempt_${suffix} ON "StorageMutation"`,
+    );
+    await db.$executeRawUnsafe(
+      `DROP TRIGGER IF EXISTS fail_restore_${suffix} ON "Folder"`,
+    );
+    await db.$executeRawUnsafe(
+      `DROP FUNCTION IF EXISTS last_attempt_${suffix}, fail_restore_${suffix}`,
+    );
+  }
+
+  await service.restoreFolder({ ...actor, folderId: outer.id });
+  for (const file of files) {
+    const restored = await db.file.findUniqueOrThrow({
+      where: { id: file.id },
+    });
+    expect(restored).toMatchObject({
+      deletedAt: null,
+      storageKey: file.storageKey,
+    });
+    expect(await readFile(getStoragePath(file.storageKey))).toEqual(bytes);
+  }
+}, 60000);
