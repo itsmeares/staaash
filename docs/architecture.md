@@ -21,14 +21,29 @@ This is intentionally a small, explicit architecture. The repo is trying to make
 - separate runtime for background behavior
 - intended home for cleanup, reconciliation, and other queued work
 - operationally visible through admin health surfaces
-- one general job slot and one small-archive slot per worker process, with
-  separate lease owners and health records
+- one general job slot, one small-archive slot and one small-media slot per
+  worker process, with separate lease owners and health records
 - the small-archive slot accepts ZIPs of at most 32 directly selected files and
   8 MiB of source data, using metadata from the authorized selection
 - folders and unknown sizes stay in the general slot; batch-move recovery keeps
   its existing separate limit
 
-Both job slots use the default database queue. Small archives have priority 1
+All three job slots use the default database queue. The small-media slot accepts
+thumbnail and poster jobs, including existing queued jobs and retries. Full video
+previews and unknown payload kinds stay in the general slot. Payload validation
+rejects unsupported media kinds before starting a handler. Media decoders, filters
+and encoders use one thread each. Probes have a one-minute limit and individual
+frame captures have a two-minute limit. Cancellation reaches input and output
+probes as well as encoding, and a child that ignores termination is killed after
+five seconds. Full conversions retain their six-hour job limit. Before publishing
+generated output, the worker uses the existing bounded storage-admission wait
+for brief resource conflicts. Accepted journal work keeps control of its bytes
+and recovery; a job does not rebuild an artifact merely because another save
+briefly owns the account lock. Archive selection also waits through brief source
+locks and reloads its metadata before reading bytes. Persistent locks still stop
+the archive, and cancellation stops the wait.
+
+Small archives have priority 1
 and the general slot excludes those marked ZIP jobs. Older workers still drain
 the same queue after a rollback. Already queued jobs without the marker keep
 their original general-slot behavior. Retry preserves the marker. Source bytes

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vite-plus/test";
+import { Prisma } from "./client";
 
 const {
   BACKGROUND_JOB_LEASE_MS,
@@ -115,8 +116,15 @@ const createClient = (
     if (where.NOT && matchesWhere(job, where.NOT as Record<string, unknown>)) {
       return false;
     }
+    if (
+      where.AND &&
+      !(where.AND as Record<string, unknown>[]).every((condition) =>
+        matchesWhere(job, condition),
+      )
+    )
+      return false;
     const entries = Object.entries(where).filter(
-      ([key]) => key !== "OR" && key !== "NOT",
+      ([key]) => key !== "OR" && key !== "NOT" && key !== "AND",
     );
     const directMatch = entries.every(([key, value]) => {
       if (key === "runAt" || key === "lockedAt" || key === "leaseExpiresAt") {
@@ -133,6 +141,18 @@ const createClient = (
         }
       }
 
+      if (key === "payloadJson") {
+        const filter = value as { path: string[]; equals: unknown };
+        let current: unknown = job.payloadJson;
+        for (const part of filter.path)
+          current =
+            current && typeof current === "object"
+              ? (current as Record<string, unknown>)[part]
+              : undefined;
+        return filter.equals === Prisma.AnyNull
+          ? current == null
+          : current === filter.equals;
+      }
       // Handle { in: [...] } for kind filtering
       if (value && typeof value === "object" && "in" in (value as object)) {
         const inFilter = value as InFilter;
@@ -729,6 +749,32 @@ describe("background jobs", () => {
     expect(result.created).toBe(true);
     expect(attempts).toBe(2);
     expect(jobs).toHaveLength(1);
+  });
+
+  it("stops scheduling retries when the contention window expires", async () => {
+    const error = Object.assign(new Error("serialization failure"), {
+      code: "P2034",
+    });
+    const client = {
+      ...createClient([]),
+      $transaction: vi.fn().mockRejectedValue(error),
+    };
+    const clock = vi
+      .spyOn(Date, "now")
+      .mockReturnValueOnce(0)
+      .mockReturnValue(5_001);
+    try {
+      await expect(
+        ensureBackgroundJobScheduled({
+          kind: UPDATE_CHECK_JOB_KIND,
+          runAt: new Date("2026-04-01T12:00:00.000Z"),
+          client,
+        }),
+      ).rejects.toBe(error);
+      expect(client.$transaction).toHaveBeenCalledOnce();
+    } finally {
+      clock.mockRestore();
+    }
   });
 
   it("multi-kind dispatcher claims the earliest due job across kinds", async () => {

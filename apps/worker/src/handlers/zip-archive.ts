@@ -11,9 +11,12 @@ import {
 import { getPrisma } from "@staaash/db/client";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
 import {
+  StorageAdmissionCancelledError,
+  waitForStorageAdmission,
+} from "@staaash/db/storage-transactions";
+import {
   findZipArchiveById,
   updateZipArchiveProcessing,
-  updateZipArchiveReady,
   updateZipArchiveFailed,
   ZIP_ARCHIVE_STATUS_READY,
 } from "@staaash/db/zip-archives";
@@ -88,6 +91,38 @@ const collectDescendantFolderIds = (
   return result;
 };
 
+const buildArchiveFolderIndex = (
+  allFolders: FolderRecord[],
+  folderIds: string[],
+) => {
+  const folderMap = new Map(allFolders.map((f) => [f.id, f]));
+
+  const childrenByParentId = new Map<string, FolderRecord[]>();
+  for (const folder of allFolders) {
+    if (folder.parentId) {
+      const list = childrenByParentId.get(folder.parentId) ?? [];
+      list.push(folder);
+      childrenByParentId.set(folder.parentId, list);
+    }
+  }
+
+  // Expand each requested folder to all descendants (per-root sets for path building)
+  const allDescendantFolderIds = new Set<string>();
+  const descendantsByRootId = new Map<string, Set<string>>();
+  for (const folderId of folderIds) {
+    const descendants = collectDescendantFolderIds(
+      folderId,
+      childrenByParentId,
+    );
+    descendantsByRootId.set(folderId, descendants);
+    for (const id of descendants) {
+      allDescendantFolderIds.add(id);
+    }
+  }
+
+  return { folderMap, descendantsByRootId, allDescendantFolderIds };
+};
+
 const buildFileArchivePath = (
   file: StoredFileRecord,
   folderMap: Map<string, FolderRecord>,
@@ -146,52 +181,63 @@ export const handleZipArchiveGenerate = async (
   await mkdir(tmpDir, { recursive: true });
   const tmpPath = path.resolve(tmpDir, `${archiveId}.zip.tmp`);
 
+  let wroteTemporaryOutput = false;
   try {
     const prisma = getPrisma() as unknown as PrismaClient;
     await context?.updateProgress({ stage: "loading_selection", archiveId });
 
-    const allFolders = folderIds.length
-      ? await prisma.folder.findMany({
-          where: { ownerUserId: userId, deletedAt: null } as object,
-        })
-      : [];
+    const {
+      allFolders,
+      folderMap,
+      descendantsByRootId,
+      allDescendantFolderIds,
+      filesToZip,
+    } = await waitForStorageAdmission(
+      async () => {
+        const allFolders = folderIds.length
+          ? await prisma.folder.findMany({
+              where: { ownerUserId: userId, deletedAt: null } as object,
+            })
+          : [];
 
-    const folderMap = new Map(allFolders.map((f) => [f.id, f]));
+        const { folderMap, descendantsByRootId, allDescendantFolderIds } =
+          buildArchiveFolderIndex(allFolders, folderIds);
 
-    const childrenByParentId = new Map<string, FolderRecord[]>();
-    for (const folder of allFolders) {
-      if (folder.parentId) {
-        const list = childrenByParentId.get(folder.parentId) ?? [];
-        list.push(folder);
-        childrenByParentId.set(folder.parentId, list);
-      }
-    }
+        // Collect files: directly requested + inside expanded folders
+        const filesToZip = await prisma.file.findMany({
+          where: {
+            ownerUserId: userId,
+            deletedAt: null,
+            OR: [
+              { id: { in: fileIds } },
+              { folderId: { in: [...allDescendantFolderIds] } },
+            ],
+          },
+        });
 
-    // Expand each requested folder to all descendants (per-root sets for path building)
-    const allDescendantFolderIds = new Set<string>();
-    const descendantsByRootId = new Map<string, Set<string>>();
-    for (const folderId of folderIds) {
-      const descendants = collectDescendantFolderIds(
-        folderId,
-        childrenByParentId,
-      );
-      descendantsByRootId.set(folderId, descendants);
-      for (const id of descendants) {
-        allDescendantFolderIds.add(id);
-      }
-    }
-
-    // Collect files: directly requested + inside expanded folders
-    const filesToZip = await prisma.file.findMany({
-      where: {
-        ownerUserId: userId,
-        deletedAt: null,
-        OR: [
-          { id: { in: fileIds } },
-          { folderId: { in: [...allDescendantFolderIds] } },
-        ],
+        const blockedFiles = await listBlockingStorageMutationsForEntities({
+          entityType: "file",
+          entityIds: filesToZip.map((file) => file.id),
+        });
+        if (blockedFiles.length > 0) {
+          throw new StorageMutationOwnedError(
+            blockedFiles[0]!.mutation.id,
+            new Error("An archive source has an unfinished storage mutation."),
+          );
+        }
+        return {
+          allFolders,
+          folderMap,
+          descendantsByRootId,
+          allDescendantFolderIds,
+          filesToZip,
+        };
       },
-    });
+      {
+        signal: context?.signal,
+        retryable: (error) => error instanceof StorageMutationOwnedError,
+      },
+    );
 
     // Determine zip filename
     let fileName: string;
@@ -209,16 +255,6 @@ export const handleZipArchiveGenerate = async (
       fileCount: filesToZip.length,
     });
 
-    const blockedFiles = await listBlockingStorageMutationsForEntities({
-      entityType: "file",
-      entityIds: filesToZip.map((file) => file.id),
-    });
-    if (blockedFiles.length > 0) {
-      throw new StorageMutationOwnedError(
-        blockedFiles[0]!.mutation.id,
-        new Error("An archive source has an unfinished storage mutation."),
-      );
-    }
     const entries = filesToZip.map((file) => ({
       filePath: safeResolveStoragePath(storagePaths.filesRoot, file.storageKey),
       archivePath:
@@ -255,14 +291,12 @@ export const handleZipArchiveGenerate = async (
     const output = await createZipArchiveStream(entries, directories);
 
     // Write zip stream to temp file
+    wroteTemporaryOutput = true;
     await pipeline(output, createWriteStream(tmpPath));
 
     // Move to final location
     const storageKey = `archives/${archiveId}.zip`;
-    const finalPath = safeResolveStoragePath(
-      storagePaths.filesRoot,
-      storageKey,
-    );
+    safeResolveStoragePath(storagePaths.filesRoot, storageKey);
     const { size } = await stat(tmpPath);
     const tmpKey = path
       .relative(storagePaths.filesRoot, tmpPath)
@@ -295,6 +329,7 @@ export const handleZipArchiveGenerate = async (
       ownerUserId: userId,
       idempotencyKey: `archive-publish:${job.id}`,
       storagePaths,
+      signal: context?.signal,
       metadataOperations: [
         {
           action: "update",
@@ -343,10 +378,13 @@ export const handleZipArchiveGenerate = async (
     });
     await context?.updateProgress({ stage: "ready", archiveId });
   } catch (error) {
-    if (error instanceof StorageMutationOwnedError) {
+    if (
+      error instanceof StorageMutationOwnedError ||
+      error instanceof StorageAdmissionCancelledError
+    ) {
       throw error;
     }
-    await rm(tmpPath, { force: true });
+    if (wroteTemporaryOutput) await rm(tmpPath, { force: true });
     const message =
       error instanceof Error ? error.message : "Unknown zip error.";
     await updateZipArchiveFailed(archiveId, message);

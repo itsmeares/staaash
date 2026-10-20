@@ -15,7 +15,7 @@ vi.mock("@staaash/db/client", () => ({
   }),
 }));
 
-const { schedulePeriodicJobs, scheduleNextPeriodicRun } =
+const { schedulePeriodicJobs, scheduleNextPeriodicRun, getJobRegistryEntry } =
   await import("./job-registry.js");
 
 const updateCheckCalls = () =>
@@ -71,4 +71,26 @@ describe("update check scheduling", () => {
       expect.objectContaining({ runAt: new Date("2026-10-10T13:47:30.000Z") }),
     ]);
   });
+});
+
+it("rejects unknown media kinds before a handler can treat them as a full conversion", () => {
+  const entry = getJobRegistryEntry("media.derivative.generate")!;
+  expect(() =>
+    entry.parsePayload({
+      fileId: "file",
+      kind: "unknown",
+      profile: "preview-1080p",
+      reason: "first-view",
+    }),
+  ).toThrow("Invalid background job payload");
+  for (const kind of ["thumbnail", "poster", "preview"]) {
+    expect(() =>
+      entry.parsePayload({
+        fileId: "file",
+        kind,
+        profile: "test",
+        reason: "first-view",
+      }),
+    ).not.toThrow();
+  }
 });

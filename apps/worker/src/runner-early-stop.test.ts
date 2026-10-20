@@ -74,3 +74,39 @@ describe("worker runner", () => {
     );
   });
 });
+
+it.each(["return", "reject"])(
+  "does not mark a timed-out handler as successful after %s",
+  async (mode) => {
+    vi.useFakeTimers();
+    vi.clearAllMocks();
+    db.claimDueBackgroundJob.mockResolvedValueOnce(job);
+    try {
+      db.findBackgroundJobById.mockResolvedValue({ ...job, status: "running" });
+      const { StorageAdmissionCancelledError } =
+        await import("@staaash/db/storage-transactions");
+      registry.run.mockImplementationOnce(async (...args: unknown[]) => {
+        const context = args[2] as { signal: AbortSignal };
+        await new Promise<void>((resolve, reject) =>
+          context.signal.addEventListener(
+            "abort",
+            () =>
+              mode === "return"
+                ? resolve()
+                : reject(new StorageAdmissionCancelledError()),
+            { once: true },
+          ),
+        );
+      });
+      const processing = runner().processNextJob();
+      await vi.advanceTimersByTimeAsync(60_000);
+      await processing;
+      expect(db.markBackgroundJobSucceeded).not.toHaveBeenCalled();
+      expect(db.markBackgroundJobTerminal).toHaveBeenCalledWith(
+        expect.objectContaining({ jobId: "job-1", errorCode: "timeout" }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  },
+);

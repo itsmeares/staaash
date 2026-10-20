@@ -3,6 +3,7 @@ import { access, mkdir, rm, stat } from "node:fs/promises";
 
 import { getPrisma } from "@staaash/db/client";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
+import { StorageAdmissionCancelledError } from "@staaash/db/storage-transactions";
 import {
   DERIVATIVE_KIND_POSTER,
   DERIVATIVE_KIND_PREVIEW,
@@ -15,12 +16,14 @@ import {
   DERIVATIVE_STATUS_STALE,
   buildDerivativeStorageKey,
   canHaveThumbnail,
-  markDerivativeReady,
   settleDerivativeIfOwned,
   upsertDerivativeQueued,
 } from "@staaash/db/media-derivatives";
 import { calculateStorageFileChecksum } from "@staaash/db/storage-mutation-executor";
-import { findBlockingStorageMutationForEntity } from "@staaash/db/storage-mutations";
+import {
+  findBlockingStorageMutationForEntity,
+  findStorageMutationByIdempotencyKey,
+} from "@staaash/db/storage-mutations";
 
 import type { WorkerStoragePaths } from "../storage-maintenance.js";
 import type { JobContext } from "../job-context.js";
@@ -35,7 +38,6 @@ import {
   runFfprobe,
 } from "../ffmpeg.js";
 import {
-  assertWorkerMutationMayStart,
   buildArtifactPublishSteps,
   runWorkerStorageMutation,
   StorageMutationOwnedError,
@@ -185,6 +187,14 @@ export const handleMediaDerivativeGenerate = async (
     return;
   }
 
+  const publication = await findStorageMutationByIdempotencyKey(
+    `derivative-publish:${job.id}`,
+  );
+  if (publication) {
+    if (publication.status === "succeeded") return;
+    throw new StorageMutationOwnedError(publication.id);
+  }
+
   const derivative = await upsertDerivativeQueued(
     file.id,
     kind,
@@ -192,9 +202,6 @@ export const handleMediaDerivativeGenerate = async (
     job.id,
   );
   const publishMutationId = `derivative-publish-${derivative.id}-${job.id}`;
-  if ((await assertWorkerMutationMayStart(publishMutationId)) === "succeeded") {
-    return;
-  }
 
   await (getPrisma() as unknown as PrismaClient).mediaDerivative.update({
     where: { id: derivative.id },
@@ -220,7 +227,7 @@ export const handleMediaDerivativeGenerate = async (
     file.id,
     profile,
   );
-  const outputPath = safeResolveStoragePath(storagePaths.filesRoot, storageKey);
+  safeResolveStoragePath(storagePaths.filesRoot, storageKey);
   const tmpDir = path.resolve(storagePaths.tmpRoot, "derivatives");
   const tmpPath = path.resolve(
     tmpDir,
@@ -228,33 +235,6 @@ export const handleMediaDerivativeGenerate = async (
   );
 
   await mkdir(tmpDir, { recursive: true });
-
-  await context?.updateProgress({ stage: "probing", fileId: file.id });
-
-  let probe;
-  try {
-    probe = await runFfprobe(inputPath);
-  } catch (err) {
-    await settleDerivativeIfOwned(derivative.id, job.id, {
-      status: DERIVATIVE_STATUS_FAILED,
-      error: String(err),
-    });
-    throw err;
-  }
-
-  // Music files carry their cover as an attached picture; without one there
-  // is nothing to make, and retrying won't change that.
-  if (
-    isThumbnail &&
-    file.mimeType.startsWith("audio/") &&
-    !probe.streams.some((stream) => stream.codec_type === "video")
-  ) {
-    await settleDerivativeIfOwned(derivative.id, job.id, {
-      status: DERIVATIVE_STATUS_FAILED,
-      error: "No cover art in this file.",
-    });
-    return;
-  }
 
   let cancelledByAdmin = false;
   const controller = new AbortController();
@@ -287,7 +267,24 @@ export const handleMediaDerivativeGenerate = async (
       });
   }, 3000);
 
+  let outputStats;
+  let outputProbe;
   try {
+    if (context?.signal.aborted) abortFromContext();
+    controller.signal.throwIfAborted();
+    await context?.updateProgress({ stage: "probing", fileId: file.id });
+    const probe = await runFfprobe(inputPath, controller.signal);
+    if (
+      isThumbnail &&
+      file.mimeType.startsWith("audio/") &&
+      !probe.streams.some((stream) => stream.codec_type === "video")
+    ) {
+      await settleDerivativeIfOwned(derivative.id, job.id, {
+        status: DERIVATIVE_STATUS_FAILED,
+        error: "No cover art in this file.",
+      });
+      return;
+    }
     await context?.updateProgress({
       stage: isThumbnail
         ? "capturing-thumbnail"
@@ -311,6 +308,10 @@ export const handleMediaDerivativeGenerate = async (
         controller.signal,
       );
     }
+    await context?.updateProgress({ stage: "committing", fileId: file.id });
+    await access(tmpPath);
+    outputStats = await stat(tmpPath);
+    outputProbe = await runFfprobe(tmpPath, controller.signal);
   } catch (err) {
     await rm(tmpPath, { force: true });
     if (cancelledByAdmin) {
@@ -329,20 +330,6 @@ export const handleMediaDerivativeGenerate = async (
     context?.signal.removeEventListener("abort", abortFromContext);
   }
 
-  try {
-    await context?.updateProgress({ stage: "committing", fileId: file.id });
-    await access(tmpPath);
-  } catch (err) {
-    await rm(tmpPath, { force: true });
-    await settleDerivativeIfOwned(derivative.id, job.id, {
-      status: DERIVATIVE_STATUS_FAILED,
-      error: String(err),
-    });
-    throw err;
-  }
-
-  const outputStats = await stat(tmpPath);
-  const outputProbe = await runFfprobe(tmpPath);
   const visualStream = outputProbe.streams.find(
     (s) => s.codec_type === "video",
   );
@@ -397,48 +384,65 @@ export const handleMediaDerivativeGenerate = async (
     status: "ready",
     error: null,
   };
-  await runWorkerStorageMutation({
-    mutationId: publishMutationId,
-    kind: "derivative_publish",
-    ownerUserId: file.ownerUserId,
-    idempotencyKey: `derivative-publish:${job.id}`,
-    storagePaths,
-    metadataOperations: [
-      {
-        action: "update",
-        entityType: "derivative",
-        entityId: derivative.id,
-        preRevision: derivative.storageRevision ?? 0,
-        data: readyData,
-      },
-    ],
-    steps: buildArtifactPublishSteps({
+  if (context?.signal.aborted) {
+    await rm(tmpPath, { force: true });
+    await settleDerivativeIfOwned(derivative.id, job.id, {
+      status: DERIVATIVE_STATUS_STALE,
+    });
+    return;
+  }
+  try {
+    await runWorkerStorageMutation({
       mutationId: publishMutationId,
-      tmpKey,
-      storageKey,
-      sizeBytes: BigInt(outputStats.size),
-      checksum: newChecksum,
-      oldChecksum,
-    }),
-    entities: [
-      {
-        entityType: "file",
-        entityId: file.id,
-        preRevision: file.storageRevision,
-        postRevision: file.storageRevision,
-        beforeJson: null,
-        afterJson: null,
-      },
-      {
-        entityType: "derivative",
-        entityId: derivative.id,
-        preRevision: derivative.storageRevision ?? 0,
-        postRevision: (derivative.storageRevision ?? 0) + 1,
-        beforeJson: { status: derivative.status },
-        afterJson: readyData,
-      },
-    ],
-  });
+      kind: "derivative_publish",
+      ownerUserId: file.ownerUserId,
+      idempotencyKey: `derivative-publish:${job.id}`,
+      storagePaths,
+      signal: context?.signal,
+      metadataOperations: [
+        {
+          action: "update",
+          entityType: "derivative",
+          entityId: derivative.id,
+          preRevision: derivative.storageRevision ?? 0,
+          data: readyData,
+        },
+      ],
+      steps: buildArtifactPublishSteps({
+        mutationId: publishMutationId,
+        tmpKey,
+        storageKey,
+        sizeBytes: BigInt(outputStats.size),
+        checksum: newChecksum,
+        oldChecksum,
+      }),
+      entities: [
+        {
+          entityType: "file",
+          entityId: file.id,
+          preRevision: file.storageRevision,
+          postRevision: file.storageRevision,
+          beforeJson: null,
+          afterJson: null,
+        },
+        {
+          entityType: "derivative",
+          entityId: derivative.id,
+          preRevision: derivative.storageRevision ?? 0,
+          postRevision: (derivative.storageRevision ?? 0) + 1,
+          beforeJson: { status: derivative.status },
+          afterJson: readyData,
+        },
+      ],
+    });
+  } catch (error) {
+    if (!(error instanceof StorageAdmissionCancelledError)) throw error;
+    await rm(tmpPath, { force: true });
+    await settleDerivativeIfOwned(derivative.id, job.id, {
+      status: DERIVATIVE_STATUS_STALE,
+    });
+    return;
+  }
 
   await context?.updateProgress({ stage: "ready", fileId: file.id });
 };

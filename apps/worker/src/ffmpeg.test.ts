@@ -120,3 +120,70 @@ describe("ffmpeg helpers", () => {
     },
   );
 });
+
+describe("media child process lifetime", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.doUnmock("node:child_process");
+    vi.resetModules();
+  });
+
+  const stalledProcess = async () => {
+    const proc = Object.assign(new EventEmitter(), { kill: vi.fn() });
+    const spawn = vi.fn(() => proc);
+    vi.doMock("node:child_process", () => ({ execFile: vi.fn(), spawn }));
+    vi.resetModules();
+    const helpers = await import("./ffmpeg.js");
+    return { proc, spawn, ...helpers };
+  };
+
+  it("kills a child that ignores cancellation and waits for it to exit", async () => {
+    vi.useFakeTimers();
+    const { proc, runFfmpegThumbnail } = await stalledProcess();
+    const controller = new AbortController();
+    const running = runFfmpegThumbnail(
+      "source.jpg",
+      "thumb.jpg",
+      false,
+      controller.signal,
+    );
+    const result = expect(running).rejects.toMatchObject({
+      name: "AbortError",
+    });
+    controller.abort();
+    expect(proc.kill).toHaveBeenCalledWith("SIGTERM");
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(proc.kill).toHaveBeenCalledWith("SIGKILL");
+    proc.emit("close", null);
+    await result;
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("bounds a stuck frame capture without retrying the same input", async () => {
+    vi.useFakeTimers();
+    const { proc, spawn, runFfmpegPoster } = await stalledProcess();
+    const result = expect(
+      runFfmpegPoster("source.mp4", "poster.jpg"),
+    ).rejects.toMatchObject({ name: "TimeoutError" });
+    await vi.advanceTimersByTimeAsync(120000);
+    expect(proc.kill).toHaveBeenCalledWith("SIGTERM");
+    await vi.advanceTimersByTimeAsync(5000);
+    proc.emit("close", null);
+    await result;
+    expect(spawn).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("does not start a child after cancellation", async () => {
+    const { spawn, runFfmpegThumbnail, runFfprobe } = await stalledProcess();
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      runFfmpegThumbnail("source.jpg", "thumb.jpg", false, controller.signal),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    await expect(
+      runFfprobe("source.jpg", controller.signal),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(spawn).not.toHaveBeenCalled();
+  });
+});
