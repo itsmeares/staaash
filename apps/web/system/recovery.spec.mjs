@@ -136,6 +136,9 @@ test("a worker killed during publication recovers exactly one generated result",
   const lock = new pg.Client({ connectionString: state.databaseUrl });
   await lock.connect();
   const lockId = 715022001;
+  const dropPause = `DROP TRIGGER staaash_test_pause_publish ON "MediaDerivative";
+    DROP FUNCTION staaash_test_pause_publish();
+    DROP SEQUENCE staaash_test_publish_attempts`;
   let trigger = false;
   try {
     const bytes = await mediaFixture("publication.mp4");
@@ -143,19 +146,22 @@ test("a worker killed during publication recovers exactly one generated result",
       mimeType: "video/mp4",
     });
     await lock.query("SELECT pg_advisory_lock($1)", [lockId]);
-    await sql(`CREATE FUNCTION staaash_test_pause_publish() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
-      IF NEW.status='ready' AND NEW."fileId"='${file.id}' THEN PERFORM pg_advisory_xact_lock(${lockId}); END IF;
+    // The app gives up on a lock after 100 ms, too briefly to catch by polling.
+    // A sequence value survives the rollback that follows.
+    await sql(`CREATE SEQUENCE staaash_test_publish_attempts;
+      CREATE FUNCTION staaash_test_pause_publish() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+      IF NEW.status='ready' AND NEW."fileId"='${file.id}' THEN
+        PERFORM nextval('staaash_test_publish_attempts');
+        PERFORM pg_advisory_xact_lock(${lockId});
+      END IF;
       RETURN NEW; END $$;
       CREATE TRIGGER staaash_test_pause_publish BEFORE UPDATE ON "MediaDerivative" FOR EACH ROW EXECUTE FUNCTION staaash_test_pause_publish()`);
     trigger = true;
     await json(owner, `/api/files/files/${file.id}/derivative`, {});
     await waitFor(
       async () =>
-        (
-          await sql(
-            "SELECT pid FROM pg_stat_activity WHERE wait_event='advisory' AND query LIKE '%MediaDerivative%'",
-          )
-        ).length > 0,
+        (await sql("SELECT is_called FROM staaash_test_publish_attempts"))[0]
+          .is_called,
       "publication metadata waiting after its filesystem move",
       30_000,
     );
@@ -165,9 +171,7 @@ test("a worker killed during publication recovers exactly one generated result",
     expect(mutations.length).toBeGreaterThan(0);
     compose(state, ["kill", "-s", "SIGKILL", "worker"]);
     await lock.query("SELECT pg_advisory_unlock($1)", [lockId]);
-    await sql(
-      'DROP TRIGGER staaash_test_pause_publish ON "MediaDerivative"; DROP FUNCTION staaash_test_pause_publish()',
-    );
+    await sql(dropPause);
     trigger = false;
     await sql(`UPDATE "BackgroundJob" SET "leaseExpiresAt"=NOW()-INTERVAL '1 minute' WHERE status='running';
       UPDATE "StorageMutation" SET "leaseExpiresAt"=NOW()-INTERVAL '1 minute' WHERE status IN ('prepared','running','retrying','metadata_committed','finalizing')`);
@@ -201,10 +205,7 @@ test("a worker killed during publication recovers exactly one generated result",
     await auditTotals();
   } finally {
     await lock.query("SELECT pg_advisory_unlock_all()");
-    if (trigger)
-      await sql(
-        'DROP TRIGGER staaash_test_pause_publish ON "MediaDerivative"; DROP FUNCTION staaash_test_pause_publish()',
-      );
+    if (trigger) await sql(dropPause);
     await lock.end();
     compose(state, ["up", "-d", "worker"]);
     await owner.dispose();
