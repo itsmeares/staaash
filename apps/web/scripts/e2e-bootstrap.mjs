@@ -1,18 +1,11 @@
+import assert from "node:assert/strict";
 import path from "node:path";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createHash, randomBytes, scryptSync } from "node:crypto";
-import { fileURLToPath } from "node:url";
 
 import pg from "pg";
 
-const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
-const webAppRoot = path.resolve(scriptDirectory, "..");
-const workspaceRoot = path.resolve(webAppRoot, "..", "..");
-const envFilePath = path.join(webAppRoot, ".env.local");
-const stateFilePath = path.join(webAppRoot, ".data", "e2e", "state.json");
-const workspaceMarker = "pnpm-workspace.yaml";
+const stateFilePath = process.env.STAAASH_E2E_STATE_FILE;
 
 const OWNER_EMAIL = "owner-e2e@staaash.test";
 const OWNER_ID = "e2e-owner";
@@ -37,75 +30,7 @@ const SHARE_IMAGE_BYTES = Buffer.from(
   "base64",
 );
 
-const parseDotEnv = async (filePath) => {
-  if (!existsSync(filePath)) {
-    return {};
-  }
-
-  const fileContents = await readFile(filePath, "utf8");
-  const entries = {};
-
-  for (const rawLine of fileContents.split(/\r?\n/u)) {
-    const line = rawLine.trim();
-
-    if (!line || line.startsWith("#")) {
-      continue;
-    }
-
-    const separatorIndex = line.indexOf("=");
-
-    if (separatorIndex <= 0) {
-      continue;
-    }
-
-    const key = line.slice(0, separatorIndex).trim();
-    const value = line.slice(separatorIndex + 1).trim();
-    entries[key] = value.replace(/^(['"])(.*)\1$/u, "$2");
-  }
-
-  return entries;
-};
-
-const findWorkspaceRoot = (startDir) => {
-  let current = path.resolve(startDir);
-
-  while (true) {
-    if (existsSync(path.join(current, workspaceMarker))) {
-      return current;
-    }
-
-    const parent = path.dirname(current);
-
-    if (parent === current) {
-      throw new Error(
-        `Unable to find workspace root from ${startDir}. Missing ${workspaceMarker}.`,
-      );
-    }
-
-    current = parent;
-  }
-};
-
-const resolveWorkspacePath = (candidatePath, startDir) =>
-  path.isAbsolute(candidatePath)
-    ? path.resolve(candidatePath)
-    : path.resolve(findWorkspaceRoot(startDir), candidatePath);
-
 const { Client } = pg;
-
-const runPnpm = (args, env) => {
-  execFileSync(
-    process.platform === "win32" ? (process.env.ComSpec ?? "cmd.exe") : "pnpm",
-    process.platform === "win32"
-      ? ["/d", "/s", "/c", `pnpm ${args.join(" ")}`]
-      : args,
-    {
-      cwd: workspaceRoot,
-      stdio: "inherit",
-      env,
-    },
-  );
-};
 
 const hashPassword = (password) => {
   const salt = randomBytes(16).toString("base64url");
@@ -130,50 +55,24 @@ const buildShareToken = (secret, tokenLookupKey) => {
   return `${tokenLookupKey}.${signature}`;
 };
 
-const ensureAppEnv = async () => {
-  const appEnv = await parseDotEnv(envFilePath);
-  const mergedEnv = {
-    ...appEnv,
-    ...process.env,
-  };
-
-  for (const [key, value] of Object.entries(mergedEnv)) {
-    if (typeof value === "string") {
-      process.env[key] = value;
-    }
-  }
-
-  return mergedEnv;
-};
-
-const resetStorageAndSchema = async (env) => {
-  const filesRoot = resolveWorkspacePath(
-    env.FILES_ROOT ?? "./.data/files",
-    webAppRoot,
+const requireIsolatedStorage = async (env) => {
+  const filesRoot = env.FILES_ROOT;
+  assert(filesRoot, "Run E2E preparation through scripts/ci/stack.mjs.");
+  assert(path.isAbsolute(filesRoot));
+  assert(stateFilePath);
+  assert.equal(path.dirname(stateFilePath), path.dirname(filesRoot));
+  assert.match(
+    new URL(env.DATABASE_URL).pathname.slice(1),
+    /^staaash_test_[a-f0-9]{32}$/,
   );
-
-  await rm(filesRoot, { recursive: true, force: true });
-  await rm(stateFilePath, { force: true });
-
-  try {
-    runPnpm(
-      [
-        "--filter",
-        "@staaash/db",
-        "exec",
-        "prisma",
-        "migrate",
-        "reset",
-        "--force",
-      ],
-      env,
-    );
-  } catch (error) {
-    throw new Error(
-      `E2E bootstrap could not reset schema. Ensure PostgreSQL is running and DATABASE_URL is reachable. ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
-
+  assert.match(env.STAAASH_E2E_PROJECT ?? "", /^staaash-test-[a-f0-9]{12}$/);
+  assert.equal(
+    await readFile(
+      path.join(path.dirname(filesRoot), ".staaash-test-root"),
+      "utf8",
+    ),
+    env.STAAASH_E2E_PROJECT,
+  );
   return filesRoot;
 };
 
@@ -324,7 +223,7 @@ const seedE2EData = async ({ filesRoot, authSecret, databaseUrl }) => {
 };
 
 const main = async () => {
-  const env = await ensureAppEnv();
+  const env = process.env;
   const authSecret = env.AUTH_SECRET;
 
   if (!authSecret) {
@@ -335,7 +234,7 @@ const main = async () => {
     throw new Error("DATABASE_URL is required for E2E bootstrap.");
   }
 
-  const filesRoot = await resetStorageAndSchema(env);
+  const filesRoot = await requireIsolatedStorage(env);
   await seedE2EData({
     filesRoot,
     authSecret,

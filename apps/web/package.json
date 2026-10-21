@@ -5,7 +5,7 @@
   "scripts": {
     "predev": "vp run -w build:deps",
     "dev": "next dev",
-    "e2e:prepare": "node scripts/e2e-bootstrap.mjs && node --env-file-if-exists=.env.local scripts/e2e-install-extensions.mjs",
+    "e2e:prepare": "node scripts/e2e-bootstrap.mjs",
     "build": "next build",
     "postbuild": "node scripts/check-built-runtime.mjs",
     "start": "next start",

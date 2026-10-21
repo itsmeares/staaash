@@ -18,6 +18,11 @@ node_modules/
 # Test + dev artifacts
 **/*.test.ts
 **/*.spec.ts
+**/*.spec.mjs
+**/*.test.mjs
+**/system/
+**/e2e/
+.data/
 **/playwright-report/
 **/test-results/
 **/coverage/

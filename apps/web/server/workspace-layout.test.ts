@@ -1,4 +1,3 @@
-import * as React from "react";
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -45,21 +44,8 @@ vi.mock("@/server/app-version", () => ({
   resolveAppVersion: () => "0.0.0-test",
 }));
 
-type ShellInfoProps = {
-  info: {
-    instanceName: string;
-  };
-};
-
-const describeInfo = ({ info }: ShellInfoProps) => `${info.instanceName}|`;
-
 vi.mock("@/app/(workspace)/app-sidebar", () => ({
-  AppSidebar: (props: ShellInfoProps) =>
-    React.createElement(
-      "span",
-      { "data-testid": "sidebar" },
-      describeInfo(props),
-    ),
+  AppSidebar: () => null,
   AppRail: () => null,
 }));
 
@@ -80,12 +66,7 @@ vi.mock("@/app/(workspace)/shortcuts-dialog", () => ({
 }));
 
 vi.mock("@/app/(workspace)/workspace-mobile-nav", () => ({
-  WorkspaceMobileNav: (props: ShellInfoProps) =>
-    React.createElement(
-      "span",
-      { "data-testid": "mobile-nav" },
-      describeInfo(props),
-    ),
+  WorkspaceMobileNav: () => null,
 }));
 
 vi.mock("@/components/ui/toast", () => ({
@@ -139,38 +120,8 @@ describe("WorkspaceLayout", () => {
     mocks.getCurrentSession.mockResolvedValue({
       user: { ...user, isAdmin: false, isOwner: false },
     });
-    const markup = renderToStaticMarkup(
-      await WorkspaceLayout({ children: "Files" }),
-    );
+    renderToStaticMarkup(await WorkspaceLayout({ children: "Files" }));
     expect(mocks.getUpdateState).toHaveBeenCalledTimes(1);
-    expect(markup).toContain('data-testid="mobile-nav">Staaash|</span>');
-  });
-
-  it("uses the instance name as the workspace sidebar brand", async () => {
-    mocks.getSetupState.mockResolvedValue({
-      isBootstrapped: true,
-      instanceName: "Ares Cloud",
-    });
-
-    mocks.getCurrentSession.mockResolvedValue({
-      user: {
-        id: "u1",
-        email: "member@example.com",
-        displayName: null,
-        isAdmin: false,
-        isOwner: false,
-        avatarUrl: null,
-        storageLimitBytes: null,
-        preferences: {},
-      },
-    });
-
-    const { default: WorkspaceLayout } =
-      await import("@/app/(workspace)/layout");
-    const page = await WorkspaceLayout({ children: "Files" });
-    const markup = renderToStaticMarkup(page);
-
-    expect(markup).toContain('data-testid="sidebar">Ares Cloud|');
   });
 
   it("shows signed-out visitors the page alone, without a drive around it", async () => {

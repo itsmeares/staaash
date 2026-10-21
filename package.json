@@ -30,6 +30,7 @@
     "build:deps": "vp run --filter \"./packages/*\" build"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "5.0.5",
     "fallow": "3.34.1",
     "typescript": "^6.0.3",
     "vite-plus": "catalog:"

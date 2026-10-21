@@ -37,4 +37,9 @@ test("uploads a multipart file above Next's default proxy body limit", async ({
     uploadedFiles?: Array<{ id?: string }>;
   };
   expect(result.uploadedFiles?.[0]?.id).toBeTruthy();
+  const downloaded = await page.request.get(
+    `/api/files/files/${result.uploadedFiles![0].id}/download`,
+  );
+  expect(downloaded.status()).toBe(200);
+  expect(await downloaded.body()).toEqual(Buffer.alloc(11 * 1024 * 1024, 0x5a));
 });

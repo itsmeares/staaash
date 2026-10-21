@@ -61,6 +61,21 @@ Do not have an agent open a pull request, write public replies, or answer mainta
 6. Start the web app with `pnpm web:dev`.
 7. Start the worker with `pnpm worker:dev`.
 
+## Application tests
+
+Build a test image, then run `STAAASH_TEST_IMAGE=<image> node scripts/ci/stack.mjs`.
+The runner creates its own PostgreSQL, files directory and network, seeds fake
+accounts, runs the browser and system tests, and removes the stack. Pass browser
+test paths after the command to run selected files. It never uses the development
+database. Database-only tests use `pnpm test:postgres` with an explicit
+`POSTGRES_TEST_DATABASE_URL`; they create and remove their own database.
+
+CI runs the same database and application suites on native AMD64 and ARM64.
+Upgrade and recovery checks run for relevant changes, manual extended runs and
+release version changes. The source upgrade image comes from the published stable
+release's immutable digest. Coverage runs on main and manual runs; PRs keep the
+fast tests without coverage collection.
+
 ## Issues and security
 
 - Use the GitHub issue forms for bug reports and feature requests.

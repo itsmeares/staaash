@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:18-alpine
+    stop_grace_period: 3s
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test-only-password
+      POSTGRES_DB: ${STAAASH_TEST_DATABASE}
+    ports:
+      - "127.0.0.1:${STAAASH_TEST_DATABASE_PORT}:5432"
+    volumes:
+      - postgres:/var/lib/postgresql
+    mem_limit: 1g
+    cpus: 1
+  web:
+    stop_grace_period: 3s
+    image: ${STAAASH_TEST_IMAGE}
+    environment: &app-env
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: "2113"
+      DATABASE_URL: postgresql://test:test-only-password@db:5432/${STAAASH_TEST_DATABASE}
+      UPLOAD_LOCATION: /data/files
+      AUTH_SECRET: test-only-secret-for-isolated-stacks
+    ports:
+      - "127.0.0.1:${STAAASH_TEST_WEB_PORT}:2113"
+    volumes:
+      - ${STAAASH_TEST_FILES}:/data/files
+    mem_limit: 2g
+    cpus: 1
+  worker:
+    stop_grace_period: 7s
+    image: ${STAAASH_TEST_IMAGE}
+    command: node /worker/dist/index.js
+    environment: *app-env
+    volumes:
+      - ${STAAASH_TEST_FILES}:/data/files
+    mem_limit: 1g
+    cpus: 1
+volumes:
+  postgres:

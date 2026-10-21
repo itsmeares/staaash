@@ -1,7 +1,10 @@
 {
   "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
   "entry": [
+    "apps/*/vite.config.ts",
+    "packages/*/vite.config.ts",
     "apps/web/vitest.postgres.config.ts",
+    "apps/web/playwright.system.config.ts",
     "packages/config/src/release.ts",
     "scripts/release/index.mjs",
   ],
@@ -9,7 +12,11 @@
     "apps/web/vitest.postgres.global.ts",
     "apps/web/vitest.postgres.setup.ts",
   ],
-  "ignorePatterns": ["packages/db/src/generated/prisma/**"],
+  "ignorePatterns": [
+    "packages/db/src/generated/prisma/**",
+    "apps/web/e2e/**",
+    "apps/web/system/**",
+  ],
   "ignoreDependencies": ["@staaash/config"],
   // components/ui is a vendored component kit: its full API is kept even when
   // the app uses only part of it, and its internals follow upstream.

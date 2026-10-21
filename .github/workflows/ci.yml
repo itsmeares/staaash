@@ -2,9 +2,14 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      extended:
+        description: Run upgrade and recovery validation
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -14,199 +19,186 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  checks:
-    name: Lint, test, and build checks
+  select:
+    name: Select test suites
     runs-on: ubuntu-latest
-    env:
-      DATABASE_URL: postgresql://staaash:staaash@localhost:5432/staaash_test
-      UPLOAD_LOCATION: ./.data/files
-      AUTH_SECRET: ci-placeholder-secret-should-not-be-used-in-production
-
+    outputs:
+      app: ${{ steps.suites.outputs.app }}
+      upgrade: ${{ steps.suites.outputs.upgrade }}
+      recovery: ${{ steps.suites.outputs.recovery }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - run: node --test scripts/ci/*.test.mjs
+      - id: suites
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
+          CI_FULL: ${{ inputs.extended && 'true' || 'false' }}
+        run: node scripts/ci/select.mjs
 
+  checks:
+    name: Lint and fast tests
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://test:test@127.0.0.1:59999/staaash_test
+      UPLOAD_LOCATION: ./.data/files
+      AUTH_SECRET: test-only-ci-secret
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
         with:
           node-version: 24.22.0
           cache: true
-
       - name: Generate Prisma client
         run: vp run db:generate
-
       - name: Check formatting
         run: vp run format:check
-
       - name: Lint
         run: vp run lint
-
       - name: Fallow new-code gate
         run: vp run quality:fallow
-
-      - name: Test
+      - name: Fast tests
+        env:
+          STAAASH_COVERAGE: ${{ github.event_name != 'pull_request' }}
         run: vp run test
-
-      - name: Restore Next.js build cache
-        uses: actions/cache/restore@v6
+      - name: Save coverage
+        if: always() && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v6
         with:
-          path: apps/web/.next/cache
-          key: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
-          restore-keys: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
-
-      - name: Build
-        run: vp run build
-
-      # Only main saves the cache, so pull requests never fill the cache quota.
-      - name: Save Next.js build cache
-        if: github.ref == 'refs/heads/main'
-        uses: actions/cache/save@v6
-        with:
-          path: apps/web/.next/cache
-          key: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          name: source-coverage
+          path: |
+            apps/*/coverage/
+            packages/*/coverage/
+          retention-days: 7
 
   postgres:
-    name: PostgreSQL integration tests
-    runs-on: ubuntu-latest
+    name: PostgreSQL integration (${{ matrix.arch }})
+    needs: select
+    if: needs.select.outputs.app == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: AMD64
+            runner: ubuntu-latest
+          - arch: ARM64
+            runner: ubuntu-26.04-arm
+    runs-on: ${{ matrix.runner }}
     services:
       postgres:
-        image: postgres:18
+        image: postgres:18-alpine
         env:
-          POSTGRES_USER: staaash
-          POSTGRES_PASSWORD: staaash
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test-only-password
           POSTGRES_DB: staaash_test
-        ports:
-          - 5432:5432
+        ports: [5432/tcp]
         options: >-
-          --health-cmd "pg_isready -U staaash -d staaash_test"
-          --health-interval 10s
+          --health-cmd "pg_isready -U test -d staaash_test"
+          --health-interval 5s
           --health-timeout 5s
-          --health-retries 5
-    env:
-      DATABASE_URL: postgresql://staaash:staaash@localhost:5432/staaash_test
-      POSTGRES_TEST_DATABASE_URL: postgresql://staaash:staaash@localhost:5432/staaash_test
-      UPLOAD_LOCATION: ./.data/files
-      AUTH_SECRET: ci-placeholder-secret-should-not-be-used-in-production
-
+          --health-retries 10
     steps:
       - uses: actions/checkout@v7
-
       - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
         with:
           node-version: 24.22.0
           cache: true
-
       - name: Generate Prisma client
         run: vp run db:generate
-
       - name: Build shared packages
         run: vp run build:deps
-
       - name: PostgreSQL integration tests
+        env:
+          POSTGRES_TEST_DATABASE_URL: postgresql://test:test-only-password@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/staaash_test
         run: vp run test:postgres
 
-  # Keeps the required status check name stable for the branch ruleset.
-  validate:
-    name: Lint, test, and build
-    needs: [checks, postgres]
-    if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Require every check to pass
-        run: test "${{ needs.checks.result }}" = success -a "${{ needs.postgres.result }}" = success
-
-  arm64:
-    name: Docker smoke tests (ARM64)
-    runs-on: ubuntu-26.04-arm
+  images:
+    name: Docker integration and E2E (${{ matrix.arch }})
+    needs: select
+    if: needs.select.outputs.app == 'true'
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: AMD64
+            runner: ubuntu-latest
+            platform: linux/amd64
+          - arch: ARM64
+            runner: ubuntu-26.04-arm
+            platform: linux/arm64
+    runs-on: ${{ matrix.runner }}
     env:
-      AUTH_SECRET: ci-placeholder-secret-should-not-be-used-in-production
-      DATABASE_URL: postgresql://postgres:staaash-ci-password@127.0.0.1:5432/staaash
-      DB_PASSWORD: staaash-ci-password
-      STAAASH_VERSION: ci-arm64
-      STAAASH_E2E_BASE_URL: http://127.0.0.1:2113
-
+      STAAASH_TEST_IMAGE: staaash-test:${{ github.sha }}
+      STAAASH_TEST_RECOVERY: ${{ needs.select.outputs.recovery }}
+      STAAASH_TEST_VISUAL: ${{ matrix.arch == 'AMD64' }}
     steps:
       - uses: actions/checkout@v7
-
-      - name: Set ARM64 test paths
-        run: |
-          echo "DB_DATA_LOCATION=$RUNNER_TEMP/staaash-postgres" >> "$GITHUB_ENV"
-          echo "FILES_ROOT=$RUNNER_TEMP/staaash-files" >> "$GITHUB_ENV"
-          echo "UPLOAD_LOCATION=$RUNNER_TEMP/staaash-files" >> "$GITHUB_ENV"
-
       - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
         with:
           node-version: 24.22.0
           cache: true
-
+      - uses: docker/setup-buildx-action@v4
+      - name: Build native image once
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          platforms: ${{ matrix.platform }}
+          tags: ${{ env.STAAASH_TEST_IMAGE }}
+          cache-from: type=gha,scope=app-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=app-${{ matrix.arch }}
       - name: Generate Prisma client
         run: vp run db:generate
-
-      - name: Build ARM64 image
-        run: |
-          docker build \
-            --platform linux/arm64 \
-            -t ghcr.io/itsmeares/staaash:ci-arm64 \
-            .
-
-      - name: Start PostgreSQL
-        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d db
-
-      - name: Wait for PostgreSQL
-        run: |
-          for attempt in $(seq 1 60); do
-            if docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T db pg_isready -U postgres -d staaash; then
-              exit 0
-            fi
-            sleep 2
-          done
-          docker compose -f docker-compose.yml -f docker-compose.ci.yml logs db
-          exit 1
-
-      - name: Prepare E2E data
-        run: vp run --filter web e2e:prepare
-
-      - name: Start ARM64 application
-        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d staaash worker
-
-      - name: Wait for application readiness
-        run: |
-          for attempt in $(seq 1 60); do
-            if curl --fail --silent --show-error http://127.0.0.1:2113/api/health/ready >/dev/null; then
-              exit 0
-            fi
-            sleep 2
-          done
-          docker compose -f docker-compose.yml -f docker-compose.ci.yml logs staaash worker
-          exit 1
-
-      - name: Verify ARM64 media runtime
-        run: |
-          docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T worker sh -ec '
-            ffmpeg -hide_banner -loglevel error \
-              -f lavfi -i color=c=black:s=16x16:d=0.1 \
-              -frames:v 1 -f image2 /tmp/arm64-smoke.png
-            test "$(ffprobe -v error -show_entries stream=width,height -of csv=p=0:s=x /tmp/arm64-smoke.png)" = "16x16"
-          '
-
-      - name: Install Playwright Chromium
+      - name: Install browser
         run: vp exec --filter web playwright install --with-deps --only-shell chromium
-
-      - name: Run ARM64 Playwright smoke tests
-        run: >-
-          vp run --filter web e2e
-          e2e/member-files.spec.ts
-          e2e/direct-upload-size.spec.ts
-          e2e/public-share.spec.ts
-          e2e/owner-integrity.spec.ts
-          e2e/archive-status-polling.spec.ts
-          e2e/files-properties.spec.ts
-          e2e/text-contrast.spec.ts
-
-      - name: Dump ARM64 stack logs
-        if: failure()
-        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml logs --no-color
-
-      - name: Stop ARM64 stack
+      - name: Run complete native suites
+        run: node scripts/ci/stack.mjs
+      - name: Resolve immutable stable release
+        if: needs.select.outputs.upgrade == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/ci/resolve-stable.mjs
+      - name: Validate populated upgrade
+        if: needs.select.outputs.upgrade == 'true'
+        env:
+          STAAASH_TEST_UPGRADE: "true"
+        run: node scripts/ci/stack.mjs
+      - name: Save test evidence
         if: always()
-        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml down --volumes
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-evidence-${{ matrix.arch }}
+          path: |
+            .data/ci/
+            apps/web/test-results/
+            apps/web/playwright-report/
+          retention-days: 7
+
+  validate:
+    name: Lint, test, and build
+    needs: [select, checks, postgres, images]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all selected checks
+        env:
+          SELECT: ${{ needs.select.result }}
+          CHECKS: ${{ needs.checks.result }}
+          APP: ${{ needs.select.outputs.app }}
+          POSTGRES: ${{ needs.postgres.result }}
+          IMAGES: ${{ needs.images.result }}
+        run: |
+          test "$SELECT" = success
+          test "$CHECKS" = success
+          if test "$APP" = true; then
+            test "$POSTGRES" = success
+            test "$IMAGES" = success
+          else
+            test "$APP" = false
+            test "$POSTGRES" = skipped
+            test "$IMAGES" = skipped
+          fi

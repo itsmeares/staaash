@@ -1,6 +1,6 @@
 import path from "node:path";
 import { readFileSync } from "node:fs";
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 type BootstrapState = {
   ownerIdentifier?: string;
@@ -12,13 +12,9 @@ type BootstrapState = {
   shareUrl?: string;
 };
 
-const stateFilePath = path.resolve(
-  __dirname,
-  "..",
-  ".data",
-  "e2e",
-  "state.json",
-);
+const stateFilePath =
+  process.env.STAAASH_E2E_STATE_FILE ??
+  path.resolve(__dirname, "..", ".data", "e2e", "state.json");
 
 let bootstrapState: BootstrapState | null | undefined;
 
@@ -40,8 +36,8 @@ const readBootstrapState = () => {
 
 const getRequiredValue = (name: string, fallback?: string) => {
   const value = process.env[name]?.trim() || fallback?.trim();
-  test.skip(!value, `Missing required E2E value: ${name}`);
-  return value!;
+  if (!value) throw new Error(`Missing required E2E value: ${name}`);
+  return value;
 };
 
 export const getOwnerCredentials = () => ({
