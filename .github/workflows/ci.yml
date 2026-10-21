@@ -27,7 +27,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: voidzero-dev/setup-vp@6a033122543ee100d01838245fe74a26a038da6d # v1.21.2
+      - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
         with:
           node-version: 24.22.0
           cache: true
@@ -91,7 +91,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: voidzero-dev/setup-vp@6a033122543ee100d01838245fe74a26a038da6d # v1.21.2
+      - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
         with:
           node-version: 24.22.0
           cache: true
@@ -134,7 +134,7 @@ jobs:
           echo "FILES_ROOT=$RUNNER_TEMP/staaash-files" >> "$GITHUB_ENV"
           echo "UPLOAD_LOCATION=$RUNNER_TEMP/staaash-files" >> "$GITHUB_ENV"
 
-      - uses: voidzero-dev/setup-vp@6a033122543ee100d01838245fe74a26a038da6d # v1.21.2
+      - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
         with:
           node-version: 24.22.0
           cache: true
