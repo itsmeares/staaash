@@ -260,7 +260,11 @@ test("inconsistent usage blocks web and worker startup before recovery changes f
         ).trim(),
       ),
     ).not.toBe(0);
-    expect((await owner.get("/api/health/ready")).status()).toBe(500);
+    await waitFor(
+      async () => (await owner.get("/api/health/ready")).status() === 500,
+      "the web startup safety stop",
+      30_000,
+    );
     expect(
       await sql('SELECT "committedStorageBytes" FROM "User" WHERE id=$1', [
         member.user.id,

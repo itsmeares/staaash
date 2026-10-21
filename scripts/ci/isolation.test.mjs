@@ -30,28 +30,31 @@ await test("E2E preparation rejects unowned targets before opening a database co
     STAAASH_E2E_STATE_FILE: path.join(root, "accounts.json"),
     STAAASH_E2E_PROJECT: project,
   };
+  const prepare = (overrides = {}) =>
+    promisify(execFile)(
+      process.execPath,
+      [
+        fileURLToPath(
+          new URL("../../apps/web/scripts/e2e-bootstrap.mjs", import.meta.url),
+        ),
+      ],
+      { env: { ...env, ...overrides }, timeout: 5000 },
+    );
   try {
     for (const overrides of [
       { DATABASE_URL: databaseUrl.replace(`staaash_test_${id}`, "staaash") },
       { STAAASH_E2E_PROJECT: "staaash" },
       { STAAASH_E2E_STATE_FILE: path.join(root, "elsewhere", "accounts.json") },
     ]) {
-      await assert.rejects(
-        promisify(execFile)(
-          process.execPath,
-          [
-            fileURLToPath(
-              new URL(
-                "../../apps/web/scripts/e2e-bootstrap.mjs",
-                import.meta.url,
-              ),
-            ),
-          ],
-          { env: { ...env, ...overrides }, timeout: 5000 },
-        ),
+      await assert.rejects(prepare(overrides), (error) =>
+        /ERR_ASSERTION/.test(error.stderr ?? ""),
       );
       assert.equal(connections, 0);
     }
+    await assert.rejects(prepare(), (error) =>
+      /Connection terminated unexpectedly/.test(error.stderr ?? ""),
+    );
+    assert(connections > 0);
   } finally {
     await new Promise((resolve) => witness.close(resolve));
     await rm(root, { recursive: true, force: true });

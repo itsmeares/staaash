@@ -27,7 +27,7 @@ jobs:
       upgrade: ${{ steps.suites.outputs.upgrade }}
       recovery: ${{ steps.suites.outputs.recovery }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
       - run: node --test scripts/ci/*.test.mjs
@@ -45,7 +45,7 @@ jobs:
       UPLOAD_LOCATION: ./.data/files
       AUTH_SECRET: test-only-ci-secret
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
       - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
@@ -66,7 +66,7 @@ jobs:
         run: vp run test
       - name: Save coverage
         if: always() && github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: source-coverage
           path: |
@@ -101,7 +101,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
         with:
           node-version: 24.22.0
@@ -136,14 +136,14 @@ jobs:
       STAAASH_TEST_RECOVERY: ${{ needs.select.outputs.recovery }}
       STAAASH_TEST_VISUAL: ${{ matrix.arch == 'AMD64' }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
         with:
           node-version: 24.22.0
           cache: true
-      - uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
       - name: Build native image once
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: .
           load: true
@@ -169,9 +169,10 @@ jobs:
         run: node scripts/ci/stack.mjs
       - name: Save test evidence
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: test-evidence-${{ matrix.arch }}
+          include-hidden-files: true
           path: |
             .data/ci/
             apps/web/test-results/

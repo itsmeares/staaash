@@ -74,7 +74,10 @@ test("a populated stable installation upgrades without losing files, links, pref
         201,
       );
       const resumeBytes = Buffer.alloc(16 * 1024 * 1024 + 17, 0x42);
-      const chunk = session.chunkSizeBytes ?? resumeBytes.length;
+      const chunk = session.chunkSizeBytes;
+      expect(Number.isInteger(chunk)).toBe(true);
+      expect(chunk).toBeGreaterThan(0);
+      expect(chunk).toBeLessThan(resumeBytes.length);
       const response = await owner.patch(
         `/api/uploads/sessions/${session.id}`,
         {

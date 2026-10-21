@@ -12,12 +12,13 @@ for (const theme of ["light", "dark"] as const) {
 
       test("sign-in, file list and settings keep their appearance", async ({
         page,
+        baseURL,
       }) => {
         const label = `${theme}-${name}`;
-        const origin = process.env.STAAASH_E2E_BASE_URL!;
+        if (!baseURL) throw new Error("Missing Playwright baseURL.");
         await page
           .context()
-          .addCookies([{ name: "staaash_theme", value: theme, url: origin }]);
+          .addCookies([{ name: "staaash_theme", value: theme, url: baseURL }]);
         await page.goto("/");
         await page
           .getByRole("button", { name: "Click anywhere or press any key" })

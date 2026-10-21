@@ -142,21 +142,33 @@ export async function destroyStack(state) {
     await readFile(path.join(state.root, ".staaash-test-root"), "utf8"),
     state.project,
   );
-  compose(state, ["stop", "web", "worker"]);
-  compose(state, [
-    "run",
-    "--rm",
-    "--no-deps",
-    "-T",
-    "--entrypoint",
-    "chown",
-    "web",
-    "-R",
-    `${process.getuid?.() ?? 1000}:${process.getgid?.() ?? 1000}`,
-    "/data/files",
-  ]);
-  compose(state, ["down", "--volumes", "--remove-orphans"]);
-  await rm(state.root, { recursive: true, force: true });
+  const errors = [];
+  for (const cleanup of [
+    () => compose(state, ["stop", "web", "worker"]),
+    () =>
+      compose(state, [
+        "run",
+        "--rm",
+        "--no-deps",
+        "-T",
+        "--entrypoint",
+        "chown",
+        "web",
+        "-R",
+        `${process.getuid?.() ?? 1000}:${process.getgid?.() ?? 1000}`,
+        "/data/files",
+      ]),
+    () => compose(state, ["down", "--volumes", "--remove-orphans"]),
+    () => rm(state.root, { recursive: true, force: true }),
+  ]) {
+    try {
+      await cleanup();
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+  if (errors.length)
+    throw new AggregateError(errors, `Cleanup failed for ${state.project}.`);
 }
 
 const run = (args, env) =>
@@ -234,49 +246,62 @@ async function validateCurrent(state) {
     await runSystem(state, "recovery.spec.mjs");
 }
 
+async function validateInstallation(state, upgrade) {
+  const candidate = state.image;
+  await startDatabase(state);
+  if (upgrade) {
+    assert(
+      process.env.STAAASH_UPGRADE_IMAGE,
+      "Resolve an immutable stable image before upgrade validation.",
+    );
+    state.image = process.env.STAAASH_UPGRADE_IMAGE;
+  }
+  compose(state, [
+    "run",
+    "--rm",
+    "--no-deps",
+    "-T",
+    "web",
+    "prisma",
+    "migrate",
+    "deploy",
+  ]);
+  await run(["--filter", "web", "e2e:prepare"], testEnv(state));
+  await startApp(state, false);
+  if (upgrade) await validateUpgrade(state, candidate);
+  else await validateCurrent(state);
+}
+
 async function main() {
-  const state = await createStack(process.env.STAAASH_TEST_IMAGE);
   const results = path.join(repo, ".data", "ci");
   await mkdir(results, { recursive: true });
+  const state = await createStack(process.env.STAAASH_TEST_IMAGE);
   const started = Date.now();
   const upgrade = process.env.STAAASH_TEST_UPGRADE === "true";
-  const candidate = state.image;
+  const errors = [];
   try {
-    await startDatabase(state);
-    if (upgrade) {
-      assert(
-        process.env.STAAASH_UPGRADE_IMAGE,
-        "Resolve an immutable stable image before upgrade validation.",
-      );
-      state.image = process.env.STAAASH_UPGRADE_IMAGE;
-    }
-    compose(state, [
-      "run",
-      "--rm",
-      "--no-deps",
-      "-T",
-      "web",
-      "prisma",
-      "migrate",
-      "deploy",
-    ]);
-    await run(["--filter", "web", "e2e:prepare"], testEnv(state));
-    await startApp(state, false);
-    if (upgrade) await validateUpgrade(state, candidate);
-    else await validateCurrent(state);
-  } finally {
-    try {
-      await writeFile(
-        path.join(results, `${upgrade ? "upgrade" : "app"}.log`),
-        compose(state, ["logs", "--no-color"]),
-      );
-    } finally {
-      await destroyStack(state);
-      console.log(
-        `Isolated stack completed in ${Math.round((Date.now() - started) / 1000)} seconds.`,
-      );
-    }
+    await validateInstallation(state, upgrade);
+  } catch (error) {
+    errors.push(error);
   }
+  try {
+    await writeFile(
+      path.join(results, `${upgrade ? "upgrade" : "app"}.log`),
+      compose(state, ["logs", "--no-color"]),
+    );
+  } catch (error) {
+    errors.push(error);
+  }
+  try {
+    await destroyStack(state);
+  } catch (error) {
+    errors.push(error);
+  }
+  console.log(
+    `Isolated stack completed in ${Math.round((Date.now() - started) / 1000)} seconds.`,
+  );
+  if (errors.length)
+    throw new AggregateError(errors, `Validation failed for ${state.project}.`);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) await main();
