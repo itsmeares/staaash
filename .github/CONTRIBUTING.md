@@ -63,12 +63,18 @@ Do not have an agent open a pull request, write public replies, or answer mainta
 
 ## Application tests
 
-Build a test image, then run `STAAASH_TEST_IMAGE=<image> node scripts/ci/stack.mjs`.
-The runner creates its own PostgreSQL, files directory and network, seeds fake
-accounts, runs the browser and system tests, and removes the stack. Pass browser
-test paths after the command to run selected files. It never uses the development
-database. Database-only tests use `pnpm test:postgres` with an explicit
+Run `pnpm web:e2e`. It builds a Docker image from your checkout, creates its own
+PostgreSQL, files directory and network, seeds fake accounts, runs the browser
+and system tests, and removes the stack. It never uses the development database.
+Pass browser test paths, such as `pnpm web:e2e e2e/member-files.spec.ts`, to run
+only those files. Set `STAAASH_TEST_IMAGE` to test an image you already built.
+Database-only tests use `pnpm test:postgres` with an explicit
 `POSTGRES_TEST_DATABASE_URL`; they create and remove their own database.
+
+For a visual comparison of a UI change, run
+`STAAASH_TEST_VISUAL=true pnpm web:e2e --update-snapshots` on `main` to save
+screenshots under `apps/web/.data/visual/`, then run
+`STAAASH_TEST_VISUAL=true pnpm web:e2e` on your branch to compare against them.
 
 CI runs the same database and application suites on native AMD64 and ARM64.
 Upgrade and recovery checks run for relevant changes, manual extended runs and

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import net from "node:net";
@@ -224,23 +224,11 @@ async function validateUpgrade(state, candidate) {
 }
 
 async function validateCurrent(state) {
-  if (process.env.STAAASH_TEST_VISUAL === "true") {
-    await run(
-      [
-        "--filter",
-        "web",
-        "e2e:visual",
-        ...(process.env.STAAASH_TEST_UPDATE_SNAPSHOTS === "true"
-          ? ["--update-snapshots"]
-          : []),
-      ],
-      testEnv(state),
-    );
-  }
-  await run(
-    ["--filter", "web", "e2e", ...process.argv.slice(2)],
-    testEnv(state),
-  );
+  const args = process.argv.slice(2);
+  if (process.env.STAAASH_TEST_VISUAL === "true")
+    return run(["--filter", "web", "e2e:visual", ...args], testEnv(state));
+  await run(["--filter", "web", "e2e", ...args], testEnv(state));
+  if (args.length) return;
   await runSystem(state, "app.spec.mjs");
   if (process.env.STAAASH_TEST_RECOVERY === "true")
     await runSystem(state, "recovery.spec.mjs");
@@ -272,10 +260,21 @@ async function validateInstallation(state, upgrade) {
   else await validateCurrent(state);
 }
 
+function testImage() {
+  if (process.env.STAAASH_TEST_IMAGE) return process.env.STAAASH_TEST_IMAGE;
+  // One tag per checkout, so parallel worktrees never run each other's build.
+  const image = `staaash-test:${createHash("sha256").update(repo).digest("hex").slice(0, 12)}`;
+  execFileSync("docker", ["build", "-t", image, "."], {
+    cwd: repo,
+    stdio: "inherit",
+  });
+  return image;
+}
+
 async function main() {
   const results = path.join(repo, ".data", "ci");
   await mkdir(results, { recursive: true });
-  const state = await createStack(process.env.STAAASH_TEST_IMAGE);
+  const state = await createStack(testImage());
   const started = Date.now();
   const upgrade = process.env.STAAASH_TEST_UPGRADE === "true";
   const errors = [];

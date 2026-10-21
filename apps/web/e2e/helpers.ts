@@ -1,4 +1,3 @@
-import path from "node:path";
 import { readFileSync } from "node:fs";
 import { expect, type Locator, type Page } from "@playwright/test";
 
@@ -12,10 +11,6 @@ type BootstrapState = {
   shareUrl?: string;
 };
 
-const stateFilePath =
-  process.env.STAAASH_E2E_STATE_FILE ??
-  path.resolve(__dirname, "..", ".data", "e2e", "state.json");
-
 let bootstrapState: BootstrapState | null | undefined;
 
 const readBootstrapState = () => {
@@ -25,7 +20,7 @@ const readBootstrapState = () => {
 
   try {
     bootstrapState = JSON.parse(
-      readFileSync(stateFilePath, "utf8"),
+      readFileSync(process.env.STAAASH_E2E_STATE_FILE ?? "", "utf8"),
     ) as BootstrapState;
   } catch {
     bootstrapState = null;

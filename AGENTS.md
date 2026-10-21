@@ -89,11 +89,10 @@ future needs.
    backup to make the code smaller.
 3. **Do not wipe the shared database.** Every checkout's `.env.local` points at
    the same `staaash` database by default. `pnpm app:reset-local-data` runs
-   `prisma db push --force-reset`, `pnpm web:e2e` runs
-   `prisma migrate reset --force`, and `pnpm db:push` changes the schema under
+   `prisma db push --force-reset`, and `pnpm db:push` changes the schema under
    every other worktree. Point them at a demo database instead, or ask first.
-   `test:postgres` is safe because it creates its own `staaash_test_*`
-   database.
+   `test:postgres` and `pnpm web:e2e` are safe because they create their own
+   `staaash_test_*` database.
 4. **Do not touch the real install.** The repo's `docker-compose.yml` uses the
    project name `staaash` and the containers `staaash_server`,
    `staaash_worker`, and `staaash_postgres`. On the maintainer's machine those

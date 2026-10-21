@@ -12,17 +12,14 @@ export default defineConfig({
   retries: 0,
   snapshotPathTemplate: path.join(
     __dirname,
-    "e2e",
+    ".data",
     "visual",
-    "snapshots",
+    "baseline",
     "{arg}{ext}",
   ),
   outputDir:
     process.env.STAAASH_VISUAL_OUT ??
-    path.join(
-      process.env.STAAASH_TEST_RESULTS ?? path.join(__dirname, "test-results"),
-      "visual",
-    ),
+    path.join(__dirname, ".data", "visual", "results"),
   expect: {
     toHaveScreenshot: { maxDiffPixelRatio: 0.002 },
   },
