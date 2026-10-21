@@ -1,0 +1,38 @@
+services:
+  staaash:
+    container_name: ${STAAASH_VERIFY_PROJECT}_web
+    image: ${STAAASH_VERIFY_IMAGE}
+    ports: !override
+      - "${STAAASH_VERIFY_BIND_IP}:${STAAASH_VERIFY_WEB_PORT}:2113"
+    environment:
+      AUTH_SECRET: ${AUTH_SECRET}
+      SECURE_COOKIES: "false"
+      STAAASH_PUBLIC_URL: ${STAAASH_VERIFY_URL}
+    volumes: !override
+      - staaash-verify-files:/data/files
+    restart: "no"
+    cpus: "0.75"
+    mem_limit: 768m
+
+  worker:
+    container_name: ${STAAASH_VERIFY_PROJECT}_worker
+    image: ${STAAASH_VERIFY_IMAGE}
+    volumes: !override
+      - staaash-verify-files:/data/files
+    restart: "no"
+    cpus: "0.5"
+    mem_limit: 512m
+
+  db:
+    container_name: ${STAAASH_VERIFY_PROJECT}_db
+    ports: !override
+      - "127.0.0.1:${STAAASH_VERIFY_DB_PORT}:5432"
+    volumes: !override
+      - staaash-verify-db:/var/lib/postgresql
+    restart: "no"
+    cpus: "0.5"
+    mem_limit: 512m
+
+volumes:
+  staaash-verify-db:
+  staaash-verify-files:

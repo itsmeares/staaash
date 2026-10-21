@@ -21,6 +21,7 @@
     "test:postgres": "pnpm --filter web test:postgres",
     "format": "vp fmt .",
     "format:check": "vp fmt --check .",
+    "check:pull-request": "node scripts/check-pull-request.mjs",
     "prepare": "vp config",
     "db:generate": "pnpm --filter @staaash/db db:generate",
     "db:push": "pnpm --filter @staaash/db exec prisma db push",
