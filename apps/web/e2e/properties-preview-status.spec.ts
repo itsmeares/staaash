@@ -6,7 +6,7 @@ const pane = (page: Page) =>
   page.getByRole("complementary", { name: "Details" });
 const status = (page: Page) => pane(page).locator('[aria-live="polite"]');
 const fileRow = (page: Page, name: string) =>
-  page.locator("[data-list-item]").filter({ hasText: name });
+  page.getByRole("row").filter({ hasText: name });
 const fulfill = (route: Route, value: string, httpStatus = 200) =>
   route.fulfill({
     status: httpStatus,
