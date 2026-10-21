@@ -30,7 +30,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-      - run: node --test scripts/ci/*.test.mjs
+      - run: >-
+          node --test scripts/ci/select*.test.mjs
+          scripts/ci/resolve-stable.test.mjs scripts/ci/cleanup.test.mjs
       - id: suites
         env:
           CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
@@ -52,6 +54,8 @@ jobs:
         with:
           node-version: 24.22.0
           cache: true
+      - name: Check test-stack isolation
+        run: node --test scripts/ci/isolation.test.mjs
       - name: Generate Prisma client
         run: vp run db:generate
       - name: Check formatting
