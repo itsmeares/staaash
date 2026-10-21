@@ -30,7 +30,7 @@
     "build:deps": "vp run --filter \"./packages/*\" build"
   },
   "devDependencies": {
-    "fallow": "3.33.1",
+    "fallow": "3.34.1",
     "typescript": "^6.0.3",
     "vite-plus": "catalog:"
   }
