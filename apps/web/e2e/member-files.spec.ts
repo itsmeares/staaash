@@ -20,7 +20,7 @@ test("member can upload, rename, cut, paste, trash, restore and download unchang
   await field.press("Enter");
 
   await expect(page.getByText(folderName)).toBeVisible();
-  await page.locator("[data-list-item]", { hasText: folderName }).dblclick();
+  await page.getByRole("row").filter({ hasText: folderName }).dblclick();
   await expect(
     page.getByRole("heading", { name: folderName, exact: true }),
   ).toBeVisible();

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 const {
   completeRestoreReconciliationRun,
-  createRestoreReconciliationRun,
+  ensureRestoreReconciliationRun,
   failRestoreReconciliationRun,
   findRestoreReconciliationRunByBackgroundJobId,
   listRecentRestoreReconciliationRuns,
@@ -100,7 +100,7 @@ describe("restore reconciliation db helpers", () => {
     const runs: MemoryRun[] = [];
     const client = createClient(runs);
 
-    const created = await createRestoreReconciliationRun(
+    const created = await ensureRestoreReconciliationRun(
       {
         triggeredByUserId: "owner-1",
         backgroundJobId: "job-1",

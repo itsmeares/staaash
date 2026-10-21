@@ -121,8 +121,8 @@ test("files rows move focus with keyboard and open selected item", async ({
   await expect(page.getByText("shared-preview.png")).toBeVisible();
   await expectNoSeriousA11yViolations(page);
 
-  const list = page.locator("[data-file-list]");
-  const firstRow = page.locator("[data-list-item]").first();
+  const list = page.getByRole("grid");
+  const firstRow = page.getByRole("grid").locator("[data-list-item]").first();
 
   await list.focus();
   await page.keyboard.press("ArrowDown");
@@ -145,8 +145,8 @@ test("share dialog traps focus and returns focus on Escape", async ({
     next: "/shared",
   });
 
-  const firstRow = page.locator("[data-list-item]").first();
-  await page.locator("[data-file-list]").focus();
+  const firstRow = page.getByRole("grid").locator("[data-list-item]").first();
+  await page.getByRole("grid").focus();
   await page.keyboard.press("ArrowDown");
   await expect(firstRow).toBeFocused();
   await page.keyboard.press("Enter");

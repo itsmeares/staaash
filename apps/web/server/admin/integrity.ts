@@ -3,10 +3,9 @@ import {
   ensureBackgroundJobScheduled,
 } from "@staaash/db/jobs";
 import {
-  createRestoreReconciliationRun,
+  ensureRestoreReconciliationRun,
   findRestoreReconciliationRunByBackgroundJobId,
   listRecentRestoreReconciliationRuns,
-  readLatestRestoreReconciliationRun,
 } from "@staaash/db/reconciliation";
 
 import { buildRestoreReconciliationHealthSummary } from "@/server/restore";
@@ -58,7 +57,7 @@ export const enqueueAdminRestoreReconciliation = async (
   });
 
   const run = result.created
-    ? await createRestoreReconciliationRun({
+    ? await ensureRestoreReconciliationRun({
         triggeredByUserId: actorUserId,
         backgroundJobId: result.job.id,
       })
