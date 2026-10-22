@@ -19,8 +19,9 @@ test("member can upload, rename, cut, paste, trash, restore and download unchang
   await field.fill(folderName);
   await field.press("Enter");
 
-  await expect(page.getByText(folderName)).toBeVisible();
-  await page.getByRole("row").filter({ hasText: folderName }).dblclick();
+  const folder = page.getByRole("row").filter({ hasText: folderName });
+  await expect(folder).toBeVisible();
+  await folder.dblclick();
   await expect(
     page.getByRole("heading", { name: folderName, exact: true }),
   ).toBeVisible();
