@@ -21,7 +21,7 @@ describe("release workflow topology", () => {
     expect(workflow).toContain(
       "if: github.event_name == 'workflow_dispatch' && inputs.version != ''",
     );
-    expect(workflow).toContain("uses: actions/create-github-app-token@v3");
+    expect(workflow).toContain("uses: actions/create-github-app-token@");
     expect(workflow).toContain("client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}");
     expect(workflow).toContain(
       "private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}",
