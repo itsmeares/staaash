@@ -148,8 +148,9 @@ cleanup_failed_launch() {
 }
 
 wait_for_app() {
-  local attempt
-  for attempt in $(seq 1 180); do
+  local attempt max_attempts
+  max_attempts="${STAAASH_VERIFY_READY_ATTEMPTS:-180}"
+  for attempt in $(seq 1 "$max_attempts"); do
     if curl --silent --show-error --fail --max-time 4 \
       "$STAAASH_VERIFY_PROBE_URL/api/health/live" >"$EVIDENCE_DIR/health-live.json" 2>>"$EVIDENCE_DIR/health.log" &&
       curl --silent --show-error --fail --max-time 4 \
@@ -171,7 +172,7 @@ launch() {
   need openssl
   mkdir -p -- "$DATA_ROOT"
 
-  local run_id project state_dir evidence_dir web_port db_port ip image builder db_password auth_secret
+  local run_id project state_dir evidence_dir web_port db_port ip image builder db_password auth_secret ready_attempts
   run_id="$(date -u +%Y%m%d%H%M%S)-$$"
   project="staaash-verify-$run_id"
   state_dir="$DATA_ROOT/$project"
@@ -183,6 +184,8 @@ launch() {
   builder="staaash-verify-builder-$run_id"
   db_password="verifydb$(date +%s)$$"
   auth_secret="$(openssl rand -hex 24)"
+  ready_attempts="${STAAASH_VERIFY_READY_ATTEMPTS:-180}"
+  [[ "$ready_attempts" =~ ^[1-9][0-9]*$ ]] || die "STAAASH_VERIFY_READY_ATTEMPTS must be a positive integer"
 
   mkdir -p -- "$state_dir" "$evidence_dir"
   cat >"$state_dir/run.env" <<EOF
@@ -195,6 +198,7 @@ STAAASH_VERIFY_WEB_PORT=$web_port
 STAAASH_VERIFY_DB_PORT=$db_port
 STAAASH_VERIFY_URL=http://$ip:$web_port
 STAAASH_VERIFY_PROBE_URL=http://127.0.0.1:$web_port
+STAAASH_VERIFY_READY_ATTEMPTS=$ready_attempts
 DB_USERNAME=postgres
 DB_PASSWORD=$db_password
 DB_DATABASE_NAME=staaash
@@ -204,7 +208,7 @@ SECURE_COOKIES=false
 EOF
 
   load_run "$state_dir/run.env"
-  trap cleanup_failed_launch EXIT
+  trap cleanup_failed_launch EXIT INT TERM
   write_run_info
 
   docker buildx create --name "$STAAASH_VERIFY_BUILDER" --driver docker-container \
@@ -217,7 +221,7 @@ EOF
   compose up --detach db staaash worker >"$EVIDENCE_DIR/compose-up.log" 2>&1
   wait_for_app
 
-  trap - EXIT
+  trap - EXIT INT TERM
   printf 'verify-staaash: project=%s\n' "$STAAASH_VERIFY_PROJECT" >&2
   printf 'verify-staaash: open %s from another device\n' "$STAAASH_VERIFY_URL" >&2
   printf 'verify-staaash: evidence=%s\n' "$EVIDENCE_DIR" >&2
