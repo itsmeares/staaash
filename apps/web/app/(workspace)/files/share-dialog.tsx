@@ -2,26 +2,29 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy, Link2Off } from "lucide-react";
-import { toast } from "@/components/ui/toast";
+import { toast } from "@staaash/ui/components/toast";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@staaash/ui/components/button";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
+} from "@staaash/ui/components/dialog";
+import { Input } from "@staaash/ui/components/input";
+import {
+  InputGroup,
+  InputGroupInput,
+} from "@staaash/ui/components/input-group";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+} from "@staaash/ui/components/select";
+import { Switch } from "@staaash/ui/components/switch";
 import { confirmAction } from "@/components/confirm-dialog";
 import type { ShareLinkSummary } from "@/server/sharing";
 import type { ManagedShareView } from "@/server/sharing/mutation-response";

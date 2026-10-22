@@ -4,9 +4,9 @@ import { Check, Copy, WrapText } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
+import { Button } from "@staaash/ui/components/button";
+import { Tabs, TabsList, TabsTab } from "@staaash/ui/components/tabs";
+import { cn } from "@staaash/ui/utils";
 import { copyText } from "@/lib/clipboard";
 
 // Only markdown files pay for the renderer.

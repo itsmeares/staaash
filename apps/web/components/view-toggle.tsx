@@ -2,7 +2,7 @@
 
 import { Grid2X2, List } from "lucide-react";
 
-import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTab } from "@staaash/ui/components/tabs";
 
 export type ViewMode = "list" | "grid";
 

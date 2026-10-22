@@ -30,6 +30,6 @@ export default function config(phase: string): NextConfig {
     ...(phase !== PHASE_DEVELOPMENT_SERVER && {
       outputFileTracingRoot: path.join(__dirname, "../../"),
     }),
-    transpilePackages: ["@staaash/db"],
+    transpilePackages: ["@staaash/db", "@staaash/ui"],
   };
 }

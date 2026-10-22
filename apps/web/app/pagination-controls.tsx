@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@staaash/ui/components/button";
 
 type PaginationControlsProps = {
   page: number;

@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@staaash/ui/components/button";
 
 export type MediaDerivativeAction = (
   prev: { error?: string; success?: boolean },

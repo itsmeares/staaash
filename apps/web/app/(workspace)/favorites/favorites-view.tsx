@@ -9,7 +9,7 @@ import { useMemo, useState } from "react";
 import { DashboardPageContextMenu } from "@/app/dashboard-context-menu";
 import { PageHeader } from "@/components/page-header";
 import { useTime } from "@/components/time-provider";
-import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyTitle } from "@staaash/ui/components/empty";
 import {
   FileList,
   type FileListColumn,

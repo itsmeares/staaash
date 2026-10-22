@@ -6,8 +6,8 @@ import { useState, type ReactNode } from "react";
 
 import { DashboardItemContextMenu } from "@/app/dashboard-context-menu";
 import { useTime } from "@/components/time-provider";
-import { Button } from "@/components/ui/button";
-import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Button } from "@staaash/ui/components/button";
+import { Empty, EmptyHeader, EmptyTitle } from "@staaash/ui/components/empty";
 import {
   FileList,
   Highlight,

@@ -1,0 +1,8 @@
+{
+  "extends": "../config/tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "paths": { "@staaash/ui/*": ["./src/*"] }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}

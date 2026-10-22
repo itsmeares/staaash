@@ -22,17 +22,17 @@ import {
 } from "lucide-react";
 import { privateViewerFiles, nextLoadedViewer } from "@/lib/private-viewer";
 import { useFolderList } from "./use-folder-list";
-import { Spinner } from "@/components/ui/spinner";
-import { toast, toastManager } from "@/components/ui/toast";
+import { Spinner } from "@staaash/ui/components/spinner";
+import { toast, toastManager } from "@staaash/ui/components/toast";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@staaash/ui/components/button";
 import {
   Empty,
   EmptyContent,
   EmptyHeader,
   EmptyTitle,
-} from "@/components/ui/empty";
-import { Input } from "@/components/ui/input";
+} from "@staaash/ui/components/empty";
+import { Input } from "@staaash/ui/components/input";
 import { ViewToggle } from "@/components/view-toggle";
 import { TypeFilter } from "@/components/file-list/type-filter";
 import {
@@ -59,7 +59,7 @@ import { useTime } from "@/components/time-provider";
 import { randomClientId } from "@/lib/client-id";
 import { formatDateTime, formatRelativeTime } from "@/lib/time";
 import { DashboardPageContextMenu } from "@/app/dashboard-context-menu";
-import { getItemVisual } from "@/app/item-visuals";
+import { getItemVisual } from "@staaash/ui/item-visuals";
 import { startValidatedDownload } from "@/lib/transfers/download";
 import {
   collectDirectoryDropSelection,

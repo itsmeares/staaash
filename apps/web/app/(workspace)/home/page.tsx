@@ -7,7 +7,7 @@ import {
   EmptyContent,
   EmptyHeader,
   EmptyTitle,
-} from "@/components/ui/empty";
+} from "@staaash/ui/components/empty";
 import { requireSignedInPageSession } from "@/server/auth/guards";
 import { getShareBaseUrl } from "@/server/request";
 import { getPinnedFavorites, getRetrievalPage } from "@/server/retrieval/page";

@@ -15,7 +15,7 @@ import {
 import { MiddleName } from "@/components/file-list/middle-name";
 import { useItemSelection } from "@/components/file-list/use-list-selection";
 import { formatRelativeTime, formatTimeUntil } from "@/lib/time";
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
 import type { RecentClientItem } from "../recent/recent-helpers";
 import { useCoarsePointer } from "../use-coarse-pointer";

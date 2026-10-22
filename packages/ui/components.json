@@ -1,0 +1,29 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "base-luma",
+  "rsc": true,
+  "tsx": true,
+  "tailwind": {
+    "config": "",
+    "css": "styles.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "iconLibrary": "lucide",
+  "rtl": false,
+  "menuColor": "default",
+  "menuAccent": "subtle",
+  "aliases": {
+    "components": "@staaash/ui/components",
+    "utils": "@staaash/ui/utils",
+    "ui": "@staaash/ui/components",
+    "lib": "@staaash/ui",
+    "hooks": "@staaash/ui/hooks"
+  },
+  "registries": {
+    "@react-bits": "https://reactbits.dev/r/{name}.json",
+    "@ncdai": "https://chanhdai.com/r/{name}.json",
+    "@coss": "https://coss.com/ui/r/{name}.json"
+  }
+}

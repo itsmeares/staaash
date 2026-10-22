@@ -11,7 +11,7 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "@/components/ui/toast";
+import { toast } from "@staaash/ui/components/toast";
 import { randomClientId } from "@/lib/client-id";
 import {
   computeFileSha256,

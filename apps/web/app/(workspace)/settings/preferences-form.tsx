@@ -28,28 +28,28 @@ import {
   SettingsRow,
 } from "@/components/settings-layout";
 import { TimeZonePicker } from "@/components/time-zone-picker";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@staaash/ui/components/badge";
+import { Button } from "@staaash/ui/components/button";
 import {
   Collapsible,
   CollapsiblePanel,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { Input } from "@/components/ui/input";
+} from "@staaash/ui/components/collapsible";
+import { Input } from "@staaash/ui/components/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { toast, toastManager } from "@/components/ui/toast";
+} from "@staaash/ui/components/select";
+import { Switch } from "@staaash/ui/components/switch";
+import { toast, toastManager } from "@staaash/ui/components/toast";
 import { readAvatar } from "@/lib/avatar";
 import { formatBytes } from "@/lib/format-bytes";
 import { applyTheme, applyThemeWithTransition, type Theme } from "@/lib/theme";
 import { getInitials } from "@/lib/user";
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 import type { StorageBreakdown } from "@/server/user-storage";
 
 import { WorkspaceAvatar } from "../workspace-avatar";

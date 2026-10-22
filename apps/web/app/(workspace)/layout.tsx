@@ -5,7 +5,7 @@ import { DriveGlyph } from "@/components/drive-glyph";
 import { SkipLink } from "@/components/skip-link";
 import { ConfirmHost } from "@/components/confirm-dialog";
 import { FlashToasts } from "@/components/flash-toasts";
-import { ToastProvider } from "@/components/ui/toast";
+import { ToastProvider } from "@staaash/ui/components/toast";
 import { getInitials } from "@/lib/user";
 import { authService } from "@/server/auth/service";
 import { resolveAppVersion } from "@/server/app-version";

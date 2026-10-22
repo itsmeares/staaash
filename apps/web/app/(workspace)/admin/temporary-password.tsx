@@ -3,8 +3,8 @@
 import { Copy } from "lucide-react";
 import { type ReactElement, type ReactNode, useState } from "react";
 
-import { Alert } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { Alert } from "@staaash/ui/components/alert";
+import { Button } from "@staaash/ui/components/button";
 import {
   Dialog,
   DialogFooter,
@@ -13,10 +13,10 @@ import {
   DialogPopup,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { toastManager } from "@/components/ui/toast";
+} from "@staaash/ui/components/dialog";
+import { Field, FieldLabel } from "@staaash/ui/components/field";
+import { Input } from "@staaash/ui/components/input";
+import { toastManager } from "@staaash/ui/components/toast";
 
 import { AdminToggleField } from "./admin-toggle-field";
 import { copyText } from "@/lib/clipboard";

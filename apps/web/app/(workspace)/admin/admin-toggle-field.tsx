@@ -1,5 +1,5 @@
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Switch } from "@/components/ui/switch";
+import { Field, FieldLabel } from "@staaash/ui/components/field";
+import { Switch } from "@staaash/ui/components/switch";
 
 export function AdminToggleField({
   checked,

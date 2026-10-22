@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
 // "Halftone fine": dots on a slowly drifting noise field, in Stone night
 // colors. Plain WebGL, one full-screen triangle, no library.

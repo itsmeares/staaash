@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { AdminAvatar } from "@/app/(workspace)/admin/admin-avatar";
 import { SettingsCard, SettingsRow } from "@/components/settings-layout";
 import { DateTime } from "@/components/time-provider";
-import { Button } from "@/components/ui/button";
+import { Button } from "@staaash/ui/components/button";
 import { formatBytes } from "@/lib/format-bytes";
 import { accountNote, getInitials } from "@/lib/user";
 import { toDevice } from "@/lib/user-agent";

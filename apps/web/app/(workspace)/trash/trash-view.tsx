@@ -10,10 +10,10 @@ import { useMemo, useState } from "react";
 import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
 import { PageHeader } from "@/components/page-header";
 import { confirmAction } from "@/components/confirm-dialog";
-import { Button } from "@/components/ui/button";
-import { toast } from "@/components/ui/toast";
+import { Button } from "@staaash/ui/components/button";
+import { toast } from "@staaash/ui/components/toast";
 import { useTime } from "@/components/time-provider";
-import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyTitle } from "@staaash/ui/components/empty";
 import {
   FileList,
   type FileListColumn,

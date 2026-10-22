@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type * as React from "react";
 
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
 export type BreadcrumbItem = {
   id: string;

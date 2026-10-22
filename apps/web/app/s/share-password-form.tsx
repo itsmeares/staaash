@@ -3,9 +3,9 @@
 import { useRef } from "react";
 
 import { useShake } from "@/components/public/use-shake";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { Button } from "@staaash/ui/components/button";
+import { Input } from "@staaash/ui/components/input";
+import { cn } from "@staaash/ui/utils";
 
 export function SharePasswordForm({
   action,

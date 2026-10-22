@@ -17,14 +17,14 @@ import {
 import { useState } from "react";
 
 import { ItemIcon } from "@/components/file-list/file-list";
-import { Button } from "@/components/ui/button";
+import { Button } from "@staaash/ui/components/button";
 import {
   Drawer,
   DrawerPanel,
   DrawerPopup,
   DrawerTitle,
   DrawerTrigger,
-} from "@/components/ui/drawer";
+} from "@staaash/ui/components/drawer";
 
 import { UpdateNote, VersionButton, type ShellInfo } from "./app-sidebar";
 import { NewTiles } from "./new-menu";

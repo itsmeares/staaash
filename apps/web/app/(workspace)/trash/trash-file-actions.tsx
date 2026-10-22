@@ -3,8 +3,8 @@
 import { EMPTY_TRASH_CONFIRM } from "@/app/dashboard-context-menu";
 import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
 import { confirmAction } from "@/components/confirm-dialog";
-import { Button } from "@/components/ui/button";
-import { toast } from "@/components/ui/toast";
+import { Button } from "@staaash/ui/components/button";
+import { toast } from "@staaash/ui/components/toast";
 
 export function EmptyTrashAction({ disabled }: { disabled: boolean }) {
   const emptyTrash = async () => {

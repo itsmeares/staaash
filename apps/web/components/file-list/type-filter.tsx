@@ -2,14 +2,14 @@
 
 import { ChevronDown, X } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@staaash/ui/components/button";
 import {
   Menu,
   MenuPopup,
   MenuRadioGroup,
   MenuRadioItem,
   MenuTrigger,
-} from "@/components/ui/menu";
+} from "@staaash/ui/components/menu";
 
 /**
  * One "Type" button beside list/grid. While a type is on it shows the type,

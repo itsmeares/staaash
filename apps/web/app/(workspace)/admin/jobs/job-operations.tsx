@@ -11,18 +11,18 @@ import {
   ChevronsRight,
 } from "lucide-react";
 
-import { Alert } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+import { Alert } from "@staaash/ui/components/alert";
+import { Badge } from "@staaash/ui/components/badge";
 import { PageHeader } from "@/components/page-header";
 import { subscribeLive } from "@/lib/live-events";
-import { Button } from "@/components/ui/button";
+import { Button } from "@staaash/ui/components/button";
 import {
   Dialog,
   DialogDescription,
   DialogHeader,
   DialogPopup,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@staaash/ui/components/dialog";
 import {
   Select,
   SelectContent,
@@ -30,13 +30,16 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+} from "@staaash/ui/components/select";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@staaash/ui/components/toggle-group";
 
 import { formatAdminDateTime } from "@/app/(workspace)/admin/admin-format";
 import { AdminPanel } from "@/app/(workspace)/admin/admin-panel";
 import { useTime } from "@/components/time-provider";
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 import type {
   JsonAdminMediaDerivativeRow,
   JsonAdminMediaDerivativeSummary,

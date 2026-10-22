@@ -26,16 +26,16 @@ import {
 } from "@/components/settings-layout";
 import { useTime } from "@/components/time-provider";
 import { TimeZonePicker } from "@/components/time-zone-picker";
-import { Button } from "@/components/ui/button";
+import { Button } from "@staaash/ui/components/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { toast, toastManager } from "@/components/ui/toast";
+} from "@staaash/ui/components/select";
+import { Switch } from "@staaash/ui/components/switch";
+import { toast, toastManager } from "@staaash/ui/components/toast";
 import { checkForUpdatesNow } from "@/lib/update-check-client";
 import { getUpdateStatusLabel, type UpdateState } from "@/lib/update-status";
 

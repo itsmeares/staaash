@@ -10,7 +10,7 @@ import { MiniDrive } from "@/components/mini-drive";
 import { TimeZonePicker } from "@/components/time-zone-picker";
 import { startPath } from "@/lib/start-page";
 import { applyTheme } from "@/lib/theme";
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
 import { EntryBackground } from "./entry-background";
 import styles from "./first-run.module.css";

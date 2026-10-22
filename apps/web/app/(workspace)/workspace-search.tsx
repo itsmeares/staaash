@@ -10,9 +10,9 @@ import {
   ItemPreview,
   thumbnailUrlFor,
 } from "@/components/file-list/file-list";
-import { Button } from "@/components/ui/button";
-import { Kbd } from "@/components/ui/kbd";
-import { cn } from "@/lib/utils";
+import { Button } from "@staaash/ui/components/button";
+import { Kbd } from "@staaash/ui/components/kbd";
+import { cn } from "@staaash/ui/utils";
 
 type Result = {
   id: string;

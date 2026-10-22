@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
 /** The drive mark from design/App/Staaash App Icon.svg, without the tile. */
 export function DriveGlyph({ className }: { className?: string }) {

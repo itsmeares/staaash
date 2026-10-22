@@ -18,8 +18,8 @@ import { createPortal } from "react-dom";
 import type { ViewerKind } from "@staaash/db/viewer-contract";
 
 import { TextFileViewer } from "@/app/text-file-viewer";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Button } from "@staaash/ui/components/button";
+import { cn } from "@staaash/ui/utils";
 
 import { AudioPlayer } from "./audio-player";
 import { ViewerFilmstrip } from "./viewer-filmstrip";

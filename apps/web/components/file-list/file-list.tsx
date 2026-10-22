@@ -17,15 +17,15 @@ import {
   DashboardMenuItems,
   type DashboardContextMenuGroup,
 } from "@/app/dashboard-context-menu";
-import { ItemTypeIcon } from "@/app/item-type-icon";
+import { ItemTypeIcon } from "@staaash/ui/item-type-icon";
 import { folderColorStyle } from "@/lib/folder-color";
-import { getItemVisual } from "@/app/item-visuals";
+import { getItemVisual } from "@staaash/ui/item-visuals";
 import { WorkspaceActionSheet } from "./action-sheet";
 import { MiddleName } from "./middle-name";
-import { Button } from "@/components/ui/button";
-import { Menu, MenuPopup, MenuTrigger } from "@/components/ui/menu";
+import { Button } from "@staaash/ui/components/button";
+import { Menu, MenuPopup, MenuTrigger } from "@staaash/ui/components/menu";
 import { canHaveThumbnail } from "@staaash/db/viewer-contract";
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
 import type { ListSelection } from "./use-list-selection";
 

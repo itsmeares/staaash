@@ -1,8 +1,13 @@
 import { MoreHorizontal, X, type LucideIcon } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu";
-import { cn } from "@/lib/utils";
+import { Button } from "@staaash/ui/components/button";
+import {
+  Menu,
+  MenuItem,
+  MenuPopup,
+  MenuTrigger,
+} from "@staaash/ui/components/menu";
+import { cn } from "@staaash/ui/utils";
 
 export type SelectionBarAction = {
   label: string;

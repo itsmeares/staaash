@@ -1,6 +1,6 @@
 import type { ComponentProps, ReactNode } from "react";
 
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
 /** A bordered surface for one admin topic, with an optional heading. */
 export function AdminPanel({

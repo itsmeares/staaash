@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
 import { cookies } from "next/headers";
 
 import { THEME_COOKIE_NAME } from "@/server/auth/session";
@@ -23,87 +22,6 @@ export const metadata: Metadata = {
   },
 };
 
-const switzer = localFont({
-  src: [
-    {
-      path: "./fonts/switzer-400.woff2",
-      weight: "400",
-      style: "normal",
-    },
-    {
-      path: "./fonts/switzer-500.woff2",
-      weight: "500",
-      style: "normal",
-    },
-    {
-      path: "./fonts/switzer-600.woff2",
-      weight: "600",
-      style: "normal",
-    },
-    {
-      path: "./fonts/switzer-700.woff2",
-      weight: "700",
-      style: "normal",
-    },
-  ],
-  variable: "--font-switzer",
-  display: "swap",
-});
-
-const cabinetGrotesk = localFont({
-  src: [
-    {
-      path: "./fonts/cabinet-grotesk-400.woff2",
-      weight: "400",
-      style: "normal",
-    },
-    {
-      path: "./fonts/cabinet-grotesk-500.woff2",
-      weight: "500",
-      style: "normal",
-    },
-    {
-      path: "./fonts/cabinet-grotesk-700.woff2",
-      weight: "700",
-      style: "normal",
-    },
-    {
-      path: "./fonts/cabinet-grotesk-800.woff2",
-      weight: "800",
-      style: "normal",
-    },
-  ],
-  variable: "--font-cabinet",
-  display: "swap",
-});
-
-const jetBrainsMono = localFont({
-  src: [
-    {
-      path: "./fonts/jetbrains-mono-400.woff2",
-      weight: "400",
-      style: "normal",
-    },
-    {
-      path: "./fonts/jetbrains-mono-500.woff2",
-      weight: "500",
-      style: "normal",
-    },
-    {
-      path: "./fonts/jetbrains-mono-600.woff2",
-      weight: "600",
-      style: "normal",
-    },
-    {
-      path: "./fonts/jetbrains-mono-700.woff2",
-      weight: "700",
-      style: "normal",
-    },
-  ],
-  variable: "--font-jetbrains-mono",
-  display: "swap",
-});
-
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
@@ -116,7 +34,7 @@ export default async function RootLayout({
     <html
       lang="en"
       data-theme={preference}
-      className={`${switzer.variable} ${cabinetGrotesk.variable} ${jetBrainsMono.variable}${themeClass ? ` ${themeClass}` : ""}`}
+      className={themeClass || undefined}
       suppressHydrationWarning
     >
       <head>

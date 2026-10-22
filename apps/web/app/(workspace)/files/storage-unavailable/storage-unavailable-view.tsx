@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, RefreshCw } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@staaash/ui/components/button";
 
 const NORMAL_WAIT_MS = 30_000;
 const LONG_WAIT_MS = 5 * 60_000;

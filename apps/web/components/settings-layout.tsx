@@ -14,17 +14,17 @@ import {
 } from "react";
 
 import { useMediaQuery } from "@/app/(workspace)/use-media-query";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@staaash/ui/components/button";
+import { Input } from "@staaash/ui/components/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@staaash/ui/components/select";
 import { GlidingPill, useGlidingPill } from "@/components/gliding-pill";
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
 export type SettingsCategory = {
   id: string;

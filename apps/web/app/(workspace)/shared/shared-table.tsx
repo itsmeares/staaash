@@ -24,14 +24,14 @@ import type { DashboardContextMenuGroup } from "@/app/dashboard-context-menu";
 import { confirmAction } from "@/components/confirm-dialog";
 import { PageHeader } from "@/components/page-header";
 import { useTime } from "@/components/time-provider";
-import { Button } from "@/components/ui/button";
+import { Button } from "@staaash/ui/components/button";
 import {
   Collapsible,
   CollapsiblePanel,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { toast } from "@/components/ui/toast";
+} from "@staaash/ui/components/collapsible";
+import { Empty, EmptyHeader, EmptyTitle } from "@staaash/ui/components/empty";
+import { toast } from "@staaash/ui/components/toast";
 import {
   FileList,
   thumbnailUrlFor,
@@ -42,7 +42,7 @@ import { useListSelection } from "@/components/file-list/use-list-selection";
 import { useViewMode } from "@/components/file-list/use-view-mode";
 import { formatDayMonth, formatTimeUntil } from "@/lib/time";
 import { copyText } from "@/lib/clipboard";
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 import type { ShareLinkSummary } from "@/server/sharing";
 
 import { useCoarsePointer } from "../use-coarse-pointer";

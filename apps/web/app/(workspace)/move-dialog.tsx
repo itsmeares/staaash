@@ -6,17 +6,17 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
 import { DriveGlyph } from "@/components/drive-glyph";
 import { ItemIcon } from "@/components/file-list/file-list";
-import { Button } from "@/components/ui/button";
+import { Button } from "@staaash/ui/components/button";
 import {
   Dialog,
   DialogFooter,
   DialogHeader,
   DialogPopup,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { toast } from "@/components/ui/toast";
-import { cn } from "@/lib/utils";
+} from "@staaash/ui/components/dialog";
+import { Input } from "@staaash/ui/components/input";
+import { toast } from "@staaash/ui/components/toast";
+import { cn } from "@staaash/ui/utils";
 import type { MoveTarget } from "@/server/files/types";
 
 import { blockedFolders, buildMoveTree, lineage, noteFor } from "./move-tree";

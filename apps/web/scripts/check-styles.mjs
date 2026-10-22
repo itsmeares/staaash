@@ -37,9 +37,11 @@ for (const line of globals.split("\n")) {
   }
 }
 
-const stylesDir = path.join(root, "styles");
+const ui = path.resolve(root, "../../packages/ui");
+const stylesDir = path.join(ui, "styles");
 const styleLines = readdirSync(stylesDir)
-  .filter((name) => name.endsWith(".css"))
+  // fonts.css only lists @font-face files, so it does not count.
+  .filter((name) => name.endsWith(".css") && name !== "fonts.css")
   .reduce(
     (sum, name) =>
       sum + readFileSync(path.join(stylesDir, name), "utf8").split("\n").length,
@@ -47,24 +49,25 @@ const styleLines = readdirSync(stylesDir)
   );
 if (styleLines > STYLES_LINE_BUDGET) {
   problems.push(
-    `styles/*.css has ${styleLines} lines, over the ${STYLES_LINE_BUDGET} line budget`,
+    `packages/ui/styles/*.css has ${styleLines} lines, over the ${STYLES_LINE_BUDGET} line budget`,
   );
 }
 
 for (const file of [
   ...walk(path.join(root, "app")),
   ...walk(path.join(root, "components")),
+  ...walk(path.join(ui, "src")),
   ...walk(stylesDir),
 ]) {
   const rel = path.relative(root, file);
   if (
     file.endsWith(".css") &&
-    !rel.startsWith("styles/") &&
+    !file.startsWith(stylesDir) &&
     rel !== "app/globals.css" &&
     !file.endsWith(".module.css")
   ) {
     problems.push(
-      `${rel}: global CSS belongs in styles/; use a .module.css next to the component instead`,
+      `${rel}: global CSS belongs in packages/ui/styles/; use a .module.css next to the component instead`,
     );
   }
   if (!/\.(css|tsx?)$/.test(file)) continue;

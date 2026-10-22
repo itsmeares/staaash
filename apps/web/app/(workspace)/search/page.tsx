@@ -10,7 +10,7 @@ import {
 } from "@/app/pagination-controls";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
-import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyTitle } from "@staaash/ui/components/empty";
 import { toRecentClientItem } from "../recent/recent-helpers";
 import { SearchResults } from "./search-results";
 

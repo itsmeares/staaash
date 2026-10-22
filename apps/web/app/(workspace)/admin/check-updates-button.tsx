@@ -3,8 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import { toast } from "@/components/ui/toast";
+import { Button } from "@staaash/ui/components/button";
+import { toast } from "@staaash/ui/components/toast";
 import { checkForUpdatesNow } from "@/lib/update-check-client";
 
 export function CheckUpdatesButton() {

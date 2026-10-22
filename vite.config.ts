@@ -15,7 +15,7 @@ export default defineConfig({
     printWidth: 80,
     sortPackageJson: false,
     sortTailwindcss: {
-      stylesheet: "./apps/web/app/globals.css",
+      stylesheet: "./packages/ui/styles.css",
       functions: ["cn", "cva"],
       preserveWhitespace: true,
     },

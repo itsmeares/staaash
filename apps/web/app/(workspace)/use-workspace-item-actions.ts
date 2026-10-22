@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 
 import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
 import { buildItemActions } from "@/components/file-list/item-actions";
-import { toast, toastManager } from "@/components/ui/toast";
+import { toast, toastManager } from "@staaash/ui/components/toast";
 import { startValidatedDownload } from "@/lib/transfers/download";
 
 import { submitMove } from "./files/files-move";

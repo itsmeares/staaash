@@ -1,7 +1,7 @@
 "use client";
 
 import { formatBytes } from "@/lib/format-bytes";
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
 type WorkspaceStorageProps = {
   usedBytes: string;

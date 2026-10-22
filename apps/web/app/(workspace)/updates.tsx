@@ -14,8 +14,8 @@ import { formatVersionLabel } from "@staaash/config/version";
 import { DriveGlyph } from "@/components/drive-glyph";
 import { Halftone } from "@/components/halftone";
 import { useTime } from "@/components/time-provider";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@staaash/ui/components/badge";
+import { Button } from "@staaash/ui/components/button";
 import {
   Dialog,
   DialogContent,
@@ -24,9 +24,9 @@ import {
   DialogHeader,
   DialogPanel,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
-import { toastManager } from "@/components/ui/toast";
+} from "@staaash/ui/components/dialog";
+import { Tabs, TabsList, TabsTab } from "@staaash/ui/components/tabs";
+import { toastManager } from "@staaash/ui/components/toast";
 import { subscribeLive } from "@/lib/live-events";
 import { formatDateTime, formatRelativeTime } from "@/lib/time";
 import { checkForUpdatesNow } from "@/lib/update-check-client";

@@ -69,7 +69,7 @@ vi.mock("@/app/(workspace)/workspace-mobile-nav", () => ({
   WorkspaceMobileNav: () => null,
 }));
 
-vi.mock("@/components/ui/toast", () => ({
+vi.mock("@staaash/ui/components/toast", () => ({
   ToastProvider: () => null,
 }));
 

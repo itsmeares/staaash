@@ -3,7 +3,7 @@
 import { useContinuousList } from "@/components/file-list/use-continuous-list";
 import { useListFind } from "@/components/file-list/use-list-find";
 import { loadRecent, selectRecent, resolveActivity } from "../list-actions";
-import { toast } from "@/components/ui/toast";
+import { toast } from "@staaash/ui/components/toast";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -13,8 +13,8 @@ import {
 } from "@/app/dashboard-context-menu";
 import { PageHeader } from "@/components/page-header";
 import { useTime } from "@/components/time-provider";
-import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { Tabs, TabsList, TabsTab } from "@/components/ui/tabs";
+import { Empty, EmptyHeader, EmptyTitle } from "@staaash/ui/components/empty";
+import { Tabs, TabsList, TabsTab } from "@staaash/ui/components/tabs";
 import {
   FileList,
   thumbnailUrlFor,

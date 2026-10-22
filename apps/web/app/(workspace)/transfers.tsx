@@ -6,13 +6,17 @@ import { useEffect, useRef, useState } from "react";
 
 import { ItemIcon } from "@/components/file-list/file-list";
 import { MiddleName } from "@/components/file-list/middle-name";
-import { Button } from "@/components/ui/button";
-import { Popover, PopoverPopup, PopoverTrigger } from "@/components/ui/popover";
-import { Spinner } from "@/components/ui/spinner";
-import { toast, toastManager } from "@/components/ui/toast";
+import { Button } from "@staaash/ui/components/button";
+import {
+  Popover,
+  PopoverPopup,
+  PopoverTrigger,
+} from "@staaash/ui/components/popover";
+import { Spinner } from "@staaash/ui/components/spinner";
+import { toast, toastManager } from "@staaash/ui/components/toast";
 import { formatBytes } from "@/lib/format-bytes";
 import { startValidatedDownload } from "@/lib/transfers/download";
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
 import {
   formatEta,

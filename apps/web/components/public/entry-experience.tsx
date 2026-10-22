@@ -3,11 +3,11 @@
 import React, { useEffect, useRef, useState } from "react";
 
 import { raiseCurtain } from "@/components/curtain";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@staaash/ui/components/button";
+import { Input } from "@staaash/ui/components/input";
 import { startPath } from "@/lib/start-page";
 import { applyTheme, type Theme } from "@/lib/theme";
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
 import { EntryShell } from "./entry-shell";
 import styles from "./entry-experience.module.css";

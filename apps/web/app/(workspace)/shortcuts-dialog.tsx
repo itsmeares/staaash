@@ -8,8 +8,8 @@ import {
   DialogHeader,
   DialogPanel,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Kbd } from "@/components/ui/kbd";
+} from "@staaash/ui/components/dialog";
+import { Kbd } from "@staaash/ui/components/kbd";
 
 /** Opens the shortcuts dialog from anywhere, such as the profile menu. */
 export const openShortcuts = () =>

@@ -4,7 +4,7 @@ import { FolderPlus, FolderUp, Info, Plus, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@staaash/ui/components/button";
 import {
   Menu,
   MenuItem,
@@ -12,8 +12,12 @@ import {
   MenuSeparator,
   MenuShortcut,
   MenuTrigger,
-} from "@/components/ui/menu";
-import { Popover, PopoverPopup, PopoverTrigger } from "@/components/ui/popover";
+} from "@staaash/ui/components/menu";
+import {
+  Popover,
+  PopoverPopup,
+  PopoverTrigger,
+} from "@staaash/ui/components/popover";
 
 import { useTransferContext } from "./transfer-context";
 

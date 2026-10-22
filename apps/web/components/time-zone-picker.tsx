@@ -19,7 +19,7 @@ import {
   normalizeTimeZone,
 } from "@staaash/config/time-zone";
 
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
 type TimeZonePickerProps = {
   id?: string;

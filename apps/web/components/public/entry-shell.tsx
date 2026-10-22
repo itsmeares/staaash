@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 import { DriveGlyph } from "@/components/drive-glyph";
 import { SkipLink } from "@/components/skip-link";
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
 import { EntryBackground } from "./entry-background";
 import styles from "./entry-experience.module.css";

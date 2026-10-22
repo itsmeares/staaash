@@ -3,7 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 
-import { toastManager } from "@/components/ui/toast";
+import { toastManager } from "@staaash/ui/components/toast";
 
 /**
  * Forms that post without JavaScript come back with `?error=` or

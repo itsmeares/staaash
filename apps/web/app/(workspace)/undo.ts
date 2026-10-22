@@ -1,7 +1,7 @@
 "use client";
 
 import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
-import { toastManager } from "@/components/ui/toast";
+import { toastManager } from "@staaash/ui/components/toast";
 
 type Item = { id: string; kind: "file" | "folder" };
 

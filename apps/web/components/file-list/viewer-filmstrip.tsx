@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ItemPreview } from "./file-list";
 import type { ViewerFile } from "./media-viewer";
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
 const STEP = 70;
 const BATCH_SIZE = 30;

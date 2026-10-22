@@ -3,7 +3,7 @@
 import { Check, Copy } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@staaash/ui/components/button";
 import { copyText } from "@/lib/clipboard";
 
 type CopyState = "idle" | "copied" | "failed";

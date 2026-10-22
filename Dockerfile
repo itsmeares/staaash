@@ -11,6 +11,7 @@ COPY apps/web/package.json ./apps/web/
 COPY apps/worker/package.json ./apps/worker/
 COPY packages/config/package.json ./packages/config/
 COPY packages/db/package.json ./packages/db/
+COPY packages/ui/package.json ./packages/ui/
 RUN corepack install && pnpm install --frozen-lockfile
 
 # ── Build ─────────────────────────────────────────────────────────────────────

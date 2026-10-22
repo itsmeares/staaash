@@ -21,9 +21,9 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { GlidingPill, useGlidingPill } from "@/components/gliding-pill";
 import { ItemIcon, thumbnailUrlFor } from "@/components/file-list/file-list";
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
-import { toastManager } from "@/components/ui/toast";
+import { toastManager } from "@staaash/ui/components/toast";
 
 import type { ShellPin } from "./app-sidebar";
 import { dropTargetProps, type DraggedItems } from "./drag-items";

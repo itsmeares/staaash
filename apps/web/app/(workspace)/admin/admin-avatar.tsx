@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
 const SIZES = {
   sm: { box: "size-7", text: "text-label" },

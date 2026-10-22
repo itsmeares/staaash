@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@staaash/ui/components/button";
 import {
   Dialog,
   DialogDescription,
@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogPopup,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@staaash/ui/components/dialog";
 
 type ConfirmOptions = {
   title: string;

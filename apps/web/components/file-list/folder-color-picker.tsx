@@ -3,9 +3,9 @@
 import { ChevronDown } from "lucide-react";
 import { useState, type PointerEvent } from "react";
 
-import { Input } from "@/components/ui/input";
+import { Input } from "@staaash/ui/components/input";
 import { FOLDER_SWATCHES, folderColorStyle } from "@/lib/folder-color";
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
 type Hsl = { h: number; s: number; l: number };
 

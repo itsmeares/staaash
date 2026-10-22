@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { AdminRow, toneFor } from "@/app/(workspace)/admin/admin-panel";
 import { PageHeader } from "@/components/page-header";
 import { SettingsCard } from "@/components/settings-layout";
-import { Button } from "@/components/ui/button";
+import { Button } from "@staaash/ui/components/button";
 import { formatBytes } from "@/lib/format-bytes";
 import { getUpdateStatusLabel } from "@/lib/update-status";
 import { requireAdminPageSession } from "@/server/auth/guards";

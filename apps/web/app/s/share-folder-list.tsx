@@ -7,7 +7,7 @@ import { canHaveThumbnail } from "@staaash/db/viewer-contract";
 import { useCoarsePointer } from "@/app/(workspace)/use-coarse-pointer";
 import { formatWorkspaceFileSize } from "@/app/(workspace)/workspace-item-helpers";
 import { useTime } from "@/components/time-provider";
-import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyTitle } from "@staaash/ui/components/empty";
 import {
   FileList,
   type FileListColumn,

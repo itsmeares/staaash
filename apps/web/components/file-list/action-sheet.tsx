@@ -10,8 +10,8 @@ import {
   DrawerPanel,
   DrawerPopup,
   DrawerTitle,
-} from "@/components/ui/drawer";
-import { cn } from "@/lib/utils";
+} from "@staaash/ui/components/drawer";
+import { cn } from "@staaash/ui/utils";
 import { MiddleName } from "./middle-name";
 import { getVisibleDashboardMenuGroups } from "@/app/dashboard-context-menu-model";
 import type {

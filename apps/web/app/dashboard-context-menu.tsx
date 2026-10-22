@@ -14,7 +14,7 @@ import {
 import { useRouter } from "next/navigation";
 import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
 import { confirmAction } from "@/components/confirm-dialog";
-import { toast } from "@/components/ui/toast";
+import { toast } from "@staaash/ui/components/toast";
 import { FolderOpen, RefreshCw } from "lucide-react";
 
 import {
@@ -27,7 +27,7 @@ import {
   ContextMenuSubPopup,
   ContextMenuSubTrigger,
   ContextMenuTrigger,
-} from "@/components/ui/context-menu";
+} from "@staaash/ui/components/context-menu";
 
 import {
   MenuItem,
@@ -36,7 +36,7 @@ import {
   MenuSub,
   MenuSubPopup,
   MenuSubTrigger,
-} from "@/components/ui/menu";
+} from "@staaash/ui/components/menu";
 
 import {
   getVisibleDashboardMenuGroups,

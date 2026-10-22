@@ -12,7 +12,7 @@ import {
   MenuPopup,
   MenuSeparator,
   MenuTrigger,
-} from "@/components/ui/menu";
+} from "@staaash/ui/components/menu";
 
 import { openShortcuts } from "./shortcuts-dialog";
 import { Transfers } from "./transfers";

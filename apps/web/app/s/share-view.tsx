@@ -5,11 +5,11 @@ import { Download } from "lucide-react";
 
 import { DriveGlyph } from "@/components/drive-glyph";
 import { EntryShell } from "@/components/public/entry-shell";
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
 import { TextFileViewer } from "@/app/text-file-viewer";
 import { AudioPlayer } from "@/components/file-list/audio-player";
-import { Button } from "@/components/ui/button";
+import { Button } from "@staaash/ui/components/button";
 import { DayMonth } from "@/components/time-provider";
 import { getFolderSizeBytes } from "@/server/files/folder-size";
 

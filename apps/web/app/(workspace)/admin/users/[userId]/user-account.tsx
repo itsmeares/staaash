@@ -12,11 +12,14 @@ import {
   SettingsText,
   UnitField,
 } from "@/components/settings-layout";
-import { Alert } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { toastManager } from "@/components/ui/toast";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Alert } from "@staaash/ui/components/alert";
+import { Badge } from "@staaash/ui/components/badge";
+import { Button } from "@staaash/ui/components/button";
+import { toastManager } from "@staaash/ui/components/toast";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from "@staaash/ui/components/toggle-group";
 import { formatBytes } from "@/lib/format-bytes";
 
 import {

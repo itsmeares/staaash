@@ -3,8 +3,8 @@
 import { FolderPlus, Upload } from "lucide-react";
 import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Button } from "@staaash/ui/components/button";
+import { cn } from "@staaash/ui/utils";
 
 export function HomePrimaryActions({ className }: { className?: string }) {
   return (

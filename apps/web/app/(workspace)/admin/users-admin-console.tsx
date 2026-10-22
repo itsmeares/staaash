@@ -7,10 +7,10 @@ import { useState } from "react";
 
 import { BYTES, UnitField } from "@/components/settings-layout";
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { Badge } from "@staaash/ui/components/badge";
+import { Button } from "@staaash/ui/components/button";
+import { Field, FieldLabel } from "@staaash/ui/components/field";
+import { Input } from "@staaash/ui/components/input";
 import { formatBytes } from "@/lib/format-bytes";
 import { getInitials, roleLabel } from "@/lib/user";
 

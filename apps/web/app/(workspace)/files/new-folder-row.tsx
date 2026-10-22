@@ -4,14 +4,14 @@ import { Folder } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import { submitStorageMutationPost } from "@/app/storage-mutation-submit";
-import { Button } from "@/components/ui/button";
+import { Button } from "@staaash/ui/components/button";
 import {
   Drawer,
   DrawerPanel,
   DrawerPopup,
   DrawerTitle,
-} from "@/components/ui/drawer";
-import { Input } from "@/components/ui/input";
+} from "@staaash/ui/components/drawer";
+import { Input } from "@staaash/ui/components/input";
 
 const DEFAULT_NAME = "Untitled folder";
 

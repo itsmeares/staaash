@@ -15,10 +15,12 @@ worker share one PostgreSQL database and one local storage volume.
 ## Where code lives
 
 - `apps/web` contains the Next.js app. Routes and UI live in `app/`,
-  request-time logic in `server/`, and shared UI in `components/ui`.
+  request-time logic in `server/`.
 - `apps/worker` contains background jobs: cleanup, trash retention, media
   derivatives, zip archives, and restore reconciliation.
 - `packages/db` contains the Prisma schema, migrations, and client.
+- `packages/ui` contains the shared components, design tokens, styles, and
+  fonts used by the web app and the desktop app.
 - `packages/config` contains runtime paths, upload staging, and version code
   shared by both apps.
 - `scripts` contains local maintenance and release tooling.
@@ -181,7 +183,7 @@ replaced. Remove dead code and report what was checked and what was not.
 
 - Complexity belongs in the journal and recovery code. Routes stay thin, UI
   stays simple.
-- `components/ui` components own their look. Pick a `variant` or `size`
+- `packages/ui` components own their look. Pick a `variant` or `size`
   instead of restyling with `className`.
 - `app/globals.css` only imports. Nothing uses `!important`, and text uses
   `foreground` at 80% or more, or `muted-foreground`. `check-styles.mjs`
