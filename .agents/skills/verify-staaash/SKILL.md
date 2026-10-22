@@ -9,8 +9,9 @@ Use this skill for a real web check of Staaash. The web container and worker
 run from the current checkout. PostgreSQL and the file store are new for every
 run.
 
-The helper needs Bash, Docker, curl, OpenSSL, and Node.js. On Windows, run it
-from WSL. Each run builds the image from zero, so a run takes a few minutes.
+The helper needs Bash, Docker, curl, OpenSSL, Node.js, and pnpm. On Windows,
+run it from WSL. Each run builds the image from zero, so a run takes a few
+minutes.
 The helper uses Docker to choose free host ports, so it does not need `ss`.
 
 The helper refuses to use the live `staaash` project. It creates a unique
@@ -74,7 +75,7 @@ Run `doctor` before driving the app and again after the drive:
 
 It checks the exact Compose project, the three containers, the image tag, the
 published ports requested by the run, both health endpoints, and the auth
-session. It rejects wildcard bindings such as `0.0.0.0` and `::`. Before setup
+session. It rejects wildcard bindings such as `0.0.0.0` and `::`. Before setup,
 it checks that the first-run page is present. After `drive` it checks the fake
 owner session from a scratch cookie file. It writes the check results to the
 evidence directory.
