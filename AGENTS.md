@@ -115,7 +115,8 @@ Staaash instance. Inside it, anything goes: seed, reset, break, and restart.
 - Seed fake data only. The e2e bootstrap accounts such as
   `owner-e2e@staaash.test` are fine to reuse. Never copy real files, databases,
   or secrets into a demo.
-- Cap CPU and memory in the compose file. The dev machine is small.
+- Cap CPU and memory in the compose file. Size the limits from the host's CPU
+  count and available memory, leaving enough headroom for other work.
 - If the user opens it from another device, bind the web port to the machine's
   Tailscale or LAN address instead of `127.0.0.1`. Do not post that URL
   anywhere public.
