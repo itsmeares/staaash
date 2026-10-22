@@ -9,6 +9,7 @@
 ## 🧪 Testing Checklist
 
 - [ ] `pnpm lint` passed
+- [ ] `pnpm quality:fallow` passed
 - [ ] `pnpm test` passed
 - [ ] `pnpm build` successful
 - [ ] I added or updated tests for behavior changes, or this change does not alter behavior.
