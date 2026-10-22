@@ -302,6 +302,10 @@ async function validateCurrent(state) {
     return run(["--filter", "web", "e2e:visual", ...args], testEnv(state));
   const mode = process.env.STAAASH_TEST_MODE ?? "all";
   assert(["all", "browser", "system"].includes(mode));
+  assert(
+    mode !== "system" || args.length === 0,
+    "System mode does not accept additional arguments.",
+  );
   if (mode !== "system")
     await run(["--filter", "web", "e2e", ...args], testEnv(state));
   if (args.length || mode === "browser") return;
