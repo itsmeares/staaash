@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { readFileSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
@@ -94,6 +94,11 @@ const checkDatabase = () => {
 };
 
 try {
+  if (!existsSync(chromium.executablePath())) {
+    throw new Error(
+      "Chromium is not installed. From apps/web, run `pnpm exec playwright install chromium`, then run drive again.",
+    );
+  }
   browser = await chromium.launch({ headless: true });
   context = await browser.newContext({ baseURL: browserUrl });
   await context.tracing.start({ screenshots: true, snapshots: true });
