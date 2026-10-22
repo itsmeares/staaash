@@ -95,6 +95,8 @@ builder=$STAAASH_VERIFY_BUILDER
 web_port=$STAAASH_VERIFY_WEB_PORT
 db_port=$STAAASH_VERIFY_DB_PORT
 url=$STAAASH_VERIFY_URL
+tailnet_ip=$STAAASH_VERIFY_TAILNET_IP
+probe_url=$STAAASH_VERIFY_PROBE_URL
 evidence=$EVIDENCE_DIR
 created=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
@@ -177,7 +179,6 @@ STAAASH_VERIFY_PROJECT=$project
 STAAASH_VERIFY_IMAGE=$image
 STAAASH_VERIFY_BUILDER=$builder
 STAAASH_VERIFY_EVIDENCE_DIR=$evidence_dir
-STAAASH_VERIFY_BIND_IP=0.0.0.0
 STAAASH_VERIFY_TAILNET_IP=$ip
 STAAASH_VERIFY_WEB_PORT=$web_port
 STAAASH_VERIFY_DB_PORT=$db_port
@@ -229,8 +230,18 @@ doctor() {
       die "doctor found the wrong container for $service: $actual_name"
   done
 
-  docker port "${STAAASH_VERIFY_PROJECT}_web" | grep -F "0.0.0.0:$STAAASH_VERIFY_WEB_PORT" \
-    >"$EVIDENCE_DIR/doctor-web-port.txt"
+  local web_ports
+  web_ports="$(docker port "${STAAASH_VERIFY_PROJECT}_web")"
+  printf '%s\n' "$web_ports" >"$EVIDENCE_DIR/doctor-web-port.txt"
+  if grep -Eq '(^|[[:space:]])(0\.0\.0\.0|:::):' "$EVIDENCE_DIR/doctor-web-port.txt"; then
+    die "doctor found a wildcard web port binding"
+  fi
+  grep -F -- "$STAAASH_VERIFY_TAILNET_IP:$STAAASH_VERIFY_WEB_PORT" \
+    "$EVIDENCE_DIR/doctor-web-port.txt" >/dev/null ||
+    die "doctor could not find the tailnet web port binding"
+  grep -F -- "127.0.0.1:$STAAASH_VERIFY_WEB_PORT" \
+    "$EVIDENCE_DIR/doctor-web-port.txt" >/dev/null ||
+    die "doctor could not find the loopback web port binding"
   docker port "${STAAASH_VERIFY_PROJECT}_db" | grep -F "127.0.0.1:$STAAASH_VERIFY_DB_PORT" \
     >"$EVIDENCE_DIR/doctor-db-port.txt"
   curl --silent --show-error --fail --max-time 5 \

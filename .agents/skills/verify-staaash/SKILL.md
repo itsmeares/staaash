@@ -1,7 +1,6 @@
 ---
 name: verify-staaash
 description: "Verify Staaash through its web UI in a fresh Docker demo. Use it when a change needs proof that the real drive starts, accepts a user action, and keeps the result."
-disable-model-invocation: true
 ---
 
 # Verify Staaash
@@ -27,9 +26,9 @@ RUN_ENV="$(.agents/skills/verify-staaash/run-demo.sh launch)"
 starts the worker, and waits for the live endpoint and the usable first-run
 page. An empty instance reports `503` readiness until its owner exists. After
 setup, `doctor` requires the ready endpoint to return `200`. Launch binds the
-web port on all interfaces and prints a tailnet URL. Use that URL from another
-device. That is the only URL to give a person. Do not replace it with a
-local-only URL.
+web port only to the tailnet IP and `127.0.0.1`, then prints a tailnet URL. Use
+that URL from another device. That is the only URL to give a person. Do not
+replace it with a local-only URL.
 
 The first page is the empty-instance owner setup. The Drive step below creates
 the fake owner through that page and finishes onboarding. This is the seed for
@@ -132,5 +131,4 @@ RUN_ENV="$(.agents/skills/verify-staaash/run-demo.sh launch)"
 .agents/skills/verify-staaash/run-demo.sh cleanup "$RUN_ENV"
 ```
 
-Use `/maintain-verification-skill` when the app's routes, selectors, startup,
-or user journeys change.
+Update this skill when routes, selectors, startup, or user journeys change.

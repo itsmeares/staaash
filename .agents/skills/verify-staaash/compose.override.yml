@@ -3,7 +3,8 @@ services:
     container_name: ${STAAASH_VERIFY_PROJECT}_web
     image: ${STAAASH_VERIFY_IMAGE}
     ports: !override
-      - "${STAAASH_VERIFY_BIND_IP}:${STAAASH_VERIFY_WEB_PORT}:2113"
+      - "${STAAASH_VERIFY_TAILNET_IP}:${STAAASH_VERIFY_WEB_PORT}:2113"
+      - "127.0.0.1:${STAAASH_VERIFY_WEB_PORT}:2113"
     environment:
       AUTH_SECRET: ${AUTH_SECRET}
       SECURE_COOKIES: "false"
