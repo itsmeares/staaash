@@ -24,6 +24,7 @@ import {
   planReleaseAssets,
   renderReleaseCompose,
   renderReleaseEnv,
+  releaseBranchesForTag,
   replaceReleaseProvenance,
   selectExactCiState,
   serializeReleaseManifest,
@@ -217,6 +218,10 @@ const releaseContextFromEnv = () => {
   const tag = requiredEnv("RELEASE_TAG");
   const release = parseReleaseTag(tag);
   if (!release) throw new Error(`Invalid release tag: ${tag}`);
+  const releaseBranch = validateReleaseBranch(
+    requiredEnv("RELEASE_BRANCH"),
+    tag,
+  );
   const repository = requiredEnv("GITHUB_REPOSITORY");
   const imageRepository =
     optionalEnv("IMAGE_REPOSITORY") || `ghcr.io/${repository.toLowerCase()}`;
@@ -230,6 +235,7 @@ const releaseContextFromEnv = () => {
     tagObject: requiredEnv("TAG_OBJECT_SHA"),
     tagType: requiredEnv("TAG_TYPE"),
     toolingSha,
+    releaseBranch,
   };
 };
 
@@ -326,29 +332,60 @@ const verifyCheckedOutTag = (releaseSha) => {
   }
 };
 
-const verifyMainAncestry = (releaseSha) => {
+const validateReleaseBranch = (branch, tag) => {
+  if (!releaseBranchesForTag(tag).includes(branch)) {
+    throw new Error(`Release branch ${branch} does not match ${tag}.`);
+  }
+  return branch;
+};
+
+const branchContainsCommit = (releaseSha, branch) => {
   const cwd = releaseSourceRoot();
   run(
     "git",
-    ["fetch", "--no-tags", "origin", "main:refs/remotes/origin/main"],
+    [
+      "fetch",
+      "--no-tags",
+      "origin",
+      `refs/heads/${branch}:refs/remotes/origin/${branch}`,
+    ],
     {
       cwd,
     },
   );
   const ancestry = run(
     "git",
-    ["merge-base", "--is-ancestor", releaseSha, "origin/main"],
+    [
+      "merge-base",
+      "--is-ancestor",
+      releaseSha,
+      `refs/remotes/origin/${branch}`,
+    ],
     { allowFailure: true, cwd },
   );
-  if (ancestry.status !== 0) {
-    throw new Error(`Release commit ${releaseSha} is not on current main.`);
+  if (ancestry.status !== 0 && ancestry.status !== 1) {
+    throw new Error(`Cannot check release ancestry: ${ancestry.stderr.trim()}`);
   }
+  return ancestry.status === 0;
+};
+
+const resolveReleaseBranch = ({ tag, releaseSha, releaseBranch = "" }) => {
+  const branches = releaseBranch
+    ? [validateReleaseBranch(releaseBranch, tag)]
+    : releaseBranchesForTag(tag);
+  for (const branch of branches) {
+    if (branchContainsCommit(releaseSha, branch)) return branch;
+  }
+  throw new Error(
+    `Release commit ${releaseSha} is not on ${branches.join(" or ")}.`,
+  );
 };
 
 const inspectTagIdentity = ({
   tag,
   expectedReleaseSha = "",
   expectedTagObject = "",
+  releaseBranch = "",
   requireHead = true,
 }) => {
   const identity = resolveTagIdentity(tag);
@@ -359,8 +396,14 @@ const inspectTagIdentity = ({
     expectedTagObject,
   });
   if (requireHead) verifyCheckedOutTag(identity.releaseSha);
-  verifyMainAncestry(identity.releaseSha);
-  return identity;
+  return {
+    ...identity,
+    releaseBranch: resolveReleaseBranch({
+      tag,
+      releaseSha: identity.releaseSha,
+      releaseBranch,
+    }),
+  };
 };
 
 const verifyRecordedTagIdentity = (context) => {
@@ -368,6 +411,7 @@ const verifyRecordedTagIdentity = (context) => {
     tag: context.release.tag,
     expectedReleaseSha: context.releaseSha,
     expectedTagObject: context.tagObject,
+    releaseBranch: context.releaseBranch,
   });
   if (identity.tagType !== context.tagType) {
     throw new Error(
@@ -383,7 +427,12 @@ const getExactCiRuns = (repository, releaseSha) => {
   return response?.workflow_runs ?? [];
 };
 
-const evaluateExactCiState = ({ state, releaseSha, deadline }) => {
+const evaluateExactCiState = ({
+  state,
+  releaseSha,
+  releaseBranch,
+  deadline,
+}) => {
   if (state.status === "success") return state.run;
   if (state.status === "failure") {
     throw new Error(
@@ -392,7 +441,7 @@ const evaluateExactCiState = ({ state, releaseSha, deadline }) => {
   }
   if (Date.now() >= deadline) {
     throw new Error(
-      `No successful exact main-push CI run for ${releaseSha} before timeout.`,
+      `No successful exact ${releaseBranch}-push CI run for ${releaseSha} before timeout.`,
     );
   }
   console.info(
@@ -403,7 +452,7 @@ const evaluateExactCiState = ({ state, releaseSha, deadline }) => {
   return null;
 };
 
-const waitForExactCi = async ({ repository, releaseSha }) => {
+const waitForExactCi = async ({ repository, releaseSha, releaseBranch }) => {
   const timeoutSeconds = Number.parseInt(
     optionalEnv("CI_WAIT_SECONDS") || "1800",
     10,
@@ -418,8 +467,14 @@ const waitForExactCi = async ({ repository, releaseSha }) => {
     const state = selectExactCiState({
       runs: getExactCiRuns(repository, releaseSha),
       releaseSha,
+      releaseBranch,
     });
-    const completedRun = evaluateExactCiState({ state, releaseSha, deadline });
+    const completedRun = evaluateExactCiState({
+      state,
+      releaseSha,
+      releaseBranch,
+      deadline,
+    });
     if (completedRun) return completedRun;
     await sleep(pollSeconds * 1000);
   }
@@ -1174,7 +1229,11 @@ const expectedCompleteProvenance = ({ context, imageDigest, assets }) => {
   });
 };
 
-const verifyPreflightToolingIdentity = ({ toolingSha, releaseSha }) => {
+const verifyPreflightToolingIdentity = ({
+  toolingSha,
+  releaseSha,
+  releaseBranch,
+}) => {
   verifyToolingCheckout(toolingSha);
   const eventName = requiredEnv("RELEASE_EVENT_NAME");
   if (eventName === "push") {
@@ -1189,9 +1248,9 @@ const verifyPreflightToolingIdentity = ({ toolingSha, releaseSha }) => {
     throw new Error(`Unsupported release event: ${eventName}.`);
   }
   const recoveryRef = requiredEnv("RECOVERY_REF");
-  if (recoveryRef !== "refs/heads/main") {
+  if (recoveryRef !== `refs/heads/${releaseBranch}`) {
     throw new Error(
-      `Recovery dispatch ref is ${recoveryRef}; expected refs/heads/main.`,
+      `Recovery dispatch ref is ${recoveryRef}; expected refs/heads/${releaseBranch}.`,
     );
   }
   const expectedToolingSha = requiredEnv("EXPECTED_TOOLING_SHA");
@@ -1206,13 +1265,18 @@ const waitForRequiredCi = async ({
   repository,
   releaseSha,
   toolingSha,
+  releaseBranch,
   waitForCi = waitForExactCi,
 }) => {
-  const releaseCiRun = await waitForCi({ repository, releaseSha });
+  const releaseCiRun = await waitForCi({
+    repository,
+    releaseSha,
+    releaseBranch,
+  });
   const toolingCiRun =
     toolingSha === releaseSha
       ? releaseCiRun
-      : await waitForCi({ repository, releaseSha: toolingSha });
+      : await waitForCi({ repository, releaseSha: toolingSha, releaseBranch });
   return { releaseCiRun, toolingCiRun };
 };
 
@@ -1225,6 +1289,11 @@ const commandPrepareVersion = async () => {
       `Invalid release version: ${requested}. Use X.Y.Z or vX.Y.Z without build metadata.`,
     );
   }
+
+  const releaseBranch = validateReleaseBranch(
+    requiredEnv("GITHUB_REF").replace(/^refs\/heads\//u, ""),
+    tag,
+  );
 
   const packageVersions = await readPackageVersions(TOOLING_ROOT);
   const normalizedVersions = Object.entries(packageVersions).map(
@@ -1248,6 +1317,7 @@ const commandPrepareVersion = async () => {
     ["tag", release.tag],
     ["version", release.version],
     ["changed", changed],
+    ["release_branch", releaseBranch],
   ]);
 };
 
@@ -1259,10 +1329,12 @@ const commandPreflight = async () => {
     tag,
     expectedReleaseSha: optionalEnv("EXPECTED_RELEASE_SHA"),
     expectedTagObject: optionalEnv("EXPECTED_TAG_OBJECT"),
+    releaseBranch: optionalEnv("RELEASE_BRANCH"),
   });
   verifyPreflightToolingIdentity({
     toolingSha,
     releaseSha: identity.releaseSha,
+    releaseBranch: identity.releaseBranch,
   });
   const packageVersions = await readPackageVersions();
   const errors = findCanonicalReleaseVersionErrors({ tag, packageVersions });
@@ -1272,6 +1344,7 @@ const commandPreflight = async () => {
     repository,
     releaseSha: identity.releaseSha,
     toolingSha,
+    releaseBranch: identity.releaseBranch,
   });
   const imageRepository = `ghcr.io/${repository.toLowerCase()}`;
 
@@ -1284,9 +1357,10 @@ const commandPreflight = async () => {
     ["tag_type", identity.tagType],
     ["image_repository", imageRepository],
     ["tooling_sha", toolingSha],
+    ["release_branch", identity.releaseBranch],
   ]);
   await writeSummary(
-    `## REL-01 preflight\n\n- Tag: \`${release.tag}\`\n- Tag object: \`${identity.tagObject}\`\n- Release commit: \`${identity.releaseSha}\`\n- Release CI run: \`${releaseCiRun.id}\`\n- Tooling commit: \`${toolingSha}\`\n- Tooling CI run: \`${toolingCiRun.id}\`\n- Channel: ${release.prerelease ? "prerelease" : "stable"}`,
+    `## REL-01 preflight\n\n- Tag: \`${release.tag}\`\n- Tag object: \`${identity.tagObject}\`\n- Release commit: \`${identity.releaseSha}\`\n- Source branch: \`${identity.releaseBranch}\`\n- Release CI run: \`${releaseCiRun.id}\`\n- Tooling commit: \`${toolingSha}\`\n- Tooling CI run: \`${toolingCiRun.id}\`\n- Channel: ${release.prerelease ? "prerelease" : "stable"}`,
   );
 };
 
@@ -1729,10 +1803,12 @@ const commandPromoteLatest = async () => {
     : promoteStableLatest({ context, imageDigest, releaseId });
 };
 
-const recoveryRetryGuidance = (releaseId) =>
-  releaseId === "unresolved"
-    ? "- Inspect release inventory, select one exact compatible release ID, then retry with **Run workflow** from `main` and the same existing tag."
-    : "- Retry matching partial state with **Run workflow** from `main`, the same existing tag, and the exact release ID above.";
+const recoveryRetryGuidance = (releaseId) => {
+  const branch = optionalEnv("RELEASE_BRANCH") || "the release source branch";
+  return releaseId === "unresolved"
+    ? `- Inspect release inventory, select one exact compatible release ID, then retry with **Run workflow** from ${branch} and the same existing tag.`
+    : `- Retry matching partial state with **Run workflow** from ${branch}, the same existing tag, and the exact release ID above.`;
+};
 
 const summaryReleaseId = () =>
   optionalEnv("RELEASE_ID") ||
@@ -1783,6 +1859,8 @@ export {
   resolvePublishedReleaseById,
   resolveReleaseById,
   resolveTagIdentity,
+  resolveReleaseBranch,
+  validateReleaseBranch,
   uploadMissingDraftAssets,
   uploadReleaseAsset,
   validateResolvedDraftRelease,

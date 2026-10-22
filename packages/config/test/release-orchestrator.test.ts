@@ -31,11 +31,13 @@ import {
   resolvePublishedReleaseById,
   resolveReleaseById,
   resolveTagIdentity,
+  resolveReleaseBranch,
   uploadMissingDraftAssets,
   uploadReleaseAsset,
   validateResolvedDraftRelease,
   validateResolvedPublishedRelease,
   validateResolvedRelease,
+  validateReleaseBranch,
   verifyPreflightToolingIdentity,
   waitForRequiredCi,
   // @ts-expect-error untyped plain JS release tooling
@@ -127,6 +129,98 @@ afterEach(() => {
 });
 
 describe("release trust roots", () => {
+  it.each([
+    ["main", "v1.2.1"],
+    ["release/1.2", "v1.2.1"],
+    ["release/2.0", "v2.0.0-rc.1"],
+    ["release/3.7", "v3.7.9"],
+  ])("allows %s to prepare %s", (branch, tag) => {
+    expect(validateReleaseBranch(branch, tag)).toBe(branch);
+  });
+
+  it.each([
+    ["release/1.2", "v1.3.0"],
+    ["release/1.2", "v2.0.0"],
+    ["release/01.2", "v1.2.1"],
+    ["release/1.2.1", "v1.2.1"],
+    ["release/1.2/extra", "v1.2.1"],
+    ["feature", "v1.2.1"],
+    ["refs/tags/v1.2.1", "v1.2.1"],
+    ["release/1.2", "v1.2.01"],
+  ])("rejects mismatched branch %s and tag %s", (branch, tag) => {
+    expect(() => validateReleaseBranch(branch, tag)).toThrow();
+  });
+
+  it("resolves tag ancestry and pins subsequent checks to the selected branch", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "release-branches-"));
+    const source = path.join(root, "source");
+    const remote = path.join(root, "origin.git");
+    try {
+      await mkdir(source);
+      git(root, "init", "--bare", remote);
+      git(source, "init", "-b", "main");
+      git(source, "config", "user.name", "Release Test");
+      git(source, "config", "user.email", "release@example.com");
+      await writeFile(path.join(source, "source.txt"), "base\n");
+      git(source, "add", "source.txt");
+      git(source, "commit", "-m", "base");
+      const mainSha = git(source, "rev-parse", "HEAD");
+      git(source, "remote", "add", "origin", remote);
+      const commits: Record<string, string> = {};
+      for (const branch of ["release/1.2", "release/2.0", "feature"]) {
+        git(source, "switch", "-c", branch, "main");
+        await writeFile(path.join(source, "source.txt"), `${branch}\n`);
+        git(source, "commit", "-am", branch);
+        commits[branch] = git(source, "rev-parse", "HEAD");
+      }
+      git(
+        source,
+        "push",
+        "origin",
+        "main",
+        "release/1.2",
+        "release/2.0",
+        "feature",
+      );
+      vi.stubEnv("RELEASE_SOURCE_ROOT", source);
+
+      expect(resolveReleaseBranch({ tag: "v1.2.1", releaseSha: mainSha })).toBe(
+        "main",
+      );
+      for (const [branch, tag] of [
+        ["release/1.2", "v1.2.1"],
+        ["release/2.0", "v2.0.0-rc.1"],
+      ]) {
+        expect(
+          resolveReleaseBranch({ tag, releaseSha: commits[branch!] }),
+        ).toBe(branch);
+      }
+      expect(() =>
+        resolveReleaseBranch({ tag: "v1.2.1", releaseSha: commits.feature }),
+      ).toThrow("is not on main or release/1.2");
+      expect(() =>
+        resolveReleaseBranch({
+          tag: "v1.2.1",
+          releaseSha: commits["release/2.0"],
+          releaseBranch: "release/1.2",
+        }),
+      ).toThrow("is not on release/1.2");
+      expect(() =>
+        resolveReleaseBranch({ tag: "v1.2.1", releaseSha: "9".repeat(40) }),
+      ).toThrow("Cannot check release ancestry");
+      git(remote, "update-ref", "refs/heads/release/1.2", mainSha);
+      expect(() =>
+        resolveReleaseBranch({
+          tag: "v1.2.1",
+          releaseSha: commits["release/1.2"],
+          releaseBranch: "release/1.2",
+        }),
+      ).toThrow();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("selects the requested platform image configuration", () => {
     const amd64Labels = { version: "amd64" };
     const arm64Labels = { version: "arm64" };
@@ -295,6 +389,7 @@ describe("release trust roots", () => {
         repository: "itsmeares/staaash",
         releaseSha: "1".repeat(40),
         toolingSha: "2".repeat(40),
+        releaseBranch: "release/1.2",
         waitForCi,
       }),
     ).resolves.toEqual({
@@ -302,67 +397,84 @@ describe("release trust roots", () => {
       toolingCiRun: { id: "2".repeat(40) },
     });
     expect(waitForCi).toHaveBeenCalledTimes(2);
+    expect(waitForCi).toHaveBeenNthCalledWith(1, {
+      repository: "itsmeares/staaash",
+      releaseSha: "1".repeat(40),
+      releaseBranch: "release/1.2",
+    });
+    expect(waitForCi).toHaveBeenNthCalledWith(2, {
+      repository: "itsmeares/staaash",
+      releaseSha: "2".repeat(40),
+      releaseBranch: "release/1.2",
+    });
 
     waitForCi.mockClear();
     await waitForRequiredCi({
       repository: "itsmeares/staaash",
       releaseSha: "1".repeat(40),
       toolingSha: "1".repeat(40),
+      releaseBranch: "release/1.2",
       waitForCi,
     });
     expect(waitForCi).toHaveBeenCalledOnce();
   });
 
-  it("requires absolute asset output and exact main recovery tooling", () => {
-    vi.stubEnv("ASSET_DIR", "relative-assets");
-    expect(() => assetDirectory()).toThrow(
-      "ASSET_DIR must be an absolute path",
-    );
+  it.each(["main", "release/1.2", "release/2.0"])(
+    "requires exact recovery tooling from %s",
+    (releaseBranch) => {
+      vi.stubEnv("ASSET_DIR", "relative-assets");
+      expect(() => assetDirectory()).toThrow(
+        "ASSET_DIR must be an absolute path",
+      );
 
-    const absoluteAssets = path.join(repositoryRoot, "release-assets");
-    vi.stubEnv("ASSET_DIR", absoluteAssets);
-    expect(assetDirectory()).toBe(path.normalize(absoluteAssets));
+      const absoluteAssets = path.join(repositoryRoot, "release-assets");
+      vi.stubEnv("ASSET_DIR", absoluteAssets);
+      expect(assetDirectory()).toBe(path.normalize(absoluteAssets));
 
-    const toolingSha = git(repositoryRoot, "rev-parse", "HEAD");
-    vi.stubEnv("TOOLING_ROOT", repositoryRoot);
-    vi.stubEnv("RELEASE_EVENT_NAME", "workflow_dispatch");
-    vi.stubEnv("RECOVERY_REF", "refs/heads/main");
-    vi.stubEnv("EXPECTED_TOOLING_SHA", toolingSha);
-    expect(() =>
-      verifyPreflightToolingIdentity({
-        toolingSha,
-        releaseSha: "1".repeat(40),
-      }),
-    ).not.toThrow();
+      const toolingSha = git(repositoryRoot, "rev-parse", "HEAD");
+      vi.stubEnv("TOOLING_ROOT", repositoryRoot);
+      vi.stubEnv("RELEASE_EVENT_NAME", "workflow_dispatch");
+      vi.stubEnv("RECOVERY_REF", `refs/heads/${releaseBranch}`);
+      vi.stubEnv("EXPECTED_TOOLING_SHA", toolingSha);
+      expect(() =>
+        verifyPreflightToolingIdentity({
+          toolingSha,
+          releaseSha: "1".repeat(40),
+          releaseBranch,
+        }),
+      ).not.toThrow();
 
-    vi.stubEnv("RECOVERY_REF", "refs/heads/hotfix");
-    expect(() =>
-      verifyPreflightToolingIdentity({
-        toolingSha,
-        releaseSha: "1".repeat(40),
-      }),
-    ).toThrow("expected refs/heads/main");
+      vi.stubEnv("RECOVERY_REF", "refs/heads/hotfix");
+      expect(() =>
+        verifyPreflightToolingIdentity({
+          toolingSha,
+          releaseSha: "1".repeat(40),
+          releaseBranch,
+        }),
+      ).toThrow(`expected refs/heads/${releaseBranch}`);
 
-    vi.stubEnv("RECOVERY_REF", "refs/heads/main");
-    vi.stubEnv("EXPECTED_TOOLING_SHA", "2".repeat(40));
-    expect(() =>
-      verifyPreflightToolingIdentity({
-        toolingSha,
-        releaseSha: "1".repeat(40),
-      }),
-    ).toThrow("Recovery tooling is");
+      vi.stubEnv("RECOVERY_REF", `refs/heads/${releaseBranch}`);
+      vi.stubEnv("EXPECTED_TOOLING_SHA", "2".repeat(40));
+      expect(() =>
+        verifyPreflightToolingIdentity({
+          toolingSha,
+          releaseSha: "1".repeat(40),
+          releaseBranch,
+        }),
+      ).toThrow("Recovery tooling is");
 
-    vi.stubEnv("RELEASE_EVENT_NAME", "push");
-    expect(() =>
-      verifyPreflightToolingIdentity({ toolingSha, releaseSha: toolingSha }),
-    ).not.toThrow();
-    expect(() =>
-      verifyPreflightToolingIdentity({
-        toolingSha,
-        releaseSha: "1".repeat(40),
-      }),
-    ).toThrow("Tag-push tooling is");
-  });
+      vi.stubEnv("RELEASE_EVENT_NAME", "push");
+      expect(() =>
+        verifyPreflightToolingIdentity({ toolingSha, releaseSha: toolingSha }),
+      ).not.toThrow();
+      expect(() =>
+        verifyPreflightToolingIdentity({
+          toolingSha,
+          releaseSha: "1".repeat(40),
+        }),
+      ).toThrow("Tag-push tooling is");
+    },
+  );
 });
 
 describe("exact release resolution", () => {
