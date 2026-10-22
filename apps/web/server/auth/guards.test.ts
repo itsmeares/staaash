@@ -46,12 +46,6 @@ const ownerPendingSession = {
   },
 };
 
-const cookieRequest = (value: string) => ({
-  cookies: {
-    get: (name: string) => (name === "staaash_session" ? { value } : undefined),
-  },
-});
-
 describe("auth guards", () => {
   it("redirects signed-out page callers to the requested sign-in path", async () => {
     getCurrentSession.mockResolvedValueOnce(null);
@@ -96,9 +90,7 @@ describe("auth guards", () => {
     getSession.mockResolvedValueOnce(pendingSession);
     const { getRequestSession } = await import("@/server/auth/guards");
 
-    await expect(
-      getRequestSession(cookieRequest("session-token")),
-    ).resolves.toBe(null);
+    await expect(getRequestSession("session-token")).resolves.toBe(null);
     expect(getSession).toHaveBeenCalledWith("session-token");
   });
 
@@ -106,8 +98,8 @@ describe("auth guards", () => {
     getSession.mockResolvedValueOnce(completedSession);
     const { getRequestSession } = await import("@/server/auth/guards");
 
-    await expect(
-      getRequestSession(cookieRequest("session-token")),
-    ).resolves.toBe(completedSession);
+    await expect(getRequestSession("session-token")).resolves.toBe(
+      completedSession,
+    );
   });
 });

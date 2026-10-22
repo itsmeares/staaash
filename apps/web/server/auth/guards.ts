@@ -71,12 +71,8 @@ export const requireOwnerOnboardingSession = async () => {
   return session;
 };
 
-export const getRequestSession = async (request: {
-  cookies: { get(name: string): { value: string } | undefined };
-}) => {
-  const session = await authService.getSession(
-    getSessionTokenFromCookieStore(request.cookies),
-  );
+export const getRequestSession = async (token: string | null) => {
+  const session = await authService.getSession(token);
 
   return hasCompletedOnboarding(session) ? session : null;
 };

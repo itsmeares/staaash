@@ -1,4 +1,3 @@
-import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 const revokeSession = vi.fn();
@@ -15,10 +14,10 @@ describe("sign-out route", () => {
   });
 
   it("revokes the current session and clears auth cookies", async () => {
-    const { POST } = await import("@/app/api/auth/sign-out/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await POST(
-      new NextRequest("http://localhost:3000/api/auth/sign-out", {
+    const response = await app.request(
+      new Request("http://localhost:3000/api/auth/sign-out", {
         method: "POST",
         headers: {
           accept: "application/json",
@@ -36,7 +35,6 @@ describe("sign-out route", () => {
 
     const setCookie = response.headers.get("set-cookie") ?? "";
     expect(setCookie).toContain("staaash_session=");
-    expect(setCookie).toContain("staaash_onboarded=");
     expect(setCookie).toContain("Max-Age=0");
   });
 });

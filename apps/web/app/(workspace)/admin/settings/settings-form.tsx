@@ -46,7 +46,7 @@ import {
   type SettingsActionState,
   type SettingsField,
   type SettingsValues,
-} from "./settings-schema";
+} from "@/server/admin/settings-schema";
 
 const MINUTES: Unit[] = [
   { label: "min", factor: 1 },

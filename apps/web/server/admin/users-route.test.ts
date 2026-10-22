@@ -1,24 +1,15 @@
-import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-const {
-  createUser,
-  enforceSameOrigin,
-  requireOwnerApiSession,
-  resetPassword,
-  updateUser,
-} = vi.hoisted(() => ({
-  createUser: vi.fn(),
-  enforceSameOrigin: vi.fn(),
-  requireOwnerApiSession: vi.fn(),
-  resetPassword: vi.fn(),
-  updateUser: vi.fn(),
-}));
+const { createUser, getRequestSession, resetPassword, updateUser } = vi.hoisted(
+  () => ({
+    createUser: vi.fn(),
+    getRequestSession: vi.fn(),
+    resetPassword: vi.fn(),
+    updateUser: vi.fn(),
+  }),
+);
 
-vi.mock("@/server/admin/http", () => ({
-  enforceSameOrigin,
-  requireOwnerApiSession,
-}));
+vi.mock("@/server/auth/guards", () => ({ getRequestSession }));
 
 vi.mock("@/server/auth/service", () => ({
   authService: {
@@ -29,7 +20,7 @@ vi.mock("@/server/auth/service", () => ({
 }));
 
 const makeRequest = (path: string, body: unknown, method = "POST") =>
-  new NextRequest(`http://localhost:3000${path}`, {
+  new Request(`http://localhost:3000${path}`, {
     method,
     headers: {
       accept: "application/json",
@@ -49,10 +40,9 @@ const user = {
 describe("admin users routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    enforceSameOrigin.mockReturnValue(undefined);
-    requireOwnerApiSession.mockResolvedValue({
-      ok: true,
-      session: { user: { id: "owner-1" } },
+    getRequestSession.mockResolvedValue({
+      id: "session-1",
+      user: { id: "owner-1", role: "owner", isOwner: true },
     });
   });
 
@@ -78,15 +68,14 @@ describe("admin users routes", () => {
   )(
     "rejects invalid update storage limit %j without mutation",
     async ({ storageLimitBytes }) => {
-      const { PATCH } = await import("@/app/api/admin/users/[userId]/route");
+      const { app } = await import("@/server/http/app");
 
-      const response = await PATCH(
+      const response = await app.request(
         makeRequest(
           "/api/admin/users/member-1",
           { storageLimitBytes },
           "PATCH",
         ),
-        { params: Promise.resolve({ userId: "member-1" }) },
       );
 
       expect(response.status).toBe(400);
@@ -111,15 +100,14 @@ describe("admin users routes", () => {
         ...user,
         storageLimitBytes: expectedLimit,
       });
-      const { PATCH } = await import("@/app/api/admin/users/[userId]/route");
+      const { app } = await import("@/server/http/app");
 
-      const response = await PATCH(
+      const response = await app.request(
         makeRequest(
           "/api/admin/users/member-1",
           { storageLimitBytes },
           "PATCH",
         ),
-        { params: Promise.resolve({ userId: "member-1" }) },
       );
 
       expect(response.status).toBe(200);
@@ -138,9 +126,9 @@ describe("admin users routes", () => {
       user,
       temporaryPassword: "generated-pass",
     });
-    const { POST } = await import("@/app/api/admin/users/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await POST(
+    const response = await app.request(
       makeRequest("/api/admin/users", {
         email: "member@example.com",
         generateTemporaryPassword: true,
@@ -169,17 +157,15 @@ describe("admin users routes", () => {
       user,
       temporaryPassword: "generated-pass",
     });
-    const { POST } =
-      await import("@/app/api/admin/users/[userId]/password-reset/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await POST(
+    const response = await app.request(
       makeRequest("/api/admin/users/member-1/password-reset", {
         generateTemporaryPassword: true,
         temporaryPassword: null,
         confirmTemporaryPassword: null,
         requirePasswordChange: true,
       }),
-      { params: Promise.resolve({ userId: "member-1" }) },
     );
 
     expect(response.status).toBe(200);

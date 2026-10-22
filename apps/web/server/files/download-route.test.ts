@@ -2,7 +2,6 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { NextRequest } from "next/server";
 import {
   afterAll,
   afterEach,
@@ -19,7 +18,8 @@ const markFileStorageMissing = vi.fn();
 const recordFileAccessBestEffort = vi.fn();
 const getStoragePath = vi.fn();
 
-vi.mock("@/server/storage-read-guard", () => ({
+vi.mock("@/server/storage-read-guard", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/storage-read-guard")>()),
   assertStorageEntityReadable: vi.fn(async () => undefined),
   StorageEntityUnavailableError: class StorageEntityUnavailableError extends Error {
     mutationId = "mutation-test";
@@ -27,22 +27,28 @@ vi.mock("@/server/storage-read-guard", () => ({
   },
 }));
 
-vi.mock("@/server/auth/guards", () => ({
+vi.mock("@/server/auth/guards", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/auth/guards")>()),
   getRequestSession,
 }));
 
-vi.mock("@/server/files/repository", () => ({
+vi.mock("@/server/files/repository", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/files/repository")>()),
   prismaFilesRepository: {
     findFileById,
     markFileStorageMissing,
   },
 }));
 
-vi.mock("@/server/retrieval/recent-tracking", () => ({
+vi.mock("@/server/retrieval/recent-tracking", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/server/retrieval/recent-tracking")
+  >()),
   recordFileAccessBestEffort,
 }));
 
-vi.mock("@/server/storage", () => ({
+vi.mock("@/server/storage", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/storage")>()),
   getStoragePath,
 }));
 
@@ -100,17 +106,13 @@ describe("private file download route", () => {
   });
 
   it("requires authentication", async () => {
-    const { GET } =
-      await import("@/app/api/files/files/[fileId]/download/route");
+    const { app } = await import("@/server/http/app");
     getRequestSession.mockResolvedValueOnce(null);
 
-    const response = await GET(
-      new NextRequest("http://localhost/api/files/files/file-1/download"),
-      {
-        params: Promise.resolve({
-          fileId: "file-1",
-        }),
-      },
+    const response = await app.request(
+      new Request("http://localhost/api/files/files/file-1/download", {
+        headers: { accept: "text/html" },
+      }),
     );
 
     expect(response.status).toBe(303);
@@ -121,8 +123,7 @@ describe("private file download route", () => {
   });
 
   it("denies unauthorized access without recording recents", async () => {
-    const { GET } =
-      await import("@/app/api/files/files/[fileId]/download/route");
+    const { app } = await import("@/server/http/app");
     getRequestSession.mockResolvedValueOnce({
       user: {
         id: "bob",
@@ -131,25 +132,19 @@ describe("private file download route", () => {
     });
     findFileById.mockResolvedValueOnce(makeFile({ ownerUserId: "alice" }));
 
-    const response = await GET(
-      new NextRequest("http://localhost/api/files/files/file-1/download"),
-      {
-        params: Promise.resolve({
-          fileId: "file-1",
-        }),
-      },
+    const response = await app.request(
+      new Request("http://localhost/api/files/files/file-1/download"),
     );
 
     expect(response.status).toBe(403);
-    await expect(response.text()).resolves.toBe(
-      "You do not have access to that folder.",
-    );
+    await expect(response.json()).resolves.toMatchObject({
+      error: "You do not have access to that folder.",
+    });
     expect(recordFileAccessBestEffort).not.toHaveBeenCalled();
   });
 
   it("returns attachment headers and records access after authorization", async () => {
-    const { GET } =
-      await import("@/app/api/files/files/[fileId]/download/route");
+    const { app } = await import("@/server/http/app");
     getRequestSession.mockResolvedValueOnce({
       user: {
         id: "alice",
@@ -160,13 +155,8 @@ describe("private file download route", () => {
     getStoragePath.mockReturnValueOnce(tempFilePath);
     recordFileAccessBestEffort.mockResolvedValueOnce(undefined);
 
-    const response = await GET(
-      new NextRequest("http://localhost/api/files/files/file-1/download"),
-      {
-        params: Promise.resolve({
-          fileId: "file-1",
-        }),
-      },
+    const response = await app.request(
+      new Request("http://localhost/api/files/files/file-1/download"),
     );
 
     expect(response.status).toBe(200);
@@ -186,8 +176,7 @@ describe("private file download route", () => {
   });
 
   it("returns success even if best-effort recent logging resolves (helper absorbs errors internally)", async () => {
-    const { GET } =
-      await import("@/app/api/files/files/[fileId]/download/route");
+    const { app } = await import("@/server/http/app");
     getRequestSession.mockResolvedValueOnce({
       user: { id: "alice", role: "member" },
     });
@@ -195,11 +184,8 @@ describe("private file download route", () => {
     getStoragePath.mockReturnValueOnce(tempFilePath);
     recordFileAccessBestEffort.mockResolvedValueOnce(undefined);
 
-    const response = await GET(
-      new NextRequest("http://localhost/api/files/files/file-1/download"),
-      {
-        params: Promise.resolve({ fileId: "file-1" }),
-      },
+    const response = await app.request(
+      new Request("http://localhost/api/files/files/file-1/download"),
     );
 
     expect(response.status).toBe(200);
@@ -207,8 +193,7 @@ describe("private file download route", () => {
   });
 
   it("does not record a recent row when the storage object cannot be opened", async () => {
-    const { GET } =
-      await import("@/app/api/files/files/[fileId]/download/route");
+    const { app } = await import("@/server/http/app");
     getRequestSession.mockResolvedValueOnce({
       user: { id: "alice", role: "member" },
     });
@@ -218,11 +203,8 @@ describe("private file download route", () => {
       path.join(os.tmpdir(), "staaash-nonexistent-file-xyz.txt"),
     );
 
-    const response = await GET(
-      new NextRequest("http://localhost/api/files/files/file-1/download"),
-      {
-        params: Promise.resolve({ fileId: "file-1" }),
-      },
+    const response = await app.request(
+      new Request("http://localhost/api/files/files/file-1/download"),
     );
 
     expect(response.status).toBe(404);

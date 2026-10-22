@@ -113,11 +113,11 @@ describe("public share poster route", () => {
   });
 
   it("returns a ready poster for active public video shares", async () => {
-    const { GET } = await import("@/app/s/[token]/poster/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await GET(new Request("http://localhost/s/token/poster"), {
-      params: Promise.resolve({ token: "token" }),
-    });
+    const response = await app.request(
+      new Request("http://localhost/s/token/poster"),
+    );
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("image/jpeg");
@@ -131,14 +131,11 @@ describe("public share poster route", () => {
   });
 
   it("returns a ready poster for nested files in folder shares", async () => {
-    const { GET } = await import("@/app/s/[token]/files/[fileId]/poster/route");
+    const { app } = await import("@/server/http/app");
     mocks.getSharedNestedFileContent.mockResolvedValue(makeResolution());
 
-    const response = await GET(
+    const response = await app.request(
       new Request("http://localhost/s/token/files/file-1/poster"),
-      {
-        params: Promise.resolve({ token: "token", fileId: "file-1" }),
-      },
     );
 
     expect(response.status).toBe(200);
@@ -151,41 +148,41 @@ describe("public share poster route", () => {
   });
 
   it("returns 404 when the poster is not ready", async () => {
-    const { GET } = await import("@/app/s/[token]/poster/route");
+    const { app } = await import("@/server/http/app");
     mocks.findReadyPosterDerivative.mockResolvedValue(null);
 
-    const response = await GET(new Request("http://localhost/s/token/poster"), {
-      params: Promise.resolve({ token: "token" }),
-    });
+    const response = await app.request(
+      new Request("http://localhost/s/token/poster"),
+    );
 
     expect(response.status).toBe(404);
   });
 
   it("returns 404 for passworded shares", async () => {
-    const { GET } = await import("@/app/s/[token]/poster/route");
+    const { app } = await import("@/server/http/app");
     mocks.getSharedFileContent.mockResolvedValue(
       makeResolution({
         hasPassword: true,
       }),
     );
 
-    const response = await GET(new Request("http://localhost/s/token/poster"), {
-      params: Promise.resolve({ token: "token" }),
-    });
+    const response = await app.request(
+      new Request("http://localhost/s/token/poster"),
+    );
 
     expect(response.status).toBe(404);
     expect(mocks.findReadyPosterDerivative).not.toHaveBeenCalled();
   });
 
   it("returns fail-closed recovery state for a blocked source file", async () => {
-    const { GET } = await import("@/app/s/[token]/poster/route");
+    const { app } = await import("@/server/http/app");
     mocks.assertStorageEntityReadable.mockRejectedValueOnce(
       new TestStorageEntityUnavailableError("blocked"),
     );
 
-    const response = await GET(new Request("http://localhost/s/token/poster"), {
-      params: Promise.resolve({ token: "token" }),
-    });
+    const response = await app.request(
+      new Request("http://localhost/s/token/poster"),
+    );
 
     expect(response.status).toBe(503);
     expect(response.headers.get("X-Storage-Mutation-Id")).toBe("mutation-1");

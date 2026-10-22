@@ -108,64 +108,33 @@ describe("auth session cookies", () => {
   });
 
   it("uses secure cookies for forwarded HTTPS requests without an override", async () => {
-    const { buildOnboardedCookie, ONBOARDED_COOKIE_NAME } =
-      await loadSessionModule({
-        nodeEnv: "production",
-      });
+    const { buildThemeCookie, THEME_COOKIE_NAME } = await loadSessionModule({
+      nodeEnv: "production",
+    });
 
     expect(
-      buildOnboardedCookie(
-        requestContext("http://staaash:2113/api/auth/rehydrate", {
+      buildThemeCookie(
+        "dark",
+        requestContext("http://staaash:2113/api/user/preferences", {
           "x-forwarded-proto": "https",
         }),
       ),
     ).toEqual({
-      name: ONBOARDED_COOKIE_NAME,
-      value: "1",
-      httpOnly: true,
-      sameSite: "lax",
-      secure: true,
-      path: "/",
-      maxAge: 60 * 60 * 24 * 365 * 10,
-    });
-  });
-
-  it("falls back to secure cookies in production when no request is passed", async () => {
-    const { buildOnboardedCookie } = await loadSessionModule({
-      nodeEnv: "production",
-    });
-
-    expect(buildOnboardedCookie()).toMatchObject({
-      secure: true,
-    });
-  });
-
-  it("builds cleared onboarded and theme cookies", async () => {
-    const {
-      buildClearedOnboardedCookie,
-      buildThemeCookie,
-      ONBOARDED_COOKIE_NAME,
-      THEME_COOKIE_NAME,
-    } = await loadSessionModule({
-      secureCookies: false,
-    });
-
-    expect(buildClearedOnboardedCookie()).toEqual({
-      name: ONBOARDED_COOKIE_NAME,
-      value: "",
-      secure: false,
-      expires: new Date(0),
-      maxAge: 0,
-      path: "/",
-    });
-    expect(buildThemeCookie("dark")).toEqual({
       name: THEME_COOKIE_NAME,
       value: "dark",
       httpOnly: false,
       sameSite: "lax",
-      secure: false,
+      secure: true,
       path: "/",
-      maxAge: 60 * 60 * 24 * 365 * 10,
+      maxAge: 60 * 60 * 24 * 400,
     });
+  });
+
+  it("falls back to secure cookies in production when no request is passed", async () => {
+    const { buildThemeCookie } = await loadSessionModule({
+      nodeEnv: "production",
+    });
+
+    expect(buildThemeCookie("dark")).toMatchObject({ secure: true });
   });
 });

@@ -1,0 +1,22 @@
+import { adminRoutes } from "@/server/http/routes/admin";
+import { authRoutes } from "@/server/http/routes/auth";
+import { filesRoutes } from "@/server/http/routes/files";
+import { healthRoutes } from "@/server/http/routes/health";
+import { publicShareRoutes } from "@/server/http/routes/public-shares";
+import { searchRoutes } from "@/server/http/routes/search";
+import { shareRoutes } from "@/server/http/routes/shares";
+import { uploadRoutes } from "@/server/http/routes/uploads";
+import { createApp } from "@/server/http/core";
+
+const app = createApp()
+  .route("/", healthRoutes)
+  .route("/", authRoutes)
+  .route("/", filesRoutes)
+  .route("/", uploadRoutes)
+  .route("/", shareRoutes)
+  .route("/", publicShareRoutes)
+  .route("/", searchRoutes)
+  .route("/", adminRoutes);
+
+export type AppType = typeof app;
+export { app };

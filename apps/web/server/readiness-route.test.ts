@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+
+import { app } from "@/server/http/app";
 const state = vi.hoisted(() => ({
   settingsFail: false,
   dbFail: false,
@@ -12,7 +14,8 @@ const state = vi.hoisted(() => ({
   staleJobs: false,
   error: new Error("Synthetic database/settings unavailable"),
 }));
-vi.mock("@staaash/db/client", () => ({
+vi.mock("@staaash/db/client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@staaash/db/client")>()),
   getPrisma: () => ({
     systemSettings: {
       findUnique: vi.fn(async () => {
@@ -28,7 +31,8 @@ vi.mock("@staaash/db/client", () => ({
     },
   }),
 }));
-vi.mock("@staaash/db/health", () => ({
+vi.mock("@staaash/db/health", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@staaash/db/health")>()),
   probeDatabaseReachability: vi.fn(async () => ({
     status: state.dbFail ? "error" : "healthy",
   })),
@@ -47,20 +51,24 @@ vi.mock("@staaash/db/health", () => ({
     staleRunning: state.staleJobs ? 1 : 0,
   })),
 }));
-vi.mock("@staaash/db/instance", () => ({
+vi.mock("@staaash/db/instance", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@staaash/db/instance")>()),
   readInstanceUpdateState: vi.fn(async () => null),
 }));
-vi.mock("@staaash/db/jobs", () => ({
+vi.mock("@staaash/db/jobs", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@staaash/db/jobs")>()),
   listWorkerInstances: vi.fn(async () => [
     {
       lastHeartbeatAt: new Date(Date.now() - (state.workerStale ? 300_000 : 0)),
     },
   ]),
 }));
-vi.mock("@staaash/db/reconciliation", () => ({
+vi.mock("@staaash/db/reconciliation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@staaash/db/reconciliation")>()),
   readLatestRestoreReconciliationRun: vi.fn(async () => null),
 }));
-vi.mock("@staaash/db/storage-mutations", () => ({
+vi.mock("@staaash/db/storage-mutations", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@staaash/db/storage-mutations")>()),
   getStorageMutationHealth: vi.fn(async () => {
     if (state.mutationFail) throw state.error;
     return {
@@ -70,7 +78,10 @@ vi.mock("@staaash/db/storage-mutations", () => ({
     };
   }),
 }));
-vi.mock("@staaash/db/storage-mutation-executor", () => ({
+vi.mock("@staaash/db/storage-mutation-executor", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@staaash/db/storage-mutation-executor")
+  >()),
   assertStorageFilesystemSupported: vi.fn(),
 }));
 vi.mock("@/server/storage", () => ({
@@ -94,7 +105,6 @@ vi.mock("@/server/restore", () => ({
   }),
 }));
 import { getReadiness } from "@/server/health";
-import { GET } from "@/app/api/health/ready/route";
 describe("public readiness response", () => {
   beforeEach(() => {
     state.settingsFail = false;
@@ -113,7 +123,7 @@ describe("public readiness response", () => {
     state.dbFail = true;
     state.mutationFail = true;
     state.protocolFail = true;
-    const failed = await GET();
+    const failed = await app.request("/api/health/ready");
     expect(failed.status).toBe(503);
     const body = await failed.json();
     expect(body).toMatchObject({
@@ -140,13 +150,13 @@ describe("public readiness response", () => {
     state.dbFail = false;
     state.mutationFail = false;
     state.protocolFail = false;
-    const recovered = await GET();
+    const recovered = await app.request("/api/health/ready");
     expect(recovered.status).toBe(200);
     expect(await recovered.json()).toMatchObject({ ok: true, failures: [] });
   });
   it("a settings-only failure stays unready without inventing a worker threshold", async () => {
     state.settingsFail = true;
-    const response = await GET();
+    const response = await app.request("/api/health/ready");
     expect(response.status).toBe(503);
     const body = await response.json();
     expect(body.checks.database).toBe("healthy");
@@ -168,7 +178,7 @@ describe("public readiness response", () => {
     ["workerStale", "worker", "WORKER_UNHEALTHY"],
   ] as const)("publishes the %s blocker", async (flag, check, code) => {
     state[flag] = true;
-    const response = await GET();
+    const response = await app.request("/api/health/ready");
     expect(response.status).toBe(503);
     const body = await response.json();
     expect(body.ok).toBe(false);
@@ -179,7 +189,7 @@ describe("public readiness response", () => {
     "keeps traffic ready when %s need attention",
     async (flag) => {
       state[flag] = true;
-      const response = await GET();
+      const response = await app.request("/api/health/ready");
       expect(response.status).toBe(200);
       expect(await response.json()).toMatchObject({
         ok: true,
@@ -193,7 +203,7 @@ describe("public readiness response", () => {
       const summary = await getReadiness();
       expect(summary.queue.status).toBe("error");
       state.recovery = true;
-      const blocked = await GET();
+      const blocked = await app.request("/api/health/ready");
       expect(blocked.status).toBe(503);
       expect((await blocked.json()).failures).toContain(
         "STORAGE_RECOVERY_REQUIRED",

@@ -33,7 +33,6 @@ export const getSharingBoundary = () => ({
 
 export * from "./types";
 export * from "./errors";
-export * from "./schema";
 export * from "./repository";
 export * from "./access-cookie";
 export * from "./archive";

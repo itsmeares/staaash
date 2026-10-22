@@ -1,13 +1,10 @@
-import type { NextRequest } from "next/server";
-
-import { getRequestSession } from "@/server/auth/guards";
-import { notSignedInResponse } from "@/server/auth/http";
 import { FilesError } from "@/server/files/errors";
 import { getAccessiblePrivateFile } from "@/server/files/viewer";
 import {
   createMediaErrorResponse,
   MediaContentError,
 } from "@/server/media/content-response";
+import type { Session } from "@/server/http/core";
 import {
   createStorageEntityUnavailableResponse,
   StorageEntityUnavailableError,
@@ -16,26 +13,20 @@ import {
 type PrivateFile = Awaited<ReturnType<typeof getAccessiblePrivateFile>>;
 
 /**
- * Serves one of the signed-in user's files: checks the session and access,
- * then maps storage, files and media errors to responses.
+ * Serves one of the signed-in user's files: checks access, then maps storage,
+ * files and media errors to responses.
  */
 export async function respondWithPrivateFile({
-  request,
+  session,
   fileId,
-  path,
   unavailable,
   respond,
 }: {
-  request: NextRequest;
+  session: Session;
   fileId: string;
-  /** Where sign-in returns to. */
-  path: string;
   unavailable: string;
   respond: (file: PrivateFile) => Promise<Response>;
 }) {
-  const session = await getRequestSession(request);
-  if (!session) return notSignedInResponse(request, path);
-
   try {
     const file = await getAccessiblePrivateFile({
       actorRole: session.user.role,

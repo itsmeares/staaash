@@ -1,5 +1,6 @@
-import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+
+import { app } from "@/server/http/app";
 import { normalizeFolderName } from "@/server/files/storage-layout";
 
 const mocks = vi.hoisted(() => ({
@@ -24,10 +25,12 @@ const mocks = vi.hoisted(() => ({
   prepareMutation: vi.fn(),
   storageReady: vi.fn(),
 }));
-vi.mock("@/server/auth/guards", () => ({
+vi.mock("@/server/auth/guards", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/auth/guards")>()),
   getRequestSession: mocks.getRequestSession,
 }));
-vi.mock("@/server/auth/service", () => ({
+vi.mock("@/server/auth/service", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/auth/service")>()),
   authService: {
     getSession: mocks.getSession,
     signIn: mocks.signIn,
@@ -41,7 +44,8 @@ vi.mock("@/server/auth/service", () => ({
     resetTemporaryPassword: mocks.resetTemporaryPassword,
   },
 }));
-vi.mock("@/server/files/service", () => ({
+vi.mock("@/server/files/service", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/files/service")>()),
   filesService: Object.fromEntries(
     [
       "createFolder",
@@ -61,7 +65,8 @@ vi.mock("@/server/files/service", () => ({
     ].map((name) => [name, mocks.fileMutation]),
   ),
 }));
-vi.mock("@/server/sharing/service", () => ({
+vi.mock("@/server/sharing/service", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/sharing/service")>()),
   sharingService: Object.fromEntries(
     [
       "createOrReissueShare",
@@ -73,7 +78,8 @@ vi.mock("@/server/sharing/service", () => ({
     ].map((name) => [name, mocks.shareMutation]),
   ),
 }));
-vi.mock("@/server/retrieval/service", () => ({
+vi.mock("@/server/retrieval/service", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/retrieval/service")>()),
   retrievalService: Object.fromEntries(
     [
       "setFileFavorite",
@@ -82,26 +88,37 @@ vi.mock("@/server/retrieval/service", () => ({
     ].map((name) => [name, mocks.retrievalMutation]),
   ),
 }));
-vi.mock("@/server/retrieval/recent-tracking", () => ({
+vi.mock("@/server/retrieval/recent-tracking", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/server/retrieval/recent-tracking")
+  >()),
   recordFileAccessBestEffort: vi.fn(),
   recordFolderAccessBestEffort: vi.fn(),
 }));
-vi.mock("@/server/durable-storage-mutation", () => ({
+vi.mock("@/server/durable-storage-mutation", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/server/durable-storage-mutation")
+  >()),
   assertStorageProtocolReady: mocks.storageReady,
   hashDurableStorageRequest: () => "fixture-hash",
   prepareDurableStorageMutationParent: mocks.prepareMutation,
   findDurableStorageMutationReplay: vi.fn(),
   StorageProtocolNotReadyError: class extends Error {},
 }));
-vi.mock("@/server/uploads", () => ({
+vi.mock("@/server/uploads", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/uploads")>()),
   assertUploadSizeAllowed: vi.fn(),
   computeFileSha256: vi.fn(),
   UploadError: class extends Error {},
 }));
-vi.mock("@/server/uploads/admission", () => ({
+vi.mock("@/server/uploads/admission", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/uploads/admission")>()),
   UploadAdmissionError: class extends Error {},
 }));
-vi.mock("@/server/uploads/session-service", () => ({
+vi.mock("@/server/uploads/session-service", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/server/uploads/session-service")
+  >()),
   createResumableSession: mocks.createResumableSession,
   beginSessionCommit: mocks.beginSessionCommit,
   findActiveResumableSession: vi.fn(async () => ({
@@ -120,254 +137,215 @@ vi.mock("@/server/uploads/session-service", () => ({
   recordResumableCommitRecoveryError: vi.fn(),
   restoreResumableSessionAfterCommitRollback: vi.fn(),
 }));
-vi.mock("@/server/files/repository", () => ({
+vi.mock("@/server/files/repository", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/files/repository")>()),
   prismaFilesRepository: { findFileById: vi.fn(), findFolderById: vi.fn() },
   findArchiveSelectionItems: vi.fn(),
 }));
-vi.mock("@staaash/db/jobs", () => ({
+vi.mock("@staaash/db/jobs", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@staaash/db/jobs")>()),
   scheduleZipArchiveGenerate: mocks.scheduleJob,
   ALL_SUPPORTED_JOB_KINDS: ["staging.cleanup"],
 }));
-vi.mock("@staaash/db/zip-archives", () => ({
+vi.mock("@staaash/db/zip-archives", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@staaash/db/zip-archives")>()),
   buildZipContentKey: vi.fn(),
   findOrCreateZipArchive: vi.fn(),
   ZIP_ARCHIVE_STATUS_FAILED: "failed",
   ZIP_ARCHIVE_STATUS_READY: "ready",
 }));
-vi.mock("@/server/admin/jobs", () => ({
+vi.mock("@/server/admin/jobs", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/admin/jobs")>()),
   enqueueAdminStagingCleanup: mocks.scheduleJob,
   enqueueAdminTrashRetention: mocks.scheduleJob,
 }));
-vi.mock("@/server/admin/updates", () => ({
+vi.mock("@/server/admin/updates", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/admin/updates")>()),
   enqueueAdminUpdateCheck: mocks.scheduleJob,
 }));
-vi.mock("@/server/admin/integrity", () => ({
+vi.mock("@/server/admin/integrity", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/admin/integrity")>()),
   enqueueAdminRestoreReconciliation: mocks.scheduleJob,
 }));
-import { POST as postAuthPasswordChangeRequired } from "@/app/api/auth/password-change-required/route";
-import { POST as postAuthSetup } from "@/app/api/auth/setup/route";
-import { POST as postAuthSignIn } from "@/app/api/auth/sign-in/route";
-import { POST as postAuthSignOut } from "@/app/api/auth/sign-out/route";
-import { POST as postFilesFilesFileidDelete } from "@/app/api/files/files/[fileId]/delete/route";
-import { POST as postFilesFilesFileidFavorite } from "@/app/api/files/files/[fileId]/favorite/route";
-import { POST as postFilesFilesFileidMove } from "@/app/api/files/files/[fileId]/move/route";
-import { POST as postFilesFilesFileidRename } from "@/app/api/files/files/[fileId]/rename/route";
-import { POST as postFilesFilesFileidRestore } from "@/app/api/files/files/[fileId]/restore/route";
-import { POST as postFilesFilesFileidTrash } from "@/app/api/files/files/[fileId]/trash/route";
-import { POST as postFilesFoldersFolderidFavorite } from "@/app/api/files/folders/[folderId]/favorite/route";
-import { POST as postFilesFoldersFolderidMove } from "@/app/api/files/folders/[folderId]/move/route";
-import { POST as postFilesFoldersFolderidRename } from "@/app/api/files/folders/[folderId]/rename/route";
-import { POST as postFilesFoldersFolderidRestore } from "@/app/api/files/folders/[folderId]/restore/route";
-import { POST as postFilesFoldersFolderidTrash } from "@/app/api/files/folders/[folderId]/trash/route";
-import { POST as postFilesFolders } from "@/app/api/files/folders/route";
-import { POST as postFilesTrashClear } from "@/app/api/files/trash/clear/route";
-import { POST as postSharesShareidDelete } from "@/app/api/shares/[shareId]/delete/route";
-import { POST as postSharesShareidPassword } from "@/app/api/shares/[shareId]/password/route";
-import { POST as postSharesShareidRevoke } from "@/app/api/shares/[shareId]/revoke/route";
-import { POST as postSharesShareidUpdate } from "@/app/api/shares/[shareId]/update/route";
-import { POST as postShares } from "@/app/api/shares/route";
-import { POST as postAdminJobsRun } from "@/app/api/admin/jobs/run/route";
-import { POST as postAdminUsersUseridPasswordReset } from "@/app/api/admin/users/[userId]/password-reset/route";
-import { PATCH as patchAdminUsersUserid } from "@/app/api/admin/users/[userId]/route";
-import { PATCH as patchAdminUsersUseridStorageLimit } from "@/app/api/admin/users/[userId]/storage-limit/route";
-import { POST as postAdminUsers } from "@/app/api/admin/users/route";
-import { POST as postFilesArchives } from "@/app/api/files/archives/route";
-import { POST as postFilesFoldersEnsure } from "@/app/api/files/folders/ensure/route";
-import { POST as postFilesMove } from "@/app/api/files/move/route";
-import { POST as postUploadsSessionsIdComplete } from "@/app/api/uploads/sessions/[id]/complete/route";
-import { POST as postUploadsSessions } from "@/app/api/uploads/sessions/route";
-import { POST as postUserPreferences } from "@/app/api/user/preferences/route";
-const context = {
-  params: Promise.resolve({
-    fileId: "file-1",
-    folderId: "folder-1",
-    shareId: "share-1",
-    userId: "member-1",
-    id: "upload-1",
-  }),
-};
 const routes = [
   {
     path: "/api/auth/password-change-required",
     method: "POST",
-    invoke: (request: NextRequest) => postAuthPasswordChangeRequired(request),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/auth/setup",
     method: "POST",
-    invoke: (request: NextRequest) => postAuthSetup(request),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/auth/sign-in",
     method: "POST",
-    invoke: (request: NextRequest) => postAuthSignIn(request),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/auth/sign-out",
     method: "POST",
-    invoke: (request: NextRequest) => postAuthSignOut(request),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/files/files/file-1/delete",
     method: "POST",
-    invoke: (request: NextRequest) =>
-      postFilesFilesFileidDelete(request, context),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/files/files/file-1/favorite",
     method: "POST",
-    invoke: (request: NextRequest) =>
-      postFilesFilesFileidFavorite(request, context),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/files/files/file-1/move",
     method: "POST",
-    invoke: (request: NextRequest) =>
-      postFilesFilesFileidMove(request, context),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/files/files/file-1/rename",
     method: "POST",
-    invoke: (request: NextRequest) =>
-      postFilesFilesFileidRename(request, context),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/files/files/file-1/restore",
     method: "POST",
-    invoke: (request: NextRequest) =>
-      postFilesFilesFileidRestore(request, context),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/files/files/file-1/trash",
     method: "POST",
-    invoke: (request: NextRequest) =>
-      postFilesFilesFileidTrash(request, context),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/files/folders/folder-1/favorite",
     method: "POST",
-    invoke: (request: NextRequest) =>
-      postFilesFoldersFolderidFavorite(request, context),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/files/folders/folder-1/move",
     method: "POST",
-    invoke: (request: NextRequest) =>
-      postFilesFoldersFolderidMove(request, context),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/files/folders/folder-1/rename",
     method: "POST",
-    invoke: (request: NextRequest) =>
-      postFilesFoldersFolderidRename(request, context),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/files/folders/folder-1/restore",
     method: "POST",
-    invoke: (request: NextRequest) =>
-      postFilesFoldersFolderidRestore(request, context),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/files/folders/folder-1/trash",
     method: "POST",
-    invoke: (request: NextRequest) =>
-      postFilesFoldersFolderidTrash(request, context),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/files/folders",
     method: "POST",
-    invoke: (request: NextRequest) => postFilesFolders(request),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/files/trash/clear",
     method: "POST",
-    invoke: (request: NextRequest) => postFilesTrashClear(request),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/shares/share-1/delete",
     method: "POST",
-    invoke: (request: NextRequest) => postSharesShareidDelete(request, context),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/shares/share-1/password",
     method: "POST",
-    invoke: (request: NextRequest) =>
-      postSharesShareidPassword(request, context),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/shares/share-1/revoke",
     method: "POST",
-    invoke: (request: NextRequest) => postSharesShareidRevoke(request, context),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/shares/share-1/update",
     method: "POST",
-    invoke: (request: NextRequest) => postSharesShareidUpdate(request, context),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/shares",
     method: "POST",
-    invoke: (request: NextRequest) => postShares(request),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/admin/jobs/run",
     method: "POST",
-    invoke: (request: NextRequest) => postAdminJobsRun(request),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/admin/users/member-1/password-reset",
     method: "POST",
-    invoke: (request: NextRequest) =>
-      postAdminUsersUseridPasswordReset(request, context),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/admin/users/member-1",
     method: "PATCH",
-    invoke: (request: NextRequest) => patchAdminUsersUserid(request, context),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/admin/users/member-1/storage-limit",
     method: "PATCH",
-    invoke: (request: NextRequest) =>
-      patchAdminUsersUseridStorageLimit(request, context),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/admin/users",
     method: "POST",
-    invoke: (request: NextRequest) => postAdminUsers(request),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/files/archives",
     method: "POST",
-    invoke: (request: NextRequest) => postFilesArchives(request),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/files/folders/ensure",
     method: "POST",
-    invoke: (request: NextRequest) => postFilesFoldersEnsure(request),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/files/move",
     method: "POST",
-    invoke: (request: NextRequest) => postFilesMove(request),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/uploads/sessions/upload-1/complete",
     method: "POST",
-    invoke: (request: NextRequest) =>
-      postUploadsSessionsIdComplete(request, context),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/uploads/sessions",
     method: "POST",
-    invoke: (request: NextRequest) => postUploadsSessions(request),
+    invoke: (request: Request) => app.request(request),
   },
   {
     path: "/api/user/preferences",
     method: "POST",
-    invoke: (request: NextRequest) => postUserPreferences(request),
+    invoke: (request: Request) => app.request(request),
   },
 ];
+// These routes take no body, so only the origin check applies.
+const BODYLESS = new Set([
+  "/api/auth/sign-out",
+  "/api/files/files/file-1/delete",
+  "/api/files/files/file-1/restore",
+  "/api/files/files/file-1/trash",
+  "/api/files/folders/folder-1/restore",
+  "/api/files/folders/folder-1/trash",
+  "/api/files/trash/clear",
+  "/api/shares/share-1/delete",
+  "/api/shares/share-1/revoke",
+]);
 const requestFor = (
   path: string,
   method: string,
@@ -375,7 +353,7 @@ const requestFor = (
   origin = "http://localhost:3000",
   accept = "application/json",
 ) =>
-  new NextRequest(`http://localhost:3000${path}`, {
+  new Request(`http://localhost:3000${path}`, {
     method,
     headers: {
       accept,
@@ -413,18 +391,17 @@ describe("request validation contracts", () => {
     mocks.getSession.mockResolvedValue(mocks.session);
   });
   for (const route of routes) {
-    it.each(["{", "", "null", "[]", '"string"', "123"])(
-      `${route.method} ${route.path} rejects body %s without mutation`,
-      async (body) => {
-        const request = requestFor(route.path, route.method, body);
-        const parse = vi.spyOn(request, "json");
-        const response = await route.invoke(request);
-        expect(parse).toHaveBeenCalledOnce();
-        expect(response.status).toBe(400);
-        expect((await response.json()).error).toEqual(expect.any(String));
-        expectNoMutation();
-      },
-    );
+    if (!BODYLESS.has(route.path))
+      it.each(["{", "", "null", "[]", '"string"', "123"])(
+        `${route.method} ${route.path} rejects body %s without mutation`,
+        async (body) => {
+          const request = requestFor(route.path, route.method, body);
+          const response = await route.invoke(request);
+          expect(response.status).toBe(400);
+          expect((await response.json()).error).toEqual(expect.any(String));
+          expectNoMutation();
+        },
+      );
     it(`${route.method} ${route.path} refuses a wrong origin before parsing`, async () => {
       const request = requestFor(
         route.path,
@@ -432,40 +409,23 @@ describe("request validation contracts", () => {
         "{",
         "https://evil.example",
       );
-      const parse = vi.spyOn(request, "json");
       const response = await route.invoke(request);
       expect(response.status).toBe(403);
-      expect(parse).not.toHaveBeenCalled();
+      expect(request.bodyUsed).toBe(false);
       expectNoMutation();
     });
   }
   it("missing share targets return a schema validation response", async () => {
-    const response = await postShares(requestFor("/api/shares", "POST", "{}"));
+    const response = await app.request(requestFor("/api/shares", "POST", "{}"));
     expect(response.status).toBe(400);
     expect((await response.json()).code).toBe("INVALID_REQUEST");
-    expectNoMutation();
-  });
-  it("malformed form callers redirect to a safe fallback with an error", async () => {
-    const response = await postFilesFolders(
-      requestFor(
-        "/api/files/folders",
-        "POST",
-        "{",
-        "http://localhost:3000",
-        "text/html",
-      ),
-    );
-    expect(response.status).toBe(303);
-    const url = new URL(response.headers.get("location")!);
-    expect(url.pathname).toBe("/files");
-    expect(url.searchParams.get("error")).toBe("Invalid JSON body.");
     expectNoMutation();
   });
   it("an unrelated service SyntaxError remains a 500", async () => {
     mocks.signIn.mockRejectedValueOnce(
       new SyntaxError("Internal service failure"),
     );
-    const response = await postAuthSignIn(
+    const response = await app.request(
       requestFor(
         "/api/auth/sign-in",
         "POST",
@@ -512,7 +472,7 @@ describe("request validation contracts", () => {
     mocks.fileMutation.mockImplementationOnce(({ name }) =>
       normalizeFolderName(name),
     );
-    const response = await postFilesFolders(
+    const response = await app.request(
       requestFor(
         "/api/files/folders",
         "POST",
@@ -528,7 +488,7 @@ describe("request validation contracts", () => {
         code: "STORAGE_MUTATION_IN_PROGRESS",
       }),
     );
-    const retry = await postFilesFolders(
+    const retry = await app.request(
       requestFor(
         "/api/files/folders",
         "POST",

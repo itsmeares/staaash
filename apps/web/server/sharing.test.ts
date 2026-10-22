@@ -25,15 +25,11 @@ import { ShareView } from "@/app/s/share-view";
 import { TimeProvider } from "@/components/time-provider";
 import {
   canBrowseSharedFolder,
-  createShareSchema,
-  formatDateTimeLocalValue,
   getFolderArchiveDownloadAllowed,
   getSharedDownloadAllowed,
   getSharedViewerAllowed,
   getSharedTreeExposureMode,
   getSharingBoundary,
-  unlockShareSchema,
-  updateShareSchema,
 } from "@/server/sharing";
 import type { PublicShareResolution } from "@/server/sharing/types";
 
@@ -208,29 +204,6 @@ describe("folder public link behavior", () => {
       recipientsCanReshare: false,
       hiddenChildFiltering: false,
     });
-  });
-
-  it("round-trips datetime-local values without timezone drift", () => {
-    const original = new Date(2026, 3, 1, 12, 30);
-    const formatted = formatDateTimeLocalValue(original);
-    const parsed = updateShareSchema.parse({
-      expiresAt: formatted,
-      downloadDisabled: "false",
-    });
-
-    expect(formatDateTimeLocalValue(parsed.expiresAt)).toBe(formatted);
-  });
-
-  it("requires a share id when reissuing a link", () => {
-    expect(() =>
-      createShareSchema.parse({
-        mode: "reissue",
-      }),
-    ).toThrowError("A share ID is required to reissue a public link.");
-  });
-
-  it("rejects missing unlock passwords during validation", () => {
-    expect(() => unlockShareSchema.parse({})).toThrow();
   });
 
   it("hides locked file metadata before unlock", async () => {

@@ -1,7 +1,7 @@
-import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { GET, POST } from "@/app/api/files/move/route";
+import { app } from "@/server/http/app";
+
 import { getRequestSession } from "@/server/auth/guards";
 
 const mocks = vi.hoisted(() => ({
@@ -42,7 +42,7 @@ vi.mock("@/server/auth/guards", () => ({
 }));
 
 const request = (body: unknown, origin = "http://localhost:3000") =>
-  new NextRequest("http://localhost:3000/api/files/move", {
+  new Request("http://localhost:3000/api/files/move", {
     method: "POST",
     headers: {
       accept: "application/json",
@@ -86,7 +86,7 @@ describe("batch move route", () => {
   });
 
   it("queues a move and records the affected items", async () => {
-    const response = await POST(
+    const response = await app.request(
       request({
         destinationFolderId: "folder-destination",
         items: [
@@ -148,8 +148,8 @@ describe("batch move route", () => {
       },
     ]);
 
-    const response = await GET(
-      new NextRequest("http://localhost:3000/api/files/move", {
+    const response = await app.request(
+      new Request("http://localhost:3000/api/files/move", {
         headers: {
           accept: "application/json",
           host: "localhost:3000",
@@ -195,7 +195,7 @@ describe("batch move route", () => {
       { id: "file-child", storageRevision: 5 },
     ]);
 
-    await POST(
+    await app.request(
       request({
         destinationFolderId: "folder-destination",
         items: [{ id: "folder-1", kind: "folder" }],
@@ -246,7 +246,7 @@ describe("batch move route", () => {
       replayed: true,
     });
 
-    const response = await POST(
+    const response = await app.request(
       request({
         destinationFolderId: "folder-destination",
         items: [{ id: "file-1", kind: "file" }],
@@ -266,12 +266,12 @@ describe("batch move route", () => {
   });
 
   it("rejects malformed and cross-origin requests", async () => {
-    const malformed = await POST(
+    const malformed = await app.request(
       request({ destinationFolderId: "", items: [] }),
     );
     expect(malformed.status).toBe(400);
 
-    const crossOrigin = await POST(
+    const crossOrigin = await app.request(
       request(
         {
           destinationFolderId: "folder-destination",
