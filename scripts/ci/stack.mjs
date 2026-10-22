@@ -296,19 +296,24 @@ async function validateUpgrade(state, candidate) {
   await runSystem(state, "upgrade.spec.mjs", { STAAASH_TEST_PHASE: "verify" });
 }
 
+// Test paths pick browser files, so they never run the system suites.
+export function suitesFor(args, mode = args.length ? "browser" : "all") {
+  assert(["all", "browser", "system"].includes(mode), `Unknown mode ${mode}.`);
+  assert(
+    mode === "browser" || args.length === 0,
+    "Test paths run browser files only.",
+  );
+  return { browser: mode !== "system", system: mode !== "browser" };
+}
+
 async function validateCurrent(state) {
   const args = process.argv.slice(2);
   if (process.env.STAAASH_TEST_VISUAL === "true")
     return run(["--filter", "web", "e2e:visual", ...args], testEnv(state));
-  const mode = process.env.STAAASH_TEST_MODE ?? "all";
-  assert(["all", "browser", "system"].includes(mode));
-  assert(
-    mode !== "system" || args.length === 0,
-    "System mode does not accept additional arguments.",
-  );
-  if (mode !== "system")
+  const suites = suitesFor(args, process.env.STAAASH_TEST_MODE);
+  if (suites.browser)
     await run(["--filter", "web", "e2e", ...args], testEnv(state));
-  if (args.length || mode === "browser") return;
+  if (!suites.system) return;
   await runSystem(state, "app.spec.mjs");
   if (process.env.STAAASH_TEST_RECOVERY === "true")
     await runSystem(state, "recovery.spec.mjs");
