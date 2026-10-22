@@ -138,7 +138,7 @@ remove_state() {
 
 cleanup_failed_launch() {
   local status=$?
-  trap - EXIT
+  trap - EXIT INT TERM
   if remove_resources && remove_state; then
     printf 'verify-staaash: launch failed; evidence is in %s\n' "$EVIDENCE_DIR" >&2
   else
