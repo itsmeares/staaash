@@ -7,7 +7,11 @@
   ],
   "dependencyDashboard": true,
   "timezone": "Europe/London",
-  "schedule": ["* 0-7 * * 1-5"],
+  "schedule": ["* 2-7 * * 1"],
+  "updateNotScheduled": false,
+  "automerge": false,
+  "prConcurrentLimit": 3,
+  "prHourlyLimit": 0,
   "rangeStrategy": "bump",
   "prCreation": "immediate",
   "lockFileMaintenance": {
@@ -18,110 +22,87 @@
     "addLabels": ["security"],
     "groupName": null,
     "schedule": [],
+    "dependencyDashboardApproval": false,
     "minimumReleaseAge": null,
+    "minimumGroupSize": 1,
+    "prConcurrentLimit": 0,
     "prCreation": "immediate",
     "vulnerabilityFixStrategy": "lowest"
   },
   "packageRules": [
     {
-      "description": "Keep unrelated major updates separate",
-      "matchUpdateTypes": ["major"],
-      "groupName": null
+      "matchManagers": ["npm", "dockerfile", "docker-compose"],
+      "groupName": "App packages"
     },
     {
-      "description": "Hold routine patch updates for manual approval",
-      "matchManagers": [
-        "npm",
-        "dockerfile",
-        "docker-compose",
-        "github-actions"
-      ],
-      "matchUpdateTypes": ["patch"],
-      "groupName": "routine patch updates",
-      "groupSlug": "routine-patches",
-      "dependencyDashboardApproval": true
-    },
-    {
-      "description": "Group runtime dependency minor updates",
       "matchManagers": ["npm"],
-      "matchDepTypes": ["dependencies"],
-      "matchUpdateTypes": ["minor"],
-      "groupName": "runtime dependencies"
+      "matchDepTypes": ["devDependencies", "packageManager"],
+      "groupName": "Development tools"
     },
     {
-      "description": "Group development dependency minor updates",
       "matchManagers": ["npm"],
-      "matchDepTypes": ["devDependencies"],
-      "matchUpdateTypes": ["minor"],
-      "groupName": "development dependencies"
+      "matchDepTypes": ["pnpm-workspace.overrides"],
+      "groupName": "Workspace overrides"
     },
     {
-      "description": "Group workspace tooling minor updates",
-      "matchManagers": ["npm"],
-      "matchPackageNames": ["pnpm", "typescript", "tsx"],
-      "matchUpdateTypes": ["minor"],
-      "groupName": "workspace tooling"
-    },
-    {
-      "description": "Group type definition minor updates",
-      "matchManagers": ["npm"],
-      "matchPackageNames": ["@types/**"],
-      "matchUpdateTypes": ["minor"],
-      "groupName": "type definitions"
-    },
-    {
-      "description": "Group GitHub Actions minor updates",
       "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["minor"],
       "groupName": "GitHub Actions"
     },
     {
-      "description": "Keep Node.js versions aligned",
-      "matchManagers": ["github-actions", "dockerfile", "docker-compose"],
-      "matchDepNames": ["node"],
-      "matchUpdateTypes": ["patch", "minor", "major"],
+      "matchUpdateTypes": ["major"],
+      "groupName": null,
+      "dependencyDashboardApproval": true
+    },
+    {
+      "matchDepNames": ["node", "@types/node"],
       "groupName": "Node.js",
-      "groupSlug": "node-js"
+      "groupSlug": "node-js",
+      "allowedVersions": "/^24(?:[.-]|$)/"
     },
     {
-      "description": "Update React and React DOM only together",
       "matchManagers": ["npm"],
-      "matchPackageNames": ["react", "react-dom"],
-      "matchUpdateTypes": ["minor", "major"],
-      "groupName": "React",
-      "minimumGroupSize": 2,
-      "schedule": ["* 0-7 * * 1-5"]
+      "matchPackageNames": [
+        "react",
+        "react-dom",
+        "@types/react",
+        "@types/react-dom"
+      ],
+      "groupName": "React"
     },
     {
-      "description": "Update all Prisma packages only together",
       "matchManagers": ["npm"],
       "matchPackageNames": ["@prisma/client", "@prisma/adapter-pg", "prisma"],
-      "matchUpdateTypes": ["minor", "major"],
-      "groupName": "Prisma",
-      "minimumGroupSize": 3,
-      "schedule": ["* 0-7 * * 1-5"]
+      "groupName": "Prisma"
     },
     {
-      "description": "Update Tailwind packages only together",
       "matchManagers": ["npm"],
       "matchPackageNames": ["tailwindcss", "@tailwindcss/postcss"],
-      "matchUpdateTypes": ["minor", "major"],
-      "groupName": "Tailwind CSS",
-      "minimumGroupSize": 2,
-      "schedule": ["* 0-7 * * 1-5"]
+      "groupName": "Tailwind CSS"
     },
     {
-      "description": "Keep the Docker Node image on Node 24",
-      "matchDatasources": ["docker"],
-      "matchPackageNames": ["node"],
-      "allowedVersions": "24"
+      "matchManagers": ["npm"],
+      "matchPackageNames": [
+        "vite-plus",
+        "@voidzero-dev/vite-plus-core",
+        "vitest",
+        "@vitest/coverage-v8"
+      ],
+      "groupName": "Vite and tests"
     },
     {
-      "description": "Require manual PostgreSQL major upgrades",
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": [
+        "actions/upload-artifact",
+        "actions/download-artifact"
+      ],
+      "matchUpdateTypes": ["major"],
+      "groupName": "GitHub Artifact Actions"
+    },
+    {
       "matchDatasources": ["docker"],
       "matchPackageNames": ["postgres"],
-      "matchUpdateTypes": ["major"],
-      "enabled": false
+      "groupName": "PostgreSQL",
+      "allowedVersions": "/^18(?:[.-]|$)/"
     }
   ]
 }
