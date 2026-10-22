@@ -2,12 +2,12 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 const listRecentRestoreReconciliationRuns = vi.fn();
 const ensureBackgroundJobScheduled = vi.fn();
-const createRestoreReconciliationRun = vi.fn();
+const ensureRestoreReconciliationRun = vi.fn();
 const findRestoreReconciliationRunByBackgroundJobId = vi.fn();
 
 vi.mock("@staaash/db/reconciliation", () => ({
   listRecentRestoreReconciliationRuns,
-  createRestoreReconciliationRun,
+  ensureRestoreReconciliationRun,
   findRestoreReconciliationRunByBackgroundJobId,
 }));
 
@@ -59,7 +59,7 @@ describe("admin integrity helpers", () => {
         id: "job-1",
       },
     });
-    createRestoreReconciliationRun.mockResolvedValueOnce({
+    ensureRestoreReconciliationRun.mockResolvedValueOnce({
       id: "run-1",
     });
 
@@ -69,7 +69,7 @@ describe("admin integrity helpers", () => {
     const created = await enqueueAdminRestoreReconciliation("owner-1");
 
     expect(created.created).toBe(true);
-    expect(createRestoreReconciliationRun).toHaveBeenCalledWith({
+    expect(ensureRestoreReconciliationRun).toHaveBeenCalledWith({
       triggeredByUserId: "owner-1",
       backgroundJobId: "job-1",
     });

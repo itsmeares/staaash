@@ -1,6 +1,8 @@
+import { sourceCoverage } from "../../test-coverage";
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
+  test: { coverage: sourceCoverage(["src/**/*.ts"]) },
   run: {
     tasks: {
       test: {

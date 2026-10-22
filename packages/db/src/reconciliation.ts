@@ -1,4 +1,4 @@
-import { getPrisma } from "./client";
+import { Prisma, getPrisma } from "./client";
 
 export const rebuildFolderSizeTotals = async () => {
   await getPrisma().$queryRaw`
@@ -162,7 +162,7 @@ const toRunRecord = (
   details: normalizeDetails(record.detailsJson),
 });
 
-export const createRestoreReconciliationRun = async (
+export const ensureRestoreReconciliationRun = async (
   {
     triggeredByUserId,
     backgroundJobId,
@@ -175,16 +175,30 @@ export const createRestoreReconciliationRun = async (
   const activeClient =
     client ?? (getPrisma() as unknown as RestoreReconciliationClient);
 
-  return toRunRecord(
-    await activeClient.restoreReconciliationRun.create({
-      data: {
-        status: "queued",
-        triggeredByUserId,
-        backgroundJobId,
-        detailsJson: emptyDetails(),
-      },
-    }),
-  );
+  try {
+    return toRunRecord(
+      await activeClient.restoreReconciliationRun.create({
+        data: {
+          status: "queued",
+          triggeredByUserId,
+          backgroundJobId,
+          detailsJson: emptyDetails(),
+        },
+      }),
+    );
+  } catch (error) {
+    if (
+      !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+      error.code !== "P2002"
+    )
+      throw error;
+    // The worker can create this row before the scheduling request does.
+    const existing = await activeClient.restoreReconciliationRun.findUnique({
+      where: { backgroundJobId },
+    });
+    if (!existing) throw error;
+    return toRunRecord(existing);
+  }
 };
 
 export const findRestoreReconciliationRunByBackgroundJobId = async (

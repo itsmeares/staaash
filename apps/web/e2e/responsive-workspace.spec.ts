@@ -37,7 +37,7 @@ test("phone workspace shell exposes bottom nav, upload, and touch file actions",
   await page.getByRole("button", { name: "Upload files" }).click();
   await fileChooser;
 
-  const row = page.locator("[data-list-item]", {
+  const row = page.getByRole("grid").locator("[data-list-item]", {
     hasText: "shared-preview.png",
   });
   await expect(row).toBeVisible();

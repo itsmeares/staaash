@@ -4,7 +4,8 @@ import { getOwnerCredentials, signIn } from "./helpers";
 
 const pane = (page: Page) =>
   page.getByRole("complementary", { name: "Details" });
-const row = (page: Page) => page.locator("[data-list-item]").first();
+const row = (page: Page) =>
+  page.getByRole("grid").locator("[data-list-item]").first();
 const focusedLabel = (page: Page) =>
   page.evaluate(() => document.activeElement?.getAttribute("aria-label"));
 
@@ -29,7 +30,7 @@ test("closed pane has no tab stop and is absent from the accessibility tree", as
   await page.getByRole("button", { name: "Close details" }).click();
   await expect(pane(page)).toHaveCount(0);
 
-  await page.locator("[data-file-list]").focus();
+  await page.getByRole("grid").focus();
   for (let i = 0; i < 12; i += 1) {
     await page.keyboard.press("Tab");
     expect(await focusedLabel(page)).not.toBe("Close details");
@@ -44,7 +45,7 @@ test("open pane sits beside the list, leaves the top bar usable and follows the 
   page,
 }) => {
   await openFiles(page);
-  const list = page.locator("[data-file-list]");
+  const list = page.getByRole("grid");
   const widthBefore = (await list.boundingBox())!.width;
 
   await openProperties(page);
@@ -87,7 +88,7 @@ test("keyboard users reach the pane with Tab and Escape returns to the row", asy
   await openFiles(page);
   await openProperties(page);
 
-  await page.locator("[data-file-list]").focus();
+  await page.getByRole("grid").focus();
   await page.keyboard.press("ArrowDown");
   await expect(row(page)).toBeFocused();
 

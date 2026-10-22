@@ -1,3 +1,4 @@
+import { sourceCoverage } from "../../test-coverage";
 import path from "node:path";
 import { defineConfig } from "vite-plus";
 
@@ -21,6 +22,7 @@ export default defineConfig({
     },
   },
   test: {
+    coverage: sourceCoverage(["server/**/*.ts"]),
     environment: "node",
     setupFiles: ["./vitest.setup.ts"],
     // Route tests import whole pages, and with files running in parallel on a

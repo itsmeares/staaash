@@ -1,3 +1,4 @@
+import { sourceCoverage } from "../../test-coverage";
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
@@ -11,6 +12,7 @@ export default defineConfig({
     },
   },
   test: {
+    coverage: sourceCoverage(["src/**/*.ts"]),
     exclude: ["**/node_modules/**", "**/dist/**"],
   },
 });

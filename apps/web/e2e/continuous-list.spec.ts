@@ -35,11 +35,11 @@ test("find, selection, and Back cover rows beyond the first batch", async ({
   ).id;
   const route = `/files/f/${folder.id}`;
   await page.goto(route);
-  const list = page.locator("[data-file-list]");
-  const main = page.locator("main[data-workspace-content]");
+  const list = page.getByRole("grid");
+  const main = page.getByRole("main");
   await expect(list).toHaveAttribute("aria-rowcount", "106");
   await expect
-    .poll(() => page.locator("[data-list-item]").count())
+    .poll(() => list.locator("[data-list-item]").count())
     .toBeLessThan(105);
   const loading = page
     .getByRole("status")
@@ -80,7 +80,7 @@ test("find, selection, and Back cover rows beyond the first batch", async ({
     page.getByText("Nothing matches", { exact: true }),
   ).toBeVisible();
   await find.fill("Item 105");
-  await expect(page.locator(`[data-list-item="${lastId}"]`)).toBeVisible();
+  await expect(list.locator(`[data-list-item="${lastId}"]`)).toBeVisible();
   await expect(list).toHaveAttribute("aria-rowcount", "2");
   await expect(
     page
@@ -125,8 +125,8 @@ test("find, selection, and Back cover rows beyond the first batch", async ({
       .getByRole("toolbar", { name: "Selection", exact: true })
       .getByText("105 selected", { exact: true }),
   ).toBeVisible();
-  await expect(page.locator(`[data-list-item="${lastId}"]`)).toBeFocused();
-  await expect(page.locator(`[data-list-item="${lastId}"]`)).toHaveAttribute(
+  await expect(list.locator(`[data-list-item="${lastId}"]`)).toBeFocused();
+  await expect(list.locator(`[data-list-item="${lastId}"]`)).toHaveAttribute(
     "aria-rowindex",
     "106",
   );
@@ -142,14 +142,14 @@ test("find, selection, and Back cover rows beyond the first batch", async ({
   await expect
     .poll(() => main.evaluate((element) => element.scrollTop))
     .toBeGreaterThan(top - 150);
-  await expect(page.locator(`[data-list-item="${lastId}"]`)).toBeVisible();
+  await expect(list.locator(`[data-list-item="${lastId}"]`)).toBeVisible();
   await page.getByRole("tab", { name: "Grid view", exact: true }).click();
   await main.evaluate((element) => {
     element.scrollTop = 1200;
   });
   await expect
     .poll(() =>
-      page.locator("[data-list-item]").evaluateAll((items) => {
+      list.locator("[data-list-item]").evaluateAll((items) => {
         const cells = items.map((item) => ({
           index: Number(item.getAttribute("aria-rowindex")) - 1,
           box: item.getBoundingClientRect(),
@@ -172,7 +172,7 @@ test("find, selection, and Back cover rows beyond the first batch", async ({
     .toBe(true);
   await page.getByRole("tab", { name: "List view", exact: true }).click();
   await page.goto(`${route}?viewer-check`);
-  await page.locator("[data-list-item]").first().dblclick();
+  await list.locator("[data-list-item]").first().dblclick();
   for (let n = 0; n < 100; n++) {
     await page.getByRole("button", { name: "Next", exact: true }).click();
     await expect(
@@ -187,7 +187,7 @@ test("find, selection, and Back cover rows beyond the first batch", async ({
   ).id;
   await expect(page).toHaveURL(new RegExp(`/files/view/${nextId}$`));
   await page.getByRole("button", { name: "Close", exact: true }).click();
-  await expect(page.locator(`[data-list-item="${nextId}"]`)).toBeFocused();
+  await expect(list.locator(`[data-list-item="${nextId}"]`)).toBeFocused();
   await page.setViewportSize({ width: 3440, height: 1440 });
   await page.goto(`/files/view/${uploaded[0].id}`);
   const strip = page.getByLabel("Files in this folder", { exact: true });

@@ -6,6 +6,7 @@ import { canAccessPrivateNamespace } from "@/server/access";
 import { getRequestSession } from "@/server/auth/guards";
 import { notSignedInResponse, jsonErrorResponse } from "@/server/auth/http";
 import { FilesError } from "@/server/files/errors";
+import { getReadableArchiveStatus } from "@/server/files/archive-status";
 
 type RouteContext = {
   params: Promise<{ archiveId: string }>;
@@ -38,7 +39,7 @@ export async function GET(
     }
 
     return Response.json({
-      status: archive.status,
+      status: await getReadableArchiveStatus(archive),
       fileCount: archive.fileCount,
       sizeBytes: archive.sizeBytes?.toString() ?? null,
       error: archive.error,

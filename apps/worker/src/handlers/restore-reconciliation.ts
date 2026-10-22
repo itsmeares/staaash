@@ -4,8 +4,7 @@ import { lstat, readdir } from "node:fs/promises";
 import { getPrisma } from "@staaash/db/client";
 import {
   completeRestoreReconciliationRun,
-  createRestoreReconciliationRun,
-  findRestoreReconciliationRunByBackgroundJobId,
+  ensureRestoreReconciliationRun,
   markRestoreReconciliationRunRunning,
   verifyCommittedStorageUsage,
   rebuildFolderSizeTotals,
@@ -355,15 +354,10 @@ const ensureReconciliationRun = async (
   job: BackgroundJobRecord,
   triggeredByUserId: string | null,
 ) => {
-  const existingRun = await findRestoreReconciliationRunByBackgroundJobId(
-    job.id,
-  );
-  if (!existingRun) {
-    await createRestoreReconciliationRun({
-      triggeredByUserId,
-      backgroundJobId: job.id,
-    });
-  }
+  await ensureRestoreReconciliationRun({
+    triggeredByUserId,
+    backgroundJobId: job.id,
+  });
   await markRestoreReconciliationRunRunning({ backgroundJobId: job.id });
 };
 

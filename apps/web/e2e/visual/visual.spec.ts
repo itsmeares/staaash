@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
@@ -48,12 +48,12 @@ const slug = (route: string) =>
   route.replace(/^\//, "").replace(/[^a-z0-9]+/gi, "-") || "root";
 
 const applyTheme = async (context: BrowserContext, theme: Theme) => {
-  const { origin } = new URL(
-    process.env.STAAASH_E2E_BASE_URL ??
-      `http://127.0.0.1:${process.env.STAAASH_E2E_PORT ?? 3100}`,
-  );
   await context.addCookies([
-    { name: "staaash_theme", value: theme, url: origin },
+    {
+      name: "staaash_theme",
+      value: theme,
+      url: process.env.STAAASH_E2E_BASE_URL,
+    },
   ]);
 };
 
@@ -94,11 +94,8 @@ const attempt = async (name: string, run: () => Promise<void>) => {
   }
 };
 
-// Sessions are reused across runs so device counts and "last seen" values on
-// admin pages stay stable between baseline and comparison runs.
 test.beforeAll(async ({ browser }) => {
   mkdirSync(authDirectory, { recursive: true });
-  if (existsSync(ownerStatePath) && existsSync(memberStatePath)) return;
 
   const ownerContext = await browser.newContext();
   const ownerPage = await ownerContext.newPage();

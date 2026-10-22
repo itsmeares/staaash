@@ -61,6 +61,29 @@ Do not have an agent open a pull request, write public replies, or answer mainta
 6. Start the web app with `pnpm web:dev`.
 7. Start the worker with `pnpm worker:dev`.
 
+## Application tests
+
+Run `pnpm web:e2e`. It builds a Docker image from your checkout, creates its own
+PostgreSQL, files directory and network, seeds fake accounts, runs the browser
+and system tests, and removes the stack. It never uses the development database.
+Pass browser test paths, such as `pnpm web:e2e e2e/member-files.spec.ts`, to run
+only those files. Set `STAAASH_TEST_IMAGE` to test an image you already built.
+Database-only tests use `pnpm test:postgres` with an explicit
+`POSTGRES_TEST_DATABASE_URL`; they create and remove their own database.
+
+For a visual comparison of a UI change, run
+`STAAASH_TEST_VISUAL=true pnpm web:e2e --update-snapshots` on `main` to save
+screenshots under `apps/web/.data/visual/`, then run
+`STAAASH_TEST_VISUAL=true pnpm web:e2e` on your branch to compare against them.
+
+CI runs the same database and application suites on native AMD64 and ARM64.
+Browser, application and selected upgrade suites run on separate runners with
+their own temporary stacks. They reuse one image built for each architecture.
+Upgrade and recovery checks run for relevant changes, manual extended runs and
+release version changes. The source upgrade image comes from the published stable
+release's immutable digest. Coverage runs on main and manual runs; PRs keep the
+fast tests without coverage collection.
+
 ## Issues and security
 
 - Use the GitHub issue forms for bug reports and feature requests.

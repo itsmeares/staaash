@@ -7,8 +7,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 vi.mock("@staaash/db/reconciliation", () => ({
   verifyCommittedStorageUsage: vi.fn(async () => {}),
   completeRestoreReconciliationRun: vi.fn(async (value) => value),
-  createRestoreReconciliationRun: vi.fn(async (value) => value),
-  findRestoreReconciliationRunByBackgroundJobId: vi.fn(async () => null),
+  ensureRestoreReconciliationRun: vi.fn(async (value) => value),
   markRestoreReconciliationRunQueued: vi.fn(async (value) => value),
   markRestoreReconciliationRunRunning: vi.fn(async (value) => value),
 }));
@@ -16,8 +15,7 @@ vi.mock("@staaash/db/reconciliation", () => ({
 const {
   verifyCommittedStorageUsage,
   completeRestoreReconciliationRun,
-  createRestoreReconciliationRun,
-  findRestoreReconciliationRunByBackgroundJobId,
+  ensureRestoreReconciliationRun,
   markRestoreReconciliationRunRunning,
 } = await import("@staaash/db/reconciliation");
 
@@ -328,10 +326,7 @@ describe("restore reconciliation worker handler", () => {
       },
     );
 
-    expect(findRestoreReconciliationRunByBackgroundJobId).toHaveBeenCalledWith(
-      "job-1",
-    );
-    expect(createRestoreReconciliationRun).toHaveBeenCalledWith({
+    expect(ensureRestoreReconciliationRun).toHaveBeenCalledWith({
       triggeredByUserId: "owner-1",
       backgroundJobId: "job-1",
     });

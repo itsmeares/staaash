@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   selection: vi.fn(),
   archive: vi.fn(),
   schedule: vi.fn(),
+  readable: vi.fn(),
 }));
 vi.mock("@/server/auth/guards", () => ({ getRequestSession: mocks.session }));
 vi.mock("@/server/files/repository", () => ({
@@ -21,6 +22,14 @@ vi.mock("@staaash/db/zip-archives", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@staaash/db/zip-archives")>()),
   findOrCreateZipArchive: mocks.archive,
 }));
+
+vi.mock("@/server/storage-read-guard", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/storage-read-guard")>()),
+  assertStorageEntityReadable: mocks.readable,
+}));
+
+const { StorageEntityUnavailableError } =
+  await import("@/server/storage-read-guard");
 
 const { POST } = await import("@/app/api/files/archives/route");
 const item = (
@@ -42,6 +51,7 @@ const request = (ids: string[]) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.readable.mockReset();
   mocks.session.mockResolvedValue({ user: { id: "alice", role: "member" } });
   mocks.selection.mockResolvedValue({ files: [], folders: [] });
   mocks.archive.mockResolvedValue({
@@ -74,6 +84,28 @@ describe("archive selection", () => {
       fileCount: 3,
       folderCount: 1,
     });
+  });
+
+  it("keeps a reused archive processing until publication finishes", async () => {
+    mocks.selection.mockResolvedValue({ files: [item("a")], folders: [] });
+    mocks.archive.mockResolvedValue({
+      archive: { id: "zip", status: "ready" },
+      created: false,
+    });
+    mocks.readable.mockRejectedValueOnce(
+      new StorageEntityUnavailableError({
+        id: "publication",
+        kind: "archive_publish",
+        status: "finalizing",
+      }),
+    );
+    const blocked = await request(["a"]);
+    expect(blocked.status).toBe(200);
+    expect(await blocked.json()).toMatchObject({ status: "processing" });
+    const ready = await request(["a"]);
+    expect(ready.status).toBe(200);
+    expect(await ready.json()).toMatchObject({ status: "ready" });
+    expect(mocks.schedule).not.toHaveBeenCalled();
   });
 
   it("uses only selected file sizes when scheduling a direct-file archive", async () => {
