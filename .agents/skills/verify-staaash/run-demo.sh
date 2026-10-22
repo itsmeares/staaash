@@ -109,12 +109,22 @@ capture_logs() {
 }
 
 remove_resources() {
-  set +e
+  local failed=0
   capture_logs
-  compose down --volumes --remove-orphans >"$EVIDENCE_DIR/cleanup.log" 2>&1
-  docker image rm "$STAAASH_VERIFY_IMAGE" >>"$EVIDENCE_DIR/cleanup.log" 2>&1
-  docker buildx rm "$STAAASH_VERIFY_BUILDER" >>"$EVIDENCE_DIR/cleanup.log" 2>&1
-  set -e
+  if ! compose down --volumes --remove-orphans >"$EVIDENCE_DIR/cleanup.log" 2>&1; then
+    failed=1
+  fi
+  if docker image inspect "$STAAASH_VERIFY_IMAGE" >/dev/null 2>&1; then
+    if ! docker image rm "$STAAASH_VERIFY_IMAGE" >>"$EVIDENCE_DIR/cleanup.log" 2>&1; then
+      failed=1
+    fi
+  fi
+  if docker buildx inspect "$STAAASH_VERIFY_BUILDER" >/dev/null 2>&1; then
+    if ! docker buildx rm "$STAAASH_VERIFY_BUILDER" >>"$EVIDENCE_DIR/cleanup.log" 2>&1; then
+      failed=1
+    fi
+  fi
+  return "$failed"
 }
 
 remove_state() {
@@ -128,11 +138,12 @@ remove_state() {
 
 cleanup_failed_launch() {
   local status=$?
-  trap - ERR
-  set +e
-  remove_resources
-  remove_state
-  printf 'verify-staaash: launch failed; evidence is in %s\n' "$EVIDENCE_DIR" >&2
+  trap - EXIT
+  if remove_resources && remove_state; then
+    printf 'verify-staaash: launch failed; evidence is in %s\n' "$EVIDENCE_DIR" >&2
+  else
+    printf 'verify-staaash: launch failed; cleanup failed; run.env kept; evidence is in %s\n' "$EVIDENCE_DIR" >&2
+  fi
   exit "$status"
 }
 
@@ -193,8 +204,8 @@ SECURE_COOKIES=false
 EOF
 
   load_run "$state_dir/run.env"
+  trap cleanup_failed_launch EXIT
   write_run_info
-  trap cleanup_failed_launch ERR
 
   docker buildx create --name "$STAAASH_VERIFY_BUILDER" --driver docker-container \
     >"$EVIDENCE_DIR/builder-create.log" 2>&1
@@ -206,7 +217,7 @@ EOF
   compose up --detach db staaash worker >"$EVIDENCE_DIR/compose-up.log" 2>&1
   wait_for_app
 
-  trap - ERR
+  trap - EXIT
   printf 'verify-staaash: project=%s\n' "$STAAASH_VERIFY_PROJECT" >&2
   printf 'verify-staaash: open %s from another device\n' "$STAAASH_VERIFY_URL" >&2
   printf 'verify-staaash: evidence=%s\n' "$EVIDENCE_DIR" >&2
@@ -279,7 +290,7 @@ cleanup() {
   local run_file=$1
   load_run "$run_file"
   printf 'verify-staaash: preserving evidence in %s\n' "$EVIDENCE_DIR" >&2
-  remove_resources
+  remove_resources || die "cleanup failed; run.env kept; see $EVIDENCE_DIR/cleanup.log"
   remove_state
   printf 'verify-staaash: cleanup passed; evidence remains in %s\n' "$EVIDENCE_DIR"
 }
