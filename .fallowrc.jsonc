@@ -7,6 +7,7 @@
     "apps/web/playwright.system.config.ts",
     "packages/config/src/release.ts",
     "scripts/release/index.mjs",
+    ".agents/skills/verify-staaash/drive-folder.mjs",
   ],
   "dynamicallyLoaded": [
     "apps/web/vitest.postgres.global.ts",
@@ -16,6 +17,7 @@
     "packages/db/src/generated/prisma/**",
     "apps/web/e2e/**",
     "apps/web/system/**",
+    "!.agents/**",
   ],
   "ignoreDependencies": ["@staaash/config"],
   // components/ui is a vendored component kit: its full API is kept even when
