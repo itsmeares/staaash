@@ -77,6 +77,8 @@ screenshots under `apps/web/.data/visual/`, then run
 `STAAASH_TEST_VISUAL=true pnpm web:e2e` on your branch to compare against them.
 
 CI runs the same database and application suites on native AMD64 and ARM64.
+Browser, application and selected upgrade suites run on separate runners with
+their own temporary stacks. They reuse one image built for each architecture.
 Upgrade and recovery checks run for relevant changes, manual extended runs and
 release version changes. The source upgrade image comes from the published stable
 release's immutable digest. Coverage runs on main and manual runs; PRs keep the

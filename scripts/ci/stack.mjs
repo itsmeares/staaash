@@ -10,16 +10,27 @@ import { fileURLToPath } from "node:url";
 const repo = fileURLToPath(new URL("../../", import.meta.url));
 const composeFile = fileURLToPath(new URL("./compose.yml", import.meta.url));
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const portReservations = new WeakMap();
 
-const freePort = () =>
+const reservePort = () =>
   new Promise((resolve, reject) => {
-    const server = net.createServer();
+    const server = net.createServer((socket) => socket.destroy());
     server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const port = server.address().port;
-      server.close((error) => (error ? reject(error) : resolve(port)));
-    });
+    server.listen(0, "127.0.0.1", () => resolve(server));
   });
+
+const closePort = (server) =>
+  new Promise((resolve, reject) =>
+    server.close((error) => (error ? reject(error) : resolve())),
+  );
+
+async function releasePort(state, port) {
+  const reservations = portReservations.get(state);
+  const server = reservations?.get(port);
+  if (!server) return;
+  await closePort(server);
+  reservations.delete(port);
+}
 
 export async function waitFor(check, label, timeout = 120_000) {
   const end = Date.now() + timeout;
@@ -42,22 +53,51 @@ export async function createStack(image) {
   const root = await mkdtemp(
     path.join(process.env.STAAASH_TEST_ROOT ?? os.tmpdir(), "staaash-test-"),
   );
-  const id = randomUUID().replaceAll("-", "");
-  const state = {
-    root,
-    project: `staaash-test-${id.slice(0, 12)}`,
-    image,
-    database: `staaash_test_${id}`,
-    files: path.join(root, "files"),
-    stateFile: path.join(root, "state.json"),
-    origin: "",
-    databaseUrl: "",
-    webPort: await freePort(),
-    databasePort: await freePort(),
-  };
-  await mkdir(state.files);
-  await writeFile(path.join(state.root, ".staaash-test-root"), state.project);
-  return state;
+  const servers = [];
+  try {
+    // Keep ports reserved while migrations and bootstrap work run.
+    const web = await reservePort();
+    servers.push(web);
+    const database = await reservePort();
+    servers.push(database);
+    const id = randomUUID().replaceAll("-", "");
+    const state = {
+      root,
+      project: `staaash-test-${id.slice(0, 12)}`,
+      image,
+      database: `staaash_test_${id}`,
+      files: path.join(root, "files"),
+      stateFile: path.join(root, "state.json"),
+      origin: "",
+      databaseUrl: "",
+      webPort: web.address().port,
+      databasePort: database.address().port,
+    };
+    portReservations.set(
+      state,
+      new Map([
+        [state.webPort, web],
+        [state.databasePort, database],
+      ]),
+    );
+    await mkdir(state.files);
+    await writeFile(path.join(state.root, ".staaash-test-root"), state.project);
+    return state;
+  } catch (error) {
+    const cleanup = await Promise.allSettled([
+      ...servers.map(closePort),
+      rm(root, { recursive: true, force: true }),
+    ]);
+    throw new AggregateError(
+      [
+        error,
+        ...cleanup
+          .filter((result) => result.status === "rejected")
+          .map((result) => result.reason),
+      ],
+      "Failed to create the isolated test stack.",
+    );
+  }
 }
 
 export function compose(state, args, options = {}) {
@@ -84,11 +124,24 @@ export function compose(state, args, options = {}) {
 }
 
 export async function startDatabase(state) {
+  await releasePort(state, state.databasePort);
   compose(state, ["up", "-d", "db"]);
   await waitFor(() => {
+    // PostgreSQL's temporary setup server accepts sockets before initialization ends.
     compose(
       state,
-      ["exec", "-T", "db", "pg_isready", "-U", "test", "-d", state.database],
+      [
+        "exec",
+        "-T",
+        "db",
+        "pg_isready",
+        "-h",
+        "127.0.0.1",
+        "-U",
+        "test",
+        "-d",
+        state.database,
+      ],
       { stdio: "pipe" },
     );
     return true;
@@ -109,6 +162,13 @@ export function testEnv(state) {
     STAAASH_E2E_STATE_FILE: path.join(state.root, "accounts.json"),
     STAAASH_TEST_STATE: state.stateFile,
     STAAASH_TEST_RESULTS: path.join(repo, ".data", "ci", state.project),
+    PLAYWRIGHT_JSON_OUTPUT_NAME: path.join(
+      repo,
+      ".data",
+      "ci",
+      state.project,
+      "browser.json",
+    ),
     STAAASH_E2E_BASE_URL: state.origin,
     STAAASH_E2E_WORKERS: process.env.STAAASH_E2E_WORKERS ?? "2",
   };
@@ -126,6 +186,7 @@ export async function startApp(state, migrate = true, configured = true) {
       "migrate",
       "deploy",
     ]);
+  await releasePort(state, state.webPort);
   compose(state, ["up", "-d", "web", ...(configured ? ["worker"] : [])]);
   state.origin = `http://${compose(state, ["port", "web", "2113"]).trim()}`;
   await writeFile(state.stateFile, JSON.stringify(state));
@@ -144,6 +205,8 @@ export async function destroyStack(state) {
   );
   const errors = [];
   for (const cleanup of [
+    () => releasePort(state, state.webPort),
+    () => releasePort(state, state.databasePort),
     () => compose(state, ["stop", "web", "worker"]),
     () =>
       compose(state, [
@@ -194,7 +257,17 @@ const runSystem = (state, file, extraEnv = {}) =>
       "playwright.system.config.ts",
       file,
     ],
-    { ...testEnv(state), ...extraEnv },
+    {
+      ...testEnv(state),
+      PLAYWRIGHT_JSON_OUTPUT_NAME: path.join(
+        repo,
+        ".data",
+        "ci",
+        state.project,
+        `${file}${extraEnv.STAAASH_TEST_PHASE ? `.${extraEnv.STAAASH_TEST_PHASE}` : ""}.json`,
+      ),
+      ...extraEnv,
+    },
   );
 
 const migrationHistory = (state) =>
@@ -227,8 +300,11 @@ async function validateCurrent(state) {
   const args = process.argv.slice(2);
   if (process.env.STAAASH_TEST_VISUAL === "true")
     return run(["--filter", "web", "e2e:visual", ...args], testEnv(state));
-  await run(["--filter", "web", "e2e", ...args], testEnv(state));
-  if (args.length) return;
+  const mode = process.env.STAAASH_TEST_MODE ?? "all";
+  assert(["all", "browser", "system"].includes(mode));
+  if (mode !== "system")
+    await run(["--filter", "web", "e2e", ...args], testEnv(state));
+  if (args.length || mode === "browser") return;
   await runSystem(state, "app.spec.mjs");
   if (process.env.STAAASH_TEST_RECOVERY === "true")
     await runSystem(state, "recovery.spec.mjs");
@@ -272,9 +348,9 @@ function testImage() {
 }
 
 async function main() {
-  const results = path.join(repo, ".data", "ci");
-  await mkdir(results, { recursive: true });
   const state = await createStack(testImage());
+  const results = path.join(repo, ".data", "ci", state.project);
+  await mkdir(results, { recursive: true });
   const started = Date.now();
   const upgrade = process.env.STAAASH_TEST_UPGRADE === "true";
   const errors = [];

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
+import net from "node:net";
 import path from "node:path";
 import { test } from "node:test";
 import { createStack, destroyStack } from "./stack.mjs";
@@ -21,12 +22,31 @@ if(args.includes('stop') || args.includes('chown')) process.exit(9);
   );
   process.env.PATH = commands + path.delimiter + previousPath;
   try {
+    const available = await Promise.all(
+      [state.webPort, state.databasePort].map(
+        (port) =>
+          new Promise((resolve, reject) => {
+            const server = net.createServer();
+            server.once("error", (error) =>
+              error.code === "EADDRINUSE" ? resolve(false) : reject(error),
+            );
+            server.listen(port, "127.0.0.1", () =>
+              server.close((error) => (error ? reject(error) : resolve(true))),
+            );
+          }),
+      ),
+    );
     await assert.rejects(destroyStack(state), (error) => {
       assert(error instanceof AggregateError);
       assert.equal(error.errors.length, 2);
       return true;
     });
     await assert.rejects(stat(state.root), { code: "ENOENT" });
+    assert.deepEqual(
+      available,
+      [false, false],
+      "Pending stacks reserve their ports.",
+    );
     const calls = (await readFile(log, "utf8"))
       .trim()
       .split("\n")

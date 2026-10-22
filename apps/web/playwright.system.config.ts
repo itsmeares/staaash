@@ -2,6 +2,7 @@ import path from "node:path";
 import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
+  reporter: process.env.CI ? [["dot"], ["json"]] : undefined,
   testDir: path.resolve(__dirname, "system"),
   outputDir: path.join(
     process.env.STAAASH_TEST_RESULTS ?? path.resolve(__dirname, "test-results"),
