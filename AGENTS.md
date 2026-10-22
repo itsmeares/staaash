@@ -172,11 +172,9 @@ replaced. Remove dead code and report what was checked and what was not.
 
 ## Agent mistake checks
 
-| Rule                                                                    | Check                                                                                                  |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Run the changed-code Fallow gate before pushing.                        | `.vite-hooks/pre-push` runs `pnpm quality:fallow`; CI runs the same gate.                              |
-| Do not mark validation claims as passed while the current CI jobs fail. | CI runs `pnpm check:pull-request` after the check jobs and compares checked claims with their results. |
-| Do not put private Postplan links in pull request bodies.               | The same CI check rejects `postplan.dev` links.                                                        |
+| Rule                                             | Check                                                                     |
+| ------------------------------------------------ | ------------------------------------------------------------------------- |
+| Run the changed-code Fallow gate before pushing. | `.vite-hooks/pre-push` runs `pnpm quality:fallow`; CI runs the same gate. |
 
 ## Taste
 
