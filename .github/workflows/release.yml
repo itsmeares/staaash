@@ -34,14 +34,9 @@ jobs:
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
       release_sha: ${{ steps.commit.outputs.release_sha }}
+      release_branch: ${{ steps.version.outputs.release_branch }}
 
     steps:
-      - name: Require dispatch from main
-        if: github.ref != 'refs/heads/main'
-        run: |
-          echo "New releases must be dispatched from refs/heads/main." >&2
-          exit 1
-
       - name: Create repository token
         id: app-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
@@ -141,14 +136,15 @@ jobs:
       - name: Push release commit
         env:
           RELEASE_SHA: ${{ steps.commit.outputs.release_sha }}
+          RELEASE_BRANCH: ${{ steps.version.outputs.release_branch }}
           VERSION_CHANGED: ${{ steps.version.outputs.changed }}
         run: |
           if [[ "$VERSION_CHANGED" == "true" ]]; then
-            git push origin "HEAD:refs/heads/main"
+            git push origin "HEAD:refs/heads/$RELEASE_BRANCH"
           fi
-          REMOTE_SHA="$(git ls-remote origin refs/heads/main | cut -f1)"
+          REMOTE_SHA="$(git ls-remote origin "refs/heads/$RELEASE_BRANCH" | cut -f1)"
           if [[ "$REMOTE_SHA" != "$RELEASE_SHA" ]]; then
-            echo "origin/main is $REMOTE_SHA; expected $RELEASE_SHA." >&2
+            echo "origin/$RELEASE_BRANCH is $REMOTE_SHA; expected $RELEASE_SHA." >&2
             exit 1
           fi
 
@@ -179,9 +175,11 @@ jobs:
       tag_type: ${{ steps.preflight.outputs.tag_type }}
       image_repository: ${{ steps.preflight.outputs.image_repository }}
       tooling_sha: ${{ steps.preflight.outputs.tooling_sha }}
+      release_branch: ${{ steps.preflight.outputs.release_branch }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       RELEASE_TAG: ${{ needs.prepare.outputs.tag || inputs.tag || github.ref_name }}
+      RELEASE_BRANCH: ${{ needs.prepare.outputs.release_branch || (github.event_name == 'workflow_dispatch' && github.ref_name) || '' }}
       EXPECTED_RELEASE_SHA: ${{ needs.prepare.outputs.release_sha || (github.event_name == 'push' && github.sha) || '' }}
       EXPECTED_TAG_OBJECT: ${{ github.event_name == 'push' && github.event.after || '' }}
       EXPECTED_TOOLING_SHA: ${{ (github.event_name == 'workflow_dispatch' && inputs.version == '') && github.sha || '' }}
@@ -210,12 +208,6 @@ jobs:
             echo "Recovery requires both tag and release_id." >&2
             exit 1
           fi
-
-      - name: Require release dispatch from main
-        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
-        run: |
-          echo "Release workflow dispatch must be from refs/heads/main." >&2
-          exit 1
 
       - name: Require exact recovery release ID
         if: github.event_name == 'workflow_dispatch' && inputs.version == ''
@@ -297,6 +289,7 @@ jobs:
       TAG_TYPE: ${{ needs.preflight.outputs.tag_type }}
       IMAGE_REPOSITORY: ${{ needs.preflight.outputs.image_repository }}
       TOOLING_SHA: ${{ needs.preflight.outputs.tooling_sha }}
+      RELEASE_BRANCH: ${{ needs.preflight.outputs.release_branch }}
       RELEASE_EVENT_NAME: ${{ (github.event_name == 'workflow_dispatch' && inputs.version != '') && 'push' || github.event_name }}
       RECOVERY_RELEASE_ID: ${{ (github.event_name == 'workflow_dispatch' && inputs.version == '') && inputs.release_id || '' }}
       TOOLING_ROOT: ${{ github.workspace }}/tooling

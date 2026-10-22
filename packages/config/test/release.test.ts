@@ -18,6 +18,7 @@ import {
   planReleaseAssets,
   renderReleaseCompose,
   renderReleaseEnv,
+  releaseBranchesForTag,
   replaceReleaseProvenance,
   selectExactCiState,
   serializeReleaseManifest,
@@ -41,6 +42,14 @@ const matchingImage = {
 };
 
 describe("release policy", () => {
+  it.each([
+    ["v1.2.1", "release/1.2"],
+    ["v2.0.0", "release/2.0"],
+    ["v3.7.4-rc.1", "release/3.7"],
+  ])("allows main and the matching series for %s", (tag, branch) => {
+    expect(releaseBranchesForTag(tag)).toEqual(["main", branch]);
+  });
+
   it.each([
     ["v1.2.3", "1.2.3", false],
     ["v1.2.3-rc.1", "1.2.3-rc.1", true],
@@ -116,6 +125,48 @@ describe("release policy", () => {
     expect(state.status).toBe("success");
     expect(state.status === "success" && state.run.run_attempt).toBe(2);
   });
+
+  it.each(["release/1.2", "release/2.0", "release/3.7"])(
+    "requires the exact push commit and branch for %s",
+    (releaseBranch) => {
+      const run = {
+        id: 1,
+        event: "push",
+        head_branch: releaseBranch,
+        head_sha: RELEASE_SHA,
+        status: "completed",
+        conclusion: "success",
+      };
+      const unrelated = [
+        { ...run, id: 5, head_branch: "main" },
+        { ...run, id: 6, head_branch: "release/9.9" },
+        { ...run, id: 7, head_sha: "9".repeat(40) },
+        { ...run, id: 8, event: "pull_request" },
+      ];
+      expect(
+        selectExactCiState({
+          runs: unrelated,
+          releaseSha: RELEASE_SHA,
+          releaseBranch,
+        }),
+      ).toEqual({ status: "missing" });
+      expect(
+        selectExactCiState({
+          runs: [...unrelated, run],
+          releaseSha: RELEASE_SHA,
+          releaseBranch,
+        }),
+      ).toEqual({ status: "success", run });
+      const failed = { ...run, id: 2, conclusion: "failure" };
+      expect(
+        selectExactCiState({
+          runs: [run, failed],
+          releaseSha: RELEASE_SHA,
+          releaseBranch,
+        }),
+      ).toEqual({ status: "failure", run: failed });
+    },
+  );
 
   it("prefers a newer CI execution over an older rerun attempt", () => {
     const state = selectExactCiState({

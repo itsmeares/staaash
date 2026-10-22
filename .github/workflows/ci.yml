@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, "release/**"]
   pull_request:
   workflow_dispatch:
     inputs:
@@ -36,8 +36,8 @@ jobs:
           scripts/ci/stack.test.mjs
       - id: suites
         env:
-          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
-          CI_FULL: ${{ inputs.extended && 'true' || 'false' }}
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || github.sha }}
+          CI_FULL: ${{ (inputs.extended || github.event.before == '0000000000000000000000000000000000000000') && 'true' || 'false' }}
         run: node scripts/ci/select.mjs
 
   checks:
