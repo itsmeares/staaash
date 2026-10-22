@@ -17,6 +17,7 @@ import {
   readJsonBody,
 } from "@/server/auth/http";
 import { FilesError } from "@/server/files/errors";
+import { getReadableArchiveStatus } from "@/server/files/archive-status";
 import { findArchiveSelectionItems } from "@/server/files/repository";
 import { getSystemSettings } from "@/server/settings";
 
@@ -112,7 +113,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       status:
         archive.status === ZIP_ARCHIVE_STATUS_FAILED
           ? "queued"
-          : archive.status,
+          : await getReadableArchiveStatus(archive),
     });
   } catch (error) {
     return jsonErrorResponse(error);

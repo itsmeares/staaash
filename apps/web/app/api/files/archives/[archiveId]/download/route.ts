@@ -101,7 +101,7 @@ export async function GET(
   try {
     const archive = await requireReadyArchive(archiveId);
     assertArchiveOwnerAccessible(archive.userId, session.user);
-    return createArchiveDownloadResponse(request, archive);
+    return await createArchiveDownloadResponse(request, archive);
   } catch (error) {
     if (error instanceof StorageEntityUnavailableError) {
       return storageUnavailableResponse(error);
