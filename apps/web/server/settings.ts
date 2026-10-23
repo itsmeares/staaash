@@ -38,6 +38,8 @@ export const getAuthSecretSync = (): string => {
   return _authSecret;
 };
 
+// Each setting falls back to its default on its own.
+// fallow-ignore-next-line complexity
 export const getSystemSettings = async () => {
   const db = getPrisma();
   const existing = await db.systemSettings.findUnique({

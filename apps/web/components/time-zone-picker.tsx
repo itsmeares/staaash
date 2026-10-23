@@ -1,4 +1,3 @@
-
 import { CheckIcon, ChevronDownIcon, SearchIcon } from "lucide-react";
 import {
   useCallback,
@@ -122,6 +121,8 @@ function parseOffsetQuery(query: string) {
   return sign === "-" ? -minutes : minutes;
 }
 
+// Search, grouping, and keyboard focus of one combobox; the parts share state.
+// fallow-ignore-next-line complexity
 export function TimeZonePicker({
   id,
   name,

@@ -1,15 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
-import { copyFile, mkdir, opendir, rm, stat } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { createWriteStream } from "node:fs";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { z } from "zod";
 
-import { resolveUploadStagingRetentionHours } from "@staaash/config";
 import { computeFileSha256 } from "@staaash/db/storage-mutation-executor";
 
-import { env } from "@/lib/env";
 import { getSystemSettings } from "@/server/settings";
 import {
   maxFilesystemComponentBytes,
@@ -35,32 +33,15 @@ const resolveMimeType = (file: File): string => {
   return (ext && EXTENSION_MIME_FALLBACKS[ext]) ?? "application/octet-stream";
 };
 
-export type UploadSurface = "interactiveWeb" | "bulk" | "api";
-
 export type UploadConflictStrategy = "fail" | "safeRename" | "replace";
-
-export type UploadCommitStatus = "staged" | "verified" | "committed" | "failed";
-
-export type UploadSession = {
-  id: string;
-  tmpPath: string;
-  status: UploadCommitStatus;
-  expectedChecksum?: string;
-  conflictStrategy: UploadConflictStrategy;
-};
-
-export type UploadVerificationResult = {
-  status: UploadCommitStatus;
-  checksumMatches: boolean;
-  actualChecksum: string;
-  expectedChecksum?: string;
-};
 
 export type UploadManifestItem = {
   clientKey: string;
   originalName: string;
   expectedChecksum?: string;
   conflictStrategy: UploadConflictStrategy;
+  /** The modified time on the uploader's computer. */
+  clientModifiedAt?: Date;
 };
 
 export type UploadRequestItem = UploadManifestItem & {
@@ -75,13 +56,7 @@ export type StagedUploadFile = UploadManifestItem & {
   actualChecksum: string;
 };
 
-type StagingCleanupResult = {
-  scannedCount: number;
-  deletedCount: number;
-  deletedPaths: string[];
-};
-
-export type UploadErrorCode =
+type UploadErrorCode =
   | "CHECKSUM_MISMATCH"
   | "INVALID_UPLOAD_MANIFEST"
   | "UPLOAD_FILE_COUNT_MISMATCH"
@@ -107,7 +82,7 @@ const uploadErrorMessages: Record<UploadErrorCode, string> = {
   UPLOAD_TIMEOUT_EXCEEDED: "The upload exceeded the configured time budget.",
 };
 
-export class UploadError extends Error {
+class UploadError extends Error {
   readonly code: UploadErrorCode;
   readonly status: number;
 
@@ -147,16 +122,12 @@ const uploadManifestSchema = z
       conflictStrategy: z
         .enum(["fail", "safeRename", "replace"])
         .default("fail"),
+      clientModifiedAt: z.coerce.date().optional(),
     }),
   )
   .nonempty();
 
-export const getDefaultUploadConflictStrategy = (
-  surface: UploadSurface,
-): UploadConflictStrategy =>
-  surface === "interactiveWeb" ? "fail" : "safeRename";
-
-export const getUploadTimeoutBudgetMs = async () => {
+const getUploadTimeoutBudgetMs = async () => {
   const policy = await getUploadPolicy();
   return policy.timeoutMinutes * 60 * 1000;
 };
@@ -175,23 +146,6 @@ const getRemainingUploadBudgetMs = async (
   return Math.max(0, deadlineMs - Date.now());
 };
 
-export const getUploadStagingTtlMs = async () => {
-  const environmentHours = env.UPLOAD_STAGING_RETENTION_HOURS;
-  const databaseHours =
-    environmentHours === undefined
-      ? (await getSystemSettings()).uploadStagingRetentionHours
-      : undefined;
-  return (
-    resolveUploadStagingRetentionHours({
-      environmentHours,
-      databaseHours,
-    }) *
-    60 *
-    60 *
-    1000
-  );
-};
-
 const isUploadSizeAllowed = async (sizeBytes: number) => {
   const policy = await getUploadPolicy();
   return sizeBytes <= policy.maxUploadBytes;
@@ -202,44 +156,6 @@ export const assertUploadSizeAllowed = async (sizeBytes: number) => {
     throw new UploadError("UPLOAD_SIZE_LIMIT_EXCEEDED");
   }
 };
-
-export const createUploadSession = (
-  surface: UploadSurface,
-  expectedChecksum?: string,
-  status: UploadCommitStatus = "staged",
-  conflictStrategy = getDefaultUploadConflictStrategy(surface),
-): UploadSession => {
-  const id = randomUUID();
-
-  return {
-    id,
-    tmpPath: getTmpUploadPath(id),
-    status,
-    expectedChecksum,
-    conflictStrategy,
-  };
-};
-
-export const verifyUploadChecksum = async (
-  filePath: string,
-  expectedChecksum?: string,
-): Promise<UploadVerificationResult> => {
-  const actualChecksum = await computeFileSha256(filePath);
-  const checksumMatches =
-    !expectedChecksum || actualChecksum === expectedChecksum;
-
-  return {
-    status: checksumMatches ? "verified" : "failed",
-    checksumMatches,
-    actualChecksum,
-    expectedChecksum,
-  };
-};
-
-export const shouldCleanupStagedUpload = async (
-  createdAt: Date,
-  now = new Date(),
-) => now.getTime() - createdAt.getTime() >= (await getUploadStagingTtlMs());
 
 export const parseUploadManifest = (
   manifest: string | null | undefined,
@@ -285,6 +201,7 @@ export const stageUpload = async (
     originalName,
     expectedChecksum,
     conflictStrategy,
+    clientModifiedAt,
     file,
   }: UploadRequestItem,
   deadline?: Date | number | null,
@@ -349,6 +266,7 @@ export const stageUpload = async (
     originalName,
     expectedChecksum,
     conflictStrategy,
+    clientModifiedAt,
     tmpPath,
     mimeType: resolveMimeType(file),
     sizeBytes,
@@ -430,59 +348,4 @@ export const buildSafeRenamedFileName = (
   }
 
   throw new Error("Unable to generate a safe renamed filename.");
-};
-
-const copyCommittedUpload = async (
-  sourcePath: string,
-  destinationPath: string,
-) => {
-  await mkdir(path.dirname(destinationPath), {
-    recursive: true,
-  });
-  await copyFile(sourcePath, destinationPath);
-};
-
-const cleanupExpiredStagingFiles = async (
-  now = new Date(),
-): Promise<StagingCleanupResult> => {
-  const tmpRoot = path.join(getStorageRoot(), "tmp");
-  const deletedPaths: string[] = [];
-  let scannedCount = 0;
-
-  try {
-    const directory = await opendir(tmpRoot);
-
-    for await (const entry of directory) {
-      if (!entry.isFile() || !entry.name.endsWith(".upload")) {
-        continue;
-      }
-
-      const absolutePath = path.join(tmpRoot, entry.name);
-      const stats = await stat(absolutePath);
-      scannedCount += 1;
-
-      if (!(await shouldCleanupStagedUpload(stats.mtime, now))) {
-        continue;
-      }
-
-      await rm(absolutePath, { force: true });
-      deletedPaths.push(absolutePath);
-    }
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return {
-        scannedCount: 0,
-        deletedCount: 0,
-        deletedPaths: [],
-      };
-    }
-
-    throw error;
-  }
-
-  return {
-    scannedCount,
-    deletedCount: deletedPaths.length,
-    deletedPaths,
-  };
 };

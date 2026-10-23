@@ -82,6 +82,8 @@ function BatchStrip({
 }
 
 /** Activity (Opened, Uploaded, …) or everything added, newest first. */
+// Two list modes on one page; each branch is one mode's choice.
+// fallow-ignore-next-line complexity
 export function RecentView({
   items: initialItems,
   total,
@@ -347,7 +349,9 @@ export function RecentView({
             <Tabs
               value={show}
               onValueChange={(next) =>
-                void navigate({ href: next === "added" ? "/recent?show=added" : "/recent" })
+                void navigate({
+                  href: next === "added" ? "/recent?show=added" : "/recent",
+                })
               }
             >
               <TabsList aria-label="Show" size="sm">

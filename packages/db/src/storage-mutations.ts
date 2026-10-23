@@ -4,6 +4,10 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { Prisma, getPrisma } from "./client";
 import {
+  appendStorageChanges,
+  readStorageItemSnapshot,
+} from "./storage-changes";
+import {
   runStorageTransaction,
   waitForStorageAdmission,
   StorageAdmissionBusyError,
@@ -26,6 +30,7 @@ const STORAGE_MUTATION_KINDS = [
   "folder_restore",
   "upload_create",
   "upload_replace",
+  "file_keep_mine",
   "file_purge",
   "folder_purge",
   "clear_trash",
@@ -96,6 +101,7 @@ export const USER_STORAGE_MUTATION_KINDS: ReadonlySet<string> = new Set([
   "folder_restore",
   "upload_create",
   "upload_replace",
+  "file_keep_mine",
 ] satisfies StorageMutationKind[]);
 export type StorageMutationStatus =
   | "preparing"
@@ -158,6 +164,8 @@ export type StorageMetadataOperation =
         mimeType: string;
         sizeBytes: string;
         contentChecksum: string | null;
+        /** ISO time; the modified time on the uploader's computer. */
+        clientModifiedAt?: string | null;
       };
     }
   | {
@@ -225,6 +233,8 @@ type PrepareStorageMutationInput = {
   steps: StorageMutationStepInput[];
   entities?: StorageMutationEntityInput[];
   uploadSessionId?: string | null;
+  /** The device session that asked; children inherit their parent's. */
+  originDeviceId?: string | null;
 };
 
 const mutationInclude = {
@@ -392,6 +402,7 @@ const metadataColumnByKey: Record<string, string> = {
   mimeType: "mimeType",
   sizeBytes: "sizeBytes",
   contentChecksum: "contentChecksum",
+  clientModifiedAt: "clientModifiedAt",
   deletedAt: "deletedAt",
   trashEntryId: "trashEntryId",
   status: "status",
@@ -418,6 +429,7 @@ const metadataCastByKey: Record<string, string> = {
   mimeType: "text",
   sizeBytes: "bigint",
   contentChecksum: "text",
+  clientModifiedAt: "timestamp(3)",
   deletedAt: "timestamp(3)",
   trashEntryId: "text",
   status: "text",
@@ -684,6 +696,9 @@ const metadataOperationHandlers: Record<
       data: {
         ...operation.data,
         sizeBytes: BigInt(operation.data.sizeBytes),
+        clientModifiedAt: operation.data.clientModifiedAt
+          ? new Date(operation.data.clientModifiedAt)
+          : null,
         storageStatus: "available",
         storageCheckedAt: new Date(),
         storageRevision: 0,
@@ -1309,11 +1324,29 @@ const acquireStorageMutationResources = async (
   await assertNoOverlappingOwnerResources(tx, resourceKeys, selfMutationId);
 };
 
+/** A child mutation counts as the same device's change as its parent. */
+const parentOriginDeviceId = async (
+  tx: Prisma.TransactionClient,
+  parentId: string | null | undefined,
+) =>
+  parentId
+    ? ((
+        await tx.storageMutation.findUnique({
+          where: { id: parentId },
+          select: { originDeviceId: true },
+        })
+      )?.originDeviceId ?? null)
+    : null;
+
+// Writes the mutation and its steps, entities, and locks in one statement.
+// fallow-ignore-next-line complexity
 const createPreparingStorageMutation = async (
   tx: Prisma.TransactionClient,
   input: PrepareStorageMutationInput,
   resourceKeys: string[],
 ) => {
+  const originDeviceId =
+    input.originDeviceId ?? (await parentOriginDeviceId(tx, input.parentId));
   // Await the parent separately so expired transactions cannot send child writes.
   const created = await tx.storageMutation.create({
     data: {
@@ -1327,6 +1360,7 @@ const createPreparingStorageMutation = async (
       intentJson: input.intentJson,
       resultJson: input.initialResultJson,
       reservedBytes: input.reservedBytes ?? null,
+      originDeviceId,
     },
   });
   if (input.steps.length || input.entities?.length || resourceKeys.length) {
@@ -1686,7 +1720,9 @@ export const commitStorageMutationMetadata = async <T>({
             where: { id: mutationId, reservedBytes: { not: null } },
             data: { reservedBytes: null },
           });
+          const before = await readStorageItemSnapshot(tx, mutationId);
           const result = await callback(tx);
+          await appendStorageChanges(tx, { mutationId, ownerUserId, before });
           const durableResult = resultJson?.(result);
           const updated = await tx.storageMutation.updateMany({
             where: {
@@ -2052,6 +2088,7 @@ export const prepareStorageMutationParent = async (
     intentJson,
     resourceKeys,
     entities = [],
+    originDeviceId,
   }: {
     id?: string;
     kind: "clear_trash" | "batch_move" | "trash_retention";
@@ -2061,6 +2098,7 @@ export const prepareStorageMutationParent = async (
     intentJson: Prisma.InputJsonValue;
     resourceKeys?: string[];
     entities?: StorageMutationEntityInput[];
+    originDeviceId?: string | null;
   },
   options: StorageTransactionOptions = {},
 ) => {
@@ -2076,6 +2114,7 @@ export const prepareStorageMutationParent = async (
       resourceKeys: resourceKeys ?? [`owner:${ownerUserId}`, `parent:${id}`],
       steps: [],
       entities,
+      originDeviceId,
     },
     options,
   );

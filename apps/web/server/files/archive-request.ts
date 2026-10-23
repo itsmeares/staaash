@@ -15,6 +15,8 @@ import { getSystemSettings } from "@/server/settings";
 const ZIP_ARCHIVE_RETENTION_DEFAULT_DAYS = 7;
 
 /** Finds or queues the zip for a selection; the same selection reuses one archive. */
+// Validates the selection, reuses a ready zip, or queues one; each branch is one outcome.
+// fallow-ignore-next-line complexity
 export const requestArchive = async (actor: FilesActor, ids: string[]) => {
   const fileIds: string[] = [];
   const folderIds: string[] = [];

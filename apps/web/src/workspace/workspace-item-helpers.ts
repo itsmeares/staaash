@@ -97,7 +97,7 @@ export const toWorkspaceListFields = (item: RetrievalItem) => ({
 });
 
 // Exported for its test.
-// fallow-ignore-next-line unused-export
+// fallow-ignore-next-line unused-export complexity
 export function getWorkspaceItemType(
   item: WorkspaceTypeItem,
 ): WorkspaceItemFilterType {

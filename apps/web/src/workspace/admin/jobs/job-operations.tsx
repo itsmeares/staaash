@@ -53,7 +53,7 @@ import {
 import { MediaDerivativeRowActions } from "./media-derivative-row-actions";
 import { copyText } from "@/lib/clipboard";
 
-export type JsonBackgroundJob = {
+type JsonBackgroundJob = {
   id: string;
   kind: string;
   status: "queued" | "running" | "succeeded" | "failed" | "dead" | "cancelled";
@@ -162,7 +162,6 @@ const ACTIVITY_PAGE_SIZE = 25;
 
 type ActivityFilter = "all" | "active" | "failed" | "done";
 type ActivityView = "jobs" | "derivatives";
-
 
 type JsonJobListResponse = {
   items: JsonBackgroundJob[];
@@ -350,6 +349,8 @@ function getJobTone(status: JsonBackgroundJob["status"] | null): JobTone {
   return "idle";
 }
 
+// One line per job state.
+// fallow-ignore-next-line complexity
 function getJobStateLine({
   job,
   nowMs,
@@ -407,6 +408,8 @@ function getJobStateLine({
   )}`;
 }
 
+// One fact per job state.
+// fallow-ignore-next-line complexity
 function getJobLastFact({
   job,
   nowMs,
@@ -735,6 +738,8 @@ function JobEventList({
   );
 }
 
+// Shows every job field; the branches are optional fields.
+// fallow-ignore-next-line complexity
 function JobDetailsModal({
   actionError,
   derivatives,
@@ -1076,6 +1081,8 @@ function JobTaskCard({
     setSelectedHistoryJobId((current) => current ?? jobs[0]?.id ?? null);
   };
 
+  // Loads the job and its events; each branch is one failure.
+  // fallow-ignore-next-line complexity
   const openDetails = async () => {
     setDetailsOpen(true);
     setSelectedHistoryJobId((current) => current ?? lastRun?.id ?? null);

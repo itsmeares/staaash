@@ -75,6 +75,13 @@ const MoveBody = z.object({
   destinationFolderId: z.string().nullable(),
 });
 
+const RevisionQuery = z.object({
+  ifRevision: z.coerce.number().int().min(0).optional().openapi({
+    description:
+      "Apply only if the item is still at this storageRevision. Otherwise 409 REVISION_MISMATCH with the current item in `details`.",
+  }),
+});
+
 const FavoriteSchema = z
   .object({
     kind: z.enum(["file", "folder"]),
@@ -109,7 +116,7 @@ const fileBodyRoute = <const Action extends string, Body extends z.ZodType>(
     tags: ["Files"],
     summary,
     middleware: mutation,
-    request: { params: FileParams, body: jsonBody(body) },
+    request: { params: FileParams, query: RevisionQuery, body: jsonBody(body) },
     responses: { 200: json(FileMutationSchema, "Done."), ...errorResponses },
   });
 
@@ -138,7 +145,11 @@ const folderBodyRoute = <const Action extends string, Body extends z.ZodType>(
     tags: ["Folders"],
     summary,
     middleware: mutation,
-    request: { params: FolderParams, body: jsonBody(body) },
+    request: {
+      params: FolderParams,
+      query: RevisionQuery,
+      body: jsonBody(body),
+    },
     responses: { 200: json(FolderMutationSchema, "Done."), ...errorResponses },
   });
 
@@ -148,7 +159,15 @@ const moveFile = fileBodyRoute(
   "Move a file to another folder.",
   MoveBody,
 );
-const trashFile = fileRoute("trash", "Move a file to the trash.");
+const trashFile = createRoute({
+  method: "post",
+  path: "/api/files/files/{fileId}/trash",
+  tags: ["Files"],
+  summary: "Move a file to the trash.",
+  middleware: mutation,
+  request: { params: FileParams, query: RevisionQuery },
+  responses: { 200: json(FileMutationSchema, "Done."), ...errorResponses },
+});
 const restoreFile = fileRoute("restore", "Restore a file from the trash.");
 const deleteFile = fileRoute(
   "delete",
@@ -161,10 +180,15 @@ const moveFolder = folderBodyRoute(
   "Move a folder and everything in it.",
   MoveBody,
 );
-const trashFolder = folderRoute(
-  "trash",
-  "Move a folder and everything in it to the trash.",
-);
+const trashFolder = createRoute({
+  method: "post",
+  path: "/api/files/folders/{folderId}/trash",
+  tags: ["Folders"],
+  summary: "Move a folder and everything in it to the trash.",
+  middleware: mutation,
+  request: { params: FolderParams, query: RevisionQuery },
+  responses: { 200: json(FolderMutationSchema, "Done."), ...errorResponses },
+});
 const restoreFolder = folderRoute(
   "restore",
   "Restore a folder from the trash.",
@@ -599,6 +623,7 @@ export const filesRoutes = router()
     const { fileId } = c.req.valid("param");
     const result = await filesService.renameFile({
       ...actor,
+      ifRevision: c.req.valid("query").ifRevision,
       fileId,
       name: c.req.valid("json").name,
       idempotencyKey: c.var.idempotencyKey,
@@ -611,6 +636,7 @@ export const filesRoutes = router()
     const { fileId } = c.req.valid("param");
     const result = await filesService.moveFile({
       ...actor,
+      ifRevision: c.req.valid("query").ifRevision,
       fileId,
       destinationFolderId: c.req.valid("json").destinationFolderId,
       idempotencyKey: c.var.idempotencyKey,
@@ -623,6 +649,7 @@ export const filesRoutes = router()
     const { fileId } = c.req.valid("param");
     const result = await filesService.trashFile({
       ...actor,
+      ifRevision: c.req.valid("query").ifRevision,
       fileId,
       idempotencyKey: c.var.idempotencyKey,
     });
@@ -655,6 +682,7 @@ export const filesRoutes = router()
     const { folderId } = c.req.valid("param");
     const result = await filesService.renameFolder({
       ...actor,
+      ifRevision: c.req.valid("query").ifRevision,
       folderId,
       name: c.req.valid("json").name,
       idempotencyKey: c.var.idempotencyKey,
@@ -671,6 +699,7 @@ export const filesRoutes = router()
     const { folderId } = c.req.valid("param");
     const result = await filesService.moveFolder({
       ...actor,
+      ifRevision: c.req.valid("query").ifRevision,
       folderId,
       destinationFolderId: c.req.valid("json").destinationFolderId,
       idempotencyKey: c.var.idempotencyKey,
@@ -683,6 +712,7 @@ export const filesRoutes = router()
     const { folderId } = c.req.valid("param");
     const result = await filesService.trashFolder({
       ...actor,
+      ifRevision: c.req.valid("query").ifRevision,
       folderId,
       idempotencyKey: c.var.idempotencyKey,
     });
@@ -868,6 +898,8 @@ export const filesRoutes = router()
       200,
     );
   })
+  // Request wiring; each branch is one response.
+  // fallow-ignore-next-line complexity
   .openapi(archiveDownload, async (c) => {
     const archive = await findZipArchiveById(c.req.valid("param").archiveId);
     if (

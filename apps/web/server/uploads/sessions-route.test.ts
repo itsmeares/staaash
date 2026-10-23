@@ -23,7 +23,6 @@ vi.mock("@/server/durable-storage-mutation", async (importOriginal) => ({
 vi.mock("@/server/uploads", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/server/uploads")>()),
   assertUploadSizeAllowed: vi.fn(),
-  UploadError: class extends Error {},
 }));
 vi.mock("@/server/uploads/session-service", async (importOriginal) => ({
   ...(await importOriginal<

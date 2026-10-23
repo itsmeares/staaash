@@ -1,5 +1,6 @@
 import { OpenAPIHono, z } from "@hono/zod-openapi";
 import type { Context } from "hono";
+import { contextStorage } from "hono/context-storage";
 import { getCookie, setCookie } from "hono/cookie";
 import { createMiddleware } from "hono/factory";
 import { HTTPException } from "hono/http-exception";
@@ -26,8 +27,16 @@ export type AppEnv = {
   };
 };
 
+const bearerToken = (request: Request) => {
+  const header = request.headers.get("authorization");
+  return header?.startsWith("Bearer ") ? header.slice(7).trim() : null;
+};
+
+/** A desktop device sends its token in a header; browsers send the cookie. */
 export const sessionToken = (c: Context) =>
-  getCookie(c, SESSION_COOKIE_NAME) ?? null;
+  c.req.header("authorization") !== undefined
+    ? bearerToken(c.req.raw)
+    : (getCookie(c, SESSION_COOKIE_NAME) ?? null);
 
 export const actorOf = (session: Session) => ({
   actorUserId: session.user.id,
@@ -67,8 +76,13 @@ const isSameOrigin = (request: Request) => {
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 /** Cookies ride along on cross-site form posts, so writes must come from this origin. */
-export const sameOrigin = createMiddleware(async (c, next) => {
-  if (!SAFE_METHODS.has(c.req.method) && !isSameOrigin(c.req.raw)) {
+const sameOrigin = createMiddleware(async (c, next) => {
+  // A header token is not sent by the browser on its own, so it cannot be forged cross-site.
+  if (
+    !SAFE_METHODS.has(c.req.method) &&
+    !bearerToken(c.req.raw) &&
+    !isSameOrigin(c.req.raw)
+  ) {
     throw httpError(
       403,
       "CROSS_ORIGIN",
@@ -84,7 +98,9 @@ export const sameOrigin = createMiddleware(async (c, next) => {
  */
 export const requireUser = createMiddleware<AppEnv>(async (c, next) => {
   const session = await getRequestSession(sessionToken(c));
-  if (!session) {
+  // Only device tokens travel in a header; a browser session token does not.
+  const misused = session && bearerToken(c.req.raw) && !session.deviceName;
+  if (!session || misused) {
     if (isPageLoad(c.req.raw)) {
       const url = new URL(c.req.url);
       const back = `${url.pathname}${url.search}`;
@@ -102,16 +118,31 @@ export const requireUser = createMiddleware<AppEnv>(async (c, next) => {
   await next();
 });
 
+/** Routes only a desktop device calls, with its device token. */
+export const requireDevice = createMiddleware<AppEnv>(async (c, next) => {
+  if (!c.var.session.deviceName || !bearerToken(c.req.raw)) {
+    throw httpError(
+      403,
+      "DEVICE_REQUIRED",
+      "Only a signed-in device can do this.",
+    );
+  }
+  await next();
+});
+
 export const requireAdmin = createMiddleware<AppEnv>(async (c, next) => {
-  if (!canAccessAdminSurface(c.var.session.user.role)) {
+  if (
+    c.var.session.deviceName ||
+    !canAccessAdminSurface(c.var.session.user.role)
+  ) {
     throw httpError(403, "ADMIN_REQUIRED", "Admin access required.");
   }
   await next();
 });
 
 export const requireOwner = createMiddleware<AppEnv>(async (c, next) => {
-  const { user } = c.var.session;
-  if (!canAccessAdminSurface(user.role) || !user.isOwner) {
+  const { user, deviceName } = c.var.session;
+  if (deviceName || !canAccessAdminSurface(user.role) || !user.isOwner) {
     throw httpError(403, "OWNER_REQUIRED", "Owner access required.");
   }
   await next();
@@ -140,6 +171,8 @@ const RETRY_AFTER_CODES = new Set([
   "UPLOAD_ADMISSION_BUSY",
 ]);
 
+// One branch per error family the API answers.
+// fallow-ignore-next-line complexity
 const normalizeError = (error: unknown) => {
   if (error instanceof HTTPException) {
     return {
@@ -170,7 +203,7 @@ const normalizeError = (error: unknown) => {
   };
 };
 
-export const errorBody = (error: unknown) => {
+const errorBody = (error: unknown) => {
   const { status, code, message } = normalizeError(error);
   const { mutationId, details } = (error ?? {}) as {
     mutationId?: unknown;
@@ -193,7 +226,7 @@ export const jsonError = (error: unknown) => {
   return Response.json(body, { status, headers });
 };
 
-export const onError = (error: Error) => {
+const onError = (error: Error) => {
   const response = jsonError(error);
   if (response.status >= 500) console.error("[http]", error);
   return response;
@@ -207,7 +240,7 @@ export const router = () =>
     },
   });
 
-export const ErrorSchema = z
+const ErrorSchema = z
   .object({
     error: z.string(),
     code: z.string().optional(),
@@ -243,6 +276,8 @@ export const applyCookie = (
 export const createApp = () => {
   const app = router();
   app.onError(onError);
+  // Lets the journal tag changes with the device that asked for them.
+  app.use(contextStorage());
   app.notFound(() =>
     Response.json({ error: "Not found.", code: "NOT_FOUND" }, { status: 404 }),
   );

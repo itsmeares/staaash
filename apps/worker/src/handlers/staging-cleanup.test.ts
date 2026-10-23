@@ -166,6 +166,11 @@ const createSessionClient = (sessions: TestUploadSession[]) => {
   });
 
   const client: any = {
+    storageChange: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
+    deviceAuthCode: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
     uploadSession: { findMany, updateMany, deleteMany },
     uploadChunk: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
   };

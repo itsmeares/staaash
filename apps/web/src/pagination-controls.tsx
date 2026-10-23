@@ -52,11 +52,6 @@ export function PaginationControls({
 
 export const PAGE_SIZE = 50;
 
-export function parsePage(raw: string | null | undefined): number {
-  const n = Number(raw ?? "1");
-  return Number.isInteger(n) && n >= 1 ? n : 1;
-}
-
 export function buildPageHref(basePath: string) {
   return (page: number) => (page === 1 ? basePath : `${basePath}?page=${page}`);
 }

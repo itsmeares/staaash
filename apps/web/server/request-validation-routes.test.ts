@@ -109,7 +109,6 @@ vi.mock("@/server/uploads", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/server/uploads")>()),
   assertUploadSizeAllowed: vi.fn(),
   computeFileSha256: vi.fn(),
-  UploadError: class extends Error {},
 }));
 vi.mock("@/server/uploads/admission", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/server/uploads/admission")>()),

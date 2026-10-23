@@ -48,7 +48,13 @@ export const storageUnavailableQuery = (folderId: string) =>
 
 export const favoritesQuery = queryOptions({
   queryKey: ["favorites"],
-  queryFn: () => read(views.favorites.$post({ json: { query: {} } })),
+  queryFn: () =>
+    read(
+      views.favorites[":selection{selection}?"].$post({
+        param: { selection: undefined },
+        json: { query: {} },
+      }),
+    ),
 });
 
 export const recentQuery = (show: "activity" | "added", grouped: boolean) =>
@@ -56,8 +62,9 @@ export const recentQuery = (show: "activity" | "added", grouped: boolean) =>
     queryKey: ["recent", show, grouped],
     queryFn: () =>
       read(
-        views.recent[":show{activity|added}"].$post({
-          param: { show },
+        views.recent[":show{activity|added}"][":selection{selection}?"].$post({
+          // Named even when empty, or the client leaves the pattern in the URL.
+          param: { show, selection: undefined },
           json: { query: { grouped } },
         }),
       ),

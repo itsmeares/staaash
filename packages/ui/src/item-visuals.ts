@@ -62,6 +62,8 @@ const fileVisuals: Record<Exclude<ItemVisualKind, "folder">, ItemVisual> = {
   },
 };
 
+// One branch per file type.
+// fallow-ignore-next-line complexity
 export function getItemVisual(
   kind: "file" | "folder",
   mimeType?: string | null,

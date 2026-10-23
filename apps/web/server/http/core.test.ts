@@ -4,14 +4,12 @@ vi.mock("@/server/auth/guards", () => ({
   getRequestSession: vi.fn(async () => null),
 }));
 
-import { onError, requireUser, router, sameOrigin } from "@/server/http/core";
+import { createApp, requireUser } from "@/server/http/core";
 
-const app = router();
-app.onError(onError);
-app.use("*", sameOrigin);
-app.post("/write", (c) => c.json({ ok: true }));
-app.get("/private", requireUser, (c) => c.json({ ok: true }));
-app.get("/busy", () => {
+const app = createApp();
+app.post("/api/write", (c) => c.json({ ok: true }));
+app.get("/api/private", requireUser, (c) => c.json({ ok: true }));
+app.get("/api/busy", () => {
   throw Object.assign(new Error("Storage is busy."), {
     code: "STORAGE_MUTATION_IN_PROGRESS",
     status: 503,
@@ -31,7 +29,7 @@ describe("http core", () => {
     ],
     ["a LAN address", "192.168.1.20:2113", "http://192.168.1.20:2113"],
   ])("allows writes from %s", async (_name, host, origin) => {
-    const response = await write("http://internal:3000/write", {
+    const response = await write("http://internal:3000/api/write", {
       host,
       origin,
     });
@@ -39,7 +37,7 @@ describe("http core", () => {
   });
 
   it("allows writes without an Origin header", async () => {
-    const response = await write("http://localhost:3000/write", {
+    const response = await write("http://localhost:3000/api/write", {
       host: "localhost:3000",
     });
     expect(response.status).toBe(200);
@@ -59,7 +57,7 @@ describe("http core", () => {
     ],
     ["an invalid origin", "localhost:3000", "not a valid origin"],
   ])("refuses writes from %s", async (_name, host, origin) => {
-    const response = await write("http://localhost:3000/write", {
+    const response = await write("http://localhost:3000/api/write", {
       host,
       origin,
     });
@@ -69,9 +67,18 @@ describe("http core", () => {
     });
   });
 
+  it("lets a device token write from anywhere: browsers never send it on their own", async () => {
+    const response = await write("http://localhost:3000/api/write", {
+      host: "localhost:3000",
+      origin: "https://elsewhere.example",
+      authorization: "Bearer device-token",
+    });
+    expect(response.status).toBe(200);
+  });
+
   it("answers API callers that are signed out with 401 JSON", async () => {
     const response = await app.request(
-      new Request("http://localhost:3000/private", {
+      new Request("http://localhost:3000/api/private", {
         headers: { accept: "application/json" },
       }),
     );
@@ -84,18 +91,18 @@ describe("http core", () => {
 
   it("sends signed-out browsers to sign-in and back", async () => {
     const response = await app.request(
-      new Request("http://localhost:3000/private?x=1", {
+      new Request("http://localhost:3000/api/private?x=1", {
         headers: { accept: "text/html", host: "localhost:3000" },
       }),
     );
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe(
-      "http://localhost:3000/?next=%2Fprivate%3Fx%3D1",
+      "http://localhost:3000/?next=%2Fapi%2Fprivate%3Fx%3D1",
     );
   });
 
   it("marks storage contention as retryable", async () => {
-    const response = await app.request("/busy");
+    const response = await app.request("/api/busy");
     expect(response.status).toBe(503);
     expect(response.headers.get("retry-after")).toBe("1");
   });

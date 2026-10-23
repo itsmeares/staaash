@@ -116,6 +116,8 @@ const generateTemporaryPassword = () =>
     ].join(""),
   );
 
+// Each branch is one way an admin can supply a temporary password.
+// fallow-ignore-next-line complexity
 const normalizeTemporaryPasswordInput = (
   input: TemporaryPasswordInput,
 ): { password: string; requirePasswordChange: boolean } => {
@@ -274,6 +276,8 @@ export const createAuthService = ({
     };
   };
 
+  // Retries on storage id collisions; each branch is one outcome.
+  // fallow-ignore-next-line complexity
   const createUserWithStorageId = async (
     params: Omit<AdminCreateUserInput, "temporaryPassword"> & {
       passwordHash: string;
@@ -349,6 +353,13 @@ export const createAuthService = ({
       return createSessionForUser(user, metadata);
     },
 
+    /** A session for a user who already proved who they are, such as a device. */
+    async createSession(userId: string, metadata: SessionMetadata) {
+      const user = await (await resolveRepo()).findUserById(userId);
+      if (!user) throw new AuthError("NOT_SIGNED_IN");
+      return createSessionForUser(user, metadata);
+    },
+
     async signIn(
       input: SignInInput,
       metadata?: SessionMetadata,
@@ -373,6 +384,8 @@ export const createAuthService = ({
       return createSessionForUser(user, metadata);
     },
 
+    // Expired, revoked, and device sessions each need their own handling.
+    // fallow-ignore-next-line complexity
     async getSession(rawToken: string | null | undefined) {
       if (!rawToken) {
         return null;
@@ -397,14 +410,24 @@ export const createAuthService = ({
         return null;
       }
 
-      await activeRepo.touchSessionLastSeen(session.id, seenAt);
+      // A device stays signed in while it keeps syncing.
+      const expiresAt = session.deviceName
+        ? addDays(seenAt, (await resolveSettings()).sessionMaxAgeDays)
+        : session.expiresAt;
+      await activeRepo.touchSessionLastSeen(
+        session.id,
+        seenAt,
+        session.deviceName ? expiresAt : undefined,
+      );
 
       return {
         id: session.id,
-        expiresAt: session.expiresAt,
+        expiresAt,
         userAgent: session.userAgent,
         ipAddress: session.ipAddress,
         lastSeenAt: seenAt,
+        deviceName: session.deviceName,
+        deviceSessionId: session.deviceSessionId,
         createdAt: session.createdAt,
         updatedAt: session.updatedAt,
         user: session.user,
@@ -689,16 +712,18 @@ export const createAuthService = ({
     /** Signs one of your own other devices out, or all of them. */
     async revokeOwnSessions(
       userId: string,
-      currentSessionId: string,
+      current: { id: string; deviceSessionId: string | null },
       sessionId?: string,
     ) {
-      if (sessionId === currentSessionId) {
+      // An app window's own device counts as the current session.
+      const currentIds = [current.id, current.deviceSessionId];
+      if (sessionId && currentIds.includes(sessionId)) {
         throw new AuthError("CURRENT_SESSION_REVOKE_BLOCKED");
       }
       const activeRepo = await resolveRepo();
       const sessions = await activeRepo.listUserSessions(userId);
       const targets = sessions.filter((session) =>
-        sessionId ? session.id === sessionId : session.id !== currentSessionId,
+        sessionId ? session.id === sessionId : !currentIds.includes(session.id),
       );
       for (const session of targets) {
         await activeRepo.revokeSessionById(session.id, now());

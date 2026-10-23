@@ -20,6 +20,8 @@ const isMissingStorageObject = (error: unknown) => {
 };
 
 /** Streams one of the signed-in user's files as an attachment, with Range support. */
+// Missing, ranged, and full downloads each answer differently.
+// fallow-ignore-next-line complexity
 export const downloadPrivateFile = async ({
   request,
   session,

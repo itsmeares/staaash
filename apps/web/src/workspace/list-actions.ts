@@ -6,23 +6,34 @@ import type { ListQuery } from "@/server/list-window";
 const views = api.api.views;
 
 export const loadFavorites = (query: ListQuery) =>
-  read(views.favorites.$post({ json: { query } }));
+  read(
+    views.favorites[":selection{selection}?"].$post({
+      param: { selection: undefined },
+      json: { query },
+    }),
+  );
 
 export const selectFavorites = (query: ListQuery) =>
-  read(views.favorites.selection.$post({ json: { query } }));
+  read(
+    views.favorites[":selection{selection}?"].$post({
+      param: { selection: "selection" },
+      json: { query },
+    }),
+  );
 
 export const loadRecent = (show: "activity" | "added", query: ListQuery) =>
   read(
-    views.recent[":show{activity|added}"].$post({
-      param: { show },
+    views.recent[":show{activity|added}"][":selection{selection}?"].$post({
+      // Named even when empty, or the client leaves the pattern in the URL.
+      param: { show, selection: undefined },
       json: { query },
     }),
   );
 
 export const selectRecent = (show: "activity" | "added", query: ListQuery) =>
   read(
-    views.recent[":show{activity|added}"].selection.$post({
-      param: { show },
+    views.recent[":show{activity|added}"][":selection{selection}?"].$post({
+      param: { show, selection: "selection" },
       json: { query },
     }),
   );

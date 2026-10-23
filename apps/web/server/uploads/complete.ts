@@ -2,8 +2,12 @@ import { StorageMutationConflictError } from "@staaash/db/storage-mutations";
 import { z } from "zod";
 
 import { filesService } from "@/server/files/service";
-import { FilesError, ResumableCompletionError } from "@/server/files/errors";
-import type { Session } from "@/server/http/core";
+import {
+  FilesError,
+  ResumableCompletionError,
+  RevisionConflictError,
+} from "@/server/files/errors";
+import { jsonError, type Session } from "@/server/http/core";
 import { attachStorageMutationHeader } from "@/server/storage-idempotency";
 import { computeFileSha256 } from "@/server/uploads";
 import { hasCompleteUploadChunkSet } from "@/server/uploads/chunk-protocol";
@@ -32,6 +36,10 @@ const completeSchema = z.object({
     .string()
     .trim()
     .regex(/^[a-f0-9]{64}$/i),
+});
+
+const ifRevisionSchema = z.object({
+  ifRevision: z.number().int().min(0).optional(),
 });
 
 const uploadIsComplete = (uploadSession: ResumableSession) => {
@@ -184,6 +192,7 @@ const commitUploadedFile = async (
   uploadSession: ResumableSession,
   session: Session,
   expectedChecksum: string | null,
+  ifRevision: number | undefined,
 ): Promise<Response> => {
   try {
     const file = await filesService.commitResumableUpload({
@@ -200,6 +209,8 @@ const commitUploadedFile = async (
         | "fail"
         | "safeRename"
         | "replace",
+      clientModifiedAt: uploadSession.clientModifiedAt,
+      ifRevision,
     });
     return Response.json(file, { status: 201 });
   } catch (error) {
@@ -215,16 +226,14 @@ const commitUploadedFile = async (
         },
       );
     }
-    if (error instanceof FilesError) {
+    // Nothing was committed: the name or revision was refused up front.
+    if (error instanceof FilesError || error instanceof RevisionConflictError) {
       await failAndCleanupResumableSession({
         id: uploadSession.id,
         ownerUserId: uploadSession.ownerUserId,
         tmpPath: uploadSession.tmpPath,
       });
-      return Response.json(
-        { error: error.message, code: error.code },
-        { status: error.status },
-      );
+      return jsonError(error);
     }
     if (error instanceof StorageMutationConflictError) {
       return storageMutationConflictResponse(uploadSession, error);
@@ -237,6 +246,8 @@ const commitUploadedFile = async (
  * Verifies the staged bytes and commits them through the journal. Every
  * outcome that leaves the result unclear keeps the staging file and says so.
  */
+// Every outcome that leaves the result unclear keeps the staging file.
+// fallow-ignore-next-line complexity
 export const completeResumableUpload = async ({
   body,
   session,
@@ -314,6 +325,7 @@ export const completeResumableUpload = async ({
       uploadSession,
       session,
       checksumResult.expectedChecksum,
+      ifRevisionSchema.safeParse(body).data?.ifRevision,
     ),
     uploadSession.id,
     session.user.id,

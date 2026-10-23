@@ -42,10 +42,14 @@ const setPinAction = act((formData) =>
   ),
 );
 const removeAction = act((formData) =>
-  read(derivatives[":id"].remove.$post({ param: { id: field(formData, "id") } })),
+  read(
+    derivatives[":id"].remove.$post({ param: { id: field(formData, "id") } }),
+  ),
 );
 const cancelAction = act((formData) =>
-  read(derivatives[":id"].cancel.$post({ param: { id: field(formData, "id") } })),
+  read(
+    derivatives[":id"].cancel.$post({ param: { id: field(formData, "id") } }),
+  ),
 );
 
 type MediaDerivativeRowActionsProps = {
@@ -55,6 +59,8 @@ type MediaDerivativeRowActionsProps = {
   pinnedByAdmin: boolean;
 };
 
+// One action per derivative state.
+// fallow-ignore-next-line complexity
 export function MediaDerivativeRowActions({
   id,
   fileId,

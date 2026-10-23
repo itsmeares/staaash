@@ -140,7 +140,7 @@ export function buildListSource(
     LEFT JOIN paths p ON p.id = f."parentId"
     WHERE f."ownerUserId" = ${userId} AND NOT f."isFilesRoot"
     UNION ALL
-    SELECT f.id, 'file', f."originalName", f."mimeType", f."sizeBytes", f."createdAt", f."updatedAt", f."deletedAt",
+    SELECT f.id, 'file', f."originalName", f."mimeType", f."sizeBytes", f."createdAt", COALESCE(f."clientModifiedAt", f."updatedAt"), f."deletedAt",
       fav."createdAt", fav."quickAccessPinnedAt", r."lastInteractedAt", f."folderId", r."lastAction",
       COALESCE(p.path, 'Files'), f."trashEntryId", f."storageStatus" = 'available'
     FROM "File" f

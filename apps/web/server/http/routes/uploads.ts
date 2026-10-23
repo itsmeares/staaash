@@ -65,6 +65,10 @@ const createSession = createRoute({
           .enum(["fail", "safeRename", "replace"])
           .default("safeRename"),
         expectedChecksum: Checksum.nullable().default(null),
+        clientModifiedAt: z.coerce.date().nullable().default(null).openapi({
+          description:
+            "The file's modified time on the uploader's computer, kept with the file.",
+        }),
       }),
     ),
   },
@@ -131,7 +135,13 @@ const completeSession = createRoute({
       description: "Required for chunked (protocol 2) sessions.",
       content: {
         "application/json": {
-          schema: z.object({ expectedChecksum: Checksum.optional() }),
+          schema: z.object({
+            expectedChecksum: Checksum.optional(),
+            ifRevision: z.number().int().min(0).optional().openapi({
+              description:
+                "With `replace`: apply only if the existing file is still at this storageRevision. Otherwise 409 REVISION_MISMATCH with the current file in `details`.",
+            }),
+          }),
         },
       },
     },

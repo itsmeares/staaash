@@ -43,6 +43,18 @@ export type UserPreference = Prisma.UserPreferenceModel
  */
 export type Session = Prisma.SessionModel
 /**
+ * Model DeviceAuthCode
+ * A single-use code: a browser-approved device sign-in, or a device's app
+ * window becoming a browser session. Short-lived and stored hashed.
+ */
+export type DeviceAuthCode = Prisma.DeviceAuthCodeModel
+/**
+ * Model StorageChange
+ * One change to a file or folder, in commit order per owner. Written in the
+ * same transaction as the journal commit, so a commit never lacks its entry.
+ */
+export type StorageChange = Prisma.StorageChangeModel
+/**
  * Model Folder
  * 
  */

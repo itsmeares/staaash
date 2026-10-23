@@ -221,6 +221,14 @@ function prunePendingTrash(current: Set<string>, listed: Set<string>) {
   return next.size === current.size ? current : next;
 }
 
+/** A file keeps the time it was last changed on the uploader's computer. */
+const modifiedAt = (item: {
+  updatedAt: string;
+  clientModifiedAt?: string | null;
+}) => item.clientModifiedAt ?? item.updatedAt;
+
+// The Files page wires list, selection, moves, uploads, and the viewer; the logic lives in hooks and helpers.
+// fallow-ignore-next-line complexity
 export function FilesView({
   listing: initialListing,
   currentPath,
@@ -233,8 +241,13 @@ export function FilesView({
   const navigate = useNavigate();
   const refresh = useRefresh();
   const pathname = useLocation({ select: (location) => location.pathname });
-  const rawSearchParamsStr = useLocation({ select: (location) => location.searchStr });
-  const rawSearchParams = useMemo(() => new URLSearchParams(rawSearchParamsStr), [rawSearchParamsStr]);
+  const rawSearchParamsStr = useLocation({
+    select: (location) => location.searchStr,
+  });
+  const rawSearchParams = useMemo(
+    () => new URLSearchParams(rawSearchParamsStr),
+    [rawSearchParamsStr],
+  );
   const isCoarsePointer = useCoarsePointer();
 
   // ---- Transfer context (upload + download state lives in WorkspaceProvider) ----
@@ -461,7 +474,10 @@ export function FilesView({
       next.delete("upload");
       next.delete("new");
       const qs = next.toString();
-      void navigate({ replace: true, href: `${pathname}${qs ? `?${qs}` : ""}` });
+      void navigate({
+        replace: true,
+        href: `${pathname}${qs ? `?${qs}` : ""}`,
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -522,29 +538,24 @@ export function FilesView({
     [...visibleFolders, ...visibleFiles].map((item) => [item.id, item]),
   );
   const dataOf = (item: BatchMoveItem) => itemData.get(item.id);
+  // Items mid-change can't be selected.
+  const selectableIds = (
+    items: Array<{ id: string; data: { storageMutation?: unknown } }>,
+  ) =>
+    items
+      .filter(
+        (item) =>
+          !item.data.storageMutation &&
+          !trashedIds.has(item.id) &&
+          !optimisticallyMovedIds.has(item.id) &&
+          !movingIds.has(item.id),
+      )
+      .map((item) => item.id);
   const selection = useListSelection({
     ids: allItems.map((item) => item.id),
     coarse: isCoarsePointer,
-    loadAllIds: async () =>
-      (await continuous.loadAll())
-        .filter(
-          (item) =>
-            !item.data.storageMutation &&
-            !trashedIds.has(item.id) &&
-            !optimisticallyMovedIds.has(item.id) &&
-            !movingIds.has(item.id),
-        )
-        .map((item) => item.id),
-    loadNextIds: async () =>
-      (await continuous.loadMore())
-        .filter(
-          (item) =>
-            !item.data.storageMutation &&
-            !trashedIds.has(item.id) &&
-            !optimisticallyMovedIds.has(item.id) &&
-            !movingIds.has(item.id),
-        )
-        .map((item) => item.id),
+    loadAllIds: async () => selectableIds(await continuous.loadAll()),
+    loadNextIds: async () => selectableIds(await continuous.loadMore()),
     onFind: finder.show,
     onOpen: (id) => openItem(id),
     onKey: (event, selected) => handleListKey(event, selected),
@@ -646,7 +657,9 @@ export function FilesView({
     const folder = listing.childFolders.find((f) => f.id === id);
     if (folder) {
       if (folder.storageMutation) return;
-      void navigate({ href: folder.isFilesRoot ? "/files" : `/files/f/${folder.id}` });
+      void navigate({
+        href: folder.isFilesRoot ? "/files" : `/files/f/${folder.id}`,
+      });
       return;
     }
     const file = listing.files.find((f) => f.id === id);
@@ -1115,6 +1128,8 @@ export function FilesView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moveOperations]);
 
+  // Optimistic move with rollback; each branch is one outcome.
+  // fallow-ignore-next-line complexity
   const moveItems = async (
     items: BatchMoveItem[],
     destinationFolderId: string,
@@ -1308,6 +1323,8 @@ export function FilesView({
     );
   };
 
+  // Each branch is one outcome of the retry.
+  // fallow-ignore-next-line complexity
   const retryFailedMove = async (clientId: string) => {
     const operation = moveOperationsRef.current.get(clientId);
     if (
@@ -1746,7 +1763,7 @@ export function FilesView({
       dimmed: cutIds.has(file.id),
       flags: movingIds.has(file.id) ? movingMark : flags("file", file.id),
       sub: () =>
-        `${formatWorkspaceFileSize(file.sizeBytes)} · ${formatRelativeTime(file.updatedAt, now, timeZone)}`,
+        `${formatWorkspaceFileSize(file.sizeBytes)} · ${formatRelativeTime(modifiedAt(file), now, timeZone)}`,
       data: file,
       sizeBytes: file.sizeBytes,
     })),
@@ -1770,7 +1787,7 @@ export function FilesView({
       align: "end",
       render: (item) => (
         <span suppressHydrationWarning>
-          {formatRelativeTime(item.data.updatedAt, now, timeZone)}
+          {formatRelativeTime(modifiedAt(item.data), now, timeZone)}
         </span>
       ),
     },
@@ -1944,7 +1961,7 @@ export function FilesView({
                   ],
                 ]),
             ["Location", locationLabel],
-            ["Modified", when(data.updatedAt)],
+            ["Modified", when(modifiedAt(data))],
             ["Created", when(data.createdAt)],
           ],
           sections: (

@@ -25,10 +25,6 @@ vi.mock("@/server/durable-storage-mutation", async (importOriginal) => ({
 
 vi.mock("@/server/uploads", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/server/uploads")>()),
-  UploadError: class UploadError extends Error {
-    code = "UPLOAD_ERROR";
-    status = 400;
-  },
   assertUploadSizeAllowed: vi.fn(),
   computeFileSha256: vi.fn(),
 }));
@@ -212,6 +208,7 @@ describe("upload session creation", () => {
       totalSizeBytes: 123,
       expectedChecksum,
       conflictStrategy: "safeRename",
+      clientModifiedAt: null,
     });
   });
 

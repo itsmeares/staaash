@@ -46,6 +46,7 @@ export const SessionSchema = z
     userAgent: z.string().nullable(),
     ipAddress: z.string().nullable(),
     lastSeenAt: z.date().nullable(),
+    deviceName: z.string().nullable(),
     createdAt: z.date(),
     updatedAt: z.date(),
     user: UserSchema,
@@ -78,7 +79,7 @@ const StorageMutationStateSchema = z.object({
   status: z.string(),
 });
 
-export const FolderSchema = z
+const FolderSchema = z
   .object({
     id: z.string(),
     ownerUserId: z.string(),
@@ -110,6 +111,9 @@ export const FileSchema = z
     storageRevision: z.number().int().optional(),
     trashEntryId: z.string().nullable().optional(),
     storageMutation: StorageMutationStateSchema.nullable().optional(),
+    clientModifiedAt: z.date().nullable().optional().openapi({
+      description: "The modified time on the uploader's computer, when sent.",
+    }),
     deletedAt: z.date().nullable(),
     createdAt: z.date(),
     updatedAt: z.date(),

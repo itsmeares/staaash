@@ -55,7 +55,10 @@ import {
   getRetrievalPage,
   getRetrievalSelection,
 } from "@/server/retrieval/page";
-import { recordFolderAccessBestEffort, recordFileAccessBestEffort } from "@/server/retrieval/recent-tracking";
+import {
+  recordFolderAccessBestEffort,
+  recordFileAccessBestEffort,
+} from "@/server/retrieval/recent-tracking";
 import { getSearchPage } from "@/server/retrieval/search-page";
 import { getSystemSettings } from "@/server/settings";
 import { SHARE_ACCESS_COOKIE_NAME } from "@/server/sharing/access-cookie";
@@ -76,7 +79,10 @@ import {
   getStorageBreakdown,
   getUserStorageUsed,
 } from "@/server/user-storage";
-import { pinnedFavorites, toFavoriteClientItem } from "@/src/workspace/favorites/favorites-helpers";
+import {
+  pinnedFavorites,
+  toFavoriteClientItem,
+} from "@/src/workspace/favorites/favorites-helpers";
 import { folderBatchItems } from "@/src/workspace/files/folder-batch";
 import {
   toActivityClientItem,
@@ -91,16 +97,20 @@ const ListBody = z.object({ query: listQuerySchema.partial().default({}) });
 const listJson = validator("json", (value) => ListBody.parse(value));
 
 /** The signed-in person as the top bar and menus show them. */
-const personOf = (user: AuthUser) => ({
-  label: user.displayName ?? user.email,
-  email: user.email,
-  initials: getInitials(user.displayName, user.email),
-  avatarUrl: user.avatarUrl,
-  defaultView: user.preferences?.defaultView,
-  notify: user.preferences?.showUpdateNotifications ?? true,
-  timeZone: user.preferences?.timeZone ?? null,
-  clock: user.preferences?.clockFormat === "12h" ? "12h" : "24h",
-});
+const personOf = (user: AuthUser) => {
+  const prefs: Partial<NonNullable<AuthUser["preferences"]>> =
+    user.preferences ?? {};
+  return {
+    label: user.displayName ?? user.email,
+    email: user.email,
+    initials: getInitials(user.displayName, user.email),
+    avatarUrl: user.avatarUrl,
+    defaultView: prefs.defaultView,
+    notify: prefs.showUpdateNotifications ?? true,
+    timeZone: prefs.timeZone ?? null,
+    clock: prefs.clockFormat === "12h" ? "12h" : "24h",
+  };
+};
 
 const loadPins = async (user: AuthUser) => {
   if (!user.preferences?.showPinsInSidebar) return [];
@@ -147,12 +157,15 @@ const filesProps = async (
   });
 };
 
-const shareCookie = (c: Context) => getCookie(c, SHARE_ACCESS_COOKIE_NAME) ?? null;
+const shareCookie = (c: Context) =>
+  getCookie(c, SHARE_ACCESS_COOKIE_NAME) ?? null;
 
 /** A share page that cannot show its item says why, without the details. */
 const shareFailure = (error: unknown) => {
   if (error instanceof StorageEntityUnavailableError) throw error;
-  const shareError = isShareError(error) ? error : new ShareError("SHARE_INVALID");
+  const shareError = isShareError(error)
+    ? error
+    : new ShareError("SHARE_INVALID");
   return {
     kind: "error" as const,
     error: { code: shareError.code, message: shareError.message },
@@ -203,9 +216,14 @@ const userViews = user
         liveOnly: true,
         filesOnly: true,
       }),
-      getSharesPage(actorOf(session), getShareBaseUrl(c.req.raw.headers), true, {
-        limit: 5,
-      }),
+      getSharesPage(
+        actorOf(session),
+        getShareBaseUrl(c.req.raw.headers),
+        true,
+        {
+          limit: 5,
+        },
+      ),
     ]);
     return c.json(
       plain({
@@ -221,7 +239,9 @@ const userViews = user
           name: share.target.name,
           kind: share.target.targetType,
           mimeType:
-            share.target.targetType === "file" ? share.target.mimeType : undefined,
+            share.target.targetType === "file"
+              ? share.target.mimeType
+              : undefined,
           downloadDisabled: share.downloadDisabled,
           hasPassword: share.hasPassword,
           expiresAt: share.expiresAt,
@@ -277,7 +297,8 @@ const userViews = user
         ...actor,
         listing,
         baseUrl: getShareBaseUrl(c.req.raw.headers),
-        showFolderPreviews: session.user.preferences?.showFolderPreviews ?? true,
+        showFolderPreviews:
+          session.user.preferences?.showFolderPreviews ?? true,
       });
       items.push(...folderBatchItems(props).items);
     }
@@ -286,7 +307,9 @@ const userViews = user
   .get(
     "/files/:folderId/viewer",
     validator("query", (value) =>
-      z.object({ offset: z.coerce.number().int().min(0).catch(0) }).parse(value),
+      z
+        .object({ offset: z.coerce.number().int().min(0).catch(0) })
+        .parse(value),
     ),
     async (c) =>
       c.json(
@@ -307,11 +330,20 @@ const userViews = user
       fileId: c.req.param("fileId"),
     });
     if (!file.viewerKind) throw new FilesError("FILE_NOT_FOUND");
-    await recordFileAccessBestEffort({ ...actor, fileId: file.id, action: "opened" });
+    await recordFileAccessBestEffort({
+      ...actor,
+      fileId: file.id,
+      action: "opened",
+    });
     const folderId =
       file.folderId ??
       (await prismaFilesRepository.findFilesRoot!(session.user.id))!.id;
-    const window = await getViewerWindow(session.user.id, folderId, {}, file.id);
+    const window = await getViewerWindow(
+      session.user.id,
+      folderId,
+      {},
+      file.id,
+    );
     if (!window.files.some((entry) => entry.id === file.id)) {
       throw new FilesError("FILE_NOT_FOUND");
     }
@@ -344,67 +376,55 @@ const userViews = user
       });
     }
   })
-  .post("/favorites", listJson, async (c) => {
-    const page = await getRetrievalPage(c.var.session.user.id, "favorites", c.req.valid("json").query);
-    return c.json(plain({ ...page, items: page.items.map(toFavoriteClientItem) }));
-  })
-  .post("/favorites/selection", listJson, async (c) => {
-    const page = await getRetrievalSelection(c.var.session.user.id, "favorites", c.req.valid("json").query);
-    return c.json(plain({ ...page, items: page.items.map(toFavoriteClientItem) }));
-  })
-  .post("/recent/:show{activity|added}", listJson, async (c) => {
-    const { session } = c.var;
-    const show = c.req.param("show");
-    const query = c.req.valid("json").query;
-    if (show === "activity" && query.grouped) {
-      return c.json(plain(await getActivityPage(session.user.id, query)));
-    }
-    const page = await getRetrievalPage(
-      session.user.id,
-      show === "activity" ? "recent" : "added",
-      query,
-    );
+  .post("/favorites/:selection{selection}?", listJson, async (c) => {
+    const page = await (
+      c.req.param("selection") ? getRetrievalSelection : getRetrievalPage
+    )(c.var.session.user.id, "favorites", c.req.valid("json").query);
     return c.json(
-      plain({
-        ...page,
-        items: page.items.map(
-          show === "activity" ? toActivityClientItem : toRecentClientItem,
-        ),
-      }),
+      plain({ ...page, items: page.items.map(toFavoriteClientItem) }),
     );
   })
-  .post("/recent/:show{activity|added}/selection", listJson, async (c) => {
-    const { session } = c.var;
-    const show = c.req.param("show");
-    const query = c.req.valid("json").query;
-    if (show === "activity" && query.grouped) {
-      return c.json(plain(await getActivityPage(session.user.id, query, true)));
-    }
-    const page = await getRetrievalSelection(
-      session.user.id,
-      show === "activity" ? "recent" : "added",
-      query,
-    );
-    return c.json(
-      plain({
-        ...page,
-        items: page.items.map(
-          show === "activity" ? toActivityClientItem : toRecentClientItem,
-        ),
-      }),
-    );
-  })
+  .post(
+    "/recent/:show{activity|added}/:selection{selection}?",
+    listJson,
+    async (c) => {
+      const { session } = c.var;
+      const show = c.req.param("show");
+      const selection = Boolean(c.req.param("selection"));
+      const query = c.req.valid("json").query;
+      if (show === "activity" && query.grouped) {
+        return c.json(
+          plain(await getActivityPage(session.user.id, query, selection)),
+        );
+      }
+      const page = await (selection ? getRetrievalSelection : getRetrievalPage)(
+        session.user.id,
+        show === "activity" ? "recent" : "added",
+        query,
+      );
+      return c.json(
+        plain({
+          ...page,
+          items: page.items.map(
+            show === "activity" ? toActivityClientItem : toRecentClientItem,
+          ),
+        }),
+      );
+    },
+  )
   .post(
     "/recent/activity/resolve",
     validator("json", (value) =>
       ListBody.extend({ ids: z.array(z.string()) }).parse(value),
     ),
     async (c) => {
-    const { query, ids } = c.req.valid("json");
-    return c.json(
-      plain(await resolveActivitySelection(c.var.session.user.id, query, ids)),
-    );
-  },
+      const { query, ids } = c.req.valid("json");
+      return c.json(
+        plain(
+          await resolveActivitySelection(c.var.session.user.id, query, ids),
+        ),
+      );
+    },
   )
   .post("/trash", listJson, async (c) => {
     const listing = await filesService.listTrashFolders({
@@ -434,7 +454,10 @@ const userViews = user
     for (let offset = 0; offset < refs.items.length; offset += 1000) {
       const listing = await filesService.listTrashFolders({
         ...actor,
-        selected: { total: refs.total, items: refs.items.slice(offset, offset + 1000) },
+        selected: {
+          total: refs.total,
+          items: refs.items.slice(offset, offset + 1000),
+        },
       });
       items.push(...toTrashClientItems(listing));
     }
@@ -478,16 +501,19 @@ const userViews = user
         .parse(value),
     ),
     async (c) => {
-    const { q, page, pageSize } = c.req.valid("query");
-    const query = q.trim();
-    const result = await getSearchPage(c.var.session.user.id, query, {
-      offset: (page - 1) * pageSize,
-      limit: pageSize,
-    });
-    return c.json(
-      plain({ total: result.total, items: result.items.map(toRecentClientItem) }),
-    );
-  },
+      const { q, page, pageSize } = c.req.valid("query");
+      const query = q.trim();
+      const result = await getSearchPage(c.var.session.user.id, query, {
+        offset: (page - 1) * pageSize,
+        limit: pageSize,
+      });
+      return c.json(
+        plain({
+          total: result.total,
+          items: result.items.map(toRecentClientItem),
+        }),
+      );
+    },
   )
   .get("/settings", async (c) => {
     const { session } = c.var;
@@ -510,7 +536,7 @@ const userViews = user
           clockFormat: prefs.clockFormat as "12h" | "24h",
         },
         sessions: sessions
-          .map((entry) => toDevice(entry, session.id))
+          .map((entry) => toDevice(entry, session))
           .sort((a, b) => Number(b.current) - Number(a.current)),
         storage,
         profile: {
@@ -596,7 +622,7 @@ const adminViews = admin
           folders: row?.retainedFolderCount ?? 0,
           lastChange: row?.lastContentActivityAt ?? null,
         },
-        devices: sessions.map((entry) => toDevice(entry, session.id)),
+        devices: sessions.map((entry) => toDevice(entry, session)),
         signInUrl: new URL("/", getBaseUrl(c.req.raw.headers)).toString(),
       }),
     );
@@ -670,35 +696,35 @@ const shareViews = router()
       z.object({ folderId: z.string().optional() }).parse(value),
     ),
     async (c) => {
-    const token = c.req.param("token");
-    const { folderId } = c.req.valid("query");
-    try {
-      const resolution = await sharingService.resolvePublicShare({
-        token,
-        requestedFolderId: folderId,
-        shareAccessCookieValue: shareCookie(c),
-      });
-      const filePreview =
-        resolution.kind === "file" && resolution.access.isUnlocked
-          ? await getPublicShareFilePreview(resolution.file)
-          : null;
-      return c.json(
-        plain({
-          kind: "share" as const,
-          resolution: toPublicShareView(resolution),
-          nativeInline:
-            resolution.kind === "file" &&
-            isPublicShareFileNativeViewSafe(resolution.file, filePreview),
-          folderSizeBytes:
-            resolution.kind === "folder" && resolution.access.isUnlocked
-              ? await getFolderSizeBytes(resolution.listing.currentFolder.id)
-              : 0,
-        }),
-      );
-    } catch (error) {
-      return c.json(shareFailure(error));
-    }
-  },
+      const token = c.req.param("token");
+      const { folderId } = c.req.valid("query");
+      try {
+        const resolution = await sharingService.resolvePublicShare({
+          token,
+          requestedFolderId: folderId,
+          shareAccessCookieValue: shareCookie(c),
+        });
+        const filePreview =
+          resolution.kind === "file" && resolution.access.isUnlocked
+            ? await getPublicShareFilePreview(resolution.file)
+            : null;
+        return c.json(
+          plain({
+            kind: "share" as const,
+            resolution: toPublicShareView(resolution),
+            nativeInline:
+              resolution.kind === "file" &&
+              isPublicShareFileNativeViewSafe(resolution.file, filePreview),
+            folderSizeBytes:
+              resolution.kind === "folder" && resolution.access.isUnlocked
+                ? await getFolderSizeBytes(resolution.listing.currentFolder.id)
+                : 0,
+          }),
+        );
+      } catch (error) {
+        return c.json(shareFailure(error));
+      }
+    },
   )
   .get("/s/:token/view/files/:fileId", async (c) => {
     const { token, fileId } = c.req.param();

@@ -22,6 +22,7 @@ import { Route as WorkspaceSearchRouteImport } from './routes/_workspace/search'
 import { Route as WorkspaceSettingsRouteImport } from './routes/_workspace/settings'
 import { Route as WorkspaceSharedRouteImport } from './routes/_workspace/shared'
 import { Route as WorkspaceTrashRouteImport } from './routes/_workspace/trash'
+import { Route as AuthDeviceRouteImport } from './routes/auth.device'
 import { Route as STokenRouteImport } from './routes/s.$token'
 import { Route as WorkspaceAdminIndexRouteImport } from './routes/_workspace/admin.index'
 import { Route as WorkspaceAdminJobsRouteImport } from './routes/_workspace/admin.jobs'
@@ -100,6 +101,11 @@ const WorkspaceTrashRoute = WorkspaceTrashRouteImport.update({
   id: '/trash',
   path: '/trash',
   getParentRoute: () => WorkspaceRoute,
+} as any)
+const AuthDeviceRoute = AuthDeviceRouteImport.update({
+  id: '/auth/device',
+  path: '/auth/device',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const STokenRoute = STokenRouteImport.update({
   id: '/s/$token',
@@ -189,6 +195,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof WorkspaceSettingsRoute
   '/shared': typeof WorkspaceSharedRoute
   '/trash': typeof WorkspaceTrashRoute
+  '/auth/device': typeof AuthDeviceRoute
   '/s/$token': typeof STokenRouteWithChildren
   '/admin/jobs': typeof WorkspaceAdminJobsRoute
   '/admin/settings': typeof WorkspaceAdminSettingsRoute
@@ -216,6 +223,7 @@ export interface FileRoutesByTo {
   '/settings': typeof WorkspaceSettingsRoute
   '/shared': typeof WorkspaceSharedRoute
   '/trash': typeof WorkspaceTrashRoute
+  '/auth/device': typeof AuthDeviceRoute
   '/admin/jobs': typeof WorkspaceAdminJobsRoute
   '/admin/settings': typeof WorkspaceAdminSettingsRoute
   '/admin/storage': typeof WorkspaceAdminStorageRoute
@@ -245,6 +253,7 @@ export interface FileRoutesById {
   '/_workspace/settings': typeof WorkspaceSettingsRoute
   '/_workspace/shared': typeof WorkspaceSharedRoute
   '/_workspace/trash': typeof WorkspaceTrashRoute
+  '/auth/device': typeof AuthDeviceRoute
   '/s/$token': typeof STokenRouteWithChildren
   '/_workspace/admin/jobs': typeof WorkspaceAdminJobsRoute
   '/_workspace/admin/settings': typeof WorkspaceAdminSettingsRoute
@@ -275,6 +284,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/shared'
     | '/trash'
+    | '/auth/device'
     | '/s/$token'
     | '/admin/jobs'
     | '/admin/settings'
@@ -302,6 +312,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/shared'
     | '/trash'
+    | '/auth/device'
     | '/admin/jobs'
     | '/admin/settings'
     | '/admin/storage'
@@ -330,6 +341,7 @@ export interface FileRouteTypes {
     | '/_workspace/settings'
     | '/_workspace/shared'
     | '/_workspace/trash'
+    | '/auth/device'
     | '/s/$token'
     | '/_workspace/admin/jobs'
     | '/_workspace/admin/settings'
@@ -352,6 +364,7 @@ export interface RootRouteChildren {
   WorkspaceRoute: typeof WorkspaceRouteWithChildren
   AccountRoute: typeof AccountRoute
   SetupRoute: typeof SetupRoute
+  AuthDeviceRoute: typeof AuthDeviceRoute
   STokenRoute: typeof STokenRouteWithChildren
 }
 
@@ -447,6 +460,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/trash'
       preLoaderRoute: typeof WorkspaceTrashRouteImport
       parentRoute: typeof WorkspaceRoute
+    }
+    '/auth/device': {
+      id: '/auth/device'
+      path: '/auth/device'
+      fullPath: '/auth/device'
+      preLoaderRoute: typeof AuthDeviceRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/s/$token': {
       id: '/s/$token'
@@ -626,6 +646,7 @@ const rootRouteChildren: RootRouteChildren = {
   WorkspaceRoute: WorkspaceRouteWithChildren,
   AccountRoute: AccountRoute,
   SetupRoute: SetupRoute,
+  AuthDeviceRoute: AuthDeviceRoute,
   STokenRoute: STokenRouteWithChildren,
 }
 export const routeTree = rootRouteImport

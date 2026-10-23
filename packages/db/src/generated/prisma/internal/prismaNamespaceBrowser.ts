@@ -56,6 +56,8 @@ export const ModelName = {
   User: 'User',
   UserPreference: 'UserPreference',
   Session: 'Session',
+  DeviceAuthCode: 'DeviceAuthCode',
+  StorageChange: 'StorageChange',
   Folder: 'Folder',
   File: 'File',
   FavoriteFile: 'FavoriteFile',
@@ -195,11 +197,53 @@ export const SessionScalarFieldEnum = {
   userAgent: 'userAgent',
   ipAddress: 'ipAddress',
   lastSeenAt: 'lastSeenAt',
+  deviceName: 'deviceName',
+  deviceSessionId: 'deviceSessionId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type SessionScalarFieldEnum = (typeof SessionScalarFieldEnum)[keyof typeof SessionScalarFieldEnum]
+
+
+export const DeviceAuthCodeScalarFieldEnum = {
+  id: 'id',
+  codeHash: 'codeHash',
+  kind: 'kind',
+  userId: 'userId',
+  sessionId: 'sessionId',
+  codeChallenge: 'codeChallenge',
+  redirectUri: 'redirectUri',
+  deviceName: 'deviceName',
+  expiresAt: 'expiresAt',
+  usedAt: 'usedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type DeviceAuthCodeScalarFieldEnum = (typeof DeviceAuthCodeScalarFieldEnum)[keyof typeof DeviceAuthCodeScalarFieldEnum]
+
+
+export const StorageChangeScalarFieldEnum = {
+  seq: 'seq',
+  ownerUserId: 'ownerUserId',
+  mutationId: 'mutationId',
+  kind: 'kind',
+  itemType: 'itemType',
+  itemId: 'itemId',
+  parentId: 'parentId',
+  previousParentId: 'previousParentId',
+  path: 'path',
+  previousPath: 'previousPath',
+  name: 'name',
+  sizeBytes: 'sizeBytes',
+  contentChecksum: 'contentChecksum',
+  storageRevision: 'storageRevision',
+  clientModifiedAt: 'clientModifiedAt',
+  originDeviceId: 'originDeviceId',
+  createdAt: 'createdAt'
+} as const
+
+export type StorageChangeScalarFieldEnum = (typeof StorageChangeScalarFieldEnum)[keyof typeof StorageChangeScalarFieldEnum]
 
 
 export const FolderScalarFieldEnum = {
@@ -234,6 +278,7 @@ export const FileScalarFieldEnum = {
   mimeType: 'mimeType',
   sizeBytes: 'sizeBytes',
   contentChecksum: 'contentChecksum',
+  clientModifiedAt: 'clientModifiedAt',
   deletedAt: 'deletedAt',
   storageRevision: 'storageRevision',
   trashEntryId: 'trashEntryId',
@@ -446,6 +491,7 @@ export const UploadSessionScalarFieldEnum = {
   chunkSizeBytes: 'chunkSizeBytes',
   tmpPath: 'tmpPath',
   conflictStrategy: 'conflictStrategy',
+  clientModifiedAt: 'clientModifiedAt',
   status: 'status',
   expiresAt: 'expiresAt',
   terminalAt: 'terminalAt',
@@ -483,6 +529,7 @@ export const StorageMutationScalarFieldEnum = {
   completedAt: 'completedAt',
   recoveryRequiredAt: 'recoveryRequiredAt',
   reservedBytes: 'reservedBytes',
+  originDeviceId: 'originDeviceId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

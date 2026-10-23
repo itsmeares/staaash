@@ -1,4 +1,3 @@
-
 import { formatBytes } from "@/lib/format-bytes";
 import { cn } from "@staaash/ui/utils";
 
@@ -17,6 +16,8 @@ function barColor(pct: number): string {
   return "bg-destructive";
 }
 
+// One branch per quota state.
+// fallow-ignore-next-line complexity
 export function WorkspaceStorage({
   usedBytes,
   limitBytes,

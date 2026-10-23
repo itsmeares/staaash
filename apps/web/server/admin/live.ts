@@ -104,7 +104,7 @@ export function createAdminLiveStream(request: Request, wantsJobs: boolean) {
       try {
         unsubscribe = await subscribeLiveEvents((channel) => {
           if (channel === "updates") void sendUpdate().catch(() => undefined);
-          else if (wantsJobs) scheduleState();
+          else if (channel === "jobs" && wantsJobs) scheduleState();
         });
         request.signal.addEventListener("abort", close, { once: true });
         await sendUpdate();

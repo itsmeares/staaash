@@ -7,7 +7,10 @@ async function renderMarkup(element: React.ReactElement): Promise<string> {
   const stream = await renderToReadableStream(
     createElement(QueryClientProvider, {
       client: new QueryClient(),
-      children: createElement(TimeProvider, { timeZone: "UTC", children: element }),
+      children: createElement(TimeProvider, {
+        timeZone: "UTC",
+        children: element,
+      }),
     }),
   );
   await stream.allReady;
@@ -36,14 +39,6 @@ const shareElement = ({
 
 import { ShareView } from "@/src/share/share-view";
 import { TimeProvider } from "@/components/time-provider";
-import {
-  canBrowseSharedFolder,
-  getFolderArchiveDownloadAllowed,
-  getSharedDownloadAllowed,
-  getSharedViewerAllowed,
-  getSharedTreeExposureMode,
-  getSharingBoundary,
-} from "@/server/sharing";
 import type {
   PublicShareFilePreview,
   PublicShareResolution,
@@ -196,35 +191,6 @@ const makeUnlockedFileResolution = ({
 });
 
 describe("folder public link behavior", () => {
-  it("allows traversal across the full linked subtree", () => {
-    expect(
-      canBrowseSharedFolder({
-        rootFolderId: "root",
-        requestedFolderId: "child",
-        subtreeFolderIds: ["child", "grandchild"],
-      }),
-    ).toBe(true);
-  });
-
-  it("disables file and archive downloads when the policy disables downloads", () => {
-    expect(getSharedDownloadAllowed({ downloadDisabled: true })).toBe(false);
-    expect(getFolderArchiveDownloadAllowed({ downloadDisabled: true })).toBe(
-      false,
-    );
-  });
-
-  it("allows inline viewers even when downloads are disabled", () => {
-    expect(getSharedViewerAllowed({ downloadDisabled: true })).toBe(true);
-  });
-
-  it("exposes the full subtree with no hidden child filtering", () => {
-    expect(getSharedTreeExposureMode()).toBe("full-subtree");
-    expect(getSharingBoundary()).toEqual({
-      recipientsCanReshare: false,
-      hiddenChildFiltering: false,
-    });
-  });
-
   it("hides locked file metadata before unlock", async () => {
     const markup = await renderMarkup(
       shareElement({

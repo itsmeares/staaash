@@ -3,9 +3,8 @@ import {
   resolveSecureCookie,
 } from "@/server/cookie-security";
 
-// fallow-ignore-next-line unused-export
 export const SESSION_COOKIE_NAME = "staaash_session";
-export const THEME_COOKIE_NAME = "staaash_theme";
+const THEME_COOKIE_NAME = "staaash_theme";
 
 const baseCookie = (context?: CookieRequestContext) => ({
   name: SESSION_COOKIE_NAME,

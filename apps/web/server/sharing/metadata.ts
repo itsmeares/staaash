@@ -57,8 +57,11 @@ export const toMetaTags = ({
   openGraph,
   twitter,
 }: Metadata) => {
-  const tag = (attribute: "name" | "property", key: string, value: string | number) =>
-    `<meta ${attribute}="${key}" content="${escapeHtml(value)}" />`;
+  const tag = (
+    attribute: "name" | "property",
+    key: string,
+    value: string | number,
+  ) => `<meta ${attribute}="${key}" content="${escapeHtml(value)}" />`;
   const media = (kind: "image" | "video", items: OpenGraphMedia[] = []) =>
     items.flatMap(({ url, alt, type, width, height }) => [
       tag("property", `og:${kind}`, url),
@@ -200,7 +203,7 @@ const buildGenericShareMetadata = ({
 };
 
 // Exported for its unit tests.
-// fallow-ignore-next-line unused-export
+// fallow-ignore-next-line unused-export complexity
 export const buildShareMetadata = ({
   baseUrl,
   instanceName: rawInstanceName,
@@ -309,6 +312,8 @@ const getInstanceName = async (): Promise<string> => {
   }
 };
 
+// Each check is one reason a video cannot be embedded.
+// fallow-ignore-next-line complexity
 const getReadyVideoEmbedMetadata = async (
   fileId: string,
 ): Promise<VideoEmbedMetadata | null> => {
@@ -327,6 +332,8 @@ const getReadyVideoEmbedMetadata = async (
   };
 };
 
+// Each check is one reason a poster cannot be shown.
+// fallow-ignore-next-line complexity
 const getReadyPosterImageMetadata = async (
   fileId: string,
 ): Promise<ImageEmbedMetadata | null> => {
@@ -365,6 +372,8 @@ const buildRootSharePosterPath = (token: string) =>
 const buildNestedFilePosterPath = (token: string, fileId: string) =>
   `/s/${encodeURIComponent(token)}/files/${encodeURIComponent(fileId)}/poster`;
 
+// One branch per share state the link card can show.
+// fallow-ignore-next-line complexity
 export const getSharePageMetadata = async ({
   baseUrl,
   fileId,

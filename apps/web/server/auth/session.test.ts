@@ -108,7 +108,7 @@ describe("auth session cookies", () => {
   });
 
   it("uses secure cookies for forwarded HTTPS requests without an override", async () => {
-    const { buildThemeCookie, THEME_COOKIE_NAME } = await loadSessionModule({
+    const { buildThemeCookie } = await loadSessionModule({
       nodeEnv: "production",
     });
 
@@ -120,7 +120,8 @@ describe("auth session cookies", () => {
         }),
       ),
     ).toEqual({
-      name: THEME_COOKIE_NAME,
+      // index.html reads this name before the app loads.
+      name: "staaash_theme",
       value: "dark",
       httpOnly: false,
       sameSite: "lax",

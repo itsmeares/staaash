@@ -160,7 +160,7 @@ export const getLastRunPerKind = async () => {
   ) as Record<string, (typeof results)[number]["job"]>;
 };
 
-export const toJsonAdminJobListResponse = (
+const toJsonAdminJobListResponse = (
   response: AdminBackgroundJobListResult,
 ): JsonAdminJobListResponse => ({
   ...response,

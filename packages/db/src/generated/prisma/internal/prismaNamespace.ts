@@ -80,12 +80,12 @@ export type PrismaVersion = {
 }
 
 /**
- * Prisma Client JS version: 7.10.0
- * Query Engine version: 0edf323efd1d98336f3f0a68684b56f689b900d3
+ * Prisma Client JS version: 7.10.1
+ * Query Engine version: d1b3f377ca835d73fd50954a5e22128b9ebdd6b8
  */
 export const prismaVersion: PrismaVersion = {
-  client: "7.10.0",
-  engine: "0edf323efd1d98336f3f0a68684b56f689b900d3"
+  client: "7.10.1",
+  engine: "d1b3f377ca835d73fd50954a5e22128b9ebdd6b8"
 }
 
 /**
@@ -402,6 +402,8 @@ export const ModelName = {
   User: 'User',
   UserPreference: 'UserPreference',
   Session: 'Session',
+  DeviceAuthCode: 'DeviceAuthCode',
+  StorageChange: 'StorageChange',
   Folder: 'Folder',
   File: 'File',
   FavoriteFile: 'FavoriteFile',
@@ -437,7 +439,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "instance" | "systemSettings" | "user" | "userPreference" | "session" | "folder" | "file" | "favoriteFile" | "favoriteFolder" | "recentFile" | "recentFolder" | "shareLink" | "backgroundJob" | "workerInstance" | "backgroundJobEvent" | "restoreReconciliationRun" | "mediaDerivative" | "zipArchive" | "uploadSession" | "storageMutation" | "storageMutationStep" | "storageMutationEntity" | "storageMutationResource" | "trashEntry" | "uploadChunk"
+    modelProps: "instance" | "systemSettings" | "user" | "userPreference" | "session" | "deviceAuthCode" | "storageChange" | "folder" | "file" | "favoriteFile" | "favoriteFolder" | "recentFile" | "recentFolder" | "shareLink" | "backgroundJob" | "workerInstance" | "backgroundJobEvent" | "restoreReconciliationRun" | "mediaDerivative" | "zipArchive" | "uploadSession" | "storageMutation" | "storageMutationStep" | "storageMutationEntity" | "storageMutationResource" | "trashEntry" | "uploadChunk"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -808,6 +810,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.SessionCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.SessionCountAggregateOutputType> | number
+        }
+      }
+    }
+    DeviceAuthCode: {
+      payload: Prisma.$DeviceAuthCodePayload<ExtArgs>
+      fields: Prisma.DeviceAuthCodeFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.DeviceAuthCodeFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeviceAuthCodePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.DeviceAuthCodeFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeviceAuthCodePayload>
+        }
+        findFirst: {
+          args: Prisma.DeviceAuthCodeFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeviceAuthCodePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.DeviceAuthCodeFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeviceAuthCodePayload>
+        }
+        findMany: {
+          args: Prisma.DeviceAuthCodeFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeviceAuthCodePayload>[]
+        }
+        create: {
+          args: Prisma.DeviceAuthCodeCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeviceAuthCodePayload>
+        }
+        createMany: {
+          args: Prisma.DeviceAuthCodeCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.DeviceAuthCodeCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeviceAuthCodePayload>[]
+        }
+        delete: {
+          args: Prisma.DeviceAuthCodeDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeviceAuthCodePayload>
+        }
+        update: {
+          args: Prisma.DeviceAuthCodeUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeviceAuthCodePayload>
+        }
+        deleteMany: {
+          args: Prisma.DeviceAuthCodeDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.DeviceAuthCodeUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.DeviceAuthCodeUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeviceAuthCodePayload>[]
+        }
+        upsert: {
+          args: Prisma.DeviceAuthCodeUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$DeviceAuthCodePayload>
+        }
+        aggregate: {
+          args: Prisma.DeviceAuthCodeAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateDeviceAuthCode>
+        }
+        groupBy: {
+          args: Prisma.DeviceAuthCodeGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DeviceAuthCodeGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.DeviceAuthCodeCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.DeviceAuthCodeCountAggregateOutputType> | number
+        }
+      }
+    }
+    StorageChange: {
+      payload: Prisma.$StorageChangePayload<ExtArgs>
+      fields: Prisma.StorageChangeFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.StorageChangeFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StorageChangePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.StorageChangeFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StorageChangePayload>
+        }
+        findFirst: {
+          args: Prisma.StorageChangeFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StorageChangePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.StorageChangeFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StorageChangePayload>
+        }
+        findMany: {
+          args: Prisma.StorageChangeFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StorageChangePayload>[]
+        }
+        create: {
+          args: Prisma.StorageChangeCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StorageChangePayload>
+        }
+        createMany: {
+          args: Prisma.StorageChangeCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.StorageChangeCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StorageChangePayload>[]
+        }
+        delete: {
+          args: Prisma.StorageChangeDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StorageChangePayload>
+        }
+        update: {
+          args: Prisma.StorageChangeUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StorageChangePayload>
+        }
+        deleteMany: {
+          args: Prisma.StorageChangeDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.StorageChangeUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.StorageChangeUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StorageChangePayload>[]
+        }
+        upsert: {
+          args: Prisma.StorageChangeUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$StorageChangePayload>
+        }
+        aggregate: {
+          args: Prisma.StorageChangeAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateStorageChange>
+        }
+        groupBy: {
+          args: Prisma.StorageChangeGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.StorageChangeGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.StorageChangeCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.StorageChangeCountAggregateOutputType> | number
         }
       }
     }
@@ -2431,11 +2581,53 @@ export const SessionScalarFieldEnum = {
   userAgent: 'userAgent',
   ipAddress: 'ipAddress',
   lastSeenAt: 'lastSeenAt',
+  deviceName: 'deviceName',
+  deviceSessionId: 'deviceSessionId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type SessionScalarFieldEnum = (typeof SessionScalarFieldEnum)[keyof typeof SessionScalarFieldEnum]
+
+
+export const DeviceAuthCodeScalarFieldEnum = {
+  id: 'id',
+  codeHash: 'codeHash',
+  kind: 'kind',
+  userId: 'userId',
+  sessionId: 'sessionId',
+  codeChallenge: 'codeChallenge',
+  redirectUri: 'redirectUri',
+  deviceName: 'deviceName',
+  expiresAt: 'expiresAt',
+  usedAt: 'usedAt',
+  createdAt: 'createdAt'
+} as const
+
+export type DeviceAuthCodeScalarFieldEnum = (typeof DeviceAuthCodeScalarFieldEnum)[keyof typeof DeviceAuthCodeScalarFieldEnum]
+
+
+export const StorageChangeScalarFieldEnum = {
+  seq: 'seq',
+  ownerUserId: 'ownerUserId',
+  mutationId: 'mutationId',
+  kind: 'kind',
+  itemType: 'itemType',
+  itemId: 'itemId',
+  parentId: 'parentId',
+  previousParentId: 'previousParentId',
+  path: 'path',
+  previousPath: 'previousPath',
+  name: 'name',
+  sizeBytes: 'sizeBytes',
+  contentChecksum: 'contentChecksum',
+  storageRevision: 'storageRevision',
+  clientModifiedAt: 'clientModifiedAt',
+  originDeviceId: 'originDeviceId',
+  createdAt: 'createdAt'
+} as const
+
+export type StorageChangeScalarFieldEnum = (typeof StorageChangeScalarFieldEnum)[keyof typeof StorageChangeScalarFieldEnum]
 
 
 export const FolderScalarFieldEnum = {
@@ -2470,6 +2662,7 @@ export const FileScalarFieldEnum = {
   mimeType: 'mimeType',
   sizeBytes: 'sizeBytes',
   contentChecksum: 'contentChecksum',
+  clientModifiedAt: 'clientModifiedAt',
   deletedAt: 'deletedAt',
   storageRevision: 'storageRevision',
   trashEntryId: 'trashEntryId',
@@ -2682,6 +2875,7 @@ export const UploadSessionScalarFieldEnum = {
   chunkSizeBytes: 'chunkSizeBytes',
   tmpPath: 'tmpPath',
   conflictStrategy: 'conflictStrategy',
+  clientModifiedAt: 'clientModifiedAt',
   status: 'status',
   expiresAt: 'expiresAt',
   terminalAt: 'terminalAt',
@@ -2719,6 +2913,7 @@ export const StorageMutationScalarFieldEnum = {
   completedAt: 'completedAt',
   recoveryRequiredAt: 'recoveryRequiredAt',
   reservedBytes: 'reservedBytes',
+  originDeviceId: 'originDeviceId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
@@ -3174,6 +3369,8 @@ export type GlobalOmitConfig = {
   user?: Prisma.UserOmit
   userPreference?: Prisma.UserPreferenceOmit
   session?: Prisma.SessionOmit
+  deviceAuthCode?: Prisma.DeviceAuthCodeOmit
+  storageChange?: Prisma.StorageChangeOmit
   folder?: Prisma.FolderOmit
   file?: Prisma.FileOmit
   favoriteFile?: Prisma.FavoriteFileOmit

@@ -51,6 +51,10 @@
       "types": "./dist/upload-sessions.d.ts",
       "default": "./dist/upload-sessions.js"
     },
+    "./storage-changes": {
+      "types": "./dist/storage-changes.d.ts",
+      "default": "./dist/storage-changes.js"
+    },
     "./storage-mutations": {
       "types": "./dist/storage-mutations.d.ts",
       "default": "./dist/storage-mutations.js"

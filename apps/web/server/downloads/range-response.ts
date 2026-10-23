@@ -6,6 +6,8 @@ import type { FileHandle } from "node:fs/promises";
 const buildAttachmentDisposition = (fileName: string) =>
   `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 
+// One check per malformed Range header shape, in RFC order.
+// fallow-ignore-next-line complexity
 const parseSingleByteRange = (
   rangeHeader: string,
   size: number,

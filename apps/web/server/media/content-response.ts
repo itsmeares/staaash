@@ -35,6 +35,8 @@ export class MediaContentError extends Error {
   }
 }
 
+// One check per malformed Range header shape, in RFC order.
+// fallow-ignore-next-line complexity
 export const parseSingleByteRange = (
   rangeHeader: string,
   sizeBytes: number,
@@ -146,6 +148,8 @@ const isMissingStorageObject = (error: unknown) => {
   return code === "ENOENT" || code === "EISDIR";
 };
 
+// Ranged, full, and refused inline responses each answer differently.
+// fallow-ignore-next-line complexity
 export const createInlineOriginalContentResponse = async ({
   request,
   file,

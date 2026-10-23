@@ -57,6 +57,7 @@ const fileSelect = {
   mimeType: true,
   sizeBytes: true,
   contentChecksum: true,
+  clientModifiedAt: true,
   deletedAt: true,
   storageRevision: true,
   trashEntryId: true,
@@ -225,6 +226,7 @@ const toStoredFile = (file: FileRecord): StoredFile => ({
   mimeType: file.mimeType,
   sizeBytes: Number(file.sizeBytes),
   contentChecksum: file.contentChecksum,
+  clientModifiedAt: file.clientModifiedAt,
   viewerKind: resolveViewerKind(file.mimeType, file.originalName),
   deletedAt: file.deletedAt,
   storageRevision: file.storageRevision,
@@ -731,6 +733,8 @@ export const createPrismaFilesRepository = (
       return toFolderSummary(folder);
     },
 
+    // One optional branch per editable field.
+    // fallow-ignore-next-line complexity
     async updateFile(params, transaction) {
       const client = transaction ?? getClient();
       const data: Prisma.FileUncheckedUpdateInput = {};

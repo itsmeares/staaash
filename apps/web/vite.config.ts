@@ -30,6 +30,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       "/api": { target: `http://localhost:${API_PORT}` },
+      "/auth/device-callback": { target: `http://localhost:${API_PORT}` },
       "/s/": {
         target: `http://localhost:${API_PORT}`,
         bypass: (request) =>

@@ -23,6 +23,8 @@ export const Route = createFileRoute("/_workspace/files/f/$folderId")({
    * The folder's listing, or the page that fits why it can't be shown:
    * storage busy, missing, or someone else's (which reads as missing).
    */
+  // Redirects for missing, trashed, and unavailable folders before loading.
+  // fallow-ignore-next-line complexity
   loader: async ({ context, params: { folderId } }) => {
     try {
       const props = await context.queryClient.ensureQueryData(

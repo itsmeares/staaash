@@ -55,6 +55,7 @@ export type UploadSessionMinAggregateOutputType = {
   chunkSizeBytes: bigint | null
   tmpPath: string | null
   conflictStrategy: string | null
+  clientModifiedAt: Date | null
   status: string | null
   expiresAt: Date | null
   terminalAt: Date | null
@@ -81,6 +82,7 @@ export type UploadSessionMaxAggregateOutputType = {
   chunkSizeBytes: bigint | null
   tmpPath: string | null
   conflictStrategy: string | null
+  clientModifiedAt: Date | null
   status: string | null
   expiresAt: Date | null
   terminalAt: Date | null
@@ -107,6 +109,7 @@ export type UploadSessionCountAggregateOutputType = {
   chunkSizeBytes: number
   tmpPath: number
   conflictStrategy: number
+  clientModifiedAt: number
   status: number
   expiresAt: number
   terminalAt: number
@@ -151,6 +154,7 @@ export type UploadSessionMinAggregateInputType = {
   chunkSizeBytes?: true
   tmpPath?: true
   conflictStrategy?: true
+  clientModifiedAt?: true
   status?: true
   expiresAt?: true
   terminalAt?: true
@@ -177,6 +181,7 @@ export type UploadSessionMaxAggregateInputType = {
   chunkSizeBytes?: true
   tmpPath?: true
   conflictStrategy?: true
+  clientModifiedAt?: true
   status?: true
   expiresAt?: true
   terminalAt?: true
@@ -203,6 +208,7 @@ export type UploadSessionCountAggregateInputType = {
   chunkSizeBytes?: true
   tmpPath?: true
   conflictStrategy?: true
+  clientModifiedAt?: true
   status?: true
   expiresAt?: true
   terminalAt?: true
@@ -316,6 +322,7 @@ export type UploadSessionGroupByOutputType = {
   chunkSizeBytes: bigint | null
   tmpPath: string
   conflictStrategy: string
+  clientModifiedAt: Date | null
   status: string
   expiresAt: Date
   terminalAt: Date | null
@@ -365,6 +372,7 @@ export type UploadSessionWhereInput = {
   chunkSizeBytes?: Prisma.BigIntNullableFilter<"UploadSession"> | bigint | number | null
   tmpPath?: Prisma.StringFilter<"UploadSession"> | string
   conflictStrategy?: Prisma.StringFilter<"UploadSession"> | string
+  clientModifiedAt?: Prisma.DateTimeNullableFilter<"UploadSession"> | Date | string | null
   status?: Prisma.StringFilter<"UploadSession"> | string
   expiresAt?: Prisma.DateTimeFilter<"UploadSession"> | Date | string
   terminalAt?: Prisma.DateTimeNullableFilter<"UploadSession"> | Date | string | null
@@ -394,6 +402,7 @@ export type UploadSessionOrderByWithRelationInput = {
   chunkSizeBytes?: Prisma.SortOrderInput | Prisma.SortOrder
   tmpPath?: Prisma.SortOrder
   conflictStrategy?: Prisma.SortOrder
+  clientModifiedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   terminalAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -427,6 +436,7 @@ export type UploadSessionWhereUniqueInput = Prisma.AtLeast<{
   protocolVersion?: Prisma.IntFilter<"UploadSession"> | number
   chunkSizeBytes?: Prisma.BigIntNullableFilter<"UploadSession"> | bigint | number | null
   conflictStrategy?: Prisma.StringFilter<"UploadSession"> | string
+  clientModifiedAt?: Prisma.DateTimeNullableFilter<"UploadSession"> | Date | string | null
   status?: Prisma.StringFilter<"UploadSession"> | string
   expiresAt?: Prisma.DateTimeFilter<"UploadSession"> | Date | string
   terminalAt?: Prisma.DateTimeNullableFilter<"UploadSession"> | Date | string | null
@@ -455,6 +465,7 @@ export type UploadSessionOrderByWithAggregationInput = {
   chunkSizeBytes?: Prisma.SortOrderInput | Prisma.SortOrder
   tmpPath?: Prisma.SortOrder
   conflictStrategy?: Prisma.SortOrder
+  clientModifiedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   terminalAt?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -489,6 +500,7 @@ export type UploadSessionScalarWhereWithAggregatesInput = {
   chunkSizeBytes?: Prisma.BigIntNullableWithAggregatesFilter<"UploadSession"> | bigint | number | null
   tmpPath?: Prisma.StringWithAggregatesFilter<"UploadSession"> | string
   conflictStrategy?: Prisma.StringWithAggregatesFilter<"UploadSession"> | string
+  clientModifiedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"UploadSession"> | Date | string | null
   status?: Prisma.StringWithAggregatesFilter<"UploadSession"> | string
   expiresAt?: Prisma.DateTimeWithAggregatesFilter<"UploadSession"> | Date | string
   terminalAt?: Prisma.DateTimeNullableWithAggregatesFilter<"UploadSession"> | Date | string | null
@@ -515,6 +527,7 @@ export type UploadSessionCreateInput = {
   chunkSizeBytes?: bigint | number | null
   tmpPath: string
   conflictStrategy: string
+  clientModifiedAt?: Date | string | null
   status: string
   expiresAt: Date | string
   terminalAt?: Date | string | null
@@ -542,6 +555,7 @@ export type UploadSessionUncheckedCreateInput = {
   chunkSizeBytes?: bigint | number | null
   tmpPath: string
   conflictStrategy: string
+  clientModifiedAt?: Date | string | null
   status: string
   expiresAt: Date | string
   terminalAt?: Date | string | null
@@ -569,6 +583,7 @@ export type UploadSessionUpdateInput = {
   chunkSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   tmpPath?: Prisma.StringFieldUpdateOperationsInput | string
   conflictStrategy?: Prisma.StringFieldUpdateOperationsInput | string
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   terminalAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -596,6 +611,7 @@ export type UploadSessionUncheckedUpdateInput = {
   chunkSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   tmpPath?: Prisma.StringFieldUpdateOperationsInput | string
   conflictStrategy?: Prisma.StringFieldUpdateOperationsInput | string
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   terminalAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -623,6 +639,7 @@ export type UploadSessionCreateManyInput = {
   chunkSizeBytes?: bigint | number | null
   tmpPath: string
   conflictStrategy: string
+  clientModifiedAt?: Date | string | null
   status: string
   expiresAt: Date | string
   terminalAt?: Date | string | null
@@ -649,6 +666,7 @@ export type UploadSessionUpdateManyMutationInput = {
   chunkSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   tmpPath?: Prisma.StringFieldUpdateOperationsInput | string
   conflictStrategy?: Prisma.StringFieldUpdateOperationsInput | string
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   terminalAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -673,6 +691,7 @@ export type UploadSessionUncheckedUpdateManyInput = {
   chunkSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   tmpPath?: Prisma.StringFieldUpdateOperationsInput | string
   conflictStrategy?: Prisma.StringFieldUpdateOperationsInput | string
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   terminalAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -709,6 +728,7 @@ export type UploadSessionCountOrderByAggregateInput = {
   chunkSizeBytes?: Prisma.SortOrder
   tmpPath?: Prisma.SortOrder
   conflictStrategy?: Prisma.SortOrder
+  clientModifiedAt?: Prisma.SortOrder
   status?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   terminalAt?: Prisma.SortOrder
@@ -743,6 +763,7 @@ export type UploadSessionMaxOrderByAggregateInput = {
   chunkSizeBytes?: Prisma.SortOrder
   tmpPath?: Prisma.SortOrder
   conflictStrategy?: Prisma.SortOrder
+  clientModifiedAt?: Prisma.SortOrder
   status?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   terminalAt?: Prisma.SortOrder
@@ -769,6 +790,7 @@ export type UploadSessionMinOrderByAggregateInput = {
   chunkSizeBytes?: Prisma.SortOrder
   tmpPath?: Prisma.SortOrder
   conflictStrategy?: Prisma.SortOrder
+  clientModifiedAt?: Prisma.SortOrder
   status?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
   terminalAt?: Prisma.SortOrder
@@ -906,6 +928,7 @@ export type UploadSessionCreateWithoutCommittedFileInput = {
   chunkSizeBytes?: bigint | number | null
   tmpPath: string
   conflictStrategy: string
+  clientModifiedAt?: Date | string | null
   status: string
   expiresAt: Date | string
   terminalAt?: Date | string | null
@@ -932,6 +955,7 @@ export type UploadSessionUncheckedCreateWithoutCommittedFileInput = {
   chunkSizeBytes?: bigint | number | null
   tmpPath: string
   conflictStrategy: string
+  clientModifiedAt?: Date | string | null
   status: string
   expiresAt: Date | string
   terminalAt?: Date | string | null
@@ -987,6 +1011,7 @@ export type UploadSessionScalarWhereInput = {
   chunkSizeBytes?: Prisma.BigIntNullableFilter<"UploadSession"> | bigint | number | null
   tmpPath?: Prisma.StringFilter<"UploadSession"> | string
   conflictStrategy?: Prisma.StringFilter<"UploadSession"> | string
+  clientModifiedAt?: Prisma.DateTimeNullableFilter<"UploadSession"> | Date | string | null
   status?: Prisma.StringFilter<"UploadSession"> | string
   expiresAt?: Prisma.DateTimeFilter<"UploadSession"> | Date | string
   terminalAt?: Prisma.DateTimeNullableFilter<"UploadSession"> | Date | string | null
@@ -1013,6 +1038,7 @@ export type UploadSessionCreateWithoutStorageMutationInput = {
   chunkSizeBytes?: bigint | number | null
   tmpPath: string
   conflictStrategy: string
+  clientModifiedAt?: Date | string | null
   status: string
   expiresAt: Date | string
   terminalAt?: Date | string | null
@@ -1039,6 +1065,7 @@ export type UploadSessionUncheckedCreateWithoutStorageMutationInput = {
   chunkSizeBytes?: bigint | number | null
   tmpPath: string
   conflictStrategy: string
+  clientModifiedAt?: Date | string | null
   status: string
   expiresAt: Date | string
   terminalAt?: Date | string | null
@@ -1091,6 +1118,7 @@ export type UploadSessionCreateWithoutChunksInput = {
   chunkSizeBytes?: bigint | number | null
   tmpPath: string
   conflictStrategy: string
+  clientModifiedAt?: Date | string | null
   status: string
   expiresAt: Date | string
   terminalAt?: Date | string | null
@@ -1117,6 +1145,7 @@ export type UploadSessionUncheckedCreateWithoutChunksInput = {
   chunkSizeBytes?: bigint | number | null
   tmpPath: string
   conflictStrategy: string
+  clientModifiedAt?: Date | string | null
   status: string
   expiresAt: Date | string
   terminalAt?: Date | string | null
@@ -1159,6 +1188,7 @@ export type UploadSessionUpdateWithoutChunksInput = {
   chunkSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   tmpPath?: Prisma.StringFieldUpdateOperationsInput | string
   conflictStrategy?: Prisma.StringFieldUpdateOperationsInput | string
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   terminalAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1185,6 +1215,7 @@ export type UploadSessionUncheckedUpdateWithoutChunksInput = {
   chunkSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   tmpPath?: Prisma.StringFieldUpdateOperationsInput | string
   conflictStrategy?: Prisma.StringFieldUpdateOperationsInput | string
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   terminalAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1211,6 +1242,7 @@ export type UploadSessionCreateManyCommittedFileInput = {
   chunkSizeBytes?: bigint | number | null
   tmpPath: string
   conflictStrategy: string
+  clientModifiedAt?: Date | string | null
   status: string
   expiresAt: Date | string
   terminalAt?: Date | string | null
@@ -1236,6 +1268,7 @@ export type UploadSessionUpdateWithoutCommittedFileInput = {
   chunkSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   tmpPath?: Prisma.StringFieldUpdateOperationsInput | string
   conflictStrategy?: Prisma.StringFieldUpdateOperationsInput | string
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   terminalAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1262,6 +1295,7 @@ export type UploadSessionUncheckedUpdateWithoutCommittedFileInput = {
   chunkSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   tmpPath?: Prisma.StringFieldUpdateOperationsInput | string
   conflictStrategy?: Prisma.StringFieldUpdateOperationsInput | string
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   terminalAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1288,6 +1322,7 @@ export type UploadSessionUncheckedUpdateManyWithoutCommittedFileInput = {
   chunkSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   tmpPath?: Prisma.StringFieldUpdateOperationsInput | string
   conflictStrategy?: Prisma.StringFieldUpdateOperationsInput | string
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   terminalAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1313,6 +1348,7 @@ export type UploadSessionCreateManyStorageMutationInput = {
   chunkSizeBytes?: bigint | number | null
   tmpPath: string
   conflictStrategy: string
+  clientModifiedAt?: Date | string | null
   status: string
   expiresAt: Date | string
   terminalAt?: Date | string | null
@@ -1338,6 +1374,7 @@ export type UploadSessionUpdateWithoutStorageMutationInput = {
   chunkSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   tmpPath?: Prisma.StringFieldUpdateOperationsInput | string
   conflictStrategy?: Prisma.StringFieldUpdateOperationsInput | string
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   terminalAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1364,6 +1401,7 @@ export type UploadSessionUncheckedUpdateWithoutStorageMutationInput = {
   chunkSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   tmpPath?: Prisma.StringFieldUpdateOperationsInput | string
   conflictStrategy?: Prisma.StringFieldUpdateOperationsInput | string
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   terminalAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1390,6 +1428,7 @@ export type UploadSessionUncheckedUpdateManyWithoutStorageMutationInput = {
   chunkSizeBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
   tmpPath?: Prisma.StringFieldUpdateOperationsInput | string
   conflictStrategy?: Prisma.StringFieldUpdateOperationsInput | string
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   status?: Prisma.StringFieldUpdateOperationsInput | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   terminalAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
@@ -1446,6 +1485,7 @@ export type UploadSessionSelect<ExtArgs extends runtime.Types.Extensions.Interna
   chunkSizeBytes?: boolean
   tmpPath?: boolean
   conflictStrategy?: boolean
+  clientModifiedAt?: boolean
   status?: boolean
   expiresAt?: boolean
   terminalAt?: boolean
@@ -1476,6 +1516,7 @@ export type UploadSessionSelectCreateManyAndReturn<ExtArgs extends runtime.Types
   chunkSizeBytes?: boolean
   tmpPath?: boolean
   conflictStrategy?: boolean
+  clientModifiedAt?: boolean
   status?: boolean
   expiresAt?: boolean
   terminalAt?: boolean
@@ -1504,6 +1545,7 @@ export type UploadSessionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
   chunkSizeBytes?: boolean
   tmpPath?: boolean
   conflictStrategy?: boolean
+  clientModifiedAt?: boolean
   status?: boolean
   expiresAt?: boolean
   terminalAt?: boolean
@@ -1532,6 +1574,7 @@ export type UploadSessionSelectScalar = {
   chunkSizeBytes?: boolean
   tmpPath?: boolean
   conflictStrategy?: boolean
+  clientModifiedAt?: boolean
   status?: boolean
   expiresAt?: boolean
   terminalAt?: boolean
@@ -1545,7 +1588,7 @@ export type UploadSessionSelectScalar = {
   updatedAt?: boolean
 }
 
-export type UploadSessionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerUserId" | "folderId" | "originalName" | "mimeType" | "totalSizeBytes" | "receivedBytes" | "expectedChecksum" | "protocolVersion" | "chunkSizeBytes" | "tmpPath" | "conflictStrategy" | "status" | "expiresAt" | "terminalAt" | "stagingReleasedAt" | "cleanupAttemptCount" | "cleanupLastAttemptAt" | "cleanupLastError" | "committedFileId" | "storageMutationId" | "createdAt" | "updatedAt", ExtArgs["result"]["uploadSession"]>
+export type UploadSessionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerUserId" | "folderId" | "originalName" | "mimeType" | "totalSizeBytes" | "receivedBytes" | "expectedChecksum" | "protocolVersion" | "chunkSizeBytes" | "tmpPath" | "conflictStrategy" | "clientModifiedAt" | "status" | "expiresAt" | "terminalAt" | "stagingReleasedAt" | "cleanupAttemptCount" | "cleanupLastAttemptAt" | "cleanupLastError" | "committedFileId" | "storageMutationId" | "createdAt" | "updatedAt", ExtArgs["result"]["uploadSession"]>
 export type UploadSessionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   chunks?: boolean | Prisma.UploadSession$chunksArgs<ExtArgs>
   committedFile?: boolean | Prisma.UploadSession$committedFileArgs<ExtArgs>
@@ -1581,6 +1624,7 @@ export type $UploadSessionPayload<ExtArgs extends runtime.Types.Extensions.Inter
     chunkSizeBytes: bigint | null
     tmpPath: string
     conflictStrategy: string
+    clientModifiedAt: Date | null
     status: string
     expiresAt: Date
     terminalAt: Date | null
@@ -2030,6 +2074,7 @@ export interface UploadSessionFieldRefs {
   readonly chunkSizeBytes: Prisma.FieldRef<"UploadSession", 'BigInt'>
   readonly tmpPath: Prisma.FieldRef<"UploadSession", 'String'>
   readonly conflictStrategy: Prisma.FieldRef<"UploadSession", 'String'>
+  readonly clientModifiedAt: Prisma.FieldRef<"UploadSession", 'DateTime'>
   readonly status: Prisma.FieldRef<"UploadSession", 'String'>
   readonly expiresAt: Prisma.FieldRef<"UploadSession", 'DateTime'>
   readonly terminalAt: Prisma.FieldRef<"UploadSession", 'DateTime'>

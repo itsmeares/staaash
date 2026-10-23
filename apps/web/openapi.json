@@ -302,6 +302,12 @@
             ],
             "format": "date-time"
           },
+          "deviceName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -320,6 +326,7 @@
           "userAgent",
           "ipAddress",
           "lastSeenAt",
+          "deviceName",
           "createdAt",
           "updatedAt",
           "user"
@@ -449,6 +456,14 @@
               "kind",
               "status"
             ]
+          },
+          "clientModifiedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "The modified time on the uploader's computer, when sent."
           },
           "deletedAt": {
             "type": [
@@ -883,6 +898,177 @@
           "expiresAt",
           "revokedAt",
           "status"
+        ]
+      },
+      "StorageChange": {
+        "type": "object",
+        "properties": {
+          "seq": {
+            "type": "string",
+            "pattern": "^\\d{1,19}$",
+            "description": "An opaque, increasing position in the change log."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "created",
+              "updated",
+              "moved",
+              "trashed",
+              "restored",
+              "deleted"
+            ]
+          },
+          "itemType": {
+            "type": "string",
+            "enum": [
+              "folder",
+              "file"
+            ]
+          },
+          "itemId": {
+            "type": "string"
+          },
+          "parentId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "previousParentId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "description": "Below the files root, `/`-separated."
+          },
+          "previousPath": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "contentChecksum": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "storageRevision": {
+            "type": "integer"
+          },
+          "clientModifiedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "originDeviceId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The device session that made the change, so it can skip its own echo."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "seq",
+          "kind",
+          "itemType",
+          "itemId",
+          "parentId",
+          "previousParentId",
+          "path",
+          "previousPath",
+          "name",
+          "sizeBytes",
+          "contentChecksum",
+          "storageRevision",
+          "clientModifiedAt",
+          "originDeviceId",
+          "createdAt"
+        ]
+      },
+      "SnapshotItem": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "folder",
+              "file"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "parentId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "contentChecksum": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "storageRevision": {
+            "type": "integer"
+          },
+          "clientModifiedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "parentId",
+          "name",
+          "path",
+          "sizeBytes",
+          "contentChecksum",
+          "storageRevision",
+          "clientModifiedAt",
+          "updatedAt"
         ]
       }
     },
@@ -1762,6 +1948,224 @@
         }
       }
     },
+    "/api/auth/device/token": {
+      "post": {
+        "tags": [
+          "Devices"
+        ],
+        "summary": "Trade the code from the loopback redirect, plus the PKCE verifier, for a device token. Send it as `Authorization: Bearer <token>`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "codeVerifier": {
+                    "type": "string",
+                    "minLength": 43,
+                    "maxLength": 128
+                  },
+                  "redirectUri": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "code",
+                  "codeVerifier",
+                  "redirectUri"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed in. The token stays valid while the device keeps using it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string"
+                    },
+                    "session": {
+                      "$ref": "#/components/schemas/Session"
+                    }
+                  },
+                  "required": [
+                    "token",
+                    "session"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Busy or recovering. Retry after the Retry-After delay.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/device/web-session": {
+      "post": {
+        "tags": [
+          "Devices"
+        ],
+        "summary": "A one-time code that signs the device's app window in. Open `url` within a minute; signing the device out also signs the window out.",
+        "responses": {
+          "200": {
+            "description": "Open the URL in the app window.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "url",
+                    "expiresAt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Busy or recovering. Retry after the Retry-After delay.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/user/sessions/revoke": {
       "post": {
         "tags": [
@@ -1883,6 +2287,20 @@
             "required": true,
             "name": "fileId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "description": "Apply only if the item is still at this storageRevision. Otherwise 409 REVISION_MISMATCH with the current item in `details`."
+            },
+            "required": false,
+            "description": "Apply only if the item is still at this storageRevision. Otherwise 409 REVISION_MISMATCH with the current item in `details`.",
+            "name": "ifRevision",
+            "in": "query"
           }
         ],
         "requestBody": {
@@ -1991,6 +2409,20 @@
             "required": true,
             "name": "fileId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "description": "Apply only if the item is still at this storageRevision. Otherwise 409 REVISION_MISMATCH with the current item in `details`."
+            },
+            "required": false,
+            "description": "Apply only if the item is still at this storageRevision. Otherwise 409 REVISION_MISMATCH with the current item in `details`.",
+            "name": "ifRevision",
+            "in": "query"
           }
         ],
         "requestBody": {
@@ -2102,6 +2534,20 @@
             "required": true,
             "name": "fileId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "description": "Apply only if the item is still at this storageRevision. Otherwise 409 REVISION_MISMATCH with the current item in `details`."
+            },
+            "required": false,
+            "description": "Apply only if the item is still at this storageRevision. Otherwise 409 REVISION_MISMATCH with the current item in `details`.",
+            "name": "ifRevision",
+            "in": "query"
           }
         ],
         "responses": {
@@ -2372,6 +2818,20 @@
             "required": true,
             "name": "folderId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "description": "Apply only if the item is still at this storageRevision. Otherwise 409 REVISION_MISMATCH with the current item in `details`."
+            },
+            "required": false,
+            "description": "Apply only if the item is still at this storageRevision. Otherwise 409 REVISION_MISMATCH with the current item in `details`.",
+            "name": "ifRevision",
+            "in": "query"
           }
         ],
         "requestBody": {
@@ -2480,6 +2940,20 @@
             "required": true,
             "name": "folderId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "description": "Apply only if the item is still at this storageRevision. Otherwise 409 REVISION_MISMATCH with the current item in `details`."
+            },
+            "required": false,
+            "description": "Apply only if the item is still at this storageRevision. Otherwise 409 REVISION_MISMATCH with the current item in `details`.",
+            "name": "ifRevision",
+            "in": "query"
           }
         ],
         "requestBody": {
@@ -2591,6 +3065,20 @@
             "required": true,
             "name": "folderId",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "description": "Apply only if the item is still at this storageRevision. Otherwise 409 REVISION_MISMATCH with the current item in `details`."
+            },
+            "required": false,
+            "description": "Apply only if the item is still at this storageRevision. Otherwise 409 REVISION_MISMATCH with the current item in `details`.",
+            "name": "ifRevision",
+            "in": "query"
           }
         ],
         "responses": {
@@ -4989,6 +5477,15 @@
                     "pattern": "^[a-f0-9]{64}$/i",
                     "default": null,
                     "description": "SHA-256 of the whole file, hex."
+                  },
+                  "clientModifiedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date-time",
+                    "default": null,
+                    "description": "The file's modified time on the uploader's computer, kept with the file."
                   }
                 },
                 "required": [
@@ -5375,6 +5872,11 @@
                     "type": "string",
                     "pattern": "^[a-f0-9]{64}$/i",
                     "description": "SHA-256 of the whole file, hex."
+                  },
+                  "ifRevision": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "With `replace`: apply only if the existing file is still at this storageRevision. Otherwise 409 REVISION_MISMATCH with the current file in `details`."
                   }
                 }
               }
@@ -6663,6 +7165,516 @@
                     "total",
                     "results"
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Busy or recovering. Retry after the Retry-After delay.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/version": {
+      "get": {
+        "tags": [
+          "Sync"
+        ],
+        "summary": "The server version and the oldest desktop app it supports.",
+        "responses": {
+          "200": {
+            "description": "Versions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "string"
+                    },
+                    "minClientVersion": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "version",
+                    "minClientVersion"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/changes": {
+      "get": {
+        "tags": [
+          "Sync"
+        ],
+        "summary": "Your changes after a cursor, oldest first. Keep the returned cursor; call again while hasMore is true.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{1,19}$",
+              "description": "An opaque, increasing position in the change log."
+            },
+            "required": true,
+            "description": "An opaque, increasing position in the change log.",
+            "name": "after",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 500
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Changes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "changes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/StorageChange"
+                      }
+                    },
+                    "cursor": {
+                      "type": "string",
+                      "pattern": "^\\d{1,19}$",
+                      "description": "An opaque, increasing position in the change log."
+                    },
+                    "hasMore": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "changes",
+                    "cursor",
+                    "hasMore"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The log no longer reaches back this far (90 days). Take a new snapshot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "CHANGES_EXPIRED"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "code"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Busy or recovering. Retry after the Retry-After delay.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/snapshot": {
+      "get": {
+        "tags": [
+          "Sync"
+        ],
+        "summary": "Every live folder and file under a folder (the files root by default), in pages. Replay changes after the first page's changeCursor once all pages are read.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": false,
+            "name": "folderId",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^(folder|file):.+$",
+              "description": "The `next` value from the previous page."
+            },
+            "required": false,
+            "description": "The `next` value from the previous page.",
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5000,
+              "default": 1000
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SnapshotItem"
+                      }
+                    },
+                    "next": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "pattern": "^(folder|file):.+$",
+                      "description": "The `next` value from the previous page."
+                    },
+                    "changeCursor": {
+                      "type": "string",
+                      "pattern": "^\\d{1,19}$",
+                      "description": "An opaque, increasing position in the change log."
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "next",
+                    "changeCursor"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Busy or recovering. Retry after the Retry-After delay.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/conflicts/keep-mine": {
+      "post": {
+        "tags": [
+          "Sync"
+        ],
+        "summary": "Keep this device's version after a conflict. The file keeps its id and takes the conflict copy's content; its old content goes to the trash under the file's name. Send an Idempotency-Key.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fileId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "ifRevision": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "conflictCopyId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "fileId",
+                  "ifRevision",
+                  "conflictCopyId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Kept.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileMutation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflicts with the current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Busy or recovering. Retry after the Retry-After delay.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/events": {
+      "get": {
+        "tags": [
+          "Sync"
+        ],
+        "summary": "Server-sent events. Each message is `{\"type\":\"changes\",\"latestSeq\":\"<cursor>\"}`, sent on connect and after each change. A comment line arrives every 25 seconds.",
+        "responses": {
+          "200": {
+            "description": "An event stream.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }

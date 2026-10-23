@@ -190,6 +190,7 @@ const createResumableUploadSession = async ({
         mimeType: file.type || "application/octet-stream",
         totalSizeBytes: file.size,
         conflictStrategy: "safeRename",
+        clientModifiedAt: new Date(file.lastModified).toISOString(),
       }),
     },
     {
@@ -290,6 +291,8 @@ const completeResumableUploadSession = async ({
 // Helpers (also exported for use in display components)
 // ---------------------------------------------------------------------------
 
+// One branch per time unit.
+// fallow-ignore-next-line complexity
 export function formatEta(
   totalBytes: number,
   transferredBytes: number,
@@ -472,6 +475,8 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // One file, a folder, or a zip; each branch is one download kind.
+  // fallow-ignore-next-line complexity
   const handleDownload = async (ids: string[]) => {
     downloadAbortRef.current?.abort();
     const controller = new AbortController();
@@ -524,6 +529,8 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
 
   // ---- Upload ----
 
+  // Each branch is one upload failure the user can see.
+  // fallow-ignore-next-line complexity
   const uploadSingleFile = async (
     clientKey: string,
     storageMutationKey: string,
@@ -539,7 +546,12 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
     formData.append(
       "manifest",
       JSON.stringify([
-        { clientKey, originalName: file.name, conflictStrategy: "fail" },
+        {
+          clientKey,
+          originalName: file.name,
+          conflictStrategy: "fail",
+          clientModifiedAt: new Date(file.lastModified).toISOString(),
+        },
       ]),
     );
     formData.append("files", file);
@@ -596,6 +608,8 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Resume, retry, and verify steps of one resumable upload, in order.
+  // fallow-ignore-next-line complexity
   const uploadLargeFile = async (
     clientKey: string,
     file: File,
@@ -991,6 +1005,8 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
       return { clientKey, storageMutationKey, file, relativePath };
     });
 
+    // Request wiring; each branch is one response.
+    // fallow-ignore-next-line complexity
     void (async () => {
       const folderIds = new Map<string, string>();
       if (selection.directoryPaths.length > 0) {
