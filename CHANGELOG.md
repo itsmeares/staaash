@@ -2,6 +2,12 @@
 
 See linked GitHub release notes for full details.
 
+## [1.2.1](https://github.com/itsmeares/staaash/releases/tag/v1.2.1) - 2026-10-23
+
+### Security
+
+- Updated Node to 24.22.1 to reject certificate keys affected by the eMudhra certificate compromise and include other upstream security fixes.
+
 ## [1.2.0](https://github.com/itsmeares/staaash/releases/tag/v1.2.0) - 2026-10-06
 
 This release applies two database migrations at startup. Back up the database and uploaded files together before upgrading.
