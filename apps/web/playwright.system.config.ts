@@ -5,7 +5,8 @@ export default defineConfig({
   reporter: process.env.CI ? [["dot"], ["json"]] : undefined,
   testDir: path.resolve(import.meta.dirname, "system"),
   outputDir: path.join(
-    process.env.STAAASH_TEST_RESULTS ?? path.resolve(import.meta.dirname, "test-results"),
+    process.env.STAAASH_TEST_RESULTS ??
+      path.resolve(import.meta.dirname, "test-results"),
     "system",
   ),
   timeout: 120_000,

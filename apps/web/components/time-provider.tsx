@@ -1,9 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-import {
-  getBrowserTimeZone,
-  isValidTimeZone,
-} from "@staaash/config/time-zone";
+import { getBrowserTimeZone, isValidTimeZone } from "@staaash/config/time-zone";
 
 import { formatDateTime, formatDayMonth } from "@/lib/time";
 

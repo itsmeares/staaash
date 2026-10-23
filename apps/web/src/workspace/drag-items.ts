@@ -1,4 +1,3 @@
-
 import type { DragEvent } from "react";
 
 import type { BatchMoveItem } from "@/server/files/types";

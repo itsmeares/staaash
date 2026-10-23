@@ -20,9 +20,16 @@ const GAP = 8;
 
 /** Columns the auto-fill grid makes at this width; one for a list. */
 const columnsFor = (width: number, grid: boolean, tiles: boolean) =>
-  grid ? Math.max(1, Math.floor((width + GAP) / ((tiles ? 112 : 168) + GAP))) : 1;
+  grid
+    ? Math.max(1, Math.floor((width + GAP) / ((tiles ? 112 : 168) + GAP)))
+    : 1;
 
-const rowHeight = (width: number, columns: number, grid: boolean, tiles: boolean) => {
+const rowHeight = (
+  width: number,
+  columns: number,
+  grid: boolean,
+  tiles: boolean,
+) => {
   if (!grid) return width < 768 ? 57 : 45;
   const cardWidth = (width - (columns - 1) * GAP) / columns;
   return tiles ? cardWidth + GAP : cardWidth * 0.75 + 76;
@@ -57,7 +64,8 @@ function VirtualRows<T extends { id: string }>({
   const virtualizer = useVirtualizer({
     count: Math.ceil(cells / columns),
     getScrollElement: () => scroller,
-    estimateSize: () => rowHeight(width, columns, grid, tiles) + (grid ? GAP : 1),
+    estimateSize: () =>
+      rowHeight(width, columns, grid, tiles) + (grid ? GAP : 1),
     overscan: 6,
     scrollMargin: offset,
   });

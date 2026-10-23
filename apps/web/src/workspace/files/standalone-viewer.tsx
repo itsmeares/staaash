@@ -43,12 +43,17 @@ export function StandaloneViewer({
         load,
         onNavigate: (next) => {
           const file = files[next - start];
-          if (file) void navigate({ replace: true, href: `/files/view/${file.id}` });
+          if (file)
+            void navigate({ replace: true, href: `/files/view/${file.id}` });
           else
             void loadViewerBatch(folderId, next)
               .then((page) => {
                 const nextFile = page.files[0];
-                if (nextFile) void navigate({ replace: true, href: `/files/view/${nextFile.id}` });
+                if (nextFile)
+                  void navigate({
+                    replace: true,
+                    href: `/files/view/${nextFile.id}`,
+                  });
               })
               .catch(() => toast.error("The file could not load. Try again."));
         },
@@ -57,7 +62,8 @@ export function StandaloneViewer({
       onClose={() => void navigate({ href: backHref })}
       onIndexChange={(next) => {
         const file = files[next];
-        if (file) void navigate({ replace: true, href: `/files/view/${file.id}` });
+        if (file)
+          void navigate({ replace: true, href: `/files/view/${file.id}` });
       }}
     />
   );

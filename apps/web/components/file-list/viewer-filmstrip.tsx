@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 import { ItemPreview } from "./file-list";
 import type { ViewerFile } from "./media-viewer";

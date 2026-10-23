@@ -10,12 +10,16 @@ const run = (command, args, env = {}) =>
   });
 
 const children = [
-  run("tsx", [
-    "watch",
-    "--clear-screen=false",
-    "--env-file-if-exists=../../.env.local",
-    "server/main.ts",
-  ], { PORT: apiPort }),
+  run(
+    "tsx",
+    [
+      "watch",
+      "--clear-screen=false",
+      "--env-file-if-exists=../../.env.local",
+      "server/main.ts",
+    ],
+    { PORT: apiPort },
+  ),
   run("vp", ["dev"]),
 ];
 

@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy, Link2Off } from "lucide-react";
 import { toast } from "@staaash/ui/components/toast";

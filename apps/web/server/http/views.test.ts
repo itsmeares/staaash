@@ -124,13 +124,21 @@ describe("view routes", () => {
 
     it.each([
       ["a new member", { preferences: null }, "member"],
-      ["an owner who made the account", { preferences: null, isOwner: true }, "owner"],
+      [
+        "an owner who made the account",
+        { preferences: null, isOwner: true },
+        "owner",
+      ],
       [
         "a member with a temporary password",
         { preferences: null, passwordChangeRequiredAt: now },
         "member-password",
       ],
-      ["someone whose password an owner reset", { passwordChangeRequiredAt: now }, "password"],
+      [
+        "someone whose password an owner reset",
+        { passwordChangeRequiredAt: now },
+        "password",
+      ],
     ])("gives %s the right first-run steps", async (_name, overrides, kind) => {
       mocks.getSession.mockResolvedValue({ user: user(overrides) });
 
@@ -230,14 +238,16 @@ describe("view routes", () => {
       mocks.getPublicShareFilePreview.mockResolvedValueOnce({
         safeInlineMimeType: "video/mp4",
       });
-      await expect(
-        (await get("/s/token/view")).json(),
-      ).resolves.toMatchObject({ kind: "share", nativeInline: true });
+      await expect((await get("/s/token/view")).json()).resolves.toMatchObject({
+        kind: "share",
+        nativeInline: true,
+      });
 
       mocks.getPublicShareFilePreview.mockResolvedValueOnce(null);
-      await expect(
-        (await get("/s/token/view")).json(),
-      ).resolves.toMatchObject({ kind: "share", nativeInline: false });
+      await expect((await get("/s/token/view")).json()).resolves.toMatchObject({
+        kind: "share",
+        nativeInline: false,
+      });
     });
 
     it("tells visitors only what the page shows", async () => {
@@ -272,11 +282,11 @@ describe("view routes", () => {
 
     it("hides why a dead link is dead", async () => {
       const { ShareError } = await import("@/server/sharing/errors");
-      mocks.resolvePublicShare.mockRejectedValue(new ShareError("SHARE_EXPIRED"));
+      mocks.resolvePublicShare.mockRejectedValue(
+        new ShareError("SHARE_EXPIRED"),
+      );
 
-      await expect(
-        (await get("/s/token/view")).json(),
-      ).resolves.toMatchObject({
+      await expect((await get("/s/token/view")).json()).resolves.toMatchObject({
         kind: "error",
         error: { code: "SHARE_EXPIRED" },
       });

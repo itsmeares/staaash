@@ -1,4 +1,3 @@
-
 import { Check, Copy, WrapText } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 

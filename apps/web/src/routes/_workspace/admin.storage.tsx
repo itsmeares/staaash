@@ -5,7 +5,8 @@ import { AdminStoragePage } from "@/src/workspace/admin/storage";
 import { WorkspaceLoading } from "@/src/workspace/workspace-loading";
 
 export const Route = createFileRoute("/_workspace/admin/storage")({
-  loader: ({ context }) => context.queryClient.ensureQueryData(adminStorageQuery),
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(adminStorageQuery),
   pendingComponent: WorkspaceLoading,
   component: AdminStoragePage,
 });

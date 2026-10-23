@@ -153,7 +153,6 @@ describe("zoned formatting", () => {
   });
 });
 
-
 describe("TimeProvider render", () => {
   it("renders in the chosen zone and clock", () => {
     const html = renderToString(

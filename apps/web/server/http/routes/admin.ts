@@ -26,9 +26,7 @@ import {
   removeDerivative,
   setDerivativePinned,
 } from "@/server/admin/media-derivatives";
-import {
-  saveSystemSettings,
-} from "@/server/admin/settings";
+import { saveSystemSettings } from "@/server/admin/settings";
 import {
   getAdminStorageSummary,
   toJsonAdminStorageSummary,
@@ -249,11 +247,15 @@ export const adminRoutes = admin
     await regenerateDerivative(c.req.param("fileId"));
     return c.json({ ok: true as const });
   })
-  .post("/derivatives/:id/pin", json(z.object({ pinned: z.boolean() })), async (c) => {
-    const { pinned } = c.req.valid("json");
-    await setDerivativePinned(c.req.param("id"), pinned);
-    return c.json({ ok: true as const });
-  })
+  .post(
+    "/derivatives/:id/pin",
+    json(z.object({ pinned: z.boolean() })),
+    async (c) => {
+      const { pinned } = c.req.valid("json");
+      await setDerivativePinned(c.req.param("id"), pinned);
+      return c.json({ ok: true as const });
+    },
+  )
   .post("/derivatives/:id/cancel", async (c) => {
     await cancelDerivative(c.req.param("id"), c.var.session.user.id);
     return c.json({ ok: true as const });

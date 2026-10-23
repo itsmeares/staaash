@@ -17,9 +17,7 @@ import {
 function HomePage() {
   const { data } = useSuspenseQuery(homeQuery);
   const isEmpty =
-    !data.hasFavorites &&
-    data.recent.length === 0 &&
-    data.shares.length === 0;
+    !data.hasFavorites && data.recent.length === 0 && data.shares.length === 0;
 
   return (
     <WorkspacePresetPageContextMenu

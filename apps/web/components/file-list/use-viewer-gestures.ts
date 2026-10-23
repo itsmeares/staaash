@@ -1,4 +1,3 @@
-
 import { useCallback, useRef, useState, type PointerEvent } from "react";
 
 type Point = { x: number; y: number };

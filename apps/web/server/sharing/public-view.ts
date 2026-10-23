@@ -29,7 +29,11 @@ export const toPublicShareView = (resolution: PublicShareResolution) => {
   }
   const share = toPublicShare(resolution.share);
   if (resolution.kind === "file") {
-    return { kind: "file" as const, share, file: toPublicFile(resolution.file) };
+    return {
+      kind: "file" as const,
+      share,
+      file: toPublicFile(resolution.file),
+    };
   }
   const { listing } = resolution;
   return {

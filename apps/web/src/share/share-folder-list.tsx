@@ -62,8 +62,10 @@ export function ShareFolderList({
     }
   };
   const open = (entry: ShareListEntry) => {
-    if (entry.kind === "folder") void navigate({ href: `${base}/f/${entry.id}` });
-    else if (entry.hasViewer) void navigate({ href: `${base}/files/${entry.id}` });
+    if (entry.kind === "folder")
+      void navigate({ href: `${base}/f/${entry.id}` });
+    else if (entry.hasViewer)
+      void navigate({ href: `${base}/files/${entry.id}` });
     else download(entry);
   };
 

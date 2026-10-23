@@ -23,7 +23,9 @@
   "ignoreDependencies": ["@staaash/config"],
   // packages/ui components are a vendored component kit: its full API is kept even when
   // the app uses only part of it, and its internals follow upstream.
-  "ignoreExports": [{ "file": "packages/ui/src/components/**", "exports": ["*"] }],
+  "ignoreExports": [
+    { "file": "packages/ui/src/components/**", "exports": ["*"] },
+  ],
   "health": { "ignore": ["packages/ui/src/components/**"] },
   "duplicates": { "ignore": ["packages/ui/src/components/**"] },
 }

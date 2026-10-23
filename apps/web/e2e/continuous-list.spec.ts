@@ -298,9 +298,7 @@ test("failed bulk link loading shows an error while the list is collapsed", asyn
   ).toBe(true);
   await page.goto("/shared");
   await page.getByRole("button", { name: "Delete all", exact: true }).click();
-  await page.route("**/api/views/shares/**", (route) =>
-    route.abort("failed"),
-  );
+  await page.route("**/api/views/shares/**", (route) => route.abort("failed"));
   await page
     .getByRole("dialog", { name: /Delete .* turned off links/ })
     .getByRole("button", { name: "Delete all", exact: true })

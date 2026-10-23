@@ -1,4 +1,3 @@
-
 import { Grid2X2, List } from "lucide-react";
 
 import { Tabs, TabsList, TabsTab } from "@staaash/ui/components/tabs";

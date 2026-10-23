@@ -1,4 +1,3 @@
-
 import { useContinuousList } from "@/components/file-list/use-continuous-list";
 import { useListFind } from "@/components/file-list/use-list-find";
 import { loadFavorites, selectFavorites } from "../list-actions";

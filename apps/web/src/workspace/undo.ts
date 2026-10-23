@@ -1,4 +1,3 @@
-
 import { submitStorageMutationPost } from "@/src/storage-mutation-submit";
 import { toastManager } from "@staaash/ui/components/toast";
 
@@ -7,10 +6,7 @@ type Item = { id: string; kind: "file" | "folder" };
 const kindPath = (item: Item) => (item.kind === "folder" ? "folders" : "files");
 
 /** Moves items into or out of trash; resolves with the ones that made it. */
-export async function moveTrash(
-  items: Item[],
-  action: "trash" | "restore",
-) {
+export async function moveTrash(items: Item[], action: "trash" | "restore") {
   const results = await Promise.allSettled(
     items.map((item) =>
       submitStorageMutationPost({

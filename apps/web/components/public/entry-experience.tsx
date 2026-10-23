@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from "react";
 
 import { raiseCurtain } from "@/components/curtain";

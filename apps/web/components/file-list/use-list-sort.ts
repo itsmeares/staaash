@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 
 type Direction = "asc" | "desc";

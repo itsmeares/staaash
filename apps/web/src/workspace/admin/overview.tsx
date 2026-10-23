@@ -51,7 +51,11 @@ function StatusLine({ summary }: { summary: Summary }) {
           {next}
         </span>
       </span>
-      <Button render={<AppLink href="/admin/jobs" />} size="sm" variant="outline">
+      <Button
+        render={<AppLink href="/admin/jobs" />}
+        size="sm"
+        variant="outline"
+      >
         See jobs
       </Button>
     </div>
