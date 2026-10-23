@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - "release/**"
   pull_request:
 
 permissions:
@@ -40,7 +41,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.21.0
+          node-version: 24.22.1
 
       - name: Enable Corepack
         run: corepack enable
@@ -99,7 +100,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.21.0
+          node-version: 24.22.1
 
       - name: Enable Corepack
         run: corepack enable

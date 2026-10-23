@@ -15,7 +15,7 @@ const readWorkflow = () => readFile(workflowUrl, "utf8");
 const readOrchestrator = () => readFile(orchestratorUrl, "utf8");
 
 describe("release workflow topology", () => {
-  it("prepares a new release with an App-authenticated main checkout", async () => {
+  it("pushes prepared versions to the validated dispatch branch", async () => {
     const workflow = await readWorkflow();
 
     expect(workflow).toContain(
@@ -40,17 +40,28 @@ describe("release workflow topology", () => {
     expect(workflow).toContain(
       "run: node scripts/release/index.mjs prepare-version",
     );
-    expect(workflow).toContain('git push origin "HEAD:refs/heads/main"');
+    expect(workflow).toContain(
+      'git push origin "HEAD:refs/heads/$RELEASE_BRANCH"',
+    );
+    expect(workflow).toContain(
+      "RELEASE_BRANCH: ${{ steps.version.outputs.release_branch }}",
+    );
+    expect(workflow).toContain(
+      "release_branch: ${{ steps.version.outputs.release_branch }}",
+    );
     expect(workflow).toContain(
       'gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs"',
     );
   });
 
-  it("pins recovery tooling to exact main workflow commit", async () => {
+  it("pins recovery tooling and carries the validated release branch", async () => {
     const workflow = await readWorkflow();
 
     expect(workflow).toContain(
-      "if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'",
+      "RELEASE_BRANCH: ${{ needs.prepare.outputs.release_branch || (github.event_name == 'workflow_dispatch' && github.ref_name) || '' }}",
+    );
+    expect(workflow).toContain(
+      "RELEASE_BRANCH: ${{ needs.preflight.outputs.release_branch }}",
     );
     expect(workflow).toContain(
       "EXPECTED_TOOLING_SHA: ${{ (github.event_name == 'workflow_dispatch' && inputs.version == '') && github.sha || '' }}",

@@ -61,6 +61,22 @@ Do not have an agent open a pull request, write public replies, or answer mainta
 6. Start the web app with `pnpm web:dev`.
 7. Start the worker with `pnpm worker:dev`.
 
+## Releases
+
+Run the Release workflow with `version` from `main` or a `release/X.Y` branch.
+The release branch must match the tag's major and minor version. For example,
+`release/2.0` accepts `v2.0.1` and `v2.0.1-rc.1`, but rejects `v2.1.0`.
+The selected branch must contain the release workflow and tooling. For a patch
+to an older release, start from that release and carry over the release tooling
+without copying newer app changes. The exact release and tooling commits must
+pass push CI on the selected branch.
+
+To recover a partial release, run the workflow from the same source branch with
+`tag` and the exact `release_id`, leaving `version` empty. Direct tag pushes use
+`main` when it contains the tagged commit, otherwise the matching `release/X.Y`
+branch. Prereleases do not update stable `latest`, and older stable releases do
+not replace a newer stable image.
+
 ## Issues and security
 
 - Use the GitHub issue forms for bug reports and feature requests.

@@ -157,6 +157,13 @@ export const parseReleaseTag = (tag: string): ReleaseTag | null => {
   };
 };
 
+export const releaseBranchesForTag = (tag: string) => {
+  const release = parseReleaseTag(tag);
+  if (!release) throw new Error(`Invalid release tag: ${tag}`);
+  const version = parseSemanticVersion(release.version)!;
+  return ["main", `release/${version.major}.${version.minor}`];
+};
+
 export const findCanonicalReleaseVersionErrors = ({
   tag,
   packageVersions,
@@ -179,15 +186,17 @@ export const findCanonicalReleaseVersionErrors = ({
 export const selectExactCiState = ({
   runs,
   releaseSha,
+  releaseBranch = "main",
 }: {
   runs: WorkflowRun[];
   releaseSha: string;
+  releaseBranch?: string;
 }): ExactCiState => {
   const exactRuns = runs
     .filter(
       (run) =>
         run.event === "push" &&
-        run.head_branch === "main" &&
+        run.head_branch === releaseBranch &&
         run.head_sha === releaseSha,
     )
     .sort((left, right) => {
