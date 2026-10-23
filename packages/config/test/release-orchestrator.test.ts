@@ -22,6 +22,7 @@ import {
   preparePackageVersions,
   publishRelease,
   readPackageVersions,
+  readObservedImages,
   readReleaseTemplates,
   reconcileDraftProvenance,
   reconcileReleaseAssets,
@@ -234,7 +235,91 @@ describe("release trust roots", () => {
       digest: `sha256:${"a".repeat(64)}`,
       labels: arm64Labels,
       environment: ["APP_VERSION=arm64"],
+      runtimeReference: `ghcr.io/itsmeares/staaash@sha256:${"c".repeat(64)}`,
     });
+  });
+
+  it("keeps index identity while using distinct immutable platform references", () => {
+    const reference = `ghcr.io/itsmeares/staaash:v1.2.0@sha256:${"a".repeat(64)}`;
+    const output = imageInspection({ amd64Labels: {}, arm64Labels: {} });
+    const amd64 = parseImageInspection(reference, output, {
+      platform: "linux/amd64",
+    });
+    const arm64 = parseImageInspection(reference, output, {
+      platform: "linux/arm64",
+    });
+
+    expect(amd64.digest).toBe(`sha256:${"a".repeat(64)}`);
+    expect(arm64.digest).toBe(amd64.digest);
+    expect(amd64.runtimeReference).toBe(
+      `ghcr.io/itsmeares/staaash@sha256:${"b".repeat(64)}`,
+    );
+    expect(arm64.runtimeReference).toBe(
+      `ghcr.io/itsmeares/staaash@sha256:${"c".repeat(64)}`,
+    );
+  });
+
+  it("rejects an invalid platform digest before runtime inspection", () => {
+    const inspected = JSON.parse(
+      imageInspection({ amd64Labels: {}, arm64Labels: {} }),
+    );
+    inspected.manifest.manifests[1].digest = "sha256:invalid";
+
+    expect(() =>
+      parseImageInspection(
+        "ghcr.io/itsmeares/staaash:v1.2.0",
+        JSON.stringify(inspected),
+        { platform: "linux/arm64" },
+      ),
+    ).toThrow("no valid manifest digest for linux/arm64");
+  });
+
+  it("runs both platforms by their own digests while retaining the index identity", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "release-platforms-"));
+    try {
+      const inspected = JSON.parse(
+        imageInspection({ amd64Labels: {}, arm64Labels: {} }),
+      );
+      for (const image of Object.values(inspected.image) as {
+        config: { Env: string[] };
+      }[]) {
+        image.config.Env = [];
+      }
+      await writeFile(
+        path.join(root, "docker"),
+        `#!/usr/bin/env node
+const args = process.argv.slice(2);
+if (args[0] === "buildx") {
+  process.stdout.write(${JSON.stringify(JSON.stringify(inspected))});
+} else {
+  const platform = args[args.indexOf("--platform") + 1];
+  const reference = args[args.indexOf("--entrypoint") + 2];
+  const digest = platform === "linux/amd64" ? "${"b".repeat(64)}" : "${"c".repeat(64)}";
+  if (reference !== "ghcr.io/itsmeares/staaash@sha256:" + digest) {
+    console.error("cannot overwrite digest: runtime check reused the index digest");
+    process.exit(1);
+  }
+  process.stdout.write(JSON.stringify({ webVersion: "1.0.0", workerVersion: "1.0.0", resolvedWorkerVersion: "1.0.0" }));
+}
+`,
+        { mode: 0o755 },
+      );
+      vi.stubEnv("PATH", `${root}${path.delimiter}${process.env.PATH}`);
+      const observed = readObservedImages(
+        `ghcr.io/itsmeares/staaash@sha256:${"a".repeat(64)}`,
+      );
+      expect(observed.map((image) => image.platform)).toEqual([
+        "linux/amd64",
+        "linux/arm64",
+      ]);
+      for (const image of observed) {
+        expect(image.observed.digest).toBe(`sha256:${"a".repeat(64)}`);
+        expect(image.observed.webVersion).toBe("1.0.0");
+        expect(image.observed.workerVersion).toBe("1.0.0");
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   it("updates every package version together", async () => {
