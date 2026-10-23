@@ -1,7 +1,8 @@
 # Staaash
 
-Staaash is a self-hosted personal cloud drive. A Next.js web app and a separate
-worker share one PostgreSQL database and one local storage volume.
+Staaash is a self-hosted personal cloud drive. A web app (a Vite single-page
+app served by a Hono server) and a separate worker share one PostgreSQL
+database and one local storage volume.
 
 ## What Staaash does not compromise on
 
@@ -14,8 +15,10 @@ worker share one PostgreSQL database and one local storage volume.
 
 ## Where code lives
 
-- `apps/web` contains the Next.js app. Routes and UI live in `app/`,
-  request-time logic in `server/`.
+- `apps/web` contains the web app. Pages live in `src/routes/` (TanStack
+  Router), the HTTP routes in `server/http/`, and request-time logic in
+  `server/`. Public API routes are described in `apps/web/openapi.json`;
+  within a major version they only gain routes and fields.
 - `apps/worker` contains background jobs: cleanup, trash retention, media
   derivatives, zip archives, and restore reconciliation.
 - `packages/db` contains the Prisma schema, migrations, and client.
