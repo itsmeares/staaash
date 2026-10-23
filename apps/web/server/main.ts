@@ -60,11 +60,29 @@ const withClient = async () => {
   );
 };
 
-await startup();
-if (serveClient) await withClient();
+// A failed startup check, such as storage usage that does not add up, keeps
+// the server up but answers every request with 500 until an operator fixes it.
+const failed = await startup().then(
+  () => false,
+  (error: unknown) => {
+    console.error("[startup] Staaash cannot serve requests.", error);
+    return true;
+  },
+);
+if (serveClient && !failed) await withClient();
 
 const port = Number(process.env.PORT ?? (serveClient ? 2113 : 3001));
 const hostname = process.env.HOST ?? (serveClient ? "0.0.0.0" : "127.0.0.1");
-serve({ fetch: app.fetch, port, hostname }, () => {
+const fetch = failed
+  ? () =>
+      Response.json(
+        {
+          error: "Staaash failed its startup checks. See the server log.",
+          code: "STARTUP_FAILED",
+        },
+        { status: 500 },
+      )
+  : app.fetch;
+serve({ fetch, port, hostname }, () => {
   console.log(`Staaash is listening on http://${hostname}:${port}`);
 });
