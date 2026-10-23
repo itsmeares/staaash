@@ -1,5 +1,12 @@
-
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import {
+  Fragment,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 const layouts = {
   list: "grid gap-px",
@@ -8,101 +15,134 @@ const layouts = {
 };
 const layoutFor = (grid: boolean, tiles: boolean) =>
   layouts[grid ? (tiles ? "tiles" : "grid") : "list"];
-function estimatedHeight(
-  width: number,
-  count: number,
-  grid: boolean,
-  tiles: boolean,
-) {
-  if (!grid) return count * (width < 768 ? 57 : 45);
-  const columns = Math.max(
-    1,
-    Math.floor((width + 8) / ((tiles ? 112 : 168) + 8)),
-  );
-  const cardWidth = (width - (columns - 1) * 8) / columns;
-  return (
-    Math.ceil(count / columns) * (tiles ? cardWidth + 8 : cardWidth * 0.75 + 76)
-  );
-}
 
-/** Keep layout space for distant rows, without keeping their controls mounted. */
-function VirtualRows({
-  ids,
+const GAP = 8;
+
+/** Columns the auto-fill grid makes at this width; one for a list. */
+const columnsFor = (width: number, grid: boolean, tiles: boolean) =>
+  grid ? Math.max(1, Math.floor((width + GAP) / ((tiles ? 112 : 168) + GAP))) : 1;
+
+const rowHeight = (width: number, columns: number, grid: boolean, tiles: boolean) => {
+  if (!grid) return width < 768 ? 57 : 45;
+  const cardWidth = (width - (columns - 1) * GAP) / columns;
+  return tiles ? cardWidth + GAP : cardWidth * 0.75 + 76;
+};
+
+/**
+ * Only the rows near the screen are mounted. Rows scroll with the workspace
+ * page, and a grid row holds as many cards as fit across.
+ */
+function VirtualRows<T extends { id: string }>({
+  items,
   grid,
   tiles,
-  children,
-  eager = false,
+  leading,
+  renderItem,
   browse,
 }: {
-  ids: string[];
-  eager?: boolean;
+  items: T[];
   grid: boolean;
   tiles: boolean;
-  children: () => ReactNode;
+  leading?: ReactNode;
+  renderItem: (item: T, index: number) => ReactNode;
   browse?: (id: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(eager);
-  const [height, setHeight] = useState<number | null>(null);
+  const [scroller, setScroller] = useState<HTMLElement | null>(null);
+  const [offset, setOffset] = useState(0);
   const [width, setWidth] = useState(800);
-  const estimate = estimatedHeight(width, ids.length, grid, tiles);
-  useEffect(() => {
+  const columns = columnsFor(width, grid, tiles);
+  // The leading cell (a new-folder row) takes the first slot.
+  const cells = (leading ? 1 : 0) + items.length;
+  const virtualizer = useVirtualizer({
+    count: Math.ceil(cells / columns),
+    getScrollElement: () => scroller,
+    estimateSize: () => rowHeight(width, columns, grid, tiles) + (grid ? GAP : 1),
+    overscan: 6,
+    scrollMargin: offset,
+  });
+
+  useLayoutEffect(() => {
     const element = ref.current;
-    if (!element) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry) {
-          if (entry.isIntersecting && ids.length)
-            browse?.(ids[ids.length - 1]!);
-          setVisible(
-            // Keep rows in a grid that is wholly outside the viewport.
-            eager ||
-              entry.isIntersecting ||
-              element.contains(document.activeElement),
-          );
-        }
-      },
-      {
-        root: element.closest("main[data-workspace-content]"),
-        rootMargin: "800px",
-      },
-    );
+    const main = element?.closest<HTMLElement>("main[data-workspace-content]");
+    if (!element || !main) return;
+    setScroller(main);
+    const measure = () => {
+      setWidth(element.getBoundingClientRect().width);
+      setOffset(
+        element.getBoundingClientRect().top -
+          main.getBoundingClientRect().top +
+          main.scrollTop,
+      );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
     observer.observe(element);
-    const focus = (event: Event) => {
-      const id = (event as CustomEvent<string>).detail;
-      if (!ids.includes(id)) return;
-      browse?.(id);
-      setVisible(true);
-      element.scrollIntoView({ block: "nearest" });
-    };
-    element
-      .closest("[data-file-list]")
-      ?.addEventListener("staaash:list-focus", focus);
-    return () => {
-      observer.disconnect();
-      element
-        .closest("[data-file-list]")
-        ?.removeEventListener("staaash:list-focus", focus);
-    };
-  }, [ids.join("\n"), eager, browse]);
-  useEffect(() => {
-    if (!ref.current) return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (!entry) return;
-      setWidth(entry.contentRect.width);
-      if (visible) setHeight(entry.contentRect.height);
-    });
-    observer.observe(ref.current);
     return () => observer.disconnect();
-  }, [visible, grid, tiles]);
-  useEffect(() => setHeight(null), [grid, tiles, width, ids.join("\n")]);
+  }, []);
+
+  useEffect(() => virtualizer.measure(), [virtualizer, width, grid, tiles]);
+
+  const rows = virtualizer.getVirtualItems();
+  const lastCell = Math.min(cells, ((rows.at(-1)?.index ?? -1) + 1) * columns);
+  const lastItem = items[lastCell - (leading ? 1 : 0) - 1];
+  useEffect(() => {
+    if (lastItem) browse?.(lastItem.id);
+  }, [lastItem, browse]);
+
+  // Keyboard moves to an item that is not mounted yet scroll it into view.
+  useEffect(() => {
+    const list = ref.current?.closest("[data-file-list]");
+    const focus = (event: Event) => {
+      const index = items.findIndex(
+        (item) => item.id === (event as CustomEvent<string>).detail,
+      );
+      if (index === -1) return;
+      browse?.(items[index]!.id);
+      virtualizer.scrollToIndex(
+        Math.floor((index + (leading ? 1 : 0)) / columns),
+        { align: "auto" },
+      );
+    };
+    list?.addEventListener("staaash:list-focus", focus);
+    return () => list?.removeEventListener("staaash:list-focus", focus);
+  }, [items, columns, leading, browse, virtualizer]);
+
   return (
     <div
       ref={ref}
-      style={visible ? undefined : { height: height ?? estimate }}
-      className={layoutFor(grid, tiles)}
+      className="relative"
+      style={{ height: virtualizer.getTotalSize() }}
     >
-      {visible ? children() : null}
+      {rows.map((row) => {
+        const first = row.index * columns;
+        const slots = Array.from(
+          { length: Math.min(columns, cells - first) },
+          (_, slot) => first + slot,
+        );
+        return (
+          <div
+            className={layoutFor(grid, tiles)}
+            data-index={row.index}
+            key={row.key}
+            ref={virtualizer.measureElement}
+            style={{
+              position: "absolute",
+              insetInline: 0,
+              top: row.start - offset,
+              paddingBottom: grid ? GAP : 1,
+            }}
+          >
+            {slots.map((cell) => {
+              if (leading && cell === 0) {
+                return <Fragment key="leading">{leading}</Fragment>;
+              }
+              const index = cell - (leading ? 1 : 0);
+              return renderItem(items[index]!, index);
+            })}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -113,7 +153,6 @@ export function VirtualSection<T extends { id: string }>({
   view,
   tiles,
   leading,
-  eager,
   renderItem,
   virtual,
   browse,
@@ -124,67 +163,26 @@ export function VirtualSection<T extends { id: string }>({
   view: "list" | "grid";
   tiles: boolean;
   leading?: ReactNode;
-  eager: boolean;
   renderItem: (item: T, index: number) => ReactNode;
   browse?: (id: string) => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(800);
-  useEffect(() => {
-    if (!virtual || view !== "grid" || !ref.current) return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry) setWidth(entry.contentRect.width);
-    });
-    observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [virtual, view]);
-  const columns = Math.max(
-    1,
-    Math.floor((width + 8) / ((tiles ? 112 : 168) + 8)),
-  );
-  const chunkSize = view === "grid" ? Math.ceil(40 / columns) * columns : 40;
   return (
-    <div ref={ref} className="grid" role="rowgroup">
+    <div className="grid" role="rowgroup">
       {label ? (
         <div className="px-1.5 pt-4 pb-1.5 text-meta font-semibold" role="row">
           <span role="columnheader">{label}</span>
         </div>
       ) : null}
       <div className={view === "grid" ? "grid gap-2 pt-2" : "grid gap-px pt-1"}>
-        {virtual ? (
-          <>
-            {items.length === 0 ? (
-              <div className={layoutFor(view === "grid", tiles)}>{leading}</div>
-            ) : null}
-            {Array.from(
-              { length: Math.ceil(items.length / chunkSize) },
-              (_, chunk) => {
-                const rows = items.slice(
-                  chunk * chunkSize,
-                  (chunk + 1) * chunkSize,
-                );
-                return (
-                  <VirtualRows
-                    eager={eager && chunk === 0}
-                    grid={view === "grid"}
-                    tiles={tiles}
-                    ids={rows.map((item) => item.id)}
-                    key={rows[0]!.id}
-                    browse={browse}
-                  >
-                    {() => (
-                      <>
-                        {chunk === 0 ? leading : null}
-                        {rows.map((item, index) =>
-                          renderItem(item, chunk * chunkSize + index),
-                        )}
-                      </>
-                    )}
-                  </VirtualRows>
-                );
-              },
-            )}
-          </>
+        {virtual && items.length > 0 ? (
+          <VirtualRows
+            browse={browse}
+            grid={view === "grid"}
+            items={items}
+            leading={leading}
+            renderItem={renderItem}
+            tiles={tiles}
+          />
         ) : (
           <div className={layoutFor(view === "grid", tiles)}>
             {leading}

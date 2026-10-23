@@ -718,7 +718,6 @@ export function FileList<T extends FileListItem>({
             items={section.items}
             view={view}
             tiles={tiles}
-            eager={index === 0}
             leading={index === 0 ? leading : undefined}
             renderItem={renderItem}
           />

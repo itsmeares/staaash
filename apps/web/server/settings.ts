@@ -1,5 +1,4 @@
 import { randomBytes } from "node:crypto";
-import { cache } from "react";
 
 import { getPrisma } from "@staaash/db/client";
 
@@ -39,7 +38,7 @@ export const getAuthSecretSync = (): string => {
   return _authSecret;
 };
 
-export const getSystemSettings = cache(async () => {
+export const getSystemSettings = async () => {
   const db = getPrisma();
   const existing = await db.systemSettings.findUnique({
     where: { id: "singleton" },
@@ -61,4 +60,4 @@ export const getSystemSettings = cache(async () => {
     }
     throw error;
   }
-});
+};
