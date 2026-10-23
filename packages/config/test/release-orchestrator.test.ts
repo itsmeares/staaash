@@ -239,6 +239,40 @@ describe("release trust roots", () => {
     });
   });
 
+  it("reads the default platform metadata when inspecting latest", () => {
+    const reference = "ghcr.io/itsmeares/staaash:latest";
+    const labels = { "org.opencontainers.image.version": "v1.2.0" };
+
+    expect(
+      parseImageInspection(
+        reference,
+        imageInspection({ amd64Labels: labels, arm64Labels: labels }),
+      ),
+    ).toEqual({
+      digest: `sha256:${"a".repeat(64)}`,
+      labels,
+      environment: ["APP_VERSION=amd64"],
+      runtimeReference: reference,
+    });
+  });
+
+  it("keeps reading the direct configuration of legacy single-platform images", () => {
+    const labels = { "org.opencontainers.image.version": "v1.1.1" };
+    const inspected = JSON.parse(
+      imageInspection({ amd64Labels: labels, arm64Labels: {} }),
+    );
+    inspected.image = inspected.image["linux/amd64"];
+    inspected.manifest.manifests = [inspected.manifest.manifests[0]];
+
+    expect(
+      parseImageInspection(
+        "ghcr.io/itsmeares/staaash:latest",
+        JSON.stringify(inspected),
+        { allowLegacyPlatforms: true },
+      ).labels,
+    ).toEqual(labels);
+  });
+
   it("keeps index identity while using distinct immutable platform references", () => {
     const reference = `ghcr.io/itsmeares/staaash:v1.2.0@sha256:${"a".repeat(64)}`;
     const output = imageInspection({ amd64Labels: {}, arm64Labels: {} });
