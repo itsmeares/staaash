@@ -735,10 +735,11 @@ const runImageInspection = (reference, allowMissing) => {
 const getInspectionManifest = (inspected) =>
   inspected.manifest ?? { digest: null, mediaType: null, manifests: [] };
 
-const getInspectionConfig = (inspected, platform) => {
-  const image = platform
-    ? (inspected.image?.[platform] ?? inspected.image)
-    : inspected.image;
+const getInspectionConfig = (
+  inspected,
+  platform = RELEASE_IMAGE_PLATFORMS[0],
+) => {
+  const image = inspected.image?.[platform] ?? inspected.image;
   return image?.config ?? { Labels: {}, Env: [] };
 };
 
