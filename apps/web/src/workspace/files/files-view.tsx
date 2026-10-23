@@ -658,14 +658,18 @@ export function FilesView({
   };
 
   // ---------------------------------------------------------------------------
-  // Viewer: opens over the list. The URL still becomes /files/view/<id>, so
-  // links, Back and refresh work; refresh loads the standalone viewer page.
+  // Viewer: opens over the list. The URL shows /files/view/<id> (a masked
+  // route, the list stays mounted), so links, Back and refresh work; refresh
+  // loads the standalone viewer page.
   // ---------------------------------------------------------------------------
 
   const viewerOrigin = useRef<DOMRect | null>(null);
   const pushedViewer = useRef(false);
-  const viewerId = pathname.startsWith("/files/view/")
-    ? decodeURIComponent(pathname.slice("/files/view/".length))
+  const maskedPath = useLocation({
+    select: (location) => location.maskedLocation?.pathname ?? "",
+  });
+  const viewerId = maskedPath.startsWith("/files/view/")
+    ? decodeURIComponent(maskedPath.slice("/files/view/".length))
     : null;
   const viewerFiles = privateViewerFiles(visibleFiles);
   const viewerIndex = viewerId
@@ -687,7 +691,13 @@ export function FilesView({
     );
     viewerOrigin.current = thumb?.getBoundingClientRect() ?? null;
     pushedViewer.current = true;
-    window.history.pushState(null, "", `/files/view/${id}`);
+    void navigate({
+      to: ".",
+      search: true,
+      // The real location stays this folder; the state makes it a new entry.
+      state: { viewerFileId: id },
+      mask: { to: "/files/view/$fileId", params: { fileId: id } },
+    });
     reportOpened(id);
   }
 
@@ -697,7 +707,7 @@ export function FilesView({
       pushedViewer.current = false;
       window.history.back();
     } else {
-      window.history.replaceState(null, "", currentPath);
+      void navigate({ to: ".", search: true, replace: true });
     }
     // Back in the list with the item outlined.
     if (id) {
@@ -720,7 +730,13 @@ export function FilesView({
       );
       if (!next) return;
       viewerOrigin.current = null;
-      window.history.replaceState(null, "", `/files/view/${next.id}`);
+      void navigate({
+        to: ".",
+        search: true,
+        replace: true,
+        state: { viewerFileId: next.id },
+        mask: { to: "/files/view/$fileId", params: { fileId: next.id } },
+      });
       reportOpened(next.id);
     } catch {
       toast.error("The next file could not load. Try again.");

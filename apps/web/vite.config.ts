@@ -40,9 +40,12 @@ export default defineConfig({
     },
   },
   build: { outDir: "dist/client" },
-  // The server: dependencies stay in node_modules, app code is bundled.
+  // The server bundles everything but pg and heic-convert, which load at
+  // runtime with require. Installing @prisma/client would also pull in the
+  // Prisma CLI and its tools as optional peers.
   pack: {
     entry: ["server/main.ts"],
+    noExternal: (id) => !/^(pg|heic-convert)(\/|$)/.test(id),
     outDir: "dist/server",
     format: "esm",
     platform: "node",

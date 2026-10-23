@@ -1,5 +1,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { LIST_REFRESH_EVENT } from "@/lib/use-refresh";
 import { useListHistory } from "./list-history";
 import type { ListPage, ListQuery } from "@/server/list-window";
 
@@ -140,6 +141,19 @@ export function useContinuousList<T extends { id: string }>({
     );
     return invalidate;
   }, [key, initial]);
+
+  useEffect(() => {
+    const reload = () => {
+      current.current.generation++;
+      pending.current = null;
+      const wanted = Math.max(100, current.current.browsed);
+      void execute(() =>
+        readPrefix(loader.current, queryRef.current, wanted),
+      ).catch(() => {});
+    };
+    window.addEventListener(LIST_REFRESH_EVENT, reload);
+    return () => window.removeEventListener(LIST_REFRESH_EVENT, reload);
+  }, [key]);
 
   const loadMore = () => {
     if (error && retry.current) return retry.current();

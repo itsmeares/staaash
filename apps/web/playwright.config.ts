@@ -4,9 +4,9 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   reporter: process.env.CI ? [["dot"], ["json"]] : undefined,
-  testDir: path.resolve(__dirname, "e2e"),
+  testDir: path.resolve(import.meta.dirname, "e2e"),
   outputDir: path.join(
-    process.env.STAAASH_TEST_RESULTS ?? path.resolve(__dirname, "test-results"),
+    process.env.STAAASH_TEST_RESULTS ?? path.resolve(import.meta.dirname, "test-results"),
     "e2e",
   ),
   testIgnore: ["visual/**"],

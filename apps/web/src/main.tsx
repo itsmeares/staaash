@@ -21,6 +21,10 @@ declare module "@tanstack/react-router" {
   interface Register {
     router: typeof router;
   }
+  interface HistoryState {
+    /** The file the Files viewer shows over the list. */
+    viewerFileId?: string;
+  }
 }
 
 createRoot(document.getElementById("root")!).render(
