@@ -4,7 +4,7 @@ import { Prisma, getPrisma } from "@staaash/db/client";
 
 const LIST_BATCH_SIZE = 100;
 
-const listQuerySchema = z.object({
+export const listQuerySchema = z.object({
   offset: z.number().int().nonnegative().default(0),
   limit: z.number().int().min(1).max(1000).default(LIST_BATCH_SIZE),
   sort: z

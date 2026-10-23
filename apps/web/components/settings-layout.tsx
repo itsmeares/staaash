@@ -1,4 +1,3 @@
-"use client";
 
 import {
   ChevronLeft,
@@ -13,7 +12,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { useMediaQuery } from "@/app/(workspace)/use-media-query";
+import { useMediaQuery } from "@/src/workspace/use-media-query";
 import { Button } from "@staaash/ui/components/button";
 import { Input } from "@staaash/ui/components/input";
 import {

@@ -1,4 +1,3 @@
-"use client";
 
 import {
   ChevronLeft,
@@ -17,7 +16,7 @@ import {
 import { createPortal } from "react-dom";
 import type { ViewerKind } from "@staaash/db/viewer-contract";
 
-import { TextFileViewer } from "@/app/text-file-viewer";
+import { TextFileViewer } from "@/src/text-file-viewer";
 import { Button } from "@staaash/ui/components/button";
 import { cn } from "@staaash/ui/utils";
 

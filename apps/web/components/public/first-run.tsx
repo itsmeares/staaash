@@ -1,9 +1,7 @@
-"use client";
-
 import React, { useEffect, useRef, useState } from "react";
 import { AUTO_TIME_ZONE, getBrowserTimeZone } from "@staaash/config/time-zone";
 
-import { saveOwnerOnboardingSettings } from "@/app/(workspace)/admin/settings/actions";
+import { api, read } from "@/lib/api";
 import { raiseCurtain } from "@/components/curtain";
 import { DriveGlyph } from "@/components/drive-glyph";
 import { MiniDrive } from "@/components/mini-drive";
@@ -79,19 +77,6 @@ const PREVIEWS = [
   "as soon as it's uploaded",
   "never",
 ] as const;
-
-const post = async (url: string, body: unknown) => {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = (await response.json().catch(() => ({}))) as {
-    error?: string;
-  };
-  if (!response.ok) throw new Error(data.error ?? "Something went wrong.");
-  return data;
-};
 
 const cityOf = (zone: string) =>
   (zone.split("/").pop() ?? zone).replaceAll("_", " ");
@@ -196,19 +181,24 @@ async function saveFirstRun(
 ) {
   const theme = values.theme ?? "system";
   if (isOwnerKind(kind)) {
-    const result = await saveOwnerOnboardingSettings(
-      ownerSettings(values, initial),
+    await read(
+      api.api.auth.onboarding.settings.$post({
+        json: ownerSettings(values, initial),
+      }),
     );
-    if (result?.error) throw new Error(result.error);
   }
-  await post("/api/user/preferences", {
-    theme,
-    timeZone: values.zone,
-    displayName: values.name.trim() || null,
-    ...(isOwnerKind(kind)
-      ? { showUpdateNotifications: values.versions !== "never" }
-      : {}),
-  });
+  await read(
+    api.api.user.preferences.$post({
+      json: {
+        theme,
+        timeZone: values.zone,
+        displayName: values.name.trim() || null,
+        ...(isOwnerKind(kind)
+          ? { showUpdateNotifications: values.versions !== "never" }
+          : {}),
+      },
+    }),
+  );
   applyTheme(theme);
   const first = values.name.trim().split(/\s+/)[0];
   // A new account opens on the default start page.
@@ -570,18 +560,19 @@ export function FirstRun({
       throw new Error("Give your drive a name.");
     }
     if (step === "account") {
-      await post("/api/auth/setup", {
-        instanceName: drive.trim(),
-        email,
-        password,
-      });
+      await read(
+        api.api.auth.setup.$post({
+          json: { instanceName: drive.trim(), email, password },
+        }),
+      );
       setFloor(index + 1);
     }
     if (step === "password") {
-      await post("/api/auth/password-change-required", {
-        password: newPassword,
-        confirmPassword: newPassword,
-      });
+      await read(
+        api.api.auth["password-change-required"].$post({
+          json: { password: newPassword, confirmPassword: newPassword },
+        }),
+      );
       setFloor(index + 1);
     }
   };
@@ -589,7 +580,7 @@ export function FirstRun({
   const complete = () =>
     kind === "password"
       ? // Only the password changed; everything else is already set.
-        window.location.assign("/api/auth/rehydrate")
+        window.location.assign("/")
       : saveFirstRun(kind, { ...choice, theme, zone, name }, initialPreviews);
 
   const advance = async () => {

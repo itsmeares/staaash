@@ -1,4 +1,3 @@
-"use client";
 
 import { CheckIcon, ChevronDownIcon, SearchIcon } from "lucide-react";
 import {

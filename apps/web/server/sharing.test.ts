@@ -1,27 +1,40 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
 import { renderToReadableStream } from "react-dom/server";
-import { describe, expect, it, vi } from "vite-plus/test";
-
-vi.mock("@/server/auth/service", () => ({
-  authService: {
-    getSetupState: vi.fn().mockResolvedValue({ instanceName: "Staaash" }),
-  },
-}));
+import { describe, expect, it } from "vite-plus/test";
 
 async function renderMarkup(element: React.ReactElement): Promise<string> {
   const stream = await renderToReadableStream(
-    createElement(TimeProvider, {
-      autoDetect: false,
-      children: element,
-      serverNow: Date.now(),
-      timeZone: "UTC",
+    createElement(QueryClientProvider, {
+      client: new QueryClient(),
+      children: createElement(TimeProvider, { timeZone: "UTC", children: element }),
     }),
   );
   await stream.allReady;
   return new Response(stream).text();
 }
 
-import { ShareView } from "@/app/s/share-view";
+/** The share page as the browser gets it: JSON data and the server's inline decision. */
+const shareElement = ({
+  filePreview = null,
+  resolution,
+  token,
+}: {
+  filePreview?: PublicShareFilePreview | null;
+  resolution: PublicShareResolution;
+  searchParams?: unknown;
+  token: string;
+}) =>
+  createElement(ShareView, {
+    folderSizeBytes: 0,
+    nativeInline:
+      resolution.kind === "file" &&
+      isPublicShareFileNativeViewSafe(resolution.file, filePreview),
+    resolution: plain(toPublicShareView(resolution)),
+    token,
+  });
+
+import { ShareView } from "@/src/share/share-view";
 import { TimeProvider } from "@/components/time-provider";
 import {
   canBrowseSharedFolder,
@@ -31,7 +44,13 @@ import {
   getSharedTreeExposureMode,
   getSharingBoundary,
 } from "@/server/sharing";
-import type { PublicShareResolution } from "@/server/sharing/types";
+import type {
+  PublicShareFilePreview,
+  PublicShareResolution,
+} from "@/server/sharing/types";
+import { plain } from "@/lib/plain";
+import { toPublicShareView } from "@/server/sharing/public-view";
+import { isPublicShareFileNativeViewSafe } from "@/server/media/public-share-content-policy";
 
 const fixedNow = new Date("2026-04-01T12:00:00.000Z");
 
@@ -208,7 +227,7 @@ describe("folder public link behavior", () => {
 
   it("hides locked file metadata before unlock", async () => {
     const markup = await renderMarkup(
-      createElement(ShareView, {
+      shareElement({
         resolution: lockedFileResolution,
         searchParams: {},
         token: "token",
@@ -222,7 +241,7 @@ describe("folder public link behavior", () => {
 
   it("hides locked folder metadata before unlock", async () => {
     const markup = await renderMarkup(
-      createElement(ShareView, {
+      shareElement({
         resolution: lockedFolderResolution,
         searchParams: {},
         token: "token",
@@ -255,7 +274,7 @@ describe("folder public link behavior", () => {
     };
 
     const markup = await renderMarkup(
-      createElement(ShareView, {
+      shareElement({
         resolution,
         searchParams: {},
         token: "token",
@@ -287,7 +306,7 @@ describe("folder public link behavior", () => {
     };
 
     const markup = await renderMarkup(
-      createElement(ShareView, {
+      shareElement({
         resolution,
         searchParams: {},
         token: "token",
@@ -318,7 +337,7 @@ describe("folder public link behavior", () => {
     };
 
     const markup = await renderMarkup(
-      createElement(ShareView, {
+      shareElement({
         resolution,
         searchParams: {},
         token: "token",
@@ -349,7 +368,7 @@ describe("folder public link behavior", () => {
     };
 
     const markup = await renderMarkup(
-      createElement(ShareView, {
+      shareElement({
         resolution,
         searchParams: {},
         token: "token",
@@ -382,7 +401,7 @@ describe("folder public link behavior", () => {
     };
 
     const markup = await renderMarkup(
-      createElement(ShareView, {
+      shareElement({
         resolution,
         searchParams: {},
         token: "token",
@@ -401,7 +420,7 @@ describe("folder public link behavior", () => {
     });
 
     const markup = await renderMarkup(
-      createElement(ShareView, {
+      shareElement({
         filePreview: { safeInlineMimeType: "video/mp4" },
         resolution,
         searchParams: {},
@@ -416,7 +435,7 @@ describe("folder public link behavior", () => {
 
   it("does not native-embed a non-allowlisted video without a ready preview", async () => {
     const markup = await renderMarkup(
-      createElement(ShareView, {
+      shareElement({
         filePreview: null,
         resolution: makeUnlockedFileResolution({
           mimeType: "video/quicktime",
@@ -433,7 +452,7 @@ describe("folder public link behavior", () => {
 
   it("does not native-embed an unsafe ready preview over a safe original", async () => {
     const markup = await renderMarkup(
-      createElement(ShareView, {
+      shareElement({
         filePreview: { safeInlineMimeType: null },
         resolution: makeUnlockedFileResolution({
           mimeType: "video/mp4",
@@ -450,7 +469,7 @@ describe("folder public link behavior", () => {
 
   it("keeps an allowlisted original MP4 native-inline", async () => {
     const markup = await renderMarkup(
-      createElement(ShareView, {
+      shareElement({
         resolution: makeUnlockedFileResolution({
           mimeType: "video/mp4",
           name: "source.mp4",
@@ -473,7 +492,7 @@ describe("folder public link behavior", () => {
     "preserves native public rendering for %s",
     async (mimeType, name, viewerKind, expectedMarkup) => {
       const markup = await renderMarkup(
-        createElement(ShareView, {
+        shareElement({
           resolution: makeUnlockedFileResolution({
             mimeType,
             name,
@@ -490,7 +509,7 @@ describe("folder public link behavior", () => {
 
   it("keeps an unknown file out of all native viewers", async () => {
     const markup = await renderMarkup(
-      createElement(ShareView, {
+      shareElement({
         resolution: makeUnlockedFileResolution({
           mimeType: "application/x-unknown",
           name: "unknown.bin",

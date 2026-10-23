@@ -34,3 +34,6 @@ peerDependencyRules:
   allowedVersions:
     vite: "*"
     vitest: "*"
+minimumReleaseAgeExclude:
+  - "@tanstack/react-virtual@3.14.22"
+  - "@tanstack/virtual-core@3.19.7"

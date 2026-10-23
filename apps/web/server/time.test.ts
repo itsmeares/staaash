@@ -1,8 +1,8 @@
-import { createElement, Fragment } from "react";
+import { createElement } from "react";
 import { renderToString } from "react-dom/server";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
-import { DateTime, TimeProvider, useTime } from "@/components/time-provider";
+import { DateTime, TimeProvider } from "@/components/time-provider";
 import { TimeZonePicker } from "@/components/time-zone-picker";
 import {
   formatDateTime,
@@ -153,39 +153,20 @@ describe("zoned formatting", () => {
   });
 });
 
-function Relative() {
-  const { now, timeZone } = useTime();
-  return formatRelativeTime("2026-07-01T11:55:00.000Z", now, timeZone);
-}
 
 describe("TimeProvider render", () => {
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  // Hydration only works if the first render ignores the runtime clock and
-  // zone. Render with a system clock far from serverNow and check the output
-  // depends on the props alone.
-  it("renders from serverNow and the given zone only", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2030-01-01T00:00:00.000Z"));
-
+  it("renders in the chosen zone and clock", () => {
     const html = renderToString(
       createElement(TimeProvider, {
-        autoDetect: false,
-        serverNow: Date.parse("2026-07-01T12:00:00.000Z"),
         timeZone: "America/New_York",
-        children: createElement(
-          Fragment,
-          null,
-          createElement(DateTime, { value: "2026-07-01T12:00:00.000Z" }),
-          createElement(Relative),
-        ),
+        clock: "12h",
+        children: createElement(DateTime, {
+          value: "2026-07-01T12:00:00.000Z",
+        }),
       }),
     );
 
-    expect(html).toContain("1 Jul 2026, 08:00");
-    expect(html).toContain("5m ago");
+    expect(html).toContain("1 Jul 2026, 08:00 am");
     expect(html).toContain('dateTime="2026-07-01T12:00:00.000Z"');
   });
 });

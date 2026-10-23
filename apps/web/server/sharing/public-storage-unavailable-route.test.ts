@@ -7,12 +7,6 @@ const mocks = vi.hoisted(() => ({
   resolvePublicShare: vi.fn(),
 }));
 
-vi.mock("next/headers", () => ({
-  cookies: vi.fn(async () => ({
-    get: vi.fn(() => undefined),
-  })),
-}));
-
 vi.mock("@/server/sharing/service", () => ({
   sharingService: {
     getSharedNestedFileContent: mocks.getSharedNestedFileContent,

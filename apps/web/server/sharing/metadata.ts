@@ -1,5 +1,3 @@
-import type { Metadata } from "next";
-
 import { formatBytes } from "@/lib/format-bytes";
 import {
   findReadyDerivative,
@@ -13,6 +11,79 @@ import { sharingService } from "./service";
 import type { PublicShareContext } from "./types";
 
 const DEFAULT_INSTANCE_NAME = "Staaash";
+
+type OpenGraphMedia = {
+  url: string;
+  alt?: string;
+  type?: string;
+  width?: number;
+  height?: number;
+};
+
+/** What a link preview (chat apps, social sites) reads from a share page. */
+export type Metadata = {
+  title: string;
+  description: string;
+  robots?: { index: false; follow: false };
+  openGraph: {
+    title: string;
+    description: string;
+    siteName: string;
+    type: string;
+    url: string;
+    images?: OpenGraphMedia[];
+    videos?: OpenGraphMedia[];
+  };
+  twitter: {
+    card: string;
+    title: string;
+    description: string;
+    images?: string[];
+  };
+};
+
+const escapeHtml = (value: string | number) =>
+  String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+
+/** The <head> tags for a share page. */
+export const toMetaTags = ({
+  title,
+  description,
+  robots,
+  openGraph,
+  twitter,
+}: Metadata) => {
+  const tag = (attribute: "name" | "property", key: string, value: string | number) =>
+    `<meta ${attribute}="${key}" content="${escapeHtml(value)}" />`;
+  const media = (kind: "image" | "video", items: OpenGraphMedia[] = []) =>
+    items.flatMap(({ url, alt, type, width, height }) => [
+      tag("property", `og:${kind}`, url),
+      ...(alt ? [tag("property", `og:${kind}:alt`, alt)] : []),
+      ...(type ? [tag("property", `og:${kind}:type`, type)] : []),
+      ...(width ? [tag("property", `og:${kind}:width`, width)] : []),
+      ...(height ? [tag("property", `og:${kind}:height`, height)] : []),
+    ]);
+  return [
+    `<title>${escapeHtml(title)}</title>`,
+    tag("name", "description", description),
+    ...(robots ? [tag("name", "robots", "noindex, nofollow")] : []),
+    tag("property", "og:title", openGraph.title),
+    tag("property", "og:description", openGraph.description),
+    tag("property", "og:site_name", openGraph.siteName),
+    tag("property", "og:type", openGraph.type),
+    tag("property", "og:url", openGraph.url),
+    ...media("image", openGraph.images),
+    ...media("video", openGraph.videos),
+    tag("name", "twitter:card", twitter.card),
+    tag("name", "twitter:title", twitter.title),
+    tag("name", "twitter:description", twitter.description),
+    ...(twitter.images ?? []).map((url) => tag("name", "twitter:image", url)),
+  ].join("\n    ");
+};
 const PLAYABLE_VIDEO_TYPES = new Set(["video/mp4", "video/webm"]);
 const DEFAULT_VIDEO_EMBED_DIMENSIONS = {
   width: 1280,

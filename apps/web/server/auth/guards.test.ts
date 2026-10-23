@@ -1,105 +1,41 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
-const getCurrentSession = vi.fn();
 const getSession = vi.fn();
-const redirect = vi.fn((path: string) => {
-  throw new Error(`redirect:${path}`);
-});
-
-vi.mock("@/server/auth/session", () => ({
-  getCurrentSession,
-  getSessionTokenFromCookieStore: (cookieStore: {
-    get(name: string): { value: string } | undefined;
-  }) => cookieStore.get("staaash_session")?.value ?? null,
-}));
 
 vi.mock("@/server/auth/service", () => ({
-  authService: {
-    getSession,
-  },
+  authService: { getSession },
 }));
 
-vi.mock("next/navigation", () => ({
-  redirect,
-}));
+const { getRequestSession } = await import("@/server/auth/guards");
 
-const completedSession = {
-  user: {
-    preferences: {
-      onboardingCompletedAt: new Date("2026-05-30T00:00:00.000Z"),
-    },
-  },
-};
-
-const pendingSession = {
-  user: {
-    preferences: null,
-  },
-};
-
-const ownerPendingSession = {
-  user: {
-    isOwner: true,
-    role: "owner",
-    passwordChangeRequiredAt: null,
-    preferences: null,
-  },
-};
-
-describe("auth guards", () => {
-  it("redirects signed-out page callers to the requested sign-in path", async () => {
-    getCurrentSession.mockResolvedValueOnce(null);
-    const { requireSignedInPageSession } = await import("@/server/auth/guards");
-
-    await expect(requireSignedInPageSession("/?next=/files")).rejects.toThrow(
-      "redirect:/?next=/files",
-    );
-    expect(redirect).toHaveBeenCalledWith("/?next=/files");
-  });
-
-  it("redirects signed-in page callers without completed onboarding to root", async () => {
-    getCurrentSession.mockResolvedValueOnce(pendingSession);
-    const { requireSignedInPageSession } = await import("@/server/auth/guards");
-
-    await expect(requireSignedInPageSession("/?next=/files")).rejects.toThrow(
-      "redirect:/",
-    );
-    expect(redirect).toHaveBeenCalledWith("/");
-  });
-
-  it("returns signed-in page sessions after onboarding is complete", async () => {
-    getCurrentSession.mockResolvedValueOnce(completedSession);
-    const { requireSignedInPageSession } = await import("@/server/auth/guards");
-
-    await expect(requireSignedInPageSession("/?next=/files")).resolves.toBe(
-      completedSession,
-    );
-  });
-
-  it("allows the owner to save settings during onboarding", async () => {
-    getCurrentSession.mockResolvedValueOnce(ownerPendingSession);
-    const { requireOwnerOnboardingSession } =
-      await import("@/server/auth/guards");
-
-    await expect(requireOwnerOnboardingSession()).resolves.toBe(
-      ownerPendingSession,
-    );
-  });
-
-  it("hides protected API sessions without completed onboarding", async () => {
-    getSession.mockResolvedValueOnce(pendingSession);
-    const { getRequestSession } = await import("@/server/auth/guards");
+describe("getRequestSession", () => {
+  it("hides sessions that have not finished onboarding", async () => {
+    getSession.mockResolvedValueOnce({ user: { preferences: null } });
 
     await expect(getRequestSession("session-token")).resolves.toBe(null);
     expect(getSession).toHaveBeenCalledWith("session-token");
   });
 
-  it("returns protected API sessions after onboarding is complete", async () => {
-    getSession.mockResolvedValueOnce(completedSession);
-    const { getRequestSession } = await import("@/server/auth/guards");
+  it("hides sessions that still owe a new password", async () => {
+    getSession.mockResolvedValueOnce({
+      user: {
+        passwordChangeRequiredAt: new Date("2026-05-30T00:00:00.000Z"),
+        preferences: { onboardingCompletedAt: new Date("2026-05-30") },
+      },
+    });
 
-    await expect(getRequestSession("session-token")).resolves.toBe(
-      completedSession,
-    );
+    await expect(getRequestSession("session-token")).resolves.toBe(null);
+  });
+
+  it("returns onboarded sessions", async () => {
+    const session = {
+      user: {
+        passwordChangeRequiredAt: null,
+        preferences: { onboardingCompletedAt: new Date("2026-05-30") },
+      },
+    };
+    getSession.mockResolvedValueOnce(session);
+
+    await expect(getRequestSession("session-token")).resolves.toBe(session);
   });
 });

@@ -1,6 +1,3 @@
-import { cookies } from "next/headers";
-
-import { authService } from "@/server/auth/service";
 import {
   type CookieRequestContext,
   resolveSecureCookie,
@@ -48,12 +45,3 @@ export const buildThemeCookie = (
   // Browsers cap cookies at 400 days.
   maxAge: 60 * 60 * 24 * 400,
 });
-
-export const getSessionTokenFromCookieStore = (cookieStore: {
-  get(name: string): { value: string } | undefined;
-}) => cookieStore.get(SESSION_COOKIE_NAME)?.value ?? null;
-
-export const getCurrentSession = async () => {
-  const cookieStore = await cookies();
-  return authService.getSession(getSessionTokenFromCookieStore(cookieStore));
-};

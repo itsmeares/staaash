@@ -16,7 +16,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-import type { DashboardContextMenuGroup } from "@/app/dashboard-context-menu";
+import type { DashboardContextMenuGroup } from "@/src/dashboard-context-menu";
 import { FOLDER_SWATCHES, folderColorStyle } from "@/lib/folder-color";
 import { copyText } from "@/lib/clipboard";
 

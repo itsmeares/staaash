@@ -5,15 +5,10 @@
       "@/*": ["./*"],
       "@staaash/db/*": ["../../packages/db/src/*"]
     },
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
+    "types": ["vite-plus/client", "node"],
     "allowJs": false,
-    "incremental": true,
-    "jsx": "preserve"
+    "jsx": "react-jsx"
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules"]
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules", "dist"]
 }

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Staaash</title>
+    <meta
+      name="description"
+      content="A self-hosted personal cloud drive with a calm web surface, deliberate sharing, and owned storage boundaries."
+    />
+    <!--share-meta-->
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-64.png" sizes="64x64" type="image/png" />
+    <link rel="apple-touch-icon" href="/apple-icon.png" />
+    <script>
+      // Before paint: the saved theme, or the system's when none is saved.
+      (function () {
+        try {
+          var d = document.documentElement;
+          var m = document.cookie.match(/(?:^|; )staaash_theme=(dark|light)/);
+          var theme = m ? m[1] : "system";
+          d.dataset.theme = theme;
+          d.classList.add(
+            theme === "system"
+              ? matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light"
+              : theme,
+          );
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

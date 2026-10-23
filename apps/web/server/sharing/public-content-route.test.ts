@@ -36,10 +36,6 @@ vi.mock("@/server/storage-read-guard", async (importOriginal) => ({
   },
 }));
 
-vi.mock("next/headers", () => ({
-  cookies: vi.fn(async () => ({ get: mocks.cookieGet })),
-}));
-
 vi.mock("@/server/sharing/service", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/server/sharing/service")>()),
   sharingService: {

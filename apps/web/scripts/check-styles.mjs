@@ -1,4 +1,4 @@
-// Keeps global CSS small: app/globals.css only imports, shared styles stay
+// Keeps global CSS small: src/globals.css only imports, shared styles stay
 // under a line budget, and nothing uses !important. Also keeps text readable:
 // faded text depends on the surface behind it, so text uses foreground (80%
 // or more) or muted-foreground, which server/text-contrast.test.ts checks
@@ -27,12 +27,12 @@ const walk = (dir) =>
     return statSync(full).isDirectory() ? walk(full) : [full];
   });
 
-const globals = readFileSync(path.join(root, "app/globals.css"), "utf8");
+const globals = readFileSync(path.join(root, "src/globals.css"), "utf8");
 for (const line of globals.split("\n")) {
   const trimmed = line.trim();
   if (trimmed && !trimmed.startsWith("@import ")) {
     problems.push(
-      `app/globals.css may only contain @import lines: "${trimmed}"`,
+      `src/globals.css may only contain @import lines: "${trimmed}"`,
     );
   }
 }
@@ -54,7 +54,7 @@ if (styleLines > STYLES_LINE_BUDGET) {
 }
 
 for (const file of [
-  ...walk(path.join(root, "app")),
+  ...walk(path.join(root, "src")),
   ...walk(path.join(root, "components")),
   ...walk(path.join(ui, "src")),
   ...walk(stylesDir),
@@ -63,7 +63,7 @@ for (const file of [
   if (
     file.endsWith(".css") &&
     !file.startsWith(stylesDir) &&
-    rel !== "app/globals.css" &&
+    rel !== "src/globals.css" &&
     !file.endsWith(".module.css")
   ) {
     problems.push(

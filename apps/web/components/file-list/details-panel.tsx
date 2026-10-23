@@ -1,4 +1,3 @@
-"use client";
 
 import {
   Archive,
@@ -18,7 +17,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-import { useMediaQuery } from "@/app/(workspace)/use-media-query";
+import { useMediaQuery } from "@/src/workspace/use-media-query";
 import { Button } from "@staaash/ui/components/button";
 import {
   Drawer,

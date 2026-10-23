@@ -1,4 +1,3 @@
-"use client";
 
 import { VirtualSection } from "./virtual-rows";
 import { ListLoadingRow, type ListLoading } from "./list-loading";
@@ -16,7 +15,7 @@ import {
   DashboardItemContextMenu,
   DashboardMenuItems,
   type DashboardContextMenuGroup,
-} from "@/app/dashboard-context-menu";
+} from "@/src/dashboard-context-menu";
 import { ItemTypeIcon } from "@staaash/ui/item-type-icon";
 import { folderColorStyle } from "@/lib/folder-color";
 import { getItemVisual } from "@staaash/ui/item-visuals";

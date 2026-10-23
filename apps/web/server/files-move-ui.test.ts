@@ -7,7 +7,7 @@ import {
   getRetryableMoveItems,
   getStorageMutationItemIds,
   reconcileCutItems,
-} from "@/app/(workspace)/files/files-move";
+} from "@/src/workspace/files/files-move";
 
 const allItems = [
   { id: "folder-1", kind: "folder" as const },

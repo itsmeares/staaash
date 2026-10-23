@@ -16,7 +16,7 @@ const explicitTargets = [
   "coverage",
   "playwright-report",
   "test-results",
-  "apps/web/.next",
+  "apps/web/dist",
   "apps/web/.tmp",
   "apps/web/coverage",
   "apps/web/playwright-report",
@@ -32,7 +32,6 @@ const explicitTargets = [
 const skippedDirectoryNames = new Set([
   ".data",
   ".git",
-  ".next",
   "node_modules",
 ]);
 

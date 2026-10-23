@@ -33,7 +33,7 @@ describe("browser code", () => {
   // crypto.randomUUID is undefined on plain-HTTP origins other than localhost,
   // so anything that runs in the browser has to use randomClientId instead.
   it("never calls crypto.randomUUID", () => {
-    const offenders = ["app", "components", "lib"]
+    const offenders = ["src", "components", "lib"]
       .flatMap((dir) => sourceFiles(path.join(webRoot, dir)))
       .filter((file) => !file.includes(`${path.sep}api${path.sep}`))
       .filter((file) => !file.endsWith(`${path.sep}client-id.ts`))

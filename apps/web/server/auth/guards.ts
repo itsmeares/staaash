@@ -1,10 +1,3 @@
-import { redirect } from "next/navigation";
-
-import { canAccessAdminSurface } from "@/server/access";
-import {
-  getCurrentSession,
-  getSessionTokenFromCookieStore,
-} from "@/server/auth/session";
 import { authService } from "@/server/auth/service";
 import type { AuthSession, UserPreferences } from "@/server/auth/types";
 
@@ -20,57 +13,7 @@ const hasCompletedOnboarding = (
     !session.user.passwordChangeRequiredAt,
   );
 
-export const requireSignedInPageSession = async (redirectTo = "/") => {
-  const session = await getCurrentSession();
-
-  if (!session) {
-    redirect(redirectTo);
-  }
-
-  if (!hasCompletedOnboarding(session)) {
-    redirect("/");
-  }
-
-  return session;
-};
-
-export const requireAdminPageSession = async () => {
-  const session = await requireSignedInPageSession("/?next=/admin");
-
-  if (!canAccessAdminSurface(session.user.role)) {
-    redirect(
-      `/settings?error=${encodeURIComponent("Only owners can open the admin pages.")}`,
-    );
-  }
-
-  return session;
-};
-
-export const requireOwnerPageSession = async () => {
-  const session = await requireAdminPageSession();
-
-  if (!session.user.isOwner) {
-    redirect("/admin?error=owner");
-  }
-
-  return session;
-};
-
-export const requireOwnerOnboardingSession = async () => {
-  const session = await getCurrentSession();
-
-  if (
-    !session ||
-    session.user.passwordChangeRequiredAt ||
-    !session.user.isOwner ||
-    !canAccessAdminSurface(session.user.role)
-  ) {
-    redirect("/");
-  }
-
-  return session;
-};
-
+/** The session for API calls: signed in, onboarded, and not owing a new password. */
 export const getRequestSession = async (token: string | null) => {
   const session = await authService.getSession(token);
 

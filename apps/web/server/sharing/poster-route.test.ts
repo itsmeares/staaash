@@ -42,12 +42,6 @@ vi.mock("@/server/storage-read-guard", () => ({
     ),
 }));
 
-vi.mock("next/headers", () => ({
-  cookies: vi.fn(async () => ({
-    get: mocks.cookieGet,
-  })),
-}));
-
 vi.mock("@staaash/db/media-derivatives", () => ({
   findReadyPosterDerivative: mocks.findReadyPosterDerivative,
 }));

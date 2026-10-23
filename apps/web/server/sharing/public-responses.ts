@@ -1,3 +1,5 @@
+import type { Readable } from "node:stream";
+
 import {
   DERIVATIVE_KIND_THUMBNAIL,
   DERIVATIVE_PROFILE_THUMB,
@@ -5,6 +7,7 @@ import {
   findReadyPosterDerivative,
 } from "@staaash/db/media-derivatives";
 
+import { nodeBodyStream } from "@/server/downloads/body-stream";
 import { getStoragePath } from "@/server/storage";
 import {
   createMediaErrorResponse,
@@ -52,14 +55,11 @@ export const createFileDownloadResponse = async (
   return response;
 };
 
-export const createArchiveResponse = ({
-  fileName,
-  stream,
-}: {
-  fileName: string;
-  stream: ReadableStream;
-}) =>
-  new Response(stream, {
+export const createArchiveResponse = (
+  { fileName, stream }: { fileName: string; stream: Readable },
+  signal: AbortSignal,
+) =>
+  new Response(nodeBodyStream(stream, signal), {
     headers: {
       "content-disposition": buildAttachmentDisposition(fileName),
       "content-type": "application/zip",

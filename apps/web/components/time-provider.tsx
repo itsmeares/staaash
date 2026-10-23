@@ -1,10 +1,8 @@
-"use client";
-
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 import {
-  TIME_ZONE_COOKIE_NAME,
   getBrowserTimeZone,
+  isValidTimeZone,
 } from "@staaash/config/time-zone";
 
 import { formatDateTime, formatDayMonth } from "@/lib/time";
@@ -15,42 +13,25 @@ const TimeContext = createContext<TimeContextValue | null>(null);
 
 const TICK_MS = 30_000;
 
-// The first client render must reuse the server's zone and clock, or React
-// throws #418. After hydration the clock ticks and, when the user's zone is
-// automatic, switches to the browser zone and remembers it for the next
-// server render.
+/** Dates in the person's chosen zone, or the browser's when they chose automatic. */
 export function TimeProvider({
-  autoDetect,
   children,
-  serverNow,
-  timeZone: serverTimeZone,
+  timeZone: preference,
   clock = "24h",
 }: {
+  children: React.ReactNode;
   /** "12h" or "24h", from Settings → Date and time. */
   clock?: string;
-  autoDetect: boolean;
-  children: React.ReactNode;
-  serverNow: number;
-  timeZone: string;
+  /** The saved zone; anything that is not a zone name means automatic. */
+  timeZone?: string | null;
 }) {
-  const [nowMs, setNowMs] = useState(serverNow);
-  const [timeZone, setTimeZone] = useState(serverTimeZone);
+  const [nowMs, setNowMs] = useState(Date.now);
+  const timeZone =
+    preference && isValidTimeZone(preference)
+      ? preference
+      : getBrowserTimeZone();
 
   useEffect(() => {
-    if (!autoDetect) {
-      setTimeZone(serverTimeZone);
-      return;
-    }
-    const browserTimeZone = getBrowserTimeZone();
-    // IANA names are cookie-safe, no encoding needed.
-    document.cookie = `${TIME_ZONE_COOKIE_NAME}=${browserTimeZone}; path=/; max-age=31536000; samesite=lax${
-      location.protocol === "https:" ? "; secure" : ""
-    }`;
-    setTimeZone(browserTimeZone);
-  }, [autoDetect, serverTimeZone]);
-
-  useEffect(() => {
-    setNowMs(Date.now());
     const id = setInterval(() => setNowMs(Date.now()), TICK_MS);
     return () => clearInterval(id);
   }, []);
@@ -69,7 +50,6 @@ export function useTime(): TimeContextValue {
   return value;
 }
 
-// Absolute date and time in the viewer's zone. Usable from server components.
 /** "17 Oct" in the viewer's zone. */
 export function DayMonth({ value }: { value: Date | string }) {
   const { timeZone } = useTime();

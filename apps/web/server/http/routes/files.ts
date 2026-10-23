@@ -533,6 +533,9 @@ const findOwnFile = async (actor: FilesActor, fileId: string) => {
   return file;
 };
 
+const text = (value: FormDataEntryValue | null) =>
+  typeof value === "string" ? value : null;
+
 const FOLDER_ACCESS_BATCH_SIZE = 8;
 
 const trackEnsuredFolderAccess = async (
@@ -993,9 +996,9 @@ export const filesRoutes = router()
       .filter((value): value is File => value instanceof File);
     const result = await filesService.uploadFiles({
       ...actor,
-      folderId: formData.get("folderId")?.toString() ?? null,
+      folderId: text(formData.get("folderId")),
       items: pairUploadRequestItems(
-        parseUploadManifest(formData.get("manifest")?.toString() ?? null),
+        parseUploadManifest(text(formData.get("manifest"))),
         files,
       ),
       signal: c.req.raw.signal,

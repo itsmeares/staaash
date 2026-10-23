@@ -27,8 +27,6 @@ import {
   setDerivativePinned,
 } from "@/server/admin/media-derivatives";
 import {
-  ownerOnboardingSettingsSchema,
-  saveOwnerOnboardingSettings,
   saveSystemSettings,
 } from "@/server/admin/settings";
 import {
@@ -51,16 +49,15 @@ import {
   requireOwner,
   requireUser,
   router,
-  type AppEnv,
 } from "@/server/http/core";
 import { getBaseUrl } from "@/server/request";
-import type { Context } from "hono";
+import { validator } from "hono/validator";
 
 // Owner-only routes for the bundled web UI. They are not part of the public
 // API contract, so they stay out of openapi.json.
 
-const parseJson = async <T extends z.ZodType>(c: Context<AppEnv>, schema: T) =>
-  schema.parse(await c.req.json().catch(() => null)) as z.output<T>;
+const json = <T extends z.ZodType>(schema: T) =>
+  validator("json", (value) => schema.parse(value) as z.output<T>);
 
 const jobFailure = (fallback: string) => (error: unknown) => {
   throw httpError(
@@ -104,6 +101,10 @@ const PasswordResetBody = z.object({
   generateTemporaryPassword: z.boolean().default(true),
   requirePasswordChange: z.boolean().default(true),
 });
+
+const RunJobBody = z.object({ kind: z.enum(ALL_SUPPORTED_JOB_KINDS) });
+
+const StorageLimitBody = z.object({ limitBytes: DecimalBytes });
 
 const userView = <User extends { storageLimitBytes: bigint | null }>(
   user: User,
@@ -162,11 +163,8 @@ export const adminRoutes = admin
   .get("/jobs/summary", async (c) =>
     c.json(toJsonAdminJobSummary(await getAdminJobSummary())),
   )
-  .post("/jobs/run", async (c) => {
-    const { kind } = await parseJson(
-      c,
-      z.object({ kind: z.enum(ALL_SUPPORTED_JOB_KINDS) }),
-    );
+  .post("/jobs/run", json(RunJobBody), async (c) => {
+    const { kind } = c.req.valid("json");
     const enqueue = {
       "staging.cleanup": () => enqueueAdminStagingCleanup(),
       "trash.retention": () => enqueueAdminTrashRetention(),
@@ -243,24 +241,16 @@ export const adminRoutes = admin
       jobId: result.job.id,
     });
   })
-  .put("/settings", async (c) => {
-    const result = await saveSystemSettings(
-      await parseJson(c, z.record(z.string(), z.string())),
-    );
+  .put("/settings", json(z.record(z.string(), z.string())), async (c) => {
+    const result = await saveSystemSettings(c.req.valid("json"));
     return c.json(result, result.fieldErrors ? 400 : 200);
-  })
-  .post("/settings/onboarding", async (c) => {
-    await saveOwnerOnboardingSettings(
-      await parseJson(c, ownerOnboardingSettingsSchema),
-    );
-    return c.json({ ok: true as const });
   })
   .post("/derivatives/files/:fileId/regenerate", async (c) => {
     await regenerateDerivative(c.req.param("fileId"));
     return c.json({ ok: true as const });
   })
-  .post("/derivatives/:id/pin", async (c) => {
-    const { pinned } = await parseJson(c, z.object({ pinned: z.boolean() }));
+  .post("/derivatives/:id/pin", json(z.object({ pinned: z.boolean() })), async (c) => {
+    const { pinned } = c.req.valid("json");
     await setDerivativePinned(c.req.param("id"), pinned);
     return c.json({ ok: true as const });
   })
@@ -272,10 +262,10 @@ export const adminRoutes = admin
     await removeDerivative(c.req.param("id"));
     return c.json({ ok: true as const });
   })
-  .post("/users", async (c) => {
+  .post("/users", json(CreateUserBody), async (c) => {
     const result = await authService.createUser(
       c.var.session.user.id,
-      await parseJson(c, CreateUserBody),
+      c.req.valid("json"),
     );
     return c.json(
       {
@@ -285,18 +275,16 @@ export const adminRoutes = admin
       201,
     );
   })
-  .patch("/users/:userId", async (c) => {
+  .patch("/users/:userId", json(UpdateUserBody), async (c) => {
     const user = await authService.updateUser(
       c.var.session.user.id,
       c.req.param("userId"),
-      adminUpdateUserInputSchema.parse(await parseJson(c, UpdateUserBody)),
+      adminUpdateUserInputSchema.parse(c.req.valid("json")),
     );
     return c.json({ user: userView(user) });
   })
-  .post("/users/:userId/password-reset", async (c) => {
-    const body = c.req.header("content-type")?.includes("application/json")
-      ? await parseJson(c, PasswordResetBody)
-      : PasswordResetBody.parse({});
+  .post("/users/:userId/password-reset", json(PasswordResetBody), async (c) => {
+    const body = c.req.valid("json");
     const result = await authService.resetTemporaryPassword(
       c.var.session.user.id,
       c.req.param("userId"),
@@ -317,11 +305,8 @@ export const adminRoutes = admin
     );
     return c.json({ ok: true as const });
   })
-  .patch("/users/:userId/storage-limit", async (c) => {
-    const { limitBytes } = await parseJson(
-      c,
-      z.object({ limitBytes: DecimalBytes }),
-    );
+  .patch("/users/:userId/storage-limit", json(StorageLimitBody), async (c) => {
+    const { limitBytes } = c.req.valid("json");
     const user = await authService.setStorageLimit(
       c.var.session.user.id,
       c.req.param("userId"),

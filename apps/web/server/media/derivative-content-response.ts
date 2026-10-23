@@ -118,6 +118,7 @@ const serveDerivativeBytes = async (
       sizeBytes,
       baseHeaders,
       rangeHeader ? parseRange(rangeHeader) : undefined,
+      request.signal,
     );
   } catch (error) {
     try {

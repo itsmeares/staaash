@@ -1,4 +1,3 @@
-"use client";
 
 import { ChevronDown } from "lucide-react";
 import { useState, type PointerEvent } from "react";

@@ -185,7 +185,7 @@ replaced. Remove dead code and report what was checked and what was not.
   stays simple.
 - `packages/ui` components own their look. Pick a `variant` or `size`
   instead of restyling with `className`.
-- `app/globals.css` only imports. Nothing uses `!important`, and text uses
+- `src/globals.css` only imports. Nothing uses `!important`, and text uses
   `foreground` at 80% or more, or `muted-foreground`. `check-styles.mjs`
   enforces this.
 - Inferred types over annotations. No `any`.

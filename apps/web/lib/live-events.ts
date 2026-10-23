@@ -1,4 +1,3 @@
-"use client";
 
 import type { UpdateState } from "@/lib/update-status";
 

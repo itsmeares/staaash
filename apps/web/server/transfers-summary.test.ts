@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { summarize } from "@/app/(workspace)/transfers";
-import type { UploadingFile } from "@/app/(workspace)/transfer-context";
+import { summarize } from "@/src/workspace/transfers";
+import type { UploadingFile } from "@/src/workspace/transfer-context";
 
 const upload = (
   status: UploadingFile["status"],

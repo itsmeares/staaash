@@ -1,6 +1,6 @@
 import { createRoute, z } from "@hono/zod-openapi";
 
-import { getWorkspaceLocationLabel } from "@/app/(workspace)/workspace-item-helpers";
+import { getWorkspaceLocationLabel } from "@/src/workspace/workspace-item-helpers";
 import { errorResponses, requireUser, router } from "@/server/http/core";
 import { json } from "@/server/http/schemas";
 import { getQuickResults } from "@/server/retrieval/quick";

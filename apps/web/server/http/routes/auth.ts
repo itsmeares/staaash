@@ -1,6 +1,13 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { AUTO_TIME_ZONE, isValidTimeZone } from "@staaash/config/time-zone";
 
+import { validator } from "hono/validator";
+
+import { canAccessAdminSurface } from "@/server/access";
+import {
+  ownerOnboardingSettingsSchema,
+  saveOwnerOnboardingSettings,
+} from "@/server/admin/settings";
 import { AuthError } from "@/server/auth/errors";
 import { authService } from "@/server/auth/service";
 import {
@@ -260,4 +267,22 @@ export const authRoutes = router()
       c.req.valid("json").sessionId,
     );
     return c.json({ ok: true as const }, 200);
-  });
+  })
+  // The owner's first-run choices, saved before onboarding is finished. Not
+  // part of the public contract.
+  .post(
+    "/api/auth/onboarding/settings",
+    validator("json", (value) => ownerOnboardingSettingsSchema.parse(value)),
+    async (c) => {
+      const session = await anySession(sessionToken(c));
+      if (
+        session.user.passwordChangeRequiredAt ||
+        !session.user.isOwner ||
+        !canAccessAdminSurface(session.user.role)
+      ) {
+        throw new AuthError("ACCESS_DENIED");
+      }
+      await saveOwnerOnboardingSettings(c.req.valid("json"));
+      return c.json({ ok: true as const });
+    },
+  );

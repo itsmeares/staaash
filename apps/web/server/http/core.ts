@@ -243,6 +243,9 @@ export const applyCookie = (
 export const createApp = () => {
   const app = router();
   app.onError(onError);
+  app.notFound(() =>
+    Response.json({ error: "Not found.", code: "NOT_FOUND" }, { status: 404 }),
+  );
   app.use("/api/*", sameOrigin);
   app.use("/s/*", sameOrigin);
   return app;

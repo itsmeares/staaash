@@ -212,6 +212,7 @@ const routes = router()
         token: c.req.valid("param").token,
         shareAccessCookieValue: accessCookie(c),
       }),
+      c.req.raw.signal,
     ),
   )
   .openapi(poster, (c) =>

@@ -7,7 +7,7 @@ import {
   getWorkspaceItemType,
   getWorkspaceLocationLabel,
   sortWorkspaceItems,
-} from "@/app/(workspace)/workspace-item-helpers";
+} from "@/src/workspace/workspace-item-helpers";
 
 const item = (
   overrides: Partial<{

@@ -111,9 +111,6 @@ const request = (url: string, init?: RequestInit) =>
     },
   });
 
-const httpRequest = (path: string, init?: RequestInit) =>
-  request(`http://46.1.113.7:2113${path}`, init);
-
 const forwardedHttpsRequest = (path: string, init?: RequestInit) =>
   request(`http://staaash:2113${path}`, {
     ...init,
