@@ -29,6 +29,13 @@ function createDatabase() {
 
   const pool = new Pool({ connectionString });
   const uploadPool = new Pool({ connectionString, max: 3 });
+  // An idle connection dies when PostgreSQL restarts. The pool drops it and
+  // opens a new one; without a listener Node would exit instead.
+  for (const each of [pool, uploadPool]) {
+    each.on("error", (error) =>
+      console.warn("[db] Idle PostgreSQL connection closed.", error.message),
+    );
+  }
   const adapter = new PrismaPg(pool, { disposeExternalPool: true });
   return {
     pool,
