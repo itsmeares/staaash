@@ -21,7 +21,10 @@ const parseEnv = (file) =>
       .filter((line) => line && !line.startsWith("#"))
       .map((line) => {
         const separator = line.indexOf("=");
-        return [line.slice(0, separator), line.slice(separator + 1)];
+        return [
+          line.slice(0, separator),
+          line.slice(separator + 1).replace(/^"(.*)"$/u, "$1"),
+        ];
       }),
   );
 
