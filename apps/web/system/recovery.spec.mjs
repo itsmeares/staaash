@@ -193,14 +193,19 @@ test("a worker killed during publication recovers exactly one generated result",
         [file.id],
       ),
     ).toEqual([{ status: "ready" }]);
+    // Finalization runs after the metadata commit that makes the preview ready.
     for (const mutation of mutations)
-      expect(
-        (
-          await sql('SELECT status FROM "StorageMutation" WHERE id=$1', [
-            mutation.id,
-          ])
-        )[0].status,
-      ).toBe("succeeded");
+      await expect
+        .poll(
+          async () =>
+            (
+              await sql('SELECT status FROM "StorageMutation" WHERE id=$1', [
+                mutation.id,
+              ])
+            )[0].status,
+          { timeout: 30_000 },
+        )
+        .toBe("succeeded");
     await downloaded(owner, file.id, bytes);
     await auditTotals();
   } finally {
