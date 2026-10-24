@@ -385,7 +385,7 @@ jobs:
           tags: ${{ env.IMAGE_REPOSITORY }}:${{ env.RELEASE_TAG }}
           labels: |
             org.opencontainers.image.title=staaash
-            org.opencontainers.image.description=Self-hosted personal cloud drive built with Next.js, Prisma, PostgreSQL, and a worker runtime.
+            org.opencontainers.image.description=Self-hosted personal cloud drive built with Vite, Hono, Prisma, PostgreSQL, and a worker runtime.
             org.opencontainers.image.licenses=AGPL-3.0-only
             org.opencontainers.image.url=https://github.com/${{ github.repository }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}

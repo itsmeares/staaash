@@ -38,6 +38,8 @@ export type FileSummary = {
   storageRevision?: number;
   trashEntryId?: string | null;
   storageMutation?: StorageMutationState | null;
+  /** The modified time on the uploader's computer, when it sent one. */
+  clientModifiedAt?: Date | null;
   deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;

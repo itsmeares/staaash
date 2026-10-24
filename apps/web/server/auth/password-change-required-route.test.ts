@@ -1,4 +1,3 @@
-import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 const { changeRequiredPassword, getSession } = vi.hoisted(() => ({
@@ -14,7 +13,7 @@ vi.mock("@/server/auth/service", () => ({
 }));
 
 const request = () =>
-  new NextRequest("http://localhost:3000/api/auth/password-change-required", {
+  new Request("http://localhost:3000/api/auth/password-change-required", {
     method: "POST",
     headers: {
       accept: "application/json",
@@ -41,10 +40,9 @@ describe("required password change route", () => {
     changeRequiredPassword.mockResolvedValueOnce({
       preferences: null,
     });
-    const { POST } =
-      await import("@/app/api/auth/password-change-required/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await POST(request());
+    const response = await app.request(request());
 
     expect(getSession).toHaveBeenCalledWith("session-token");
     expect(changeRequiredPassword).toHaveBeenCalledWith(
@@ -63,10 +61,9 @@ describe("required password change route", () => {
 
   it("rejects a missing authenticated session before changing the password", async () => {
     getSession.mockResolvedValueOnce(null);
-    const { POST } =
-      await import("@/app/api/auth/password-change-required/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await POST(request());
+    const response = await app.request(request());
 
     expect(response.status).toBe(401);
     expect(changeRequiredPassword).not.toHaveBeenCalled();

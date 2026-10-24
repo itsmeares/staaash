@@ -1,14 +1,15 @@
-import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { GET } from "@/app/api/files/move/[mutationId]/route";
+import { app } from "@/server/http/app";
+
 import { getRequestSession } from "@/server/auth/guards";
 
 const mocks = vi.hoisted(() => ({
   findStorageMutation: vi.fn(),
 }));
 
-vi.mock("@staaash/db/storage-mutations", () => ({
+vi.mock("@staaash/db/storage-mutations", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@staaash/db/storage-mutations")>()),
   findStorageMutation: mocks.findStorageMutation,
 }));
 
@@ -17,7 +18,7 @@ vi.mock("@/server/auth/guards", () => ({
 }));
 
 const request = (origin = "http://localhost:3000") =>
-  new NextRequest("http://localhost:3000/api/files/move/move-parent-1", {
+  new Request("http://localhost:3000/api/files/move/move-parent-1", {
     headers: {
       accept: "application/json",
       host: "localhost:3000",
@@ -42,9 +43,7 @@ describe("batch move operation route", () => {
   });
 
   it("returns the current operation status without caching it", async () => {
-    const response = await GET(request(), {
-      params: Promise.resolve({ mutationId: "move-parent-1" }),
-    });
+    const response = await app.request(request());
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
@@ -64,9 +63,7 @@ describe("batch move operation route", () => {
       resultJson: { children: [] },
     });
 
-    const response = await GET(request(), {
-      params: Promise.resolve({ mutationId: "move-parent-1" }),
-    });
+    const response = await app.request(request());
 
     expect(response.status).toBe(404);
   });
@@ -102,9 +99,7 @@ describe("batch move operation route", () => {
       },
     });
 
-    const response = await GET(request(), {
-      params: Promise.resolve({ mutationId: "move-parent-1" }),
-    });
+    const response = await app.request(request());
 
     await expect(response.json()).resolves.toMatchObject({
       operationId: "move-parent-1",

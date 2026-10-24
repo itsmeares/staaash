@@ -65,6 +65,10 @@ jobs:
         run: vp run lint
       - name: Fallow new-code gate
         run: vp run quality:fallow
+      - name: API stays compatible within its major version
+        run: |
+          node --test scripts/ci/openapi-compat.test.mjs
+          node scripts/ci/openapi-compat.mjs
       - name: Fast tests
         env:
           STAAASH_COVERAGE: ${{ github.event_name != 'pull_request' }}

@@ -12,7 +12,6 @@ import {
 
 import { getPostgresPool, getPrisma } from "@staaash/db/client";
 import { UPLOAD_TERMINAL_RETENTION_MS } from "@staaash/db/upload-sessions";
-import { NextRequest } from "next/server";
 import {
   afterAll,
   beforeAll,
@@ -24,8 +23,8 @@ import {
   vi,
 } from "vite-plus/test";
 
-import { PATCH as patchUpload } from "@/app/api/uploads/sessions/[id]/route";
 import { getRequestSession } from "@/server/auth/guards";
+import { app } from "@/server/http/app";
 import { FilesError, ResumableCompletionError } from "@/server/files/errors";
 import {
   createPrismaFilesRepository,
@@ -1340,7 +1339,7 @@ describe("UPL-01 PostgreSQL lifecycle and cleanup", () => {
     vi.mocked(getRequestSession).mockResolvedValue({
       user: { id: user.id, role: "owner" },
     } as Awaited<ReturnType<typeof getRequestSession>>);
-    const request = new NextRequest(
+    const request = new Request(
       `http://localhost:3000/api/uploads/sessions/${session.id}`,
       {
         method: "PATCH",
@@ -1354,9 +1353,7 @@ describe("UPL-01 PostgreSQL lifecycle and cleanup", () => {
         body: Buffer.alloc(5, 2),
       },
     );
-    const response = await patchUpload(request, {
-      params: Promise.resolve({ id: session.id }),
-    });
+    const response = await app.request(request);
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({

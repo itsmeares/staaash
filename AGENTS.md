@@ -1,7 +1,8 @@
 # Staaash
 
-Staaash is a self-hosted personal cloud drive. A Next.js web app and a separate
-worker share one PostgreSQL database and one local storage volume.
+Staaash is a self-hosted personal cloud drive. A web app (a Vite single-page
+app served by a Hono server) and a separate worker share one PostgreSQL
+database and one local storage volume.
 
 ## What Staaash does not compromise on
 
@@ -14,11 +15,15 @@ worker share one PostgreSQL database and one local storage volume.
 
 ## Where code lives
 
-- `apps/web` contains the Next.js app. Routes and UI live in `app/`,
-  request-time logic in `server/`, and shared UI in `components/ui`.
+- `apps/web` contains the web app. Pages live in `src/routes/` (TanStack
+  Router), the HTTP routes in `server/http/`, and request-time logic in
+  `server/`. Public API routes are described in `apps/web/openapi.json`;
+  within a major version they only gain routes and fields.
 - `apps/worker` contains background jobs: cleanup, trash retention, media
   derivatives, zip archives, and restore reconciliation.
 - `packages/db` contains the Prisma schema, migrations, and client.
+- `packages/ui` contains the shared components, design tokens, styles, and
+  fonts used by the web app and the desktop app.
 - `packages/config` contains runtime paths, upload staging, and version code
   shared by both apps.
 - `scripts` contains local maintenance and release tooling.
@@ -181,9 +186,9 @@ replaced. Remove dead code and report what was checked and what was not.
 
 - Complexity belongs in the journal and recovery code. Routes stay thin, UI
   stays simple.
-- `components/ui` components own their look. Pick a `variant` or `size`
+- `packages/ui` components own their look. Pick a `variant` or `size`
   instead of restyling with `className`.
-- `app/globals.css` only imports. Nothing uses `!important`, and text uses
+- `src/globals.css` only imports. Nothing uses `!important`, and text uses
   `foreground` at 80% or more, or `muted-foreground`. `check-styles.mjs`
   enforces this.
 - Inferred types over annotations. No `any`.

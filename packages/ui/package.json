@@ -1,0 +1,33 @@
+{
+  "name": "@staaash/ui",
+  "version": "1.2.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./styles.css": "./styles.css",
+    "./components/*": "./src/components/*.tsx",
+    "./item-type-icon": "./src/item-type-icon.tsx",
+    "./item-visuals": "./src/item-visuals.ts",
+    "./segmented-control": "./src/segmented-control.ts",
+    "./utils": "./src/utils.ts"
+  },
+  "dependencies": {
+    "@base-ui/react": "^1.9.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.59.0",
+    "shadcn": "^4.22.1",
+    "tailwind-merge": "^3.7.0",
+    "tailwindcss": "^4.3.3",
+    "tw-animate-css": "^1.4.0"
+  },
+  "peerDependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "^7.0.2"
+  }
+}

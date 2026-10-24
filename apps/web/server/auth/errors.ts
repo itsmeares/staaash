@@ -13,7 +13,9 @@ export type AuthErrorCode =
   | "USER_ALREADY_EXISTS"
   | "USER_NOT_FOUND"
   | "USER_IS_OWNER"
-  | "CURRENT_SESSION_REVOKE_BLOCKED";
+  | "CURRENT_SESSION_REVOKE_BLOCKED"
+  | "DEVICE_CODE_INVALID"
+  | "DEVICE_REQUEST_INVALID";
 
 const authErrorMessages: Record<AuthErrorCode, string> = {
   ACCESS_DENIED: "You do not have access to that surface.",
@@ -32,6 +34,8 @@ const authErrorMessages: Record<AuthErrorCode, string> = {
   USER_NOT_FOUND: "That user does not exist.",
   USER_IS_OWNER: "Owner account cannot be changed here.",
   CURRENT_SESSION_REVOKE_BLOCKED: "You cannot revoke the current session.",
+  DEVICE_CODE_INVALID: "That sign-in code is invalid, used, or expired.",
+  DEVICE_REQUEST_INVALID: "That device sign-in request is invalid.",
 };
 
 const authErrorStatuses: Record<AuthErrorCode, number> = {
@@ -50,6 +54,8 @@ const authErrorStatuses: Record<AuthErrorCode, number> = {
   USER_NOT_FOUND: 404,
   USER_IS_OWNER: 403,
   CURRENT_SESSION_REVOKE_BLOCKED: 400,
+  DEVICE_CODE_INVALID: 400,
+  DEVICE_REQUEST_INVALID: 400,
 };
 
 export class AuthError extends Error {

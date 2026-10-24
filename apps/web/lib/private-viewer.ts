@@ -1,11 +1,17 @@
 import { canHaveThumbnail } from "@staaash/db/viewer-contract";
 import type { FileSummary } from "@/server/files/types";
 import type { ViewerFile } from "@/components/file-list/media-viewer";
-import type { folderBatchItems } from "@/app/(workspace)/files/folder-batch";
 
-type FolderItems = ReturnType<typeof folderBatchItems>["items"];
+// Runs on the server and in the browser, so it only needs these fields.
+type ViewableFile = Pick<
+  FileSummary,
+  "id" | "name" | "mimeType" | "viewerKind" | "storageMutation"
+>;
+type FolderItems = Array<
+  { id: string } & ({ kind: "file"; data: ViewableFile } | { kind: "folder" })
+>;
 
-export const privateViewerFiles = (files: FileSummary[]): ViewerFile[] =>
+export const privateViewerFiles = (files: ViewableFile[]): ViewerFile[] =>
   files.flatMap((file) =>
     file.viewerKind && !file.storageMutation
       ? [
@@ -29,12 +35,12 @@ const batchViewerFiles = (items: FolderItems, excluded: Set<string>) =>
     ),
   );
 
-export async function nextLoadedViewer(
+export async function nextLoadedViewer<Items extends FolderItems>(
   index: number,
-  items: FolderItems,
+  items: Items,
   total: number,
   excluded: Set<string>,
-  load: () => Promise<FolderItems>,
+  load: () => Promise<Items>,
 ) {
   let files = batchViewerFiles(items, excluded);
   while (!files[index] && items.length < total) {

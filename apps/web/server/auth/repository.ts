@@ -112,7 +112,11 @@ export type AuthRepository = {
   listUserSessions(userId: string): Promise<AuthSession[]>;
   revokeSessionById(id: string, revokedAt: Date): Promise<void>;
   revokeUserSessions(userId: string, revokedAt: Date): Promise<void>;
-  touchSessionLastSeen(id: string, seenAt: Date): Promise<void>;
+  touchSessionLastSeen(
+    id: string,
+    seenAt: Date,
+    expiresAt?: Date,
+  ): Promise<void>;
   savePreferences(params: SavePreferencesParams): Promise<UserPreferences>;
 };
 
@@ -213,6 +217,8 @@ const toAuthSession = (
   userAgent: session.userAgent,
   ipAddress: session.ipAddress,
   lastSeenAt: session.lastSeenAt,
+  deviceName: session.deviceName,
+  deviceSessionId: session.deviceSessionId,
   createdAt: session.createdAt,
   updatedAt: session.updatedAt,
   user: toAuthUser(session.user),
@@ -385,6 +391,8 @@ const createPrismaAuthRepository = (
       }
     },
 
+    // One optional branch per editable field.
+    // fallow-ignore-next-line complexity
     async updateUser(params) {
       const client = getClient();
 
@@ -533,8 +541,7 @@ const createPrismaAuthRepository = (
           userId: params.userId,
           tokenHash: params.tokenHash,
           expiresAt: params.expiresAt,
-          userAgent: params.metadata?.userAgent ?? null,
-          ipAddress: params.metadata?.ipAddress ?? null,
+          ...params.metadata,
           lastSeenAt: params.now,
         },
         include: {
@@ -565,6 +572,8 @@ const createPrismaAuthRepository = (
         where: {
           userId,
           revokedAt: null,
+          // An app window's session is part of its device, not a row of its own.
+          deviceSessionId: null,
           expiresAt: {
             gt: new Date(),
           },
@@ -583,9 +592,10 @@ const createPrismaAuthRepository = (
     async revokeSessionById(id, revokedAt) {
       const client = getClient();
 
+      // Signing a device out also closes its app window's session.
       await client.session.updateMany({
         where: {
-          id,
+          OR: [{ id }, { deviceSessionId: id }],
           revokedAt: null,
         },
         data: {
@@ -608,7 +618,7 @@ const createPrismaAuthRepository = (
       });
     },
 
-    async touchSessionLastSeen(id, seenAt) {
+    async touchSessionLastSeen(id, seenAt, expiresAt) {
       const client = getClient();
 
       await client.session.updateMany({
@@ -618,10 +628,13 @@ const createPrismaAuthRepository = (
         },
         data: {
           lastSeenAt: seenAt,
+          ...(expiresAt ? { expiresAt } : {}),
         },
       });
     },
 
+    // One optional branch per saved preference.
+    // fallow-ignore-next-line complexity
     async savePreferences(
       params: SavePreferencesParams,
     ): Promise<UserPreferences> {
@@ -689,5 +702,4 @@ const createPrismaAuthRepository = (
   };
 };
 
-// fallow-ignore-next-line unused-export
 export const prismaAuthRepository = createPrismaAuthRepository();

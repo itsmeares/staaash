@@ -1,13 +1,11 @@
-"use client";
-
 import { Monitor, Smartphone } from "lucide-react";
 import { useState } from "react";
 
 import { SettingsCard } from "@/components/settings-layout";
 import { useTime } from "@/components/time-provider";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { toast } from "@/components/ui/toast";
+import { Badge } from "@staaash/ui/components/badge";
+import { Button } from "@staaash/ui/components/button";
+import { toast } from "@staaash/ui/components/toast";
 import { formatRelativeTime } from "@/lib/time";
 import type { Device } from "@/lib/user-agent";
 

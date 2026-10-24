@@ -1,5 +1,3 @@
-"use client";
-
 export type Theme = "light" | "dark" | "system";
 type ResolvedTheme = "light" | "dark";
 

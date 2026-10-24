@@ -1,6 +1,6 @@
 import type * as React from "react";
 
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
 type PageHeaderProps = {
   title: React.ReactNode;

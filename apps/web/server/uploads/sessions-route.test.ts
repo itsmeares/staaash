@@ -1,5 +1,6 @@
-import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+
+import { app } from "@/server/http/app";
 import { StorageTransactionUnavailableError } from "@staaash/db/storage-transactions";
 import { UploadAdmissionError } from "./admission";
 
@@ -8,25 +9,30 @@ const mocks = vi.hoisted(() => ({
   createResumableSession: vi.fn(),
 }));
 
-vi.mock("@/server/auth/guards", () => ({
+vi.mock("@/server/auth/guards", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/auth/guards")>()),
   getRequestSession: mocks.getRequestSession,
 }));
-vi.mock("@/server/durable-storage-mutation", () => ({
+vi.mock("@/server/durable-storage-mutation", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/server/durable-storage-mutation")
+  >()),
   assertStorageProtocolReady: vi.fn(),
   StorageProtocolNotReadyError: class extends Error {},
 }));
-vi.mock("@/server/uploads", () => ({
+vi.mock("@/server/uploads", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/uploads")>()),
   assertUploadSizeAllowed: vi.fn(),
-  UploadError: class extends Error {},
 }));
-vi.mock("@/server/uploads/session-service", () => ({
+vi.mock("@/server/uploads/session-service", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/server/uploads/session-service")
+  >()),
   createResumableSession: mocks.createResumableSession,
 }));
 
-import { POST } from "@/app/api/uploads/sessions/route";
-
 const request = () =>
-  new NextRequest("http://localhost:3000/api/uploads/sessions", {
+  new Request("http://localhost:3000/api/uploads/sessions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -52,10 +58,10 @@ describe("resumable session admission responses", () => {
       activeSessions: 2,
     });
     mocks.createResumableSession.mockRejectedValue(error);
-    const response = await POST(request());
+    const response = await app.request(request());
     expect(response.status).toBe(503);
     expect(response.headers.get("Retry-After")).toBe("1");
-    await expect(response.json()).resolves.toEqual({
+    await expect(response.json()).resolves.toMatchObject({
       error: error.message,
       code: error.code,
       details: error.details,
@@ -70,10 +76,10 @@ describe("resumable session admission responses", () => {
       ),
     );
     mocks.createResumableSession.mockRejectedValue(error);
-    const response = await POST(request());
+    const response = await app.request(request());
     expect(response.status).toBe(503);
     expect(response.headers.has("Retry-After")).toBe(false);
-    await expect(response.json()).resolves.toEqual({
+    await expect(response.json()).resolves.toMatchObject({
       error: error.message,
       code: error.code,
     });
@@ -85,10 +91,10 @@ describe("resumable session admission responses", () => {
       requestedBytes: 4,
     });
     mocks.createResumableSession.mockRejectedValue(error);
-    const response = await POST(request());
+    const response = await app.request(request());
     expect(response.status).toBe(413);
     expect(response.headers.has("Retry-After")).toBe(false);
-    await expect(response.json()).resolves.toEqual({
+    await expect(response.json()).resolves.toMatchObject({
       error: error.message,
       code: error.code,
       details: error.details,
@@ -98,6 +104,11 @@ describe("resumable session admission responses", () => {
   it("does not convert an unrelated error into transaction unavailability", async () => {
     const error = new Error("Invalid upload reservation");
     mocks.createResumableSession.mockRejectedValue(error);
-    await expect(POST(request())).rejects.toBe(error);
+    const response = await app.request(request());
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: "Unexpected server error.",
+      code: "INTERNAL_ERROR",
+    });
   });
 });

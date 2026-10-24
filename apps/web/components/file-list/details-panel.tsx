@@ -1,5 +1,3 @@
-"use client";
-
 import {
   Archive,
   Briefcase,
@@ -18,16 +16,20 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-import { useMediaQuery } from "@/app/(workspace)/use-media-query";
-import { Button } from "@/components/ui/button";
-import { Drawer, DrawerPopup, DrawerTitle } from "@/components/ui/drawer";
+import { useMediaQuery } from "@/src/workspace/use-media-query";
+import { Button } from "@staaash/ui/components/button";
+import {
+  Drawer,
+  DrawerPopup,
+  DrawerTitle,
+} from "@staaash/ui/components/drawer";
 import {
   generateMediaPreview,
   MEDIA_PREVIEW_LABELS,
   watchMediaPreviewStatus,
   type MediaPreviewState,
 } from "@/lib/media-preview-status";
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
 import { ItemPreview, type FileListItem } from "./file-list";
 import { MiddleName } from "./middle-name";

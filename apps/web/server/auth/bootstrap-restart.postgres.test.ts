@@ -30,13 +30,10 @@ const resetPostgresState = async () => {
 
 describe("bootstrap sessions", () => {
   let originalAuthSecret: string | undefined;
-  let originalNextRuntime: string | undefined;
 
   beforeEach(async () => {
     originalAuthSecret = process.env.AUTH_SECRET;
-    originalNextRuntime = process.env.NEXT_RUNTIME;
     delete process.env.AUTH_SECRET;
-    process.env.NEXT_RUNTIME = "nodejs";
     vi.resetModules();
     await resetPostgresState();
   });
@@ -45,8 +42,6 @@ describe("bootstrap sessions", () => {
     return resetPostgresState().finally(() => {
       if (originalAuthSecret === undefined) delete process.env.AUTH_SECRET;
       else process.env.AUTH_SECRET = originalAuthSecret;
-      if (originalNextRuntime === undefined) delete process.env.NEXT_RUNTIME;
-      else process.env.NEXT_RUNTIME = originalNextRuntime;
       vi.resetModules();
     });
   });
@@ -59,8 +54,8 @@ describe("bootstrap sessions", () => {
       await db.instance.findUnique({ where: { id: "singleton" } }),
     ).toBeNull();
 
-    const { register } = await import("@/instrumentation");
-    await register();
+    const { startup } = await import("@/server/startup");
+    await startup();
 
     const { authService } = await import("@/server/auth/service");
     const bootstrap = await authService.bootstrap({

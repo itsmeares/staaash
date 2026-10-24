@@ -40,6 +40,10 @@ export type AuthSession = {
   userAgent: string | null;
   ipAddress: string | null;
   lastSeenAt: Date | null;
+  /** Set for a desktop device signed in with a device token. */
+  deviceName: string | null;
+  /** Set for an app window's browser session, opened by that device. */
+  deviceSessionId: string | null;
   createdAt: Date;
   updatedAt: Date;
   user: AuthUser;
@@ -53,6 +57,8 @@ export type StoredAuthSession = AuthSession & {
 export type SessionMetadata = {
   userAgent?: string | null;
   ipAddress?: string | null;
+  deviceName?: string | null;
+  deviceSessionId?: string | null;
 };
 
 export type SetupState = {

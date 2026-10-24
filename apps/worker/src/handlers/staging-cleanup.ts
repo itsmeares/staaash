@@ -5,6 +5,7 @@ import type { BackgroundJobRecord } from "@staaash/db/jobs";
 import { resolveUploadStagingRetentionHours } from "@staaash/config";
 import { getPrisma } from "@staaash/db/client";
 import { createLegacyRecoveryRequiredMutation } from "@staaash/db/storage-mutations";
+import { pruneStorageChanges } from "@staaash/db/storage-changes";
 import {
   ACTIVE_UPLOAD_SESSION_STATUSES,
   TERMINAL_UPLOAD_SESSION_STATUSES,
@@ -810,6 +811,15 @@ export const handleStagingCleanup = async (
     stagingTtlMs: stagingSettings.ttlMs,
   });
   if (stagingSettings.warning) warnings.unshift(stagingSettings.warning);
+  try {
+    // The sync change log keeps 90 days; device sign-in codes live minutes.
+    await pruneStorageChanges(getPrisma());
+    await getPrisma().deviceAuthCode.deleteMany({
+      where: { expiresAt: { lt: new Date() } },
+    });
+  } catch (error) {
+    warnings.push(`sync records: ${errorMessage(error)}`);
+  }
   if (warnings.length > 0) {
     await context?.emitEvent(
       "cleanup_warning",

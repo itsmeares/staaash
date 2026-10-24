@@ -1,5 +1,3 @@
-"use client";
-
 import { Fragment, type ReactNode } from "react";
 import {
   Drawer,
@@ -10,14 +8,14 @@ import {
   DrawerPanel,
   DrawerPopup,
   DrawerTitle,
-} from "@/components/ui/drawer";
-import { cn } from "@/lib/utils";
+} from "@staaash/ui/components/drawer";
+import { cn } from "@staaash/ui/utils";
 import { MiddleName } from "./middle-name";
-import { getVisibleDashboardMenuGroups } from "@/app/dashboard-context-menu-model";
+import { getVisibleDashboardMenuGroups } from "@/src/dashboard-context-menu-model";
 import type {
   DashboardContextMenuAction,
   DashboardContextMenuGroup,
-} from "@/app/dashboard-context-menu";
+} from "@/src/dashboard-context-menu";
 
 type WorkspaceActionSheetProps = {
   groups: DashboardContextMenuGroup[];

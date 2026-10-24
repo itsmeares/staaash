@@ -147,11 +147,61 @@ model Session {
   userAgent  String?
   ipAddress  String?
   lastSeenAt DateTime?
+  /// Set for a desktop device; the session token is its device token.
+  deviceName String?
+  /// A browser session opened by a device's app window; revoking the device ends it.
+  deviceSessionId String?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceSession  Session?  @relation("DeviceWebSessions", fields: [deviceSessionId], references: [id], onDelete: Cascade)
+  webSessions    Session[] @relation("DeviceWebSessions")
 
   @@index([userId, expiresAt])
+  @@index([deviceSessionId])
+}
+
+/// A single-use code: a browser-approved device sign-in, or a device's app
+/// window becoming a browser session. Short-lived and stored hashed.
+model DeviceAuthCode {
+  id            String    @id @default(cuid())
+  codeHash      String    @unique
+  kind          String
+  userId        String
+  sessionId     String?
+  codeChallenge String?
+  redirectUri   String?
+  deviceName    String?
+  expiresAt     DateTime
+  usedAt        DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([expiresAt])
+}
+
+/// One change to a file or folder, in commit order per owner. Written in the
+/// same transaction as the journal commit, so a commit never lacks its entry.
+model StorageChange {
+  seq              BigInt    @id @default(autoincrement())
+  ownerUserId      String
+  mutationId       String?
+  kind             String
+  itemType         String
+  itemId           String
+  parentId         String?
+  previousParentId String?
+  path             String
+  previousPath     String?
+  name             String
+  sizeBytes        BigInt?
+  contentChecksum  String?
+  storageRevision  Int
+  clientModifiedAt DateTime?
+  originDeviceId   String?
+  createdAt        DateTime  @default(now())
+
+  @@index([ownerUserId, seq])
+  @@index([createdAt])
 }
 
 model Folder {
@@ -200,6 +250,8 @@ model File {
   mimeType                String
   sizeBytes               BigInt
   contentChecksum         String?
+  /// The modified time on the uploader's computer, kept across devices.
+  clientModifiedAt        DateTime?
   deletedAt               DateTime?
   storageRevision         Int               @default(0)
   trashEntryId            String?
@@ -462,6 +514,7 @@ model UploadSession {
   chunkSizeBytes       BigInt?
   tmpPath              String        @unique
   conflictStrategy     String
+  clientModifiedAt     DateTime?
   status               String
   expiresAt            DateTime
   terminalAt           DateTime?
@@ -508,6 +561,8 @@ model StorageMutation {
   completedAt          DateTime?
   recoveryRequiredAt   DateTime?
   reservedBytes        BigInt?
+  /// The device session that asked for this change, so it can skip its echo.
+  originDeviceId       String?
   createdAt            DateTime                  @default(now())
   updatedAt            DateTime                  @updatedAt
   parent               StorageMutation?          @relation("StorageMutationChildren", fields: [parentId], references: [id], onDelete: SetNull)

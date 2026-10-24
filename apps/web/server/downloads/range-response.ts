@@ -1,9 +1,13 @@
 import { open } from "node:fs/promises";
+
+import { nodeBodyStream } from "@/server/downloads/body-stream";
 import type { FileHandle } from "node:fs/promises";
 
 const buildAttachmentDisposition = (fileName: string) =>
   `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 
+// One check per malformed Range header shape, in RFC order.
+// fallow-ignore-next-line complexity
 const parseSingleByteRange = (
   rangeHeader: string,
   size: number,
@@ -25,20 +29,24 @@ const parseSingleByteRange = (
   return { start, end };
 };
 
-/** The file's bytes, or one range of them; the handle closes when done. */
+/**
+ * The file's bytes, or one range of them; the handle closes when done. A
+ * client that hangs up mid-download must not take the server down with it.
+ */
 const streamFile = (
   fileHandle: FileHandle,
+  signal: AbortSignal,
   range?: { start: number; end: number },
-) => {
-  const nodeStream = fileHandle.createReadStream({
-    ...range,
-    highWaterMark: 512 * 1024,
-  });
-  nodeStream.on("close", () => {
-    fileHandle.close().catch(() => {});
-  });
-  return nodeStream as unknown as ReadableStream;
-};
+) =>
+  nodeBodyStream(
+    fileHandle.createReadStream({
+      ...range,
+      highWaterMark: 512 * 1024,
+      autoClose: false,
+    }),
+    signal,
+    () => fileHandle.close(),
+  );
 
 /**
  * The whole file (no range asked), one range of it, or 416 when the range
@@ -49,9 +57,10 @@ export const respondWithFile = (
   sizeBytes: number,
   headers: Record<string, string>,
   range: { start: number; end: number } | null | undefined,
+  signal: AbortSignal,
 ) => {
   if (range === undefined) {
-    return new Response(streamFile(fileHandle), {
+    return new Response(streamFile(fileHandle, signal), {
       status: 200,
       headers: { ...headers, "content-length": String(sizeBytes) },
     });
@@ -67,7 +76,7 @@ export const respondWithFile = (
     });
   }
   const { start, end } = range;
-  return new Response(streamFile(fileHandle, range), {
+  return new Response(streamFile(fileHandle, signal, range), {
     status: 206,
     headers: {
       ...headers,
@@ -97,6 +106,7 @@ export const createRangeResponseFromHandle = (
     sizeBytes,
     baseHeaders,
     rangeHeader ? parseSingleByteRange(rangeHeader, sizeBytes) : undefined,
+    request.signal,
   );
 };
 

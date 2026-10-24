@@ -9,7 +9,7 @@ import { hydrateRetrievalPage } from "./page";
 import {
   toActivityClientItem,
   type ActivityRow,
-} from "@/app/(workspace)/recent/recent-helpers";
+} from "@/src/workspace/recent/recent-helpers";
 
 const activitySource = (userId: string, query: ListQuery) => {
   const { source } = buildListSource(userId, "recent", query);

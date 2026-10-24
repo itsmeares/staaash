@@ -1,25 +1,30 @@
-import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const getRequestSession = vi.fn();
 const ensureFolderPaths = vi.fn();
 const readStorageIdempotencyKey = vi.fn();
 
-vi.mock("@/server/auth/guards", () => ({
+vi.mock("@/server/auth/guards", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/auth/guards")>()),
   getRequestSession,
 }));
 
-vi.mock("@/server/files/service", () => ({
+vi.mock("@/server/files/service", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/files/service")>()),
   filesService: {
     ensureFolderPaths,
   },
 }));
 
-vi.mock("@/server/retrieval/recent-tracking", () => ({
+vi.mock("@/server/retrieval/recent-tracking", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/server/retrieval/recent-tracking")
+  >()),
   recordFolderAccessBestEffort: vi.fn(),
 }));
 
-vi.mock("@/server/storage-idempotency", () => ({
+vi.mock("@/server/storage-idempotency", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/storage-idempotency")>()),
   attachStorageMutationHeader: (response: Response) => response,
   readStorageIdempotencyKey,
 }));
@@ -28,7 +33,7 @@ const jsonRequest = (
   body: unknown,
   url = "http://localhost:3000/api/files/folders/ensure",
 ) =>
-  new NextRequest(url, {
+  new Request(url, {
     method: "POST",
     headers: {
       accept: "application/json",
@@ -47,9 +52,9 @@ describe("ensure folder paths route", () => {
   it("rejects unauthenticated requests before reading the body", async () => {
     getRequestSession.mockResolvedValueOnce(null);
     const request = jsonRequest({ folderId: "root", paths: ["Project"] });
-    const { POST } = await import("@/app/api/files/folders/ensure/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await POST(request);
+    const response = await app.request(request);
 
     expect(response.status).toBe(401);
     expect(request.bodyUsed).toBe(false);
@@ -59,12 +64,12 @@ describe("ensure folder paths route", () => {
   it("rejects cross-origin requests before auth or body parsing", async () => {
     const request = jsonRequest({ folderId: "root", paths: ["Project"] });
     request.headers.set("origin", "https://evil.example");
-    const { POST } = await import("@/app/api/files/folders/ensure/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await POST(request);
+    const response = await app.request(request);
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({
+    await expect(response.json()).resolves.toMatchObject({
       error: "Cross-origin requests are not allowed.",
     });
     expect(getRequestSession).not.toHaveBeenCalled();
@@ -76,9 +81,9 @@ describe("ensure folder paths route", () => {
       user: { id: "user-1", role: "member" },
     });
     const request = jsonRequest({ folderId: "root", paths: [] });
-    const { POST } = await import("@/app/api/files/folders/ensure/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await POST(request);
+    const response = await app.request(request);
 
     expect(response.status).toBe(400);
     expect(ensureFolderPaths).not.toHaveBeenCalled();
@@ -96,9 +101,9 @@ describe("ensure folder paths route", () => {
       folderId: "root",
       paths: ["Project/src"],
     });
-    const { POST } = await import("@/app/api/files/folders/ensure/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await POST(request);
+    const response = await app.request(request);
 
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toEqual({

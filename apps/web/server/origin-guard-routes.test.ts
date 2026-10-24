@@ -1,23 +1,21 @@
-import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
+import { app } from "@/server/http/app";
+
 import { getRequestSession } from "@/server/auth/guards";
-import { POST as createArchive } from "@/app/api/files/archives/route";
-import { POST as completeUploadSession } from "@/app/api/uploads/sessions/[id]/complete/route";
-import {
-  DELETE as cancelUploadSession,
-  PATCH as patchUploadSession,
-} from "@/app/api/uploads/sessions/[id]/route";
-import { POST as createUploadSession } from "@/app/api/uploads/sessions/route";
 import { scheduleZipArchiveGenerate } from "@staaash/db/jobs";
 import { createResumableSession } from "@/server/uploads/session-service";
 import { UploadAdmissionError } from "@/server/uploads/admission";
 
-vi.mock("@/server/auth/guards", () => ({
+vi.mock("@/server/auth/guards", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/auth/guards")>()),
   getRequestSession: vi.fn(),
 }));
 
-vi.mock("@/server/durable-storage-mutation", () => ({
+vi.mock("@/server/durable-storage-mutation", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/server/durable-storage-mutation")
+  >()),
   assertStorageProtocolReady: vi.fn(async () => undefined),
   StorageProtocolNotReadyError: class extends Error {
     code = "STORAGE_MUTATION_RECOVERING";
@@ -25,50 +23,56 @@ vi.mock("@/server/durable-storage-mutation", () => ({
   },
 }));
 
-vi.mock("@/server/uploads", () => ({
-  UploadError: class UploadError extends Error {
-    code = "UPLOAD_ERROR";
-    status = 400;
-  },
+vi.mock("@/server/uploads", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/uploads")>()),
   assertUploadSizeAllowed: vi.fn(),
   computeFileSha256: vi.fn(),
 }));
 
-vi.mock("@/server/uploads/session-service", () => ({
+vi.mock("@/server/uploads/session-service", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/server/uploads/session-service")
+  >()),
   createResumableSession: vi.fn(),
   findActiveResumableSession: vi.fn(),
   updateSessionProgress: vi.fn(),
 }));
 
-vi.mock("@/server/files/service", () => ({
+vi.mock("@/server/files/service", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/files/service")>()),
   filesService: {
     commitResumableUpload: vi.fn(),
   },
 }));
 
-vi.mock("@/server/files/errors", () => ({
+vi.mock("@/server/files/errors", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/files/errors")>()),
   FilesError: class FilesError extends Error {
     code = "FILES_ERROR";
     status = 400;
   },
 }));
 
-vi.mock("@/server/files/repository", () => ({
+vi.mock("@/server/files/repository", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/files/repository")>()),
   prismaFilesRepository: {
     findFileById: vi.fn(),
     findFolderById: vi.fn(),
   },
 }));
 
-vi.mock("@/server/settings", () => ({
+vi.mock("@/server/settings", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/settings")>()),
   getSystemSettings: vi.fn(),
 }));
 
-vi.mock("@staaash/db/jobs", () => ({
+vi.mock("@staaash/db/jobs", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@staaash/db/jobs")>()),
   scheduleZipArchiveGenerate: vi.fn(),
 }));
 
-vi.mock("@staaash/db/zip-archives", () => ({
+vi.mock("@staaash/db/zip-archives", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@staaash/db/zip-archives")>()),
   ZIP_ARCHIVE_STATUS_FAILED: "failed",
   ZIP_ARCHIVE_STATUS_READY: "ready",
   buildZipContentKey: vi.fn(),
@@ -76,7 +80,7 @@ vi.mock("@staaash/db/zip-archives", () => ({
 }));
 
 const crossOriginRequest = (path: string, method: string) =>
-  new NextRequest(`http://localhost:3000${path}`, {
+  new Request(`http://localhost:3000${path}`, {
     method,
     headers: {
       accept: "application/json",
@@ -86,7 +90,7 @@ const crossOriginRequest = (path: string, method: string) =>
   });
 
 const sameOriginJsonRequest = (path: string, method: string, body: unknown) =>
-  new NextRequest(`http://localhost:3000${path}`, {
+  new Request(`http://localhost:3000${path}`, {
     method,
     headers: {
       accept: "application/json",
@@ -99,7 +103,7 @@ const sameOriginJsonRequest = (path: string, method: string, body: unknown) =>
 
 const expectCrossOriginRejection = async (response: Response) => {
   expect(response.status).toBe(403);
-  await expect(response.json()).resolves.toEqual({
+  await expect(response.json()).resolves.toMatchObject({
     error: "Cross-origin requests are not allowed.",
   });
   expect(getRequestSession).not.toHaveBeenCalled();
@@ -111,7 +115,7 @@ describe("mutating route same-origin guards", () => {
   });
 
   it("rejects cross-origin upload session creation before auth or storage work", async () => {
-    const response = await createUploadSession(
+    const response = await app.request(
       crossOriginRequest("/api/uploads/sessions", "POST"),
     );
 
@@ -120,34 +124,31 @@ describe("mutating route same-origin guards", () => {
   });
 
   it("rejects cross-origin upload session patching before auth", async () => {
-    const response = await patchUploadSession(
+    const response = await app.request(
       crossOriginRequest("/api/uploads/sessions/upload-1", "PATCH"),
-      { params: Promise.resolve({ id: "upload-1" }) },
     );
 
     await expectCrossOriginRejection(response);
   });
 
   it("rejects cross-origin upload session cancellation before auth", async () => {
-    const response = await cancelUploadSession(
+    const response = await app.request(
       crossOriginRequest("/api/uploads/sessions/upload-1", "DELETE"),
-      { params: Promise.resolve({ id: "upload-1" }) },
     );
 
     await expectCrossOriginRejection(response);
   });
 
   it("rejects cross-origin upload completion before auth", async () => {
-    const response = await completeUploadSession(
+    const response = await app.request(
       crossOriginRequest("/api/uploads/sessions/upload-1/complete", "POST"),
-      { params: Promise.resolve({ id: "upload-1" }) },
     );
 
     await expectCrossOriginRejection(response);
   });
 
   it("rejects cross-origin archive creation before auth or job scheduling", async () => {
-    const response = await createArchive(
+    const response = await app.request(
       crossOriginRequest("/api/files/archives", "POST"),
     );
 
@@ -187,7 +188,7 @@ describe("upload session creation", () => {
     const expectedChecksum =
       "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9";
 
-    const response = await createUploadSession(
+    const response = await app.request(
       sameOriginJsonRequest("/api/uploads/sessions", "POST", {
         folderId: null,
         originalName: "video.mp4",
@@ -207,11 +208,12 @@ describe("upload session creation", () => {
       totalSizeBytes: 123,
       expectedChecksum,
       conflictStrategy: "safeRename",
+      clientModifiedAt: null,
     });
   });
 
   it("rejects malformed expected checksums", async () => {
-    const response = await createUploadSession(
+    const response = await app.request(
       sameOriginJsonRequest("/api/uploads/sessions", "POST", {
         folderId: null,
         originalName: "video.mp4",
@@ -230,7 +232,7 @@ describe("upload session creation", () => {
       new UploadAdmissionError("RESUMABLE_INSTANCE_SESSION_LIMIT_EXCEEDED"),
     );
 
-    const response = await createUploadSession(
+    const response = await app.request(
       sameOriginJsonRequest("/api/uploads/sessions", "POST", {
         folderId: null,
         originalName: "video.mp4",

@@ -27,7 +27,8 @@ const mocks = vi.hoisted(() => ({
   markFileStorageMissing: vi.fn(),
 }));
 
-vi.mock("@/server/storage-read-guard", () => ({
+vi.mock("@/server/storage-read-guard", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/storage-read-guard")>()),
   assertStorageEntityReadable: vi.fn(async () => undefined),
   StorageEntityUnavailableError: class StorageEntityUnavailableError extends Error {
     mutationId = "mutation-test";
@@ -35,11 +36,8 @@ vi.mock("@/server/storage-read-guard", () => ({
   },
 }));
 
-vi.mock("next/headers", () => ({
-  cookies: vi.fn(async () => ({ get: mocks.cookieGet })),
-}));
-
-vi.mock("@/server/sharing/service", () => ({
+vi.mock("@/server/sharing/service", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/sharing/service")>()),
   sharingService: {
     getSharedFileContent: mocks.getSharedFileContent,
     getSharedNestedFileContent: mocks.getSharedNestedFileContent,
@@ -47,11 +45,13 @@ vi.mock("@/server/sharing/service", () => ({
   },
 }));
 
-vi.mock("@/server/storage", () => ({
+vi.mock("@/server/storage", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/storage")>()),
   getStoragePath: mocks.getStoragePath,
 }));
 
-vi.mock("@/server/files/repository", () => ({
+vi.mock("@/server/files/repository", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/files/repository")>()),
   prismaFilesRepository: {
     markFileStorageMissing: mocks.markFileStorageMissing,
   },
@@ -150,13 +150,10 @@ describe("public share content routes", () => {
       file,
       downloadDisabled: false,
     });
-    const { GET } = await import("@/app/s/[token]/content/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await GET(
+    const response = await app.request(
       new Request("http://localhost/s/token/content"),
-      {
-        params: Promise.resolve({ token: "token" }),
-      },
     );
 
     expect(response.status).toBe(200);
@@ -183,12 +180,10 @@ describe("public share content routes", () => {
       file,
       downloadDisabled: false,
     });
-    const { GET } =
-      await import("@/app/s/[token]/files/[fileId]/content/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await GET(
+    const response = await app.request(
       new Request("http://localhost/s/token/files/svg-1/content"),
-      { params: Promise.resolve({ token: "token", fileId: "svg-1" }) },
     );
 
     expect(response.status).toBe(200);
@@ -212,13 +207,12 @@ describe("public share content routes", () => {
       file,
       downloadDisabled: false,
     });
-    const { GET } = await import("@/app/s/[token]/content/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await GET(
+    const response = await app.request(
       new Request("http://localhost/s/token/content", {
         headers: { range: "bytes=0-8" },
       }),
-      { params: Promise.resolve({ token: "token" }) },
     );
 
     expect(response.status).toBe(206);
@@ -242,13 +236,10 @@ describe("public share content routes", () => {
       file,
       downloadDisabled: false,
     });
-    const { GET } = await import("@/app/s/[token]/content/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await GET(
+    const response = await app.request(
       new Request("http://localhost/s/token/content"),
-      {
-        params: Promise.resolve({ token: "token" }),
-      },
     );
 
     expect(response.status).toBe(200);
@@ -270,11 +261,10 @@ describe("public share content routes", () => {
       file,
       downloadDisabled: true,
     });
-    const { GET } = await import("@/app/s/[token]/content/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await GET(
+    const response = await app.request(
       new Request("http://localhost/s/token/content"),
-      { params: Promise.resolve({ token: "token" }) },
     );
 
     await expectDownloadDisabledResponse(response);
@@ -292,11 +282,10 @@ describe("public share content routes", () => {
       file,
       downloadDisabled: true,
     });
-    const { GET } = await import("@/app/s/[token]/content/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await GET(
+    const response = await app.request(
       new Request("http://localhost/s/token/content"),
-      { params: Promise.resolve({ token: "token" }) },
     );
 
     await expectDownloadDisabledResponse(response);
@@ -314,12 +303,10 @@ describe("public share content routes", () => {
       file,
       downloadDisabled: true,
     });
-    const { GET } =
-      await import("@/app/s/[token]/files/[fileId]/content/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await GET(
+    const response = await app.request(
       new Request("http://localhost/s/token/files/svg-1/content"),
-      { params: Promise.resolve({ token: "token", fileId: "svg-1" }) },
     );
 
     await expectDownloadDisabledResponse(response);
@@ -338,11 +325,10 @@ describe("public share content routes", () => {
         file,
         downloadDisabled: false,
       });
-      const { GET } = await import("@/app/s/[token]/content/route");
+      const { app } = await import("@/server/http/app");
 
-      const response = await GET(
+      const response = await app.request(
         new Request("http://localhost/s/token/content"),
-        { params: Promise.resolve({ token: "token" }) },
       );
 
       expect(response.status).toBe(200);
@@ -365,13 +351,10 @@ describe("public share content routes", () => {
       file,
       downloadDisabled: true,
     });
-    const { GET } = await import("@/app/s/[token]/content/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await GET(
+    const response = await app.request(
       new Request("http://localhost/s/token/content"),
-      {
-        params: Promise.resolve({ token: "token" }),
-      },
     );
 
     expect(response.status).toBe(200);
@@ -394,14 +377,12 @@ describe("public share content routes", () => {
       file,
       downloadDisabled: true,
     });
-    const { GET } =
-      await import("@/app/s/[token]/files/[fileId]/content/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await GET(
+    const response = await app.request(
       new Request("http://localhost/s/token/files/audio-1/content", {
         headers: { range: "bytes=2-5" },
       }),
-      { params: Promise.resolve({ token: "token", fileId: "audio-1" }) },
     );
 
     expect(response.status).toBe(206);
@@ -426,19 +407,14 @@ describe("public share content routes", () => {
       file,
       downloadDisabled: false,
     });
-    const { GET } = await import("@/app/s/[token]/preview/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await GET(
+    const response = await app.request(
       new Request("http://localhost/s/token/preview"),
-      {
-        params: Promise.resolve({ token: "token" }),
-      },
     );
 
     expect(response.status).toBe(307);
-    expect(response.headers.get("location")).toBe(
-      "http://localhost/s/token/content",
-    );
+    expect(response.headers.get("location")).toBe("/s/token/content");
     expect(await response.text()).toBe("");
   });
 
@@ -454,17 +430,15 @@ describe("public share content routes", () => {
       file,
       downloadDisabled: false,
     });
-    const { GET } =
-      await import("@/app/s/[token]/files/[fileId]/preview/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await GET(
+    const response = await app.request(
       new Request("http://localhost/s/token/files/svg-1/preview"),
-      { params: Promise.resolve({ token: "token", fileId: "svg-1" }) },
     );
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(
-      "http://localhost/s/token/files/svg-1/content",
+      "/s/token/files/svg-1/content",
     );
     expect(await response.text()).toBe("");
   });
@@ -477,11 +451,10 @@ describe("public share content routes", () => {
     "preserves top-level %s resolution errors",
     async (code, status) => {
       mocks.getSharedFileContent.mockRejectedValue(new ShareError(code));
-      const { GET } = await import("@/app/s/[token]/content/route");
+      const { app } = await import("@/server/http/app");
 
-      const response = await GET(
+      const response = await app.request(
         new Request("http://localhost/s/token/content"),
-        { params: Promise.resolve({ token: "token" }) },
       );
 
       expect(response.status).toBe(status);
@@ -494,14 +467,10 @@ describe("public share content routes", () => {
     mocks.getSharedNestedFileContent.mockRejectedValue(
       new ShareError("SHARE_ACCESS_DENIED"),
     );
-    const { GET } =
-      await import("@/app/s/[token]/files/[fileId]/content/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await GET(
+    const response = await app.request(
       new Request("http://localhost/s/token/files/outside/content"),
-      {
-        params: Promise.resolve({ token: "token", fileId: "outside" }),
-      },
     );
 
     expect(response.status).toBe(403);

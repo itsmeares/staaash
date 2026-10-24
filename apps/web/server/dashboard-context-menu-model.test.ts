@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { getVisibleDashboardMenuGroups } from "@/app/dashboard-context-menu-model";
+import { getVisibleDashboardMenuGroups } from "@/src/dashboard-context-menu-model";
 
 describe("dashboard context menu model", () => {
   it("removes hidden actions and empty groups", () => {

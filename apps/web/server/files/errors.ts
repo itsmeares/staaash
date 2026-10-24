@@ -101,16 +101,18 @@ export class FilesError extends Error {
   readonly code: FilesErrorCode;
   readonly status: number;
 
-  constructor(code: FilesErrorCode, message = filesErrorMessages[code]) {
+  constructor(
+    code: FilesErrorCode,
+    message = filesErrorMessages[code],
+    /** Sent to the client with the error, such as the item in the way. */
+    readonly details?: Record<string, unknown>,
+  ) {
     super(message);
     this.name = "FilesError";
     this.code = code;
     this.status = filesErrorStatuses[code];
   }
 }
-
-export const isFilesError = (error: unknown): error is FilesError =>
-  error instanceof FilesError;
 
 export type ResumableCompletionErrorCode =
   | "RESUMABLE_COMMIT_RETRYABLE"
@@ -141,3 +143,48 @@ export class ResumableCompletionError extends Error {
     this.status = resumableCompletionErrorDetails[code].status;
   }
 }
+
+type RevisionedItem = {
+  id: string;
+  name: string;
+  storageRevision?: number;
+} & (
+  | {
+      folderId: string | null;
+      sizeBytes: number;
+      contentChecksum?: string | null;
+    }
+  | { parentId: string | null }
+);
+
+/** What a sync client needs to decide about an item that is in its way. */
+export const conflictDetails = (item: RevisionedItem) => ({
+  type: "folderId" in item ? ("file" as const) : ("folder" as const),
+  id: item.id,
+  storageRevision: item.storageRevision ?? 0,
+  contentChecksum: "folderId" in item ? (item.contentChecksum ?? null) : null,
+  size: "folderId" in item ? item.sizeBytes : null,
+  parentId: "folderId" in item ? item.folderId : item.parentId,
+  name: item.name,
+});
+
+/** The item changed since the client last saw it; the details are its current state. */
+export class RevisionConflictError extends Error {
+  readonly status = 409;
+  readonly code = "REVISION_MISMATCH";
+
+  constructor(readonly details: ReturnType<typeof conflictDetails>) {
+    super("This item changed since you last saw it.");
+  }
+}
+
+/** A sync client's edit applies only to the revision it last saw. */
+export const assertRevision = (
+  item: RevisionedItem,
+  ifRevision: number | undefined,
+) => {
+  if (ifRevision === undefined || (item.storageRevision ?? 0) === ifRevision) {
+    return;
+  }
+  throw new RevisionConflictError(conflictDetails(item));
+};

@@ -194,6 +194,8 @@ const createRepo = (state: State): AuthRepository => ({
       revokedAt: null,
       userAgent: params.metadata?.userAgent ?? null,
       ipAddress: params.metadata?.ipAddress ?? null,
+      deviceName: params.metadata?.deviceName ?? null,
+      deviceSessionId: params.metadata?.deviceSessionId ?? null,
       lastSeenAt: params.now,
       createdAt: params.now,
       updatedAt: params.now,
@@ -208,21 +210,28 @@ const createRepo = (state: State): AuthRepository => ({
   },
   async listUserSessions(userId) {
     return state.sessions.filter(
-      (session) => session.user.id === userId && !session.revokedAt,
+      (session) =>
+        session.user.id === userId &&
+        !session.revokedAt &&
+        !session.deviceSessionId,
     );
   },
   async revokeSessionById(id, revokedAt) {
-    const session = state.sessions.find((candidate) => candidate.id === id);
-    if (session) session.revokedAt = revokedAt;
+    for (const session of state.sessions) {
+      if (session.id === id || session.deviceSessionId === id) {
+        session.revokedAt = revokedAt;
+      }
+    }
   },
   async revokeUserSessions(userId, revokedAt) {
     for (const session of state.sessions) {
       if (session.user.id === userId) session.revokedAt = revokedAt;
     }
   },
-  async touchSessionLastSeen(id, seenAt) {
+  async touchSessionLastSeen(id, seenAt, expiresAt) {
     const session = state.sessions.find((candidate) => candidate.id === id);
     if (session) session.lastSeenAt = seenAt;
+    if (session && expiresAt) session.expiresAt = expiresAt;
   },
   async savePreferences() {
     return prefs;
@@ -354,6 +363,8 @@ describe("auth service", () => {
       revokedAt: null,
       userAgent: "Firefox",
       ipAddress: "127.0.0.1",
+      deviceName: null,
+      deviceSessionId: null,
       lastSeenAt: now,
       createdAt: now,
       updatedAt: now,
@@ -443,18 +454,33 @@ describe("auth service", () => {
     const userId = here.user.id;
 
     await expect(
-      service.revokeOwnSessions(userId, here.session.id, here.session.id),
+      service.revokeOwnSessions(
+        userId,
+        { id: here.session.id, deviceSessionId: null },
+        here.session.id,
+      ),
     ).rejects.toMatchObject({ code: "CURRENT_SESSION_REVOKE_BLOCKED" });
-    await service.revokeOwnSessions("someone-else", "x", phone.session.id);
+    await service.revokeOwnSessions(
+      "someone-else",
+      { id: "x", deviceSessionId: null },
+      phone.session.id,
+    );
     const ids = async () =>
       (await service.listOwnSessions(userId)).map((session) => session.id);
     expect(await ids()).toContain(phone.session.id);
 
-    await service.revokeOwnSessions(userId, here.session.id, phone.session.id);
+    await service.revokeOwnSessions(
+      userId,
+      { id: here.session.id, deviceSessionId: null },
+      phone.session.id,
+    );
     expect(await ids()).not.toContain(phone.session.id);
     expect(await ids()).toContain(laptop.session.id);
 
-    await service.revokeOwnSessions(userId, here.session.id);
+    await service.revokeOwnSessions(userId, {
+      id: here.session.id,
+      deviceSessionId: null,
+    });
     expect(
       (await service.listOwnSessions(userId)).map((session) => session.id),
     ).toEqual([here.session.id]);
@@ -516,6 +542,8 @@ describe("auth service", () => {
       revokedAt: null,
       userAgent: null,
       ipAddress: null,
+      deviceName: null,
+      deviceSessionId: null,
       lastSeenAt: now,
       createdAt: now,
       updatedAt: unchangedUpdatedAt,
@@ -528,6 +556,8 @@ describe("auth service", () => {
       revokedAt: alreadyRevokedAt,
       userAgent: null,
       ipAddress: null,
+      deviceName: null,
+      deviceSessionId: null,
       lastSeenAt: unchangedUpdatedAt,
       createdAt: unchangedUpdatedAt,
       updatedAt: unchangedUpdatedAt,
@@ -602,6 +632,8 @@ describe("auth service", () => {
           revokedAt: null,
           userAgent: null,
           ipAddress: null,
+          deviceName: null,
+          deviceSessionId: null,
           lastSeenAt: now,
           createdAt: now,
           updatedAt: now,
@@ -614,6 +646,8 @@ describe("auth service", () => {
           revokedAt: null,
           userAgent: null,
           ipAddress: null,
+          deviceName: null,
+          deviceSessionId: null,
           lastSeenAt: now,
           createdAt: now,
           updatedAt: now,

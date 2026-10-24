@@ -1,4 +1,3 @@
-import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const mocks = vi.hoisted(() => ({
@@ -26,23 +25,21 @@ vi.mock("@staaash/db/media-derivatives", async (importOriginal) => ({
   scheduleDerivativeGenerate: mocks.scheduleDerivativeGenerate,
 }));
 
-vi.mock("@/server/auth/guards", () => ({
+vi.mock("@/server/auth/guards", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/auth/guards")>()),
   getRequestSession: mocks.getRequestSession,
 }));
 
-vi.mock("@/server/settings", () => ({
+vi.mock("@/server/settings", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/settings")>()),
   getSystemSettings: mocks.getSystemSettings,
 }));
 
-import { GET, POST } from "@/app/api/files/files/[fileId]/derivative/route";
+import { app } from "@/server/http/app";
 
-const routeContext = (fileId = "file-1") => ({
-  params: Promise.resolve({ fileId }),
-});
-
-const sameOriginPost = () =>
-  new NextRequest("http://localhost:3000/api/files/files/file-1/derivative", {
-    method: "POST",
+const sameOriginPost = (method = "POST") =>
+  new Request("http://localhost:3000/api/files/files/file-1/derivative", {
+    method,
     headers: {
       host: "localhost:3000",
       origin: "http://localhost:3000",
@@ -78,11 +75,8 @@ describe("private media derivative routes", () => {
       generatedAt: new Date("2026-09-08T12:00:00.000Z"),
     });
 
-    const response = await GET(
-      new NextRequest(
-        "http://localhost:3000/api/files/files/file-1/derivative",
-      ),
-      routeContext(),
+    const response = await app.request(
+      new Request("http://localhost:3000/api/files/files/file-1/derivative"),
     );
 
     expect(response.status).toBe(200);
@@ -96,16 +90,13 @@ describe("private media derivative routes", () => {
     setSession("owner-1", "owner");
     setFile("member-1");
 
-    const response = await GET(
-      new NextRequest(
-        "http://localhost:3000/api/files/files/file-1/derivative",
-      ),
-      routeContext(),
+    const response = await app.request(
+      new Request("http://localhost:3000/api/files/files/file-1/derivative"),
     );
 
     expect(response.status).toBe(404);
-    await expect(response.json()).resolves.toEqual({
-      error: "File not found.",
+    await expect(response.json()).resolves.toMatchObject({
+      code: "FILE_NOT_FOUND",
     });
     expect(mocks.findDerivative).not.toHaveBeenCalled();
   });
@@ -118,7 +109,7 @@ describe("private media derivative routes", () => {
       job: { id: "job-1", status: "queued" },
     });
 
-    const response = await POST(sameOriginPost(), routeContext());
+    const response = await app.request(sameOriginPost());
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
@@ -134,7 +125,7 @@ describe("private media derivative routes", () => {
   it("reads the exact preview profile and matching job in a consistent snapshot", async () => {
     setSession("member-1", "member");
     setFile();
-    const response = await GET(sameOriginPost(), routeContext());
+    const response = await app.request(sameOriginPost("GET"));
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       status: "none",
@@ -191,7 +182,7 @@ describe("private media derivative routes", () => {
           generationJobId,
           generatedAt: null,
         });
-      const response = await GET(sameOriginPost(), routeContext());
+      const response = await app.request(sameOriginPost("GET"));
       expect(response.status).toBe(200);
       await expect(response.json()).resolves.toEqual({
         status: expectedStatus,
@@ -207,7 +198,7 @@ describe("private media derivative routes", () => {
       created: false,
       job: { id: "job-1", status: "running" },
     });
-    const response = await POST(sameOriginPost(), routeContext());
+    const response = await app.request(sameOriginPost());
     await expect(response.json()).resolves.toEqual({
       status: "processing",
       generatedAt: null,
@@ -220,9 +211,9 @@ describe("private media derivative routes", () => {
     mocks.findDerivative.mockRejectedValueOnce(
       new Error("private database details"),
     );
-    const response = await GET(sameOriginPost(), routeContext());
+    const response = await app.request(sameOriginPost("GET"));
     expect(response.status).toBe(503);
-    await expect(response.json()).resolves.toEqual({
+    await expect(response.json()).resolves.toMatchObject({
       error: "Preview status unavailable.",
     });
   });
@@ -233,18 +224,18 @@ describe("private media derivative routes", () => {
     mocks.scheduleDerivativeGenerate.mockRejectedValueOnce(
       new Error("private database details"),
     );
-    const response = await POST(sameOriginPost(), routeContext());
+    const response = await app.request(sameOriginPost());
     expect(response.status).toBe(503);
-    await expect(response.json()).resolves.toEqual({
+    await expect(response.json()).resolves.toMatchObject({
       error: "Failed to queue preview.",
     });
   });
 
-  it.each([GET, POST])(
+  it.each(["GET", "POST"])(
     "rejects anonymous access before reading preview metadata",
-    async (handler) => {
+    async (method) => {
       mocks.getRequestSession.mockResolvedValueOnce(null);
-      const response = await handler(sameOriginPost(), routeContext());
+      const response = await app.request(sameOriginPost(method));
       expect(response.status).toBe(401);
       expect(mocks.findFile).not.toHaveBeenCalled();
       expect(mocks.findJob).not.toHaveBeenCalled();
@@ -252,41 +243,37 @@ describe("private media derivative routes", () => {
     },
   );
 
-  it.each([GET, POST])(
+  it.each(["GET", "POST"])(
     "returns 404 for a missing file without reading generation metadata",
-    async (handler) => {
+    async (method) => {
       setSession("member-1", "member");
       mocks.findFile.mockResolvedValueOnce(null);
-      const response = await handler(sameOriginPost(), routeContext());
+      const response = await app.request(sameOriginPost(method));
       expect(response.status).toBe(404);
       expect(mocks.findJob).not.toHaveBeenCalled();
       expect(mocks.scheduleDerivativeGenerate).not.toHaveBeenCalled();
     },
   );
 
-  it.each([GET, POST])(
+  it.each(["GET", "POST"])(
     "returns a safe 503 when file authorization cannot query storage",
-    async (handler) => {
+    async (method) => {
       setSession("member-1", "member");
       mocks.findFile.mockRejectedValueOnce(
         new Error("private connection details"),
       );
-      const response = await handler(sameOriginPost(), routeContext());
+      const response = await app.request(sameOriginPost(method));
       expect(response.status).toBe(503);
       expect(await response.text()).not.toContain("private");
     },
   );
 
   it("rejects cross-origin generation before authentication", async () => {
-    const response = await POST(
-      new NextRequest(
-        "http://localhost:3000/api/files/files/file-1/derivative",
-        {
-          method: "POST",
-          headers: { host: "localhost:3000", origin: "https://other.example" },
-        },
-      ),
-      routeContext(),
+    const response = await app.request(
+      new Request("http://localhost:3000/api/files/files/file-1/derivative", {
+        method: "POST",
+        headers: { host: "localhost:3000", origin: "https://other.example" },
+      }),
     );
     expect(response.status).toBe(403);
     expect(mocks.getRequestSession).not.toHaveBeenCalled();
@@ -296,7 +283,7 @@ describe("private media derivative routes", () => {
   it("rejects generation for non-video files", async () => {
     setSession("member-1", "member");
     setFile("member-1", "image/png");
-    const response = await POST(sameOriginPost(), routeContext());
+    const response = await app.request(sameOriginPost());
     expect(response.status).toBe(400);
     expect(mocks.scheduleDerivativeGenerate).not.toHaveBeenCalled();
   });
@@ -305,11 +292,11 @@ describe("private media derivative routes", () => {
     setSession("owner-1", "owner");
     setFile("member-1");
 
-    const response = await POST(sameOriginPost(), routeContext());
+    const response = await app.request(sameOriginPost());
 
     expect(response.status).toBe(404);
-    await expect(response.json()).resolves.toEqual({
-      error: "File not found.",
+    await expect(response.json()).resolves.toMatchObject({
+      code: "FILE_NOT_FOUND",
     });
     expect(mocks.scheduleDerivativeGenerate).not.toHaveBeenCalled();
   });
@@ -321,10 +308,10 @@ describe("private media derivative routes", () => {
       mediaPreviewEnabled: false,
     });
 
-    const response = await POST(sameOriginPost(), routeContext());
+    const response = await app.request(sameOriginPost());
 
     expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toEqual({
+    await expect(response.json()).resolves.toMatchObject({
       error: "Media previews are disabled.",
     });
     expect(mocks.scheduleDerivativeGenerate).not.toHaveBeenCalled();

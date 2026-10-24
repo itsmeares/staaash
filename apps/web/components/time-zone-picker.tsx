@@ -1,5 +1,3 @@
-"use client";
-
 import { CheckIcon, ChevronDownIcon, SearchIcon } from "lucide-react";
 import {
   useCallback,
@@ -19,7 +17,7 @@ import {
   normalizeTimeZone,
 } from "@staaash/config/time-zone";
 
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
 type TimeZonePickerProps = {
   id?: string;
@@ -123,6 +121,8 @@ function parseOffsetQuery(query: string) {
   return sign === "-" ? -minutes : minutes;
 }
 
+// Search, grouping, and keyboard focus of one combobox; the parts share state.
+// fallow-ignore-next-line complexity
 export function TimeZonePicker({
   id,
   name,

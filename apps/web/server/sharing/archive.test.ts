@@ -96,7 +96,7 @@ describe("shared folder ZIP", () => {
       files: [...contents.keys()].map(storedFile),
     });
     expect(result.fileName).toBe("Shared.zip");
-    const bytes = Buffer.from(await new Response(result.stream).arrayBuffer());
+    const bytes = Buffer.concat(await result.stream.toArray());
     const end = bytes.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
     let offset = bytes.readUInt32LE(end + 16);
     const names = [];

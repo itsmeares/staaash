@@ -1,10 +1,8 @@
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { readdir, rm } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
+import { ensurePathWithinRepo, repoRoot } from "./repo-path.mjs";
 
-const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(scriptDirectory, "..");
 const dryRun = process.argv.includes("--dry-run");
 
 const explicitTargets = [
@@ -16,7 +14,7 @@ const explicitTargets = [
   "coverage",
   "playwright-report",
   "test-results",
-  "apps/web/.next",
+  "apps/web/dist",
   "apps/web/.tmp",
   "apps/web/coverage",
   "apps/web/playwright-report",
@@ -29,22 +27,7 @@ const explicitTargets = [
   "packages/db/dist",
 ];
 
-const skippedDirectoryNames = new Set([
-  ".data",
-  ".git",
-  ".next",
-  "node_modules",
-]);
-
-const ensurePathWithinRepo = (targetPath) => {
-  const relativePath = path.relative(repoRoot, targetPath);
-
-  if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
-    throw new Error(
-      `Refusing to delete a path outside the repository: ${targetPath}`,
-    );
-  }
-};
+const skippedDirectoryNames = new Set([".data", ".git", "node_modules"]);
 
 const repoPath = (targetPath) => path.resolve(repoRoot, targetPath);
 

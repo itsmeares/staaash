@@ -111,7 +111,7 @@ it("serves complete scoped shares and archives, and fails closed across access c
     }),
   ).rejects.toMatchObject({ code: "SHARE_ACCESS_DENIED" });
   const archive = await service.createFolderArchive({ token: created.token });
-  const zip = Buffer.from(await new Response(archive.stream).arrayBuffer());
+  const zip = Buffer.concat(await archive.stream.toArray());
   for (const name of [
     "Shared/",
     "Shared/Deep/",

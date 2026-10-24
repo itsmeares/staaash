@@ -1,6 +1,4 @@
-"use client";
-
-import { usePathname, useRouter } from "next/navigation";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import { EntryBackground } from "@/components/public/entry-background";
@@ -22,8 +20,8 @@ const SLIDE_MS = 900;
 
 /** Mounted once in the root layout, so it outlives the page it covers. */
 export function Curtain() {
-  const router = useRouter();
-  const pathname = usePathname();
+  const navigate = useNavigate();
+  const pathname = useLocation({ select: (location) => location.pathname });
   const [state, setState] = useState<
     (Raise & { held: boolean; leaving: boolean }) | null
   >(null);
@@ -31,12 +29,12 @@ export function Curtain() {
   useEffect(() => {
     raise = (next) => {
       setState({ ...next, held: false, leaving: false });
-      router.push(next.dest);
+      void navigate({ href: next.dest });
     };
     return () => {
       raise = null;
     };
-  }, [router]);
+  }, [navigate]);
 
   // The greeting stays for its time, or until a click or key skips it.
   useEffect(() => {

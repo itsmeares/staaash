@@ -11,7 +11,7 @@ import { describe, expect, it } from "vite-plus/test";
 type Rgb = [number, number, number];
 
 const css = readFileSync(
-  path.resolve(__dirname, "..", "styles", "tokens.css"),
+  path.resolve(__dirname, "../../../packages/ui/styles/tokens.css"),
   "utf8",
 );
 

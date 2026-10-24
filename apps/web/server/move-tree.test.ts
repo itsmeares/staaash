@@ -5,7 +5,7 @@ import {
   buildMoveTree,
   lineage,
   noteFor,
-} from "@/app/(workspace)/move-tree";
+} from "@/src/workspace/move-tree";
 import type { MoveTarget } from "@/server/files/types";
 
 const folder = (id: string, parentId: string | null): MoveTarget => ({

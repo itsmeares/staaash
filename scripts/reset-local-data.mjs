@@ -2,10 +2,8 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { readFile, rm } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { ensurePathWithinRepo, repoRoot } from "./repo-path.mjs";
 
-const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(scriptDirectory, "..");
 const envFilePath = path.join(repoRoot, ".env");
 
 const parseDotEnv = async (filePath) => {
@@ -35,16 +33,6 @@ const parseDotEnv = async (filePath) => {
   }
 
   return entries;
-};
-
-const ensurePathWithinRepo = (targetPath) => {
-  const relativePath = path.relative(repoRoot, targetPath);
-
-  if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
-    throw new Error(
-      `Refusing to delete a path outside the repository: ${targetPath}`,
-    );
-  }
 };
 
 const toAbsoluteRepoPath = (candidatePath) =>

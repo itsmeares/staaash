@@ -2,15 +2,16 @@ import { createRequire } from "node:module";
 
 import { UPDATE_STATE_CHANGED_CHANNEL } from "@staaash/db/instance";
 import { BACKGROUND_JOB_STATE_CHANGED_CHANNEL } from "@staaash/db/jobs";
+import { STORAGE_CHANGES_CHANNEL } from "@staaash/db/storage-changes";
 
-type LiveChannel = "jobs" | "updates";
+type LiveChannel = "jobs" | "updates" | "changes";
 
 type PgClient = {
   connect(): Promise<void>;
   end(): Promise<void>;
   on(
     event: "notification",
-    listener: (message: { channel: string }) => void,
+    listener: (message: { channel: string; payload?: string }) => void,
   ): void;
   on(event: "error" | "end", listener: () => void): void;
   query(query: string): Promise<unknown>;
@@ -24,10 +25,11 @@ const { Client } = require("pg") as {
 const CHANNELS: Record<string, LiveChannel> = {
   [BACKGROUND_JOB_STATE_CHANGED_CHANNEL]: "jobs",
   [UPDATE_STATE_CHANGED_CHANNEL]: "updates",
+  [STORAGE_CHANGES_CHANNEL]: "changes",
 };
 const RECONNECT_MS = 2000;
 
-type Listener = (channel: LiveChannel) => void;
+type Listener = (channel: LiveChannel, payload: string) => void;
 
 // One LISTEN connection per server process, shared by every open stream.
 // Kept on globalThis so dev reloads do not leak connections.
@@ -59,9 +61,9 @@ const connect = async () => {
   };
   client.on("error", drop);
   client.on("end", drop);
-  client.on("notification", ({ channel }) => {
+  client.on("notification", ({ channel, payload = "" }) => {
     const name = CHANNELS[channel];
-    if (name) for (const listener of live.listeners) listener(name);
+    if (name) for (const listener of live.listeners) listener(name, payload);
   });
   await client.connect();
   for (const channel of Object.keys(CHANNELS)) {
@@ -78,7 +80,7 @@ const ensureConnected = async () => {
   await live.connecting;
 };
 
-/** Calls `listener` for each job or update change until the returned function runs. */
+/** Calls `listener` for each job, update, or storage change until the returned function runs. */
 export const subscribeLiveEvents = async (listener: Listener) => {
   live.listeners.add(listener);
   try {

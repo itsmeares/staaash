@@ -236,7 +236,9 @@ wait_for_app() {
       "$STAAASH_VERIFY_PROBE_URL/api/health/live" >"$EVIDENCE_DIR/health-live.json" 2>>"$EVIDENCE_DIR/health.log" &&
       curl --silent --show-error --fail --max-time 4 \
         "$STAAASH_VERIFY_PROBE_URL/" >"$EVIDENCE_DIR/health-home.html" 2>>"$EVIDENCE_DIR/health.log" &&
-      grep -q "Bring your Staaash" "$EVIDENCE_DIR/health-home.html"; then
+      curl --silent --show-error --fail --max-time 4 \
+        "$STAAASH_VERIFY_PROBE_URL/api/views/entry" >"$EVIDENCE_DIR/health-entry.json" 2>>"$EVIDENCE_DIR/health.log" &&
+      grep -q '"state":"setup"' "$EVIDENCE_DIR/health-entry.json"; then
       return
     fi
     sleep 1
@@ -420,7 +422,9 @@ doctor() {
       die "doctor found an unusable first-run instance (HTTP $ready_code)"
     curl --silent --show-error --fail --max-time 5 \
       "$STAAASH_VERIFY_PROBE_URL/" >"$EVIDENCE_DIR/doctor-first-run.html"
-    grep -q "Bring your Staaash" "$EVIDENCE_DIR/doctor-first-run.html" ||
+    curl --silent --show-error --fail --max-time 5 \
+      "$STAAASH_VERIFY_PROBE_URL/api/views/entry" >"$EVIDENCE_DIR/doctor-entry.json"
+    grep -q '"state":"setup"' "$EVIDENCE_DIR/doctor-entry.json" ||
       die "doctor could not find the first-run page"
   fi
   printf 'verify-staaash: doctor passed for %s\n' "$STAAASH_VERIFY_PROJECT"

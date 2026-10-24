@@ -6,7 +6,7 @@ import {
   pinnedFavorites,
   sortFavoriteItems,
   type FavoriteClientItem,
-} from "@/app/(workspace)/favorites/favorites-helpers";
+} from "@/src/workspace/favorites/favorites-helpers";
 import type { FavoriteRetrievalItem } from "@/server/retrieval/types";
 
 const makeFile = (

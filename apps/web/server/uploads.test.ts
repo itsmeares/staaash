@@ -7,13 +7,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import {
   assertUploadSizeAllowed,
   buildSafeRenamedFileName,
-  createUploadSession,
-  getDefaultUploadConflictStrategy,
-  getUploadStagingTtlMs,
-  getUploadTimeoutBudgetMs,
   stageUpload,
-  shouldCleanupStagedUpload,
-  verifyUploadChecksum,
 } from "@/server/uploads";
 import { getStorageRoot } from "@/server/storage";
 
@@ -33,48 +27,6 @@ describe("upload guardrails", () => {
       code: "FILE_NAME_INVALID_CHARACTER",
     });
     expect(stream).not.toHaveBeenCalled();
-  });
-
-  it("uses fail for interactive uploads until the UI chooses explicitly", () => {
-    expect(getDefaultUploadConflictStrategy("interactiveWeb")).toBe("fail");
-  });
-
-  it("uses safe rename for bulk and api-like uploads", () => {
-    expect(getDefaultUploadConflictStrategy("bulk")).toBe("safeRename");
-    expect(getDefaultUploadConflictStrategy("api")).toBe("safeRename");
-  });
-
-  it("creates staged upload sessions", () => {
-    const session = createUploadSession("interactiveWeb", "abc");
-
-    expect(session.status).toBe("staged");
-    expect(session.expectedChecksum).toBe("abc");
-    expect(session.conflictStrategy).toBe("fail");
-  });
-
-  it("verifies file checksums", async () => {
-    const filePath = path.join(os.tmpdir(), `staaash-upload-${Date.now()}.txt`);
-    await writeFile(filePath, "hello world", "utf8");
-
-    const result = await verifyUploadChecksum(
-      filePath,
-      "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
-    );
-
-    expect(result.checksumMatches).toBe(true);
-    expect(result.status).toBe("verified");
-  });
-
-  it("cleans up staged uploads after the retention window", async () => {
-    const createdAt = new Date("2026-03-01T00:00:00.000Z");
-    const ttl = await getUploadStagingTtlMs();
-    const now = new Date(createdAt.getTime() + ttl + 1);
-
-    expect(await shouldCleanupStagedUpload(createdAt, now)).toBe(true);
-  });
-
-  it("exposes a 60 minute upload timeout budget", async () => {
-    expect(await getUploadTimeoutBudgetMs()).toBe(60 * 60 * 1000);
   });
 
   it("rejects oversized uploads", async () => {

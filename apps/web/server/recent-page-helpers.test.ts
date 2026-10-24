@@ -5,7 +5,7 @@ import {
   filterRecentItems,
   sortRecentItems,
   type RecentClientItem,
-} from "@/app/(workspace)/recent/recent-helpers";
+} from "@/src/workspace/recent/recent-helpers";
 import type { RetrievalItem } from "@/server/retrieval/types";
 
 const makeFile = (

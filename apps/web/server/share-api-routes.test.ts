@@ -1,5 +1,6 @@
-import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+
+import { app } from "@/server/http/app";
 
 import type { StoredShareLink } from "@/server/sharing/types";
 
@@ -13,16 +14,19 @@ const mocks = vi.hoisted(() => ({
   updateSharePassword: vi.fn(),
 }));
 
-vi.mock("@/server/auth/guards", () => ({
+vi.mock("@/server/auth/guards", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/auth/guards")>()),
   getRequestSession: mocks.getRequestSession,
 }));
 
-vi.mock("@/server/request", () => ({
+vi.mock("@/server/request", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/request")>()),
   getBaseUrl: vi.fn(() => "https://drive.example.com"),
   getShareBaseUrl: mocks.getShareBaseUrl,
 }));
 
-vi.mock("@/server/sharing/service", () => ({
+vi.mock("@/server/sharing/service", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/sharing/service")>()),
   sharingService: {
     createOrReissueShare: mocks.createOrReissueShare,
     reissueShare: mocks.reissueShare,
@@ -31,11 +35,6 @@ vi.mock("@/server/sharing/service", () => ({
     updateSharePassword: mocks.updateSharePassword,
   },
 }));
-
-import { POST as createShare } from "@/app/api/shares/route";
-import { POST as updatePassword } from "@/app/api/shares/[shareId]/password/route";
-import { POST as revokeShare } from "@/app/api/shares/[shareId]/revoke/route";
-import { POST as updateShare } from "@/app/api/shares/[shareId]/update/route";
 
 const futureExpiry = new Date("2099-08-01T12:00:00.000Z");
 
@@ -59,7 +58,7 @@ const makeShare = (
 });
 
 const jsonRequest = (path: string, body: Record<string, unknown>) =>
-  new NextRequest(`https://drive.example.com${path}`, {
+  new Request(`https://drive.example.com${path}`, {
     method: "POST",
     headers: {
       accept: "application/json",
@@ -106,7 +105,7 @@ describe("share mutation API responses", () => {
       shareUrl: "https://drive.example.com/s/token",
     });
 
-    const response = await createShare(
+    const response = await app.request(
       jsonRequest("/api/shares", { targetType: "file", fileId: "file-1" }),
     );
 
@@ -120,7 +119,7 @@ describe("share mutation API responses", () => {
       shareUrl: "https://drive.example.com/s/reissued-token",
     });
 
-    const response = await createShare(
+    const response = await app.request(
       jsonRequest("/api/shares", { mode: "reissue", shareId: "share-1" }),
     );
 
@@ -132,16 +131,14 @@ describe("share mutation API responses", () => {
     mocks.updateShare.mockResolvedValue(makeShare());
     mocks.updateSharePassword.mockResolvedValue(makeShare());
 
-    const policyResponse = await updateShare(
+    const policyResponse = await app.request(
       jsonRequest("/api/shares/share-1/update", {
         expiresAt: futureExpiry.toISOString(),
         downloadDisabled: false,
       }),
-      { params: Promise.resolve({ shareId: "share-1" }) },
     );
-    const passwordResponse = await updatePassword(
+    const passwordResponse = await app.request(
       jsonRequest("/api/shares/share-1/password", { password: "new-password" }),
-      { params: Promise.resolve({ shareId: "share-1" }) },
     );
 
     await expectSafeShare(policyResponse);
@@ -153,9 +150,8 @@ describe("share mutation API responses", () => {
       makeShare({ revokedAt: new Date("2026-07-09T12:00:00.000Z") }),
     );
 
-    const response = await revokeShare(
+    const response = await app.request(
       jsonRequest("/api/shares/share-1/revoke", {}),
-      { params: Promise.resolve({ shareId: "share-1" }) },
     );
 
     await expectSafeShare(response, "revoked");

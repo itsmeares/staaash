@@ -12,9 +12,12 @@ This is intentionally a small, explicit architecture. The repo is trying to make
 
 ### Web app
 
-- Next.js App Router application
-- signed-in workspace shell and server routes
-- auth, files, sharing, search, restore, and admin-facing request flows
+- a Vite single-page app (TanStack Router and Query) served by a Hono server
+  on Node; the server adds link-preview tags to share pages
+- auth, files, sharing, search, restore, sync, and admin-facing request flows
+- public routes are described in `apps/web/openapi.json`; within a major
+  version they only gain routes and fields, and `GET /api/version` reports the
+  oldest desktop client the server supports
 
 ### Worker
 
@@ -129,10 +132,25 @@ quota admission and file growth in an already running process. An operator must
 investigate and rebuild usage with all writers stopped. See the repair procedure in
 [`resumable uploads`](operations/resumable-uploads.md#repairing-committed-usage).
 
+## Desktop Sync
+
+- a desktop app signs in through the browser: a loopback redirect with PKCE
+  gives it a device token, sent as a Bearer header; device tokens cannot reach
+  admin routes, and signing the device out also ends its app window session
+- every journal commit appends one `StorageChange` per top-level item in the
+  same transaction; a folder entry covers what moved with it
+- `seq` order is commit order: writers hold one advisory lock until commit, so
+  a client that has read up to a cursor never misses an earlier change
+- the log keeps 90 days; an older cursor gets 410 and the client takes a new
+  snapshot
+- `ifRevision` on rename, move, trash, and upload commit refuses a change to an
+  item that moved on, and every journal update bumps `storageRevision` by one
+- keeping the device's copy after a conflict is one journal entry: the file
+  keeps its id, and its old bytes go to the trash
+
 ## Boundaries And Non-Goals
 
 - no microservice split in v1
-- no desktop sync client in v1
 - no native mobile app in v1
 - no S3-compatible storage backend in v1
 - no internal collaboration permissions or shared workspaces in v1

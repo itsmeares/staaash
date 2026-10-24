@@ -118,6 +118,7 @@ const serveDerivativeBytes = async (
       sizeBytes,
       baseHeaders,
       rangeHeader ? parseRange(rangeHeader) : undefined,
+      request.signal,
     );
   } catch (error) {
     try {
@@ -161,6 +162,8 @@ export const createReadyDerivativeContentResponse = async ({
   return response;
 };
 
+// Ranged, full, and refused inline responses each answer differently.
+// fallow-ignore-next-line complexity
 export const createInlineContentResponse = async ({
   request,
   file,
