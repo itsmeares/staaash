@@ -142,7 +142,8 @@ describe("direct upload route", () => {
       folderId: null,
       items: ["upload-item"],
       idempotencyKey: "mutation-1",
-      signal: request.signal,
+      // The byte limit re-wraps a body without a length; its signal follows.
+      signal: expect.any(AbortSignal),
     });
   });
 
