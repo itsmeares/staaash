@@ -103,7 +103,6 @@ export function TopbarActions({
           </MenuItem>
           <MenuSeparator />
           <form action="/api/auth/sign-out" className="contents" method="post">
-            <input type="hidden" name="next" value="/" />
             <MenuItem
               className="w-full"
               nativeButton

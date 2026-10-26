@@ -188,7 +188,6 @@ export function WorkspaceMobileNav({
               <div className="flex items-center justify-between">
                 <VersionButton />
                 <form action="/api/auth/sign-out" method="post">
-                  <input type="hidden" name="next" value="/" />
                   <Button type="submit" variant="ghost-muted">
                     <LogOut aria-hidden />
                     Sign out

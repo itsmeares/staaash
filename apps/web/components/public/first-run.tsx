@@ -178,6 +178,7 @@ async function saveFirstRun(
     name: string;
   },
   initial: Previews,
+  next: string | undefined,
 ) {
   const theme = values.theme ?? "system";
   if (isOwnerKind(kind)) {
@@ -201,8 +202,9 @@ async function saveFirstRun(
   );
   applyTheme(theme);
   const first = values.name.trim().split(/\s+/)[0];
-  // A new account opens on the default start page.
-  raiseCurtain(first ? `Hi, ${first}.` : "Hi.", startPath(null), 2000);
+  // A new account opens on the default start page, unless sign-in came from
+  // a link such as a desktop app's approval page.
+  raiseCurtain(first ? `Hi, ${first}.` : "Hi.", next ?? startPath(null), 2000);
 }
 
 function IntroScreen({
@@ -508,6 +510,7 @@ export function FirstRun({
   kind,
   instanceName,
   displayName,
+  next,
   initialPreviews = {
     enabled: true,
     onUpload: false,
@@ -518,6 +521,7 @@ export function FirstRun({
   kind: FirstRunKind;
   instanceName: string;
   displayName?: string | null;
+  next?: string;
   initialPreviews?: Previews;
 }) {
   const steps = STEPS[kind];
@@ -580,8 +584,13 @@ export function FirstRun({
   const complete = () =>
     kind === "password"
       ? // Only the password changed; everything else is already set.
-        window.location.assign("/")
-      : saveFirstRun(kind, { ...choice, theme, zone, name }, initialPreviews);
+        window.location.assign(next ?? "/")
+      : saveFirstRun(
+          kind,
+          { ...choice, theme, zone, name },
+          initialPreviews,
+          next,
+        );
 
   const advance = async () => {
     if (pending || (step === "look" && !theme)) return;

@@ -626,7 +626,11 @@ export const createAuthService = ({
         throw new AuthError("USER_NOT_FOUND");
       }
 
-      await activeRepo.revokeSessionById(sessionId, now());
+      // Only a session of the selected user, never someone else's.
+      const sessions = await activeRepo.listUserSessions(targetUserId);
+      if (sessions.some((session) => session.id === sessionId)) {
+        await activeRepo.revokeSessionById(sessionId, now());
+      }
     },
 
     async revokeAllUserSessions(

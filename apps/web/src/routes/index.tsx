@@ -19,6 +19,7 @@ function EntryPage() {
         initialPreviews={data.previews}
         instanceName={data.instanceName}
         kind={data.firstRun!}
+        next={next}
       />
     );
   }
@@ -30,7 +31,9 @@ function EntryPage() {
 
 export const Route = createFileRoute("/")({
   // Without ?next, sign-in goes to the person's start page.
-  validateSearch: z.object({ next: z.string().optional() }),
+  validateSearch: z.object({
+    next: z.string().optional().transform(getSafeLocalPath),
+  }),
   loaderDeps: ({ search }) => search,
   loader: async ({ context, deps }) => {
     const entry = await context.queryClient.fetchQuery({
@@ -39,9 +42,7 @@ export const Route = createFileRoute("/")({
     });
     if (entry.state === "signed-in" && !entry.firstRun) {
       throw redirect({
-        href: deps.next
-          ? getSafeLocalPath(deps.next, "/files")
-          : startPath(entry.startPage),
+        href: deps.next ?? startPath(entry.startPage),
       });
     }
   },

@@ -1,11 +1,4 @@
-export const getSafeLocalPath = (
-  value: string | undefined,
-  fallback: string,
-) => {
+/** A path on this site, or undefined for anything that could leave it. */
+export const getSafeLocalPath = (value: string | undefined) =>
   // Browsers read "/\\host" like "//host", another site.
-  if (!value || !value.startsWith("/") || /^\/[/\\]/.test(value)) {
-    return fallback;
-  }
-
-  return value;
-};
+  value?.startsWith("/") && !/^\/[/\\]/.test(value) ? value : undefined;

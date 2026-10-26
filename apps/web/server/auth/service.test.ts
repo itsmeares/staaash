@@ -486,6 +486,53 @@ describe("auth service", () => {
     ).toEqual([here.session.id]);
   });
 
+  it("lets the owner sign out a session only for the user it belongs to", async () => {
+    const state: State = { users: [], sessions: [] };
+    const service = createAuthService({
+      repo: createRepo(state),
+      now: () => now,
+      sessionMaxAgeDays: 30,
+    });
+    const owner = await service.bootstrap({
+      instanceName: "Test Staaash",
+      email: "owner@example.com",
+      password: "long-owner-password",
+    });
+    const here = await service.signIn({
+      email: "owner@example.com",
+      password: "long-owner-password",
+    });
+    const member = await service.createUser(owner.user.id, {
+      email: "member@example.com",
+      temporaryPassword: "long-member-password",
+      confirmTemporaryPassword: "long-member-password",
+    });
+    const memberSession = await service.signIn({
+      email: "member@example.com",
+      password: "long-member-password",
+    });
+    const active = async () =>
+      (await service.listOwnSessions(member.user.id)).map(
+        (session) => session.id,
+      );
+
+    await service.revokeUserSession(
+      owner.user.id,
+      owner.user.id,
+      memberSession.session.id,
+      here.session.id,
+    );
+    expect(await active()).toEqual([memberSession.session.id]);
+
+    await service.revokeUserSession(
+      owner.user.id,
+      member.user.id,
+      memberSession.session.id,
+      here.session.id,
+    );
+    expect(await active()).toEqual([]);
+  });
+
   it("changes a required password while preserving only the current session", async () => {
     const alreadyRevokedAt = new Date("2026-06-15T10:00:00.000Z");
     const unchangedUpdatedAt = new Date("2026-06-14T10:00:00.000Z");

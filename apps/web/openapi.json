@@ -1418,6 +1418,9 @@
               }
             }
           },
+          "303": {
+            "description": "A form post goes back to the sign-in page."
+          },
           "400": {
             "description": "The request is invalid.",
             "content": {
@@ -7433,7 +7436,7 @@
           {
             "schema": {
               "type": "string",
-              "pattern": "^(folder|file):.+$",
+              "pattern": "^(folder|file):[^\\x00-\\x1f\\x7f]+$",
               "description": "The `next` value from the previous page."
             },
             "required": false,
@@ -7472,7 +7475,7 @@
                         "string",
                         "null"
                       ],
-                      "pattern": "^(folder|file):.+$",
+                      "pattern": "^(folder|file):[^\\x00-\\x1f\\x7f]+$",
                       "description": "The `next` value from the previous page."
                     },
                     "changeCursor": {

@@ -89,7 +89,11 @@ const signOut = createRoute({
   path: "/api/auth/sign-out",
   tags: ["Auth"],
   summary: "End this session.",
-  responses: { 200: json(OkSchema, "Signed out."), ...errorResponses },
+  responses: {
+    200: json(OkSchema, "Signed out."),
+    303: { description: "A form post goes back to the sign-in page." },
+    ...errorResponses,
+  },
 });
 
 const currentSession = createRoute({
@@ -278,6 +282,10 @@ export const authRoutes = router()
   .openapi(signOut, async (c) => {
     await authService.revokeSession(sessionToken(c));
     applyCookie(c, buildClearedSessionCookie(c.req.raw));
+    // The account menus sign out with a plain form, which expects a page.
+    if (c.req.header("accept")?.includes("text/html")) {
+      return c.redirect("/", 303);
+    }
     return c.json({ ok: true as const }, 200);
   })
   .openapi(currentSession, async (c) =>

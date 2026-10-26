@@ -515,4 +515,13 @@ describe("request validation contracts", () => {
     expect(denied.status).toBe(403);
     expectNoMutation();
   });
+  it("sends a form sign-out back to the sign-in page and keeps JSON for API callers", async () => {
+    const page = await app.request(
+      requestFor("/api/auth/sign-out", "POST", "", undefined, "text/html"),
+    );
+    expect(page.status).toBe(303);
+    expect(page.headers.get("location")).toBe("/");
+    const api = await app.request(requestFor("/api/auth/sign-out", "POST", ""));
+    expect(await api.json()).toEqual({ ok: true });
+  });
 });
