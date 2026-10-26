@@ -530,6 +530,35 @@ const directUpload = createRoute({
     }),
     storageMutation((key) => `${key}:0`),
   ],
+  request: {
+    body: {
+      required: true,
+      content: {
+        // A plain schema: it documents the body, and the handler parses it.
+        "multipart/form-data": {
+          schema: {
+            type: "object",
+            required: ["manifest", "files"],
+            properties: {
+              folderId: {
+                type: "string",
+                description: "The target folder; the files root if left out.",
+              },
+              manifest: {
+                type: "string",
+                description:
+                  "JSON array, one entry per file in the same order: `clientKey`, `originalName`, optional `expectedChecksum`, `conflictStrategy` (`fail`, `safeRename`, `replace`) and `clientModifiedAt`.",
+              },
+              files: {
+                type: "array",
+                items: { type: "string", format: "binary" },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
   responses: {
     201: json(
       z.object({

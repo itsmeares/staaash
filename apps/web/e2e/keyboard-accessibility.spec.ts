@@ -128,6 +128,17 @@ test("files rows move focus with keyboard and open selected item", async ({
   await page.keyboard.press("ArrowDown");
   await expect(firstRow).toBeFocused();
   await expect(firstRow).toHaveAttribute("aria-selected", "true");
+
+  // Enter on the row's Actions button opens its menu, not the file.
+  await firstRow.getByRole("button", { name: /^Actions for / }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("menu")).toBeVisible();
+  expect(new URL(page.url()).pathname).toBe("/files");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toBeHidden();
+  // Escape may also clear the selection, so pick the row again.
+  await firstRow.click();
+  await expect(firstRow).toHaveAttribute("aria-selected", "true");
   await page.keyboard.press("Enter");
 
   await page.waitForURL(/\/files\/view\/e2e-share-file/, {

@@ -290,7 +290,12 @@ export function useListSelection({
       } else if (event.key === "Escape" && current.selected.size > 0) {
         event.preventDefault();
         clear();
-      } else if (event.key === "Enter" && selected.length === 1) {
+      } else if (
+        event.key === "Enter" &&
+        selected.length === 1 &&
+        // A focused control inside a row, like its Actions menu, owns Enter.
+        !(event.target as HTMLElement).closest("button, input, a[data-stop]")
+      ) {
         event.preventDefault();
         onOpen(selected[0]!);
       } else if (event.key === " ") {

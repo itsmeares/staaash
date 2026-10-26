@@ -1,6 +1,12 @@
 import { Prisma, getPrisma } from "./client";
 import { setTimeout as delay } from "node:timers/promises";
 
+import {
+  ZIP_ARCHIVE_STATUS_FAILED,
+  ZIP_ARCHIVE_STATUS_PROCESSING,
+  ZIP_ARCHIVE_STATUS_QUEUED,
+} from "./zip-archives";
+
 export const STAGING_CLEANUP_JOB_KIND = "staging.cleanup";
 export const TRASH_RETENTION_JOB_KIND = "trash.retention";
 export const UPDATE_CHECK_JOB_KIND = "update.check";
@@ -126,6 +132,9 @@ type BackgroundJobClient = {
     findMany(args: object): Promise<BackgroundJobEventRecord[]>;
   };
   mediaDerivative: {
+    updateMany(args: object): Promise<{ count: number }>;
+  };
+  zipArchive: {
     updateMany(args: object): Promise<{ count: number }>;
   };
   workerInstance: {
@@ -744,6 +753,26 @@ export const cancelBackgroundJob = (input: AdminJobActionInput) =>
     }),
     event: { type: "cancelled", message: "Cancelled by admin." },
     after: async (tx, job) => {
+      const { archiveId } = (job.payloadJson ?? {}) as { archiveId?: unknown };
+      if (
+        job.kind === ZIP_ARCHIVE_GENERATE_JOB_KIND &&
+        typeof archiveId === "string"
+      ) {
+        // A failed zip is queued again the next time someone asks for it.
+        await tx.zipArchive.updateMany({
+          where: {
+            id: archiveId,
+            status: {
+              in: [ZIP_ARCHIVE_STATUS_QUEUED, ZIP_ARCHIVE_STATUS_PROCESSING],
+            },
+          },
+          data: {
+            status: ZIP_ARCHIVE_STATUS_FAILED,
+            error: "Cancelled by admin.",
+          },
+        });
+        return;
+      }
       if (job.kind !== MEDIA_DERIVATIVE_GENERATE_JOB_KIND) return;
       // Same states as DERIVATIVE_STATUS_*; media-derivatives.ts imports this
       // module, so the constants cannot be imported here.

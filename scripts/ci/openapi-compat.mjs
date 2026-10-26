@@ -39,6 +39,12 @@ const newRequirements = (before, after, at) => {
     .map((name) => `${at} now requires ${name}`);
 };
 
+// A client that read a field before must still always get it.
+const droppedGuarantees = (before, after, at) =>
+  (Array.isArray(before.required) ? before.required : [])
+    .filter((name) => !(after.required ?? []).includes(name))
+    .map((name) => `${at} no longer always has ${name}`);
+
 const CHECKED_HERE = new Set(["enum", "required"]);
 const opensRequest = (key) => key === "parameters" || key === "requestBody";
 const pair = (key, before, after) =>
@@ -49,7 +55,9 @@ const walk = (before, after, at, inRequest) => {
   if (!isObject(after)) return [`${at} was removed`];
   return [
     ...removedEnumValues(before, after, at),
-    ...(inRequest ? newRequirements(before, after, at) : []),
+    ...(inRequest
+      ? newRequirements(before, after, at)
+      : droppedGuarantees(before, after, at)),
     ...Object.entries(before)
       .filter(([key]) => !CHECKED_HERE.has(key))
       .flatMap(([key, value]) =>

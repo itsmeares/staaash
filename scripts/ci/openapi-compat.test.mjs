@@ -7,6 +7,7 @@ const spec = ({
   responseFields = ["id", "name"],
   kinds = ["file", "folder"],
   required = ["name"],
+  responseRequired = ["id", "name"],
 } = {}) => ({
   paths: {
     "/api/items/{id}": {
@@ -48,6 +49,7 @@ const spec = ({
                   properties: Object.fromEntries(
                     responseFields.map((field) => [field, { type: "string" }]),
                   ),
+                  required: responseRequired,
                 },
               },
             },
@@ -89,6 +91,10 @@ test("refuses removed routes, fields, enum values, and new required inputs", () 
   assert.match(
     breakingChanges(spec(), stricter).join("\n"),
     /ifRevision is now required/,
+  );
+  assert.match(
+    breakingChanges(spec(), spec({ responseRequired: ["id"] })).join("\n"),
+    /200\/content\/application\/json\/schema no longer always has name/,
   );
   assert.deepEqual(breakingChanges(spec(), { paths: {} }), [
     "POST /api/items/{id} was removed",

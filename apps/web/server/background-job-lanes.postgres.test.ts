@@ -263,3 +263,41 @@ it("queues thumbnail bursts without losing jobs or duplicating a shared request"
   expect(new Set(same.map(({ job }) => job.id)).size).toBe(1);
   expect(await db.backgroundJob.count({ where: { queueName } })).toBe(21);
 });
+
+it("marks a zip failed when its job is cancelled, so asking again queues it", async () => {
+  const db = getPrisma();
+  const userId = randomUUID();
+  await db.user.create({
+    data: {
+      id: userId,
+      email: `${userId}@jobs.test`,
+      storageId: userId,
+      passwordHash: "test-only",
+    },
+  });
+  const archive = (key: string) =>
+    db.zipArchive.create({
+      data: {
+        userId,
+        contentKey: `${userId}:${key}`,
+        idsJson: [],
+        status: "queued",
+        expiresAt: new Date(Date.now() + 86_400_000),
+      },
+    });
+  const [cancelled, other] = [await archive("a"), await archive("b")];
+  const job = await db.backgroundJob.create({
+    data: {
+      queueName: randomUUID(),
+      kind: "zip.archive.generate",
+      payloadJson: { archiveId: cancelled.id },
+    },
+  });
+
+  await cancelBackgroundJob({ jobId: job.id, actorUserId: "test-owner" });
+
+  const status = async (id: string) =>
+    (await db.zipArchive.findUniqueOrThrow({ where: { id } })).status;
+  expect(await status(cancelled.id)).toBe("failed");
+  expect(await status(other.id)).toBe("queued");
+});
