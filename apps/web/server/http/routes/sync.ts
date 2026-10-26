@@ -132,7 +132,8 @@ const changes = createRoute({
 const SnapshotCursor = z
   .string()
   // PostgreSQL text cannot hold control characters such as NUL.
-  .regex(/^(folder|file):[^\p{Cc}]+$/u)
+  // eslint-disable-next-line no-control-regex
+  .regex(/^(folder|file):[^\x00-\x1f\x7f]+$/)
   .openapi({ description: "The `next` value from the previous page." });
 
 const snapshot = createRoute({
