@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import {
   assertUploadSizeAllowed,
   buildSafeRenamedFileName,
+  parseUploadManifest,
   stageUpload,
 } from "@/server/uploads";
 import { getStorageRoot } from "@/server/storage";
@@ -27,6 +28,20 @@ describe("upload guardrails", () => {
       code: "FILE_NAME_INVALID_CHARACTER",
     });
     expect(stream).not.toHaveBeenCalled();
+  });
+
+  it("reads a null client time as no time, not 1970", () => {
+    const item = (clientModifiedAt: unknown) =>
+      parseUploadManifest(
+        JSON.stringify([
+          { clientKey: "a", originalName: "a.txt", clientModifiedAt },
+        ]),
+      )[0]!.clientModifiedAt;
+    expect(item(null)).toBeNull();
+    expect(item(undefined)).toBeUndefined();
+    expect(item("2024-08-09T10:11:12.345Z")).toEqual(
+      new Date("2024-08-09T10:11:12.345Z"),
+    );
   });
 
   it("rejects oversized uploads", async () => {

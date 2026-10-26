@@ -524,4 +524,29 @@ describe("request validation contracts", () => {
     const api = await app.request(requestFor("/api/auth/sign-out", "POST", ""));
     expect(await api.json()).toEqual({ ok: true });
   });
+  it("refuses a direct upload over the limit even without a length header", async () => {
+    const megabyte = new Uint8Array(1024 * 1024);
+    let sent = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (sent++ === 129) controller.close();
+        else controller.enqueue(megabyte);
+      },
+    });
+    const response = await app.request(
+      new Request("http://localhost:3000/api/files/files", {
+        method: "POST",
+        headers: {
+          "content-type": "multipart/form-data; boundary=x",
+          host: "localhost:3000",
+          origin: "http://localhost:3000",
+          "idempotency-key": "chunked-upload",
+        },
+        body,
+        duplex: "half",
+      } as RequestInit),
+    );
+    expect(response.status).toBe(413);
+    expect((await response.json()).code).toBe("UPLOAD_REQUEST_TOO_LARGE");
+  });
 });

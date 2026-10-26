@@ -41,7 +41,7 @@ export type UploadManifestItem = {
   expectedChecksum?: string;
   conflictStrategy: UploadConflictStrategy;
   /** The modified time on the uploader's computer. */
-  clientModifiedAt?: Date;
+  clientModifiedAt?: Date | null;
 };
 
 export type UploadRequestItem = UploadManifestItem & {
@@ -122,7 +122,7 @@ const uploadManifestSchema = z
       conflictStrategy: z
         .enum(["fail", "safeRename", "replace"])
         .default("fail"),
-      clientModifiedAt: z.coerce.date().optional(),
+      clientModifiedAt: z.coerce.date().nullable().optional(),
     }),
   )
   .nonempty();

@@ -1,5 +1,6 @@
 import { createRoute, z } from "@hono/zod-openapi";
 import { getPrisma } from "@staaash/db/client";
+import { bodyLimit } from "hono/body-limit";
 import { scheduleDerivativeGenerate } from "@staaash/db/media-derivatives";
 import {
   findStorageMutation,
@@ -12,7 +13,7 @@ import {
 
 import {
   DIRECT_UPLOAD_REQUEST_TOO_LARGE_MESSAGE,
-  isDirectUploadRequestTooLarge,
+  DIRECT_UPLOAD_MAX_REQUEST_BYTES,
 } from "@/lib/upload-limits";
 import { canAccessPrivateNamespace } from "@/server/access";
 import { authService } from "@/server/auth/service";
@@ -513,7 +514,22 @@ const directUpload = createRoute({
   tags: ["Uploads"],
   summary:
     "Upload small files in one multipart request: `folderId`, a JSON `manifest`, and `files`. Large files use upload sessions.",
-  middleware: [requireUser, storageMutation((key) => `${key}:0`)],
+  middleware: [
+    requireUser,
+    // Counts the bytes that arrive, so a chunked body without a length
+    // cannot get past the limit either.
+    bodyLimit({
+      maxSize: DIRECT_UPLOAD_MAX_REQUEST_BYTES,
+      onError: () => {
+        throw httpError(
+          413,
+          "UPLOAD_REQUEST_TOO_LARGE",
+          DIRECT_UPLOAD_REQUEST_TOO_LARGE_MESSAGE,
+        );
+      },
+    }),
+    storageMutation((key) => `${key}:0`),
+  ],
   responses: {
     201: json(
       z.object({
@@ -1006,13 +1022,6 @@ export const filesRoutes = router()
   })
   .openapi(directUpload, async (c) => {
     const actor = actorOf(c.var.session);
-    if (isDirectUploadRequestTooLarge(c.req.header("content-length") ?? null)) {
-      throw httpError(
-        413,
-        "UPLOAD_REQUEST_TOO_LARGE",
-        DIRECT_UPLOAD_REQUEST_TOO_LARGE_MESSAGE,
-      );
-    }
     let formData: FormData;
     try {
       formData = await c.req.raw.formData();

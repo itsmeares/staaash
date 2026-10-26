@@ -1,4 +1,5 @@
 import { StorageMutationConflictError } from "@staaash/db/storage-mutations";
+import { StorageAdmissionBusyError } from "@staaash/db/storage-transactions";
 import { z } from "zod";
 
 import { filesService } from "@/server/files/service";
@@ -15,6 +16,7 @@ import {
   beginSessionCommit,
   failAndCleanupResumableSession,
   findActiveResumableSession,
+  findCompletedResumableSession,
   recordResumableCommitRecoveryError,
   restoreResumableSessionAfterCommitRollback,
   type ResumableSession,
@@ -161,17 +163,11 @@ const ambiguousCommitResponse = async (
   );
 };
 
-const storageMutationConflictResponse = async (
+/** Nothing was committed: put the session back so the device can retry. */
+const retryLaterResponse = async (
   uploadSession: ResumableSession,
-  error: StorageMutationConflictError,
+  error: StorageMutationConflictError | StorageAdmissionBusyError,
 ): Promise<Response> => {
-  if (error.code !== "STORAGE_MUTATION_IN_PROGRESS") {
-    return Response.json(
-      { error: error.message, code: error.code },
-      { status: error.status },
-    );
-  }
-
   try {
     await restoreResumableSessionAfterCommitRollback({
       id: uploadSession.id,
@@ -188,6 +184,41 @@ const storageMutationConflictResponse = async (
   );
 };
 
+const storageMutationConflictResponse = async (
+  uploadSession: ResumableSession,
+  error: StorageMutationConflictError,
+): Promise<Response> =>
+  error.code === "STORAGE_MUTATION_IN_PROGRESS"
+    ? retryLaterResponse(uploadSession, error)
+    : Response.json(
+        { error: error.message, code: error.code },
+        { status: error.status },
+      );
+
+const commitResumableUpload = (
+  uploadSession: ResumableSession,
+  session: Session,
+  expectedChecksum: string | null,
+  ifRevision: number | undefined,
+) =>
+  filesService.commitResumableUpload({
+    actorUserId: session.user.id,
+    actorRole: session.user.role,
+    uploadSessionId: uploadSession.id,
+    tmpPath: uploadSession.tmpPath,
+    folderId: uploadSession.folderId,
+    originalName: uploadSession.originalName,
+    mimeType: uploadSession.mimeType,
+    totalSizeBytes: uploadSession.totalSizeBytes,
+    contentChecksum: expectedChecksum,
+    conflictStrategy: uploadSession.conflictStrategy as
+      | "fail"
+      | "safeRename"
+      | "replace",
+    clientModifiedAt: uploadSession.clientModifiedAt,
+    ifRevision,
+  });
+
 const commitUploadedFile = async (
   uploadSession: ResumableSession,
   session: Session,
@@ -195,23 +226,12 @@ const commitUploadedFile = async (
   ifRevision: number | undefined,
 ): Promise<Response> => {
   try {
-    const file = await filesService.commitResumableUpload({
-      actorUserId: session.user.id,
-      actorRole: session.user.role,
-      uploadSessionId: uploadSession.id,
-      tmpPath: uploadSession.tmpPath,
-      folderId: uploadSession.folderId,
-      originalName: uploadSession.originalName,
-      mimeType: uploadSession.mimeType,
-      totalSizeBytes: uploadSession.totalSizeBytes,
-      contentChecksum: expectedChecksum,
-      conflictStrategy: uploadSession.conflictStrategy as
-        | "fail"
-        | "safeRename"
-        | "replace",
-      clientModifiedAt: uploadSession.clientModifiedAt,
+    const file = await commitResumableUpload(
+      uploadSession,
+      session,
+      expectedChecksum,
       ifRevision,
-    });
+    );
     return Response.json(file, { status: 201 });
   } catch (error) {
     if (error instanceof ResumableCompletionError) {
@@ -238,8 +258,51 @@ const commitUploadedFile = async (
     if (error instanceof StorageMutationConflictError) {
       return storageMutationConflictResponse(uploadSession, error);
     }
+    // Admission refused before any journal entry existed.
+    if (error instanceof StorageAdmissionBusyError) {
+      return retryLaterResponse(uploadSession, error);
+    }
     return ambiguousCommitResponse(uploadSession, error);
   }
+};
+
+/** A lost reply: the upload already finished, so answer with its file. */
+const replayCompletedUpload = async ({
+  body,
+  session,
+  id,
+}: {
+  body: unknown;
+  session: Session;
+  id: string;
+}): Promise<Response> => {
+  const completed = await findCompletedResumableSession(id, session.user.id);
+  if (!completed) {
+    return Response.json(
+      { error: "Upload session not found." },
+      { status: 404 },
+    );
+  }
+  const checksum = await resolveExpectedChecksum(body, completed);
+  if (checksum.errorResponse) return checksum.errorResponse;
+  if (checksum.expectedChecksum !== completed.expectedChecksum) {
+    return Response.json(
+      { error: "Checksum mismatch.", code: "CHECKSUM_MISMATCH" },
+      { status: 400 },
+    );
+  }
+  // The journal's succeeded mutation answers without committing again.
+  const file = await commitResumableUpload(
+    completed,
+    session,
+    checksum.expectedChecksum,
+    undefined,
+  );
+  return attachResumableMutationHeader(
+    Response.json(file, { status: 201 }),
+    id,
+    session.user.id,
+  );
 };
 
 /**
@@ -259,12 +322,7 @@ export const completeResumableUpload = async ({
   id: string;
 }): Promise<Response> => {
   const uploadSession = await findActiveResumableSession(id, session.user.id);
-  if (!uploadSession) {
-    return Response.json(
-      { error: "Upload session not found." },
-      { status: 404 },
-    );
-  }
+  if (!uploadSession) return replayCompletedUpload({ body, session, id });
 
   if (!uploadIsComplete(uploadSession)) {
     return Response.json(

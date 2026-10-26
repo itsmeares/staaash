@@ -17,6 +17,7 @@ import {
   issueWebSessionCode,
   redeemWebSessionCode,
 } from "./auth/device";
+import { SESSION_COOKIE_NAME } from "./auth/session";
 import { authService } from "./auth/service";
 import { createFilesService } from "./files/service";
 import { app } from "./http/app";
@@ -411,6 +412,68 @@ it("answers 410 once the cursor is older than the kept log", async () => {
     limit: 10,
   });
   expect(fromEdge.changes.map((c) => c.path)).toEqual(["kept"]);
+});
+
+it("answers a repeated upload completion with the finished file", async () => {
+  const { user, root } = await createOwner();
+  const { sessionToken } = await authService.createSession(user.id, {});
+  const call = (
+    path: string,
+    method: string,
+    body?: BodyInit,
+    type = "application/json",
+    extra = {},
+  ) =>
+    app.request(`http://localhost:3000${path}`, {
+      method,
+      headers: {
+        cookie: `${SESSION_COOKIE_NAME}=${sessionToken}`,
+        host: "localhost:3000",
+        origin: "http://localhost:3000",
+        "content-type": type,
+        ...extra,
+      },
+      body,
+    });
+  const bytes = Buffer.from("finished once");
+  const expectedChecksum = createHash("sha256").update(bytes).digest("hex");
+  const created = await call(
+    "/api/uploads/sessions",
+    "POST",
+    JSON.stringify({
+      folderId: root.id,
+      originalName: "once.txt",
+      mimeType: "text/plain",
+      totalSizeBytes: bytes.length,
+    }),
+  );
+  expect(created.status, await created.clone().text()).toBe(201);
+  const { id } = (await created.json()) as { id: string };
+  const chunk = await call(
+    `/api/uploads/sessions/${id}`,
+    "PATCH",
+    bytes,
+    "application/octet-stream",
+    { "content-range": `bytes 0-${bytes.length - 1}/${bytes.length}` },
+  );
+  expect(chunk.status, await chunk.clone().text()).toBe(200);
+  const complete = (checksum: string) =>
+    call(
+      `/api/uploads/sessions/${id}/complete`,
+      "POST",
+      JSON.stringify({ expectedChecksum: checksum }),
+    );
+  const first = await complete(expectedChecksum);
+  expect(first.status, await first.clone().text()).toBe(201);
+  const file = (await first.json()) as { id: string };
+
+  const again = await complete(expectedChecksum);
+  expect(again.status, await again.clone().text()).toBe(201);
+  expect(await again.json()).toMatchObject({ id: file.id });
+  expect((await complete("0".repeat(64))).status).toBe(400);
+  expect(
+    await db.file.count({ where: { ownerUserId: user.id, deletedAt: null } }),
+  ).toBe(1);
 });
 
 const pkce = () => {

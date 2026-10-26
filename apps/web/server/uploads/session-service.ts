@@ -311,6 +311,22 @@ export const findActiveResumableSession = async (
   return row ? toSession(row) : null;
 };
 
+/** A finished session, for a device that lost the reply and asks again. */
+export const findCompletedResumableSession = async (
+  id: string,
+  ownerUserId: string,
+): Promise<ResumableSession | null> => {
+  const row = await getPrisma().uploadSession.findFirst({
+    where: {
+      id,
+      ownerUserId,
+      status: UPLOAD_SESSION_STATUS_COMPLETED,
+      committedFileId: { not: null },
+    },
+  });
+  return row ? toSession(row) : null;
+};
+
 type WriteUploadChunkInput = CompletedUploadChunk & {
   sessionId: string;
   ownerUserId: string;
