@@ -1,3 +1,4 @@
+import { contentDisposition } from "@/server/downloads/content-disposition";
 import { open } from "node:fs/promises";
 
 import { getPrisma } from "@staaash/db/client";
@@ -71,9 +72,6 @@ const findDerivativeStatus = async (fileId: string): Promise<string | null> => {
   return row?.status ?? null;
 };
 
-const buildInlineDisposition = (fileName: string) =>
-  `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`;
-
 const serveDerivativeBytes = async (
   request: Request,
   storageKey: string,
@@ -95,7 +93,7 @@ const serveDerivativeBytes = async (
     const rangeHeader = request.headers.get("range");
     const baseHeaders: Record<string, string> = {
       "cache-control": cacheControl,
-      "content-disposition": buildInlineDisposition(fileName),
+      "content-disposition": contentDisposition("inline", fileName),
       "content-type": mimeType,
       "accept-ranges": "bytes",
       "x-content-type-options": "nosniff",

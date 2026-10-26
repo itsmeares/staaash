@@ -458,6 +458,8 @@ describe("public share content routes", () => {
       );
 
       expect(response.status).toBe(status);
+      // A browser must not keep a refusal once the share comes back.
+      expect(response.headers.get("cache-control")).toBe("no-store");
       expect(await response.text()).toBe(new ShareError(code).message);
       expect(mocks.getStoragePath).not.toHaveBeenCalled();
     },

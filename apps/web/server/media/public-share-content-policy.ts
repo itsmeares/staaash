@@ -1,3 +1,4 @@
+import { contentDisposition } from "@/server/downloads/content-disposition";
 import type { FileSummary } from "@/server/files/types";
 
 import { isHeicFile } from "./heic-converter";
@@ -8,7 +9,7 @@ const MIME_TYPE_PATTERN = new RegExp(
   `^(${MIME_TOKEN})/(${MIME_TOKEN})(?:[\\t ]*;[\\t ]*${MIME_TOKEN}[\\t ]*=[\\t ]*(?:${MIME_TOKEN}|${MIME_QUOTED_VALUE}))*[\\t ]*$`,
 );
 
-const PUBLIC_SHARE_CONTENT_SECURITY_POLICY =
+export const PUBLIC_SHARE_CONTENT_SECURITY_POLICY =
   "sandbox; default-src 'none'; form-action 'none'; base-uri 'none'";
 
 // PDF remains inline only under the mandatory bare sandbox above. No allow-*
@@ -36,11 +37,6 @@ const PUBLIC_SHARE_SAFE_INLINE_MIME_TYPES = [
 const safeInlineMimeTypes = new Set<string>(
   PUBLIC_SHARE_SAFE_INLINE_MIME_TYPES,
 );
-
-const buildContentDisposition = (
-  disposition: "attachment" | "inline",
-  fileName: string,
-) => `${disposition}; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 
 const normalizePublicShareMimeType = (mimeType: string): string | null => {
   if (!mimeType || /[\r\n]/u.test(mimeType)) return null;
@@ -95,7 +91,7 @@ const createPublicShareContentHeaders = ({
   const safeInlineMimeType = getPublicShareSafeInlineMimeType(emittedMimeType);
 
   return {
-    "content-disposition": buildContentDisposition(
+    "content-disposition": contentDisposition(
       safeInlineMimeType ? "inline" : "attachment",
       fileName,
     ),

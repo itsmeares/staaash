@@ -146,6 +146,18 @@ it("hydrates only the requested favorite and activity window, including trash in
   expect(favorites.items).toHaveLength(100);
   expect(favorites.total).toBe(232);
   expect(favorites.items.every((item) => item.isFavorite)).toBe(true);
+
+  // A file with no viewer links to the real download route.
+  await db.file.update({
+    where: { id: newest.id },
+    data: { mimeType: "application/octet-stream", deletedAt: null },
+  });
+  const [opaque] = (await getRetrievalPage(user.id, "recent", { limit: 1 }))
+    .items;
+  expect(opaque).toMatchObject({
+    id: newest.id,
+    href: `/api/files/files/${newest.id}/download`,
+  });
 });
 
 it("keeps search matching and rank order across page boundaries", async () => {

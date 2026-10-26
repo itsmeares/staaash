@@ -1,3 +1,4 @@
+import { contentDisposition } from "@/server/downloads/content-disposition";
 import type { Readable } from "node:stream";
 
 import {
@@ -26,9 +27,6 @@ import {
   assertStorageEntityReadable,
   StorageEntityUnavailableError,
 } from "@/server/storage-read-guard";
-
-const buildAttachmentDisposition = (fileName: string) =>
-  `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 
 export const createFileDownloadResponse = async (
   { file, contentType, contentLength }: ShareDownloadResult,
@@ -61,7 +59,7 @@ export const createArchiveResponse = (
 ) =>
   new Response(nodeBodyStream(stream, signal), {
     headers: {
-      "content-disposition": buildAttachmentDisposition(fileName),
+      "content-disposition": contentDisposition("attachment", fileName),
       "content-type": "application/zip",
       "x-content-type-options": "nosniff",
     },
@@ -73,6 +71,7 @@ export const createShareErrorResponse = (error: unknown) => {
       status: error.status,
       headers: {
         "content-type": "text/plain; charset=utf-8",
+        "cache-control": "no-store",
         "X-Storage-Mutation-Id": error.mutationId,
       },
     });
@@ -85,6 +84,9 @@ export const createShareErrorResponse = (error: unknown) => {
     status: normalized.status,
     headers: {
       "content-type": "text/plain; charset=utf-8",
+      // A share can come back (restore, new password), so a browser must
+      // not keep the refusal.
+      "cache-control": "no-store",
     },
   });
 };

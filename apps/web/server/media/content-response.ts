@@ -1,3 +1,4 @@
+import { contentDisposition } from "@/server/downloads/content-disposition";
 import { open } from "node:fs/promises";
 
 import { nodeBodyStream } from "@/server/downloads/body-stream";
@@ -6,9 +7,10 @@ import { prismaFilesRepository } from "@/server/files/repository";
 import type { StoredFile } from "@/server/files/types";
 import { assertStorageEntityReadable } from "@/server/storage-read-guard";
 import { convertHeicToJpeg, isHeicFile } from "./heic-converter";
-
-const buildInlineDisposition = (fileName: string) =>
-  `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`;
+import {
+  getPublicShareSafeInlineMimeType,
+  PUBLIC_SHARE_CONTENT_SECURITY_POLICY,
+} from "./public-share-content-policy";
 
 type ByteRange = {
   start: number;
@@ -129,9 +131,14 @@ export const parseSingleByteRange = (
 
 const createBaseHeaders = (file: StoredFile): HeadersInit => ({
   "cache-control": "private, max-age=0, must-revalidate",
-  "content-disposition": buildInlineDisposition(file.name),
+  "content-disposition": contentDisposition("inline", file.name),
   "content-type": file.mimeType || "application/octet-stream",
   "x-content-type-options": "nosniff",
+  // HTML or SVG opened straight from this URL must not run scripts on the
+  // drive's origin. The viewer shows images with <img>, where they never run.
+  ...(getPublicShareSafeInlineMimeType(file.mimeType)
+    ? {}
+    : { "content-security-policy": PUBLIC_SHARE_CONTENT_SECURITY_POLICY }),
 });
 
 export const createMediaErrorResponse = (error: MediaContentError) =>

@@ -25,7 +25,13 @@ export function AppLink({
       href={href}
       onClick={(event) => {
         onClick?.(event);
-        if (event.defaultPrevented || props.target || !isPlainClick(event)) {
+        // An /api/ address is a download the browser handles, not a page.
+        if (
+          event.defaultPrevented ||
+          props.target ||
+          !isPlainClick(event) ||
+          href.startsWith("/api/")
+        ) {
           return;
         }
         event.preventDefault();

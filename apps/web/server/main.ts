@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
+import type { Handler } from "hono";
 import { getCookie } from "hono/cookie";
 
 import { app } from "@/server/http/app";
@@ -37,22 +38,30 @@ const withClient = async () => {
   app.use("*", serveStatic({ root: clientDir }));
 
   // A link preview shows the shared item, so share pages carry its tags.
-  app.get("/s/:token/:kind{f|files}?/:id?", async (c) => {
-    const { token, kind, id } = c.req.param();
-    const metadata = await getSharePageMetadata({
-      token,
-      baseUrl: getShareBaseUrl(c.req.raw.headers),
-      folderId: kind === "f" ? id : undefined,
-      fileId: kind === "files" ? id : undefined,
-      shareAccessCookieValue: getCookie(c, SHARE_ACCESS_COOKIE_NAME) ?? null,
-    });
-    return c.html(
-      indexHtml
-        .replace(/<title>.*?<\/title>\s*/, "")
-        .replace(/<meta\s+name="description"[^>]*>\s*/, "")
-        .replace("<!--share-meta-->", toMetaTags(metadata)),
-    );
-  });
+  const sharePage =
+    (kind?: "folder" | "file"): Handler =>
+    async (c) => {
+      const token = c.req.param("token")!;
+      const id = c.req.param("id");
+      const metadata = await getSharePageMetadata({
+        token,
+        baseUrl: getShareBaseUrl(c.req.raw.headers),
+        folderId: kind === "folder" ? id : undefined,
+        fileId: kind === "file" ? id : undefined,
+        shareAccessCookieValue: getCookie(c, SHARE_ACCESS_COOKIE_NAME) ?? null,
+      });
+      return c.html(
+        indexHtml
+          .replace(/<title>.*?<\/title>\s*/, "")
+          .replace(/<meta\s+name="description"[^>]*>\s*/, "")
+          .replace("<!--share-meta-->", toMetaTags(metadata)),
+      );
+    };
+  // Separate routes: one pattern with two optional parts lost the item id
+  // once the API routes were registered.
+  app.get("/s/:token", sharePage());
+  app.get("/s/:token/f/:id", sharePage("folder"));
+  app.get("/s/:token/files/:id", sharePage("file"));
 
   // Every other page is the app, which routes in the browser.
   app.get("*", (c) =>

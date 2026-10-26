@@ -137,7 +137,7 @@ export async function hydrateRetrievalPage(
             sizeBytes: item.sizeBytes,
             href: item.viewerKind
               ? `/files/view/${item.id}`
-              : `/api/files/view/${item.id}/download`,
+              : `/api/files/files/${item.id}/download`,
             pathLabel: buildFilePathLabel({ file: item, folderMap, filesRoot }),
             storageMutation: fileStates.get(item.id),
           },

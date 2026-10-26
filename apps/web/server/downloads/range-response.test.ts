@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { afterAll, describe, expect, it } from "vite-plus/test";
 
+import { contentDisposition } from "@/server/downloads/content-disposition";
 import { createRangeResponseFromPath } from "@/server/downloads/range-response";
 
 const dir = await mkdtemp(path.join(os.tmpdir(), "staaash-range-"));
@@ -47,5 +48,20 @@ describe("file downloads", () => {
     // A second download still works on the same process.
     const again = await download(new Request("http://localhost/x"));
     expect((await again!.arrayBuffer()).byteLength).toBe(4 * 1024 * 1024);
+  });
+
+  it("refuses fractional ranges instead of failing", async () => {
+    for (const range of ["bytes=1.5-3", "bytes=1-3.5", "bytes=-2.5"]) {
+      const response = await download(
+        new Request("http://localhost/x", { headers: { range } }),
+      );
+      expect(response!.status, range).toBe(416);
+    }
+  });
+
+  it("keeps an apostrophe in the downloaded name", () => {
+    expect(contentDisposition("attachment", "O'Brien (1).txt")).toBe(
+      "attachment; filename*=UTF-8''O%27Brien%20%281%29.txt",
+    );
   });
 });
