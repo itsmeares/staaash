@@ -234,36 +234,44 @@ const commitUploadedFile = async (
     );
     return Response.json(file, { status: 201 });
   } catch (error) {
-    if (error instanceof ResumableCompletionError) {
-      return Response.json(
-        { error: error.message, code: error.code },
-        {
-          status: error.status,
-          headers:
-            error.code === "RESUMABLE_COMMIT_RETRYABLE"
-              ? { "retry-after": "1" }
-              : undefined,
-        },
-      );
-    }
-    // Nothing was committed: the name or revision was refused up front.
-    if (error instanceof FilesError || error instanceof RevisionConflictError) {
-      await failAndCleanupResumableSession({
-        id: uploadSession.id,
-        ownerUserId: uploadSession.ownerUserId,
-        tmpPath: uploadSession.tmpPath,
-      });
-      return jsonError(error);
-    }
-    if (error instanceof StorageMutationConflictError) {
-      return storageMutationConflictResponse(uploadSession, error);
-    }
-    // Admission refused before any journal entry existed.
-    if (error instanceof StorageAdmissionBusyError) {
-      return retryLaterResponse(uploadSession, error);
-    }
-    return ambiguousCommitResponse(uploadSession, error);
+    return commitErrorResponse(uploadSession, error);
   }
+};
+
+/** Each commit failure says whether anything was committed. */
+const commitErrorResponse = async (
+  uploadSession: ResumableSession,
+  error: unknown,
+): Promise<Response> => {
+  if (error instanceof ResumableCompletionError) {
+    return Response.json(
+      { error: error.message, code: error.code },
+      {
+        status: error.status,
+        headers:
+          error.code === "RESUMABLE_COMMIT_RETRYABLE"
+            ? { "retry-after": "1" }
+            : undefined,
+      },
+    );
+  }
+  // Nothing was committed: the name or revision was refused up front.
+  if (error instanceof FilesError || error instanceof RevisionConflictError) {
+    await failAndCleanupResumableSession({
+      id: uploadSession.id,
+      ownerUserId: uploadSession.ownerUserId,
+      tmpPath: uploadSession.tmpPath,
+    });
+    return jsonError(error);
+  }
+  if (error instanceof StorageMutationConflictError) {
+    return storageMutationConflictResponse(uploadSession, error);
+  }
+  // Admission refused before any journal entry existed.
+  if (error instanceof StorageAdmissionBusyError) {
+    return retryLaterResponse(uploadSession, error);
+  }
+  return ambiguousCommitResponse(uploadSession, error);
 };
 
 /** A lost reply: the upload already finished, so answer with its file. */
