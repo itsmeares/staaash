@@ -27,7 +27,9 @@ type SignInResponse = {
 function enterDrive(json: SignInResponse, next: string | undefined) {
   const prefs = json.user?.preferences;
   if (!prefs?.onboardingCompletedAt) {
-    window.location.assign("/");
+    // A page behind sign-in sends an unfinished account back to "/" with
+    // its address kept, so setup can return there.
+    window.location.assign(next ?? "/");
     return;
   }
   applyTheme(prefs.theme ?? "system");
