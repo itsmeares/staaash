@@ -942,6 +942,37 @@ export const createFilesService = ({
     }
   };
 
+  // A retry of a finished change answers with the item as it is now. Worker
+  // recovery finishes the journal without the web reply, so a stored reply
+  // can be missing or show the item from before the change.
+  const replayFileMutation = async (
+    replay: { resultJson: Prisma.JsonValue | null },
+    fileId: string,
+  ): Promise<FileMutationResult> => {
+    const current = await (
+      await resolveRepo()
+    ).findFileById(fileId, { includeMissing: true });
+    if (!current) return { deletedFileId: fileId };
+    return {
+      file: toFileSummary(current),
+      restoredTo: parseFileMutationReplay(replay.resultJson)?.restoredTo,
+    };
+  };
+
+  const replayFolderMutation = async (
+    replay: { resultJson: Prisma.JsonValue | null },
+    folderId: string,
+  ): Promise<FolderMutationResult> => {
+    const folder = await (await resolveRepo()).findFolderById(folderId);
+    if (!folder) {
+      throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
+    }
+    return {
+      folder,
+      restoredTo: parseFolderMutationReplay(replay.resultJson)?.restoredTo,
+    };
+  };
+
   const buildDerivativeInvalidation = async (fileId: string) => {
     if (repo) {
       return {
@@ -3052,13 +3083,7 @@ export const createFilesService = ({
         entityId: folderId,
         requestHashPayload,
       });
-      if (replay) {
-        const response = parseFolderMutationReplay(replay.resultJson);
-        if (!response) {
-          throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
-        }
-        return response;
-      }
+      if (replay) return replayFolderMutation(replay, folderId);
       const folder = await getActiveOwnedFolder({
         actorRole,
         actorUserId,
@@ -3367,13 +3392,7 @@ export const createFilesService = ({
         entityId: folderId,
         requestHashPayload,
       });
-      if (replay) {
-        const response = parseFolderMutationReplay(replay.resultJson);
-        if (!response) {
-          throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
-        }
-        return response;
-      }
+      if (replay) return replayFolderMutation(replay, folderId);
       const folder = await getActiveOwnedFolder({
         actorRole,
         actorUserId,
@@ -3625,13 +3644,7 @@ export const createFilesService = ({
         entityId: folderId,
         requestHashPayload,
       });
-      if (replay) {
-        const response = parseFolderMutationReplay(replay.resultJson);
-        if (!response) {
-          throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
-        }
-        return response;
-      }
+      if (replay) return replayFolderMutation(replay, folderId);
       const folder = await getActiveOwnedFolder({
         actorRole,
         actorUserId,
@@ -3841,13 +3854,7 @@ export const createFilesService = ({
         entityId: folderId,
         requestHashPayload,
       });
-      if (replay) {
-        const response = parseFolderMutationReplay(replay.resultJson);
-        if (!response) {
-          throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
-        }
-        return response;
-      }
+      if (replay) return replayFolderMutation(replay, folderId);
       const folder = await getOwnedFolder({
         actorRole,
         actorUserId,
@@ -4144,13 +4151,7 @@ export const createFilesService = ({
         entityId: fileId,
         requestHashPayload,
       });
-      if (replay) {
-        const response = parseFileMutationReplay(replay.resultJson);
-        if (!response) {
-          throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
-        }
-        return response;
-      }
+      if (replay) return replayFileMutation(replay, fileId);
       const file = await getActiveOwnedFile({
         actorRole,
         actorUserId,
@@ -4263,13 +4264,7 @@ export const createFilesService = ({
         entityId: fileId,
         requestHashPayload,
       });
-      if (replay) {
-        const response = parseFileMutationReplay(replay.resultJson);
-        if (!response) {
-          throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
-        }
-        return response;
-      }
+      if (replay) return replayFileMutation(replay, fileId);
       const file = await getActiveOwnedFile({
         actorRole,
         actorUserId,
@@ -4392,13 +4387,7 @@ export const createFilesService = ({
         entityId: fileId,
         requestHashPayload,
       });
-      if (replay) {
-        const response = parseFileMutationReplay(replay.resultJson);
-        if (!response) {
-          throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
-        }
-        return response;
-      }
+      if (replay) return replayFileMutation(replay, fileId);
       const file = await getActiveOwnedFile({
         actorRole,
         actorUserId,
@@ -4519,13 +4508,7 @@ export const createFilesService = ({
         entityId: fileId,
         requestHashPayload,
       });
-      if (replay) {
-        const response = parseFileMutationReplay(replay.resultJson);
-        if (!response) {
-          throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
-        }
-        return response;
-      }
+      if (replay) return replayFileMutation(replay, fileId);
       const [original, copy] = await Promise.all([
         getActiveOwnedFile({ actorRole, actorUserId, fileId }),
         getActiveOwnedFile({ actorRole, actorUserId, fileId: conflictCopyId }),
@@ -4683,13 +4666,7 @@ export const createFilesService = ({
         entityId: fileId,
         requestHashPayload,
       });
-      if (replay) {
-        const response = parseFileMutationReplay(replay.resultJson);
-        if (!response) {
-          throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
-        }
-        return response;
-      }
+      if (replay) return replayFileMutation(replay, fileId);
       const file = await getOwnedFile({
         actorRole,
         actorUserId,
@@ -4812,13 +4789,7 @@ export const createFilesService = ({
         entityId: fileId,
         requestHashPayload,
       });
-      if (replay) {
-        const response = parseFileMutationReplay(replay.resultJson);
-        if (!response) {
-          throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
-        }
-        return response;
-      }
+      if (replay) return replayFileMutation(replay, fileId);
       const file = await getOwnedFile({
         actorRole,
         actorUserId,

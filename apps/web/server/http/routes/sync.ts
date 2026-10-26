@@ -9,6 +9,7 @@ import {
 import { streamSSE } from "hono/streaming";
 
 import { resolveAppVersion } from "@/server/app-version";
+import { getRequestSession } from "@/server/auth/guards";
 import { filesService } from "@/server/files/service";
 import {
   actorOf,
@@ -16,6 +17,7 @@ import {
   httpError,
   requireUser,
   router,
+  sessionToken,
   storageMutation,
 } from "@/server/http/core";
 import { FileMutationSchema, json, jsonBody } from "@/server/http/schemas";
@@ -28,6 +30,9 @@ const HEARTBEAT_MS = 25_000;
 const Cursor = z
   .string()
   .regex(/^\d{1,19}$/, "A cursor is a whole number.")
+  .refine((value) => BigInt(value) <= 9223372036854775807n, {
+    message: "A cursor is a whole number.",
+  })
   .openapi({
     description: "An opaque, increasing position in the change log.",
   });
@@ -126,7 +131,8 @@ const changes = createRoute({
 
 const SnapshotCursor = z
   .string()
-  .regex(/^(folder|file):.+$/)
+  // PostgreSQL text cannot hold control characters such as NUL.
+  .regex(/^(folder|file):[^\p{Cc}]+$/u)
   .openapi({ description: "The `next` value from the previous page." });
 
 const snapshot = createRoute({
@@ -286,11 +292,21 @@ export const syncRoutes = router()
   )
   .openapi(events, (c) => {
     const ownerUserId = c.var.session.user.id;
+    const token = sessionToken(c);
     return streamSSE(c, async (stream) => {
-      const send = (latestSeq: string) =>
-        stream.writeSSE({
-          data: JSON.stringify({ type: "changes", latestSeq }),
-        });
+      // Signing out or revoking the device ends a stream already open.
+      const signedIn = async () => {
+        if (await getRequestSession(token)) return true;
+        await stream.close();
+        return false;
+      };
+      const send = async (latestSeq: string) => {
+        if (await signedIn()) {
+          await stream.writeSSE({
+            data: JSON.stringify({ type: "changes", latestSeq }),
+          });
+        }
+      };
       const unsubscribe = await subscribeLiveEvents((channel, payload) => {
         if (channel !== "changes") return;
         const message = JSON.parse(payload) as {
@@ -301,9 +317,11 @@ export const syncRoutes = router()
       });
       stream.onAbort(unsubscribe);
       await send(String(await currentStorageChangeCursor(getPrisma())));
-      while (!stream.aborted) {
+      while (!stream.aborted && !stream.closed) {
         await stream.sleep(HEARTBEAT_MS);
-        if (!stream.aborted) await stream.write(": keep-alive\n\n");
+        if (!stream.aborted && (await signedIn())) {
+          await stream.write(": keep-alive\n\n");
+        }
       }
       unsubscribe();
     }) as never;

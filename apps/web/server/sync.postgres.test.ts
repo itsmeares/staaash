@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 
-import { getPrisma } from "@staaash/db/client";
+import { getPrisma, Prisma } from "@staaash/db/client";
 import {
   currentStorageChangeCursor,
   pruneStorageChanges,
@@ -290,6 +290,101 @@ it("keeps mine: the file keeps its id and the old bytes go to the trash", async 
   expect(changes).toHaveLength(2);
 });
 
+it("answers a retry of a finished change with the item as it is now", async () => {
+  const { user, root, actor } = await createOwner();
+  const original = await placeFile(
+    user.id,
+    root.id,
+    `files/${user.id}/draft.txt`,
+    "server",
+  );
+  const copy = await placeFile(
+    user.id,
+    root.id,
+    `files/${user.id}/draft (conflict).txt`,
+    "mine",
+  );
+  const keepKey = `keep-${randomUUID()}`;
+  const keep = {
+    ...actor,
+    fileId: original.id,
+    conflictCopyId: copy.id,
+    ifRevision: 0,
+    idempotencyKey: keepKey,
+  };
+  await service.keepMine(keep);
+  // Worker recovery finishes the journal without saving the web reply.
+  await db.storageMutation.update({
+    where: { idempotencyKey: keepKey },
+    data: { resultJson: Prisma.DbNull },
+  });
+  const cursor = await currentStorageChangeCursor(db);
+  expect((await service.keepMine(keep)).file).toMatchObject({
+    id: original.id,
+    storageRevision: 1,
+  });
+  expect(await changesFor(user.id, cursor)).toEqual([]);
+
+  const renameKey = `rename-${randomUUID()}`;
+  const rename = {
+    ...actor,
+    fileId: original.id,
+    name: "final.txt",
+    idempotencyKey: renameKey,
+  };
+  await service.renameFile(rename);
+  // The reply saved before the change still has the old revision.
+  const stale = await db.storageMutation.findUniqueOrThrow({
+    where: { idempotencyKey: renameKey },
+  });
+  const staleJson = stale.resultJson as { response: { file: object } };
+  await db.storageMutation.update({
+    where: { id: stale.id },
+    data: {
+      resultJson: {
+        response: { file: { ...staleJson.response.file, storageRevision: 1 } },
+      },
+    },
+  });
+  expect((await service.renameFile(rename)).file).toMatchObject({
+    name: "final.txt",
+    storageRevision: 2,
+  });
+});
+
+it("logs an update when a file is replaced by the same bytes", async () => {
+  const { user, root, actor } = await createOwner();
+  const upload = (clientModifiedAt: Date) =>
+    service.uploadFiles({
+      ...actor,
+      folderId: root.id,
+      idempotencyKey: randomUUID(),
+      items: [
+        {
+          clientKey: randomUUID(),
+          originalName: "same.txt",
+          conflictStrategy: "replace",
+          clientModifiedAt,
+          file: new File(["same bytes"], "same.txt", { type: "text/plain" }),
+        },
+      ],
+    });
+  const [created] = (await upload(new Date("2020-01-02T03:04:05Z")))
+    .uploadedFiles;
+  const cursor = await currentStorageChangeCursor(db);
+  const [replaced] = (await upload(new Date("2024-08-09T10:11:12Z")))
+    .uploadedFiles;
+  expect(replaced).toMatchObject({ id: created!.id, storageRevision: 1 });
+  expect(await changesFor(user.id, cursor)).toMatchObject([
+    {
+      kind: "updated",
+      itemId: created!.id,
+      storageRevision: 1,
+      clientModifiedAt: new Date("2024-08-09T10:11:12Z"),
+    },
+  ]);
+});
+
 it("answers 410 once the cursor is older than the kept log", async () => {
   const { user } = await createOwner();
   await db.storageChange.updateMany({
@@ -405,6 +500,16 @@ it("signs a device in with PKCE, tags its changes, and revokes its window with i
   const admin = await app.request("/api/admin/health", { headers: bearer });
   expect(admin.status).toBe(403);
 
+  const statusOf = async (path: string) =>
+    (await app.request(path, { headers: bearer })).status;
+  expect(await statusOf("/api/sync/changes?after=9223372036854775807")).toBe(
+    200,
+  );
+  expect(await statusOf("/api/sync/changes?after=9223372036854775808")).toBe(
+    400,
+  );
+  expect(await statusOf("/api/sync/snapshot?cursor=folder:a%00b")).toBe(400);
+
   const { code: webCode } = await issueWebSessionCode({
     id: device.session.id,
     userId: user.id,
@@ -415,11 +520,23 @@ it("signs a device in with PKCE, tags its changes, and revokes its window with i
   });
   expect(await authService.getSession(window.sessionToken)).not.toBeNull();
 
+  const events = await app.request("/api/sync/events", { headers: bearer });
+  const stream = events.body!.getReader();
+  expect((await stream.read()).done).toBe(false);
+
   await authService.revokeOwnSessions(
     user.id,
     { id: "another-browser", deviceSessionId: null },
     device.session.id,
   );
+  // The next change closes the open stream instead of reaching the device.
+  await service.createFolder({
+    actorUserId: user.id,
+    actorRole: "member",
+    parentId: root.id,
+    name: "After sign-out",
+  });
+  expect(await stream.read()).toMatchObject({ done: true });
   expect(await authService.getSession(device.sessionToken)).toBeNull();
   expect(await authService.getSession(window.sessionToken)).toBeNull();
   const after = await app.request(`/api/sync/changes?after=${cursor}`, {

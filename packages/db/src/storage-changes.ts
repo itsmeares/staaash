@@ -146,10 +146,16 @@ const kindOf = (
   if (before.parentId !== after.parentId || before.name !== after.name) {
     return "moved";
   }
-  // A folder rename moves its files on disk too; only new bytes count.
+  // A folder rename bumps its files' revisions and paths; that is the
+  // folder's move. A same-path revision bump is a replaced file, even with
+  // the same bytes.
   if (
     before.contentChecksum !== after.contentChecksum ||
-    before.sizeBytes !== after.sizeBytes
+    before.sizeBytes !== after.sizeBytes ||
+    before.clientModifiedAt?.getTime() !== after.clientModifiedAt?.getTime() ||
+    (after.type === "file" &&
+      before.storageRevision !== after.storageRevision &&
+      before.path === after.path)
   ) {
     return "updated";
   }
