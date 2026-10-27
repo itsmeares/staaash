@@ -20,6 +20,8 @@ it("keeps a sign-in return link on this site, the way a browser reads it", () =>
     "/\n/example.invalid",
     "/\r\\example.invalid",
     "javascript:alert(1)",
+    "//[",
+    "/\\[",
   ]) {
     expect(getSafeLocalPath(away), JSON.stringify(away)).toBeUndefined();
   }

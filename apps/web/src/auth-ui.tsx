@@ -5,7 +5,12 @@ export const getSafeLocalPath = (value: string | undefined) => {
   if (!value?.startsWith("/")) return undefined;
   // Parse it the way the browser will: it drops tabs and line breaks and
   // reads "\" as "/", so "/\t/host" and "/\host" lead to another site.
-  const url = new URL(value, HERE);
+  let url: URL;
+  try {
+    url = new URL(value, HERE);
+  } catch {
+    return undefined; // "//[" has no valid host, so the browser can't open it either
+  }
   return url.origin === HERE
     ? `${url.pathname}${url.search}${url.hash}`
     : undefined;
