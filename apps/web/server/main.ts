@@ -35,7 +35,15 @@ const withClient = async () => {
       },
     }),
   );
-  app.use("*", serveStatic({ root: clientDir }));
+  // A missing asset must not fall through to the app page as HTML.
+  app.get("/assets/*", (c) => c.notFound());
+  app.use(
+    "*",
+    serveStatic({
+      root: clientDir,
+      onFound: (_path, c) => c.header("cache-control", "no-cache"),
+    }),
+  );
 
   // A link preview shows the shared item, so share pages carry its tags.
   const sharePage =
@@ -50,6 +58,7 @@ const withClient = async () => {
         fileId: kind === "file" ? id : undefined,
         shareAccessCookieValue: getCookie(c, SHARE_ACCESS_COOKIE_NAME) ?? null,
       });
+      c.header("cache-control", "no-cache");
       return c.html(
         indexHtml
           .replace(/<title>.*?<\/title>\s*/, "")
@@ -64,9 +73,11 @@ const withClient = async () => {
   app.get("/s/:token/files/:id", sharePage("file"));
 
   // Every other page is the app, which routes in the browser.
-  app.get("*", (c) =>
-    c.req.path.startsWith("/api/") ? c.notFound() : c.html(indexHtml),
-  );
+  app.get("*", (c) => {
+    if (c.req.path.startsWith("/api/")) return c.notFound();
+    c.header("cache-control", "no-cache");
+    return c.html(indexHtml);
+  });
 };
 
 // A failed startup check, such as storage usage that does not add up, keeps
