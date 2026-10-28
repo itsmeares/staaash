@@ -1,0 +1,93 @@
+name: Native Docker tests
+
+on:
+  workflow_call:
+    inputs:
+      arch:
+        required: true
+        type: string
+      runner:
+        required: true
+        type: string
+      platform:
+        required: true
+        type: string
+      upgrade:
+        required: true
+        type: boolean
+      recovery:
+        required: true
+        type: boolean
+
+jobs:
+  images:
+    name: Build Docker image (${{ inputs.arch }})
+    timeout-minutes: 15
+    runs-on: ${{ inputs.runner }}
+    env:
+      STAAASH_TEST_IMAGE: staaash-test:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Build native image once
+        env:
+          PLATFORM: ${{ inputs.platform }}
+        run: docker buildx build --builder default --load --platform "$PLATFORM" -t "$STAAASH_TEST_IMAGE" .
+      - name: Save test image
+        run: docker save "$STAAASH_TEST_IMAGE" | zstd -T0 -1 -o /tmp/staaash-test-image.tar.zst
+      - name: Share test image
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: test-image-${{ inputs.arch }}
+          path: /tmp/staaash-test-image.tar.zst
+          compression-level: 0
+          retention-days: 1
+
+  suites:
+    name: Docker ${{ matrix.suite }} (${{ inputs.arch }})
+    needs: images
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ${{ fromJSON(inputs.upgrade && '["browser", "integration", "upgrade"]' || '["browser", "integration"]') }}
+    runs-on: ${{ inputs.runner }}
+    env:
+      STAAASH_TEST_IMAGE: staaash-test:${{ github.sha }}
+      STAAASH_TEST_MODE: ${{ matrix.suite == 'browser' && 'browser' || 'system' }}
+      STAAASH_TEST_UPGRADE: ${{ matrix.suite == 'upgrade' }}
+      STAAASH_TEST_RECOVERY: ${{ inputs.recovery }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
+        with:
+          node-version: 24.22.1
+          cache: true
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: test-image-${{ inputs.arch }}
+          path: /tmp
+      - name: Load test image
+        run: zstd -dc /tmp/staaash-test-image.tar.zst | docker load
+      - name: Generate Prisma client
+        run: vp run db:generate
+      - name: Install browser
+        if: matrix.suite == 'browser'
+        run: vp exec --filter web playwright install --with-deps --only-shell chromium
+      - name: Resolve immutable stable release
+        if: matrix.suite == 'upgrade'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/ci/resolve-stable.mjs
+      - name: Run native suite
+        run: node scripts/ci/stack.mjs
+      - name: Save test evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: test-evidence-${{ inputs.arch }}-${{ matrix.suite }}
+          include-hidden-files: true
+          path: |
+            .data/ci/
+            apps/web/test-results/
+            apps/web/playwright-report/
+          retention-days: 7

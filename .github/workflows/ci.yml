@@ -124,11 +124,10 @@ jobs:
           POSTGRES_TEST_DATABASE_URL: postgresql://test:test-only-password@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/staaash_test
         run: vp run test:postgres
 
-  images:
-    name: Build Docker image (${{ matrix.arch }})
+  native:
+    name: Native tests (${{ matrix.arch }})
     needs: select
     if: needs.select.outputs.app == 'true'
-    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -139,85 +138,17 @@ jobs:
           - arch: ARM64
             runner: ubuntu-26.04-arm
             platform: linux/arm64
-    runs-on: ${{ matrix.runner }}
-    env:
-      STAAASH_TEST_IMAGE: staaash-test:${{ github.sha }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Build native image once
-        env:
-          PLATFORM: ${{ matrix.platform }}
-        run: docker buildx build --builder default --load --platform "$PLATFORM" -t "$STAAASH_TEST_IMAGE" .
-      - name: Save test image
-        run: docker save "$STAAASH_TEST_IMAGE" | zstd -T0 -1 -o /tmp/staaash-test-image.tar.zst
-      - name: Share test image
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: test-image-${{ matrix.arch }}
-          path: /tmp/staaash-test-image.tar.zst
-          compression-level: 0
-          retention-days: 1
-
-  suites:
-    name: Docker ${{ matrix.suite }} (${{ matrix.arch }})
-    needs: [select, images]
-    if: needs.select.outputs.app == 'true'
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: [AMD64, ARM64]
-        suite: ${{ fromJSON(needs.select.outputs.upgrade == 'true' && '["browser", "integration", "upgrade"]' || '["browser", "integration"]') }}
-        include:
-          - arch: AMD64
-            runner: ubuntu-latest
-          - arch: ARM64
-            runner: ubuntu-26.04-arm
-    runs-on: ${{ matrix.runner }}
-    env:
-      STAAASH_TEST_IMAGE: staaash-test:${{ github.sha }}
-      STAAASH_TEST_MODE: ${{ matrix.suite == 'browser' && 'browser' || 'system' }}
-      STAAASH_TEST_UPGRADE: ${{ matrix.suite == 'upgrade' }}
-      STAAASH_TEST_RECOVERY: ${{ needs.select.outputs.recovery }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
-        with:
-          node-version: 24.22.1
-          cache: true
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
-        with:
-          name: test-image-${{ matrix.arch }}
-          path: /tmp
-      - name: Load test image
-        run: zstd -dc /tmp/staaash-test-image.tar.zst | docker load
-      - name: Generate Prisma client
-        run: vp run db:generate
-      - name: Install browser
-        if: matrix.suite == 'browser'
-        run: vp exec --filter web playwright install --with-deps --only-shell chromium
-      - name: Resolve immutable stable release
-        if: matrix.suite == 'upgrade'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: node scripts/ci/resolve-stable.mjs
-      - name: Run native suite
-        run: node scripts/ci/stack.mjs
-      - name: Save test evidence
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: test-evidence-${{ matrix.arch }}-${{ matrix.suite }}
-          include-hidden-files: true
-          path: |
-            .data/ci/
-            apps/web/test-results/
-            apps/web/playwright-report/
-          retention-days: 7
+    uses: ./.github/workflows/ci-native.yml
+    with:
+      arch: ${{ matrix.arch }}
+      runner: ${{ matrix.runner }}
+      platform: ${{ matrix.platform }}
+      upgrade: ${{ needs.select.outputs.upgrade == 'true' }}
+      recovery: ${{ needs.select.outputs.recovery == 'true' }}
 
   validate:
     name: Lint, test, and build
-    needs: [select, checks, postgres, images, suites]
+    needs: [select, checks, postgres, native]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -227,18 +158,15 @@ jobs:
           CHECKS: ${{ needs.checks.result }}
           APP: ${{ needs.select.outputs.app }}
           POSTGRES: ${{ needs.postgres.result }}
-          IMAGES: ${{ needs.images.result }}
-          SUITES: ${{ needs.suites.result }}
+          NATIVE: ${{ needs.native.result }}
         run: |
           test "$SELECT" = success
           test "$CHECKS" = success
           if test "$APP" = true; then
             test "$POSTGRES" = success
-            test "$IMAGES" = success
-            test "$SUITES" = success
+            test "$NATIVE" = success
           else
             test "$APP" = false
             test "$POSTGRES" = skipped
-            test "$IMAGES" = skipped
-            test "$SUITES" = skipped
+            test "$NATIVE" = skipped
           fi
