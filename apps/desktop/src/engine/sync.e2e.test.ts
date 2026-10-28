@@ -396,6 +396,18 @@ describe.skipIf(!origin)("sync against a real server", () => {
     expect((await readdir(r.trash)).length).toBe(0);
   });
 
+  it("upload-only keeps the server copy of a file deleted here", async () => {
+    const r = await rig("upload");
+    await writeOld(r.at("keep.txt"), "backup");
+    await r.sync();
+    await rm(r.at("keep.txt"));
+    await r.sync();
+    expect((await r.remote()).get("keep.txt")?.contentChecksum).toBe(
+      sha("backup"),
+    );
+    expect(existsSync(r.at("keep.txt"))).toBe(false);
+  });
+
   it("stops when every file of a big folder disappears locally", async () => {
     const r = await rig();
     for (let index = 0; index < 10; index += 1) {

@@ -135,7 +135,7 @@ const holdFor = (input: PlanInput): Hold | null => {
   if (input.allowEmptied) return null;
   const files = input.base.filter((entry) => entry.type === "file").length;
   if (files < EMPTIED_HOLD_FILES) return null;
-  if (input.local.length === 0 && input.mode !== "download") {
+  if (input.local.length === 0 && input.mode === "two-way") {
     return { side: "local" };
   }
   if (input.remote.length === 0 && input.mode !== "upload") {
@@ -258,15 +258,17 @@ const folderOnlyThere = (
   dirty: Set<string>,
 ): Decision => {
   if (!there) return { action: null };
-  if (previous && v.mode !== "download" && !dirty.has(key)) {
+  // Upload-only works like a backup: nothing is deleted on the server.
+  if (previous && v.mode === "two-way" && !dirty.has(key)) {
     return {
       action: { kind: "trash-remote", rel, remote: there.item },
       gone: true,
     };
   }
-  return v.mode === "upload"
-    ? { action: null }
-    : { action: { kind: "mkdir", rel: there.rel, remote: there.item } };
+  if (v.mode !== "upload") {
+    return { action: { kind: "mkdir", rel: there.rel, remote: there.item } };
+  }
+  return { action: previous ? { kind: "forget", rel } : null };
 };
 
 /** A folder only this computer has: new here, or deleted on the server. */
@@ -382,7 +384,9 @@ const fileOnlyThere = (
   if (previous && previous.ino !== 0 && v.localByIno.has(previous.ino)) {
     return { kind: "forget", rel };
   }
-  if (unchanged) return { kind: "trash-remote", rel, remote: there.item };
+  if (unchanged && v.mode === "two-way") {
+    return { kind: "trash-remote", rel, remote: there.item };
+  }
   return previous ? { kind: "forget", rel } : null;
 };
 

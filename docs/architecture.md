@@ -156,7 +156,8 @@ folder, two-way, download only, or upload only. Pairs never overlap.
   revision bump from a parent's rename is not a conflict
 - a file changed on both sides is never merged or overwritten: the local
   version is renamed to `name (conflict, <device>, <time>).ext` and both sync
-- deletes go to the trash on both sides, and an edit beats a delete
+- deletes go to the trash on both sides, and an edit beats a delete;
+  upload-only pairs work like a backup and never delete on the server
 - downloads land in a temporary file beside the target, are checked against
   the server's checksum, and replace the file in one rename
 - if a pair's local folder is missing, or every file of a big pair vanishes on

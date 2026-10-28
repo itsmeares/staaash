@@ -337,6 +337,25 @@ describe("one-way folders", () => {
     expect(result.actions).toEqual([]);
   });
 
+  it("upload-only keeps the server copy of a file deleted here", () => {
+    const result = run({
+      mode: "upload",
+      remote: [remoteFile("a.txt", "r1", "x")],
+      base: [synced],
+    });
+    expect(kinds(result)).toEqual(["forget:a.txt"]);
+  });
+
+  it("upload-only keeps the server folder deleted here", () => {
+    const dir = folder("docs", 30);
+    const result = run({
+      mode: "upload",
+      remote: [remoteFolder("docs", "f1")],
+      base: [baseOf(dir, "f1", null)],
+    });
+    expect(kinds(result)).toEqual(["forget:docs"]);
+  });
+
   it("upload-only never downloads", () => {
     const result = run({
       mode: "upload",
