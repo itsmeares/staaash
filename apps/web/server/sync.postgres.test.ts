@@ -414,6 +414,25 @@ it("answers 410 once the cursor is older than the kept log", async () => {
   expect(fromEdge.changes.map((c) => c.path)).toEqual(["kept"]);
 });
 
+it("answers 410 when the client cursor is ahead of the current log", async () => {
+  const { user } = await createOwner();
+  const { sessionToken } = await authService.createSession(user.id, {});
+  const after = (await currentStorageChangeCursor(db)) + 1n;
+  const response = await app.request(
+    `http://localhost:3000/api/sync/changes?after=${after}`,
+    {
+      headers: {
+        cookie: `${SESSION_COOKIE_NAME}=${sessionToken}`,
+        host: "localhost:3000",
+        origin: "http://localhost:3000",
+      },
+    },
+  );
+
+  expect(response.status).toBe(410);
+  expect(await response.json()).toMatchObject({ code: "CHANGES_EXPIRED" });
+});
+
 it("answers a repeated upload completion with the finished file", async () => {
   const { user, root } = await createOwner();
   const { sessionToken } = await authService.createSession(user.id, {});
@@ -565,9 +584,12 @@ it("signs a device in with PKCE, tags its changes, and revokes its window with i
 
   const statusOf = async (path: string) =>
     (await app.request(path, { headers: bearer })).status;
-  expect(await statusOf("/api/sync/changes?after=9223372036854775807")).toBe(
-    200,
+  const ahead = await app.request(
+    "/api/sync/changes?after=9223372036854775807",
+    { headers: bearer },
   );
+  expect(ahead.status).toBe(410);
+  expect(await ahead.json()).toMatchObject({ code: "CHANGES_EXPIRED" });
   expect(await statusOf("/api/sync/changes?after=9223372036854775808")).toBe(
     400,
   );

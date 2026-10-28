@@ -123,7 +123,7 @@ const changes = createRoute({
     ),
     410: json(
       z.object({ error: z.string(), code: z.literal("CHANGES_EXPIRED") }),
-      "The log no longer reaches back this far (90 days). Take a new snapshot.",
+      "The cursor is outside the current change log. Take a new snapshot.",
     ),
     ...errorResponses,
   },

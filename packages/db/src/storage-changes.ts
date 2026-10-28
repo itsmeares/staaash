@@ -255,7 +255,7 @@ export const currentStorageChangeCursor = async (client: ChangeClient) =>
 
 export class StorageChangesExpiredError extends Error {
   constructor() {
-    super("The change log no longer reaches back to this cursor.");
+    super("The cursor is outside the current change log.");
   }
 }
 
@@ -275,8 +275,9 @@ export const readStorageChanges = async (
     globalSeq(client, "asc"),
     currentStorageChangeCursor(client),
   ]);
-  // Anything between the cursor and the oldest kept row was pruned.
-  if (oldest !== null && after < oldest - 1n) {
+  // A client ahead of the head can happen when the database was restored.
+  // Anything before the oldest kept row was pruned.
+  if (after > head || (oldest !== null && after < oldest - 1n)) {
     throw new StorageChangesExpiredError();
   }
   const rows = await client.storageChange.findMany({

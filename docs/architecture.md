@@ -141,8 +141,8 @@ investigate and rebuild usage with all writers stopped. See the repair procedure
   same transaction; a folder entry covers what moved with it
 - `seq` order is commit order: writers hold one advisory lock until commit, so
   a client that has read up to a cursor never misses an earlier change
-- the log keeps 90 days; an older cursor gets 410 and the client takes a new
-  snapshot
+- the log keeps 90 days; an older cursor or one ahead after restore gets 410,
+  and the client takes a new snapshot
 - `ifRevision` on rename, move, trash, and upload commit refuses a change to an
   item that moved on, and every journal update bumps `storageRevision` by one
 - keeping the device's copy after a conflict is one journal entry: the file
