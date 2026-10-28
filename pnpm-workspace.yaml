@@ -19,6 +19,9 @@ overrides:
   vitest@*: "catalog:"
 allowBuilds:
   "@prisma/engines": true
+  "@parcel/watcher": false
+  electron: true
+  electron-winstaller: false
   esbuild: true
   msw: true
   prisma: true

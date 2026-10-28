@@ -8,6 +8,12 @@
     "apps/web/playwright.system.config.ts",
     "packages/config/src/release.ts",
     "scripts/release/index.mjs",
+    // Electron loads these three by path, and the window page loads main.tsx.
+    "apps/desktop/src/main/index.ts",
+    "apps/desktop/src/preload/index.ts",
+    "apps/desktop/src/engine/index.ts",
+    "apps/desktop/src/renderer/main.tsx",
+    "apps/desktop/scripts/tray-icons.cjs",
     ".agents/skills/verify-staaash/drive-folder.mjs",
   ],
   "dynamicallyLoaded": [

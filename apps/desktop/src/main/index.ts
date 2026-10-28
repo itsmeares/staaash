@@ -1,0 +1,473 @@
+import { existsSync } from "node:fs";
+import { mkdir, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import {
+  app,
+  dialog,
+  ipcMain,
+  Notification,
+  powerMonitor,
+  shell,
+  utilityProcess,
+  type UtilityProcess,
+} from "electron";
+
+import { createApi, fetchVersion } from "../engine/api";
+import { freeBytes } from "../engine/transfer";
+import type {
+  AppState,
+  EngineCommand,
+  EngineEvent,
+  EngineStatus,
+  Settings,
+  SyncPair,
+} from "../shared/types";
+import { FIRST_SYNC_SERVER, newer } from "../shared/version";
+import { signInWithBrowser, signOutDevice, webSessionUrl } from "./auth";
+import { loadSettings, loadToken, saveSettings, saveToken } from "./settings";
+import {
+  foldersOverlap,
+  installLinuxMenuEntry,
+  otherSyncAppWarning,
+  setStartAtLogin,
+} from "./system";
+import { createTray } from "./tray";
+import { startUpdates, type UpdateState } from "./updates";
+import {
+  closePanel,
+  localWindows,
+  openAppWindow,
+  openSettingsWindow,
+  togglePanel,
+} from "./windows";
+
+if (!app.requestSingleInstanceLock()) app.exit(0);
+
+let settings = loadSettings();
+let token = loadToken();
+let status: EngineStatus | null = null;
+let versionProblem: AppState["versionProblem"] = null;
+let update: UpdateState | null = null;
+let engine: UtilityProcess | null = null;
+let quitting = false;
+let resumeTimer: NodeJS.Timeout | null = null;
+
+const dataDir = () => path.join(app.getPath("userData"), "sync");
+
+const state = (): AppState => ({
+  appVersion: app.getVersion(),
+  platform: process.platform,
+  settings,
+  signedIn: Boolean(token && settings.serverUrl),
+  status,
+  versionProblem,
+  update,
+});
+
+let tray: ReturnType<typeof createTray> | null = null;
+const publish = () => {
+  const current = state();
+  tray?.update(current);
+  for (const window of localWindows()) {
+    window.webContents.send("state", current);
+  }
+};
+
+const notify = (title: string, body: string) => {
+  if (Notification.isSupported()) new Notification({ title, body }).show();
+};
+
+const send = (command: EngineCommand) => engine?.postMessage(command);
+
+const paused = () => {
+  const until = settings.pausedUntil;
+  return until === 0 || (until !== null && until > Date.now());
+};
+
+const configureEngine = () => {
+  if (!token || !settings.serverUrl || versionProblem) return;
+  send({
+    type: "configure",
+    config: {
+      serverUrl: settings.serverUrl,
+      token,
+      deviceName: settings.deviceName,
+      pairs: settings.pairs,
+      ignore: settings.ignore,
+      minFreeBytes: settings.minFreeBytes,
+      uploadLimitKBps: settings.uploadLimitKBps,
+      downloadLimitKBps: settings.downloadLimitKBps,
+      paused: paused(),
+    },
+  });
+};
+
+const updateSettings = async (patch: Partial<Settings>) => {
+  settings = { ...settings, ...patch };
+  await saveSettings(settings);
+  if (resumeTimer) clearTimeout(resumeTimer);
+  if (settings.pausedUntil) {
+    resumeTimer = setTimeout(
+      () => void updateSettings({ pausedUntil: null }),
+      Math.max(0, settings.pausedUntil - Date.now()),
+    );
+  }
+  configureEngine();
+  publish();
+  tray?.rebuild();
+};
+
+/** Starts the engine process, and starts it again if it ever crashes. */
+const startEngine = () => {
+  const child = utilityProcess.fork(
+    path.join(__dirname, "../engine/index.cjs"),
+    [dataDir()],
+    {
+      serviceName: "Staaash sync",
+    },
+  );
+  engine = child;
+  child.on("message", (event: EngineEvent) => {
+    switch (event.type) {
+      case "status":
+        status = event.status;
+        publish();
+        return;
+      case "notify":
+        notify(event.title, event.body);
+        return;
+      case "trash":
+        void shell
+          .trashItem(event.path)
+          .then(() => null)
+          .catch((error: Error) => error.message)
+          .then((error) =>
+            send({ type: "trashed", requestId: event.requestId, error }),
+          );
+        return;
+      case "signed-out":
+        void signedOut(
+          "This device was signed out. Sign in again to keep syncing.",
+        );
+        return;
+    }
+  });
+  child.on("exit", () => {
+    if (engine === child) engine = null;
+    if (!quitting)
+      setTimeout(() => {
+        startEngine();
+        configureEngine();
+      }, 2000);
+  });
+};
+
+/** Forgets the account and everything the engine knew about it. */
+const resetAccount = async () => {
+  const child = engine;
+  engine = null;
+  if (child) {
+    const exited = new Promise((resolve) => child.once("exit", resolve));
+    child.kill();
+    await exited;
+  }
+  await rm(dataDir(), { recursive: true, force: true });
+  token = null;
+  status = null;
+  await saveToken(null);
+  startEngine();
+};
+
+const signedOut = async (message: string | null) => {
+  await resetAccount();
+  await updateSettings({ email: null, pairs: [] });
+  if (message) notify("Signed out", message);
+  openSettingsWindow();
+};
+
+/** Whether this app and the server can work together. Offline is not a problem. */
+const checkVersions = async (serverUrl: string) => {
+  try {
+    const versions = await fetchVersion(serverUrl);
+    // A development build carries the repository version, not a release one.
+    versionProblem =
+      app.isPackaged && newer(versions.minClientVersion, app.getVersion())
+        ? {
+            side: "app",
+            serverVersion: versions.version,
+            needed: versions.minClientVersion,
+          }
+        : null;
+  } catch (error) {
+    const status = (error as { status?: number }).status;
+    // Servers from before sync have no /api/version.
+    versionProblem =
+      status === 404
+        ? { side: "server", serverVersion: "older", needed: FIRST_SYNC_SERVER }
+        : versionProblem;
+  }
+  publish();
+  return versionProblem;
+};
+
+const normalizeServer = (input: string) => {
+  const trimmed = input.trim().replace(/\/+$/, "");
+  const url = new URL(
+    /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`,
+  );
+  return url.origin;
+};
+
+/** Every folder on the server, with the size of what is inside each. */
+// Sizes add up every file into each ancestor folder.
+// fallow-ignore-next-line complexity
+const serverFolders = async () => {
+  if (!token || !settings.serverUrl) return { error: "Not signed in." };
+  const api = createApi(settings.serverUrl, token);
+  const { folders } = await api.folders();
+  const parents = new Map(
+    folders.map((folder) => [folder.id, folder.parentId]),
+  );
+  const sizes = new Map<string, number>();
+  let cursor: string | null = null;
+  do {
+    const page = await api.snapshot(null, cursor);
+    for (const item of page.items) {
+      if (item.type !== "file") continue;
+      for (let id = item.parentId; id; id = parents.get(id) ?? null) {
+        sizes.set(id, (sizes.get(id) ?? 0) + (item.sizeBytes ?? 0));
+      }
+    }
+    cursor = page.next;
+  } while (cursor);
+  return {
+    folders: folders.map((folder) => ({
+      id: folder.id,
+      parentId: folder.parentId,
+      name: folder.name,
+      pathLabel: folder.pathLabel,
+      isFilesRoot: folder.isFilesRoot,
+      size: sizes.get(folder.id) ?? 0,
+    })),
+    homeDir: os.homedir(),
+    freeBytes: await freeBytes(os.homedir()),
+  };
+};
+
+/** Pairs never overlap on either side, and never cover the app's own data. */
+// Each rule names the pair it rejects.
+// fallow-ignore-next-line complexity
+const checkPairs = async (pairs: SyncPair[]) => {
+  if (!token || !settings.serverUrl) return "Not signed in.";
+  for (const [index, pair] of pairs.entries()) {
+    if (foldersOverlap(pair.localPath, app.getPath("userData"))) {
+      return `${pair.localPath} holds Staaash's own data. Pick another folder.`;
+    }
+    for (const other of pairs.slice(index + 1)) {
+      if (foldersOverlap(pair.localPath, other.localPath)) {
+        return `${pair.localPath} and ${other.localPath} overlap. Each folder can only sync once.`;
+      }
+    }
+  }
+  const { folders } = await createApi(settings.serverUrl, token).folders();
+  const parents = new Map(
+    folders.map((folder) => [folder.id, folder.parentId]),
+  );
+  const ancestors = (id: string) => {
+    const chain = new Set<string>();
+    for (
+      let current: string | null = id;
+      current;
+      current = parents.get(current) ?? null
+    ) {
+      chain.add(current);
+    }
+    return chain;
+  };
+  for (const [index, pair] of pairs.entries()) {
+    for (const other of pairs.slice(index + 1)) {
+      if (
+        ancestors(pair.remoteFolderId).has(other.remoteFolderId) ||
+        ancestors(other.remoteFolderId).has(pair.remoteFolderId)
+      ) {
+        return `${pair.remoteLabel} and ${other.remoteLabel} overlap on the server. Each folder can only sync once.`;
+      }
+    }
+  }
+  return null;
+};
+
+const handle = <T extends unknown[], R>(
+  channel: string,
+  run: (...args: T) => R | Promise<R>,
+) => ipcMain.handle(channel, (_event, ...args) => run(...(args as T)));
+
+const openStaaash = async () => {
+  const serverUrl = settings.serverUrl;
+  const deviceToken = token;
+  if (!serverUrl || !deviceToken) return { error: "Sign in first." };
+  try {
+    closePanel();
+    await openAppWindow(serverUrl, () => webSessionUrl(serverUrl, deviceToken));
+    return { error: null };
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+};
+
+const openFolder = async (pairId: string, rel?: string) => {
+  const pair = settings.pairs.find((each) => each.id === pairId);
+  if (!pair) return;
+  closePanel();
+  if (rel) shell.showItemInFolder(path.join(pair.localPath, ...rel.split("/")));
+  else await shell.openPath(pair.localPath);
+};
+
+const pause = (minutes: number | null) =>
+  updateSettings({
+    pausedUntil:
+      minutes === null
+        ? null
+        : minutes === 0
+          ? 0
+          : Date.now() + minutes * 60_000,
+  });
+
+let updates: ReturnType<typeof startUpdates> | null = null;
+
+const registerIpc = () => {
+  handle("get-state", state);
+  handle("connect", async (input: string) => {
+    let serverUrl;
+    try {
+      serverUrl = normalizeServer(input);
+    } catch {
+      return { error: "That doesn't look like a web address." };
+    }
+    try {
+      await fetchVersion(serverUrl);
+    } catch (error) {
+      return {
+        error:
+          (error as { status?: number }).status === 404
+            ? `This server needs Staaash ${FIRST_SYNC_SERVER} or newer to sync.`
+            : "Couldn't reach a Staaash server there. Check the address.",
+      };
+    }
+    try {
+      const result = await signInWithBrowser(serverUrl, settings.deviceName);
+      await resetAccount();
+      token = result.token;
+      await saveToken(token);
+      await updateSettings({ serverUrl, email: result.email, pairs: [] });
+      await checkVersions(serverUrl);
+      configureEngine();
+      return { error: null };
+    } catch (error) {
+      return { error: (error as Error).message };
+    }
+  });
+  handle("server-folders", async () => {
+    try {
+      return await serverFolders();
+    } catch (error) {
+      return { error: (error as Error).message };
+    }
+  });
+  handle("choose-folder", async (defaultPath: string) => {
+    const result = await dialog.showOpenDialog({
+      defaultPath,
+      properties: ["openDirectory", "createDirectory"],
+    });
+    return result.canceled ? null : (result.filePaths[0] ?? null);
+  });
+  handle("folder-warning", (localPath: string) =>
+    otherSyncAppWarning(localPath),
+  );
+  handle("save-pairs", async (pairs: SyncPair[]) => {
+    try {
+      const problem = await checkPairs(pairs);
+      if (problem) return { error: problem };
+      for (const pair of pairs) {
+        if (!existsSync(pair.localPath))
+          await mkdir(pair.localPath, { recursive: true });
+      }
+      const kept = new Set(pairs.map((pair) => pair.id));
+      for (const pair of settings.pairs) {
+        if (!kept.has(pair.id)) send({ type: "forget-pair", pairId: pair.id });
+      }
+      await updateSettings({ pairs });
+      return { error: null };
+    } catch (error) {
+      return { error: (error as Error).message };
+    }
+  });
+  handle("update-settings", async (patch: Partial<Settings>) => {
+    await updateSettings(patch);
+    if (patch.startAtLogin !== undefined)
+      await setStartAtLogin(patch.startAtLogin);
+  });
+  handle("pause", pause);
+  handle("open-staaash", openStaaash);
+  handle("open-folder", openFolder);
+  handle(
+    "resolve-conflict",
+    (id: number, choice: "keep-server" | "keep-mine") =>
+      send({ type: "resolve-conflict", id, choice }),
+  );
+  handle("resolve-pair", (pairId: string, choice: "download-again" | "apply") =>
+    send({ type: "resolve-pair", pairId, choice }),
+  );
+  handle("open-settings", () => {
+    closePanel();
+    openSettingsWindow();
+  });
+  handle("install-update", () => updates?.install());
+  handle("sign-out", async () => {
+    if (token && settings.serverUrl)
+      await signOutDevice(settings.serverUrl, token);
+    await signedOut(null);
+  });
+  handle("quit", () => app.quit());
+};
+
+app.on("second-instance", () => openSettingsWindow());
+// A tray app keeps running with every window closed.
+app.on("window-all-closed", () => {});
+app.on("before-quit", () => {
+  quitting = true;
+  engine?.kill();
+});
+
+void app.whenReady().then(async () => {
+  app.setAppUserModelId("com.staaash.desktop");
+  app.dock?.hide();
+  registerIpc();
+  startEngine();
+  tray = createTray({
+    openPanel: togglePanel,
+    openStaaash: () => void openStaaash(),
+    openFolder: (pairId) => void openFolder(pairId),
+    pause: (minutes) => void pause(minutes),
+    openSettings: openSettingsWindow,
+    installUpdate: () => void updates?.install(),
+    quit: () => app.quit(),
+  });
+  updates = startUpdates((next) => {
+    update = next;
+    publish();
+    tray?.rebuild();
+  });
+  powerMonitor.on("resume", () => send({ type: "sync-now" }));
+  if (settings.serverUrl) await checkVersions(settings.serverUrl);
+  await updateSettings({});
+  await setStartAtLogin(settings.startAtLogin);
+  await installLinuxMenuEntry().catch(() => {});
+  const hidden =
+    process.argv.includes("--hidden") ||
+    app.getLoginItemSettings().wasOpenedAtLogin;
+  if (!token || settings.pairs.length === 0 || versionProblem || !hidden) {
+    openSettingsWindow();
+  }
+});

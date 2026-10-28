@@ -1,0 +1,51 @@
+appId: com.staaash.desktop
+productName: Staaash
+copyright: Staaash contributors
+directories:
+  output: release
+  buildResources: resources
+files:
+  - dist/**
+  - package.json
+extraResources:
+  - from: resources/tray
+    to: tray
+  - from: resources/icon.png
+    to: icon.png
+# Native watcher binaries cannot load from inside the archive.
+asarUnpack:
+  - "**/node_modules/@parcel/watcher*/**"
+artifactName: Staaash-${version}-${os}-${arch}.${ext}
+publish:
+  provider: github
+  owner: itsmeares
+  repo: staaash
+mac:
+  target:
+    - target: dmg
+      arch: universal
+  category: public.app-category.productivity
+  # Both watcher binaries ship in both halves of the universal app.
+  x64ArchFiles: "**/node_modules/@parcel/watcher-darwin-*/**"
+  # Ad-hoc signed: Staaash has no paid Apple certificate.
+  identity: "-"
+  extendInfo:
+    # A menu bar app: no Dock icon.
+    LSUIElement: true
+win:
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+nsis:
+  oneClick: true
+  perMachine: false
+linux:
+  target: [AppImage, deb, rpm]
+  category: Network
+  executableName: staaash
+  syncDesktopName: true
+  maintainer: Staaash <itsmeares@users.noreply.github.com>
+  synopsis: Sync files with your Staaash drive
+toolsets:
+  # The static runtime needs no libfuse2, which new distributions dropped.
+  appimage: "1.0.3"

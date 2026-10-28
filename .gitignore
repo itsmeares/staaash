@@ -26,3 +26,6 @@ temp/
 .env.local
 .env.*.local
 !example.env
+
+# Desktop installers
+apps/desktop/release/

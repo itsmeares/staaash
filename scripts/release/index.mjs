@@ -41,6 +41,7 @@ const PACKAGE_FILES = {
   root: "package.json",
   web: "apps/web/package.json",
   worker: "apps/worker/package.json",
+  desktop: "apps/desktop/package.json",
   config: "packages/config/package.json",
   db: "packages/db/package.json",
 };

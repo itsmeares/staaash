@@ -1,0 +1,46 @@
+{
+  "name": "desktop",
+  "productName": "Staaash",
+  "version": "1.2.0",
+  "description": "Staaash desktop sync client.",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "author": "Staaash",
+  "homepage": "https://github.com/itsmeares/staaash",
+  "main": "dist/main/index.cjs",
+  "desktopName": "staaash.desktop",
+  "scripts": {
+    "build": "vp build && vp pack",
+    "start": "electron .",
+    "dist": "electron-builder --publish never"
+  },
+  "dependencies": {
+    "@parcel/watcher": "^2.6.0"
+  },
+  "optionalDependencies": {
+    "@parcel/watcher-darwin-arm64": "2.6.0",
+    "@parcel/watcher-darwin-x64": "2.6.0",
+    "@parcel/watcher-linux-arm64-glibc": "2.6.0",
+    "@parcel/watcher-linux-x64-glibc": "2.6.0",
+    "@parcel/watcher-win32-arm64": "2.6.0",
+    "@parcel/watcher-win32-x64": "2.6.0"
+  },
+  "devDependencies": {
+    "@staaash/ui": "workspace:*",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "electron": "45.0.0",
+    "electron-builder": "26.18.0",
+    "electron-updater": "^6.8.11",
+    "hono": "^4.13.13",
+    "lucide-react": "^1.59.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite-plus": "catalog:"
+  }
+}

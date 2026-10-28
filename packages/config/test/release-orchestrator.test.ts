@@ -317,6 +317,7 @@ describe("release trust roots", () => {
         "package.json",
         "apps/web/package.json",
         "apps/worker/package.json",
+        "apps/desktop/package.json",
         "packages/config/package.json",
         "packages/db/package.json",
       ];
@@ -338,6 +339,7 @@ describe("release trust roots", () => {
         root: "1.1.0",
         web: "1.1.0",
         worker: "1.1.0",
+        desktop: "1.1.0",
         config: "1.1.0",
         db: "1.1.0",
       });
@@ -356,6 +358,7 @@ describe("release trust roots", () => {
         "package.json",
         "apps/web/package.json",
         "apps/worker/package.json",
+        "apps/desktop/package.json",
         "packages/config/package.json",
         "packages/db/package.json",
       ];
@@ -379,8 +382,9 @@ describe("release trust roots", () => {
         root: "source-0",
         web: "source-1",
         worker: "source-2",
-        config: "source-3",
-        db: "source-4",
+        desktop: "source-3",
+        config: "source-4",
+        db: "source-5",
       });
       await expect(readReleaseTemplates(sourceRoot)).resolves.toEqual({
         compose: "source compose\n",
