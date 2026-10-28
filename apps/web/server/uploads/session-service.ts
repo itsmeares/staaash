@@ -53,6 +53,7 @@ export type ResumableSession = {
   chunkSizeBytes: number | null;
   tmpPath: string;
   conflictStrategy: string;
+  clientModifiedAt?: Date | null;
   status: string;
   expiresAt: Date;
   createdAt: Date;
@@ -72,6 +73,7 @@ const toSession = (row: {
   chunkSizeBytes: bigint | null;
   tmpPath: string;
   conflictStrategy: string;
+  clientModifiedAt: Date | null;
   status: string;
   expiresAt: Date;
   terminalAt: Date | null;
@@ -234,6 +236,7 @@ export const createResumableSession = async (
     totalSizeBytes,
     expectedChecksum,
     conflictStrategy,
+    clientModifiedAt = null,
     protocolVersion = CURRENT_UPLOAD_PROTOCOL_VERSION,
     chunkSizeBytes = DEFAULT_RESUMABLE_CHUNK_SIZE,
   }: {
@@ -244,6 +247,7 @@ export const createResumableSession = async (
     totalSizeBytes: number;
     expectedChecksum: string | null;
     conflictStrategy: string;
+    clientModifiedAt?: Date | null;
     protocolVersion?: number;
     chunkSizeBytes?: number | null;
   },
@@ -271,6 +275,7 @@ export const createResumableSession = async (
     chunkSizeBytes,
     tmpPath,
     conflictStrategy,
+    clientModifiedAt,
     expiresAt: allocationExpiresAt,
   });
 
@@ -305,6 +310,31 @@ export const findActiveResumableSession = async (
   });
   return row ? toSession(row) : null;
 };
+
+/** A finished session, for a device that lost the reply and asks again. */
+export const findCompletedResumableSession = async (
+  id: string,
+  ownerUserId: string,
+): Promise<ResumableSession | null> => {
+  const row = await getPrisma().uploadSession.findFirst({
+    where: {
+      id,
+      ownerUserId,
+      status: UPLOAD_SESSION_STATUS_COMPLETED,
+      committedFileId: { not: null },
+    },
+  });
+  return row ? toSession(row) : null;
+};
+
+export const findResumableSessionStatus = async (
+  id: string,
+  ownerUserId: string,
+) =>
+  getPrisma().uploadSession.findFirst({
+    where: { id, ownerUserId },
+    select: { status: true },
+  });
 
 type WriteUploadChunkInput = CompletedUploadChunk & {
   sessionId: string;

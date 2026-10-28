@@ -1,14 +1,16 @@
+import { contentDisposition } from "@/server/downloads/content-disposition";
 import { open } from "node:fs/promises";
-import type { Readable } from "node:stream";
 
+import { nodeBodyStream } from "@/server/downloads/body-stream";
 import { getStoragePath } from "@/server/storage";
 import { prismaFilesRepository } from "@/server/files/repository";
 import type { StoredFile } from "@/server/files/types";
 import { assertStorageEntityReadable } from "@/server/storage-read-guard";
 import { convertHeicToJpeg, isHeicFile } from "./heic-converter";
-
-const buildInlineDisposition = (fileName: string) =>
-  `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`;
+import {
+  getPublicShareSafeInlineMimeType,
+  PUBLIC_SHARE_CONTENT_SECURITY_POLICY,
+} from "./public-share-content-policy";
 
 type ByteRange = {
   start: number;
@@ -35,6 +37,8 @@ export class MediaContentError extends Error {
   }
 }
 
+// One check per malformed Range header shape, in RFC order.
+// fallow-ignore-next-line complexity
 export const parseSingleByteRange = (
   rangeHeader: string,
   sizeBytes: number,
@@ -127,9 +131,14 @@ export const parseSingleByteRange = (
 
 const createBaseHeaders = (file: StoredFile): HeadersInit => ({
   "cache-control": "private, max-age=0, must-revalidate",
-  "content-disposition": buildInlineDisposition(file.name),
+  "content-disposition": contentDisposition("inline", file.name),
   "content-type": file.mimeType || "application/octet-stream",
   "x-content-type-options": "nosniff",
+  // HTML or SVG opened straight from this URL must not run scripts on the
+  // drive's origin. The viewer shows images with <img>, where they never run.
+  ...(getPublicShareSafeInlineMimeType(file.mimeType)
+    ? {}
+    : { "content-security-policy": PUBLIC_SHARE_CONTENT_SECURITY_POLICY }),
 });
 
 export const createMediaErrorResponse = (error: MediaContentError) =>
@@ -146,82 +155,8 @@ const isMissingStorageObject = (error: unknown) => {
   return code === "ENOENT" || code === "EISDIR";
 };
 
-// Wraps a Node.js Readable as a Web ReadableStream with backpressure and safe error handling.
-// Readable.toWeb() does not guard controller.enqueue/close against ERR_INVALID_STATE
-// when the consumer cancels mid-stream (common with video range requests).
-// Using pull() + pause/resume to avoid unbounded memory growth with large files.
-const createMediaBodyStream = (
-  readable: Readable,
-  signal: AbortSignal,
-  extraCleanup?: () => Promise<void> | void,
-): ReadableStream<Uint8Array> => {
-  let cleanupPromise: Promise<void> | null = null;
-  const cleanup = () => {
-    cleanupPromise ??= Promise.resolve()
-      .then(() => extraCleanup?.())
-      .then(() => undefined)
-      .catch(() => undefined);
-    return cleanupPromise;
-  };
-  const destroy = async () => {
-    readable.destroy();
-    await cleanup();
-  };
-
-  return new ReadableStream<Uint8Array>(
-    {
-      start(controller) {
-        readable.on("data", (chunk: Buffer) => {
-          try {
-            controller.enqueue(
-              new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength),
-            );
-          } catch {
-            void destroy();
-            return;
-          }
-          if ((controller.desiredSize ?? 1) <= 0) {
-            readable.pause();
-          }
-        });
-        readable.on("end", () => {
-          try {
-            controller.close();
-          } catch {
-            // already closed
-          }
-          void cleanup();
-        });
-        readable.on("error", (err) => {
-          try {
-            controller.error(err);
-          } catch {
-            // already closed/errored
-          }
-          void cleanup();
-        });
-        readable.on("close", () => {
-          void cleanup();
-        });
-        signal.addEventListener(
-          "abort",
-          () => {
-            void destroy();
-          },
-          { once: true },
-        );
-      },
-      pull() {
-        readable.resume();
-      },
-      cancel() {
-        return destroy();
-      },
-    },
-    new ByteLengthQueuingStrategy({ highWaterMark: 512 * 1024 }),
-  );
-};
-
+// Ranged, full, and refused inline responses each answer differently.
+// fallow-ignore-next-line complexity
 export const createInlineOriginalContentResponse = async ({
   request,
   file,
@@ -262,7 +197,7 @@ export const createInlineOriginalContentResponse = async ({
         highWaterMark: 512 * 1024,
       });
       streamCreated = true;
-      return createMediaBodyStream(nodeStream, request.signal, () =>
+      return nodeBodyStream(nodeStream, request.signal, () =>
         fileHandle.close().catch(() => {}),
       );
     };

@@ -6,12 +6,12 @@ import baseConfig from "./playwright.config";
 
 export default defineConfig({
   ...baseConfig,
-  testDir: path.resolve(__dirname, "e2e", "visual"),
+  testDir: path.resolve(import.meta.dirname, "e2e", "visual"),
   testIgnore: [],
   timeout: 180_000,
   retries: 0,
   snapshotPathTemplate: path.join(
-    __dirname,
+    import.meta.dirname,
     ".data",
     "visual",
     "baseline",
@@ -19,7 +19,7 @@ export default defineConfig({
   ),
   outputDir:
     process.env.STAAASH_VISUAL_OUT ??
-    path.join(__dirname, ".data", "visual", "results"),
+    path.join(import.meta.dirname, ".data", "visual", "results"),
   expect: {
     toHaveScreenshot: { maxDiffPixelRatio: 0.002 },
   },

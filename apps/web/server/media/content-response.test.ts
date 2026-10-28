@@ -155,6 +155,8 @@ describe("media content response", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-length")).toBe("11");
+    // Media the viewer plays stays outside the sandbox.
+    expect(response.headers.has("content-security-policy")).toBe(false);
     await expect(response.text()).resolves.toBe("hello world");
     await vi.waitFor(() => {
       expect(fakeHandle.close).toHaveBeenCalledTimes(1);
@@ -199,7 +201,7 @@ describe("media content response", () => {
     expect(body.byteLength).toBe(2 * 1024 * 1024);
   });
 
-  it("keeps private authenticated response behavior unchanged", async () => {
+  it("shows private HTML inline but never lets it run scripts", async () => {
     const fakeHandle = {
       stat: vi.fn().mockResolvedValue({ size: 16 }),
       close: vi.fn().mockResolvedValue(undefined),
@@ -227,7 +229,9 @@ describe("media content response", () => {
     expect(response.headers.get("content-disposition")).toBe(
       "inline; filename*=UTF-8''private.html",
     );
-    expect(response.headers.has("content-security-policy")).toBe(false);
+    expect(response.headers.get("content-security-policy")).toMatch(
+      /^sandbox;/,
+    );
     expect(await response.text()).toBe("<h1>private</h1>");
   });
 

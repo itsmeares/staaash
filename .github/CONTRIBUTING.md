@@ -58,7 +58,8 @@ Do not have an agent open a pull request, write public replies, or answer mainta
 3. Run `pnpm i`.
 4. Run `pnpm db:generate`.
 5. Run `pnpm db:push`.
-6. Start the web app with `pnpm web:dev`.
+6. Start the web app with `pnpm web:dev`. It serves the app on port 3000 and
+   the API on port 3001 (`STAAASH_API_PORT`), and reloads both on change.
 7. Start the worker with `pnpm worker:dev`.
 
 ## Application tests

@@ -1,4 +1,3 @@
-import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const mocks = vi.hoisted(() => ({
@@ -15,7 +14,8 @@ vi.mock("@/server/files/repository", () => ({
 vi.mock("@/server/settings", () => ({
   getSystemSettings: async () => ({ zipArchiveRetentionDays: 7 }),
 }));
-vi.mock("@staaash/db/jobs", () => ({
+vi.mock("@staaash/db/jobs", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@staaash/db/jobs")>()),
   scheduleZipArchiveGenerate: mocks.schedule,
 }));
 vi.mock("@staaash/db/zip-archives", async (importOriginal) => ({
@@ -31,15 +31,15 @@ vi.mock("@/server/storage-read-guard", async (importOriginal) => ({
 const { StorageEntityUnavailableError } =
   await import("@/server/storage-read-guard");
 
-const { POST } = await import("@/app/api/files/archives/route");
+const { app } = await import("@/server/http/app");
 const item = (
   id: string,
   ownerUserId = "alice",
   deletedAt: Date | null = null,
 ) => ({ id, ownerUserId, deletedAt, sizeBytes: 10n });
 const request = (ids: string[]) =>
-  POST(
-    new NextRequest("http://localhost/api/files/archives", {
+  app.request(
+    new Request("http://localhost/api/files/archives", {
       method: "POST",
       headers: {
         Origin: "http://localhost",
@@ -133,8 +133,8 @@ describe("archive selection", () => {
           [kind]: [item("foreign", "bob")],
         });
         const response = await request(["foreign"]);
-        expect(response.status).toBe(403);
-        expect(await response.json()).toMatchObject({ code: "ACCESS_DENIED" });
+        expect(response.status).toBe(404);
+        expect(await response.json()).toMatchObject({ code: "FILE_NOT_FOUND" });
       }
       expect(mocks.archive).not.toHaveBeenCalled();
       expect(mocks.schedule).not.toHaveBeenCalled();

@@ -1,4 +1,3 @@
-import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 const { getRequestSession, findZipArchiveById, assertStorageEntityReadable } =
@@ -8,7 +7,8 @@ const { getRequestSession, findZipArchiveById, assertStorageEntityReadable } =
     assertStorageEntityReadable: vi.fn(),
   }));
 
-vi.mock("@/server/auth/guards", () => ({
+vi.mock("@/server/auth/guards", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/auth/guards")>()),
   getRequestSession,
 }));
 
@@ -43,16 +43,14 @@ const makeArchive = (overrides: Record<string, unknown> = {}) => ({
 });
 
 const request = () =>
-  new NextRequest("http://localhost/api/files/archives/archive-1", {
+  new Request("http://localhost/api/files/archives/archive-1", {
     headers: { Accept: "application/json" },
   });
 
 const callRoute = async () => {
-  const { GET } = await import("@/app/api/files/archives/[archiveId]/route");
+  const { app } = await import("@/server/http/app");
 
-  return GET(request(), {
-    params: Promise.resolve({ archiveId: "archive-1" }),
-  });
+  return app.request(request());
 };
 
 describe("archive routes", () => {
@@ -146,11 +144,12 @@ describe("archive routes", () => {
         status: "finalizing",
       }),
     );
-    const { GET } =
-      await import("@/app/api/files/archives/[archiveId]/download/route");
-    const response = await GET(request(), {
-      params: Promise.resolve({ archiveId: "archive-1" }),
-    });
+    const { app } = await import("@/server/http/app");
+    const response = await app.request(
+      new Request("http://localhost/api/files/archives/archive-1/download", {
+        headers: { Accept: "application/json" },
+      }),
+    );
     expect(response.status).toBe(503);
     expect(response.headers.get("X-Storage-Mutation-Id")).toBe("publication");
     expect(await response.json()).toMatchObject({
@@ -173,10 +172,10 @@ describe("archive routes", () => {
 
     const response = await callRoute();
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({
-      error: "You do not have access to that folder.",
-      code: "ACCESS_DENIED",
+      error: "That file does not exist.",
+      code: "FILE_NOT_FOUND",
     });
   });
 
@@ -188,9 +187,9 @@ describe("archive routes", () => {
 
     const response = await callRoute();
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(404);
     await expect(response.json()).resolves.toMatchObject({
-      code: "ACCESS_DENIED",
+      code: "FILE_NOT_FOUND",
     });
   });
 

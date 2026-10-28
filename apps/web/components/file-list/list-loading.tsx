@@ -1,8 +1,6 @@
-"use client";
-
 import { useEffect, useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
+import { Button } from "@staaash/ui/components/button";
+import { Spinner } from "@staaash/ui/components/spinner";
 
 export type ListLoading = {
   total?: number;

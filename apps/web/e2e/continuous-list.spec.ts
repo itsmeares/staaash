@@ -105,9 +105,11 @@ test("find, selection, and Back cover rows beyond the first batch", async ({
       .getByText("105 selected", { exact: true }),
   ).toBeVisible();
   const reloaded = page.waitForRequest((request) => {
-    if (!request.headers()["next-action"]) return false;
+    if (!request.url().endsWith(`/api/views/files/${folder.id}/batch`)) {
+      return false;
+    }
     try {
-      return JSON.parse(request.postData() ?? "[]")[1]?.limit === 100;
+      return JSON.parse(request.postData() ?? "{}").query?.limit === 100;
     } catch {
       return false;
     }
@@ -197,8 +199,7 @@ test("find, selection, and Back cover rows beyond the first batch", async ({
   ).toHaveCount(0);
   let reads = 0;
   page.on("request", (request) => {
-    if (request.method() === "POST" && request.headers()["next-action"])
-      reads++;
+    if (request.url().includes(`/api/views/files/${folder.id}/viewer`)) reads++;
   });
   await strip.evaluate((element) => {
     element.scrollLeft = 3000;
@@ -297,10 +298,7 @@ test("failed bulk link loading shows an error while the list is collapsed", asyn
   ).toBe(true);
   await page.goto("/shared");
   await page.getByRole("button", { name: "Delete all", exact: true }).click();
-  await page.route("**/shared", async (route) => {
-    if (route.request().headers()["next-action"]) await route.abort("failed");
-    else await route.continue();
-  });
+  await page.route("**/api/views/shares/**", (route) => route.abort("failed"));
   await page
     .getByRole("dialog", { name: /Delete .* turned off links/ })
     .getByRole("button", { name: "Delete all", exact: true })

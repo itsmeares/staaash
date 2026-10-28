@@ -1,4 +1,3 @@
-import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 const { bootstrap, getSession, revokeSession, savePreferences, signIn } =
@@ -80,7 +79,7 @@ const jsonRequest = (
   body: Record<string, string>,
   headers?: HeadersInit,
 ) =>
-  new NextRequest(url, {
+  new Request(url, {
     method: "POST",
     headers: {
       accept: "application/json",
@@ -103,11 +102,8 @@ const forwardedHttpsJsonRequest = (
     "x-forwarded-proto": "https",
   });
 
-const request = (
-  url: string,
-  init?: ConstructorParameters<typeof NextRequest>[1],
-) =>
-  new NextRequest(url, {
+const request = (url: string, init?: RequestInit) =>
+  new Request(url, {
     ...init,
     headers: {
       host: new URL(url).host,
@@ -115,15 +111,7 @@ const request = (
     },
   });
 
-const httpRequest = (
-  path: string,
-  init?: ConstructorParameters<typeof NextRequest>[1],
-) => request(`http://46.1.113.7:2113${path}`, init);
-
-const forwardedHttpsRequest = (
-  path: string,
-  init?: ConstructorParameters<typeof NextRequest>[1],
-) =>
+const forwardedHttpsRequest = (path: string, init?: RequestInit) =>
   request(`http://staaash:2113${path}`, {
     ...init,
     headers: {
@@ -149,9 +137,9 @@ describe("auth cookie routes", () => {
 
   it("sets non-secure setup cookies over plain HTTP", async () => {
     bootstrap.mockResolvedValueOnce(makeAuthResult("setup-token"));
-    const { POST } = await import("@/app/api/auth/setup/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await POST(
+    const response = await app.request(
       httpJsonRequest("/api/auth/setup", {
         instanceName: "Home Drive",
         email: "owner@example.com",
@@ -167,9 +155,9 @@ describe("auth cookie routes", () => {
 
   it("sets secure setup cookies behind forwarded HTTPS", async () => {
     bootstrap.mockResolvedValueOnce(makeAuthResult("setup-token"));
-    const { POST } = await import("@/app/api/auth/setup/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await POST(
+    const response = await app.request(
       forwardedHttpsJsonRequest("/api/auth/setup", {
         instanceName: "Home Drive",
         email: "owner@example.com",
@@ -187,9 +175,9 @@ describe("auth cookie routes", () => {
     signIn.mockResolvedValueOnce(
       makeAuthResult("sign-in-token", completedPreferences),
     );
-    const { POST } = await import("@/app/api/auth/sign-in/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await POST(
+    const response = await app.request(
       httpJsonRequest("/api/auth/sign-in", {
         email: "owner@example.com",
         password: "super-secure-password",
@@ -199,7 +187,6 @@ describe("auth cookie routes", () => {
     expect(response.status).toBe(200);
     const setCookie = response.headers.get("set-cookie") ?? "";
     expect(setCookie).toContain("staaash_session=sign-in-token");
-    expect(setCookie).toContain("staaash_onboarded=1");
     expect(setCookie).toContain("staaash_theme=dark");
     expectCookieSecure(setCookie, false);
   });
@@ -208,9 +195,9 @@ describe("auth cookie routes", () => {
     signIn.mockResolvedValueOnce(
       makeAuthResult("sign-in-token", completedPreferences),
     );
-    const { POST } = await import("@/app/api/auth/sign-in/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await POST(
+    const response = await app.request(
       forwardedHttpsJsonRequest("/api/auth/sign-in", {
         email: "owner@example.com",
         password: "super-secure-password",
@@ -220,45 +207,6 @@ describe("auth cookie routes", () => {
     expect(response.status).toBe(200);
     const setCookie = response.headers.get("set-cookie") ?? "";
     expect(setCookie).toContain("staaash_session=sign-in-token");
-    expect(setCookie).toContain("staaash_onboarded=1");
-    expect(setCookie).toContain("staaash_theme=dark");
-    expectCookieSecure(setCookie, true);
-  });
-
-  it("sets non-secure rehydrate cookies over plain HTTP", async () => {
-    getSession.mockResolvedValueOnce(completedSession());
-    const { GET } = await import("@/app/api/auth/rehydrate/route");
-
-    const response = await GET(
-      httpRequest("/api/auth/rehydrate", {
-        headers: {
-          cookie: "staaash_session=session-token",
-        },
-      }),
-    );
-
-    expect(response.status).toBe(307);
-    const setCookie = response.headers.get("set-cookie") ?? "";
-    expect(setCookie).toContain("staaash_onboarded=1");
-    expect(setCookie).toContain("staaash_theme=dark");
-    expectCookieSecure(setCookie, false);
-  });
-
-  it("sets secure rehydrate cookies behind forwarded HTTPS", async () => {
-    getSession.mockResolvedValueOnce(completedSession());
-    const { GET } = await import("@/app/api/auth/rehydrate/route");
-
-    const response = await GET(
-      forwardedHttpsRequest("/api/auth/rehydrate", {
-        headers: {
-          cookie: "staaash_session=session-token",
-        },
-      }),
-    );
-
-    expect(response.status).toBe(307);
-    const setCookie = response.headers.get("set-cookie") ?? "";
-    expect(setCookie).toContain("staaash_onboarded=1");
     expect(setCookie).toContain("staaash_theme=dark");
     expectCookieSecure(setCookie, true);
   });
@@ -269,9 +217,9 @@ describe("auth cookie routes", () => {
       ...completedPreferences,
       ...saved,
     }));
-    const { POST } = await import("@/app/api/user/preferences/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await POST(
+    const response = await app.request(
       httpJsonRequest("/api/user/preferences", {
         theme: "light",
         timeZone: "UTC",
@@ -287,7 +235,6 @@ describe("auth cookie routes", () => {
       }),
     );
     const setCookie = response.headers.get("set-cookie") ?? "";
-    expect(setCookie).toContain("staaash_onboarded=1");
     expect(setCookie).toContain("staaash_theme=light");
     expectCookieSecure(setCookie, false);
   });
@@ -298,9 +245,9 @@ describe("auth cookie routes", () => {
       ...completedPreferences,
       ...saved,
     }));
-    const { POST } = await import("@/app/api/user/preferences/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await POST(
+    const response = await app.request(
       forwardedHttpsJsonRequest("/api/user/preferences", {
         theme: "light",
         timeZone: "UTC",
@@ -309,18 +256,17 @@ describe("auth cookie routes", () => {
 
     expect(response.status).toBe(200);
     const setCookie = response.headers.get("set-cookie") ?? "";
-    expect(setCookie).toContain("staaash_onboarded=1");
     expect(setCookie).toContain("staaash_theme=light");
     expectCookieSecure(setCookie, true);
   });
 
   it("sets secure cleared session cookies behind forwarded HTTPS", async () => {
     revokeSession.mockResolvedValueOnce(undefined);
-    const { DELETE } = await import("@/app/api/auth/session/route");
+    const { app } = await import("@/server/http/app");
 
-    const response = await DELETE(
-      forwardedHttpsRequest("/api/auth/session", {
-        method: "DELETE",
+    const response = await app.request(
+      forwardedHttpsRequest("/api/auth/sign-out", {
+        method: "POST",
         headers: {
           cookie: "staaash_session=session-token",
         },

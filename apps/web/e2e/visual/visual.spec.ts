@@ -19,7 +19,13 @@ const VIEWPORTS: Record<Viewport, { width: number; height: number }> = {
   mobile: { width: 390, height: 844 },
 };
 
-const authDirectory = path.resolve(__dirname, "..", "..", ".data", "visual");
+const authDirectory = path.resolve(
+  import.meta.dirname,
+  "..",
+  "..",
+  ".data",
+  "visual",
+);
 const ownerStatePath = path.join(authDirectory, "owner.json");
 const memberStatePath = path.join(authDirectory, "member.json");
 

@@ -7,12 +7,6 @@ const mocks = vi.hoisted(() => ({
   resolvePublicShare: vi.fn(),
 }));
 
-vi.mock("next/headers", () => ({
-  cookies: vi.fn(async () => ({
-    get: vi.fn(() => undefined),
-  })),
-}));
-
 vi.mock("@/server/sharing/service", () => ({
   sharingService: {
     getSharedNestedFileContent: mocks.getSharedNestedFileContent,
@@ -20,7 +14,7 @@ vi.mock("@/server/sharing/service", () => ({
   },
 }));
 
-const { GET } = await import("@/app/s/[token]/storage-unavailable/route");
+const { app } = await import("@/server/http/app");
 
 describe("public storage-unavailable route", () => {
   beforeEach(() => {
@@ -36,11 +30,10 @@ describe("public storage-unavailable route", () => {
       }),
     );
 
-    const response = await GET(
+    const response = await app.request(
       new Request(
         "http://localhost/s/token/storage-unavailable?folderId=folder-1",
       ),
-      { params: Promise.resolve({ token: "token" }) },
     );
 
     expect(response.status).toBe(503);

@@ -1,5 +1,5 @@
 import type { Theme } from "@/lib/theme";
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
 import styles from "./mini-drive.module.css";
 

@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { cn } from "@staaash/ui/utils";
 
 import { splitName } from "./list-model";
 

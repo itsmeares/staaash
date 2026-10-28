@@ -49,6 +49,7 @@ export type FileMinAggregateOutputType = {
   mimeType: string | null
   sizeBytes: bigint | null
   contentChecksum: string | null
+  clientModifiedAt: Date | null
   deletedAt: Date | null
   storageRevision: number | null
   trashEntryId: string | null
@@ -69,6 +70,7 @@ export type FileMaxAggregateOutputType = {
   mimeType: string | null
   sizeBytes: bigint | null
   contentChecksum: string | null
+  clientModifiedAt: Date | null
   deletedAt: Date | null
   storageRevision: number | null
   trashEntryId: string | null
@@ -89,6 +91,7 @@ export type FileCountAggregateOutputType = {
   mimeType: number
   sizeBytes: number
   contentChecksum: number
+  clientModifiedAt: number
   deletedAt: number
   storageRevision: number
   trashEntryId: number
@@ -121,6 +124,7 @@ export type FileMinAggregateInputType = {
   mimeType?: true
   sizeBytes?: true
   contentChecksum?: true
+  clientModifiedAt?: true
   deletedAt?: true
   storageRevision?: true
   trashEntryId?: true
@@ -141,6 +145,7 @@ export type FileMaxAggregateInputType = {
   mimeType?: true
   sizeBytes?: true
   contentChecksum?: true
+  clientModifiedAt?: true
   deletedAt?: true
   storageRevision?: true
   trashEntryId?: true
@@ -161,6 +166,7 @@ export type FileCountAggregateInputType = {
   mimeType?: true
   sizeBytes?: true
   contentChecksum?: true
+  clientModifiedAt?: true
   deletedAt?: true
   storageRevision?: true
   trashEntryId?: true
@@ -268,6 +274,7 @@ export type FileGroupByOutputType = {
   mimeType: string
   sizeBytes: bigint
   contentChecksum: string | null
+  clientModifiedAt: Date | null
   deletedAt: Date | null
   storageRevision: number
   trashEntryId: string | null
@@ -311,6 +318,7 @@ export type FileWhereInput = {
   mimeType?: Prisma.StringFilter<"File"> | string
   sizeBytes?: Prisma.BigIntFilter<"File"> | bigint | number
   contentChecksum?: Prisma.StringNullableFilter<"File"> | string | null
+  clientModifiedAt?: Prisma.DateTimeNullableFilter<"File"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableFilter<"File"> | Date | string | null
   storageRevision?: Prisma.IntFilter<"File"> | number
   trashEntryId?: Prisma.StringNullableFilter<"File"> | string | null
@@ -339,6 +347,7 @@ export type FileOrderByWithRelationInput = {
   mimeType?: Prisma.SortOrder
   sizeBytes?: Prisma.SortOrder
   contentChecksum?: Prisma.SortOrderInput | Prisma.SortOrder
+  clientModifiedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   storageRevision?: Prisma.SortOrder
   trashEntryId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -370,6 +379,7 @@ export type FileWhereUniqueInput = Prisma.AtLeast<{
   mimeType?: Prisma.StringFilter<"File"> | string
   sizeBytes?: Prisma.BigIntFilter<"File"> | bigint | number
   contentChecksum?: Prisma.StringNullableFilter<"File"> | string | null
+  clientModifiedAt?: Prisma.DateTimeNullableFilter<"File"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableFilter<"File"> | Date | string | null
   storageRevision?: Prisma.IntFilter<"File"> | number
   trashEntryId?: Prisma.StringNullableFilter<"File"> | string | null
@@ -398,6 +408,7 @@ export type FileOrderByWithAggregationInput = {
   mimeType?: Prisma.SortOrder
   sizeBytes?: Prisma.SortOrder
   contentChecksum?: Prisma.SortOrderInput | Prisma.SortOrder
+  clientModifiedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   storageRevision?: Prisma.SortOrder
   trashEntryId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -426,6 +437,7 @@ export type FileScalarWhereWithAggregatesInput = {
   mimeType?: Prisma.StringWithAggregatesFilter<"File"> | string
   sizeBytes?: Prisma.BigIntWithAggregatesFilter<"File"> | bigint | number
   contentChecksum?: Prisma.StringNullableWithAggregatesFilter<"File"> | string | null
+  clientModifiedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"File"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"File"> | Date | string | null
   storageRevision?: Prisma.IntWithAggregatesFilter<"File"> | number
   trashEntryId?: Prisma.StringNullableWithAggregatesFilter<"File"> | string | null
@@ -444,6 +456,7 @@ export type FileCreateInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
+  clientModifiedAt?: Date | string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   createdAt?: Date | string
@@ -471,6 +484,7 @@ export type FileUncheckedCreateInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
+  clientModifiedAt?: Date | string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   trashEntryId?: string | null
@@ -494,6 +508,7 @@ export type FileUpdateInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -521,6 +536,7 @@ export type FileUncheckedUpdateInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   trashEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -546,6 +562,7 @@ export type FileCreateManyInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
+  clientModifiedAt?: Date | string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   trashEntryId?: string | null
@@ -564,6 +581,7 @@ export type FileUpdateManyMutationInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -583,6 +601,7 @@ export type FileUncheckedUpdateManyInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   trashEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -613,6 +632,7 @@ export type FileCountOrderByAggregateInput = {
   mimeType?: Prisma.SortOrder
   sizeBytes?: Prisma.SortOrder
   contentChecksum?: Prisma.SortOrder
+  clientModifiedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
   storageRevision?: Prisma.SortOrder
   trashEntryId?: Prisma.SortOrder
@@ -638,6 +658,7 @@ export type FileMaxOrderByAggregateInput = {
   mimeType?: Prisma.SortOrder
   sizeBytes?: Prisma.SortOrder
   contentChecksum?: Prisma.SortOrder
+  clientModifiedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
   storageRevision?: Prisma.SortOrder
   trashEntryId?: Prisma.SortOrder
@@ -658,6 +679,7 @@ export type FileMinOrderByAggregateInput = {
   mimeType?: Prisma.SortOrder
   sizeBytes?: Prisma.SortOrder
   contentChecksum?: Prisma.SortOrder
+  clientModifiedAt?: Prisma.SortOrder
   deletedAt?: Prisma.SortOrder
   storageRevision?: Prisma.SortOrder
   trashEntryId?: Prisma.SortOrder
@@ -895,6 +917,7 @@ export type FileCreateWithoutOwnerInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
+  clientModifiedAt?: Date | string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   createdAt?: Date | string
@@ -920,6 +943,7 @@ export type FileUncheckedCreateWithoutOwnerInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
+  clientModifiedAt?: Date | string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   trashEntryId?: string | null
@@ -974,6 +998,7 @@ export type FileScalarWhereInput = {
   mimeType?: Prisma.StringFilter<"File"> | string
   sizeBytes?: Prisma.BigIntFilter<"File"> | bigint | number
   contentChecksum?: Prisma.StringNullableFilter<"File"> | string | null
+  clientModifiedAt?: Prisma.DateTimeNullableFilter<"File"> | Date | string | null
   deletedAt?: Prisma.DateTimeNullableFilter<"File"> | Date | string | null
   storageRevision?: Prisma.IntFilter<"File"> | number
   trashEntryId?: Prisma.StringNullableFilter<"File"> | string | null
@@ -992,6 +1017,7 @@ export type FileCreateWithoutFolderInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
+  clientModifiedAt?: Date | string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   createdAt?: Date | string
@@ -1017,6 +1043,7 @@ export type FileUncheckedCreateWithoutFolderInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
+  clientModifiedAt?: Date | string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   trashEntryId?: string | null
@@ -1066,6 +1093,7 @@ export type FileCreateWithoutFavoritesInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
+  clientModifiedAt?: Date | string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   createdAt?: Date | string
@@ -1092,6 +1120,7 @@ export type FileUncheckedCreateWithoutFavoritesInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
+  clientModifiedAt?: Date | string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   trashEntryId?: string | null
@@ -1130,6 +1159,7 @@ export type FileUpdateWithoutFavoritesInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1156,6 +1186,7 @@ export type FileUncheckedUpdateWithoutFavoritesInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   trashEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1178,6 +1209,7 @@ export type FileCreateWithoutRecentsInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
+  clientModifiedAt?: Date | string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   createdAt?: Date | string
@@ -1204,6 +1236,7 @@ export type FileUncheckedCreateWithoutRecentsInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
+  clientModifiedAt?: Date | string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   trashEntryId?: string | null
@@ -1242,6 +1275,7 @@ export type FileUpdateWithoutRecentsInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1268,6 +1302,7 @@ export type FileUncheckedUpdateWithoutRecentsInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   trashEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1290,6 +1325,7 @@ export type FileCreateWithoutShareLinkInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
+  clientModifiedAt?: Date | string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   createdAt?: Date | string
@@ -1316,6 +1352,7 @@ export type FileUncheckedCreateWithoutShareLinkInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
+  clientModifiedAt?: Date | string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   trashEntryId?: string | null
@@ -1354,6 +1391,7 @@ export type FileUpdateWithoutShareLinkInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1380,6 +1418,7 @@ export type FileUncheckedUpdateWithoutShareLinkInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   trashEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1402,6 +1441,7 @@ export type FileCreateWithoutDerivativesInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
+  clientModifiedAt?: Date | string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   createdAt?: Date | string
@@ -1428,6 +1468,7 @@ export type FileUncheckedCreateWithoutDerivativesInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
+  clientModifiedAt?: Date | string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   trashEntryId?: string | null
@@ -1466,6 +1507,7 @@ export type FileUpdateWithoutDerivativesInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1492,6 +1534,7 @@ export type FileUncheckedUpdateWithoutDerivativesInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   trashEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1514,6 +1557,7 @@ export type FileCreateWithoutCommittedUploadSessionsInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
+  clientModifiedAt?: Date | string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   createdAt?: Date | string
@@ -1540,6 +1584,7 @@ export type FileUncheckedCreateWithoutCommittedUploadSessionsInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
+  clientModifiedAt?: Date | string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   trashEntryId?: string | null
@@ -1578,6 +1623,7 @@ export type FileUpdateWithoutCommittedUploadSessionsInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1604,6 +1650,7 @@ export type FileUncheckedUpdateWithoutCommittedUploadSessionsInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   trashEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1626,6 +1673,7 @@ export type FileCreateWithoutTrashEntryInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
+  clientModifiedAt?: Date | string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   createdAt?: Date | string
@@ -1652,6 +1700,7 @@ export type FileUncheckedCreateWithoutTrashEntryInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
+  clientModifiedAt?: Date | string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   createdAt?: Date | string
@@ -1701,6 +1750,7 @@ export type FileCreateManyOwnerInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
+  clientModifiedAt?: Date | string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   trashEntryId?: string | null
@@ -1719,6 +1769,7 @@ export type FileUpdateWithoutOwnerInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1744,6 +1795,7 @@ export type FileUncheckedUpdateWithoutOwnerInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   trashEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1768,6 +1820,7 @@ export type FileUncheckedUpdateManyWithoutOwnerInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   trashEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1787,6 +1840,7 @@ export type FileCreateManyFolderInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
+  clientModifiedAt?: Date | string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   trashEntryId?: string | null
@@ -1805,6 +1859,7 @@ export type FileUpdateWithoutFolderInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1830,6 +1885,7 @@ export type FileUncheckedUpdateWithoutFolderInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   trashEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1854,6 +1910,7 @@ export type FileUncheckedUpdateManyWithoutFolderInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   trashEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -1874,6 +1931,7 @@ export type FileCreateManyTrashEntryInput = {
   mimeType: string
   sizeBytes: bigint | number
   contentChecksum?: string | null
+  clientModifiedAt?: Date | string | null
   deletedAt?: Date | string | null
   storageRevision?: number
   createdAt?: Date | string
@@ -1891,6 +1949,7 @@ export type FileUpdateWithoutTrashEntryInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1917,6 +1976,7 @@ export type FileUncheckedUpdateWithoutTrashEntryInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -1941,6 +2001,7 @@ export type FileUncheckedUpdateManyWithoutTrashEntryInput = {
   mimeType?: Prisma.StringFieldUpdateOperationsInput | string
   sizeBytes?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   contentChecksum?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clientModifiedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   storageRevision?: Prisma.IntFieldUpdateOperationsInput | number
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
@@ -2018,6 +2079,7 @@ export type FileSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   mimeType?: boolean
   sizeBytes?: boolean
   contentChecksum?: boolean
+  clientModifiedAt?: boolean
   deletedAt?: boolean
   storageRevision?: boolean
   trashEntryId?: boolean
@@ -2047,6 +2109,7 @@ export type FileSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   mimeType?: boolean
   sizeBytes?: boolean
   contentChecksum?: boolean
+  clientModifiedAt?: boolean
   deletedAt?: boolean
   storageRevision?: boolean
   trashEntryId?: boolean
@@ -2070,6 +2133,7 @@ export type FileSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensio
   mimeType?: boolean
   sizeBytes?: boolean
   contentChecksum?: boolean
+  clientModifiedAt?: boolean
   deletedAt?: boolean
   storageRevision?: boolean
   trashEntryId?: boolean
@@ -2093,6 +2157,7 @@ export type FileSelectScalar = {
   mimeType?: boolean
   sizeBytes?: boolean
   contentChecksum?: boolean
+  clientModifiedAt?: boolean
   deletedAt?: boolean
   storageRevision?: boolean
   trashEntryId?: boolean
@@ -2100,7 +2165,7 @@ export type FileSelectScalar = {
   updatedAt?: boolean
 }
 
-export type FileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerUserId" | "folderId" | "originalName" | "searchName" | "storageKey" | "storageStatus" | "storageCheckedAt" | "storageMissingAt" | "mimeType" | "sizeBytes" | "contentChecksum" | "deletedAt" | "storageRevision" | "trashEntryId" | "createdAt" | "updatedAt", ExtArgs["result"]["file"]>
+export type FileOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "ownerUserId" | "folderId" | "originalName" | "searchName" | "storageKey" | "storageStatus" | "storageCheckedAt" | "storageMissingAt" | "mimeType" | "sizeBytes" | "contentChecksum" | "clientModifiedAt" | "deletedAt" | "storageRevision" | "trashEntryId" | "createdAt" | "updatedAt", ExtArgs["result"]["file"]>
 export type FileInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   owner?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   folder?: boolean | Prisma.File$folderArgs<ExtArgs>
@@ -2148,6 +2213,10 @@ export type $FilePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     mimeType: string
     sizeBytes: bigint
     contentChecksum: string | null
+    /**
+     * The modified time on the uploader's computer, kept across devices.
+     */
+    clientModifiedAt: Date | null
     deletedAt: Date | null
     storageRevision: number
     trashEntryId: string | null
@@ -2596,6 +2665,7 @@ export interface FileFieldRefs {
   readonly mimeType: Prisma.FieldRef<"File", 'String'>
   readonly sizeBytes: Prisma.FieldRef<"File", 'BigInt'>
   readonly contentChecksum: Prisma.FieldRef<"File", 'String'>
+  readonly clientModifiedAt: Prisma.FieldRef<"File", 'DateTime'>
   readonly deletedAt: Prisma.FieldRef<"File", 'DateTime'>
   readonly storageRevision: Prisma.FieldRef<"File", 'Int'>
   readonly trashEntryId: Prisma.FieldRef<"File", 'String'>

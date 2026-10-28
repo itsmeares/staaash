@@ -66,12 +66,20 @@ test("sign-in intro opens and submits with keyboard", async ({ page }) => {
   });
 });
 
-test("incomplete-onboarding user can finish setup with keyboard", async ({
+test("incomplete-onboarding user can finish setup with keyboard and return to a device approval", async ({
   page,
 }) => {
   const credentials = getOnboardingCredentials();
 
-  await page.goto("/");
+  // A desktop app sent this person here; setup must not lose the request.
+  await page.goto(
+    `/auth/device?${new URLSearchParams({
+      redirect_uri: "http://127.0.0.1:53682/callback",
+      code_challenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+      device_name: "Laptop",
+    })}`,
+  );
+  await page.waitForURL((url) => url.pathname === "/");
   // Keys only advance the intro once the page is interactive.
   await page.waitForLoadState("networkidle");
   await page.keyboard.press("Enter");
@@ -107,9 +115,12 @@ test("incomplete-onboarding user can finish setup with keyboard", async ({
   await tabUntilFocused(page, page.getByRole("button", { name: "Finish" }));
   await page.keyboard.press("Enter");
 
-  await page.waitForURL((url) => url.pathname === "/files", {
+  await page.waitForURL((url) => url.pathname === "/auth/device", {
     timeout: 15_000,
   });
+  await expect(
+    page.getByRole("heading", { name: "Connect Laptop?" }),
+  ).toBeVisible();
 });
 
 test("files rows move focus with keyboard and open selected item", async ({
@@ -127,6 +138,17 @@ test("files rows move focus with keyboard and open selected item", async ({
   await list.focus();
   await page.keyboard.press("ArrowDown");
   await expect(firstRow).toBeFocused();
+  await expect(firstRow).toHaveAttribute("aria-selected", "true");
+
+  // Enter on the row's Actions button opens its menu, not the file.
+  await firstRow.getByRole("button", { name: /^Actions for / }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("menu")).toBeVisible();
+  expect(new URL(page.url()).pathname).toBe("/files");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toBeHidden();
+  // Escape may also clear the selection, so pick the row again.
+  await firstRow.click();
   await expect(firstRow).toHaveAttribute("aria-selected", "true");
   await page.keyboard.press("Enter");
 

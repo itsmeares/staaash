@@ -4,8 +4,10 @@ import {
   type AdminBackgroundJobListFilters,
   type AdminBackgroundJobListResult,
 } from "@staaash/db/admin";
+import { getPrisma } from "@staaash/db/client";
 import {
   ALL_SUPPORTED_JOB_KINDS,
+  MEDIA_DERIVATIVE_GENERATE_JOB_KIND,
   STAGING_CLEANUP_JOB_KIND,
   TRASH_RETENTION_JOB_KIND,
   cancelBackgroundJob,
@@ -158,7 +160,7 @@ export const getLastRunPerKind = async () => {
   ) as Record<string, (typeof results)[number]["job"]>;
 };
 
-export const toJsonAdminJobListResponse = (
+const toJsonAdminJobListResponse = (
   response: AdminBackgroundJobListResult,
 ): JsonAdminJobListResponse => ({
   ...response,
@@ -203,3 +205,32 @@ export const toJsonAdminJobStateSnapshot = (
     ]),
   ),
 });
+
+/** The job list as JSON, with the file name on each preview job. */
+export const getAdminJobListResponse = async (
+  filters: ReturnType<typeof parseAdminJobFilters>,
+) => {
+  const response = toJsonAdminJobListResponse(await getAdminJobList(filters));
+  const fileIdOf = (job: (typeof response.items)[number]) =>
+    job.kind === MEDIA_DERIVATIVE_GENERATE_JOB_KIND
+      ? (job.payloadJson as { fileId?: string } | null)?.fileId
+      : undefined;
+  const fileIds = response.items
+    .map(fileIdOf)
+    .filter((id): id is string => Boolean(id));
+  if (fileIds.length === 0) return response;
+
+  const files = await getPrisma().file.findMany({
+    where: { id: { in: fileIds } },
+    select: { id: true, originalName: true },
+  });
+  const names = new Map(files.map((file) => [file.id, file.originalName]));
+  return {
+    ...response,
+    items: response.items.map((job) => {
+      if (job.kind !== MEDIA_DERIVATIVE_GENERATE_JOB_KIND) return job;
+      const fileId = fileIdOf(job);
+      return { ...job, fileName: fileId ? (names.get(fileId) ?? null) : null };
+    }),
+  };
+};

@@ -398,6 +398,7 @@ export const reserveResumableSession = async ({
   chunkSizeBytes,
   tmpPath,
   conflictStrategy,
+  clientModifiedAt = null,
   expiresAt,
 }: {
   id: string;
@@ -411,6 +412,7 @@ export const reserveResumableSession = async ({
   chunkSizeBytes: number | null;
   tmpPath: string;
   conflictStrategy: string;
+  clientModifiedAt?: Date | null;
   expiresAt: Date;
 }) =>
   runUploadTransaction(async (tx) => {
@@ -435,6 +437,7 @@ export const reserveResumableSession = async ({
         chunkSizeBytes: chunkSizeBytes === null ? null : BigInt(chunkSizeBytes),
         tmpPath,
         conflictStrategy,
+        clientModifiedAt,
         status: "allocating",
         expiresAt,
       },

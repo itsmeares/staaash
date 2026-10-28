@@ -248,7 +248,7 @@ it("resolves only requested upload names and keeps missing-file and private-acco
         parentId: root.id,
         paths: ["No access"],
       }),
-    ).rejects.toMatchObject({ code: "ACCESS_DENIED" });
+    ).rejects.toMatchObject({ code: "FOLDER_NOT_FOUND" });
     const child = await db.folder.findUniqueOrThrow({
       where: { id: result.folders[0].folderId },
     });

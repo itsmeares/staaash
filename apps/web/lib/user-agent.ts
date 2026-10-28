@@ -54,14 +54,15 @@ export const toDevice = (
     userAgent: string | null;
     ipAddress: string | null;
     lastSeenAt: Date | null;
+    deviceName: string | null;
     createdAt: Date;
   },
-  currentSessionId: string,
+  current: { id: string; deviceSessionId: string | null },
 ): Device => ({
   id: session.id,
-  device: describeDevice(session.userAgent),
+  device: session.deviceName ?? describeDevice(session.userAgent),
   ipAddress: formatSessionIp(session.ipAddress),
   lastSeenAt: session.lastSeenAt?.toISOString() ?? null,
   createdAt: session.createdAt.toISOString(),
-  current: session.id === currentSessionId,
+  current: session.id === current.id || session.id === current.deviceSessionId,
 });

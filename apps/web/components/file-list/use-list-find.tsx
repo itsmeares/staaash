@@ -1,7 +1,5 @@
-"use client";
-
 import { useEffect, useRef, useState } from "react";
-import { Input } from "@/components/ui/input";
+import { Input } from "@staaash/ui/components/input";
 
 export function useListFind(label: string) {
   const [find, setFind] = useState("");

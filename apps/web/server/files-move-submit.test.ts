@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { submitMove } from "@/app/(workspace)/files/files-move";
+import { submitMove } from "@/src/workspace/files/files-move";
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), {

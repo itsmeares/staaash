@@ -8,7 +8,7 @@ import {
   toTrashClientItems,
   type TrashClientItem,
   type TrashSortKey,
-} from "@/app/(workspace)/trash/trash-helpers";
+} from "@/src/workspace/trash/trash-helpers";
 import type {
   FileSummary,
   FolderRestoreLocation,

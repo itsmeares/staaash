@@ -11,6 +11,7 @@ COPY apps/web/package.json ./apps/web/
 COPY apps/worker/package.json ./apps/worker/
 COPY packages/config/package.json ./packages/config/
 COPY packages/db/package.json ./packages/db/
+COPY packages/ui/package.json ./packages/ui/
 RUN corepack install && pnpm install --frozen-lockfile
 
 # ── Build ─────────────────────────────────────────────────────────────────────
@@ -19,6 +20,7 @@ WORKDIR /app
 COPY --from=install /app /app
 COPY . .
 RUN pnpm run db:generate && pnpm build && \
+    pnpm --filter web deploy --prod --legacy /deploy/web && \
     pnpm --filter worker deploy --prod --legacy /deploy/worker && \
     cp -r apps/worker/dist /deploy/worker/dist
 
@@ -33,10 +35,8 @@ COPY --from=install /app/packages/db/package.json /tmp/db-pkg.json
 RUN npm install -g "prisma@$(node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/tmp/db-pkg.json','utf8')).devDependencies.prisma)")" --no-fund --no-audit \
     && rm /tmp/db-pkg.json
 
-# Next.js standalone server
-COPY --from=build /app/apps/web/.next/standalone ./
-COPY --from=build /app/apps/web/.next/static ./apps/web/.next/static
-COPY --from=build /app/apps/web/public ./apps/web/public
+# Web server and the built app it serves (self-contained via pnpm deploy)
+COPY --from=build /deploy/web ./
 
 # Prisma schema + migrations + config
 COPY --from=build /app/packages/db/prisma ./prisma
@@ -45,10 +45,8 @@ COPY --from=build /app/packages/db/prisma.config.ts ./
 # Worker (self-contained via pnpm deploy)
 COPY --from=build /deploy/worker /worker
 
-# Next.js standalone copies node_modules to /app. Expose Prisma for migrations
-# and pg for the web runtime's direct database event stream import.
-RUN ln -sf "$(npm root -g)/prisma" /app/node_modules/prisma \
-    && ln -sf .pnpm/node_modules/pg /app/node_modules/pg
+# prisma.config.ts imports prisma from /app/node_modules.
+RUN ln -sf "$(npm root -g)/prisma" /app/node_modules/prisma
 
 EXPOSE 2113
-CMD ["sh", "-c", "prisma migrate deploy && node apps/web/server.js"]
+CMD ["sh", "-c", "prisma migrate deploy && node dist/server/main.mjs"]

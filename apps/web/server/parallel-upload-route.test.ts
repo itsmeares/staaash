@@ -3,7 +3,6 @@ import { mkdir, open, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { NextRequest } from "next/server";
 import {
   afterEach,
   beforeEach,
@@ -13,10 +12,11 @@ import {
   vi,
 } from "vite-plus/test";
 
-import { StorageMutationConflictError } from "@staaash/db/storage-mutations";
+import { app } from "@/server/http/app";
 
-import { POST as completeUpload } from "@/app/api/uploads/sessions/[id]/complete/route";
-import { PATCH as patchUpload } from "@/app/api/uploads/sessions/[id]/route";
+import { StorageMutationConflictError } from "@staaash/db/storage-mutations";
+import { StorageAdmissionBusyError } from "@staaash/db/storage-transactions";
+
 import { getRequestSession } from "@/server/auth/guards";
 import { filesService } from "@/server/files/service";
 import { ResumableCompletionError } from "@/server/files/errors";
@@ -25,35 +25,47 @@ import {
   beginSessionCommit,
   failAndCleanupResumableSession,
   findActiveResumableSession,
+  findResumableSessionStatus,
   recordResumableCommitRecoveryError,
   restoreResumableSessionAfterCommitRollback,
   writeAndRecordUploadChunk,
 } from "@/server/uploads/session-service";
 
-vi.mock("@/server/auth/guards", () => ({
+vi.mock("@/server/auth/guards", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/auth/guards")>()),
   getRequestSession: vi.fn(),
 }));
 
-vi.mock("@/server/durable-storage-mutation", () => ({
+vi.mock("@/server/durable-storage-mutation", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/server/durable-storage-mutation")
+  >()),
   assertStorageProtocolReady: vi.fn(async () => undefined),
   StorageProtocolNotReadyError: class extends Error {},
 }));
 
-vi.mock("@/server/uploads/session-service", () => ({
+vi.mock("@/server/uploads/session-service", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("@/server/uploads/session-service")
+  >()),
   beginSessionCommit: vi.fn(),
   failAndCleanupResumableSession: vi.fn(),
   findActiveResumableSession: vi.fn(),
+  findCompletedResumableSession: vi.fn(),
+  findResumableSessionStatus: vi.fn(),
   recordResumableCommitRecoveryError: vi.fn(),
   restoreResumableSessionAfterCommitRollback: vi.fn(),
   updateSessionProgress: vi.fn(),
   writeAndRecordUploadChunk: vi.fn(),
 }));
 
-vi.mock("@/server/uploads", () => ({
+vi.mock("@/server/uploads", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/uploads")>()),
   computeFileSha256: vi.fn(),
 }));
 
-vi.mock("@/server/files/service", () => ({
+vi.mock("@/server/files/service", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/server/files/service")>()),
   filesService: {
     commitResumableUpload: vi.fn(),
   },
@@ -98,7 +110,7 @@ const patchRequest = (
   body: Uint8Array,
   contentLength: string | null = String(body.byteLength),
 ) =>
-  new NextRequest("http://localhost:3000/api/uploads/sessions/session-1", {
+  new Request("http://localhost:3000/api/uploads/sessions/session-1", {
     method: "PATCH",
     headers: {
       ...(contentLength === null ? {} : { "content-length": contentLength }),
@@ -145,9 +157,7 @@ describe("parallel upload route", () => {
       },
     );
 
-    const response = await patchUpload(request, {
-      params: Promise.resolve({ id: "session-1" }),
-    });
+    const response = await app.request(request);
 
     expect(response.status).toBe(200);
     expect(findActiveResumableSession).toHaveBeenCalledWith(
@@ -175,9 +185,8 @@ describe("parallel upload route", () => {
       uploadSession(tmpPath),
     );
 
-    const response = await patchUpload(
+    const response = await app.request(
       patchRequest("bytes 4-7/10", new Uint8Array([1, 2, 3]), null),
-      { params: Promise.resolve({ id: "session-1" }) },
     );
 
     expect(response.status).toBe(400);
@@ -191,9 +200,8 @@ describe("parallel upload route", () => {
       uploadSession(tmpPath),
     );
 
-    const response = await patchUpload(
+    const response = await app.request(
       patchRequest("bytes 4-7/10", new Uint8Array([1, 2, 3, 4, 5]), null),
-      { params: Promise.resolve({ id: "session-1" }) },
     );
 
     expect(response.status).toBe(400);
@@ -208,9 +216,8 @@ describe("parallel upload route", () => {
     );
     vi.mocked(writeAndRecordUploadChunk).mockResolvedValue(4);
 
-    const response = await patchUpload(
+    const response = await app.request(
       patchRequest("bytes 4-7/10", new Uint8Array([9, 9, 9, 9])),
-      { params: Promise.resolve({ id: "session-1" }) },
     );
 
     expect(response.status).toBe(200);
@@ -226,9 +233,8 @@ describe("parallel upload route", () => {
       new Error("UPLOAD_CHUNK_LOCK_TIMEOUT"),
     );
 
-    const response = await patchUpload(
+    const response = await app.request(
       patchRequest("bytes 4-7/10", new Uint8Array([1, 2, 3, 4])),
-      { params: Promise.resolve({ id: "session-1" }) },
     );
 
     expect(response.status).toBe(503);
@@ -241,9 +247,8 @@ describe("parallel upload route", () => {
       uploadSession(tmpPath),
     );
 
-    const response = await patchUpload(
+    const response = await app.request(
       patchRequest("bytes 2-5/10", new Uint8Array([1, 2, 3, 4])),
-      { params: Promise.resolve({ id: "session-1" }) },
     );
 
     expect(response.status).toBe(400);
@@ -260,8 +265,8 @@ describe("parallel upload route", () => {
       ],
     });
 
-    const response = await completeUpload(
-      new NextRequest(
+    const response = await app.request(
+      new Request(
         "http://localhost:3000/api/uploads/sessions/session-1/complete",
         {
           method: "POST",
@@ -273,11 +278,42 @@ describe("parallel upload route", () => {
           body: JSON.stringify({ expectedChecksum: "a".repeat(64) }),
         },
       ),
-      { params: Promise.resolve({ id: "session-1" }) },
     );
 
     expect(response.status).toBe(400);
     expect(filesService.commitResumableUpload).not.toHaveBeenCalled();
+  });
+
+  it("asks the client to retry completion while recovery is running", async () => {
+    vi.mocked(findActiveResumableSession).mockResolvedValueOnce(null);
+    vi.mocked(findResumableSessionStatus).mockResolvedValueOnce({
+      status: "committing",
+    });
+
+    const response = await app.request(
+      new Request(
+        "http://localhost:3000/api/uploads/sessions/session-1/complete",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            host: "localhost:3000",
+            origin: "http://localhost:3000",
+          },
+          body: JSON.stringify({ expectedChecksum: "a".repeat(64) }),
+        },
+      ),
+    );
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("retry-after")).toBe("1");
+    await expect(response.json()).resolves.toMatchObject({
+      code: "RESUMABLE_COMMIT_RETRYABLE",
+    });
+    expect(findResumableSessionStatus).toHaveBeenCalledWith(
+      "session-1",
+      "user-1",
+    );
   });
 
   it("verifies the final file checksum before committing it", async () => {
@@ -296,8 +332,8 @@ describe("parallel upload route", () => {
       id: "file-1",
     } as never);
 
-    const response = await completeUpload(
-      new NextRequest(
+    const response = await app.request(
+      new Request(
         "http://localhost:3000/api/uploads/sessions/session-1/complete",
         {
           method: "POST",
@@ -309,7 +345,6 @@ describe("parallel upload route", () => {
           body: JSON.stringify({ expectedChecksum }),
         },
       ),
-      { params: Promise.resolve({ id: "session-1" }) },
     );
 
     expect(response.status).toBe(201);
@@ -340,8 +375,8 @@ describe("parallel upload route", () => {
     });
     vi.mocked(computeFileSha256).mockResolvedValue("b".repeat(64));
 
-    const response = await completeUpload(
-      new NextRequest(
+    const response = await app.request(
+      new Request(
         "http://localhost:3000/api/uploads/sessions/session-1/complete",
         {
           method: "POST",
@@ -353,7 +388,6 @@ describe("parallel upload route", () => {
           body: JSON.stringify({ expectedChecksum }),
         },
       ),
-      { params: Promise.resolve({ id: "session-1" }) },
     );
 
     expect(response.status).toBe(400);
@@ -381,8 +415,8 @@ describe("parallel upload route", () => {
     });
     vi.mocked(computeFileSha256).mockRejectedValue(new Error("read failed"));
 
-    const response = await completeUpload(
-      new NextRequest(
+    const response = await app.request(
+      new Request(
         "http://localhost:3000/api/uploads/sessions/session-1/complete",
         {
           method: "POST",
@@ -394,7 +428,6 @@ describe("parallel upload route", () => {
           body: JSON.stringify({ expectedChecksum }),
         },
       ),
-      { params: Promise.resolve({ id: "session-1" }) },
     );
 
     expect(response.status).toBe(503);
@@ -422,8 +455,8 @@ describe("parallel upload route", () => {
       new ResumableCompletionError("RESUMABLE_COMMIT_RETRYABLE"),
     );
 
-    const response = await completeUpload(
-      new NextRequest(
+    const response = await app.request(
+      new Request(
         "http://localhost:3000/api/uploads/sessions/session-1/complete",
         {
           method: "POST",
@@ -435,7 +468,6 @@ describe("parallel upload route", () => {
           body: JSON.stringify({ expectedChecksum }),
         },
       ),
-      { params: Promise.resolve({ id: "session-1" }) },
     );
 
     expect(response.status).toBe(503);
@@ -444,53 +476,58 @@ describe("parallel upload route", () => {
     expect(recordResumableCommitRecoveryError).not.toHaveBeenCalled();
   });
 
-  it("restores the session after owner contention and returns a retryable response", async () => {
-    const tmpPath = await createTempUpload(10);
-    const expectedChecksum = "a".repeat(64);
-    vi.mocked(findActiveResumableSession).mockResolvedValue({
-      ...uploadSession(tmpPath, 10),
-      completedChunks: [
-        { chunkIndex: 0, startByte: 0, endByte: 3, sizeBytes: 4 },
-        { chunkIndex: 1, startByte: 4, endByte: 7, sizeBytes: 4 },
-        { chunkIndex: 2, startByte: 8, endByte: 9, sizeBytes: 2 },
-      ],
-    });
-    vi.mocked(computeFileSha256).mockResolvedValue(expectedChecksum);
-    vi.mocked(filesService.commitResumableUpload).mockRejectedValue(
+  it.each([
+    () =>
       new StorageMutationConflictError(
         "STORAGE_MUTATION_IN_PROGRESS",
         "mutation-1",
       ),
-    );
+    () => new StorageAdmissionBusyError(),
+  ])(
+    "restores the session when nothing was committed and returns a retryable response",
+    async (refusal) => {
+      const tmpPath = await createTempUpload(10);
+      const expectedChecksum = "a".repeat(64);
+      vi.mocked(findActiveResumableSession).mockResolvedValue({
+        ...uploadSession(tmpPath, 10),
+        completedChunks: [
+          { chunkIndex: 0, startByte: 0, endByte: 3, sizeBytes: 4 },
+          { chunkIndex: 1, startByte: 4, endByte: 7, sizeBytes: 4 },
+          { chunkIndex: 2, startByte: 8, endByte: 9, sizeBytes: 2 },
+        ],
+      });
+      vi.mocked(computeFileSha256).mockResolvedValue(expectedChecksum);
+      const error = refusal();
+      vi.mocked(filesService.commitResumableUpload).mockRejectedValue(error);
 
-    const response = await completeUpload(
-      new NextRequest(
-        "http://localhost:3000/api/uploads/sessions/session-1/complete",
-        {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            host: "localhost:3000",
-            origin: "http://localhost:3000",
+      const response = await app.request(
+        new Request(
+          "http://localhost:3000/api/uploads/sessions/session-1/complete",
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              host: "localhost:3000",
+              origin: "http://localhost:3000",
+            },
+            body: JSON.stringify({ expectedChecksum }),
           },
-          body: JSON.stringify({ expectedChecksum }),
-        },
-      ),
-      { params: Promise.resolve({ id: "session-1" }) },
-    );
+        ),
+      );
 
-    expect(response.status).toBe(503);
-    expect(response.headers.get("retry-after")).toBe("1");
-    await expect(response.json()).resolves.toMatchObject({
-      code: "STORAGE_MUTATION_IN_PROGRESS",
-    });
-    expect(restoreResumableSessionAfterCommitRollback).toHaveBeenCalledWith({
-      id: "session-1",
-      ownerUserId: "user-1",
-      error: expect.any(StorageMutationConflictError),
-    });
-    expect(recordResumableCommitRecoveryError).not.toHaveBeenCalled();
-  });
+      expect(response.status).toBe(503);
+      expect(response.headers.get("retry-after")).toBe("1");
+      await expect(response.json()).resolves.toMatchObject({
+        code: error.code,
+      });
+      expect(restoreResumableSessionAfterCommitRollback).toHaveBeenCalledWith({
+        id: "session-1",
+        ownerUserId: "user-1",
+        error,
+      });
+      expect(recordResumableCommitRecoveryError).not.toHaveBeenCalled();
+    },
+  );
 
   it("keeps recovery-required contention visible without restoring the session", async () => {
     const tmpPath = await createTempUpload(10);
@@ -511,8 +548,8 @@ describe("parallel upload route", () => {
       ),
     );
 
-    const response = await completeUpload(
-      new NextRequest(
+    const response = await app.request(
+      new Request(
         "http://localhost:3000/api/uploads/sessions/session-1/complete",
         {
           method: "POST",
@@ -524,7 +561,6 @@ describe("parallel upload route", () => {
           body: JSON.stringify({ expectedChecksum }),
         },
       ),
-      { params: Promise.resolve({ id: "session-1" }) },
     );
 
     expect(response.status).toBe(503);

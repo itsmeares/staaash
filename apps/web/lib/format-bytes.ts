@@ -1,7 +1,7 @@
 const UNITS = ["B", "KB", "MB", "GB", "TB"];
 
 /** "400 B", "4 KB", "2.3 MB", "742 GB": one decimal below 100 from MB up. */
-export const formatBytes = (value: bigint | number) => {
+export const formatBytes = (value: bigint | number | string) => {
   const size = Number(value);
   if (!(size > 0)) return "0 B";
   const unit = Math.min(

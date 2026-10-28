@@ -100,6 +100,27 @@ describe("getPrisma", () => {
     await first.$disconnect();
   });
 
+  it("keeps running when an idle connection dies, as on a PostgreSQL restart", async () => {
+    process.env.DATABASE_URL = dummyDatabaseUrl;
+    process.env.NODE_ENV = "production";
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const {
+      getPostgresPool,
+      getPrisma,
+      getStoragePrisma,
+      getUploadPostgresPool,
+    } = await loadClientModule();
+    const closed = new Error(
+      "terminating connection due to administrator command",
+    );
+    expect(() => getUploadPostgresPool().emit("error", closed)).not.toThrow();
+    expect(() => getPostgresPool().emit("error", closed)).not.toThrow();
+    warn.mockRestore();
+    await getStoragePrisma().$disconnect();
+    await getUploadPostgresPool().end();
+    await getPrisma().$disconnect();
+  });
+
   it("reuses the global cached instance in non-production across module reloads", async () => {
     process.env.DATABASE_URL = dummyDatabaseUrl;
     process.env.NODE_ENV = "development";

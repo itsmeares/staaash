@@ -16,6 +16,9 @@ describe("durable storage mutation commit", () => {
         findFirst: vi.fn().mockResolvedValue({ id: "mutation-1" }),
         updateMany,
       },
+      storageMutationEntity: { findMany: vi.fn().mockResolvedValue([]) },
+      file: { findMany: vi.fn().mockResolvedValue([]) },
+      folder: { findMany: vi.fn().mockResolvedValue([]) },
     };
     const client = {
       $transaction: async <T>(

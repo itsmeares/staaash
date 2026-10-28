@@ -51,6 +51,10 @@
       "types": "./dist/upload-sessions.d.ts",
       "default": "./dist/upload-sessions.js"
     },
+    "./storage-changes": {
+      "types": "./dist/storage-changes.d.ts",
+      "default": "./dist/storage-changes.js"
+    },
     "./storage-mutations": {
       "types": "./dist/storage-mutations.d.ts",
       "default": "./dist/storage-mutations.js"
@@ -77,7 +81,7 @@
     "@types/node": "^24.19.2",
     "@types/pg": "^8.23.1",
     "prisma": "^7.10.1",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vitest": "catalog:",
     "vite-plus": "catalog:"
   }

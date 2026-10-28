@@ -1,4 +1,3 @@
-import { Readable } from "node:stream";
 import path from "node:path";
 
 import {
@@ -95,6 +94,6 @@ export const createSharedFolderArchive = async ({
 
   return {
     fileName: `${rootFolder.name}.zip`,
-    stream: Readable.toWeb(output) as ReadableStream,
+    stream: output,
   };
 };

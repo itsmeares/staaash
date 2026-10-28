@@ -1,4 +1,4 @@
-// Keeps global CSS small: app/globals.css only imports, shared styles stay
+// Keeps global CSS small: src/globals.css only imports, shared styles stay
 // under a line budget, and nothing uses !important. Also keeps text readable:
 // faded text depends on the surface behind it, so text uses foreground (80%
 // or more) or muted-foreground, which server/text-contrast.test.ts checks
@@ -27,19 +27,21 @@ const walk = (dir) =>
     return statSync(full).isDirectory() ? walk(full) : [full];
   });
 
-const globals = readFileSync(path.join(root, "app/globals.css"), "utf8");
+const globals = readFileSync(path.join(root, "src/globals.css"), "utf8");
 for (const line of globals.split("\n")) {
   const trimmed = line.trim();
   if (trimmed && !trimmed.startsWith("@import ")) {
     problems.push(
-      `app/globals.css may only contain @import lines: "${trimmed}"`,
+      `src/globals.css may only contain @import lines: "${trimmed}"`,
     );
   }
 }
 
-const stylesDir = path.join(root, "styles");
+const ui = path.resolve(root, "../../packages/ui");
+const stylesDir = path.join(ui, "styles");
 const styleLines = readdirSync(stylesDir)
-  .filter((name) => name.endsWith(".css"))
+  // fonts.css only lists @font-face files, so it does not count.
+  .filter((name) => name.endsWith(".css") && name !== "fonts.css")
   .reduce(
     (sum, name) =>
       sum + readFileSync(path.join(stylesDir, name), "utf8").split("\n").length,
@@ -47,24 +49,25 @@ const styleLines = readdirSync(stylesDir)
   );
 if (styleLines > STYLES_LINE_BUDGET) {
   problems.push(
-    `styles/*.css has ${styleLines} lines, over the ${STYLES_LINE_BUDGET} line budget`,
+    `packages/ui/styles/*.css has ${styleLines} lines, over the ${STYLES_LINE_BUDGET} line budget`,
   );
 }
 
 for (const file of [
-  ...walk(path.join(root, "app")),
+  ...walk(path.join(root, "src")),
   ...walk(path.join(root, "components")),
+  ...walk(path.join(ui, "src")),
   ...walk(stylesDir),
 ]) {
   const rel = path.relative(root, file);
   if (
     file.endsWith(".css") &&
-    !rel.startsWith("styles/") &&
-    rel !== "app/globals.css" &&
+    !file.startsWith(stylesDir) &&
+    rel !== "src/globals.css" &&
     !file.endsWith(".module.css")
   ) {
     problems.push(
-      `${rel}: global CSS belongs in styles/; use a .module.css next to the component instead`,
+      `${rel}: global CSS belongs in packages/ui/styles/; use a .module.css next to the component instead`,
     );
   }
   if (!/\.(css|tsx?)$/.test(file)) continue;

@@ -57,6 +57,7 @@ export type StorageMutationMinAggregateOutputType = {
   completedAt: Date | null
   recoveryRequiredAt: Date | null
   reservedBytes: bigint | null
+  originDeviceId: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -80,6 +81,7 @@ export type StorageMutationMaxAggregateOutputType = {
   completedAt: Date | null
   recoveryRequiredAt: Date | null
   reservedBytes: bigint | null
+  originDeviceId: string | null
   createdAt: Date | null
   updatedAt: Date | null
 }
@@ -105,6 +107,7 @@ export type StorageMutationCountAggregateOutputType = {
   completedAt: number
   recoveryRequiredAt: number
   reservedBytes: number
+  originDeviceId: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -142,6 +145,7 @@ export type StorageMutationMinAggregateInputType = {
   completedAt?: true
   recoveryRequiredAt?: true
   reservedBytes?: true
+  originDeviceId?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -165,6 +169,7 @@ export type StorageMutationMaxAggregateInputType = {
   completedAt?: true
   recoveryRequiredAt?: true
   reservedBytes?: true
+  originDeviceId?: true
   createdAt?: true
   updatedAt?: true
 }
@@ -190,6 +195,7 @@ export type StorageMutationCountAggregateInputType = {
   completedAt?: true
   recoveryRequiredAt?: true
   reservedBytes?: true
+  originDeviceId?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -302,6 +308,7 @@ export type StorageMutationGroupByOutputType = {
   completedAt: Date | null
   recoveryRequiredAt: Date | null
   reservedBytes: bigint | null
+  originDeviceId: string | null
   createdAt: Date
   updatedAt: Date
   _count: StorageMutationCountAggregateOutputType | null
@@ -350,6 +357,7 @@ export type StorageMutationWhereInput = {
   completedAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
   recoveryRequiredAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
   reservedBytes?: Prisma.BigIntNullableFilter<"StorageMutation"> | bigint | number | null
+  originDeviceId?: Prisma.StringNullableFilter<"StorageMutation"> | string | null
   createdAt?: Prisma.DateTimeFilter<"StorageMutation"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"StorageMutation"> | Date | string
   parent?: Prisma.XOR<Prisma.StorageMutationNullableScalarRelationFilter, Prisma.StorageMutationWhereInput> | null
@@ -382,6 +390,7 @@ export type StorageMutationOrderByWithRelationInput = {
   completedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   recoveryRequiredAt?: Prisma.SortOrderInput | Prisma.SortOrder
   reservedBytes?: Prisma.SortOrderInput | Prisma.SortOrder
+  originDeviceId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   parent?: Prisma.StorageMutationOrderByWithRelationInput
@@ -417,6 +426,7 @@ export type StorageMutationWhereUniqueInput = Prisma.AtLeast<{
   completedAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
   recoveryRequiredAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
   reservedBytes?: Prisma.BigIntNullableFilter<"StorageMutation"> | bigint | number | null
+  originDeviceId?: Prisma.StringNullableFilter<"StorageMutation"> | string | null
   createdAt?: Prisma.DateTimeFilter<"StorageMutation"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"StorageMutation"> | Date | string
   parent?: Prisma.XOR<Prisma.StorageMutationNullableScalarRelationFilter, Prisma.StorageMutationWhereInput> | null
@@ -449,6 +459,7 @@ export type StorageMutationOrderByWithAggregationInput = {
   completedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   recoveryRequiredAt?: Prisma.SortOrderInput | Prisma.SortOrder
   reservedBytes?: Prisma.SortOrderInput | Prisma.SortOrder
+  originDeviceId?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.StorageMutationCountOrderByAggregateInput
@@ -482,6 +493,7 @@ export type StorageMutationScalarWhereWithAggregatesInput = {
   completedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"StorageMutation"> | Date | string | null
   recoveryRequiredAt?: Prisma.DateTimeNullableWithAggregatesFilter<"StorageMutation"> | Date | string | null
   reservedBytes?: Prisma.BigIntNullableWithAggregatesFilter<"StorageMutation"> | bigint | number | null
+  originDeviceId?: Prisma.StringNullableWithAggregatesFilter<"StorageMutation"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"StorageMutation"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"StorageMutation"> | Date | string
 }
@@ -505,6 +517,7 @@ export type StorageMutationCreateInput = {
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
   reservedBytes?: bigint | number | null
+  originDeviceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   parent?: Prisma.StorageMutationCreateNestedOneWithoutChildrenInput
@@ -537,6 +550,7 @@ export type StorageMutationUncheckedCreateInput = {
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
   reservedBytes?: bigint | number | null
+  originDeviceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   children?: Prisma.StorageMutationUncheckedCreateNestedManyWithoutParentInput
@@ -565,6 +579,7 @@ export type StorageMutationUpdateInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   parent?: Prisma.StorageMutationUpdateOneWithoutChildrenNestedInput
@@ -597,6 +612,7 @@ export type StorageMutationUncheckedUpdateInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   children?: Prisma.StorageMutationUncheckedUpdateManyWithoutParentNestedInput
@@ -627,6 +643,7 @@ export type StorageMutationCreateManyInput = {
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
   reservedBytes?: bigint | number | null
+  originDeviceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -650,6 +667,7 @@ export type StorageMutationUpdateManyMutationInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -675,6 +693,7 @@ export type StorageMutationUncheckedUpdateManyInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -715,6 +734,7 @@ export type StorageMutationCountOrderByAggregateInput = {
   completedAt?: Prisma.SortOrder
   recoveryRequiredAt?: Prisma.SortOrder
   reservedBytes?: Prisma.SortOrder
+  originDeviceId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -744,6 +764,7 @@ export type StorageMutationMaxOrderByAggregateInput = {
   completedAt?: Prisma.SortOrder
   recoveryRequiredAt?: Prisma.SortOrder
   reservedBytes?: Prisma.SortOrder
+  originDeviceId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -767,6 +788,7 @@ export type StorageMutationMinOrderByAggregateInput = {
   completedAt?: Prisma.SortOrder
   recoveryRequiredAt?: Prisma.SortOrder
   reservedBytes?: Prisma.SortOrder
+  originDeviceId?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -959,6 +981,7 @@ export type StorageMutationCreateWithoutOwnerInput = {
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
   reservedBytes?: bigint | number | null
+  originDeviceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   parent?: Prisma.StorageMutationCreateNestedOneWithoutChildrenInput
@@ -989,6 +1012,7 @@ export type StorageMutationUncheckedCreateWithoutOwnerInput = {
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
   reservedBytes?: bigint | number | null
+  originDeviceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   children?: Prisma.StorageMutationUncheckedCreateNestedManyWithoutParentInput
@@ -1048,6 +1072,7 @@ export type StorageMutationScalarWhereInput = {
   completedAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
   recoveryRequiredAt?: Prisma.DateTimeNullableFilter<"StorageMutation"> | Date | string | null
   reservedBytes?: Prisma.BigIntNullableFilter<"StorageMutation"> | bigint | number | null
+  originDeviceId?: Prisma.StringNullableFilter<"StorageMutation"> | string | null
   createdAt?: Prisma.DateTimeFilter<"StorageMutation"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"StorageMutation"> | Date | string
 }
@@ -1071,6 +1096,7 @@ export type StorageMutationCreateWithoutUploadSessionsInput = {
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
   reservedBytes?: bigint | number | null
+  originDeviceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   parent?: Prisma.StorageMutationCreateNestedOneWithoutChildrenInput
@@ -1102,6 +1128,7 @@ export type StorageMutationUncheckedCreateWithoutUploadSessionsInput = {
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
   reservedBytes?: bigint | number | null
+  originDeviceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   children?: Prisma.StorageMutationUncheckedCreateNestedManyWithoutParentInput
@@ -1145,6 +1172,7 @@ export type StorageMutationUpdateWithoutUploadSessionsInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   parent?: Prisma.StorageMutationUpdateOneWithoutChildrenNestedInput
@@ -1176,6 +1204,7 @@ export type StorageMutationUncheckedUpdateWithoutUploadSessionsInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   children?: Prisma.StorageMutationUncheckedUpdateManyWithoutParentNestedInput
@@ -1203,6 +1232,7 @@ export type StorageMutationCreateWithoutChildrenInput = {
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
   reservedBytes?: bigint | number | null
+  originDeviceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   parent?: Prisma.StorageMutationCreateNestedOneWithoutChildrenInput
@@ -1234,6 +1264,7 @@ export type StorageMutationUncheckedCreateWithoutChildrenInput = {
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
   reservedBytes?: bigint | number | null
+  originDeviceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   steps?: Prisma.StorageMutationStepUncheckedCreateNestedManyWithoutMutationInput
@@ -1266,6 +1297,7 @@ export type StorageMutationCreateWithoutParentInput = {
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
   reservedBytes?: bigint | number | null
+  originDeviceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   children?: Prisma.StorageMutationCreateNestedManyWithoutParentInput
@@ -1296,6 +1328,7 @@ export type StorageMutationUncheckedCreateWithoutParentInput = {
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
   reservedBytes?: bigint | number | null
+  originDeviceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   children?: Prisma.StorageMutationUncheckedCreateNestedManyWithoutParentInput
@@ -1345,6 +1378,7 @@ export type StorageMutationUpdateWithoutChildrenInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   parent?: Prisma.StorageMutationUpdateOneWithoutChildrenNestedInput
@@ -1376,6 +1410,7 @@ export type StorageMutationUncheckedUpdateWithoutChildrenInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   steps?: Prisma.StorageMutationStepUncheckedUpdateManyWithoutMutationNestedInput
@@ -1419,6 +1454,7 @@ export type StorageMutationCreateWithoutStepsInput = {
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
   reservedBytes?: bigint | number | null
+  originDeviceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   parent?: Prisma.StorageMutationCreateNestedOneWithoutChildrenInput
@@ -1450,6 +1486,7 @@ export type StorageMutationUncheckedCreateWithoutStepsInput = {
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
   reservedBytes?: bigint | number | null
+  originDeviceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   children?: Prisma.StorageMutationUncheckedCreateNestedManyWithoutParentInput
@@ -1493,6 +1530,7 @@ export type StorageMutationUpdateWithoutStepsInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   parent?: Prisma.StorageMutationUpdateOneWithoutChildrenNestedInput
@@ -1524,6 +1562,7 @@ export type StorageMutationUncheckedUpdateWithoutStepsInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   children?: Prisma.StorageMutationUncheckedUpdateManyWithoutParentNestedInput
@@ -1551,6 +1590,7 @@ export type StorageMutationCreateWithoutEntitiesInput = {
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
   reservedBytes?: bigint | number | null
+  originDeviceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   parent?: Prisma.StorageMutationCreateNestedOneWithoutChildrenInput
@@ -1582,6 +1622,7 @@ export type StorageMutationUncheckedCreateWithoutEntitiesInput = {
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
   reservedBytes?: bigint | number | null
+  originDeviceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   children?: Prisma.StorageMutationUncheckedCreateNestedManyWithoutParentInput
@@ -1625,6 +1666,7 @@ export type StorageMutationUpdateWithoutEntitiesInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   parent?: Prisma.StorageMutationUpdateOneWithoutChildrenNestedInput
@@ -1656,6 +1698,7 @@ export type StorageMutationUncheckedUpdateWithoutEntitiesInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   children?: Prisma.StorageMutationUncheckedUpdateManyWithoutParentNestedInput
@@ -1683,6 +1726,7 @@ export type StorageMutationCreateWithoutResourcesInput = {
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
   reservedBytes?: bigint | number | null
+  originDeviceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   parent?: Prisma.StorageMutationCreateNestedOneWithoutChildrenInput
@@ -1714,6 +1758,7 @@ export type StorageMutationUncheckedCreateWithoutResourcesInput = {
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
   reservedBytes?: bigint | number | null
+  originDeviceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
   children?: Prisma.StorageMutationUncheckedCreateNestedManyWithoutParentInput
@@ -1757,6 +1802,7 @@ export type StorageMutationUpdateWithoutResourcesInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   parent?: Prisma.StorageMutationUpdateOneWithoutChildrenNestedInput
@@ -1788,6 +1834,7 @@ export type StorageMutationUncheckedUpdateWithoutResourcesInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   children?: Prisma.StorageMutationUncheckedUpdateManyWithoutParentNestedInput
@@ -1816,6 +1863,7 @@ export type StorageMutationCreateManyOwnerInput = {
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
   reservedBytes?: bigint | number | null
+  originDeviceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -1839,6 +1887,7 @@ export type StorageMutationUpdateWithoutOwnerInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   parent?: Prisma.StorageMutationUpdateOneWithoutChildrenNestedInput
@@ -1869,6 +1918,7 @@ export type StorageMutationUncheckedUpdateWithoutOwnerInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   children?: Prisma.StorageMutationUncheckedUpdateManyWithoutParentNestedInput
@@ -1898,6 +1948,7 @@ export type StorageMutationUncheckedUpdateManyWithoutOwnerInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -1922,6 +1973,7 @@ export type StorageMutationCreateManyParentInput = {
   completedAt?: Date | string | null
   recoveryRequiredAt?: Date | string | null
   reservedBytes?: bigint | number | null
+  originDeviceId?: string | null
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -1945,6 +1997,7 @@ export type StorageMutationUpdateWithoutParentInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   children?: Prisma.StorageMutationUpdateManyWithoutParentNestedInput
@@ -1975,6 +2028,7 @@ export type StorageMutationUncheckedUpdateWithoutParentInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   children?: Prisma.StorageMutationUncheckedUpdateManyWithoutParentNestedInput
@@ -2004,6 +2058,7 @@ export type StorageMutationUncheckedUpdateManyWithoutParentInput = {
   completedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   recoveryRequiredAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reservedBytes?: Prisma.NullableBigIntFieldUpdateOperationsInput | bigint | number | null
+  originDeviceId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -2096,6 +2151,7 @@ export type StorageMutationSelect<ExtArgs extends runtime.Types.Extensions.Inter
   completedAt?: boolean
   recoveryRequiredAt?: boolean
   reservedBytes?: boolean
+  originDeviceId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   parent?: boolean | Prisma.StorageMutation$parentArgs<ExtArgs>
@@ -2129,6 +2185,7 @@ export type StorageMutationSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   completedAt?: boolean
   recoveryRequiredAt?: boolean
   reservedBytes?: boolean
+  originDeviceId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   parent?: boolean | Prisma.StorageMutation$parentArgs<ExtArgs>
@@ -2156,6 +2213,7 @@ export type StorageMutationSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   completedAt?: boolean
   recoveryRequiredAt?: boolean
   reservedBytes?: boolean
+  originDeviceId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   parent?: boolean | Prisma.StorageMutation$parentArgs<ExtArgs>
@@ -2183,11 +2241,12 @@ export type StorageMutationSelectScalar = {
   completedAt?: boolean
   recoveryRequiredAt?: boolean
   reservedBytes?: boolean
+  originDeviceId?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type StorageMutationOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "parentId" | "kind" | "status" | "ownerUserId" | "idempotencyKey" | "requestHash" | "intentJson" | "resultJson" | "leaseOwner" | "leaseToken" | "leaseExpiresAt" | "attemptCount" | "lastAttemptAt" | "nextAttemptAt" | "lastError" | "metadataCommittedAt" | "completedAt" | "recoveryRequiredAt" | "reservedBytes" | "createdAt" | "updatedAt", ExtArgs["result"]["storageMutation"]>
+export type StorageMutationOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "parentId" | "kind" | "status" | "ownerUserId" | "idempotencyKey" | "requestHash" | "intentJson" | "resultJson" | "leaseOwner" | "leaseToken" | "leaseExpiresAt" | "attemptCount" | "lastAttemptAt" | "nextAttemptAt" | "lastError" | "metadataCommittedAt" | "completedAt" | "recoveryRequiredAt" | "reservedBytes" | "originDeviceId" | "createdAt" | "updatedAt", ExtArgs["result"]["storageMutation"]>
 export type StorageMutationInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   parent?: boolean | Prisma.StorageMutation$parentArgs<ExtArgs>
   children?: boolean | Prisma.StorageMutation$childrenArgs<ExtArgs>
@@ -2239,6 +2298,10 @@ export type $StorageMutationPayload<ExtArgs extends runtime.Types.Extensions.Int
     completedAt: Date | null
     recoveryRequiredAt: Date | null
     reservedBytes: bigint | null
+    /**
+     * The device session that asked for this change, so it can skip its echo.
+     */
+    originDeviceId: string | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["storageMutation"]>
@@ -2691,6 +2754,7 @@ export interface StorageMutationFieldRefs {
   readonly completedAt: Prisma.FieldRef<"StorageMutation", 'DateTime'>
   readonly recoveryRequiredAt: Prisma.FieldRef<"StorageMutation", 'DateTime'>
   readonly reservedBytes: Prisma.FieldRef<"StorageMutation", 'BigInt'>
+  readonly originDeviceId: Prisma.FieldRef<"StorageMutation", 'String'>
   readonly createdAt: Prisma.FieldRef<"StorageMutation", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"StorageMutation", 'DateTime'>
 }

@@ -26,6 +26,7 @@ import {
 } from "@staaash/db/storage-mutation-executor";
 
 import { assertStorageKeysFit } from "@/server/files/storage-layout";
+import { requestDeviceId } from "@/server/request-device";
 import { getStorageRoot } from "@/server/storage";
 
 import {
@@ -41,7 +42,10 @@ class UncommittedStoragePreparationError extends Error {
   }
 }
 export class StorageProtocolNotReadyError extends Error {
+  // The HTTP error handler reads code and status from any error that has them.
+  // fallow-ignore-next-line unused-class-member
   readonly code = "STORAGE_MUTATION_RECOVERING";
+  // fallow-ignore-next-line unused-class-member
   readonly status = 503;
 
   constructor() {
@@ -265,6 +269,7 @@ const prepareDurableStorageMutation = async (
         entities: input.entities,
         uploadSessionId: input.uploadSessionId,
         parentId: input.parentId,
+        originDeviceId: requestDeviceId(),
       },
       { deadline, signal: input.signal },
     );
@@ -387,7 +392,11 @@ export const prepareDurableStorageMutationParent = async (
   const existing = await findDurableStorageMutationReplay(input, options);
   if (existing) return { mutation: existing, replayed: true };
   await assertStorageMutationMayStart();
-  const parentInput = { ...input, id: randomUUID() };
+  const parentInput = {
+    ...input,
+    id: randomUUID(),
+    originDeviceId: requestDeviceId(),
+  };
   return waitForStorageAdmission(
     (deadline) => prepareStorageMutationParent(parentInput, { deadline }),
     {

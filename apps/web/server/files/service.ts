@@ -28,7 +28,12 @@ import {
   assertUserStorageQuotaAvailable,
   withUserQuotaWrite,
 } from "@/server/user-storage";
-import { FilesError, ResumableCompletionError } from "@/server/files/errors";
+import {
+  assertRevision,
+  conflictDetails,
+  FilesError,
+  ResumableCompletionError,
+} from "@/server/files/errors";
 import {
   assertStorageKeysFit,
   buildFileStorageKey,
@@ -157,11 +162,15 @@ type DurableRequest = {
 
 type FolderLookupInput = FilesActor &
   DurableRequest & {
+    /** Refuse if the item is no longer at this revision. */
+    ifRevision?: number;
     folderId: string;
   };
 
 type FileLookupInput = FilesActor &
   DurableRequest & {
+    /** Refuse if the item is no longer at this revision. */
+    ifRevision?: number;
     fileId: string;
   };
 
@@ -173,24 +182,32 @@ type CreateFolderInput = FilesActor &
 
 type RenameFolderInput = FilesActor &
   DurableRequest & {
+    /** Refuse if the item is no longer at this revision. */
+    ifRevision?: number;
     folderId: string;
     name: string;
   };
 
 type MoveFolderInput = FilesActor &
   DurableRequest & {
+    /** Refuse if the item is no longer at this revision. */
+    ifRevision?: number;
     folderId: string;
     destinationFolderId?: string | null;
   };
 
 type RenameFileInput = FilesActor &
   DurableRequest & {
+    /** Refuse if the item is no longer at this revision. */
+    ifRevision?: number;
     fileId: string;
     name: string;
   };
 
 type MoveFileInput = FilesActor &
   DurableRequest & {
+    /** Refuse if the item is no longer at this revision. */
+    ifRevision?: number;
     fileId: string;
     destinationFolderId?: string | null;
   };
@@ -433,6 +450,9 @@ type CommitResumableUploadInput = FilesActor & {
   totalSizeBytes: number;
   contentChecksum: string | null;
   conflictStrategy: UploadConflictStrategy;
+  clientModifiedAt?: Date | null;
+  /** With replace: the revision of the existing file the client changed. */
+  ifRevision?: number;
 };
 
 const getFolderHref = (folder: Pick<FolderSummary, "id" | "isFilesRoot">) =>
@@ -451,6 +471,7 @@ const toFileSummary = (
     | "viewerKind"
     | "storageRevision"
     | "trashEntryId"
+    | "clientModifiedAt"
     | "deletedAt"
     | "createdAt"
     | "updatedAt"
@@ -466,6 +487,7 @@ const toFileSummary = (
   viewerKind: file.viewerKind,
   storageRevision: file.storageRevision,
   trashEntryId: file.trashEntryId,
+  clientModifiedAt: file.clientModifiedAt ?? null,
   deletedAt: file.deletedAt,
   createdAt: file.createdAt,
   updatedAt: file.updatedAt,
@@ -486,7 +508,7 @@ const assertFolderAccess = (
       namespaceOwnerUserId: folder.ownerUserId,
     })
   ) {
-    throw new FilesError("ACCESS_DENIED");
+    throw new FilesError("FOLDER_NOT_FOUND");
   }
 
   return folder;
@@ -504,7 +526,7 @@ const assertFileAccess = (actor: FilesActor, file: StoredFile | null) => {
       namespaceOwnerUserId: file.ownerUserId,
     })
   ) {
-    throw new FilesError("ACCESS_DENIED");
+    throw new FilesError("FILE_NOT_FOUND");
   }
 
   return file;
@@ -920,6 +942,37 @@ export const createFilesService = ({
     }
   };
 
+  // A retry of a finished change answers with the item as it is now. Worker
+  // recovery finishes the journal without the web reply, so a stored reply
+  // can be missing or show the item from before the change.
+  const replayFileMutation = async (
+    replay: { resultJson: Prisma.JsonValue | null },
+    fileId: string,
+  ): Promise<FileMutationResult> => {
+    const current = await (
+      await resolveRepo()
+    ).findFileById(fileId, { includeMissing: true });
+    if (!current) return { deletedFileId: fileId };
+    return {
+      file: toFileSummary(current),
+      restoredTo: parseFileMutationReplay(replay.resultJson)?.restoredTo,
+    };
+  };
+
+  const replayFolderMutation = async (
+    replay: { resultJson: Prisma.JsonValue | null },
+    folderId: string,
+  ): Promise<FolderMutationResult> => {
+    const folder = await (await resolveRepo()).findFolderById(folderId);
+    if (!folder) {
+      throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
+    }
+    return {
+      folder,
+      restoredTo: parseFolderMutationReplay(replay.resultJson)?.restoredTo,
+    };
+  };
+
   const buildDerivativeInvalidation = async (fileId: string) => {
     if (repo) {
       return {
@@ -1177,6 +1230,8 @@ export const createFilesService = ({
     treeManifestDigest?: string | null;
   };
 
+  // One branch per kind of journal operation a folder change may need.
+  // fallow-ignore-next-line complexity
   const buildDurableFolderOperations = ({
     rootFolder,
     folderUpdates,
@@ -1233,6 +1288,8 @@ export const createFilesService = ({
     return operations;
   };
 
+  // Each fallback is one short branch; splitting them hides the order.
+  // fallow-ignore-next-line complexity
   const resolveDurableTreeDigest = async ({
     fromStorageKey,
     toStorageKey,
@@ -2251,6 +2308,8 @@ export const createFilesService = ({
     });
   };
 
+  // Replay checks for one clear-trash child, one per stored outcome.
+  // fallow-ignore-next-line complexity
   const completedClearTrashChild = async ({
     childKey,
     planned,
@@ -2372,6 +2431,8 @@ export const createFilesService = ({
     };
   };
 
+  // Walks the children in order and records each outcome durably.
+  // fallow-ignore-next-line complexity
   const runClearTrashChildren = async ({
     orderedItems,
     priorChildren,
@@ -3001,6 +3062,7 @@ export const createFilesService = ({
     async renameFolder({
       actorRole,
       actorUserId,
+      ifRevision,
       folderId,
       name,
       idempotencyKey,
@@ -3021,18 +3083,13 @@ export const createFilesService = ({
         entityId: folderId,
         requestHashPayload,
       });
-      if (replay) {
-        const response = parseFolderMutationReplay(replay.resultJson);
-        if (!response) {
-          throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
-        }
-        return response;
-      }
+      if (replay) return replayFolderMutation(replay, folderId);
       const folder = await getActiveOwnedFolder({
         actorRole,
         actorUserId,
         folderId,
       });
+      assertRevision(folder, ifRevision);
       assertMutableFolder(folder);
       const filesRoot = await ensureFilesRoot(folder.ownerUserId);
 
@@ -3237,6 +3294,8 @@ export const createFilesService = ({
           getDirectoryMutationLockKey(fromPath),
           getDirectoryMutationLockKey(toPath),
         ]),
+        // Builds the metadata for one folder change in one transaction.
+        // fallow-ignore-next-line complexity
         applyMetadataUpdate: async () => {
           let folderUpdated = false;
 
@@ -3306,6 +3365,7 @@ export const createFilesService = ({
     async moveFolder({
       actorRole,
       actorUserId,
+      ifRevision,
       folderId,
       destinationFolderId,
       idempotencyKey,
@@ -3332,18 +3392,13 @@ export const createFilesService = ({
         entityId: folderId,
         requestHashPayload,
       });
-      if (replay) {
-        const response = parseFolderMutationReplay(replay.resultJson);
-        if (!response) {
-          throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
-        }
-        return response;
-      }
+      if (replay) return replayFolderMutation(replay, folderId);
       const folder = await getActiveOwnedFolder({
         actorRole,
         actorUserId,
         folderId,
       });
+      assertRevision(folder, ifRevision);
       assertMutableFolder(folder);
 
       const destinationFolder = destinationFolderId
@@ -3574,6 +3629,7 @@ export const createFilesService = ({
     async trashFolder({
       actorRole,
       actorUserId,
+      ifRevision,
       folderId,
       idempotencyKey,
     }: FolderLookupInput): Promise<FolderMutationResult> {
@@ -3588,18 +3644,13 @@ export const createFilesService = ({
         entityId: folderId,
         requestHashPayload,
       });
-      if (replay) {
-        const response = parseFolderMutationReplay(replay.resultJson);
-        if (!response) {
-          throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
-        }
-        return response;
-      }
+      if (replay) return replayFolderMutation(replay, folderId);
       const folder = await getActiveOwnedFolder({
         actorRole,
         actorUserId,
         folderId,
       });
+      assertRevision(folder, ifRevision);
       assertMutableFolder(folder);
 
       const deletedAt = now();
@@ -3803,13 +3854,7 @@ export const createFilesService = ({
         entityId: folderId,
         requestHashPayload,
       });
-      if (replay) {
-        const response = parseFolderMutationReplay(replay.resultJson);
-        if (!response) {
-          throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
-        }
-        return response;
-      }
+      if (replay) return replayFolderMutation(replay, folderId);
       const folder = await getOwnedFolder({
         actorRole,
         actorUserId,
@@ -4084,6 +4129,7 @@ export const createFilesService = ({
     async renameFile({
       actorRole,
       actorUserId,
+      ifRevision,
       fileId,
       idempotencyKey,
       storageMutationParentId,
@@ -4105,18 +4151,13 @@ export const createFilesService = ({
         entityId: fileId,
         requestHashPayload,
       });
-      if (replay) {
-        const response = parseFileMutationReplay(replay.resultJson);
-        if (!response) {
-          throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
-        }
-        return response;
-      }
+      if (replay) return replayFileMutation(replay, fileId);
       const file = await getActiveOwnedFile({
         actorRole,
         actorUserId,
         fileId,
       });
+      assertRevision(file, ifRevision);
       const filesRoot = await ensureFilesRoot(file.ownerUserId);
       const parentId = file.folderId ?? filesRoot.id;
 
@@ -4196,6 +4237,7 @@ export const createFilesService = ({
     async moveFile({
       actorRole,
       actorUserId,
+      ifRevision,
       fileId,
       destinationFolderId,
       idempotencyKey,
@@ -4222,18 +4264,13 @@ export const createFilesService = ({
         entityId: fileId,
         requestHashPayload,
       });
-      if (replay) {
-        const response = parseFileMutationReplay(replay.resultJson);
-        if (!response) {
-          throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
-        }
-        return response;
-      }
+      if (replay) return replayFileMutation(replay, fileId);
       const file = await getActiveOwnedFile({
         actorRole,
         actorUserId,
         fileId,
       });
+      assertRevision(file, ifRevision);
 
       const destinationFolder = destinationFolderId
         ? await getActiveOwnedFolder({
@@ -4330,9 +4367,12 @@ export const createFilesService = ({
       }
     },
 
+    // Replay, journal, and legacy paths of one trash action.
+    // fallow-ignore-next-line complexity
     async trashFile({
       actorRole,
       actorUserId,
+      ifRevision,
       fileId,
       idempotencyKey,
     }: FileLookupInput): Promise<FileMutationResult> {
@@ -4347,18 +4387,13 @@ export const createFilesService = ({
         entityId: fileId,
         requestHashPayload,
       });
-      if (replay) {
-        const response = parseFileMutationReplay(replay.resultJson);
-        if (!response) {
-          throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
-        }
-        return response;
-      }
+      if (replay) return replayFileMutation(replay, fileId);
       const file = await getActiveOwnedFile({
         actorRole,
         actorUserId,
         fileId,
       });
+      assertRevision(file, ifRevision);
       const activeRepo = await resolveRepo();
       const filesRoot = await ensureFilesRoot(file.ownerUserId);
       const folderMap = await readFolderMap(file.ownerUserId, [file.folderId]);
@@ -4438,6 +4473,182 @@ export const createFilesService = ({
       }
     },
 
+    /**
+     * Resolves a sync conflict for the device's version. The original keeps
+     * its id and takes the conflict copy's bytes; its old bytes go to the
+     * trash as the copy's row, under the original name. One journal entry.
+     */
+    // Builds one journal entry for both files; each branch is a guard.
+    // fallow-ignore-next-line complexity
+    async keepMine({
+      actorRole,
+      actorUserId,
+      fileId,
+      conflictCopyId,
+      ifRevision,
+      idempotencyKey,
+    }: FileLookupInput & {
+      conflictCopyId: string;
+      ifRevision: number;
+    }): Promise<FileMutationResult> {
+      if (repo) throw new Error("Keep mine needs the storage journal.");
+      await assertStorageProtocolReady();
+      const requestHashPayload = {
+        kind: "file_keep_mine",
+        fileId,
+        conflictCopyId,
+        ifRevision,
+      };
+      const replay = await findDirectMutationReplay({
+        actorRole,
+        actorUserId,
+        idempotencyKey,
+        kind: "file_keep_mine",
+        entityType: "file",
+        entityId: fileId,
+        requestHashPayload,
+      });
+      if (replay) return replayFileMutation(replay, fileId);
+      const [original, copy] = await Promise.all([
+        getActiveOwnedFile({ actorRole, actorUserId, fileId }),
+        getActiveOwnedFile({ actorRole, actorUserId, fileId: conflictCopyId }),
+      ]);
+      assertRevision(original, ifRevision);
+      if (
+        copy.id === original.id ||
+        copy.ownerUserId !== original.ownerUserId
+      ) {
+        throw new FilesError("FILE_NOT_FOUND");
+      }
+      const deletedAt = now();
+      const trashEntryId = idempotencyKey
+        ? deterministicUuid(`file-keep-mine:${copy.id}:${idempotencyKey}`)
+        : randomUUID();
+      const trashKey = buildIsolatedTrashStorageKey({
+        ownerStorageId: original.ownerStorageId,
+        kind: "file",
+        name: original.name,
+        deletedAt,
+        trashEntryId,
+      });
+      const [
+        originalChecksum,
+        copyChecksum,
+        originalDerivatives,
+        copyDerivatives,
+      ] = await Promise.all([
+        resolveDurableFileFingerprint(original),
+        resolveDurableFileFingerprint(copy),
+        buildDerivativeInvalidation(original.id),
+        buildDerivativeInvalidation(copy.id),
+      ]);
+      const originalData = {
+        mimeType: copy.mimeType,
+        sizeBytes: String(copy.sizeBytes),
+        contentChecksum: copyChecksum,
+        clientModifiedAt: copy.clientModifiedAt?.toISOString() ?? null,
+      };
+      const copyData = {
+        originalName: original.name,
+        folderId: original.folderId,
+        mimeType: original.mimeType,
+        sizeBytes: String(original.sizeBytes),
+        contentChecksum: originalChecksum,
+        clientModifiedAt: original.clientModifiedAt?.toISOString() ?? null,
+        storageKey: trashKey,
+        deletedAt: deletedAt.toISOString(),
+        trashEntryId,
+      };
+      const entity = (file: StoredFile, after: Record<string, unknown>) => ({
+        entityType: "file" as const,
+        entityId: file.id,
+        preRevision: file.storageRevision ?? 0,
+        postRevision: (file.storageRevision ?? 0) + 1,
+        beforeJson: toMetadataJson({
+          storageKey: file.storageKey,
+          sizeBytes: file.sizeBytes,
+          contentChecksum: file.contentChecksum,
+        }),
+        afterJson: toMetadataJson(after),
+      });
+      await runDurableStorageMutation({
+        kind: "file_keep_mine",
+        ownerUserId: original.ownerUserId,
+        idempotencyKey,
+        requestHashPayload,
+        metadataOperations: [
+          {
+            action: "create_trash_entry",
+            data: {
+              id: trashEntryId,
+              ownerUserId: original.ownerUserId,
+              rootKind: "file",
+              rootEntityId: copy.id,
+              deletedAt: deletedAt.toISOString(),
+              storageRootKey: trashKey,
+              treeManifestDigest: null,
+              layoutVersion: "isolated",
+            },
+          },
+          {
+            action: "update",
+            entityType: "file",
+            entityId: copy.id,
+            preRevision: copy.storageRevision ?? 0,
+            data: toMetadataJson(copyData),
+          },
+          {
+            action: "update",
+            entityType: "file",
+            entityId: original.id,
+            preRevision: original.storageRevision ?? 0,
+            data: toMetadataJson(originalData),
+          },
+          ...originalDerivatives.operations,
+          ...copyDerivatives.operations,
+        ],
+        // The old bytes leave before the new ones take their place.
+        steps: [
+          ...originalDerivatives.steps,
+          ...copyDerivatives.steps,
+          {
+            action: "rename",
+            sourceKey: original.storageKey,
+            targetKey: trashKey,
+            expectedNodeType: "file",
+            expectedSizeBytes: BigInt(original.sizeBytes),
+            expectedChecksum: originalChecksum,
+          },
+          {
+            action: "rename",
+            sourceKey: copy.storageKey,
+            targetKey: original.storageKey,
+            expectedNodeType: "file",
+            expectedSizeBytes: BigInt(copy.sizeBytes),
+            expectedChecksum: copyChecksum,
+          },
+        ],
+        entities: [
+          entity(original, {
+            ...originalData,
+            storageKey: original.storageKey,
+          }),
+          entity(copy, copyData),
+          ...originalDerivatives.entities,
+          ...copyDerivatives.entities,
+        ],
+        details: { entityType: "file", entityId: original.id },
+      });
+      const updated = await (await resolveRepo()).findFileById(original.id);
+      if (!updated) throw new Error("Keep mine lost the original file.");
+      const result = { file: toFileSummary(updated) };
+      await persistDirectMutationReplay(
+        idempotencyKey,
+        serializeFileMutationResult(result),
+      );
+      return result;
+    },
+
     async restoreFile({
       actorRole,
       actorUserId,
@@ -4455,13 +4666,7 @@ export const createFilesService = ({
         entityId: fileId,
         requestHashPayload,
       });
-      if (replay) {
-        const response = parseFileMutationReplay(replay.resultJson);
-        if (!response) {
-          throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
-        }
-        return response;
-      }
+      if (replay) return replayFileMutation(replay, fileId);
       const file = await getOwnedFile({
         actorRole,
         actorUserId,
@@ -4584,13 +4789,7 @@ export const createFilesService = ({
         entityId: fileId,
         requestHashPayload,
       });
-      if (replay) {
-        const response = parseFileMutationReplay(replay.resultJson);
-        if (!response) {
-          throw new StorageMutationConflictError("STORAGE_RECOVERY_REQUIRED");
-        }
-        return response;
-      }
+      if (replay) return replayFileMutation(replay, fileId);
       const file = await getOwnedFile({
         actorRole,
         actorUserId,
@@ -5051,6 +5250,9 @@ export const createFilesService = ({
                             mimeType: stagedFile.mimeType,
                             sizeBytes: String(stagedFile.sizeBytes),
                             contentChecksum: stagedFile.actualChecksum,
+                            clientModifiedAt:
+                              stagedFile.clientModifiedAt?.toISOString() ??
+                              null,
                             deletedAt: null,
                             folderId: targetFolder.id,
                           },
@@ -5258,6 +5460,8 @@ export const createFilesService = ({
                         mimeType: stagedFile.mimeType,
                         sizeBytes: String(stagedFile.sizeBytes),
                         contentChecksum: stagedFile.actualChecksum,
+                        clientModifiedAt:
+                          stagedFile.clientModifiedAt?.toISOString() ?? null,
                       },
                     },
                   ],
@@ -5457,6 +5661,8 @@ export const createFilesService = ({
       totalSizeBytes,
       contentChecksum,
       conflictStrategy,
+      clientModifiedAt = null,
+      ifRevision,
     }: CommitResumableUploadInput): Promise<FileSummary> {
       if (!repo) await assertStorageProtocolReady();
       const normalizedName = normalizeFileName(originalName);
@@ -5568,6 +5774,7 @@ export const createFilesService = ({
               conflictStrategy === "replace" &&
               activeConflict.kind === "file"
             ) {
+              assertRevision(activeConflict.item, ifRevision);
               if (!repo) {
                 const existing = activeConflict.item;
                 const stagedStorageKey = durableStagedStorageKey!;
@@ -5605,6 +5812,8 @@ export const createFilesService = ({
                         mimeType,
                         sizeBytes: String(totalSizeBytes),
                         contentChecksum: durableContentChecksum,
+                        clientModifiedAt:
+                          clientModifiedAt?.toISOString() ?? null,
                         deletedAt: null,
                         folderId: targetFolder.id,
                       },
@@ -5762,7 +5971,11 @@ export const createFilesService = ({
                 ...siblings[1].map((f) => f.name),
               ]);
             } else {
-              throw new FilesError("FILE_NAME_CONFLICT");
+              throw new FilesError(
+                "FILE_NAME_CONFLICT",
+                undefined,
+                conflictDetails(activeConflict.item),
+              );
             }
           }
 
@@ -5799,6 +6012,7 @@ export const createFilesService = ({
                     mimeType,
                     sizeBytes: String(totalSizeBytes),
                     contentChecksum: durableContentChecksum,
+                    clientModifiedAt: clientModifiedAt?.toISOString() ?? null,
                   },
                 },
                 {

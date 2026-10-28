@@ -4,7 +4,7 @@ import { Prisma, getPrisma } from "@staaash/db/client";
 
 const LIST_BATCH_SIZE = 100;
 
-const listQuerySchema = z.object({
+export const listQuerySchema = z.object({
   offset: z.number().int().nonnegative().default(0),
   limit: z.number().int().min(1).max(1000).default(LIST_BATCH_SIZE),
   sort: z
@@ -140,7 +140,7 @@ export function buildListSource(
     LEFT JOIN paths p ON p.id = f."parentId"
     WHERE f."ownerUserId" = ${userId} AND NOT f."isFilesRoot"
     UNION ALL
-    SELECT f.id, 'file', f."originalName", f."mimeType", f."sizeBytes", f."createdAt", f."updatedAt", f."deletedAt",
+    SELECT f.id, 'file', f."originalName", f."mimeType", f."sizeBytes", f."createdAt", COALESCE(f."clientModifiedAt", f."updatedAt"), f."deletedAt",
       fav."createdAt", fav."quickAccessPinnedAt", r."lastInteractedAt", f."folderId", r."lastAction",
       COALESCE(p.path, 'Files'), f."trashEntryId", f."storageStatus" = 'available'
     FROM "File" f
