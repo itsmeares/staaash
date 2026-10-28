@@ -172,10 +172,10 @@ describe("archive routes", () => {
 
     const response = await callRoute();
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({
-      error: "You do not have access to that folder.",
-      code: "ACCESS_DENIED",
+      error: "That file does not exist.",
+      code: "FILE_NOT_FOUND",
     });
   });
 
@@ -187,9 +187,9 @@ describe("archive routes", () => {
 
     const response = await callRoute();
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(404);
     await expect(response.json()).resolves.toMatchObject({
-      code: "ACCESS_DENIED",
+      code: "FILE_NOT_FOUND",
     });
   });
 

@@ -508,7 +508,7 @@ const assertFolderAccess = (
       namespaceOwnerUserId: folder.ownerUserId,
     })
   ) {
-    throw new FilesError("ACCESS_DENIED");
+    throw new FilesError("FOLDER_NOT_FOUND");
   }
 
   return folder;
@@ -526,7 +526,7 @@ const assertFileAccess = (actor: FilesActor, file: StoredFile | null) => {
       namespaceOwnerUserId: file.ownerUserId,
     })
   ) {
-    throw new FilesError("ACCESS_DENIED");
+    throw new FilesError("FILE_NOT_FOUND");
   }
 
   return file;

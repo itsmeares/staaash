@@ -24,7 +24,7 @@ export const getAccessiblePrivateFile = async ({
       namespaceOwnerUserId: file.ownerUserId,
     })
   ) {
-    throw new FilesError("ACCESS_DENIED");
+    throw new FilesError("FILE_NOT_FOUND");
   }
 
   return file;

@@ -1026,6 +1026,39 @@ describe("sharing service", () => {
     ).rejects.toMatchObject({ code: "SHARE_TARGET_UNAVAILABLE" });
   });
 
+  it("answers another member's item and share the same as missing ones", async () => {
+    const service = createSharingService({
+      repo: createFakeSharingRepository().repo,
+      filesRepo: fakeFilesRepo,
+      now: () => fixedNow,
+    });
+    const created = await service.createOrReissueShare({
+      actorUserId: "user-1",
+      actorRole: "member",
+      targetType: "file",
+      fileId: sharedFile.id,
+      expiresAt: addDays(5),
+    });
+    const stranger = { actorUserId: "user-2", actorRole: "member" } as const;
+
+    await expect(
+      service.createOrReissueShare({
+        ...stranger,
+        targetType: "file",
+        fileId: sharedFile.id,
+        expiresAt: addDays(5),
+      }),
+    ).rejects.toMatchObject({ code: "SHARE_TARGET_UNAVAILABLE" });
+    await expect(
+      service.updateShare({
+        ...stranger,
+        shareId: created.share.id,
+        expiresAt: addDays(6),
+        downloadDisabled: false,
+      }),
+    ).rejects.toMatchObject({ code: "SHARE_NOT_FOUND" });
+  });
+
   it("schedules a social poster for small shared videos below preview threshold", async () => {
     const sharingRepo = createFakeSharingRepository();
     const videoFilesRepo = {

@@ -133,8 +133,8 @@ describe("archive selection", () => {
           [kind]: [item("foreign", "bob")],
         });
         const response = await request(["foreign"]);
-        expect(response.status).toBe(403);
-        expect(await response.json()).toMatchObject({ code: "ACCESS_DENIED" });
+        expect(response.status).toBe(404);
+        expect(await response.json()).toMatchObject({ code: "FILE_NOT_FOUND" });
       }
       expect(mocks.archive).not.toHaveBeenCalled();
       expect(mocks.schedule).not.toHaveBeenCalled();

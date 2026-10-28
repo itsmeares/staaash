@@ -258,7 +258,7 @@ export const errorResponses = {
   400: errorResponse("The request is invalid."),
   401: errorResponse("Not signed in."),
   403: errorResponse("Not allowed."),
-  404: errorResponse("Not found."),
+  404: errorResponse("Not found or inaccessible."),
   409: errorResponse("Conflicts with the current state."),
   503: errorResponse("Busy or recovering. Retry after the Retry-After delay."),
 } as const;

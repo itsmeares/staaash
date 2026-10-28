@@ -41,7 +41,7 @@ export const Route = createFileRoute("/_workspace/files/f/$folderId")({
           search: { folderId },
         });
       }
-      if (error.code === "FOLDER_NOT_FOUND" || error.code === "ACCESS_DENIED") {
+      if (error.code === "FOLDER_NOT_FOUND") {
         throw notFound();
       }
       throw redirect({

@@ -136,9 +136,10 @@ describe("private file download route", () => {
       new Request("http://localhost/api/files/files/file-1/download"),
     );
 
-    expect(response.status).toBe(403);
+    // Someone else's file looks the same as a missing one.
+    expect(response.status).toBe(404);
     await expect(response.json()).resolves.toMatchObject({
-      error: "You do not have access to that folder.",
+      code: "FILE_NOT_FOUND",
     });
     expect(recordFileAccessBestEffort).not.toHaveBeenCalled();
   });

@@ -38,7 +38,7 @@ export const requestArchive = async (actor: FilesActor, ids: string[]) => {
           namespaceOwnerUserId: file.ownerUserId,
         })
       ) {
-        throw new FilesError("ACCESS_DENIED");
+        throw new FilesError("FILE_NOT_FOUND");
       }
       fileIds.push(id);
       sourceSizeBytes += file.sizeBytes;
@@ -50,7 +50,7 @@ export const requestArchive = async (actor: FilesActor, ids: string[]) => {
           namespaceOwnerUserId: folder.ownerUserId,
         })
       ) {
-        throw new FilesError("ACCESS_DENIED");
+        throw new FilesError("FILE_NOT_FOUND");
       }
       folderIds.push(id);
     } else {

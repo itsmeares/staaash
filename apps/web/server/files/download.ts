@@ -44,7 +44,7 @@ export const downloadPrivateFile = async ({
       namespaceOwnerUserId: file.ownerUserId,
     })
   ) {
-    throw new FilesError("ACCESS_DENIED");
+    throw new FilesError("FILE_NOT_FOUND");
   }
 
   const storagePath = getStoragePath(file.storageKey);

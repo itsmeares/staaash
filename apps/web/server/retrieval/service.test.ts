@@ -390,7 +390,7 @@ describe("retrieval service", () => {
         isFavorite: true,
       }),
     ).rejects.toMatchObject({
-      code: "ACCESS_DENIED",
+      code: "FILE_NOT_FOUND",
     });
   });
 

@@ -931,7 +931,7 @@ export const filesRoutes = router()
         namespaceOwnerUserId: archive.userId,
       })
     ) {
-      throw new FilesError("ACCESS_DENIED");
+      throw new FilesError("FILE_NOT_FOUND");
     }
     return c.json(
       {
@@ -960,7 +960,7 @@ export const filesRoutes = router()
         namespaceOwnerUserId: archive.userId,
       })
     ) {
-      throw new FilesError("ACCESS_DENIED");
+      throw new FilesError("FILE_NOT_FOUND");
     }
     await assertStorageEntityReadable("archive", archive.id);
     const response = await createRangeResponseFromPath(

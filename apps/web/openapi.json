@@ -1240,7 +1240,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1358,7 +1358,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1452,7 +1452,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1532,7 +1532,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1642,7 +1642,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1800,7 +1800,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1919,7 +1919,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2040,7 +2040,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2137,7 +2137,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2244,7 +2244,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2366,7 +2366,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2491,7 +2491,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2595,7 +2595,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2685,7 +2685,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2775,7 +2775,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2897,7 +2897,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3022,7 +3022,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3126,7 +3126,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3216,7 +3216,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3324,7 +3324,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3432,7 +3432,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3515,7 +3515,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3619,7 +3619,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3752,7 +3752,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3904,7 +3904,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4033,7 +4033,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4176,7 +4176,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4257,7 +4257,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4347,7 +4347,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4439,7 +4439,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4555,7 +4555,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4675,7 +4675,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4758,7 +4758,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4841,7 +4841,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4924,7 +4924,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5007,7 +5007,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5090,7 +5090,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5196,7 +5196,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5300,7 +5300,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5427,7 +5427,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5573,7 +5573,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5685,7 +5685,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5766,7 +5766,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5847,7 +5847,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5952,7 +5952,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6134,7 +6134,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6258,7 +6258,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6394,7 +6394,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6492,7 +6492,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -6593,7 +6593,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7044,7 +7044,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7234,7 +7234,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7391,7 +7391,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7411,7 +7411,7 @@
             }
           },
           "410": {
-            "description": "The log no longer reaches back this far (90 days). Take a new snapshot.",
+            "description": "The cursor is outside the current change log. Take a new snapshot.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7555,7 +7555,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7664,7 +7664,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {
@@ -7744,7 +7744,7 @@
             }
           },
           "404": {
-            "description": "Not found.",
+            "description": "Not found or inaccessible.",
             "content": {
               "application/json": {
                 "schema": {

@@ -387,7 +387,7 @@ export const createSharingService = ({
       }) ||
       actor.actorUserId !== target.ownerUserId
     ) {
-      throw new ShareError("SHARE_ACCESS_DENIED");
+      throw new ShareError("SHARE_TARGET_UNAVAILABLE");
     }
   };
 
@@ -591,7 +591,7 @@ export const createSharingService = ({
     }
 
     if (share.createdByUserId !== actor.actorUserId) {
-      throw new ShareError("SHARE_ACCESS_DENIED");
+      throw new ShareError("SHARE_NOT_FOUND");
     }
 
     return share;
