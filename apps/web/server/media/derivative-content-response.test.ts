@@ -314,29 +314,50 @@ describe("public derivative content responses", () => {
     expect(mocks.scheduleDerivativeGenerate).not.toHaveBeenCalled();
   });
 
-  it("serves a ready thumbnail with a long private cache", async () => {
-    mocks.findFirst.mockResolvedValueOnce({
+  it("serves a ready thumbnail that the browser checks back on", async () => {
+    const thumbnail = {
       id: "thumb-1",
       status: "ready",
       storageKey: "derivative",
       sizeBytes: 10n,
       mimeType: "image/jpeg",
       lastViewedAt: fixedNow,
-    });
+      storageRevision: 1,
+      generatedAt: fixedNow,
+    };
     const { createThumbnailResponse } =
       await import("./derivative-content-response");
+    const get = (etag?: string) =>
+      createThumbnailResponse({
+        request: new Request("http://localhost/thumbnail", {
+          headers: etag ? { "if-none-match": etag } : {},
+        }),
+        file: makeVideoFile(),
+      });
 
-    const response = await createThumbnailResponse({
-      request: new Request("http://localhost/thumbnail"),
-      file: makeVideoFile(),
+    mocks.findFirst.mockResolvedValueOnce(thumbnail);
+    const first = await get();
+    expect(first.status).toBe(200);
+    expect(first.headers.get("content-type")).toBe("image/jpeg");
+    expect(first.headers.get("cache-control")).toBe("private, no-cache");
+    expect(first.headers.get("vary")).toBe("Cookie, Authorization");
+    await expect(first.text()).resolves.toBe("0123456789");
+    const etag = first.headers.get("etag")!;
+
+    mocks.findFirst.mockResolvedValueOnce(thumbnail);
+    const unchanged = await get(etag);
+    expect(unchanged.status).toBe(304);
+    expect(unchanged.headers.get("etag")).toBe(etag);
+    await expect(unchanged.text()).resolves.toBe("");
+
+    // A replaced file gets a rebuilt thumbnail behind the same URL.
+    mocks.findFirst.mockResolvedValueOnce({
+      ...thumbnail,
+      generatedAt: new Date(fixedNow.getTime() + 1000),
     });
-
-    expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toBe("image/jpeg");
-    expect(response.headers.get("cache-control")).toBe(
-      "private, max-age=604800",
-    );
-    await expect(response.text()).resolves.toBe("0123456789");
+    const rebuilt = await get(etag);
+    expect(rebuilt.status).toBe(200);
+    expect(rebuilt.headers.get("etag")).not.toBe(etag);
   });
 
   it("queues a missing thumbnail on first view and answers 404", async () => {

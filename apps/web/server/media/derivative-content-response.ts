@@ -37,6 +37,8 @@ type DerivativeRow = {
   mimeType: string | null;
   status: string;
   lastViewedAt?: Date | null;
+  storageRevision?: number;
+  generatedAt?: Date | null;
 };
 
 type DbClient = {
@@ -262,16 +264,29 @@ export const createThumbnailResponse = async ({
     thumbnail.sizeBytes !== null
   ) {
     await assertStorageEntityReadable("derivative", thumbnail.id);
-    // The URL carries the file's update time, so a long cache is safe.
-    const response = await serveDerivativeBytes(
-      request,
-      thumbnail.storageKey,
-      Number(thumbnail.sizeBytes),
-      thumbnail.mimeType ?? "image/jpeg",
-      `${file.name}.jpg`,
-      "private, max-age=604800",
-    );
+    // The URL stays the same when a file is replaced, so the browser checks
+    // back each time; a match costs a 304 with no bytes. Vary keeps one
+    // account's cached thumbnail from another account in the same browser.
+    const etag = `"${thumbnail.id}.${thumbnail.storageRevision ?? 0}.${thumbnail.generatedAt?.getTime() ?? 0}"`;
+    const cacheHeaders = {
+      "cache-control": "private, no-cache",
+      etag,
+      vary: "Cookie, Authorization",
+    };
+    const response =
+      request.headers.get("if-none-match") === etag
+        ? new Response(null, { status: 304, headers: cacheHeaders })
+        : await serveDerivativeBytes(
+            request,
+            thumbnail.storageKey,
+            Number(thumbnail.sizeBytes),
+            thumbnail.mimeType ?? "image/jpeg",
+            `${file.name}.jpg`,
+            cacheHeaders["cache-control"],
+          );
     if (response) {
+      response.headers.set("etag", etag);
+      response.headers.set("vary", cacheHeaders.vary);
       const now = new Date();
       // Keeps it from retention cleanup without a write on every request.
       if (
