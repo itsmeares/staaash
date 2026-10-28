@@ -58,10 +58,11 @@ export const toUserView = (user: AuthUser) => ({
   storageLimitBytes: user.storageLimitBytes?.toString() ?? null,
 });
 
-export const toSessionView = (session: AuthSession) => ({
-  ...session,
-  user: toUserView(session.user),
-});
+// deviceSessionId only links an app window to its device inside the server.
+export const toSessionView = (session: AuthSession) => {
+  const { deviceSessionId: _deviceSessionId, ...view } = session;
+  return { ...view, user: toUserView(session.user) };
+};
 
 export const json = <T extends z.ZodType>(schema: T, description: string) => ({
   description,
