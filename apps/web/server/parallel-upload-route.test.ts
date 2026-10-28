@@ -25,6 +25,7 @@ import {
   beginSessionCommit,
   failAndCleanupResumableSession,
   findActiveResumableSession,
+  findResumableSessionStatus,
   recordResumableCommitRecoveryError,
   restoreResumableSessionAfterCommitRollback,
   writeAndRecordUploadChunk,
@@ -50,6 +51,8 @@ vi.mock("@/server/uploads/session-service", async (importOriginal) => ({
   beginSessionCommit: vi.fn(),
   failAndCleanupResumableSession: vi.fn(),
   findActiveResumableSession: vi.fn(),
+  findCompletedResumableSession: vi.fn(),
+  findResumableSessionStatus: vi.fn(),
   recordResumableCommitRecoveryError: vi.fn(),
   restoreResumableSessionAfterCommitRollback: vi.fn(),
   updateSessionProgress: vi.fn(),
@@ -279,6 +282,38 @@ describe("parallel upload route", () => {
 
     expect(response.status).toBe(400);
     expect(filesService.commitResumableUpload).not.toHaveBeenCalled();
+  });
+
+  it("asks the client to retry completion while recovery is running", async () => {
+    vi.mocked(findActiveResumableSession).mockResolvedValueOnce(null);
+    vi.mocked(findResumableSessionStatus).mockResolvedValueOnce({
+      status: "committing",
+    });
+
+    const response = await app.request(
+      new Request(
+        "http://localhost:3000/api/uploads/sessions/session-1/complete",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            host: "localhost:3000",
+            origin: "http://localhost:3000",
+          },
+          body: JSON.stringify({ expectedChecksum: "a".repeat(64) }),
+        },
+      ),
+    );
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("retry-after")).toBe("1");
+    await expect(response.json()).resolves.toMatchObject({
+      code: "RESUMABLE_COMMIT_RETRYABLE",
+    });
+    expect(findResumableSessionStatus).toHaveBeenCalledWith(
+      "session-1",
+      "user-1",
+    );
   });
 
   it("verifies the final file checksum before committing it", async () => {

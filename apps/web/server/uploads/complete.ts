@@ -12,11 +12,13 @@ import { jsonError, type Session } from "@/server/http/core";
 import { attachStorageMutationHeader } from "@/server/storage-idempotency";
 import { computeFileSha256 } from "@/server/uploads";
 import { hasCompleteUploadChunkSet } from "@/server/uploads/chunk-protocol";
+import { UPLOAD_SESSION_STATUS_COMMITTING } from "@/server/uploads/session-state";
 import {
   beginSessionCommit,
   failAndCleanupResumableSession,
   findActiveResumableSession,
   findCompletedResumableSession,
+  findResumableSessionStatus,
   recordResumableCommitRecoveryError,
   restoreResumableSessionAfterCommitRollback,
   type ResumableSession,
@@ -286,6 +288,21 @@ const replayCompletedUpload = async ({
 }): Promise<Response> => {
   const completed = await findCompletedResumableSession(id, session.user.id);
   if (!completed) {
+    // A commit cut off by a crash stays "committing" until recovery settles it.
+    const current = await findResumableSessionStatus(id, session.user.id);
+    if (current?.status === UPLOAD_SESSION_STATUS_COMMITTING) {
+      return attachResumableMutationHeader(
+        Response.json(
+          {
+            error: "Upload completion is still recovering. Retry shortly.",
+            code: "RESUMABLE_COMMIT_RETRYABLE",
+          },
+          { status: 503, headers: { "retry-after": "1" } },
+        ),
+        id,
+        session.user.id,
+      );
+    }
     return Response.json(
       { error: "Upload session not found." },
       { status: 404 },

@@ -327,6 +327,15 @@ export const findCompletedResumableSession = async (
   return row ? toSession(row) : null;
 };
 
+export const findResumableSessionStatus = async (
+  id: string,
+  ownerUserId: string,
+) =>
+  getPrisma().uploadSession.findFirst({
+    where: { id, ownerUserId },
+    select: { status: true },
+  });
+
 type WriteUploadChunkInput = CompletedUploadChunk & {
   sessionId: string;
   ownerUserId: string;
