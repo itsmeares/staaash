@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 const apiPort = process.env.STAAASH_API_PORT ?? "3001";
 const run = (command, args, env = {}) =>
   spawn(command, args, {
+    detached: process.platform !== "win32",
     stdio: "inherit",
     shell: process.platform === "win32",
     env: { ...process.env, ...env },
@@ -24,7 +25,21 @@ const children = [
 ];
 
 const stop = (code = 0) => {
-  for (const child of children) child.kill("SIGTERM");
+  for (const child of children) {
+    if (!child.pid) continue;
+    if (process.platform === "win32") {
+      spawn("taskkill.exe", ["/pid", String(child.pid), "/t", "/f"], {
+        stdio: "ignore",
+        windowsHide: true,
+      }).unref();
+      continue;
+    }
+    try {
+      process.kill(-child.pid, "SIGTERM");
+    } catch (error) {
+      if (error.code !== "ESRCH") throw error;
+    }
+  }
   process.exit(code);
 };
 for (const child of children) {

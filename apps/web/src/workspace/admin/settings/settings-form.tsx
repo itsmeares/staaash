@@ -127,6 +127,12 @@ export function SettingsForm({
   const [errors, setErrors] = useState<SettingsActionState["fieldErrors"]>({});
   // Bumped when values are swapped in, so number fields show them.
   const [version, setVersion] = useState(0);
+  const set = (name: SettingsField, value: string) =>
+    setDraft((previous) => ({ ...previous, [name]: value }));
+  const replace = (next: SettingsValues) => {
+    setDraft(next);
+    setVersion((current) => current + 1);
+  };
   const [updateState, setUpdateState] = useState(initialUpdateState);
   const [checking, setChecking] = useState(false);
   const [, action, saving] = useActionState(
@@ -144,7 +150,7 @@ export function SettingsForm({
       setErrors(result.fieldErrors ?? {});
       if (result.values) {
         setSaved(result.values);
-        setDraft(result.values);
+        replace(result.values);
         toastManager.add({ title: "Saved", type: "success", timeout: 1500 });
       }
       return result;
@@ -152,12 +158,6 @@ export function SettingsForm({
     {},
   );
 
-  const set = (name: SettingsField, value: string) =>
-    setDraft((previous) => ({ ...previous, [name]: value }));
-  const replace = (next: SettingsValues) => {
-    setDraft(next);
-    setVersion((current) => current + 1);
-  };
   const dirty = differs(draft, saved, Object.keys(saved) as SettingsField[]);
 
   const unit = (name: SettingsField, units: Unit[]) => (
