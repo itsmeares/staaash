@@ -2,7 +2,9 @@ import { AlertTriangle } from "lucide-react";
 
 import { Button } from "@staaash/ui/components/button";
 
-export function AdminUnavailablePage({ onRefresh }: { onRefresh: () => void }) {
+// A full reload, because resetting the error boundary would show the failed
+// loader's saved error again without retrying it.
+export function AdminUnavailablePage() {
   return (
     <section
       aria-live="polite"
@@ -19,7 +21,7 @@ export function AdminUnavailablePage({ onRefresh }: { onRefresh: () => void }) {
             Check that the database is running, then refresh this page.
           </p>
         </div>
-        <Button variant="outline" onClick={onRefresh}>
+        <Button variant="outline" onClick={() => window.location.reload()}>
           Refresh
         </Button>
       </div>

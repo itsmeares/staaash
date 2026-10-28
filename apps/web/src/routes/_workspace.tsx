@@ -36,7 +36,7 @@ function WorkspaceRoute() {
   const adminUnavailable =
     "adminUnavailable" in context && context.adminUnavailable;
   if (adminUnavailable) {
-    return <AdminUnavailablePage onRefresh={() => window.location.reload()} />;
+    return <AdminUnavailablePage />;
   }
   return (
     <WorkspaceShell>

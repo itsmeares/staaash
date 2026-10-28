@@ -1,9 +1,4 @@
-import {
-  createFileRoute,
-  Outlet,
-  redirect,
-  type ErrorComponentProps,
-} from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
 import { shellQuery } from "@/src/queries";
 import { AdminUnavailablePage } from "@/src/workspace/admin/admin-unavailable";
@@ -21,8 +16,6 @@ export const Route = createFileRoute("/_workspace/admin")({
       });
     }
   },
-  errorComponent: ({ reset }: ErrorComponentProps) => (
-    <AdminUnavailablePage onRefresh={reset} />
-  ),
+  errorComponent: AdminUnavailablePage,
   component: Outlet,
 });
