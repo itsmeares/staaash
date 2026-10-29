@@ -51,6 +51,7 @@ export class SyncEngine {
   private stopped = false;
   private queue: Promise<unknown> = Promise.resolve();
   private readonly halt = new AbortController();
+  private refusedPasses = 0;
   private passWaiting: Promise<void> | null = null;
   private timer: NodeJS.Timeout | null = null;
   private live: AbortController | null = null;
@@ -88,7 +89,7 @@ export class SyncEngine {
       previous?.serverUrl !== config.serverUrl ||
       previous?.token !== config.token
     ) {
-      this.api = createApi(config.serverUrl, config.token);
+      this.api = createApi(config.serverUrl, config.token, this.halt.signal);
       this.signedOut = false;
       this.connectLive();
     }
@@ -185,9 +186,12 @@ export class SyncEngine {
 
   private async shutDown(cancelUploads: boolean) {
     const closed = this.queue.then(async () => {
-      if (cancelUploads && this.api) {
+      const { config } = this;
+      if (cancelUploads && config) {
+        // The engine's own API is aborted by now; this one is not.
+        const api = createApi(config.serverUrl, config.token);
         for (const upload of this.store.pendingUploads()) {
-          await this.api.cancelUpload(upload.sessionId).catch(() => {});
+          await api.cancelUpload(upload.sessionId).catch(() => {});
         }
       }
       this.store.close();
@@ -429,8 +433,14 @@ export class SyncEngine {
     }
     this.notifyIssues();
     this.emitStatus();
+    // A refusal that persists after the feed was read again must not spin.
+    this.refusedPasses = pullAgain ? this.refusedPasses + 1 : 0;
     if (pullAgain) {
-      this.request();
+      this.request(
+        this.refusedPasses <= 2
+          ? 0
+          : Math.min(POLL_MS, 1000 * 2 ** (this.refusedPasses - 2)),
+      );
     } else {
       this.request(
         this.offline || !this.liveConnected

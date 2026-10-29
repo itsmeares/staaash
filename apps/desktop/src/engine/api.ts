@@ -41,7 +41,9 @@ const retryingFetch = async (
       return response;
     }
     if (response && attempt >= RETRIES) return response;
-    await sleep(retryDelay(response, attempt));
+    await sleep(retryDelay(response, attempt), undefined, {
+      signal: init?.signal ?? undefined,
+    });
   }
 };
 
@@ -59,10 +61,19 @@ type FileMutation = {
   };
 };
 
-/** Every call the sync engine makes, signed in with the device token. */
-export const createApi = (serverUrl: string, token: string) => {
+/**
+ * Every call the sync engine makes, signed in with the device token.
+ * `signal` ends every request and retry wait, so a stop never waits on them.
+ */
+export const createApi = (
+  serverUrl: string,
+  token: string,
+  signal?: AbortSignal,
+) => {
   const headers = { authorization: `Bearer ${token}` };
-  const client = hc<AppType>(serverUrl, { headers, fetch: retryingFetch });
+  const send: typeof retryingFetch = (input, init) =>
+    retryingFetch(input, { ...init, signal: init?.signal ?? signal });
+  const client = hc<AppType>(serverUrl, { headers, fetch: send });
   const write = () => ({
     headers: { ...headers, "idempotency-key": randomUUID() },
   });
@@ -71,7 +82,7 @@ export const createApi = (serverUrl: string, token: string) => {
   const raw = (path: string, init: RequestInit = {}) => {
     const merged = new Headers(init.headers);
     merged.set("authorization", headers.authorization);
-    return retryingFetch(new URL(path, serverUrl), {
+    return send(new URL(path, serverUrl), {
       ...init,
       headers: merged,
     });
