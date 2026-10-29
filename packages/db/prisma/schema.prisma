@@ -270,6 +270,7 @@ model File {
   @@index([ownerUserId, folderId, deletedAt, storageStatus])
   @@index([searchName(ops: raw("gin_trgm_ops"))], type: Gin, map: "File_searchName_trgm_idx", where: raw("\"deletedAt\" IS NULL AND \"storageStatus\" = 'available'::\"FileStorageStatus\""))
   @@index([folderId], map: "File_live_folder_idx", where: raw("\"deletedAt\" IS NULL"))
+  @@index([ownerUserId, folderId, originalName], map: "File_live_name_idx", where: raw("\"deletedAt\" IS NULL"))
   @@index([trashEntryId])
 }
 

@@ -48,59 +48,62 @@ const createFile = (
   },
 });
 
-it("checks names without reading files in unrelated folders", async () => {
-  const owner = await createOwner();
-  const unrelated = await db.folder.create({
-    data: { ownerUserId: owner.id, name: "Unrelated" },
-  });
-  const target = await db.folder.create({
-    data: { ownerUserId: owner.id, name: "Target" },
-  });
-  await db.file.createMany({
-    data: Array.from({ length: 2000 }, (_, n) => ({
-      ownerUserId: owner.id,
-      folderId: unrelated.id,
-      originalName: `${n}.txt`,
-      storageKey: randomUUID(),
-      mimeType: "text/plain",
-      sizeBytes: 1,
-    })),
-  });
-  try {
-    await prepareStorageMutation(
-      {
-        kind: "folder_restore",
-        ownerUserId: owner.id,
-        idempotencyKey: randomUUID(),
-        requestHash: randomUUID(),
-        intentJson: {
-          version: 1,
-          metadataOperations: Array.from({ length: 130 }, (_, n) =>
-            createFile(owner.id, target.id, `${n}.txt`),
-          ),
+it.each(["unrelated", "destination", "root"])(
+  "checks names without reading files in the %s",
+  async (location) => {
+    const owner = await createOwner();
+    const unrelated = await db.folder.create({
+      data: { ownerUserId: owner.id, name: "Unrelated" },
+    });
+    const target = await db.folder.create({
+      data: { ownerUserId: owner.id, name: "Target" },
+    });
+    const parentId = location === "root" ? null : target.id;
+    const populatedFolder = location === "unrelated" ? unrelated.id : parentId;
+    await db.$executeRaw`
+      INSERT INTO "File" (id, "ownerUserId", "folderId", "originalName", "storageKey", "mimeType", "sizeBytes", "updatedAt")
+      SELECT ${owner.id} || '-' || n, ${owner.id}, ${populatedFolder}, 'existing-' || n || '.txt',
+        ${owner.id} || '/existing-' || n, 'text/plain', 1, NOW()
+      FROM generate_series(1, 100000) n
+    `;
+    await db.$executeRaw`ANALYZE "File"`;
+    try {
+      await prepareStorageMutation(
+        {
+          kind: "folder_restore",
+          ownerUserId: owner.id,
+          idempotencyKey: randomUUID(),
+          requestHash: randomUUID(),
+          intentJson: {
+            version: 1,
+            metadataOperations: Array.from({ length: 130 }, (_, n) =>
+              createFile(owner.id, parentId, `${n}.txt`),
+            ),
+          },
+          steps: [],
         },
-        steps: [],
-      },
-      {
-        client: {
-          $transaction: <T>(
-            callback: (tx: Prisma.TransactionClient) => Promise<T>,
-          ) =>
-            db.$transaction(async (tx) => {
-              const result = await callback(tx);
-              const [stat] = await tx.$queryRaw<
-                { reads: bigint }[]
-              >`SELECT seq_tup_read + idx_tup_fetch AS reads FROM pg_stat_xact_user_tables WHERE relid='"File"'::regclass`;
-              expect(Number(stat.reads)).toBe(0);
-              return result;
-            }),
+        {
+          client: {
+            $transaction: <T>(
+              callback: (tx: Prisma.TransactionClient) => Promise<T>,
+            ) =>
+              db.$transaction(async (tx) => {
+                const result = await callback(tx);
+                const [stat] = await tx.$queryRaw<
+                  { reads: bigint }[]
+                >`SELECT seq_tup_read + idx_tup_fetch AS reads FROM pg_stat_xact_user_tables WHERE relid='"File"'::regclass`;
+                expect(Number(stat.reads)).toBe(0);
+                return result;
+              }),
+          },
         },
-      },
-    );
-  } finally {
-    await db.file.deleteMany({ where: { ownerUserId: owner.id } });
-  }
-}, 15000);
+      );
+    } finally {
+      await db.file.deleteMany({ where: { ownerUserId: owner.id } });
+    }
+  },
+  60000,
+);
 
 it.each([null, "folder"])(
   "rejects the last conflicting target in a batch with parent %s",
