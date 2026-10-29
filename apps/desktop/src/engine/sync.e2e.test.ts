@@ -15,7 +15,14 @@ import {
 import os from "node:os";
 import path from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
-import { afterEach, beforeAll, describe, expect, it } from "vite-plus/test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+} from "vite-plus/test";
 
 import type { EngineConfig, EngineEvent, SyncMode } from "../shared/types";
 import { SyncEngine } from "./engine";
@@ -138,6 +145,8 @@ const writeOld = async (file: string, text: string) => {
 };
 
 const rigs: { engine: SyncEngine; root: string }[] = [];
+/** Server folders the tests made; removed for good at the end. */
+const made = new Set<string>();
 
 const rig = async (
   mode: SyncMode = "two-way",
@@ -153,6 +162,7 @@ const rig = async (
   await mkdir(data);
   const folderId =
     existingFolderId ?? (await server.createFolder(`sync-${randomUUID()}`));
+  made.add(folderId);
   const notes: string[] = [];
   const events: EngineEvent[] = [];
   let config: EngineConfig = {
@@ -305,6 +315,15 @@ const tree = async (dir: string, rel = ""): Promise<Record<string, string>> => {
 describe.skipIf(!origin)("sync against a real server", () => {
   beforeAll(async () => {
     token = await signInDevice();
+  });
+
+  // The stack runs other suites after this one, and its backup check
+  // copies every stored byte; leave nothing behind.
+  afterAll(async () => {
+    for (const id of made) {
+      await server.post(`/api/files/folders/${id}/trash`).catch(() => {});
+    }
+    await server.post("/api/files/trash/clear");
   });
 
   afterEach(async () => {
