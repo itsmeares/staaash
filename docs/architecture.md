@@ -162,6 +162,15 @@ folder, two-way, download only, or upload only. Pairs never overlap.
   the server's checksum, and replace the file in one rename
 - if a pair's local folder is missing, or every file of a big pair vanishes on
   one side, that pair stops until the person says what they meant
+- only a path that is confirmed gone counts as deleted. Ignored names, links,
+  names the computer cannot hold, and anything that could not be read are
+  left alone on both sides, and a folder holding one is never trashed
+- the sync history is saved after each file or server change, so a stop in
+  between leaves both sides changed and the history behind; the next run
+  finds both sides equal and records them without moving bytes
+- passes, conflict choices, and forgetting removed pairs run one at a time in
+  the order asked. A settings change or a stop takes effect before the next
+  action, and stopping aborts transfers, which resume on the next run
 
 ## Boundaries And Non-Goals
 

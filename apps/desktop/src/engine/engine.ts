@@ -8,6 +8,7 @@ import type {
   EngineEvent,
   EngineStatus,
   Issue,
+  SyncPair,
 } from "../shared/types";
 import type { Api } from "./api";
 import { ApiError, SignedOutError, createApi } from "./api";
@@ -34,8 +35,12 @@ const RETRY_SOON_MS = 5000;
 
 /**
  * Keeps every pair in sync. One pass reads the server's change feed, then
- * brings each pair in line. Passes never overlap; a request during a pass
- * runs another pass after it.
+ * brings each pair in line.
+ *
+ * Everything that touches synced files or the store runs one at a time, in
+ * the order it was asked for: passes, conflict choices, emptied-folder
+ * choices, forgetting removed pairs, and shutdown. Settings apply at once;
+ * a running pass sees the change before its next action and stops early.
  */
 export class SyncEngine {
   private config: EngineConfig | null = null;
@@ -44,7 +49,9 @@ export class SyncEngine {
   private api: Api | null = null;
   private running = false;
   private stopped = false;
-  private queued = false;
+  private queue: Promise<unknown> = Promise.resolve();
+  private readonly halt = new AbortController();
+  private passWaiting: Promise<void> | null = null;
   private timer: NodeJS.Timeout | null = null;
   private live: AbortController | null = null;
   private liveConnected = false;
@@ -91,27 +98,41 @@ export class SyncEngine {
     ) {
       await this.watchPairs();
     }
+    // Also after a restart, so a pair removed while stopped is forgotten.
+    const kept = config.pairs.map((pair) => pair.id);
+    await this.exclusive(() => this.store.forgetPairsExcept(kept));
     this.request();
   }
 
-  /** Drops what the engine remembers about a removed pair. */
-  forgetPair(pairId: string) {
-    this.store.clearPair(pairId);
-    this.store.setMeta(`ready:${pairId}`, null);
-    this.store.setMeta(`gone:${pairId}`, null);
+  /** Runs `work` after everything asked for before it has finished. */
+  private exclusive<T>(work: () => T | Promise<T>): Promise<T> {
+    const run = this.queue.then(() => {
+      if (this.stopped) throw new Error("The sync engine stopped.");
+      return work();
+    });
+    this.queue = run.catch(() => {});
+    return run;
   }
 
   resolvePair(pairId: string, choice: "download-again" | "apply") {
-    if (choice === "apply") this.store.setMeta(`allow-emptied:${pairId}`, "1");
-    // Forgetting the base turns the emptied side into "never synced", so the
-    // other side fills it again without deleting anything.
-    else this.store.clearPair(pairId);
-    this.request();
+    return this.exclusive(() => {
+      if (choice === "apply") {
+        this.store.setMeta(`allow-emptied:${pairId}`, "1");
+      }
+      // Forgetting the base turns the emptied side into "never synced", so
+      // the other side fills it again without deleting anything.
+      else this.store.clearPair(pairId);
+      this.request();
+    });
+  }
+
+  resolveConflict(id: number, choice: ConflictChoice) {
+    return this.exclusive(() => this.applyConflictChoice(id, choice));
   }
 
   // Keep-server and keep-mine need different lookups.
   // fallow-ignore-next-line complexity
-  async resolveConflict(id: number, choice: ConflictChoice) {
+  private async applyConflictChoice(id: number, choice: ConflictChoice) {
     const { api, config } = this;
     const conflict = this.store.conflicts().find((each) => each.id === id);
     const pair = config?.pairs.find((each) => each.id === conflict?.pairId);
@@ -149,15 +170,36 @@ export class SyncEngine {
     }, delay);
   }
 
-  /** Ends every loop, lets a running pass finish, then closes the store. */
-  async stop() {
+  /**
+   * Ends every loop and closes the store once the work in flight is done. A
+   * running pass stops before its next action. Before a sign-out, also
+   * cancels unfinished uploads: the server counts them against the
+   * person's upload limit until they expire.
+   */
+  private stopping: Promise<void> | null = null;
+
+  stop({ cancelUploads = false } = {}) {
+    this.stopping ??= this.shutDown(cancelUploads);
+    return this.stopping;
+  }
+
+  private async shutDown(cancelUploads: boolean) {
+    const closed = this.queue.then(async () => {
+      if (cancelUploads && this.api) {
+        for (const upload of this.store.pendingUploads()) {
+          await this.api.cancelUpload(upload.sessionId).catch(() => {});
+        }
+      }
+      this.store.close();
+    });
+    this.queue = closed;
     this.stopped = true;
+    this.halt.abort();
     if (this.timer) clearTimeout(this.timer);
     if (this.emitPending) clearTimeout(this.emitPending);
     this.live?.abort();
     for (const stop of this.unwatch) stop();
-    while (this.current) await this.current.catch(() => {});
-    this.store.close();
+    await closed;
   }
 
   private async watchPairs() {
@@ -263,8 +305,7 @@ export class SyncEngine {
         if (!(error instanceof ApiError) || error.status !== 410) throw error;
         // Too old, or the server was restored to an earlier point: start over.
         this.store.setMeta("cursor", null);
-        this.tree.items.clear();
-        this.store.clearRemote();
+        this.tree.clear();
         for (const pair of config.pairs) {
           await snapshotPair(pair.id, pair.remoteFolderId);
         }
@@ -306,22 +347,30 @@ export class SyncEngine {
     }
   }
 
-  private current: Promise<void> | null = null;
+  /**
+   * Runs a full pass after the work already queued, and resolves when it has
+   * finished. Calls while a pass waits to start share that pass.
+   */
+  syncNow() {
+    this.passWaiting ??= this.exclusive(() => {
+      this.passWaiting = null;
+      return this.pass();
+    }).catch(() => {});
+    return this.passWaiting;
+  }
 
-  /** Runs a full pass now and resolves when one has finished after this call. */
-  async syncNow() {
-    while (this.current) await this.current;
-    this.current = this.pass().finally(() => (this.current = null));
-    await this.current;
+  /** Whether `pair` still syncs as it did when the pass started. */
+  private current(pair: SyncPair) {
+    const config = this.config;
+    if (this.stopped || this.signedOut || !config || config.paused)
+      return false;
+    const now = config.pairs.find((each) => each.id === pair.id);
+    return JSON.stringify(now) === JSON.stringify(pair);
   }
 
   // One pass: pull, then each pair, then the next wake-up.
   // fallow-ignore-next-line complexity
   private async pass() {
-    if (this.running) {
-      this.queued = true;
-      return;
-    }
     const { config } = this;
     if (!config || this.signedOut || this.stopped) return;
     if (config.paused) {
@@ -331,6 +380,7 @@ export class SyncEngine {
     this.running = true;
     this.emitStatus();
     let retrySoon = false;
+    let pullAgain = false;
     try {
       await this.pull();
       this.offline = false;
@@ -351,6 +401,8 @@ export class SyncEngine {
           activity: (update) => this.track(update),
           notify: (title, body) =>
             this.deps.emit({ type: "notify", title, body }),
+          current: () => this.current(pair),
+          signal: this.halt.signal,
         });
         issues.push(...result.issues);
         if (result.hold) {
@@ -364,7 +416,7 @@ export class SyncEngine {
                 : `Every file in ${pair.remoteLabel} is gone from the server. Delete them on this computer too?`,
           });
         }
-        if (result.pullAgain) this.queued = true;
+        if (result.pullAgain) pullAgain = true;
         retrySoon ||= result.retrySoon;
       }
       this.issues = issues;
@@ -377,8 +429,7 @@ export class SyncEngine {
     }
     this.notifyIssues();
     this.emitStatus();
-    if (this.queued) {
-      this.queued = false;
+    if (pullAgain) {
       this.request();
     } else {
       this.request(
@@ -403,7 +454,7 @@ export class SyncEngine {
 
   private notifyIssues() {
     for (const issue of this.issues) {
-      if (issue.kind === "symlink" || issue.kind === "error") continue;
+      if (issue.kind === "error") continue;
       const key = `${issue.pairId}\0${issue.rel}\0${issue.kind}`;
       if (this.notified.has(key)) continue;
       this.notified.add(key);
@@ -421,6 +472,8 @@ export class SyncEngine {
 
   /** At most a few status messages a second, however fast bytes move. */
   private emitStatus() {
+    // The store closes on stop; nothing reads it after.
+    if (this.stopped) return;
     const send = () => {
       this.lastEmit = Date.now();
       this.emitPending = null;

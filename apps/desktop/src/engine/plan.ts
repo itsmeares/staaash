@@ -1,7 +1,7 @@
 import type { Issue, SyncMode } from "../shared/types";
 import type { LocalEntry } from "./local";
 import { sameStat } from "./local";
-import { baseName, isInside, parentRel, pathKey } from "./names";
+import { baseName, parentRel, pathKey } from "./names";
 import type { ScopedItem, SkippedItem } from "./remote";
 import type { BaseEntry, RemoteItem } from "./store";
 
@@ -49,6 +49,20 @@ export type Action =
   | { kind: "link"; rel: string; local: LocalFile; remote: RemoteItem }
   | { kind: "forget"; rel: string };
 
+/**
+ * A path sync leaves alone this pass: an ignored name, a link, something
+ * that could not be read, or a server name this computer cannot hold. Its
+ * absence from the side lists is never a deletion.
+ */
+export type Excluded = {
+  side: "local" | "remote";
+  rel: string;
+  /** The local inode, so a rename to an ignored name is not a delete. */
+  ino?: number;
+  /** The server id, so a server rename to an ignored name is not a delete. */
+  remoteId?: string;
+};
+
 /** Everything on one side of a pair disappeared; this needs a person. */
 export type Hold = { side: "local" | "server" };
 
@@ -58,6 +72,7 @@ export type PlanInput = {
   local: LocalFile[];
   remote: ScopedItem[];
   skipped: SkippedItem[];
+  excluded: Excluded[];
   base: BaseEntry[];
   /** Set once the person said an emptied side is what they meant. */
   allowEmptied?: boolean;
@@ -74,6 +89,14 @@ export type Plan = {
 const EMPTIED_HOLD_FILES = 10;
 
 const depth = (rel: string) => rel.split("/").length;
+
+/** Whether `key` or one of its folders is in one of the sets. */
+const covered = (key: string, ...sets: Set<string>[]) => {
+  for (let each = key; each; each = parentRel(each)) {
+    if (sets.some((set) => set.has(each))) return true;
+  }
+  return false;
+};
 
 /** Folders whose subtree differs from the base on one side. */
 const dirtyFolders = (
@@ -100,6 +123,10 @@ type View = {
   remoteById: Map<string, ScopedItem>;
   /** Local entries the base does not know, by inode: candidates for moves. */
   localByIno: Map<number, LocalFile>;
+  /** Excluded paths, and the inodes and server ids behind them. */
+  hidden: { keys: Set<string>; inos: Set<number>; ids: Set<string> };
+  /** Folders with an excluded path inside, by side; they are never trashed. */
+  hiddenUnder: { local: Set<string>; remote: Set<string> };
 };
 
 /** One path, as each side and the base see it. */
@@ -113,6 +140,21 @@ type Cell = {
 
 const view = (input: PlanInput): View => {
   const base = new Map(input.base.map((entry) => [pathKey(entry.rel), entry]));
+  const excluded: Excluded[] = [
+    ...input.excluded,
+    ...input.skipped.map((skip) => ({
+      side: "remote" as const,
+      rel: skip.rel,
+      remoteId: skip.item.id,
+    })),
+  ];
+  const under = (side: Excluded["side"]) =>
+    dirtyFolders(
+      excluded
+        .filter((each) => each.side === side)
+        .map((each) => pathKey(each.rel)),
+      () => false,
+    );
   return {
     mode: input.mode,
     local: new Map(input.local.map((entry) => [pathKey(entry.rel), entry])),
@@ -124,8 +166,23 @@ const view = (input: PlanInput): View => {
         .filter((entry) => entry.ino !== 0 && !base.has(pathKey(entry.rel)))
         .map((entry) => [entry.ino, entry]),
     ),
+    hidden: {
+      keys: new Set(excluded.map((each) => pathKey(each.rel))),
+      inos: new Set(excluded.flatMap((each) => each.ino ?? [])),
+      ids: new Set(excluded.flatMap((each) => each.remoteId ?? [])),
+    },
+    hiddenUnder: { local: under("local"), remote: under("remote") },
   };
 };
+
+/** The server item still exists somewhere, so a missing local path is not a delete. */
+const stillOnServer = (v: View, previous: BaseEntry) =>
+  v.remoteById.has(previous.remoteId) || v.hidden.ids.has(previous.remoteId);
+
+/** The local file or folder still exists somewhere, so a missing path is not a delete. */
+const stillHere = (v: View, previous: BaseEntry) =>
+  previous.ino !== 0 &&
+  (v.localByIno.has(previous.ino) || v.hidden.inos.has(previous.ino));
 
 /**
  * An unmounted drive often leaves an empty mount folder behind. Emptying a
@@ -212,11 +269,12 @@ const planMoves = (v: View, base: BaseEntry[]) => {
   const pending = new Set<string>();
   const moves: Action[] = [];
   const sorted = [...base].sort((a, b) => depth(a.rel) - depth(b.rel));
+  const blocked = (key: string) => covered(key, pending, v.hidden.keys);
   for (const entry of sorted) {
     const key = pathKey(entry.rel);
-    if ([...pending].some((each) => isInside(key, each))) continue;
+    if (blocked(key)) continue;
     const move = serverMove(v, entry) ?? localMove(v, entry);
-    if (!move) continue;
+    if (!move || blocked(move.target)) continue;
     pending.add(key);
     pending.add(move.target);
     if (move.action) moves.push(move.action);
@@ -226,23 +284,32 @@ const planMoves = (v: View, base: BaseEntry[]) => {
 
 /** Folders whose contents changed on a side since the base, so they stay. */
 const dirtySides = (v: View) => ({
-  local: dirtyFolders(v.local.keys(), (key) => {
-    const here = v.local.get(key);
-    const previous = v.base.get(key);
-    if (!here) return true;
-    if (previous?.type !== here.type) return false;
-    return here.type === "folder" || sameStat(here, previous);
-  }),
-  remote: dirtyFolders(v.remote.keys(), (key) => {
-    const there = v.remote.get(key);
-    const previous = v.base.get(key);
-    if (!there) return true;
-    if (previous?.remoteId !== there.item.id) return false;
-    return (
-      there.item.type === "folder" || there.item.checksum === previous.checksum
-    );
-  }),
+  local: union(
+    v.hiddenUnder.local,
+    dirtyFolders(v.local.keys(), (key) => {
+      const here = v.local.get(key);
+      const previous = v.base.get(key);
+      if (!here) return true;
+      if (previous?.type !== here.type) return false;
+      return here.type === "folder" || sameStat(here, previous);
+    }),
+  ),
+  remote: union(
+    v.hiddenUnder.remote,
+    dirtyFolders(v.remote.keys(), (key) => {
+      const there = v.remote.get(key);
+      const previous = v.base.get(key);
+      if (!there) return true;
+      if (previous?.remoteId !== there.item.id) return false;
+      return (
+        there.item.type === "folder" ||
+        there.item.checksum === previous.checksum
+      );
+    }),
+  ),
 });
+
+const union = (a: Set<string>, b: Set<string>) => new Set([...a, ...b]);
 
 type Decision = { action: Action | null; gone?: boolean };
 
@@ -252,6 +319,8 @@ const folderOnBothSides = ({ rel, here, there, previous }: Cell): Decision =>
     : { action: null };
 
 /** A folder only the server has: new there, or deleted here. */
+// The delete needs every guard; each mode then has its own answer.
+// fallow-ignore-next-line complexity
 const folderOnlyThere = (
   v: View,
   { key, rel, there, previous }: Cell,
@@ -259,7 +328,12 @@ const folderOnlyThere = (
 ): Decision => {
   if (!there) return { action: null };
   // Upload-only works like a backup: nothing is deleted on the server.
-  if (previous && v.mode === "two-way" && !dirty.has(key)) {
+  if (
+    previous &&
+    v.mode === "two-way" &&
+    !dirty.has(key) &&
+    !stillHere(v, previous)
+  ) {
     return {
       action: { kind: "trash-remote", rel, remote: there.item },
       gone: true,
@@ -272,13 +346,20 @@ const folderOnlyThere = (
 };
 
 /** A folder only this computer has: new here, or deleted on the server. */
+// The delete needs every guard; each mode then has its own answer.
+// fallow-ignore-next-line complexity
 const folderOnlyHere = (
   v: View,
   { key, rel, here, previous }: Cell,
   dirty: Set<string>,
 ): Decision => {
   if (!here) return { action: null };
-  if (previous && v.mode !== "upload" && !dirty.has(key)) {
+  if (
+    previous &&
+    v.mode !== "upload" &&
+    !dirty.has(key) &&
+    !stillOnServer(v, previous)
+  ) {
     return { action: { kind: "trash-local", rel, local: here }, gone: true };
   }
   if (v.mode !== "download") {
@@ -351,7 +432,7 @@ const fileOnlyHere = (
 ): Action | null => {
   // The server item moved somewhere this computer could not follow. Keep
   // the local file; it syncs as a new one.
-  if (previous && v.remoteById.has(previous.remoteId)) {
+  if (previous && stillOnServer(v, previous)) {
     return { kind: "forget", rel };
   }
   const unchanged = previous !== undefined && sameStat(here, previous);
@@ -381,7 +462,7 @@ const fileOnlyThere = (
     };
   }
   // Moved on this computer in a way the server could not follow.
-  if (previous && previous.ino !== 0 && v.localByIno.has(previous.ino)) {
+  if (previous && stillHere(v, previous)) {
     return { kind: "forget", rel };
   }
   if (unchanged && v.mode === "two-way") {
@@ -420,10 +501,7 @@ export const plan = (input: PlanInput): Plan => {
     ...new Set([...v.local.keys(), ...v.remote.keys(), ...v.base.keys()]),
   ];
   for (const key of keys.sort((a, b) => depth(a) - depth(b))) {
-    const skip = [...pending, ...gone].some(
-      (each) => key === each || isInside(key, each),
-    );
-    if (skip) continue;
+    if (covered(key, pending, gone, v.hidden.keys)) continue;
     const here = v.local.get(key);
     const there = v.remote.get(key);
     const previous = v.base.get(key);

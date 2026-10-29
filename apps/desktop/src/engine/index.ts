@@ -42,30 +42,37 @@ const engine = new SyncEngine(
   dataDir,
 );
 
+const report = (error: unknown) =>
+  emit({
+    type: "notify",
+    title: "Sync needs you",
+    body: error instanceof Error ? error.message : String(error),
+  });
+
 // One branch per command.
 // fallow-ignore-next-line complexity
 port.on("message", ({ data }: { data: EngineCommand }) => {
   switch (data.type) {
     case "configure":
-      void engine.configure(data.config);
+      engine.configure(data.config).catch(report);
       return;
     case "sync-now":
       engine.request();
       return;
     case "resolve-conflict":
-      void engine.resolveConflict(data.id, data.choice);
+      engine.resolveConflict(data.id, data.choice).catch(report);
       return;
     case "resolve-pair":
-      engine.resolvePair(data.pairId, data.choice);
-      return;
-    case "forget-pair":
-      engine.forgetPair(data.pairId);
+      engine.resolvePair(data.pairId, data.choice).catch(report);
       return;
     case "trashed":
       waiting.get(data.requestId)?.(data.error);
       waiting.delete(data.requestId);
       return;
+    case "stop":
+      void engine
+        .stop({ cancelUploads: data.cancelUploads })
+        .finally(() => process.exit(0));
+      return;
   }
 });
-
-process.on("exit", () => void engine.stop());

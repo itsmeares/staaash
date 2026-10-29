@@ -43,7 +43,6 @@ export type EngineConfig = {
 
 export type IssueKind =
   | "invalid-name"
-  | "symlink"
   | "quota"
   | "disk-full"
   | "folder-missing"
@@ -105,8 +104,9 @@ export type EngineCommand =
   | { type: "sync-now" }
   | { type: "resolve-conflict"; id: number; choice: ConflictChoice }
   | { type: "resolve-pair"; pairId: string; choice: "download-again" | "apply" }
-  | { type: "forget-pair"; pairId: string }
-  | { type: "trashed"; requestId: number; error: string | null };
+  | { type: "trashed"; requestId: number; error: string | null }
+  /** Finish the action in flight, close the database, then exit. */
+  | { type: "stop"; cancelUploads: boolean };
 
 /** From the engine to the main process. */
 export type EngineEvent =

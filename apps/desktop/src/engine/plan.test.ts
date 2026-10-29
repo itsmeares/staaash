@@ -80,6 +80,7 @@ const run = (input: Partial<PlanInput> & { mode?: SyncMode }) =>
     local: [],
     remote: [],
     skipped: [],
+    excluded: [],
     base: [],
     ...input,
   });
@@ -373,6 +374,115 @@ describe("one-way folders", () => {
       base: [synced],
     });
     expect(kinds(result)).toEqual(["keep-mine:a.txt"]);
+  });
+});
+
+describe("excluded paths are never deletions", () => {
+  const here = file("a.txt", 3, 1000, 1);
+  const synced = baseOf(here, "r1", "x");
+
+  it("leaves an already synced file alone once its name is ignored", () => {
+    const result = run({
+      remote: [remoteFile("a.txt", "r1", "x")],
+      excluded: [{ side: "local", rel: "a.txt", ino: 1 }],
+      base: [synced],
+    });
+    expect(result.actions).toEqual([]);
+  });
+
+  it("neither downloads nor trashes a server file with an ignored name", () => {
+    const tmp = file("report.tmp", 3, 1000, 2);
+    const result = run({
+      excluded: [
+        { side: "remote", rel: "report.tmp", remoteId: "r2" },
+        { side: "local", rel: "report.tmp", ino: 2 },
+      ],
+      // Left behind by an earlier version that downloaded it.
+      base: [baseOf(tmp, "r2", "x")],
+    });
+    expect(result.actions).toEqual([]);
+  });
+
+  it("leaves an ignored folder and everything in it alone", () => {
+    const dir = folder("node_modules", 10);
+    const inside = file("node_modules/x.js", 3, 1000, 11);
+    const result = run({
+      remote: [
+        remoteFolder("node_modules", "f1"),
+        remoteFile("node_modules/x.js", "r1", "x"),
+      ],
+      excluded: [{ side: "local", rel: "node_modules", ino: 10 }],
+      base: [baseOf(dir, "f1", null), baseOf(inside, "r1", "x")],
+    });
+    expect(result.actions).toEqual([]);
+  });
+
+  it("keeps a server folder deleted here while it holds an ignored file", () => {
+    const dir = folder("docs", 10);
+    const result = run({
+      remote: [remoteFolder("docs", "f1")],
+      excluded: [{ side: "remote", rel: "docs/x.tmp", remoteId: "r5" }],
+      base: [baseOf(dir, "f1", null)],
+    });
+    expect(kinds(result)).toEqual(["mkdir:docs"]);
+  });
+
+  it("keeps a local folder the server deleted while it holds an ignored file", () => {
+    const dir = folder("docs", 10);
+    const result = run({
+      local: [dir, file("b.txt")],
+      excluded: [{ side: "local", rel: "docs/x.tmp", ino: 12 }],
+      base: [baseOf(dir, "f1", null)],
+    });
+    expect(kinds(result)).not.toContain("trash-local:docs");
+  });
+
+  it("forgets, not trashes, a file renamed here to an ignored name", () => {
+    const result = run({
+      remote: [remoteFile("a.txt", "r1", "x")],
+      excluded: [{ side: "local", rel: "a.txt.tmp", ino: 1 }],
+      base: [synced],
+    });
+    expect(kinds(result)).toEqual(["forget:a.txt"]);
+  });
+
+  it("forgets, not trashes, a file the server renamed to an ignored name", () => {
+    const result = run({
+      local: [here, file("b.txt")],
+      excluded: [{ side: "remote", rel: "a.tmp", remoteId: "r1" }],
+      base: [synced],
+    });
+    expect(kinds(result)).toContain("forget:a.txt");
+    expect(kinds(result)).not.toContain("trash-local:a.txt");
+  });
+
+  it("forgets, not trashes, a file the server renamed to a name this computer cannot hold", () => {
+    const result = run({
+      local: [here, file("b.txt")],
+      skipped: [
+        {
+          rel: "a:b.txt",
+          item: remoteFile("a:b.txt", "r1", "x").item,
+          reason: "nope",
+        },
+      ],
+      base: [synced],
+    });
+    expect(kinds(result)).not.toContain("trash-local:a.txt");
+  });
+
+  it("does not trash server files under a folder that could not be read", () => {
+    const dir = folder("locked", 10);
+    const inside = file("locked/a.txt", 3, 1000, 11);
+    const result = run({
+      remote: [
+        remoteFolder("locked", "f1"),
+        remoteFile("locked/a.txt", "r1", "x"),
+      ],
+      excluded: [{ side: "local", rel: "locked" }],
+      base: [baseOf(dir, "f1", null), baseOf(inside, "r1", "x")],
+    });
+    expect(result.actions).toEqual([]);
   });
 });
 

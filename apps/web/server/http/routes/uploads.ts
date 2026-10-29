@@ -60,7 +60,7 @@ const createSession = createRoute({
         folderId: z.string().nullable().default(null),
         originalName: z.string().trim().min(1),
         mimeType: z.string().trim().min(1),
-        totalSizeBytes: z.number().int().positive(),
+        totalSizeBytes: z.number().int().nonnegative(),
         conflictStrategy: z
           .enum(["fail", "safeRename", "replace"])
           .default("safeRename"),

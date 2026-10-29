@@ -42,25 +42,36 @@ export const loadSettings = (): Settings => {
 export const saveSettings = (settings: Settings) =>
   writeAtomic(file(), JSON.stringify(settings, null, 2));
 
-/** The device token, encrypted with the OS keychain where there is one. */
+const ENCRYPTED = 0x65;
+const PLAIN = 0x70;
+
+/**
+ * The device token, encrypted with the OS keychain where there is one. The
+ * first byte says which: a token saved without a keychain must not be fed to
+ * the decrypter later, and the other way round. Only call after app ready;
+ * before it, the keychain reads as missing on Windows and Linux.
+ */
 export const loadToken = () => {
   if (!existsSync(tokenFile())) return null;
   try {
     const data = readFileSync(tokenFile());
-    return safeStorage.isEncryptionAvailable()
-      ? safeStorage.decryptString(data)
-      : data.toString("utf8");
+    const body = data.subarray(1);
+    if (data[0] === ENCRYPTED) return safeStorage.decryptString(body);
+    if (data[0] === PLAIN) return body.toString("utf8");
+    return null;
   } catch {
     return null;
   }
 };
 
-export const saveToken = (token: string | null) =>
-  token === null
-    ? rm(tokenFile(), { force: true })
-    : writeAtomic(
-        tokenFile(),
-        safeStorage.isEncryptionAvailable()
-          ? safeStorage.encryptString(token)
-          : Buffer.from(token),
-      );
+export const saveToken = (token: string | null) => {
+  if (token === null) return rm(tokenFile(), { force: true });
+  const encrypted = safeStorage.isEncryptionAvailable();
+  return writeAtomic(
+    tokenFile(),
+    Buffer.concat([
+      Buffer.from([encrypted ? ENCRYPTED : PLAIN]),
+      encrypted ? safeStorage.encryptString(token) : Buffer.from(token),
+    ]),
+  );
+};

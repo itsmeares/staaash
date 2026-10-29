@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import {
+  chmod,
   mkdir,
   mkdtemp,
   readFile,
@@ -13,9 +14,10 @@ import {
 } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { afterEach, beforeAll, describe, expect, it } from "vite-plus/test";
 
-import type { SyncMode } from "../shared/types";
+import type { EngineConfig, EngineEvent, SyncMode } from "../shared/types";
 import { SyncEngine } from "./engine";
 
 /**
@@ -137,32 +139,23 @@ const writeOld = async (file: string, text: string) => {
 
 const rigs: { engine: SyncEngine; root: string }[] = [];
 
-const rig = async (mode: SyncMode = "two-way", existingFolderId?: string) => {
+const rig = async (
+  mode: SyncMode = "two-way",
+  existingFolderId?: string,
+  extra: Partial<EngineConfig> = {},
+) => {
   const root = await mkdtemp(path.join(os.tmpdir(), "staaash-sync-"));
   const local = path.join(root, "local");
   const trash = path.join(root, "trash");
+  const data = path.join(root, "data");
   await mkdir(local);
   await mkdir(trash);
-  await mkdir(path.join(root, "data"));
+  await mkdir(data);
   const folderId =
     existingFolderId ?? (await server.createFolder(`sync-${randomUUID()}`));
   const notes: string[] = [];
-  const engine = new SyncEngine(
-    {
-      emit: (event) => {
-        if (event.type === "notify") notes.push(event.title);
-      },
-      trash: async (file) => {
-        await rename(
-          file,
-          path.join(trash, `${randomUUID()}-${path.basename(file)}`),
-        );
-      },
-      watch: async () => () => {},
-    },
-    path.join(root, "data"),
-  );
-  await engine.configure({
+  const events: EngineEvent[] = [];
+  let config: EngineConfig = {
     serverUrl: origin ?? "",
     token,
     deviceName: "Test PC",
@@ -180,19 +173,66 @@ const rig = async (mode: SyncMode = "two-way", existingFolderId?: string) => {
     uploadLimitKBps: null,
     downloadLimitKBps: null,
     paused: false,
-  });
+    ...extra,
+  };
+  const start = async () => {
+    const engine = new SyncEngine(
+      {
+        emit: (event) => {
+          events.push(event);
+          if (event.type === "notify") notes.push(event.title);
+        },
+        trash: async (file) => {
+          await rename(
+            file,
+            path.join(trash, `${randomUUID()}-${path.basename(file)}`),
+          );
+        },
+        watch: async () => () => {},
+      },
+      data,
+    );
+    await engine.configure(config);
+    return engine;
+  };
   const result = {
     root,
     local,
     trash,
     folderId,
-    engine,
+    engine: await start(),
     notes,
+    events,
     at: (rel: string) => path.join(local, ...rel.split("/")),
     /** Runs passes until one finds nothing to do. */
     sync: async () => {
-      await engine.syncNow();
-      await engine.syncNow();
+      await result.engine.syncNow();
+      await result.engine.syncNow();
+    },
+    configure: async (patch: Partial<EngineConfig>) => {
+      config = { ...config, ...patch };
+      await result.engine.configure(config);
+    },
+    /** Stops the engine as the app does on quit, and starts a new one on the same data. */
+    restart: async () => {
+      await result.engine.stop();
+      result.engine = await start();
+    },
+    /**
+     * Runs `change`, syncs, then puts the sync history back to what it was
+     * before: the files and the server moved on, but the app stopped before
+     * it saved that. Then a new engine syncs again.
+     */
+    interrupted: async (change: () => Promise<void>) => {
+      await result.engine.stop();
+      const saved = history(data);
+      result.engine = await start();
+      await change();
+      await result.sync();
+      await result.engine.stop();
+      restoreHistory(data, saved);
+      result.engine = await start();
+      await result.sync();
     },
     remote: async () =>
       new Map(
@@ -204,6 +244,62 @@ const rig = async (mode: SyncMode = "two-way", existingFolderId?: string) => {
   };
   rigs.push(result);
   return result;
+};
+
+const HISTORY_TABLES = ["base", "upload", "conflict"];
+
+/** Upload sessions the engine has open on the server. */
+const pendingSessions = (root: string) => {
+  const db = new DatabaseSync(path.join(root, "data", "sync.db"));
+  const rows = db.prepare("SELECT sessionId FROM upload").all() as {
+    sessionId: string;
+  }[];
+  db.close();
+  return rows.map((row) => row.sessionId);
+};
+
+/** The engine's saved sync history: what both sides last agreed on. */
+const history = (data: string) => {
+  const db = new DatabaseSync(path.join(data, "sync.db"));
+  const rows = Object.fromEntries(
+    HISTORY_TABLES.map((table) => [
+      table,
+      db.prepare(`SELECT * FROM ${table}`).all(),
+    ]),
+  );
+  db.close();
+  return rows;
+};
+
+const restoreHistory = (data: string, rows: ReturnType<typeof history>) => {
+  const db = new DatabaseSync(path.join(data, "sync.db"));
+  for (const table of HISTORY_TABLES) {
+    db.exec(`DELETE FROM ${table}`);
+    for (const row of rows[table] ?? []) {
+      const columns = Object.keys(row);
+      db.prepare(
+        `INSERT INTO ${table} (${columns.join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`,
+      ).run(...(Object.values(row) as SQLInputValue[]));
+    }
+  }
+  db.close();
+};
+
+/** Everything under a folder, by relative path, with file contents. */
+const tree = async (dir: string, rel = ""): Promise<Record<string, string>> => {
+  const out: Record<string, string> = {};
+  for (const entry of await readdir(path.join(dir, rel), {
+    withFileTypes: true,
+  })) {
+    const child = rel ? `${rel}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) {
+      out[`${child}/`] = "";
+      Object.assign(out, await tree(dir, child));
+    } else {
+      out[child] = await readFile(path.join(dir, child), "utf8");
+    }
+  }
+  return out;
 };
 
 describe.skipIf(!origin)("sync against a real server", () => {
@@ -420,8 +516,297 @@ describe.skipIf(!origin)("sync against a real server", () => {
     expect(r.engine.status().issues.map((issue) => issue.kind)).toEqual([
       "folder-emptied",
     ]);
-    r.engine.resolvePair("pair", "download-again");
+    await r.engine.resolvePair("pair", "download-again");
     await r.sync();
     expect((await readdir(r.local)).length).toBe(10);
+  });
+  it("keeps the id, share links and favorites when a file is emptied", async () => {
+    const r = await rig();
+    await writeOld(r.at("notes.txt"), "something");
+    await r.sync();
+    const before = (await r.remote()).get("notes.txt");
+    await writeOld(r.at("notes.txt"), "");
+    await r.sync();
+    const after = (await r.remote()).get("notes.txt");
+    expect(after?.id).toBe(before?.id);
+    expect(after?.contentChecksum).toBe(sha(""));
+  });
+
+  describe("ignored names", () => {
+    it("keeps the server copy of a synced file once its name is ignored", async () => {
+      const r = await rig();
+      await writeOld(r.at("a.txt"), "alpha");
+      await writeOld(r.at("cache/x.bin"), "x");
+      await r.sync();
+      await r.configure({ ignore: ["a.txt", "cache"] });
+      await r.sync();
+      await rm(r.at("a.txt"));
+      await rm(r.at("cache"), { recursive: true });
+      await r.sync();
+      const remote = await r.remote();
+      expect(remote.get("a.txt")?.contentChecksum).toBe(sha("alpha"));
+      expect(remote.get("cache/x.bin")?.contentChecksum).toBe(sha("x"));
+    });
+
+    it("neither downloads nor trashes a server file with an ignored name", async () => {
+      const r = await rig();
+      await server.upload(r.folderId, "report.tmp", "keep me");
+      await server.upload(r.folderId, "real.txt", "real");
+      await r.sync();
+      await r.sync();
+      expect(await tree(r.local)).toEqual({ "real.txt": "real" });
+      expect((await r.remote()).get("report.tmp")?.contentChecksum).toBe(
+        sha("keep me"),
+      );
+    });
+
+    it("re-downloads, never trashes, a file renamed here to an ignored name", async () => {
+      const r = await rig();
+      await writeOld(r.at("draft.txt"), "draft");
+      await r.sync();
+      await rename(r.at("draft.txt"), r.at("draft.tmp"));
+      await r.sync();
+      expect((await r.remote()).get("draft.txt")?.contentChecksum).toBe(
+        sha("draft"),
+      );
+      expect(await readFile(r.at("draft.txt"), "utf8")).toBe("draft");
+    });
+  });
+
+  describe("stopped before the sync history was saved", () => {
+    const settled = async (r: Awaited<ReturnType<typeof rig>>) => {
+      expect(r.engine.status().conflicts).toEqual([]);
+      expect(await readdir(r.trash)).toEqual([]);
+      const names = await readdir(r.local, { recursive: true });
+      expect(names.filter((name) => name.includes("conflict"))).toEqual([]);
+    };
+
+    it("after a download", async () => {
+      const r = await rig();
+      await r.interrupted(() =>
+        server.upload(r.folderId, "new.txt", "from the server"),
+      );
+      expect(await tree(r.local)).toEqual({ "new.txt": "from the server" });
+      expect((await r.remote()).size).toBe(1);
+      await settled(r);
+    });
+
+    it("after an upload", async () => {
+      const r = await rig();
+      await r.interrupted(() => writeOld(r.at("new.txt"), "from here"));
+      const remote = await r.remote();
+      expect(remote.size).toBe(1);
+      expect(remote.get("new.txt")?.contentChecksum).toBe(sha("from here"));
+      await settled(r);
+    });
+
+    it("after an edit was uploaded", async () => {
+      const r = await rig();
+      await writeOld(r.at("a.txt"), "one");
+      await r.sync();
+      const id = (await r.remote()).get("a.txt")?.id;
+      await r.interrupted(() => writeOld(r.at("a.txt"), "two"));
+      const after = (await r.remote()).get("a.txt");
+      expect(after?.id).toBe(id);
+      expect(after?.contentChecksum).toBe(sha("two"));
+      await settled(r);
+    });
+
+    it("after a server edit was downloaded", async () => {
+      const r = await rig();
+      await writeOld(r.at("a.txt"), "one");
+      await r.sync();
+      await r.interrupted(() => server.upload(r.folderId, "a.txt", "two"));
+      expect(await tree(r.local)).toEqual({ "a.txt": "two" });
+      await settled(r);
+    });
+
+    it("after a server rename was repeated here", async () => {
+      const r = await rig();
+      await writeOld(r.at("docs/a.txt"), "a");
+      await r.sync();
+      const folder = (await r.remote()).get("docs");
+      await r.interrupted(async () => {
+        await server.post(`/api/files/folders/${folder?.id}/rename`, {
+          name: "papers",
+        });
+      });
+      expect(await tree(r.local)).toEqual({
+        "papers/": "",
+        "papers/a.txt": "a",
+      });
+      expect((await r.remote()).get("papers")?.id).toBe(folder?.id);
+      await settled(r);
+    });
+
+    it("after a local rename was repeated on the server", async () => {
+      const r = await rig();
+      await writeOld(r.at("a.txt"), "a");
+      await r.sync();
+      const id = (await r.remote()).get("a.txt")?.id;
+      await r.interrupted(() => rename(r.at("a.txt"), r.at("b.txt")));
+      const remote = await r.remote();
+      expect([...remote.keys()]).toEqual(["b.txt"]);
+      expect(remote.get("b.txt")?.id).toBe(id);
+      await settled(r);
+    });
+
+    it("after a delete on each side was repeated on the other", async () => {
+      const r = await rig();
+      await writeOld(r.at("mine.txt"), "m");
+      await writeOld(r.at("theirs.txt"), "t");
+      await r.sync();
+      const theirs = (await r.remote()).get("theirs.txt");
+      await r.interrupted(async () => {
+        await rm(r.at("mine.txt"));
+        await server.post(`/api/files/files/${theirs?.id}/trash`);
+      });
+      expect(await tree(r.local)).toEqual({});
+      expect((await r.remote()).size).toBe(0);
+      // The engine trashed theirs.txt here in the first run.
+      expect((await readdir(r.trash)).length).toBe(1);
+    });
+  });
+
+  describe("failures during transfers", () => {
+    it("reports a file it cannot read, keeps its server copy, and syncs the rest", async () => {
+      const r = await rig();
+      await writeOld(r.at("locked.txt"), "one");
+      await r.sync();
+      await writeOld(r.at("locked.txt"), "two");
+      await chmod(r.at("locked.txt"), 0o000);
+      await writeOld(r.at("other.txt"), "other");
+      try {
+        await r.sync();
+        const remote = await r.remote();
+        expect(remote.get("locked.txt")?.contentChecksum).toBe(sha("one"));
+        expect(remote.get("other.txt")?.contentChecksum).toBe(sha("other"));
+        expect(r.engine.status().state).toBe("idle");
+        expect(
+          r.engine.status().issues.some((each) => each.rel === "locked.txt"),
+        ).toBe(true);
+      } finally {
+        await chmod(r.at("locked.txt"), 0o644);
+      }
+      await r.sync();
+      expect((await r.remote()).get("locked.txt")?.contentChecksum).toBe(
+        sha("two"),
+      );
+    });
+
+    it("reports a folder it cannot write to and downloads the rest", async () => {
+      const r = await rig();
+      await writeOld(r.at("shut/a.txt"), "a");
+      await r.sync();
+      const shut = (await r.remote()).get("shut");
+      await chmod(r.at("shut"), 0o555);
+      await server.upload(shut?.id ?? "", "b.txt", "b");
+      await server.upload(r.folderId, "c.txt", "c");
+      try {
+        await r.sync();
+        expect(await readFile(r.at("c.txt"), "utf8")).toBe("c");
+        expect(existsSync(r.at("shut/b.txt"))).toBe(false);
+        expect(r.engine.status().state).toBe("idle");
+        expect(
+          r.engine.status().issues.some((each) => each.rel === "shut/b.txt"),
+        ).toBe(true);
+      } finally {
+        await chmod(r.at("shut"), 0o755);
+      }
+      await r.sync();
+      expect(await readFile(r.at("shut/b.txt"), "utf8")).toBe("b");
+      expect(await readdir(r.at("shut"))).toEqual(["a.txt", "b.txt"]);
+    });
+
+    it("stops cleanly when the device is signed out mid-upload, leaving no partial file", async () => {
+      const own = await signInDevice();
+      const r = await rig("two-way", undefined, {
+        token: own,
+        uploadLimitKBps: 8 * 1024,
+      });
+      const big = randomBytes(40 * 1024 * 1024);
+      await writeFile(r.at("big.bin"), big);
+      const past = new Date(Date.now() - 60_000);
+      await utimes(r.at("big.bin"), past, past);
+      const syncing = r.engine.syncNow();
+      // Sign out once some bytes are on their way.
+      for (let tries = 0; tries < 200; tries += 1) {
+        const sent = r.engine.status().activity[0]?.doneBytes ?? 0;
+        if (sent > 0) break;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      await fetch(new URL("/api/auth/sign-out", origin), {
+        method: "POST",
+        headers: { authorization: `Bearer ${own}` },
+      });
+      await syncing;
+      expect(r.events.some((event) => event.type === "signed-out")).toBe(true);
+      expect(r.engine.status().state).toBe("signed-out");
+      expect((await r.remote()).has("big.bin")).toBe(false);
+      // The revoked device could not cancel its upload; the owner can.
+      for (const id of pendingSessions(r.root)) {
+        await web(`/api/uploads/sessions/${id}`, { method: "DELETE" });
+      }
+      expect(
+        createHash("sha256")
+          .update(await readFile(r.at("big.bin")))
+          .digest("hex"),
+      ).toBe(createHash("sha256").update(big).digest("hex"));
+    });
+
+    it("cancels unfinished uploads when stopping for a sign-out", async () => {
+      const r = await rig("two-way", undefined, { uploadLimitKBps: 4 * 1024 });
+      await writeFile(r.at("big.bin"), randomBytes(40 * 1024 * 1024));
+      const past = new Date(Date.now() - 60_000);
+      await utimes(r.at("big.bin"), past, past);
+      const syncing = r.engine.syncNow();
+      for (let tries = 0; tries < 200; tries += 1) {
+        if ((r.engine.status().activity[0]?.doneBytes ?? 0) > 0) break;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      const [session] = pendingSessions(r.root);
+      expect(session).toBeDefined();
+      await r.engine.stop({ cancelUploads: true });
+      await syncing;
+      const status = await fetch(
+        new URL(`/api/uploads/sessions/${session}`, origin),
+        { headers: { cookie, origin: origin ?? "" } },
+      );
+      expect(status.status).toBe(404);
+      expect((await r.remote()).has("big.bin")).toBe(false);
+    });
+
+    it("stops transfers on quit, and a restart completes them", async () => {
+      const r = await rig("two-way", undefined, { downloadLimitKBps: 2048 });
+      for (const name of ["a", "b", "c", "d", "e", "f"]) {
+        await server.upload(r.folderId, `${name}.bin`, "x".repeat(1024 * 1024));
+      }
+      const syncing = r.engine.syncNow();
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await r.restart();
+      await syncing;
+      const names = await readdir(r.local);
+      expect(names.some((name) => name.startsWith(".staaash-part-"))).toBe(
+        false,
+      );
+      await r.sync();
+      expect((await readdir(r.local)).sort()).toEqual(
+        ["a", "b", "c", "d", "e", "f"].map((name) => `${name}.bin`),
+      );
+    });
+
+    it("stops before the next action when a folder stops syncing mid-pass", async () => {
+      const r = await rig("two-way", undefined, { downloadLimitKBps: 2048 });
+      for (const name of ["a", "b", "c", "d", "e", "f", "g", "h"]) {
+        await server.upload(r.folderId, `${name}.bin`, "x".repeat(1024 * 1024));
+      }
+      const syncing = r.engine.syncNow();
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await r.configure({ pairs: [] });
+      await syncing;
+      // At most the transfers already running finished.
+      expect((await readdir(r.local)).length).toBeLessThanOrEqual(4);
+      expect(r.engine.status().fileCount).toBe(0);
+    });
   });
 });

@@ -45,7 +45,8 @@ import {
 if (!app.requestSingleInstanceLock()) app.exit(0);
 
 let settings = loadSettings();
-let token = loadToken();
+// Loaded once the app is ready; the keychain is not readable before.
+let token: string | null = null;
 let status: EngineStatus | null = null;
 let versionProblem: AppState["versionProblem"] = null;
 let update: UpdateState | null = null;
@@ -109,7 +110,7 @@ const updateSettings = async (patch: Partial<Settings>) => {
   if (resumeTimer) clearTimeout(resumeTimer);
   if (settings.pausedUntil) {
     resumeTimer = setTimeout(
-      () => void updateSettings({ pausedUntil: null }),
+      () => void serial(() => updateSettings({ pausedUntil: null })),
       Math.max(0, settings.pausedUntil - Date.now()),
     );
   }
@@ -147,34 +148,63 @@ const startEngine = () => {
           );
         return;
       case "signed-out":
-        void signedOut(
-          "This device was signed out. Sign in again to keep syncing.",
-        );
+        // A stale engine's sign-out must not end the account that replaced it.
+        void serial(async () => {
+          if (engine === child)
+            await signedOut(
+              "This device was signed out. Sign in again to keep syncing.",
+            );
+        });
         return;
     }
   });
   child.on("exit", () => {
-    if (engine === child) engine = null;
+    // Only a crash restarts it; stopEngine clears `engine` first.
+    if (engine !== child) return;
+    engine = null;
     if (!quitting)
       setTimeout(() => {
+        if (engine || quitting) return;
         startEngine();
         configureEngine();
       }, 2000);
   });
 };
 
-/** Forgets the account and everything the engine knew about it. */
-const resetAccount = async () => {
+/**
+ * Asks the engine to finish the action in flight and close its database,
+ * and kills it if that takes too long. What a kill interrupts, the next run
+ * finds and repairs, so the wait only saves work.
+ */
+const stopEngine = async (cancelUploads = false) => {
   const child = engine;
   engine = null;
-  if (child) {
-    const exited = new Promise((resolve) => child.once("exit", resolve));
-    child.kill();
-    await exited;
-  }
+  if (!child) return;
+  const exited = new Promise((resolve) => child.once("exit", resolve));
+  child.postMessage({ type: "stop", cancelUploads } satisfies EngineCommand);
+  const timer = setTimeout(() => child.kill(), 10_000);
+  await exited;
+  clearTimeout(timer);
+};
+
+let queue: Promise<unknown> = Promise.resolve();
+/**
+ * Sign-in, sign-out and settings changes run one at a time, in the order
+ * they came: each reads and replaces the account, the pairs and the engine.
+ */
+const serial = <T>(work: () => Promise<T>) => {
+  const run = queue.then(work);
+  queue = run.catch(() => {});
+  return run;
+};
+
+/** Forgets the account and everything the engine knew about it. */
+const resetAccount = async () => {
+  await stopEngine();
   await rm(dataDir(), { recursive: true, force: true });
   token = null;
   status = null;
+  versionProblem = null;
   await saveToken(null);
   startEngine();
 };
@@ -334,6 +364,21 @@ const pause = (minutes: number | null) =>
           : Date.now() + minutes * 60_000,
   });
 
+const savePairs = async (pairs: SyncPair[]) => {
+  try {
+    const problem = await checkPairs(pairs);
+    if (problem) return { error: problem };
+    for (const pair of pairs) {
+      if (!existsSync(pair.localPath))
+        await mkdir(pair.localPath, { recursive: true });
+    }
+    await updateSettings({ pairs });
+    return { error: null };
+  } catch (error) {
+    return { error: (error as Error).message };
+  }
+};
+
 let updates: ReturnType<typeof startUpdates> | null = null;
 
 const registerIpc = () => {
@@ -357,12 +402,14 @@ const registerIpc = () => {
     }
     try {
       const result = await signInWithBrowser(serverUrl, settings.deviceName);
-      await resetAccount();
-      token = result.token;
-      await saveToken(token);
-      await updateSettings({ serverUrl, email: result.email, pairs: [] });
-      await checkVersions(serverUrl);
-      configureEngine();
+      await serial(async () => {
+        await resetAccount();
+        token = result.token;
+        await saveToken(token);
+        await updateSettings({ serverUrl, email: result.email, pairs: [] });
+        await checkVersions(serverUrl);
+        configureEngine();
+      });
       return { error: null };
     } catch (error) {
       return { error: (error as Error).message };
@@ -385,30 +432,15 @@ const registerIpc = () => {
   handle("folder-warning", (localPath: string) =>
     otherSyncAppWarning(localPath),
   );
-  handle("save-pairs", async (pairs: SyncPair[]) => {
-    try {
-      const problem = await checkPairs(pairs);
-      if (problem) return { error: problem };
-      for (const pair of pairs) {
-        if (!existsSync(pair.localPath))
-          await mkdir(pair.localPath, { recursive: true });
-      }
-      const kept = new Set(pairs.map((pair) => pair.id));
-      for (const pair of settings.pairs) {
-        if (!kept.has(pair.id)) send({ type: "forget-pair", pairId: pair.id });
-      }
-      await updateSettings({ pairs });
-      return { error: null };
-    } catch (error) {
-      return { error: (error as Error).message };
-    }
-  });
-  handle("update-settings", async (patch: Partial<Settings>) => {
-    await updateSettings(patch);
-    if (patch.startAtLogin !== undefined)
-      await setStartAtLogin(patch.startAtLogin);
-  });
-  handle("pause", pause);
+  handle("save-pairs", (pairs: SyncPair[]) => serial(() => savePairs(pairs)));
+  handle("update-settings", (patch: Partial<Settings>) =>
+    serial(async () => {
+      await updateSettings(patch);
+      if (patch.startAtLogin !== undefined)
+        await setStartAtLogin(patch.startAtLogin);
+    }),
+  );
+  handle("pause", (minutes: number | null) => serial(() => pause(minutes)));
   handle("open-staaash", openStaaash);
   handle("open-folder", openFolder);
   handle(
@@ -424,32 +456,42 @@ const registerIpc = () => {
     openSettingsWindow();
   });
   handle("install-update", () => updates?.install());
-  handle("sign-out", async () => {
-    if (token && settings.serverUrl)
-      await signOutDevice(settings.serverUrl, token);
-    await signedOut(null);
-  });
+  handle("sign-out", () =>
+    serial(async () => {
+      // Cancels its unfinished uploads while the token still works.
+      await stopEngine(true);
+      if (token && settings.serverUrl)
+        await signOutDevice(settings.serverUrl, token);
+      await signedOut(null);
+    }),
+  );
   handle("quit", () => app.quit());
 };
 
 app.on("second-instance", () => openSettingsWindow());
 // A tray app keeps running with every window closed.
 app.on("window-all-closed", () => {});
-app.on("before-quit", () => {
+app.on("before-quit", (event) => {
+  if (!engine) return;
+  // Let the engine finish its action and close its database first.
+  event.preventDefault();
   quitting = true;
-  engine?.kill();
+  void serial(stopEngine).then(() => app.quit());
 });
 
+// Startup: each step depends on what is saved, so each is a branch.
+// fallow-ignore-next-line complexity
 void app.whenReady().then(async () => {
   app.setAppUserModelId("com.staaash.desktop");
   app.dock?.hide();
+  token = loadToken();
   registerIpc();
   startEngine();
   tray = createTray({
     openPanel: togglePanel,
     openStaaash: () => void openStaaash(),
     openFolder: (pairId) => void openFolder(pairId),
-    pause: (minutes) => void pause(minutes),
+    pause: (minutes) => void serial(() => pause(minutes)),
     openSettings: openSettingsWindow,
     installUpdate: () => void updates?.install(),
     quit: () => app.quit(),
@@ -460,7 +502,7 @@ void app.whenReady().then(async () => {
     tray?.rebuild();
   });
   powerMonitor.on("resume", () => send({ type: "sync-now" }));
-  if (settings.serverUrl) await checkVersions(settings.serverUrl);
+  if (token && settings.serverUrl) await checkVersions(settings.serverUrl);
   await updateSettings({});
   await setStartAtLogin(settings.startAtLogin);
   await installLinuxMenuEntry().catch(() => {});

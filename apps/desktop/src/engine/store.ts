@@ -84,7 +84,19 @@ export class Store {
     this.db.close();
   }
 
+  private depth = 0;
+
+  /** All or nothing; a transaction inside another joins it. */
   transaction<T>(run: () => T): T {
+    if (this.depth > 0) {
+      this.depth += 1;
+      try {
+        return run();
+      } finally {
+        this.depth -= 1;
+      }
+    }
+    this.depth = 1;
     this.db.exec("BEGIN");
     try {
       const result = run();
@@ -93,6 +105,8 @@ export class Store {
     } catch (error) {
       this.db.exec("ROLLBACK");
       throw error;
+    } finally {
+      this.depth = 0;
     }
   }
 
@@ -190,22 +204,50 @@ export class Store {
   deleteBaseTree(pairId: string, rel: string) {
     this.db
       .prepare(
-        "DELETE FROM base WHERE pairId = ? AND (rel = ? OR substr(rel, 1, ?) = ?)",
+        "DELETE FROM base WHERE pairId = ? AND (rel = ? OR substr(rel, 1, length(?)) = ?)",
       )
-      .run(pairId, rel, rel.length + 1, `${rel}/`);
+      .run(pairId, rel, `${rel}/`, `${rel}/`);
   }
 
   /** Renames a path and everything under it after a move on either side. */
   moveBaseTree(pairId: string, from: string, to: string) {
     const rows = this.db
       .prepare(
-        "SELECT * FROM base WHERE pairId = ? AND (rel = ? OR substr(rel, 1, ?) = ?)",
+        "SELECT * FROM base WHERE pairId = ? AND (rel = ? OR substr(rel, 1, length(?)) = ?)",
       )
-      .all(pairId, from, from.length + 1, `${from}/`) as BaseEntry[];
+      .all(pairId, from, `${from}/`, `${from}/`) as BaseEntry[];
     this.transaction(() => {
       this.deleteBaseTree(pairId, from);
       for (const row of rows) {
         this.putBase({ ...row, rel: to + row.rel.slice(from.length) });
+      }
+    });
+  }
+
+  /** Drops everything remembered about pairs that are no longer synced. */
+  forgetPairsExcept(pairIds: string[]) {
+    const kept = new Set(pairIds);
+    const known = new Set<string>();
+    for (const table of ["base", "upload", "conflict"]) {
+      for (const row of this.db
+        .prepare(`SELECT DISTINCT pairId FROM ${table}`)
+        .all() as { pairId: string }[]) {
+        known.add(row.pairId);
+      }
+    }
+    for (const row of this.db.prepare("SELECT key FROM meta").all() as {
+      key: string;
+    }[]) {
+      const pairId = /^(?:ready|gone|allow-emptied):(.+)$/.exec(row.key)?.[1];
+      if (pairId) known.add(pairId);
+    }
+    this.transaction(() => {
+      for (const pairId of known) {
+        if (kept.has(pairId)) continue;
+        this.clearPair(pairId);
+        for (const key of ["ready", "gone", "allow-emptied"]) {
+          this.setMeta(`${key}:${pairId}`, null);
+        }
       }
     });
   }
@@ -216,6 +258,10 @@ export class Store {
         this.db.prepare(`DELETE FROM ${table} WHERE pairId = ?`).run(pairId);
       }
     });
+  }
+
+  pendingUploads() {
+    return this.db.prepare("SELECT * FROM upload").all() as PendingUpload[];
   }
 
   pendingUpload(pairId: string, rel: string) {

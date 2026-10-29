@@ -5492,7 +5492,7 @@
                   },
                   "totalSizeBytes": {
                     "type": "integer",
-                    "exclusiveMinimum": 0
+                    "minimum": 0
                   },
                   "conflictStrategy": {
                     "type": "string",

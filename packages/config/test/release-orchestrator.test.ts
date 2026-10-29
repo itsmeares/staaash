@@ -351,6 +351,36 @@ describe("release trust roots", () => {
     }
   });
 
+  it("releases a source from before the desktop app", async () => {
+    const sourceRoot = await mkdtemp(path.join(os.tmpdir(), "release-older-"));
+    try {
+      for (const file of [
+        "package.json",
+        "apps/web/package.json",
+        "apps/worker/package.json",
+        "packages/config/package.json",
+        "packages/db/package.json",
+      ]) {
+        const target = path.join(sourceRoot, file);
+        await mkdir(path.dirname(target), { recursive: true });
+        await writeFile(target, JSON.stringify({ version: "1.2.1" }));
+      }
+
+      await expect(preparePackageVersions(sourceRoot, "1.2.2")).resolves.toBe(
+        true,
+      );
+      await expect(readPackageVersions(sourceRoot)).resolves.toEqual({
+        root: "1.2.2",
+        web: "1.2.2",
+        worker: "1.2.2",
+        config: "1.2.2",
+        db: "1.2.2",
+      });
+    } finally {
+      await rm(sourceRoot, { recursive: true, force: true });
+    }
+  });
+
   it("reads package versions and templates only from release source", async () => {
     const sourceRoot = await mkdtemp(path.join(os.tmpdir(), "release-source-"));
     try {

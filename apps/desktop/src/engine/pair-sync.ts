@@ -7,7 +7,7 @@ import { ApiError } from "./api";
 import type { LocalEntry } from "./local";
 import { hashFile, localPath, sameStat, scanLocal, statLocal } from "./local";
 import { baseName, parentRel, pathKey } from "./names";
-import type { Action, Hold, LocalFile } from "./plan";
+import type { Action, Excluded, Hold, LocalFile } from "./plan";
 import { conflictCopyName, plan } from "./plan";
 import type { RemoteTree } from "./remote";
 import type { BaseEntry, RemoteItem, Store } from "./store";
@@ -33,6 +33,14 @@ export type PairContext = {
   trash: (file: string) => Promise<void>;
   activity: (update: Activity) => void;
   notify: (title: string, body: string) => void;
+  /**
+   * False once this pair's settings changed, sync paused or the engine is
+   * stopping. Checked before every action: the action in flight finishes,
+   * and the next pass starts from what is on disk and on the server.
+   */
+  current: () => boolean;
+  /** Aborts transfers when the engine stops; the next run resumes them. */
+  signal: AbortSignal;
 };
 
 export type PairResult = {
@@ -50,6 +58,15 @@ const TRANSFERS = 4;
 const SETTLE_MS = 2000;
 
 const hashes = new Map<string, { entry: LocalEntry; checksum: string }>();
+
+const diskMessage = (error: NodeJS.ErrnoException) =>
+  error.code === "ENOSPC"
+    ? "This computer is out of space."
+    : error.code === "EBUSY" || error.code === "EPERM"
+      ? "Another app is using this file. Sync tries again soon."
+      : error.code === "EACCES"
+        ? "Staaash isn't allowed to read or write this."
+        : `Couldn't use this file (${error.code ?? "disk error"}).`;
 
 const remoteFromUpload = (
   file: {
@@ -121,8 +138,14 @@ const order: Record<Action["kind"], number> = {
 export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
   const { pair, store, tree, api } = ctx;
   const issues: Issue[] = [];
-  const issue = (rel: string, kind: Issue["kind"], message: string) =>
-    issues.push({ pairId: pair.id, rel, kind, message });
+  // Each round plans again, so the same problem can come up more than once.
+  const issue = (rel: string, kind: Issue["kind"], message: string) => {
+    const seen = issues.some(
+      (each) =>
+        each.rel === rel && each.kind === kind && each.message === message,
+    );
+    if (!seen) issues.push({ pairId: pair.id, rel, kind, message });
+  };
   let pullAgain = false;
 
   const rootStats = await stat(pair.localPath).catch(() => null);
@@ -166,10 +189,19 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
       ino: local.ino,
     });
 
-  /** Treats a refusal from the server as "look again", not as a failure. */
+  /**
+   * Treats a refusal from the server as "look again", and a local disk error
+   * (a locked file, no permission, a full disk) as a problem with this one
+   * path. Signed-out and network errors end the pass.
+   */
   // One branch per server refusal the engine retries.
   // fallow-ignore-next-line complexity
   const tolerate = (error: unknown, rel: string) => {
+    const local = error as NodeJS.ErrnoException;
+    if (typeof local.syscall === "string") {
+      issue(rel, "error", diskMessage(local));
+      return;
+    }
     if (!(error instanceof ApiError)) throw error;
     if (error.code === "REVISION_MISMATCH") {
       const details = (error.body?.details ?? null) as {
@@ -272,10 +304,9 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     "conflict-copy": async (action, rel, full) => {
       const now = await statLocal(pair.localPath, rel);
       if (!now || !sameStat(now, action.local)) return;
+      const scan = await scanLocal(pair.localPath, () => false);
       const taken = new Set(
-        (await scanLocal(pair.localPath, () => false)).entries.map((entry) =>
-          pathKey(entry.rel),
-        ),
+        [...scan.entries, ...scan.excluded].map((entry) => pathKey(entry.rel)),
       );
       const copyRel = conflictCopyName(
         rel,
@@ -320,7 +351,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         doneBytes: 0,
         at: Date.now(),
       };
-      ctx.activity(activity);
+      const finish = track(activity);
       const { temp, checksum } = await downloadToTemp({
         api,
         fileId: remote.id,
@@ -329,6 +360,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         size: remote.size,
         modifiedAt: remote.modifiedAt,
         throttle: ctx.downloads,
+        signal: ctx.signal,
         onBytes: (bytes) => {
           activity.doneBytes += bytes;
           ctx.activity(activity);
@@ -343,10 +375,8 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
       await moveIntoPlace(temp, full);
       const written = await statLocal(pair.localPath, rel);
       if (written) putBase(rel, written, remote, checksum);
-      ctx.activity({ ...activity, state: "done", at: Date.now() });
+      finish();
     },
-    // Empty files take the multipart path.
-    // fallow-ignore-next-line complexity
     upload: async (action, rel, full) => {
       const { local } = action;
       if (Date.now() - local.mtimeMs < SETTLE_MS) return;
@@ -364,50 +394,30 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         doneBytes: 0,
         at: Date.now(),
       };
-      ctx.activity(activity);
-      let file;
-      if (local.size === 0) {
-        if (action.replace) {
-          // shortcut: an emptied file is uploaded as a new file, so its
-          // share link and favorite do not follow; upload sessions need
-          // one byte. Upgrade when the server takes empty replacements.
-          await api.trashFile(action.replace.remoteId, action.replace.rev);
-          tree.removeSubtree(action.replace.remoteId);
-        }
-        const result = await api.uploadEmpty(
-          parentId,
-          baseName(rel),
-          local.mtimeMs,
-        );
-        file = result.uploadedFiles[0];
-        if (!file) {
-          pullAgain = true;
-          return;
-        }
-      } else {
-        file = await uploadFile({
-          api,
-          store,
-          pairId: pair.id,
-          rel,
-          file: full,
-          folderId: parentId,
-          name: baseName(rel),
-          checksum,
-          size: local.size,
-          mtimeMs: local.mtimeMs,
-          replace: action.replace ? { rev: action.replace.rev } : null,
-          throttle: ctx.uploads,
-          onBytes: (bytes) => {
-            activity.doneBytes += bytes;
-            ctx.activity(activity);
-          },
-        });
-      }
+      const finish = track(activity);
+      const file = await uploadFile({
+        api,
+        store,
+        pairId: pair.id,
+        rel,
+        file: full,
+        folderId: parentId,
+        name: baseName(rel),
+        checksum,
+        size: local.size,
+        mtimeMs: local.mtimeMs,
+        replace: action.replace ? { rev: action.replace.rev } : null,
+        throttle: ctx.uploads,
+        signal: ctx.signal,
+        onBytes: (bytes) => {
+          activity.doneBytes += bytes;
+          ctx.activity(activity);
+        },
+      });
       const item = remoteFromUpload(file, checksum);
       tree.set(item);
       putBase(rel, local, item, checksum);
-      ctx.activity({ ...activity, state: "done", at: Date.now() });
+      finish();
     },
     "keep-mine": async (action, rel, full) => {
       const { local, remote } = action;
@@ -431,6 +441,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         mtimeMs: local.mtimeMs,
         replace: null,
         throttle: ctx.uploads,
+        signal: ctx.signal,
         onBytes: () => {},
       });
       const result = await api.keepMine(remote.id, remote.rev, copy.id);
@@ -451,6 +462,8 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     },
     "trash-remote": async (action, rel) => {
       const { remote } = action;
+      // Back since the scan: not a delete after all.
+      if (await statLocal(pair.localPath, rel)) return;
       if (remote.type === "file") await api.trashFile(remote.id, remote.rev);
       else await api.trashFolder(remote.id, remote.rev);
       tree.removeSubtree(remote.id);
@@ -458,13 +471,33 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     },
   };
 
+  /**
+   * Shows a transfer as active; the returned call marks it done. Leaving
+   * without that call, by an error or a changed file, marks it failed.
+   */
+  let open: Activity[] = [];
+  const track = (activity: Activity) => {
+    open.push(activity);
+    ctx.activity(activity);
+    return () => {
+      open = open.filter((each) => each !== activity);
+      ctx.activity({ ...activity, state: "done", at: Date.now() });
+    };
+  };
+
   const run = async (action: Action) => {
     const rel = "rel" in action ? action.rel : action.from;
+    if (!ctx.current()) return;
     try {
       const handler = handlers[action.kind] as Handler<Action["kind"]>;
       await handler(action as never, rel, localPath(pair.localPath, rel));
     } catch (error) {
       tolerate(error, rel);
+    } finally {
+      for (const activity of open.filter((each) => each.rel === rel)) {
+        ctx.activity({ ...activity, state: "failed", at: Date.now() });
+      }
+      open = open.filter((each) => each.rel !== rel);
     }
   };
 
@@ -479,15 +512,29 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
   const allowEmptied = store.getMeta(`allow-emptied:${pair.id}`) === "1";
   let previousPlan = "";
   let retrySoon = false;
-  for (let round = 0; round < MAX_ROUNDS; round += 1) {
-    const scan = await scanLocal(pair.localPath, ctx.ignore);
+  // Files that could not be read for hashing sit out the rest of the pass.
+  const unhashable: Excluded[] = [];
+  for (let round = 0; round < MAX_ROUNDS && ctx.current(); round += 1) {
+    let scan;
+    try {
+      scan = await scanLocal(pair.localPath, ctx.ignore);
+    } catch (error) {
+      if (typeof (error as NodeJS.ErrnoException).syscall !== "string") {
+        throw error;
+      }
+      issue("", "error", diskMessage(error as NodeJS.ErrnoException));
+      return { issues, hold: null, pullAgain, retrySoon: true };
+    }
     const local: LocalFile[] = scan.entries.map((entry) => {
       const cached = hashes.get(keyOf(entry.rel));
       return cached && sameStat(cached.entry, entry)
         ? { ...entry, checksum: cached.checksum }
         : entry;
     });
-    const { items, skipped } = tree.scope(pair.remoteFolderId);
+    const { items, skipped, ignored } = tree.scope(
+      pair.remoteFolderId,
+      ctx.ignore,
+    );
     folderIds = new Map(
       items
         .filter((each) => each.item.type === "folder")
@@ -499,17 +546,36 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
       local,
       remote: items,
       skipped,
+      excluded: [
+        ...scan.excluded.map((each) => ({ side: "local" as const, ...each })),
+        ...ignored.map((each) => ({
+          side: "remote" as const,
+          rel: each.rel,
+          remoteId: each.item.id,
+        })),
+        ...unhashable,
+      ],
       base: store.baseEntries(pair.id) as BaseEntry[],
       allowEmptied,
     });
     if (round === 0) {
       issues.push(...result.issues);
-      for (const skip of scan.skipped) issue(skip.rel, "symlink", skip.reason);
+      for (const each of scan.excluded) {
+        if (each.reason) issue(each.rel, "error", each.reason);
+      }
     }
     if (result.hold) {
       return { issues, hold: result.hold, pullAgain, retrySoon };
     }
-    for (const entry of result.needsHash) await checksumOf(entry);
+    for (const entry of result.needsHash) {
+      try {
+        await checksumOf(entry);
+      } catch (error) {
+        tolerate(error, entry.rel);
+        unhashable.push({ side: "local", rel: entry.rel });
+        retrySoon = true;
+      }
+    }
     if (result.actions.length === 0) {
       if (result.needsHash.length === 0) break;
       continue;

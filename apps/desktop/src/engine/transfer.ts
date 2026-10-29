@@ -45,6 +45,7 @@ export const downloadToTemp = async (input: {
   modifiedAt: number | null;
   throttle: Throttle;
   onBytes: (bytes: number) => void;
+  signal: AbortSignal;
 }) => {
   const temp = path.join(
     path.dirname(input.target),
@@ -53,7 +54,7 @@ export const downloadToTemp = async (input: {
   const hash = createHash("sha256");
   let received = 0;
   try {
-    const body = await input.api.download(input.fileId);
+    const body = await input.api.download(input.fileId, input.signal);
     await pipeline(
       Readable.fromWeb(body as never),
       new Transform({
@@ -65,6 +66,7 @@ export const downloadToTemp = async (input: {
         },
       }),
       createWriteStream(temp, { flush: true }),
+      { signal: input.signal },
     );
     const digest = hash.digest("hex");
     if (input.checksum ? digest !== input.checksum : received !== input.size) {
@@ -112,6 +114,7 @@ export const uploadFile = async (input: {
   replace: { rev: number } | null;
   throttle: Throttle;
   onBytes: (bytes: number) => void;
+  signal: AbortSignal;
 }) => {
   const { api, store } = input;
   let pending: PendingUpload | null = store.pendingUpload(
@@ -124,6 +127,8 @@ export const uploadFile = async (input: {
       pending.size !== input.size ||
       pending.mtimeMs !== input.mtimeMs)
   ) {
+    // The file changed since: its staged bytes on the server are useless.
+    await api.cancelUpload(pending.sessionId).catch(() => {});
     store.deleteUpload(input.pairId, input.rel);
     pending = null;
   }
@@ -161,6 +166,7 @@ export const uploadFile = async (input: {
   try {
     for (let start = 0; start < input.size; start += chunkSize) {
       if (done.has(start)) continue;
+      input.signal.throwIfAborted();
       const length = Math.min(chunkSize, input.size - start);
       const buffer = Buffer.alloc(length);
       const { bytesRead } = await handle.read(buffer, 0, length, start);

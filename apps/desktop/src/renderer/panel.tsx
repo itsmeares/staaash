@@ -68,7 +68,7 @@ function IssueRow({ issue }: { issue: Issue }) {
             Rename on the server
           </Button>
         </div>
-      ) : issue.kind === "symlink" || issue.kind === "error" ? null : (
+      ) : issue.kind === "error" ? null : (
         <div className="ps-6.5">
           <Button
             size="xs"

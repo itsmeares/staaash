@@ -193,6 +193,8 @@ export const createApi = (serverUrl: string, token: string) => {
       ),
     uploadStatus: (id: string) =>
       read(client.api.uploads.sessions[":id"].$get({ param: { id } })),
+    cancelUpload: (id: string) =>
+      read(client.api.uploads.sessions[":id"].$delete({ param: { id } })),
     /** `end` is inclusive, as in Content-Range. */
     uploadChunk: async (
       id: string,
@@ -224,34 +226,6 @@ export const createApi = (serverUrl: string, token: string) => {
         ),
       ),
     /** Zero-byte files; upload sessions need at least one byte. */
-    uploadEmpty: async (folderId: string, name: string, modifiedAt: number) => {
-      const form = new FormData();
-      form.set("folderId", folderId);
-      form.set(
-        "manifest",
-        JSON.stringify([
-          {
-            clientKey: "0",
-            originalName: name,
-            conflictStrategy: "fail",
-            clientModifiedAt: new Date(modifiedAt).toISOString(),
-          },
-        ]),
-      );
-      form.append("files", new Blob([]), name);
-      const response = await raw("/api/files/files", {
-        method: "POST",
-        headers: { "idempotency-key": randomUUID() },
-        body: form,
-      });
-      return read(
-        Promise.resolve(
-          response as unknown as Awaited<
-            ReturnType<typeof client.api.files.files.$post>
-          >,
-        ),
-      );
-    },
     download: async (fileId: string, signal?: AbortSignal) => {
       const response = await raw(`/api/files/files/${fileId}/download`, {
         signal,

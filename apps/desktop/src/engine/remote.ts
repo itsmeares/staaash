@@ -60,6 +60,13 @@ export class RemoteTree {
     for (const item of store.remoteItems()) this.index(item);
   }
 
+  /** Forgets every server item, for a fresh start from snapshots. */
+  clear() {
+    this.items.clear();
+    this.children.clear();
+    this.store.clearRemote();
+  }
+
   setRoots(roots: Set<string>) {
     this.roots = roots;
   }
@@ -177,11 +184,13 @@ export class RemoteTree {
 
   /**
    * The items under a pair folder with their paths. Items this computer
-   * cannot hold are skipped with a reason, and so is everything inside them.
+   * cannot hold are skipped with a reason, ignored names are left out
+   * quietly, and so is everything inside either.
    */
-  scope(rootId: string) {
+  scope(rootId: string, ignore: (name: string) => boolean = () => false) {
     const items: ScopedItem[] = [];
     const skipped: SkippedItem[] = [];
+    const ignored: ScopedItem[] = [];
     // Directory entries come in several kinds.
     // fallow-ignore-next-line complexity
     const walk = (parentId: string, parentRel: string) => {
@@ -195,6 +204,10 @@ export class RemoteTree {
       for (const group of byKey.values()) {
         for (const item of group) {
           const rel = joinRel(parentRel, item.name);
+          if (ignore(item.name)) {
+            ignored.push({ rel, item });
+            continue;
+          }
           const reason =
             invalidNameReason(item.name) ??
             (group.length > 1
@@ -210,6 +223,6 @@ export class RemoteTree {
       }
     };
     walk(rootId, "");
-    return { items, skipped };
+    return { items, skipped, ignored };
   }
 }

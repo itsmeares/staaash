@@ -20,9 +20,6 @@ export const parentRel = (rel: string) => {
 
 export const baseName = (rel: string) => rel.slice(rel.lastIndexOf("/") + 1);
 
-export const isInside = (rel: string, folder: string) =>
-  rel.startsWith(`${folder}/`);
-
 const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])(\..*)?$/i;
 const WINDOWS_BAD_CHARS = /[<>:"\\|?*]/;
 // Control characters are invalid in Windows names.

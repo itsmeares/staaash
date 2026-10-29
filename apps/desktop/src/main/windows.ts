@@ -30,7 +30,7 @@ const local = (options: Electron.BrowserWindowConstructorOptions) =>
 /** Links in the app's own pages open in the browser. */
 const keepInside = (window: BrowserWindow) => {
   window.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:/.test(url)) void shell.openExternal(url);
+    if (/^https?:/i.test(url)) void shell.openExternal(url);
     return { action: "deny" };
   });
   window.webContents.on("will-navigate", (event) => event.preventDefault());
@@ -152,16 +152,20 @@ export const openAppWindow = async (
   });
   appWindow = window;
   window.on("closed", () => (appWindow = null));
+  // Server pages may link anywhere; only web links leave the app.
+  const sameOrigin = (url: string) => URL.parse(url)?.origin === origin;
+  const openOutside = (url: string) => {
+    if (/^https?:/i.test(url)) void shell.openExternal(url);
+  };
   window.webContents.setWindowOpenHandler(({ url }) => {
-    if (new URL(url).origin !== origin) void shell.openExternal(url);
-    else void window.loadURL(url);
+    if (sameOrigin(url)) void window.loadURL(url);
+    else openOutside(url);
     return { action: "deny" };
   });
   window.webContents.on("will-navigate", (event, url) => {
-    if (new URL(url).origin !== origin) {
-      event.preventDefault();
-      void shell.openExternal(url);
-    }
+    if (sameOrigin(url)) return;
+    event.preventDefault();
+    openOutside(url);
   });
   window.once("ready-to-show", () => window.show());
   try {
