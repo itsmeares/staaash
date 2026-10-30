@@ -11,6 +11,8 @@ export type SyncPair = {
   /** The server path, for display only. */
   remoteLabel: string;
   mode: SyncMode;
+  /** Folders left out of this pair, with all they hold. */
+  skipFolders?: { id: string; label: string }[];
 };
 
 export type Settings = {

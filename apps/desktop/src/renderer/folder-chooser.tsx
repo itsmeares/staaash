@@ -20,8 +20,10 @@ import { Spinner } from "@staaash/ui/components/spinner";
 import type { ServerFolder, SyncMode, SyncPair } from "../shared/types";
 import { DriveFolderDialog } from "./drive-folder-dialog";
 import {
+  type Picks,
   findFolders,
   namesTo,
+  pickHolding,
   pickedFolders,
   tickOf,
   toggleTick,
@@ -138,7 +140,10 @@ export function FolderChooser({
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<"pick" | "place">("pick");
-  const [ticked, setTicked] = useState<ReadonlySet<string>>(new Set());
+  const [picks, setPicks] = useState<Picks>({
+    included: new Set(),
+    skipped: new Set(),
+  });
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const [found, setFound] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -185,7 +190,7 @@ export function FolderChooser({
         lineage(byId, id).includes(remoteFolderId) ||
         lineage(byId, remoteFolderId).includes(id),
     );
-  const picked = pickedFolders(tree, ticked);
+  const picked = pickedFolders(tree, picks);
   const driveLabel = (id: string) =>
     ["Your drive", ...namesTo(tree, id)].join("/");
 
@@ -239,48 +244,44 @@ export function FolderChooser({
   const childNamed = (parentId: string, name: string) =>
     childrenOf.get(parentId)?.find((child) => child.name === name);
 
-  // Each message names what covers the folder and what can be done about it.
+  // Each message names what blocks the folder and what can be done about it.
   // fallow-ignore-next-line complexity
   const computerProblem = (each: ComputerFolder) => {
-    const covering = lineage(byId, each.parentId).find(
-      (id) =>
-        existing.some((pair) => pair.remoteFolderId === id) ||
-        picked.some((folder) => folder.id === id),
+    const owner = lineage(byId, each.parentId).find((id) =>
+      existing.some((pair) => pair.remoteFolderId === id),
     );
-    if (covering) {
-      const canUntick = picked.some((folder) => folder.id === covering);
-      if (covering === root.id) {
-        return canUntick
-          ? `Your whole drive is set to sync, so ${each.name} can't sync separately. Go back and untick Your drive, then tick only the folders you need.`
-          : `Your whole drive already syncs, so ${each.name} can't sync separately.`;
-      }
-      const name = byId.get(covering)?.name;
-      return canUntick
-        ? `${each.name} would go inside ${name}, which is set to sync. Choose another place, or go back and untick ${name}.`
-        : `${each.name} would go inside ${name}, which already syncs. Choose another place.`;
+    if (owner) {
+      const name = owner === root.id ? "Your drive" : byId.get(owner)?.name;
+      return `${each.name} would go inside ${name}, which already syncs. Choose another place.`;
     }
     const target = childNamed(each.parentId, each.name);
-    if (
-      target &&
-      (existing.some((pair) => pair.remoteFolderId === target.id) ||
-        picked.some((folder) => folder.id === target.id))
-    ) {
-      return `${driveLabel(target.id)} already syncs. Choose another place.`;
+    if (target && picks.included.has(target.id)) {
+      return `${driveLabel(target.id)} is already picked above. Untick it, or choose another place.`;
     }
-    return null;
+    const twin = computer.some(
+      (other) =>
+        other.id !== each.id &&
+        other.parentId === each.parentId &&
+        other.name === each.name,
+    );
+    return twin
+      ? `Another folder is going to ${driveLabel(each.parentId)}/${each.name}. Choose another place.`
+      : null;
   };
   const blocked = computer.some((each) => computerProblem(each) !== null);
 
+  const sizeOf = ({ folder, skips }: (typeof picked)[number]) =>
+    skips.reduce((left, skip) => left - skip.size, folder.size);
   const downloadBytes = picked
-    .filter((folder) => placementOf(folder).mode !== "upload")
-    .reduce((sum, folder) => sum + folder.size, 0);
+    .filter(({ folder }) => placementOf(folder).mode !== "upload")
+    .reduce((sum, pick) => sum + sizeOf(pick), 0);
   const tooBig = downloadBytes > data.freeBytes;
   const count = picked.length + computer.length;
 
   const start = async () => {
     setSaving(true);
     setError(null);
-    const pairs: SyncPair[] = picked.map((folder) => ({
+    const pairs: SyncPair[] = picked.map(({ folder, skips }) => ({
       id: crypto.randomUUID(),
       localPath: placementOf(folder).localPath,
       remoteFolderId: folder.id,
@@ -289,6 +290,10 @@ export function FolderChooser({
           ? "Your whole drive"
           : namesTo(tree, folder.id).join("/"),
       mode: placementOf(folder).mode,
+      skipFolders: skips.map((skip) => ({
+        id: skip.id,
+        label: namesTo(tree, skip.id).join("/"),
+      })),
     }));
     for (const each of computer) {
       let target = childNamed(each.parentId, each.name);
@@ -302,11 +307,19 @@ export function FolderChooser({
         target = made.folder;
         addServerFolder(target);
       }
+      const label = [...namesTo(tree, each.parentId), each.name].join("/");
+      // A picked folder around this one would sync it twice, so it skips it.
+      const holder = pickHolding(tree, picks, each.parentId);
+      if (holder && !picks.skipped.has(target.id)) {
+        pairs
+          .find((pair) => pair.remoteFolderId === holder)
+          ?.skipFolders?.push({ id: target.id, label });
+      }
       pairs.push({
         id: crypto.randomUUID(),
         localPath: each.localPath,
         remoteFolderId: target.id,
-        remoteLabel: [...namesTo(tree, each.parentId), each.name].join("/"),
+        remoteLabel: label,
         mode: each.mode,
       });
     }
@@ -355,9 +368,9 @@ export function FolderChooser({
             <>
               <Tick
                 label={`Sync ${label}`}
-                state={taken ? "off" : tickOf(tree, ticked, folder.id)}
+                state={taken ? "off" : tickOf(tree, picks, folder.id)}
                 onToggle={() =>
-                  !taken && setTicked(toggleTick(tree, ticked, folder.id))
+                  !taken && setPicks(toggleTick(tree, picks, folder.id))
                 }
               />
               {isRoot ? <DriveGlyph className="w-4.5" /> : FOLDER_ICON}
@@ -521,12 +534,19 @@ export function FolderChooser({
         <span className="text-meta text-muted-foreground max-sm:hidden">
           Goes to
         </span>
-        {picked.map((folder) => {
+        {picked.map((pick) => {
+          const { folder, skips } = pick;
           const placement = placementOf(folder);
           const name = folder.id === root.id ? "Your drive" : folder.name;
           return (
             <div className="contents" key={folder.id}>
-              {nameCell(FOLDER_ICON, name, formatBytes(folder.size))}
+              {nameCell(
+                FOLDER_ICON,
+                name,
+                skips.length > 0
+                  ? `${formatBytes(sizeOf(pick))}, skips ${skips.length}`
+                  : formatBytes(sizeOf(pick)),
+              )}
               <ModeSelect
                 label={`How ${name} syncs`}
                 value={placement.mode}

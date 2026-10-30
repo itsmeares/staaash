@@ -4,52 +4,76 @@ import type { ServerFolder } from "../shared/types";
 
 export type FolderTree = ReturnType<typeof buildMoveTree<ServerFolder>>;
 
-/** The folders with nothing inside. A tick is stored on these only. */
-const leaves = (tree: FolderTree, id: string): string[] => {
-  const children = tree.childrenOf.get(id) ?? [];
-  return children.length === 0
-    ? [id]
-    : children.flatMap((child) => leaves(tree, child.id));
+/**
+ * What is ticked: folders picked to sync with all they hold, and folders
+ * left out of a picked folder above them.
+ */
+export type Picks = {
+  included: ReadonlySet<string>;
+  skipped: ReadonlySet<string>;
 };
 
-export const tickOf = (
-  tree: FolderTree,
-  ticked: ReadonlySet<string>,
-  id: string,
-) => {
-  const all = leaves(tree, id);
-  const on = all.filter((leaf) => ticked.has(leaf)).length;
-  if (on === 0) return "off";
-  return on === all.length ? "on" : "part";
+const below = (tree: FolderTree, id: string): string[] =>
+  (tree.childrenOf.get(id) ?? []).flatMap((child) => [
+    child.id,
+    ...below(tree, child.id),
+  ]);
+
+/** The picked folder that holds `id`, unless a skip lies between them. */
+export const pickHolding = (tree: FolderTree, picks: Picks, id: string) => {
+  for (const at of lineage(tree.byId, id)) {
+    if (picks.skipped.has(at)) return null;
+    if (picks.included.has(at)) return at;
+  }
+  return null;
 };
 
+export const tickOf = (tree: FolderTree, picks: Picks, id: string) => {
+  const inside = below(tree, id);
+  if (pickHolding(tree, picks, id)) {
+    return inside.some((at) => picks.skipped.has(at)) ? "part" : "on";
+  }
+  return inside.some((at) => picks.included.has(at)) ? "part" : "off";
+};
+
+// Ticking and unticking mean different things inside and outside a pick.
+// fallow-ignore-next-line complexity
 export const toggleTick = (
   tree: FolderTree,
-  ticked: ReadonlySet<string>,
+  picks: Picks,
   id: string,
-) => {
-  const next = new Set(ticked);
-  const turnOff = tickOf(tree, ticked, id) === "on";
-  for (const leaf of leaves(tree, id)) {
-    if (turnOff) next.delete(leaf);
-    else next.add(leaf);
+): Picks => {
+  const included = new Set(picks.included);
+  const skipped = new Set(picks.skipped);
+  for (const at of below(tree, id)) {
+    included.delete(at);
+    skipped.delete(at);
   }
-  return next;
+  if (tickOf(tree, picks, id) === "on") {
+    if (included.has(id)) included.delete(id);
+    else skipped.add(id);
+  } else if (skipped.has(id)) {
+    skipped.delete(id);
+  } else if (!pickHolding(tree, picks, id)) {
+    included.add(id);
+  }
+  return { included, skipped };
 };
 
-/** The highest fully ticked folders: each one becomes a synced folder. */
-export const pickedFolders = (
-  tree: FolderTree,
-  ticked: ReadonlySet<string>,
-): ServerFolder[] => {
-  const walk = (folder: ServerFolder): ServerFolder[] => {
-    const tick = tickOf(tree, ticked, folder.id);
-    if (tick === "on") return [folder];
-    if (tick === "off") return [];
-    return (tree.childrenOf.get(folder.id) ?? []).flatMap(walk);
-  };
-  return tree.root ? walk(tree.root) : [];
-};
+/** The picked folders, each with the folders it leaves out. */
+export const pickedFolders = (tree: FolderTree, picks: Picks) =>
+  [...tree.byId.values()]
+    .filter((folder) => picks.included.has(folder.id))
+    .map((folder) => ({
+      folder,
+      skips: [...picks.skipped].flatMap((id) => {
+        const skip = tree.byId.get(id);
+        return skip?.parentId &&
+          pickHolding(tree, picks, skip.parentId) === folder.id
+          ? [skip]
+          : [];
+      }),
+    }));
 
 /** Folder names from below the drive's top down to `id`. */
 export const namesTo = (tree: FolderTree, id: string) =>

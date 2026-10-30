@@ -509,6 +509,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
   let retrySoon = false;
   // Files that could not be read for hashing sit out the rest of the pass.
   const unhashable: Excluded[] = [];
+  const leftOut = new Set(pair.skipFolders?.map((folder) => folder.id));
   for (let round = 0; round < MAX_ROUNDS && ctx.current(); round += 1) {
     let scan;
     try {
@@ -529,6 +530,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     const { items, skipped, ignored } = tree.scope(
       pair.remoteFolderId,
       ctx.ignore,
+      leftOut,
     );
     folderIds = new Map(
       items

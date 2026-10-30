@@ -184,10 +184,14 @@ export class RemoteTree {
 
   /**
    * The items under a pair folder with their paths. Items this computer
-   * cannot hold are skipped with a reason, ignored names are left out
-   * quietly, and so is everything inside either.
+   * cannot hold are skipped with a reason, ignored names and `leftOut`
+   * folders are left out quietly, and so is everything inside either.
    */
-  scope(rootId: string, ignore: (name: string) => boolean = () => false) {
+  scope(
+    rootId: string,
+    ignore: (name: string) => boolean = () => false,
+    leftOut: ReadonlySet<string> = new Set(),
+  ) {
     const items: ScopedItem[] = [];
     const skipped: SkippedItem[] = [];
     const ignored: ScopedItem[] = [];
@@ -204,7 +208,7 @@ export class RemoteTree {
       for (const group of byKey.values()) {
         for (const item of group) {
           const rel = joinRel(parentRel, item.name);
-          if (ignore(item.name)) {
+          if (ignore(item.name) || leftOut.has(item.id)) {
             ignored.push({ rel, item });
             continue;
           }

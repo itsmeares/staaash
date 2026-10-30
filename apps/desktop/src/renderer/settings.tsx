@@ -167,6 +167,11 @@ function Folders({ state }: { state: AppState }) {
               >
                 {pair.localPath}
               </span>
+              {pair.skipFolders?.length ? (
+                <span className="block truncate text-meta text-muted-foreground">
+                  Skips {pair.skipFolders.map(({ label }) => label).join(", ")}
+                </span>
+              ) : null}
             </span>
             <ModeSelect
               label={`How ${pair.remoteLabel} syncs`}

@@ -571,6 +571,92 @@ describe.skipIf(!origin)("sync against a real server", () => {
     expect(after?.contentChecksum).toBe(sha(""));
   });
 
+  describe("skipped folders", () => {
+    const skipping = (r: Awaited<ReturnType<typeof rig>>, id: string) => ({
+      id: "pair",
+      localPath: r.local,
+      remoteFolderId: r.folderId,
+      remoteLabel: "test",
+      mode: "two-way" as const,
+      skipFolders: [{ id, label: "lexend" }],
+    });
+
+    it("syncs the rest of a folder and leaves a skipped folder alone", async () => {
+      // Paused, so no pass sees the new folder before the skip is set.
+      const r = await rig("two-way", undefined, { paused: true });
+      const left = await server.createFolder("lexend", r.folderId);
+      await server.upload(left, "server.txt", "server");
+      await server.upload(r.folderId, "top.txt", "top");
+      await r.configure({ pairs: [skipping(r, left)], paused: false });
+      await writeOld(r.at("mine.txt"), "mine");
+      await writeOld(r.at("lexend/local.txt"), "local");
+      await r.sync();
+      expect(await tree(r.local)).toEqual({
+        "lexend/": "",
+        "lexend/local.txt": "local",
+        "mine.txt": "mine",
+        "top.txt": "top",
+      });
+      const remote = await r.remote();
+      expect(remote.get("mine.txt")?.contentChecksum).toBe(sha("mine"));
+      expect(remote.get("lexend/server.txt")?.contentChecksum).toBe(
+        sha("server"),
+      );
+      expect(remote.has("lexend/local.txt")).toBe(false);
+    });
+
+    it("syncs a skipped folder through its own pair, elsewhere", async () => {
+      // Paused, so no pass sees the new folder before the skip is set.
+      const r = await rig("two-way", undefined, { paused: true });
+      const left = await server.createFolder("lexend", r.folderId);
+      const elsewhere = path.join(r.root, "elsewhere");
+      await mkdir(elsewhere);
+      await writeOld(path.join(elsewhere, "font.txt"), "font");
+      await server.upload(r.folderId, "top.txt", "top");
+      await r.configure({
+        paused: false,
+        pairs: [
+          skipping(r, left),
+          {
+            id: "own",
+            localPath: elsewhere,
+            remoteFolderId: left,
+            remoteLabel: "lexend",
+            mode: "upload",
+          },
+        ],
+      });
+      await r.sync();
+      expect(await tree(r.local)).toEqual({ "top.txt": "top" });
+      expect((await r.remote()).get("lexend/font.txt")?.contentChecksum).toBe(
+        sha("font"),
+      );
+      expect(await readdir(r.trash)).toEqual([]);
+    });
+
+    it("trashes nothing when a synced folder becomes skipped, and combines when it comes back", async () => {
+      const r = await rig();
+      await writeOld(r.at("docs/a.txt"), "a");
+      await r.sync();
+      const docs = (await r.remote()).get("docs");
+      await r.configure({ pairs: [skipping(r, docs?.id ?? "")] });
+      await writeOld(r.at("docs/b.txt"), "b");
+      await r.sync();
+      expect(await readdir(r.trash)).toEqual([]);
+      expect((await r.remote()).has("docs/b.txt")).toBe(false);
+      await r.configure({
+        pairs: [{ ...skipping(r, ""), skipFolders: [] }],
+      });
+      await r.sync();
+      expect((await r.remote()).get("docs/a.txt")?.contentChecksum).toBe(
+        sha("a"),
+      );
+      expect((await r.remote()).get("docs/b.txt")?.contentChecksum).toBe(
+        sha("b"),
+      );
+    });
+  });
+
   describe("ignored names", () => {
     it("keeps the server copy of a synced file once its name is ignored", async () => {
       const r = await rig();

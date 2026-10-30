@@ -318,12 +318,17 @@ const checkPairs = async (pairs: SyncPair[]) => {
     }
     return chain;
   };
+  // A pair may sit inside another only in a folder the other leaves out.
+  const inside = (inner: SyncPair, outer: SyncPair) => {
+    const chain = ancestors(inner.remoteFolderId);
+    return (
+      chain.has(outer.remoteFolderId) &&
+      !outer.skipFolders?.some((folder) => chain.has(folder.id))
+    );
+  };
   for (const [index, pair] of pairs.entries()) {
     for (const other of pairs.slice(index + 1)) {
-      if (
-        ancestors(pair.remoteFolderId).has(other.remoteFolderId) ||
-        ancestors(other.remoteFolderId).has(pair.remoteFolderId)
-      ) {
+      if (inside(pair, other) || inside(other, pair)) {
         return `${pair.remoteLabel} and ${other.remoteLabel} overlap on the server. Each folder can only sync once.`;
       }
     }
