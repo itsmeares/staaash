@@ -5,6 +5,15 @@ import { shell } from "electron";
 
 const TIMEOUT_MS = 10 * 60_000;
 
+// The shared theme colours; this page cannot load the app's stylesheet.
+const CONNECTED_PAGE = `<!doctype html><meta charset=utf-8><title>Staaash</title>
+<style>
+:root { color-scheme: light dark; background: oklch(0.968 0.0035 75); color: oklch(0.22 0.007 70); }
+@media (prefers-color-scheme: dark) { :root { background: oklch(0.135 0.003 70); color: oklch(0.95 0.003 80); } }
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; font: 16px system-ui, sans-serif; }
+</style>
+<body>Connected. You can close this tab.</body>`;
+
 /**
  * Browser sign-in (RFC 8252): the app listens on a loopback port, the person
  * approves this device on the server's page, and the browser brings back a
@@ -32,7 +41,7 @@ export const signInWithBrowser = async (
     response
       .writeHead(200, { "content-type": "text/html; charset=utf-8" })
       .end(
-        '<!doctype html><meta charset=utf-8><title>Staaash</title><body style="font:16px system-ui;padding:3rem;text-align:center">Connected. You can close this tab.</body>',
+        CONNECTED_PAGE,
       );
     finish(code);
   });
