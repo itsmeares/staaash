@@ -19,6 +19,9 @@ const api: DesktopApi = {
   serverFolders: call("server-folders") as DesktopApi["serverFolders"],
   chooseFolder: call("choose-folder") as DesktopApi["chooseFolder"],
   folderWarning: call("folder-warning") as DesktopApi["folderWarning"],
+  createServerFolder: call(
+    "create-server-folder",
+  ) as DesktopApi["createServerFolder"],
   savePairs: call("save-pairs") as DesktopApi["savePairs"],
   updateSettings: call("update-settings") as DesktopApi["updateSettings"],
   pause: call("pause") as DesktopApi["pause"],

@@ -211,7 +211,7 @@ const resetAccount = async () => {
 
 const signedOut = async (message: string | null) => {
   await resetAccount();
-  await updateSettings({ email: null, pairs: [] });
+  await updateSettings({ email: null, pairs: [], setupSkipped: false });
   if (message) notify("Signed out", message);
   openSettingsWindow();
 };
@@ -291,6 +291,9 @@ const serverFolders = async () => {
 const checkPairs = async (pairs: SyncPair[]) => {
   if (!token || !settings.serverUrl) return "Not signed in.";
   for (const [index, pair] of pairs.entries()) {
+    if (!path.isAbsolute(pair.localPath)) {
+      return `${pair.localPath} is not a full path. Pick another folder.`;
+    }
     if (foldersOverlap(pair.localPath, app.getPath("userData"))) {
       return `${pair.localPath} holds Staaash's own data. Pick another folder.`;
     }
@@ -406,7 +409,12 @@ const registerIpc = () => {
         await resetAccount();
         token = result.token;
         await saveToken(token);
-        await updateSettings({ serverUrl, email: result.email, pairs: [] });
+        await updateSettings({
+          serverUrl,
+          email: result.email,
+          pairs: [],
+          setupSkipped: false,
+        });
         await checkVersions(serverUrl);
         configureEngine();
       });
@@ -432,6 +440,27 @@ const registerIpc = () => {
   handle("folder-warning", (localPath: string) =>
     otherSyncAppWarning(localPath),
   );
+  handle("create-server-folder", async (parentId: string, name: string) => {
+    if (!token || !settings.serverUrl) return { error: "Not signed in." };
+    try {
+      const { folder } = await createApi(
+        settings.serverUrl,
+        token,
+      ).createFolder(parentId, name);
+      return {
+        folder: {
+          id: folder.id,
+          parentId,
+          name: folder.name,
+          pathLabel: folder.name,
+          isFilesRoot: false,
+          size: 0,
+        },
+      };
+    } catch (error) {
+      return { error: (error as Error).message };
+    }
+  });
   handle("save-pairs", (pairs: SyncPair[]) => serial(() => savePairs(pairs)));
   handle("update-settings", (patch: Partial<Settings>) =>
     serial(async () => {
@@ -509,7 +538,8 @@ void app.whenReady().then(async () => {
   const hidden =
     process.argv.includes("--hidden") ||
     app.getLoginItemSettings().wasOpenedAtLogin;
-  if (!token || settings.pairs.length === 0 || versionProblem || !hidden) {
+  const needsSetup = settings.pairs.length === 0 && !settings.setupSkipped;
+  if (!token || needsSetup || versionProblem || !hidden) {
     openSettingsWindow();
   }
 });

@@ -19,6 +19,7 @@ const defaults = (): Settings => ({
   downloadLimitKBps: null,
   pausedUntil: null,
   startAtLogin: true,
+  setupSkipped: false,
 });
 
 const file = () => path.join(app.getPath("userData"), "settings.json");

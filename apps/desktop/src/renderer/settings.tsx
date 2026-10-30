@@ -149,7 +149,12 @@ function Folders({ state }: { state: AppState }) {
   }
   return (
     <div className="grid gap-4">
-      <ul className="m-0 grid list-none divide-y divide-border rounded-xl border border-border bg-card p-0">
+      {pairs.length === 0 ? (
+        <p className="m-0 text-body text-muted-foreground">
+          Nothing is syncing.
+        </p>
+      ) : null}
+      <ul className="m-0 grid list-none divide-y divide-border rounded-xl border border-border bg-card p-0 empty:hidden">
         {pairs.map((pair) => (
           <li className="flex items-center gap-3 px-3 py-2.5" key={pair.id}>
             <span className="min-w-0 flex-1">
@@ -404,18 +409,16 @@ export function SettingsWindow() {
   if (!state) return null;
   if (state.versionProblem) return <VersionProblem state={state} />;
   if (!state.signedIn) return <Connect state={state} />;
-  if (state.settings.pairs.length === 0) {
+  if (state.settings.pairs.length === 0 && !state.settings.setupSkipped) {
     return (
-      <Screen
-        lead="Step 2 of 2. Turn on the folders to sync and pick where each one goes. Nothing is deleted on either side."
-        title="Choose what to sync"
-      >
+      <main className="mx-auto w-full max-w-180 px-6 py-6">
         <FolderChooser
           existing={[]}
           submitLabel="Start syncing"
           onDone={() => {}}
+          onSkip={() => void desktop.updateSettings({ setupSkipped: true })}
         />
-      </Screen>
+      </main>
     );
   }
   return (

@@ -1,5 +1,5 @@
-import { ChevronRight, FolderPlus, Search } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { FolderPlus } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { submitStorageMutationPost } from "@/src/storage-mutation-submit";
 import { DriveGlyph } from "@/components/drive-glyph";
@@ -12,9 +12,12 @@ import {
   DialogPopup,
   DialogTitle,
 } from "@staaash/ui/components/dialog";
-import { Input } from "@staaash/ui/components/input";
+import {
+  FolderFindInput,
+  FolderNameRow,
+  FolderTreeRow as TreeRow,
+} from "@staaash/ui/components/folder-tree";
 import { toast } from "@staaash/ui/components/toast";
-import { cn } from "@staaash/ui/utils";
 import type { MoveTarget } from "@/server/files/types";
 
 import { blockedFolders, buildMoveTree, lineage, noteFor } from "./move-tree";
@@ -47,103 +50,6 @@ export function chooseMoveDestination(
 }
 
 type Tree = { instanceName: string; folders: MoveTarget[] };
-
-// Indent per level, in px, as in the design.
-const INDENT = 22;
-
-function Guides({ depth }: { depth: number }) {
-  return Array.from({ length: depth }, (_, level) => (
-    <span
-      aria-hidden
-      className="absolute inset-y-0 w-px bg-foreground/10"
-      key={level}
-      style={{ left: 16 + level * INDENT }}
-    />
-  ));
-}
-
-/** The arrow: turns when open, and folds or opens alone. */
-function Caret({ open, onToggle }: { open: boolean; onToggle?: () => void }) {
-  return (
-    <span
-      className="grid size-5 shrink-0 place-items-center text-muted-foreground"
-      onClick={(event) => {
-        if (!onToggle) return;
-        event.stopPropagation();
-        onToggle();
-      }}
-    >
-      {onToggle ? (
-        <ChevronRight
-          aria-hidden
-          className={cn(
-            "size-4 transition-transform duration-270 ease-slide motion-reduce:transition-none",
-            open && "rotate-90",
-          )}
-        />
-      ) : null}
-    </span>
-  );
-}
-
-function TreeRow({
-  depth,
-  label,
-  icon,
-  note,
-  open = false,
-  picked,
-  disabled,
-  onPick,
-  onToggle,
-}: {
-  depth: number;
-  label: ReactNode;
-  icon: ReactNode;
-  note?: string;
-  open?: boolean;
-  picked: boolean;
-  disabled: boolean;
-  onPick: () => void;
-  onToggle?: () => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (picked) ref.current?.scrollIntoView({ block: "nearest" });
-  }, [picked]);
-  const pick = () => !disabled && onPick();
-  return (
-    <div
-      aria-disabled={disabled || undefined}
-      aria-expanded={onToggle ? open : undefined}
-      aria-level={depth + 1}
-      aria-selected={picked}
-      className={cn(
-        "relative flex h-9 cursor-pointer items-center gap-1.5 rounded-lg pe-2 text-body outline-none select-none hover:bg-hover aria-disabled:cursor-default aria-disabled:opacity-50 aria-disabled:hover:bg-transparent aria-selected:selected-pill",
-      )}
-      ref={ref}
-      role="treeitem"
-      style={{ paddingInlineStart: 8 + depth * INDENT }}
-      tabIndex={picked ? 0 : -1}
-      onClick={pick}
-      onKeyDown={(event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        pick();
-      }}
-    >
-      <Guides depth={depth} />
-      <Caret open={open} onToggle={onToggle} />
-      {icon}
-      <span className="min-w-0 truncate">{label}</span>
-      {note ? (
-        <span className="ms-auto shrink-0 ps-2 text-label text-muted-foreground italic">
-          {note}
-        </span>
-      ) : null}
-    </div>
-  );
-}
 
 /** Names a new folder inside `parentId`; reports the made folder. */
 function NewFolderRow({
@@ -180,31 +86,15 @@ function NewFolderRow({
     }
   };
   return (
-    <div
-      className="flex h-9 items-center gap-1.5 pe-2"
-      style={{ paddingInlineStart: 8 + depth * INDENT + 26 }}
-    >
-      <ItemIcon item={{ kind: "folder" }} />
-      <Input
-        autoFocus
-        aria-label="New folder name"
-        disabled={busy}
-        size="sm"
-        value={name}
-        onChange={(event) => setName(event.target.value)}
-        onFocus={(event) => event.currentTarget.select()}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            void make();
-          } else if (event.key === "Escape") {
-            event.preventDefault();
-            event.stopPropagation();
-            onCancel();
-          }
-        }}
-      />
-    </div>
+    <FolderNameRow
+      depth={depth}
+      disabled={busy}
+      icon={<ItemIcon item={{ kind: "folder" }} />}
+      value={name}
+      onCancel={onCancel}
+      onChange={setName}
+      onSubmit={() => void make()}
+    />
   );
 }
 
@@ -403,19 +293,13 @@ function MovePicker({
         </DialogTitle>
       </DialogHeader>
       <div className="grid min-h-0 gap-2 px-6 max-sm:px-4">
-        <label className="flex h-9 items-center gap-2 rounded-lg border border-input px-3 text-muted-foreground focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/24">
-          <Search aria-hidden className="size-4 shrink-0" />
-          <span className="sr-only">Find a folder</span>
-          <input
-            className="min-w-0 flex-1 border-0 bg-transparent p-0 text-body text-foreground outline-none placeholder:text-muted-foreground"
-            placeholder="Find a folder"
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setPicked(null);
-            }}
-          />
-        </label>
+        <FolderFindInput
+          value={query}
+          onChange={(value) => {
+            setQuery(value);
+            setPicked(null);
+          }}
+        />
         <div
           aria-label="Folders"
           className="h-80 scrollbar-thin overflow-y-auto py-1 max-sm:h-[50dvh]"

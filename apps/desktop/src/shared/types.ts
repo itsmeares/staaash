@@ -27,6 +27,8 @@ export type Settings = {
   /** Epoch ms; 0 pauses until resumed. */
   pausedUntil: number | null;
   startAtLogin: boolean;
+  /** The person chose to add folders later, so setup stops asking. */
+  setupSkipped: boolean;
 };
 
 export type EngineConfig = {
@@ -155,6 +157,10 @@ export type DesktopApi = {
   >;
   chooseFolder: (defaultPath: string) => Promise<string | null>;
   folderWarning: (localPath: string) => Promise<string | null>;
+  createServerFolder: (
+    parentId: string,
+    name: string,
+  ) => Promise<{ folder: ServerFolder } | { error: string }>;
   savePairs: (pairs: SyncPair[]) => Promise<Result>;
   updateSettings: (patch: Partial<Settings>) => Promise<void>;
   pause: (minutes: number | null) => Promise<void>;
