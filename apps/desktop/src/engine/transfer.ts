@@ -21,8 +21,16 @@ export class Throttle {
     if (!this.limitKBps) return;
     const now = Date.now();
     const start = Math.max(now, this.nextFree);
-    this.nextFree = start + (bytes / (this.limitKBps * 1024)) * 1000;
-    if (start > now) await sleep(start - now, undefined, { signal });
+    const cost = (bytes / (this.limitKBps * 1024)) * 1000;
+    this.nextFree = start + cost;
+    if (start === now) return;
+    try {
+      await sleep(start - now, undefined, { signal });
+    } catch (error) {
+      // These bytes will not be sent, so later transfers must not wait for them.
+      this.nextFree -= cost;
+      throw error;
+    }
   }
 }
 

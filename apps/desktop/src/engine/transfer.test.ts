@@ -53,3 +53,15 @@ it("ends a throttle wait as soon as the signal aborts", async () => {
   abort.abort();
   await expect(waiting).rejects.toMatchObject({ name: "AbortError" });
 });
+
+it("gives back the time reserved by a cancelled wait", async () => {
+  const throttle = new Throttle(1024);
+  const abort = new AbortController();
+  await throttle.take(50 * 1024, abort.signal);
+  const cancelled = throttle.take(100 * 1024 * 1024, abort.signal);
+  abort.abort();
+  await expect(cancelled).rejects.toMatchObject({ name: "AbortError" });
+  const started = Date.now();
+  await throttle.take(1024, new AbortController().signal);
+  expect(Date.now() - started).toBeLessThan(5000);
+});
