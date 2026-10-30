@@ -17,14 +17,42 @@ export class Throttle {
 
   constructor(public limitKBps: number | null) {}
 
-  async take(bytes: number) {
+  async take(bytes: number, signal: AbortSignal) {
     if (!this.limitKBps) return;
     const now = Date.now();
     const start = Math.max(now, this.nextFree);
     this.nextFree = start + (bytes / (this.limitKBps * 1024)) * 1000;
-    if (start > now) await sleep(start - now);
+    if (start > now) await sleep(start - now, undefined, { signal });
   }
 }
+
+const TRANSFERS = 4;
+
+/**
+ * Runs `work` over `items`, a few at a time. The first error stops queued
+ * items and calls `onFatal`, which ends the running ones. The pool settles
+ * only when no worker is still writing, then rethrows that first error.
+ */
+export const pool = async <T>(
+  items: T[],
+  work: (item: T) => Promise<void>,
+  onFatal: () => void,
+) => {
+  let next = 0;
+  let failure: { error: unknown } | null = null;
+  await Promise.all(
+    Array.from({ length: Math.min(TRANSFERS, items.length) }, async () => {
+      try {
+        while (!failure && next < items.length) await work(items[next++]);
+      } catch (error) {
+        if (failure) return;
+        failure = { error };
+        onFatal();
+      }
+    }),
+  );
+  if (failure) throw (failure as { error: unknown }).error;
+};
 
 export const freeBytes = async (dir: string) => {
   const stats = await statfs(dir);
@@ -63,7 +91,9 @@ export const downloadToTemp = async (input: {
           hash.update(chunk);
           received += chunk.length;
           input.onBytes(chunk.length);
-          input.throttle.take(chunk.length).then(() => done(null, chunk), done);
+          input.throttle
+            .take(chunk.length, input.signal)
+            .then(() => done(null, chunk), done);
         },
       }),
       (out = createWriteStream(temp, { flush: true })),
@@ -189,7 +219,7 @@ export const uploadFile = async (input: {
       if (bytesRead !== length) {
         throw new ApiError(0, "The file changed while it was uploading.");
       }
-      await input.throttle.take(length);
+      await input.throttle.take(length, input.signal);
       await api.uploadChunk(session.id, start, buffer, input.size);
       input.onBytes(length);
     }

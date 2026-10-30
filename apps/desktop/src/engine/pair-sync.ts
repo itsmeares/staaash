@@ -16,6 +16,7 @@ import {
   downloadToTemp,
   freeBytes,
   moveIntoPlace,
+  pool,
   uploadFile,
 } from "./transfer";
 
@@ -53,7 +54,6 @@ export type PairResult = {
 };
 
 const MAX_ROUNDS = 20;
-const TRANSFERS = 4;
 /** A file written this recently may still be open in the app saving it. */
 const SETTLE_MS = 2000;
 
@@ -107,21 +107,6 @@ const remoteFromFolder = (folder: {
   modifiedAt: null,
 });
 
-/**
- * Runs `work` over `items`, a few at a time. Waits for every worker to
- * settle before failing, so nothing is still writing when the pass ends.
- */
-const pool = async <T>(items: T[], work: (item: T) => Promise<void>) => {
-  let next = 0;
-  const results = await Promise.allSettled(
-    Array.from({ length: Math.min(TRANSFERS, items.length) }, async () => {
-      while (next < items.length) await work(items[next++]);
-    }),
-  );
-  const failed = results.find((result) => result.status === "rejected");
-  if (failed) throw failed.reason;
-};
-
 const order: Record<Action["kind"], number> = {
   "move-local": 0,
   "move-remote": 0,
@@ -170,6 +155,11 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     );
     return { issues, hold: null, pullAgain, retrySoon: false };
   }
+
+  // Ends the running transfers when the engine stops, or when one of them
+  // hits an error that ends the pass.
+  const fatal = new AbortController();
+  const transfers = AbortSignal.any([ctx.signal, fatal.signal]);
 
   const keyOf = (rel: string) => `${pair.id}\0${rel}`;
   // Server folder ids by path key, rebuilt every round.
@@ -365,7 +355,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         size: remote.size,
         modifiedAt: remote.modifiedAt,
         throttle: ctx.downloads,
-        signal: ctx.signal,
+        signal: transfers,
         onBytes: (bytes) => {
           activity.doneBytes += bytes;
           ctx.activity(activity);
@@ -413,7 +403,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         mtimeMs: local.mtimeMs,
         replace: action.replace ? { rev: action.replace.rev } : null,
         throttle: ctx.uploads,
-        signal: ctx.signal,
+        signal: transfers,
         onBytes: (bytes) => {
           activity.doneBytes += bytes;
           ctx.activity(activity);
@@ -446,7 +436,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         mtimeMs: local.mtimeMs,
         replace: null,
         throttle: ctx.uploads,
-        signal: ctx.signal,
+        signal: transfers,
         onBytes: () => {},
       });
       const result = await api.keepMine(remote.id, remote.rev, copy.id);
@@ -603,7 +593,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     // Folders first, top-down; transfers in parallel; deletions last.
     for (const stage of [0, 1, 2, 3, 4, 5]) {
       const batch = sorted.filter((action) => order[action.kind] === stage);
-      if (stage === 4) await pool(batch, run);
+      if (stage === 4) await pool(batch, run, () => fatal.abort());
       else for (const action of batch) await run(action);
     }
     if (pullAgain) break;

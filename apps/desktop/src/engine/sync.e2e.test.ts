@@ -898,7 +898,8 @@ describe.skipIf(!origin)("sync against a real server", () => {
     });
 
     it("cancels unfinished uploads when stopping for a sign-out", async () => {
-      const r = await rig("two-way", undefined, { uploadLimitKBps: 4 * 1024 });
+      // Slow enough that the second chunk waits far longer than a stop may.
+      const r = await rig("two-way", undefined, { uploadLimitKBps: 100 });
       await writeFile(r.at("big.bin"), randomBytes(40 * 1024 * 1024));
       const past = new Date(Date.now() - 60_000);
       await utimes(r.at("big.bin"), past, past);
