@@ -148,6 +148,8 @@ export type AppState = {
 
 export type Result = { error: string | null };
 
+export type WindowCommand = "settings" | "custom-pause";
+
 /** What the preload script exposes to the windows as `window.staaash`. */
 export type DesktopApi = {
   getState: () => Promise<AppState>;
@@ -173,7 +175,9 @@ export type DesktopApi = {
     pairId: string,
     choice: "download-again" | "apply",
   ) => Promise<void>;
-  openSettings: () => Promise<void>;
+  /** What the tray last asked this window to show, once. */
+  takeCommand: () => Promise<WindowCommand | null>;
+  onCommand: (listener: () => void) => () => void;
   installUpdate: () => Promise<void>;
   signOut: () => Promise<void>;
   quit: () => Promise<void>;

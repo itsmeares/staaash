@@ -1,7 +1,6 @@
-import { FolderOpen, Trash2 } from "lucide-react";
+import { Folder, FolderOpen, Plus, Trash2 } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
 
-import { DriveGlyph } from "@/components/drive-glyph";
 import { Alert, AlertDescription } from "@staaash/ui/components/alert";
 import { Button } from "@staaash/ui/components/button";
 import {
@@ -10,18 +9,19 @@ import {
   FieldLabel,
 } from "@staaash/ui/components/field";
 import { Input } from "@staaash/ui/components/input";
-import { Switch } from "@staaash/ui/components/switch";
 import {
-  Tabs,
-  TabsList,
-  TabsPanel,
-  TabsTab,
-} from "@staaash/ui/components/tabs";
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+} from "@staaash/ui/components/input-group";
+import { Switch } from "@staaash/ui/components/switch";
 import { Textarea } from "@staaash/ui/components/textarea";
 
 import type { AppState, Settings } from "../shared/types";
+import { AppGlyph } from "./app-glyph";
 import { FolderChooser, ModeSelect } from "./folder-chooser";
-import { desktop, useAppState } from "./state";
+import { desktop } from "./state";
 
 const GB = 1024 ** 3;
 
@@ -37,7 +37,7 @@ function Screen({
   return (
     <main className="mx-auto grid w-full max-w-160 gap-6 px-8 py-10">
       <header className="grid gap-2">
-        <DriveGlyph className="mb-2 w-10" />
+        <AppGlyph className="mb-2 w-10" />
         <h1 className="m-0 font-heading text-headline font-medium">{title}</h1>
         <p className="m-0 text-body text-muted-foreground">{lead}</p>
       </header>
@@ -46,7 +46,7 @@ function Screen({
   );
 }
 
-function Connect({ state }: { state: AppState }) {
+export function Connect({ state }: { state: AppState }) {
   const [address, setAddress] = useState(state.settings.serverUrl ?? "");
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,7 +99,7 @@ function Connect({ state }: { state: AppState }) {
 
 // Server-side and app-side problems read differently.
 // fallow-ignore-next-line complexity
-function VersionProblem({ state }: { state: AppState }) {
+export function VersionProblem({ state }: { state: AppState }) {
   const problem = state.versionProblem;
   if (!problem) return null;
   return (
@@ -131,7 +131,42 @@ function VersionProblem({ state }: { state: AppState }) {
   );
 }
 
-function Folders({ state }: { state: AppState }) {
+function FolderState({ state, pairId }: { state: AppState; pairId: string }) {
+  const status = state.status;
+  const moving =
+    status?.activity.filter(
+      (each) => each.pairId === pairId && each.state === "active",
+    ).length ?? 0;
+  const needsYou =
+    status?.issues.some((each) => each.pairId === pairId) ||
+    status?.conflicts.some((each) => each.pairId === pairId);
+  const [tone, label] = needsYou
+    ? ["bg-warning", "Needs you"]
+    : status?.state === "paused"
+      ? ["bg-muted-foreground", "Paused"]
+      : moving
+        ? ["bg-info", `Syncing ${moving}`]
+        : ["bg-success", "Up to date"];
+  return (
+    <span className="mt-0.5 flex items-center gap-1.5 text-label text-muted-foreground">
+      <span className={`size-2 shrink-0 rounded-full ${tone}`} />
+      {label}
+    </span>
+  );
+}
+
+function PageBody({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="min-h-0 flex-1 scrollbar-thin overflow-y-auto">
+      <div className="mx-auto grid w-full max-w-165 gap-6 px-5 pt-4.5 pb-6">
+        <h1 className="m-0 font-heading text-headline font-medium">{title}</h1>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function FoldersPage({ state }: { state: AppState }) {
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { pairs } = state.settings;
@@ -139,86 +174,117 @@ function Folders({ state }: { state: AppState }) {
     setError((await desktop.savePairs(next)).error);
   if (adding) {
     return (
-      <FolderChooser
-        existing={pairs}
-        submitLabel="Add folders"
-        onCancel={() => setAdding(false)}
-        onDone={() => setAdding(false)}
-      />
+      <div className="min-h-0 flex-1 scrollbar-thin overflow-y-auto">
+        <div className="mx-auto w-full max-w-165 px-5 pt-4.5 pb-6">
+          <FolderChooser
+            existing={pairs}
+            submitLabel="Add folders"
+            onCancel={() => setAdding(false)}
+            onDone={() => setAdding(false)}
+          />
+        </div>
+      </div>
     );
   }
   return (
-    <div className="grid gap-4">
-      {pairs.length === 0 ? (
-        <p className="m-0 text-body text-muted-foreground">
-          Nothing is syncing.
-        </p>
-      ) : null}
-      <ul className="m-0 grid list-none divide-y divide-border rounded-xl border border-border bg-card p-0 empty:hidden">
-        {pairs.map((pair) => (
-          <li className="flex items-center gap-3 px-3 py-2.5" key={pair.id}>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-body font-medium">
-                {pair.remoteLabel}
-              </span>
-              <span
-                className="block truncate text-meta text-muted-foreground"
-                title={pair.localPath}
+    <PageBody title="Folders">
+      <div className="grid gap-3">
+        {pairs.length === 0 ? (
+          <p className="m-0 text-body text-muted-foreground">
+            Nothing is syncing.
+          </p>
+        ) : (
+          <ul className={`m-0 list-none p-0 ${GROUP}`}>
+            {pairs.map((pair) => (
+              <li
+                className="flex flex-wrap items-center gap-3 px-3.5 py-2.75"
+                key={pair.id}
               >
-                {pair.localPath}
-              </span>
-              {pair.skipFolders?.length ? (
-                <span className="block truncate text-meta text-muted-foreground">
-                  Skips {pair.skipFolders.map(({ label }) => label).join(", ")}
+                <Folder
+                  aria-hidden
+                  className="size-5 shrink-0 fill-primary text-primary"
+                />
+                <span className="min-w-48 flex-1">
+                  <span className="block truncate text-body font-medium">
+                    {pair.remoteLabel}
+                  </span>
+                  <span
+                    className="block truncate text-label text-muted-foreground"
+                    title={pair.localPath}
+                  >
+                    {pair.localPath}
+                    {pair.skipFolders?.length
+                      ? `. Skips ${pair.skipFolders.map(({ label }) => label).join(", ")}`
+                      : ""}
+                  </span>
+                  <FolderState pairId={pair.id} state={state} />
                 </span>
-              ) : null}
-            </span>
-            <ModeSelect
-              label={`How ${pair.remoteLabel} syncs`}
-              value={pair.mode}
-              onChange={(mode) =>
-                void save(
-                  pairs.map((each) =>
-                    each.id === pair.id ? { ...each, mode } : each,
-                  ),
-                )
-              }
-            />
-            <Button
-              aria-label={`Open ${pair.localPath}`}
-              size="icon-sm"
-              variant="ghost-muted"
-              onClick={() => void desktop.openFolder(pair.id)}
-            >
-              <FolderOpen />
-            </Button>
-            <Button
-              aria-label={`Stop syncing ${pair.remoteLabel}`}
-              size="icon-sm"
-              variant="ghost-destructive"
-              onClick={() =>
-                void save(pairs.filter((each) => each.id !== pair.id))
-              }
-            >
-              <Trash2 />
-            </Button>
-          </li>
-        ))}
-      </ul>
-      <p className="m-0 text-meta text-muted-foreground">
-        Stopping a folder leaves its files on this computer and on the server.
-      </p>
-      {error ? (
-        <Alert variant="error">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      ) : null}
-      <div>
-        <Button variant="outline" onClick={() => setAdding(true)}>
-          Add folders
-        </Button>
+                <ModeSelect
+                  label={`How ${pair.remoteLabel} syncs`}
+                  value={pair.mode}
+                  onChange={(mode) =>
+                    void save(
+                      pairs.map((each) =>
+                        each.id === pair.id ? { ...each, mode } : each,
+                      ),
+                    )
+                  }
+                />
+                <Button
+                  aria-label={`Open ${pair.localPath}`}
+                  size="icon-sm"
+                  variant="ghost-muted"
+                  onClick={() => void desktop.openFolder(pair.id)}
+                >
+                  <FolderOpen />
+                </Button>
+                <Button
+                  aria-label={`Stop syncing ${pair.remoteLabel}`}
+                  size="icon-sm"
+                  variant="ghost-destructive"
+                  onClick={() =>
+                    void save(pairs.filter((each) => each.id !== pair.id))
+                  }
+                >
+                  <Trash2 />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {error ? (
+          <Alert variant="error">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Button variant="outline" onClick={() => setAdding(true)}>
+            <Plus aria-hidden />
+            Add folders
+          </Button>
+          {pairs.length > 0 ? (
+            <p className="m-0 text-label text-muted-foreground">
+              Stopping a folder leaves its files on this computer and on the
+              server.
+            </p>
+          ) : null}
+        </div>
       </div>
-    </div>
+    </PageBody>
+  );
+}
+
+const GROUP =
+  "divide-y divide-border rounded-xl border border-border bg-foreground/2";
+
+function Group({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section>
+      <h2 className="m-0 ms-0.5 mb-2.5 text-label font-medium text-muted-foreground">
+        {title}
+      </h2>
+      <div className={GROUP}>{children}</div>
+    </section>
   );
 }
 
@@ -232,16 +298,16 @@ function Row({
   children: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-6 py-3">
+    <div className="grid min-h-13.5 grid-cols-[minmax(0,1fr)_11.5rem] items-center gap-4 px-3.5 py-3 max-sm:grid-cols-[minmax(0,1fr)_8rem]">
       <div className="min-w-0">
         <p className="m-0 text-body font-medium">{label}</p>
         {description ? (
-          <p className="m-0 max-w-md text-meta text-muted-foreground">
+          <p className="m-0 mt-0.5 max-w-md text-label text-muted-foreground">
             {description}
           </p>
         ) : null}
       </div>
-      <div className="shrink-0">{children}</div>
+      <div className="flex justify-end">{children}</div>
     </div>
   );
 }
@@ -260,10 +326,9 @@ function NumberSetting({
 }) {
   const [text, setText] = useState(value === null ? "" : String(value));
   return (
-    <div className="flex items-center gap-2">
-      <Input
+    <InputGroup>
+      <InputGroupInput
         aria-label={label}
-        className="w-24"
         inputMode="numeric"
         placeholder="No limit"
         value={text}
@@ -273,180 +338,145 @@ function NumberSetting({
         }}
         onChange={(event) => setText(event.target.value.replace(/[^\d.]/g, ""))}
       />
-      <span className="w-8 text-meta text-muted-foreground">{unit}</span>
-    </div>
-  );
-}
-
-function General({
-  platform,
-  settings,
-}: {
-  platform: NodeJS.Platform;
-  settings: Settings;
-}) {
-  const update = (patch: Partial<Settings>) =>
-    void desktop.updateSettings(patch);
-  const [ignore, setIgnore] = useState(settings.ignore.join("\n"));
-  return (
-    <div className="grid divide-y divide-border">
-      <Row
-        description={
-          platform === "linux"
-            ? "Staaash starts in the tray when you sign in. Hyprland and other desktops that skip autostart files need their own startup line, such as exec-once = staaash --hidden."
-            : "Staaash starts in the tray when you sign in to this computer."
-        }
-        label="Start at login"
-      >
-        <Switch
-          aria-label="Start at login"
-          checked={settings.startAtLogin}
-          onCheckedChange={(startAtLogin) => update({ startAtLogin })}
-        />
-      </Row>
-      <Row
-        description="Downloads stop when free space drops below this."
-        label="Keep free on this computer"
-      >
-        <NumberSetting
-          label="Free space to keep, in GB"
-          unit="GB"
-          value={settings.minFreeBytes / GB}
-          onSave={(value) =>
-            update({ minFreeBytes: Math.round((value ?? 0) * GB) })
-          }
-        />
-      </Row>
-      <Row label="Upload speed limit">
-        <NumberSetting
-          label="Upload speed limit, in KB/s"
-          unit="KB/s"
-          value={settings.uploadLimitKBps}
-          onSave={(uploadLimitKBps) => update({ uploadLimitKBps })}
-        />
-      </Row>
-      <Row label="Download speed limit">
-        <NumberSetting
-          label="Download speed limit, in KB/s"
-          unit="KB/s"
-          value={settings.downloadLimitKBps}
-          onSave={(downloadLimitKBps) => update({ downloadLimitKBps })}
-        />
-      </Row>
-      <div className="grid gap-2 py-3">
-        <p className="m-0 text-body font-medium">Don't sync these names</p>
-        <p className="m-0 text-meta text-muted-foreground">
-          One per line. * matches anything, ? one character. System files like
-          .DS_Store and Thumbs.db are always skipped.
-        </p>
-        <Textarea
-          aria-label="Names not to sync"
-          placeholder={"*.log\nnode_modules"}
-          rows={4}
-          value={ignore}
-          onBlur={() =>
-            update({
-              ignore: ignore
-                .split("\n")
-                .map((line) => line.trim())
-                .filter(Boolean),
-            })
-          }
-          onChange={(event) => setIgnore(event.target.value)}
-        />
-      </div>
-    </div>
+      <InputGroupAddon align="inline-end">
+        <InputGroupText>{unit}</InputGroupText>
+      </InputGroupAddon>
+    </InputGroup>
   );
 }
 
 // Update states change the button.
 // fallow-ignore-next-line complexity
-function Account({ state }: { state: AppState }) {
-  const [name, setName] = useState(state.settings.deviceName);
+export function SettingsPage({ state }: { state: AppState }) {
+  const { settings } = state;
+  const update = (patch: Partial<Settings>) =>
+    void desktop.updateSettings(patch);
+  const [ignore, setIgnore] = useState(settings.ignore.join("\n"));
+  const [name, setName] = useState(settings.deviceName);
   return (
-    <div className="grid divide-y divide-border">
-      <Row
-        description={state.settings.serverUrl ?? ""}
-        label={state.settings.email ?? "Signed in"}
-      >
-        <Button
-          variant="destructive-outline"
-          onClick={() => void desktop.signOut()}
-        >
-          Sign out
-        </Button>
-      </Row>
-      <Row
-        description="Shown in your conflict copies and in Staaash's list of signed-in devices."
-        label="This computer's name"
-      >
-        <Input
-          aria-label="This computer's name"
-          className="w-56"
-          maxLength={80}
-          value={name}
-          onBlur={() => {
-            if (name.trim())
-              void desktop.updateSettings({ deviceName: name.trim() });
-          }}
-          onChange={(event) => setName(event.target.value)}
-        />
-      </Row>
-      <Row
-        description={
-          state.update?.ready
-            ? `Version ${state.update.version} is ready.`
-            : "Updates are checked every few hours."
-        }
-        label={`Staaash for desktop ${state.appVersion}`}
-      >
-        {state.update?.ready ? (
-          <Button onClick={() => void desktop.installUpdate()}>
-            {state.update.manual ? "Download" : "Restart to update"}
+    <PageBody title="Settings">
+      <Group title="Account">
+        <div className="flex items-center gap-3 px-3.5 py-2.75">
+          <span className="grid size-8.5 shrink-0 place-items-center rounded-full bg-foreground/8 text-meta font-semibold">
+            {(settings.email ?? "?").charAt(0).toUpperCase()}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-body font-medium">
+              {settings.email ?? "Signed in"}
+            </span>
+            <span className="block truncate text-label text-muted-foreground">
+              {settings.serverUrl}
+            </span>
+          </span>
+          <Button
+            variant="destructive-outline"
+            onClick={() => void desktop.signOut()}
+          >
+            Sign out
           </Button>
-        ) : null}
-      </Row>
-    </div>
-  );
-}
-
-/** Settings, and the first-run steps before there is anything to set. */
-export function SettingsWindow() {
-  const state = useAppState();
-  if (!state) return null;
-  if (state.versionProblem) return <VersionProblem state={state} />;
-  if (!state.signedIn) return <Connect state={state} />;
-  if (state.settings.pairs.length === 0 && !state.settings.setupSkipped) {
-    return (
-      <main className="mx-auto w-full max-w-180 px-6 py-6">
-        <FolderChooser
-          existing={[]}
-          submitLabel="Start syncing"
-          onDone={() => {}}
-          onSkip={() => void desktop.updateSettings({ setupSkipped: true })}
-        />
-      </main>
-    );
-  }
-  return (
-    <main className="mx-auto grid w-full max-w-180 gap-6 px-8 py-8">
-      <h1 className="m-0 font-heading text-headline font-medium">Settings</h1>
-      <Tabs defaultValue="folders">
-        <TabsList>
-          <TabsTab value="folders">Folders</TabsTab>
-          <TabsTab value="account">Account</TabsTab>
-          <TabsTab value="general">General</TabsTab>
-        </TabsList>
-        <TabsPanel className="pt-4" value="folders">
-          <Folders state={state} />
-        </TabsPanel>
-        <TabsPanel value="account">
-          <Account state={state} />
-        </TabsPanel>
-        <TabsPanel value="general">
-          <General platform={state.platform} settings={state.settings} />
-        </TabsPanel>
-      </Tabs>
-    </main>
+        </div>
+        <Row
+          description="Shown on conflict copies and in your list of devices."
+          label="This computer's name"
+        >
+          <Input
+            aria-label="This computer's name"
+            maxLength={80}
+            value={name}
+            onBlur={() => {
+              if (name.trim()) update({ deviceName: name.trim() });
+            }}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </Row>
+      </Group>
+      <Group title="Startup and space">
+        <Row
+          description={
+            state.platform === "linux"
+              ? "Starts in the tray. On Hyprland, add exec-once = staaash --hidden"
+              : "Starts in the tray."
+          }
+          label="Start at login"
+        >
+          <Switch
+            aria-label="Start at login"
+            checked={settings.startAtLogin}
+            onCheckedChange={(startAtLogin) => update({ startAtLogin })}
+          />
+        </Row>
+        <Row
+          description="Downloads stop below this."
+          label="Keep free on this computer"
+        >
+          <NumberSetting
+            label="Free space to keep, in GB"
+            unit="GB"
+            value={settings.minFreeBytes / GB}
+            onSave={(gb) => update({ minFreeBytes: (gb ?? 0) * GB })}
+          />
+        </Row>
+      </Group>
+      <Group title="Speed">
+        <Row label="Upload limit">
+          <NumberSetting
+            label="Upload limit in KB/s"
+            unit="KB/s"
+            value={settings.uploadLimitKBps}
+            onSave={(uploadLimitKBps) => update({ uploadLimitKBps })}
+          />
+        </Row>
+        <Row label="Download limit">
+          <NumberSetting
+            label="Download limit in KB/s"
+            unit="KB/s"
+            value={settings.downloadLimitKBps}
+            onSave={(downloadLimitKBps) => update({ downloadLimitKBps })}
+          />
+        </Row>
+      </Group>
+      <Group title="Files to skip">
+        <div className="grid gap-2 px-3.5 py-3">
+          <div>
+            <p className="m-0 text-body font-medium">Don't sync these names</p>
+            <p className="m-0 mt-0.5 text-label text-muted-foreground">
+              One per line. * matches anything, ? one character. System files
+              like .DS_Store and Thumbs.db are always skipped.
+            </p>
+          </div>
+          <Textarea
+            aria-label="Names not to sync"
+            placeholder={"*.log\nnode_modules"}
+            rows={3}
+            value={ignore}
+            onBlur={() =>
+              update({
+                ignore: ignore
+                  .split("\n")
+                  .map((line) => line.trim())
+                  .filter(Boolean),
+              })
+            }
+            onChange={(event) => setIgnore(event.target.value)}
+          />
+        </div>
+      </Group>
+      <Group title="About">
+        <Row
+          description={
+            state.update?.ready
+              ? `Version ${state.update.version} is ready.`
+              : "Updates are checked every few hours."
+          }
+          label={`Staaash for desktop ${state.appVersion}`}
+        >
+          {state.update?.ready ? (
+            <Button onClick={() => void desktop.installUpdate()}>
+              {state.update.manual ? "Download" : "Restart to update"}
+            </Button>
+          ) : null}
+        </Row>
+      </Group>
+    </PageBody>
   );
 }

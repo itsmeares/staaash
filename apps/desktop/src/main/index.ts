@@ -35,11 +35,10 @@ import {
 import { createTray } from "./tray";
 import { startUpdates, type UpdateState } from "./updates";
 import {
-  closePanel,
   localWindows,
   openAppWindow,
-  openSettingsWindow,
-  togglePanel,
+  openMainWindow,
+  takeCommand,
 } from "./windows";
 
 if (!app.requestSingleInstanceLock()) app.exit(0);
@@ -104,16 +103,26 @@ const configureEngine = () => {
   });
 };
 
+// Longer delays fire at once, so a long pause wakes up and waits again.
+const LONGEST_TIMER = 2 ** 31 - 1;
+const armResumeTimer = () => {
+  if (resumeTimer) clearTimeout(resumeTimer);
+  const until = settings.pausedUntil;
+  if (!until) return;
+  const left = until - Date.now();
+  resumeTimer = setTimeout(
+    () => {
+      if (left > LONGEST_TIMER) armResumeTimer();
+      else void serial(() => updateSettings({ pausedUntil: null }));
+    },
+    Math.max(0, Math.min(left, LONGEST_TIMER)),
+  );
+};
+
 const updateSettings = async (patch: Partial<Settings>) => {
   settings = { ...settings, ...patch };
   await saveSettings(settings);
-  if (resumeTimer) clearTimeout(resumeTimer);
-  if (settings.pausedUntil) {
-    resumeTimer = setTimeout(
-      () => void serial(() => updateSettings({ pausedUntil: null })),
-      Math.max(0, settings.pausedUntil - Date.now()),
-    );
-  }
+  armResumeTimer();
   configureEngine();
   publish();
   tray?.rebuild();
@@ -213,7 +222,7 @@ const signedOut = async (message: string | null) => {
   await resetAccount();
   await updateSettings({ email: null, pairs: [], setupSkipped: false });
   if (message) notify("Signed out", message);
-  openSettingsWindow();
+  openMainWindow();
 };
 
 /** Whether this app and the server can work together. Offline is not a problem. */
@@ -346,7 +355,6 @@ const openStaaash = async () => {
   const deviceToken = token;
   if (!serverUrl || !deviceToken) return { error: "Sign in first." };
   try {
-    closePanel();
     await openAppWindow(serverUrl, () => webSessionUrl(serverUrl, deviceToken));
     return { error: null };
   } catch (error) {
@@ -357,20 +365,24 @@ const openStaaash = async () => {
 const openFolder = async (pairId: string, rel?: string) => {
   const pair = settings.pairs.find((each) => each.id === pairId);
   if (!pair) return;
-  closePanel();
   if (rel) shell.showItemInFolder(path.join(pair.localPath, ...rel.split("/")));
   else await shell.openPath(pair.localPath);
 };
 
-const pause = (minutes: number | null) =>
-  updateSettings({
+// Ten years is far past any real pause, and keeps the date valid.
+const LONGEST_PAUSE_MINUTES = 10 * 365 * 24 * 60;
+
+const pause = (minutes: number | null) => {
+  if (minutes !== null && !(minutes >= 0)) return Promise.resolve();
+  return updateSettings({
     pausedUntil:
       minutes === null
         ? null
         : minutes === 0
           ? 0
-          : Date.now() + minutes * 60_000,
+          : Date.now() + Math.min(minutes, LONGEST_PAUSE_MINUTES) * 60_000,
   });
+};
 
 const savePairs = async (pairs: SyncPair[]) => {
   try {
@@ -485,10 +497,7 @@ const registerIpc = () => {
   handle("resolve-pair", (pairId: string, choice: "download-again" | "apply") =>
     send({ type: "resolve-pair", pairId, choice }),
   );
-  handle("open-settings", () => {
-    closePanel();
-    openSettingsWindow();
-  });
+  handle("take-command", takeCommand);
   handle("install-update", () => updates?.install());
   handle("sign-out", () =>
     serial(async () => {
@@ -502,7 +511,7 @@ const registerIpc = () => {
   handle("quit", () => app.quit());
 };
 
-app.on("second-instance", () => openSettingsWindow());
+app.on("second-instance", () => openMainWindow());
 // A tray app keeps running with every window closed.
 app.on("window-all-closed", () => {});
 app.on("before-quit", (event) => {
@@ -522,11 +531,12 @@ void app.whenReady().then(async () => {
   registerIpc();
   startEngine();
   tray = createTray({
-    openPanel: togglePanel,
+    openWindow: () => openMainWindow(),
+    customPause: () => openMainWindow("custom-pause"),
     openStaaash: () => void openStaaash(),
     openFolder: (pairId) => void openFolder(pairId),
     pause: (minutes) => void serial(() => pause(minutes)),
-    openSettings: openSettingsWindow,
+    openSettings: () => openMainWindow("settings"),
     installUpdate: () => void updates?.install(),
     quit: () => app.quit(),
   });
@@ -545,6 +555,6 @@ void app.whenReady().then(async () => {
     app.getLoginItemSettings().wasOpenedAtLogin;
   const needsSetup = settings.pairs.length === 0 && !settings.setupSkipped;
   if (!token || needsSetup || versionProblem || !hidden) {
-    openSettingsWindow();
+    openMainWindow();
   }
 });

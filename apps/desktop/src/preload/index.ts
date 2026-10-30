@@ -29,7 +29,12 @@ const api: DesktopApi = {
   openFolder: call("open-folder") as DesktopApi["openFolder"],
   resolveConflict: call("resolve-conflict") as DesktopApi["resolveConflict"],
   resolvePair: call("resolve-pair") as DesktopApi["resolvePair"],
-  openSettings: call("open-settings") as DesktopApi["openSettings"],
+  takeCommand: call("take-command") as DesktopApi["takeCommand"],
+  onCommand: (listener) => {
+    const handler = () => listener();
+    ipcRenderer.on("command", handler);
+    return () => ipcRenderer.removeListener("command", handler);
+  },
   installUpdate: call("install-update") as DesktopApi["installUpdate"],
   signOut: call("sign-out") as DesktopApi["signOut"],
   quit: call("quit") as DesktopApi["quit"],

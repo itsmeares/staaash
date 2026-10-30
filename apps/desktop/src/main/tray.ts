@@ -2,13 +2,15 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { app, Menu, nativeImage, nativeTheme, Tray } from "electron";
 
+import { PAUSE_CHOICES } from "../shared/pause";
 import { statusLine } from "../shared/status";
 import type { AppState } from "../shared/types";
 
 type TrayIcon = "idle" | "syncing" | "paused" | "attention" | "offline";
 
 export type TrayActions = {
-  openPanel: (bounds: Electron.Rectangle) => void;
+  openWindow: () => void;
+  customPause: () => void;
   openStaaash: () => void;
   openFolder: (pairId: string) => void;
   pause: (minutes: number | null) => void;
@@ -71,9 +73,8 @@ const whenTrayBarStarts = (then: () => void) => {
 };
 
 /**
- * Left-click opens the activity panel, right-click the menu. Linux trays
- * often ignore left-clicks, so there the menu opens on any click and has a
- * "Show activity" item instead.
+ * Left-click opens the window, right-click the menu. Linux trays often ignore
+ * left-clicks, so there the menu opens on any click and has "Open Staaash".
  */
 export const createTray = (actions: TrayActions) => {
   let state: AppState | null = null;
@@ -89,8 +90,9 @@ export const createTray = (actions: TrayActions) => {
     return Menu.buildFromTemplate([
       { label: current ? statusLine(current) : "Starting…", enabled: false },
       { type: "separator" },
+      { label: "Open Staaash", click: actions.openWindow },
       {
-        label: "Open Staaash",
+        label: "Open in browser",
         enabled: Boolean(current?.signedIn),
         click: actions.openStaaash,
       },
@@ -102,23 +104,17 @@ export const createTray = (actions: TrayActions) => {
           click: () => actions.openFolder(pair.id),
         })),
       },
-      ...(process.platform === "linux"
-        ? [
-            {
-              label: "Show activity",
-              click: () => actions.openPanel(tray.getBounds()),
-            },
-          ]
-        : []),
       paused
         ? { label: "Resume syncing", click: () => actions.pause(null) }
         : {
             label: "Pause syncing",
             enabled: Boolean(current?.signedIn),
             submenu: [
-              { label: "For 30 minutes", click: () => actions.pause(30) },
-              { label: "For 2 hours", click: () => actions.pause(120) },
-              { label: "Until I resume", click: () => actions.pause(0) },
+              ...PAUSE_CHOICES.map(({ label, minutes }) => ({
+                label,
+                click: () => actions.pause(minutes),
+              })),
+              { label: "Custom…", click: actions.customPause },
             ],
           },
       { type: "separator" },
@@ -146,7 +142,7 @@ export const createTray = (actions: TrayActions) => {
       tray.setContextMenu(menu());
     });
   } else {
-    tray.on("click", () => actions.openPanel(tray.getBounds()));
+    tray.on("click", actions.openWindow);
     tray.on("right-click", () => tray.popUpContextMenu(menu()));
   }
 

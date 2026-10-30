@@ -1,7 +1,6 @@
 import { Folder, FolderPlus } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 
-import { DriveGlyph } from "@/components/drive-glyph";
 import { buildMoveTree } from "@/src/workspace/move-tree";
 import { Alert, AlertDescription } from "@staaash/ui/components/alert";
 import { Button } from "@staaash/ui/components/button";
@@ -20,6 +19,7 @@ import {
 
 import type { ServerFolder } from "../shared/types";
 import { findFolders } from "./folder-picks";
+import { AppGlyph } from "./app-glyph";
 import { desktop } from "./state";
 
 const FOLDER_ICON = (
@@ -150,7 +150,7 @@ export function DriveFolderDialog({
         <FolderTreeRow
           depth={0}
           disabled={false}
-          icon={<DriveGlyph className="w-4.5" />}
+          icon={<AppGlyph className="w-4.5" />}
           label={<span className="font-medium">Your drive</span>}
           picked={picked === tree.root.id}
           onPick={() => tree.root && setPicked(tree.root.id)}

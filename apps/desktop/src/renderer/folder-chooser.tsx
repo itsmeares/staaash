@@ -1,7 +1,6 @@
 import { Folder, Monitor } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { DriveGlyph } from "@/components/drive-glyph";
 import { formatBytes } from "@/lib/format-bytes";
 import { buildMoveTree, lineage } from "@/src/workspace/move-tree";
 import { Alert, AlertDescription } from "@staaash/ui/components/alert";
@@ -28,6 +27,7 @@ import {
   tickOf,
   toggleTick,
 } from "./folder-picks";
+import { AppGlyph } from "./app-glyph";
 import { desktop } from "./state";
 
 const MODE_LABELS: Record<SyncMode, string> = {
@@ -373,7 +373,7 @@ export function FolderChooser({
                   !taken && setPicks(toggleTick(tree, picks, folder.id))
                 }
               />
-              {isRoot ? <DriveGlyph className="w-4.5" /> : FOLDER_ICON}
+              {isRoot ? <AppGlyph className="w-4.5" /> : FOLDER_ICON}
             </>
           }
           label={label}

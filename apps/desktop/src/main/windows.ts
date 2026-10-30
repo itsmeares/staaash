@@ -1,11 +1,7 @@
 import path from "node:path";
-import {
-  BrowserWindow,
-  nativeTheme,
-  screen,
-  shell,
-  type Rectangle,
-} from "electron";
+import { BrowserWindow, nativeTheme, shell } from "electron";
+
+import type { WindowCommand } from "../shared/types";
 
 const PRELOAD = path.join(__dirname, "../preload/index.cjs");
 const PAGE = path.join(__dirname, "../renderer/index.html");
@@ -44,104 +40,39 @@ const keepInside = (window: BrowserWindow) => {
   window.webContents.on("will-navigate", (event) => event.preventDefault());
 };
 
-let settingsWindow: BrowserWindow | null = null;
-let panel: BrowserWindow | null = null;
+let mainWindow: BrowserWindow | null = null;
 let appWindow: BrowserWindow | null = null;
-let panelClosedAt = 0;
+let command: WindowCommand | null = null;
 
-export const openSettingsWindow = () => {
-  if (settingsWindow) {
-    settingsWindow.show();
-    settingsWindow.focus();
+/** Shows the one Staaash window, asking it to show `next` when given. */
+export const openMainWindow = (next?: WindowCommand) => {
+  if (next) command = next;
+  if (mainWindow) {
+    mainWindow.show();
+    mainWindow.focus();
+    if (next) mainWindow.webContents.send("command");
     return;
   }
   const window = local({
-    width: 760,
-    height: 600,
-    minWidth: 560,
+    width: 860,
+    height: 640,
+    minWidth: 400,
     minHeight: 480,
     title: "Staaash",
     autoHideMenuBar: true,
   });
-  settingsWindow = window;
+  mainWindow = window;
   keepInside(window);
-  window.on("closed", () => (settingsWindow = null));
+  window.on("closed", () => (mainWindow = null));
   showWhenLoaded(window);
-  void window.loadFile(PAGE, { hash: "settings" });
+  void window.loadFile(PAGE);
 };
 
-const PANEL_WIDTH = 360;
-const PANEL_HEIGHT = 480;
-
-/** Next to the tray icon, inside the screen the icon is on. */
-const panelPosition = (tray: Rectangle) => {
-  const area = screen.getDisplayMatching(tray).workArea;
-  const x = Math.round(
-    Math.min(
-      Math.max(tray.x + tray.width / 2 - PANEL_WIDTH / 2, area.x + 8),
-      area.x + area.width - PANEL_WIDTH - 8,
-    ),
-  );
-  const below = tray.y < area.y + area.height / 2;
-  const y = below ? tray.y + tray.height + 6 : tray.y - PANEL_HEIGHT - 6;
-  return {
-    x,
-    y: Math.min(
-      Math.max(y, area.y + 8),
-      area.y + area.height - PANEL_HEIGHT - 8,
-    ),
-  };
+export const takeCommand = () => {
+  const taken = command;
+  command = null;
+  return taken;
 };
-
-/**
- * The activity panel from the tray. It is destroyed when closed, so it costs
- * no memory then. Windows and macOS show a popup by the tray icon that closes
- * when it loses focus. Linux gets an ordinary small window: there the tray
- * position is unknown, Wayland desktops place windows themselves, and with
- * focus-follows-mouse the pointer would close a popup on its way to it.
- */
-export const togglePanel = (trayBounds: Rectangle) => {
-  if (panel) {
-    panel.close();
-    return;
-  }
-  // Clicking the tray icon blurs the open panel first; that click closes it.
-  if (Date.now() - panelClosedAt < 300) return;
-  const linux = process.platform === "linux";
-  const window = local({
-    width: PANEL_WIDTH,
-    height: PANEL_HEIGHT,
-    title: "Staaash",
-    ...(linux
-      ? {
-          minWidth: PANEL_WIDTH,
-          minHeight: PANEL_HEIGHT,
-          autoHideMenuBar: true,
-        }
-      : {
-          ...panelPosition(trayBounds),
-          resizable: false,
-          minimizable: false,
-          maximizable: false,
-          fullscreenable: false,
-          frame: false,
-          movable: false,
-          skipTaskbar: true,
-          alwaysOnTop: true,
-        }),
-  });
-  panel = window;
-  keepInside(window);
-  if (!linux) window.on("blur", () => window.close());
-  window.on("closed", () => {
-    panelClosedAt = Date.now();
-    if (panel === window) panel = null;
-  });
-  showWhenLoaded(window);
-  void window.loadFile(PAGE, { hash: "panel" });
-};
-
-export const closePanel = () => panel?.close();
 
 /**
  * The web app in its own window, signed in through a one-time link. Only the
@@ -194,9 +125,6 @@ export const openAppWindow = async (
   }
 };
 
-/** Every window that shows the app's own pages, for state updates. */
+/** The window that shows the app's own pages, for state updates. */
 export const localWindows = () =>
-  [settingsWindow, panel].filter(
-    (window): window is BrowserWindow =>
-      window !== null && !window.isDestroyed(),
-  );
+  mainWindow && !mainWindow.isDestroyed() ? [mainWindow] : [];

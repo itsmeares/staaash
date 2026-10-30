@@ -1,6 +1,6 @@
 import type { AppState } from "./types";
 
-/** One line for the tray menu, its tooltip, and the panel header. */
+/** One line for the tray menu, and its tooltip. */
 // One line per engine state.
 // fallow-ignore-next-line complexity
 export const statusLine = (state: AppState) => {
