@@ -112,14 +112,18 @@ export const togglePanel = (trayBounds: Rectangle) => {
     width: PANEL_WIDTH,
     height: PANEL_HEIGHT,
     title: "Staaash",
-    resizable: false,
-    minimizable: false,
-    maximizable: false,
-    fullscreenable: false,
     ...(linux
-      ? { autoHideMenuBar: true }
+      ? {
+          minWidth: PANEL_WIDTH,
+          minHeight: PANEL_HEIGHT,
+          autoHideMenuBar: true,
+        }
       : {
           ...panelPosition(trayBounds),
+          resizable: false,
+          minimizable: false,
+          maximizable: false,
+          fullscreenable: false,
           frame: false,
           movable: false,
           skipTaskbar: true,

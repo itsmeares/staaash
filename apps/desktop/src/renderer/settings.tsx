@@ -236,7 +236,9 @@ function Row({
       <div className="min-w-0">
         <p className="m-0 text-body font-medium">{label}</p>
         {description ? (
-          <p className="m-0 text-meta text-muted-foreground">{description}</p>
+          <p className="m-0 max-w-md text-meta text-muted-foreground">
+            {description}
+          </p>
         ) : null}
       </div>
       <div className="shrink-0">{children}</div>
@@ -271,7 +273,7 @@ function NumberSetting({
         }}
         onChange={(event) => setText(event.target.value.replace(/[^\d.]/g, ""))}
       />
-      <span className="text-meta text-muted-foreground">{unit}</span>
+      <span className="w-8 text-meta text-muted-foreground">{unit}</span>
     </div>
   );
 }
