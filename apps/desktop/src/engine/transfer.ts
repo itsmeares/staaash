@@ -53,6 +53,7 @@ export const downloadToTemp = async (input: {
   );
   const hash = createHash("sha256");
   let received = 0;
+  let out: ReturnType<typeof createWriteStream> | null = null;
   try {
     const body = await input.api.download(input.fileId, input.signal);
     await pipeline(
@@ -65,7 +66,7 @@ export const downloadToTemp = async (input: {
           input.throttle.take(chunk.length).then(() => done(null, chunk), done);
         },
       }),
-      createWriteStream(temp, { flush: true }),
+      (out = createWriteStream(temp, { flush: true })),
       { signal: input.signal },
     );
     const digest = hash.digest("hex");
@@ -78,6 +79,12 @@ export const downloadToTemp = async (input: {
     }
     return { temp, checksum: digest };
   } catch (error) {
+    // The stream opens its file in the background; an abort can land
+    // before that, so wait for it to close or the file appears after rm.
+    const stream = out as ReturnType<typeof createWriteStream> | null;
+    if (stream && !stream.closed) {
+      await new Promise<void>((resolve) => stream.once("close", resolve));
+    }
     await rm(temp, { force: true });
     throw error;
   }
