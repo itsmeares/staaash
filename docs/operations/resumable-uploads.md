@@ -57,9 +57,10 @@ An unreleased staging file consumes its normal user and instance staged-byte
 capacity; it rejects new work only when that capacity or disk headroom is
 actually exhausted.
 
-Released parent rows consume no staging capacity. To prevent unbounded database
-growth during systemic database-cleanup failure, admissions stop only when the
-terminal/pending-cleanup backlog reaches:
+Released parent rows consume no staging capacity. A finished session within its
+24-hour retention is normal, so a client may upload many small files. To prevent
+unbounded database growth during systemic database-cleanup failure, admissions
+stop only when the rows past their retention reach:
 
 - per user: `active sessions per user × 96`
 - instance-wide: `active sessions instance-wide × 96`
