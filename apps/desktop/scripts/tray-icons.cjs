@@ -5,9 +5,9 @@ const { app, BrowserWindow } = require("electron");
 const { writeFileSync } = require("node:fs");
 const path = require("node:path");
 
-// The drive from the app's AppGlyph, moved onto a 32-unit grid.
-const drive = (top, body, line) =>
-  `<path d="M7.4 7.5h17.2l5 11.5H2.4z" fill="${top}"/><rect x="2.2" y="16" width="27.6" height="10.5" rx="2.6" fill="${body}" stroke="${line}"/><rect x="19.5" y="20.3" width="6.2" height="1.8" rx=".9" fill="#4a90ff"/>`;
+// The same drive as the app's AppGlyph, on the 32-unit grid. The thicker edge
+// keeps its outline visible at tray size, where 1 unit is under half a pixel.
+const DRIVE = `<g transform="translate(0 3.5) scale(.889)"><path d="M7 2h22l6 14H1z" fill="#3e424a"/><rect x="1" y="13" width="34" height="14" rx="3.5" fill="#12161e" stroke="#2c3039" stroke-width="1.6"/><rect x="23" y="19" width="7" height="1.8" rx=".9" fill="#4a90ff"/></g>`;
 // macOS tints template images, so those stay one colour.
 const TEMPLATE_DRIVE = `<path d="M7.4 7.5h17.2l2.4 9.1H5z"/><rect x="5" y="15" width="22" height="9" rx="2"/>`;
 // What each state cuts out of its badge, drawn black inside a mask.
@@ -34,8 +34,8 @@ const svg = (state, { fill, shape }, size) => {
 
 // "-dark" is for light panels and "-light" for dark ones, on Windows and Linux.
 const VARIANTS = {
-  "-dark": { fill: "#1c1917", shape: drive("#3e424a", "#12161e", "#12161e") },
-  "-light": { fill: "#f5f5f4", shape: drive("#a0a6b0", "#262b34", "#8a9099") },
+  "-dark": { fill: "#1c1917", shape: DRIVE },
+  "-light": { fill: "#f5f5f4", shape: DRIVE },
   Template: { fill: "#000", shape: TEMPLATE_DRIVE },
 };
 

@@ -107,7 +107,7 @@ function IssueRow({
             variant="outline"
             onClick={() => void desktop.openStaaash()}
           >
-            Open in browser
+            Open drive
           </Button>
         </div>
       ) : issue.kind === "error" ? null : (

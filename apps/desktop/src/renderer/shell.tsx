@@ -125,7 +125,7 @@ export function App() {
         </RailButton>
         <div className="mt-auto">
           <RailButton
-            label="Open in browser"
+            label="Open drive"
             onClick={() => void desktop.openStaaash()}
           >
             <Globe aria-hidden className="size-4.5" />

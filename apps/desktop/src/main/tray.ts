@@ -73,8 +73,8 @@ const whenTrayBarStarts = (then: () => void) => {
 };
 
 /**
- * Left-click opens the window, right-click the menu. Linux trays often ignore
- * left-clicks, so there the menu opens on any click and has "Open Staaash".
+ * Left-click opens the window, right-click the menu. Some Linux trays only
+ * ever show the menu, so it has "Open Staaash" too.
  */
 export const createTray = (actions: TrayActions) => {
   let state: AppState | null = null;
@@ -92,7 +92,7 @@ export const createTray = (actions: TrayActions) => {
       { type: "separator" },
       { label: "Open Staaash", click: actions.openWindow },
       {
-        label: "Open in browser",
+        label: "Open drive",
         enabled: Boolean(current?.signedIn),
         click: actions.openStaaash,
       },
@@ -133,6 +133,7 @@ export const createTray = (actions: TrayActions) => {
     ]);
   };
 
+  tray.on("click", actions.openWindow);
   if (process.platform === "linux") {
     tray.setContextMenu(menu());
     whenTrayBarStarts(() => {
@@ -140,9 +141,9 @@ export const createTray = (actions: TrayActions) => {
       tray = new Tray(image(shownIcon ?? "syncing"));
       tray.setToolTip(shownLine ? `Staaash · ${shownLine}` : "Staaash");
       tray.setContextMenu(menu());
+      tray.on("click", actions.openWindow);
     });
   } else {
-    tray.on("click", actions.openWindow);
     tray.on("right-click", () => tray.popUpContextMenu(menu()));
   }
 
