@@ -239,17 +239,33 @@ export function FolderChooser({
   const childNamed = (parentId: string, name: string) =>
     childrenOf.get(parentId)?.find((child) => child.name === name);
 
+  // Each message names what covers the folder and what can be done about it.
+  // fallow-ignore-next-line complexity
   const computerProblem = (each: ComputerFolder) => {
-    const synced = [
-      ...existing.map((pair) => pair.remoteFolderId),
-      ...picked.map((folder) => folder.id),
-    ];
-    if (lineage(byId, each.parentId).some((id) => synced.includes(id))) {
-      return "This is inside a folder that already syncs. Pick another place.";
+    const covering = lineage(byId, each.parentId).find(
+      (id) =>
+        existing.some((pair) => pair.remoteFolderId === id) ||
+        picked.some((folder) => folder.id === id),
+    );
+    if (covering) {
+      const canUntick = picked.some((folder) => folder.id === covering);
+      if (covering === root.id) {
+        return canUntick
+          ? `Your whole drive is set to sync, so ${each.name} can't sync separately. Go back and untick Your drive, then tick only the folders you need.`
+          : `Your whole drive already syncs, so ${each.name} can't sync separately.`;
+      }
+      const name = byId.get(covering)?.name;
+      return canUntick
+        ? `${each.name} would go inside ${name}, which is set to sync. Choose another place, or go back and untick ${name}.`
+        : `${each.name} would go inside ${name}, which already syncs. Choose another place.`;
     }
     const target = childNamed(each.parentId, each.name);
-    if (target && synced.includes(target.id)) {
-      return "That folder already syncs. Pick another place.";
+    if (
+      target &&
+      (existing.some((pair) => pair.remoteFolderId === target.id) ||
+        picked.some((folder) => folder.id === target.id))
+    ) {
+      return `${driveLabel(target.id)} already syncs. Choose another place.`;
     }
     return null;
   };
