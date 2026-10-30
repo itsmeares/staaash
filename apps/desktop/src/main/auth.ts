@@ -40,9 +40,7 @@ export const signInWithBrowser = async (
     }
     response
       .writeHead(200, { "content-type": "text/html; charset=utf-8" })
-      .end(
-        CONNECTED_PAGE,
-      );
+      .end(CONNECTED_PAGE);
     finish(code);
   });
   await new Promise<void>((resolve) =>
