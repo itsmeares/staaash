@@ -312,8 +312,8 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
       await rename(full, localPath(pair.localPath, copyRel));
       if (action.localOnly) {
         ctx.notify(
-          "Your edit was kept",
-          `${baseName(rel)} changed on the server. Your version is now ${baseName(copyRel)}, on this computer only.`,
+          "Your version was kept",
+          `${baseName(rel)} here doesn't match the server, and this folder only downloads. Your version is now ${baseName(copyRel)}, on this computer only.`,
         );
       } else if (action.local.type === "file") {
         store.addConflict(pair.id, rel, copyRel);
