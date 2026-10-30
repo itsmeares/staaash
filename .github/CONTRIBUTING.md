@@ -63,7 +63,7 @@ Do not have an agent open a pull request, write public replies, or answer mainta
 7. Start the worker with `pnpm worker:dev`.
 
 The desktop app lives in `apps/desktop`. Run it with
-`pnpm --filter desktop build && pnpm --filter desktop start`, then sign in to
+`pnpm desktop:dev`, then sign in to
 your development server at `http://localhost:3000`.
 
 ## Application tests

@@ -8,6 +8,7 @@
   "scripts": {
     "web:dev": "pnpm --filter web dev",
     "worker:dev": "pnpm --filter worker dev",
+    "desktop:dev": "pnpm --filter desktop build && pnpm --filter desktop start",
     "web:build": "pnpm --filter web build",
     "worker:build": "pnpm --filter worker build",
     "web:test": "vp run --filter web test",
