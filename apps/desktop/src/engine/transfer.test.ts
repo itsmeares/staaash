@@ -65,3 +65,22 @@ it("gives back the time reserved by a cancelled wait", async () => {
   await throttle.take(1024, new AbortController().signal);
   expect(Date.now() - started).toBeLessThan(5000);
 });
+
+it("keeps the cost of received bytes after a cancelled wait", async () => {
+  const throttle = new Throttle(1024);
+  const abort = new AbortController();
+  await throttle.take(50 * 1024, abort.signal, true);
+  const cancelled = throttle.take(100 * 1024 * 1024, abort.signal, true);
+  abort.abort();
+  await expect(cancelled).rejects.toThrow();
+  const next = new AbortController();
+  const waiting = throttle.take(1024, next.signal, true);
+  await expect(
+    Promise.race([
+      waiting,
+      new Promise((resolve) => setTimeout(() => resolve("waiting"), 200)),
+    ]),
+  ).resolves.toBe("waiting");
+  next.abort();
+  await expect(waiting).rejects.toThrow();
+});

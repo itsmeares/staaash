@@ -17,7 +17,8 @@ export class Throttle {
 
   constructor(public limitKBps: number | null) {}
 
-  async take(bytes: number, signal: AbortSignal) {
+  /** `received` bytes already used the network, so a cancel keeps their cost. */
+  async take(bytes: number, signal: AbortSignal, received = false) {
     if (!this.limitKBps) return;
     const now = Date.now();
     const start = Math.max(now, this.nextFree);
@@ -27,8 +28,8 @@ export class Throttle {
     try {
       await sleep(start - now, undefined, { signal });
     } catch (error) {
-      // These bytes will not be sent, so later transfers must not wait for them.
-      this.nextFree -= cost;
+      // Unsent bytes never use the network, so later transfers must not wait.
+      if (!received) this.nextFree -= cost;
       throw error;
     }
   }
@@ -100,7 +101,7 @@ export const downloadToTemp = async (input: {
           received += chunk.length;
           input.onBytes(chunk.length);
           input.throttle
-            .take(chunk.length, input.signal)
+            .take(chunk.length, input.signal, true)
             .then(() => done(null, chunk), done);
         },
       }),

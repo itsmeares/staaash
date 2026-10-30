@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import path from "node:path";
 import { app, Menu, nativeImage, nativeTheme, Tray } from "electron";
 
@@ -44,13 +45,39 @@ const image = (icon: TrayIcon) => {
 };
 
 /**
+ * Electron looks for a tray bar once, when the icon is created, and never again
+ * if none is running yet. Startup order is not fixed on Wayland desktops, so
+ * wait for the bar to appear. Once registered, the icon survives bar restarts.
+ */
+const whenTrayBarStarts = (then: () => void) => {
+  const watch = spawn(
+    "gdbus",
+    ["monitor", "--session", "--dest", "org.kde.StatusNotifierWatcher"],
+    { stdio: ["ignore", "pipe", "ignore"] },
+  );
+  // Without gdbus the icon only misses a bar that starts after the app.
+  watch.on("error", () => {});
+  let missing = false;
+  watch.stdout.setEncoding("utf8").on("data", (lines: string) => {
+    if (lines.includes("does not have an owner")) missing = true;
+    if (!missing && lines.includes("is owned by")) watch.kill();
+    // The name appears before the bar can take icons; this signal comes after.
+    if (missing && lines.includes("StatusNotifierHostRegistered")) {
+      watch.kill();
+      then();
+    }
+  });
+  app.once("will-quit", () => watch.kill());
+};
+
+/**
  * Left-click opens the activity panel, right-click the menu. Linux trays
  * often ignore left-clicks, so there the menu opens on any click and has a
  * "Show activity" item instead.
  */
 export const createTray = (actions: TrayActions) => {
   let state: AppState | null = null;
-  const tray = new Tray(image("syncing"));
+  let tray = new Tray(image("syncing"));
   tray.setToolTip("Staaash");
 
   // Menu items depend on sign-in, pause, pairs and updates.
@@ -112,6 +139,12 @@ export const createTray = (actions: TrayActions) => {
 
   if (process.platform === "linux") {
     tray.setContextMenu(menu());
+    whenTrayBarStarts(() => {
+      tray.destroy();
+      tray = new Tray(image(shownIcon ?? "syncing"));
+      tray.setToolTip(shownLine ? `Staaash · ${shownLine}` : "Staaash");
+      tray.setContextMenu(menu());
+    });
   } else {
     tray.on("click", () => actions.openPanel(tray.getBounds()));
     tray.on("right-click", () => tray.popUpContextMenu(menu()));

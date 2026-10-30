@@ -27,6 +27,14 @@ const local = (options: Electron.BrowserWindowConstructorOptions) =>
     },
   });
 
+// Hidden windows on Wayland often never get "ready-to-show", so wait for the
+// load instead. The background colour already covers the empty page.
+const showWhenLoaded = (window: BrowserWindow) =>
+  window.webContents.once("did-finish-load", () => {
+    window.show();
+    window.focus();
+  });
+
 /** Links in the app's own pages open in the browser. */
 const keepInside = (window: BrowserWindow) => {
   window.webContents.setWindowOpenHandler(({ url }) => {
@@ -58,7 +66,7 @@ export const openSettingsWindow = () => {
   settingsWindow = window;
   keepInside(window);
   window.on("closed", () => (settingsWindow = null));
-  window.once("ready-to-show", () => window.show());
+  showWhenLoaded(window);
   void window.loadFile(PAGE, { hash: "settings" });
 };
 
@@ -86,8 +94,11 @@ const panelPosition = (tray: Rectangle) => {
 };
 
 /**
- * The activity panel from the tray. It is destroyed when it loses focus, so
- * it costs no memory while closed.
+ * The activity panel from the tray. It is destroyed when closed, so it costs
+ * no memory then. Windows and macOS show a popup by the tray icon that closes
+ * when it loses focus. Linux gets an ordinary small window: there the tray
+ * position is unknown, Wayland desktops place windows themselves, and with
+ * focus-follows-mouse the pointer would close a popup on its way to it.
  */
 export const togglePanel = (trayBounds: Rectangle) => {
   if (panel) {
@@ -96,30 +107,33 @@ export const togglePanel = (trayBounds: Rectangle) => {
   }
   // Clicking the tray icon blurs the open panel first; that click closes it.
   if (Date.now() - panelClosedAt < 300) return;
+  const linux = process.platform === "linux";
   const window = local({
     width: PANEL_WIDTH,
     height: PANEL_HEIGHT,
-    ...panelPosition(trayBounds),
-    frame: false,
+    title: "Staaash",
     resizable: false,
-    movable: false,
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
-    skipTaskbar: true,
-    alwaysOnTop: true,
+    ...(linux
+      ? { autoHideMenuBar: true }
+      : {
+          ...panelPosition(trayBounds),
+          frame: false,
+          movable: false,
+          skipTaskbar: true,
+          alwaysOnTop: true,
+        }),
   });
   panel = window;
   keepInside(window);
-  window.on("blur", () => window.close());
+  if (!linux) window.on("blur", () => window.close());
   window.on("closed", () => {
     panelClosedAt = Date.now();
     if (panel === window) panel = null;
   });
-  window.once("ready-to-show", () => {
-    window.show();
-    window.focus();
-  });
+  showWhenLoaded(window);
   void window.loadFile(PAGE, { hash: "panel" });
 };
 
@@ -167,7 +181,7 @@ export const openAppWindow = async (
     event.preventDefault();
     openOutside(url);
   });
-  window.once("ready-to-show", () => window.show());
+  showWhenLoaded(window);
   try {
     await window.loadURL(await signedInUrl());
   } catch (error) {

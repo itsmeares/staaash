@@ -266,14 +266,24 @@ function NumberSetting({
   );
 }
 
-function General({ settings }: { settings: Settings }) {
+function General({
+  platform,
+  settings,
+}: {
+  platform: NodeJS.Platform;
+  settings: Settings;
+}) {
   const update = (patch: Partial<Settings>) =>
     void desktop.updateSettings(patch);
   const [ignore, setIgnore] = useState(settings.ignore.join("\n"));
   return (
     <div className="grid divide-y divide-border">
       <Row
-        description="Staaash starts in the tray when you sign in to this computer."
+        description={
+          platform === "linux"
+            ? "Staaash starts in the tray when you sign in. Hyprland and other desktops that skip autostart files need their own startup line, such as exec-once = staaash --hidden."
+            : "Staaash starts in the tray when you sign in to this computer."
+        }
         label="Start at login"
       >
         <Switch
@@ -424,7 +434,7 @@ export function SettingsWindow() {
           <Account state={state} />
         </TabsPanel>
         <TabsPanel value="general">
-          <General settings={state.settings} />
+          <General platform={state.platform} settings={state.settings} />
         </TabsPanel>
       </Tabs>
     </main>
