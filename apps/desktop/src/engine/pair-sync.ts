@@ -107,14 +107,19 @@ const remoteFromFolder = (folder: {
   modifiedAt: null,
 });
 
-/** Runs `work` over `items`, a few at a time. */
+/**
+ * Runs `work` over `items`, a few at a time. Waits for every worker to
+ * settle before failing, so nothing is still writing when the pass ends.
+ */
 const pool = async <T>(items: T[], work: (item: T) => Promise<void>) => {
   let next = 0;
-  await Promise.all(
+  const results = await Promise.allSettled(
     Array.from({ length: Math.min(TRANSFERS, items.length) }, async () => {
       while (next < items.length) await work(items[next++]);
     }),
   );
+  const failed = results.find((result) => result.status === "rejected");
+  if (failed) throw failed.reason;
 };
 
 const order: Record<Action["kind"], number> = {
