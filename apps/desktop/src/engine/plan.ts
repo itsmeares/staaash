@@ -93,6 +93,12 @@ const EMPTIED_HOLD_FILES = 10;
 const depth = (rel: string) => rel.split("/").length;
 
 /** Whether `key` or one of its folders is in one of the sets. */
+/** Some server files have no checksum; only their revision can show a change. */
+const sameOnServer = (previous: BaseEntry, item: RemoteItem) =>
+  item.checksum === null
+    ? previous.rev === item.rev
+    : item.checksum === previous.checksum;
+
 const covered = (key: string, ...sets: Set<string>[]) => {
   for (let each = key; each; each = parentRel(each)) {
     if (sets.some((set) => set.has(each))) return true;
@@ -329,10 +335,7 @@ const dirtySides = (v: View) => ({
       const previous = v.base.get(key);
       if (!there) return true;
       if (previous?.remoteId !== there.item.id) return false;
-      return (
-        there.item.type === "folder" ||
-        there.item.checksum === previous.checksum
-      );
+      return there.item.type === "folder" || sameOnServer(previous, there.item);
     }),
   ),
 });
@@ -425,12 +428,7 @@ const fileOnBothSides = (
       : null;
   }
   const localChanged = !previous || mine !== previous.checksum;
-  // Some server files have no checksum; only their revision can show a change.
-  const remoteChanged =
-    !sameItem ||
-    (theirs === null
-      ? previous.rev !== there.item.rev
-      : theirs !== previous.checksum);
+  const remoteChanged = !sameItem || !sameOnServer(previous, there.item);
   if (!localChanged && !remoteChanged) return null;
   if (localChanged && remoteChanged) {
     return v.mode === "upload"
@@ -488,8 +486,7 @@ const fileOnlyThere = (
   { rel, there, previous }: Cell & { there: ScopedItem },
 ): Action | null => {
   const unchanged =
-    previous?.remoteId === there.item.id &&
-    previous.checksum === there.item.checksum;
+    previous?.remoteId === there.item.id && sameOnServer(previous, there.item);
   if (v.mode === "download" || (v.mode === "two-way" && !unchanged)) {
     return {
       kind: "download",

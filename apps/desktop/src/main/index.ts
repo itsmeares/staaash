@@ -426,14 +426,14 @@ const registerIpc = () => {
         await resetAccount();
         token = result.token;
         await saveToken(token);
+        // Before the settings, which start the engine unless versions clash.
+        await checkVersions(serverUrl);
         await updateSettings({
           serverUrl,
           email: result.email,
           pairs: [],
           setupSkipped: false,
         });
-        await checkVersions(serverUrl);
-        configureEngine();
       });
       return { error: null };
     } catch (error) {

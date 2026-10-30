@@ -140,6 +140,30 @@ describe("first sync", () => {
       expect(result.actions).toEqual([]);
     });
 
+    it("trashes it on the server when it was deleted here", () => {
+      const gone = file("a.txt");
+      const result = run({
+        remote: [remoteFile("a.txt", "r1", null)],
+        base: [baseOf(gone, "r1", "mine")],
+      });
+      expect(kinds(result)).toEqual(["trash-remote:a.txt"]);
+    });
+
+    it("trashes its folder on the server when the folder was deleted here", () => {
+      const inside = file("docs/a.txt");
+      const result = run({
+        remote: [
+          remoteFolder("docs", "d1"),
+          remoteFile("docs/a.txt", "r1", null),
+        ],
+        base: [
+          baseOf(folder("docs"), "d1", null),
+          baseOf(inside, "r1", "mine"),
+        ],
+      });
+      expect(kinds(result)).toEqual(["trash-remote:docs"]);
+    });
+
     it("downloads again only when its revision moves", () => {
       const here = file("a.txt");
       const result = run({
