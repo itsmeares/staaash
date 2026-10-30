@@ -223,9 +223,13 @@ const rig = async (
       config = { ...config, ...patch };
       await result.engine.configure(config);
     },
-    /** Stops the engine as the app does on quit, and starts a new one on the same data. */
-    restart: async () => {
+    /**
+     * Stops the engine as the app does on quit, runs `whileStopped`, and
+     * starts a new one on the same data.
+     */
+    restart: async (whileStopped: () => Promise<void> = async () => {}) => {
       await result.engine.stop();
+      await whileStopped();
       result.engine = await start();
     },
     /**
@@ -257,6 +261,22 @@ const rig = async (
 };
 
 const HISTORY_TABLES = ["base", "upload", "conflict"];
+
+/** Transfers finished so far. */
+const finished = (engine: SyncEngine) =>
+  engine.status().activity.filter((each) => each.state === "done").length;
+
+/** Waits until a transfer is running and has moved some bytes. */
+const transferStarted = async (engine: SyncEngine) => {
+  for (let tries = 0; tries < 200; tries += 1) {
+    const moving = engine
+      .status()
+      .activity.some((each) => each.state === "active" && each.doneBytes > 0);
+    if (moving) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error("No transfer started.");
+};
 
 /** Upload sessions the engine has open on the server. */
 const pendingSessions = (root: string) => {
@@ -324,7 +344,7 @@ describe.skipIf(!origin)("sync against a real server", () => {
       await server.post(`/api/files/folders/${id}/trash`).catch(() => {});
     }
     await server.post("/api/files/trash/clear");
-  });
+  }, 120_000);
 
   afterEach(async () => {
     for (const each of rigs.splice(0)) {
@@ -579,6 +599,35 @@ describe.skipIf(!origin)("sync against a real server", () => {
       );
     });
 
+    it("never trashes the contents of a folder renamed here to an ignored name", async () => {
+      const r = await rig();
+      await writeOld(r.at("docs/a.txt"), "a");
+      await r.sync();
+      const before = (await r.remote()).get("docs/a.txt");
+      await rename(r.at("docs"), r.at("docs.tmp"));
+      await r.sync();
+      expect((await r.remote()).get("docs/a.txt")?.id).toBe(before?.id);
+      expect(await readFile(r.at("docs/a.txt"), "utf8")).toBe("a");
+      expect(await readFile(r.at("docs.tmp/a.txt"), "utf8")).toBe("a");
+      expect(await readdir(r.trash)).toEqual([]);
+    });
+
+    it("never trashes local files when the server renames their folder to an ignored name", async () => {
+      const r = await rig();
+      await writeOld(r.at("docs/a.txt"), "a");
+      await r.sync();
+      const folder = (await r.remote()).get("docs");
+      await server.post(`/api/files/folders/${folder?.id}/rename`, {
+        name: "docs.tmp",
+      });
+      await r.sync();
+      expect(await readFile(r.at("docs/a.txt"), "utf8")).toBe("a");
+      expect(await readdir(r.trash)).toEqual([]);
+      const remote = await r.remote();
+      expect(remote.get("docs.tmp/a.txt")?.contentChecksum).toBe(sha("a"));
+      expect(remote.get("docs/a.txt")?.contentChecksum).toBe(sha("a"));
+    });
+
     it("re-downloads, never trashes, a file renamed here to an ignored name", async () => {
       const r = await rig();
       await writeOld(r.at("draft.txt"), "draft");
@@ -670,6 +719,30 @@ describe.skipIf(!origin)("sync against a real server", () => {
       await settled(r);
     });
 
+    it("between moving a file on the server and renaming it", async () => {
+      const r = await rig();
+      await writeOld(r.at("A/old.txt"), "moving");
+      await mkdir(r.at("B"));
+      await r.sync();
+      const remote = await r.remote();
+      const file = remote.get("A/old.txt");
+      // Here: moved and renamed. Server: only the move went through.
+      await rename(r.at("A/old.txt"), r.at("B/new.txt"));
+      await server.post(`/api/files/files/${file?.id}/move`, {
+        destinationFolderId: remote.get("B")?.id,
+      });
+      await r.sync();
+      const after = await r.remote();
+      expect(after.get("B/new.txt")?.id).toBe(file?.id);
+      expect([...after.keys()].sort()).toEqual(["A", "B", "B/new.txt"]);
+      expect(await tree(r.local)).toEqual({
+        "A/": "",
+        "B/": "",
+        "B/new.txt": "moving",
+      });
+      await settled(r);
+    });
+
     it("after a delete on each side was repeated on the other", async () => {
       const r = await rig();
       await writeOld(r.at("mine.txt"), "m");
@@ -749,11 +822,7 @@ describe.skipIf(!origin)("sync against a real server", () => {
       await utimes(r.at("big.bin"), past, past);
       const syncing = r.engine.syncNow();
       // Sign out once some bytes are on their way.
-      for (let tries = 0; tries < 200; tries += 1) {
-        const sent = r.engine.status().activity[0]?.doneBytes ?? 0;
-        if (sent > 0) break;
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      }
+      await transferStarted(r.engine);
       await fetch(new URL("/api/auth/sign-out", origin), {
         method: "POST",
         headers: { authorization: `Bearer ${own}` },
@@ -773,16 +842,68 @@ describe.skipIf(!origin)("sync against a real server", () => {
       ).toBe(createHash("sha256").update(big).digest("hex"));
     });
 
+    it("finishes an interrupted upload-only edit as keep-mine after the server changed", async () => {
+      const r = await rig("upload", undefined, { uploadLimitKBps: 8 * 1024 });
+      await writeOld(r.at("report.txt"), "base");
+      await r.sync();
+      const original = (await r.remote()).get("report.txt");
+      const edit = randomBytes(24 * 1024 * 1024);
+      await writeFile(r.at("report.txt"), edit);
+      const past = new Date(Date.now() - 60_000);
+      await utimes(r.at("report.txt"), past, past);
+      const syncing = r.engine.syncNow();
+      await transferStarted(r.engine);
+      let replacement: string | undefined;
+      await r.restart(async () => {
+        await syncing;
+        [replacement] = pendingSessions(r.root);
+        expect(replacement).toBeDefined();
+        await server.upload(r.folderId, "report.txt", "server edit");
+      });
+      await r.configure({ uploadLimitKBps: null });
+      await r.sync();
+      const after = (await r.remote()).get("report.txt");
+      expect(after?.id).toBe(original?.id);
+      expect(after?.contentChecksum).toBe(
+        createHash("sha256").update(edit).digest("hex"),
+      );
+      // The server's edit went to the trash, not under the old session.
+      const trash = (await (
+        await server.post("/api/views/trash", { query: {} })
+      ).json()) as { items: { name: string }[] };
+      expect(trash.items.some((item) => item.name === "report.txt")).toBe(true);
+      const old = await fetch(
+        new URL(`/api/uploads/sessions/${replacement}`, origin),
+        { headers: { cookie, origin: origin ?? "" } },
+      );
+      expect(old.status).toBe(404);
+    });
+
+    it("stops a pass before its next upload when an ignore rule is added", async () => {
+      const r = await rig("two-way", undefined, { uploadLimitKBps: 1024 });
+      for (let index = 0; index < 12; index += 1) {
+        await writeOld(r.at(`f${index}.bin`), "x".repeat(512 * 1024));
+      }
+      const syncing = r.engine.syncNow();
+      await transferStarted(r.engine);
+      const done = finished(r.engine);
+      await r.configure({ ignore: ["*.bin"] });
+      await syncing;
+      // Only what had finished, plus the uploads already running.
+      const sent = (await r.remote()).size;
+      expect(sent).toBeLessThanOrEqual(done + 4);
+      expect(sent).toBeLessThan(12);
+      await r.sync();
+      expect((await r.remote()).size).toBe(sent);
+    });
+
     it("cancels unfinished uploads when stopping for a sign-out", async () => {
       const r = await rig("two-way", undefined, { uploadLimitKBps: 4 * 1024 });
       await writeFile(r.at("big.bin"), randomBytes(40 * 1024 * 1024));
       const past = new Date(Date.now() - 60_000);
       await utimes(r.at("big.bin"), past, past);
       const syncing = r.engine.syncNow();
-      for (let tries = 0; tries < 200; tries += 1) {
-        if ((r.engine.status().activity[0]?.doneBytes ?? 0) > 0) break;
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      }
+      await transferStarted(r.engine);
       const [session] = pendingSessions(r.root);
       expect(session).toBeDefined();
       await r.engine.stop({ cancelUploads: true });
@@ -802,12 +923,13 @@ describe.skipIf(!origin)("sync against a real server", () => {
       }
       const syncing = r.engine.syncNow();
       await new Promise((resolve) => setTimeout(resolve, 500));
-      await r.restart();
-      await syncing;
-      const names = await readdir(r.local);
-      expect(names.some((name) => name.startsWith(".staaash-part-"))).toBe(
-        false,
-      );
+      await r.restart(async () => {
+        await syncing;
+        const names = await readdir(r.local);
+        expect(names.some((name) => name.startsWith(".staaash-part-"))).toBe(
+          false,
+        );
+      });
       await r.sync();
       expect((await readdir(r.local)).sort()).toEqual(
         ["a", "b", "c", "d", "e", "f"].map((name) => `${name}.bin`),
@@ -820,11 +942,14 @@ describe.skipIf(!origin)("sync against a real server", () => {
         await server.upload(r.folderId, `${name}.bin`, "x".repeat(1024 * 1024));
       }
       const syncing = r.engine.syncNow();
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await transferStarted(r.engine);
+      const done = finished(r.engine);
       await r.configure({ pairs: [] });
       await syncing;
-      // At most the transfers already running finished.
-      expect((await readdir(r.local)).length).toBeLessThanOrEqual(4);
+      // Only what had finished, plus the transfers already running.
+      const names = await readdir(r.local);
+      expect(names.length).toBeLessThanOrEqual(done + 4);
+      expect(names.length).toBeLessThan(8);
       expect(r.engine.status().fileCount).toBe(0);
     });
   });

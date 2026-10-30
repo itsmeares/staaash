@@ -363,13 +363,18 @@ export class SyncEngine {
     return this.passWaiting;
   }
 
-  /** Whether `pair` still syncs as it did when the pass started. */
-  private current(pair: SyncPair) {
+  /**
+   * Whether `pair` still syncs as it did when the pass started: same folder
+   * and mode, and the same ignore rules, which decide what may be touched.
+   */
+  private current(pair: SyncPair, ignore: string[]) {
     const config = this.config;
     if (this.stopped || this.signedOut || !config || config.paused)
       return false;
     const now = config.pairs.find((each) => each.id === pair.id);
-    return JSON.stringify(now) === JSON.stringify(pair);
+    return (
+      JSON.stringify([now, config.ignore]) === JSON.stringify([pair, ignore])
+    );
   }
 
   // One pass: pull, then each pair, then the next wake-up.
@@ -405,7 +410,7 @@ export class SyncEngine {
           activity: (update) => this.track(update),
           notify: (title, body) =>
             this.deps.emit({ type: "notify", title, body }),
-          current: () => this.current(pair),
+          current: () => this.current(pair, config.ignore),
           signal: this.halt.signal,
         });
         issues.push(...result.issues);

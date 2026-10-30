@@ -33,6 +33,8 @@ export type PendingUpload = {
   checksum: string;
   size: number;
   mtimeMs: number;
+  /** The folder, name and replace choice the session was started with. */
+  target: string;
 };
 
 export type ConflictRow = {
@@ -60,6 +62,7 @@ const SCHEMA = `
   CREATE TABLE IF NOT EXISTS upload (
     pairId TEXT NOT NULL, rel TEXT NOT NULL, sessionId TEXT NOT NULL,
     checksum TEXT NOT NULL, size INTEGER NOT NULL, mtimeMs REAL NOT NULL,
+    target TEXT NOT NULL,
     PRIMARY KEY (pairId, rel)
   );
   CREATE TABLE IF NOT EXISTS conflict (
@@ -276,8 +279,8 @@ export class Store {
     this.db
       .prepare(
         `INSERT OR REPLACE INTO upload
-          (pairId, rel, sessionId, checksum, size, mtimeMs)
-          VALUES (?, ?, ?, ?, ?, ?)`,
+          (pairId, rel, sessionId, checksum, size, mtimeMs, target)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         upload.pairId,
@@ -286,6 +289,7 @@ export class Store {
         upload.checksum,
         upload.size,
         upload.mtimeMs,
+        upload.target,
       );
   }
 

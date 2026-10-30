@@ -283,6 +283,45 @@ describe("folders", () => {
 });
 
 describe("moves", () => {
+  it("finishes a move whose server half stopped after the move, before the rename", () => {
+    const before = file("A/old.txt", 3, 1000, 7);
+    const after = { ...before, rel: "B/new.txt" };
+    const result = run({
+      local: [folder("A", 1), folder("B", 2), after],
+      remote: [
+        remoteFolder("A", "fa"),
+        remoteFolder("B", "fb"),
+        remoteFile("B/old.txt", "r1", "x", 2),
+      ],
+      base: [
+        baseOf(folder("A", 1), "fa", null),
+        baseOf(folder("B", 2), "fb", null),
+        baseOf(before, "r1", "x"),
+      ],
+    });
+    expect(kinds(result)).toEqual(["move-remote:A/old.txt"]);
+    expect(result.actions[0]).toMatchObject({ to: "B/new.txt" });
+  });
+
+  it("does not take over a different move made on the server", () => {
+    const before = file("A/old.txt", 3, 1000, 7);
+    const result = run({
+      local: [folder("A", 1), folder("B", 2), { ...before, rel: "B/new.txt" }],
+      remote: [
+        remoteFolder("A", "fa"),
+        remoteFolder("B", "fb"),
+        remoteFolder("C", "fc"),
+        remoteFile("C/other.txt", "r1", "x", 2),
+      ],
+      base: [
+        baseOf(folder("A", 1), "fa", null),
+        baseOf(folder("B", 2), "fb", null),
+        baseOf(before, "r1", "x"),
+      ],
+    });
+    expect(kinds(result)).not.toContain("move-remote:A/old.txt");
+  });
+
   it("repeats a server rename here instead of downloading again", () => {
     const here = file("old.txt", 3, 1000, 7);
     const result = run({
@@ -444,6 +483,37 @@ describe("excluded paths are never deletions", () => {
       base: [synced],
     });
     expect(kinds(result)).toEqual(["forget:a.txt"]);
+  });
+
+  it("forgets, not trashes, a folder renamed here to an ignored name", () => {
+    const dir = folder("docs", 10);
+    const inside = file("docs/a.txt", 3, 1000, 11);
+    const result = run({
+      local: [file("b.txt")],
+      remote: [remoteFolder("docs", "f1"), remoteFile("docs/a.txt", "r1", "x")],
+      excluded: [{ side: "local", rel: "docs.tmp", ino: 10 }],
+      base: [baseOf(dir, "f1", null), baseOf(inside, "r1", "x")],
+    });
+    expect(kinds(result).sort()).toEqual([
+      "forget:docs",
+      "forget:docs/a.txt",
+      "upload:b.txt",
+    ]);
+  });
+
+  it("forgets, not trashes, a folder the server renamed to an ignored name", () => {
+    const dir = folder("docs", 10);
+    const inside = file("docs/a.txt", 3, 1000, 11);
+    const result = run({
+      local: [dir, inside, file("b.txt")],
+      excluded: [{ side: "remote", rel: "docs.tmp", remoteId: "f1" }],
+      base: [baseOf(dir, "f1", null), baseOf(inside, "r1", "x")],
+    });
+    expect(kinds(result).sort()).toEqual([
+      "forget:docs",
+      "forget:docs/a.txt",
+      "upload:b.txt",
+    ]);
   });
 
   it("forgets, not trashes, a file the server renamed to an ignored name", () => {

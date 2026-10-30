@@ -117,6 +117,13 @@ export const uploadFile = async (input: {
   signal: AbortSignal;
 }) => {
   const { api, store } = input;
+  // A session commits to the folder, name and replace choice it was started
+  // with, so it is only reused for exactly that.
+  const target = JSON.stringify([
+    input.folderId,
+    input.name,
+    input.replace !== null,
+  ]);
   let pending: PendingUpload | null = store.pendingUpload(
     input.pairId,
     input.rel,
@@ -125,9 +132,10 @@ export const uploadFile = async (input: {
     pending &&
     (pending.checksum !== input.checksum ||
       pending.size !== input.size ||
-      pending.mtimeMs !== input.mtimeMs)
+      pending.mtimeMs !== input.mtimeMs ||
+      pending.target !== target)
   ) {
-    // The file changed since: its staged bytes on the server are useless.
+    // The file or the upload changed since: the staged bytes are useless.
     await api.cancelUpload(pending.sessionId).catch(() => {});
     store.deleteUpload(input.pairId, input.rel);
     pending = null;
@@ -157,6 +165,7 @@ export const uploadFile = async (input: {
       checksum: input.checksum,
       size: input.size,
       mtimeMs: input.mtimeMs,
+      target,
     });
   }
   const chunkSize = session.chunkSizeBytes ?? input.size;

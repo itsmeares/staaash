@@ -175,6 +175,23 @@ const view = (input: PlanInput): View => {
   };
 };
 
+/**
+ * Synced folders renamed on either side to a name sync leaves alone. Their
+ * old paths, and everything under them, are forgotten, never deleted.
+ */
+const vanishedFolders = (v: View) =>
+  new Set(
+    [...v.base]
+      .filter(
+        ([key, entry]) =>
+          entry.type === "folder" &&
+          !covered(key, v.hidden.keys) &&
+          ((entry.ino !== 0 && v.hidden.inos.has(entry.ino)) ||
+            v.hidden.ids.has(entry.remoteId)),
+      )
+      .map(([key]) => key),
+  );
+
 /** The server item still exists somewhere, so a missing local path is not a delete. */
 const stillOnServer = (v: View, previous: BaseEntry) =>
   v.remoteById.has(previous.remoteId) || v.hidden.ids.has(previous.remoteId);
@@ -231,6 +248,14 @@ const serverMove = (v: View, entry: BaseEntry): Move | null => {
   };
 };
 
+/**
+ * A move and rename is two server calls. A stop between them leaves the
+ * server item with the new folder and the old name, or the other way round.
+ */
+const halfway = (from: string, there: string, to: string) =>
+  (parentRel(there) === parentRel(to) && baseName(there) === baseName(from)) ||
+  (parentRel(there) === parentRel(from) && baseName(there) === baseName(to));
+
 /** A local move, found by inode, that the server can repeat. */
 // Each check rules out a look-alike that is not a move.
 // fallow-ignore-next-line complexity
@@ -238,12 +263,13 @@ const localMove = (v: View, entry: BaseEntry): Move | null => {
   const key = pathKey(entry.rel);
   const onServer = v.remoteById.get(entry.remoteId);
   if (v.mode === "download" || v.local.has(key) || entry.ino === 0) return null;
-  if (!onServer || pathKey(onServer.rel) !== key) return null;
   const moved = v.localByIno.get(entry.ino);
-  if (moved?.type !== entry.type) return null;
+  if (!onServer || moved?.type !== entry.type) return null;
   if (entry.type === "file" && !sameStat(moved, entry)) return null;
   const target = pathKey(moved.rel);
-  if (v.remote.has(target)) return null;
+  const there = pathKey(onServer.rel);
+  if (there !== key && !halfway(key, there, target)) return null;
+  if (there !== target && v.remote.has(target)) return null;
   const ready =
     !parentRel(target) ||
     v.remote.get(parentRel(target))?.item.type === "folder";
@@ -497,11 +523,18 @@ export const plan = (input: PlanInput): Plan => {
   const dirty = dirtySides(v);
   const actions: Action[] = [];
   const gone = new Set<string>();
+  const vanished = vanishedFolders(v);
   const keys = [
     ...new Set([...v.local.keys(), ...v.remote.keys(), ...v.base.keys()]),
   ];
   for (const key of keys.sort((a, b) => depth(a) - depth(b))) {
     if (covered(key, pending, gone, v.hidden.keys)) continue;
+    if (covered(key, vanished)) {
+      // Renamed out of sight; the other side's copy syncs again as new.
+      const previous = v.base.get(key);
+      if (previous) actions.push({ kind: "forget", rel: previous.rel });
+      continue;
+    }
     const here = v.local.get(key);
     const there = v.remote.get(key);
     const previous = v.base.get(key);
