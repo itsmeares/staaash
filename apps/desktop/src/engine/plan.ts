@@ -42,6 +42,8 @@ export type Action =
       rel: string;
       local: LocalFile;
       localOnly: boolean;
+      /** The server has no checksum: compare contents before setting aside. */
+      unverified?: { remote: RemoteItem; checksum: string | null };
     }
   | { kind: "trash-local"; rel: string; local: LocalFile }
   | { kind: "trash-remote"; rel: string; remote: RemoteItem }
@@ -423,7 +425,13 @@ const fileOnBothSides = (
       : null;
   }
   const localChanged = !previous || mine !== previous.checksum;
-  const remoteChanged = !sameItem || theirs !== previous.checksum;
+  // Some server files have no checksum; only their revision can show a change.
+  const remoteChanged =
+    !sameItem ||
+    (theirs === null
+      ? previous.rev !== there.item.rev
+      : theirs !== previous.checksum);
+  if (!localChanged && !remoteChanged) return null;
   if (localChanged && remoteChanged) {
     return v.mode === "upload"
       ? { kind: "keep-mine", rel, local: here, remote: there.item }
@@ -432,6 +440,9 @@ const fileOnBothSides = (
           rel,
           local: here,
           localOnly: v.mode === "download",
+          ...(theirs === null
+            ? { unverified: { remote: there.item, checksum: mine } }
+            : {}),
         };
   }
   if (localChanged) {

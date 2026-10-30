@@ -28,7 +28,7 @@ const folder = (rel: string, ino = nextIno++): LocalFile => ({
 const remoteFile = (
   rel: string,
   id: string,
-  checksum: string,
+  checksum: string | null,
   rev = 1,
 ): { rel: string; item: RemoteItem } => ({
   rel,
@@ -117,6 +117,38 @@ describe("first sync", () => {
       remote: [remoteFile("a.txt", "r1", "theirs")],
     });
     expect(kinds(result)).toEqual(["conflict-copy:a.txt"]);
+  });
+
+  describe("a server file with no checksum", () => {
+    it("compares contents before setting a first-seen local file aside", () => {
+      const here = { ...file("a.txt"), checksum: "mine" };
+      const remote = remoteFile("a.txt", "r1", null);
+      const [action] = run({ local: [here], remote: [remote] }).actions;
+      expect(action).toMatchObject({
+        kind: "conflict-copy",
+        unverified: { remote: remote.item, checksum: "mine" },
+      });
+    });
+
+    it("does nothing while neither side changed", () => {
+      const here = file("a.txt");
+      const result = run({
+        local: [here],
+        remote: [remoteFile("a.txt", "r1", null)],
+        base: [baseOf(here, "r1", "mine")],
+      });
+      expect(result.actions).toEqual([]);
+    });
+
+    it("downloads again only when its revision moves", () => {
+      const here = file("a.txt");
+      const result = run({
+        local: [here],
+        remote: [remoteFile("a.txt", "r1", null, 2)],
+        base: [baseOf(here, "r1", "mine")],
+      });
+      expect(kinds(result)).toEqual(["download:a.txt"]);
+    });
   });
 
   it("uploads and downloads what only one side has, and deletes nothing", () => {

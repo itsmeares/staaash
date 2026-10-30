@@ -571,6 +571,43 @@ describe.skipIf(!origin)("sync against a real server", () => {
     expect(after?.contentChecksum).toBe(sha(""));
   });
 
+  it("links an identical local copy of a server file with no checksum", async () => {
+    // Only the seeded file has none; the upload routes always record one.
+    const folders = (await (await web("/api/files/folders/tree")).json()) as {
+      folders: { id: string; isFilesRoot: boolean }[];
+    };
+    const drive = folders.folders.find((each) => each.isFilesRoot)?.id ?? "";
+    const top = await server.list(drive);
+    const seeded = top.find(
+      (each) => each.name === "shared-preview.png" && !each.contentChecksum,
+    );
+    expect(seeded).toBeDefined();
+    const everythingElse = top
+      .filter(
+        (each) => each.parentId === drive && each.name !== "shared-preview.png",
+      )
+      .map((each) => each.name);
+    const r = await rig("two-way", drive, {
+      paused: true,
+      ignore: everythingElse,
+    });
+    made.delete(drive);
+    const bytes = Buffer.from(
+      await (
+        await web(`/api/files/files/${seeded?.id}/download`)
+      ).arrayBuffer(),
+    );
+    await mkdir(r.local, { recursive: true });
+    await writeFile(r.at("shared-preview.png"), bytes);
+    await r.configure({ paused: false });
+    await r.sync();
+    expect(await readdir(r.local)).toEqual(["shared-preview.png"]);
+    expect(await readdir(r.trash)).toEqual([]);
+    const done = finished(r.engine);
+    await r.sync();
+    expect(finished(r.engine)).toBe(done);
+  });
+
   describe("skipped folders", () => {
     const skipping = (r: Awaited<ReturnType<typeof rig>>, id: string) => ({
       id: "pair",

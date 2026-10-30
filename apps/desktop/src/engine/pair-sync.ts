@@ -299,6 +299,25 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     "conflict-copy": async (action, rel, full) => {
       const now = await statLocal(pair.localPath, rel);
       if (!now || !sameStat(now, action.local)) return;
+      if (action.unverified) {
+        const { remote } = action.unverified;
+        const { temp, checksum } = await downloadToTemp({
+          api,
+          fileId: remote.id,
+          target: full,
+          checksum: null,
+          size: remote.size,
+          modifiedAt: null,
+          throttle: ctx.downloads,
+          signal: transfers,
+          onBytes: () => {},
+        });
+        await rm(temp, { force: true });
+        if (checksum === action.unverified.checksum) {
+          putBase(rel, now, remote, checksum);
+          return;
+        }
+      }
       const scan = await scanLocal(pair.localPath, () => false);
       const taken = new Set(
         [...scan.entries, ...scan.excluded].map((entry) => pathKey(entry.rel)),
