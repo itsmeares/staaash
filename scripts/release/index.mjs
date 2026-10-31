@@ -809,7 +809,7 @@ const inspectImage = (
 const inspectRuntimeVersions = (reference, platform) => {
   const program = [
     'const fs = require("node:fs");',
-    'const webVersion = JSON.parse(fs.readFileSync("/app/apps/web/package.json", "utf8")).version;',
+    'const webVersion = JSON.parse(fs.readFileSync("/app/package.json", "utf8")).version;',
     'const workerVersion = JSON.parse(fs.readFileSync("/worker/package.json", "utf8")).version;',
     'import("file:///worker/dist/runtime-version.js")',
     "  .then(({ resolveWorkerVersion }) => {",
