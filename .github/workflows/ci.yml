@@ -14,6 +14,10 @@ on:
 permissions:
   contents: read
 
+env:
+  # Desktop tests run in plain Node; only installers need Electron itself.
+  ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -26,6 +30,7 @@ jobs:
       app: ${{ steps.suites.outputs.app }}
       upgrade: ${{ steps.suites.outputs.upgrade }}
       recovery: ${{ steps.suites.outputs.recovery }}
+      desktop: ${{ steps.suites.outputs.desktop }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -146,9 +151,16 @@ jobs:
       upgrade: ${{ needs.select.outputs.upgrade == 'true' }}
       recovery: ${{ needs.select.outputs.recovery == 'true' }}
 
+  desktop:
+    needs: select
+    if: needs.select.outputs.desktop == 'true'
+    uses: ./.github/workflows/desktop.yml
+    with:
+      ref: ${{ github.sha }}
+
   validate:
     name: Lint, test, and build
-    needs: [select, checks, postgres, native]
+    needs: [select, checks, postgres, native, desktop]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -159,6 +171,8 @@ jobs:
           APP: ${{ needs.select.outputs.app }}
           POSTGRES: ${{ needs.postgres.result }}
           NATIVE: ${{ needs.native.result }}
+          DESKTOP: ${{ needs.desktop.result }}
+          DESKTOP_SELECTED: ${{ needs.select.outputs.desktop }}
         run: |
           test "$SELECT" = success
           test "$CHECKS" = success
@@ -169,4 +183,9 @@ jobs:
             test "$APP" = false
             test "$POSTGRES" = skipped
             test "$NATIVE" = skipped
+          fi
+          if test "$DESKTOP_SELECTED" = true; then
+            test "$DESKTOP" = success
+          else
+            test "$DESKTOP" = skipped
           fi

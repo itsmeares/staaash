@@ -1,0 +1,15 @@
+{
+  "extends": "../../packages/config/tsconfig.base.json",
+  "compilerOptions": {
+    // The engine's typed client reads the server's route types. Web files
+    // import each other through these aliases, so they resolve here too.
+    "paths": {
+      "@/*": ["../web/*"],
+      "@staaash/db/*": ["../../packages/db/src/*"]
+    },
+    "types": ["vite-plus/client", "node"],
+    "jsx": "react-jsx"
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

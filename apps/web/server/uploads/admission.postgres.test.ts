@@ -1433,6 +1433,28 @@ describe("UPL-01 PostgreSQL lifecycle and cleanup", () => {
     await expect(access(failed.tmpPath)).rejects.toBeDefined();
   });
 
+  it("does not count finished sessions still within their retention", async () => {
+    const user = await createUser();
+    await setLimits({
+      perUserSessions: 1,
+      instanceSessions: 1,
+      perUserBytes: 10_000n,
+      instanceBytes: 10_000n,
+    });
+    // 96 is the backlog limit at one session each.
+    for (let index = 0; index < 100; index += 1) {
+      await createTerminalSession({
+        ownerUserId: user.id,
+        status: "completed",
+        terminalAt: new Date(),
+        stagingReleasedAt: new Date(),
+      });
+    }
+    await expect(
+      reserve({ ownerUserId: user.id, sizeBytes: 1 }),
+    ).resolves.toBeDefined();
+  });
+
   it("does not block on one released overdue parent or transient DB deletion failure", async () => {
     const user = await createUser();
     const overdue = await createTerminalSession({
@@ -1476,8 +1498,9 @@ describe("UPL-01 PostgreSQL lifecycle and cleanup", () => {
       perUserBytes: 10_000n,
       instanceBytes: 10_000n,
     });
+    // Admission compares with the database clock, not the fixed test time.
     const oldTerminalAt = new Date(
-      fixedNow.getTime() - UPLOAD_TERMINAL_RETENTION_MS - 1,
+      Date.now() - UPLOAD_TERMINAL_RETENTION_MS - 1000,
     );
 
     for (let index = 0; index < 96; index += 1) {

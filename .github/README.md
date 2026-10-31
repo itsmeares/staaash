@@ -75,6 +75,16 @@ Then:
 
 The release files are the supported installation path. Files on `main` may contain unreleased changes.
 
+### Desktop app
+
+The desktop app keeps folders on your computer in sync with your drive and lives in the tray. Download it from the [latest release](https://github.com/itsmeares/staaash/releases/latest):
+
+- **Windows:** the `.exe` installer, for Intel/AMD and ARM.
+- **macOS:** the `.dmg`, for Intel and Apple silicon. The app is not signed by Apple, so the first launch is blocked: open System Settings, then Privacy & Security, and click Open Anyway.
+- **Linux:** the AppImage, or the `.deb` or `.rpm` package, for AMD64 and ARM64.
+
+Windows and Linux update themselves. On macOS the app tells you when a new version is ready to download.
+
 ## Learn more
 
 - [Backup and restore](../docs/operations/backup-restore.md) — protect your files and practice recovery.

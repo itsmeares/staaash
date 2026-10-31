@@ -19,6 +19,10 @@ on:
         required: true
         type: boolean
 
+# The desktop sync tests run in plain Node; only installers need Electron.
+env:
+  ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+
 jobs:
   images:
     name: Build Docker image (${{ inputs.arch }})

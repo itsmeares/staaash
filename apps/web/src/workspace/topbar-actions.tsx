@@ -1,5 +1,12 @@
 import { useLocation } from "@tanstack/react-router";
-import { Check, Keyboard, LogOut, Settings2, Shield } from "lucide-react";
+import {
+  Check,
+  Keyboard,
+  LogOut,
+  MonitorDown,
+  Settings2,
+  Shield,
+} from "lucide-react";
 import { AppLink } from "@/components/app-link";
 import type { ReactNode } from "react";
 
@@ -100,6 +107,18 @@ export function TopbarActions({
           <MenuItem onClick={openShortcuts}>
             <Keyboard aria-hidden />
             Keyboard shortcuts
+          </MenuItem>
+          <MenuItem
+            render={
+              <a
+                href="https://github.com/itsmeares/staaash/releases/latest"
+                rel="noopener noreferrer"
+                target="_blank"
+              />
+            }
+          >
+            <MonitorDown aria-hidden />
+            Get the desktop app
           </MenuItem>
           <MenuSeparator />
           <form action="/api/auth/sign-out" className="contents" method="post">

@@ -119,8 +119,11 @@ jobs:
         run: |
           if [[ "$VERSION_CHANGED" == "true" ]]; then
             git diff --check
-            git add package.json apps/web/package.json apps/worker/package.json packages/config/package.json packages/db/package.json
-            EXPECTED_FILES=$'apps/web/package.json\napps/worker/package.json\npackage.json\npackages/config/package.json\npackages/db/package.json'
+            FILES=(package.json apps/web/package.json apps/worker/package.json packages/config/package.json packages/db/package.json)
+            # Release branches from before the desktop app have no desktop package.
+            if [[ -f apps/desktop/package.json ]]; then FILES+=(apps/desktop/package.json); fi
+            git add "${FILES[@]}"
+            EXPECTED_FILES="$(printf '%s\n' "${FILES[@]}" | sort)"
             ACTUAL_FILES="$(git diff --cached --name-only | sort)"
             if [[ "$ACTUAL_FILES" != "$EXPECTED_FILES" ]]; then
               echo "Unexpected release diff:" >&2
@@ -444,3 +447,16 @@ jobs:
         env:
           RELEASE_RESULT: ${{ job.status }}
         run: node tooling/scripts/release/index.mjs summary
+
+  # The desktop app ships as installers on the same release. They are built
+  # after the server release is published, so a failed installer build never
+  # holds back the server; rerunning this job retries only the installers.
+  desktop:
+    if: ${{ !cancelled() && needs.publish.result == 'success' }}
+    needs: [preflight, publish]
+    permissions:
+      contents: write
+    uses: ./.github/workflows/desktop.yml
+    with:
+      ref: ${{ needs.preflight.outputs.tag }}
+      release_tag: ${{ needs.preflight.outputs.tag }}

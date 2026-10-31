@@ -5,6 +5,9 @@ node_modules/
 # Build artifacts (rebuilt inside Docker)
 **/dist/
 
+# The desktop app ships as its own installers, not in the server image
+apps/desktop/
+
 # Git
 .git/
 .gitignore

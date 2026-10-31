@@ -74,7 +74,12 @@ await test("CI detects locked runtime updates without treating tooling peer chan
     );
     git("add", "package.json");
     commit();
-    assert.deepEqual(select(), { app: true, upgrade: true, recovery: true });
+    assert.deepEqual(select(), {
+      app: true,
+      upgrade: true,
+      recovery: true,
+      desktop: true,
+    });
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -1,0 +1,107 @@
+name: Desktop installers
+
+# Builds the desktop installers on each system. CI keeps them as artifacts;
+# a release attaches them to its GitHub Release.
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit or tag to build
+        required: true
+        type: string
+      release_tag:
+        description: Attach the installers to this release; empty keeps them as artifacts
+        required: false
+        type: string
+        default: ""
+
+# Permissions come from the calling job: read in CI, write for a release.
+# A source from before the desktop app checks out and skips every step.
+jobs:
+  installers:
+    name: Desktop installers (${{ matrix.name }})
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x64
+            runner: ubuntu-24.04
+            build: --linux --x64
+          - name: Linux ARM64
+            runner: ubuntu-24.04-arm
+            build: --linux --arm64
+          # One installer holds both Windows architectures.
+          - name: Windows
+            runner: windows-2025
+            build: --win
+            cpu: --cpu=x64 --cpu=arm64
+          # One universal app for Intel and Apple silicon.
+          - name: macOS
+            runner: macos-15
+            build: --mac
+            cpu: --cpu=x64 --cpu=arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        if: hashFiles('apps/desktop/package.json') != ''
+        with:
+          node-version: 24.22.1
+
+      - name: Enable Corepack
+        if: hashFiles('apps/desktop/package.json') != ''
+        run: corepack enable
+
+      - name: Install pinned pnpm
+        if: hashFiles('apps/desktop/package.json') != ''
+        run: corepack install
+
+      - name: Install dependencies
+        if: hashFiles('apps/desktop/package.json') != ''
+        shell: bash
+        run: pnpm install --frozen-lockfile ${{ matrix.cpu }}
+
+      - name: Install RPM tools
+        if: runner.os == 'Linux' && hashFiles('apps/desktop/package.json') != ''
+        run: sudo apt-get update && sudo apt-get install -y rpm
+
+      - name: Build the app
+        if: hashFiles('apps/desktop/package.json') != ''
+        run: pnpm --filter desktop build
+
+      - name: Build installers
+        if: hashFiles('apps/desktop/package.json') != ''
+        working-directory: apps/desktop
+        run: pnpm exec electron-builder ${{ matrix.build }} --publish never
+
+      - name: Keep installers for testing
+        if: inputs.release_tag == '' && hashFiles('apps/desktop/package.json') != ''
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: desktop-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            apps/desktop/release/Staaash-*
+            !apps/desktop/release/*.blockmap
+          retention-days: 7
+
+      - name: Attach installers to the release
+        if: inputs.release_tag != '' && hashFiles('apps/desktop/package.json') != ''
+        shell: bash
+        working-directory: apps/desktop/release
+        # Only this step gets the token; install and build run package code.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          shopt -s nullglob
+          files=(Staaash-* latest*.yml)
+          if (( ${#files[@]} == 0 )); then
+            echo "No installers were built." >&2
+            exit 1
+          fi
+          gh release upload "$RELEASE_TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"

@@ -317,6 +317,7 @@ describe("release trust roots", () => {
         "package.json",
         "apps/web/package.json",
         "apps/worker/package.json",
+        "apps/desktop/package.json",
         "packages/config/package.json",
         "packages/db/package.json",
       ];
@@ -338,12 +339,43 @@ describe("release trust roots", () => {
         root: "1.1.0",
         web: "1.1.0",
         worker: "1.1.0",
+        desktop: "1.1.0",
         config: "1.1.0",
         db: "1.1.0",
       });
       await expect(preparePackageVersions(sourceRoot, "1.1.0")).resolves.toBe(
         false,
       );
+    } finally {
+      await rm(sourceRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("releases a source from before the desktop app", async () => {
+    const sourceRoot = await mkdtemp(path.join(os.tmpdir(), "release-older-"));
+    try {
+      for (const file of [
+        "package.json",
+        "apps/web/package.json",
+        "apps/worker/package.json",
+        "packages/config/package.json",
+        "packages/db/package.json",
+      ]) {
+        const target = path.join(sourceRoot, file);
+        await mkdir(path.dirname(target), { recursive: true });
+        await writeFile(target, JSON.stringify({ version: "1.2.1" }));
+      }
+
+      await expect(preparePackageVersions(sourceRoot, "1.2.2")).resolves.toBe(
+        true,
+      );
+      await expect(readPackageVersions(sourceRoot)).resolves.toEqual({
+        root: "1.2.2",
+        web: "1.2.2",
+        worker: "1.2.2",
+        config: "1.2.2",
+        db: "1.2.2",
+      });
     } finally {
       await rm(sourceRoot, { recursive: true, force: true });
     }
@@ -356,6 +388,7 @@ describe("release trust roots", () => {
         "package.json",
         "apps/web/package.json",
         "apps/worker/package.json",
+        "apps/desktop/package.json",
         "packages/config/package.json",
         "packages/db/package.json",
       ];
@@ -379,8 +412,9 @@ describe("release trust roots", () => {
         root: "source-0",
         web: "source-1",
         worker: "source-2",
-        config: "source-3",
-        db: "source-4",
+        desktop: "source-3",
+        config: "source-4",
+        db: "source-5",
       });
       await expect(readReleaseTemplates(sourceRoot)).resolves.toEqual({
         compose: "source compose\n",

@@ -44,6 +44,7 @@ import {
   EMPTY_TREE_MANIFEST_DIGEST,
 } from "@staaash/db/storage-mutation-executor";
 
+import { runOrAwaitProvisioning } from "./provision-wait";
 import type { AuthRepository } from "./repository";
 
 type AuthResult = {
@@ -173,42 +174,45 @@ export const createAuthService = ({
       where: { ownerUserId: user.id, isFilesRoot: true },
       select: { id: true, storageRevision: true },
     });
-    await runDurableStorageMutation({
-      kind: "folder_create",
-      ownerUserId: user.id,
-      idempotencyKey: `user-storage-provision:${user.id}`,
-      requestHashPayload: {
-        kind: "user_storage_provision",
-        userId: user.id,
-        storageId: user.storageId,
-      },
-      metadataOperations: [],
-      steps: [
-        {
-          action: "mkdir",
-          targetKey: getUserFilesRootStorageKey(user.storageId),
-          expectedNodeType: "directory",
-          treeManifestDigest: EMPTY_TREE_MANIFEST_DIGEST,
+    const idempotencyKey = `user-storage-provision:${user.id}`;
+    await runOrAwaitProvisioning(idempotencyKey, () =>
+      runDurableStorageMutation({
+        kind: "folder_create",
+        ownerUserId: user.id,
+        idempotencyKey,
+        requestHashPayload: {
+          kind: "user_storage_provision",
+          userId: user.id,
+          storageId: user.storageId,
         },
-        {
-          action: "mkdir",
-          targetKey: getUserTrashRootStorageKey(user.storageId),
-          expectedNodeType: "directory",
-          treeManifestDigest: EMPTY_TREE_MANIFEST_DIGEST,
-        },
-      ],
-      entities: [
-        {
-          entityType: "folder",
-          entityId: filesRoot.id,
-          preRevision: filesRoot.storageRevision,
-          postRevision: filesRoot.storageRevision,
-          beforeJson: null,
-          afterJson: null,
-        },
-      ],
-      resultJson: { filesRootId: filesRoot.id },
-    });
+        metadataOperations: [],
+        steps: [
+          {
+            action: "mkdir",
+            targetKey: getUserFilesRootStorageKey(user.storageId),
+            expectedNodeType: "directory",
+            treeManifestDigest: EMPTY_TREE_MANIFEST_DIGEST,
+          },
+          {
+            action: "mkdir",
+            targetKey: getUserTrashRootStorageKey(user.storageId),
+            expectedNodeType: "directory",
+            treeManifestDigest: EMPTY_TREE_MANIFEST_DIGEST,
+          },
+        ],
+        entities: [
+          {
+            entityType: "folder",
+            entityId: filesRoot.id,
+            preRevision: filesRoot.storageRevision,
+            postRevision: filesRoot.storageRevision,
+            beforeJson: null,
+            afterJson: null,
+          },
+        ],
+        resultJson: { filesRootId: filesRoot.id },
+      }),
+    );
   };
 
   const assertUserStorageProvisioningReady = async () => {

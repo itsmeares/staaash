@@ -22,7 +22,14 @@ export function selectSuites(
         file,
       ),
     );
-  return { app, upgrade: safety, recovery: safety };
+  const desktop =
+    full ||
+    files.some((file) =>
+      /^(?:apps\/desktop\/|packages\/ui\/|apps\/web\/(?:lib\/|server\/http\/|openapi\.json)|pnpm-lock\.yaml|pnpm-workspace\.yaml|\.github\/workflows\/desktop\.yml)/.test(
+        file,
+      ),
+    );
+  return { app, upgrade: safety, recovery: safety, desktop };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

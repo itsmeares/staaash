@@ -8,6 +8,7 @@ await test("ordinary UI changes run both native suites without upgrade drills", 
     app: true,
     upgrade: false,
     recovery: false,
+    desktop: false,
   });
 });
 
@@ -16,6 +17,7 @@ await test("documentation does not start application stacks", () => {
     app: false,
     upgrade: false,
     recovery: false,
+    desktop: false,
   });
 });
 
@@ -29,8 +31,9 @@ await test("stored data and startup changes require upgrade and recovery", () =>
     "Dockerfile",
     "scripts/ci/stack.mjs",
   ]) {
+    const { desktop: _desktop, ...suites } = selectSuites([file]);
     assert.deepEqual(
-      selectSuites([file]),
+      suites,
       {
         app: true,
         upgrade: true,
@@ -54,5 +57,17 @@ await test("release and manual validation run everything, even on a version-only
     app: true,
     upgrade: true,
     recovery: true,
+    desktop: true,
   });
+});
+
+await test("desktop installers build when the app or what it shares changes", () => {
+  for (const file of [
+    "apps/desktop/src/engine/plan.ts",
+    "packages/ui/src/components/button.tsx",
+    "apps/web/openapi.json",
+  ]) {
+    assert.equal(selectSuites([file]).desktop, true, file);
+  }
+  assert.equal(selectSuites(["apps/worker/src/index.ts"]).desktop, false);
 });

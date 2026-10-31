@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -41,9 +42,12 @@ const PACKAGE_FILES = {
   root: "package.json",
   web: "apps/web/package.json",
   worker: "apps/worker/package.json",
+  desktop: "apps/desktop/package.json",
   config: "packages/config/package.json",
   db: "packages/db/package.json",
 };
+// Release branches from before the desktop app have no desktop package.
+const OPTIONAL_PACKAGES = new Set(["desktop"]);
 const REQUIRED_ASSET_NAMES = [
   "docker-compose.yml",
   "example.env",
@@ -239,10 +243,16 @@ const releaseContextFromEnv = () => {
   };
 };
 
+const presentPackageFiles = (sourceRoot) =>
+  Object.entries(PACKAGE_FILES).filter(
+    ([name, file]) =>
+      !OPTIONAL_PACKAGES.has(name) || existsSync(path.join(sourceRoot, file)),
+  );
+
 const readPackageVersions = async (sourceRoot = releaseSourceRoot()) =>
   Object.fromEntries(
     await Promise.all(
-      Object.entries(PACKAGE_FILES).map(async ([name, file]) => {
+      presentPackageFiles(sourceRoot).map(async ([name, file]) => {
         const metadata = JSON.parse(
           await readFile(path.join(sourceRoot, file), "utf8"),
         );
@@ -254,7 +264,7 @@ const readPackageVersions = async (sourceRoot = releaseSourceRoot()) =>
 const preparePackageVersions = async (sourceRoot, version) => {
   let changed = false;
   await Promise.all(
-    Object.values(PACKAGE_FILES).map(async (file) => {
+    presentPackageFiles(sourceRoot).map(async ([, file]) => {
       const filePath = path.join(sourceRoot, file);
       const metadata = JSON.parse(await readFile(filePath, "utf8"));
       if (metadata.version === version) return;

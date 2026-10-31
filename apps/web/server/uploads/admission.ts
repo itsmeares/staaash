@@ -8,7 +8,10 @@ import {
 } from "@staaash/db/storage-transactions";
 
 import { getStorageRoot } from "@/server/storage";
-import { getTerminalBacklogLimits } from "@/server/uploads/session-state";
+import {
+  getTerminalBacklogLimits,
+  UPLOAD_TERMINAL_RETENTION_MS,
+} from "@/server/uploads/session-state";
 
 export type UploadAdmissionErrorCode =
   | "UPLOAD_SIZE_LIMIT_EXCEEDED"
@@ -215,6 +218,8 @@ const readAdmissionStats = async (
     ), terminal AS MATERIALIZED (
       SELECT "ownerUserId" FROM "UploadSession"
       WHERE "status" IN ('completed', 'failed', 'cancelled', 'expired')
+        AND ("terminalAt" IS NULL
+          OR "terminalAt" <= CURRENT_TIMESTAMP - make_interval(secs => ${UPLOAD_TERMINAL_RETENTION_MS / 1000}::double precision))
       UNION ALL
       SELECT "ownerUserId" FROM "UploadSession"
       WHERE "status" IN ('allocating', 'created', 'receiving', 'committing')

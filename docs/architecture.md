@@ -148,6 +148,30 @@ investigate and rebuild usage with all writers stopped. See the repair procedure
 - keeping the device's copy after a conflict is one journal entry: the file
   keeps its id, and its old bytes go to the trash
 
+The desktop app (`apps/desktop`) syncs pairs: one local folder with one server
+folder, two-way, download only, or upload only. Pairs never overlap.
+
+- it decides each path from three states: the computer, the server, and the
+  last state both agreed on. Content changes are compared by SHA-256, so a
+  revision bump from a parent's rename is not a conflict
+- a file changed on both sides is never merged or overwritten: the local
+  version is renamed to `name (conflict, <device>, <time>).ext` and both sync
+- deletes go to the trash on both sides, and an edit beats a delete;
+  upload-only pairs work like a backup and never delete on the server
+- downloads land in a temporary file beside the target, are checked against
+  the server's checksum, and replace the file in one rename
+- if a pair's local folder is missing, or every file of a big pair vanishes on
+  one side, that pair stops until the person says what they meant
+- only a path that is confirmed gone counts as deleted. Ignored names, links,
+  names the computer cannot hold, and anything that could not be read are
+  left alone on both sides, and a folder holding one is never trashed
+- the sync history is saved after each file or server change, so a stop in
+  between leaves both sides changed and the history behind; the next run
+  finds both sides equal and records them without moving bytes
+- passes, conflict choices, and forgetting removed pairs run one at a time in
+  the order asked. A settings change or a stop takes effect before the next
+  action, and stopping aborts transfers, which resume on the next run
+
 ## Boundaries And Non-Goals
 
 - no microservice split in v1

@@ -62,6 +62,10 @@ Do not have an agent open a pull request, write public replies, or answer mainta
    the API on port 3001 (`STAAASH_API_PORT`), and reloads both on change.
 7. Start the worker with `pnpm worker:dev`.
 
+The desktop app lives in `apps/desktop`. Run it with
+`pnpm desktop:dev`, then sign in to
+your development server at `http://localhost:3000`.
+
 ## Application tests
 
 Run `pnpm web:e2e`. It builds a Docker image from your checkout, creates its own
@@ -69,6 +73,9 @@ PostgreSQL, files directory and network, seeds fake accounts, runs the browser
 and system tests, and removes the stack. It never uses the development database.
 Pass browser test paths, such as `pnpm web:e2e e2e/member-files.spec.ts`, to run
 only those files. Set `STAAASH_TEST_IMAGE` to test an image you already built.
+The system tests also run the desktop sync engine against that stack. To run
+those tests alone, point `STAAASH_SYNC_TEST_ORIGIN` at a stack seeded with the
+fake accounts and run `vp run --filter desktop test`.
 Database-only tests use `pnpm test:postgres` with an explicit
 `POSTGRES_TEST_DATABASE_URL`; they create and remove their own database.
 
@@ -100,6 +107,10 @@ To recover a partial release, run the workflow from the same source branch with
 `main` when it contains the tagged commit, otherwise the matching `release/X.Y`
 branch. Prereleases do not update stable `latest`, and older stable releases do
 not replace a newer stable image.
+
+After the server release is published, the release builds the desktop
+installers on Windows, macOS and Linux and attaches them to the same release.
+If only that step fails, rerun its failed jobs.
 
 ## Issues and security
 

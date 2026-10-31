@@ -314,6 +314,18 @@ async function validateCurrent(state) {
   if (suites.browser)
     await run(["--filter", "web", "e2e", ...args], testEnv(state));
   if (!suites.system) return;
+  await run(
+    [
+      "--filter",
+      "desktop",
+      "exec",
+      "vp",
+      "test",
+      "run",
+      "src/engine/sync.e2e.test.ts",
+    ],
+    { ...testEnv(state), STAAASH_SYNC_TEST_ORIGIN: state.origin },
+  );
   await runSystem(state, "app.spec.mjs");
   if (process.env.STAAASH_TEST_RECOVERY === "true")
     await runSystem(state, "recovery.spec.mjs");

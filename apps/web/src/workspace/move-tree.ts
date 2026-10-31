@@ -1,8 +1,8 @@
-import type { MoveTarget } from "@/server/files/types";
+type TreeFolder = { id: string; parentId: string | null; isFilesRoot: boolean };
 
 /** The folder list as a tree: the drive's top, children by parent, lookup. */
-export function buildMoveTree(folders: MoveTarget[]) {
-  const childrenOf = new Map<string, MoveTarget[]>();
+export function buildMoveTree<T extends TreeFolder>(folders: T[]) {
+  const childrenOf = new Map<string, T[]>();
   for (const folder of folders) {
     if (!folder.parentId) continue;
     childrenOf.set(folder.parentId, [
@@ -17,7 +17,7 @@ export function buildMoveTree(folders: MoveTarget[]) {
   };
 }
 
-type Lookup = Map<string, MoveTarget>;
+type Lookup = ReadonlyMap<string, { parentId: string | null }>;
 
 /** The folder and every folder above it, nearest first. */
 export function lineage(byId: Lookup, id: string | null) {
