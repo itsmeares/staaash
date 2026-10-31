@@ -261,7 +261,7 @@ export function SidebarPins({ pins }: { pins: ShellPin[] }) {
                 src={thumbnail}
               />
             ) : (
-              <ItemIcon className="size-4.5 [&_svg]:size-4" item={pin} />
+              <ItemIcon className="size-5 [&_svg]:size-4" item={pin} />
             )}
             <span className="truncate">{pin.name}</span>
           </AppLink>

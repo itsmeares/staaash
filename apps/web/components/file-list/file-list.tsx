@@ -130,7 +130,7 @@ export function ItemIcon({
           className="inline-flex"
           color={tint.color}
           icon={item.icon}
-          size={18}
+          size={16}
           tone="plain"
           visual={getItemVisual(item.kind, item.mimeType)}
         />
@@ -532,7 +532,7 @@ export function FileList<T extends FileListItem>({
             ) : (
               <span className="flex min-w-0 items-start gap-2 px-1 pb-0.5 text-body">
                 <ItemIcon
-                  className="mt-0.5 size-4 [&_svg]:size-4"
+                  className="mt-0.5 size-5 [&_svg]:size-4"
                   item={item}
                 />
                 <span className="min-w-0 flex-1">{name}</span>
