@@ -152,6 +152,8 @@ fix can be checked. Do not create a separate task for it.
 
 If a proven bug is outside the changed path, open a focused issue and tell the
 user. Do not open issues for guesses, code smells, or possible future problems.
+When opening an issue, use the matching Bug report or Feature request issue
+form. Do not use a blank issue.
 Do not turn the current work into unrelated cleanup.
 
 ## Tests and checks
