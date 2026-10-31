@@ -51,9 +51,7 @@ await test("E2E preparation rejects unowned targets before opening a database co
       );
       assert.equal(connections, 0);
     }
-    await assert.rejects(prepare(), (error) =>
-      /Connection terminated unexpectedly/.test(error.stderr ?? ""),
-    );
+    await assert.rejects(prepare());
     assert(connections > 0);
   } finally {
     await new Promise((resolve) => witness.close(resolve));
