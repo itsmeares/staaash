@@ -1,6 +1,7 @@
 name: Feature request
 description: Propose a change with the problem and expected payoff spelled out.
 title: "[Feature]: "
+labels: [enhancement, needs-triage]
 body:
   - type: markdown
     attributes:

@@ -1,6 +1,7 @@
 name: Bug report
 description: Report a defect with enough detail to reproduce it.
 title: "[Bug]: "
+labels: [bug, needs-triage]
 body:
   - type: markdown
     attributes:
@@ -53,12 +54,11 @@ body:
     id: impact
     attributes:
       label: Impact
-      description: How bad is this in practice?
+      description: Choose the matching severity label based on the effect on users.
       options:
-        - Critical - data loss, security exposure, or a broken core flow
-        - High - a major feature is unreliable or blocked
-        - Medium - a workflow is degraded but has a workaround
-        - Low - minor bug, typo, or rough edge
+        - High - a major feature is blocked or unreliable
+        - Medium - a workflow is degraded or an important behavior is incorrect
+        - Low - a minor defect or rough edge
     validations:
       required: true
 
@@ -82,19 +82,17 @@ body:
   - type: textarea
     id: environment
     attributes:
-      label: Environment and details
-      description: Include the environment, branch or commit if relevant, and anything else needed to reason about the issue.
-      value: |
-        - Environment:
-        - OS:
-        - Browser:
-        - Node.js:
-        - pnpm:
-        - Branch or commit:
-        - Extra details:
+      label: Version and environment
+      description: Share the Staaash version and details that apply. For a server, include host OS, version, and CPU architecture. For the desktop app, include OS, version, and CPU architecture. For web issues, include browser and version. For Docker installs, include Docker and Compose versions.
+      placeholder: |
+        Staaash version:
+        How it runs (Docker Compose, desktop app, local build):
+        Relevant OS, version, and CPU architecture:
+        Browser and version, if this is a web issue:
+        Docker and Compose versions, if relevant:
       render: markdown
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: logs
