@@ -49,7 +49,10 @@
       "allowedVersions": "<2.0.0"
     },
     {
-      "matchDepNames": ["minimatch@5>brace-expansion", "minimatch@9>brace-expansion"],
+      "matchDepNames": [
+        "minimatch@5>brace-expansion",
+        "minimatch@9>brace-expansion"
+      ],
       "allowedVersions": "<3.0.0"
     },
     {
