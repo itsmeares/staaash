@@ -9,6 +9,7 @@ import { FolderChooser } from "./folder-chooser";
 import { CustomPauseDialog } from "./pause";
 import { Connect, FoldersPage, SettingsPage, VersionProblem } from "./settings";
 import { desktop, useAppState } from "./state";
+import { hasTopRow, logoInRail, TopRow } from "./title-bar";
 
 export type Page = "activity" | "folders" | "settings";
 
@@ -55,6 +56,18 @@ function RailButton({
   );
 }
 
+/** Pages with no rail: only the row's drag area, since they show their own logo. */
+function FirstRun({ children }: { children: ReactNode }) {
+  return (
+    <>
+      {hasTopRow ? (
+        <div className="fixed inset-x-0 top-0 h-11 [-webkit-app-region:drag]" />
+      ) : null}
+      {children}
+    </>
+  );
+}
+
 /** The one window: sign-in and setup first, then the rail and its pages. */
 // Each first-run step and each page is a branch.
 // fallow-ignore-next-line complexity
@@ -78,29 +91,50 @@ export function App() {
   }, []);
 
   if (!state) return null;
-  if (state.versionProblem) return <VersionProblem state={state} />;
-  if (!state.signedIn) return <Connect state={state} />;
+  if (state.versionProblem)
+    return (
+      <FirstRun>
+        <VersionProblem state={state} />
+      </FirstRun>
+    );
+  if (!state.signedIn)
+    return (
+      <FirstRun>
+        <Connect state={state} />
+      </FirstRun>
+    );
   if (state.settings.pairs.length === 0 && !state.settings.setupSkipped) {
     return (
-      <main className="mx-auto w-full max-w-180 px-6 py-6">
-        <FolderChooser
-          existing={[]}
-          submitLabel="Start syncing"
-          onDone={() => {}}
-          onSkip={() => void desktop.updateSettings({ setupSkipped: true })}
-        />
-      </main>
+      <FirstRun>
+        <main className="mx-auto w-full max-w-180 px-6 pt-11 pb-6">
+          <FolderChooser
+            existing={[]}
+            submitLabel="Start syncing"
+            onDone={() => {}}
+            onSkip={() => void desktop.updateSettings({ setupSkipped: true })}
+          />
+        </main>
+      </FirstRun>
     );
   }
   const attention =
     (state.status?.conflicts.length ?? 0) + (state.status?.issues.length ?? 0);
   return (
-    <div className="flex h-dvh bg-background py-2 pe-2 text-foreground">
+    <div
+      className={cn(
+        "flex h-dvh bg-background pe-2 pb-2 text-foreground",
+        hasTopRow ? "pt-11" : "pt-2",
+      )}
+    >
+      <TopRow />
       <nav
         aria-label="Staaash"
-        className="relative z-10 flex w-14 shrink-0 flex-col items-center gap-1"
+        className={cn(
+          "relative z-10 flex w-14 shrink-0 flex-col items-center gap-1",
+          !hasTopRow && "pt-9",
+        )}
       >
-        <AppGlyph className="mt-1 mb-3 w-7.5" />
+        {logoInRail ? <AppGlyph className="mb-2.5 w-7.5" /> : null}
         <RailButton
           badge={attention}
           current={page === "activity"}
