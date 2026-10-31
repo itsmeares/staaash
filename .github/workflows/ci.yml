@@ -78,6 +78,8 @@ jobs:
         env:
           STAAASH_COVERAGE: ${{ github.event_name != 'pull_request' }}
         run: vp run test
+      - name: Frontend preview request tests
+        run: vp run --filter web test:ui
       - name: Save coverage
         if: always() && github.event_name != 'pull_request'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

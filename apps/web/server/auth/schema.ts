@@ -1,3 +1,4 @@
+import { AUTO_TIME_ZONE, isValidTimeZone } from "@staaash/config/time-zone";
 import { z } from "zod";
 
 const normalizeEmail = (value: string) => value.trim().toLowerCase();
@@ -85,4 +86,24 @@ export const temporaryPasswordInputSchema = z.object({
 export const requiredPasswordChangeInputSchema = z.object({
   password: passwordSchema,
   confirmPassword: z.string().min(1).max(128),
+});
+
+export const preferencesInputSchema = z.object({
+  theme: z.enum(["light", "dark", "system"]).optional(),
+  timeZone: z
+    .string()
+    .trim()
+    .refine(
+      (value) => value === AUTO_TIME_ZONE || isValidTimeZone(value),
+      "Invalid time zone.",
+    )
+    .optional(),
+  showUpdateNotifications: z.boolean().optional(),
+  showFolderPreviews: z.boolean().optional(),
+  showPinsInSidebar: z.boolean().optional(),
+  startPage: z.enum(["home", "files"]).optional(),
+  defaultView: z.enum(["list", "grid"]).optional(),
+  clockFormat: z.enum(["12h", "24h"]).optional(),
+  displayName: z.string().trim().max(80).nullable().optional(),
+  avatarUrl: z.string().max(300000).nullable().optional(),
 });

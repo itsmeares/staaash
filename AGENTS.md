@@ -111,8 +111,26 @@ future needs.
 
 ## Use a demo instance
 
-To test, reproduce a bug, take screenshots, or experiment, start your own
-Staaash instance. Inside it, anything goes: seed, reset, break, and restart.
+For frontend-only work, `pnpm web:ui` runs the real frontend with isolated
+sample data in memory. Open `/__ui` to choose a starting state or reset its
+samples. Use it for visual checks and frontend interactions. It cannot verify
+real storage, authentication, database, or worker behavior.
+
+Edit the sample data in `apps/web/dev/ui/` as needed to reproduce an issue:
+
+- `fixtures.ts` defines sample file names and types. Local sample files live in
+  `assets/`; `media.ts` loads their bytes.
+- `state.ts` defines users, folders, shares, and starting states.
+- `admin.ts` defines sample release notes in `updateView()` and admin data.
+
+Restart `pnpm web:ui` after editing sample source files, then choose the matching
+state at `/__ui`. For example, choose the update state to inspect release notes.
+You can also create, rename, or upload samples through the existing forms and
+API. API requests must use the browser's preview cookie to change the data that
+browser sees. Refresh keeps those changes; reset or restart clears them.
+
+For real server behavior, start your own Staaash instance. Inside it, anything
+goes: seed, reset, break, and restart.
 
 - Give it its own compose project (`-p staaash-<task>`), its own image built
   from the worktree, its own PostgreSQL, and its own files directory. Keep its
@@ -174,8 +192,10 @@ Run checks for the changed area only:
 - `pnpm quality:fallow`, which only checks new code against `origin/main`.
 
 Do not run repo-wide `pnpm test`, `pnpm lint`, `pnpm build`, or the full e2e
-suite unless the user asks. CI runs them. Do not open a browser unless the user
-asks. Never claim that a check passed unless it was run and passed.
+suite unless the user asks. CI runs them. Use the browser when UI work needs
+visual checks, user-action checks, or screenshot evidence. Use fake data in an
+isolated demo or the database-free frontend preview. Never claim that a check
+passed unless it was run and passed.
 
 Before finishing, search for callers and leftovers from any path that was
 replaced. Remove dead code and report what was checked and what was not.

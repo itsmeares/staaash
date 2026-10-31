@@ -62,6 +62,18 @@ Do not have an agent open a pull request, write public replies, or answer mainta
    the API on port 3001 (`STAAASH_API_PORT`), and reloads both on change.
 7. Start the worker with `pnpm worker:dev`.
 
+For frontend visual work, run `pnpm i` and `pnpm web:ui`, then open `/__ui`
+on port 3002. This preview needs no environment file, PostgreSQL, Docker, or
+worker. It uses the real frontend with sample accounts, files, and admin data.
+The controls let you choose a starting state and reset its samples. Each browser
+session has its own in-memory data. Refresh keeps changes; reset or restarting
+the preview clears them. Idle sessions expire after two hours; the preview keeps
+up to 16 sessions. Sample uploads have a combined 16 MiB limit per session.
+Use `--host <address> --port <port>` to choose a private network binding.
+Run `pnpm --filter web test:ui` for its request checks and
+`pnpm --filter web e2e:ui` for its browser checks. Use the real demo below for
+storage, authentication, database, and worker verification.
+
 The desktop app lives in `apps/desktop`. Run it with
 `pnpm desktop:dev`, then sign in to
 your development server at `http://localhost:3000`.
