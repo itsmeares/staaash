@@ -35,7 +35,12 @@
 
 /* System: dark takes the lower right, cut on a slant. */
 .pane + .pane {
-  clip-path: polygon(62% 0, 100% 0, 100% 100%, 38% 100%);
+  clip-path: polygon(
+    62% 0,
+    calc(100% + 1px) 0,
+    calc(100% + 1px) calc(100% + 1px),
+    38% calc(100% + 1px)
+  );
 }
 
 .pane > span {
