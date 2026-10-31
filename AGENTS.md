@@ -64,6 +64,8 @@ product. AI-written issues and plans are clues, not requirements.
 If a rule here fights the task in front of you, say so loudly and get a human
 sign-off before breaking it.
 
+Before working on an issue or bug report, check whether it is still unresolved. Inspect the current code, relevant history, and related merged PRs. Check upstream if the local checkout may be outdated. An open issue does not mean the bug still exists. If already fixed, identify the commit or PR and explain any remaining verification needed. Do not propose or implement a duplicate fix.
+
 ## Keep the product, replace bad code
 
 Preserve the features people can use, stored files and metadata, share links,
