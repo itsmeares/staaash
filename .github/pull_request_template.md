@@ -1,29 +1,19 @@
-## 🚀 Summary
+## 🐛 Problem
 
-<!-- Describe the change directly. Focus on the behavior, not the branch history. -->
+<!-- Explain the problem, expected behavior, and reproduction steps when relevant. -->
 
-## 📊 Impacts and Changes
+## 🚀 Change
 
-<!-- Explain what changes for users, maintainers, or operations. If there is no meaningful impact, say `None`. -->
+<!-- Explain how this change solves the problem. Call out schema, auth, storage, or restore changes. -->
 
-## 🧪 Testing Checklist
+## 🧪 Verification
 
-- [ ] `pnpm lint` passed
-- [ ] `pnpm quality:fallow` passed
-- [ ] `pnpm test` passed
-- [ ] `pnpm build` successful
-- [ ] I added or updated tests for behavior changes, or this change does not alter behavior.
-- [ ] If this PR changes UI or UX behavior, I verified it manually in the local dev environment.
+<!-- List the focused tests and manual checks you ran, with results. State which relevant checks you did not run and why. CI runs repository-wide checks.
 
-## Review Checklist
+For visible UI changes, include before and after images. Include a short video when movement or timing matters. -->
 
-- [ ] I called out schema, auth, storage, or restore behavior changes when they apply.
-- [ ] I did not commit secrets, runtime data, or generated local storage contents.
+## 🧗 Follow-ups, limitations, and related issues
 
-## 🧗 Follow-ups or Limitations
+<!-- List known gaps, follow-up work, and related issues. Use "Closes #123" when this PR should close an issue. If none, say "None". -->
 
-<!-- List any follow-up work, deferred cleanup, or known gaps. If none, say `None`. -->
-
-## 🔗 Linked Issues
-
-<!-- List related issues here. Use `closes #123` when this PR should close one automatically. If none, say `None`. -->
+<!-- If you used an agent, end with the model and agent tool. -->
