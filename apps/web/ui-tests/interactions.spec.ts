@@ -1,5 +1,38 @@
 import { expect, test } from "@playwright/test";
 
+for (const signedIn of [false, true])
+  test(`returns to desktop downloads when ${signedIn ? "already signed in" : "signing in"}`, async ({
+    page,
+    context,
+  }) => {
+    await context.route(
+      "https://github.com/itsmeares/staaash/releases",
+      (route) =>
+        route.fulfill({ contentType: "text/html", body: "Desktop releases" }),
+    );
+    if (!signedIn)
+      await page.request.post("/__ui/scenario", {
+        form: { scenario: "signed-out" },
+        maxRedirects: 0,
+      });
+    await page.goto("/?next=%2Fapi%2Fdesktop-app");
+    if (!signedIn) {
+      await page
+        .getByRole("button", { name: "Click anywhere or press any key" })
+        .click();
+      await page
+        .getByLabel("Email", { exact: true })
+        .fill("owner@staaash.test");
+      await page
+        .getByLabel("Password", { exact: true })
+        .fill("preview-password");
+      await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    }
+    await expect(page).toHaveURL(
+      "https://github.com/itsmeares/staaash/releases",
+    );
+  });
+
 test("opens desktop downloads through the instance in a new tab", async ({
   page,
   context,

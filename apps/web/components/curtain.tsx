@@ -8,12 +8,15 @@ type Raise = { text: string; dest: string; holdMs: number };
 let raise: ((next: Raise) => void) | null = null;
 
 /**
- * Leave the entry screens without a page load: a greeting covers the
+ * Enter the drive without a page load: a greeting covers the
  * screen, the drive loads underneath, and the cover slides up.
  */
 export function raiseCurtain(text: string, dest: string, holdMs = 1600) {
-  if (raise) raise({ text, dest, holdMs });
-  else window.location.assign(dest);
+  if (dest.startsWith("/api/") || !raise) {
+    window.location.assign(dest);
+    return;
+  }
+  raise({ text, dest, holdMs });
 }
 
 const SLIDE_MS = 900;

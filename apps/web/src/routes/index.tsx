@@ -41,8 +41,10 @@ export const Route = createFileRoute("/")({
       staleTime: 0,
     });
     if (entry.state === "signed-in" && !entry.firstRun) {
+      const href = deps.next ?? startPath(entry.startPage);
       throw redirect({
-        href: deps.next ?? startPath(entry.startPage),
+        href,
+        reloadDocument: href.startsWith("/api/"),
       });
     }
   },
