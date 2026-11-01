@@ -25,7 +25,12 @@ export type LocalScan = {
    * files, and anything it could not read. `reason` is set when the person
    * should hear about it.
    */
-  excluded: { rel: string; ino?: string; reason: string | null }[];
+  excluded: {
+    rel: string;
+    ino?: string;
+    reason: string | null;
+    unreadable?: boolean;
+  }[];
 };
 
 /**
@@ -62,6 +67,7 @@ export const scanLocal = async (
     // Moved or removed mid-scan: the next scan sees where it went.
     excluded.push({
       rel,
+      unreadable: true,
       reason:
         code(error) === "ENOENT"
           ? null

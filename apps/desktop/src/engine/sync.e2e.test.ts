@@ -32,8 +32,8 @@ import { SyncEngine } from "./engine";
  * STAAASH_SYNC_TEST_ORIGIN and signs in with its bootstrap owner.
  */
 const origin = process.env.STAAASH_SYNC_TEST_ORIGIN;
-const EMAIL = "owner-e2e@staaash.test";
-const PASSWORD = "staaash-owner-pass";
+const EMAIL = process.env.STAAASH_SYNC_TEST_EMAIL ?? "owner-e2e@staaash.test";
+const PASSWORD = process.env.STAAASH_SYNC_TEST_PASSWORD ?? "staaash-owner-pass";
 
 let cookie = "";
 let token = "";
@@ -542,6 +542,10 @@ describe.skipIf(!origin)("sync against a real server", () => {
       sha("backup"),
     );
     expect(existsSync(r.at("keep.txt"))).toBe(false);
+    expect(r.engine.status().folderSizes.pair).toMatchObject({
+      server: { bytes: 6 },
+      computer: { bytes: 0 },
+    });
   });
 
   it("stops when every file of a big folder disappears locally", async () => {
@@ -641,6 +645,10 @@ describe.skipIf(!origin)("sync against a real server", () => {
         sha("server"),
       );
       expect(remote.has("lexend/local.txt")).toBe(false);
+      expect(r.engine.status().folderSizes.pair).toMatchObject({
+        server: { bytes: 7 },
+        computer: { bytes: 7 },
+      });
     });
 
     it("syncs a skipped folder through its own pair, elsewhere", async () => {

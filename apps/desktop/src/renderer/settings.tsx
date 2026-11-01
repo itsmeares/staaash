@@ -1,6 +1,7 @@
-import { Folder, FolderOpen, Plus, Trash2 } from "lucide-react";
+import { Cloud, Folder, FolderOpen, Monitor, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
+import { formatBytes } from "@/lib/format-bytes";
 import { Alert, AlertDescription } from "@staaash/ui/components/alert";
 import { Avatar } from "@staaash/ui/components/avatar";
 import { Button } from "@staaash/ui/components/button";
@@ -19,7 +20,7 @@ import {
 import { Switch } from "@staaash/ui/components/switch";
 import { Textarea } from "@staaash/ui/components/textarea";
 
-import type { AppState, Settings } from "../shared/types";
+import type { AppState, Settings, SizeReading } from "../shared/types";
 import { AppGlyph } from "./app-glyph";
 import { FolderChooser, ModeSelect } from "./folder-chooser";
 import { desktop } from "./state";
@@ -132,6 +133,8 @@ export function VersionProblem({ state }: { state: AppState }) {
   );
 }
 
+// Offline and startup must not be shown as up to date.
+// fallow-ignore-next-line complexity
 function FolderState({ state, pairId }: { state: AppState; pairId: string }) {
   const status = state.status;
   const moving =
@@ -145,13 +148,69 @@ function FolderState({ state, pairId }: { state: AppState; pairId: string }) {
     ? ["bg-warning", "Needs you"]
     : status?.state === "paused"
       ? ["bg-muted-foreground", "Paused"]
-      : moving
-        ? ["bg-info", `Syncing ${moving}`]
-        : ["bg-success", "Up to date"];
+      : status?.state === "offline"
+        ? ["bg-warning", "Offline"]
+        : status?.state === "problem"
+          ? ["bg-warning", "Needs you"]
+          : !status || status.state === "starting"
+            ? ["bg-muted-foreground", "Starting"]
+            : moving
+              ? ["bg-info", `Syncing ${moving}`]
+              : ["bg-success", "Up to date"];
   return (
     <span className="mt-0.5 flex items-center gap-1.5 text-label text-muted-foreground">
       <span className={`size-2 shrink-0 rounded-full ${tone}`} />
       {label}
+    </span>
+  );
+}
+
+// A stale or missing reading needs a label rather than a fresh total.
+// fallow-ignore-next-line complexity
+function FolderSizes({ state, pairId }: { state: AppState; pairId: string }) {
+  const sizes = state.status?.folderSizes?.[pairId];
+  const stale =
+    (state.status?.state !== "idle" && state.status?.state !== "syncing") ||
+    !!state.status?.issues.some((issue) => issue.pairId === pairId);
+  const display = (reading: SizeReading | null | undefined) =>
+    reading ? formatBytes(reading.bytes) : "Unavailable";
+  const checked = (reading: SizeReading) =>
+    new Date(reading.at).toLocaleString(undefined, {
+      dateStyle: "short",
+      timeStyle: "short",
+    });
+  return (
+    <span className="mt-2 block">
+      <span className="inline-flex max-w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-foreground/5 px-2 py-1 text-label text-muted-foreground">
+        <span className="inline-flex items-center gap-1">
+          <Cloud aria-hidden className="size-3.5 shrink-0" />
+          Server{" "}
+          <span className="font-medium text-foreground">
+            {display(sizes?.server)}
+          </span>
+        </span>
+        <span className="inline-flex items-center gap-1 border-s border-border ps-3 max-sm:border-s-0 max-sm:ps-0">
+          <Monitor aria-hidden className="size-3.5 shrink-0" />
+          Computer{" "}
+          <span className="font-medium text-foreground">
+            {display(sizes?.computer)}
+          </span>
+        </span>
+      </span>
+      {stale && sizes ? (
+        <span className="mt-1 block text-label text-muted-foreground">
+          {sizes.server ? (
+            <span className="block">
+              Server checked {checked(sizes.server)}
+            </span>
+          ) : null}
+          {sizes.computer ? (
+            <span className="block">
+              Computer checked {checked(sizes.computer)}
+            </span>
+          ) : null}
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -219,6 +278,7 @@ export function FoldersPage({ state }: { state: AppState }) {
                       : ""}
                   </span>
                   <FolderState pairId={pair.id} state={state} />
+                  <FolderSizes state={state} pairId={pair.id} />
                 </span>
                 <ModeSelect
                   label={`How ${pair.remoteLabel} syncs`}
@@ -253,6 +313,12 @@ export function FoldersPage({ state }: { state: AppState }) {
             ))}
           </ul>
         )}
+        {pairs.length > 0 ? (
+          <p className="m-0 text-label text-muted-foreground">
+            Sizes count files selected for sync, including subfolders. They may
+            differ from disk space used.
+          </p>
+        ) : null}
         {error ? (
           <Alert variant="error">
             <AlertDescription>{error}</AlertDescription>

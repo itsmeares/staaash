@@ -270,14 +270,16 @@ export class Store {
     for (const row of this.db.prepare("SELECT key FROM meta").all() as {
       key: string;
     }[]) {
-      const pairId = /^(?:ready|gone|allow-emptied):(.+)$/.exec(row.key)?.[1];
+      const pairId = /^(?:ready|gone|allow-emptied|sizes):(.+)$/.exec(
+        row.key,
+      )?.[1];
       if (pairId) known.add(pairId);
     }
     this.transaction(() => {
       for (const pairId of known) {
         if (kept.has(pairId)) continue;
         this.clearPair(pairId);
-        for (const key of ["ready", "gone", "allow-emptied"]) {
+        for (const key of ["ready", "gone", "allow-emptied", "sizes"]) {
           this.setMeta(`${key}:${pairId}`, null);
         }
       }
