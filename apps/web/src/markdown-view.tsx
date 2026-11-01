@@ -84,7 +84,7 @@ export default function MarkdownView({
   className?: string;
 }) {
   return (
-    <article className={`text-body ${className}`}>
+    <article className={`min-w-0 text-body wrap-anywhere ${className}`}>
       <ReactMarkdown components={components} remarkPlugins={[remarkGfm]}>
         {text}
       </ReactMarkdown>
