@@ -23,7 +23,7 @@ export type BaseEntry = {
   checksum: string | null;
   size: number;
   mtimeMs: number;
-  ino: number;
+  ino: string;
 };
 
 export type PendingUpload = {
@@ -44,6 +44,15 @@ export type ConflictRow = {
   copyRel: string;
 };
 
+const baseTable = (name: string) => `
+  CREATE TABLE IF NOT EXISTS ${name} (
+    pairId TEXT NOT NULL, rel TEXT NOT NULL, type TEXT NOT NULL,
+    remoteId TEXT NOT NULL, rev INTEGER NOT NULL, checksum TEXT,
+    size INTEGER NOT NULL, mtimeMs REAL NOT NULL, ino TEXT NOT NULL,
+    PRIMARY KEY (pairId, rel)
+  );
+`;
+
 const SCHEMA = `
   PRAGMA journal_mode = WAL;
   PRAGMA synchronous = FULL;
@@ -53,12 +62,7 @@ const SCHEMA = `
     size INTEGER, checksum TEXT, rev INTEGER NOT NULL, modifiedAt INTEGER
   );
   CREATE INDEX IF NOT EXISTS remote_parent ON remote (parentId);
-  CREATE TABLE IF NOT EXISTS base (
-    pairId TEXT NOT NULL, rel TEXT NOT NULL, type TEXT NOT NULL,
-    remoteId TEXT NOT NULL, rev INTEGER NOT NULL, checksum TEXT,
-    size INTEGER NOT NULL, mtimeMs REAL NOT NULL, ino INTEGER NOT NULL,
-    PRIMARY KEY (pairId, rel)
-  );
+  ${baseTable("base")}
   CREATE TABLE IF NOT EXISTS upload (
     pairId TEXT NOT NULL, rel TEXT NOT NULL, sessionId TEXT NOT NULL,
     checksum TEXT NOT NULL, size INTEGER NOT NULL, mtimeMs REAL NOT NULL,
@@ -81,6 +85,31 @@ export class Store {
   constructor(file: string) {
     this.db = new DatabaseSync(file);
     this.db.exec(SCHEMA);
+    this.upgradeFileIds();
+  }
+
+  /**
+   * File ids used to be saved as numbers, which rounds big Windows ids and
+   * makes them unreadable. Ids above the safe range may be rounded, so they
+   * become unknown ('0') and the next pass saves the real one.
+   */
+  private upgradeFileIds() {
+    const column = this.db
+      .prepare("SELECT type FROM pragma_table_info('base') WHERE name = 'ino'")
+      .get() as { type: string };
+    if (column.type === "TEXT") return;
+    this.transaction(() =>
+      this.db.exec(`
+        ${baseTable("base_upgrade")}
+        INSERT INTO base_upgrade
+          SELECT pairId, rel, type, remoteId, rev, checksum, size, mtimeMs,
+            CASE WHEN typeof(ino) = 'integer' AND ino <= ${Number.MAX_SAFE_INTEGER}
+              THEN CAST(ino AS TEXT) ELSE '0' END
+          FROM base;
+        DROP TABLE base;
+        ALTER TABLE base_upgrade RENAME TO base;
+      `),
+    );
   }
 
   close() {

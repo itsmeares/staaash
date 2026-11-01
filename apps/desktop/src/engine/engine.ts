@@ -11,8 +11,9 @@ import type {
   SyncPair,
 } from "../shared/types";
 import type { Api } from "./api";
-import { ApiError, SignedOutError, createApi } from "./api";
+import { ApiError, SignedOutError, createApi, fetchVersion } from "./api";
 import { localPath } from "./local";
+import type { SyncLog } from "./log";
 import { createIgnore } from "./names";
 import { syncPair } from "./pair-sync";
 import type { StorageChange } from "./remote";
@@ -26,6 +27,7 @@ export type EngineDeps = {
   emit: (event: EngineEvent) => void;
   trash: (file: string) => Promise<void>;
   watch: Watch;
+  log: SyncLog;
 };
 
 const POLL_MS = 60_000;
@@ -59,7 +61,8 @@ export class SyncEngine {
   private unwatch: (() => void)[] = [];
   private issues: Issue[] = [];
   private activity: Activity[] = [];
-  private offline = false;
+  /** Why the last pass stopped; "offline" only if the server did not answer. */
+  private failure: "offline" | "problem" | null = null;
   private signedOut = false;
   private lastSyncAt: number | null = null;
   private notified = new Set<string>();
@@ -377,6 +380,25 @@ export class SyncEngine {
     );
   }
 
+  /**
+   * Keeps the error, then asks the server: the error alone can't say whether
+   * the server is down or something broke on this computer.
+   */
+  private async recordFailure(stage: string, error: unknown) {
+    const { config } = this;
+    this.deps.log(stage, error);
+    const answers =
+      config &&
+      (await fetchVersion(config.serverUrl, this.halt.signal).then(
+        () => true,
+        // 502, 503 and 504 are a proxy or a busy server standing in for it.
+        (failed: unknown) =>
+          failed instanceof ApiError &&
+          ![502, 503, 504].includes(failed.status),
+      ));
+    this.failure = answers ? "problem" : "offline";
+  }
+
   // One pass: pull, then each pair, then the next wake-up.
   // fallow-ignore-next-line complexity
   private async pass() {
@@ -392,27 +414,42 @@ export class SyncEngine {
     let pullAgain = false;
     try {
       await this.pull();
-      this.offline = false;
+      this.failure = null;
       const issues: Issue[] = [];
       for (const pair of config.pairs) {
         if (this.config !== config) break;
-        const result = await syncPair({
-          api: this.api as Api,
-          store: this.store,
-          tree: this.tree,
-          pair,
-          deviceName: config.deviceName,
-          ignore: createIgnore(config.ignore),
-          minFreeBytes: config.minFreeBytes,
-          uploads: this.uploads,
-          downloads: this.downloads,
-          trash: this.deps.trash,
-          activity: (update) => this.track(update),
-          notify: (title, body) =>
-            this.deps.emit({ type: "notify", title, body }),
-          current: () => this.current(pair, config.ignore),
-          signal: this.halt.signal,
-        });
+        let result;
+        try {
+          result = await syncPair({
+            api: this.api as Api,
+            store: this.store,
+            tree: this.tree,
+            pair,
+            deviceName: config.deviceName,
+            ignore: createIgnore(config.ignore),
+            minFreeBytes: config.minFreeBytes,
+            uploads: this.uploads,
+            downloads: this.downloads,
+            trash: this.deps.trash,
+            activity: (update) => this.track(update),
+            notify: (title, body) =>
+              this.deps.emit({ type: "notify", title, body }),
+            current: () => this.current(pair, config.ignore),
+            signal: this.halt.signal,
+          });
+        } catch (error) {
+          if (error instanceof SignedOutError || this.stopped) throw error;
+          await this.recordFailure(`sync folder ${pair.id}`, error);
+          // Other pairs need the server too; one broken pair doesn't stop them.
+          if (this.failure === "offline") break;
+          issues.push({
+            pairId: pair.id,
+            rel: "",
+            kind: "error",
+            message: "This folder couldn't sync.",
+          });
+          continue;
+        }
         issues.push(...result.issues);
         if (result.hold) {
           issues.push({
@@ -428,11 +465,13 @@ export class SyncEngine {
         if (result.pullAgain) pullAgain = true;
         retrySoon ||= result.retrySoon;
       }
-      this.issues = issues;
-      this.lastSyncAt = Date.now();
+      if (this.failure !== "offline") this.issues = issues;
+      if (!this.failure) this.lastSyncAt = Date.now();
     } catch (error) {
       if (error instanceof SignedOutError) this.signOut();
-      else this.offline = true;
+      else if (!this.stopped) {
+        await this.recordFailure("reading server changes", error);
+      }
     } finally {
       this.running = false;
     }
@@ -448,7 +487,7 @@ export class SyncEngine {
       );
     } else {
       this.request(
-        this.offline || !this.liveConnected
+        this.failure || !this.liveConnected
           ? POLL_MS
           : retrySoon
             ? RETRY_SOON_MS
@@ -515,13 +554,12 @@ export class SyncEngine {
         ? "signed-out"
         : config?.paused
           ? "paused"
-          : this.offline
-            ? "offline"
-            : this.running
+          : (this.failure ??
+            (this.running
               ? "syncing"
               : this.lastSyncAt === null
                 ? "starting"
-                : "idle",
+                : "idle")),
       pendingFiles: active.length,
       pendingBytes: active.reduce(
         (sum, each) => sum + Math.max(0, each.bytes - each.doneBytes),

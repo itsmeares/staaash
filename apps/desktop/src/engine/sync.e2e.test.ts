@@ -199,6 +199,7 @@ const rig = async (
           );
         },
         watch: async () => () => {},
+        log: () => {},
       },
       data,
     );

@@ -273,9 +273,10 @@ export const createApi = (
 };
 
 /** Server facts that need no sign-in: the version check before anything else. */
-export const fetchVersion = async (serverUrl: string) => {
+export const fetchVersion = async (serverUrl: string, stop?: AbortSignal) => {
+  const timeout = AbortSignal.timeout(15_000);
   const response = await fetch(new URL("/api/version", serverUrl), {
-    signal: AbortSignal.timeout(15_000),
+    signal: stop ? AbortSignal.any([timeout, stop]) : timeout,
   });
   if (!response.ok) {
     throw new ApiError(response.status, "This is not a Staaash server.");

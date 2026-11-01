@@ -187,7 +187,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
   /**
    * Treats a refusal from the server as "look again", and a local disk error
    * (a locked file, no permission, a full disk) as a problem with this one
-   * path. Signed-out and network errors end the pass.
+   * path. Anything else ends this folder's run, and the engine decides why.
    */
   // One branch per server refusal the engine retries.
   // fallow-ignore-next-line complexity

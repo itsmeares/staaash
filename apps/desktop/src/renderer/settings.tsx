@@ -476,6 +476,14 @@ export function SettingsPage({ state }: { state: AppState }) {
             </Button>
           ) : null}
         </Row>
+        <Row
+          description="What went wrong while syncing. It stays on this computer."
+          label="Sync log"
+        >
+          <Button variant="outline" onClick={() => void desktop.openSyncLog()}>
+            Open log
+          </Button>
+        </Row>
       </Group>
     </PageBody>
   );

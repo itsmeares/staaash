@@ -87,6 +87,7 @@ export type EngineState =
   | "syncing"
   | "paused"
   | "offline"
+  | "problem"
   | "signed-out";
 
 export type EngineStatus = {
@@ -170,6 +171,7 @@ export type DesktopApi = {
   pause: (minutes: number | null) => Promise<void>;
   openStaaash: () => Promise<Result>;
   openFolder: (pairId: string, rel?: string) => Promise<void>;
+  openSyncLog: () => Promise<void>;
   resolveConflict: (id: number, choice: ConflictChoice) => Promise<void>;
   resolvePair: (
     pairId: string,

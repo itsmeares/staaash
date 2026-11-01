@@ -283,6 +283,14 @@ const headline = (state: AppState) => {
       detail: "Syncing continues when it's back.",
     };
   }
+  if (status?.state === "problem") {
+    return {
+      Icon: TriangleAlert,
+      color: "var(--warning)",
+      title: statusLine(state),
+      detail: "Syncing tries again soon.",
+    };
+  }
   if (status?.state === "syncing" || status?.state === "starting") {
     return {
       Icon: ActivityIcon,
@@ -363,10 +371,21 @@ export function ActivityPage({
             </p>
           ) : null}
         </div>
-        <PauseButton
-          paused={state.status?.state === "paused"}
-          onCustom={onCustomPause}
-        />
+        {/* Stacked on narrow windows, or the buttons squeeze the title. */}
+        <div className="flex shrink-0 items-center gap-2 max-sm:flex-col max-sm:items-end">
+          {state.status?.state === "problem" ? (
+            <Button
+              variant="outline"
+              onClick={() => void desktop.openSyncLog()}
+            >
+              Open log
+            </Button>
+          ) : null}
+          <PauseButton
+            paused={state.status?.state === "paused"}
+            onCustom={onCustomPause}
+          />
+        </div>
       </header>
       <div className="h-0.5 shrink-0 bg-border">
         {total > 0 ? (

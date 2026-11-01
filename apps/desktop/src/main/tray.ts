@@ -28,7 +28,8 @@ const iconDir = () =>
 // fallow-ignore-next-line complexity
 const iconFor = (state: AppState): TrayIcon => {
   const status = state.status;
-  if (!state.signedIn || state.versionProblem) return "attention";
+  if (!state.signedIn || state.versionProblem || status?.state === "problem")
+    return "attention";
   if (status?.state === "paused") return "paused";
   if (status?.state === "offline") return "offline";
   if (status?.state === "syncing" || status?.state === "starting")

@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdir, rm } from "node:fs/promises";
+import { appendFile, mkdir, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
@@ -14,6 +14,7 @@ import {
 } from "electron";
 
 import { createApi, fetchVersion } from "../engine/api";
+import { SYNC_LOG_NAME } from "../engine/log";
 import { freeBytes } from "../engine/transfer";
 import type {
   AppState,
@@ -369,6 +370,15 @@ const openFolder = async (pairId: string, rel?: string) => {
   else await shell.openPath(pair.localPath);
 };
 
+const openSyncLog = async () => {
+  await mkdir(dataDir(), { recursive: true });
+  const file = path.join(dataDir(), SYNC_LOG_NAME);
+  // Empty until something goes wrong; the button still has to open something.
+  await appendFile(file, "");
+  // Not every computer has an app for .log files.
+  if (await shell.openPath(file)) shell.showItemInFolder(file);
+};
+
 // Ten years is far past any real pause, and keeps the date valid.
 const LONGEST_PAUSE_MINUTES = 10 * 365 * 24 * 60;
 
@@ -489,6 +499,7 @@ const registerIpc = () => {
   handle("pause", (minutes: number | null) => serial(() => pause(minutes)));
   handle("open-staaash", openStaaash);
   handle("open-folder", openFolder);
+  handle("open-sync-log", openSyncLog);
   handle(
     "resolve-conflict",
     (id: number, choice: "keep-server" | "keep-mine") =>
