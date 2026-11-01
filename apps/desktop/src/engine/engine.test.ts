@@ -4,10 +4,18 @@ import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vite-plus/test";
 
 import type { EngineConfig, EngineState, SyncPair } from "../shared/types";
 import { SyncEngine } from "./engine";
+import * as pairSync from "./pair-sync";
 
 type Reply = (response: ServerResponse) => void;
 
@@ -111,9 +119,61 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await engine.stop();
+  vi.restoreAllMocks();
   server.closeAllConnections();
   await new Promise((resolve) => server.close(resolve));
   rmSync(root, { recursive: true, force: true });
+});
+
+it("keeps active transfers in place and retains them while recent transfers fill up", async () => {
+  vi.spyOn(pairSync, "syncPair").mockImplementation(async ({ activity }) => {
+    const transfer = (rel: string) => ({
+      pairId: "a",
+      rel,
+      direction: "up" as const,
+      state: "active" as const,
+      bytes: 100,
+      doneBytes: 0,
+      at: 1,
+    });
+    const first = transfer("first");
+    const second = transfer("second");
+    activity(first);
+    activity(second);
+    activity({ ...first, doneBytes: 50 });
+    expect(engine.status().activity.map((item) => item.rel)).toEqual([
+      "second",
+      "first",
+    ]);
+    expect(engine.status().pendingBytes).toBe(150);
+
+    activity({ ...second, state: "done", at: 2 });
+    for (let i = 0; i < 35; i++) {
+      const next = transfer(`file-${i}`);
+      activity(next);
+      activity({ ...next, state: "done", at: i + 3 });
+    }
+    let status = engine.status();
+    expect(status.activity).toHaveLength(30);
+    expect(status.pendingFiles).toBe(1);
+    expect(status.pendingBytes).toBe(50);
+    expect(status.activity.at(-1)).toMatchObject({
+      rel: "first",
+      state: "active",
+    });
+    expect(status.activity[0]).toMatchObject({ rel: "file-34", state: "done" });
+
+    activity({ ...first, state: "failed", at: 40 });
+    status = engine.status();
+    expect(status.activity[0]).toMatchObject({ rel: "first", state: "failed" });
+    expect(status.pendingFiles).toBe(0);
+    activity(first);
+    expect(
+      engine.status().activity.filter((item) => item.rel === "first"),
+    ).toEqual([first]);
+    return { issues: [], hold: null, pullAgain: false, retrySoon: false };
+  });
+  await syncOnce([pairOf("a")]);
 });
 
 const cases: [string, Partial<typeof replies>, EngineState][] = [

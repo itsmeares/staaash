@@ -500,10 +500,28 @@ export class SyncEngine {
     const index = this.activity.findIndex(
       (each) => each.pairId === update.pairId && each.rel === update.rel,
     );
+    if (
+      index !== -1 &&
+      update.state === "active" &&
+      this.activity[index]?.state === "active"
+    ) {
+      this.activity[index] = { ...update };
+      this.emitStatus();
+      return;
+    }
     if (index !== -1) this.activity.splice(index, 1);
     this.activity.unshift({ ...update });
-    this.activity.length = Math.min(this.activity.length, 30);
+    this.trimActivity();
     this.emitStatus();
+  }
+
+  private trimActivity() {
+    if (this.activity.length <= 30) return;
+    const oldestRecent = [...this.activity]
+      .reverse()
+      .findIndex((each) => each.state !== "active");
+    if (oldestRecent !== -1)
+      this.activity.splice(this.activity.length - 1 - oldestRecent, 1);
   }
 
   private notifyIssues() {
