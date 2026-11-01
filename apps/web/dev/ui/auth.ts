@@ -1,9 +1,10 @@
+import { ownerOnboardingSettingsSchema } from "../../server/admin/settings-schema";
 import type { Hono } from "hono";
 import type { PreviewEnv } from "./state";
 import { z } from "zod";
 import { jsonBody } from "./request";
 import { setCookie } from "hono/cookie";
-import { PreviewError, requireUser, timestamp } from "./state";
+import { PreviewError, requireUser, signedInUser, timestamp } from "./state";
 import { checkPassword } from "./mutations";
 import {
   bootstrapInputSchema,
@@ -38,7 +39,7 @@ export function mountAuth(app: Hono<PreviewEnv>) {
     );
   });
   app.post("/api/auth/sign-in", async (c) => {
-    const body = signInInputSchema.parse(await c.req.json());
+    const body = signInInputSchema.parse(await jsonBody(c.req.raw));
     const user = c.var.state.users.find((u) => u.email === body.email);
     if (!user)
       throw new PreviewError(
@@ -61,7 +62,7 @@ export function mountAuth(app: Hono<PreviewEnv>) {
       : c.json({ ok: true });
   });
   app.post("/api/auth/setup", async (c) => {
-    const body = bootstrapInputSchema.parse(await c.req.json());
+    const body = bootstrapInputSchema.parse(await jsonBody(c.req.raw));
     const user = c.var.state.users[0]!;
     user.email = body.email;
     user.displayName = body.displayName ?? "Alex Morgan";
@@ -74,21 +75,23 @@ export function mountAuth(app: Hono<PreviewEnv>) {
     return c.json({ user, session: { id: "current", user } }, 201);
   });
   app.post("/api/auth/password-change-required", async (c) => {
-    const body = requiredPasswordChangeInputSchema.parse(await c.req.json());
+    const user = signedInUser(c.var.state);
+    const body = requiredPasswordChangeInputSchema.parse(
+      await jsonBody(c.req.raw),
+    );
     if (body.password !== body.confirmPassword)
       throw new PreviewError(400, "Passwords do not match.");
-    c.var.state.passwords.set(c.var.state.userId!, body.password);
+    c.var.state.passwords.set(user.id, body.password);
     c.var.state.firstRun =
       c.var.state.firstRun === "member-password" ? "member" : null;
-    c.var.state.firstRuns.delete(c.var.state.userId!);
+    c.var.state.firstRuns.delete(user.id);
     if (c.var.state.firstRun)
-      c.var.state.firstRuns.set(c.var.state.userId!, c.var.state.firstRun);
+      c.var.state.firstRuns.set(user.id, c.var.state.firstRun);
     return c.json({ onboardingCompleted: !c.var.state.firstRun });
   });
   app.post("/api/user/preferences", async (c) => {
-    const body = preferencesInputSchema.parse(await c.req.json());
-    const user = c.var.state.users.find((u) => u.id === c.var.state.userId);
-    if (!user) throw new PreviewError(401, "Sign in first.");
+    const body = preferencesInputSchema.parse(await jsonBody(c.req.raw));
+    const user = signedInUser(c.var.state);
     const { displayName, avatarUrl, ...prefs } = body;
     Object.assign(user.prefs, prefs);
     if (displayName !== undefined) user.displayName = displayName;
@@ -100,7 +103,17 @@ export function mountAuth(app: Hono<PreviewEnv>) {
     return c.json({ ok: true });
   });
   app.post("/api/auth/onboarding/settings", async (c) => {
-    Object.assign(c.var.state.settings, await jsonBody(c.req.raw));
+    const state = c.var.state;
+    if (
+      signedInUser(state).role !== "owner" ||
+      state.firstRun === "password" ||
+      state.firstRun === "member-password"
+    )
+      throw new PreviewError(403, "Owner access required.");
+    const settings = ownerOnboardingSettingsSchema.parse(
+      await jsonBody(c.req.raw),
+    );
+    Object.assign(state.settings, settings);
     return c.json({ ok: true });
   });
   app.get("/auth/device-callback", (c) => c.redirect("/", 303));
@@ -111,7 +124,7 @@ export function mountAuth(app: Hono<PreviewEnv>) {
   app.post("/api/user/password", async (c) => {
     const body = requiredPasswordChangeInputSchema
       .extend({ currentPassword: z.string() })
-      .parse(await c.req.json());
+      .parse(await jsonBody(c.req.raw));
     checkPassword(
       body.currentPassword,
       c.var.state.passwords.get(c.var.state.userId!),

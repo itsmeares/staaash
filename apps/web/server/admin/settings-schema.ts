@@ -36,6 +36,19 @@ const checkboxSetting = z
   .optional()
   .transform((value) => value === "on");
 
+export const ownerOnboardingSettingsSchema = z.object({
+  mediaPreviewEnabled: z.boolean(),
+  mediaPreviewGenerateOnUpload: z.boolean(),
+  mediaPreviewGenerateOnFirstView: z.boolean(),
+  mediaPreviewGenerateOnShare: z.boolean(),
+  updateCheckEnabled: z.boolean(),
+  timeZone: z
+    .string()
+    .trim()
+    .default(DEFAULT_TIME_ZONE)
+    .refine(isValidTimeZone, "Invalid time zone."),
+});
+
 export const settingsSchema = z
   .object({
     sessionMaxAgeDays: integerSetting(),

@@ -1,9 +1,9 @@
-import { z } from "zod";
+import type { z } from "zod";
 
 import { getPrisma } from "@staaash/db/client";
-import { DEFAULT_TIME_ZONE, isValidTimeZone } from "@staaash/config/time-zone";
 
 import {
+  ownerOnboardingSettingsSchema,
   settingsSchema,
   toSettingsValues,
   type SettingsActionState,
@@ -49,19 +49,6 @@ export async function saveSystemSettings(
 
   return { success: true, values: toSettingsValues(parsed.data) };
 }
-
-export const ownerOnboardingSettingsSchema = z.object({
-  mediaPreviewEnabled: z.boolean(),
-  mediaPreviewGenerateOnUpload: z.boolean(),
-  mediaPreviewGenerateOnFirstView: z.boolean(),
-  mediaPreviewGenerateOnShare: z.boolean(),
-  updateCheckEnabled: z.boolean(),
-  timeZone: z
-    .string()
-    .trim()
-    .default(DEFAULT_TIME_ZONE)
-    .refine(isValidTimeZone, "Invalid time zone."),
-});
 
 export async function saveOwnerOnboardingSettings(
   input: z.input<typeof ownerOnboardingSettingsSchema>,

@@ -1,3 +1,4 @@
+import { ownerOnboardingSettingsSchema } from "@/server/admin/settings-schema";
 import { preferencesInputSchema } from "@/server/auth/schema";
 import { createRoute, z } from "@hono/zod-openapi";
 
@@ -5,10 +6,7 @@ import type { Context } from "hono";
 import { validator } from "hono/validator";
 
 import { canAccessAdminSurface } from "@/server/access";
-import {
-  ownerOnboardingSettingsSchema,
-  saveOwnerOnboardingSettings,
-} from "@/server/admin/settings";
+import { saveOwnerOnboardingSettings } from "@/server/admin/settings";
 import {
   approveDevice,
   exchangeDeviceCode,

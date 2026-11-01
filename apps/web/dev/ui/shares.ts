@@ -1,4 +1,8 @@
-import { isPublicShareFileNativeViewSafe } from "../../server/media/public-share-content-policy";
+import { jsonBody } from "./request";
+import {
+  isPublicShareFileNativeViewSafe,
+  applyPublicShareContentPolicy,
+} from "../../server/media/public-share-content-policy";
 import { unavailableHtml } from "../../server/sharing/unavailable-page";
 import { randomUUID } from "node:crypto";
 import type { Hono } from "hono";
@@ -121,7 +125,7 @@ export function mountShares(app: Hono<PreviewEnv>) {
         downloadDisabled: z.boolean().default(false),
         password: z.string().min(4).nullable().default(null),
       })
-      .parse(await c.req.json());
+      .parse(await jsonBody(c.req.raw));
     if (body.mode === "reissue") {
       const share = state.shares.find(
         (s) => s.id === body.shareId && s.ownerId === state.userId,
@@ -172,7 +176,7 @@ export function mountShares(app: Hono<PreviewEnv>) {
       state.shares = state.shares.filter((s) => s !== share);
       return c.json({ ok: true });
     } else {
-      const body = await c.req.json();
+      const body = await jsonBody(c.req.raw);
       if (action === "update") {
         const values = z
           .object({
@@ -181,11 +185,12 @@ export function mountShares(app: Hono<PreviewEnv>) {
           })
           .parse(body);
         Object.assign(share, values);
-      } else if (action === "password")
+      } else if (action === "password") {
         share.password = z
           .object({ password: z.string().min(4).nullable() })
           .parse(body).password;
-      else throw new PreviewError(404, "Unknown share action.");
+        state.unlocked.delete(share.token);
+      } else throw new PreviewError(404, "Unknown share action.");
     }
     return c.json({
       share: shareView(state, share, new URL(c.req.url).origin),
@@ -229,7 +234,9 @@ export function mountShares(app: Hono<PreviewEnv>) {
   app.post("/s/:token/unlock", async (c) => {
     const state = c.var.state;
     const share = shared(state, c.req.param("token"), false);
-    const body = z.object({ password: z.string() }).parse(await c.req.json());
+    const body = z
+      .object({ password: z.string() })
+      .parse(await jsonBody(c.req.raw));
     if (body.password !== share.password)
       throw new PreviewError(403, "Incorrect sample password.");
     state.unlocked.add(share.token);
@@ -284,7 +291,10 @@ export function mountShares(app: Hono<PreviewEnv>) {
       "Sample files.zip",
     );
   });
-  for (const path of ["/s/:token/:action", "/s/:token/files/:id/:action"])
+  for (const path of [
+    "/s/:token/:action{content|download|preview|thumbnail|poster}",
+    "/s/:token/files/:id/:action{content|download|preview|thumbnail|poster}",
+  ])
     app.get(path, (c) => {
       const state = c.var.state;
       const share = shared(state, c.req.param("token")!);
@@ -294,18 +304,12 @@ export function mountShares(app: Hono<PreviewEnv>) {
           403,
           "Downloads are disabled for this sample link.",
         );
-      if (
-        !["content", "download", "preview", "thumbnail", "poster"].includes(
-          action!,
-        )
-      )
-        throw new PreviewError(404, "Unknown shared file request.");
       const file = nestedFile(
         state,
         share,
         c.req.param("id") ?? share.targetId,
       );
-      return byteResponse(
+      const response = byteResponse(
         sampleBytes(state, file.id, ["thumbnail", "poster"].includes(action!)),
         ["thumbnail", "poster"].includes(action!)
           ? "image/jpeg"
@@ -313,5 +317,8 @@ export function mountShares(app: Hono<PreviewEnv>) {
         c.req.raw,
         action === "download" ? file.name : undefined,
       );
+      return action === "download"
+        ? response
+        : applyPublicShareContentPolicy(response, file.name);
     });
 }

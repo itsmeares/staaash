@@ -40,6 +40,36 @@ export const jobKinds = [
   "zip.archive.generate",
   "zip.archive.cleanup",
 ] as const;
+type Job = InferResponseType<
+  typeof api.api.views.admin.jobs.$get,
+  200
+>["initialProblems"][number];
+export function sampleJob(
+  kind: (typeof jobKinds)[number],
+  id: string,
+  status: Job["status"] = "succeeded",
+): Job {
+  return {
+    id,
+    kind,
+    status,
+    payloadJson: {},
+    dedupeKey: null,
+    runAt: timestamp,
+    lockedAt: null,
+    leaseExpiresAt: null,
+    timeoutAt: null,
+    cancelledAt: null,
+    lockedBy: null,
+    startedAt: timestamp,
+    completedAt: status === "running" ? null : timestamp,
+    attemptCount: 1,
+    maxAttempts: 3,
+    lastError: status === "failed" ? "Sample job could not finish." : null,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
 export type File = Plain<FileSummary> & {
   asset: string;
   thumbnailAsset?: string;
@@ -90,6 +120,7 @@ export function createState(scenario: Scenario = "owner") {
       clockFormat: "24h",
     },
   }));
+  const firstRun = firstRunByScenario[scenario] ?? null;
   const state = {
     scenario,
     userId: ["signed-out", "setup"].includes(scenario)
@@ -99,14 +130,10 @@ export function createState(scenario: Scenario = "owner") {
         : scenario === "admin"
           ? "admin"
           : "owner",
-    firstRun: firstRunByScenario[scenario] ?? null,
-    firstRuns: new Map<
-      string,
-      Exclude<
-        import("../../components/public/first-run").FirstRunKind,
-        "owner-setup"
-      >
-    >(),
+    firstRun,
+    firstRuns: new Map<string, Exclude<FirstRunKind, "owner-setup">>(
+      firstRun ? [["member", firstRun]] : [],
+    ),
     instanceName: "Sample Drive",
     users,
     passwords: new Map(users.map((user) => [user.id, password])),
@@ -133,41 +160,16 @@ export function createState(scenario: Scenario = "owner") {
       updatedAt: timestamp,
     },
     recovering: scenario === "busy",
-    jobs: jobKinds.map(
-      (
+    jobs: jobKinds.map((kind, index) =>
+      sampleJob(
         kind,
-        index,
-      ): InferResponseType<
-        typeof api.api.views.admin.jobs.$get,
-        200
-      >["initialProblems"][number] => ({
-        id: `job-${index}`,
-        kind,
-        status:
-          scenario === "error" && index === 0
-            ? "failed"
-            : scenario === "busy" && index === 0
-              ? "running"
-              : "succeeded",
-        payloadJson: {},
-        dedupeKey: null,
-        runAt: timestamp,
-        lockedAt: null,
-        leaseExpiresAt: null,
-        timeoutAt: null,
-        cancelledAt: null,
-        lockedBy: null,
-        startedAt: timestamp,
-        completedAt: timestamp,
-        attemptCount: 1,
-        maxAttempts: 3,
-        lastError:
-          scenario === "error" && index === 0
-            ? "Sample job could not finish."
-            : null,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      }),
+        `job-${index}`,
+        scenario === "error" && index === 0
+          ? "failed"
+          : scenario === "busy" && index === 0
+            ? "running"
+            : "succeeded",
+      ),
     ),
   };
   for (const user of users) seedDrive(state, user);
@@ -337,9 +339,14 @@ export class PreviewError extends Error {
     super(message);
   }
 }
-export const requireUser = (state: State) => {
+export const signedInUser = (state: State) => {
   const user = state.users.find((u) => u.id === state.userId);
-  if (!user || state.firstRun)
+  if (!user) throw new PreviewError(401, "Sign in to the sample drive.");
+  return user;
+};
+export const requireUser = (state: State) => {
+  const user = signedInUser(state);
+  if (state.firstRun)
     throw new PreviewError(401, "Sign in to the sample drive.");
   return user;
 };

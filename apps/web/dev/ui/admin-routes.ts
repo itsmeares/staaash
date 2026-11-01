@@ -1,3 +1,4 @@
+import { sampleTemporaryPassword } from "./mutations";
 import type { Hono } from "hono";
 import type { PreviewEnv } from "./state";
 import { z } from "zod";
@@ -10,7 +11,8 @@ import {
   requireUser,
   rootOf,
   fileOf,
-  password,
+  jobKinds,
+  sampleJob,
   timestamp,
 } from "./state";
 import { devices } from "./views";
@@ -143,8 +145,12 @@ export function mountAdmin(app: Hono<PreviewEnv>, streams: Set<() => void>) {
   );
   app.post("/api/admin/jobs/run", async (c) => {
     const body = await jsonBody(c.req.raw);
-    const job = c.var.state.jobs.find((j) => j.kind === body.kind);
-    if (!job) throw new PreviewError(400, "Choose a sample job kind.");
+    const kind = z.enum(jobKinds).parse(body.kind);
+    let job = c.var.state.jobs.find((j) => j.kind === kind);
+    if (!job) {
+      job = sampleJob(kind, randomUUID());
+      c.var.state.jobs.push(job);
+    }
     job.status = "succeeded";
     job.lastError = null;
     return c.json({ message: "Sample job finished.", jobId: job.id });
@@ -230,7 +236,8 @@ export function mountAdmin(app: Hono<PreviewEnv>, streams: Set<() => void>) {
   app.post("/api/admin/users", async (c) => {
     if (requireUser(c.var.state).role !== "owner")
       throw new PreviewError(403, "Owner access required.");
-    const body = adminCreateUserInputSchema.parse(await c.req.json());
+    const body = adminCreateUserInputSchema.parse(await jsonBody(c.req.raw));
+    const temporaryPassword = sampleTemporaryPassword(body);
     const email = body.email;
     if (c.var.state.users.some((u) => u.email === email))
       throw new PreviewError(409, "That sample account already exists.");
@@ -244,7 +251,7 @@ export function mountAdmin(app: Hono<PreviewEnv>, streams: Set<() => void>) {
       storageLimitBytes: body.storageLimitBytes?.toString() ?? null,
       note: "Not signed in yet",
     };
-    c.var.state.passwords.set(user.id, body.temporaryPassword ?? password);
+    c.var.state.passwords.set(user.id, temporaryPassword);
     c.var.state.firstRuns.set(
       user.id,
       body.requirePasswordChange === false ? "member" : "member-password",
@@ -264,7 +271,7 @@ export function mountAdmin(app: Hono<PreviewEnv>, streams: Set<() => void>) {
   app.patch("/api/admin/users/:id", async (c) => {
     const user = editableUser(c.var.state, c.req.param("id"));
     const { isAdmin, ...values } = adminUpdateUserInputSchema.parse(
-      await c.req.json(),
+      await jsonBody(c.req.raw),
     );
     Object.assign(user, plain(values));
     if (isAdmin !== undefined && user.role !== "owner")
@@ -273,13 +280,8 @@ export function mountAdmin(app: Hono<PreviewEnv>, streams: Set<() => void>) {
   });
   app.post("/api/admin/users/:id/password-reset", async (c) => {
     const user = editableUser(c.var.state, c.req.param("id"));
-    const body = temporaryPasswordInputSchema.parse(await c.req.json());
-    const temporaryPassword = body.temporaryPassword ?? password;
-    if (
-      body.temporaryPassword &&
-      body.confirmTemporaryPassword !== body.temporaryPassword
-    )
-      throw new PreviewError(400, "Passwords do not match.");
+    const body = temporaryPasswordInputSchema.parse(await jsonBody(c.req.raw));
+    const temporaryPassword = sampleTemporaryPassword(body);
     c.var.state.passwords.set(user.id, temporaryPassword);
     if (body.requirePasswordChange !== false)
       c.var.state.firstRuns.set(user.id, "password");
@@ -307,7 +309,9 @@ export function mountAdmin(app: Hono<PreviewEnv>, streams: Set<() => void>) {
     const file = fileOf(state, c.req.param("id").replace(/^derivative-/, ""));
     const action = c.req.param("action");
     if (action === "pin") {
-      const body = z.object({ pinned: z.boolean() }).parse(await c.req.json());
+      const body = z
+        .object({ pinned: z.boolean() })
+        .parse(await jsonBody(c.req.raw));
       if (body.pinned) state.pinnedPreviews.add(file.id);
       else state.pinnedPreviews.delete(file.id);
     } else if (action === "cancel") state.previewStates.set(file.id, "failed");

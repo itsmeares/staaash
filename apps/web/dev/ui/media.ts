@@ -1,4 +1,8 @@
 import { readFileSync } from "node:fs";
+import {
+  getPublicShareSafeInlineMimeType,
+  PUBLIC_SHARE_CONTENT_SECURITY_POLICY,
+} from "../../server/media/public-share-content-policy";
 import { photoSamples } from "./fixtures";
 import { type State, type File, PreviewError, fileOf } from "./state";
 
@@ -43,6 +47,10 @@ export function byteResponse(
     "Content-Length": String(bytes.byteLength),
     "Accept-Ranges": "bytes",
     "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+    ...(!getPublicShareSafeInlineMimeType(type) && {
+      "Content-Security-Policy": PUBLIC_SHARE_CONTENT_SECURITY_POLICY,
+    }),
   });
   if (name)
     headers.set(

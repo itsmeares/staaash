@@ -1,3 +1,7 @@
+import {
+  requiredPasswordChangeInputSchema,
+  type temporaryPasswordInputSchema,
+} from "../../server/auth/schema";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { resolveViewerKind } from "@staaash/db/viewer-contract";
@@ -262,4 +266,17 @@ export function checkPassword(value: unknown, expected = password) {
       401,
       "Use the sample password shown on the preview controls page.",
     );
+}
+
+export function sampleTemporaryPassword(
+  body: z.infer<typeof temporaryPasswordInputSchema>,
+) {
+  if (body.generateTemporaryPassword) return password;
+  const values = requiredPasswordChangeInputSchema.parse({
+    password: body.temporaryPassword,
+    confirmPassword: body.confirmTemporaryPassword,
+  });
+  if (values.password !== values.confirmPassword)
+    throw new PreviewError(400, "Passwords do not match.");
+  return values.password;
 }

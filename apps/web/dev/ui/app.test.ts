@@ -58,6 +58,315 @@ function browser(preview = createPreviewApp()) {
   return { request, post, read, scenario };
 }
 
+describe("preview review regressions", () => {
+  it("runs an advertised job kind after its previous job was dismissed", async () => {
+    const client = browser();
+    expect((await client.post("/api/admin/jobs/job-0/dismiss")).status).toBe(
+      200,
+    );
+    const run = await client.post("/api/admin/jobs/run", {
+      kind: "staging.cleanup",
+    });
+    expect(run.status).toBe(200);
+    const { jobId } = (await run.json()) as { jobId: string };
+    const jobs = await client.read<{
+      items: Array<{ id: string; status: string }>;
+    }>("/api/admin/jobs");
+    expect(jobs.items).toContainEqual(
+      expect.objectContaining({ id: jobId, status: "succeeded" }),
+    );
+    expect(
+      (await client.post("/api/admin/jobs/run", { kind: "not-a-job" })).status,
+    ).toBe(400);
+  });
+
+  it("validates manual temporary passwords and handles empty generated-password fields", async () => {
+    const client = browser();
+    const manual = {
+      email: "manual@staaash.test",
+      generateTemporaryPassword: false,
+      temporaryPassword: "manual-preview-password",
+      confirmTemporaryPassword: "different-preview-password",
+    };
+    expect((await client.post("/api/admin/users", manual)).status).toBe(400);
+    expect(
+      (
+        await client.post("/api/admin/users", {
+          ...manual,
+          temporaryPassword: "",
+          confirmTemporaryPassword: "",
+        })
+      ).status,
+    ).toBe(400);
+    const created = await client.post("/api/admin/users", {
+      ...manual,
+      confirmTemporaryPassword: manual.temporaryPassword,
+    });
+    expect(created.status).toBe(201);
+    const { user } = (await created.json()) as { user: { id: string } };
+    expect(
+      (
+        await client.post(`/api/admin/users/${user.id}/password-reset`, {
+          generateTemporaryPassword: false,
+          temporaryPassword: "",
+          confirmTemporaryPassword: "",
+        })
+      ).status,
+    ).toBe(400);
+    const reset = await client.post(
+      `/api/admin/users/${user.id}/password-reset`,
+      {
+        generateTemporaryPassword: true,
+        temporaryPassword: "",
+        confirmTemporaryPassword: "",
+      },
+    );
+    expect(reset.status).toBe(200);
+    expect(await reset.json()).toMatchObject({
+      temporaryPassword: "preview-password",
+    });
+    const generated = await client.post("/api/admin/users", {
+      email: "generated@staaash.test",
+      generateTemporaryPassword: true,
+      temporaryPassword: "",
+      confirmTemporaryPassword: "",
+    });
+    expect(generated.status).toBe(201);
+    expect(await generated.json()).toMatchObject({
+      temporaryPassword: "preview-password",
+    });
+    await client.post("/api/auth/sign-out");
+    expect(
+      (
+        await client.post("/api/auth/sign-in", {
+          email: manual.email,
+          password: "preview-password",
+        })
+      ).status,
+    ).toBe(200);
+  });
+
+  it("requires a session for first-run writes and validates owner onboarding settings", async () => {
+    const client = browser();
+    const settings = {
+      mediaPreviewEnabled: false,
+      mediaPreviewGenerateOnUpload: false,
+      mediaPreviewGenerateOnFirstView: true,
+      mediaPreviewGenerateOnShare: false,
+      updateCheckEnabled: false,
+      timeZone: "Europe/London",
+    };
+    await client.scenario("signed-out");
+    expect(
+      (
+        await client.post("/api/auth/password-change-required", {
+          password: "new-preview-password",
+          confirmPassword: "new-preview-password",
+        })
+      ).status,
+    ).toBe(401);
+    expect(
+      (await client.post("/api/auth/onboarding/settings", settings)).status,
+    ).toBe(401);
+    await client.scenario("member");
+    expect(
+      (await client.post("/api/auth/onboarding/settings", settings)).status,
+    ).toBe(403);
+    await client.scenario("setup");
+    expect(
+      (
+        await client.post("/api/auth/setup", {
+          email: "owner@staaash.test",
+          password: "preview-password",
+          instanceName: "Sample drive",
+        })
+      ).status,
+    ).toBe(201);
+    expect(
+      (
+        await client.post("/api/auth/onboarding/settings", {
+          ...settings,
+          updateCheckEnabled: "wrong",
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await client.post("/api/auth/onboarding/settings", {
+          ...settings,
+          id: "wrong",
+        })
+      ).status,
+    ).toBe(200);
+    await client.post("/api/user/preferences", { theme: "light" });
+    expect(await client.read("/api/views/admin/settings")).toMatchObject({
+      settings: { id: "singleton", ...settings },
+    });
+  });
+
+  it("requires a new share unlock after its password changes", async () => {
+    const client = browser();
+    await client.post("/s/owner-locked/unlock", {
+      password: "preview-password",
+    });
+    expect(await client.read("/s/owner-locked/view")).toMatchObject({
+      resolution: { kind: "file" },
+    });
+    expect(
+      (
+        await client.post("/api/shares/owner-share-locked/password", {
+          password: "x",
+        })
+      ).status,
+    ).toBe(400);
+    expect(await client.read("/s/owner-locked/view")).toMatchObject({
+      resolution: { kind: "file" },
+    });
+    expect(
+      (
+        await client.post("/api/shares/owner-share-locked/password", {
+          password: "new-link-password",
+        })
+      ).status,
+    ).toBe(200);
+    expect(await client.read("/s/owner-locked/view")).toMatchObject({
+      resolution: { kind: "locked" },
+    });
+    expect((await client.request("/s/owner-locked/content")).status).toBe(403);
+    await client.post("/s/owner-locked/unlock", {
+      password: "new-link-password",
+    });
+    expect((await client.request("/s/owner-locked/content")).status).toBe(200);
+  });
+
+  it("applies the real content policy to uploaded public shares", async () => {
+    const client = browser();
+    const form = new FormData();
+    form.set("folderId", "owner-root");
+    form.append(
+      "files",
+      new File(["<script>document.title='unsafe'</script>"], "sample.html", {
+        type: "text/html",
+      }),
+    );
+    const upload = await client.request("/api/files/files", {
+      method: "POST",
+      body: form,
+    });
+    expect(upload.status).toBe(201);
+    const { uploadedFiles } = (await upload.json()) as {
+      uploadedFiles: Array<{ id: string }>;
+    };
+    const privateContent = await client.request(
+      `/api/files/files/${uploadedFiles[0]!.id}/content`,
+    );
+    expect(privateContent.headers.get("content-security-policy")).toContain(
+      "sandbox",
+    );
+    expect(privateContent.headers.get("x-content-type-options")).toBe(
+      "nosniff",
+    );
+    const share = await client.post("/api/shares", {
+      targetType: "file",
+      fileId: uploadedFiles[0]!.id,
+    });
+    const {
+      share: { shareUrl },
+    } = (await share.json()) as { share: { shareUrl: string } };
+    const html = await client.request(new URL(shareUrl).pathname + "/content");
+    expect(html.status).toBe(200);
+    expect(html.headers.get("content-type")).toBe("application/octet-stream");
+    expect(html.headers.get("content-disposition")).toMatch(/^attachment;/);
+    expect(html.headers.get("content-security-policy")).toContain("sandbox");
+    expect(html.headers.get("x-content-type-options")).toBe("nosniff");
+    const photo = await client.request("/s/owner-photo/content");
+    expect(photo.headers.get("content-type")).toBe("image/jpeg");
+    expect(photo.headers.get("content-disposition")).toMatch(/^inline;/);
+    const download = await client.request("/s/owner-photo/download");
+    expect(download.headers.get("content-disposition")).toMatch(/^attachment;/);
+  });
+
+  for (const [scenario, firstRun] of [
+    ["invited", "member-password"],
+    ["onboarding", "member"],
+    ["password", "password"],
+  ] as const)
+    it(`keeps the ${scenario} first-run step after signing in again`, async () => {
+      const client = browser();
+      await client.scenario(scenario);
+      await client.post("/api/auth/sign-out");
+      expect(
+        (
+          await client.post("/api/auth/sign-in", {
+            email: "member@staaash.test",
+            password: "preview-password",
+          })
+        ).status,
+      ).toBe(200);
+      expect(await client.read("/api/views/entry")).toMatchObject({ firstRun });
+    });
+
+  it("keeps received upload bytes after a completion conflict and allows a retry", async () => {
+    const client = browser();
+    const start = await client.post("/api/uploads/sessions", {
+      originalName: "Chunked.txt",
+      mimeType: "text/plain",
+      totalSizeBytes: 5,
+      folderId: "owner-root",
+    });
+    const { id } = (await start.json()) as { id: string };
+    expect(
+      (
+        await client.request(`/api/uploads/sessions/${id}`, {
+          method: "PATCH",
+          headers: { "content-range": "bytes 0-4/5" },
+          body: "hello",
+        })
+      ).status,
+    ).toBe(200);
+    await client.post("/api/files/files/owner-notes/rename", {
+      name: "Chunked.txt",
+    });
+    expect(
+      (await client.post(`/api/uploads/sessions/${id}/complete`)).status,
+    ).toBe(409);
+    expect(await client.read(`/api/uploads/sessions/${id}`)).toMatchObject({
+      receivedBytes: 5,
+    });
+    await client.post("/api/files/files/owner-notes/rename", {
+      name: "Trip notes.md",
+    });
+    const complete = await client.post(`/api/uploads/sessions/${id}/complete`);
+    expect(complete.status).toBe(201);
+    const file = (await complete.json()) as { id: string };
+    expect(
+      await (
+        await client.request(`/api/files/files/${file.id}/content`)
+      ).text(),
+    ).toBe("hello");
+  });
+
+  it("returns a bad-request reply for malformed JSON across route groups", async () => {
+    const client = browser();
+    for (const path of [
+      "/api/auth/sign-in",
+      "/api/admin/users",
+      "/api/shares",
+      "/api/uploads/sessions",
+    ])
+      expect(
+        (
+          await client.request(path, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: "{",
+          })
+        ).status,
+        path,
+      ).toBe(400);
+  });
+});
+
 describe("database-free sample drive", () => {
   it("accepts bodyless file actions and rejects malformed JSON", async () => {
     const client = browser();

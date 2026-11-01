@@ -1,3 +1,4 @@
+import { jsonBody } from "./request";
 import { randomUUID } from "node:crypto";
 import type { Hono } from "hono";
 import { z } from "zod";
@@ -53,7 +54,7 @@ export function mountUploads(app: Hono<PreviewEnv>) {
   app.post("/api/files/folders/ensure", async (c) => {
     const body = z
       .object({ folderId: z.string(), paths: z.array(z.string()).max(100) })
-      .parse(await c.req.json());
+      .parse(await jsonBody(c.req.raw));
     const state = c.var.state;
     destination(state, body.folderId);
     const folders = body.paths.map((path) => {
@@ -107,7 +108,7 @@ export function mountUploads(app: Hono<PreviewEnv>) {
         totalSizeBytes: z.number().int().min(0).max(memoryLimit),
         folderId: z.string().nullable().optional(),
       })
-      .parse(await c.req.json());
+      .parse(await jsonBody(c.req.raw));
     const folder = destination(
       c.var.state,
       body.folderId ?? rootOf(c.var.state).id,
@@ -163,17 +164,22 @@ export function mountUploads(app: Hono<PreviewEnv>) {
     const bytes = new Uint8Array(upload.total);
     for (const [start, data] of upload.chunks) bytes.set(data, start);
     c.var.state.uploads.delete(upload.id);
-    return c.json(
-      publicFile(
-        addFile(
-          c.var.state,
-          upload.folderId,
-          upload.name,
-          upload.mimeType,
-          bytes,
+    try {
+      return c.json(
+        publicFile(
+          addFile(
+            c.var.state,
+            upload.folderId,
+            upload.name,
+            upload.mimeType,
+            bytes,
+          ),
         ),
-      ),
-      201,
-    );
+        201,
+      );
+    } catch (error) {
+      c.var.state.uploads.set(upload.id, upload);
+      throw error;
+    }
   });
 }
