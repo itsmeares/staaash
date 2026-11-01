@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { InferResponseType } from "hono/client";
 import type { api } from "../../lib/api";
 import { createPreviewApp } from "./app";
+import { SETTINGS_DEFAULTS } from "../../server/admin/settings-schema";
 
 vi.mock("pg", () => {
   throw new Error("The UI preview must not import a database driver.");
@@ -14,6 +15,7 @@ vi.mock("@staaash/db/client", () => {
 type Files = InferResponseType<typeof api.api.views.files.$get, 200>;
 const previews: ReturnType<typeof createPreviewApp>[] = [];
 afterEach(() => {
+  vi.restoreAllMocks();
   for (const preview of previews) preview.close();
   previews.length = 0;
 });
@@ -59,6 +61,96 @@ function browser(preview = createPreviewApp()) {
 }
 
 describe("preview follow-up regressions", () => {
+  it.each([
+    { targetType: "file", targetId: "owner-audio", revoked: false },
+    { targetType: "folder", targetId: "owner-photos", revoked: true },
+  ] as const)(
+    "renews expired $targetType sample links with revoked=$revoked",
+    async ({ targetType, targetId, revoked }) => {
+      const now = Date.parse("2026-11-01T12:00:00.000Z");
+      vi.spyOn(Date, "now").mockReturnValue(now);
+      const client = browser();
+      expect(
+        (
+          await client.request("/api/admin/settings", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...SETTINGS_DEFAULTS,
+              shareMaxAgeDays: "14",
+            }),
+          })
+        ).status,
+      ).toBe(200);
+      const created = await client.post("/api/shares", {
+        targetType,
+        [targetType === "file" ? "fileId" : "folderId"]: targetId,
+        expiresAt: new Date(now).toISOString(),
+        password: "secret-pass",
+        downloadDisabled: true,
+      });
+      type ShareResult = InferResponseType<typeof api.api.shares.$post, 200>;
+      const { share } = (await created.json()) as ShareResult;
+      expect(share.status).toBe("expired");
+      if (revoked) await client.post(`/api/shares/${share.id}/revoke`);
+
+      const result = await client.post("/api/shares", {
+        mode: "reissue",
+        shareId: share.id,
+      });
+      expect(result.status).toBe(200);
+      const { share: renewed } = (await result.json()) as ShareResult;
+      expect(renewed).toMatchObject({
+        id: share.id,
+        status: "active",
+        hasPassword: true,
+        downloadDisabled: true,
+        revokedAt: null,
+        expiresAt: new Date(now + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      });
+      expect(renewed.shareUrl).not.toBe(share.shareUrl);
+      const newPath = new URL(renewed.shareUrl!).pathname;
+      expect(
+        await client.read(`${new URL(share.shareUrl!).pathname}/view`),
+      ).toMatchObject({
+        kind: "error",
+      });
+      expect(await client.read(`${newPath}/view`)).toMatchObject({
+        resolution: { kind: "locked" },
+      });
+      expect(
+        (await client.post(`${newPath}/unlock`, { password: "secret-pass" }))
+          .status,
+      ).toBe(200);
+      expect(await client.read(`${newPath}/view`)).toMatchObject({
+        resolution: { kind: targetType },
+      });
+      expect(
+        (
+          await client.request(
+            `${newPath}/${targetType === "file" ? "download" : "archive"}`,
+          )
+        ).status,
+      ).toBe(403);
+    },
+  );
+
+  it("keeps a future sample expiry when reissuing a turned-off link", async () => {
+    const client = browser();
+    const response = await client.post("/api/shares", {
+      mode: "reissue",
+      shareId: "owner-share-revoked",
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      share: {
+        status: "active",
+        revokedAt: null,
+        expiresAt: "2036-10-29T12:00:00.000Z",
+      },
+    });
+  });
+
   it("opens newly created shares as a visitor in the creating session only", async () => {
     const preview = createPreviewApp();
     const creator = browser(preview);

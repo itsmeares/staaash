@@ -1196,12 +1196,25 @@ export const createSharingService = ({
 
       const { base } = await resolveSecretAndBaseUrl(baseUrl);
       const issued = await issueTokenPair(base);
+      const issuedAt = now();
+      const expiresAt =
+        share.expiresAt.getTime() <= issuedAt.getTime()
+          ? new Date(
+              issuedAt.getTime() +
+                (await getSystemSettings()).shareMaxAgeDays *
+                  24 *
+                  60 *
+                  60 *
+                  1000,
+            )
+          : undefined;
       const reissuedShare = await (
         await resolveRepo()
       ).updateShare({
         id: share.id,
         tokenLookupKey: issued.tokenLookupKey,
         tokenHash: issued.tokenHash,
+        expiresAt,
         revokedAt: null,
       });
 

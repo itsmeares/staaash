@@ -45,7 +45,6 @@ vi.mock("@/server/storage-read-guard", async (importOriginal) => {
 
 import { buildShareAccessCookie } from "@/server/sharing/access-cookie";
 import { StorageEntityUnavailableError } from "@/server/storage-read-guard";
-import { ShareError } from "@/server/sharing/errors";
 import { createSharingService } from "@/server/sharing/service";
 import type { SharingRepository } from "@/server/sharing/repository";
 import type { StoredShareLink } from "@/server/sharing/types";
@@ -384,6 +383,7 @@ describe("sharing service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     settingsMocks.getSystemSettings.mockResolvedValue({
+      shareMaxAgeDays: 14,
       mediaPreviewEnabled: true,
       mediaPreviewGenerateOnShare: true,
       mediaPreviewThresholdBytes: 367001600n,
@@ -570,45 +570,166 @@ describe("sharing service", () => {
     expect(resolvedAfterRotation.access.isUnlocked).toBe(false);
   });
 
-  it("reissues inactive shares without dropping password or expiry policy", async () => {
-    const sharingRepo = createFakeSharingRepository();
-    const service = createSharingService({
-      repo: sharingRepo.repo,
-      filesRepo: fakeFilesRepo,
-      now: () => fixedNow,
-    });
-    const created = await service.createOrReissueShare({
-      actorUserId: "user-1",
-      actorRole: "member",
-      targetType: "folder",
-      folderId: sharedFolder.id,
-      expiresAt: addDays(5),
-      downloadDisabled: true,
-      password: "secret-pass",
-    });
+  it.each([false, true])(
+    "keeps a future expiry when reissuing a link with revoked=%s",
+    async (revoked) => {
+      const sharingRepo = createFakeSharingRepository();
+      const service = createSharingService({
+        repo: sharingRepo.repo,
+        filesRepo: fakeFilesRepo,
+        now: () => fixedNow,
+      });
+      const created = await service.createOrReissueShare({
+        actorUserId: "user-1",
+        actorRole: "member",
+        targetType: "folder",
+        folderId: sharedFolder.id,
+        expiresAt: addDays(5),
+        downloadDisabled: true,
+        password: "secret-pass",
+      });
 
-    await service.revokeShare({
-      actorUserId: "user-1",
-      actorRole: "member",
-      shareId: created.share.id,
-    });
-    const originalTokenLookupKey = created.share.tokenLookupKey;
+      if (revoked) {
+        await service.revokeShare({
+          actorUserId: "user-1",
+          actorRole: "member",
+          shareId: created.share.id,
+        });
+      }
+      const originalTokenLookupKey = created.share.tokenLookupKey;
+      const originalPasswordHash = created.share.passwordHash;
+      const originalExpiry = created.share.expiresAt.toISOString();
 
-    const reissued = await service.reissueShare({
-      actorUserId: "user-1",
-      actorRole: "member",
-      shareId: created.share.id,
-    });
+      const reissued = await service.reissueShare({
+        actorUserId: "user-1",
+        actorRole: "member",
+        shareId: created.share.id,
+      });
 
-    expect(reissued.share.id).toBe(created.share.id);
-    expect(reissued.share.tokenLookupKey).not.toBe(originalTokenLookupKey);
-    expect(reissued.share.passwordHash).toBe(created.share.passwordHash);
-    expect(reissued.share.downloadDisabled).toBe(true);
-    expect(reissued.share.expiresAt.toISOString()).toBe(
-      created.share.expiresAt.toISOString(),
-    );
-    expect(reissued.share.revokedAt).toBeNull();
-  });
+      expect(reissued.share.id).toBe(created.share.id);
+      expect(reissued.share.tokenLookupKey).not.toBe(originalTokenLookupKey);
+      expect(reissued.share.passwordHash).toBe(originalPasswordHash);
+      expect(reissued.share.downloadDisabled).toBe(true);
+      expect(reissued.share.expiresAt.toISOString()).toBe(originalExpiry);
+      expect(reissued.share.revokedAt).toBeNull();
+    },
+  );
+
+  it.each([
+    { targetType: "file", revoked: false, renewalDay: 2 },
+    { targetType: "file", revoked: true, renewalDay: 1 },
+    { targetType: "folder", revoked: false, renewalDay: 1 },
+    { targetType: "folder", revoked: true, renewalDay: 2 },
+  ] as const)(
+    "renews expired $targetType links with revoked=$revoked on day $renewalDay",
+    async ({ targetType, revoked, renewalDay }) => {
+      const sharingRepo = createFakeSharingRepository();
+      let currentTime = fixedNow;
+      const service = createSharingService({
+        repo: sharingRepo.repo,
+        filesRepo: fakeFilesRepo,
+        now: () => currentTime,
+      });
+      const created = await service.createOrReissueShare({
+        actorUserId: "user-1",
+        actorRole: "member",
+        targetType,
+        ...(targetType === "file"
+          ? { fileId: sharedFile.id }
+          : { folderId: sharedFolder.id }),
+        expiresAt: addDays(1),
+        downloadDisabled: true,
+        password: "secret-pass",
+      });
+      const originalPasswordHash = created.share.passwordHash;
+      const unlocked = await service.unlockShare({
+        token: created.token,
+        password: "secret-pass",
+      });
+      const oldCookie = buildShareAccessCookie({
+        shareId: created.share.id,
+        tokenLookupKey: created.share.tokenLookupKey,
+        accessFingerprint: unlocked.accessFingerprint,
+        token: created.token,
+      });
+      if (revoked) {
+        await service.revokeShare({
+          actorUserId: "user-1",
+          actorRole: "member",
+          shareId: created.share.id,
+        });
+      }
+      currentTime = addDays(renewalDay);
+
+      const reissued = await service.reissueShare({
+        actorUserId: "user-1",
+        actorRole: "member",
+        shareId: created.share.id,
+      });
+
+      expect(reissued.share.id).toBe(created.share.id);
+      expect(reissued.share.expiresAt).toEqual(addDays(renewalDay + 14));
+      expect(reissued.share.passwordHash).toBe(originalPasswordHash);
+      expect(reissued.share.downloadDisabled).toBe(true);
+      expect(reissued.share.revokedAt).toBeNull();
+      await expect(
+        service.resolvePublicShare({ token: created.token }),
+      ).rejects.toMatchObject({ code: "SHARE_NOT_FOUND" });
+      const locked = await service.resolvePublicShare({
+        token: reissued.token,
+        shareAccessCookieValue: oldCookie.value,
+      });
+      expect(locked.access).toMatchObject({
+        requiresPassword: true,
+        isUnlocked: false,
+      });
+      const newUnlock = await service.unlockShare({
+        token: reissued.token,
+        password: "secret-pass",
+      });
+      const newCookie = buildShareAccessCookie({
+        shareId: reissued.share.id,
+        tokenLookupKey: reissued.share.tokenLookupKey,
+        accessFingerprint: newUnlock.accessFingerprint,
+        token: reissued.token,
+      });
+      const resolved = await service.resolvePublicShare({
+        token: reissued.token,
+        shareAccessCookieValue: newCookie.value,
+      });
+      expect(resolved.access.isUnlocked).toBe(true);
+      const download = {
+        token: reissued.token,
+        shareAccessCookieValue: newCookie.value,
+      };
+      await expect(
+        targetType === "file"
+          ? service.getSharedFileDownload(download)
+          : service.getSharedNestedFileDownload({
+              ...download,
+              fileId: sharedFile.id,
+            }),
+      ).rejects.toMatchObject({ code: "SHARE_DOWNLOAD_DISABLED" });
+      const shares = await service.listOwnedShares({
+        actorUserId: "user-1",
+        actorRole: "member",
+      });
+      expect(shares.inactive).toHaveLength(0);
+      expect(shares.active[0]).toMatchObject({
+        id: reissued.share.id,
+        status: "active",
+        shareUrl: reissued.shareUrl,
+      });
+      await service.revokeShare({
+        actorUserId: "user-1",
+        actorRole: "member",
+        shareId: reissued.share.id,
+      });
+      await expect(
+        service.resolvePublicShare({ token: reissued.token }),
+      ).rejects.toMatchObject({ code: "SHARE_INVALID" });
+    },
+  );
 
   it("blocks browsing outside the shared subtree", async () => {
     const sharingRepo = createFakeSharingRepository();
