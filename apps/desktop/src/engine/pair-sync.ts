@@ -33,6 +33,7 @@ export type PairContext = {
   /** Moves a path to the OS trash; the main process owns that API. */
   trash: (file: string) => Promise<void>;
   activity: (update: Activity) => void;
+  resolved: (rel: string) => void;
   notify: (title: string, body: string) => void;
   /**
    * False once this pair's settings changed, sync paused or the engine is
@@ -127,14 +128,34 @@ const order: Record<Action["kind"], number> = {
 // fallow-ignore-next-line complexity
 export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
   const { pair, store, tree, api } = ctx;
-  const issues: Issue[] = [];
+  let issues: Issue[] = [];
+  const resolved = (rel: string) => {
+    issues = issues.filter(
+      (each) =>
+        each.source !== "operation" || pathKey(each.rel) !== pathKey(rel),
+    );
+    ctx.resolved(rel);
+  };
   // Each round plans again, so the same problem can come up more than once.
-  const issue = (rel: string, kind: Issue["kind"], message: string) => {
+  const issue = (
+    rel: string,
+    kind: Issue["kind"],
+    message: string,
+    source: Issue["source"] = "operation",
+  ) => {
+    if (source === "operation") {
+      issues = issues.filter(
+        (each) => each.source !== source || pathKey(each.rel) !== pathKey(rel),
+      );
+    }
     const seen = issues.some(
       (each) =>
-        each.rel === rel && each.kind === kind && each.message === message,
+        each.rel === rel &&
+        each.source === source &&
+        each.kind === kind &&
+        each.message === message,
     );
-    if (!seen) issues.push({ pairId: pair.id, rel, kind, message });
+    if (!seen) issues.push({ pairId: pair.id, rel, source, kind, message });
   };
   let pullAgain = false;
 
@@ -144,6 +165,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
       "",
       "folder-missing",
       `${pair.localPath} is missing. Reconnect the drive, or remove this folder in Settings.`,
+      "scan",
     );
     return { issues, hold: null, pullAgain, retrySoon: false };
   }
@@ -152,6 +174,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
       "",
       "server-folder-gone",
       `${pair.remoteLabel} was removed from the server. Restore it there, or remove this folder in Settings.`,
+      "scan",
     );
     return { issues, hold: null, pullAgain, retrySoon: false };
   }
@@ -228,7 +251,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     action: Of<K>,
     rel: string,
     full: string,
-  ) => Promise<void>;
+  ) => Promise<true | void>;
   // One handler per action, each with its own checks before it touches a file.
   const handlers: { [K in Action["kind"]]: Handler<K> } = {
     "move-local": async (action, rel, full) => {
@@ -242,6 +265,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         .find((entry) => entry.rel === action.to);
       if (moved && previous) {
         putBase(action.to, moved, action.remote, previous.checksum);
+        return true;
       }
     },
     // A move and a rename are separate server calls.
@@ -274,12 +298,16 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
       }
       store.moveBaseTree(pair.id, action.from, action.to);
       putBase(action.to, action.local, item, action.base.checksum);
+      return true;
     },
     mkdir: async (action, rel, full) => {
       await mkdir(full, { recursive: true });
       const made = await statLocal(pair.localPath, rel);
       folderIds.set(pathKey(rel), action.remote.id);
-      if (made) putBase(rel, made, action.remote, null);
+      if (made) {
+        putBase(rel, made, action.remote, null);
+        return true;
+      }
     },
     "create-remote-folder": async (action, rel) => {
       const parentId = remoteIdAt(parentRel(rel));
@@ -289,12 +317,15 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
       tree.set(item);
       folderIds.set(pathKey(rel), item.id);
       putBase(rel, action.local, item, null);
+      return true;
     },
     link: async (action, rel) => {
       putBase(rel, action.local, action.remote, action.remote.checksum);
+      return true;
     },
     forget: async (_action, rel) => {
       store.deleteBase(pair.id, rel);
+      return true;
     },
     "conflict-copy": async (action, rel, full) => {
       const now = await statLocal(pair.localPath, rel);
@@ -315,7 +346,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         await rm(temp, { force: true });
         if (checksum === action.unverified.checksum) {
           putBase(rel, now, remote, checksum);
-          return;
+          return true;
         }
       }
       const scan = await scanLocal(pair.localPath, () => false);
@@ -341,6 +372,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
           `${baseName(rel)} changed here and on the server. Both versions were kept.`,
         );
       }
+      return true;
     },
     // Each check guards the file being replaced.
     // fallow-ignore-next-line complexity
@@ -388,7 +420,8 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
       }
       await moveIntoPlace(temp, full);
       const written = await statLocal(pair.localPath, rel);
-      if (written) putBase(rel, written, remote, checksum);
+      if (!written) return;
+      putBase(rel, written, remote, checksum);
       finish();
     },
     upload: async (action, rel, full) => {
@@ -463,16 +496,18 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
       const item = remoteFromUpload(result.file as never, checksum);
       tree.set(item);
       putBase(rel, local, item, checksum);
+      return true;
     },
     "trash-local": async (action, rel, full) => {
       const now = await statLocal(pair.localPath, rel);
       if (!now) {
         store.deleteBaseTree(pair.id, rel);
-        return;
+        return true;
       }
       if (now.type === "file" && !sameStat(now, action.local)) return;
       await ctx.trash(full);
       store.deleteBaseTree(pair.id, rel);
+      return true;
     },
     "trash-remote": async (action, rel) => {
       const { remote } = action;
@@ -482,6 +517,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
       else await api.trashFolder(remote.id, remote.rev);
       tree.removeSubtree(remote.id);
       store.deleteBaseTree(pair.id, rel);
+      return true;
     },
   };
 
@@ -495,6 +531,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     ctx.activity(activity);
     return () => {
       open = open.filter((each) => each !== activity);
+      resolved(activity.rel);
       ctx.activity({ ...activity, state: "done", at: Date.now() });
     };
   };
@@ -504,7 +541,9 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     if (!ctx.current()) return;
     try {
       const handler = handlers[action.kind] as Handler<Action["kind"]>;
-      await handler(action as never, rel, localPath(pair.localPath, rel));
+      if (await handler(action as never, rel, localPath(pair.localPath, rel))) {
+        resolved(rel);
+      }
     } catch (error) {
       tolerate(error, rel);
     } finally {
@@ -537,7 +576,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
       if (typeof (error as NodeJS.ErrnoException).syscall !== "string") {
         throw error;
       }
-      issue("", "error", diskMessage(error as NodeJS.ErrnoException));
+      issue("", "error", diskMessage(error as NodeJS.ErrnoException), "scan");
       return { issues, hold: null, pullAgain, retrySoon: true };
     }
     const local: LocalFile[] = scan.entries.map((entry) => {
@@ -577,7 +616,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     if (round === 0) {
       issues.push(...result.issues);
       for (const each of scan.excluded) {
-        if (each.reason) issue(each.rel, "error", each.reason);
+        if (each.reason) issue(each.rel, "error", each.reason, "scan");
       }
     }
     if (result.hold) {

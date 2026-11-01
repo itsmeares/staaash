@@ -13,7 +13,13 @@ import {
   vi,
 } from "vite-plus/test";
 
-import type { EngineConfig, EngineState, SyncPair } from "../shared/types";
+import type {
+  EngineConfig,
+  EngineState,
+  EngineStatus,
+  Issue,
+  SyncPair,
+} from "../shared/types";
 import { SyncEngine } from "./engine";
 import * as pairSync from "./pair-sync";
 
@@ -32,9 +38,10 @@ const NO_ANSWER: Reply = (response) => response.socket?.destroy();
 let root: string;
 let server: Server;
 let serverUrl: string;
-let replies: { version: Reply; changes: Reply };
+let replies: { version: Reply; changes: Reply; events?: Reply };
 let engine: SyncEngine;
 let logged: { stage: string; error: unknown }[];
+let emitted: EngineStatus[];
 
 const docsFolder = {
   id: "docs",
@@ -93,10 +100,13 @@ beforeEach(async () => {
   mkdirSync(path.join(root, "data"));
   replies = { version: VERSION_OK, changes: FEED_OK };
   logged = [];
+  emitted = [];
   server = createServer((request, response) => {
     const { pathname, searchParams } = new URL(request.url ?? "", "http://x");
     if (pathname === "/api/version") return replies.version(response);
     if (pathname === "/api/sync/changes") return replies.changes(response);
+    if (pathname === "/api/sync/events" && replies.events)
+      return replies.events(response);
     if (pathname === "/api/sync/snapshot") {
       const items =
         searchParams.get("folderId") === "root-b" ? [docsFolder] : [];
@@ -108,7 +118,10 @@ beforeEach(async () => {
   serverUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   engine = new SyncEngine(
     {
-      emit: () => {},
+      emit: (event) => {
+        if (event.type === "status")
+          emitted.push(structuredClone(event.status));
+      },
       trash: async () => {},
       watch: async () => () => {},
       log: (stage, error) => logged.push({ stage, error }),
@@ -194,6 +207,105 @@ const cases: [string, Partial<typeof replies>, EngineState][] = [
     "offline",
   ],
 ];
+
+describe("resolved operation issues", () => {
+  beforeEach(() => {
+    vi.spyOn(engine, "request").mockImplementation(() => {});
+  });
+  const errorOf = (pairId: string): Issue => ({
+    pairId,
+    rel: "same.txt",
+    source: "operation",
+    kind: "quota",
+    message: "Storage full",
+  });
+  const resultOf = (issues: Issue[]) => ({
+    issues,
+    hold: null,
+    pullAgain: false,
+    retrySoon: true,
+  });
+
+  it.each([false, true])(
+    "clears a previous error during the pass, even if another folder goes offline: %s",
+    async (offline) => {
+      const pairs = [pairOf("a"), pairOf("b")];
+      const scan: Issue = {
+        ...errorOf("a"),
+        source: "scan",
+        kind: "error",
+        message: "Scan warning",
+      };
+      const remaining = [scan, errorOf("b")];
+      const sync = vi
+        .spyOn(pairSync, "syncPair")
+        .mockImplementation(async ({ pair }) =>
+          resultOf(pair.id === "a" ? [errorOf("a"), scan] : [errorOf("b")]),
+        );
+      await syncOnce(pairs);
+      sync.mockImplementationOnce(async ({ resolved }) => {
+        resolved("same.txt");
+        expect(engine.status().issues).toEqual(remaining);
+        await vi.waitFor(() =>
+          expect(emitted.at(-1)?.issues).toEqual(remaining),
+        );
+        return resultOf([scan]);
+      });
+      sync.mockImplementationOnce(async () => {
+        expect(engine.status().issues).toEqual(remaining);
+        if (offline) {
+          replies.version = NO_ANSWER;
+          throw new Error("Connection dropped");
+        }
+        return resultOf([errorOf("b")]);
+      });
+      await engine.syncNow();
+      expect(engine.status().issues).toEqual(remaining);
+      expect(engine.status().state).toBe(offline ? "offline" : "idle");
+    },
+  );
+
+  it("ignores resolution and final results after the configuration changes", async () => {
+    const pairs = [pairOf("a")];
+    const issue = errorOf("a");
+    const sync = vi
+      .spyOn(pairSync, "syncPair")
+      .mockResolvedValue(resultOf([issue]));
+    await syncOnce(pairs);
+    let configured: Promise<void> | undefined;
+    sync.mockImplementationOnce(async ({ resolved }) => {
+      configured = engine.configure({ ...configOf(pairs), paused: true });
+      resolved("same.txt");
+      expect(engine.status().issues).toEqual([issue]);
+      return resultOf([]);
+    });
+    await engine.syncNow();
+    await configured;
+    expect(engine.status().issues).toEqual([issue]);
+    expect(engine.status().state).toBe("paused");
+  });
+
+  it.each([false, true])(
+    "keeps retrying unresolved files, live stream connected: %s",
+    async (live) => {
+      if (live)
+        replies.events = (response) => {
+          response.writeHead(200, { "content-type": "text/event-stream" });
+          response.write('data: {"type":"changes","latestSeq":"1"}\n\n');
+        };
+      const request = vi.spyOn(engine, "request").mockImplementation(() => {});
+      vi.spyOn(pairSync, "syncPair").mockResolvedValue(
+        resultOf([errorOf("a")]),
+      );
+      await engine.configure(configOf([pairOf("a")]));
+      if (live)
+        await vi.waitFor(() => expect(request).toHaveBeenCalledWith(250));
+      await engine.syncNow();
+      expect(request).toHaveBeenLastCalledWith(live ? 5000 : 60_000);
+      expect(engine.status().issues).toEqual([errorOf("a")]);
+    },
+  );
+});
 
 describe("what the engine says when a pass fails", () => {
   it.each(cases)("when %s", async (_name, reply, state) => {
