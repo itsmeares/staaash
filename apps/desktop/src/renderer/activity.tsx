@@ -257,22 +257,6 @@ function UpdateNotice({ state }: { state: AppState }) {
   );
 }
 
-function ProblemNotice({ state }: { state: AppState }) {
-  if (state.status?.state !== "problem") return null;
-  return (
-    <div className="flex items-center gap-2 border-b border-border px-5 py-3">
-      <p className="m-0 flex-1 text-body">The sync log says what went wrong.</p>
-      <Button
-        size="xs"
-        variant="outline"
-        onClick={() => void desktop.openSyncLog()}
-      >
-        Open log
-      </Button>
-    </div>
-  );
-}
-
 /** The headline's icon, colour and second line for the current state. */
 // One look per engine state.
 // fallow-ignore-next-line complexity
@@ -387,10 +371,21 @@ export function ActivityPage({
             </p>
           ) : null}
         </div>
-        <PauseButton
-          paused={state.status?.state === "paused"}
-          onCustom={onCustomPause}
-        />
+        {/* Stacked on narrow windows, or the buttons squeeze the title. */}
+        <div className="flex shrink-0 items-center gap-2 max-sm:flex-col max-sm:items-end">
+          {state.status?.state === "problem" ? (
+            <Button
+              variant="outline"
+              onClick={() => void desktop.openSyncLog()}
+            >
+              Open log
+            </Button>
+          ) : null}
+          <PauseButton
+            paused={state.status?.state === "paused"}
+            onCustom={onCustomPause}
+          />
+        </div>
       </header>
       <div className="h-0.5 shrink-0 bg-border">
         {total > 0 ? (
@@ -402,7 +397,6 @@ export function ActivityPage({
       </div>
       <div className="min-h-0 flex-1 scrollbar-thin overflow-y-auto pb-3">
         <UpdateNotice state={state} />
-        <ProblemNotice state={state} />
         {conflicts.length + issues.length > 0 ? (
           <ul aria-label="Needs you" className="m-0 list-none p-0 pt-3">
             {conflicts.map((conflict) => (
