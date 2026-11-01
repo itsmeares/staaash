@@ -37,6 +37,7 @@ win:
     - target: nsis
       arch: [x64, arm64]
 nsis:
+  buildUniversalInstaller: false
   oneClick: true
   perMachine: false
 linux:

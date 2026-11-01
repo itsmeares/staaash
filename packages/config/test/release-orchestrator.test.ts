@@ -866,6 +866,9 @@ describe("exact release resolution", () => {
     );
     expect(input).not.toHaveProperty("target_commitish");
     expect(input).not.toHaveProperty("make_latest");
+    expect(input.body).toBe(
+      appendReleaseProvenance({ body: "Notes.\n", provenance: complete }),
+    );
     expect(Object.keys(input).sort()).toEqual([
       "body",
       "draft",
@@ -874,6 +877,45 @@ describe("exact release resolution", () => {
       "tag_name",
     ]);
   });
+
+  it.each(["v2.0.0", "v2.0.0-rc.2"])(
+    "links every desktop installer to its own release for %s",
+    (tag) => {
+      const input = createDraftInput({
+        context: {
+          ...context,
+          release: { tag, prerelease: tag.includes("-") },
+        },
+        generated: { body: "Notes.\n" },
+        provenance: { ...complete, tag },
+        hasDesktop: true,
+      });
+      const links = Array.from(
+        String(input.body).matchAll(/\]\((https:\/\/[^)]+)\)/gu),
+        (match) => match[1],
+      );
+
+      expect(links).toEqual(
+        [
+          "win-x64.exe",
+          "win-arm64.exe",
+          "mac-universal.dmg",
+          "mac-universal.dmg",
+          "linux-x86_64.AppImage",
+          "linux-arm64.AppImage",
+          "linux-amd64.deb",
+          "linux-arm64.deb",
+          "linux-x86_64.rpm",
+          "linux-aarch64.rpm",
+        ].map(
+          (suffix) =>
+            `https://github.com/itsmeares/staaash/releases/download/${tag}/Staaash-${tag.slice(1)}-${suffix}`,
+        ),
+      );
+      expect(input.body).toContain("Notes.\n");
+      expect(input.body).toContain("staaash:release-provenance:start");
+    },
+  );
 
   it("patches only the body when completing draft provenance", () => {
     const pending = buildReleaseProvenance({

@@ -640,11 +640,33 @@ const generateReleaseNotes = (repository, tag) =>
     input: { tag_name: tag },
   });
 
-const createDraftInput = ({ context, generated, provenance }) => ({
+const desktopReleaseNotes = ({ repository, release }) => {
+  const version = release.tag.slice(1);
+  const download = (suffix) =>
+    `https://github.com/${repository}/releases/download/${release.tag}/Staaash-${version}-${suffix}`;
+  return `## Desktop app
+
+| System | x64 | ARM64 |
+| --- | --- | --- |
+| Windows | [Installer x64](${download("win-x64.exe")}) | [Installer ARM64](${download("win-arm64.exe")}) |
+| macOS | [Universal DMG](${download("mac-universal.dmg")}) | [Universal DMG](${download("mac-universal.dmg")}) |
+| Linux AppImage | [Installer x64](${download("linux-x86_64.AppImage")}) | [Installer ARM64](${download("linux-arm64.AppImage")}) |
+| Linux DEB | [Installer x64](${download("linux-amd64.deb")}) | [Installer ARM64](${download("linux-arm64.deb")}) |
+| Linux RPM | [Installer x64](${download("linux-x86_64.rpm")}) | [Installer ARM64](${download("linux-aarch64.rpm")}) |`;
+};
+
+const createDraftInput = ({
+  context,
+  generated,
+  provenance,
+  hasDesktop = false,
+}) => ({
   tag_name: context.release.tag,
   name: generated.name || context.release.tag,
   body: appendReleaseProvenance({
-    body: generated.body ?? "",
+    body: [hasDesktop ? desktopReleaseNotes(context) : "", generated.body ?? ""]
+      .filter(Boolean)
+      .join("\n\n"),
     provenance,
   }),
   draft: true,
@@ -658,7 +680,14 @@ const createDraft = ({ context, provenance }) => {
   );
   return ghApi(`repos/${context.repository}/releases`, {
     method: "POST",
-    input: createDraftInput({ context, generated, provenance }),
+    input: createDraftInput({
+      context,
+      generated,
+      provenance,
+      hasDesktop: existsSync(
+        path.join(releaseSourceRoot(), PACKAGE_FILES.desktop),
+      ),
+    }),
   });
 };
 
