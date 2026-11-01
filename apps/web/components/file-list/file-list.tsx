@@ -20,6 +20,7 @@ import { folderColorStyle } from "@/lib/folder-color";
 import { getItemVisual } from "@staaash/ui/item-visuals";
 import { WorkspaceActionSheet } from "./action-sheet";
 import { MiddleName } from "./middle-name";
+import { GridName } from "./grid-name";
 import { Button } from "@staaash/ui/components/button";
 import { Menu, MenuPopup, MenuTrigger } from "@staaash/ui/components/menu";
 import { canHaveThumbnail } from "@staaash/db/viewer-contract";
@@ -472,13 +473,11 @@ export function FileList<T extends FileListItem>({
       "aria-rowindex": loading && !groups ? index + headerRows + 1 : undefined,
     };
     const extra = disabled ? {} : (itemProps?.(item) ?? {});
-    // Touch grid cards wrap long names onto a second line before cutting.
+    // Grid cards wrap long names onto a second line before cutting.
     const name =
       renderName?.(item) ??
-      (coarse && view === "grid" ? (
-        <span className="line-clamp-2 font-medium wrap-anywhere">
-          {item.name}
-        </span>
+      (view === "grid" ? (
+        <GridName name={item.name} />
       ) : (
         <MiddleName className="font-medium" name={item.name} />
       ));

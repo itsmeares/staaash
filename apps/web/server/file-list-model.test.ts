@@ -151,13 +151,24 @@ describe("splitName", () => {
     });
   });
 
-  it("does not split short names", () => {
+  it("keeps short names intact", () => {
     expect(splitName("notes.md")).toEqual({ head: "notes.md", tail: "" });
   });
 
+  it("keeps emoji together when splitting a name", () => {
+    expect(splitName("Vacation 👨‍👩‍👧‍👦abcdef.pdf")).toEqual({
+      head: "Vacation 👨‍👩‍👧‍👦",
+      tail: "abcdef.pdf",
+    });
+  });
+
+  it("keeps the distinguishing end of similar names", () => {
+    expect(splitName("Project status draft.pdf").tail).toBe(" draft.pdf");
+    expect(splitName("Project status final.pdf").tail).toBe(" final.pdf");
+  });
+
   it("treats a long suffix after a dot as part of the name", () => {
-    const { tail } = splitName("version.1.2.final-final-draft");
-    expect(tail).toBe("-draft");
+    expect(splitName("version.1.2.final-final-draft").tail).toBe("-draft");
   });
 });
 

@@ -29,7 +29,7 @@ export const sampleFiles = [
   },
   {
     key: "guide",
-    name: "Travel guide.pdf",
+    name: "Copy of Dark Suppliers.pdf",
     mimeType: "application/pdf",
     viewerKind: "pdf",
     asset: "guide.pdf",
@@ -43,14 +43,14 @@ export const sampleFiles = [
   },
   {
     key: "documents-zip",
-    name: "Trip documents.zip",
+    name: "Trip documents WWWWWW.zip",
     mimeType: "application/zip",
     viewerKind: null,
     asset: "sample.zip",
   },
   {
     key: "unknown",
-    name: "Project backup.bin",
+    name: "Project backup 😀😀😀😀😀😀.bin",
     mimeType: "application/octet-stream",
     viewerKind: null,
     asset: "backup.bin",
