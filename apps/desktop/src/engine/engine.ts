@@ -19,7 +19,7 @@ import { syncPair } from "./pair-sync";
 import type { StorageChange } from "./remote";
 import { RemoteTree, fromSnapshot } from "./remote";
 import { Store } from "./store";
-import { Throttle } from "./transfer";
+import { Throttle, UploadMeter } from "./transfer";
 
 export type Watch = (dir: string, onChange: () => void) => Promise<() => void>;
 
@@ -67,6 +67,7 @@ export class SyncEngine {
   private lastSyncAt: number | null = null;
   private notified = new Set<string>();
   private readonly uploads = new Throttle(null);
+  private readonly uploadMeter = new UploadMeter(() => this.emitStatus());
   private readonly downloads = new Throttle(null);
 
   /** `dataDir` holds the engine's database; it must exist. */
@@ -429,6 +430,7 @@ export class SyncEngine {
             ignore: createIgnore(config.ignore),
             minFreeBytes: config.minFreeBytes,
             uploads: this.uploads,
+            uploadMeter: this.uploadMeter,
             downloads: this.downloads,
             trash: this.deps.trash,
             activity: (update) => this.track(update),
@@ -579,6 +581,8 @@ export class SyncEngine {
                 ? "starting"
                 : "idle")),
       pendingFiles: active.length,
+      uploadSpeed: this.uploadMeter.speed,
+      uploadRemainingBytes: this.uploadMeter.remaining,
       pendingBytes: active.reduce(
         (sum, each) => sum + Math.max(0, each.bytes - each.doneBytes),
         0,

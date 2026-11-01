@@ -28,11 +28,17 @@ const retryDelay = (response: Response | null, attempt: number) => {
 const retryingFetch = async (
   input: RequestInfo | URL,
   init?: RequestInit,
+  makeBody?: () => ReadableStream<Uint8Array>,
 ): Promise<Response> => {
   for (let attempt = 0; ; attempt += 1) {
     let response: Response | null = null;
     try {
-      response = await fetch(input, init);
+      response = await fetch(
+        input,
+        makeBody
+          ? ({ ...init, body: makeBody(), duplex: "half" } as RequestInit)
+          : init,
+      );
     } catch (error) {
       if (attempt >= RETRIES || init?.signal?.aborted) throw error;
     }
@@ -71,21 +77,29 @@ export const createApi = (
   signal?: AbortSignal,
 ) => {
   const headers = { authorization: `Bearer ${token}` };
-  const send: typeof retryingFetch = (input, init) =>
-    retryingFetch(input, { ...init, signal: init?.signal ?? signal });
+  const send: typeof retryingFetch = (input, init, makeBody) =>
+    retryingFetch(input, { ...init, signal: init?.signal ?? signal }, makeBody);
   const client = hc<AppType>(serverUrl, { headers, fetch: send });
   const write = () => ({
     headers: { ...headers, "idempotency-key": randomUUID() },
   });
   const revision = (ifRevision: number | null) =>
     ifRevision === null ? {} : { ifRevision: String(ifRevision) };
-  const raw = (path: string, init: RequestInit = {}) => {
+  const raw = (
+    path: string,
+    init: RequestInit = {},
+    makeBody?: () => ReadableStream<Uint8Array>,
+  ) => {
     const merged = new Headers(init.headers);
     merged.set("authorization", headers.authorization);
-    return send(new URL(path, serverUrl), {
-      ...init,
-      headers: merged,
-    });
+    return send(
+      new URL(path, serverUrl),
+      {
+        ...init,
+        headers: merged,
+      },
+      makeBody,
+    );
   };
 
   const fileMutation = async (
@@ -212,15 +226,31 @@ export const createApi = (
       start: number,
       body: Buffer,
       total: number,
+      onBytes: (bytes: number, offset: number) => void,
     ) => {
-      const response = await raw(`/api/uploads/sessions/${id}`, {
-        method: "PATCH",
-        headers: {
-          "content-type": "application/octet-stream",
-          "content-range": `bytes ${start}-${start + body.length - 1}/${total}`,
+      const response = await raw(
+        `/api/uploads/sessions/${id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "content-type": "application/octet-stream",
+            "content-length": String(body.length),
+            "content-range": `bytes ${start}-${start + body.length - 1}/${total}`,
+          },
         },
-        body: new Uint8Array(body),
-      });
+        () => {
+          let offset = 0;
+          return new ReadableStream<Uint8Array>({
+            pull(controller) {
+              if (offset === body.length) return controller.close();
+              const end = Math.min(offset + 64 * 1024, body.length);
+              controller.enqueue(body.subarray(offset, end));
+              onBytes(end - offset, end);
+              offset = end;
+            },
+          });
+        },
+      );
       if (!response.ok) await read(Promise.resolve(response as never));
     },
     completeUpload: (id: string, checksum: string, ifRevision: number | null) =>

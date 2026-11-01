@@ -92,6 +92,8 @@ export type EngineState =
 
 export type EngineStatus = {
   state: EngineState;
+  uploadSpeed: number | null;
+  uploadRemainingBytes: number;
   pendingFiles: number;
   pendingBytes: number;
   fileCount: number;
