@@ -859,7 +859,7 @@ describe("exact release resolution", () => {
     expect(input).toEqual(
       expect.objectContaining({
         tag_name: context.release.tag,
-        name: "Release candidate",
+        name: context.release.tag,
         draft: true,
         prerelease: true,
       }),
@@ -867,7 +867,10 @@ describe("exact release resolution", () => {
     expect(input).not.toHaveProperty("target_commitish");
     expect(input).not.toHaveProperty("make_latest");
     expect(input.body).toBe(
-      appendReleaseProvenance({ body: "Notes.\n", provenance: complete }),
+      appendReleaseProvenance({
+        body: `# 🚀 Staaash ${context.release.tag.slice(1)}\n\nNotes.\n`,
+        provenance: complete,
+      }),
     );
     expect(Object.keys(input).sort()).toEqual([
       "body",

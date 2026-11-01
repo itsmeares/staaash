@@ -662,9 +662,13 @@ const createDraftInput = ({
   hasDesktop = false,
 }) => ({
   tag_name: context.release.tag,
-  name: generated.name || context.release.tag,
+  name: context.release.tag,
   body: appendReleaseProvenance({
-    body: [hasDesktop ? desktopReleaseNotes(context) : "", generated.body ?? ""]
+    body: [
+      `# 🚀 Staaash ${context.release.tag.slice(1)}`,
+      hasDesktop ? desktopReleaseNotes(context) : "",
+      generated.body ?? "",
+    ]
       .filter(Boolean)
       .join("\n\n"),
     provenance,
