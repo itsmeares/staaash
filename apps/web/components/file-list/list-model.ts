@@ -136,14 +136,20 @@ export const boxesIntersect = (a: Box, b: Box) =>
 
 /**
  * Splits a name so the end stays visible when the start is cut: the
- * extension. `head` truncates in CSS.
+ * extension and a few characters before it. `head` truncates in CSS.
  */
 export function splitName(name: string): { head: string; tail: string } {
   const dot = name.lastIndexOf(".");
   const extension = dot > 0 && name.length - dot <= 8 ? name.slice(dot) : "";
+  const stem = extension ? name.slice(0, dot) : name;
+  const parts = [
+    ...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(stem),
+  ].map((part) => part.segment);
+  const splitAt = Math.max(0, parts.length - 6);
+  if (splitAt <= 4) return { head: name, tail: "" };
   return {
-    head: extension ? name.slice(0, dot) : name,
-    tail: extension,
+    head: parts.slice(0, splitAt).join(""),
+    tail: parts.slice(splitAt).join("") + extension,
   };
 }
 

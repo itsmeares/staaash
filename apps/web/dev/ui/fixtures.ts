@@ -43,14 +43,14 @@ export const sampleFiles = [
   },
   {
     key: "documents-zip",
-    name: "Trip documents WWWWWW.xlsx",
+    name: "Trip documents WWWWWW.zip",
     mimeType: "application/zip",
     viewerKind: null,
     asset: "sample.zip",
   },
   {
     key: "unknown",
-    name: "Project backup 😀😀😀😀😀😀.xlsx",
+    name: "Project backup 😀😀😀😀😀😀.bin",
     mimeType: "application/octet-stream",
     viewerKind: null,
     asset: "backup.bin",
