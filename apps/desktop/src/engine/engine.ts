@@ -517,10 +517,11 @@ export class SyncEngine {
 
   private trimActivity() {
     if (this.activity.length <= 30) return;
-    const oldestRecent = this.activity.findLastIndex(
-      (each) => each.state !== "active",
-    );
-    if (oldestRecent !== -1) this.activity.splice(oldestRecent, 1);
+    const oldestRecent = [...this.activity]
+      .reverse()
+      .findIndex((each) => each.state !== "active");
+    if (oldestRecent !== -1)
+      this.activity.splice(this.activity.length - 1 - oldestRecent, 1);
   }
 
   private notifyIssues() {
