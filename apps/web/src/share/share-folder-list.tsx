@@ -1,6 +1,9 @@
 import { useNavigate } from "@tanstack/react-router";
 import { Play } from "lucide-react";
-import { canHaveThumbnail } from "@staaash/db/viewer-contract";
+import {
+  canHaveThumbnail,
+  resolveViewerKind,
+} from "@staaash/config/media-types";
 
 import { useCoarsePointer } from "@/src/workspace/use-coarse-pointer";
 import { formatWorkspaceFileSize } from "@/src/workspace/workspace-item-helpers";
@@ -26,8 +29,10 @@ export type ShareListEntry = {
 
 type ShareListItem = FileListItem & { data: ShareListEntry };
 
-const isMedia = (entry: ShareListEntry) =>
-  entry.mimeType?.startsWith("image/") || entry.mimeType?.startsWith("video/");
+const isMedia = (entry: ShareListEntry) => {
+  const kind = resolveViewerKind(entry.mimeType ?? "", entry.name);
+  return kind === "image" || kind === "video";
+};
 
 /**
  * A shared folder for visitors: photos and videos as a gallery of justified

@@ -1,6 +1,7 @@
 import { storageReadPredicate } from "./storage-read-guard";
 import { z } from "zod";
 import { Prisma, getPrisma } from "@staaash/db/client";
+import { fileMimeTypeSql } from "./file-types";
 
 const LIST_BATCH_SIZE = 100;
 
@@ -140,7 +141,7 @@ export function buildListSource(
     LEFT JOIN paths p ON p.id = f."parentId"
     WHERE f."ownerUserId" = ${userId} AND NOT f."isFilesRoot"
     UNION ALL
-    SELECT f.id, 'file', f."originalName", f."mimeType", f."sizeBytes", f."createdAt", COALESCE(f."clientModifiedAt", f."updatedAt"), f."deletedAt",
+    SELECT f.id, 'file', f."originalName", ${fileMimeTypeSql(Prisma.sql`f."mimeType"`, Prisma.sql`f."originalName"`)}, f."sizeBytes", f."createdAt", COALESCE(f."clientModifiedAt", f."updatedAt"), f."deletedAt",
       fav."createdAt", fav."quickAccessPinnedAt", r."lastInteractedAt", f."folderId", r."lastAction",
       COALESCE(p.path, 'Files'), f."trashEntryId", f."storageStatus" = 'available'
     FROM "File" f
@@ -156,7 +157,7 @@ export function buildListSource(
       AND (NOT ${recent} OR recent_at IS NOT NULL)
       AND (NOT ${q.pinnedOnly} OR pinned_at IS NOT NULL)
       AND (NOT ${q.filesOnly} OR kind = 'file')
-      AND (NOT ${q.viewerOnly} OR (kind = 'file' AND (btrim(split_part(lower(mime), ';', 1)) ~ '^(image/|video/|audio/|text/|application/pdf)' OR lower(name) ~ '[.](heic|heif)$')))
+      AND (NOT ${q.viewerOnly} OR (kind = 'file' AND mime ~ '^(image/|video/|audio/|text/|application/pdf)'))
       AND (${q.find} = '' OR position(staaash_list_search_text(${q.find}) in staaash_list_search_text(name)) > 0)
       AND (NOT ${q.usableOnly} OR (${storageReadPredicate(userId, Prisma.sql`items.id`, Prisma.sql`items.kind`)}))
       AND (NOT ${trash} OR (deleted IS NOT NULL AND CASE WHEN kind = 'folder' THEN NOT EXISTS (

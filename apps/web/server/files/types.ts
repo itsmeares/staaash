@@ -1,5 +1,5 @@
 import type { UserRole } from "@/server/types";
-import type { ViewerKind } from "@staaash/db/viewer-contract";
+import type { ViewerKind } from "@staaash/config/media-types";
 import type { StorageMutationState } from "@/server/storage-read-guard";
 
 export type FilesActor = {

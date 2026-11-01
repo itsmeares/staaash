@@ -1,3 +1,8 @@
+import {
+  normalizeMimeType,
+  resolveViewerKind,
+} from "@staaash/config/media-types";
+
 export type ItemVisualKind =
   | "archive"
   | "audio"
@@ -67,6 +72,7 @@ const fileVisuals: Record<Exclude<ItemVisualKind, "folder">, ItemVisual> = {
 export function getItemVisual(
   kind: "file" | "folder",
   mimeType?: string | null,
+  fileName?: string,
 ): ItemVisual {
   if (kind === "folder") {
     return {
@@ -77,9 +83,9 @@ export function getItemVisual(
     };
   }
 
-  const mime = mimeType ?? "";
+  const mime = normalizeMimeType(mimeType ?? "");
 
-  if (mime.startsWith("image/")) return fileVisuals.image;
+  if (resolveViewerKind(mime, fileName) === "image") return fileVisuals.image;
   if (mime.startsWith("video/")) return fileVisuals.video;
   if (mime.startsWith("audio/")) return fileVisuals.audio;
   if (mime.includes("pdf")) return fileVisuals.pdf;

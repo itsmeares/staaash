@@ -13,7 +13,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import type { ViewerKind } from "@staaash/db/viewer-contract";
+import type { ViewerKind } from "@staaash/config/media-types";
 
 import { TextFileViewer } from "@/src/text-file-viewer";
 import { Button } from "@staaash/ui/components/button";

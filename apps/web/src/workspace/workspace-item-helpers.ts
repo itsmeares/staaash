@@ -1,3 +1,4 @@
+import { getItemVisual } from "@staaash/ui/item-visuals";
 import type {
   FileListColumn,
   FileListItem,
@@ -22,6 +23,7 @@ export type WorkspaceItemFilterOption = {
 export type WorkspaceSortDirection = "asc" | "desc";
 
 type WorkspaceTypeItem = {
+  name?: string;
   kind: "file" | "folder";
   mimeType?: string | null;
 };
@@ -96,44 +98,15 @@ export const toWorkspaceListFields = (item: RetrievalItem) => ({
     : { color: item.color ?? null, parentId: item.parentId }),
 });
 
-// Exported for its test.
-// fallow-ignore-next-line unused-export complexity
-export function getWorkspaceItemType(
-  item: WorkspaceTypeItem,
-): WorkspaceItemFilterType {
-  if (item.kind === "folder") return "folder";
-
-  const mime = item.mimeType ?? "";
-  if (mime.startsWith("image/")) return "image";
-  if (mime.startsWith("video/")) return "video";
-  if (mime.startsWith("audio/")) return "audio";
-  if (mime.includes("pdf")) return "pdf";
-  if (
-    mime.startsWith("text/") ||
-    mime.includes("typescript") ||
-    mime.includes("json") ||
-    mime.includes("document")
-  ) {
-    return "text";
-  }
-  if (
-    mime.includes("zip") ||
-    mime.includes("archive") ||
-    mime.includes("tar") ||
-    mime.includes("gzip")
-  ) {
-    return "archive";
-  }
-
-  return "all";
-}
-
 export function filterWorkspaceItems<T extends WorkspaceTypeItem>(
   items: T[],
   filterType: WorkspaceItemFilterType,
 ): T[] {
   if (filterType === "all") return items;
-  return items.filter((item) => getWorkspaceItemType(item) === filterType);
+  return items.filter(
+    (item) =>
+      getItemVisual(item.kind, item.mimeType, item.name).kind === filterType,
+  );
 }
 
 export function formatWorkspaceFileSize(bytes?: number): string {

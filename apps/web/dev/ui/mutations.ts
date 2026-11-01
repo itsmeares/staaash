@@ -4,7 +4,7 @@ import {
 } from "../../server/auth/schema";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { resolveViewerKind } from "@staaash/db/viewer-contract";
+import { resolveViewerKind } from "@staaash/config/media-types";
 import {
   type State,
   type File,

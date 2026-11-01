@@ -1,7 +1,7 @@
 import { contentDisposition } from "@/server/downloads/content-disposition";
 import type { FileSummary } from "@/server/files/types";
 
-import { isHeicFile } from "./heic-converter";
+import { isHeicFile } from "@staaash/config/media-types";
 
 const MIME_TOKEN = "[!#$%&'*+\\-.^_`|~0-9A-Za-z]+";
 const MIME_QUOTED_VALUE = '"(?:[\\t !#-\\[\\]-~]|\\\\[\\t !-~])*"';

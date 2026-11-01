@@ -1,6 +1,7 @@
 import { statfs } from "node:fs/promises";
 
-import { getPrisma, type Prisma } from "@staaash/db/client";
+import { getPrisma, Prisma } from "@staaash/db/client";
+import { fileMimeTypeSql } from "./file-types";
 
 import { FilesError } from "@/server/files/errors";
 import { getStorageRoot } from "@/server/storage";
@@ -141,14 +142,16 @@ export const getStorageBreakdown = async (
       }),
       client.$queryRaw<Array<{ kind: string; bytes: bigint }>>`
       SELECT CASE
-          WHEN "mimeType" LIKE 'image/%' THEN 'photos'
-          WHEN "mimeType" LIKE 'video/%' THEN 'videos'
-          WHEN "mimeType" LIKE 'audio/%' THEN 'audio'
+          WHEN mime LIKE 'image/%' THEN 'photos'
+          WHEN mime LIKE 'video/%' THEN 'videos'
+          WHEN mime LIKE 'audio/%' THEN 'audio'
           ELSE 'documents'
         END AS kind,
         COALESCE(SUM("sizeBytes"), 0)::bigint AS bytes
-      FROM "File"
-      WHERE "ownerUserId" = ${userId} AND "deletedAt" IS NULL
+      FROM (
+        SELECT "sizeBytes", ${fileMimeTypeSql(Prisma.sql`"mimeType"`, Prisma.sql`"originalName"`)} AS mime
+        FROM "File" WHERE "ownerUserId" = ${userId} AND "deletedAt" IS NULL
+      ) files
       GROUP BY 1`,
       client.file.aggregate({
         where: { ownerUserId: userId, deletedAt: { not: null } },

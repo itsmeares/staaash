@@ -23,7 +23,7 @@ import { MiddleName } from "./middle-name";
 import { GridName } from "./grid-name";
 import { Button } from "@staaash/ui/components/button";
 import { Menu, MenuPopup, MenuTrigger } from "@staaash/ui/components/menu";
-import { canHaveThumbnail } from "@staaash/db/viewer-contract";
+import { canHaveThumbnail } from "@staaash/config/media-types";
 import { cn } from "@staaash/ui/utils";
 
 import type { ListSelection } from "./use-list-selection";
@@ -114,7 +114,9 @@ export function ItemIcon({
   item,
   className,
 }: {
-  item: Pick<FileListItem, "kind" | "mimeType" | "icon" | "color">;
+  item: Pick<FileListItem, "kind" | "mimeType" | "icon" | "color"> & {
+    name?: string;
+  };
   className?: string;
 }) {
   const tint = item.kind === "folder" ? folderColorStyle(item.color) : null;
@@ -133,7 +135,7 @@ export function ItemIcon({
           icon={item.icon}
           size={16}
           tone="plain"
-          visual={getItemVisual(item.kind, item.mimeType)}
+          visual={getItemVisual(item.kind, item.mimeType, item.name)}
         />
       </span>
     );
@@ -147,7 +149,7 @@ export function ItemIcon({
       icon={item.icon}
       size={18}
       tone="plain"
-      visual={getItemVisual(item.kind, item.mimeType)}
+      visual={getItemVisual(item.kind, item.mimeType, item.name)}
     />
   );
 }

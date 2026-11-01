@@ -6,7 +6,8 @@ import { getStoragePath } from "@/server/storage";
 import { prismaFilesRepository } from "@/server/files/repository";
 import type { StoredFile } from "@/server/files/types";
 import { assertStorageEntityReadable } from "@/server/storage-read-guard";
-import { convertHeicToJpeg, isHeicFile } from "./heic-converter";
+import { isHeicFile } from "@staaash/config/media-types";
+import { convertHeicToJpeg } from "./heic-converter";
 import {
   getPublicShareSafeInlineMimeType,
   PUBLIC_SHARE_CONTENT_SECURITY_POLICY,

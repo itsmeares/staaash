@@ -1,4 +1,4 @@
-import { canHaveThumbnail } from "@staaash/db/viewer-contract";
+import { canHaveThumbnail } from "@staaash/config/media-types";
 import type { FileSummary } from "@/server/files/types";
 import type { ViewerFile } from "@/components/file-list/media-viewer";
 

@@ -24,7 +24,7 @@ const fileName = (rel: string) => rel.slice(rel.lastIndexOf("/") + 1);
 
 // Only the file's look depends on this, so the common types are enough.
 const MIME_BY_EXTENSION: [RegExp, string][] = [
-  [/\.(png|jpe?g|gif|webp|avif|heic|svg)$/i, "image/"],
+  [/\.(png|jpe?g|gif|webp|avif|svg)$/i, "image/"],
   [/\.(mp4|mov|mkv|webm|avi)$/i, "video/"],
   [/\.(mp3|flac|wav|ogg|m4a)$/i, "audio/"],
   [/\.pdf$/i, "pdf"],
@@ -35,6 +35,7 @@ const fileVisual = (rel: string) =>
   getItemVisual(
     "file",
     MIME_BY_EXTENSION.find(([pattern]) => pattern.test(rel))?.[1],
+    fileName(rel),
   );
 
 const ago = (at: number) => {

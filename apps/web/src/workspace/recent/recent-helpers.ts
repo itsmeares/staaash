@@ -1,3 +1,4 @@
+import { resolveViewerKind } from "@staaash/config/media-types";
 import type {
   RecentAction,
   RecentRetrievalItem,
@@ -74,7 +75,11 @@ export type ActivityRow = RecentClientItem & {
 };
 
 const nounFor = (items: RecentClientItem[]) => {
-  if (items.every((item) => item.mimeType?.startsWith("image/")))
+  if (
+    items.every(
+      (item) => resolveViewerKind(item.mimeType ?? "", item.name) === "image",
+    )
+  )
     return "photos";
   if (items.every((item) => item.mimeType?.startsWith("video/")))
     return "videos";

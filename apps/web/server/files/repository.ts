@@ -1,5 +1,5 @@
 import { Prisma, getPrisma } from "@staaash/db/client";
-import { resolveViewerKind } from "@staaash/db/viewer-contract";
+import { resolveViewerKind } from "@staaash/config/media-types";
 import {
   readFolderAncestorIds,
   readFolderSubtreeIds,

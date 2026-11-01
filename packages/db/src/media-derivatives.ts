@@ -1,6 +1,6 @@
 import { getPrisma } from "./client";
 
-export { canHaveThumbnail } from "./viewer-contract";
+export { canHaveThumbnail } from "@staaash/config/media-types";
 import {
   MEDIA_DERIVATIVE_GENERATE_JOB_KIND,
   MEDIA_DERIVATIVE_CLEANUP_JOB_KIND,

@@ -1916,7 +1916,11 @@ export function FilesView({
       (() => {
         const { data } = detailsItem;
         const share = shareFor(detailsItem.kind, detailsItem.id);
-        const visual = getItemVisual(detailsItem.kind, detailsItem.mimeType);
+        const visual = getItemVisual(
+          detailsItem.kind,
+          detailsItem.mimeType,
+          detailsItem.name,
+        );
         const extension = detailsItem.name.includes(".")
           ? detailsItem.name.split(".").pop()?.toUpperCase()
           : null;
