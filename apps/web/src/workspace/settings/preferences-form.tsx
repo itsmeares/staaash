@@ -27,6 +27,7 @@ import {
 } from "@/components/settings-layout";
 import { TimeZonePicker } from "@/components/time-zone-picker";
 import { Badge } from "@staaash/ui/components/badge";
+import { Avatar } from "@staaash/ui/components/avatar";
 import { Button } from "@staaash/ui/components/button";
 import {
   Collapsible,
@@ -49,8 +50,6 @@ import { applyTheme, applyThemeWithTransition, type Theme } from "@/lib/theme";
 import { getInitials } from "@/lib/user";
 import { cn } from "@staaash/ui/utils";
 import type { StorageBreakdown } from "@/server/user-storage";
-
-import { WorkspaceAvatar } from "../workspace-avatar";
 
 const THEMES: { value: Theme; label: string }[] = [
   { value: "system", label: "System" },
@@ -250,7 +249,7 @@ function ProfileEditor({
   return (
     <div className={editPanel}>
       <div className="flex items-center gap-2">
-        <WorkspaceAvatar
+        <Avatar
           avatarUrl={avatar}
           initials={getInitials(name || null, profile.email)}
         />
@@ -388,7 +387,7 @@ function ProfileSettings({ profile }: { profile: Profile }) {
         onOpenChange={toggle("profile")}
       >
         <div className="flex items-center gap-3 px-4 py-3">
-          <WorkspaceAvatar
+          <Avatar
             avatarUrl={profile.avatarUrl}
             initials={getInitials(profile.name, profile.email)}
           />

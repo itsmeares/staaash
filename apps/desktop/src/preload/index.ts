@@ -16,6 +16,7 @@ const api: DesktopApi = {
     return () => ipcRenderer.off("state", handler);
   },
   connect: call("connect") as DesktopApi["connect"],
+  refreshProfile: call("refresh-profile") as DesktopApi["refreshProfile"],
   serverFolders: call("server-folders") as DesktopApi["serverFolders"],
   chooseFolder: call("choose-folder") as DesktopApi["chooseFolder"],
   folderWarning: call("folder-warning") as DesktopApi["folderWarning"],

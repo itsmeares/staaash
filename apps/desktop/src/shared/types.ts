@@ -137,6 +137,7 @@ export type AppState = {
   platform: NodeJS.Platform;
   settings: Settings;
   signedIn: boolean;
+  avatarUrl: string | null;
   status: EngineStatus | null;
   /** The server and this app cannot work together until one is updated. */
   versionProblem: {
@@ -156,6 +157,7 @@ export type DesktopApi = {
   getState: () => Promise<AppState>;
   onState: (listener: (state: AppState) => void) => () => void;
   connect: (serverUrl: string) => Promise<Result>;
+  refreshProfile: () => Promise<void>;
   serverFolders: () => Promise<
     | { folders: ServerFolder[]; homeDir: string; freeBytes: number }
     | { error: string }

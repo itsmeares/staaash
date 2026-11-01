@@ -15,6 +15,7 @@ import {
 import { useState } from "react";
 
 import { ItemIcon } from "@/components/file-list/file-list";
+import { Avatar } from "@staaash/ui/components/avatar";
 import { Button } from "@staaash/ui/components/button";
 import {
   Drawer,
@@ -26,7 +27,6 @@ import {
 
 import { UpdateNote, VersionButton, type ShellInfo } from "./app-sidebar";
 import { NewTiles } from "./new-menu";
-import { WorkspaceAvatar } from "./workspace-avatar";
 import { WorkspaceStorage } from "./workspace-storage";
 import {
   isAdminPath,
@@ -123,7 +123,7 @@ export function WorkspaceMobileNav({
           <DrawerTitle className="sr-only">More</DrawerTitle>
           <DrawerPanel className="grid gap-3 pb-4">
             <div className="flex items-center gap-2.5 px-1">
-              <WorkspaceAvatar avatarUrl={avatarUrl} initials={initials} />
+              <Avatar avatarUrl={avatarUrl} initials={initials} />
               <div className="grid min-w-0 leading-tight">
                 <span className="truncate text-body font-semibold">
                   {userLabel ?? email}
