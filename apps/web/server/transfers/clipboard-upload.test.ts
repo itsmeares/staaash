@@ -21,6 +21,8 @@ describe("clipboard filenames", () => {
     ["image/jpeg", "image.jpeg", "jpg"],
     ["image/webp", "", "webp"],
     ["image/svg+xml", "image", "svg"],
+    ["image/heic", "image.heic", "heic"],
+    ["image/png", "image.jpeg", "png"],
   ])(
     "names %s images without changing bytes or metadata",
     async (type, originalName, extension) => {

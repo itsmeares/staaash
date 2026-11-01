@@ -32,7 +32,7 @@ export const nameClipboardFiles = (files: File[]) =>
     if (file.name && !(isImage && /^image(?:\.[a-z0-9]+)?$/i.test(file.name))) {
       return file;
     }
-    const extension = imageExtensions.get(file.type);
+    const extension = imageExtensions.get(file.type) ?? file.name.split(".")[1];
     const timestamp = new Date()
       .toISOString()
       .slice(0, 19)
