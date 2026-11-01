@@ -32,7 +32,41 @@ The first release using this path may therefore be `v1.1.0`; no package files ne
 
 ## Release notes
 
-GitHub-generated notes form the initial release body. After publication, update the release notes with `gh release edit` or the GitHub UI as needed. Preserve this managed block exactly, including its contents:
+The workflow creates a version heading, desktop download links, and GitHub's generated change list. Desktop installers build after the server release is published, so the links will work only after those builds finish. Check the desktop workflow and its attached assets before sharing the release.
+
+After publication, edit the notes with `gh release edit` or the GitHub UI. Use this format for the human-written sections, keeping only sections that apply:
+
+```markdown
+# 🚀 Staaash X.Y.Z
+
+Briefly describe the release and any important warning.
+
+## 🏗️ Enhancements
+
+- Describe improvements in terms users can understand.
+
+## 🔒 Security
+
+- Describe security changes when applicable.
+
+## 📈 General changes
+
+- Describe fixes and other changes users should know about.
+
+## Desktop app
+
+Keep the generated installer links.
+
+## Upgrade notes
+
+- Describe migrations, breaking changes, and backup or rollback steps when applicable.
+
+## What's changed
+
+Keep GitHub's generated change list and full changelog link.
+```
+
+Use the exact version, including any prerelease suffix. Check the changes since the previous release and write accurate summaries. Do not copy example bullets into the release. Preserve this managed block exactly, including its contents:
 
 ```text
 <!-- staaash:release-provenance:start -->
