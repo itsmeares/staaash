@@ -3,6 +3,7 @@ import { useRefresh } from "@/lib/use-refresh";
 import {
   startTransition,
   useEffect,
+  useEffectEvent,
   useMemo,
   useRef,
   useState,
@@ -61,6 +62,10 @@ import { formatDateTime, formatRelativeTime } from "@/lib/time";
 import { DashboardPageContextMenu } from "@/src/dashboard-context-menu";
 import { getItemVisual } from "@staaash/ui/item-visuals";
 import { startValidatedDownload } from "@/lib/transfers/download";
+import {
+  nameClipboardFiles,
+  shouldIgnoreClipboardPaste,
+} from "@/lib/transfers/clipboard-upload";
 import {
   collectDirectoryDropSelection,
   createFolderUploadSelection,
@@ -601,11 +606,6 @@ export function FilesView({
     if (ctrl && key === "x" && selected.length > 0) {
       event.preventDefault();
       cutSelectedItems();
-      return true;
-    }
-    if (ctrl && key === "v" && cutItems.length > 0) {
-      event.preventDefault();
-      void handlePaste();
       return true;
     }
     if (
@@ -1404,6 +1404,36 @@ export function FilesView({
   // ---------------------------------------------------------------------------
   // Upload
   // ---------------------------------------------------------------------------
+
+  const handleClipboardPaste = useEffectEvent((event: ClipboardEvent) => {
+    if (viewerId || shouldIgnoreClipboardPaste(event)) return;
+    const clipboard = event.clipboardData;
+    if (!clipboard) return;
+    const files = Array.from(clipboard.files);
+    if (files.length > 0) {
+      event.preventDefault();
+      beginUpload(
+        listing.currentFolder.id,
+        currentPath,
+        createFolderUploadSelection(nameClipboardFiles(files)),
+        listing.currentFolder.name,
+      );
+    } else if (clipboard.types.includes("Files")) {
+      event.preventDefault();
+      toast.error(
+        "The clipboard files could not be read. Use Upload or drag and drop.",
+      );
+    } else if (cutItems.length > 0) {
+      event.preventDefault();
+      void handlePaste();
+    }
+  });
+
+  useEffect(() => {
+    const onPaste = (event: ClipboardEvent) => handleClipboardPaste(event);
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, []);
 
   const isInternalItemDrag = (event: React.DragEvent) =>
     draggedItemsRef.current.length > 0 ||
