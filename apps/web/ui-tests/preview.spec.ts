@@ -87,11 +87,11 @@ test(
     await name.fill("Sample browser folder");
     await name.press("Enter");
     await expect(
-      page.getByText("Sample browser folder", { exact: true }),
+      page.getByRole("row", { name: /Sample browser folder/ }),
     ).toBeVisible();
     await page.reload();
     await expect(
-      page.getByText("Sample browser folder", { exact: true }),
+      page.getByRole("row", { name: /Sample browser folder/ }),
     ).toBeVisible();
   },
 );
