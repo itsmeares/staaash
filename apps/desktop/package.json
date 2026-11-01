@@ -1,7 +1,7 @@
 {
   "name": "desktop",
   "productName": "Staaash",
-  "version": "2.0.0-rc.1",
+  "version": "2.0.0-rc.2",
   "description": "Staaash desktop sync client.",
   "private": true,
   "license": "AGPL-3.0-only",
