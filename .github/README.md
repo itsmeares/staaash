@@ -77,11 +77,17 @@ The release files are the supported installation path. Files on `main` may conta
 
 ### Desktop app
 
-The desktop app keeps folders on your computer in sync with your drive and lives in the tray. Download it from the [latest release](https://github.com/itsmeares/staaash/releases/latest):
+The desktop app keeps folders on your computer in sync with your drive and lives in the tray. It needs a Staaash 2.0 server or newer. Download the [v2.0.0-rc.2 release candidate](https://github.com/itsmeares/staaash/releases/tag/v2.0.0-rc.2) for your system:
 
-- **Windows:** the `.exe` installer, for Intel/AMD and ARM.
-- **macOS:** the `.dmg`, for Intel and Apple silicon. The app is not signed by Apple, so the first launch is blocked: open System Settings, then Privacy & Security, and click Open Anyway.
-- **Linux:** the AppImage, or the `.deb` or `.rpm` package, for AMD64 and ARM64.
+| System         | x64                                                                                                                          | ARM64                                                                                                                         |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Windows        | [Installer x64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.2/Staaash-2.0.0-rc.2-win-x64.exe)           | [Installer ARM64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.2/Staaash-2.0.0-rc.2-win-arm64.exe)        |
+| macOS          | [Universal DMG](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.2/Staaash-2.0.0-rc.2-mac-universal.dmg)     | [Universal DMG](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.2/Staaash-2.0.0-rc.2-mac-universal.dmg)      |
+| Linux AppImage | [Installer x64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.2/Staaash-2.0.0-rc.2-linux-x86_64.AppImage) | [Installer ARM64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.2/Staaash-2.0.0-rc.2-linux-arm64.AppImage) |
+| Linux DEB      | [Installer x64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.2/Staaash-2.0.0-rc.2-linux-amd64.deb)       | [Installer ARM64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.2/Staaash-2.0.0-rc.2-linux-arm64.deb)      |
+| Linux RPM      | [Installer x64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.2/Staaash-2.0.0-rc.2-linux-x86_64.rpm)      | [Installer ARM64](https://github.com/itsmeares/staaash/releases/download/v2.0.0-rc.2/Staaash-2.0.0-rc.2-linux-aarch64.rpm)    |
+
+On macOS, the app is not signed by Apple. If the first launch is blocked, open System Settings, then Privacy & Security, and click Open Anyway.
 
 Windows and Linux update themselves. On macOS the app tells you when a new version is ready to download.
 

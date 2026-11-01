@@ -31,7 +31,6 @@ jobs:
           - name: Linux ARM64
             runner: ubuntu-24.04-arm
             build: --linux --arm64
-          # One installer holds both Windows architectures.
           - name: Windows
             runner: windows-2025
             build: --win
