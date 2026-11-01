@@ -6,6 +6,8 @@ import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { setTimeout as sleep } from "node:timers/promises";
 
+import { UploadRateTracker } from "@/lib/transfers/upload-progress";
+
 import type { Api } from "./api";
 import { ApiError } from "./api";
 import { TEMP_PREFIX } from "./names";
@@ -32,6 +34,56 @@ export class Throttle {
       if (!received) this.nextFree -= cost;
       throw error;
     }
+  }
+}
+
+export class UploadMeter {
+  private readonly active = new Set<{ remaining: number }>();
+  private bytes = 0;
+  private tracker = new UploadRateTracker();
+  private timer: NodeJS.Timeout | null = null;
+  speed: number | null = null;
+
+  constructor(private readonly changed: () => void) {}
+
+  get remaining() {
+    return Array.from(this.active).reduce(
+      (sum, upload) => sum + upload.remaining,
+      0,
+    );
+  }
+
+  start(size: number) {
+    const upload = { remaining: size };
+    this.active.add(upload);
+    if (this.active.size === 1) {
+      this.bytes = 0;
+      this.tracker = new UploadRateTracker();
+      this.speed = 0;
+      this.timer = setInterval(() => {
+        this.speed = this.tracker.record(this.bytes);
+        this.changed();
+      }, 1000);
+      this.changed();
+    }
+    return {
+      completed: (bytes: number) => {
+        upload.remaining = Math.max(0, upload.remaining - bytes);
+      },
+      finish: () => {
+        this.active.delete(upload);
+        if (this.active.size === 0) {
+          if (this.timer) clearInterval(this.timer);
+          this.timer = null;
+          this.speed = null;
+        }
+        this.changed();
+      },
+    };
+  }
+
+  add(bytes: number) {
+    this.bytes += bytes;
   }
 }
 
@@ -146,22 +198,26 @@ export const moveIntoPlace = async (temp: string, target: string) => {
  */
 // Resume, restart and chunk send share one session.
 // fallow-ignore-next-line complexity
-export const uploadFile = async (input: {
-  api: Api;
-  store: Store;
-  pairId: string;
-  rel: string;
-  file: string;
-  folderId: string;
-  name: string;
-  checksum: string;
-  size: number;
-  mtimeMs: number;
-  replace: { rev: number } | null;
-  throttle: Throttle;
-  onBytes: (bytes: number) => void;
-  signal: AbortSignal;
-}) => {
+const sendFile = async (
+  input: {
+    api: Api;
+    store: Store;
+    pairId: string;
+    rel: string;
+    file: string;
+    folderId: string;
+    name: string;
+    checksum: string;
+    size: number;
+    mtimeMs: number;
+    replace: { rev: number } | null;
+    throttle: Throttle;
+    meter: UploadMeter;
+    onBytes: (bytes: number) => void;
+    signal: AbortSignal;
+  },
+  completed: (bytes: number) => void,
+) => {
   const { api, store } = input;
   // A session commits to the folder, name and replace choice it was started
   // with, so it is only reused for exactly that.
@@ -217,6 +273,7 @@ export const uploadFile = async (input: {
   const chunkSize = session.chunkSizeBytes ?? input.size;
   const done = new Set(session.completedChunks.map((chunk) => chunk.startByte));
   input.onBytes(session.receivedBytes);
+  completed(session.receivedBytes);
   const handle = await open(input.file, "r");
   try {
     for (let start = 0; start < input.size; start += chunkSize) {
@@ -229,7 +286,18 @@ export const uploadFile = async (input: {
         throw new ApiError(0, "The file changed while it was uploading.");
       }
       await input.throttle.take(length, input.signal);
-      await api.uploadChunk(session.id, start, buffer, input.size);
+      let furthest = 0;
+      await api.uploadChunk(
+        session.id,
+        start,
+        buffer,
+        input.size,
+        (bytes, offset) => {
+          input.meter.add(bytes);
+          completed(Math.max(0, offset - furthest));
+          furthest = Math.max(furthest, offset);
+        },
+      );
       input.onBytes(length);
     }
   } finally {
@@ -242,6 +310,15 @@ export const uploadFile = async (input: {
   )) as unknown as UploadedFile;
   store.deleteUpload(input.pairId, input.rel);
   return file;
+};
+
+export const uploadFile = async (input: Parameters<typeof sendFile>[0]) => {
+  const upload = input.meter.start(input.size);
+  try {
+    return await sendFile(input, upload.completed);
+  } finally {
+    upload.finish();
+  }
 };
 
 type UploadedFile = {

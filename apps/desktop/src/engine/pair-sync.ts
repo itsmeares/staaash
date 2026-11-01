@@ -11,7 +11,7 @@ import type { Action, Excluded, Hold, LocalFile } from "./plan";
 import { conflictCopyName, plan } from "./plan";
 import type { RemoteTree } from "./remote";
 import type { BaseEntry, RemoteItem, Store } from "./store";
-import type { Throttle } from "./transfer";
+import type { Throttle, UploadMeter } from "./transfer";
 import {
   downloadToTemp,
   freeBytes,
@@ -29,6 +29,7 @@ export type PairContext = {
   ignore: (name: string) => boolean;
   minFreeBytes: number;
   uploads: Throttle;
+  uploadMeter: UploadMeter;
   downloads: Throttle;
   /** Moves a path to the OS trash; the main process owns that API. */
   trash: (file: string) => Promise<void>;
@@ -422,6 +423,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         mtimeMs: local.mtimeMs,
         replace: action.replace ? { rev: action.replace.rev } : null,
         throttle: ctx.uploads,
+        meter: ctx.uploadMeter,
         signal: transfers,
         onBytes: (bytes) => {
           activity.doneBytes += bytes;
@@ -455,6 +457,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         mtimeMs: local.mtimeMs,
         replace: null,
         throttle: ctx.uploads,
+        meter: ctx.uploadMeter,
         signal: transfers,
         onBytes: () => {},
       });
