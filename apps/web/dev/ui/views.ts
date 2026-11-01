@@ -92,7 +92,7 @@ export const ownedItems = (state: State, deleted = false) => {
 };
 export function shareStatus(state: State, share: Share) {
   if (share.revokedAt) return "revoked" as const;
-  if (Date.parse(share.expiresAt) < Date.now()) return "expired" as const;
+  if (Date.parse(share.expiresAt) <= Date.now()) return "expired" as const;
   const item = [...state.files, ...state.folders].find(
     (i) => i.id === share.targetId,
   );

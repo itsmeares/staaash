@@ -131,6 +131,12 @@ export function mountShares(app: Hono<PreviewEnv>) {
         (s) => s.id === body.shareId && s.ownerId === state.userId,
       );
       if (!share) throw new PreviewError(404, "Share not found.");
+      const issuedAt = Date.now();
+      if (Date.parse(share.expiresAt) <= issuedAt) {
+        share.expiresAt = new Date(
+          issuedAt + state.settings.shareMaxAgeDays * 24 * 60 * 60 * 1000,
+        ).toISOString();
+      }
       share.token = randomUUID();
       share.revokedAt = null;
       return c.json({
