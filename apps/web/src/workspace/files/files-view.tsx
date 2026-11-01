@@ -118,7 +118,11 @@ import type { ShareLinkSummary as ServerShareLinkSummary } from "@/server/sharin
 import type { Plain } from "@/lib/plain";
 
 type FileSummary = Plain<ServerFileSummary>;
-type FilesListing = Plain<ServerFilesListing>;
+type FilesListing = Plain<ServerFilesListing> & {
+  childFolders: Array<
+    Plain<ServerFolderSummary> & { sizeBytes: number | null }
+  >;
+};
 type FolderSummary = Plain<ServerFolderSummary>;
 type ShareFilesLookup = Plain<ServerShareFilesLookup>;
 type ShareLinkSummary = Plain<ServerShareLinkSummary>;
@@ -1895,6 +1899,11 @@ export function FilesView({
     selectedIds.size === 1
       ? listItems.find((item) => selectedIds.has(item.id))
       : undefined;
+  const detailsSize =
+    detailsItem?.kind === "folder"
+      ? listing.childFolders.find((folder) => folder.id === detailsItem.id)
+          ?.sizeBytes
+      : detailsItem?.sizeBytes;
   const locationLabel = listing.breadcrumbs
     .map((crumb, index) => (index === 0 ? "Files" : crumb.name))
     .join(" / ");
@@ -1986,10 +1995,10 @@ export function FilesView({
                 ? "Folder"
                 : `${visual.label}${extension ? ` · ${extension}` : ""}`,
             ],
-            ...(detailsItem.sizeBytes === null
+            ...(detailsSize == null
               ? []
               : [
-                  ["Size", formatWorkspaceFileSize(detailsItem.sizeBytes)] as [
+                  ["Size", formatWorkspaceFileSize(detailsSize)] as [
                     string,
                     string,
                   ],
