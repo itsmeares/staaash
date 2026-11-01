@@ -144,20 +144,29 @@ describe("rubber band boxes", () => {
 });
 
 describe("splitName", () => {
-  it("keeps the extension and a few characters visible", () => {
+  it("keeps the extension visible", () => {
     expect(splitName("holiday-photo-from-the-beach.jpeg")).toEqual({
-      head: "holiday-photo-from-the",
-      tail: "-beach.jpeg",
+      head: "holiday-photo-from-the-beach",
+      tail: ".jpeg",
     });
   });
 
-  it("does not split short names", () => {
-    expect(splitName("notes.md")).toEqual({ head: "notes.md", tail: "" });
+  it("keeps short names intact", () => {
+    expect(splitName("notes.md")).toEqual({ head: "notes", tail: ".md" });
+  });
+
+  it("keeps emoji together when splitting a name", () => {
+    expect(splitName("Vacation 👨‍👩‍👧‍👦abcdef.pdf")).toEqual({
+      head: "Vacation 👨‍👩‍👧‍👦abcdef",
+      tail: ".pdf",
+    });
   });
 
   it("treats a long suffix after a dot as part of the name", () => {
-    const { tail } = splitName("version.1.2.final-final-draft");
-    expect(tail).toBe("-draft");
+    expect(splitName("version.1.2.final-final-draft")).toEqual({
+      head: "version.1.2.final-final-draft",
+      tail: "",
+    });
   });
 });
 

@@ -16,12 +16,16 @@ export function MiddleName({
       {/* Screen readers get the whole name once, not two halves. */}
       <span className="sr-only">{name}</span>
       {/* Pre keeps a space at the cut, which nowrap would drop. */}
-      <span aria-hidden className="truncate whitespace-pre">
+      <span aria-hidden className="min-w-0 truncate whitespace-pre">
         {head}
       </span>
       {tail ? (
-        <span aria-hidden className="shrink-0 whitespace-pre">
-          {tail}
+        <span
+          aria-hidden
+          className="max-w-1/2 shrink-0 truncate whitespace-pre"
+          dir="rtl"
+        >
+          <bdi dir="auto">{tail}</bdi>
         </span>
       ) : null}
     </span>
