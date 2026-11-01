@@ -28,7 +28,8 @@
     "app:clear-caches": "node scripts/clear-caches.mjs",
     "app:reset-local-data": "node scripts/reset-local-data.mjs",
     "quality:fallow": "fallow audit --base origin/main --gate new-only --production-dead-code --production-health --production-dupes --no-css --max-crap 60",
-    "build:deps": "vp run --filter \"./packages/*\" build"
+    "build:deps": "vp run --filter \"./packages/*\" build",
+    "web:ui": "pnpm --filter web ui"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "5.0.5",

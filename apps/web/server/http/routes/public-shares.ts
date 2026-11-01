@@ -1,3 +1,4 @@
+import { unavailableHtml } from "@/server/sharing/unavailable-page";
 import { createRoute, z } from "@hono/zod-openapi";
 import type { Context } from "hono";
 import { getCookie } from "hono/cookie";
@@ -135,21 +136,6 @@ const storageUnavailable = createRoute({
     503: { description: "Still finishing a storage change." },
   },
 });
-
-const unavailableHtml = `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Storage operation finishing</title>
-  </head>
-  <body>
-    <main>
-      <h1>Storage operation finishing</h1>
-      <p>This shared item is unavailable until storage recovery finishes.</p>
-    </main>
-</body>
-</html>`;
 
 const notPreviewable = () =>
   new Response("Preview not supported for this file type.", {

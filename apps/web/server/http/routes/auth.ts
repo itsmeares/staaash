@@ -1,14 +1,12 @@
+import { ownerOnboardingSettingsSchema } from "@/server/admin/settings-schema";
+import { preferencesInputSchema } from "@/server/auth/schema";
 import { createRoute, z } from "@hono/zod-openapi";
-import { AUTO_TIME_ZONE, isValidTimeZone } from "@staaash/config/time-zone";
 
 import type { Context } from "hono";
 import { validator } from "hono/validator";
 
 import { canAccessAdminSurface } from "@/server/access";
-import {
-  ownerOnboardingSettingsSchema,
-  saveOwnerOnboardingSettings,
-} from "@/server/admin/settings";
+import { saveOwnerOnboardingSettings } from "@/server/admin/settings";
 import {
   approveDevice,
   exchangeDeviceCode,
@@ -125,32 +123,12 @@ const requiredPassword = createRoute({
   },
 });
 
-const PreferencesBody = z.object({
-  theme: z.enum(["light", "dark", "system"]).optional(),
-  timeZone: z
-    .string()
-    .trim()
-    .refine(
-      (value) => value === AUTO_TIME_ZONE || isValidTimeZone(value),
-      "Invalid time zone.",
-    )
-    .optional(),
-  showUpdateNotifications: z.boolean().optional(),
-  showFolderPreviews: z.boolean().optional(),
-  showPinsInSidebar: z.boolean().optional(),
-  startPage: z.enum(["home", "files"]).optional(),
-  defaultView: z.enum(["list", "grid"]).optional(),
-  clockFormat: z.enum(["12h", "24h"]).optional(),
-  displayName: z.string().trim().max(80).nullable().optional(),
-  avatarUrl: z.string().max(300000).nullable().optional(),
-});
-
 const preferences = createRoute({
   method: "post",
   path: "/api/user/preferences",
   tags: ["Account"],
   summary: "Save preferences. Saving them also finishes onboarding.",
-  request: { body: jsonBody(PreferencesBody) },
+  request: { body: jsonBody(preferencesInputSchema) },
   responses: { 200: json(OkSchema, "Saved."), ...errorResponses },
 });
 

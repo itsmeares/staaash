@@ -5,6 +5,10 @@
     "packages/*/vite.config.ts",
     "apps/web/server/main.ts",
     "apps/web/vitest.postgres.config.ts",
+    "apps/web/vitest.ui.config.ts",
+    "apps/web/playwright.ui.config.ts",
+    // The preview HTML loads this separate browser entry.
+    "apps/web/dev/ui/controls.tsx",
     "apps/web/playwright.system.config.ts",
     "packages/config/src/release.ts",
     "scripts/release/index.mjs",
