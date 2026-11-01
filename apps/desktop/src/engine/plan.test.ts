@@ -630,6 +630,7 @@ it("reports server items this computer cannot hold", () => {
     {
       pairId: "p",
       rel: "a:b.txt",
+      source: "scan",
       kind: "invalid-name",
       message: "nope",
       remoteId: "r9",
