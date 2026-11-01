@@ -121,6 +121,58 @@ describe("update check handler", () => {
     expect(savedReleases()).toEqual(["1.3.0-rc.1", "1.2.1", "1.2.0"]);
   });
 
+  it.each([
+    {
+      label: "details and summary wrappers",
+      body: "<details open>\n<summary>Full changelog</summary>\n\n- Fixed uploads\n\n</details>",
+      notes: "Full changelog\n\n- Fixed uploads",
+    },
+    {
+      label: "managed metadata",
+      body: 'Notes.\n\n<!-- staaash:release-provenance:start -->\n<!-- {"schemaVersion":1} -->\n<!-- staaash:release-provenance:end -->',
+      notes: "Notes.",
+    },
+    {
+      label: "metadata without notes",
+      body: "<!-- staaash:release-provenance:start -->\n<!-- {} -->\n<!-- staaash:release-provenance:end -->",
+      notes: "",
+    },
+    {
+      label: "metadata crossing the length limit",
+      body:
+        "Notes.\n\n<!-- staaash:release-provenance:start -->\n" +
+        "x".repeat(20_000) +
+        "\n<!-- staaash:release-provenance:end -->",
+      notes: "Notes.",
+    },
+    {
+      label: "long notes",
+      body: "x".repeat(20_001),
+      notes: "x".repeat(20_000),
+    },
+    ...["```", "~~~"].map((fence) => ({
+      label: `${fence} code examples`,
+      body: `${fence}html\n<details>\n<summary>Example</summary>\n<!-- staaash:release-provenance:start -->\n<!-- example -->\n<!-- staaash:release-provenance:end -->\n</details>\n${fence}`,
+      notes: `${fence}html\n<details>\n<summary>Example</summary>\n<!-- staaash:release-provenance:start -->\n<!-- example -->\n<!-- staaash:release-provenance:end -->\n</details>\n${fence}`,
+    })),
+    {
+      label: "inline code examples",
+      body: "Use `<details>` or ``<summary>``.",
+      notes: "Use `<details>` or ``<summary>``.",
+    },
+  ])("cleans $label before storing notes", async ({ body, notes }) => {
+    stubGitHub({ json: async () => [{ tag_name: "v1.2.1", body }] });
+    const { handleUpdateCheck } = await import("./update-check.js");
+
+    await handleUpdateCheck(job);
+
+    expect(writeInstanceUpdateCheck).toHaveBeenCalledWith(
+      expect.objectContaining({
+        releases: [expect.objectContaining({ notes })],
+      }),
+    );
+  });
+
   it("keeps to stable when the owner picked it, even on a pre-release", async () => {
     process.env.APP_VERSION = "1.2.0-rc.3";
     mockFindUnique.mockResolvedValue({
