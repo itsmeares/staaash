@@ -275,6 +275,30 @@ describe("media content response", () => {
     );
   });
 
+  it("streams declared JPEG bytes with a HEIC name without conversion", async () => {
+    const bytes = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+    openMock.mockResolvedValueOnce({
+      stat: vi.fn().mockResolvedValue({ size: bytes.length }),
+      close: vi.fn().mockResolvedValue(undefined),
+      createReadStream: vi.fn(() => Readable.from([bytes])),
+    });
+    getStoragePathMock.mockReturnValueOnce("photo.heic");
+    const { createPublicShareContentResponse } =
+      await import("./public-share-content-response");
+    const response = await createPublicShareContentResponse({
+      request: new Request("http://localhost/content"),
+      downloadDisabled: false,
+      file: makeFile({
+        name: "photo.heic",
+        mimeType: "image/jpeg",
+        viewerKind: "image",
+      }),
+    });
+    expect(response.headers.get("content-type")).toBe("image/jpeg");
+    expect(Buffer.from(await response.arrayBuffer())).toEqual(bytes);
+    expect(convertHeicToJpegMock).not.toHaveBeenCalled();
+  });
+
   it("does not fall back to original HEIC bytes when conversion fails", async () => {
     const fakeHandle = {
       stat: vi.fn().mockResolvedValue({ size: 12 }),

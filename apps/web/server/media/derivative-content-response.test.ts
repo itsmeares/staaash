@@ -37,13 +37,13 @@ vi.mock("@staaash/db/client", () => ({
   }),
 }));
 
-vi.mock("@staaash/db/media-derivatives", () => ({
+vi.mock("@staaash/db/media-derivatives", async () => ({
   DERIVATIVE_KIND_PREVIEW: "preview",
   DERIVATIVE_KIND_THUMBNAIL: "thumbnail",
   DERIVATIVE_PROFILE_1080P: "preview-1080p",
   DERIVATIVE_PROFILE_THUMB: "thumb-480",
-  canHaveThumbnail: (mimeType: string) =>
-    mimeType.startsWith("image/") || mimeType.startsWith("video/"),
+  canHaveThumbnail: (await import("@staaash/config/media-types"))
+    .canHaveThumbnail,
   DERIVATIVE_STATUS_FAILED: "failed",
   DERIVATIVE_STATUS_PROCESSING: "processing",
   DERIVATIVE_STATUS_QUEUED: "queued",
@@ -360,25 +360,32 @@ describe("public derivative content responses", () => {
     expect(rebuilt.headers.get("etag")).not.toBe(etag);
   });
 
-  it("queues a missing thumbnail on first view and answers 404", async () => {
-    mocks.findFirst.mockResolvedValueOnce(null);
-    const { createThumbnailResponse } =
-      await import("./derivative-content-response");
+  it.each([
+    ["video.mp4", "video/mp4"],
+    ["photo.HEIC", "application/octet-stream"],
+    ["photo.heif", ""],
+  ])(
+    "queues a missing thumbnail for %s on first view",
+    async (name, mimeType) => {
+      mocks.findFirst.mockResolvedValueOnce(null);
+      const { createThumbnailResponse } =
+        await import("./derivative-content-response");
 
-    await expect(
-      createThumbnailResponse({
-        request: new Request("http://localhost/thumbnail"),
-        file: makeVideoFile(),
-      }),
-    ).rejects.toMatchObject({ status: 404 });
-    expect(mocks.scheduleDerivativeGenerate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        fileId: "video-1",
-        kind: "thumbnail",
-        reason: "first-view",
-      }),
-    );
-  });
+      await expect(
+        createThumbnailResponse({
+          request: new Request("http://localhost/thumbnail"),
+          file: makeVideoFile({ name, mimeType }),
+        }),
+      ).rejects.toMatchObject({ status: 404 });
+      expect(mocks.scheduleDerivativeGenerate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fileId: "video-1",
+          kind: "thumbnail",
+          reason: "first-view",
+        }),
+      );
+    },
+  );
 
   it("does not queue again after a failed thumbnail", async () => {
     mocks.findFirst.mockResolvedValueOnce({

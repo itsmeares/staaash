@@ -26,6 +26,10 @@
     "./zip": {
       "types": "./dist/zip.d.ts",
       "default": "./dist/zip.js"
+    },
+    "./media-types": {
+      "types": "./dist/media-types.d.ts",
+      "default": "./dist/media-types.js"
     }
   },
   "types": "./dist/index.d.ts",

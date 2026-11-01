@@ -4,7 +4,6 @@ import {
   compareWorkspaceStrings,
   filterWorkspaceItems,
   formatWorkspaceFileSize,
-  getWorkspaceItemType,
   getWorkspaceLocationLabel,
   sortWorkspaceItems,
 } from "@/src/workspace/workspace-item-helpers";
@@ -52,25 +51,16 @@ describe("workspace item helpers", () => {
     ).toBe("Files");
   });
 
-  it("maps file and folder MIME types to workspace filters", () => {
-    expect(
-      getWorkspaceItemType(item({ kind: "folder", mimeType: undefined })),
-    ).toBe("folder");
-    expect(getWorkspaceItemType(item({ mimeType: "image/png" }))).toBe("image");
-    expect(getWorkspaceItemType(item({ mimeType: "video/mp4" }))).toBe("video");
-    expect(getWorkspaceItemType(item({ mimeType: "audio/wav" }))).toBe("audio");
-    expect(getWorkspaceItemType(item({ mimeType: "application/pdf" }))).toBe(
-      "pdf",
-    );
-    expect(getWorkspaceItemType(item({ mimeType: "text/markdown" }))).toBe(
-      "text",
-    );
-    expect(getWorkspaceItemType(item({ mimeType: "application/gzip" }))).toBe(
-      "archive",
-    );
-    expect(
-      getWorkspaceItemType(item({ mimeType: "application/octet-stream" })),
-    ).toBe("all");
+  it.each([
+    ["image/png", "image"],
+    ["video/mp4", "video"],
+    ["audio/wav", "audio"],
+    ["application/pdf", "pdf"],
+    ["text/markdown", "text"],
+    ["application/gzip", "archive"],
+  ] as const)("includes %s in the %s filter", (mimeType, type) => {
+    const entry = item({ mimeType });
+    expect(filterWorkspaceItems([entry], type)).toEqual([entry]);
   });
 
   it("filters items by workspace type", () => {

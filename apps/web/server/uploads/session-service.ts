@@ -1,3 +1,4 @@
+import { resolveUploadMimeType } from "@staaash/config/media-types";
 import { randomUUID } from "node:crypto";
 import { access, mkdir, open, rm } from "node:fs/promises";
 import path from "node:path";
@@ -268,7 +269,7 @@ export const createResumableSession = async (
     ownerUserId,
     folderId,
     originalName,
-    mimeType,
+    mimeType: resolveUploadMimeType(mimeType, originalName),
     totalSizeBytes,
     expectedChecksum,
     protocolVersion,

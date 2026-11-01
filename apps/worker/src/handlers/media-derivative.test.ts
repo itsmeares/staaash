@@ -34,18 +34,15 @@ vi.mock("@staaash/db/client", () => ({
   getPrisma: mocks.getPrisma,
 }));
 
-vi.mock("@staaash/db/media-derivatives", () => ({
+vi.mock("@staaash/db/media-derivatives", async () => ({
   DERIVATIVE_KIND_PREVIEW: "preview",
   DERIVATIVE_KIND_POSTER: "poster",
   DERIVATIVE_KIND_THUMBNAIL: "thumbnail",
   DERIVATIVE_PROFILE_1080P: "preview-1080p",
   DERIVATIVE_PROFILE_SOCIAL_JPEG: "social-jpeg",
   DERIVATIVE_PROFILE_THUMB: "thumb-480",
-  canHaveThumbnail: (mimeType: string) =>
-    mimeType !== "image/svg+xml" &&
-    (mimeType.startsWith("image/") ||
-      mimeType.startsWith("video/") ||
-      mimeType.startsWith("audio/")),
+  canHaveThumbnail: (await import("@staaash/config/media-types"))
+    .canHaveThumbnail,
   DERIVATIVE_STATUS_FAILED: "failed",
   DERIVATIVE_STATUS_PROCESSING: "processing",
   DERIVATIVE_STATUS_STALE: "stale",
@@ -401,11 +398,11 @@ describe("media derivative handler", () => {
     );
   });
 
-  const thumbnailSetup = async (mimeType: string) => {
+  const thumbnailSetup = async (mimeType: string, name = "photo") => {
     tempRoot = await mkdtemp(path.join(os.tmpdir(), "staaash-media-thumb-"));
     const filesRoot = path.join(tempRoot, "files");
     const tmpRoot = path.join(filesRoot, "tmp");
-    const sourcePath = path.join(filesRoot, "files", "owner-1", "photo");
+    const sourcePath = path.join(filesRoot, "files", "owner-1", name);
     await mkdir(path.dirname(sourcePath), { recursive: true });
     await writeFile(sourcePath, "source", "utf8");
     mocks.buildDerivativeStorageKey.mockReturnValue(
@@ -430,7 +427,7 @@ describe("media derivative handler", () => {
           ownerUserId: "owner-1",
           mimeType,
           sizeBytes: 2_000n,
-          storageKey: "files/owner-1/photo",
+          storageKey: `files/owner-1/${name}`,
           deletedAt: null,
         })),
       },
@@ -500,9 +497,15 @@ describe("media derivative handler", () => {
     expect(mocks.runFfprobe).not.toHaveBeenCalled();
   });
 
-  it("publishes small image thumbnails through the journal", async () => {
-    const { job, storagePaths, sourcePath, tmpRoot } =
-      await thumbnailSetup("image/jpeg");
+  it.each([
+    ["image/jpeg", "photo.jpg"],
+    ["application/octet-stream", "photo.HEIC"],
+    ["", "photo.heif"],
+  ])("publishes %s thumbnails through the journal", async (mimeType, name) => {
+    const { job, storagePaths, sourcePath, tmpRoot } = await thumbnailSetup(
+      mimeType!,
+      name,
+    );
 
     await expect(
       handleMediaDerivativeGenerate(job, storagePaths),

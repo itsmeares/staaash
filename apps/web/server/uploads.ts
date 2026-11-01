@@ -1,3 +1,4 @@
+import { resolveUploadMimeType } from "@staaash/config/media-types";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
@@ -21,17 +22,6 @@ import {
 } from "@/server/storage-mutations";
 
 export { computeFileSha256 };
-
-const EXTENSION_MIME_FALLBACKS: Record<string, string> = {
-  heic: "image/heic",
-  heif: "image/heif",
-};
-
-const resolveMimeType = (file: File): string => {
-  if (file.type) return file.type;
-  const ext = file.name.split(".").pop()?.toLowerCase();
-  return (ext && EXTENSION_MIME_FALLBACKS[ext]) ?? "application/octet-stream";
-};
 
 export type UploadConflictStrategy = "fail" | "safeRename" | "replace";
 
@@ -268,7 +258,7 @@ export const stageUpload = async (
     conflictStrategy,
     clientModifiedAt,
     tmpPath,
-    mimeType: resolveMimeType(file),
+    mimeType: resolveUploadMimeType(file.type, file.name),
     sizeBytes,
     actualChecksum,
   };

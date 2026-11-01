@@ -105,7 +105,9 @@ function UploadThumb({
     <span
       className={cn("grid shrink-0 place-items-center bg-hover", className)}
     >
-      <ItemIcon item={{ kind: "file", mimeType: file?.type ?? null }} />
+      <ItemIcon
+        item={{ kind: "file", mimeType: file?.type ?? null, name: file?.name }}
+      />
     </span>
   );
 }
