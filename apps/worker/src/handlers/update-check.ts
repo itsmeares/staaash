@@ -25,6 +25,52 @@ const GITHUB_API_ROOT = "https://api.github.com";
 const KEPT_RELEASES = 10;
 const MAX_NOTES_LENGTH = 20_000;
 
+const closesFence = (line: string, fence: string) => {
+  const marker = line.trim();
+  return (
+    /^ {0,3}\S/.test(line) &&
+    marker.startsWith(fence) &&
+    marker.replaceAll(fence.charAt(0), "") === ""
+  );
+};
+
+const openingFence = (line: string) => /^ {0,3}(`{3,}|~{3,})/.exec(line)?.[1];
+
+const stripReleaseTags = (line: string) =>
+  line.replace(/(`+)(.*?)\1|<\/?(?:details|summary)\b[^>]*>/gi, (match) =>
+    match.startsWith("`") ? match : "",
+  );
+
+const cleanReleaseNotes = (body: string) => {
+  let fence: string | undefined;
+  let inProvenance = false;
+  return body
+    .split("\n")
+    .flatMap((line) => {
+      if (inProvenance) {
+        if (line.includes("<!-- staaash:release-provenance:end -->"))
+          inProvenance = false;
+        return [];
+      }
+      if (fence) {
+        if (closesFence(line, fence)) fence = undefined;
+        return [line];
+      }
+      if (line.trim() === "<!-- staaash:release-provenance:start -->") {
+        inProvenance = true;
+        return [];
+      }
+      const marker = openingFence(line);
+      if (marker) {
+        fence = marker;
+        return [line];
+      }
+      return [stripReleaseTags(line)];
+    })
+    .join("\n")
+    .trim();
+};
+
 const buildGitHubHeaders = () => {
   const headers = new Headers({
     Accept: "application/vnd.github+json",
@@ -57,7 +103,10 @@ const selectChannelReleases = (
         {
           version,
           name: release.name?.trim() || null,
-          notes: (release.body ?? "").slice(0, MAX_NOTES_LENGTH),
+          notes: cleanReleaseNotes(release.body ?? "").slice(
+            0,
+            MAX_NOTES_LENGTH,
+          ),
           publishedAt: release.published_at ?? null,
           url: release.html_url ?? null,
         },
