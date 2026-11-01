@@ -1,5 +1,26 @@
 import { expect, test } from "@playwright/test";
 
+test("opens desktop downloads through the instance in a new tab", async ({
+  page,
+  context,
+}) => {
+  await context.route(
+    "https://github.com/itsmeares/staaash/releases",
+    (route) =>
+      route.fulfill({ contentType: "text/html", body: "Desktop releases" }),
+  );
+  await page.goto("/files");
+  await page.getByRole("button", { name: "Profile menu" }).click();
+  const download = page.getByRole("menuitem", { name: "Get the desktop app" });
+  await expect(download).toHaveAttribute("href", "/api/desktop-app");
+  const opened = context.waitForEvent("page");
+  await download.click();
+  const tab = await opened;
+  await expect(tab).toHaveURL("https://github.com/itsmeares/staaash/releases");
+  await expect(page).toHaveURL(/\/files$/);
+  await tab.close();
+});
+
 for (const [path, sections] of [
   [
     "/settings",
