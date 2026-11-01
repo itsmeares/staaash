@@ -33,9 +33,9 @@
   background: #1a1816;
 }
 
-/* System: dark takes the lower right, cut on a slant. */
+/* System: light takes the upper left, cut on a slant. */
 .pane + .pane {
-  clip-path: polygon(62% 0, 100% 0, 100% 100%, 38% 100%);
+  clip-path: polygon(0 0, 62% 0, 38% 100%, 0 100%);
 }
 
 .pane > span {

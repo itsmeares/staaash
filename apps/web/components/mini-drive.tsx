@@ -31,8 +31,8 @@ export function MiniDrive({
 }) {
   return (
     <span aria-hidden className={cn(styles.mini, className)}>
-      <Pane theme={theme === "dark" ? "dark" : "light"} />
-      {theme === "system" ? <Pane theme="dark" /> : null}
+      <Pane theme={theme === "light" ? "light" : "dark"} />
+      {theme === "system" ? <Pane theme="light" /> : null}
     </span>
   );
 }
