@@ -529,6 +529,7 @@ export const plan = (input: PlanInput): Plan => {
   const issues: Issue[] = input.skipped.map((skip) => ({
     pairId: input.pairId,
     rel: skip.rel,
+    source: "scan",
     kind: "invalid-name",
     message: skip.reason,
     remoteId: skip.item.id,

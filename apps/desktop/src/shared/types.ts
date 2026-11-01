@@ -58,6 +58,7 @@ export type IssueKind =
 export type Issue = {
   pairId: string;
   rel: string;
+  source: "scan" | "operation";
   kind: IssueKind;
   message: string;
   remoteId?: string;
