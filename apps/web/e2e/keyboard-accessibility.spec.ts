@@ -147,9 +147,9 @@ test("files rows move focus with keyboard and open selected item", async ({
   expect(new URL(page.url()).pathname).toBe("/files");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("menu")).toBeHidden();
-  // Escape may also clear the selection, so pick the row again.
-  await firstRow.click();
-  await expect(firstRow).toHaveAttribute("aria-selected", "true");
+  const fileRow = list.locator('[data-list-item="e2e-share-file"]');
+  await fileRow.click();
+  await expect(fileRow).toHaveAttribute("aria-selected", "true");
   await page.keyboard.press("Enter");
 
   await page.waitForURL(/\/files\/view\/e2e-share-file/, {
