@@ -171,24 +171,26 @@ function mutationHealth(
     ],
   };
 }
+const checkStatus = (failed: boolean) =>
+  failed ? ("error" as const) : ("healthy" as const);
 export function healthView(state: State): Plain<InstanceHealthSummary> {
   const failed = state.scenario === "error";
   const incidents = failed ? ["Sample job needs attention."] : [];
-  const status = failed ? ("error" as const) : ("healthy" as const);
+  if (state.recovering) incidents.push("STORAGE_RECOVERY_REQUIRED");
   const counts = jobsView(state).initialSummary.statusCounts;
   return {
-    ok: !failed,
+    ok: incidents.length === 0,
     failures: incidents,
     operational: {
-      status,
+      status: checkStatus(incidents.length > 0),
       incidents,
     },
     checks: {
       app: { status: "healthy" },
       database: { status: "healthy" },
-      storage: { status },
+      storage: { status: checkStatus(failed) },
       settings: { status: "healthy" },
-      storageMutations: { status: "healthy" },
+      storageMutations: { status: checkStatus(state.recovering) },
       queue: { status: "healthy" },
     },
     worker: {

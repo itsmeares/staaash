@@ -206,7 +206,7 @@ export function changeItem(
 ) {
   const item = mutableItem(state, kind, id);
   if (action === "opened") return { file: item };
-  const apply = actions[action];
+  const apply = Object.hasOwn(actions, action) ? actions[action] : undefined;
   if (!apply) throw new PreviewError(404, "Unknown sample action.");
   const result = apply(state, item, body);
   item.updatedAt = timestamp;

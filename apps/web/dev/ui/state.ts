@@ -130,7 +130,6 @@ export function createState(scenario: Scenario = "owner") {
         : scenario === "admin"
           ? "admin"
           : "owner",
-    firstRun,
     firstRuns: new Map<string, Exclude<FirstRunKind, "owner-setup">>(
       firstRun ? [["member", firstRun]] : [],
     ),
@@ -344,9 +343,11 @@ export const signedInUser = (state: State) => {
   if (!user) throw new PreviewError(401, "Sign in to the sample drive.");
   return user;
 };
+export const currentFirstRun = (state: State) =>
+  state.userId ? (state.firstRuns.get(state.userId) ?? null) : null;
 export const requireUser = (state: State) => {
   const user = signedInUser(state);
-  if (state.firstRun)
+  if (currentFirstRun(state))
     throw new PreviewError(401, "Sign in to the sample drive.");
   return user;
 };

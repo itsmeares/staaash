@@ -186,9 +186,13 @@ export function mountShares(app: Hono<PreviewEnv>) {
           .parse(body);
         Object.assign(share, values);
       } else if (action === "password") {
-        share.password = z
-          .object({ password: z.string().min(4).nullable() })
-          .parse(body).password;
+        const change = z
+          .union([
+            z.object({ password: z.string().trim().min(4).max(256) }),
+            z.object({ clear: z.literal(true) }),
+          ])
+          .parse(body);
+        share.password = "clear" in change ? null : change.password;
         state.unlocked.delete(share.token);
       } else throw new PreviewError(404, "Unknown share action.");
     }

@@ -52,8 +52,8 @@ export function mountAdmin(app: Hono<PreviewEnv>, streams: Set<() => void>) {
     await next();
   });
   app.use("/api/admin/*", async (c, next) => {
-    if (requireUser(c.var.state).role === "member")
-      throw new PreviewError(403, "Admin access required.");
+    if (requireUser(c.var.state).role !== "owner")
+      throw new PreviewError(403, "Owner access required.");
     await next();
   });
   app.get("/api/views/admin/overview", (c) =>
@@ -273,6 +273,12 @@ export function mountAdmin(app: Hono<PreviewEnv>, streams: Set<() => void>) {
     const { isAdmin, ...values } = adminUpdateUserInputSchema.parse(
       await jsonBody(c.req.raw),
     );
+    if (
+      c.var.state.users.some(
+        (other) => other.id !== user.id && other.email === values.email,
+      )
+    )
+      throw new PreviewError(409, "That sample account already exists.");
     Object.assign(user, plain(values));
     if (isAdmin !== undefined && user.role !== "owner")
       user.role = isAdmin ? "admin" : "member";
@@ -280,11 +286,24 @@ export function mountAdmin(app: Hono<PreviewEnv>, streams: Set<() => void>) {
   });
   app.post("/api/admin/users/:id/password-reset", async (c) => {
     const user = editableUser(c.var.state, c.req.param("id"));
-    const body = temporaryPasswordInputSchema.parse(await jsonBody(c.req.raw));
+    const body = temporaryPasswordInputSchema
+      .extend({ generateTemporaryPassword: z.boolean().default(true) })
+      .parse(await jsonBody(c.req.raw));
     const temporaryPassword = sampleTemporaryPassword(body);
     c.var.state.passwords.set(user.id, temporaryPassword);
-    if (body.requirePasswordChange !== false)
-      c.var.state.firstRuns.set(user.id, "password");
+    const firstRun = c.var.state.firstRuns.get(user.id);
+    if (body.requirePasswordChange !== false) {
+      c.var.state.firstRuns.set(
+        user.id,
+        firstRun === "member" || firstRun === "member-password"
+          ? "member-password"
+          : "password",
+      );
+    } else if (firstRun === "password") {
+      c.var.state.firstRuns.delete(user.id);
+    } else if (firstRun === "member-password") {
+      c.var.state.firstRuns.set(user.id, "member");
+    }
     return c.json({
       user,
       temporaryPassword,

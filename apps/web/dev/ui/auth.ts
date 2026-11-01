@@ -4,7 +4,13 @@ import type { PreviewEnv } from "./state";
 import { z } from "zod";
 import { jsonBody } from "./request";
 import { setCookie } from "hono/cookie";
-import { PreviewError, requireUser, signedInUser, timestamp } from "./state";
+import {
+  PreviewError,
+  requireUser,
+  signedInUser,
+  currentFirstRun,
+  timestamp,
+} from "./state";
 import { checkPassword } from "./mutations";
 import {
   bootstrapInputSchema,
@@ -22,7 +28,7 @@ export function mountAuth(app: Hono<PreviewEnv>) {
         ? {
             state: "signed-in",
             instanceName: state.instanceName,
-            firstRun: state.firstRun,
+            firstRun: currentFirstRun(state),
             startPage: user.prefs.startPage,
             displayName: user.displayName,
             previews: {
@@ -48,7 +54,6 @@ export function mountAuth(app: Hono<PreviewEnv>) {
       );
     checkPassword(body.password, c.var.state.passwords.get(user.id));
     c.var.state.userId = user.id;
-    c.var.state.firstRun = c.var.state.firstRuns.get(user.id) ?? null;
     return c.json({
       user: {
         preferences: { ...user.prefs, onboardingCompletedAt: timestamp },
@@ -69,7 +74,6 @@ export function mountAuth(app: Hono<PreviewEnv>) {
     c.var.state.passwords.set(user.id, body.password);
     c.var.state.instanceName = body.instanceName;
     c.var.state.userId = user.id;
-    c.var.state.firstRun = "owner";
     c.var.state.scenario = "owner";
     c.var.state.firstRuns.set(user.id, "owner");
     return c.json({ user, session: { id: "current", user } }, 201);
@@ -82,12 +86,11 @@ export function mountAuth(app: Hono<PreviewEnv>) {
     if (body.password !== body.confirmPassword)
       throw new PreviewError(400, "Passwords do not match.");
     c.var.state.passwords.set(user.id, body.password);
-    c.var.state.firstRun =
-      c.var.state.firstRun === "member-password" ? "member" : null;
+    const nextStep =
+      currentFirstRun(c.var.state) === "member-password" ? "member" : null;
     c.var.state.firstRuns.delete(user.id);
-    if (c.var.state.firstRun)
-      c.var.state.firstRuns.set(user.id, c.var.state.firstRun);
-    return c.json({ onboardingCompleted: !c.var.state.firstRun });
+    if (nextStep) c.var.state.firstRuns.set(user.id, nextStep);
+    return c.json({ onboardingCompleted: !nextStep });
   });
   app.post("/api/user/preferences", async (c) => {
     const body = preferencesInputSchema.parse(await jsonBody(c.req.raw));
@@ -96,8 +99,10 @@ export function mountAuth(app: Hono<PreviewEnv>) {
     Object.assign(user.prefs, prefs);
     if (displayName !== undefined) user.displayName = displayName;
     if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
-    c.var.state.firstRun = null;
-    c.var.state.firstRuns.delete(user.id);
+    const step = currentFirstRun(c.var.state);
+    if (step === "password" || step === "member-password")
+      c.var.state.firstRuns.set(user.id, "password");
+    else c.var.state.firstRuns.delete(user.id);
     if (body.theme)
       setCookie(c, "staaash_theme", body.theme, { path: "/", sameSite: "Lax" });
     return c.json({ ok: true });
@@ -106,8 +111,8 @@ export function mountAuth(app: Hono<PreviewEnv>) {
     const state = c.var.state;
     if (
       signedInUser(state).role !== "owner" ||
-      state.firstRun === "password" ||
-      state.firstRun === "member-password"
+      currentFirstRun(state) === "password" ||
+      currentFirstRun(state) === "member-password"
     )
       throw new PreviewError(403, "Owner access required.");
     const settings = ownerOnboardingSettingsSchema.parse(

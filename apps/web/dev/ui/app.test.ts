@@ -58,6 +58,234 @@ function browser(preview = createPreviewApp()) {
   return { request, post, read, scenario };
 }
 
+describe("preview follow-up regressions", () => {
+  for (const scenario of ["password", "invited"])
+    it(`keeps the required password change after saving preferences in ${scenario}`, async () => {
+      const client = browser();
+      await client.scenario(scenario);
+      expect(
+        (await client.post("/api/user/preferences", { theme: "dark" })).status,
+      ).toBe(200);
+      expect(await client.read("/api/views/entry")).toMatchObject({
+        firstRun: "password",
+      });
+      expect((await client.request("/api/views/files")).status).toBe(401);
+      await client.post("/api/auth/password-change-required", {
+        password: "new-preview-password",
+        confirmPassword: "new-preview-password",
+      });
+      expect(await client.read("/api/views/entry")).toMatchObject({
+        firstRun: null,
+      });
+    });
+
+  it("limits operational admin routes to the owner while keeping admin views readable", async () => {
+    const client = browser();
+    await client.scenario("admin");
+    await client.read("/api/views/admin/users");
+    expect((await client.request("/api/admin/health")).status).toBe(403);
+    expect(
+      (await client.post("/api/admin/jobs/run", { kind: "staging.cleanup" }))
+        .status,
+    ).toBe(403);
+    expect(
+      (await client.post("/api/admin/derivatives/files/admin-film/regenerate"))
+        .status,
+    ).toBe(403);
+    await client.scenario("owner");
+    expect(
+      (await client.post("/api/admin/jobs/run", { kind: "staging.cleanup" }))
+        .status,
+    ).toBe(200);
+  });
+
+  it("rejects a duplicate email before changing a user's profile", async () => {
+    const client = browser();
+    const update = (values: unknown) =>
+      client.request("/api/admin/users/member", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(values),
+      });
+    expect(
+      (
+        await update({
+          email: " OWNER@staaash.test ",
+          displayName: "Must not change",
+        })
+      ).status,
+    ).toBe(409);
+    expect(await client.read("/api/views/admin/users/member")).toMatchObject({
+      user: { email: "member@staaash.test", displayName: "Mia Chen" },
+    });
+    expect((await update({ email: "member@staaash.test" })).status).toBe(200);
+    expect((await update({ email: " NEW-MEMBER@staaash.test " })).status).toBe(
+      200,
+    );
+    await client.post("/api/auth/sign-out");
+    expect(
+      (
+        await client.post("/api/auth/sign-in", {
+          email: "new-member@staaash.test",
+          password: "preview-password",
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (await client.read<Files>("/api/views/files")).listing.ownerUserId,
+    ).toBe("member");
+  });
+
+  it("clears a required password step when a reset makes it optional", async () => {
+    const client = browser();
+    const reset = "/api/admin/users/member/password-reset";
+    expect((await client.post(reset)).status).toBe(200);
+    expect(
+      (
+        await client.post(reset, {
+          requirePasswordChange: false,
+        })
+      ).status,
+    ).toBe(200);
+    await client.post("/api/auth/sign-out");
+    await client.post("/api/auth/sign-in", {
+      email: "member@staaash.test",
+      password: "preview-password",
+    });
+    expect(await client.read("/api/views/entry")).toMatchObject({
+      firstRun: null,
+    });
+  });
+
+  it("preserves an invited user's welcome step across optional and required resets", async () => {
+    const client = browser();
+    const created = await client.post("/api/admin/users", {
+      email: "waiting@staaash.test",
+      generateTemporaryPassword: true,
+      requirePasswordChange: true,
+    });
+    const { user } = (await created.json()) as { user: { id: string } };
+    const reset = `/api/admin/users/${user.id}/password-reset`;
+    await client.post(reset, {
+      generateTemporaryPassword: true,
+      requirePasswordChange: false,
+    });
+    await client.post("/api/auth/sign-out");
+    await client.post("/api/auth/sign-in", {
+      email: "waiting@staaash.test",
+      password: "preview-password",
+    });
+    expect(await client.read("/api/views/entry")).toMatchObject({
+      firstRun: "member",
+    });
+    await client.post("/api/auth/sign-out");
+    await client.post("/api/auth/sign-in", {
+      email: "owner@staaash.test",
+      password: "preview-password",
+    });
+    await client.post(reset, {
+      generateTemporaryPassword: true,
+      requirePasswordChange: true,
+    });
+    await client.post("/api/auth/sign-out");
+    await client.post("/api/auth/sign-in", {
+      email: "waiting@staaash.test",
+      password: "preview-password",
+    });
+    expect(await client.read("/api/views/entry")).toMatchObject({
+      firstRun: "member-password",
+    });
+    await client.post("/api/auth/password-change-required", {
+      password: "new-preview-password",
+      confirmPassword: "new-preview-password",
+    });
+    expect(await client.read("/api/views/entry")).toMatchObject({
+      firstRun: "member",
+    });
+  });
+
+  it("updates the active user's first-run step immediately after a password reset", async () => {
+    const client = browser();
+    await client.post("/api/admin/users/owner/password-reset", {
+      generateTemporaryPassword: true,
+      requirePasswordChange: true,
+    });
+    expect(await client.read("/api/views/entry")).toMatchObject({
+      firstRun: "password",
+    });
+    expect(
+      (await client.post("/api/admin/jobs/run", { kind: "staging.cleanup" }))
+        .status,
+    ).toBe(401);
+    await client.post("/api/auth/password-change-required", {
+      password: "new-owner-password",
+      confirmPassword: "new-owner-password",
+    });
+    expect(await client.read("/api/views/entry")).toMatchObject({
+      firstRun: null,
+    });
+    expect(
+      (await client.post("/api/admin/jobs/run", { kind: "staging.cleanup" }))
+        .status,
+    ).toBe(200);
+  });
+
+  it("shows recovery as unhealthy until the sample mutation is retried", async () => {
+    const client = browser();
+    await client.scenario("busy");
+    const expected = {
+      ok: false,
+      checks: { storageMutations: { status: "error" } },
+      operational: { status: "error" },
+    };
+    expect(await client.read("/api/admin/health")).toMatchObject(expected);
+    expect(await client.read("/api/views/admin/overview")).toMatchObject({
+      summary: { health: expected },
+    });
+    await client.post("/api/admin/storage/mutations/sample-move/retry");
+    expect(await client.read("/api/admin/health")).toMatchObject({
+      ok: true,
+      checks: { storageMutations: { status: "healthy" } },
+      operational: { status: "healthy" },
+    });
+  });
+
+  for (const action of ["constructor", "__proto__", "hasOwnProperty"])
+    it(`rejects inherited file action ${action} without changing the file`, async () => {
+      const client = browser();
+      const before = (
+        await client.read<Files>("/api/views/files")
+      ).listing.files.find((file) => file.id === "owner-coast")!;
+      expect(
+        (await client.post(`/api/files/files/owner-coast/${action}`)).status,
+      ).toBe(404);
+      const after = (
+        await client.read<Files>("/api/views/files")
+      ).listing.files.find((file) => file.id === before.id)!;
+      expect(after).toEqual(before);
+    });
+
+  it("removes a share password with the real clear request", async () => {
+    const client = browser();
+    expect(await client.read("/s/owner-locked/view")).toMatchObject({
+      resolution: { kind: "locked" },
+    });
+    const cleared = await client.post(
+      "/api/shares/owner-share-locked/password",
+      { clear: true },
+    );
+    expect(cleared.status).toBe(200);
+    expect(await cleared.json()).toMatchObject({
+      share: { hasPassword: false },
+    });
+    await client.post("/api/auth/sign-out");
+    expect(await client.read("/s/owner-locked/view")).toMatchObject({
+      resolution: { kind: "file" },
+    });
+    expect((await client.request("/s/owner-locked/content")).status).toBe(200);
+  });
+});
+
 describe("preview review regressions", () => {
   it("runs an advertised job kind after its previous job was dismissed", async () => {
     const client = browser();
@@ -952,7 +1180,7 @@ describe("database-free sample drive", () => {
       ).status,
     ).toBe(200);
     expect(await client.read("/api/views/entry")).toMatchObject({
-      firstRun: "password",
+      firstRun: "member-password",
     });
     expect(
       (
