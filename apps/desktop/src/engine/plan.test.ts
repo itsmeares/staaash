@@ -10,7 +10,7 @@ const file = (
   rel: string,
   size = 3,
   mtimeMs = 1000,
-  ino = nextIno++,
+  ino = String(nextIno++),
 ): LocalFile => ({
   rel,
   type: "file",
@@ -18,7 +18,7 @@ const file = (
   mtimeMs,
   ino,
 });
-const folder = (rel: string, ino = nextIno++): LocalFile => ({
+const folder = (rel: string, ino = String(nextIno++)): LocalFile => ({
   rel,
   type: "folder",
   size: 0,
@@ -188,7 +188,7 @@ describe("first sync", () => {
 });
 
 describe("two-way", () => {
-  const here = file("a.txt", 3, 1000, 1);
+  const here = file("a.txt", 3, 1000, "1");
   const synced = baseOf(here, "r1", "x");
 
   it("does nothing when neither side changed", () => {
@@ -201,7 +201,7 @@ describe("two-way", () => {
   });
 
   it("uploads a local edit against the revision it last saw", () => {
-    const edited = { ...file("a.txt", 4, 2000, 1), checksum: "y" };
+    const edited = { ...file("a.txt", 4, 2000, "1"), checksum: "y" };
     const result = run({
       local: [edited],
       remote: [remoteFile("a.txt", "r1", "x", 3)],
@@ -236,7 +236,7 @@ describe("two-way", () => {
   });
 
   it("keeps both versions when both sides edited", () => {
-    const edited = { ...file("a.txt", 4, 2000, 1), checksum: "mine" };
+    const edited = { ...file("a.txt", 4, 2000, "1"), checksum: "mine" };
     const result = run({
       local: [edited],
       remote: [remoteFile("a.txt", "r1", "theirs", 2)],
@@ -267,7 +267,7 @@ describe("two-way", () => {
   });
 
   it("uploads again when this computer edited what the server deleted", () => {
-    const edited = file("a.txt", 9, 5000, 1);
+    const edited = file("a.txt", 9, 5000, "1");
     const result = run({ local: [edited, file("b.txt")], base: [synced] });
     expect(result.actions).toContainEqual({
       kind: "upload",
@@ -315,8 +315,8 @@ describe("two-way", () => {
 
 describe("folders", () => {
   it("trashes a folder deleted here in one step when nothing inside changed on the server", () => {
-    const dir = folder("docs", 10);
-    const inside = file("docs/a.txt", 3, 1000, 11);
+    const dir = folder("docs", "10");
+    const inside = file("docs/a.txt", 3, 1000, "11");
     const result = run({
       remote: [remoteFolder("docs", "f1"), remoteFile("docs/a.txt", "r1", "x")],
       base: [baseOf(dir, "f1", null), baseOf(inside, "r1", "x")],
@@ -325,8 +325,8 @@ describe("folders", () => {
   });
 
   it("keeps a deleted folder when the server changed something inside", () => {
-    const dir = folder("docs", 10);
-    const inside = file("docs/a.txt", 3, 1000, 11);
+    const dir = folder("docs", "10");
+    const inside = file("docs/a.txt", 3, 1000, "11");
     const result = run({
       remote: [
         remoteFolder("docs", "f1"),
@@ -340,18 +340,18 @@ describe("folders", () => {
 
 describe("moves", () => {
   it("finishes a move whose server half stopped after the move, before the rename", () => {
-    const before = file("A/old.txt", 3, 1000, 7);
+    const before = file("A/old.txt", 3, 1000, "7");
     const after = { ...before, rel: "B/new.txt" };
     const result = run({
-      local: [folder("A", 1), folder("B", 2), after],
+      local: [folder("A", "1"), folder("B", "2"), after],
       remote: [
         remoteFolder("A", "fa"),
         remoteFolder("B", "fb"),
         remoteFile("B/old.txt", "r1", "x", 2),
       ],
       base: [
-        baseOf(folder("A", 1), "fa", null),
-        baseOf(folder("B", 2), "fb", null),
+        baseOf(folder("A", "1"), "fa", null),
+        baseOf(folder("B", "2"), "fb", null),
         baseOf(before, "r1", "x"),
       ],
     });
@@ -360,9 +360,13 @@ describe("moves", () => {
   });
 
   it("does not take over a different move made on the server", () => {
-    const before = file("A/old.txt", 3, 1000, 7);
+    const before = file("A/old.txt", 3, 1000, "7");
     const result = run({
-      local: [folder("A", 1), folder("B", 2), { ...before, rel: "B/new.txt" }],
+      local: [
+        folder("A", "1"),
+        folder("B", "2"),
+        { ...before, rel: "B/new.txt" },
+      ],
       remote: [
         remoteFolder("A", "fa"),
         remoteFolder("B", "fb"),
@@ -370,8 +374,8 @@ describe("moves", () => {
         remoteFile("C/other.txt", "r1", "x", 2),
       ],
       base: [
-        baseOf(folder("A", 1), "fa", null),
-        baseOf(folder("B", 2), "fb", null),
+        baseOf(folder("A", "1"), "fa", null),
+        baseOf(folder("B", "2"), "fb", null),
         baseOf(before, "r1", "x"),
       ],
     });
@@ -379,7 +383,7 @@ describe("moves", () => {
   });
 
   it("repeats a server rename here instead of downloading again", () => {
-    const here = file("old.txt", 3, 1000, 7);
+    const here = file("old.txt", 3, 1000, "7");
     const result = run({
       local: [here],
       remote: [remoteFile("new.txt", "r1", "x", 2)],
@@ -389,7 +393,7 @@ describe("moves", () => {
   });
 
   it("repeats a local rename on the server instead of uploading again", () => {
-    const before = file("old.txt", 3, 1000, 7);
+    const before = file("old.txt", 3, 1000, "7");
     const after = { ...before, rel: "new.txt" };
     const result = run({
       local: [after],
@@ -400,8 +404,8 @@ describe("moves", () => {
   });
 
   it("moves a whole folder once, not each file inside", () => {
-    const dir = folder("a", 20);
-    const inside = file("a/x.txt", 3, 1000, 21);
+    const dir = folder("a", "20");
+    const inside = file("a/x.txt", 3, 1000, "21");
     const result = run({
       local: [dir, inside],
       remote: [remoteFolder("b", "f1"), remoteFile("b/x.txt", "r1", "x")],
@@ -412,11 +416,11 @@ describe("moves", () => {
 });
 
 describe("one-way folders", () => {
-  const here = file("a.txt", 3, 1000, 1);
+  const here = file("a.txt", 3, 1000, "1");
   const synced = baseOf(here, "r1", "x");
 
   it("download-only keeps a local edit aside and brings the server version back", () => {
-    const edited = { ...file("a.txt", 4, 2000, 1), checksum: "mine" };
+    const edited = { ...file("a.txt", 4, 2000, "1"), checksum: "mine" };
     const result = run({
       mode: "download",
       local: [edited],
@@ -443,7 +447,7 @@ describe("one-way folders", () => {
   });
 
   it("upload-only keeps the server folder deleted here", () => {
-    const dir = folder("docs", 30);
+    const dir = folder("docs", "30");
     const result = run({
       mode: "upload",
       remote: [remoteFolder("docs", "f1")],
@@ -461,7 +465,7 @@ describe("one-way folders", () => {
   });
 
   it("upload-only wins a conflict with keep-mine", () => {
-    const edited = { ...file("a.txt", 4, 2000, 1), checksum: "mine" };
+    const edited = { ...file("a.txt", 4, 2000, "1"), checksum: "mine" };
     const result = run({
       mode: "upload",
       local: [edited],
@@ -473,24 +477,24 @@ describe("one-way folders", () => {
 });
 
 describe("excluded paths are never deletions", () => {
-  const here = file("a.txt", 3, 1000, 1);
+  const here = file("a.txt", 3, 1000, "1");
   const synced = baseOf(here, "r1", "x");
 
   it("leaves an already synced file alone once its name is ignored", () => {
     const result = run({
       remote: [remoteFile("a.txt", "r1", "x")],
-      excluded: [{ side: "local", rel: "a.txt", ino: 1 }],
+      excluded: [{ side: "local", rel: "a.txt", ino: "1" }],
       base: [synced],
     });
     expect(result.actions).toEqual([]);
   });
 
   it("neither downloads nor trashes a server file with an ignored name", () => {
-    const tmp = file("report.tmp", 3, 1000, 2);
+    const tmp = file("report.tmp", 3, 1000, "2");
     const result = run({
       excluded: [
         { side: "remote", rel: "report.tmp", remoteId: "r2" },
-        { side: "local", rel: "report.tmp", ino: 2 },
+        { side: "local", rel: "report.tmp", ino: "2" },
       ],
       // Left behind by an earlier version that downloaded it.
       base: [baseOf(tmp, "r2", "x")],
@@ -499,21 +503,21 @@ describe("excluded paths are never deletions", () => {
   });
 
   it("leaves an ignored folder and everything in it alone", () => {
-    const dir = folder("node_modules", 10);
-    const inside = file("node_modules/x.js", 3, 1000, 11);
+    const dir = folder("node_modules", "10");
+    const inside = file("node_modules/x.js", 3, 1000, "11");
     const result = run({
       remote: [
         remoteFolder("node_modules", "f1"),
         remoteFile("node_modules/x.js", "r1", "x"),
       ],
-      excluded: [{ side: "local", rel: "node_modules", ino: 10 }],
+      excluded: [{ side: "local", rel: "node_modules", ino: "10" }],
       base: [baseOf(dir, "f1", null), baseOf(inside, "r1", "x")],
     });
     expect(result.actions).toEqual([]);
   });
 
   it("keeps a server folder deleted here while it holds an ignored file", () => {
-    const dir = folder("docs", 10);
+    const dir = folder("docs", "10");
     const result = run({
       remote: [remoteFolder("docs", "f1")],
       excluded: [{ side: "remote", rel: "docs/x.tmp", remoteId: "r5" }],
@@ -523,10 +527,10 @@ describe("excluded paths are never deletions", () => {
   });
 
   it("keeps a local folder the server deleted while it holds an ignored file", () => {
-    const dir = folder("docs", 10);
+    const dir = folder("docs", "10");
     const result = run({
       local: [dir, file("b.txt")],
-      excluded: [{ side: "local", rel: "docs/x.tmp", ino: 12 }],
+      excluded: [{ side: "local", rel: "docs/x.tmp", ino: "12" }],
       base: [baseOf(dir, "f1", null)],
     });
     expect(kinds(result)).not.toContain("trash-local:docs");
@@ -535,19 +539,19 @@ describe("excluded paths are never deletions", () => {
   it("forgets, not trashes, a file renamed here to an ignored name", () => {
     const result = run({
       remote: [remoteFile("a.txt", "r1", "x")],
-      excluded: [{ side: "local", rel: "a.txt.tmp", ino: 1 }],
+      excluded: [{ side: "local", rel: "a.txt.tmp", ino: "1" }],
       base: [synced],
     });
     expect(kinds(result)).toEqual(["forget:a.txt"]);
   });
 
   it("forgets, not trashes, a folder renamed here to an ignored name", () => {
-    const dir = folder("docs", 10);
-    const inside = file("docs/a.txt", 3, 1000, 11);
+    const dir = folder("docs", "10");
+    const inside = file("docs/a.txt", 3, 1000, "11");
     const result = run({
       local: [file("b.txt")],
       remote: [remoteFolder("docs", "f1"), remoteFile("docs/a.txt", "r1", "x")],
-      excluded: [{ side: "local", rel: "docs.tmp", ino: 10 }],
+      excluded: [{ side: "local", rel: "docs.tmp", ino: "10" }],
       base: [baseOf(dir, "f1", null), baseOf(inside, "r1", "x")],
     });
     expect(kinds(result).sort()).toEqual([
@@ -558,8 +562,8 @@ describe("excluded paths are never deletions", () => {
   });
 
   it("forgets, not trashes, a folder the server renamed to an ignored name", () => {
-    const dir = folder("docs", 10);
-    const inside = file("docs/a.txt", 3, 1000, 11);
+    const dir = folder("docs", "10");
+    const inside = file("docs/a.txt", 3, 1000, "11");
     const result = run({
       local: [dir, inside, file("b.txt")],
       excluded: [{ side: "remote", rel: "docs.tmp", remoteId: "f1" }],
@@ -598,8 +602,8 @@ describe("excluded paths are never deletions", () => {
   });
 
   it("does not trash server files under a folder that could not be read", () => {
-    const dir = folder("locked", 10);
-    const inside = file("locked/a.txt", 3, 1000, 11);
+    const dir = folder("locked", "10");
+    const inside = file("locked/a.txt", 3, 1000, "11");
     const result = run({
       remote: [
         remoteFolder("locked", "f1"),
@@ -653,4 +657,79 @@ it("names a conflict copy after the device and time, and never reuses a name", (
   expect(second).toBe(
     "Work/report (conflict, Aras-Laptop, 2026-10-22 10-15 2).docx",
   );
+});
+
+describe("file ids", () => {
+  it("does not guess a move from two big ids that once rounded alike", () => {
+    // Both round to the same number; only the exact ids tell them apart.
+    const gone = file("gone.txt", 3, 1000, "72057594037927953");
+    const other = file("other.txt", 3, 1000, "72057594037927954");
+    const result = run({
+      local: [other],
+      remote: [remoteFile("gone.txt", "r1", "x")],
+      base: [baseOf(gone, "r1", "x")],
+    });
+    expect(result.actions.map((action) => action.kind).sort()).toEqual([
+      "trash-remote",
+      "upload",
+    ]);
+  });
+
+  it("saves the real id of an unchanged file without reading it again", () => {
+    const here = file("a.txt", 3, 1000, "72057594037927953");
+    const result = run({
+      local: [here],
+      remote: [remoteFile("a.txt", "r1", "x")],
+      base: [{ ...baseOf(here, "r1", "x"), ino: "0" }],
+    });
+    expect(result.needsHash).toEqual([]);
+    expect(result.actions).toEqual([
+      expect.objectContaining({ kind: "link", rel: "a.txt", local: here }),
+    ]);
+  });
+
+  it("saves the real id of a folder", () => {
+    const here = folder("docs", "72057594037927953");
+    const result = run({
+      local: [here],
+      remote: [remoteFolder("docs", "f1")],
+      base: [{ ...baseOf(here, "f1", null), ino: "0" }],
+    });
+    expect(result.actions).toEqual([
+      expect.objectContaining({ kind: "link", rel: "docs", local: here }),
+    ]);
+  });
+
+  it("still trashes a file the server deleted when its id is unknown", () => {
+    const here = file("a.txt", 3, 1000, "72057594037927953");
+    const result = run({
+      local: [here],
+      base: [{ ...baseOf(here, "r1", "x"), ino: "0" }],
+    });
+    expect(result.actions).toEqual([
+      expect.objectContaining({ kind: "trash-local", rel: "a.txt" }),
+    ]);
+  });
+
+  it("still sees an edit when the saved id is unknown", () => {
+    const here = { ...file("a.txt", 4, 2000), checksum: "edited" };
+    const result = run({
+      local: [here],
+      remote: [remoteFile("a.txt", "r1", "x")],
+      base: [{ ...baseOf(file("a.txt", 3, 1000), "r1", "x"), ino: "0" }],
+    });
+    expect(result.actions).toEqual([
+      expect.objectContaining({ kind: "upload", rel: "a.txt" }),
+    ]);
+  });
+
+  it("does not keep saving on a disk that has no ids", () => {
+    const here = folder("docs", "0");
+    const result = run({
+      local: [here],
+      remote: [remoteFolder("docs", "f1")],
+      base: [baseOf(here, "f1", null)],
+    });
+    expect(result.actions).toEqual([]);
+  });
 });

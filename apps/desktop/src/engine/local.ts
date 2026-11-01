@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
+import { createReadStream, type BigIntStats } from "node:fs";
 import { lstat, readdir } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
@@ -11,8 +11,12 @@ export type LocalEntry = {
   type: "folder" | "file";
   size: number;
   mtimeMs: number;
-  ino: number;
+  /** The disk's id for this file; survives renames. Too big for a number on Windows. */
+  ino: string;
 };
+
+/** No id to go by: some disks have none, and older saved ids were rounded. */
+export const UNKNOWN_INO = "0";
 
 export type LocalScan = {
   entries: LocalEntry[];
@@ -21,18 +25,23 @@ export type LocalScan = {
    * files, and anything it could not read. `reason` is set when the person
    * should hear about it.
    */
-  excluded: { rel: string; ino?: number; reason: string | null }[];
+  excluded: { rel: string; ino?: string; reason: string | null }[];
 };
 
-const toEntry = (
-  rel: string,
-  stats: Awaited<ReturnType<typeof lstat>>,
-): LocalEntry => ({
+/**
+ * The value a plain lstat gives as `mtimeMs`, which bigint stats truncate.
+ * Saved times must keep matching, or every file reads as changed.
+ */
+const mtimeMsOf = ({ mtimeNs }: BigIntStats) =>
+  Number(mtimeNs / 1_000_000_000n) * 1000 +
+  Number(mtimeNs % 1_000_000_000n) / 1e6;
+
+const toEntry = (rel: string, stats: BigIntStats): LocalEntry => ({
   rel,
   type: stats.isDirectory() ? "folder" : "file",
   size: stats.isDirectory() ? 0 : Number(stats.size),
-  mtimeMs: Number(stats.mtimeMs),
-  ino: Number(stats.ino),
+  mtimeMs: mtimeMsOf(stats),
+  ino: String(stats.ino),
 });
 
 const code = (error: unknown) => (error as NodeJS.ErrnoException).code;
@@ -74,7 +83,7 @@ export const scanLocal = async (
     // One folder's entries are read together; folders go one at a time.
     const all = await Promise.all(
       dirents.map((dirent) =>
-        lstat(path.join(dir, dirent.name)).then(
+        lstat(path.join(dir, dirent.name), { bigint: true }).then(
           (stats) => ({ dirent, stats, error: null }),
           (error: unknown) => ({ dirent, stats: null, error }),
         ),
@@ -92,7 +101,7 @@ export const scanLocal = async (
       if (ignore(dirent.name) || stats.isSymbolicLink()) {
         excluded.push({
           rel: childRel,
-          ino: Number(stats.ino),
+          ino: String(stats.ino),
           reason: stats.isSymbolicLink() ? "Links are not synced." : null,
         });
         continue;
@@ -112,7 +121,9 @@ export const scanLocal = async (
 /** The current state of one path, or null when it is gone. */
 export const statLocal = async (root: string, rel: string) => {
   try {
-    const stats = await lstat(path.join(root, ...rel.split("/")));
+    const stats = await lstat(path.join(root, ...rel.split("/")), {
+      bigint: true,
+    });
     if (stats.isSymbolicLink()) return null;
     return toEntry(rel, stats);
   } catch (error) {
@@ -131,7 +142,10 @@ export const hashFile = async (file: string) => {
 export const sameStat = (
   a: Pick<LocalEntry, "size" | "mtimeMs" | "ino">,
   b: Pick<LocalEntry, "size" | "mtimeMs" | "ino">,
-) => a.size === b.size && a.mtimeMs === b.mtimeMs && a.ino === b.ino;
+) =>
+  a.size === b.size &&
+  a.mtimeMs === b.mtimeMs &&
+  (a.ino === b.ino || a.ino === UNKNOWN_INO || b.ino === UNKNOWN_INO);
 
 export const localPath = (root: string, rel: string) =>
   path.join(root, ...rel.split("/"));

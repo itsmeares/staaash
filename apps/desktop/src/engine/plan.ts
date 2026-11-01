@@ -1,6 +1,6 @@
 import type { Issue, SyncMode } from "../shared/types";
 import type { LocalEntry } from "./local";
-import { sameStat } from "./local";
+import { UNKNOWN_INO, sameStat } from "./local";
 import { baseName, parentRel, pathKey } from "./names";
 import type { ScopedItem, SkippedItem } from "./remote";
 import type { BaseEntry, RemoteItem } from "./store";
@@ -60,7 +60,7 @@ export type Excluded = {
   side: "local" | "remote";
   rel: string;
   /** The local inode, so a rename to an ignored name is not a delete. */
-  ino?: number;
+  ino?: string;
   /** The server id, so a server rename to an ignored name is not a delete. */
   remoteId?: string;
 };
@@ -130,9 +130,9 @@ type View = {
   base: Map<string, BaseEntry>;
   remoteById: Map<string, ScopedItem>;
   /** Local entries the base does not know, by inode: candidates for moves. */
-  localByIno: Map<number, LocalFile>;
+  localByIno: Map<string, LocalFile>;
   /** Excluded paths, and the inodes and server ids behind them. */
-  hidden: { keys: Set<string>; inos: Set<number>; ids: Set<string> };
+  hidden: { keys: Set<string>; inos: Set<string>; ids: Set<string> };
   /** Folders with an excluded path inside, by side; they are never trashed. */
   hiddenUnder: { local: Set<string>; remote: Set<string> };
 };
@@ -171,7 +171,9 @@ const view = (input: PlanInput): View => {
     remoteById: new Map(input.remote.map((each) => [each.item.id, each])),
     localByIno: new Map(
       input.local
-        .filter((entry) => entry.ino !== 0 && !base.has(pathKey(entry.rel)))
+        .filter(
+          (entry) => entry.ino !== UNKNOWN_INO && !base.has(pathKey(entry.rel)),
+        )
         .map((entry) => [entry.ino, entry]),
     ),
     hidden: {
@@ -194,7 +196,7 @@ const vanishedFolders = (v: View) =>
         ([key, entry]) =>
           entry.type === "folder" &&
           !covered(key, v.hidden.keys) &&
-          ((entry.ino !== 0 && v.hidden.inos.has(entry.ino)) ||
+          ((entry.ino !== UNKNOWN_INO && v.hidden.inos.has(entry.ino)) ||
             v.hidden.ids.has(entry.remoteId)),
       )
       .map(([key]) => key),
@@ -206,7 +208,7 @@ const stillOnServer = (v: View, previous: BaseEntry) =>
 
 /** The local file or folder still exists somewhere, so a missing path is not a delete. */
 const stillHere = (v: View, previous: BaseEntry) =>
-  previous.ino !== 0 &&
+  previous.ino !== UNKNOWN_INO &&
   (v.localByIno.has(previous.ino) || v.hidden.inos.has(previous.ino));
 
 /**
@@ -270,7 +272,8 @@ const halfway = (from: string, there: string, to: string) =>
 const localMove = (v: View, entry: BaseEntry): Move | null => {
   const key = pathKey(entry.rel);
   const onServer = v.remoteById.get(entry.remoteId);
-  if (v.mode === "download" || v.local.has(key) || entry.ino === 0) return null;
+  if (v.mode === "download" || v.local.has(key) || entry.ino === UNKNOWN_INO)
+    return null;
   const moved = v.localByIno.get(entry.ino);
   if (!onServer || moved?.type !== entry.type) return null;
   if (entry.type === "file" && !sameStat(moved, entry)) return null;
@@ -344,8 +347,14 @@ const union = (a: Set<string>, b: Set<string>) => new Set([...a, ...b]);
 
 type Decision = { action: Action | null; gone?: boolean };
 
+/** The saved id was unknown and the disk now gives one worth saving. */
+const idToSave = (previous: BaseEntry, here: LocalFile) =>
+  previous.ino === UNKNOWN_INO && here.ino !== UNKNOWN_INO;
+
 const folderOnBothSides = ({ rel, here, there, previous }: Cell): Decision =>
-  here && there && previous?.remoteId !== there.item.id
+  here &&
+  there &&
+  (previous?.remoteId !== there.item.id || idToSave(previous, here))
     ? { action: { kind: "link", rel, local: here, remote: there.item } }
     : { action: null };
 
@@ -422,7 +431,10 @@ const fileOnBothSides = (
   const sameItem = previous?.remoteId === there.item.id;
   if (mine === theirs) {
     const stale =
-      !sameItem || previous.rev !== there.item.rev || !sameStat(here, previous);
+      !sameItem ||
+      previous.rev !== there.item.rev ||
+      !sameStat(here, previous) ||
+      idToSave(previous, here);
     return stale
       ? { kind: "link", rel, local: here, remote: there.item }
       : null;

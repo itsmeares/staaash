@@ -18,6 +18,8 @@ export const statusLine = (state: AppState) => {
       return "Paused";
     case "offline":
       return "Can't reach the server";
+    case "problem":
+      return "Sync hit a problem";
     case "signed-out":
       return "Signed out";
     case "syncing":

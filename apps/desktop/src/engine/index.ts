@@ -1,10 +1,12 @@
 /// <reference types="electron" />
 import { mkdirSync } from "node:fs";
+import path from "node:path";
 
 import watcher from "@parcel/watcher";
 
 import type { EngineCommand, EngineEvent } from "../shared/types";
 import { SyncEngine } from "./engine";
+import { SYNC_LOG_NAME, createSyncLog } from "./log";
 
 /**
  * The sync engine's own process: plain Node, started by the main process as
@@ -20,9 +22,17 @@ const waiting = new Map<number, (error: string | null) => void>();
 const [dataDir] = process.argv.slice(-1);
 mkdirSync(dataDir, { recursive: true });
 
+const log = createSyncLog(path.join(dataDir, SYNC_LOG_NAME));
+// Includes a database that can't open or upgrade. The main process restarts us.
+process.on("uncaughtException", (error) => {
+  log("sync engine crashed", error);
+  process.exit(1);
+});
+
 const engine = new SyncEngine(
   {
     emit,
+    log,
     // Electron's shell.trashItem only exists in the main process.
     trash: (file) =>
       new Promise((resolve, reject) => {
@@ -42,12 +52,14 @@ const engine = new SyncEngine(
   dataDir,
 );
 
-const report = (error: unknown) =>
+const report = (error: unknown) => {
+  log("running a command", error);
   emit({
     type: "notify",
     title: "Sync needs you",
     body: error instanceof Error ? error.message : String(error),
   });
+};
 
 // One branch per command.
 // fallow-ignore-next-line complexity

@@ -257,6 +257,22 @@ function UpdateNotice({ state }: { state: AppState }) {
   );
 }
 
+function ProblemNotice({ state }: { state: AppState }) {
+  if (state.status?.state !== "problem") return null;
+  return (
+    <div className="flex items-center gap-2 border-b border-border px-5 py-3">
+      <p className="m-0 flex-1 text-body">The sync log says what went wrong.</p>
+      <Button
+        size="xs"
+        variant="outline"
+        onClick={() => void desktop.openSyncLog()}
+      >
+        Open log
+      </Button>
+    </div>
+  );
+}
+
 /** The headline's icon, colour and second line for the current state. */
 // One look per engine state.
 // fallow-ignore-next-line complexity
@@ -281,6 +297,14 @@ const headline = (state: AppState) => {
       color: "var(--muted-foreground)",
       title: "Can't reach the server",
       detail: "Syncing continues when it's back.",
+    };
+  }
+  if (status?.state === "problem") {
+    return {
+      Icon: TriangleAlert,
+      color: "var(--warning)",
+      title: statusLine(state),
+      detail: "Syncing tries again soon.",
     };
   }
   if (status?.state === "syncing" || status?.state === "starting") {
@@ -378,6 +402,7 @@ export function ActivityPage({
       </div>
       <div className="min-h-0 flex-1 scrollbar-thin overflow-y-auto pb-3">
         <UpdateNotice state={state} />
+        <ProblemNotice state={state} />
         {conflicts.length + issues.length > 0 ? (
           <ul aria-label="Needs you" className="m-0 list-none p-0 pt-3">
             {conflicts.map((conflict) => (
