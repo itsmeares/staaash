@@ -111,7 +111,7 @@ export function TopbarActions({
           <MenuItem
             render={
               <a
-                href="https://github.com/itsmeares/staaash/releases/latest"
+                href="/api/desktop-app"
                 rel="noopener noreferrer"
                 target="_blank"
               />

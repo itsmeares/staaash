@@ -1,5 +1,6 @@
 import { adminRoutes } from "@/server/http/routes/admin";
 import { authRoutes } from "@/server/http/routes/auth";
+import { desktopRoutes } from "@/server/http/routes/desktop";
 import { filesRoutes } from "@/server/http/routes/files";
 import { healthRoutes } from "@/server/http/routes/health";
 import { publicShareRoutes } from "@/server/http/routes/public-shares";
@@ -13,6 +14,7 @@ import { createApp } from "@/server/http/core";
 const app = createApp()
   .route("/", healthRoutes)
   .route("/", authRoutes)
+  .route("/", desktopRoutes)
   .route("/", filesRoutes)
   .route("/", uploadRoutes)
   .route("/", shareRoutes)

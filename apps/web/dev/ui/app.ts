@@ -10,6 +10,7 @@ import {
   type Scenario,
   scenarios,
   PreviewError,
+  requireUser,
   password,
   memoryLimit,
   isDeleted,
@@ -131,6 +132,10 @@ export function createPreviewApp() {
     return c.redirect(path, 303);
   });
   mountAuth(app);
+  app.get("/api/desktop-app", (c) => {
+    requireUser(c.var.state);
+    return c.redirect("https://github.com/itsmeares/staaash/releases", 302);
+  });
   mountViews(app);
   mountFiles(app);
   mountAdmin(app, streams);
