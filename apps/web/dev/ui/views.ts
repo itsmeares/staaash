@@ -176,7 +176,7 @@ export function filesView(
     .filter((s) => s.ownerId === user.id && shareStatus(state, s) === "active")
     .map((s) => shareView(state, s, origin));
   const breadcrumbs = [];
-  let parent = folder.parentId;
+  let parent: string | null = folder.id;
   while (parent) {
     const item = folderOf(state, parent);
     breadcrumbs.unshift({

@@ -102,6 +102,48 @@ for (const [path, sections] of [
     expect(errors).toEqual([]);
   });
 
+for (const width of [390, 1280])
+  test(`keeps long locations inside details at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/files");
+
+    let parentId = "owner-root";
+    for (const name of [
+      "Long folder name with spaces",
+      "Another folder with a long name",
+      "AnExtremelyLongFolderNameWithoutAnySpaces0123456789",
+      "Report",
+    ]) {
+      const response = await page.request.post("/api/files/folders", {
+        data: { name, parentId },
+      });
+      expect(response.ok()).toBe(true);
+      const { folder } = await response.json();
+      if (name !== "Report") parentId = folder.id;
+    }
+
+    await page.goto(`/files/f/${parentId}`);
+    await page.getByRole("button", { name: "Actions for Report" }).click();
+    await page.getByRole("menuitem", { name: "Details", exact: true }).click();
+    const panel =
+      width < 1024
+        ? page.getByRole("dialog", { name: "Details" })
+        : page.getByRole("complementary", { name: "Details" });
+    const location = panel.locator("dd", { hasText: "Files /" });
+    await expect(location).toContainText(
+      "AnExtremelyLongFolderNameWithoutAnySpaces",
+    );
+    const scrollable = width < 1024 ? panel.locator(".overflow-y-auto") : panel;
+    await expect
+      .poll(() => scrollable.evaluate((el) => el.scrollWidth - el.clientWidth))
+      .toBe(0);
+    await expect(
+      panel.getByRole("button", { name: "Close details" }),
+    ).toBeVisible();
+  });
+
 test("opens file details, rename, move, and sharing controls", async ({
   page,
 }) => {

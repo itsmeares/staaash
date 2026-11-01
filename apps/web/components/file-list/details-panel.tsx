@@ -109,7 +109,7 @@ export function DetailsSection({
 
 function DetailsRows({ rows }: { rows: Array<[string, ReactNode]> }) {
   return (
-    <dl className="m-0 grid gap-1.5 text-meta">
+    <dl className="m-0 grid grid-cols-[minmax(0,1fr)] gap-1.5 text-meta">
       {rows.map(([label, value]) => (
         <div className="flex justify-between gap-3" key={label}>
           <dt className="shrink-0 text-muted-foreground">{label}</dt>
