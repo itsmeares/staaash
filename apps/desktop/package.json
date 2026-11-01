@@ -10,7 +10,7 @@
   "main": "dist/main/index.cjs",
   "desktopName": "staaash.desktop",
   "scripts": {
-    "build": "vp build && vp pack",
+    "build": "vp run --filter @staaash/config build && vp build && vp pack",
     "start": "electron .",
     "dist": "electron-builder --publish never"
   },

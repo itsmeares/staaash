@@ -23,14 +23,20 @@ const heicMimeTypes = new Set([
 export const normalizeMimeType = (mimeType: string) =>
   mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
 
-export const isHeicFile = (file: { mimeType: string; name: string }) =>
-  heicMimeTypes.has(normalizeMimeType(file.mimeType)) ||
-  heicNamePattern.test(file.name);
+export const isHeicFile = (file: { mimeType: string; name: string }) => {
+  const mime = normalizeMimeType(file.mimeType);
+  return (
+    heicMimeTypes.has(mime) ||
+    (!VIEWER_MIME_PREFIXES.some(([prefix]) => mime.startsWith(prefix)) &&
+      heicNamePattern.test(file.name))
+  );
+};
 
 export const resolveUploadMimeType = (mimeType: string, fileName: string) => {
   const normalized = normalizeMimeType(mimeType);
   if (normalized && normalized !== "application/octet-stream") return mimeType;
-  const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
+  const dot = fileName.lastIndexOf(".");
+  const extension = dot < 0 ? "" : fileName.slice(dot + 1).toLowerCase();
   return (
     HEIC_EXTENSION_MIME_TYPES.get(extension) ??
     (normalized ? mimeType : "application/octet-stream")

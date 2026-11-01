@@ -15,6 +15,8 @@ describe("HEIC recognition", () => {
     ["photo.heic", "application/pdf", "application/pdf"],
     ["photo.jpg", "", "application/octet-stream"],
     ["file.constructor", "", "application/octet-stream"],
+    ["heic", "", "application/octet-stream"],
+    ["heif", "application/octet-stream", "application/octet-stream"],
   ])("stores the upload type for %s and %s", (name, mime, expected) => {
     expect(resolveUploadMimeType(mime, name)).toBe(expected);
   });
@@ -41,4 +43,11 @@ describe("HEIC recognition", () => {
       canHaveThumbnail(" IMAGE/SVG+XML; charset=utf-8 ", "photo.svg"),
     ).toBe(false);
   });
+
+  it.each(["image/jpeg", "image/png", "image/svg+xml", "application/pdf"])(
+    "does not decode declared %s bytes as HEIC based on the name",
+    (mimeType) => {
+      expect(isHeicFile({ mimeType, name: "photo.heic" })).toBe(false);
+    },
+  );
 });
