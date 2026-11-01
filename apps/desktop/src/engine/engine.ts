@@ -391,7 +391,10 @@ export class SyncEngine {
       config &&
       (await fetchVersion(config.serverUrl, this.halt.signal).then(
         () => true,
-        () => false,
+        // 502, 503 and 504 are a proxy or a busy server standing in for it.
+        (failed: unknown) =>
+          failed instanceof ApiError &&
+          ![502, 503, 504].includes(failed.status),
       ));
     this.failure = answers ? "problem" : "offline";
   }

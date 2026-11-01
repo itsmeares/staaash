@@ -242,7 +242,9 @@ const serverMove = (v: View, entry: BaseEntry): Move | null => {
   }
   const target = pathKey(onServer.rel);
   if (here?.type !== entry.type || v.local.has(target)) return null;
-  if (entry.type === "file" && !sameStat(here, entry)) return null;
+  // Following a rename moves no bytes, so an unknown id need not block it.
+  const known = entry.ino === UNKNOWN_INO ? { ...entry, ino: here.ino } : entry;
+  if (entry.type === "file" && !sameStat(here, known)) return null;
   const ready =
     !parentRel(target) || v.local.get(parentRel(target))?.type === "folder";
   return {
@@ -348,8 +350,8 @@ const union = (a: Set<string>, b: Set<string>) => new Set([...a, ...b]);
 type Decision = { action: Action | null; gone?: boolean };
 
 /** The saved id was unknown and the disk now gives one worth saving. */
-const idToSave = (previous: BaseEntry, here: LocalFile) =>
-  previous.ino === UNKNOWN_INO && here.ino !== UNKNOWN_INO;
+const idToSave = (previous: BaseEntry | undefined, here: LocalFile) =>
+  previous?.ino === UNKNOWN_INO && here.ino !== UNKNOWN_INO;
 
 const folderOnBothSides = ({ rel, here, there, previous }: Cell): Decision =>
   here &&
@@ -431,10 +433,7 @@ const fileOnBothSides = (
   const sameItem = previous?.remoteId === there.item.id;
   if (mine === theirs) {
     const stale =
-      !sameItem ||
-      previous.rev !== there.item.rev ||
-      !sameStat(here, previous) ||
-      idToSave(previous, here);
+      !sameItem || previous.rev !== there.item.rev || !sameStat(here, previous);
     return stale
       ? { kind: "link", rel, local: here, remote: there.item }
       : null;
@@ -482,7 +481,10 @@ const fileOnlyHere = (
   if (previous && stillOnServer(v, previous)) {
     return { kind: "forget", rel };
   }
-  const unchanged = previous !== undefined && sameStat(here, previous);
+  const unchanged =
+    previous !== undefined &&
+    (sameStat(here, previous) ||
+      (idToSave(previous, here) && here.checksum === previous.checksum));
   if (v.mode === "upload" || (v.mode === "two-way" && !unchanged)) {
     return { kind: "upload", rel, local: here, replace: null };
   }
@@ -605,7 +607,14 @@ const decide = (
     }
     return { action: fileOnBothSides(v, { ...cell, here, there }, mine) };
   }
-  if (here) return { action: fileOnlyHere(v, { ...cell, here }) };
+  if (here) {
+    // Size and time can't prove an edit away, and an edit beats a delete.
+    if (idToSave(previous, here) && here.checksum === undefined) {
+      needsHash.push(here);
+      return { action: null };
+    }
+    return { action: fileOnlyHere(v, { ...cell, here }) };
+  }
   if (there) return { action: fileOnlyThere(v, { ...cell, there }) };
   return { action: previous ? { kind: "forget", rel: cell.rel } : null };
 };

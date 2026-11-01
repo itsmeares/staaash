@@ -49,10 +49,7 @@ describe("sameStat", () => {
     expect(sameStat(stat, { ...stat, ino: "9007199254740992" })).toBe(false);
   });
 
-  it("goes by size and time when an id is unknown", () => {
-    expect(sameStat(stat, { ...stat, ino: "0" })).toBe(true);
-    expect(sameStat({ ...stat, ino: "0" }, stat)).toBe(true);
-    expect(sameStat(stat, { ...stat, ino: "0", size: 4 })).toBe(false);
-    expect(sameStat(stat, { ...stat, ino: "0", mtimeMs: 2000 })).toBe(false);
+  it("does not treat an unknown id as a match", () => {
+    expect(sameStat(stat, { ...stat, ino: "0" })).toBe(false);
   });
 });

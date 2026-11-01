@@ -142,10 +142,7 @@ export const hashFile = async (file: string) => {
 export const sameStat = (
   a: Pick<LocalEntry, "size" | "mtimeMs" | "ino">,
   b: Pick<LocalEntry, "size" | "mtimeMs" | "ino">,
-) =>
-  a.size === b.size &&
-  a.mtimeMs === b.mtimeMs &&
-  (a.ino === b.ino || a.ino === UNKNOWN_INO || b.ino === UNKNOWN_INO);
+) => a.size === b.size && a.mtimeMs === b.mtimeMs && a.ino === b.ino;
 
 export const localPath = (root: string, rel: string) =>
   path.join(root, ...rel.split("/"));

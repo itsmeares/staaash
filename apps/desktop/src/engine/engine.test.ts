@@ -119,6 +119,11 @@ afterEach(async () => {
 const cases: [string, Partial<typeof replies>, EngineState][] = [
   ["the server errors but answers", { changes: json(500, {}) }, "problem"],
   [
+    "the server answers the check with an error",
+    { changes: json(500, {}), version: json(500, {}) },
+    "problem",
+  ],
+  [
     "a proxy answers for a dead server",
     { changes: json(502, {}), version: json(502, {}) },
     "offline",

@@ -22,7 +22,8 @@ const waiting = new Map<number, (error: string | null) => void>();
 const [dataDir] = process.argv.slice(-1);
 mkdirSync(dataDir, { recursive: true });
 
-const log = createSyncLog(path.join(dataDir, SYNC_LOG_NAME));
+let token: string | undefined;
+const log = createSyncLog(path.join(dataDir, SYNC_LOG_NAME), () => token);
 // Includes a database that can't open or upgrade. The main process restarts us.
 process.on("uncaughtException", (error) => {
   log("sync engine crashed", error);
@@ -66,6 +67,7 @@ const report = (error: unknown) => {
 port.on("message", ({ data }: { data: EngineCommand }) => {
   switch (data.type) {
     case "configure":
+      token = data.config.token;
       engine.configure(data.config).catch(report);
       return;
     case "sync-now":

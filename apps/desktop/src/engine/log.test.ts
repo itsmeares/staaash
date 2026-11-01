@@ -1,5 +1,6 @@
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -50,6 +51,27 @@ describe("the sync log", () => {
     });
     createSyncLog(file)("stage", error);
     expect(readFileSync(file, "utf8")).not.toContain("secret-token");
+  });
+
+  it("hides the device token if an error message quotes it", () => {
+    const error = new TypeError(
+      'Headers.append: "Bearer secret-token" is an invalid header value.',
+    );
+    createSyncLog(file, () => "secret-token")("stage", error);
+    const text = readFileSync(file, "utf8");
+    expect(text).not.toContain("secret-token");
+    expect(text).toContain("[device token]");
+  });
+
+  it("writes a failure later if the disk refused it the first time", () => {
+    const missing = path.join(dir, "later");
+    const log = createSyncLog(path.join(missing, "sync.log"));
+    log("stage", new Error("failed"));
+    mkdirSync(missing);
+    log("stage", new Error("failed"));
+    expect(readFileSync(path.join(missing, "sync.log"), "utf8")).toContain(
+      "failed",
+    );
   });
 
   it("writes a repeated failure once, even between other failures", () => {

@@ -675,16 +675,16 @@ describe("file ids", () => {
     ]);
   });
 
-  it("saves the real id of an unchanged file without reading it again", () => {
+  it("reads an unknown-id file once, then saves its real id", () => {
     const here = file("a.txt", 3, 1000, "72057594037927953");
-    const result = run({
-      local: [here],
+    const input = {
       remote: [remoteFile("a.txt", "r1", "x")],
       base: [{ ...baseOf(here, "r1", "x"), ino: "0" }],
-    });
-    expect(result.needsHash).toEqual([]);
-    expect(result.actions).toEqual([
-      expect.objectContaining({ kind: "link", rel: "a.txt", local: here }),
+    };
+    expect(run({ ...input, local: [here] }).needsHash).toEqual([here]);
+    const hashed = { ...here, checksum: "x" };
+    expect(run({ ...input, local: [hashed] }).actions).toEqual([
+      expect.objectContaining({ kind: "link", rel: "a.txt", local: hashed }),
     ]);
   });
 
@@ -700,14 +700,40 @@ describe("file ids", () => {
     ]);
   });
 
-  it("still trashes a file the server deleted when its id is unknown", () => {
+  it("reads an unknown-id file before acting on a server delete", () => {
     const here = file("a.txt", 3, 1000, "72057594037927953");
+    const base = [{ ...baseOf(here, "r1", "x"), ino: "0" }];
+    const first = run({ local: [here], base });
+    expect(first.needsHash).toEqual([here]);
+    expect(first.actions).toEqual([]);
+    expect(run({ local: [{ ...here, checksum: "x" }], base }).actions).toEqual([
+      expect.objectContaining({ kind: "trash-local", rel: "a.txt" }),
+    ]);
+  });
+
+  it("keeps different bytes with the same size and time over a server delete", () => {
+    const here = {
+      ...file("a.txt", 3, 1000, "72057594037927953"),
+      checksum: "other bytes",
+    };
     const result = run({
       local: [here],
       base: [{ ...baseOf(here, "r1", "x"), ino: "0" }],
     });
     expect(result.actions).toEqual([
-      expect.objectContaining({ kind: "trash-local", rel: "a.txt" }),
+      expect.objectContaining({ kind: "upload", rel: "a.txt" }),
+    ]);
+  });
+
+  it("follows a server rename of a file with an unknown id", () => {
+    const here = file("old.txt", 3, 1000, "72057594037927953");
+    const result = run({
+      local: [here],
+      remote: [remoteFile("new.txt", "r1", "x")],
+      base: [{ ...baseOf(here, "r1", "x"), ino: "0" }],
+    });
+    expect(result.actions).toEqual([
+      expect.objectContaining({ kind: "move-local", to: "new.txt" }),
     ]);
   });
 
