@@ -129,3 +129,67 @@ test("below the docking width the pane opens as a side sheet and Escape closes i
   await page.keyboard.press("Escape");
   await expect(sheet).toHaveCount(0);
 });
+
+test("folder details show the total of nested files and update after upload", async ({
+  page,
+}) => {
+  await signIn(page, getOwnerCredentials());
+  const headers = {
+    Origin: new URL(page.url()).origin,
+    Accept: "application/json",
+  };
+  const createFolder = async (name: string, parentId?: string) => {
+    const response = await page.request.post("/api/files/folders", {
+      headers,
+      data: { name, parentId },
+    });
+    expect(response.status(), await response.text()).toBe(201);
+    return (await response.json()).folder.id as string;
+  };
+  const parentId = await createFolder(`Size check ${Date.now()}`);
+  const childId = await createFolder("Child", parentId);
+  const nestedId = await createFolder("Nested", childId);
+  const upload = async (contents: string, name: string) => {
+    const form = new FormData();
+    form.append("files", new File([contents], name, { type: "text/plain" }));
+    form.append(
+      "manifest",
+      JSON.stringify([{ clientKey: "1", originalName: name }]),
+    );
+    form.append("folderId", nestedId);
+    const response = await page.request.post("/api/files/files", {
+      headers,
+      multipart: form,
+    });
+    expect(response.status(), await response.text()).toBe(201);
+  };
+  await page.goto(`/files/f/${parentId}`);
+  const child = page.locator(`[data-list-item="${childId}"]`);
+  await child.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Details" }).click();
+  await expect(pane(page).getByText("0 B", { exact: true })).toBeVisible();
+
+  await upload("hello", "first.txt");
+  await page.reload();
+  await child.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Details" }).click();
+  await expect(pane(page).getByText("5 B", { exact: true })).toBeVisible();
+
+  await upload("again", "second.txt");
+  await page.reload();
+  await child.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Details" }).click();
+  await expect(pane(page).getByText("10 B", { exact: true })).toBeVisible();
+
+  await page.getByRole("grid").focus();
+  await page.keyboard.press("Control+f");
+  await Promise.all([
+    page.waitForResponse((response) =>
+      response.url().includes(`/api/views/files/${parentId}/batch`),
+    ),
+    page.getByRole("textbox", { name: "Find in this folder" }).fill("Child"),
+  ]);
+  await expect(child).toBeVisible();
+  await child.click();
+  await expect(pane(page).getByText("10 B", { exact: true })).toBeVisible();
+});

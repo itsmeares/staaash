@@ -195,7 +195,10 @@ export function filesView(
       breadcrumbs,
       childFolders: page.items
         .filter((i) => i.kind === "folder")
-        .map((i) => publicFolder(folders.find((f) => f.id === i.id)!)),
+        .map((i) => ({
+          ...publicFolder(folders.find((f) => f.id === i.id)!),
+          sizeBytes: sizeOf(state, i.id),
+        })),
       files: page.items
         .filter((i) => i.kind === "file")
         .map((i) => publicFile(files.find((f) => f.id === i.id)!)),

@@ -18,36 +18,54 @@ export async function loadFilesViewProps({
   baseUrl: string;
   showFolderPreviews: boolean;
 }) {
-  const [shareLookup, favorites, folderSizeBytes] = await Promise.all([
-    sharingService.getFilesShareLookup({
-      actorUserId,
-      actorRole,
-      currentFolderId: listing.currentFolder.id,
-      childFolderIds: listing.childFolders.map((folder) => folder.id),
-      fileIds: listing.files.map((file) => file.id),
-      baseUrl,
-    }),
-    Promise.all([
-      getPrisma().favoriteFile.findMany({
-        where: {
-          userId: actorUserId,
-          fileId: { in: listing.files.map((file) => file.id) },
-        },
-        select: { fileId: true },
+  const [shareLookup, favorites, folderSizeBytes, childSizes] =
+    await Promise.all([
+      sharingService.getFilesShareLookup({
+        actorUserId,
+        actorRole,
+        currentFolderId: listing.currentFolder.id,
+        childFolderIds: listing.childFolders.map((folder) => folder.id),
+        fileIds: listing.files.map((file) => file.id),
+        baseUrl,
       }),
-      getPrisma().favoriteFolder.findMany({
+      Promise.all([
+        getPrisma().favoriteFile.findMany({
+          where: {
+            userId: actorUserId,
+            fileId: { in: listing.files.map((file) => file.id) },
+          },
+          select: { fileId: true },
+        }),
+        getPrisma().favoriteFolder.findMany({
+          where: {
+            userId: actorUserId,
+            folderId: { in: listing.childFolders.map((folder) => folder.id) },
+          },
+          select: { folderId: true },
+        }),
+      ]),
+      getFolderSizeBytes(listing.currentFolder.id),
+      getPrisma().folder.findMany({
         where: {
-          userId: actorUserId,
-          folderId: { in: listing.childFolders.map((folder) => folder.id) },
+          ownerUserId: actorUserId,
+          deletedAt: null,
+          id: { in: listing.childFolders.map((folder) => folder.id) },
         },
-        select: { folderId: true },
+        select: { id: true, treeSizeBytes: true },
       }),
-    ]),
-    getFolderSizeBytes(listing.currentFolder.id),
-  ]);
+    ]);
 
+  const sizesById = new Map(
+    childSizes.map((folder) => [folder.id, Number(folder.treeSizeBytes)]),
+  );
   return {
-    listing,
+    listing: {
+      ...listing,
+      childFolders: listing.childFolders.map((folder) => ({
+        ...folder,
+        sizeBytes: sizesById.get(folder.id) ?? null,
+      })),
+    },
     shareLookup,
     showFolderPreviews,
     favoriteFileIds: favorites[0].map((item) => item.fileId),
