@@ -68,12 +68,16 @@ export const signInWithBrowser = async (
     const body = (await response.json().catch(() => null)) as {
       token?: string;
       error?: string;
-      session?: { user: { email: string; displayName: string | null } };
+      session?: { user: { email: string; avatarUrl: string | null } };
     } | null;
     if (!response.ok || !body?.token || !body.session) {
       throw new Error(body?.error ?? "Sign-in failed. Try again.");
     }
-    return { token: body.token, email: body.session.user.email };
+    return {
+      token: body.token,
+      email: body.session.user.email,
+      avatarUrl: body.session.user.avatarUrl,
+    };
   } finally {
     clearTimeout(timer);
     listener.close();

@@ -10,6 +10,7 @@ import {
 import { AppLink } from "@/components/app-link";
 import type { ReactNode } from "react";
 
+import { Avatar } from "@staaash/ui/components/avatar";
 import {
   Menu,
   MenuItem,
@@ -21,7 +22,6 @@ import {
 
 import { openShortcuts } from "./shortcuts-dialog";
 import { Transfers } from "./transfers";
-import { WorkspaceAvatar } from "./workspace-avatar";
 import { isAdminPath } from "./workspace-nav";
 
 /** An app link in the menu; on its own page it only shows a check. */
@@ -77,11 +77,11 @@ export function TopbarActions({
           aria-label="Profile menu"
           className="ms-1 cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <WorkspaceAvatar avatarUrl={avatarUrl} initials={initials} />
+          <Avatar avatarUrl={avatarUrl} initials={initials} />
         </MenuTrigger>
         <MenuPopup align="end" className="w-64">
           <div className="flex items-center gap-2.5 px-2 py-2">
-            <WorkspaceAvatar avatarUrl={avatarUrl} initials={initials} />
+            <Avatar avatarUrl={avatarUrl} initials={initials} />
             <div className="grid min-w-0 leading-tight">
               {userLabel ? (
                 <span className="truncate text-body font-semibold">

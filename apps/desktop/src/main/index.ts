@@ -47,6 +47,13 @@ if (!app.requestSingleInstanceLock()) app.exit(0);
 let settings = loadSettings();
 // Loaded once the app is ready; the keychain is not readable before.
 let token: string | null = null;
+let avatarUrl: string | null = null;
+let accountRevision = 0;
+let profileRequest: {
+  token: string;
+  serverUrl: string;
+  promise: Promise<void>;
+} | null = null;
 let status: EngineStatus | null = null;
 let versionProblem: AppState["versionProblem"] = null;
 let update: UpdateState | null = null;
@@ -61,6 +68,7 @@ const state = (): AppState => ({
   platform: process.platform,
   settings,
   signedIn: Boolean(token && settings.serverUrl),
+  avatarUrl,
   status,
   versionProblem,
   update,
@@ -73,6 +81,37 @@ const publish = () => {
   for (const window of localWindows()) {
     window.webContents.send("state", current);
   }
+};
+
+const refreshProfile = () => {
+  if (!token || !settings.serverUrl) return Promise.resolve();
+  if (
+    profileRequest?.token === token &&
+    profileRequest.serverUrl === settings.serverUrl
+  )
+    return profileRequest.promise;
+  const revision = accountRevision;
+  const deviceToken = token;
+  const serverUrl = settings.serverUrl;
+  const request = createApi(serverUrl, deviceToken, AbortSignal.timeout(10_000))
+    .session()
+    .then((session) => {
+      if (
+        revision !== accountRevision ||
+        deviceToken !== token ||
+        serverUrl !== settings.serverUrl
+      )
+        return;
+      avatarUrl = session.user.avatarUrl;
+      publish();
+    })
+    // A cosmetic refresh must keep the last photo and leave sync alone offline.
+    .catch(() => {})
+    .finally(() => {
+      if (profileRequest?.promise === request) profileRequest = null;
+    });
+  profileRequest = { token: deviceToken, serverUrl, promise: request };
+  return request;
 };
 
 const notify = (title: string, body: string) => {
@@ -210,6 +249,9 @@ const serial = <T>(work: () => Promise<T>) => {
 
 /** Forgets the account and everything the engine knew about it. */
 const resetAccount = async () => {
+  accountRevision += 1;
+  profileRequest = null;
+  avatarUrl = null;
   await stopEngine();
   await rm(dataDir(), { recursive: true, force: true });
   token = null;
@@ -413,6 +455,7 @@ let updates: ReturnType<typeof startUpdates> | null = null;
 
 const registerIpc = () => {
   handle("get-state", state);
+  handle("refresh-profile", refreshProfile);
   handle("connect", async (input: string) => {
     let serverUrl;
     try {
@@ -435,6 +478,7 @@ const registerIpc = () => {
       await serial(async () => {
         await resetAccount();
         token = result.token;
+        avatarUrl = result.avatarUrl;
         await saveToken(token);
         // Before the settings, which start the engine unless versions clash.
         await checkVersions(serverUrl);

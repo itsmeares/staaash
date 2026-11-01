@@ -1,7 +1,8 @@
 import { Folder, FolderOpen, Plus, Trash2 } from "lucide-react";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import { Alert, AlertDescription } from "@staaash/ui/components/alert";
+import { Avatar } from "@staaash/ui/components/avatar";
 import { Button } from "@staaash/ui/components/button";
 import {
   Field,
@@ -353,13 +354,22 @@ export function SettingsPage({ state }: { state: AppState }) {
     void desktop.updateSettings(patch);
   const [ignore, setIgnore] = useState(settings.ignore.join("\n"));
   const [name, setName] = useState(settings.deviceName);
+  useEffect(() => {
+    const refresh = () => void desktop.refreshProfile();
+    refresh();
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, []);
   return (
     <PageBody title="Settings">
       <Group title="Account">
         <div className="flex items-center gap-3 px-3.5 py-2.75">
-          <span className="grid size-8.5 shrink-0 place-items-center rounded-full bg-foreground/8 text-meta font-semibold">
-            {(settings.email ?? "?").charAt(0).toUpperCase()}
-          </span>
+          <Avatar
+            avatarUrl={state.avatarUrl}
+            initials={(settings.email ?? "?").charAt(0).toUpperCase()}
+            size="lg"
+            variant="neutral"
+          />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-body font-medium">
               {settings.email ?? "Signed in"}
