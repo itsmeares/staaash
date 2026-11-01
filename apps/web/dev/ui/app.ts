@@ -12,6 +12,7 @@ import {
   PreviewError,
   password,
   memoryLimit,
+  isDeleted,
 } from "./state";
 import { assets } from "./media";
 import { mountAuth } from "./auth";
@@ -106,6 +107,12 @@ export function createPreviewApp() {
       password,
       users: state.users.map((u) => ({ email: u.email, role: u.role })),
       userId: state.userId,
+      archiveFolderId:
+        state.folders.find(
+          (folder) =>
+            folder.id === `${state.userId}-archive` &&
+            !isDeleted(state, folder),
+        )?.id ?? null,
     });
   });
   app.post("/__ui/scenario", async (c) => {

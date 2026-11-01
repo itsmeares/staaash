@@ -129,6 +129,10 @@ You can also create, rename, or upload samples through the existing forms and
 API. API requests must use the browser's preview cookie to change the data that
 browser sees. Refresh keeps those changes; reset or restart clears them.
 
+New share links also belong to that browser session. To check a new link as a
+visitor, sign out and open it in the same browser context. Use the seeded share
+links for separate browser contexts. Cross-browser sharing needs a real demo.
+
 For real server behavior, start your own Staaash instance. Inside it, anything
 goes: seed, reset, break, and restart.
 

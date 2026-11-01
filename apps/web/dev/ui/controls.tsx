@@ -27,11 +27,11 @@ type Controls = {
   password: string;
   users: Array<{ email: string; role: string }>;
   userId: string | null;
+  archiveFolderId: string | null;
 };
 const pages = [
   ["Home", "/home"],
   ["Files", "/files"],
-  ["Photo archive", "/files/f/owner-archive"],
   ["Favorites", "/favorites"],
   ["Recent", "/recent"],
   ["Search", "/search?q=photo"],
@@ -145,6 +145,14 @@ function ControlsPage() {
             <section className="grid gap-4">
               <h2 className="font-heading text-xl">Open a page</h2>
               <nav aria-label="Preview pages" className="flex flex-wrap gap-2">
+                {data.archiveFolderId && (
+                  <Button
+                    variant="outline"
+                    render={<a href={`/files/f/${data.archiveFolderId}`} />}
+                  >
+                    Photo archive
+                  </Button>
+                )}
                 {pages.map(([label, path]) => (
                   <Button
                     key={path}

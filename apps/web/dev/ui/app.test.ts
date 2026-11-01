@@ -59,6 +59,48 @@ function browser(preview = createPreviewApp()) {
 }
 
 describe("preview follow-up regressions", () => {
+  it("opens newly created shares as a visitor in the creating session only", async () => {
+    const preview = createPreviewApp();
+    const creator = browser(preview);
+    const visitor = browser(preview);
+    const response = await creator.post("/api/shares", {
+      fileId: "owner-coast",
+    });
+    expect(response.status).toBe(201);
+    const { share } = await response.json();
+    const path = `${new URL(share.shareUrl).pathname}/view`;
+    await creator.post("/api/auth/sign-out");
+    expect(await creator.read(path)).toMatchObject({
+      kind: "share",
+      resolution: { kind: "file" },
+    });
+    expect(await visitor.read(path)).toMatchObject({
+      kind: "error",
+      error: { code: "SHARE_INVALID" },
+    });
+    expect(await visitor.read("/s/owner-photo/view")).toMatchObject({
+      kind: "share",
+    });
+  });
+
+  for (const [scenario, archiveFolderId] of [
+    ["owner", "owner-archive"],
+    ["member", "member-archive"],
+    ["admin", "admin-archive"],
+    ["empty", null],
+    ["signed-out", null],
+    ["setup", null],
+  ] as const)
+    it(`provides the current account's archive shortcut in ${scenario}`, async () => {
+      const client = browser();
+      await client.scenario(scenario);
+      expect(await client.read("/__ui/state")).toMatchObject({
+        archiveFolderId,
+      });
+      if (archiveFolderId)
+        await client.read(`/api/views/files/${archiveFolderId}`);
+    });
+
   for (const scenario of ["password", "invited"])
     it(`keeps the required password change after saving preferences in ${scenario}`, async () => {
       const client = browser();

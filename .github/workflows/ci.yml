@@ -80,6 +80,17 @@ jobs:
         run: vp run test
       - name: Frontend preview request tests
         run: vp run --filter web test:ui
+      - name: Install preview browser
+        run: vp exec --filter web playwright install --with-deps --only-shell chromium
+      - name: Frontend preview browser smoke tests
+        run: vp run --filter web e2e:ui --grep @smoke
+      - name: Save preview browser failures
+        if: failure()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: frontend-preview-failures
+          path: apps/web/test-results/ui/
+          retention-days: 7
       - name: Save coverage
         if: always() && github.event_name != 'pull_request'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

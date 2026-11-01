@@ -69,6 +69,9 @@ The controls let you choose a starting state and reset its samples. Each browser
 session has its own in-memory data. Refresh keeps changes; reset or restarting
 the preview clears them. Idle sessions expire after two hours; the preview keeps
 up to 16 sessions. Sample uploads have a combined 16 MiB limit per session.
+New share links exist only in the browser session that created them. To check
+one as a visitor, sign out and open it in the same browser context. Seeded links
+work in separate contexts; cross-browser sharing needs a real demo.
 Use `--host <address> --port <port>` to choose a private network binding.
 Run `pnpm --filter web test:ui` for its request checks and
 `pnpm --filter web e2e:ui` for its browser checks. Use the real demo below for
