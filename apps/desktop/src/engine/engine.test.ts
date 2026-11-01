@@ -1,4 +1,10 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { createServer, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
@@ -88,6 +94,31 @@ const breakHistory = (pairId: string) => {
   db.close();
 };
 
+it("reports both sides and keeps the last readings after a paused restart", async () => {
+  const pair = { ...pairOf("a"), mode: "download" as const };
+  writeFileSync(path.join(pair.localPath, "local.txt"), "hello");
+  await syncOnce([pair]);
+  expect(engine.status().folderSizes.a).toMatchObject({
+    server: { bytes: 0 },
+    computer: { bytes: 5 },
+  });
+  await engine.stop();
+  engine = new SyncEngine(
+    {
+      emit: () => {},
+      trash: async () => {},
+      watch: async () => () => {},
+      log: () => {},
+    },
+    path.join(root, "data"),
+  );
+  await engine.configure({ ...configOf([pair]), paused: true });
+  expect(engine.status().folderSizes.a).toMatchObject({
+    server: { bytes: 0 },
+    computer: { bytes: 5 },
+  });
+});
+
 beforeEach(async () => {
   root = mkdtempSync(path.join(os.tmpdir(), "staaash-engine-"));
   mkdirSync(path.join(root, "data"));
@@ -98,6 +129,8 @@ beforeEach(async () => {
     if (pathname === "/api/version") return replies.version(response);
     if (pathname === "/api/sync/changes") return replies.changes(response);
     if (pathname === "/api/sync/snapshot") {
+      if (searchParams.get("folderId") === "root-gone")
+        return json(404, {})(response);
       const items =
         searchParams.get("folderId") === "root-b" ? [docsFolder] : [];
       return json(200, { items, changeCursor: "1", next: null })(response);
@@ -115,6 +148,16 @@ beforeEach(async () => {
     },
     path.join(root, "data"),
   );
+});
+
+it("does not report an empty server folder when both folders are missing", async () => {
+  const pair = pairOf("gone");
+  rmSync(pair.localPath, { recursive: true });
+  await syncOnce([pair]);
+  expect(engine.status().folderSizes.gone).toEqual({
+    server: null,
+    computer: null,
+  });
 });
 
 afterEach(async () => {

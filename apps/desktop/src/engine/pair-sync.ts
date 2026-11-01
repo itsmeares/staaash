@@ -4,7 +4,7 @@ import path from "node:path";
 import type { Activity, Issue, SyncPair } from "../shared/types";
 import type { Api } from "./api";
 import { ApiError } from "./api";
-import type { LocalEntry } from "./local";
+import type { LocalEntry, LocalScan } from "./local";
 import { hashFile, localPath, sameStat, scanLocal, statLocal } from "./local";
 import { baseName, parentRel, pathKey } from "./names";
 import type { Action, Excluded, Hold, LocalFile } from "./plan";
@@ -33,6 +33,7 @@ export type PairContext = {
   /** Moves a path to the OS trash; the main process owns that API. */
   trash: (file: string) => Promise<void>;
   activity: (update: Activity) => void;
+  scanned: (scan: LocalScan | null) => void;
   notify: (title: string, body: string) => void;
   /**
    * False once this pair's settings changed, sync paused or the engine is
@@ -140,6 +141,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
 
   const rootStats = await stat(pair.localPath).catch(() => null);
   if (!rootStats?.isDirectory()) {
+    ctx.scanned(null);
     issue(
       "",
       "folder-missing",
@@ -534,6 +536,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     try {
       scan = await scanLocal(pair.localPath, ctx.ignore);
     } catch (error) {
+      ctx.scanned(null);
       if (typeof (error as NodeJS.ErrnoException).syscall !== "string") {
         throw error;
       }
@@ -551,6 +554,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
       ctx.ignore,
       leftOut,
     );
+    ctx.scanned(scan);
     folderIds = new Map(
       items
         .filter((each) => each.item.type === "folder")

@@ -99,7 +99,13 @@ export type EngineStatus = {
   conflicts: Conflict[];
   issues: Issue[];
   lastSyncAt: number | null;
+  folderSizes: Record<
+    string,
+    { server: SizeReading | null; computer: SizeReading | null }
+  >;
 };
+
+export type SizeReading = { bytes: number; at: number };
 
 export type ConflictChoice = "keep-server" | "keep-mine";
 
