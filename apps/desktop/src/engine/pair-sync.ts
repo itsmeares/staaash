@@ -181,6 +181,11 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     );
     if (!seen) issues.push({ pairId: pair.id, rel, source, kind, message });
   };
+  // One "server full" issue per folder, with the latest reason.
+  const serverFullIssue = (message: string) => {
+    issues = issues.filter((each) => each.rel !== "" || each.kind !== "quota");
+    issue("", "quota", message, "scan");
+  };
   const waits = (action: Action) => {
     const size = uploadSize(action);
     return size !== null && size >= ctx.full.size;
@@ -272,7 +277,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     if (full) {
       if (size !== null) ctx.full.size = Math.min(ctx.full.size, size);
       ctx.full.message = full;
-      issue("", "quota", full, "scan");
+      serverFullIssue(full);
       return;
     }
     if (error.status === 404 || error.status === 409) {
@@ -674,7 +679,7 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     // Uploads the server has no room for wait for the next pass, not a quick retry.
     const actions = result.actions.filter((action) => !waits(action));
     if (actions.length < result.actions.length && ctx.full.message) {
-      issue("", "quota", ctx.full.message, "scan");
+      serverFullIssue(ctx.full.message);
     }
     if (actions.length === 0) {
       if (result.needsHash.length === 0) break;

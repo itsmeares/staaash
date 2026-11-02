@@ -516,7 +516,8 @@ describe.skipIf(!origin)("sync against a real server", () => {
   });
 
   it("waits while the account is full, then uploads once there is space", async () => {
-    const r = await rig();
+    // Paused until the limit is set, so no pass uploads the files first.
+    const r = await rig("two-way", undefined, { paused: true });
     const names = ["a", "b", "c", "d", "e", "f", "g", "h"].map(
       (name) => `${name}.txt`,
     );
@@ -534,6 +535,7 @@ describe.skipIf(!origin)("sync against a real server", () => {
       });
     await limit("1");
     try {
+      await r.configure({ paused: false });
       await r.engine.syncNow();
       const status = r.engine.status();
       const tried = status.activity.filter((each) => each.direction === "up");

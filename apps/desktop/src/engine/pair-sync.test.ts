@@ -134,6 +134,18 @@ it.each([
   expect(r.store.baseEntries(r.ctx.pair.id)).toHaveLength(names.length);
 });
 
+it("shows one server-full issue per folder when both limits refuse", async () => {
+  const r = await rig(["a.txt", "b.txt"]);
+  r.failures.set("a.txt", [quota()]);
+  r.failures.set("b.txt", [
+    new ApiError(507, "Staging full", "UPLOAD_STORAGE_CAPACITY_EXCEEDED"),
+  ]);
+  const result = await syncPair(r.ctx);
+  expect(result.issues).toEqual([
+    expect.objectContaining({ rel: "", kind: "quota" }),
+  ]);
+});
+
 it("keeps uploading smaller files and downloading while the server is full", async () => {
   const r = await rig(["small.txt"]);
   const big = path.join(r.directory, "big.bin");
