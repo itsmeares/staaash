@@ -1,12 +1,29 @@
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
-import { signInWithBrowser } from "./auth";
+import { signInWithBrowser, webSessionUrl } from "./auth";
 
 const openExternal = vi.hoisted(() => vi.fn());
 vi.mock("electron", () => ({ shell: { openExternal } }));
 
 const localFetch = fetch;
 afterEach(() => vi.unstubAllGlobals());
+
+it("opens the authenticated drive directly instead of visiting the signed-out landing page", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      Response.json({
+        url: "https://drive.example.test/auth/device-callback?code=once",
+      }),
+    ),
+  );
+  const url = new URL(
+    await webSessionUrl("https://drive.example.test", "device-token"),
+  );
+  expect(url.pathname).toBe("/auth/device-callback");
+  expect(url.searchParams.get("code")).toBe("once");
+  expect(url.searchParams.get("next")).toBe("/files");
+});
 
 it.each([null, "data:image/jpeg;base64,photo"])(
   "keeps the account photo returned by device sign-in: %s",

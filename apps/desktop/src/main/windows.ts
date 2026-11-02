@@ -9,6 +9,9 @@ import {
 
 import { hasCustomTitleBar } from "../shared/title-bar";
 import type { WindowCommand } from "../shared/types";
+import { BrowserDownloads } from "./downloads";
+
+export const browserDownloads = new BrowserDownloads();
 
 const PRELOAD = path.join(__dirname, "../preload/index.cjs");
 const PAGE = path.join(__dirname, "../renderer/index.html");
@@ -144,11 +147,16 @@ export const openAppWindow = async (
   appWindow = window;
   keepInside(window);
   // The window itself shows only the top row. The web app sits below it in a
-  // view of its own, with no access to the app's preload script.
+  // view of its own, with access only to its download-specific preload.
   const view = new WebContentsView({
-    webPreferences: { contextIsolation: true, sandbox: true },
+    webPreferences: {
+      preload: path.join(__dirname, "../preload/downloads.cjs"),
+      contextIsolation: true,
+      sandbox: true,
+    },
   });
   const contents = view.webContents;
+  browserDownloads.attach(contents, origin);
   window.contentView.addChildView(view);
   const fitView = () => {
     const { width, height } = window.getContentBounds();
@@ -157,9 +165,14 @@ export const openAppWindow = async (
   };
   fitView();
   window.on("resize", fitView);
+  window.on("close", (event) => {
+    if (!browserDownloads.activeCount) return;
+    event.preventDefault();
+    window.hide();
+  });
   window.on("closed", () => {
     appWindow = null;
-    contents.close();
+    if (!contents.isDestroyed()) contents.close();
   });
   if (customTitleBar) void window.loadFile(PAGE, { search: "top-row" });
   // Server pages may link anywhere; only web links leave the app.
@@ -184,6 +197,11 @@ export const openAppWindow = async (
     window.destroy();
     throw error;
   }
+};
+
+export const resetAppWindow = () => {
+  browserDownloads.reset();
+  appWindow?.destroy();
 };
 
 /** The window that shows the app's own pages, for state updates. */

@@ -36,9 +36,11 @@ import {
 import { createTray } from "./tray";
 import { startUpdates, type UpdateState } from "./updates";
 import {
+  browserDownloads,
   localWindows,
   openAppWindow,
   openMainWindow,
+  resetAppWindow,
   takeCommand,
 } from "./windows";
 
@@ -249,6 +251,7 @@ const serial = <T>(work: () => Promise<T>) => {
 
 /** Forgets the account and everything the engine knew about it. */
 const resetAccount = async () => {
+  resetAppWindow();
   accountRevision += 1;
   profileRequest = null;
   avatarUrl = null;
@@ -570,6 +573,23 @@ app.on("second-instance", () => openMainWindow());
 // A tray app keeps running with every window closed.
 app.on("window-all-closed", () => {});
 app.on("before-quit", (event) => {
+  if (browserDownloads.activeCount) {
+    event.preventDefault();
+    const choice = dialog.showMessageBoxSync({
+      type: "question",
+      message: "Quit while downloads are running?",
+      detail: "Unfinished browser downloads will be cancelled.",
+      buttons: ["Keep downloading", "Quit"],
+      defaultId: 0,
+      cancelId: 0,
+    });
+    if (choice === 0) return;
+    browserDownloads.reset();
+    if (!engine) {
+      app.quit();
+      return;
+    }
+  }
   if (!engine) return;
   // Let the engine finish its action and close its database first.
   event.preventDefault();
@@ -584,6 +604,7 @@ void app.whenReady().then(async () => {
   app.dock?.hide();
   token = loadToken();
   registerIpc();
+  browserDownloads.register();
   startEngine();
   tray = createTray({
     openWindow: () => openMainWindow(),

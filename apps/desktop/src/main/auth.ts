@@ -92,7 +92,9 @@ export const webSessionUrl = async (serverUrl: string, token: string) => {
   );
   if (!response.ok)
     throw new Error(`Could not open Staaash (${response.status}).`);
-  return ((await response.json()) as { url: string }).url;
+  const url = new URL(((await response.json()) as { url: string }).url);
+  url.searchParams.set("next", "/files");
+  return url.toString();
 };
 
 /** Ends the device session on the server; the token stops working. */

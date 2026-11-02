@@ -520,12 +520,12 @@ export function TransferProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const dismissDownload = () => {
+  const dismissDownload = useCallback(() => {
     downloadAbortRef.current?.abort();
     downloadAbortRef.current = null;
     setActiveDownload(null);
     localStorage.removeItem(ACTIVE_DOWNLOAD_KEY);
-  };
+  }, []);
 
   // ---- Upload ----
 

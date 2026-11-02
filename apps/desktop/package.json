@@ -26,6 +26,7 @@
     "@parcel/watcher-win32-x64": "2.6.0"
   },
   "devDependencies": {
+    "@staaash/config": "workspace:*",
     "@staaash/ui": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^24.19.2",
