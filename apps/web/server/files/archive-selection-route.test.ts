@@ -86,6 +86,23 @@ describe("archive selection", () => {
     });
   });
 
+  it("accepts a select-all of a large folder and rejects an oversized body", async () => {
+    const ids = Array.from({ length: 100_000 }, (_, i) => `file-${i}`);
+    mocks.selection.mockResolvedValue({
+      files: ids.map((id) => item(id)),
+      folders: [],
+    });
+    const accepted = await request(ids);
+    expect(accepted.status).toBe(200);
+    expect(mocks.schedule).toHaveBeenCalledWith(
+      expect.objectContaining({ fileCount: 100_000 }),
+    );
+
+    const rejected = await request(["x".repeat(17 * 1024 * 1024)]);
+    expect(rejected.status).toBe(413);
+    expect(mocks.selection).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps a reused archive processing until publication finishes", async () => {
     mocks.selection.mockResolvedValue({ files: [item("a")], folders: [] });
     mocks.archive.mockResolvedValue({

@@ -5,17 +5,30 @@ type Item = { id: string; kind: "file" | "folder" };
 
 const kindPath = (item: Item) => (item.kind === "folder" ? "folders" : "files");
 
+// Select all can hold a whole folder; a few requests at a time keeps the
+// server and the browser responsive instead of opening one per item at once.
+const TRASH_CONCURRENCY = 6;
+
 /** Moves items into or out of trash; resolves with the ones that made it. */
 export async function moveTrash(items: Item[], action: "trash" | "restore") {
-  const results = await Promise.allSettled(
-    items.map((item) =>
-      submitStorageMutationPost({
-        action: `/api/files/${kindPath(item)}/${item.id}/${action}`,
-        logicalAction: `${action}:${item.kind}:${item.id}`,
-      }),
-    ),
-  );
-  return items.filter((_, index) => results[index]!.status === "fulfilled");
+  const done = new Set<Item>();
+  let next = 0;
+  const work = async () => {
+    while (next < items.length) {
+      const item = items[next++]!;
+      try {
+        await submitStorageMutationPost({
+          action: `/api/files/${kindPath(item)}/${item.id}/${action}`,
+          logicalAction: `${action}:${item.kind}:${item.id}`,
+        });
+        done.add(item);
+      } catch {
+        // The caller reports what did not make it.
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: TRASH_CONCURRENCY }, work));
+  return items.filter((item) => done.has(item));
 }
 
 /**
