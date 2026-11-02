@@ -4104,8 +4104,7 @@
                         "kind"
                       ]
                     },
-                    "minItems": 1,
-                    "maxItems": 500
+                    "minItems": 1
                   },
                   "source": {
                     "type": "string",
@@ -4194,6 +4193,9 @@
                 }
               }
             }
+          },
+          "413": {
+            "description": "Too many items in one request."
           },
           "503": {
             "description": "Busy or recovering. Retry after the Retry-After delay.",
@@ -4489,8 +4491,7 @@
                     "items": {
                       "type": "string"
                     },
-                    "minItems": 1,
-                    "maxItems": 500
+                    "minItems": 1
                   }
                 },
                 "required": [
@@ -4573,6 +4574,9 @@
                 }
               }
             }
+          },
+          "413": {
+            "description": "Too many items in one request."
           },
           "503": {
             "description": "Busy or recovering. Retry after the Retry-After delay.",

@@ -823,12 +823,17 @@ const validatePreparedEntityRevisions = async (
   entities: StorageMutationEntityInput[],
 ) => {
   if (entities.length === 0) return;
+  const idsFor = (entityType: StorageMutationEntityInput["entityType"]) =>
+    entities
+      .filter((entity) => entity.entityType === entityType)
+      .map((entity) => entity.entityId);
+  // One `in` list per type: a pair per entity passes PostgreSQL's bind
+  // parameter limit once a move guards tens of thousands of entities.
   const blocked = await tx.storageMutationEntity.findFirst({
     where: {
-      OR: entities.map((entity) => ({
-        entityType: entity.entityType,
-        entityId: entity.entityId,
-      })),
+      OR: [...new Set(entities.map((entity) => entity.entityType))].map(
+        (entityType) => ({ entityType, entityId: { in: idsFor(entityType) } }),
+      ),
       mutation: { status: "recovery_required" },
     },
     select: { mutationId: true },
@@ -857,10 +862,6 @@ const validatePreparedEntityRevisions = async (
       }
     }
   };
-  const idsFor = (entityType: StorageMutationEntityInput["entityType"]) =>
-    entities
-      .filter((entity) => entity.entityType === entityType)
-      .map((entity) => entity.entityId);
   const fileIds = idsFor("file");
   const folderIds = idsFor("folder");
   const derivativeIds = idsFor("derivative");
