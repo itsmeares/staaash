@@ -1,19 +1,18 @@
 import type { RestoreReconciliationRunRecord } from "@staaash/db/reconciliation";
 
-import type {
-  RestoreReconciliationHealthSummary,
-  RestoreReconciliationReport,
-} from "@/server/types";
+import type { RestoreReconciliationHealthSummary } from "@/server/types";
 
-export const createRestoreReconciliationReport = (
-  report: Partial<RestoreReconciliationReport> = {},
-): RestoreReconciliationReport => ({
-  missingOriginalIds: report.missingOriginalIds ?? [],
-  orphanedStorageKeys: report.orphanedStorageKeys ?? [],
-});
-
-export const hasRestoreIssues = (report: RestoreReconciliationReport) =>
-  report.missingOriginalIds.length > 0 || report.orphanedStorageKeys.length > 0;
+const incompleteCheckMessage = (
+  details: RestoreReconciliationRunRecord["details"],
+) => {
+  if (details.uncheckedOriginalCount)
+    return `Restore check could not verify ${details.uncheckedOriginalCount} originals while storage operations were in progress.`;
+  if (details.checksumMismatches?.length)
+    return `Restore check found ${details.checksumMismatches.length} originals with incorrect checksums.`;
+  if (details.recoveryRequiredMutations?.length)
+    return "Storage operations require recovery.";
+  return null;
+};
 
 export const buildRestoreReconciliationHealthSummary = (
   run: RestoreReconciliationRunRecord | null,
@@ -70,6 +69,18 @@ export const buildRestoreReconciliationHealthSummary = (
       missingOriginalCount: run.missingOriginalCount,
       orphanedStorageCount: run.orphanedStorageCount,
       message: `Latest restore check found ${run.missingOriginalCount} missing originals and ${run.orphanedStorageCount} orphaned storage files.`,
+    };
+  }
+
+  const warning = incompleteCheckMessage(run.details);
+  if (warning) {
+    return {
+      status: "warning",
+      runStatus: run.status,
+      lastCompletedAt: run.completedAt?.toISOString() ?? null,
+      missingOriginalCount: run.missingOriginalCount,
+      orphanedStorageCount: run.orphanedStorageCount,
+      message: warning,
     };
   }
 

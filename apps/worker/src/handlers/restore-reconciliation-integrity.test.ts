@@ -14,7 +14,8 @@ vi.mock("@staaash/db/storage-mutation-executor", async (importOriginal) => ({
   requireStorageRegularFile: executorMocks.requireStorageRegularFile,
 }));
 
-const { collectMissingOriginals } = await import("./restore-reconciliation.js");
+const { collectRestoreReconciliationIssues } =
+  await import("./restore-reconciliation.js");
 
 describe("restore reconciliation original integrity", () => {
   beforeEach(() => {
@@ -26,16 +27,16 @@ describe("restore reconciliation original integrity", () => {
 
   it("does not read file contents when metadata has no checksum", async () => {
     await expect(
-      collectMissingOriginals(
-        [
+      collectRestoreReconciliationIssues({
+        fileRecords: [
           {
             id: "file-1",
             storageKey: "files/member/file.txt",
             contentChecksum: null,
           },
         ],
-        "C:/storage",
-      ),
+        filesRoot: "C:/storage",
+      }).then((result) => result.missingOriginals),
     ).resolves.toEqual([]);
 
     expect(executorMocks.requireStorageRegularFile).toHaveBeenCalledWith(

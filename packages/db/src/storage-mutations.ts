@@ -1296,19 +1296,26 @@ const assertNoOverlappingOwnerResources = async (
   }
 };
 
-const acquireStorageMutationResources = async (
+export const lockStorageMutationAdmission = async (
+  tx: Prisma.TransactionClient,
+  exclusive: boolean,
+) => {
+  const [lock] = exclusive
+    ? await tx.$queryRaw<Array<{ acquired: boolean }>>`
+        SELECT pg_try_advisory_xact_lock(hashtext('staaash:storage-mutation-resource-acquisition')) AS acquired`
+    : await tx.$queryRaw<Array<{ acquired: boolean }>>`
+        SELECT pg_try_advisory_xact_lock_shared(hashtext('staaash:storage-mutation-resource-acquisition')) AS acquired`;
+  if (!lock?.acquired) throw new StorageAdmissionBusyError();
+};
+
+export const acquireStorageMutationResources = async (
   tx: Prisma.TransactionClient,
   resourceKeys: string[],
   selfMutationId?: string,
 ) => {
   if (resourceKeys.length === 0) return;
   const globalRequested = resourceKeys.includes("storage:global-recovery");
-  const [lock] = globalRequested
-    ? await tx.$queryRaw<Array<{ acquired: boolean }>>`
-        SELECT pg_try_advisory_xact_lock(hashtext('staaash:storage-mutation-resource-acquisition')) AS acquired`
-    : await tx.$queryRaw<Array<{ acquired: boolean }>>`
-        SELECT pg_try_advisory_xact_lock_shared(hashtext('staaash:storage-mutation-resource-acquisition')) AS acquired`;
-  if (!lock?.acquired) throw new StorageAdmissionBusyError();
+  await lockStorageMutationAdmission(tx, globalRequested);
   const conflictingResource = await tx.storageMutationResource.findFirst({
     where: {
       releasedAt: null,

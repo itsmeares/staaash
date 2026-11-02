@@ -1,4 +1,188 @@
 import { Prisma, getPrisma } from "./client";
+import {
+  acquireStorageMutationResources,
+  lockStorageMutationAdmission,
+  storagePathResourceKey,
+} from "./storage-mutations";
+import {
+  runStorageTransaction,
+  waitForStorageAdmission,
+} from "./storage-transactions";
+
+export type ReconciledFile = {
+  id: string;
+  ownerUserId: string;
+  storageKey: string;
+  storageRevision: number;
+};
+
+export const readReconciliationOrphanState = async (keys: string[]) =>
+  waitForStorageAdmission((deadline) =>
+    runStorageTransaction(
+      async (tx) => {
+        await lockStorageMutationAdmission(tx, true);
+        // An admitted mutation can finish here, so read its paths before current metadata.
+        const [steps, sessions, jobs] = await Promise.all([
+          tx.storageMutationStep.findMany({
+            where: {
+              mutation: {
+                status: {
+                  in: [
+                    "prepared",
+                    "running",
+                    "retrying",
+                    "metadata_committed",
+                    "finalizing",
+                    "recovery_required",
+                  ],
+                },
+              },
+            },
+            select: {
+              action: true,
+              expectedNodeType: true,
+              sourceKey: true,
+              targetKey: true,
+            },
+          }),
+          tx.uploadSession.findMany({
+            where: {
+              stagingReleasedAt: null,
+              status: {
+                in: ["allocating", "created", "receiving", "committing"],
+              },
+            },
+            select: { tmpPath: true },
+          }),
+          tx.backgroundJob.findMany({
+            where: {
+              kind: {
+                in: ["media.derivative.generate", "zip.archive.generate"],
+              },
+              status: { in: ["queued", "running"] },
+            },
+            select: { kind: true, dedupeKey: true },
+          }),
+        ]);
+        const derivativeIds = keys.flatMap((key) => {
+          const match = /^tmp\/derivatives\/([^/]+)\.(?:jpg|mp4)\.tmp$/.exec(
+            key,
+          );
+          return match ? [match[1]!] : [];
+        });
+        const [files, derivatives, archives] = await Promise.all([
+          tx.file.findMany({
+            where: { storageKey: { in: keys } },
+            select: { storageKey: true },
+          }),
+          tx.mediaDerivative.findMany({
+            where: {
+              OR: [{ storageKey: { in: keys } }, { id: { in: derivativeIds } }],
+            },
+            select: {
+              id: true,
+              fileId: true,
+              kind: true,
+              profile: true,
+              storageKey: true,
+            },
+          }),
+          tx.zipArchive.findMany({
+            where: { storageKey: { in: keys } },
+            select: { storageKey: true },
+          }),
+        ]);
+        return { steps, sessions, jobs, files, derivatives, archives };
+      },
+      { deadline },
+    ),
+  );
+
+export const saveReconciledFileStatuses = async ({
+  files,
+  missingIds,
+  checkedAt,
+}: {
+  files: ReconciledFile[];
+  missingIds: string[];
+  checkedAt: Date;
+}) => {
+  const missing = new Set(missingIds);
+  const owners = new Map<string, ReconciledFile[]>();
+  for (const file of files) {
+    const group = owners.get(file.ownerUserId) ?? [];
+    group.push(file);
+    owners.set(file.ownerUserId, group);
+  }
+  for (const [ownerUserId, group] of owners) {
+    for (let offset = 0; offset < group.length; offset += 500) {
+      const batch = group.slice(offset, offset + 500);
+      await waitForStorageAdmission(
+        (deadline) =>
+          runStorageTransaction(
+            async (tx) => {
+              // Hold admission until the checked revision and status write agree.
+              await acquireStorageMutationResources(
+                tx,
+                batch.map((file) =>
+                  storagePathResourceKey(ownerUserId, file.storageKey),
+                ),
+              );
+              const current = await tx.file.findMany({
+                where: { id: { in: batch.map((file) => file.id) } },
+                select: {
+                  id: true,
+                  ownerUserId: true,
+                  storageKey: true,
+                  storageRevision: true,
+                },
+              });
+              const byId = new Map(current.map((file) => [file.id, file]));
+              if (
+                batch.some((file) => {
+                  const row = byId.get(file.id);
+                  return (
+                    !row ||
+                    row.ownerUserId !== file.ownerUserId ||
+                    row.storageKey !== file.storageKey ||
+                    row.storageRevision !== file.storageRevision
+                  );
+                })
+              ) {
+                throw new Error("Files changed during the restore check.");
+              }
+              const available = batch
+                .filter((file) => !missing.has(file.id))
+                .map((file) => file.id);
+              const absent = batch
+                .filter((file) => missing.has(file.id))
+                .map((file) => file.id);
+              if (available.length)
+                await tx.file.updateMany({
+                  where: { id: { in: available } },
+                  data: {
+                    storageStatus: "available",
+                    storageCheckedAt: checkedAt,
+                    storageMissingAt: null,
+                  },
+                });
+              if (absent.length)
+                await tx.file.updateMany({
+                  where: { id: { in: absent } },
+                  data: {
+                    storageStatus: "missing",
+                    storageCheckedAt: checkedAt,
+                    storageMissingAt: checkedAt,
+                  },
+                });
+            },
+            { deadline },
+          ),
+        { ownerUserId },
+      );
+    }
+  }
+};
 
 export const rebuildFolderSizeTotals = async () => {
   await getPrisma().$queryRaw`
@@ -40,6 +224,7 @@ export type RestoreReconciliationMissingOriginal = {
 export type RestoreReconciliationIssueDetails = {
   missingOriginals: RestoreReconciliationMissingOriginal[];
   orphanedStorageKeys: string[];
+  uncheckedOriginalCount?: number;
   mutationTrackedStorageKeys?: string[];
   recoveryRequiredMutations?: Array<{
     id: string;
@@ -131,6 +316,7 @@ const normalizeDetails = (
     mutationTrackedStorageKeys?: unknown;
     recoveryRequiredMutations?: unknown;
     checksumMismatches?: unknown;
+    uncheckedOriginalCount?: unknown;
   };
 
   const details: RestoreReconciliationIssueDetails = {
@@ -151,6 +337,13 @@ const normalizeDetails = (
     details.checksumMismatches = missingOriginalsFrom(
       candidate.checksumMismatches,
     );
+  }
+  if (
+    typeof candidate.uncheckedOriginalCount === "number" &&
+    Number.isSafeInteger(candidate.uncheckedOriginalCount) &&
+    candidate.uncheckedOriginalCount > 0
+  ) {
+    details.uncheckedOriginalCount = candidate.uncheckedOriginalCount;
   }
   return details;
 };

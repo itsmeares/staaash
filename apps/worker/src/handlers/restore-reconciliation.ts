@@ -8,6 +8,9 @@ import {
   markRestoreReconciliationRunRunning,
   verifyCommittedStorageUsage,
   rebuildFolderSizeTotals,
+  saveReconciledFileStatuses,
+  readReconciliationOrphanState,
+  type ReconciledFile,
   type RestoreReconciliationIssueDetails,
 } from "@staaash/db/reconciliation";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
@@ -33,8 +36,9 @@ type ReconciliationFileRecord = {
 
 type ReconciliationClient = {
   file: {
-    findMany(args: object): Promise<ReconciliationFileRecord[]>;
-    updateMany(args: object): Promise<unknown>;
+    findMany(
+      args: object,
+    ): Promise<Array<ReconciliationFileRecord & ReconciledFile>>;
   };
   mediaDerivative?: {
     findMany(args: object): Promise<
@@ -54,7 +58,7 @@ type ReconciliationClient = {
     findMany(args: object): Promise<
       Array<{
         action: string;
-        expectedNodeType: string;
+        expectedNodeType: string | null;
         sourceKey: string | null;
         targetKey: string | null;
       }>
@@ -200,22 +204,16 @@ const collectOriginalIntegrityIssues = async (
   return { missingOriginals, checksumMismatches };
 };
 
-export const collectMissingOriginals = async (
-  fileRecords: ReconciliationFileRecord[],
-  filesRoot: string,
-  ignoredFileIds = new Set<string>(),
-): Promise<RestoreReconciliationIssueDetails["missingOriginals"]> =>
-  (await collectOriginalIntegrityIssues(fileRecords, filesRoot, ignoredFileIds))
-    .missingOriginals;
-
-export const collectOrphanedStorageKeys = async ({
+const collectOrphanedStorageKeys = async ({
   filesRoot,
   knownStorageKeys,
   knownStoragePrefixes = new Set<string>(),
+  redact = true,
 }: {
   filesRoot: string;
   knownStorageKeys: Set<string>;
   knownStoragePrefixes?: Set<string>;
+  redact?: boolean;
 }): Promise<string[]> => {
   const committedStorageKeys = [
     ...(await walkCommittedStorageTree(
@@ -249,7 +247,7 @@ export const collectOrphanedStorageKeys = async ({
           knownStoragePrefixes,
         ),
     )
-    .map(safeStorageLabel);
+    .map((key) => (redact ? safeStorageLabel(key) : key));
 };
 
 export const collectRestoreReconciliationIssues = async ({
@@ -258,12 +256,14 @@ export const collectRestoreReconciliationIssues = async ({
   additionalKnownStorageKeys = [],
   additionalKnownStoragePrefixes = [],
   unresolvedFileIds = [],
+  redactOrphans = true,
 }: {
   filesRoot: string;
   fileRecords: ReconciliationFileRecord[];
   additionalKnownStorageKeys?: string[];
   additionalKnownStoragePrefixes?: string[];
   unresolvedFileIds?: string[];
+  redactOrphans?: boolean;
 }): Promise<RestoreReconciliationIssueDetails> => {
   const knownStorageKeys = new Set([
     ...fileRecords.map((file) => file.storageKey),
@@ -279,6 +279,7 @@ export const collectRestoreReconciliationIssues = async ({
       filesRoot,
       knownStorageKeys,
       knownStoragePrefixes: new Set(additionalKnownStoragePrefixes),
+      redact: redactOrphans,
     }),
   ]);
   const { missingOriginals, checksumMismatches } = integrityIssues;
@@ -288,66 +289,6 @@ export const collectRestoreReconciliationIssues = async ({
     orphanedStorageKeys,
     ...(checksumMismatches.length > 0 ? { checksumMismatches } : {}),
   };
-};
-
-const markReconciledStorageStatus = async ({
-  client,
-  fileRecords,
-  missingOriginals,
-  checksumMismatches = [],
-  unresolvedFileIds = [],
-  checkedAt,
-}: {
-  client: ReconciliationClient;
-  fileRecords: ReconciliationFileRecord[];
-  missingOriginals: RestoreReconciliationIssueDetails["missingOriginals"];
-  checksumMismatches?: NonNullable<
-    RestoreReconciliationIssueDetails["checksumMismatches"]
-  >;
-  unresolvedFileIds?: string[];
-  checkedAt: Date;
-}) => {
-  const missingIds = new Set([
-    ...missingOriginals.map((missingOriginal) => missingOriginal.fileId),
-    ...checksumMismatches.map((mismatch) => mismatch.fileId),
-  ]);
-  const availableIds = fileRecords
-    .filter(
-      (file) =>
-        !missingIds.has(file.id) && !unresolvedFileIds.includes(file.id),
-    )
-    .map((file) => file.id);
-  const missingFileIds = [...missingIds];
-
-  if (availableIds.length > 0) {
-    await client.file.updateMany({
-      where: {
-        id: {
-          in: availableIds,
-        },
-      },
-      data: {
-        storageStatus: "available",
-        storageCheckedAt: checkedAt,
-        storageMissingAt: null,
-      },
-    });
-  }
-
-  if (missingFileIds.length > 0) {
-    await client.file.updateMany({
-      where: {
-        id: {
-          in: missingFileIds,
-        },
-      },
-      data: {
-        storageStatus: "missing",
-        storageCheckedAt: checkedAt,
-        storageMissingAt: checkedAt,
-      },
-    });
-  }
 };
 
 const ensureReconciliationRun = async (
@@ -368,7 +309,13 @@ const loadReconciliationContext = async (
   filesRoot: string,
 ) => {
   const fileRecords = await client.file.findMany({
-    select: { id: true, storageKey: true, contentChecksum: true },
+    select: {
+      id: true,
+      ownerUserId: true,
+      storageKey: true,
+      storageRevision: true,
+      contentChecksum: true,
+    },
   });
   const [
     derivatives,
@@ -550,6 +497,40 @@ const prepareReconciliation = async (
   return client;
 };
 
+const recheckOrphans = async (
+  storagePaths: WorkerStoragePaths,
+  candidatesToCheck: string[],
+) => {
+  const orphans: string[] = [];
+  for (let offset = 0; offset < candidatesToCheck.length; offset += 500) {
+    const candidates = candidatesToCheck.slice(offset, offset + 500);
+    const current = await readReconciliationOrphanState(candidates);
+    const tracked = buildTrackedStorageKeys(current.steps);
+    const known = new Set([
+      ...current.files.map((file) => file.storageKey),
+      ...current.derivatives.flatMap((item) => item.storageKey ?? []),
+      ...current.archives.flatMap((item) => item.storageKey ?? []),
+      ...activeUploadStorageKeys(storagePaths.filesRoot, current.sessions),
+      ...generatedJobStorageKeys(current.jobs, current.derivatives),
+      ...(await collectLiveCapabilityProbeKeys(storagePaths.filesRoot)),
+    ]);
+    for (const key of candidates) {
+      if (
+        known.has(key) ||
+        isStorageKeyTracked(key, tracked.exact, tracked.prefixes)
+      )
+        continue;
+      try {
+        await lstat(path.resolve(storagePaths.filesRoot, key));
+        orphans.push(safeStorageLabel(key));
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      }
+    }
+  }
+  return orphans;
+};
+
 /**
  * Runs the manual restore-reconciliation audit.
  *
@@ -589,6 +570,7 @@ export const handleRestoreReconciliation = async (
     additionalKnownStorageKeys,
     additionalKnownStoragePrefixes: mutationTrackedStoragePrefixes,
     unresolvedFileIds: context.mutationFiles.map((row) => row.entityId),
+    redactOrphans: false,
   });
   details.mutationTrackedStorageKeys =
     mutationTrackedStorageKeys.map(safeStorageLabel);
@@ -597,14 +579,29 @@ export const handleRestoreReconciliation = async (
   );
   const checkedAt = new Date();
 
-  await markReconciledStorageStatus({
-    client: activeClient,
-    fileRecords: context.fileRecords,
-    missingOriginals: details.missingOriginals,
-    checksumMismatches: details.checksumMismatches,
-    unresolvedFileIds: context.mutationFiles.map((row) => row.entityId),
+  const unresolvedFileIds = new Set(
+    context.mutationFiles.map((row) => row.entityId),
+  );
+  const uncheckedOriginalCount = context.fileRecords.filter((file) =>
+    unresolvedFileIds.has(file.id),
+  ).length;
+  if (uncheckedOriginalCount)
+    details.uncheckedOriginalCount = uncheckedOriginalCount;
+  await saveReconciledFileStatuses({
+    files: context.fileRecords.filter(
+      (file) => !unresolvedFileIds.has(file.id),
+    ),
+    missingIds: [
+      ...details.missingOriginals,
+      ...(details.checksumMismatches ?? []),
+    ].map((item) => item.fileId),
     checkedAt,
   });
+
+  details.orphanedStorageKeys = await recheckOrphans(
+    storagePaths,
+    details.orphanedStorageKeys,
+  );
 
   await completeRestoreReconciliationRun({
     backgroundJobId: job.id,

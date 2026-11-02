@@ -2,10 +2,19 @@ import os from "node:os";
 import path from "node:path";
 import { mkdir, rm, symlink, writeFile } from "node:fs/promises";
 
-import { describe, expect, it, vi } from "vite-plus/test";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 vi.mock("@staaash/db/reconciliation", () => ({
   verifyCommittedStorageUsage: vi.fn(async () => {}),
+  saveReconciledFileStatuses: vi.fn(async () => {}),
+  readReconciliationOrphanState: vi.fn(async () => ({
+    files: [],
+    derivatives: [],
+    archives: [],
+    steps: [],
+    sessions: [],
+    jobs: [],
+  })),
   completeRestoreReconciliationRun: vi.fn(async (value) => value),
   ensureRestoreReconciliationRun: vi.fn(async (value) => value),
   markRestoreReconciliationRunQueued: vi.fn(async (value) => value),
@@ -14,17 +23,14 @@ vi.mock("@staaash/db/reconciliation", () => ({
 
 const {
   verifyCommittedStorageUsage,
+  saveReconciledFileStatuses,
   completeRestoreReconciliationRun,
   ensureRestoreReconciliationRun,
   markRestoreReconciliationRunRunning,
 } = await import("@staaash/db/reconciliation");
 
-const {
-  collectMissingOriginals,
-  collectOrphanedStorageKeys,
-  collectRestoreReconciliationIssues,
-  handleRestoreReconciliation,
-} = await import("./restore-reconciliation.js");
+const { collectRestoreReconciliationIssues, handleRestoreReconciliation } =
+  await import("./restore-reconciliation.js");
 
 const createTempFilesRoot = () =>
   path.join(
@@ -33,6 +39,7 @@ const createTempFilesRoot = () =>
   );
 
 describe("restore reconciliation worker handler", () => {
+  beforeEach(() => vi.clearAllMocks());
   it("stops on inconsistent usage before recovery can change storage", async () => {
     const failure = new Error(
       "Committed storage usage does not match file metadata.",
@@ -79,19 +86,13 @@ describe("restore reconciliation worker handler", () => {
     );
 
     await expect(
-      collectMissingOriginals(
-        [
-          {
-            id: "file-1",
-            storageKey: "files/member/present.txt",
-          },
-          {
-            id: "file-2",
-            storageKey: "files/member/missing.txt",
-          },
+      collectRestoreReconciliationIssues({
+        fileRecords: [
+          { id: "file-1", storageKey: "files/member/present.txt" },
+          { id: "file-2", storageKey: "files/member/missing.txt" },
         ],
         filesRoot,
-      ),
+      }).then((result) => result.missingOriginals),
     ).resolves.toEqual([
       {
         fileId: "file-2",
@@ -114,10 +115,12 @@ describe("restore reconciliation worker handler", () => {
     );
 
     await expect(
-      collectMissingOriginals(
-        [{ id: "file-link", storageKey: "files/member/linked.txt" }],
+      collectRestoreReconciliationIssues({
+        fileRecords: [
+          { id: "file-link", storageKey: "files/member/linked.txt" },
+        ],
         filesRoot,
-      ),
+      }).then((result) => result.missingOriginals),
     ).resolves.toEqual([
       { fileId: "file-link", storageKey: "files/…/linked.txt" },
     ]);
@@ -213,11 +216,11 @@ describe("restore reconciliation worker handler", () => {
     );
 
     await expect(
-      collectOrphanedStorageKeys({
+      collectRestoreReconciliationIssues({
         filesRoot,
-        knownStorageKeys: new Set(["files/member/known.txt"]),
-        knownStoragePrefixes: new Set(["tmp/quarantine/mutation/tree"]),
-      }),
+        fileRecords: [{ id: "known", storageKey: "files/member/known.txt" }],
+        additionalKnownStoragePrefixes: ["tmp/quarantine/mutation/tree"],
+      }).then((result) => result.orphanedStorageKeys),
     ).resolves.toEqual([
       "files/…/orphan.txt",
       ".trash/…/trashed-orphan.txt",
@@ -276,7 +279,6 @@ describe("restore reconciliation worker handler", () => {
 
   it("creates, runs, and completes reconciliation jobs", async () => {
     const filesRoot = createTempFilesRoot();
-    const updateMany = vi.fn(async () => ({ count: 1 }));
     await mkdir(path.join(filesRoot, "files", "member"), {
       recursive: true,
     });
@@ -317,11 +319,12 @@ describe("restore reconciliation worker handler", () => {
             return [
               {
                 id: "file-1",
+                ownerUserId: "owner-1",
+                storageRevision: 0,
                 storageKey: "files/member/known.txt",
               },
             ];
           },
-          updateMany,
         },
       },
     );
@@ -333,17 +336,17 @@ describe("restore reconciliation worker handler", () => {
     expect(markRestoreReconciliationRunRunning).toHaveBeenCalledWith({
       backgroundJobId: "job-1",
     });
-    expect(updateMany).toHaveBeenCalledWith({
-      where: {
-        id: {
-          in: ["file-1"],
+    expect(saveReconciledFileStatuses).toHaveBeenCalledWith({
+      files: [
+        {
+          id: "file-1",
+          ownerUserId: "owner-1",
+          storageRevision: 0,
+          storageKey: "files/member/known.txt",
         },
-      },
-      data: {
-        storageStatus: "available",
-        storageCheckedAt: expect.any(Date),
-        storageMissingAt: null,
-      },
+      ],
+      missingIds: [],
+      checkedAt: expect.any(Date),
     });
     expect(completeRestoreReconciliationRun).toHaveBeenCalledWith({
       backgroundJobId: "job-1",
@@ -360,7 +363,6 @@ describe("restore reconciliation worker handler", () => {
 
   it("marks missing originals and restores available status when bytes exist again", async () => {
     const filesRoot = createTempFilesRoot();
-    const updateMany = vi.fn(async () => ({ count: 1 }));
     await mkdir(path.join(filesRoot, "files", "member"), {
       recursive: true,
     });
@@ -412,42 +414,39 @@ describe("restore reconciliation worker handler", () => {
             return [
               {
                 id: "file-restored",
+                ownerUserId: "owner-1",
+                storageRevision: 0,
                 storageKey: "files/member/restored.txt",
               },
               {
                 id: "file-missing",
+                ownerUserId: "owner-1",
+                storageRevision: 0,
                 storageKey: "files/member/missing.txt",
               },
             ];
           },
-          updateMany,
         },
       },
     );
 
-    expect(updateMany).toHaveBeenCalledWith({
-      where: {
-        id: {
-          in: ["file-restored"],
+    expect(saveReconciledFileStatuses).toHaveBeenCalledWith({
+      files: [
+        {
+          id: "file-restored",
+          ownerUserId: "owner-1",
+          storageRevision: 0,
+          storageKey: "files/member/restored.txt",
         },
-      },
-      data: {
-        storageStatus: "available",
-        storageCheckedAt: expect.any(Date),
-        storageMissingAt: null,
-      },
-    });
-    expect(updateMany).toHaveBeenCalledWith({
-      where: {
-        id: {
-          in: ["file-missing"],
+        {
+          id: "file-missing",
+          ownerUserId: "owner-1",
+          storageRevision: 0,
+          storageKey: "files/member/missing.txt",
         },
-      },
-      data: {
-        storageStatus: "missing",
-        storageCheckedAt: expect.any(Date),
-        storageMissingAt: expect.any(Date),
-      },
+      ],
+      missingIds: ["file-missing"],
+      checkedAt: expect.any(Date),
     });
     expect(completeRestoreReconciliationRun).toHaveBeenCalledWith({
       backgroundJobId: "job-2",
@@ -472,7 +471,6 @@ describe("restore reconciliation worker handler", () => {
 
   it("does not overwrite storage status for unresolved mutation files", async () => {
     const filesRoot = createTempFilesRoot();
-    const updateMany = vi.fn(async () => ({ count: 1 }));
     await mkdir(path.join(filesRoot, "files", "member"), { recursive: true });
     await writeFile(
       path.join(filesRoot, "files", "member", "blocked.txt"),
@@ -509,11 +507,12 @@ describe("restore reconciliation worker handler", () => {
             return [
               {
                 id: "file-blocked",
+                ownerUserId: "owner-1",
+                storageRevision: 0,
                 storageKey: "files/member/blocked.txt",
               },
             ];
           },
-          updateMany,
         },
         storageMutationEntity: {
           async findMany() {
@@ -523,7 +522,11 @@ describe("restore reconciliation worker handler", () => {
       },
     );
 
-    expect(updateMany).not.toHaveBeenCalled();
+    expect(saveReconciledFileStatuses).toHaveBeenCalledWith({
+      files: [],
+      missingIds: [],
+      checkedAt: expect.any(Date),
+    });
     await rm(filesRoot, { recursive: true, force: true });
   });
 
@@ -547,7 +550,6 @@ describe("restore reconciliation worker handler", () => {
       await mkdir(path.dirname(target), { recursive: true });
       await writeFile(target, "live", "utf8");
     }
-    const updateMany = vi.fn(async () => ({ count: 0 }));
 
     await handleRestoreReconciliation(
       {
@@ -573,7 +575,7 @@ describe("restore reconciliation worker handler", () => {
         uploadStagingTtlMs: 1,
       },
       {
-        file: { findMany: async () => [], updateMany },
+        file: { findMany: async () => [] },
         mediaDerivative: {
           findMany: async () => [
             {
