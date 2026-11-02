@@ -476,6 +476,7 @@ export class SyncEngine {
         };
       }
       const issues: Issue[] = [];
+      const full = { size: Infinity, message: null as string | null };
       for (const pair of config.pairs) {
         if (this.config !== config) break;
         let result;
@@ -530,6 +531,7 @@ export class SyncEngine {
               this.deps.emit({ type: "notify", title, body }),
             current: () => this.current(pair, config.ignore),
             signal: this.halt.signal,
+            full,
           });
         } catch (error) {
           if (error instanceof SignedOutError || this.stopped) throw error;

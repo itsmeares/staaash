@@ -101,6 +101,7 @@ const rig = async (names = ["a.txt", "b.txt"]) => {
     notify: () => {},
     current: () => true,
     signal: new AbortController().signal,
+    full: { size: Infinity, message: null as string | null },
   } satisfies PairContext;
   return { ctx, start, failures, store, tree, directory, activity };
 };
@@ -108,36 +109,84 @@ const rig = async (names = ["a.txt", "b.txt"]) => {
 it.each([
   quota(),
   new ApiError(507, "Staging full", "UPLOAD_STORAGE_CAPACITY_EXCEEDED"),
-])("clears a recovered upload error in the same pass: $code", async (error) => {
-  const r = await rig();
-  r.failures.set("a.txt", [error]);
-  r.ctx.resolved.mockImplementation((rel) => {
-    expect(
-      r.store.baseEntries(r.ctx.pair.id).some((entry) => entry.rel === rel),
-    ).toBe(true);
+])("waits for the next pass while the server is full: $code", async (error) => {
+  const names = Array.from({ length: 20 }, (_, i) => `f${i + 10}.txt`);
+  const r = await rig(names);
+  const fake = r.start.getMockImplementation();
+  let full = true;
+  r.start.mockImplementation(async (input) => {
+    if (full) throw error;
+    return fake!(input);
   });
+  const first = await syncPair(r.ctx);
+  expect(r.start.mock.calls.length).toBeGreaterThan(0);
+  expect(r.start.mock.calls.length).toBeLessThanOrEqual(4);
+  expect(first.retrySoon).toBe(false);
+  expect(first.issues).toEqual([
+    expect.objectContaining({ rel: "", source: "scan", kind: "quota" }),
+  ]);
+  expect(r.ctx.resolved).not.toHaveBeenCalled();
+
+  full = false;
+  r.ctx.full = { size: Infinity, message: null };
+  const second = await syncPair(r.ctx);
+  expect(second.issues).toEqual([]);
+  expect(r.store.baseEntries(r.ctx.pair.id)).toHaveLength(names.length);
+});
+
+it("keeps uploading smaller files and downloading while the server is full", async () => {
+  const r = await rig(["small.txt"]);
+  const big = path.join(r.directory, "big.bin");
+  await writeFile(big, Buffer.alloc(10_000));
+  const old = new Date(Date.now() - 60_000);
+  await utimes(big, old, old);
+  const fake = r.start.getMockImplementation();
+  r.start.mockImplementation(async (input) => {
+    if (input.size > 100) throw quota();
+    return fake!(input);
+  });
+  const bytes = Buffer.from("from the server");
+  r.tree.set({
+    id: "down",
+    type: "file",
+    parentId: "root",
+    name: "down.txt",
+    size: bytes.length,
+    checksum: createHash("sha256").update(bytes).digest("hex"),
+    rev: 1,
+    modifiedAt: null,
+  });
+  vi.spyOn(r.ctx.api, "download").mockImplementation(async () =>
+    new Blob([bytes]).stream(),
+  );
   const result = await syncPair(r.ctx);
   expect(
-    r.start.mock.calls.filter(([input]) => input.name === "a.txt"),
-  ).toHaveLength(2);
-  expect(result.issues).toEqual([]);
-  const transfers = r.activity.filter((item) => item.rel === "a.txt");
-  expect(transfers.some((item) => item.state === "failed")).toBe(true);
-  expect(transfers.at(-1)?.state).toBe("done");
-  expect(r.ctx.resolved).toHaveBeenCalledWith("a.txt");
-  expect(await readFile(path.join(r.directory, "a.txt"), "utf8")).toBe("a.txt");
+    r.start.mock.calls.filter(([input]) => input.name === "big.bin"),
+  ).toHaveLength(1);
+  expect(result.retrySoon).toBe(false);
+  expect(result.issues).toEqual([
+    expect.objectContaining({
+      rel: "",
+      kind: "quota",
+      message:
+        "Your storage on the server is full. Uploads wait until there is space.",
+    }),
+  ]);
+  const synced = r.store.baseEntries(r.ctx.pair.id).map((entry) => entry.rel);
+  expect(synced.sort()).toEqual(["down.txt", "small.txt"]);
+  expect(await readFile(path.join(r.directory, "down.txt"))).toEqual(bytes);
 });
 
 it("stops an unchanged failed plan and retries it in the next pass", async () => {
   const r = await rig(["a.txt"]);
-  r.failures.set("a.txt", [quota()]);
+  r.failures.set("a.txt", [new ApiError(500, "Server error")]);
   const first = await syncPair(r.ctx);
   expect(first.retrySoon).toBe(true);
   expect(first.issues).toEqual([
     expect.objectContaining({
       rel: "a.txt",
       source: "operation",
-      kind: "quota",
+      kind: "error",
     }),
   ]);
   expect(r.start).toHaveBeenCalledTimes(1);
@@ -149,11 +198,11 @@ it("stops an unchanged failed plan and retries it in the next pass", async () =>
 
 it("keeps another file's latest failure after one file recovers", async () => {
   const r = await rig(["a.txt", "b.txt", "c.txt"]);
-  r.failures.set("a.txt", [quota()]);
+  r.failures.set("a.txt", [new ApiError(500, "Server error")]);
   r.failures.set("b.txt", [
-    quota(),
-    new ApiError(507, "Still full"),
-    new ApiError(507, "Still full"),
+    new ApiError(500, "Server error"),
+    new ApiError(500, "Still broken"),
+    new ApiError(500, "Still broken"),
   ]);
   const result = await syncPair(r.ctx);
   expect(result.issues).toEqual([
@@ -161,7 +210,7 @@ it("keeps another file's latest failure after one file recovers", async () => {
       rel: "b.txt",
       source: "operation",
       kind: "error",
-      message: "Still full",
+      message: "Still broken",
     }),
   ]);
   expect(r.ctx.resolved).toHaveBeenCalledWith("a.txt");
