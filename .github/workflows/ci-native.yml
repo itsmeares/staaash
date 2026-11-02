@@ -39,7 +39,7 @@ jobs:
       - name: Save test image
         run: docker save "$STAAASH_TEST_IMAGE" | zstd -T0 -1 -o /tmp/staaash-test-image.tar.zst
       - name: Share test image
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: test-image-${{ inputs.arch }}
           path: /tmp/staaash-test-image.tar.zst
@@ -66,7 +66,7 @@ jobs:
         with:
           node-version: 24.22.1
           cache: true
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: test-image-${{ inputs.arch }}
           path: /tmp
@@ -86,7 +86,7 @@ jobs:
         run: node scripts/ci/stack.mjs
       - name: Save test evidence
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: test-evidence-${{ inputs.arch }}-${{ matrix.suite }}
           include-hidden-files: true
