@@ -8,11 +8,13 @@ import type {
   EngineEvent,
   EngineStatus,
   Issue,
+  SizeReading,
   SyncPair,
 } from "../shared/types";
 import type { Api } from "./api";
 import { ApiError, SignedOutError, createApi, fetchVersion } from "./api";
 import { localPath } from "./local";
+import { folderSizes } from "./folder-sizes";
 import type { SyncLog } from "./log";
 import { createIgnore } from "./names";
 import { syncPair } from "./pair-sync";
@@ -34,6 +36,15 @@ const POLL_MS = 60_000;
 const FULL_PASS_MS = 10 * 60_000;
 const DEBOUNCE_MS = 1500;
 const RETRY_SOON_MS = 5000;
+
+const sizeKey = (config: EngineConfig, pair: SyncPair) =>
+  JSON.stringify([
+    config.serverUrl,
+    pair.localPath,
+    pair.remoteFolderId,
+    pair.skipFolders?.map(({ id }) => id) ?? [],
+    config.ignore,
+  ]);
 
 /**
  * Keeps every pair in sync. One pass reads the server's change feed, then
@@ -65,6 +76,11 @@ export class SyncEngine {
   private failure: "offline" | "problem" | null = null;
   private signedOut = false;
   private lastSyncAt: number | null = null;
+  private sizes: Record<
+    string,
+    { server: SizeReading | null; computer: SizeReading | null }
+  > = {};
+  private sizeKeys: Record<string, string> = {};
   private notified = new Set<string>();
   private readonly uploads = new Throttle(null);
   private readonly uploadMeter = new UploadMeter(() => this.emitStatus());
@@ -105,8 +121,37 @@ export class SyncEngine {
     }
     // Also after a restart, so a pair removed while stopped is forgotten.
     const kept = config.pairs.map((pair) => pair.id);
-    await this.exclusive(() => this.store.forgetPairsExcept(kept));
+    await this.exclusive(() => {
+      if (this.config !== config) return;
+      this.store.forgetPairsExcept(kept);
+      const sizes: Record<
+        string,
+        { server: SizeReading | null; computer: SizeReading | null }
+      > = {};
+      const keys: Record<string, string> = {};
+      for (const pair of config.pairs) {
+        const key = sizeKey(config, pair);
+        keys[pair.id] = key;
+        const reading =
+          this.sizeKeys[pair.id] === key
+            ? this.sizes[pair.id]
+            : this.savedSizes(pair.id, key);
+        if (reading) sizes[pair.id] = reading;
+      }
+      this.sizes = sizes;
+      this.sizeKeys = keys;
+    });
     this.request();
+  }
+
+  private savedSizes(pairId: string, key: string) {
+    try {
+      const saved = JSON.parse(this.store.getMeta(`sizes:${pairId}`) ?? "null");
+      return saved?.key === key ? saved.readings : undefined;
+    } catch {
+      // An unreadable display cache does not affect sync.
+      return undefined;
+    }
   }
 
   /** Runs `work` after everything asked for before it has finished. */
@@ -415,7 +460,21 @@ export class SyncEngine {
     let pullAgain = false;
     try {
       await this.pull();
+      if (this.config !== config) return;
       this.failure = null;
+      for (const pair of config.pairs) {
+        const prior = this.sizes[pair.id];
+        const bytes =
+          this.store.getMeta(`gone:${pair.id}`) ||
+          !this.store.getMeta(`ready:${pair.id}`)
+            ? null
+            : folderSizes(this.tree, pair, createIgnore(config.ignore), null)
+                .server;
+        this.sizes[pair.id] = {
+          server: bytes === null ? null : { bytes, at: Date.now() },
+          computer: prior?.computer ?? null,
+        };
+      }
       const issues: Issue[] = [];
       for (const pair of config.pairs) {
         if (this.config !== config) break;
@@ -434,6 +493,28 @@ export class SyncEngine {
             downloads: this.downloads,
             trash: this.deps.trash,
             activity: (update) => this.track(update),
+            scanned: (scan) => {
+              if (this.config !== config || !this.current(pair, config.ignore))
+                return;
+              const result = folderSizes(
+                this.tree,
+                pair,
+                createIgnore(config.ignore),
+                scan,
+              );
+              this.sizes[pair.id] = {
+                server:
+                  result.server === null ||
+                  this.store.getMeta(`gone:${pair.id}`)
+                    ? null
+                    : { bytes: result.server, at: Date.now() },
+                computer:
+                  result.computer === null
+                    ? null
+                    : { bytes: result.computer, at: Date.now() },
+              };
+              this.emitStatus();
+            },
             notify: (title, body) =>
               this.deps.emit({ type: "notify", title, body }),
             current: () => this.current(pair, config.ignore),
@@ -464,7 +545,10 @@ export class SyncEngine {
                 : `Every file in ${pair.remoteLabel} is gone from the server. Delete them on this computer too?`,
           });
         }
-        if (result.pullAgain) pullAgain = true;
+        if (result.pullAgain) {
+          pullAgain = true;
+          this.sizes[pair.id] = { server: null, computer: null };
+        }
         retrySoon ||= result.retrySoon;
       }
       if (this.failure !== "offline") this.issues = issues;
@@ -476,6 +560,24 @@ export class SyncEngine {
       }
     } finally {
       this.running = false;
+      if (this.config === config) {
+        try {
+          for (const pair of config.pairs) {
+            this.store.setMeta(
+              `sizes:${pair.id}`,
+              JSON.stringify({
+                key: sizeKey(config, pair),
+                readings: this.sizes[pair.id] ?? {
+                  server: null,
+                  computer: null,
+                },
+              }),
+            );
+          }
+        } catch (error) {
+          this.deps.log("saving folder sizes", error);
+        }
+      }
     }
     this.notifyIssues();
     this.emitStatus();
@@ -595,6 +697,7 @@ export class SyncEngine {
       conflicts,
       issues: this.issues,
       lastSyncAt: this.lastSyncAt,
+      folderSizes: this.sizes,
     };
   }
 }
