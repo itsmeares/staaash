@@ -1,4 +1,4 @@
-FROM node:24.22.1-alpine AS base
+FROM node:24.22.2-alpine AS base
 RUN corepack enable
 
 # ── Install dependencies ──────────────────────────────────────────────────────
@@ -25,7 +25,7 @@ RUN pnpm run db:generate && pnpm build && \
     cp -r apps/worker/dist /deploy/worker/dist
 
 # ── Runner ────────────────────────────────────────────────────────────────────
-FROM node:24.22.1-alpine AS runner
+FROM node:24.22.2-alpine AS runner
 RUN apk add --no-cache openssl ffmpeg
 WORKDIR /app
 ENV NODE_ENV=production
