@@ -2700,13 +2700,11 @@ describe("STO-02 durable PostgreSQL protocol", () => {
     });
     expect(recovered.status).toBe("succeeded");
     expect(recovered.resultJson).toMatchObject({
-      children: [
-        {
-          ordinal: 0,
-          childId: child.mutation.id,
-          result: { ...item, status: "moved" },
-        },
-      ],
+      movedCount: 1,
+      failedCount: 0,
+      results: [{ ...item, status: "moved" }],
+      // Batch moves no longer rewrite a per-item list as they go.
+      children: [],
     });
   });
 

@@ -134,6 +134,29 @@ describe("batch move route", () => {
     );
   });
 
+  it("accepts a select-all of a large folder and rejects an oversized body", async () => {
+    const items = Array.from({ length: 100_000 }, (_, i) => ({
+      id: `file-${i}`,
+      kind: "file",
+    }));
+    const accepted = await app.request(
+      request({ destinationFolderId: "folder-destination", items }),
+    );
+    expect(accepted.status).toBe(202);
+    expect(mocks.prepare.mock.calls[0]![0].intentJson.items).toHaveLength(
+      100_000,
+    );
+
+    const rejected = await app.request(
+      request({
+        destinationFolderId: "folder-destination",
+        items: [{ id: "x".repeat(17 * 1024 * 1024), kind: "file" }],
+      }),
+    );
+    expect(rejected.status).toBe(413);
+    expect(mocks.prepare).toHaveBeenCalledTimes(1);
+  });
+
   it("lists only the signed-in owner's recoverable move state", async () => {
     mocks.listRecent.mockResolvedValue([
       {

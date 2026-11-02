@@ -66,6 +66,24 @@ import { readStorageIdempotencyKey } from "@/server/storage-idempotency";
 import { pairUploadRequestItems, parseUploadManifest } from "@/server/uploads";
 
 const user = [requireUser];
+// Select all can send every ID in a folder, so a whole-selection action is
+// bounded by body size, not item count. 16 MiB is several hundred thousand IDs.
+const selection = [
+  requireUser,
+  bodyLimit({
+    maxSize: 16 * 1024 * 1024,
+    onError: () => {
+      throw httpError(
+        413,
+        "SELECTION_TOO_LARGE",
+        "Too many items selected. Use the folder instead.",
+      );
+    },
+  }),
+];
+const selectionTooLarge = {
+  413: { description: "Too many items in one request." },
+};
 const mutation = [requireUser, storageMutation()];
 
 const FileParams = z.object({ fileId: z.string() });
@@ -348,11 +366,12 @@ const batchMove = createRoute({
   tags: ["Files"],
   summary:
     "Move many files and folders at once. Runs in the background; poll the operation.",
-  middleware: user,
+  middleware: selection,
   request: { body: jsonBody(batchMoveRequestSchema) },
   responses: {
     200: json(BatchMoveOperationSchema, "Already finished."),
     202: json(BatchMoveOperationSchema, "Queued or running."),
+    ...selectionTooLarge,
     ...errorResponses,
   },
 });
@@ -409,15 +428,16 @@ const createArchive = createRoute({
   path: "/api/files/archives",
   tags: ["Archives"],
   summary: "Start building a zip of files and folders.",
-  middleware: user,
+  middleware: selection,
   request: {
-    body: jsonBody(z.object({ ids: z.array(z.string()).min(1).max(500) })),
+    body: jsonBody(z.object({ ids: z.array(z.string()).min(1) })),
   },
   responses: {
     200: json(
       z.object({ archiveId: z.string(), status: ArchiveStatus }),
       "Queued, or already built.",
     ),
+    ...selectionTooLarge,
     ...errorResponses,
   },
 });

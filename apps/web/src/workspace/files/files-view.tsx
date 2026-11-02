@@ -111,7 +111,7 @@ import {
 import { ShareDialog } from "./share-dialog";
 import { FolderColorPicker } from "@/components/file-list/folder-color-picker";
 import { NewFolderRow, NewFolderSheet } from "./new-folder-row";
-import { showUndo } from "../undo";
+import { moveTrash, showUndo } from "../undo";
 import { useTransferContext } from "../transfer-context";
 import { useCoarsePointer } from "../use-coarse-pointer";
 import type { ShareLinkSummary as ServerShareLinkSummary } from "@/server/sharing";
@@ -812,26 +812,6 @@ export function FilesView({
     startTransition(() => void refresh());
   };
 
-  const moveToTrash = async (id: string, kind: "folder" | "file") => {
-    const endpoint =
-      kind === "folder"
-        ? `/api/files/folders/${id}/trash`
-        : `/api/files/files/${id}/trash`;
-    const logicalAction = `trash:${kind}:${id}`;
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Idempotency-Key": getStorageMutationKey(logicalAction),
-      },
-    });
-    finishStorageMutationKey(logicalAction, res);
-    if (res.ok || res.status === 404) return;
-
-    const data = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(data.error ?? `Trash failed (${res.status})`);
-  };
-
   const offerUndo = (items: { id: string; kind: "folder" | "file" }[]) =>
     showUndo({
       items,
@@ -845,50 +825,17 @@ export function FilesView({
       },
     });
 
-  const trashItem = async (id: string, kind: "folder" | "file") => {
-    setTrashedIds((prev) => {
-      const next = new Set(prev);
-      next.add(id);
-      return next;
-    });
-    try {
-      await moveToTrash(id, kind);
-      startTransition(() => void refresh());
-      offerUndo([{ id, kind }]);
-    } catch (err) {
-      setTrashedIds((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-      toast.error(
-        err instanceof Error ? err.message : "Failed to move to trash",
-      );
-    }
-  };
-
-  const handleTrashSelected = async () => {
-    const items = allItems.filter((i) => selectedIds.has(i.id));
-    if (items.length === 0) {
-      selection.update(new Set());
-      return;
-    }
-    selection.update(new Set());
+  const trashItems = async (items: BatchMoveItem[]) => {
     setTrashedIds((prev) => {
       const next = new Set(prev);
       for (const item of items) next.add(item.id);
       return next;
     });
-    const moved: typeof items = [];
-    const failedIds = new Set<string>();
-    for (const item of items) {
-      try {
-        await moveToTrash(item.id, item.kind);
-        moved.push(item);
-      } catch {
-        failedIds.add(item.id);
-      }
-    }
+    const moved = await moveTrash(items, "trash");
+    const movedIds = new Set(moved.map((item) => item.id));
+    const failedIds = new Set(
+      items.filter((item) => !movedIds.has(item.id)).map((item) => item.id),
+    );
     if (failedIds.size > 0) {
       setTrashedIds((prev) => {
         const next = new Set(prev);
@@ -901,6 +848,15 @@ export function FilesView({
       startTransition(() => void refresh());
       offerUndo(moved.map(({ id, kind }) => ({ id, kind })));
     }
+  };
+
+  const trashItem = (id: string, kind: "folder" | "file") =>
+    trashItems([{ id, kind }]);
+
+  const handleTrashSelected = async () => {
+    const items = allItems.filter((i) => selectedIds.has(i.id));
+    selection.update(new Set());
+    if (items.length > 0) await trashItems(items);
   };
 
   const finishPasteMove = (

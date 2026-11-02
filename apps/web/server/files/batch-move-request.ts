@@ -19,8 +19,7 @@ export const batchMoveRequestSchema = z.object({
         kind: z.enum(["file", "folder"]),
       }),
     )
-    .min(1)
-    .max(500),
+    .min(1),
   source: z.enum(["direct", "paste"]).default("direct"),
 });
 

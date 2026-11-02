@@ -1333,6 +1333,10 @@ const recoverStorageMutationParentInternal = async ({
     typeof intent.destinationFolderId === "string" &&
     Array.isArray(intent.items)
   ) {
+    // Results are written once at the end: rewriting a growing list after
+    // every item made large moves quadratic. A restart still skips moved
+    // items through their child idempotency key, and a failed item changed
+    // nothing, so trying it again is safe.
     const results: Array<Record<string, unknown>> = [];
     for (const [ordinal, raw] of intent.items.entries()) {
       const item = raw as { id?: unknown; kind?: unknown };
@@ -1356,12 +1360,6 @@ const recoverStorageMutationParentInternal = async ({
           item: { id: item.id, kind: item.kind },
           destinationFolderId: intent.destinationFolderId,
           storagePaths,
-        });
-        await recordChild({
-          parent,
-          leaseOwner,
-          ordinal,
-          ...child,
         });
         results.push(child.result);
       } catch (error) {
@@ -1388,7 +1386,7 @@ const recoverStorageMutationParentInternal = async ({
         ) {
           throw error;
         }
-        const result = {
+        results.push({
           id: item.id,
           kind: item.kind,
           status: "failed",
@@ -1397,15 +1395,7 @@ const recoverStorageMutationParentInternal = async ({
           retryable: ["FILE_NAME_CONFLICT", "FOLDER_NAME_CONFLICT"].includes(
             code,
           ),
-        };
-        await recordChild({
-          parent,
-          leaseOwner,
-          ordinal,
-          childId: null,
-          result,
         });
-        results.push(result);
       }
     }
     const movedCount = results.filter((item) => item.status === "moved").length;
