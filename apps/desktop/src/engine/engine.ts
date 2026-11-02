@@ -16,7 +16,7 @@ import { ApiError, SignedOutError, createApi, fetchVersion } from "./api";
 import { localPath } from "./local";
 import { folderSizes } from "./folder-sizes";
 import type { SyncLog } from "./log";
-import { createIgnore } from "./names";
+import { createIgnore, pathKey } from "./names";
 import { syncPair } from "./pair-sync";
 import type { StorageChange } from "./remote";
 import { RemoteTree, fromSnapshot } from "./remote";
@@ -515,6 +515,17 @@ export class SyncEngine {
               };
               this.emitStatus();
             },
+            resolved: (rel) => {
+              if (this.config !== config || !this.current(pair, config.ignore))
+                return;
+              this.issues = this.issues.filter(
+                (issue) =>
+                  issue.pairId !== pair.id ||
+                  issue.source !== "operation" ||
+                  pathKey(issue.rel) !== pathKey(rel),
+              );
+              this.emitStatus();
+            },
             notify: (title, body) =>
               this.deps.emit({ type: "notify", title, body }),
             current: () => this.current(pair, config.ignore),
@@ -528,6 +539,7 @@ export class SyncEngine {
           issues.push({
             pairId: pair.id,
             rel: "",
+            source: "scan",
             kind: "error",
             message: "This folder couldn't sync.",
           });
@@ -538,6 +550,7 @@ export class SyncEngine {
           issues.push({
             pairId: pair.id,
             rel: "",
+            source: "scan",
             kind: "folder-emptied",
             message:
               result.hold.side === "local"
@@ -551,7 +564,13 @@ export class SyncEngine {
         }
         retrySoon ||= result.retrySoon;
       }
-      if (this.failure !== "offline") this.issues = issues;
+      if (
+        this.config === config &&
+        !this.stopped &&
+        !this.signedOut &&
+        this.failure !== "offline"
+      )
+        this.issues = issues;
       if (!this.failure) this.lastSyncAt = Date.now();
     } catch (error) {
       if (error instanceof SignedOutError) this.signOut();
