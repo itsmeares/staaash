@@ -187,8 +187,8 @@ test("does not add desktop controls to the ordinary web drive", async ({
     return { release, promise };
   };
   let upload = hold();
-  await page.route("**/api/uploads/sessions", async (route) => {
-    await upload.promise;
+  await page.route("**/api/files/files", async (route) => {
+    if (route.request().method() === "POST") await upload.promise;
     await route.continue();
   });
   const choose = async (name: string) => {
