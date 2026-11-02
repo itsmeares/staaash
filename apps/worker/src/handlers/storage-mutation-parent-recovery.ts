@@ -236,23 +236,71 @@ const buildFolderKeyResolver = async (
   return { descendantIds, folderMap, resolve };
 };
 
-const resolveExistingBatchChild = async ({
+const batchChildSelect = {
+  id: true,
+  parentId: true,
+  kind: true,
+  ownerUserId: true,
+  requestHash: true,
+  status: true,
+  idempotencyKey: true,
+  completedAt: true,
+} satisfies Prisma.StorageMutationSelect;
+
+type BatchChild = Prisma.StorageMutationGetPayload<{
+  select: typeof batchChildSelect;
+}>;
+
+const batchChildKey = (parent: ClaimedStorageMutation, ordinal: number) =>
+  `${parent.idempotencyKey}:${ordinal}`;
+
+// A restart replays every item, so existing children are read in one query
+// instead of one lookup per item.
+const readBatchChildren = async (
+  parent: ClaimedStorageMutation,
+  itemCount: number,
+) => {
+  const children = await getPrisma().storageMutation.findMany({
+    where: {
+      idempotencyKey: {
+        in: Array.from({ length: itemCount }, (_, ordinal) =>
+          batchChildKey(parent, ordinal),
+        ),
+      },
+    },
+    select: batchChildSelect,
+  });
+  // Children run one at a time, so only the last one to finish can have
+  // crashed before its Recent entry was written.
+  const latest = children.reduce<BatchChild | undefined>(
+    (last, child) =>
+      child.completedAt &&
+      (!last?.completedAt || child.completedAt > last.completedAt)
+        ? child
+        : last,
+    undefined,
+  );
+  return {
+    byKey: new Map(children.map((child) => [child.idempotencyKey, child])),
+    latestId: latest?.id,
+  };
+};
+
+type BatchChildren = Awaited<ReturnType<typeof readBatchChildren>>;
+
+const resolveExistingBatchChild = ({
   parent,
-  childKey,
+  existing,
   expectedKind,
   requestHashPayload,
   item,
 }: {
   parent: ClaimedStorageMutation;
-  childKey: string;
+  existing: BatchChild;
   expectedKind: "file_move" | "folder_move";
   requestHashPayload: unknown;
   item: { id: string; kind: "file" | "folder" };
 }) => {
-  const existing = await getPrisma().storageMutation.findUnique({
-    where: { idempotencyKey: childKey },
-  });
-  if (!existing) return null;
   const identityMatches = [
     existing.parentId === parent.id,
     existing.kind === expectedKind,
@@ -638,6 +686,7 @@ const runBatchMoveChild = async ({
   item,
   destinationFolderId,
   storagePaths,
+  children,
 }: {
   parent: ClaimedStorageMutation;
   leaseOwner: string;
@@ -645,25 +694,30 @@ const runBatchMoveChild = async ({
   item: { id: string; kind: "file" | "folder" };
   destinationFolderId: string;
   storagePaths: WorkerStoragePaths;
+  children: BatchChildren;
 }) => {
-  const childKey = `${parent.idempotencyKey}:${ordinal}`;
+  const childKey = batchChildKey(parent, ordinal);
   const expectedKind = item.kind === "file" ? "file_move" : "folder_move";
   const requestHashPayload = buildStorageMutationChildRequestHashPayload({
     operation: "batch_move",
     item,
     destinationFolderId,
   });
-  const replay = await resolveExistingBatchChild({
-    parent,
-    childKey,
-    expectedKind,
-    requestHashPayload,
-    item,
-  });
-  if (replay) {
-    await recordBatchMoveAccess(parent.ownerUserId, item);
+  const existing = children.byKey.get(childKey);
+  if (existing) {
+    const replay = resolveExistingBatchChild({
+      parent,
+      existing,
+      expectedKind,
+      requestHashPayload,
+      item,
+    });
+    if (existing.id === children.latestId) {
+      await recordBatchMoveAccess(parent.ownerUserId, item);
+    }
     return replay;
   }
+  await renewParent(parent, leaseOwner);
   const destination = await requireBatchDestination(
     destinationFolderId,
     parent.ownerUserId,
@@ -1338,6 +1392,7 @@ const recoverStorageMutationParentInternal = async ({
     // items through their child idempotency key, and a failed item changed
     // nothing, so trying it again is safe.
     const results: Array<Record<string, unknown>> = [];
+    const children = await readBatchChildren(parent, intent.items.length);
     for (const [ordinal, raw] of intent.items.entries()) {
       const item = raw as { id?: unknown; kind?: unknown };
       if (
@@ -1351,7 +1406,6 @@ const recoverStorageMutationParentInternal = async ({
         results.push(prior.result);
         continue;
       }
-      await renewParent(parent, leaseOwner);
       try {
         const child = await runBatchMoveChild({
           parent,
@@ -1360,6 +1414,7 @@ const recoverStorageMutationParentInternal = async ({
           item: { id: item.id, kind: item.kind },
           destinationFolderId: intent.destinationFolderId,
           storagePaths,
+          children,
         });
         results.push(child.result);
       } catch (error) {

@@ -2586,6 +2586,27 @@ describe("STO-02 durable PostgreSQL protocol", () => {
     ).resolves.toBe(1_000);
   });
 
+  it("prepares a parent that guards more entities than PostgreSQL bind parameters", async () => {
+    const user = await createUser();
+    // A pair per entity would need 66,000 parameters; the limit is 65,535.
+    const entities = Array.from({ length: 33_000 }, (_, index) => ({
+      entityType: "file" as const,
+      entityId: `missing-${index}`,
+      preRevision: -1,
+      postRevision: -1,
+    }));
+    const parent = await prepareStorageMutationParent({
+      kind: "batch_move",
+      ownerUserId: user.id,
+      idempotencyKey: randomUUID(),
+      requestHash: randomUUID(),
+      intentJson: { version: 1, metadataOperations: [] },
+      entities,
+    });
+    expect(parent.mutation.status).toBe("prepared");
+    expect(parent.mutation.entities).toHaveLength(33_000);
+  });
+
   it("propagates a recovery-required child to its parent and retains owner lock", async () => {
     const user = await createUser();
     const parentIntent = {
@@ -2706,6 +2727,86 @@ describe("STO-02 durable PostgreSQL protocol", () => {
       // Batch moves no longer rewrite a per-item list as they go.
       children: [],
     });
+  });
+
+  it("replays finished batch children and repairs Recent only for the last one", async () => {
+    const user = await createUser();
+    const root = await db.folder.create({
+      data: { ownerUserId: user.id, name: "Files", isFilesRoot: true },
+    });
+    const files = await Promise.all(
+      ["first.txt", "last.txt"].map((originalName) =>
+        db.file.create({
+          data: {
+            ownerUserId: user.id,
+            folderId: root.id,
+            originalName,
+            storageKey: `files/${user.storageId}/${originalName}`,
+            mimeType: "text/plain",
+            sizeBytes: 1,
+          },
+        }),
+      ),
+    );
+    const items = files.map((file) => ({ id: file.id, kind: "file" as const }));
+    const destinationFolderId = root.id;
+    const parent = await prepareStorageMutationParent({
+      kind: "batch_move",
+      ownerUserId: user.id,
+      idempotencyKey: `batch:${randomUUID()}`,
+      requestHash: "parent-hash",
+      intentJson: {
+        version: 1,
+        metadataOperations: [],
+        destinationFolderId,
+        items,
+      },
+    });
+    for (const [ordinal, item] of items.entries()) {
+      const child = await prepareStorageMutation({
+        parentId: parent.mutation.id,
+        kind: "file_move",
+        ownerUserId: user.id,
+        idempotencyKey: `${parent.mutation.idempotencyKey}:${ordinal}`,
+        requestHash: hashWorkerStorageRequest(
+          buildStorageMutationChildRequestHashPayload({
+            operation: "batch_move",
+            item,
+            destinationFolderId,
+          }),
+        ),
+        intentJson: intent([]) as unknown as Prisma.InputJsonValue,
+        resourceKeys: [],
+        steps: [],
+      });
+      await db.storageMutation.update({
+        where: { id: child.mutation.id },
+        data: {
+          status: "succeeded",
+          completedAt: new Date(Date.now() + ordinal * 1000),
+          resultJson: { ...item, status: "moved" },
+        },
+      });
+    }
+
+    await recoverStorageMutations({
+      storagePaths: storagePaths(),
+      leaseOwner: `parent-recovery:${randomUUID()}`,
+    });
+
+    const recovered = await db.storageMutation.findUniqueOrThrow({
+      where: { id: parent.mutation.id },
+    });
+    expect(recovered.status).toBe("succeeded");
+    expect(recovered.resultJson).toMatchObject({
+      movedCount: 2,
+      results: items.map((item) => ({ ...item, status: "moved" })),
+    });
+    const recent = await db.recentFile.findMany({
+      where: { userId: user.id },
+      select: { fileId: true },
+    });
+    expect(recent).toEqual([{ fileId: files[1]!.id }]);
   });
 
   it("recovers a complete folder and file batch without touching unrelated branches", async () => {
