@@ -76,6 +76,14 @@ it("does not present an incomplete local scan as a complete total", () => {
       excluded: [{ rel: "skip/unreadable", reason: "error", unreadable: true }],
     }),
   ).toEqual({ server: 5, computer: 8 });
+  expect(
+    folderSizes(tree, pair, createIgnore([]), {
+      ...scan,
+      excluded: [
+        { rel: "nested/unfinished.tmp", reason: null, unreadable: true },
+      ],
+    }),
+  ).toEqual({ server: 5, computer: 8 });
   tree.removeSubtree("skip");
   expect(folderSizes(tree, pair, createIgnore([]), scan).computer).toBeNull();
 });

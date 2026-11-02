@@ -1,6 +1,6 @@
 import type { SyncPair } from "../shared/types";
 import type { LocalScan } from "./local";
-import { pathKey } from "./names";
+import { baseName, pathKey } from "./names";
 import type { RemoteTree } from "./remote";
 
 export const folderSizes = (
@@ -35,7 +35,10 @@ export const folderSizes = (
     (id) => !ignored.some(({ item }) => item.id === id),
   );
   const incomplete = scan?.excluded.some(
-    (entry) => entry.unreadable && !isExcluded(entry.rel),
+    (entry) =>
+      entry.unreadable &&
+      !ignore(baseName(entry.rel)) &&
+      !isExcluded(entry.rel),
   );
   const computer =
     !scan || missingSkip || incomplete

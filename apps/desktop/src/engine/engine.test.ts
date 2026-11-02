@@ -119,6 +119,80 @@ it("reports both sides and keeps the last readings after a paused restart", asyn
   });
 });
 
+it("does not reuse readings from another server", async () => {
+  const pair = { ...pairOf("a"), mode: "download" as const };
+  writeFileSync(path.join(pair.localPath, "local.txt"), "hello");
+  await syncOnce([pair]);
+  expect(engine.status().folderSizes.a?.computer?.bytes).toBe(5);
+  await engine.configure({
+    ...configOf([pair]),
+    serverUrl: `${serverUrl}/other`,
+    paused: true,
+  });
+  expect(engine.status().folderSizes.a).toBeUndefined();
+  await engine.stop();
+  engine = new SyncEngine(
+    {
+      emit: () => {},
+      trash: async () => {},
+      watch: async () => () => {},
+      log: () => {},
+    },
+    path.join(root, "data"),
+  );
+  await engine.configure({
+    ...configOf([pair]),
+    serverUrl: `${serverUrl}/other`,
+    paused: true,
+  });
+  expect(engine.status().folderSizes.a).toBeUndefined();
+});
+
+it("keeps the latest readings when paused during a pass", async () => {
+  const pair = pairOf("a");
+  let scanned!: () => void;
+  let finish!: () => void;
+  const ready = new Promise<void>((resolve) => {
+    scanned = resolve;
+  });
+  const held = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  vi.spyOn(pairSync, "syncPair").mockImplementation(async (ctx) => {
+    ctx.scanned({
+      entries: [{ rel: "local", type: "file", size: 7, mtimeMs: 0, ino: "1" }],
+      excluded: [],
+    });
+    scanned();
+    await held;
+    return { issues: [], hold: null, pullAgain: false, retrySoon: false };
+  });
+  await engine.configure(configOf([pair]));
+  const pass = engine.syncNow();
+  await ready;
+  const pause = engine.configure({ ...configOf([pair]), paused: true });
+  finish();
+  await pass;
+  await pause;
+  expect(engine.status().folderSizes.a?.computer?.bytes).toBe(7);
+});
+
+it("does not show pre-transfer readings while a fresh server read is needed", async () => {
+  const pair = pairOf("a");
+  vi.spyOn(pairSync, "syncPair").mockImplementation(async (ctx) => {
+    ctx.scanned({
+      entries: [{ rel: "local", type: "file", size: 7, mtimeMs: 0, ino: "1" }],
+      excluded: [],
+    });
+    return { issues: [], hold: null, pullAgain: true, retrySoon: false };
+  });
+  await syncOnce([pair]);
+  expect(engine.status().folderSizes.a).toEqual({
+    server: null,
+    computer: null,
+  });
+});
+
 beforeEach(async () => {
   root = mkdtempSync(path.join(os.tmpdir(), "staaash-engine-"));
   mkdirSync(path.join(root, "data"));
