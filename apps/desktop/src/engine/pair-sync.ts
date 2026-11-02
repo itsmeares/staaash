@@ -45,6 +45,12 @@ export type PairContext = {
   current: () => boolean;
   /** Aborts transfers when the engine stops; the next run resumes them. */
   signal: AbortSignal;
+  /**
+   * The smallest upload the server refused for lack of space, shared by every
+   * pair in one pass. Quota and staging room belong to the account and the
+   * server, not to one folder, and a bigger file cannot fit either.
+   */
+  full: { size: number; message: string | null };
 };
 
 export type PairResult = {
@@ -61,6 +67,22 @@ const MAX_ROUNDS = 20;
 const SETTLE_MS = 2000;
 
 const hashes = new Map<string, { entry: LocalEntry; checksum: string }>();
+
+const serverFull = new Map([
+  [
+    "USER_STORAGE_QUOTA_EXCEEDED",
+    "Your storage on the server is full. Uploads wait until there is space.",
+  ],
+  [
+    "UPLOAD_STORAGE_CAPACITY_EXCEEDED",
+    "The server is out of space. Uploads wait until there is room.",
+  ],
+]);
+
+const uploadSize = (action: Action) =>
+  action.kind === "upload" || action.kind === "keep-mine"
+    ? action.local.size
+    : null;
 
 const diskMessage = (error: NodeJS.ErrnoException) =>
   error.code === "ENOSPC"
@@ -159,6 +181,15 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
     );
     if (!seen) issues.push({ pairId: pair.id, rel, source, kind, message });
   };
+  // One "server full" issue per folder, with the latest reason.
+  const serverFullIssue = (message: string) => {
+    issues = issues.filter((each) => each.rel !== "" || each.kind !== "quota");
+    issue("", "quota", message, "scan");
+  };
+  const waits = (action: Action) => {
+    const size = uploadSize(action);
+    return size !== null && size >= ctx.full.size;
+  };
   let pullAgain = false;
 
   const rootStats = await stat(pair.localPath).catch(() => null);
@@ -217,7 +248,11 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
    */
   // One branch per server refusal the engine retries.
   // fallow-ignore-next-line complexity
-  const tolerate = (error: unknown, rel: string) => {
+  const tolerate = (
+    error: unknown,
+    rel: string,
+    size: number | null = null,
+  ) => {
     const local = error as NodeJS.ErrnoException;
     if (typeof local.syscall === "string") {
       issue(rel, "error", diskMessage(local));
@@ -238,8 +273,11 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
       pullAgain = true;
       return;
     }
-    if (error.code === "USER_STORAGE_QUOTA_EXCEEDED") {
-      issue(rel, "quota", "Your storage on the server is full.");
+    const full = serverFull.get(error.code ?? "");
+    if (full) {
+      if (size !== null) ctx.full.size = Math.min(ctx.full.size, size);
+      ctx.full.message = full;
+      serverFullIssue(full);
       return;
     }
     if (error.status === 404 || error.status === 409) {
@@ -543,14 +581,14 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
 
   const run = async (action: Action) => {
     const rel = "rel" in action ? action.rel : action.from;
-    if (!ctx.current()) return;
+    if (!ctx.current() || waits(action)) return;
     try {
       const handler = handlers[action.kind] as Handler<Action["kind"]>;
       if (await handler(action as never, rel, localPath(pair.localPath, rel))) {
         resolved(rel);
       }
     } catch (error) {
-      tolerate(error, rel);
+      tolerate(error, rel, uploadSize(action));
     } finally {
       for (const activity of open.filter((each) => each.rel === rel)) {
         ctx.activity({ ...activity, state: "failed", at: Date.now() });
@@ -638,13 +676,18 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
         retrySoon = true;
       }
     }
-    if (result.actions.length === 0) {
+    // Uploads the server has no room for wait for the next pass, not a quick retry.
+    const actions = result.actions.filter((action) => !waits(action));
+    if (actions.length < result.actions.length && ctx.full.message) {
+      serverFullIssue(ctx.full.message);
+    }
+    if (actions.length === 0) {
       if (result.needsHash.length === 0) break;
       continue;
     }
     // The same plan twice means the rest is waiting on something.
     const signature = JSON.stringify(
-      result.actions.map((action) => [
+      actions.map((action) => [
         action.kind,
         "rel" in action ? action.rel : action.from,
       ]),
@@ -654,8 +697,11 @@ export const syncPair = async (ctx: PairContext): Promise<PairResult> => {
       break;
     }
     previousPlan = signature;
-    const sorted = [...result.actions].sort(
-      (a, b) => order[a.kind] - order[b.kind],
+    // Smallest uploads first, so a refusal for space holds back only bigger files.
+    const sorted = [...actions].sort(
+      (a, b) =>
+        order[a.kind] - order[b.kind] ||
+        (uploadSize(a) ?? 0) - (uploadSize(b) ?? 0),
     );
     // Folders first, top-down; transfers in parallel; deletions last.
     for (const stage of [0, 1, 2, 3, 4, 5]) {

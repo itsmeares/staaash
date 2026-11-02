@@ -515,6 +515,44 @@ describe.skipIf(!origin)("sync against a real server", () => {
     );
   });
 
+  it("waits while the account is full, then uploads once there is space", async () => {
+    // Paused until the limit is set, so no pass uploads the files first.
+    const r = await rig("two-way", undefined, { paused: true });
+    const names = ["a", "b", "c", "d", "e", "f", "g", "h"].map(
+      (name) => `${name}.txt`,
+    );
+    for (const name of names) await writeOld(r.at(name), name);
+    const owner = (
+      (await (await web("/api/auth/session")).json()) as {
+        user: { id: string };
+      }
+    ).user.id;
+    const limit = (limitBytes: string | null) =>
+      web(`/api/admin/users/${owner}/storage-limit`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ limitBytes }),
+      });
+    await limit("1");
+    try {
+      await r.configure({ paused: false });
+      await r.engine.syncNow();
+      const status = r.engine.status();
+      const tried = status.activity.filter((each) => each.direction === "up");
+      expect(tried.length).toBeGreaterThan(0);
+      expect(tried.length).toBeLessThanOrEqual(4);
+      expect(status.issues).toEqual([
+        expect.objectContaining({ rel: "", kind: "quota" }),
+      ]);
+      expect(r.notes).toEqual(["Sync needs you"]);
+    } finally {
+      await limit(null);
+    }
+    await r.sync();
+    expect([...(await r.remote()).keys()].sort()).toEqual(names);
+    expect(r.engine.status().issues).toEqual([]);
+  });
+
   it("moves a whole folder locally when the server renames it", async () => {
     const r = await rig();
     await writeOld(r.at("old/one.txt"), "1");
