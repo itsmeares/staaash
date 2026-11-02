@@ -16,6 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { entryQuery } from "@/src/queries";
 import { ShareFolderList } from "./share-folder-list";
 import { SharePasswordForm } from "./share-password-form";
+import { Transfers } from "@/src/workspace/transfers";
 import type { ShareErrorCode } from "@/server/sharing/errors";
 import type {
   PublicShareView,
@@ -87,6 +88,9 @@ function ShareShell({
         <span className="ms-auto text-meta text-muted-foreground">
           Shared with you
         </span>
+        {typeof window !== "undefined" && window.staaashDownloads ? (
+          <Transfers />
+        ) : null}
       </header>
       <main
         className={cn(

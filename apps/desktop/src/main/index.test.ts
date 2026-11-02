@@ -72,6 +72,8 @@ vi.mock("./tray", () => ({
 }));
 vi.mock("./updates", () => ({ startUpdates: vi.fn() }));
 vi.mock("./windows", () => ({
+  browserDownloads: { activeCount: 0, register: vi.fn(), reset: vi.fn() },
+  resetAppWindow: vi.fn(),
   openMainWindow: vi.fn(),
   takeCommand: vi.fn(),
   localWindows: () => [{ webContents: { send: mocks.publish } }],

@@ -213,6 +213,9 @@ importers:
         specifier: ^2.6.0
         version: 2.6.0
     devDependencies:
+      '@staaash/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@staaash/ui':
         specifier: workspace:*
         version: link:../../packages/ui

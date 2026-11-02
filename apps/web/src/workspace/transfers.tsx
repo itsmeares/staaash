@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { Check, X } from "lucide-react";
+import { Check, CircleAlert, Download, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { ItemIcon } from "@/components/file-list/file-list";
@@ -23,6 +23,12 @@ import {
   type UploadingFile,
 } from "./transfer-context";
 import { useMediaQuery } from "./use-media-query";
+import {
+  DesktopDownloadGroups,
+  downloadAction,
+  summarizeDownloads,
+  useDesktopDownloads,
+} from "./desktop-downloads";
 
 const SESSION_PREFIX = "staaash:upload-session:";
 
@@ -219,13 +225,9 @@ function announceUploaded(done: UploadingFile[], open: (href: string) => void) {
   });
 }
 
-/** Says when every upload of a batch is done, then clears them away. */
-function useFinishedUploads(
-  uploads: UploadingFile[],
-  dismiss: (key: string) => void,
-) {
+/** Announces a finished batch; the provider owns the rows' lifetime. */
+function useFinishedUploads(uploads: UploadingFile[]) {
   const navigate = useNavigate();
-  const [justDone, setJustDone] = useState(false);
   const busy = uploads.some((upload) => upload.status === "uploading");
   const failed = uploads.some((upload) => upload.status === "error");
   const done = uploads.filter((upload) => upload.status === "done");
@@ -239,17 +241,11 @@ function useFinishedUploads(
     if (!wasBusy.current || failed || done.length === 0) return;
     wasBusy.current = false;
     announceUploaded(done, (href) => void navigate({ href: href }));
-    setJustDone(true);
-    const timer = window.setTimeout(() => {
-      setJustDone(false);
-      for (const upload of done) dismiss(upload.clientKey);
-    }, 3000);
-    return () => window.clearTimeout(timer);
     // Runs when the batch settles, not on every progress tick.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busy, failed, done.length]);
 
-  return justDone;
+  return done.length > 0;
 }
 
 /** A zip that's ready downloads on its own and leaves the list soon after. */
@@ -310,12 +306,24 @@ type Summary = ReturnType<typeof summarize>;
 function RingIcon({
   summary,
   justDone,
+  downloads,
+  needsYou,
 }: {
   summary: Summary;
   justDone: boolean;
+  downloads: ReturnType<typeof summarizeDownloads>;
+  needsYou: boolean;
 }) {
   if (summary.uploading.length > 0)
     return <ProgressRing value={summary.percent} />;
+  if (downloads.active.length > 0)
+    return downloads.percent === null ? (
+      <Download aria-hidden />
+    ) : (
+      <ProgressRing value={downloads.percent} />
+    );
+  if (needsYou) return <CircleAlert aria-hidden />;
+  if (downloads.completed.length > 0) return <Check aria-hidden />;
   if (justDone)
     return <Check aria-hidden className="text-success-foreground" />;
   return <Spinner className="size-4" />;
@@ -426,11 +434,19 @@ function BatchHeader({ summary }: { summary: Summary }) {
   );
 }
 
-function DoneFooter({ done, onClear }: { done: number; onClear: () => void }) {
-  if (done === 0) return null;
+function DoneFooter({
+  done,
+  clearable,
+  onClear,
+}: {
+  done: number;
+  clearable: boolean;
+  onClear: () => void;
+}) {
+  if (done === 0 && !clearable) return null;
   return (
     <div className="flex items-center justify-between border-t border-border pt-2 text-meta text-muted-foreground">
-      <span>{done} done</span>
+      <span>{done > 0 ? `${done} done` : "Finished downloads"}</span>
       <Button size="xs" variant="ghost" onClick={onClear}>
         Clear
       </Button>
@@ -443,14 +459,20 @@ function TransfersButton({
   justDone,
   needsYou,
   zip,
+  downloads,
 }: {
   summary: Summary;
   justDone: boolean;
   needsYou: boolean;
   zip: boolean;
+  downloads: ReturnType<typeof summarizeDownloads>;
 }) {
-  const label =
-    summary.uploading.length > 0 ? `${summary.percent}%` : zip ? "Zip" : "";
+  const label = (() => {
+    if (summary.uploading.length > 0) return `${summary.percent}%`;
+    if (downloads.active.length === 0) return zip ? "Zip" : "";
+    if (downloads.percent === null) return "Downloading";
+    return `${downloads.percent}%`;
+  })();
   return (
     <PopoverTrigger
       render={
@@ -462,7 +484,12 @@ function TransfersButton({
         />
       }
     >
-      <RingIcon justDone={justDone} summary={summary} />
+      <RingIcon
+        downloads={downloads}
+        justDone={justDone}
+        needsYou={needsYou}
+        summary={summary}
+      />
       {label ? <span className="tabular-nums">{label}</span> : null}
       {needsYou ? (
         <span
@@ -529,24 +556,37 @@ function useUnfinishedUploads(uploads: UploadingFile[]) {
  * needs you (failed or unfinished uploads), and zips being packed.
  */
 export function Transfers() {
+  const desktop = useDesktopDownloads();
+  const downloads = summarizeDownloads(desktop.downloads);
   const { uploadingFiles, activeDownload, dismissUpload } =
     useTransferContext();
   const phone = useMediaQuery("(max-width: 39.99rem)");
-  const justDone = useFinishedUploads(uploadingFiles, dismissUpload);
+  const justDone = useFinishedUploads(uploadingFiles);
   useReadyArchive();
   const { unfinished, forget } = useUnfinishedUploads(uploadingFiles);
   const summary = summarize(uploadingFiles);
-  const needsYou = summary.failed.length + unfinished.length > 0;
-  const idle = uploadingFiles.length === 0 && !activeDownload;
-  if (idle && !needsYou && !justDone) return null;
+  const needsYou =
+    summary.failed.length + unfinished.length + downloads.failed.length > 0;
+  const visible = [
+    uploadingFiles.length,
+    activeDownload,
+    desktop.downloads.length,
+    needsYou,
+    justDone,
+  ].some(Boolean);
+  if (!visible) return null;
+  const control = desktop.api
+    ? { open: desktop.open, onOpenChange: desktop.setOpen }
+    : {};
 
   return (
-    <Popover>
+    <Popover {...control}>
       <TransfersButton
         justDone={justDone}
         needsYou={needsYou}
         summary={summary}
         zip={activeDownload !== null}
+        downloads={downloads}
       />
       <PopoverPopup
         align="end"
@@ -555,6 +595,19 @@ export function Transfers() {
         side="bottom"
       >
         <div className="grid gap-1">
+          {desktop.api ? (
+            <div className="flex items-center justify-between gap-2 pb-1">
+              <p className="m-0 text-body font-medium">Transfers</p>
+              <Button
+                aria-label="Close transfers"
+                size="icon-xs"
+                variant="ghost-muted"
+                onClick={() => desktop.setOpen(false)}
+              >
+                <X aria-hidden />
+              </Button>
+            </div>
+          ) : null}
           <BatchHeader summary={summary} />
           <div className="grid max-h-[60dvh] gap-1 overflow-y-auto">
             <UploadGroups
@@ -567,12 +620,17 @@ export function Transfers() {
               onForget={forget}
             />
             <ZipRow />
+            {desktop.api ? (
+              <DesktopDownloadGroups api={desktop.api} summary={downloads} />
+            ) : null}
           </div>
           <DoneFooter
-            done={summary.done.length}
+            done={summary.done.length + downloads.completed.length}
+            clearable={downloads.failed.length + downloads.cancelled.length > 0}
             onClear={() => {
               for (const upload of summary.done)
                 dismissUpload(upload.clientKey);
+              if (desktop.api) void downloadAction(desktop.api.clearFinished());
             }}
           />
         </div>

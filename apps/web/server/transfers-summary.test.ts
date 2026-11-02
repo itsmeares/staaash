@@ -2,6 +2,8 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { summarize } from "@/src/workspace/transfers";
 import type { UploadingFile } from "@/src/workspace/transfer-context";
+import { summarizeDownloads } from "@/src/workspace/desktop-downloads";
+import type { BrowserDownload } from "@staaash/config/desktop-downloads";
 
 const upload = (
   status: UploadingFile["status"],
@@ -17,6 +19,39 @@ const upload = (
   progress: 0,
   transferredBytes,
   speed,
+});
+
+const download = (patch: Partial<BrowserDownload> = {}): BrowserDownload => ({
+  id: "download",
+  name: "Archive.zip",
+  mimeType: "application/zip",
+  receivedBytes: 40,
+  totalBytes: 100,
+  state: "downloading",
+  canResume: false,
+  ...patch,
+});
+
+it("keeps unknown-size downloads indeterminate instead of showing a false percent", () => {
+  const summary = summarizeDownloads([
+    download(),
+    download({ totalBytes: null, receivedBytes: 200 }),
+  ]);
+  expect(summary.active).toHaveLength(2);
+  expect(summary.percent).toBeNull();
+});
+
+it("does not let completed and failed downloads inflate active progress", () => {
+  const summary = summarizeDownloads([
+    download(),
+    download({ state: "completed", receivedBytes: 100 }),
+    download({ state: "failed", receivedBytes: 90 }),
+    download({ state: "cancelled", receivedBytes: 80 }),
+  ]);
+  expect(summary.percent).toBe(40);
+  expect(summary.completed).toHaveLength(1);
+  expect(summary.failed).toHaveLength(1);
+  expect(summary.cancelled).toHaveLength(1);
 });
 
 describe("summarize", () => {

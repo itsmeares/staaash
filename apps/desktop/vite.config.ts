@@ -16,6 +16,7 @@ export default defineConfig({
     entry: {
       "main/index": "src/main/index.ts",
       "preload/index": "src/preload/index.ts",
+      "preload/downloads": "src/preload/downloads.ts",
       "engine/index": "src/engine/index.ts",
     },
     outDir: "dist",

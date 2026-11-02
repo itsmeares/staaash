@@ -30,6 +30,10 @@
     "./media-types": {
       "types": "./dist/media-types.d.ts",
       "default": "./dist/media-types.js"
+    },
+    "./desktop-downloads": {
+      "types": "./dist/desktop-downloads.d.ts",
+      "default": "./dist/desktop-downloads.js"
     }
   },
   "types": "./dist/index.d.ts",
