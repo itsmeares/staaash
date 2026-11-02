@@ -14,7 +14,7 @@ import { Button } from "@staaash/ui/components/button";
 import { ItemTypeIcon } from "@staaash/ui/item-type-icon";
 import { getItemVisual } from "@staaash/ui/item-visuals";
 
-import { statusLine } from "../shared/status";
+import { statusLine, uploadTimeLeft } from "../shared/status";
 import type { Activity, AppState, Conflict, Issue } from "../shared/types";
 import { PauseButton } from "./pause";
 import type { Page } from "./shell";
@@ -338,6 +338,11 @@ export function ActivityPage({
   const total = running.reduce((sum, each) => sum + each.bytes, 0);
   const done = running.reduce((sum, each) => sum + each.doneBytes, 0);
   const { Icon, color, title, detail } = headline(state);
+  const uploadSpeed = state.status?.uploadSpeed;
+  const uploadEta =
+    uploadSpeed == null
+      ? ""
+      : uploadTimeLeft(state.status?.uploadRemainingBytes ?? 0, uploadSpeed);
   const folderOf = (pairId: string) => {
     const label = state.settings.pairs.find(
       (pair) => pair.id === pairId,
@@ -349,7 +354,7 @@ export function ActivityPage({
 
   return (
     <>
-      <header className="flex items-center gap-3.5 px-5 pt-4.5 pb-4">
+      <header className="flex items-center gap-3.5 px-5 pt-4.5 pb-4 max-sm:flex-wrap">
         <span
           className="grid size-10.5 shrink-0 place-items-center rounded-xl"
           style={{
@@ -373,7 +378,12 @@ export function ActivityPage({
           ) : null}
         </div>
         {/* Stacked on narrow windows, or the buttons squeeze the title. */}
-        <div className="flex shrink-0 items-center gap-2 max-sm:flex-col max-sm:items-end">
+        <div className="flex shrink-0 items-center gap-2 max-sm:w-full max-sm:justify-end">
+          {uploadSpeed != null ? (
+            <span className="min-w-0 text-meta text-muted-foreground max-sm:mr-auto sm:text-end">
+              {formatBytes(uploadSpeed)}/s{uploadEta ? ` · ${uploadEta}` : ""}
+            </span>
+          ) : null}
           {state.status?.state === "problem" ? (
             <Button
               variant="outline"
