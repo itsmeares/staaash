@@ -2,6 +2,7 @@ import os from "node:os";
 import path from "node:path";
 import { mkdir, rm, symlink, writeFile } from "node:fs/promises";
 
+import type { BackgroundJobRecord } from "@staaash/db/jobs";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 vi.mock("@staaash/db/reconciliation", () => ({
@@ -525,6 +526,110 @@ describe("restore reconciliation worker handler", () => {
 
     expect(updateMany).not.toHaveBeenCalled();
     await rm(filesRoot, { recursive: true, force: true });
+  });
+
+  describe("a rename while the check runs", () => {
+    const job = (id: string): BackgroundJobRecord => ({
+      id,
+      kind: "restore.reconcile",
+      status: "running",
+      payloadJson: {},
+      dedupeKey: "restore.reconcile.manual",
+      runAt: new Date(),
+      lockedAt: null,
+      lockedBy: null,
+      attemptCount: 1,
+      maxAttempts: 5,
+      lastError: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    const paths = (filesRoot: string) => ({
+      filesRoot,
+      tmpRoot: path.join(filesRoot, "tmp"),
+      heartbeatPath: path.join(filesRoot, "tmp", "worker-heartbeat.json"),
+      pendingDeleteRoot: path.join(filesRoot, "tmp", "pending-delete"),
+      uploadStagingTtlMs: 1,
+    });
+    const before = {
+      id: "file-renamed",
+      storageKey: "files/member/Original.txt",
+      storageRevision: 0,
+    };
+    const renamedOnDisk = async () => {
+      const filesRoot = createTempFilesRoot();
+      await mkdir(path.join(filesRoot, "files", "member"), { recursive: true });
+      await writeFile(
+        path.join(filesRoot, "files", "member", "Renamed.txt"),
+        "ok",
+        "utf8",
+      );
+      return filesRoot;
+    };
+    const expectNothingReported = (
+      jobId: string,
+      updateMany: ReturnType<typeof vi.fn>,
+    ) => {
+      expect(updateMany).not.toHaveBeenCalled();
+      expect(completeRestoreReconciliationRun).toHaveBeenLastCalledWith({
+        backgroundJobId: jobId,
+        details: expect.objectContaining({
+          missingOriginals: [],
+          orphanedStorageKeys: [],
+        }),
+      });
+    };
+
+    it("keeps a file that was renamed after its row was read", async () => {
+      const filesRoot = await renamedOnDisk();
+      const updateMany = vi.fn(async () => ({ count: 1 }));
+      const findMany = vi
+        .fn()
+        .mockResolvedValueOnce([before])
+        .mockResolvedValue([
+          {
+            ...before,
+            storageKey: "files/member/Renamed.txt",
+            storageRevision: 1,
+          },
+        ]);
+
+      await handleRestoreReconciliation(job("job-renamed"), paths(filesRoot), {
+        file: { findMany, updateMany },
+      });
+
+      expectNothingReported("job-renamed", updateMany);
+      await rm(filesRoot, { recursive: true, force: true });
+    });
+
+    it("keeps a file whose rename is still running at the end", async () => {
+      const filesRoot = await renamedOnDisk();
+      const updateMany = vi.fn(async () => ({ count: 1 }));
+      const running = <T>(row: T) =>
+        vi.fn().mockResolvedValueOnce([]).mockResolvedValue([row]);
+
+      await handleRestoreReconciliation(
+        job("job-renaming"),
+        paths(filesRoot),
+        {
+          file: { findMany: async () => [before], updateMany },
+          storageMutationEntity: {
+            findMany: running({ entityId: "file-renamed" }),
+          },
+          storageMutationStep: {
+            findMany: running({
+              action: "rename",
+              expectedNodeType: "file",
+              sourceKey: "files/member/Original.txt",
+              targetKey: "files/member/Renamed.txt",
+            }),
+          },
+        },
+      );
+
+      expectNothingReported("job-renaming", updateMany);
+      await rm(filesRoot, { recursive: true, force: true });
+    });
   });
 
   it("does not classify live worker and generated temp files as orphans", async () => {

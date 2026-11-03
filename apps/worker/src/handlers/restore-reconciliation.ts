@@ -29,6 +29,7 @@ type ReconciliationFileRecord = {
   id: string;
   storageKey: string;
   contentChecksum?: string | null;
+  storageRevision?: number;
 };
 
 type ReconciliationClient = {
@@ -155,21 +156,19 @@ const collectLiveCapabilityProbeKeys = async (
   }
 };
 
+type FoundIssues = {
+  missing: ReconciliationFileRecord[];
+  mismatched: ReconciliationFileRecord[];
+  orphans: string[];
+};
+
 const collectOriginalIntegrityIssues = async (
   fileRecords: ReconciliationFileRecord[],
   filesRoot: string,
   ignoredFileIds = new Set<string>(),
-): Promise<{
-  missingOriginals: RestoreReconciliationIssueDetails["missingOriginals"];
-  checksumMismatches: NonNullable<
-    RestoreReconciliationIssueDetails["checksumMismatches"]
-  >;
-}> => {
-  const missingOriginals: RestoreReconciliationIssueDetails["missingOriginals"] =
-    [];
-  const checksumMismatches: NonNullable<
-    RestoreReconciliationIssueDetails["checksumMismatches"]
-  > = [];
+) => {
+  const missing: ReconciliationFileRecord[] = [];
+  const mismatched: ReconciliationFileRecord[] = [];
 
   for (const file of fileRecords) {
     if (ignoredFileIds.has(file.id)) continue;
@@ -182,33 +181,30 @@ const collectOriginalIntegrityIssues = async (
         filesRoot,
         file.storageKey,
       );
-      if (checksum !== file.contentChecksum) {
-        checksumMismatches.push({
-          fileId: file.id,
-          storageKey: safeStorageLabel(file.storageKey),
-        });
-      }
+      if (checksum !== file.contentChecksum) mismatched.push(file);
     } catch (error) {
       if (!(error instanceof StorageMutationAmbiguityError)) throw error;
-      missingOriginals.push({
-        fileId: file.id,
-        storageKey: safeStorageLabel(file.storageKey),
-      });
+      missing.push(file);
     }
   }
 
-  return { missingOriginals, checksumMismatches };
+  return { missing, mismatched };
 };
+
+const toFileIssue = (file: ReconciliationFileRecord) => ({
+  fileId: file.id,
+  storageKey: safeStorageLabel(file.storageKey),
+});
 
 export const collectMissingOriginals = async (
   fileRecords: ReconciliationFileRecord[],
   filesRoot: string,
-  ignoredFileIds = new Set<string>(),
 ): Promise<RestoreReconciliationIssueDetails["missingOriginals"]> =>
-  (await collectOriginalIntegrityIssues(fileRecords, filesRoot, ignoredFileIds))
-    .missingOriginals;
+  (await collectOriginalIntegrityIssues(fileRecords, filesRoot)).missing.map(
+    toFileIssue,
+  );
 
-export const collectOrphanedStorageKeys = async ({
+const findUntrackedStorageKeys = async ({
   filesRoot,
   knownStorageKeys,
   knownStoragePrefixes = new Set<string>(),
@@ -216,7 +212,7 @@ export const collectOrphanedStorageKeys = async ({
   filesRoot: string;
   knownStorageKeys: Set<string>;
   knownStoragePrefixes?: Set<string>;
-}): Promise<string[]> => {
+}) => {
   const committedStorageKeys = [
     ...(await walkCommittedStorageTree(
       path.resolve(filesRoot, "files"),
@@ -240,19 +236,18 @@ export const collectOrphanedStorageKeys = async ({
     )),
   ];
 
-  return committedStorageKeys
-    .filter(
-      (storageKey) =>
-        !isStorageKeyTracked(
-          storageKey,
-          knownStorageKeys,
-          knownStoragePrefixes,
-        ),
-    )
-    .map(safeStorageLabel);
+  return committedStorageKeys.filter(
+    (storageKey) =>
+      !isStorageKeyTracked(storageKey, knownStorageKeys, knownStoragePrefixes),
+  );
 };
 
-export const collectRestoreReconciliationIssues = async ({
+export const collectOrphanedStorageKeys = async (
+  input: Parameters<typeof findUntrackedStorageKeys>[0],
+): Promise<string[]> =>
+  (await findUntrackedStorageKeys(input)).map(safeStorageLabel);
+
+const findReconciliationIssues = async ({
   filesRoot,
   fileRecords,
   additionalKnownStorageKeys = [],
@@ -264,31 +259,42 @@ export const collectRestoreReconciliationIssues = async ({
   additionalKnownStorageKeys?: string[];
   additionalKnownStoragePrefixes?: string[];
   unresolvedFileIds?: string[];
-}): Promise<RestoreReconciliationIssueDetails> => {
+}): Promise<FoundIssues> => {
   const knownStorageKeys = new Set([
     ...fileRecords.map((file) => file.storageKey),
     ...additionalKnownStorageKeys,
   ]);
-  const [integrityIssues, orphanedStorageKeys] = await Promise.all([
+  const [{ missing, mismatched }, orphans] = await Promise.all([
     collectOriginalIntegrityIssues(
       fileRecords,
       filesRoot,
       new Set(unresolvedFileIds),
     ),
-    collectOrphanedStorageKeys({
+    findUntrackedStorageKeys({
       filesRoot,
       knownStorageKeys,
       knownStoragePrefixes: new Set(additionalKnownStoragePrefixes),
     }),
   ]);
-  const { missingOriginals, checksumMismatches } = integrityIssues;
-
-  return {
-    missingOriginals,
-    orphanedStorageKeys,
-    ...(checksumMismatches.length > 0 ? { checksumMismatches } : {}),
-  };
+  return { missing, mismatched, orphans };
 };
+
+const toIssueDetails = ({
+  missing,
+  mismatched,
+  orphans,
+}: FoundIssues): RestoreReconciliationIssueDetails => ({
+  missingOriginals: missing.map(toFileIssue),
+  orphanedStorageKeys: orphans.map(safeStorageLabel),
+  ...(mismatched.length > 0
+    ? { checksumMismatches: mismatched.map(toFileIssue) }
+    : {}),
+});
+
+export const collectRestoreReconciliationIssues = async (
+  input: Parameters<typeof findReconciliationIssues>[0],
+): Promise<RestoreReconciliationIssueDetails> =>
+  toIssueDetails(await findReconciliationIssues(input));
 
 const markReconciledStorageStatus = async ({
   client,
@@ -368,7 +374,12 @@ const loadReconciliationContext = async (
   filesRoot: string,
 ) => {
   const fileRecords = await client.file.findMany({
-    select: { id: true, storageKey: true, contentChecksum: true },
+    select: {
+      id: true,
+      storageKey: true,
+      contentChecksum: true,
+      storageRevision: true,
+    },
   });
   const [
     derivatives,
@@ -534,6 +545,51 @@ const buildAdditionalKnownStorageKeys = ({
   ...generatedJobStorageKeys(context.activeGeneratedJobs, context.derivatives),
 ];
 
+/**
+ * Keeps only the issues a fresh read still explains. The journal is active
+ * while it moves a file and bumps storageRevision when it commits, so a file
+ * moved before the disk check shows one of those signs here. A file that is
+ * really gone shows neither and stays reported.
+ */
+const confirmIssues = (
+  found: FoundIssues,
+  current: Awaited<ReturnType<typeof loadReconciliationContext>>,
+  storagePaths: WorkerStoragePaths,
+) => {
+  const rows = new Map(current.fileRecords.map((file) => [file.id, file]));
+  const busy = new Set(current.mutationFiles.map((row) => row.entityId));
+  const tracked = buildTrackedStorageKeys(current.mutationSteps);
+  const unchanged = (file: ReconciliationFileRecord) => {
+    const row = rows.get(file.id);
+    return (
+      row?.storageKey === file.storageKey &&
+      row.storageRevision === file.storageRevision &&
+      !busy.has(file.id) &&
+      !isStorageKeyTracked(file.storageKey, tracked.exact, tracked.prefixes)
+    );
+  };
+  const known = new Set([
+    ...current.fileRecords.map((file) => file.storageKey),
+    ...buildAdditionalKnownStorageKeys({
+      storagePaths,
+      context: current,
+      mutationTrackedStorageKeys: [...tracked.exact],
+    }),
+  ]);
+  return {
+    confirmed: {
+      missing: found.missing.filter(unchanged),
+      mismatched: found.mismatched.filter(unchanged),
+      orphans: found.orphans.filter(
+        (key) => !isStorageKeyTracked(key, known, tracked.prefixes),
+      ),
+    },
+    changedFileIds: [...found.missing, ...found.mismatched]
+      .filter((file) => !unchanged(file))
+      .map((file) => file.id),
+  };
+};
+
 const prepareReconciliation = async (
   storagePaths: WorkerStoragePaths,
   suppliedClient?: ReconciliationClient,
@@ -576,20 +632,24 @@ export const handleRestoreReconciliation = async (
   );
   const mutationTracked = buildTrackedStorageKeys(context.mutationSteps);
   const mutationTrackedStorageKeys = [...mutationTracked.exact];
-  const mutationTrackedStoragePrefixes = [...mutationTracked.prefixes];
-  const additionalKnownStorageKeys = buildAdditionalKnownStorageKeys({
-    storagePaths,
-    context,
-    mutationTrackedStorageKeys,
-  });
-
-  const details = await collectRestoreReconciliationIssues({
+  const found = await findReconciliationIssues({
     filesRoot: storagePaths.filesRoot,
     fileRecords: context.fileRecords,
-    additionalKnownStorageKeys,
-    additionalKnownStoragePrefixes: mutationTrackedStoragePrefixes,
+    additionalKnownStorageKeys: buildAdditionalKnownStorageKeys({
+      storagePaths,
+      context,
+      mutationTrackedStorageKeys,
+    }),
+    additionalKnownStoragePrefixes: [...mutationTracked.prefixes],
     unresolvedFileIds: context.mutationFiles.map((row) => row.entityId),
   });
+  // Renames, moves, and uploads keep running while the disk is read.
+  const { confirmed, changedFileIds } = confirmIssues(
+    found,
+    await loadReconciliationContext(activeClient, storagePaths.filesRoot),
+    storagePaths,
+  );
+  const details = toIssueDetails(confirmed);
   details.mutationTrackedStorageKeys =
     mutationTrackedStorageKeys.map(safeStorageLabel);
   details.recoveryRequiredMutations = context.recoveryRequired.map(
@@ -602,7 +662,10 @@ export const handleRestoreReconciliation = async (
     fileRecords: context.fileRecords,
     missingOriginals: details.missingOriginals,
     checksumMismatches: details.checksumMismatches,
-    unresolvedFileIds: context.mutationFiles.map((row) => row.entityId),
+    unresolvedFileIds: [
+      ...context.mutationFiles.map((row) => row.entityId),
+      ...changedFileIds,
+    ],
     checkedAt,
   });
 
