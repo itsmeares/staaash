@@ -227,7 +227,12 @@ const sharedDerivativesFor = (
           : []),
         ...(shouldGenerateMediaPreview(settings, "share") &&
         BigInt(file.sizeBytes) >= settings.mediaPreviewThresholdBytes
-          ? [{ kind: DERIVATIVE_KIND_PREVIEW, profile: DERIVATIVE_PROFILE_1080P }]
+          ? [
+              {
+                kind: DERIVATIVE_KIND_PREVIEW,
+                profile: DERIVATIVE_PROFILE_1080P,
+              },
+            ]
           : []),
       ];
 
