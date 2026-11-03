@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 
 import { getPrisma } from "@staaash/db/client";
+import { appendStorageChanges } from "@staaash/db/storage-changes";
 import { beforeAll, expect, it, vi } from "vite-plus/test";
 
 import { SESSION_COOKIE_NAME } from "./auth/session";
@@ -77,6 +78,45 @@ function expectChanged(
     expect(times.get(id)!.updatedAt.getTime()).toBeGreaterThan(old.getTime());
   for (const id of unchanged) expect(times.get(id)!.updatedAt).toEqual(old);
 }
+
+it("records the correct folder time when the database session uses another time zone", async () => {
+  const { id, root, a, b, reset, times } = await tree();
+  await reset();
+  const folderId = randomUUID();
+  const mutation = await db.storageMutation.create({
+    data: {
+      kind: "folder_create",
+      status: "running",
+      ownerUserId: id,
+      intentJson: {},
+      entities: {
+        create: {
+          entityType: "folder",
+          entityId: folderId,
+          preRevision: -1,
+          postRevision: 0,
+        },
+      },
+    },
+  });
+  await db.$transaction(async (tx) => {
+    await tx.$executeRaw`SET LOCAL TIME ZONE 'Pacific/Honolulu'`;
+    await tx.folder.create({
+      data: { id: folderId, ownerUserId: id, parentId: b.id, name: "Timezone" },
+    });
+    await appendStorageChanges(tx, {
+      mutationId: mutation.id,
+      ownerUserId: id,
+      before: new Map(),
+    });
+  });
+  const after = await times();
+  for (const folderId of [root.id, a.id, b.id]) {
+    expect(
+      Math.abs(after.get(folderId)!.updatedAt.getTime() - Date.now()),
+    ).toBeLessThan(60_000);
+  }
+});
 
 it("updates ancestors for uploads and same-byte replacements without replaying the date", async () => {
   const { actor, root, a, b, child, other, reset, times } = await tree();

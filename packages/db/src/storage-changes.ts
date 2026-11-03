@@ -208,7 +208,7 @@ const updateChangedFolderTimes = async (
         ORDER BY folder.id FOR NO KEY UPDATE OF folder
       )
       UPDATE "Folder" folder
-      SET "updatedAt" = GREATEST(folder."updatedAt", CURRENT_TIMESTAMP)
+      SET "updatedAt" = GREATEST(folder."updatedAt", timezone('UTC', CURRENT_TIMESTAMP))
       FROM locked WHERE folder.id = locked.id
     `;
   }
