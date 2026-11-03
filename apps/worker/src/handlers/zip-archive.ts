@@ -4,11 +4,8 @@ import { pipeline } from "node:stream/promises";
 import { createWriteStream } from "node:fs";
 
 import { z } from "zod";
-import {
-  buildArchiveFolderSegments,
-  createZipArchiveStream,
-} from "@staaash/config/zip";
-import { getPrisma } from "@staaash/db/client";
+import { createZipArchiveStream } from "@staaash/config/zip";
+import { readArchiveSelection } from "@staaash/db/archive-selection";
 import type { BackgroundJobRecord } from "@staaash/db/jobs";
 import {
   StorageAdmissionCancelledError,
@@ -34,36 +31,6 @@ import {
   StorageMutationOwnedError,
 } from "../durable-storage-mutation.js";
 
-type FolderRecord = {
-  id: string;
-  ownerUserId: string;
-  parentId: string | null;
-  name: string;
-  isFilesRoot: boolean;
-  deletedAt: Date | null;
-  storageRevision: number;
-};
-
-type StoredFileRecord = {
-  id: string;
-  ownerUserId: string;
-  folderId: string | null;
-  originalName: string;
-  storageKey: string;
-  deletedAt: Date | null;
-  storageRevision: number;
-};
-
-type PrismaClient = {
-  folder: {
-    findMany(args: object): Promise<FolderRecord[]>;
-  };
-  file: {
-    findMany(args: object): Promise<StoredFileRecord[]>;
-    findUnique(args: object): Promise<{ originalName: string } | null>;
-  };
-};
-
 type ZipArchiveGeneratePayload = {
   archiveId: string;
 };
@@ -72,82 +39,6 @@ const zipArchiveIdsSchema = z.object({
   fileIds: z.array(z.string()),
   folderIds: z.array(z.string()),
 });
-
-const collectDescendantFolderIds = (
-  rootId: string,
-  childrenByParentId: Map<string, FolderRecord[]>,
-): Set<string> => {
-  const result = new Set<string>();
-  const queue = [rootId];
-  while (queue.length > 0) {
-    const id = queue.shift()!;
-    result.add(id);
-    for (const child of childrenByParentId.get(id) ?? []) {
-      if (!result.has(child.id)) {
-        queue.push(child.id);
-      }
-    }
-  }
-  return result;
-};
-
-const buildArchiveFolderIndex = (
-  allFolders: FolderRecord[],
-  folderIds: string[],
-) => {
-  const folderMap = new Map(allFolders.map((f) => [f.id, f]));
-
-  const childrenByParentId = new Map<string, FolderRecord[]>();
-  for (const folder of allFolders) {
-    if (folder.parentId) {
-      const list = childrenByParentId.get(folder.parentId) ?? [];
-      list.push(folder);
-      childrenByParentId.set(folder.parentId, list);
-    }
-  }
-
-  // Expand each requested folder to all descendants (per-root sets for path building)
-  const allDescendantFolderIds = new Set<string>();
-  const descendantsByRootId = new Map<string, Set<string>>();
-  for (const folderId of folderIds) {
-    const descendants = collectDescendantFolderIds(
-      folderId,
-      childrenByParentId,
-    );
-    descendantsByRootId.set(folderId, descendants);
-    for (const id of descendants) {
-      allDescendantFolderIds.add(id);
-    }
-  }
-
-  return { folderMap, descendantsByRootId, allDescendantFolderIds };
-};
-
-const buildFileArchivePath = (
-  file: StoredFileRecord,
-  folderMap: Map<string, FolderRecord>,
-  descendantsByRootId: Map<string, Set<string>>,
-): string => {
-  const parentFolder = file.folderId ? folderMap.get(file.folderId) : undefined;
-  if (!parentFolder) return file.originalName;
-
-  // Overlapping selections keep the first requested root as the file's path.
-  for (const [rootFolderId, descendants] of descendantsByRootId) {
-    if (!descendants.has(parentFolder.id)) continue;
-    const rootFolder = folderMap.get(rootFolderId);
-    if (!rootFolder) return file.originalName;
-    return path.posix.join(
-      rootFolder.name,
-      ...buildArchiveFolderSegments({
-        folder: parentFolder,
-        folderMap,
-        rootFolderId,
-      }),
-      file.originalName,
-    );
-  }
-  return file.originalName;
-};
 
 export const handleZipArchiveGenerate = async (
   job: BackgroundJobRecord,
@@ -183,55 +74,34 @@ export const handleZipArchiveGenerate = async (
 
   let wroteTemporaryOutput = false;
   try {
-    const prisma = getPrisma() as unknown as PrismaClient;
     await context?.updateProgress({ stage: "loading_selection", archiveId });
 
-    const {
-      allFolders,
-      folderMap,
-      descendantsByRootId,
-      allDescendantFolderIds,
-      filesToZip,
-    } = await waitForStorageAdmission(
+    const selection = await waitForStorageAdmission(
       async () => {
-        const allFolders = folderIds.length
-          ? await prisma.folder.findMany({
-              where: { ownerUserId: userId, deletedAt: null } as object,
-            })
-          : [];
-
-        const { folderMap, descendantsByRootId, allDescendantFolderIds } =
-          buildArchiveFolderIndex(allFolders, folderIds);
-
-        // Collect files: directly requested + inside expanded folders
-        const filesToZip = await prisma.file.findMany({
-          where: {
-            ownerUserId: userId,
-            deletedAt: null,
-            OR: [
-              { id: { in: fileIds } },
-              { folderId: { in: [...allDescendantFolderIds] } },
-            ],
-          },
-        });
-
-        const blockedFiles = await listBlockingStorageMutationsForEntities({
-          entityType: "file",
-          entityIds: filesToZip.map((file) => file.id),
-        });
-        if (blockedFiles.length > 0) {
+        const selection = await readArchiveSelection(
+          userId,
+          fileIds,
+          folderIds,
+        );
+        const { filesToZip } = selection;
+        const [blockedFiles, blockedFolders] = await Promise.all([
+          listBlockingStorageMutationsForEntities({
+            entityType: "file",
+            entityIds: filesToZip.map((file) => file.id),
+          }),
+          listBlockingStorageMutationsForEntities({
+            entityType: "folder",
+            entityIds: selection.allFolders.map((folder) => folder.id),
+          }),
+        ]);
+        const blocked = blockedFiles[0] ?? blockedFolders[0];
+        if (blocked) {
           throw new StorageMutationOwnedError(
-            blockedFiles[0]!.mutation.id,
+            blocked.mutation.id,
             new Error("An archive source has an unfinished storage mutation."),
           );
         }
-        return {
-          allFolders,
-          folderMap,
-          descendantsByRootId,
-          allDescendantFolderIds,
-          filesToZip,
-        };
+        return selection;
       },
       {
         signal: context?.signal,
@@ -239,60 +109,39 @@ export const handleZipArchiveGenerate = async (
       },
     );
 
-    // Determine zip filename
-    let fileName: string;
-    if (folderIds.length === 1 && fileIds.length === 0) {
-      fileName = `${folderMap.get(folderIds[0])?.name ?? "archive"}.zip`;
-    } else if (folderIds.length === 0 && fileIds.length === 1) {
-      fileName = `${filesToZip.find((f) => f.id === fileIds[0])?.originalName ?? "file"}.zip`;
-    } else {
-      fileName = "staaash-files.zip";
-    }
-
+    const { allFolders, filesToZip, fileName, directories } = selection;
+    const assertContentMatches = (contentKey: string) => {
+      // Released jobs have ID-only keys and must still finish after an upgrade.
+      if (
+        archive.contentKey.startsWith("v2:") &&
+        contentKey !== archive.contentKey
+      ) {
+        throw new TerminalJobError(
+          "The selected files changed. Download them again.",
+          "archive_selection_changed",
+        );
+      }
+    };
+    assertContentMatches(selection.contentKey);
     await context?.updateProgress({
       stage: "writing_archive",
       archiveId,
       fileCount: filesToZip.length,
     });
-
-    const entries = filesToZip.map((file) => ({
+    const entries = selection.entries.map(({ file, archivePath }) => ({
       filePath: safeResolveStoragePath(storagePaths.filesRoot, file.storageKey),
-      archivePath:
-        file.folderId && allDescendantFolderIds.has(file.folderId)
-          ? buildFileArchivePath(file, folderMap, descendantsByRootId)
-          : file.originalName,
+      archivePath,
     }));
-    const directories: string[] = [];
-
-    // Add folder directories for each requested root + all descendants
-    for (const rootFolderId of folderIds) {
-      const rootFolder = folderMap.get(rootFolderId);
-      if (!rootFolder) continue;
-      directories.push(`${rootFolder.name}/`);
-
-      for (const descendantId of descendantsByRootId.get(rootFolderId) ?? []) {
-        if (descendantId === rootFolderId) continue;
-        const descendant = folderMap.get(descendantId);
-        if (!descendant) continue;
-
-        // Only include descendants of this root
-        const segments = buildArchiveFolderSegments({
-          folder: descendant,
-          folderMap,
-          rootFolderId,
-        });
-        if (segments.length === 0) continue;
-
-        const folderPath = path.posix.join(rootFolder.name, ...segments);
-        directories.push(`${folderPath}/`);
-      }
-    }
 
     const output = await createZipArchiveStream(entries, directories);
 
     // Write zip stream to temp file
     wroteTemporaryOutput = true;
     await pipeline(output, createWriteStream(tmpPath));
+
+    assertContentMatches(
+      (await readArchiveSelection(userId, fileIds, folderIds)).contentKey,
+    );
 
     // Move to final location
     const storageKey = `archives/${archiveId}.zip`;
@@ -356,16 +205,14 @@ export const handleZipArchiveGenerate = async (
           beforeJson: null,
           afterJson: null,
         })),
-        ...allFolders
-          .filter((folder) => allDescendantFolderIds.has(folder.id))
-          .map((folder) => ({
-            entityType: "folder" as const,
-            entityId: folder.id,
-            preRevision: folder.storageRevision,
-            postRevision: folder.storageRevision,
-            beforeJson: null,
-            afterJson: null,
-          })),
+        ...allFolders.map((folder) => ({
+          entityType: "folder" as const,
+          entityId: folder.id,
+          preRevision: folder.storageRevision,
+          postRevision: folder.storageRevision,
+          beforeJson: null,
+          afterJson: null,
+        })),
         {
           entityType: "archive",
           entityId: archiveId,

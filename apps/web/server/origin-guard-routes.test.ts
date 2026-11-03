@@ -75,7 +75,6 @@ vi.mock("@staaash/db/zip-archives", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@staaash/db/zip-archives")>()),
   ZIP_ARCHIVE_STATUS_FAILED: "failed",
   ZIP_ARCHIVE_STATUS_READY: "ready",
-  buildZipContentKey: vi.fn(),
   findOrCreateZipArchive: vi.fn(),
 }));
 

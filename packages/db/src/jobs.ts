@@ -1,12 +1,6 @@
 import { Prisma, getPrisma } from "./client";
 import { setTimeout as delay } from "node:timers/promises";
 
-import {
-  ZIP_ARCHIVE_STATUS_FAILED,
-  ZIP_ARCHIVE_STATUS_PROCESSING,
-  ZIP_ARCHIVE_STATUS_QUEUED,
-} from "./zip-archives";
-
 export const STAGING_CLEANUP_JOB_KIND = "staging.cleanup";
 export const TRASH_RETENTION_JOB_KIND = "trash.retention";
 export const UPDATE_CHECK_JOB_KIND = "update.check";
@@ -272,6 +266,7 @@ export const ensureBackgroundJobScheduled = async ({
   priority = 0,
   now = new Date(),
   client,
+  transaction,
 }: {
   kind: SupportedBackgroundJobKind;
   runAt: Date;
@@ -283,6 +278,7 @@ export const ensureBackgroundJobScheduled = async ({
   priority?: number;
   now?: Date;
   client?: BackgroundJobClient;
+  transaction?: Prisma.TransactionClient;
 }) => {
   const activeClient = getClient(client);
   const dedupeFilter = dedupeKey
@@ -294,48 +290,51 @@ export const ensureBackgroundJobScheduled = async ({
         runAt: { lte: windowEnd },
       };
 
+  const enqueue = async (tx: BackgroundJobClient) => {
+    const existing = await tx.backgroundJob.findFirst({
+      where: dedupeFilter,
+      orderBy: [{ runAt: "asc" }, { id: "asc" }],
+    });
+
+    if (existing) {
+      return { created: false, job: existing };
+    }
+
+    const job = await tx.backgroundJob.create({
+      data: {
+        kind,
+        queueName,
+        priority,
+        status: "queued",
+        payloadJson,
+        progressJson: {},
+        dedupeKey,
+        runAt,
+        maxAttempts,
+      },
+    });
+
+    await tx.backgroundJobEvent.create({
+      data: {
+        jobId: job.id,
+        type: "queued",
+        message: "Job queued.",
+        metadataJson: { source: "scheduler" },
+      },
+    });
+    await notifyBackgroundJobStateChanged(tx, job.id);
+
+    return { created: true, job };
+  };
+  if (transaction)
+    return enqueue(transaction as unknown as BackgroundJobClient);
+
   const retryDeadline = Date.now() + BACKGROUND_JOB_SCHEDULE_RETRY_WINDOW_MS;
   for (let attempt = 0; ; attempt += 1) {
     try {
-      return await activeClient.$transaction(
-        async (tx) => {
-          const existing = await tx.backgroundJob.findFirst({
-            where: dedupeFilter,
-            orderBy: [{ runAt: "asc" }, { id: "asc" }],
-          });
-
-          if (existing) {
-            return { created: false, job: existing };
-          }
-
-          const job = await tx.backgroundJob.create({
-            data: {
-              kind,
-              queueName,
-              priority,
-              status: "queued",
-              payloadJson,
-              progressJson: {},
-              dedupeKey,
-              runAt,
-              maxAttempts,
-            },
-          });
-
-          await tx.backgroundJobEvent.create({
-            data: {
-              jobId: job.id,
-              type: "queued",
-              message: "Job queued.",
-              metadataJson: { source: "scheduler" },
-            },
-          });
-          await notifyBackgroundJobStateChanged(tx, job.id);
-
-          return { created: true, job };
-        },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-      );
+      return await activeClient.$transaction(enqueue, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      });
     } catch (error) {
       const remainingMs = retryDeadline - Date.now();
       if (remainingMs <= 0 || !isSerializableTransactionConflict(error)) {
@@ -763,11 +762,11 @@ export const cancelBackgroundJob = (input: AdminJobActionInput) =>
           where: {
             id: archiveId,
             status: {
-              in: [ZIP_ARCHIVE_STATUS_QUEUED, ZIP_ARCHIVE_STATUS_PROCESSING],
+              in: ["queued", "processing"],
             },
           },
           data: {
-            status: ZIP_ARCHIVE_STATUS_FAILED,
+            status: "failed",
             error: "Cancelled by admin.",
           },
         });
@@ -829,6 +828,7 @@ export const scheduleZipArchiveGenerate = async ({
   folderCount = 0,
   now = new Date(),
   client,
+  transaction,
 }: {
   archiveId: string;
   sourceSizeBytes?: bigint;
@@ -836,6 +836,7 @@ export const scheduleZipArchiveGenerate = async ({
   folderCount?: number;
   now?: Date;
   client?: BackgroundJobClient;
+  transaction?: Prisma.TransactionClient;
 }) =>
   ensureBackgroundJobScheduled({
     kind: ZIP_ARCHIVE_GENERATE_JOB_KIND,
@@ -854,6 +855,7 @@ export const scheduleZipArchiveGenerate = async ({
         : 0,
     now,
     client,
+    transaction,
   });
 
 export const registerWorkerInstance = async ({

@@ -1,6 +1,5 @@
-import { createHash } from "node:crypto";
-
 import { getPrisma } from "./client";
+import { scheduleZipArchiveGenerate } from "./jobs";
 
 export const ZIP_ARCHIVE_STATUS_QUEUED = "queued" as const;
 export const ZIP_ARCHIVE_STATUS_PROCESSING = "processing" as const;
@@ -26,82 +25,72 @@ export type ZipArchiveRecord = {
 
 type ZipArchiveClient = {
   zipArchive: {
-    findFirst(args: object): Promise<ZipArchiveRecord | null>;
     findUnique(args: object): Promise<ZipArchiveRecord | null>;
     findMany(args: object): Promise<ZipArchiveRecord[]>;
-    create(args: object): Promise<ZipArchiveRecord>;
     update(args: object): Promise<ZipArchiveRecord>;
-    delete(args: object): Promise<ZipArchiveRecord>;
   };
 };
 
 const getClient = () => getPrisma() as unknown as ZipArchiveClient;
-
-export const buildZipContentKey = (
-  fileIds: string[],
-  folderIds: string[],
-): string => {
-  const sorted =
-    [...fileIds].sort().join(",") + "|" + [...folderIds].sort().join(",");
-  return createHash("sha256").update(sorted).digest("hex");
-};
 
 export const findOrCreateZipArchive = async ({
   userId,
   contentKey,
   idsJson,
   expiresAt,
+  sourceSizeBytes,
 }: {
   userId: string;
   contentKey: string;
   idsJson: { fileIds: string[]; folderIds: string[] };
   expiresAt: Date;
+  sourceSizeBytes: bigint;
 }): Promise<{ archive: ZipArchiveRecord; created: boolean }> => {
-  const db = getClient();
-  const now = new Date();
-
-  // Search without status/expiry filters — the contentKey column is UNIQUE so
-  // filtering them out would cause a unique-constraint violation when we try to
-  // create a fresh record for a previously-failed or expired archive.
-  const existing = await db.zipArchive.findFirst({
-    where: { contentKey },
-  });
-
-  if (existing) {
-    // Valid (non-failed, non-expired) archive — return it as-is.
-    if (
-      existing.status !== ZIP_ARCHIVE_STATUS_FAILED &&
-      existing.expiresAt > now
-    ) {
-      return { archive: existing, created: false };
+  return getPrisma().$transaction(async (db) => {
+    await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${contentKey}, 0))`;
+    const existing = await db.zipArchive.findUnique({ where: { contentKey } });
+    if (existing) {
+      if (
+        existing.status === ZIP_ARCHIVE_STATUS_QUEUED ||
+        existing.status === ZIP_ARCHIVE_STATUS_PROCESSING ||
+        (existing.status === ZIP_ARCHIVE_STATUS_READY &&
+          existing.expiresAt > new Date())
+      ) {
+        if (existing.status === ZIP_ARCHIVE_STATUS_QUEUED) {
+          await scheduleZipArchiveGenerate({
+            archiveId: existing.id,
+            sourceSizeBytes,
+            fileCount: idsJson.fileIds.length,
+            folderCount: idsJson.folderIds.length,
+            transaction: db,
+          });
+        }
+        return { archive: existing, created: false };
+      }
+      // Keep old downloads and journal cleanup attached to their original record.
+      await db.zipArchive.update({
+        where: { id: existing.id },
+        data: { contentKey: `${contentKey}:retired:${existing.id}` },
+      });
     }
-    // FAILED or EXPIRED — reset to queued so the caller re-schedules the job.
-    const updated = await db.zipArchive.update({
-      where: { id: existing.id },
+    const archive = await db.zipArchive.create({
       data: {
-        status: ZIP_ARCHIVE_STATUS_QUEUED,
+        userId,
+        contentKey,
+        idsJson,
         expiresAt,
-        storageKey: null,
-        fileName: null,
-        sizeBytes: null,
-        fileCount: null,
-        error: null,
+        status: ZIP_ARCHIVE_STATUS_QUEUED,
       },
     });
-    return { archive: updated, created: true };
-  }
-
-  const archive = await db.zipArchive.create({
-    data: {
-      userId,
-      contentKey,
-      idsJson,
-      status: ZIP_ARCHIVE_STATUS_QUEUED,
-      expiresAt,
-    },
+    await scheduleZipArchiveGenerate({
+      archiveId: archive.id,
+      sourceSizeBytes,
+      fileCount: idsJson.fileIds.length,
+      folderCount: idsJson.folderIds.length,
+      transaction: db,
+    });
+    return { archive, created: true };
   });
-
-  return { archive, created: true };
 };
 
 export const updateZipArchiveProcessing = async (
