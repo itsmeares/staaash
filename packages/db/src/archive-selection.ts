@@ -153,11 +153,12 @@ export const describeArchiveSelection = (
         a.file.id.localeCompare(b.file.id),
     );
   const directories: string[] = [];
+  const placed = new Set<string>();
   for (const rootId of folderIds) {
     const root = folderMap.get(rootId)!;
-    directories.push(`${root.name}/`);
     for (const id of descendantsByRootId.get(rootId) ?? []) {
-      if (id === rootId) continue;
+      if (placed.has(id)) continue;
+      placed.add(id);
       const folder = folderMap.get(id)!;
       directories.push(
         `${path.posix.join(root.name, ...buildArchiveFolderSegments({ folder, folderMap, rootFolderId: rootId }))}/`,

@@ -405,10 +405,9 @@ describe("zip archive handler", () => {
       expect(names.sort()).toEqual(
         [
           "Alpha/",
-          "Alpha/Empty-A/",
+          folderIds[0] === "a-child" ? "Empty-A/" : "Alpha/Empty-A/",
           "Beta/",
           "Beta/Empty-B/",
-          ...(folderIds.includes("a-child") ? ["Empty-A/"] : []),
           nestedPath,
           "direct.txt",
         ].sort(),

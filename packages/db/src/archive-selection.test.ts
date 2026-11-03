@@ -90,6 +90,8 @@ describe("archive contents", () => {
     const childFirst = selection(folders, files, ["child", "root"]);
     expect(parentFirst.entries[0]!.archivePath).toBe("root/child/nested.txt");
     expect(childFirst.entries[0]!.archivePath).toBe("child/nested.txt");
+    expect(parentFirst.directories).toEqual(["root/", "root/child/"]);
+    expect(childFirst.directories).toEqual(["child/", "root/"]);
     expect(childFirst.contentKey).not.toBe(parentFirst.contentKey);
   });
   it("checks direct file names and refuses missing or unavailable sources", () => {

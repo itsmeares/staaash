@@ -757,7 +757,7 @@ export const cancelBackgroundJob = (input: AdminJobActionInput) =>
         job.kind === ZIP_ARCHIVE_GENERATE_JOB_KIND &&
         typeof archiveId === "string"
       ) {
-        // A failed zip is queued again the next time someone asks for it.
+        // Keep ZIP_ARCHIVE_STATUS_* values inline because zip-archives.ts imports this module.
         await tx.zipArchive.updateMany({
           where: {
             id: archiveId,
