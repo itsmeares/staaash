@@ -367,23 +367,14 @@ const ensureReconciliationRun = async (
   await markRestoreReconciliationRunRunning({ backgroundJobId: job.id });
 };
 
-// One snapshot loader prevents reconciliation from mixing database generations.
+// Reads in-progress work before the rows it turns into, so work that finishes
+// between the two reads already shows in the rows.
 // fallow-ignore-next-line complexity
 const loadReconciliationContext = async (
   client: ReconciliationClient,
   filesRoot: string,
 ) => {
-  const fileRecords = await client.file.findMany({
-    select: {
-      id: true,
-      storageKey: true,
-      contentChecksum: true,
-      storageRevision: true,
-    },
-  });
   const [
-    derivatives,
-    archives,
     mutationSteps,
     recoveryRequired,
     mutationFiles,
@@ -391,19 +382,6 @@ const loadReconciliationContext = async (
     activeGeneratedJobs,
     liveCapabilityProbeKeys,
   ] = await Promise.all([
-    client.mediaDerivative?.findMany({
-      select: {
-        id: true,
-        fileId: true,
-        kind: true,
-        profile: true,
-        storageKey: true,
-      },
-    }) ?? [],
-    client.zipArchive?.findMany({
-      where: { storageKey: { not: null } },
-      select: { storageKey: true },
-    }) ?? [],
     client.storageMutationStep?.findMany({
       where: {
         mutation: {
@@ -466,6 +444,29 @@ const loadReconciliationContext = async (
       select: { kind: true, dedupeKey: true },
     }) ?? [],
     collectLiveCapabilityProbeKeys(filesRoot),
+  ]);
+  const [fileRecords, derivatives, archives] = await Promise.all([
+    client.file.findMany({
+      select: {
+        id: true,
+        storageKey: true,
+        contentChecksum: true,
+        storageRevision: true,
+      },
+    }),
+    client.mediaDerivative?.findMany({
+      select: {
+        id: true,
+        fileId: true,
+        kind: true,
+        profile: true,
+        storageKey: true,
+      },
+    }) ?? [],
+    client.zipArchive?.findMany({
+      where: { storageKey: { not: null } },
+      select: { storageKey: true },
+    }) ?? [],
   ]);
   return {
     fileRecords,
@@ -549,9 +550,10 @@ const buildAdditionalKnownStorageKeys = ({
  * Keeps only the issues a fresh read still explains. The journal is active
  * while it moves a file and bumps storageRevision when it commits, so a file
  * moved before the disk check shows one of those signs here. A file that is
- * really gone shows neither and stays reported.
+ * really gone shows neither and stays reported. An orphan must also still be
+ * on disk, since temp files of work that started and ended mid-check are gone.
  */
-const confirmIssues = (
+const confirmIssues = async (
   found: FoundIssues,
   current: Awaited<ReturnType<typeof loadReconciliationContext>>,
   storagePaths: WorkerStoragePaths,
@@ -576,13 +578,25 @@ const confirmIssues = (
       mutationTrackedStorageKeys: [...tracked.exact],
     }),
   ]);
+  const untracked = found.orphans.filter(
+    (key) => !isStorageKeyTracked(key, known, tracked.prefixes),
+  );
+  const present = await Promise.all(
+    untracked.map((key) =>
+      lstat(path.join(storagePaths.filesRoot, key)).then(
+        () => true,
+        (error: NodeJS.ErrnoException) => {
+          if (error.code === "ENOENT") return false;
+          throw error;
+        },
+      ),
+    ),
+  );
   return {
     confirmed: {
       missing: found.missing.filter(unchanged),
       mismatched: found.mismatched.filter(unchanged),
-      orphans: found.orphans.filter(
-        (key) => !isStorageKeyTracked(key, known, tracked.prefixes),
-      ),
+      orphans: untracked.filter((_, index) => present[index]),
     },
     changedFileIds: [...found.missing, ...found.mismatched]
       .filter((file) => !unchanged(file))
@@ -644,7 +658,7 @@ export const handleRestoreReconciliation = async (
     unresolvedFileIds: context.mutationFiles.map((row) => row.entityId),
   });
   // Renames, moves, and uploads keep running while the disk is read.
-  const { confirmed, changedFileIds } = confirmIssues(
+  const { confirmed, changedFileIds } = await confirmIssues(
     found,
     await loadReconciliationContext(activeClient, storagePaths.filesRoot),
     storagePaths,

@@ -528,7 +528,7 @@ describe("restore reconciliation worker handler", () => {
     await rm(filesRoot, { recursive: true, force: true });
   });
 
-  describe("a rename while the check runs", () => {
+  describe("changes while the check runs", () => {
     const job = (id: string): BackgroundJobRecord => ({
       id,
       kind: "restore.reconcile",
@@ -602,6 +602,46 @@ describe("restore reconciliation worker handler", () => {
       await rm(filesRoot, { recursive: true, force: true });
     });
 
+    it("keeps a file whose rename ends between the journal and file reads", async () => {
+      const filesRoot = await renamedOnDisk();
+      const updateMany = vi.fn(async () => ({ count: 1 }));
+      let fileReads = 0;
+      let renameDone = false;
+      // Active only on the second journal read, until the file rows are read.
+      const whileRenaming = <T>(row: T) => {
+        let calls = 0;
+        return async () => (++calls === 2 && !renameDone ? [row] : []);
+      };
+
+      await handleRestoreReconciliation(
+        job("job-rename-ends"),
+        paths(filesRoot),
+        {
+          file: {
+            async findMany() {
+              if (++fileReads === 2) renameDone = true;
+              return [before];
+            },
+            updateMany,
+          },
+          storageMutationEntity: {
+            findMany: whileRenaming({ entityId: "file-renamed" }),
+          },
+          storageMutationStep: {
+            findMany: whileRenaming({
+              action: "rename",
+              expectedNodeType: "file",
+              sourceKey: "files/member/Original.txt",
+              targetKey: "files/member/Renamed.txt",
+            }),
+          },
+        },
+      );
+
+      expectNothingReported("job-rename-ends", updateMany);
+      await rm(filesRoot, { recursive: true, force: true });
+    });
+
     it("keeps a file whose rename is still running at the end", async () => {
       const filesRoot = await renamedOnDisk();
       const updateMany = vi.fn(async () => ({ count: 1 }));
@@ -624,6 +664,33 @@ describe("restore reconciliation worker handler", () => {
       });
 
       expectNothingReported("job-renaming", updateMany);
+      await rm(filesRoot, { recursive: true, force: true });
+    });
+    it("does not report a temp file that is gone before the check ends", async () => {
+      const filesRoot = createTempFilesRoot();
+      const upload = path.join(filesRoot, "tmp", "uploads", "upload-1.part");
+      await mkdir(path.dirname(upload), { recursive: true });
+      await writeFile(upload, "partial", "utf8");
+      let fileReads = 0;
+
+      await handleRestoreReconciliation(
+        job("job-temp-gone"),
+        paths(filesRoot),
+        {
+          file: {
+            async findMany() {
+              if (++fileReads === 2) await rm(upload);
+              return [];
+            },
+            updateMany: vi.fn(async () => ({ count: 0 })),
+          },
+        },
+      );
+
+      expect(completeRestoreReconciliationRun).toHaveBeenLastCalledWith({
+        backgroundJobId: "job-temp-gone",
+        details: expect.objectContaining({ orphanedStorageKeys: [] }),
+      });
       await rm(filesRoot, { recursive: true, force: true });
     });
   });
