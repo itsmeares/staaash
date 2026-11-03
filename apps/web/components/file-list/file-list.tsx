@@ -265,6 +265,57 @@ const thumbnailRetryDelay = (url: string, failures: number) =>
     ? (THUMBNAIL_RETRY_DELAYS_MS[failures - 1] ?? null)
     : null;
 
+type ThumbnailMiss = { url: string; failures: number; waiting: boolean };
+
+// The ref and onError can both see one failure; count it once.
+const countMiss = (
+  previous: ThumbnailMiss | null,
+  url: string,
+): ThumbnailMiss =>
+  previous?.url === url && previous.waiting
+    ? previous
+    : {
+        url,
+        failures: (previous?.url === url ? previous.failures : 0) + 1,
+        waiting: true,
+      };
+
+/**
+ * The thumbnail URL to load now, or null while waiting to ask again. A retry
+ * keeps the icon until its picture loads instead of blanking the tile.
+ */
+function useThumbnail(thumbnailUrl: string | null | undefined) {
+  const [miss, setMiss] = useState<ThumbnailMiss | null>(null);
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
+  const current = thumbnailUrl && miss?.url === thumbnailUrl ? miss : null;
+  const delay = current?.waiting
+    ? thumbnailRetryDelay(current.url, current.failures)
+    : null;
+  useEffect(() => {
+    if (!current || delay === null) return;
+    const timer = setTimeout(
+      () => setMiss({ ...current, waiting: false }),
+      delay,
+    );
+    return () => clearTimeout(timer);
+  }, [current, delay]);
+  const url =
+    !thumbnailUrl || current?.waiting
+      ? null
+      : current
+        ? `${thumbnailUrl}?try=${current.failures}`
+        : thumbnailUrl;
+  return {
+    url,
+    shown: url !== null && (!current || loadedUrl === url),
+    fail: () => {
+      if (thumbnailUrl)
+        setMiss((previous) => countMiss(previous, thumbnailUrl));
+    },
+    load: () => setLoadedUrl(url),
+  };
+}
+
 /** The thumbnail when there is one, the icon while it's missing or broken. */
 function PreviewTile({
   item,
@@ -279,48 +330,7 @@ function PreviewTile({
   iconClassName: string;
   fit: "cover" | "contain";
 }) {
-  const [miss, setMiss] = useState<{
-    url: string;
-    failures: number;
-    waiting: boolean;
-  } | null>(null);
-  const current =
-    item.thumbnailUrl && miss?.url === item.thumbnailUrl ? miss : null;
-  const url =
-    item.thumbnailUrl && !current?.waiting
-      ? current
-        ? `${item.thumbnailUrl}?try=${current.failures}`
-        : item.thumbnailUrl
-      : null;
-  // A retry keeps the icon until its picture loads instead of blanking it.
-  const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
-  const shown = url !== null && (!current || loadedUrl === url);
-  const delay = current?.waiting
-    ? thumbnailRetryDelay(current.url, current.failures)
-    : null;
-  useEffect(() => {
-    if (!current || delay === null) return;
-    const timer = setTimeout(
-      () => setMiss({ ...current, waiting: false }),
-      delay,
-    );
-    return () => clearTimeout(timer);
-  }, [current, delay]);
-  // The ref and onError can both see one failure; count it once.
-  const fail = () => {
-    const thumbnailUrl = item.thumbnailUrl;
-    if (!thumbnailUrl) return;
-    setMiss((previous) =>
-      previous?.url === thumbnailUrl && previous.waiting
-        ? previous
-        : {
-            url: thumbnailUrl,
-            failures:
-              (previous?.url === thumbnailUrl ? previous.failures : 0) + 1,
-            waiting: true,
-          },
-    );
-  };
+  const { url, shown, fail, load } = useThumbnail(item.thumbnailUrl);
   return (
     <span
       className={cn(
@@ -349,11 +359,11 @@ function PreviewTile({
             // mount.
             if (!img?.complete) return;
             if (img.naturalWidth === 0) fail();
-            else setLoadedUrl(url);
+            else load();
           }}
           src={url}
           onError={fail}
-          onLoad={() => setLoadedUrl(url)}
+          onLoad={load}
         />
       ) : null}
       {shown ? null : <ItemIcon className={iconClassName} item={item} />}
