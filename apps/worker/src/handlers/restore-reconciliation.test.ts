@@ -608,24 +608,20 @@ describe("restore reconciliation worker handler", () => {
       const running = <T>(row: T) =>
         vi.fn().mockResolvedValueOnce([]).mockResolvedValue([row]);
 
-      await handleRestoreReconciliation(
-        job("job-renaming"),
-        paths(filesRoot),
-        {
-          file: { findMany: async () => [before], updateMany },
-          storageMutationEntity: {
-            findMany: running({ entityId: "file-renamed" }),
-          },
-          storageMutationStep: {
-            findMany: running({
-              action: "rename",
-              expectedNodeType: "file",
-              sourceKey: "files/member/Original.txt",
-              targetKey: "files/member/Renamed.txt",
-            }),
-          },
+      await handleRestoreReconciliation(job("job-renaming"), paths(filesRoot), {
+        file: { findMany: async () => [before], updateMany },
+        storageMutationEntity: {
+          findMany: running({ entityId: "file-renamed" }),
         },
-      );
+        storageMutationStep: {
+          findMany: running({
+            action: "rename",
+            expectedNodeType: "file",
+            sourceKey: "files/member/Original.txt",
+            targetKey: "files/member/Renamed.txt",
+          }),
+        },
+      });
 
       expectNothingReported("job-renaming", updateMany);
       await rm(filesRoot, { recursive: true, force: true });
