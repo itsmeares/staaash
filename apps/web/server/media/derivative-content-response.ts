@@ -13,6 +13,7 @@ import {
   DERIVATIVE_STATUS_READY,
   DERIVATIVE_STATUS_STALE,
   canHaveThumbnail,
+  isDerivativeKindEnabled,
   scheduleDerivativeGenerate,
   touchDerivativeViewed,
 } from "@staaash/db/media-derivatives";
@@ -232,8 +233,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * The small JPEG lists and the details panel show. When it does not exist
- * yet it is queued (under the first-view preview setting) and this answers
- * 404, so the page keeps its type icon until the next visit.
+ * yet it is queued (when thumbnails are on) and this answers 404, so the
+ * page keeps its type icon until a later request finds it ready.
  */
 // Settings, eligibility, ready, queued and failed thumbnails each answer differently.
 // fallow-ignore-next-line complexity
@@ -305,7 +306,7 @@ export const createThumbnailResponse = async ({
     thumbnail?.status === DERIVATIVE_STATUS_FAILED;
   if (!settled) {
     const settings = await getSystemSettings();
-    if (shouldGenerateMediaPreview(settings, "first-view")) {
+    if (isDerivativeKindEnabled(settings, DERIVATIVE_KIND_THUMBNAIL)) {
       await scheduleDerivativeGenerate({
         fileId: file.id,
         kind: DERIVATIVE_KIND_THUMBNAIL,

@@ -117,7 +117,7 @@ const notFound = () =>
 
 export async function regenerateDerivative(fileId: string) {
   if (!(await getSystemSettings()).mediaPreviewEnabled) {
-    throw httpError(409, "PREVIEWS_DISABLED", "Media previews are disabled.");
+    throw httpError(409, "PREVIEWS_DISABLED", "Smaller video copies are off.");
   }
   try {
     await scheduleDerivativeGenerate({

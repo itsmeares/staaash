@@ -69,6 +69,8 @@ model SystemSettings {
   updateCheckRepository              String   @default("itsmeares/staaash")
   timeZone                           String   @default("UTC")
   maintenanceRunTime                 String   @default("02:00")
+  mediaThumbnailsEnabled             Boolean  @default(true)
+  /// Smaller video copies only; thumbnails and posters follow mediaThumbnailsEnabled.
   mediaPreviewEnabled                Boolean  @default(true)
   mediaPreviewGenerateOnUpload       Boolean  @default(false)
   mediaPreviewGenerateOnFirstView    Boolean  @default(true)
@@ -78,7 +80,6 @@ model SystemSettings {
   mediaPreviewMaxHeight              Int      @default(1080)
   zipArchiveRetentionDays            Int      @default(7)
   mediaPreviewCrf                    Int      @default(22)
-  mediaPreviewMaxConcurrentJobs      Int      @default(1)
   createdAt                          DateTime @default(now())
   updatedAt                          DateTime @updatedAt
 }

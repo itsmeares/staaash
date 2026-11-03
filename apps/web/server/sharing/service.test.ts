@@ -384,6 +384,7 @@ describe("sharing service", () => {
     vi.clearAllMocks();
     settingsMocks.getSystemSettings.mockResolvedValue({
       shareMaxAgeDays: 14,
+      mediaThumbnailsEnabled: true,
       mediaPreviewEnabled: true,
       mediaPreviewGenerateOnShare: true,
       mediaPreviewThresholdBytes: 367001600n,
@@ -1226,28 +1227,67 @@ describe("sharing service", () => {
     );
   });
 
-  it("does not schedule derivatives when sharing generation is disabled", async () => {
-    settingsMocks.getSystemSettings.mockResolvedValueOnce({
-      mediaPreviewEnabled: true,
-      mediaPreviewGenerateOnShare: false,
-      mediaPreviewThresholdBytes: 1n,
-    });
+  const shareSmallVideo = async () => {
     const sharingRepo = createFakeSharingRepository();
     const service = createSharingService({
       repo: sharingRepo.repo,
-      filesRepo: fakeFilesRepo,
+      filesRepo: {
+        ...fakeFilesRepo,
+        async findFileById(fileId: string) {
+          if (fileId === smallVideoFile.id) return smallVideoFile;
+          return fakeFilesRepo.findFileById(fileId);
+        },
+      } as unknown as FilesRepository,
       now: () => fixedNow,
     });
-
     await service.createOrReissueShare({
       actorUserId: "user-1",
       actorRole: "member",
       targetType: "file",
-      fileId: sharedFile.id,
+      fileId: smallVideoFile.id,
       expiresAt: addDays(7),
     });
+  };
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(derivativeMocks.scheduleDerivativeGenerate).not.toHaveBeenCalled();
+  it("keeps the link picture when shared video copies are off", async () => {
+    settingsMocks.getSystemSettings.mockResolvedValueOnce({
+      shareMaxAgeDays: 14,
+      mediaThumbnailsEnabled: true,
+      mediaPreviewEnabled: false,
+      mediaPreviewGenerateOnShare: false,
+      mediaPreviewThresholdBytes: 1n,
+    });
+
+    await shareSmallVideo();
+
+    await waitForAssertion(() => {
+      expect(derivativeMocks.scheduleDerivativeGenerate).toHaveBeenCalledWith(
+        expect.objectContaining({ fileId: smallVideoFile.id, kind: "poster" }),
+      );
+    });
+    expect(derivativeMocks.scheduleDerivativeGenerate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "preview" }),
+    );
+  });
+
+  it("makes only the video copy when thumbnails are off", async () => {
+    settingsMocks.getSystemSettings.mockResolvedValueOnce({
+      shareMaxAgeDays: 14,
+      mediaThumbnailsEnabled: false,
+      mediaPreviewEnabled: true,
+      mediaPreviewGenerateOnShare: true,
+      mediaPreviewThresholdBytes: 1n,
+    });
+
+    await shareSmallVideo();
+
+    await waitForAssertion(() => {
+      expect(derivativeMocks.scheduleDerivativeGenerate).toHaveBeenCalledWith(
+        expect.objectContaining({ fileId: smallVideoFile.id, kind: "preview" }),
+      );
+    });
+    expect(derivativeMocks.scheduleDerivativeGenerate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "poster" }),
+    );
   });
 });

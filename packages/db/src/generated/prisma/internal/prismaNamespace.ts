@@ -2515,6 +2515,7 @@ export const SystemSettingsScalarFieldEnum = {
   updateCheckRepository: 'updateCheckRepository',
   timeZone: 'timeZone',
   maintenanceRunTime: 'maintenanceRunTime',
+  mediaThumbnailsEnabled: 'mediaThumbnailsEnabled',
   mediaPreviewEnabled: 'mediaPreviewEnabled',
   mediaPreviewGenerateOnUpload: 'mediaPreviewGenerateOnUpload',
   mediaPreviewGenerateOnFirstView: 'mediaPreviewGenerateOnFirstView',
@@ -2524,7 +2525,6 @@ export const SystemSettingsScalarFieldEnum = {
   mediaPreviewMaxHeight: 'mediaPreviewMaxHeight',
   zipArchiveRetentionDays: 'zipArchiveRetentionDays',
   mediaPreviewCrf: 'mediaPreviewCrf',
-  mediaPreviewMaxConcurrentJobs: 'mediaPreviewMaxConcurrentJobs',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

@@ -312,7 +312,7 @@ describe("private media derivative routes", () => {
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({
-      error: "Media previews are disabled.",
+      error: "Smaller video copies are off.",
     });
     expect(mocks.scheduleDerivativeGenerate).not.toHaveBeenCalled();
   });

@@ -11,6 +11,7 @@ import {
   DERIVATIVE_PROFILE_SOCIAL_JPEG,
   DERIVATIVE_KIND_PREVIEW,
   DERIVATIVE_PROFILE_1080P,
+  isDerivativeKindEnabled,
 } from "@staaash/db/media-derivatives";
 
 import { canAccessPrivateNamespace } from "@/server/access";
@@ -199,6 +200,7 @@ const getShareStatus = ({
 };
 
 type MediaPreviewSettings = {
+  mediaThumbnailsEnabled: boolean;
   mediaPreviewEnabled: boolean;
   mediaPreviewGenerateOnUpload: boolean;
   mediaPreviewGenerateOnFirstView: boolean;
@@ -206,19 +208,33 @@ type MediaPreviewSettings = {
   mediaPreviewThresholdBytes: bigint;
 };
 
-const isEligibleForPreview = (
+// The poster is the link picture chat apps show, so it follows the
+// thumbnails switch; only the smaller video copy follows the share trigger.
+const sharedDerivativesFor = (
   file: StoredFile,
   settings: MediaPreviewSettings,
-): boolean =>
-  shouldGenerateMediaPreview(settings, "share") &&
-  file.viewerKind === "video" &&
-  BigInt(file.sizeBytes) >= settings.mediaPreviewThresholdBytes;
-
-const isEligibleForPoster = (
-  file: StoredFile,
-  settings: MediaPreviewSettings,
-): boolean =>
-  shouldGenerateMediaPreview(settings, "share") && file.viewerKind === "video";
+) =>
+  file.viewerKind !== "video"
+    ? []
+    : [
+        ...(isDerivativeKindEnabled(settings, DERIVATIVE_KIND_POSTER)
+          ? [
+              {
+                kind: DERIVATIVE_KIND_POSTER,
+                profile: DERIVATIVE_PROFILE_SOCIAL_JPEG,
+              },
+            ]
+          : []),
+        ...(shouldGenerateMediaPreview(settings, "share") &&
+        BigInt(file.sizeBytes) >= settings.mediaPreviewThresholdBytes
+          ? [
+              {
+                kind: DERIVATIVE_KIND_PREVIEW,
+                profile: DERIVATIVE_PROFILE_1080P,
+              },
+            ]
+          : []),
+      ];
 
 const ensureSharedDerivative = async ({
   fileId,
@@ -261,56 +277,29 @@ const schedulePreviewsForShare = async ({
   folderMap: Map<string, FolderSummary>;
   now: Date;
 }): Promise<void> => {
-  if (targetType === "file") {
-    if (!file || !isEligibleForPoster(file, settings)) return;
-    await ensureSharedDerivative({
-      fileId: file.id,
-      kind: DERIVATIVE_KIND_POSTER,
-      profile: DERIVATIVE_PROFILE_SOCIAL_JPEG,
-      now,
-    });
-    if (isEligibleForPreview(file, settings)) {
-      await ensureSharedDerivative({
-        fileId: file.id,
-        kind: DERIVATIVE_KIND_PREVIEW,
-        profile: DERIVATIVE_PROFILE_1080P,
-        now,
-      });
-    }
-    return;
-  }
-
-  if (!folderId) return;
-
-  const eligibleFiles = files.filter(
-    (f) =>
-      !f.deletedAt &&
-      f.folderId &&
-      isEligibleForPoster(f, settings) &&
-      isFolderWithinRoot({
-        folderId: f.folderId,
-        rootFolderId: folderId,
-        folderMap,
-      }),
-  );
+  const sharedFiles =
+    targetType === "file"
+      ? file
+        ? [file]
+        : []
+      : files.filter(
+          (f) =>
+            folderId &&
+            !f.deletedAt &&
+            f.folderId &&
+            isFolderWithinRoot({
+              folderId: f.folderId,
+              rootFolderId: folderId,
+              folderMap,
+            }),
+        );
 
   await Promise.all(
-    eligibleFiles.map(async (f) => {
-      await ensureSharedDerivative({
-        fileId: f.id,
-        kind: DERIVATIVE_KIND_POSTER,
-        profile: DERIVATIVE_PROFILE_SOCIAL_JPEG,
-        now,
-      });
-      if (isEligibleForPreview(f, settings)) {
-        await ensureSharedDerivative({
-          fileId: f.id,
-          kind: DERIVATIVE_KIND_PREVIEW,
-          profile: DERIVATIVE_PROFILE_1080P,
-          now,
-        });
-      }
-    }),
+    sharedFiles.flatMap((f) =>
+      sharedDerivativesFor(f, settings).map((derivative) =>
+        ensureSharedDerivative({ fileId: f.id, ...derivative, now }),
+      ),
+    ),
   );
 };
 

@@ -11,6 +11,15 @@ import { createFilesService } from "@/server/files/service";
 import { getStoragePath, getStorageRoot } from "@/server/storage";
 import type { FolderSummary, StoredFile } from "@/server/files/types";
 
+const scheduleDerivativeGenerate = vi.hoisted(() =>
+  vi.fn(async () => ({ job: { status: "queued" } })),
+);
+
+vi.mock("@staaash/db/media-derivatives", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@staaash/db/media-derivatives")>()),
+  scheduleDerivativeGenerate,
+}));
+
 vi.mock("@/server/user-storage", () => ({
   assertUserStorageQuotaAvailable: vi.fn().mockResolvedValue(undefined),
   withUserQuotaWrite: vi.fn(
@@ -1577,6 +1586,39 @@ describe("files service", { concurrent: false }, () => {
 
     expect(result.conflicts).toEqual([]);
     expect(result.uploadedFiles[0]?.name).toBe("photo (1).jpg");
+  });
+
+  it("queues a thumbnail for a new photo while upload video copies are off", async () => {
+    await cleanDataRoot();
+    scheduleDerivativeGenerate.mockClear();
+    const { repo } = createMemoryRepository();
+    const service = createService(repo);
+    const root = await service.ensureFilesRoot("member-1");
+
+    const result = await service.uploadFiles({
+      actorUserId: "member-1",
+      actorRole: "member",
+      folderId: root.id,
+      items: [
+        {
+          clientKey: "photo",
+          originalName: "photo.jpg",
+          conflictStrategy: "fail",
+          file: new File(["pixels"], "photo.jpg", { type: "image/jpeg" }),
+        },
+      ],
+    });
+
+    await vi.waitFor(() =>
+      expect(scheduleDerivativeGenerate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fileId: result.uploadedFiles[0]?.id,
+          kind: "thumbnail",
+          reason: "upload",
+        }),
+      ),
+    );
+    expect(scheduleDerivativeGenerate).toHaveBeenCalledTimes(1);
   });
 
   it("returns a saved upload even when cleanup scheduling fails", async () => {

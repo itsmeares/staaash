@@ -13,6 +13,7 @@ const triggerSettings = {
   share: "mediaPreviewGenerateOnShare",
 } as const;
 
+/** Smaller video copies only. Thumbnails and posters ignore these triggers. */
 export const shouldGenerateMediaPreview = (
   settings: MediaPreviewTriggerSettings,
   trigger: MediaPreviewTrigger,
